@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_hash.h"
 #include "BLI_kdtree.h"
@@ -321,7 +307,7 @@ BLI_NOINLINE static void interpolate_existing_attributes(
         continue;
       }
 
-      for (const int UNUSED(i_set_instance) : set_group.transforms.index_range()) {
+      for ([[maybe_unused]] const int i_set_instance : set_group.transforms.index_range()) {
         const int offset = instance_start_offsets[i_instance];
         Span<float3> bary_coords = bary_coords_array[i_instance];
         Span<int> looptri_indices = looptri_indices_array[i_instance];
@@ -516,7 +502,7 @@ static void distribute_points_poisson_disk(Span<GeometryInstanceGroup> set_group
     const VArray<float> density_factors = component.attribute_get_for_read<float>(
         density_attribute_name, ATTR_DOMAIN_CORNER, use_one_default ? 1.0f : 0.0f);
 
-    for (const int UNUSED(i_set_instance) : set_group.transforms.index_range()) {
+    for ([[maybe_unused]] const int i_set_instance : set_group.transforms.index_range()) {
       Vector<float3> &positions = positions_all[i_instance];
       Vector<float3> &bary_coords = bary_coords_all[i_instance];
       Vector<int> &looptri_indices = looptri_indices_all[i_instance];

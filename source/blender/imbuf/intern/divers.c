@@ -1,22 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- * allocimbuf.c
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup imbuf
@@ -104,7 +87,7 @@ MINLINE void float_to_byte_dither_v4(
 
 bool IMB_alpha_affects_rgb(const ImBuf *ibuf)
 {
-  return (ibuf->flags & IB_alphamode_channel_packed) == 0;
+  return ibuf && (ibuf->flags & IB_alphamode_channel_packed) == 0;
 }
 
 void IMB_buffer_byte_from_float(uchar *rect_to,
@@ -824,7 +807,7 @@ void IMB_float_from_rect(ImBuf *ibuf)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Color to Grayscale
+/** \name Color to Gray-Scale
  * \{ */
 
 void IMB_color_to_bw(ImBuf *ibuf)

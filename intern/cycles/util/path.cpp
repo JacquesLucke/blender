@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #include "util/path.h"
 #include "util/md5.h"
@@ -66,7 +53,6 @@ typedef struct stat path_stat_t;
 
 static string cached_path = "";
 static string cached_user_path = "";
-static string cached_temp_path = "";
 static string cached_xdg_cache_path = "";
 
 namespace {
@@ -336,11 +322,10 @@ static string path_xdg_cache_get()
 }
 #endif
 
-void path_init(const string &path, const string &user_path, const string &temp_path)
+void path_init(const string &path, const string &user_path)
 {
   cached_path = path;
   cached_user_path = user_path;
-  cached_temp_path = temp_path;
 
 #ifdef _MSC_VER
   // workaround for https://svn.boost.org/trac/boost/ticket/6320
@@ -382,15 +367,6 @@ string path_cache_get(const string &sub)
   /* TODO(sergey): What that should be on Windows? */
   return path_user_get(path_join("cache", sub));
 #endif
-}
-
-string path_temp_get(const string &sub)
-{
-  if (cached_temp_path == "") {
-    cached_temp_path = Filesystem::temp_directory_path();
-  }
-
-  return path_join(cached_temp_path, sub);
 }
 
 #if defined(__linux__) || defined(__APPLE__)

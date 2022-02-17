@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -68,8 +52,6 @@
 #include "BLO_read_write.h"
 
 #include "CLG_log.h"
-
-static CLG_LogRef LOG = {"bke.armature"};
 
 /* -------------------------------------------------------------------- */
 /** \name Prototypes
@@ -1356,9 +1338,12 @@ static void ease_handle_axis(const float deriv1[3], const float deriv2[3], float
 
   copy_v3_v3(r_axis, deriv1);
 
-  float len1 = len_squared_v3(deriv1), len2 = len_squared_v3(deriv2);
-  float ratio = len1 / len2;
-
+  const float len2 = len_squared_v3(deriv2);
+  if (UNLIKELY(len2 == 0.0f)) {
+    return;
+  }
+  const float len1 = len_squared_v3(deriv1);
+  const float ratio = len1 / len2;
   if (ratio < gap * gap) {
     madd_v3_v3fl(r_axis, deriv2, gap - sqrtf(ratio));
   }
@@ -2098,6 +2083,79 @@ void mat3_vec_to_roll(const float mat[3][3], const float vec[3], float *r_roll)
 
 void vec_roll_to_mat3_normalized(const float nor[3], const float roll, float r_mat[3][3])
 {
+  /**
+   * Given `v = (v.x, v.y, v.z)` our (normalized) bone vector, we want the rotation matrix M
+   * from the Y axis (so that `M * (0, 1, 0) = v`).
+   * - The rotation axis a lays on XZ plane, and it is orthonormal to v,
+   *   hence to the projection of v onto XZ plane.
+   * - `a = (v.z, 0, -v.x)`
+   *
+   * We know a is eigenvector of M (so M * a = a).
+   * Finally, we have w, such that M * w = (0, 1, 0)
+   * (i.e. the vector that will be aligned with Y axis once transformed).
+   * We know w is symmetric to v by the Y axis.
+   * - `w = (-v.x, v.y, -v.z)`
+   *
+   * Solving this, we get (x, y and z being the components of v):
+   * <pre>
+   *     ┌ (x^2 * y + z^2) / (x^2 + z^2),   x,   x * z * (y - 1) / (x^2 + z^2) ┐
+   * M = │  x * (y^2 - 1)  / (x^2 + z^2),   y,    z * (y^2 - 1)  / (x^2 + z^2) │
+   *     └ x * z * (y - 1) / (x^2 + z^2),   z,   (x^2 + z^2 * y) / (x^2 + z^2) ┘
+   * </pre>
+   *
+   * This is stable as long as v (the bone) is not too much aligned with +/-Y
+   * (i.e. x and z components are not too close to 0).
+   *
+   * Since v is normalized, we have `x^2 + y^2 + z^2 = 1`,
+   * hence `x^2 + z^2 = 1 - y^2 = (1 - y)(1 + y)`.
+   *
+   * This allows to simplifies M like this:
+   * <pre>
+   *     ┌ 1 - x^2 / (1 + y),   x,     -x * z / (1 + y) ┐
+   * M = │                -x,   y,                   -z │
+   *     └  -x * z / (1 + y),   z,    1 - z^2 / (1 + y) ┘
+   * </pre>
+   *
+   * Written this way, we see the case v = +Y is no more a singularity.
+   * The only one
+   * remaining is the bone being aligned with -Y.
+   *
+   * Let's handle
+   * the asymptotic behavior when bone vector is reaching the limit of y = -1.
+   * Each of the four corner elements can vary from -1 to 1,
+   * depending on the axis a chosen for doing the rotation.
+   * And the "rotation" here is in fact established by mirroring XZ plane by that given axis,
+   * then inversing the Y-axis.
+   * For sufficiently small x and z, and with y approaching -1,
+   * all elements but the four corner ones of M will degenerate.
+   * So let's now focus on these corner elements.
+   *
+   * We rewrite M so that it only contains its four corner elements,
+   * and combine the `1 / (1 + y)` factor:
+   * <pre>
+   *                    ┌ 1 + y - x^2,        -x * z ┐
+   * M* = 1 / (1 + y) * │                            │
+   *                    └      -x * z,   1 + y - z^2 ┘
+   * </pre>
+   *
+   * When y is close to -1, computing 1 / (1 + y) will cause severe numerical instability,
+   * so we use a different approach based on x and z as inputs.
+   * We know `y^2 = 1 - (x^2 + z^2)`, and `y < 0`, hence `y = -sqrt(1 - (x^2 + z^2))`.
+   *
+   * Since x and z are both close to 0, we apply the binomial expansion to the second order:
+   * `y = -sqrt(1 - (x^2 + z^2)) = -1 + (x^2 + z^2) / 2 + (x^2 + z^2)^2 / 8`, which allows
+   * eliminating the problematic `1` constant.
+   *
+   * A first order expansion allows simplifying to this, but second order is more precise:
+   * <pre>
+   *                        ┌  z^2 - x^2,  -2 * x * z ┐
+   * M* = 1 / (x^2 + z^2) * │                         │
+   *                        └ -2 * x * z,   x^2 - z^2 ┘
+   * </pre>
+   *
+   * P.S. In the end, this basically is a heavily optimized version of Damped Track +Y.
+   */
+
   const float SAFE_THRESHOLD = 6.1e-3f;     /* Theta above this value has good enough precision. */
   const float CRITICAL_THRESHOLD = 2.5e-4f; /* True singularity if XZ distance is below this. */
   const float THRESHOLD_SQUARED = CRITICAL_THRESHOLD * CRITICAL_THRESHOLD;
@@ -2219,161 +2277,6 @@ void BKE_armature_where_is(bArmature *arm)
 /* -------------------------------------------------------------------- */
 /** \name Pose Rebuild
  * \{ */
-
-/* if bone layer is protected, copy the data from from->pose
- * when used with linked libraries this copies from the linked pose into the local pose */
-static void pose_proxy_sync(Object *ob, Object *from, int layer_protected)
-{
-  bPose *pose = ob->pose, *frompose = from->pose;
-  bPoseChannel *pchan, *pchanp;
-  bConstraint *con;
-  int error = 0;
-
-  if (frompose == NULL) {
-    return;
-  }
-
-  /* in some cases when rigs change, we can't synchronize
-   * to avoid crashing check for possible errors here */
-  for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-    if (pchan->bone->layer & layer_protected) {
-      if (BKE_pose_channel_find_name(frompose, pchan->name) == NULL) {
-        CLOG_ERROR(&LOG,
-                   "failed to sync proxy armature because '%s' is missing pose channel '%s'",
-                   from->id.name,
-                   pchan->name);
-        error = 1;
-      }
-    }
-  }
-
-  if (error) {
-    return;
-  }
-
-  /* clear all transformation values from library */
-  BKE_pose_rest(frompose, false);
-
-  /* copy over all of the proxy's bone groups */
-  /* TODO: for later
-   * - implement 'local' bone groups as for constraints
-   * NOTE: this isn't trivial, as bones reference groups by index not by pointer,
-   *       so syncing things correctly needs careful attention */
-  BLI_freelistN(&pose->agroups);
-  BLI_duplicatelist(&pose->agroups, &frompose->agroups);
-  pose->active_group = frompose->active_group;
-
-  for (pchan = pose->chanbase.first; pchan; pchan = pchan->next) {
-    pchanp = BKE_pose_channel_find_name(frompose, pchan->name);
-
-    if (UNLIKELY(pchanp == NULL)) {
-      /* happens for proxies that become invalid because of a missing link
-       * for regular cases it shouldn't happen at all */
-    }
-    else if (pchan->bone->layer & layer_protected) {
-      ListBase proxylocal_constraints = {NULL, NULL};
-      bPoseChannel pchanw;
-
-      /* copy posechannel to temp, but restore important pointers */
-      pchanw = *pchanp;
-      pchanw.bone = pchan->bone;
-      pchanw.prev = pchan->prev;
-      pchanw.next = pchan->next;
-      pchanw.parent = pchan->parent;
-      pchanw.child = pchan->child;
-      pchanw.custom_tx = pchan->custom_tx;
-      pchanw.bbone_prev = pchan->bbone_prev;
-      pchanw.bbone_next = pchan->bbone_next;
-
-      pchanw.mpath = pchan->mpath;
-      pchan->mpath = NULL;
-
-      /* Reset runtime data, we don't want to share that with the proxy. */
-      BKE_pose_channel_runtime_reset_on_copy(&pchanw.runtime);
-
-      /* this is freed so copy a copy, else undo crashes */
-      if (pchanw.prop) {
-        pchanw.prop = IDP_CopyProperty(pchanw.prop);
-
-        /* use the values from the existing props */
-        if (pchan->prop) {
-          IDP_SyncGroupValues(pchanw.prop, pchan->prop);
-        }
-      }
-
-      /* Constraints - proxy constraints are flushed... local ones are added after
-       * 1: extract constraints not from proxy (CONSTRAINT_PROXY_LOCAL) from pchan's constraints.
-       * 2: copy proxy-pchan's constraints on-to new.
-       * 3: add extracted local constraints back on top.
-       *
-       * Note for BKE_constraints_copy:
-       * When copying constraints, disable 'do_extern' otherwise
-       * we get the libs direct linked in this blend.
-       */
-      BKE_constraints_proxylocal_extract(&proxylocal_constraints, &pchan->constraints);
-      BKE_constraints_copy(&pchanw.constraints, &pchanp->constraints, false);
-      BLI_movelisttolist(&pchanw.constraints, &proxylocal_constraints);
-
-      /* constraints - set target ob pointer to own object */
-      for (con = pchanw.constraints.first; con; con = con->next) {
-        const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
-        ListBase targets = {NULL, NULL};
-        bConstraintTarget *ct;
-
-        if (cti && cti->get_constraint_targets) {
-          cti->get_constraint_targets(con, &targets);
-
-          for (ct = targets.first; ct; ct = ct->next) {
-            if (ct->tar == from) {
-              ct->tar = ob;
-            }
-          }
-
-          if (cti->flush_constraint_targets) {
-            cti->flush_constraint_targets(con, &targets, 0);
-          }
-        }
-      }
-
-      /* free stuff from current channel */
-      BKE_pose_channel_free(pchan);
-
-      /* copy data in temp back over to the cleaned-out (but still allocated) original channel */
-      *pchan = pchanw;
-      if (pchan->custom) {
-        id_us_plus(&pchan->custom->id);
-      }
-    }
-    else {
-      /* always copy custom shape */
-      pchan->custom = pchanp->custom;
-      if (pchan->custom) {
-        id_us_plus(&pchan->custom->id);
-      }
-      if (pchanp->custom_tx) {
-        pchan->custom_tx = BKE_pose_channel_find_name(pose, pchanp->custom_tx->name);
-      }
-
-      /* ID-Property Syncing */
-      {
-        IDProperty *prop_orig = pchan->prop;
-        if (pchanp->prop) {
-          pchan->prop = IDP_CopyProperty(pchanp->prop);
-          if (prop_orig) {
-            /* copy existing values across when types match */
-            IDP_SyncGroupValues(pchan->prop, prop_orig);
-          }
-        }
-        else {
-          pchan->prop = NULL;
-        }
-        if (prop_orig) {
-          IDP_FreeProperty(prop_orig);
-        }
-      }
-    }
-  }
-}
 
 /**
  * \param r_last_visited_bone_p: The last bone handled by the last call to this function.
@@ -2502,16 +2405,6 @@ void BKE_pose_rebuild(Main *bmain, Object *ob, bArmature *arm, const bool do_id_
   }
 
   // printf("rebuild pose %s, %d bones\n", ob->id.name, counter);
-
-  /* synchronize protected layers with proxy */
-  /* HACK! To preserve 2.7x behavior that you always can pose even locked bones,
-   * do not do any restoration if this is a COW temp copy! */
-  /* Switched back to just NO_MAIN tag, for some reasons (c)
-   * using COW tag was working this morning, but not anymore... */
-  if (ob->proxy != NULL && (ob->id.tag & LIB_TAG_NO_MAIN) == 0) {
-    BKE_object_copy_proxy_drivers(ob, ob->proxy);
-    pose_proxy_sync(ob, ob->proxy, arm->layer_protected);
-  }
 
   BKE_pose_update_constraint_flags(pose); /* for IK detection for example */
 
@@ -2770,6 +2663,35 @@ BoundBox *BKE_armature_boundbox_get(Object *ob)
   return ob->runtime.bb;
 }
 
+void BKE_pchan_minmax(const Object *ob, const bPoseChannel *pchan, float r_min[3], float r_max[3])
+{
+  const bArmature *arm = ob->data;
+  const bPoseChannel *pchan_tx = (pchan->custom && pchan->custom_tx) ? pchan->custom_tx : pchan;
+  const BoundBox *bb_custom = ((pchan->custom) && !(arm->flag & ARM_NO_CUSTOM)) ?
+                                  BKE_object_boundbox_get(pchan->custom) :
+                                  NULL;
+  if (bb_custom) {
+    float mat[4][4], smat[4][4], rmat[4][4], tmp[4][4];
+    scale_m4_fl(smat, PCHAN_CUSTOM_BONE_LENGTH(pchan));
+    rescale_m4(smat, pchan->custom_scale_xyz);
+    eulO_to_mat4(rmat, pchan->custom_rotation_euler, ROT_MODE_XYZ);
+    copy_m4_m4(tmp, pchan_tx->pose_mat);
+    translate_m4(tmp,
+                 pchan->custom_translation[0],
+                 pchan->custom_translation[1],
+                 pchan->custom_translation[2]);
+    mul_m4_series(mat, ob->obmat, tmp, rmat, smat);
+    BKE_boundbox_minmax(bb_custom, mat, r_min, r_max);
+  }
+  else {
+    float vec[3];
+    mul_v3_m4v3(vec, ob->obmat, pchan_tx->pose_head);
+    minmax_v3v3_v3(r_min, r_max, vec);
+    mul_v3_m4v3(vec, ob->obmat, pchan_tx->pose_tail);
+    minmax_v3v3_v3(r_min, r_max, vec);
+  }
+}
+
 bool BKE_pose_minmax(Object *ob, float r_min[3], float r_max[3], bool use_hidden, bool use_select)
 {
   bool changed = false;
@@ -2783,31 +2705,8 @@ bool BKE_pose_minmax(Object *ob, float r_min[3], float r_max[3], bool use_hidden
        *     (editarmature.c:2592)... Skip in this case too! */
       if (pchan->bone && (!((use_hidden == false) && (PBONE_VISIBLE(arm, pchan->bone) == false)) &&
                           !((use_select == true) && ((pchan->bone->flag & BONE_SELECTED) == 0)))) {
-        bPoseChannel *pchan_tx = (pchan->custom && pchan->custom_tx) ? pchan->custom_tx : pchan;
-        BoundBox *bb_custom = ((pchan->custom) && !(arm->flag & ARM_NO_CUSTOM)) ?
-                                  BKE_object_boundbox_get(pchan->custom) :
-                                  NULL;
-        if (bb_custom) {
-          float mat[4][4], smat[4][4], rmat[4][4], tmp[4][4];
-          scale_m4_fl(smat, PCHAN_CUSTOM_BONE_LENGTH(pchan));
-          rescale_m4(smat, pchan->custom_scale_xyz);
-          eulO_to_mat4(rmat, pchan->custom_rotation_euler, ROT_MODE_XYZ);
-          copy_m4_m4(tmp, pchan_tx->pose_mat);
-          translate_m4(tmp,
-                       pchan->custom_translation[0],
-                       pchan->custom_translation[1],
-                       pchan->custom_translation[2]);
-          mul_m4_series(mat, ob->obmat, tmp, rmat, smat);
-          BKE_boundbox_minmax(bb_custom, mat, r_min, r_max);
-        }
-        else {
-          float vec[3];
-          mul_v3_m4v3(vec, ob->obmat, pchan_tx->pose_head);
-          minmax_v3v3_v3(r_min, r_max, vec);
-          mul_v3_m4v3(vec, ob->obmat, pchan_tx->pose_tail);
-          minmax_v3v3_v3(r_min, r_max, vec);
-        }
 
+        BKE_pchan_minmax(ob, pchan, r_min, r_max);
         changed = true;
       }
     }

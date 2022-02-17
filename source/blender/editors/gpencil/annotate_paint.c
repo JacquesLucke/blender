@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008/2018, Blender Foundation
- * This is a new part of Blender
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008-2018 Blender Foundation. */
 
 /** \file
  * \ingroup edgpencil
@@ -1132,7 +1116,7 @@ static void annotation_stroke_eraser_dostroke(tGPsdata *p,
     if (!(p->flags & GP_PAINTFLAG_SELECTMASK) || (gps->points->flag & GP_SPOINT_SELECT)) {
       gpencil_point_to_xy(&p->gsc, gps, gps->points, &pc1[0], &pc1[1]);
 
-      /* do boundbox check first */
+      /* Do bound-box check first. */
       if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
         /* only check if point is inside */
         if (len_v2v2_int(mval_i, pc1) <= radius) {
@@ -1174,7 +1158,7 @@ static void annotation_stroke_eraser_dostroke(tGPsdata *p,
       gpencil_point_to_xy(&p->gsc, gps, pt1, &pc1[0], &pc1[1]);
       gpencil_point_to_xy(&p->gsc, gps, pt2, &pc2[0], &pc2[1]);
 
-      /* Check that point segment of the boundbox of the eraser stroke */
+      /* Check that point segment of the bound-box of the eraser stroke. */
       if (((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) ||
           ((!ELEM(V2D_IS_CLIPPED, pc2[0], pc2[1])) && BLI_rcti_isect_pt(rect, pc2[0], pc2[1]))) {
         /* Check if point segment of stroke had anything to do with
@@ -1473,7 +1457,7 @@ static tGPsdata *annotation_session_initpaint(bContext *C)
     return NULL;
   }
 
-  /* Radius for eraser circle is defined in userprefs */
+  /* Radius for eraser circle is defined in user-preferences. */
   /* NOTE: we do this here, so that if we exit immediately,
    *       erase size won't get lost
    */

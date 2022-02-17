@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #pragma once
 
@@ -388,6 +375,7 @@ typedef enum PassType {
   PASS_DENOISING_NORMAL,
   PASS_DENOISING_ALBEDO,
   PASS_DENOISING_DEPTH,
+  PASS_DENOISING_PREVIOUS,
 
   /* PASS_SHADOW_CATCHER accumulates contribution of shadow catcher object which is not affected by
    * any other object. The pass accessor will divide the combined pass by the shadow catcher. The
@@ -511,11 +499,20 @@ typedef struct differential {
 
 /* Ray */
 
+typedef struct RaySelfPrimitives {
+  int prim;         /* Primitive the ray is starting from */
+  int object;       /* Instance prim is a part of */
+  int light_prim;   /* Light primitive */
+  int light_object; /* Light object */
+} RaySelfPrimitives;
+
 typedef struct Ray {
   float3 P;   /* origin */
   float3 D;   /* direction */
   float t;    /* length of the ray */
   float time; /* time (for motion blur) */
+
+  RaySelfPrimitives self;
 
 #ifdef __RAY_DIFFERENTIALS__
   float dP;
@@ -1564,21 +1561,21 @@ enum KernelFeatureFlag : uint32_t {
   KERNEL_FEATURE_NODE_BSDF = (1U << 0U),
   KERNEL_FEATURE_NODE_EMISSION = (1U << 1U),
   KERNEL_FEATURE_NODE_VOLUME = (1U << 2U),
-  KERNEL_FEATURE_NODE_HAIR = (1U << 3U),
-  KERNEL_FEATURE_NODE_BUMP = (1U << 4U),
-  KERNEL_FEATURE_NODE_BUMP_STATE = (1U << 5U),
-  KERNEL_FEATURE_NODE_VORONOI_EXTRA = (1U << 6U),
-  KERNEL_FEATURE_NODE_RAYTRACE = (1U << 7U),
-  KERNEL_FEATURE_NODE_AOV = (1U << 8U),
-  KERNEL_FEATURE_NODE_LIGHT_PATH = (1U << 9U),
+  KERNEL_FEATURE_NODE_BUMP = (1U << 3U),
+  KERNEL_FEATURE_NODE_BUMP_STATE = (1U << 4U),
+  KERNEL_FEATURE_NODE_VORONOI_EXTRA = (1U << 5U),
+  KERNEL_FEATURE_NODE_RAYTRACE = (1U << 6U),
+  KERNEL_FEATURE_NODE_AOV = (1U << 7U),
+  KERNEL_FEATURE_NODE_LIGHT_PATH = (1U << 8U),
 
   /* Use denoising kernels and output denoising passes. */
-  KERNEL_FEATURE_DENOISING = (1U << 10U),
+  KERNEL_FEATURE_DENOISING = (1U << 9U),
 
   /* Use path tracing kernels. */
-  KERNEL_FEATURE_PATH_TRACING = (1U << 11U),
+  KERNEL_FEATURE_PATH_TRACING = (1U << 10U),
 
   /* BVH/sampling kernel features. */
+  KERNEL_FEATURE_POINTCLOUD = (1U << 11U),
   KERNEL_FEATURE_HAIR = (1U << 12U),
   KERNEL_FEATURE_HAIR_THICK = (1U << 13U),
   KERNEL_FEATURE_OBJECT_MOTION = (1U << 14U),
@@ -1615,9 +1612,6 @@ enum KernelFeatureFlag : uint32_t {
   KERNEL_FEATURE_AO_PASS = (1U << 25U),
   KERNEL_FEATURE_AO_ADDITIVE = (1U << 26U),
   KERNEL_FEATURE_AO = (KERNEL_FEATURE_AO_PASS | KERNEL_FEATURE_AO_ADDITIVE),
-
-  /* Point clouds. */
-  KERNEL_FEATURE_POINTCLOUD = (1U << 27U),
 };
 
 /* Shader node feature mask, to specialize shader evaluation for kernels. */
@@ -1627,7 +1621,7 @@ enum KernelFeatureFlag : uint32_t {
    KERNEL_FEATURE_NODE_LIGHT_PATH)
 #define KERNEL_FEATURE_NODE_MASK_SURFACE_SHADOW \
   (KERNEL_FEATURE_NODE_BSDF | KERNEL_FEATURE_NODE_EMISSION | KERNEL_FEATURE_NODE_VOLUME | \
-   KERNEL_FEATURE_NODE_HAIR | KERNEL_FEATURE_NODE_BUMP | KERNEL_FEATURE_NODE_BUMP_STATE | \
+   KERNEL_FEATURE_NODE_BUMP | KERNEL_FEATURE_NODE_BUMP_STATE | \
    KERNEL_FEATURE_NODE_VORONOI_EXTRA | KERNEL_FEATURE_NODE_LIGHT_PATH)
 #define KERNEL_FEATURE_NODE_MASK_SURFACE \
   (KERNEL_FEATURE_NODE_MASK_SURFACE_SHADOW | KERNEL_FEATURE_NODE_RAYTRACE | \

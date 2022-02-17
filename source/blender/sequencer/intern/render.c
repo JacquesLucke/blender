@@ -1,24 +1,7 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * - Blender Foundation, 2003-2009
- * - Peter Schlaile <peter [at] schlaile [dot] de> 2005/2006
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved.
+ *           2003-2009 Blender Foundation.
+ *           2005-2006 Peter Schlaile <peter [at] schlaile [dot] de> */
 
 /** \file
  * \ingroup bke
@@ -29,6 +12,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_anim_types.h"
+#include "DNA_defaults.h"
 #include "DNA_mask_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_sequence_types.h"
@@ -303,9 +287,9 @@ int seq_get_shown_sequences(ListBase *seqbase,
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Preprocessing and Effects
+/** \name Preprocessing & Effects
  *
- * Input pre-processing for SEQ_TYPE_IMAGE, SEQ_TYPE_MOVIE, SEQ_TYPE_MOVIECLIP and SEQ_TYPE_SCENE.
+ * Input preprocessing for SEQ_TYPE_IMAGE, SEQ_TYPE_MOVIE, SEQ_TYPE_MOVIECLIP and SEQ_TYPE_SCENE.
  *
  * Do all the things you can't really do afterwards using sequence effects
  * (read: before re-scaling to render resolution has been done).
@@ -523,8 +507,15 @@ static void sequencer_preprocess_transform_crop(
   const float crop_scale_factor = do_scale_to_render_size ? preview_scale_factor : 1.0f;
   sequencer_image_crop_init(seq, in, crop_scale_factor, &source_crop);
 
-  const eIMBInterpolationFilterMode filter = context->for_render ? IMB_FILTER_BILINEAR :
-                                                                   IMB_FILTER_NEAREST;
+  eIMBInterpolationFilterMode filter;
+  const StripTransform *transform = seq->strip->transform;
+  if (transform->filter == SEQ_TRANSFORM_FILTER_NEAREST) {
+    filter = IMB_FILTER_NEAREST;
+  }
+  else {
+    filter = IMB_FILTER_BILINEAR;
+  }
+
   IMB_transform(in, out, IMB_TRANSFORM_MODE_CROP_SRC, filter, transform_matrix, &source_crop);
 
   if (!seq_image_transform_transparency_gained(context, seq)) {
@@ -1188,14 +1179,12 @@ static ImBuf *seq_render_movieclip_strip(const SeqRenderData *context,
                                          bool *r_is_proxy_image)
 {
   ImBuf *ibuf = NULL;
-  MovieClipUser user;
+  MovieClipUser user = *DNA_struct_default_get(MovieClipUser);
   IMB_Proxy_Size psize = SEQ_rendersize_to_proxysize(context->preview_render_size);
 
   if (!seq->clip) {
     return NULL;
   }
-
-  memset(&user, 0, sizeof(MovieClipUser));
 
   BKE_movieclip_user_set_frame(&user, frame_index + seq->anim_startofs + seq->clip->start_frame);
 

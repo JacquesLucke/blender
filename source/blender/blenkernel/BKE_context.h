@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -134,8 +118,9 @@ typedef enum eContextObjectMode {
   CTX_MODE_SCULPT_GPENCIL,
   CTX_MODE_WEIGHT_GPENCIL,
   CTX_MODE_VERTEX_GPENCIL,
+  CTX_MODE_SCULPT_CURVES,
 } eContextObjectMode;
-#define CTX_MODE_NUM (CTX_MODE_VERTEX_GPENCIL + 1)
+#define CTX_MODE_NUM (CTX_MODE_SCULPT_CURVES + 1)
 
 /* Context */
 
@@ -253,10 +238,7 @@ ListBase CTX_data_collection_get(const bContext *C, const char *member);
  * \param use_rna: Use Include the properties from 'RNA_Context'.
  * \param use_all: Don't skip values (currently only "scene").
  */
-ListBase CTX_data_dir_get_ex(const bContext *C,
-                             const bool use_store,
-                             const bool use_rna,
-                             const bool use_all);
+ListBase CTX_data_dir_get_ex(const bContext *C, bool use_store, bool use_rna, bool use_all);
 ListBase CTX_data_dir_get(const bContext *C);
 int /*eContextResult*/ CTX_data_get(
     const bContext *C, const char *member, PointerRNA *r_ptr, ListBase *r_lb, short *r_type);
@@ -320,7 +302,7 @@ struct ToolSettings *CTX_data_tool_settings(const bContext *C);
 const char *CTX_data_mode_string(const bContext *C);
 enum eContextObjectMode CTX_data_mode_enum_ex(const struct Object *obedit,
                                               const struct Object *ob,
-                                              const eObjectMode object_mode);
+                                              eObjectMode object_mode);
 enum eContextObjectMode CTX_data_mode_enum(const bContext *C);
 
 void CTX_data_main_set(bContext *C, struct Main *bmain);

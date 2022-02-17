@@ -1,25 +1,9 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- * various string, file, list operations.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bli
+ * Various string, file, list operations.
  */
 
 #include <ctype.h>
@@ -957,15 +941,15 @@ bool BLI_path_abs(char *path, const char *basepath)
 
 #endif
 
-  /* push slashes into unix mode - strings entering this part are
+  /* NOTE(@jesterKing): push slashes into unix mode - strings entering this part are
    * potentially messed up: having both back- and forward slashes.
    * Here we push into one conform direction, and at the end we
    * push them into the system specific dir. This ensures uniformity
-   * of paths and solving some problems (and prevent potential future
-   * ones) -jesterKing.
-   * For UNC paths the first characters containing the UNC prefix
+   * of paths and solving some problems (and prevent potential future ones).
+   *
+   * NOTE(@elubie): For UNC paths the first characters containing the UNC prefix
    * shouldn't be switched as we need to distinguish them from
-   * paths relative to the .blend file -elubie */
+   * paths relative to the `.blend` file. */
   BLI_str_replace_char(tmp + BLI_path_unc_prefix_len(tmp), '\\', '/');
 
   /* Paths starting with `//` will get the blend file as their base,
@@ -1737,7 +1721,7 @@ bool BLI_path_contains(const char *container_path, const char *containee_path)
   char containee_native[PATH_MAX];
 
   /* Keep space for a trailing slash. If the path is truncated by this, the containee path is
-   * longer than PATH_MAX and the result is ill-defined.  */
+   * longer than PATH_MAX and the result is ill-defined. */
   BLI_strncpy(container_native, container_path, PATH_MAX - 1);
   BLI_strncpy(containee_native, containee_path, PATH_MAX);
 
@@ -1828,4 +1812,24 @@ void BLI_path_slash_native(char *path)
 #else
   BLI_str_replace_char(path + BLI_path_unc_prefix_len(path), ALTSEP, SEP);
 #endif
+}
+
+int BLI_path_cmp_normalized(const char *p1, const char *p2)
+{
+  BLI_assert_msg(!BLI_path_is_rel(p1) && !BLI_path_is_rel(p2), "Paths arguments must be absolute");
+
+  /* Normalize the paths so we can compare them. */
+  char norm_p1[FILE_MAX];
+  char norm_p2[FILE_MAX];
+
+  BLI_strncpy(norm_p1, p1, sizeof(norm_p1));
+  BLI_strncpy(norm_p2, p2, sizeof(norm_p2));
+
+  BLI_path_slash_native(norm_p1);
+  BLI_path_slash_native(norm_p2);
+
+  BLI_path_normalize(NULL, norm_p1);
+  BLI_path_normalize(NULL, norm_p2);
+
+  return BLI_path_cmp(norm_p1, norm_p2);
 }

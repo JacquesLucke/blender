@@ -1,20 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # <pep8 compliant>
 import bpy
@@ -593,14 +577,6 @@ class USERPREF_PT_system_sound(SystemPanel, CenterAlignMixIn, Panel):
 
 class USERPREF_PT_system_cycles_devices(SystemPanel, CenterAlignMixIn, Panel):
     bl_label = "Cycles Render Devices"
-
-    @classmethod
-    def poll(cls, _context):
-        # No GPU rendering on macOS x86_64 currently.
-        import platform
-        import sys
-        return bpy.app.build_options.cycles and \
-               (sys.platform != "darwin" or platform.machine() == "arm64")
 
     def draw_centered(self, context, layout):
         prefs = context.preferences
@@ -2295,7 +2271,7 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, Panel):
     def draw(self, context):
         self._draw_items(
             context, (
-                ({"property": "use_new_hair_type"}, "T68981"),
+                ({"property": "use_new_curves_type"}, "T68981"),
                 ({"property": "use_new_point_cloud_type"}, "T75717"),
                 ({"property": "use_full_frame_compositor"}, "T88150"),
             ),
@@ -2316,10 +2292,10 @@ class USERPREF_PT_experimental_debugging(ExperimentalPanel, Panel):
             context, (
                 ({"property": "use_undo_legacy"}, "T60695"),
                 ({"property": "override_auto_resync"}, "T83811"),
-                ({"property": "proxy_to_override_auto_conversion"}, "T91671"),
                 ({"property": "use_cycles_debug"}, None),
                 ({"property": "use_geometry_nodes_legacy"}, "T91274"),
                 ({"property": "show_asset_debug_info"}, None),
+                ({"property": "use_asset_indexing"}, None),
             ),
         )
 

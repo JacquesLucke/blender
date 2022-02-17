@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -62,7 +48,7 @@
  * then the function has to specify whether the referenced array is expected to be initialized or
  * not.
  *
- * Since the arrays are only referenced, it is generally unsafe to store an Span. When you
+ * Since the arrays are only referenced, it is generally unsafe to store a Span. When you
  * store one, you should know who owns the memory.
  *
  * Instances of Span and MutableSpan are small and should be passed by value.
@@ -109,7 +95,7 @@ template<typename T> class Span {
     BLI_assert(size >= 0);
   }
 
-  template<typename U, typename std::enable_if_t<is_span_convertible_pointer_v<U, T>> * = nullptr>
+  template<typename U, BLI_ENABLE_IF((is_span_convertible_pointer_v<U, T>))>
   constexpr Span(const U *start, int64_t size) : data_(static_cast<const T *>(start)), size_(size)
   {
     BLI_assert(size >= 0);
@@ -144,7 +130,7 @@ template<typename T> class Span {
    * Support implicit conversions like the one below:
    *   Span<T *> -> Span<const T *>
    */
-  template<typename U, typename std::enable_if_t<is_span_convertible_pointer_v<U, T>> * = nullptr>
+  template<typename U, BLI_ENABLE_IF((is_span_convertible_pointer_v<U, T>))>
   constexpr Span(Span<U> span) : data_(static_cast<const T *>(span.data())), size_(span.size())
   {
   }
@@ -501,7 +487,7 @@ template<typename T> class MutableSpan {
    * Support implicit conversions like the one below:
    *   MutableSpan<T *> -> MutableSpan<const T *>
    */
-  template<typename U, typename std::enable_if_t<is_span_convertible_pointer_v<U, T>> * = nullptr>
+  template<typename U, BLI_ENABLE_IF((is_span_convertible_pointer_v<U, T>))>
   constexpr MutableSpan(MutableSpan<U> span)
       : data_(static_cast<T *>(span.data())), size_(span.size())
   {
@@ -512,7 +498,7 @@ template<typename T> class MutableSpan {
     return Span<T>(data_, size_);
   }
 
-  template<typename U, typename std::enable_if_t<is_span_convertible_pointer_v<T, U>> * = nullptr>
+  template<typename U, BLI_ENABLE_IF((is_span_convertible_pointer_v<T, U>))>
   constexpr operator Span<U>() const
   {
     return Span<U>(static_cast<const U *>(data_), size_);

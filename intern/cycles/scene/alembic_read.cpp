@@ -1,18 +1,5 @@
-/*
- * Copyright 2021 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2021-2022 Blender Foundation */
 
 #include "scene/alembic_read.h"
 #include "scene/alembic.h"
@@ -478,7 +465,9 @@ static void add_subd_polygons(CachedData &cached_data, const SubDSchemaData &dat
   cached_data.uv_loops.add_data(uv_loops, time);
 }
 
-static void add_subd_creases(CachedData &cached_data, const SubDSchemaData &data, chrono_t time)
+static void add_subd_edge_creases(CachedData &cached_data,
+                                  const SubDSchemaData &data,
+                                  chrono_t time)
 {
   if (!(data.crease_indices.valid() && data.crease_indices.valid() &&
         data.crease_sharpnesses.valid())) {
@@ -517,6 +506,37 @@ static void add_subd_creases(CachedData &cached_data, const SubDSchemaData &data
   }
 }
 
+static void add_subd_vertex_creases(CachedData &cached_data,
+                                    const SubDSchemaData &data,
+                                    chrono_t time)
+{
+  if (!(data.corner_indices.valid() && data.crease_sharpnesses.valid())) {
+    return;
+  }
+
+  const ISampleSelector iss = ISampleSelector(time);
+  const Int32ArraySamplePtr creases_indices = data.crease_indices.getValue(iss);
+  const FloatArraySamplePtr creases_sharpnesses = data.crease_sharpnesses.getValue(iss);
+
+  if (!(creases_indices && creases_sharpnesses) ||
+      creases_indices->size() != creases_sharpnesses->size()) {
+    return;
+  }
+
+  array<float> sharpnesses;
+  sharpnesses.reserve(creases_indices->size());
+  array<int> indices;
+  indices.reserve(creases_indices->size());
+
+  for (size_t i = 0; i < creases_indices->size(); i++) {
+    indices.push_back_reserved((*creases_indices)[i]);
+    sharpnesses.push_back_reserved((*creases_sharpnesses)[i]);
+  }
+
+  cached_data.subd_vertex_crease_indices.add_data(indices, time);
+  cached_data.subd_vertex_crease_weights.add_data(sharpnesses, time);
+}
+
 static void read_subd_geometry(CachedData &cached_data, const SubDSchemaData &data, chrono_t time)
 {
   const ISampleSelector iss = ISampleSelector(time);
@@ -525,7 +545,8 @@ static void read_subd_geometry(CachedData &cached_data, const SubDSchemaData &da
 
   if (data.topology_variance != kHomogenousTopology || cached_data.shader.size() == 0) {
     add_subd_polygons(cached_data, data, time);
-    add_subd_creases(cached_data, data, time);
+    add_subd_edge_creases(cached_data, data, time);
+    add_subd_vertex_creases(cached_data, data, time);
   }
 }
 

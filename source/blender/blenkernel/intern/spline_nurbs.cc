@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_array.hh"
 #include "BLI_span.hh"
@@ -179,65 +165,35 @@ int NURBSpline::knots_size() const
 void NURBSpline::calculate_knots() const
 {
   const KnotsMode mode = this->knots_mode;
-  const int length = this->size();
   const int order = order_;
+  const bool is_bezier = mode == NURBSpline::KnotsMode::Bezier;
+  const bool is_end_point = mode == NURBSpline::KnotsMode::EndPoint;
+  /* Inner knots are always repeated once except on Bezier case. */
+  const int repeat_inner = is_bezier ? order - 1 : 1;
+  /* How many times to repeat 0.0 at the beginning of knot. */
+  const int head = is_end_point && !is_cyclic_ ? order : (is_bezier ? order / 2 : 1);
+  /* Number of knots replicating widths of the starting knots.
+   * Covers both Cyclic and EndPoint cases. */
+  const int tail = is_cyclic_ ? 2 * order - 1 : (is_end_point ? order : 0);
 
   knots_.resize(this->knots_size());
-
   MutableSpan<float> knots = knots_;
 
-  if (mode == NURBSpline::KnotsMode::Normal || is_cyclic_) {
-    for (const int i : knots.index_range()) {
-      knots[i] = static_cast<float>(i);
-    }
-  }
-  else if (mode == NURBSpline::KnotsMode::EndPoint) {
-    float k = 0.0f;
-    for (const int i : IndexRange(1, knots.size())) {
-      knots[i - 1] = k;
-      if (i >= order && i <= length) {
-        k += 1.0f;
-      }
-    }
-  }
-  else if (mode == NURBSpline::KnotsMode::Bezier) {
-    BLI_assert(ELEM(order, 3, 4));
-    if (order == 3) {
-      float k = 0.6f;
-      for (const int i : knots.index_range()) {
-        if (i >= order && i <= length) {
-          k += 0.5f;
-        }
-        knots[i] = std::floor(k);
-      }
-    }
-    else {
-      float k = 0.34f;
-      for (const int i : knots.index_range()) {
-        knots[i] = std::floor(k);
-        k += 1.0f / 3.0f;
-      }
+  int r = head;
+  float current = 0.0f;
+
+  for (const int i : IndexRange(knots.size() - tail)) {
+    knots[i] = current;
+    r--;
+    if (r == 0) {
+      current += 1.0;
+      r = repeat_inner;
     }
   }
 
-  if (is_cyclic_) {
-    const int b = length + order - 1;
-    if (order > 2) {
-      for (const int i : IndexRange(1, order - 2)) {
-        if (knots[b] != knots[b - i]) {
-          if (i == order - 1) {
-            knots[length + order - 2] += 1.0f;
-            break;
-          }
-        }
-      }
-    }
-
-    int c = order;
-    for (int i = b; i < this->knots_size(); i++) {
-      knots[i] = knots[i - 1] + (knots[c] - knots[c - 1]);
-      c--;
-    }
+  const int tail_index = knots.size() - tail;
+  for (const int i : IndexRange(tail)) {
+    knots[tail_index + i] = current + (knots[i] - knots[0]);
   }
 }
 

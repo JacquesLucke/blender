@@ -1,27 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup shdnodes
  */
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
 
 #include "NOD_math_functions.hh"
 #include "NOD_socket_search_link.hh"
@@ -45,7 +29,7 @@ static void sh_node_math_declare(NodeDeclarationBuilder &b)
       .min(-10000.0f)
       .max(10000.0f);
   b.add_output<decl::Float>(N_("Value"));
-};
+}
 
 class SocketSearchOp {
  public:
@@ -61,32 +45,24 @@ class SocketSearchOp {
 
 static void sh_node_math_gather_link_searches(GatherLinkSearchOpParams &params)
 {
-  const NodeDeclaration &declaration = *params.node_type().fixed_declaration;
-  if (params.in_out() == SOCK_OUT) {
-    search_link_ops_for_declarations(params, declaration.outputs());
+  if (!params.node_tree().typeinfo->validate_link(
+          static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_FLOAT)) {
     return;
   }
 
-  /* Expose first Value socket. */
-  if (params.node_tree().typeinfo->validate_link(
-          static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_FLOAT)) {
+  const bool is_geometry_node_tree = params.node_tree().type == NTREE_GEOMETRY;
+  const int weight = ELEM(params.other_socket().type, SOCK_FLOAT, SOCK_BOOLEAN, SOCK_INT) ? 0 : -1;
 
-    const bool is_geometry_node_tree = params.node_tree().type == NTREE_GEOMETRY;
-    const int weight = ELEM(params.other_socket().type, SOCK_FLOAT, SOCK_BOOLEAN, SOCK_INT) ? 0 :
-                                                                                              -1;
-
-    for (const EnumPropertyItem *item = rna_enum_node_math_items; item->identifier != nullptr;
-         item++) {
-      if (item->name != nullptr && item->identifier[0] != '\0') {
-        const int gn_weight =
-            (is_geometry_node_tree &&
-             ELEM(item->value, NODE_MATH_COMPARE, NODE_MATH_GREATER_THAN, NODE_MATH_LESS_THAN)) ?
-                -1 :
-                weight;
-        params.add_item(IFACE_(item->name),
-                        SocketSearchOp{"Value", (NodeMathOperation)item->value},
-                        gn_weight);
-      }
+  for (const EnumPropertyItem *item = rna_enum_node_math_items; item->identifier != nullptr;
+       item++) {
+    if (item->name != nullptr && item->identifier[0] != '\0') {
+      const int gn_weight =
+          (is_geometry_node_tree &&
+           ELEM(item->value, NODE_MATH_COMPARE, NODE_MATH_GREATER_THAN, NODE_MATH_LESS_THAN)) ?
+              -1 :
+              weight;
+      params.add_item(
+          IFACE_(item->name), SocketSearchOp{"Value", (NodeMathOperation)item->value}, gn_weight);
     }
   }
 }

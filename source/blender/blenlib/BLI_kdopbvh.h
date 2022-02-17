@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -137,7 +121,7 @@ typedef void (*BVHTree_NearestProjectedCallback)(void *userdata,
                                                  int index,
                                                  const struct DistProjectedAABBPrecalc *precalc,
                                                  const float (*clip_plane)[4],
-                                                 const int clip_plane_len,
+                                                 int clip_plane_len,
                                                  BVHTreeNearest *nearest);
 
 /* callbacks to BLI_bvhtree_walk_dfs */
@@ -200,8 +184,8 @@ BVHTreeOverlap *BLI_bvhtree_overlap_ex(const BVHTree *tree1,
                                        uint *r_overlap_tot,
                                        BVHTree_OverlapCallback callback,
                                        void *userdata,
-                                       const uint max_interactions,
-                                       const int flag);
+                                       uint max_interactions,
+                                       int flag);
 BVHTreeOverlap *BLI_bvhtree_overlap(const BVHTree *tree1,
                                     const BVHTree *tree2,
                                     unsigned int *r_overlap_tot,
@@ -248,7 +232,7 @@ int BLI_bvhtree_find_nearest(BVHTree *tree,
  */
 int BLI_bvhtree_find_nearest_first(BVHTree *tree,
                                    const float co[3],
-                                   const float dist_sq,
+                                   float dist_sq,
                                    BVHTree_NearestPointCallback callback,
                                    void *userdata);
 

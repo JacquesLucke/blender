@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -1861,6 +1847,9 @@ static void rna_SpaceTextEditor_text_set(PointerRNA *ptr,
   SpaceText *st = (SpaceText *)(ptr->data);
 
   st->text = value.data;
+  if (st->text != NULL) {
+    id_us_ensure_real((ID *)st->text);
+  }
 
   ScrArea *area = rna_area_from_space(ptr);
   if (area) {
@@ -2337,7 +2326,8 @@ static void seq_build_proxy(bContext *C, PointerRNA *ptr)
     seq->strip->proxy->build_size_flags |= SEQ_rendersize_to_proxysize(sseq->render_size);
 
     /* Build proxy. */
-    SEQ_proxy_rebuild_context(pj->main, pj->depsgraph, pj->scene, seq, file_list, &pj->queue);
+    SEQ_proxy_rebuild_context(
+        pj->main, pj->depsgraph, pj->scene, seq, file_list, &pj->queue, true);
   }
 
   BLI_gset_free(file_list, MEM_freeN);
@@ -3273,7 +3263,7 @@ static struct IDFilterEnumPropertyItem rna_enum_space_file_id_filter_categories[
      ICON_OUTLINER_COLLECTION,
      "Objects & Collections",
      "Show objects and collections"},
-    {FILTER_ID_AR | FILTER_ID_CU | FILTER_ID_LT | FILTER_ID_MB | FILTER_ID_ME | FILTER_ID_HA |
+    {FILTER_ID_AR | FILTER_ID_CU | FILTER_ID_LT | FILTER_ID_MB | FILTER_ID_ME | FILTER_ID_CV |
          FILTER_ID_PT | FILTER_ID_VO,
      "category_geometry",
      ICON_NODETREE,
@@ -3438,25 +3428,6 @@ static void rna_def_space_image_uv(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
-  static const EnumPropertyItem sticky_mode_items[] = {
-      {SI_STICKY_DISABLE,
-       "DISABLED",
-       ICON_STICKY_UVS_DISABLE,
-       "Disabled",
-       "Sticky vertex selection disabled"},
-      {SI_STICKY_LOC,
-       "SHARED_LOCATION",
-       ICON_STICKY_UVS_LOC,
-       "Shared Location",
-       "Select UVs that are at the same location and share a mesh vertex"},
-      {SI_STICKY_VERTEX,
-       "SHARED_VERTEX",
-       ICON_STICKY_UVS_VERT,
-       "Shared Vertex",
-       "Select UVs that share a mesh vertex, whether or not they are at the same location"},
-      {0, NULL, 0, NULL, NULL},
-  };
-
   static const EnumPropertyItem dt_uvstretch_items[] = {
       {SI_UVDT_STRETCH_ANGLE, "ANGLE", 0, "Angle", "Angular distortion between UV and 3D angles"},
       {SI_UVDT_STRETCH_AREA, "AREA", 0, "Area", "Area distortion between UV and 3D faces"},
@@ -3475,14 +3446,6 @@ static void rna_def_space_image_uv(BlenderRNA *brna)
   RNA_def_struct_nested(brna, srna, "SpaceImageEditor");
   RNA_def_struct_path_func(srna, "rna_SpaceUVEditor_path");
   RNA_def_struct_ui_text(srna, "Space UV Editor", "UV editor data for the image editor space");
-
-  /* selection */
-  prop = RNA_def_property(srna, "sticky_select_mode", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, NULL, "sticky");
-  RNA_def_property_enum_items(prop, sticky_mode_items);
-  RNA_def_property_ui_text(
-      prop, "Sticky Selection Mode", "Method for extending UV vertex selection");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_IMAGE, NULL);
 
   /* drawing */
   prop = RNA_def_property(srna, "edge_display_type", PROP_ENUM, PROP_NONE);
@@ -4301,6 +4264,15 @@ static void rna_def_space_view3d_overlay(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
 
+  prop = RNA_def_property(srna, "bone_wire_alpha", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "overlay.bone_wire_alpha");
+  RNA_def_property_ui_text(
+      prop, "Bone Wireframe Opacity", "Maximum opacity of bones in wireframe display mode");
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0f, 1.0f, 1, 2);
+  RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
+  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_VIEW3D, "rna_GPencil_update");
+
   prop = RNA_def_property(srna, "show_motion_paths", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_negative_sdna(
       prop, NULL, "overlay.flag", V3D_OVERLAY_HIDE_MOTION_PATHS);
@@ -4991,7 +4963,9 @@ static void rna_def_space_view3d(BlenderRNA *brna)
         {"Surface", (1 << OB_SURF), {"show_object_viewport_surf", "show_object_select_surf"}},
         {"Meta", (1 << OB_MBALL), {"show_object_viewport_meta", "show_object_select_meta"}},
         {"Font", (1 << OB_FONT), {"show_object_viewport_font", "show_object_select_font"}},
-        {"Hair", (1 << OB_HAIR), {"show_object_viewport_hair", "show_object_select_hair"}},
+        {"Hair Curves",
+         (1 << OB_CURVES),
+         {"show_object_viewport_curves", "show_object_select_curves"}},
         {"Point Cloud",
          (1 << OB_POINTCLOUD),
          {"show_object_viewport_pointcloud", "show_object_select_pointcloud"}},

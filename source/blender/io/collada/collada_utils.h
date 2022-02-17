@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup collada
@@ -291,23 +277,23 @@ extern bool bc_has_animations(Object *ob);
 extern void bc_add_global_transform(Matrix &to_mat,
                                     const Matrix &from_mat,
                                     const BCMatrix &global_transform,
-                                    const bool invert = false);
+                                    bool invert = false);
 extern void bc_add_global_transform(Vector &to_vec,
                                     const Vector &from_vec,
                                     const BCMatrix &global_transform,
-                                    const bool invert = false);
+                                    bool invert = false);
 extern void bc_add_global_transform(Vector &to_vec,
                                     const BCMatrix &global_transform,
-                                    const bool invert = false);
+                                    bool invert = false);
 extern void bc_add_global_transform(Matrix &to_mat,
                                     const BCMatrix &global_transform,
-                                    const bool invert = false);
+                                    bool invert = false);
 extern void bc_apply_global_transform(Matrix &to_mat,
                                       const BCMatrix &global_transform,
-                                      const bool invert = false);
+                                      bool invert = false);
 extern void bc_apply_global_transform(Vector &to_vec,
                                       const BCMatrix &global_transform,
-                                      const bool invert = false);
+                                      bool invert = false);
 /**
  * Check if custom information about bind matrix exists and modify the from_mat
  * accordingly.
@@ -382,7 +368,7 @@ class BoneExtended {
   void set_name(char *aName);
   char *get_name();
 
-  void set_chain_length(const int aLength);
+  void set_chain_length(int aLength);
   int get_chain_length();
 
   void set_leaf_bone(bool state);

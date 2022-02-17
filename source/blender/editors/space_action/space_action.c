@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spaction
@@ -36,6 +20,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
+#include "BKE_lib_remap.h"
 #include "BKE_nla.h"
 #include "BKE_screen.h"
 
@@ -814,20 +799,15 @@ static void action_refresh(const bContext *C, ScrArea *area)
   /* XXX re-sizing y-extents of tot should go here? */
 }
 
-static void action_id_remap(ScrArea *UNUSED(area), SpaceLink *slink, ID *old_id, ID *new_id)
+static void action_id_remap(ScrArea *UNUSED(area),
+                            SpaceLink *slink,
+                            const struct IDRemapper *mappings)
 {
   SpaceAction *sact = (SpaceAction *)slink;
 
-  if ((ID *)sact->action == old_id) {
-    sact->action = (bAction *)new_id;
-  }
-
-  if ((ID *)sact->ads.filter_grp == old_id) {
-    sact->ads.filter_grp = (Collection *)new_id;
-  }
-  if ((ID *)sact->ads.source == old_id) {
-    sact->ads.source = new_id;
-  }
+  BKE_id_remapper_apply(mappings, (ID **)&sact->action, ID_REMAP_APPLY_DEFAULT);
+  BKE_id_remapper_apply(mappings, (ID **)&sact->ads.filter_grp, ID_REMAP_APPLY_DEFAULT);
+  BKE_id_remapper_apply(mappings, &sact->ads.source, ID_REMAP_APPLY_DEFAULT);
 }
 
 /**

@@ -1,22 +1,5 @@
-
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2014 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2014 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -273,7 +256,6 @@ static void data_transfer_dtdata_type_preprocess(Mesh *me_src,
     const int num_polys_dst = me_dst->totpoly;
     MLoop *loops_dst = me_dst->mloop;
     const int num_loops_dst = me_dst->totloop;
-    CustomData *pdata_dst = &me_dst->pdata;
     CustomData *ldata_dst = &me_dst->ldata;
 
     const bool use_split_nors_dst = (me_dst->flag & ME_AUTOSMOOTH) != 0;
@@ -284,26 +266,9 @@ static void data_transfer_dtdata_type_preprocess(Mesh *me_src,
     BLI_assert(CustomData_get_layer(&me_src->pdata, CD_NORMAL) != NULL);
     (void)me_src;
 
-    float(*poly_nors_dst)[3];
     float(*loop_nors_dst)[3];
     short(*custom_nors_dst)[2] = CustomData_get_layer(ldata_dst, CD_CUSTOMLOOPNORMAL);
 
-    /* Cache poly nors into a temp CDLayer. */
-    poly_nors_dst = CustomData_get_layer(pdata_dst, CD_NORMAL);
-    const bool do_poly_nors_dst = (poly_nors_dst == NULL);
-    if (do_poly_nors_dst) {
-      poly_nors_dst = CustomData_add_layer(pdata_dst, CD_NORMAL, CD_CALLOC, NULL, num_polys_dst);
-      CustomData_set_layer_flag(pdata_dst, CD_NORMAL, CD_FLAG_TEMPORARY);
-    }
-    if (dirty_nors_dst || do_poly_nors_dst) {
-      BKE_mesh_calc_normals_poly(verts_dst,
-                                 num_verts_dst,
-                                 loops_dst,
-                                 num_loops_dst,
-                                 polys_dst,
-                                 num_polys_dst,
-                                 poly_nors_dst);
-    }
     /* Cache loop nors into a temp CDLayer. */
     loop_nors_dst = CustomData_get_layer(ldata_dst, CD_NORMAL);
     const bool do_loop_nors_dst = (loop_nors_dst == NULL);
@@ -313,6 +278,7 @@ static void data_transfer_dtdata_type_preprocess(Mesh *me_src,
     }
     if (dirty_nors_dst || do_loop_nors_dst) {
       BKE_mesh_normals_loop_split(verts_dst,
+                                  BKE_mesh_vertex_normals_ensure(me_dst),
                                   num_verts_dst,
                                   edges_dst,
                                   num_edges_dst,
@@ -320,7 +286,7 @@ static void data_transfer_dtdata_type_preprocess(Mesh *me_src,
                                   loop_nors_dst,
                                   num_loops_dst,
                                   polys_dst,
-                                  (const float(*)[3])poly_nors_dst,
+                                  BKE_mesh_poly_normals_ensure(me_dst),
                                   num_polys_dst,
                                   use_split_nors_dst,
                                   split_angle_dst,
@@ -368,6 +334,7 @@ static void data_transfer_dtdata_type_postprocess(Object *UNUSED(ob_src),
 
     /* Note loop_nors_dst contains our custom normals as transferred from source... */
     BKE_mesh_normals_loop_custom_set(verts_dst,
+                                     BKE_mesh_vertex_normals_ensure(me_dst),
                                      num_verts_dst,
                                      edges_dst,
                                      num_edges_dst,
@@ -1651,7 +1618,6 @@ bool BKE_object_data_transfer_ex(struct Depsgraph *depsgraph,
       const int num_polys_dst = me_dst->totpoly;
       MLoop *loops_dst = me_dst->mloop;
       const int num_loops_dst = me_dst->totloop;
-      CustomData *pdata_dst = &me_dst->pdata;
       CustomData *ldata_dst = &me_dst->ldata;
 
       MeshRemapIslandsCalc island_callback = data_transfer_get_loop_islands_generator(cddata_type);
@@ -1685,6 +1651,7 @@ bool BKE_object_data_transfer_ex(struct Depsgraph *depsgraph,
                                             space_transform,
                                             max_distance,
                                             ray_radius,
+                                            me_dst,
                                             verts_dst,
                                             num_verts_dst,
                                             edges_dst,
@@ -1694,7 +1661,6 @@ bool BKE_object_data_transfer_ex(struct Depsgraph *depsgraph,
                                             polys_dst,
                                             num_polys_dst,
                                             ldata_dst,
-                                            pdata_dst,
                                             (me_dst->flag & ME_AUTOSMOOTH) != 0,
                                             me_dst->smoothresh,
                                             dirty_nors_dst,
@@ -1745,7 +1711,6 @@ bool BKE_object_data_transfer_ex(struct Depsgraph *depsgraph,
       const int num_polys_dst = me_dst->totpoly;
       MLoop *loops_dst = me_dst->mloop;
       const int num_loops_dst = me_dst->totloop;
-      CustomData *pdata_dst = &me_dst->pdata;
 
       if (!geom_map_init[PDATA]) {
         const int num_polys_src = me_src->totpoly;
@@ -1776,14 +1741,11 @@ bool BKE_object_data_transfer_ex(struct Depsgraph *depsgraph,
                                             space_transform,
                                             max_distance,
                                             ray_radius,
+                                            me_dst,
                                             verts_dst,
-                                            num_verts_dst,
                                             loops_dst,
-                                            num_loops_dst,
                                             polys_dst,
                                             num_polys_dst,
-                                            pdata_dst,
-                                            dirty_nors_dst,
                                             me_src,
                                             &geom_map[PDATA]);
         geom_map_init[PDATA] = true;

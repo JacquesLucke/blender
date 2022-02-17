@@ -1,22 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 Blender Foundation.
- * All rights reserved.
- * Juho Vepsäläinen
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup cmpnodes
@@ -47,7 +30,6 @@ void register_node_type_cmp_group()
   BLI_assert(ntype.rna_ext.srna != nullptr);
   RNA_struct_blender_type_set(ntype.rna_ext.srna, &ntype);
 
-  node_type_socket_templates(&ntype, nullptr, nullptr);
   node_type_size(&ntype, 140, 60, 400);
   ntype.labelfunc = node_group_label;
   node_type_group_update(&ntype, node_group_update);

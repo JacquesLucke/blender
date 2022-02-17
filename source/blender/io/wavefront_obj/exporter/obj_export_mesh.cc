@@ -1,22 +1,10 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup obj
  */
+/* Silence warnings from copying deprecated fields. Needed for an Object copy constructor use. */
+#define DNA_DEPRECATED_ALLOW
 
 #include "BKE_customdata.h"
 #include "BKE_deform.h"
@@ -27,6 +15,7 @@
 #include "BKE_object.h"
 
 #include "BLI_listbase.h"
+#include "BLI_map.hh"
 #include "BLI_math.h"
 
 #include "DEG_depsgraph_query.h"
@@ -39,26 +28,23 @@
 #include "obj_export_mesh.hh"
 
 namespace blender::io::obj {
-/**
- * Store evaluated Object and Mesh pointers. Conditionally triangulate a mesh, or
- * create a new Mesh from a Curve.
- */
 OBJMesh::OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Object *mesh_object)
 {
-  export_object_eval_ = DEG_get_evaluated_object(depsgraph, mesh_object);
-  export_mesh_eval_ = BKE_object_get_evaluated_mesh(export_object_eval_);
+  /* We need to copy the object because it may be in temporary space. */
+  Object *obj_eval = DEG_get_evaluated_object(depsgraph, mesh_object);
+  export_object_eval_ = *obj_eval;
+  export_mesh_eval_ = BKE_object_get_evaluated_mesh(&export_object_eval_);
   mesh_eval_needs_free_ = false;
 
   if (!export_mesh_eval_) {
     /* Curves and NURBS surfaces need a new mesh when they're
      * exported in the form of vertices and edges.
      */
-    export_mesh_eval_ = BKE_mesh_new_from_object(depsgraph, export_object_eval_, true, true);
+    export_mesh_eval_ = BKE_mesh_new_from_object(depsgraph, &export_object_eval_, true, true);
     /* Since a new mesh been allocated, it needs to be freed in the destructor. */
     mesh_eval_needs_free_ = true;
   }
-  if (export_params.export_triangulated_mesh &&
-      ELEM(export_object_eval_->type, OB_MESH, OB_SURF)) {
+  if (export_params.export_triangulated_mesh && ELEM(export_object_eval_.type, OB_MESH, OB_SURF)) {
     std::tie(export_mesh_eval_, mesh_eval_needs_free_) = triangulate_mesh_eval();
   }
   set_world_axes_transform(export_params.forward_axis, export_params.up_axis);
@@ -69,28 +55,31 @@ OBJMesh::OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Obj
  */
 OBJMesh::~OBJMesh()
 {
-  free_mesh_if_needed();
-  if (poly_smooth_groups_) {
-    MEM_freeN(poly_smooth_groups_);
-  }
+  clear();
 }
 
-/**
- * Free the mesh if _the exporter_ created it.
- */
 void OBJMesh::free_mesh_if_needed()
 {
   if (mesh_eval_needs_free_ && export_mesh_eval_) {
     BKE_id_free(nullptr, export_mesh_eval_);
+    export_mesh_eval_ = nullptr;
+    mesh_eval_needs_free_ = false;
   }
 }
 
-/**
- * Allocate a new Mesh with triangulated polygons.
- *
- * The returned mesh can be the same as the old one.
- * \return Owning pointer to the new Mesh, and whether a new Mesh was created.
- */
+void OBJMesh::clear()
+{
+  free_mesh_if_needed();
+  uv_indices_.clear_and_make_inline();
+  uv_coords_.clear_and_make_inline();
+  loop_to_normal_index_.clear_and_make_inline();
+  normal_coords_.clear_and_make_inline();
+  if (poly_smooth_groups_) {
+    MEM_freeN(poly_smooth_groups_);
+    poly_smooth_groups_ = nullptr;
+  }
+}
+
 std::pair<Mesh *, bool> OBJMesh::triangulate_mesh_eval()
 {
   if (export_mesh_eval_->totpoly <= 0) {
@@ -119,9 +108,6 @@ std::pair<Mesh *, bool> OBJMesh::triangulate_mesh_eval()
   return {triangulated, true};
 }
 
-/**
- * Set the final transform after applying axes settings and an Object's world transform.
- */
 void OBJMesh::set_world_axes_transform(const eTransformAxisForward forward,
                                        const eTransformAxisUp up)
 {
@@ -131,10 +117,10 @@ void OBJMesh::set_world_axes_transform(const eTransformAxisForward forward,
   mat3_from_axis_conversion(OBJ_AXIS_Y_FORWARD, OBJ_AXIS_Z_UP, forward, up, axes_transform);
   /* mat3_from_axis_conversion returns a transposed matrix! */
   transpose_m3(axes_transform);
-  mul_m4_m3m4(world_and_axes_transform_, axes_transform, export_object_eval_->obmat);
+  mul_m4_m3m4(world_and_axes_transform_, axes_transform, export_object_eval_.obmat);
   /* mul_m4_m3m4 does not transform last row of obmat, i.e. location data. */
-  mul_v3_m3v3(world_and_axes_transform_[3], axes_transform, export_object_eval_->obmat[3]);
-  world_and_axes_transform_[3][3] = export_object_eval_->obmat[3][3];
+  mul_v3_m3v3(world_and_axes_transform_[3], axes_transform, export_object_eval_.obmat[3]);
+  world_and_axes_transform_[3][3] = export_object_eval_.obmat[3][3];
 }
 
 int OBJMesh::tot_vertices() const
@@ -157,17 +143,16 @@ int OBJMesh::tot_edges() const
   return export_mesh_eval_->totedge;
 }
 
-/**
- * \return Total materials in the object.
- */
 int16_t OBJMesh::tot_materials() const
 {
   return export_mesh_eval_->totcol;
 }
 
-/**
- * \return Smooth group of the polygon at the given index.
- */
+int OBJMesh::tot_normal_indices() const
+{
+  return tot_normal_indices_;
+}
+
 int OBJMesh::ith_smooth_group(const int poly_index) const
 {
   /* Calculate smooth groups first: #OBJMesh::calc_smooth_groups. */
@@ -178,7 +163,6 @@ int OBJMesh::ith_smooth_group(const int poly_index) const
 
 void OBJMesh::ensure_mesh_normals() const
 {
-  BKE_mesh_ensure_normals(export_mesh_eval_);
   BKE_mesh_calc_normals_split(export_mesh_eval_);
 }
 
@@ -188,10 +172,6 @@ void OBJMesh::ensure_mesh_edges() const
   BKE_mesh_calc_edges_loose(export_mesh_eval_);
 }
 
-/**
- * Calculate smooth groups of a smooth-shaded object.
- * \return A polygon aligned array of smooth group numbers.
- */
 void OBJMesh::calc_smooth_groups(const bool use_bitflags)
 {
   poly_smooth_groups_ = BKE_mesh_calc_smoothgroups(export_mesh_eval_->medge,
@@ -204,13 +184,16 @@ void OBJMesh::calc_smooth_groups(const bool use_bitflags)
                                                    use_bitflags);
 }
 
-/**
- * Return mat_nr-th material of the object. The given index should be zero-based.
- */
 const Material *OBJMesh::get_object_material(const int16_t mat_nr) const
 {
-  /* "+ 1" as material getter needs one-based indices.  */
-  const Material *r_mat = BKE_object_material_get(export_object_eval_, mat_nr + 1);
+  /**
+   * The const_cast is safe here because BKE_object_material_get won't change the object
+   * but it is a big can of worms to fix the declaration of that function right now.
+   *
+   * The call uses "+ 1" as material getter needs one-based indices.
+   */
+  Object *obj = const_cast<Object *>(&export_object_eval_);
+  const Material *r_mat = BKE_object_material_get(obj, mat_nr + 1);
 #ifdef DEBUG
   if (!r_mat) {
     std::cerr << "Material not found for mat_nr = " << mat_nr << std::endl;
@@ -224,10 +207,6 @@ bool OBJMesh::is_ith_poly_smooth(const int poly_index) const
   return export_mesh_eval_->mpoly[poly_index].flag & ME_SMOOTH;
 }
 
-/**
- * Returns a zero-based index of a polygon's material indexing into
- * the Object's material slots.
- */
 int16_t OBJMesh::ith_poly_matnr(const int poly_index) const
 {
   BLI_assert(poly_index < export_mesh_eval_->totpoly);
@@ -235,25 +214,16 @@ int16_t OBJMesh::ith_poly_matnr(const int poly_index) const
   return r_mat_nr >= 0 ? r_mat_nr : NOT_FOUND;
 }
 
-/**
- * Get object name as it appears in the outliner.
- */
 const char *OBJMesh::get_object_name() const
 {
-  return export_object_eval_->id.name + 2;
+  return export_object_eval_.id.name + 2;
 }
 
-/**
- * Get Object's Mesh's name.
- */
 const char *OBJMesh::get_object_mesh_name() const
 {
   return export_mesh_eval_->id.name + 2;
 }
 
-/**
- * Get object's material (at the given index) name. The given index should be zero-based.
- */
 const char *OBJMesh::get_object_material_name(const int16_t mat_nr) const
 {
   const Material *mat = get_object_material(mat_nr);
@@ -263,9 +233,6 @@ const char *OBJMesh::get_object_material_name(const int16_t mat_nr) const
   return mat->id.name + 2;
 }
 
-/**
- * Calculate coordinates of the vertex at the given index.
- */
 float3 OBJMesh::calc_vertex_coords(const int vert_index, const float scaling_factor) const
 {
   float3 r_coords;
@@ -275,9 +242,6 @@ float3 OBJMesh::calc_vertex_coords(const int vert_index, const float scaling_fac
   return r_coords;
 }
 
-/**
- * Calculate vertex indices of all vertices of the polygon at the given index.
- */
 Vector<int> OBJMesh::calc_poly_vertex_indices(const int poly_index) const
 {
   const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
@@ -290,12 +254,7 @@ Vector<int> OBJMesh::calc_poly_vertex_indices(const int poly_index) const
   return r_poly_vertex_indices;
 }
 
-/**
- * Calculate UV vertex coordinates of an Object.
- *
- * \note Also store the UV vertex indices in the member variable.
- */
-void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coords)
+void OBJMesh::store_uv_coords_and_indices()
 {
   const MPoly *mpoly = export_mesh_eval_->mpoly;
   const MLoop *mloop = export_mesh_eval_->mloop;
@@ -315,7 +274,7 @@ void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coo
   uv_indices_.resize(totpoly);
   /* At least total vertices of a mesh will be present in its texture map. So
    * reserve minimum space early. */
-  r_uv_coords.reserve(totvert);
+  uv_coords_.reserve(totvert);
 
   tot_uv_vertices_ = 0;
   for (int vertex_index = 0; vertex_index < totvert; vertex_index++) {
@@ -327,11 +286,10 @@ void OBJMesh::store_uv_coords_and_indices(Vector<std::array<float, 2>> &r_uv_coo
       const int vertices_in_poly = mpoly[uv_vert->poly_index].totloop;
 
       /* Store UV vertex coordinates. */
-      r_uv_coords.resize(tot_uv_vertices_);
+      uv_coords_.resize(tot_uv_vertices_);
       const int loopstart = mpoly[uv_vert->poly_index].loopstart;
       Span<float> vert_uv_coords(mloopuv[loopstart + uv_vert->loop_of_poly_index].uv, 2);
-      r_uv_coords[tot_uv_vertices_ - 1][0] = vert_uv_coords[0];
-      r_uv_coords[tot_uv_vertices_ - 1][1] = vert_uv_coords[1];
+      uv_coords_[tot_uv_vertices_ - 1] = float2(vert_uv_coords[0], vert_uv_coords[1]);
 
       /* Store UV vertex indices. */
       uv_indices_[uv_vert->poly_index].resize(vertices_in_poly);
@@ -351,11 +309,7 @@ Span<int> OBJMesh::calc_poly_uv_indices(const int poly_index) const
   BLI_assert(poly_index < uv_indices_.size());
   return uv_indices_[poly_index];
 }
-/**
- * Calculate polygon normal of a polygon at given index.
- *
- * Should be used for flat-shaded polygons.
- */
+
 float3 OBJMesh::calc_poly_normal(const int poly_index) const
 {
   float3 r_poly_normal;
@@ -367,66 +321,95 @@ float3 OBJMesh::calc_poly_normal(const int poly_index) const
   return r_poly_normal;
 }
 
-/**
- * Calculate loop normals of a polygon at the given index.
- *
- * Should be used for smooth-shaded polygons.
- */
-void OBJMesh::calc_loop_normals(const int poly_index, Vector<float3> &r_loop_normals) const
+/** Round \a f to \a round_digits decimal digits. */
+static float round_float_to_n_digits(const float f, int round_digits)
 {
-  r_loop_normals.clear();
-  const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
-  const float(
-      *lnors)[3] = (const float(*)[3])(CustomData_get_layer(&export_mesh_eval_->ldata, CD_NORMAL));
-  for (int loop_of_poly = 0; loop_of_poly < mpoly.totloop; loop_of_poly++) {
-    float3 loop_normal;
-    copy_v3_v3(loop_normal, lnors[mpoly.loopstart + loop_of_poly]);
-    mul_mat3_m4_v3(world_and_axes_transform_, loop_normal);
-    r_loop_normals.append(loop_normal);
-  }
+  float scale = powf(10.0, round_digits);
+  return ceilf((scale * f - 0.49999999f)) / scale;
 }
 
-/**
- * Calculate a polygon's polygon/loop normal indices.
- * \param object_tot_prev_normals Number of normals of this Object written so far.
- * \return Number of distinct normal indices.
- */
-std::pair<int, Vector<int>> OBJMesh::calc_poly_normal_indices(
-    const int poly_index, const int object_tot_prev_normals) const
+static float3 round_float3_to_n_digits(const float3 &v, int round_digits)
+{
+  float3 ans;
+  ans.x = round_float_to_n_digits(v.x, round_digits);
+  ans.y = round_float_to_n_digits(v.y, round_digits);
+  ans.z = round_float_to_n_digits(v.z, round_digits);
+  return ans;
+}
+
+void OBJMesh::store_normal_coords_and_indices()
+{
+  /* We'll round normal components to 4 digits.
+   * This will cover up some minor differences
+   * between floating point calculations on different platforms.
+   * Since normals are normalized, there will be no perceptible loss
+   * of precision when rounding to 4 digits. */
+  constexpr int round_digits = 4;
+  int cur_normal_index = 0;
+  Map<float3, int> normal_to_index;
+  /* We don't know how many unique normals there will be, but this is a guess. */
+  normal_to_index.reserve(export_mesh_eval_->totpoly);
+  loop_to_normal_index_.resize(export_mesh_eval_->totloop);
+  loop_to_normal_index_.fill(-1);
+  const float(
+      *lnors)[3] = (const float(*)[3])(CustomData_get_layer(&export_mesh_eval_->ldata, CD_NORMAL));
+  for (int poly_index = 0; poly_index < export_mesh_eval_->totpoly; ++poly_index) {
+    const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
+    bool need_per_loop_normals = lnors != nullptr || (mpoly.flag & ME_SMOOTH);
+    if (need_per_loop_normals) {
+      for (int loop_of_poly = 0; loop_of_poly < mpoly.totloop; ++loop_of_poly) {
+        float3 loop_normal;
+        int loop_index = mpoly.loopstart + loop_of_poly;
+        BLI_assert(loop_index < export_mesh_eval_->totloop);
+        copy_v3_v3(loop_normal, lnors[loop_index]);
+        mul_mat3_m4_v3(world_and_axes_transform_, loop_normal);
+        float3 rounded_loop_normal = round_float3_to_n_digits(loop_normal, round_digits);
+        int loop_norm_index = normal_to_index.lookup_default(rounded_loop_normal, -1);
+        if (loop_norm_index == -1) {
+          loop_norm_index = cur_normal_index++;
+          normal_to_index.add(rounded_loop_normal, loop_norm_index);
+          normal_coords_.append(rounded_loop_normal);
+        }
+        loop_to_normal_index_[loop_index] = loop_norm_index;
+      }
+    }
+    else {
+      float3 poly_normal = calc_poly_normal(poly_index);
+      float3 rounded_poly_normal = round_float3_to_n_digits(poly_normal, round_digits);
+      int poly_norm_index = normal_to_index.lookup_default(rounded_poly_normal, -1);
+      if (poly_norm_index == -1) {
+        poly_norm_index = cur_normal_index++;
+        normal_to_index.add(rounded_poly_normal, poly_norm_index);
+        normal_coords_.append(rounded_poly_normal);
+      }
+      for (int i = 0; i < mpoly.totloop; ++i) {
+        int loop_index = mpoly.loopstart + i;
+        BLI_assert(loop_index < export_mesh_eval_->totloop);
+        loop_to_normal_index_[loop_index] = poly_norm_index;
+      }
+    }
+  }
+  tot_normal_indices_ = cur_normal_index;
+}
+
+Vector<int> OBJMesh::calc_poly_normal_indices(const int poly_index) const
 {
   const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
   const int totloop = mpoly.totloop;
   Vector<int> r_poly_normal_indices(totloop);
-
-  if (is_ith_poly_smooth(poly_index)) {
-    for (int poly_loop_index = 0; poly_loop_index < totloop; poly_loop_index++) {
-      /* Using polygon loop index is fine because polygon/loop normals and their normal indices are
-       * written by looping over #Mesh.mpoly /#Mesh.mloop in the same order. */
-      r_poly_normal_indices[poly_loop_index] = object_tot_prev_normals + poly_loop_index;
-    }
-    /* For a smooth-shaded polygon, #Mesh.totloop -many loop normals are written. */
-    return {totloop, r_poly_normal_indices};
-  }
   for (int poly_loop_index = 0; poly_loop_index < totloop; poly_loop_index++) {
-    r_poly_normal_indices[poly_loop_index] = object_tot_prev_normals;
+    int loop_index = mpoly.loopstart + poly_loop_index;
+    r_poly_normal_indices[poly_loop_index] = loop_to_normal_index_[loop_index];
   }
-  /* For a flat-shaded polygon, one polygon normal is written.  */
-  return {1, r_poly_normal_indices};
+  return r_poly_normal_indices;
 }
 
-/**
- * Find the index of the vertex group with the maximum number of vertices in a polygon.
- * The index indices into the #Object.defbase.
- *
- * If two or more groups have the same number of vertices (maximum), group name depends on the
- * implementation of #std::max_element.
- */
 int16_t OBJMesh::get_poly_deform_group_index(const int poly_index) const
 {
   BLI_assert(poly_index < export_mesh_eval_->totpoly);
   const MPoly &mpoly = export_mesh_eval_->mpoly[poly_index];
   const MLoop *mloop = &export_mesh_eval_->mloop[mpoly.loopstart];
-  const Object *obj = export_object_eval_;
+  const Object *obj = &export_object_eval_;
   const int tot_deform_groups = BKE_object_defgroup_count(obj);
   /* Indices of the vector index into deform groups of an object; values are the]
    * number of vertex members in one deform group. */
@@ -464,20 +447,13 @@ int16_t OBJMesh::get_poly_deform_group_index(const int poly_index) const
   return max_idx;
 }
 
-/**
- * Find the name of the vertex deform group at the given index.
- * The index indices into the #Object.defbase.
- */
 const char *OBJMesh::get_poly_deform_group_name(const int16_t def_group_index) const
 {
   const bDeformGroup &vertex_group = *(static_cast<bDeformGroup *>(
-      BLI_findlink(BKE_object_defgroup_list(export_object_eval_), def_group_index)));
+      BLI_findlink(BKE_object_defgroup_list(&export_object_eval_), def_group_index)));
   return vertex_group.name;
 }
 
-/**
- * Calculate vertex indices of an edge's corners if it is a loose edge.
- */
 std::optional<std::array<int, 2>> OBJMesh::calc_loose_edge_vert_indices(const int edge_index) const
 {
   const MEdge &edge = export_mesh_eval_->medge[edge_index];

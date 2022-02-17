@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup DNA
@@ -147,17 +131,18 @@ typedef struct IDProperty {
 #define DEFAULT_ALLOC_FOR_NULL_STRINGS 64
 
 /*->type*/
-enum {
+typedef enum eIDPropertyType {
   IDP_STRING = 0,
   IDP_INT = 1,
   IDP_FLOAT = 2,
+  /** Array containing int, floats, doubles or groups. */
   IDP_ARRAY = 5,
   IDP_GROUP = 6,
   IDP_ID = 7,
   IDP_DOUBLE = 8,
   IDP_IDPARRAY = 9,
-  IDP_NUMTYPES = 10,
-};
+} eIDPropertyType;
+#define IDP_NUMTYPES 10
 
 /** Used by some IDP utils, keep values in sync with type enum above. */
 enum {
@@ -309,13 +294,32 @@ typedef struct IDOverrideLibrary {
   /** List of IDOverrideLibraryProperty structs. */
   ListBase properties;
 
+  /** Override hierarchy root ID. Usually the actual root of the hierarchy, but not always
+   * in degenerated cases.
+   *
+   * All liboverrides of a same hierarchy (e.g. a character collection) share the same root.
+   */
+  struct ID *hierarchy_root;
+
   /* Read/write data. */
   /* Temp ID storing extra override data (used for differential operations only currently).
    * Always NULL outside of read/write context. */
   struct ID *storage;
 
   IDOverrideLibraryRuntime *runtime;
+
+  unsigned int flag;
+  char _pad_1[4];
 } IDOverrideLibrary;
+
+/* IDOverrideLibrary->flag */
+enum {
+  /**
+   * The override data-block should not be considered as part of an override hierarchy (generally
+   * because it was created as an single override, outside of any hierarchy consideration).
+   */
+  IDOVERRIDE_LIBRARY_FLAG_NO_HIERARCHY = 1 << 0,
+};
 
 /* watch it: Sequence has identical beginning. */
 /**
@@ -325,6 +329,31 @@ typedef struct IDOverrideLibrary {
 
 /* 2 characters for ID code and 64 for actual name */
 #define MAX_ID_NAME 66
+
+/* ID_Runtime_Remap.status */
+enum {
+  /** new_id is directly linked in current .blend. */
+  ID_REMAP_IS_LINKED_DIRECT = 1 << 0,
+  /** There was some skipped 'user_one' usages of old_id. */
+  ID_REMAP_IS_USER_ONE_SKIPPED = 1 << 1,
+};
+
+/** Status used and counters created during id-remapping. */
+typedef struct ID_Runtime_Remap {
+  /** Status during ID remapping. */
+  int status;
+  /** During ID remapping the number of skipped use cases that refcount the data-block. */
+  int skipped_refcounted;
+  /** During ID remapping the number of direct use cases that could be remapped (e.g. obdata when
+in edit mode). */
+  int skipped_direct;
+  /** During ID remapping, the number of indirect use cases that could not be remapped. */
+  int skipped_indirect;
+} ID_Runtime_Remap;
+
+typedef struct ID_Runtime {
+  ID_Runtime_Remap remap;
+} ID_Runtime;
 
 /* There's a nasty circular dependency here.... 'void *' to the rescue! I
  * really wonder why this is needed. */
@@ -404,6 +433,8 @@ typedef struct ID {
    * May be NULL.
    */
   struct LibraryWeakReference *library_weak_reference;
+
+  struct ID_Runtime runtime;
 } ID;
 
 /**
@@ -431,11 +462,20 @@ typedef struct Library {
 
   struct PackedFile *packedfile;
 
+  ushort tag;
+  char _pad_0[6];
+
   /* Temp data needed by read/write code, and liboverride recursive resync. */
   int temp_index;
   /** See BLENDER_FILE_VERSION, BLENDER_FILE_SUBVERSION, needed for do_versions. */
   short versionfile, subversionfile;
 } Library;
+
+/* Library.tag */
+enum eLibrary_Tag {
+  /* Automatic recursive resync was needed when linking/loading data from that library. */
+  LIBRARY_TAG_RESYNC_REQUIRED = 1 << 0,
+};
 
 /**
  * A weak library/ID reference for local data that has been appended, to allow re-using that local
@@ -510,12 +550,14 @@ typedef struct PreviewImage {
 
 #define ID_IS_LINKED(_id) (((const ID *)(_id))->lib != NULL)
 
-/* Note that this is a fairly high-level check, should be used at user interaction level, not in
+/* Note that these are fairly high-level checks, should be used at user interaction level, not in
  * BKE_library_override typically (especially due to the check on LIB_TAG_EXTERN). */
-#define ID_IS_OVERRIDABLE_LIBRARY(_id) \
-  (ID_IS_LINKED(_id) && !ID_MISSING(_id) && (((const ID *)(_id))->tag & LIB_TAG_EXTERN) != 0 && \
+#define ID_IS_OVERRIDABLE_LIBRARY_HIERARCHY(_id) \
+  (ID_IS_LINKED(_id) && !ID_MISSING(_id) && \
    (BKE_idtype_get_info_from_id((const ID *)(_id))->flags & IDTYPE_FLAGS_NO_LIBLINKING) == 0 && \
    !ELEM(GS(((ID *)(_id))->name), ID_SCE))
+#define ID_IS_OVERRIDABLE_LIBRARY(_id) \
+  (ID_IS_OVERRIDABLE_LIBRARY_HIERARCHY((_id)) && (((const ID *)(_id))->tag & LIB_TAG_EXTERN) != 0)
 
 /* NOTE: The three checks below do not take into account whether given ID is linked or not (when
  * chaining overrides over several libraries). User must ensure the ID is not linked itself
@@ -774,7 +816,9 @@ typedef enum IDRecalcFlag {
    * Use this tag with a scene ID which owns the sequences. */
   ID_RECALC_SEQUENCER_STRIPS = (1 << 14),
 
-  ID_RECALC_AUDIO_SEEK = (1 << 15),
+  /* Runs on frame-change (used for seeking audio too). */
+  ID_RECALC_FRAME_CHANGE = (1 << 15),
+
   ID_RECALC_AUDIO_FPS = (1 << 16),
   ID_RECALC_AUDIO_VOLUME = (1 << 17),
   ID_RECALC_AUDIO_MUTE = (1 << 18),
@@ -862,7 +906,7 @@ typedef enum IDRecalcFlag {
 #define FILTER_ID_CF (1ULL << 28)
 #define FILTER_ID_WS (1ULL << 29)
 #define FILTER_ID_LP (1ULL << 31)
-#define FILTER_ID_HA (1ULL << 32)
+#define FILTER_ID_CV (1ULL << 32)
 #define FILTER_ID_PT (1ULL << 33)
 #define FILTER_ID_VO (1ULL << 34)
 #define FILTER_ID_SIM (1ULL << 35)
@@ -873,7 +917,7 @@ typedef enum IDRecalcFlag {
    FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | FILTER_ID_NT | FILTER_ID_OB | \
    FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | FILTER_ID_SO | \
    FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF | FILTER_ID_WS | \
-   FILTER_ID_LP | FILTER_ID_HA | FILTER_ID_PT | FILTER_ID_VO | FILTER_ID_SIM)
+   FILTER_ID_LP | FILTER_ID_CV | FILTER_ID_PT | FILTER_ID_VO | FILTER_ID_SIM)
 
 /**
  * This enum defines the index assigned to each type of IDs in the array returned by
@@ -956,7 +1000,7 @@ enum {
   INDEX_ID_ME,
   INDEX_ID_CU,
   INDEX_ID_MB,
-  INDEX_ID_HA,
+  INDEX_ID_CV,
   INDEX_ID_PT,
   INDEX_ID_VO,
   INDEX_ID_LT,

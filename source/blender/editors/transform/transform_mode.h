@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edtransform
@@ -45,7 +29,7 @@ bool transdata_check_local_center(const TransInfo *t, short around);
 /**
  * Informs if the mode can be switched during modal.
  */
-bool transform_mode_is_changeable(const int mode);
+bool transform_mode_is_changeable(int mode);
 void protectedTransBits(short protectflag, float vec[3]);
 void protectedSizeBits(short protectflag, float size[3]);
 void constraintTransLim(const TransInfo *t, TransData *td);
@@ -69,13 +53,13 @@ void ElementRotation(const TransInfo *t,
                      const TransDataContainer *tc,
                      TransData *td,
                      const float mat[3][3],
-                     const short around);
+                     short around);
 void headerResize(TransInfo *t, const float vec[3], char *str, int str_size);
 void ElementResize(const TransInfo *t,
                    const TransDataContainer *tc,
                    TransData *td,
                    const float mat[3][3]);
-void transform_mode_init(TransInfo *t, struct wmOperator *op, const int mode);
+void transform_mode_init(TransInfo *t, struct wmOperator *op, int mode);
 /**
  * When in modal and not set, initializes a default orientation for the mode.
  */
@@ -106,7 +90,8 @@ void initCurveShrinkFatten(TransInfo *t);
 void initBevelWeight(TransInfo *t);
 
 /* transform_mode_edge_crease.c */
-void initCrease(TransInfo *t);
+void initEgdeCrease(TransInfo *t);
+void initVertCrease(TransInfo *t);
 
 /* transform_mode_edge_rotate_normal.c */
 void initNormalRotation(TransInfo *t);

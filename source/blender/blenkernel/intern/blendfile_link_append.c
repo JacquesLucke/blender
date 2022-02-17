@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -644,7 +630,7 @@ static void loose_data_instantiate_collection_process(
      */
     Collection *collection = (Collection *)id;
     /* The collection could be linked/appended together with an Empty object instantiating it,
-     * better not instantiate the collection in the viewlayer in that case.
+     * better not instantiate the collection in the view-layer in that case.
      *
      * Can easily happen when copy/pasting such instantiating empty, see T93839. */
     const bool collection_is_instantiated = collection_instantiated_by_any_object(bmain,
@@ -653,7 +639,7 @@ static void loose_data_instantiate_collection_process(
     bool do_add_collection = (item->tag & LINK_APPEND_TAG_INDIRECT) == 0 &&
                              !collection_is_instantiated;
     /* In linking case, do not enforce instantiating non-directly linked collections/objects.
-     * This avoids cluttering the ViewLayers, user can instantiate themselves specific collections
+     * This avoids cluttering the view-layers, user can instantiate themselves specific collections
      * or objects easily from the Outliner if needed. */
     if (!do_add_collection && do_append && !collection_is_instantiated) {
       LISTBASE_FOREACH (CollectionObject *, coll_ob, &collection->gobject) {
@@ -681,21 +667,25 @@ static void loose_data_instantiate_collection_process(
     Collection *collection = (Collection *)id;
     bool do_add_collection = (id->tag & LIB_TAG_DOIT) != 0;
 
+    if (!do_add_collection) {
+      continue;
+    }
     /* When instantiated into view-layer, do not add collections if one of their parents is also
-     * instantiated. In case of empty-instantiation though, instantiation of all user-selected
-     * collections is the desired behavior. */
-    if (!do_add_collection ||
-        (!do_instantiate_as_empty &&
-         loose_data_instantiate_collection_parents_check_recursive(collection))) {
+     * instantiated. */
+    if (!do_instantiate_as_empty &&
+        loose_data_instantiate_collection_parents_check_recursive(collection)) {
+      continue;
+    }
+    /* When instantiated as empty, do not add indirectly linked (i.e. non-user-selected)
+     * collections. */
+    if (do_instantiate_as_empty && (item->tag & LINK_APPEND_TAG_INDIRECT) != 0) {
       continue;
     }
 
     loose_data_instantiate_ensure_active_collection(instantiate_context);
     Collection *active_collection = instantiate_context->active_collection;
 
-    /* In case user requested instantiation of collections as empties, do so for the one they
-     * explicitly selected (originally directly linked IDs) only. */
-    if (do_instantiate_as_empty && (item->tag & LINK_APPEND_TAG_INDIRECT) == 0) {
+    if (do_instantiate_as_empty) {
       /* BKE_object_add(...) messes with the selection. */
       Object *ob = BKE_object_add_only_object(bmain, OB_EMPTY, collection->id.name + 2);
       ob->type = OB_EMPTY;
@@ -989,6 +979,27 @@ static int foreach_libblock_link_append_callback(LibraryIDLinkCallbackData *cb_d
 /** \name Library link/append code.
  * \{ */
 
+static void blendfile_link_append_proxies_convert(Main *bmain, ReportList *reports)
+{
+  /* NOTE: Do not bother checking file versions here, if there are no proxies to convert this code
+   * is quite fast anyway. */
+
+  BlendFileReadReport bf_reports = {.reports = reports};
+  BKE_lib_override_library_main_proxy_convert(bmain, &bf_reports);
+
+  if (bf_reports.count.proxies_to_lib_overrides_success != 0 ||
+      bf_reports.count.proxies_to_lib_overrides_failures != 0) {
+    BKE_reportf(
+        bf_reports.reports,
+        RPT_WARNING,
+        "Proxies have been removed from Blender (%d proxies were automatically converted "
+        "to library overrides, %d proxies could not be converted and were cleared). "
+        "Please consider re-saving any library .blend file with the newest Blender version.",
+        bf_reports.count.proxies_to_lib_overrides_success,
+        bf_reports.count.proxies_to_lib_overrides_failures);
+  }
+}
+
 void BKE_blendfile_append(BlendfileLinkAppendContext *lapp_context, ReportList *reports)
 {
   if (lapp_context->num_items == 0) {
@@ -1035,10 +1046,6 @@ void BKE_blendfile_append(BlendfileLinkAppendContext *lapp_context, ReportList *
 
     if (item->action != LINK_APPEND_ACT_UNSET) {
       /* Already set, pass. */
-    }
-    if (GS(id->name) == ID_OB && ((Object *)id)->proxy_from != NULL) {
-      CLOG_INFO(&LOG, 3, "Appended ID '%s' is proxified, keeping it linked...", id->name);
-      item->action = LINK_APPEND_ACT_KEEP_LINKED;
     }
     else if (do_reuse_local_id && existing_local_id != NULL) {
       CLOG_INFO(&LOG, 3, "Appended ID '%s' as a matching local one, re-using it...", id->name);
@@ -1094,10 +1101,7 @@ void BKE_blendfile_append(BlendfileLinkAppendContext *lapp_context, ReportList *
         local_appended_new_id = id->newid;
         break;
       case LINK_APPEND_ACT_MAKE_LOCAL:
-        BKE_lib_id_make_local(bmain,
-                              id,
-                              make_local_common_flags | LIB_ID_MAKELOCAL_FORCE_LOCAL |
-                                  LIB_ID_MAKELOCAL_OBJECT_NO_PROXY_CLEARING);
+        BKE_lib_id_make_local(bmain, id, make_local_common_flags | LIB_ID_MAKELOCAL_FORCE_LOCAL);
         BLI_assert(id->newid == NULL);
         local_appended_new_id = id;
         break;
@@ -1206,55 +1210,11 @@ void BKE_blendfile_append(BlendfileLinkAppendContext *lapp_context, ReportList *
       continue;
     }
     BLI_assert(ID_IS_LINKED(id));
-
-    /* Attempt to re-link copied proxy objects. This allows appending of an entire scene
-     * from another blend file into this one, even when that blend file contains proxified
-     * armatures that have local references. Since the proxified object needs to be linked
-     * (not local), this will only work when the "Localize all" checkbox is disabled.
-     * TL;DR: this is a dirty hack on top of an already weak feature (proxies). */
-    if (GS(id->name) == ID_OB && ((Object *)id)->proxy != NULL) {
-      Object *ob = (Object *)id;
-      Object *ob_new = (Object *)id->newid;
-      bool is_local = false, is_lib = false;
-
-      /* Proxies only work when the proxified object is linked-in from a library. */
-      if (!ID_IS_LINKED(ob->proxy)) {
-        CLOG_WARN(&LOG,
-                  "Proxy object %s will lose its link to %s, because the "
-                  "proxified object is local",
-                  id->newid->name,
-                  ob->proxy->id.name);
-        continue;
-      }
-
-      BKE_library_ID_test_usages(bmain, id, &is_local, &is_lib);
-
-      /* We can only switch the proxy'ing to a made-local proxy if it is no longer
-       * referred to from a library. Not checking for local use; if new local proxy
-       * was not used locally would be a nasty bug! */
-      if (is_local || is_lib) {
-        CLOG_WARN(&LOG,
-                  "Made-local proxy object %s will lose its link to %s, "
-                  "because the linked-in proxy is referenced (is_local=%i, is_lib=%i)",
-                  id->newid->name,
-                  ob->proxy->id.name,
-                  is_local,
-                  is_lib);
-      }
-      else {
-        /* we can switch the proxy'ing from the linked-in to the made-local proxy.
-         * BKE_object_make_proxy() shouldn't be used here, as it allocates memory that
-         * was already allocated by object_make_local() (which called BKE_object_copy). */
-        ob_new->proxy = ob->proxy;
-        ob_new->proxy_group = ob->proxy_group;
-        ob_new->proxy_from = ob->proxy_from;
-        ob_new->proxy->proxy_from = ob_new;
-        ob->proxy = ob->proxy_from = ob->proxy_group = NULL;
-      }
-    }
   }
 
   BKE_main_id_newptr_and_tag_clear(bmain);
+
+  blendfile_link_append_proxies_convert(bmain, reports);
 }
 
 void BKE_blendfile_link(BlendfileLinkAppendContext *lapp_context, ReportList *reports)
@@ -1356,6 +1316,10 @@ void BKE_blendfile_link(BlendfileLinkAppendContext *lapp_context, ReportList *re
     LooseDataInstantiateContext instantiate_context = {.lapp_context = lapp_context,
                                                        .active_collection = NULL};
     loose_data_instantiate(&instantiate_context);
+  }
+
+  if ((lapp_context->params->flag & FILE_LINK) != 0) {
+    blendfile_link_append_proxies_convert(lapp_context->params->bmain, reports);
   }
 }
 
@@ -1537,7 +1501,6 @@ void BKE_blendfile_library_relocate(BlendfileLinkAppendContext *lapp_context,
 
   /* Note that in reload case, we also want to replace indirect usages. */
   const short remap_flags = ID_REMAP_SKIP_NEVER_NULL_USAGE |
-                            ID_REMAP_NO_INDIRECT_PROXY_DATA_USAGE |
                             (do_reload ? 0 : ID_REMAP_SKIP_INDIRECT_USAGE);
   for (item_idx = 0, itemlink = lapp_context->items.list; itemlink;
        item_idx++, itemlink = itemlink->next) {

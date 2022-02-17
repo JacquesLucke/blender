@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup editors
@@ -127,7 +111,7 @@ void ED_fileselect_set_params_from_userdef(struct SpaceFile *sfile);
  */
 void ED_fileselect_params_to_userdef(struct SpaceFile *sfile,
                                      const int temp_win_size[2],
-                                     const bool is_maximized);
+                                     bool is_maximized);
 
 void ED_fileselect_init_layout(struct SpaceFile *sfile, struct ARegion *region);
 
@@ -171,9 +155,7 @@ void ED_fileselect_activate_asset_catalog(const struct SpaceFile *sfile, bUUID c
  * Activate and select the file that corresponds to the given ID.
  * Pass deferred=true to wait for the next refresh before activating.
  */
-void ED_fileselect_activate_by_id(struct SpaceFile *sfile,
-                                  struct ID *asset_id,
-                                  const bool deferred);
+void ED_fileselect_activate_by_id(struct SpaceFile *sfile, struct ID *asset_id, bool deferred);
 
 void ED_fileselect_deselect_all(struct SpaceFile *sfile);
 void ED_fileselect_activate_by_relpath(struct SpaceFile *sfile, const char *relative_path);
@@ -256,7 +238,7 @@ char *ED_fsmenu_entry_get_name(struct FSMenuEntry *fsentry);
 void ED_fsmenu_entry_set_name(struct FSMenuEntry *fsentry, const char *name);
 
 int ED_fsmenu_entry_get_icon(struct FSMenuEntry *fsentry);
-void ED_fsmenu_entry_set_icon(struct FSMenuEntry *fsentry, const int icon);
+void ED_fsmenu_entry_set_icon(struct FSMenuEntry *fsentry, int icon);
 
 #ifdef __cplusplus
 }

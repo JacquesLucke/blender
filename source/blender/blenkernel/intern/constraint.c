@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -34,6 +18,7 @@
 
 #include "BLI_blenlib.h"
 #include "BLI_kdopbvh.h"
+#include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
@@ -71,6 +56,7 @@
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_lib_id.h"
+#include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_movieclip.h"
 #include "BKE_object.h"
@@ -543,6 +529,7 @@ static void contarget_get_mesh_mat(Object *ob, const char *substring, float mat[
   float vec[3] = {0.0f, 0.0f, 0.0f};
   float normal[3] = {0.0f, 0.0f, 0.0f};
   float weightsum = 0.0f;
+  const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(me_eval);
   if (me_eval) {
     const MDeformVert *dvert = CustomData_get_layer(&me_eval->vdata, CD_MDEFORMVERT);
     int numVerts = me_eval->totvert;
@@ -557,10 +544,8 @@ static void contarget_get_mesh_mat(Object *ob, const char *substring, float mat[
         const MDeformWeight *dw = BKE_defvert_find_index(dv, defgroup);
 
         if (dw && dw->weight > 0.0f) {
-          float nor[3];
-          normal_short_to_float_v3(nor, mv->no);
           madd_v3_v3fl(vec, mv->co, dw->weight);
-          madd_v3_v3fl(normal, nor, dw->weight);
+          madd_v3_v3fl(normal, vert_normals[i], dw->weight);
           weightsum += dw->weight;
         }
       }
@@ -3755,7 +3740,7 @@ static void minmax_evaluate(bConstraint *con, bConstraintOb *cob, ListBase *targ
     copy_m4_m4(tarmat, ct->matrix);
 
     if (data->flag & MINMAX_USEROT) {
-      /* take rotation of target into account by doing the transaction in target's localspace */
+      /* Take rotation of target into account by doing the transaction in target's local-space. */
       invert_m4_m4(imat, tarmat);
       mul_m4_m4m4(tmat, imat, obmat);
       copy_m4_m4(obmat, tmat);
@@ -3800,7 +3785,7 @@ static void minmax_evaluate(bConstraint *con, bConstraintOb *cob, ListBase *targ
     if (val1 > val2) {
       obmat[3][index] = tarmat[3][index] + data->offset;
       if (data->flag & MINMAX_USEROT) {
-        /* get out of localspace */
+        /* Get out of local-space. */
         mul_m4_m4m4(tmat, ct->matrix, obmat);
         copy_m4_m4(cob->matrix, tmat);
       }
@@ -5676,13 +5661,19 @@ bool BKE_constraint_apply_for_object(Depsgraph *depsgraph,
 
   const float ctime = BKE_scene_frame_get(scene);
 
-  bConstraint *new_con = BKE_constraint_duplicate_ex(con, 0, !ID_IS_LINKED(ob));
+  /* Do this all in the evaluated domain (e.g. shrinkwrap needs to access evaluated constraint
+   * target mesh). */
+  Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
+  Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
+  bConstraint *con_eval = BKE_constraints_find_name(&ob_eval->constraints, con->name);
+
+  bConstraint *new_con = BKE_constraint_duplicate_ex(con_eval, 0, !ID_IS_LINKED(ob));
   ListBase single_con = {new_con, new_con};
 
   bConstraintOb *cob = BKE_constraints_make_evalob(
-      depsgraph, scene, ob, NULL, CONSTRAINT_OBTYPE_OBJECT);
+      depsgraph, scene_eval, ob_eval, NULL, CONSTRAINT_OBTYPE_OBJECT);
   /* Undo the effect of the current constraint stack evaluation. */
-  mul_m4_m4m4(cob->matrix, ob->constinv, cob->matrix);
+  mul_m4_m4m4(cob->matrix, ob_eval->constinv, cob->matrix);
 
   /* Evaluate single constraint. */
   BKE_constraints_solve(depsgraph, &single_con, cob, ctime);
@@ -5695,7 +5686,7 @@ bool BKE_constraint_apply_for_object(Depsgraph *depsgraph,
   BLI_freelinkN(&single_con, new_con);
 
   /* Apply transform from matrix. */
-  BKE_object_apply_mat4(ob, ob->obmat, true, true);
+  BKE_object_apply_mat4(ob, ob_eval->obmat, true, true);
 
   return true;
 }
@@ -5722,18 +5713,25 @@ bool BKE_constraint_apply_for_pose(
 
   const float ctime = BKE_scene_frame_get(scene);
 
-  bConstraint *new_con = BKE_constraint_duplicate_ex(con, 0, !ID_IS_LINKED(ob));
+  /* Do this all in the evaluated domain (e.g. shrinkwrap needs to access evaluated constraint
+   * target mesh). */
+  Scene *scene_eval = DEG_get_evaluated_scene(depsgraph);
+  Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
+  bPoseChannel *pchan_eval = BKE_pose_channel_find_name(ob_eval->pose, pchan->name);
+  bConstraint *con_eval = BKE_constraints_find_name(&pchan_eval->constraints, con->name);
+
+  bConstraint *new_con = BKE_constraint_duplicate_ex(con_eval, 0, !ID_IS_LINKED(ob));
   ListBase single_con;
   single_con.first = new_con;
   single_con.last = new_con;
 
   float vec[3];
-  copy_v3_v3(vec, pchan->pose_mat[3]);
+  copy_v3_v3(vec, pchan_eval->pose_mat[3]);
 
   bConstraintOb *cob = BKE_constraints_make_evalob(
-      depsgraph, scene, ob, pchan, CONSTRAINT_OBTYPE_BONE);
+      depsgraph, scene_eval, ob_eval, pchan_eval, CONSTRAINT_OBTYPE_BONE);
   /* Undo the effects of currently applied constraints. */
-  mul_m4_m4m4(cob->matrix, pchan->constinv, cob->matrix);
+  mul_m4_m4m4(cob->matrix, pchan_eval->constinv, cob->matrix);
   /* Evaluate single constraint. */
   BKE_constraints_solve(depsgraph, &single_con, cob, ctime);
   BKE_constraints_clear_evalob(cob);
@@ -5744,12 +5742,12 @@ bool BKE_constraint_apply_for_pose(
 
   /* Prevent constraints breaking a chain. */
   if (pchan->bone->flag & BONE_CONNECTED) {
-    copy_v3_v3(pchan->pose_mat[3], vec);
+    copy_v3_v3(pchan_eval->pose_mat[3], vec);
   }
 
   /* Apply transform from matrix. */
   float mat[4][4];
-  BKE_armature_mat_pose_to_bone(pchan, pchan->pose_mat, mat);
+  BKE_armature_mat_pose_to_bone(pchan, pchan_eval->pose_mat, mat);
   BKE_pchan_apply_mat4(pchan, mat, true);
 
   return true;
@@ -5835,14 +5833,6 @@ static void add_new_constraint_to_list(Object *ob, bPoseChannel *pchan, bConstra
      */
     BLI_addtail(list, con);
     BKE_constraint_unique_name(con, list);
-
-    /* if the target list is a list on some PoseChannel belonging to a proxy-protected
-     * Armature layer, we must tag newly added constraints with a flag which allows them
-     * to persist after proxy syncing has been done
-     */
-    if (BKE_constraints_proxylocked_owner(ob, pchan)) {
-      con->flag |= CONSTRAINT_PROXY_LOCAL;
-    }
 
     /* make this constraint the active one */
     BKE_constraints_active_set(list, con);
@@ -6197,45 +6187,6 @@ bool BKE_constraint_is_nonlocal_in_liboverride(const Object *ob, const bConstrai
 {
   return (ID_IS_OVERRIDE_LIBRARY(ob) &&
           (con == NULL || (con->flag & CONSTRAINT_OVERRIDE_LIBRARY_LOCAL) == 0));
-}
-
-/* -------- Constraints and Proxies ------- */
-
-void BKE_constraints_proxylocal_extract(ListBase *dst, ListBase *src)
-{
-  bConstraint *con, *next;
-
-  /* for each tagged constraint, remove from src and move to dst */
-  for (con = src->first; con; con = next) {
-    next = con->next;
-
-    /* check if tagged */
-    if (con->flag & CONSTRAINT_PROXY_LOCAL) {
-      BLI_remlink(src, con);
-      BLI_addtail(dst, con);
-    }
-  }
-}
-
-bool BKE_constraints_proxylocked_owner(Object *ob, bPoseChannel *pchan)
-{
-  /* Currently, constraints can only be on object or bone level */
-  if (ob && ob->proxy) {
-    if (ob->pose && pchan) {
-      bArmature *arm = ob->data;
-
-      /* On bone-level, check if bone is on proxy-protected layer */
-      if ((pchan->bone) && (pchan->bone->layer & arm->layer_protected)) {
-        return true;
-      }
-    }
-    else {
-      /* FIXME: constraints on object-level are not handled well yet */
-      return true;
-    }
-  }
-
-  return false;
 }
 
 /* -------- Target-Matrix Stuff ------- */

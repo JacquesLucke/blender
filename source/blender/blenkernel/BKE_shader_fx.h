@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -164,7 +150,7 @@ void BKE_shaderfxType_panel_id(ShaderFxType type, char *r_idname);
 void BKE_shaderfx_panel_expand(struct ShaderFxData *fx);
 const ShaderFxTypeInfo *BKE_shaderfx_get_info(ShaderFxType type);
 struct ShaderFxData *BKE_shaderfx_new(int type);
-void BKE_shaderfx_free_ex(struct ShaderFxData *fx, const int flag);
+void BKE_shaderfx_free_ex(struct ShaderFxData *fx, int flag);
 void BKE_shaderfx_free(struct ShaderFxData *fx);
 /**
  * Check unique name.
@@ -183,9 +169,7 @@ struct ShaderFxData *BKE_shaderfx_findby_type(struct Object *ob, ShaderFxType ty
 struct ShaderFxData *BKE_shaderfx_findby_name(struct Object *ob, const char *name);
 void BKE_shaderfx_copydata_generic(const struct ShaderFxData *fx_src, struct ShaderFxData *fx_dst);
 void BKE_shaderfx_copydata(struct ShaderFxData *fx, struct ShaderFxData *target);
-void BKE_shaderfx_copydata_ex(struct ShaderFxData *fx,
-                              struct ShaderFxData *target,
-                              const int flag);
+void BKE_shaderfx_copydata_ex(struct ShaderFxData *fx, struct ShaderFxData *target, int flag);
 void BKE_shaderfx_copy(struct ListBase *dst, const struct ListBase *src);
 void BKE_shaderfx_foreach_ID_link(struct Object *ob, ShaderFxIDWalkFunc walk, void *userData);
 

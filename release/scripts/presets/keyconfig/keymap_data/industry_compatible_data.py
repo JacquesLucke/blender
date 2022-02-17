@@ -1,21 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # ------------------------------------------------------------------------------
 # Configurable Parameters
@@ -1126,7 +1109,8 @@ def km_node_editor(params):
          {"properties": [("replace", False)]}),
         ("node.link_make", {"type": 'L', "value": 'PRESS', "shift": True},
          {"properties": [("replace", True)]}),
-        ("node.duplicate_move", {"type": 'D', "value": 'PRESS', "ctrl": True}, None),
+        ("node.duplicate_move", {"type": 'D', "value": 'PRESS', "ctrl": True},
+         {"properties": [("NODE_OT_translate_attach", [("TRANSFORM_OT_translate", [("view2d_edge_pan", True)])])]}),
         ("node.parent_set", {"type": 'P', "value": 'PRESS'}, None),
         ("node.join", {"type": 'J', "value": 'PRESS', "ctrl": True}, None),
         ("node.hide_toggle", {"type": 'H', "value": 'PRESS', "ctrl": True}, None),

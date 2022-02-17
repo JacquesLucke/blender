@@ -1,25 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup draw
  */
 
 #include "DNA_curve_types.h"
-#include "DNA_hair_types.h"
+#include "DNA_curves_types.h"
 #include "DNA_lattice_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meta_types.h"
@@ -835,7 +821,7 @@ GPUBatch *DRW_cache_object_edge_detection_get(Object *ob, bool *r_is_manifold)
       return NULL;
     case OB_MBALL:
       return DRW_cache_mball_edge_detection_get(ob, r_is_manifold);
-    case OB_HAIR:
+    case OB_CURVES:
       return NULL;
     case OB_POINTCLOUD:
       return NULL;
@@ -859,7 +845,7 @@ GPUBatch *DRW_cache_object_face_wireframe_get(Object *ob)
       return NULL;
     case OB_MBALL:
       return DRW_cache_mball_face_wireframe_get(ob);
-    case OB_HAIR:
+    case OB_CURVES:
       return NULL;
     case OB_POINTCLOUD:
       return DRW_pointcloud_batch_cache_get_dots(ob);
@@ -886,7 +872,7 @@ GPUBatch *DRW_cache_object_loose_edges_get(struct Object *ob)
       return NULL;
     case OB_MBALL:
       return NULL;
-    case OB_HAIR:
+    case OB_CURVES:
       return NULL;
     case OB_POINTCLOUD:
       return NULL;
@@ -910,7 +896,7 @@ GPUBatch *DRW_cache_object_surface_get(Object *ob)
       return NULL;
     case OB_MBALL:
       return DRW_cache_mball_surface_get(ob);
-    case OB_HAIR:
+    case OB_CURVES:
       return NULL;
     case OB_POINTCLOUD:
       return DRW_cache_pointcloud_surface_get(ob);
@@ -935,7 +921,7 @@ GPUVertBuf *DRW_cache_object_pos_vertbuf_get(Object *ob)
       return DRW_curve_batch_cache_pos_vertbuf_get(ob->data);
     case OB_MBALL:
       return DRW_mball_batch_cache_pos_vertbuf_get(ob);
-    case OB_HAIR:
+    case OB_CURVES:
       return NULL;
     case OB_POINTCLOUD:
       return NULL;
@@ -960,15 +946,15 @@ int DRW_cache_object_material_count_get(struct Object *ob)
 
   switch (type) {
     case OB_MESH:
-      return DRW_mesh_material_count_get((me != NULL) ? me : ob->data);
+      return DRW_mesh_material_count_get(ob, (me != NULL) ? me : ob->data);
     case OB_CURVE:
     case OB_SURF:
     case OB_FONT:
       return DRW_curve_material_count_get(ob->data);
     case OB_MBALL:
       return DRW_metaball_material_count_get(ob->data);
-    case OB_HAIR:
-      return DRW_hair_material_count_get(ob->data);
+    case OB_CURVES:
+      return DRW_curves_material_count_get(ob->data);
     case OB_POINTCLOUD:
       return DRW_pointcloud_material_count_get(ob->data);
     case OB_VOLUME:
@@ -994,7 +980,7 @@ GPUBatch **DRW_cache_object_surface_material_get(struct Object *ob,
       return NULL;
     case OB_MBALL:
       return DRW_cache_mball_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
-    case OB_HAIR:
+    case OB_CURVES:
       return NULL;
     case OB_POINTCLOUD:
       return DRW_cache_pointcloud_surface_shaded_get(ob, gpumat_array, gpumat_array_len);
@@ -2875,7 +2861,7 @@ GPUBatch *DRW_cache_mesh_surface_get(Object *ob)
 GPUBatch *DRW_cache_mesh_surface_edges_get(Object *ob)
 {
   BLI_assert(ob->type == OB_MESH);
-  return DRW_mesh_batch_cache_get_surface_edges(ob->data);
+  return DRW_mesh_batch_cache_get_surface_edges(ob, ob->data);
 }
 
 GPUBatch **DRW_cache_mesh_surface_shaded_get(Object *ob,
@@ -2883,31 +2869,31 @@ GPUBatch **DRW_cache_mesh_surface_shaded_get(Object *ob,
                                              uint gpumat_array_len)
 {
   BLI_assert(ob->type == OB_MESH);
-  return DRW_mesh_batch_cache_get_surface_shaded(ob->data, gpumat_array, gpumat_array_len);
+  return DRW_mesh_batch_cache_get_surface_shaded(ob, ob->data, gpumat_array, gpumat_array_len);
 }
 
 GPUBatch **DRW_cache_mesh_surface_texpaint_get(Object *ob)
 {
   BLI_assert(ob->type == OB_MESH);
-  return DRW_mesh_batch_cache_get_surface_texpaint(ob->data);
+  return DRW_mesh_batch_cache_get_surface_texpaint(ob, ob->data);
 }
 
 GPUBatch *DRW_cache_mesh_surface_texpaint_single_get(Object *ob)
 {
   BLI_assert(ob->type == OB_MESH);
-  return DRW_mesh_batch_cache_get_surface_texpaint_single(ob->data);
+  return DRW_mesh_batch_cache_get_surface_texpaint_single(ob, ob->data);
 }
 
 GPUBatch *DRW_cache_mesh_surface_vertpaint_get(Object *ob)
 {
   BLI_assert(ob->type == OB_MESH);
-  return DRW_mesh_batch_cache_get_surface_vertpaint(ob->data);
+  return DRW_mesh_batch_cache_get_surface_vertpaint(ob, ob->data);
 }
 
 GPUBatch *DRW_cache_mesh_surface_sculptcolors_get(Object *ob)
 {
   BLI_assert(ob->type == OB_MESH);
-  return DRW_mesh_batch_cache_get_surface_sculpt(ob->data);
+  return DRW_mesh_batch_cache_get_surface_sculpt(ob, ob->data);
 }
 
 GPUBatch *DRW_cache_mesh_surface_weights_get(Object *ob)
@@ -3091,7 +3077,7 @@ GPUBatch **DRW_cache_surf_surface_shaded_get(Object *ob,
   struct Curve *cu = ob->data;
   struct Mesh *mesh_eval = BKE_object_get_evaluated_mesh_no_subsurf(ob);
   if (mesh_eval != NULL) {
-    return DRW_mesh_batch_cache_get_surface_shaded(mesh_eval, gpumat_array, gpumat_array_len);
+    return DRW_mesh_batch_cache_get_surface_shaded(ob, mesh_eval, gpumat_array, gpumat_array_len);
   }
 
   return DRW_curve_batch_cache_get_surface_shaded(cu, gpumat_array, gpumat_array_len);
@@ -3385,7 +3371,7 @@ void drw_batch_cache_validate(Object *ob)
   struct Mesh *mesh_eval = BKE_object_get_evaluated_mesh_no_subsurf(ob);
   switch (ob->type) {
     case OB_MESH:
-      DRW_mesh_batch_cache_validate((Mesh *)ob->data);
+      DRW_mesh_batch_cache_validate(ob, (Mesh *)ob->data);
       break;
     case OB_CURVE:
     case OB_FONT:
@@ -3393,7 +3379,7 @@ void drw_batch_cache_validate(Object *ob)
       break;
     case OB_SURF:
       if (mesh_eval != NULL) {
-        DRW_mesh_batch_cache_validate(mesh_eval);
+        DRW_mesh_batch_cache_validate(ob, mesh_eval);
       }
       DRW_curve_batch_cache_validate((Curve *)ob->data);
       break;
@@ -3403,8 +3389,8 @@ void drw_batch_cache_validate(Object *ob)
     case OB_LATTICE:
       DRW_lattice_batch_cache_validate((Lattice *)ob->data);
       break;
-    case OB_HAIR:
-      DRW_hair_batch_cache_validate((Hair *)ob->data);
+    case OB_CURVES:
+      DRW_curves_batch_cache_validate((Curves *)ob->data);
       break;
     case OB_POINTCLOUD:
       DRW_pointcloud_batch_cache_validate((PointCloud *)ob->data);

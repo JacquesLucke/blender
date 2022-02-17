@@ -1,4 +1,4 @@
-/* Apache License, Version 2.0 */
+/* SPDX-License-Identifier: Apache-2.0 */
 
 /**
  * This file contains default values for several items like
@@ -20,7 +20,7 @@ using array_float_3 = std::array<float, 3>;
 
 /**
  * This matches #OBJCurve's member functions, except that all the numbers and names are known
- * constants. Used to store expected values of NURBS Curve sobjects.
+ * constants. Used to store expected values of NURBS curves objects.
  */
 class NurbsObject {
  private:
@@ -138,7 +138,7 @@ const std::map<std::string, std::unique_ptr<NurbsObject>> all_nurbs_truth = []()
       "NurbsCircle",
       std::make_unique<NurbsObject>(
           "NurbsCircle", coordinates_NurbsCircle, std::vector<int>{3}, std::vector<int>{11}));
-  /* This is actually an Object containing a NurbsPath and a NurbsCurve spline.  */
+  /* This is actually an Object containing a NurbsPath and a NurbsCurve spline. */
   all_nurbs.emplace("NurbsPathCurve",
                     std::make_unique<NurbsObject>("NurbsPathCurve",
                                                   coordinates_NurbsPathCurve,

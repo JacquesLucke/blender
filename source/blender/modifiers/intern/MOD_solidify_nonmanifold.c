@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup modifiers
@@ -158,7 +144,6 @@ Mesh *MOD_solidify_nonmanifold_modifyMesh(ModifierData *md,
   const uint numVerts = (uint)mesh->totvert;
   const uint numEdges = (uint)mesh->totedge;
   const uint numPolys = (uint)mesh->totpoly;
-  const uint numLoops = (uint)mesh->totloop;
 
   if (numPolys == 0 && numVerts != 0) {
     return mesh;
@@ -169,8 +154,6 @@ Mesh *MOD_solidify_nonmanifold_modifyMesh(ModifierData *md,
   const short mat_nr_max = mat_nrs - 1;
   const short mat_ofs = mat_nrs > 1 ? smd->mat_ofs : 0;
   const short mat_ofs_rim = mat_nrs > 1 ? smd->mat_ofs_rim : 0;
-
-  float(*poly_nors)[3] = NULL;
 
   /* #ofs_front and #ofs_back are the offset from the original
    * surface along the normal, where #oft_front is along the positive
@@ -217,10 +200,9 @@ Mesh *MOD_solidify_nonmanifold_modifyMesh(ModifierData *md,
 
 #define MOD_SOLIDIFY_EMPTY_TAG ((uint)-1)
 
-  /* Calculate only face normals. */
-  poly_nors = MEM_malloc_arrayN(numPolys, sizeof(*poly_nors), __func__);
-  BKE_mesh_calc_normals_poly(
-      orig_mvert, (int)numVerts, orig_mloop, (int)numLoops, orig_mpoly, (int)numPolys, poly_nors);
+  /* Calculate only face normals. Copied because they are modified directly below. */
+  float(*poly_nors)[3] = MEM_malloc_arrayN(numPolys, sizeof(float[3]), __func__);
+  memcpy(poly_nors, BKE_mesh_poly_normals_ensure(mesh), sizeof(float[3]) * numPolys);
 
   NewFaceRef *face_sides_arr = MEM_malloc_arrayN(
       numPolys * 2, sizeof(*face_sides_arr), "face_sides_arr in solidify");
@@ -1928,7 +1910,7 @@ Mesh *MOD_solidify_nonmanifold_modifyMesh(ModifierData *md,
   int *origindex_edge = CustomData_get_layer(&result->edata, CD_ORIGINDEX);
   int *origindex_poly = CustomData_get_layer(&result->pdata, CD_ORIGINDEX);
 
-  if (bevel_convex != 0.0f) {
+  if (bevel_convex != 0.0f || (result->cd_flag & ME_CDFLAG_VERT_BWEIGHT) != 0) {
     /* make sure bweight is enabled */
     result->cd_flag |= ME_CDFLAG_EDGE_BWEIGHT;
   }

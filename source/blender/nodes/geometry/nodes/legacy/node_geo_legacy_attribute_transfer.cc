@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_kdopbvh.h"
 
@@ -229,7 +215,7 @@ static void get_closest_mesh_corners(const Mesh &mesh,
       const MLoop &loop = mesh.mloop[loop_index];
       const int vertex_index = loop.v;
       const MVert &mvert = mesh.mvert[vertex_index];
-      const float distance_sq = float3::distance_squared(position, mvert.co);
+      const float distance_sq = math::distance_squared(position, float3(mvert.co));
       if (distance_sq < min_distance_sq) {
         min_distance_sq = distance_sq;
         closest_loop_index = loop_index;

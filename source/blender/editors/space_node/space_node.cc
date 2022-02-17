@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spnode
@@ -31,6 +15,7 @@
 
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
+#include "BKE_lib_remap.h"
 #include "BKE_node.h"
 #include "BKE_screen.h"
 
@@ -205,6 +190,18 @@ void ED_node_set_active_viewer_key(SpaceNode *snode)
     snode->nodetree->active_viewer_key = path->parent_key;
   }
 }
+
+void ED_node_cursor_location_get(const SpaceNode *snode, float value[2])
+{
+  copy_v2_v2(value, snode->runtime->cursor);
+}
+
+void ED_node_cursor_location_set(SpaceNode *snode, const float value[2])
+{
+  copy_v2_v2(snode->runtime->cursor, value);
+}
+
+namespace blender::ed::space_node {
 
 float2 space_node_group_offset(const SpaceNode &snode)
 {
@@ -383,9 +380,6 @@ static void node_area_listener(const wmSpaceTypeListenerParams *params)
         else if (wmn->data == ND_SHADING_LINKS) {
           ED_area_tag_refresh(area);
         }
-        else if (wmn->action == NA_ADDED && snode->edittree) {
-          nodeSetActiveID(snode->edittree, ID_MA, (ID *)wmn->reference);
-        }
       }
       break;
     case NC_TEXTURE:
@@ -557,16 +551,6 @@ static void node_toolbar_region_init(wmWindowManager *wm, ARegion *region)
 static void node_toolbar_region_draw(const bContext *C, ARegion *region)
 {
   ED_region_panels(C, region);
-}
-
-void ED_node_cursor_location_get(const SpaceNode *snode, float value[2])
-{
-  copy_v2_v2(value, snode->runtime->cursor);
-}
-
-void ED_node_cursor_location_set(SpaceNode *snode, const float value[2])
-{
-  copy_v2_v2(snode->runtime->cursor, value);
 }
 
 static void node_cursor(wmWindow *win, ScrArea *area, ARegion *region)
@@ -817,8 +801,14 @@ static void node_region_listener(const wmRegionListenerParams *params)
   }
 }
 
+}  // namespace blender::ed::space_node
+
+/* Outside of blender namespace to avoid Python documentation build error with `ctypes`. */
 const char *node_context_dir[] = {
     "selected_nodes", "active_node", "light", "material", "world", nullptr};
+
+namespace blender::ed::space_node {
+
 static int /*eContextResult*/ node_context(const bContext *C,
                                            const char *member,
                                            bContextDataResult *result)
@@ -891,9 +881,9 @@ static void node_widgets()
   WM_gizmogrouptype_append_and_link(gzmap_type, NODE_GGT_backdrop_corner_pin);
 }
 
-static void node_id_remap(ScrArea *UNUSED(area), SpaceLink *slink, ID *old_id, ID *new_id)
+static void node_id_remap_cb(ID *old_id, ID *new_id, void *user_data)
 {
-  SpaceNode *snode = (SpaceNode *)slink;
+  SpaceNode *snode = static_cast<SpaceNode *>(user_data);
 
   if (snode->id == old_id) {
     /* nasty DNA logic for SpaceNode:
@@ -959,6 +949,24 @@ static void node_id_remap(ScrArea *UNUSED(area), SpaceLink *slink, ID *old_id, I
   }
 }
 
+static void node_id_remap(ScrArea *UNUSED(area),
+                          SpaceLink *slink,
+                          const struct IDRemapper *mappings)
+{
+  /* Although we should be able to perform all the mappings in a single go this lead to issues when
+   * running the python test cases. Somehow the nodetree/edittree weren't updated to the new
+   * pointers that generated a SEGFAULT.
+   *
+   * To move forward we should perhaps remove snode->edittree and snode->nodetree as they are just
+   * copies of pointers. All usages should be calling a function that will receive the appropriate
+   * instance.
+   *
+   * We could also move a remap address at a time to use the IDRemapper as that should get closer
+   * to cleaner code. See {D13615} for more information about this topic.
+   */
+  BKE_id_remapper_iter(mappings, node_id_remap_cb, slink);
+}
+
 static int node_space_subtype_get(ScrArea *area)
 {
   SpaceNode *snode = (SpaceNode *)area->spacedata.first;
@@ -981,8 +989,12 @@ static void node_space_subtype_item_extend(bContext *C, EnumPropertyItem **item,
   }
 }
 
+}  // namespace blender::ed::space_node
+
 void ED_spacetype_node()
 {
+  using namespace blender::ed::space_node;
+
   SpaceType *st = MEM_cnew<SpaceType>("spacetype node");
   ARegionType *art;
 
@@ -1053,8 +1065,6 @@ void ED_spacetype_node()
   art->init = node_toolbar_region_init;
   art->draw = node_toolbar_region_draw;
   BLI_addhead(&st->regiontypes, art);
-
-  node_toolbar_register(art);
 
   BKE_spacetype_register(st);
 }

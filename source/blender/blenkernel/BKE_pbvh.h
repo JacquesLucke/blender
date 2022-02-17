@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -110,7 +96,7 @@ PBVH *BKE_pbvh_new(void);
  * (which means it may rewrite it if needed, see #BKE_pbvh_vert_coords_apply().
  */
 void BKE_pbvh_build_mesh(PBVH *pbvh,
-                         const struct Mesh *mesh,
+                         struct Mesh *mesh,
                          const struct MPoly *mpoly,
                          const struct MLoop *mloop,
                          struct MVert *verts,
@@ -137,8 +123,8 @@ void BKE_pbvh_build_bmesh(PBVH *pbvh,
                           struct BMesh *bm,
                           bool smooth_shading,
                           struct BMLog *log,
-                          const int cd_vert_node_offset,
-                          const int cd_face_node_offset);
+                          int cd_vert_node_offset,
+                          int cd_face_node_offset);
 void BKE_pbvh_free(PBVH *pbvh);
 
 /* Hierarchical Search in the BVH, two methods:
@@ -279,8 +265,8 @@ bool BKE_pbvh_bmesh_update_topology(PBVH *pbvh,
                                     const float center[3],
                                     const float view_normal[3],
                                     float radius,
-                                    const bool use_frontface,
-                                    const bool use_projected);
+                                    bool use_frontface,
+                                    bool use_projected);
 
 /* Node Access */
 
@@ -298,6 +284,8 @@ void BKE_pbvh_node_fully_masked_set(PBVHNode *node, int fully_masked);
 bool BKE_pbvh_node_fully_masked_get(PBVHNode *node);
 void BKE_pbvh_node_fully_unmasked_set(PBVHNode *node, int fully_masked);
 bool BKE_pbvh_node_fully_unmasked_get(PBVHNode *node);
+
+void BKE_pbvh_vert_mark_update(PBVH *pbvh, int index);
 
 void BKE_pbvh_node_get_grids(PBVH *pbvh,
                              PBVHNode *node,
@@ -361,7 +349,7 @@ void BKE_pbvh_respect_hide_set(PBVH *pbvh, bool respect_hide);
 /* Vertex Deformer. */
 
 float (*BKE_pbvh_vert_coords_alloc(struct PBVH *pbvh))[3];
-void BKE_pbvh_vert_coords_apply(struct PBVH *pbvh, const float (*vertCos)[3], const int totvert);
+void BKE_pbvh_vert_coords_apply(struct PBVH *pbvh, const float (*vertCos)[3], int totvert);
 bool BKE_pbvh_is_deformed(struct PBVH *pbvh);
 
 /* Vertex Iterator. */
@@ -397,6 +385,7 @@ typedef struct PBVHVertexIter {
 
   /* mesh */
   struct MVert *mverts;
+  float (*vert_normals)[3];
   int totvert;
   const int *vert_indices;
   struct MPropCol *vcol;
@@ -413,7 +402,7 @@ typedef struct PBVHVertexIter {
   struct MVert *mvert;
   struct BMVert *bm_vert;
   float *co;
-  short *no;
+  float *no;
   float *fno;
   float *mask;
   float *col;
@@ -467,7 +456,7 @@ void pbvh_vertex_iter_init(PBVH *pbvh, PBVHNode *node, PBVHVertexIter *vi, int m
             BLI_assert(vi.visible); \
           } \
           vi.co = vi.mvert->co; \
-          vi.no = vi.mvert->no; \
+          vi.no = vi.vert_normals[vi.vert_indices[vi.gx]]; \
           vi.index = vi.vert_indices[vi.i]; \
           if (vi.vmask) { \
             vi.mask = &vi.vmask[vi.index]; \
@@ -533,6 +522,7 @@ void BKE_pbvh_parallel_range_settings(struct TaskParallelSettings *settings,
                                       int totnode);
 
 struct MVert *BKE_pbvh_get_verts(const PBVH *pbvh);
+const float (*BKE_pbvh_get_vert_normals(const PBVH *pbvh))[3];
 
 PBVHColorBufferNode *BKE_pbvh_node_color_buffer_get(PBVHNode *node);
 void BKE_pbvh_node_color_buffer_free(PBVH *pbvh);

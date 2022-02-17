@@ -1,26 +1,9 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# The Original Code is Copyright (C) 2021, Blender Foundation
-# All rights reserved.
-# ***** END GPL LICENSE BLOCK *****
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright 2021 Blender Foundation. All rights reserved.
 
 set(INC
   .
-  ../
+  ..
   ../intern
   ../../blenkernel
   ../../blenlib
@@ -63,7 +46,7 @@ set(SRC
   nodes/node_shader_camera.cc
   nodes/node_shader_clamp.cc
   nodes/node_shader_color_ramp.cc
-  nodes/node_shader_common.c
+  nodes/node_shader_common.cc
   nodes/node_shader_curves.cc
   nodes/node_shader_displacement.cc
   nodes/node_shader_eevee_specular.cc
@@ -93,8 +76,9 @@ set(SRC
   nodes/node_shader_output_material.cc
   nodes/node_shader_output_world.cc
   nodes/node_shader_particle_info.cc
-  nodes/node_shader_rgb_to_bw.cc
+  nodes/node_shader_point_info.cc
   nodes/node_shader_rgb.cc
+  nodes/node_shader_rgb_to_bw.cc
   nodes/node_shader_script.cc
   nodes/node_shader_sepcomb_hsv.cc
   nodes/node_shader_sepcomb_rgb.cc
@@ -132,10 +116,10 @@ set(SRC
   nodes/node_shader_wavelength.cc
   nodes/node_shader_wireframe.cc
 
-  node_shader_tree.c
+  node_shader_tree.cc
   node_shader_util.cc
 
-  node_shader_util.h
+  node_shader_util.hh
 )
 
 set(LIB
@@ -155,10 +139,6 @@ if(WITH_PYTHON)
     ${PYTHON_LIBRARIES}
   )
   add_definitions(-DWITH_PYTHON)
-endif()
-
-if(WITH_INTERNATIONAL)
-  add_definitions(-DWITH_INTERNATIONAL)
 endif()
 
 if(WITH_FREESTYLE)

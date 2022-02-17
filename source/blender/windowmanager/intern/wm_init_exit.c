@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -252,7 +236,7 @@ void WM_init(bContext *C, int argc, const char **argv)
   BKE_region_callback_free_gizmomap_set(wm_gizmomap_remove);
   BKE_region_callback_refresh_tag_gizmomap_set(WM_gizmomap_tag_refresh);
   BKE_library_callback_remap_editor_id_reference_set(WM_main_remap_editor_id_reference);
-  BKE_spacedata_callback_id_remap_set(ED_spacedata_id_remap);
+  BKE_spacedata_callback_id_remap_set(ED_spacedata_id_remap_single);
   DEG_editors_set_update_cb(ED_render_id_flush_update, ED_render_scene_update);
 
   ED_spacetypes_init();
@@ -356,10 +340,10 @@ void WM_init(bContext *C, int argc, const char **argv)
 
   if (!G.background) {
     if (wm_start_with_console) {
-      GHOST_toggleConsole(1);
+      setConsoleWindowState(GHOST_kConsoleWindowStateShow);
     }
     else {
-      GHOST_toggleConsole(3);
+      setConsoleWindowState(GHOST_kConsoleWindowStateHideForNonConsoleLaunch);
     }
   }
 
@@ -594,9 +578,7 @@ void WM_exit_ex(bContext *C, const bool do_python)
     DRW_opengl_context_destroy();
   }
 
-#ifdef WITH_INTERNATIONAL
   BLT_lang_free();
-#endif
 
   ANIM_keyingset_infos_exit();
 

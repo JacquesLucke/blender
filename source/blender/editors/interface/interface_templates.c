@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -667,6 +653,13 @@ static void template_id_cb(bContext *C, void *arg_litem, void *arg_event)
 
               /* Assign new pointer, takes care of updates/notifiers */
               RNA_id_pointer_create(override_id, &idptr);
+              /* Insert into override hierarchy if possible. */
+              ID *owner_id = template_ui->ptr.owner_id;
+              if (owner_id != NULL && ID_IS_OVERRIDE_LIBRARY_REAL(owner_id)) {
+                override_id->override_library->hierarchy_root =
+                    owner_id->override_library->hierarchy_root;
+                owner_id->override_library->flag &= ~IDOVERRIDE_LIBRARY_FLAG_NO_HIERARCHY;
+              }
             }
             undo_push_label = "Make Library Override";
           }
@@ -792,8 +785,8 @@ static const char *template_id_browse_tip(const StructRNA *type)
         return N_("Browse Workspace to be linked");
       case ID_LP:
         return N_("Browse LightProbe to be linked");
-      case ID_HA:
-        return N_("Browse Hair Data to be linked");
+      case ID_CV:
+        return N_("Browse Hair Curves Data to be linked");
       case ID_PT:
         return N_("Browse Point Cloud Data to be linked");
       case ID_VO:
@@ -874,7 +867,7 @@ static uiBut *template_id_def_new_but(uiBlock *block,
                             BLT_I18NCONTEXT_ID_FREESTYLELINESTYLE,
                             BLT_I18NCONTEXT_ID_WORKSPACE,
                             BLT_I18NCONTEXT_ID_LIGHTPROBE,
-                            BLT_I18NCONTEXT_ID_HAIR,
+                            BLT_I18NCONTEXT_ID_CURVES,
                             BLT_I18NCONTEXT_ID_POINTCLOUD,
                             BLT_I18NCONTEXT_ID_VOLUME,
                             BLT_I18NCONTEXT_ID_SIMULATION, );
@@ -2672,18 +2665,6 @@ static void constraint_ops_extra_draw(bContext *C, uiLayout *layout, void *con_v
 
 static void draw_constraint_header(uiLayout *layout, Object *ob, bConstraint *con)
 {
-  bPoseChannel *pchan = BKE_pose_channel_active_if_layer_visible(ob);
-  short proxy_protected, xco = 0, yco = 0;
-  // int rb_col; // UNUSED
-
-  /* determine whether constraint is proxy protected or not */
-  if (BKE_constraints_proxylocked_owner(ob, pchan)) {
-    proxy_protected = (con->flag & CONSTRAINT_PROXY_LOCAL) == 0;
-  }
-  else {
-    proxy_protected = 0;
-  }
-
   /* unless button has own callback, it adds this callback to button */
   uiBlock *block = uiLayoutGetBlock(layout);
   UI_block_func_set(block, constraint_active_func, ob, con);
@@ -2708,71 +2689,22 @@ static void draw_constraint_header(uiLayout *layout, Object *ob, bConstraint *co
 
   uiLayout *row = uiLayoutRow(layout, true);
 
-  if (proxy_protected == 0) {
-    uiItemR(row, &ptr, "name", 0, "", ICON_NONE);
-  }
-  else {
-    uiItemL(row, IFACE_(con->name), ICON_NONE);
-  }
+  uiItemR(row, &ptr, "name", 0, "", ICON_NONE);
 
-  /* proxy-protected constraints cannot be edited, so hide up/down + close buttons */
-  if (proxy_protected) {
-    UI_block_emboss_set(block, UI_EMBOSS_NONE);
+  /* Enabled eye icon. */
+  uiItemR(row, &ptr, "enabled", 0, "", ICON_NONE);
 
-    /* draw a ghost icon (for proxy) and also a lock beside it,
-     * to show that constraint is "proxy locked" */
-    uiDefIconBut(block,
-                 UI_BTYPE_BUT,
-                 0,
-                 ICON_GHOST_ENABLED,
-                 xco + 12.2f * UI_UNIT_X,
-                 yco,
-                 0.95f * UI_UNIT_X,
-                 0.95f * UI_UNIT_Y,
-                 NULL,
-                 0.0,
-                 0.0,
-                 0.0,
-                 0.0,
-                 TIP_("Proxy Protected"));
-    uiDefIconBut(block,
-                 UI_BTYPE_BUT,
-                 0,
-                 ICON_LOCKED,
-                 xco + 13.1f * UI_UNIT_X,
-                 yco,
-                 0.95f * UI_UNIT_X,
-                 0.95f * UI_UNIT_Y,
-                 NULL,
-                 0.0,
-                 0.0,
-                 0.0,
-                 0.0,
-                 TIP_("Proxy Protected"));
+  /* Extra operators menu. */
+  uiItemMenuF(row, "", ICON_DOWNARROW_HLT, constraint_ops_extra_draw, con);
 
-    UI_block_emboss_set(block, UI_EMBOSS);
-  }
-  else {
-    /* Enabled eye icon. */
-    uiItemR(row, &ptr, "enabled", 0, "", ICON_NONE);
-
-    /* Extra operators menu. */
-    uiItemMenuF(row, "", ICON_DOWNARROW_HLT, constraint_ops_extra_draw, con);
-
-    /* Close 'button' - emboss calls here disable drawing of 'button' behind X */
-    sub = uiLayoutRow(row, false);
-    uiLayoutSetEmboss(sub, UI_EMBOSS_NONE);
-    uiLayoutSetOperatorContext(sub, WM_OP_INVOKE_DEFAULT);
-    uiItemO(sub, "", ICON_X, "CONSTRAINT_OT_delete");
-  }
+  /* Close 'button' - emboss calls here disable drawing of 'button' behind X */
+  sub = uiLayoutRow(row, false);
+  uiLayoutSetEmboss(sub, UI_EMBOSS_NONE);
+  uiLayoutSetOperatorContext(sub, WM_OP_INVOKE_DEFAULT);
+  uiItemO(sub, "", ICON_X, "CONSTRAINT_OT_delete");
 
   /* Some extra padding at the end, so the 'x' icon isn't too close to drag button. */
   uiItemS(layout);
-
-  /* Set but-locks for protected settings (magic numbers are used here!) */
-  if (proxy_protected) {
-    UI_block_lock_set(block, true, TIP_("Cannot edit Proxy-Protected Constraint"));
-  }
 
   /* clear any locks set up for proxies/lib-linking */
   UI_block_lock_clear(block);
@@ -6397,6 +6329,10 @@ void uiTemplateNodeSocket(uiLayout *layout, bContext *UNUSED(C), float color[4])
 
 void uiTemplateCacheFileVelocity(uiLayout *layout, PointerRNA *fileptr)
 {
+  if (RNA_pointer_is_null(fileptr)) {
+    return;
+  }
+
   /* Ensure that the context has a CacheFile as this may not be set inside of modifiers panels. */
   uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
 
@@ -6406,6 +6342,10 @@ void uiTemplateCacheFileVelocity(uiLayout *layout, PointerRNA *fileptr)
 
 void uiTemplateCacheFileProcedural(uiLayout *layout, const bContext *C, PointerRNA *fileptr)
 {
+  if (RNA_pointer_is_null(fileptr)) {
+    return;
+  }
+
   /* Ensure that the context has a CacheFile as this may not be set inside of modifiers panels. */
   uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
 
@@ -6452,6 +6392,10 @@ void uiTemplateCacheFileProcedural(uiLayout *layout, const bContext *C, PointerR
 
 void uiTemplateCacheFileTimeSettings(uiLayout *layout, PointerRNA *fileptr)
 {
+  if (RNA_pointer_is_null(fileptr)) {
+    return;
+  }
+
   /* Ensure that the context has a CacheFile as this may not be set inside of modifiers panels. */
   uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
 
@@ -6472,6 +6416,71 @@ void uiTemplateCacheFileTimeSettings(uiLayout *layout, PointerRNA *fileptr)
   row = uiLayoutRow(layout, false);
   uiItemR(row, fileptr, "frame_offset", 0, NULL, ICON_NONE);
   uiLayoutSetActive(row, !RNA_boolean_get(fileptr, "is_sequence"));
+}
+
+static void cache_file_layer_item(uiList *UNUSED(ui_list),
+                                  bContext *UNUSED(C),
+                                  uiLayout *layout,
+                                  PointerRNA *UNUSED(dataptr),
+                                  PointerRNA *itemptr,
+                                  int UNUSED(icon),
+                                  PointerRNA *UNUSED(active_dataptr),
+                                  const char *UNUSED(active_propname),
+                                  int UNUSED(index),
+                                  int UNUSED(flt_flag))
+{
+  uiLayout *row = uiLayoutRow(layout, true);
+  uiItemR(row, itemptr, "hide_layer", UI_ITEM_R_NO_BG, "", ICON_NONE);
+  uiItemR(row, itemptr, "filepath", UI_ITEM_R_NO_BG, "", ICON_NONE);
+}
+
+uiListType *UI_UL_cache_file_layers()
+{
+  uiListType *list_type = (uiListType *)MEM_callocN(sizeof(*list_type), __func__);
+
+  BLI_strncpy(list_type->idname, "UI_UL_cache_file_layers", sizeof(list_type->idname));
+  list_type->draw_item = cache_file_layer_item;
+
+  return list_type;
+}
+
+void uiTemplateCacheFileLayers(uiLayout *layout, const bContext *C, PointerRNA *fileptr)
+{
+  if (RNA_pointer_is_null(fileptr)) {
+    return;
+  }
+
+  /* Ensure that the context has a CacheFile as this may not be set inside of modifiers panels. */
+  uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
+
+  uiLayout *row = uiLayoutRow(layout, false);
+  uiLayout *col = uiLayoutColumn(row, true);
+
+  uiTemplateList(col,
+                 (bContext *)C,
+                 "UI_UL_cache_file_layers",
+                 "cache_file_layers",
+                 fileptr,
+                 "layers",
+                 fileptr,
+                 "active_index",
+                 "",
+                 1,
+                 5,
+                 UILST_LAYOUT_DEFAULT,
+                 1,
+                 UI_TEMPLATE_LIST_FLAG_NONE);
+
+  col = uiLayoutColumn(row, true);
+  uiItemO(col, "", ICON_ADD, "cachefile.layer_add");
+  uiItemO(col, "", ICON_REMOVE, "cachefile.layer_remove");
+
+  CacheFile *file = fileptr->data;
+  if (BLI_listbase_count(&file->layers) > 1) {
+    uiItemS_ex(col, 1.0f);
+    uiItemO(col, "", ICON_TRIA_UP, "cachefile.layer_move");
+    uiItemO(col, "", ICON_TRIA_DOWN, "cachefile.layer_move");
+  }
 }
 
 bool uiTemplateCacheFilePointer(PointerRNA *ptr, const char *propname, PointerRNA *r_file_ptr)

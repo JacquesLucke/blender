@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2012 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2012 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -72,7 +56,7 @@ bool IMB_colormanagement_space_name_is_data(const char *name);
 /**
  * Convert a float RGB triplet to the correct luminance weighted average.
  *
- * Grayscale, or Luma is a distillation of RGB data values down to a weighted average
+ * Gray-scale, or Luma is a distillation of RGB data values down to a weighted average
  * based on the luminance positions of the red, green, and blue primaries.
  * Given that the internal reference space may be arbitrarily set, any
  * effort to glean the luminance coefficients must be aware of the reference
@@ -177,20 +161,20 @@ void IMB_colormanagement_colorspace_to_scene_linear(float *buffer,
                                                     bool predivide);
 
 void IMB_colormanagement_imbuf_to_byte_texture(unsigned char *out_buffer,
-                                               const int x,
-                                               const int y,
-                                               const int width,
-                                               const int height,
+                                               int x,
+                                               int y,
+                                               int width,
+                                               int height,
                                                const struct ImBuf *ibuf,
-                                               const bool compress_as_srgb,
-                                               const bool store_premultiplied);
+                                               bool compress_as_srgb,
+                                               bool store_premultiplied);
 void IMB_colormanagement_imbuf_to_float_texture(float *out_buffer,
-                                                const int offset_x,
-                                                const int offset_y,
-                                                const int width,
-                                                const int height,
+                                                int offset_x,
+                                                int offset_y,
+                                                int width,
+                                                int height,
                                                 const struct ImBuf *ibuf,
-                                                const bool store_premultiplied);
+                                                bool store_premultiplied);
 
 /**
  * Conversion between color picking role. Typically we would expect such a

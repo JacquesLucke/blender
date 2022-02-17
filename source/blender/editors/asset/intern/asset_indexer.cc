@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -39,6 +25,7 @@
 #include "BKE_appdir.h"
 #include "BKE_asset.h"
 #include "BKE_asset_catalog.hh"
+#include "BKE_idprop.hh"
 #include "BKE_preferences.h"
 
 #include "CLG_log.h"
@@ -49,6 +36,7 @@ namespace blender::ed::asset::index {
 
 using namespace blender::io::serialize;
 using namespace blender::bke;
+using namespace blender::bke::idprop;
 
 /**
  * \file asset_indexer.cc
@@ -69,12 +57,13 @@ using namespace blender::bke;
  *     "catalog_name": "<catalog_name>",
  *     "description": "<description>",
  *     "author": "<author>",
- *     "tags": ["<tag>"]
+ *     "tags": ["<tag>"],
+ *     "properties": [..]
  *   }]
  * }
  * \endcode
  *
- * NOTE: entries, author, description and tags are optional attributes.
+ * NOTE: entries, author, description, tags and properties are optional attributes.
  *
  * NOTE: File browser uses name and idcode separate. Inside the index they are joined together like
  * #ID.name.
@@ -88,6 +77,7 @@ constexpr StringRef ATTRIBUTE_ENTRIES_CATALOG_NAME("catalog_name");
 constexpr StringRef ATTRIBUTE_ENTRIES_DESCRIPTION("description");
 constexpr StringRef ATTRIBUTE_ENTRIES_AUTHOR("author");
 constexpr StringRef ATTRIBUTE_ENTRIES_TAGS("tags");
+constexpr StringRef ATTRIBUTE_ENTRIES_PROPERTIES("properties");
 
 /** Abstract class for #BlendFile and #AssetIndexFile. */
 class AbstractFile {
@@ -216,6 +206,20 @@ struct AssetEntryReader {
       BKE_asset_metadata_tag_add(asset_data, tag_name.c_str());
     }
   }
+
+  void add_properties_to_meta_data(AssetMetaData *asset_data) const
+  {
+    BLI_assert(asset_data->properties == nullptr);
+    const DictionaryValue::LookupValue *value_ptr = lookup.lookup_ptr(
+        ATTRIBUTE_ENTRIES_PROPERTIES);
+    if (value_ptr == nullptr) {
+      return;
+    }
+
+    const Value &value = *(value_ptr->get());
+    IDProperty *properties = convert_from_serialize_value(value);
+    asset_data->properties = properties;
+  }
 };
 
 struct AssetEntryWriter {
@@ -274,6 +278,15 @@ struct AssetEntryWriter {
       tag_items.append_as(new StringValue(tag->name));
     }
   }
+
+  void add_properties(const IDProperty *properties)
+  {
+    std::unique_ptr<Value> value = convert_to_serialize_values(properties);
+    if (value == nullptr) {
+      return;
+    }
+    attributes.append_as(std::pair(ATTRIBUTE_ENTRIES_PROPERTIES, value.release()));
+  }
 };
 
 static void init_value_from_file_indexer_entry(AssetEntryWriter &result,
@@ -296,6 +309,10 @@ static void init_value_from_file_indexer_entry(AssetEntryWriter &result,
 
   if (!BLI_listbase_is_empty(&asset_data.tags)) {
     result.add_tags(&asset_data.tags);
+  }
+
+  if (asset_data.properties != nullptr) {
+    result.add_properties(asset_data.properties);
   }
 
   /* TODO: asset_data.IDProperties */
@@ -363,6 +380,7 @@ static void init_indexer_entry_from_value(FileIndexerEntry &indexer_entry,
   asset_data->catalog_id = entry.get_catalog_id();
 
   entry.add_tags_to_meta_data(asset_data);
+  entry.add_properties_to_meta_data(asset_data);
 }
 
 static int init_indexer_entries_from_value(FileIndexerEntries &indexer_entries,
@@ -534,9 +552,9 @@ struct AssetIndex {
   /**
    * `blender::io::serialize::Value` representing the contents of an index file.
    *
-   * Value is used over #DictionaryValue as the contents of the index could be corrupted and doesn't
-   * represent an object. In case corrupted files are detected the `get_version` would return
-   * `UNKNOWN_VERSION`.
+   * Value is used over #DictionaryValue as the contents of the index could be corrupted and
+   * doesn't represent an object. In case corrupted files are detected the `get_version` would
+   * return `UNKNOWN_VERSION`.
    */
   std::unique_ptr<Value> contents;
 

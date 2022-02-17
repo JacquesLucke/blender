@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 by Janne Karhu.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 by Janne Karhu. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -1674,6 +1658,7 @@ static void interpolate_pathcache(ParticleCacheKey *first, float t, ParticleCach
 /************************************************/
 
 void psys_interpolate_face(MVert *mvert,
+                           const float (*vert_normals)[3],
                            MFace *mface,
                            MTFace *tface,
                            float (*orcodata)[3],
@@ -1695,13 +1680,13 @@ void psys_interpolate_face(MVert *mvert,
   v2 = mvert[mface->v2].co;
   v3 = mvert[mface->v3].co;
 
-  normal_short_to_float_v3(n1, mvert[mface->v1].no);
-  normal_short_to_float_v3(n2, mvert[mface->v2].no);
-  normal_short_to_float_v3(n3, mvert[mface->v3].no);
+  copy_v3_v3(n1, vert_normals[mface->v1]);
+  copy_v3_v3(n2, vert_normals[mface->v2]);
+  copy_v3_v3(n3, vert_normals[mface->v3]);
 
   if (mface->v4) {
     v4 = mvert[mface->v4].co;
-    normal_short_to_float_v3(n4, mvert[mface->v4].no);
+    copy_v3_v3(n4, vert_normals[mface->v4]);
 
     interp_v3_v3v3v3v3(vec, v1, v2, v3, v4, w);
 
@@ -2124,13 +2109,13 @@ void psys_particle_on_dm(Mesh *mesh_final,
   }
 
   orcodata = CustomData_get_layer(&mesh_final->vdata, CD_ORCO);
+  const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(mesh_final);
 
   if (from == PART_FROM_VERT) {
     copy_v3_v3(vec, mesh_final->mvert[mapindex].co);
 
     if (nor) {
-      normal_short_to_float_v3(nor, mesh_final->mvert[mapindex].no);
-      normalize_v3(nor);
+      copy_v3_v3(nor, vert_normals[mapindex]);
     }
 
     if (orco) {
@@ -2161,7 +2146,8 @@ void psys_particle_on_dm(Mesh *mesh_final,
     }
 
     if (from == PART_FROM_VOLUME) {
-      psys_interpolate_face(mvert, mface, mtface, orcodata, mapfw, vec, tmpnor, utan, vtan, orco);
+      psys_interpolate_face(
+          mvert, vert_normals, mface, mtface, orcodata, mapfw, vec, tmpnor, utan, vtan, orco);
       if (nor) {
         copy_v3_v3(nor, tmpnor);
       }
@@ -2173,7 +2159,8 @@ void psys_particle_on_dm(Mesh *mesh_final,
       add_v3_v3(vec, tmpnor);
     }
     else {
-      psys_interpolate_face(mvert, mface, mtface, orcodata, mapfw, vec, nor, utan, vtan, orco);
+      psys_interpolate_face(
+          mvert, vert_normals, mface, mtface, orcodata, mapfw, vec, nor, utan, vtan, orco);
     }
   }
 }
@@ -4637,7 +4624,7 @@ void psys_get_particle_on_path(ParticleSimulationData *sim,
        * account when subdividing for instance. */
       pind.mesh = psys_in_edit_mode(sim->depsgraph, psys) ?
                       NULL :
-                      psys->hair_out_mesh; /* XXX(@sybren) EEK. */
+                      psys->hair_out_mesh; /* XXX(@sybren): EEK. */
       init_particle_interpolation(sim->ob, psys, pa, &pind);
       do_particle_interpolation(psys, p, pa, t, &pind, state);
 

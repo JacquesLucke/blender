@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup obj
@@ -38,7 +24,7 @@ class OBJDepsgraph : NonMovable, NonCopyable {
   bool needs_free_ = false;
 
  public:
-  OBJDepsgraph(const bContext *C, const eEvaluationMode eval_mode);
+  OBJDepsgraph(const bContext *C, eEvaluationMode eval_mode);
   ~OBJDepsgraph();
 
   Depsgraph *get();
@@ -51,6 +37,9 @@ class OBJDepsgraph : NonMovable, NonCopyable {
  * Depending on whether or not `export_params.export_animation` is set, it writes
  * either one file per animation frame, or just one file.
  */
+/**
+ * Central internal function to call Scene update & writer functions.
+ */
 void exporter_main(bContext *C, const OBJExportParams &export_params);
 
 class OBJMesh;
@@ -61,6 +50,11 @@ class OBJCurve;
  * The frame state is given in `depsgraph`.
  * The output file name is given by `filepath`.
  * This function is normally called from `exporter_main`, but is exposed here for testing purposes.
+ */
+/**
+ * Export a single frame to a .OBJ file.
+ *
+ * Conditionally write a .MTL file also.
  */
 void export_frame(Depsgraph *depsgraph,
                   const OBJExportParams &export_params,
@@ -84,5 +78,10 @@ filter_supported_objects(Depsgraph *depsgraph, const OBJExportParams &export_par
  * be `filepath` with its "#" characters replaced by the number representing `frame`, and with
  * a .obj extension.
  */
-bool append_frame_to_filename(const char *filepath, const int frame, char *r_filepath_with_frames);
+/**
+ * Append the current frame number in the .OBJ file name.
+ *
+ * \return Whether the filepath is in #FILE_MAX limits.
+ */
+bool append_frame_to_filename(const char *filepath, int frame, char *r_filepath_with_frames);
 }  // namespace blender::io::obj

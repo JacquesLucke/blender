@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spnode
@@ -55,7 +39,7 @@
 
 #include "node_intern.hh" /* own include */
 
-using blender::StringRef;
+namespace blender::ed::space_node {
 
 /* -------------------------------------------------------------------- */
 /** \name View All Operator
@@ -444,6 +428,8 @@ static void sample_draw(const bContext *C, ARegion *region, void *arg_info)
   }
 }
 
+}  // namespace blender::ed::space_node
+
 bool ED_space_node_get_position(
     Main *bmain, SpaceNode *snode, struct ARegion *region, const int mval[2], float fpos[2])
 {
@@ -525,6 +511,8 @@ bool ED_space_node_color_sample(
 
   return ret;
 }
+
+namespace blender::ed::space_node {
 
 static void sample_apply(bContext *C, wmOperator *op, const wmEvent *event)
 {
@@ -783,3 +771,5 @@ void NODE_OT_geometry_node_view_legacy(wmOperatorType *ot)
 }
 
 /** \} */
+
+}  // namespace blender::ed::space_node

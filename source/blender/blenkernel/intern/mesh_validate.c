@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2011 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -28,6 +12,7 @@
 
 #include "CLG_log.h"
 
+#include "BLI_bitmap.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
@@ -303,6 +288,12 @@ bool BKE_mesh_validate_arrays(Mesh *mesh,
     recalc_flag.edges = do_fixes;
   }
 
+  const float(*vert_normals)[3] = NULL;
+  BKE_mesh_assert_normals_dirty_or_calculated(mesh);
+  if (!BKE_mesh_vertex_normals_are_dirty(mesh)) {
+    vert_normals = BKE_mesh_vertex_normals_ensure(mesh);
+  }
+
   for (i = 0; i < totvert; i++, mv++) {
     bool fix_normal = true;
 
@@ -317,13 +308,13 @@ bool BKE_mesh_validate_arrays(Mesh *mesh,
         }
       }
 
-      if (mv->no[j] != 0) {
+      if (vert_normals && vert_normals[i][j] != 0.0f) {
         fix_normal = false;
         break;
       }
     }
 
-    if (fix_normal) {
+    if (vert_normals && fix_normal) {
       /* If the vertex normal accumulates to zero or isn't part of a face, the location is used.
        * When the location is also zero, a zero normal warning should not be raised.
        * since this is the expected behavior of normal calculation.
@@ -336,7 +327,8 @@ bool BKE_mesh_validate_arrays(Mesh *mesh,
       if (!is_zero_v3(mv->co)) {
         PRINT_ERR("\tVertex %u: has zero normal, assuming Z-up normal", i);
         if (do_fixes) {
-          mv->no[2] = SHRT_MAX;
+          float *normal = (float *)vert_normals[i];
+          normal[2] = 1.0f;
           fix_flag.verts = true;
         }
       }
@@ -553,6 +545,8 @@ bool BKE_mesh_validate_arrays(Mesh *mesh,
    * so be sure to leave at most one poly per loop!
    */
   {
+    BLI_bitmap *vert_tag = BLI_BITMAP_NEW(mesh->totvert, __func__);
+
     SortPoly *sort_polys = MEM_callocN(sizeof(SortPoly) * totpoly, "mesh validate's sort_polys");
     SortPoly *prev_sp, *sp = sort_polys;
     int prev_end;
@@ -601,7 +595,7 @@ bool BKE_mesh_validate_arrays(Mesh *mesh,
          * so we have to ensure here all verts of current poly are cleared. */
         for (j = 0, ml = &mloops[sp->loopstart]; j < mp->totloop; j++, ml++) {
           if (ml->v < totvert) {
-            mverts[ml->v].flag &= ~ME_VERT_TMP_TAG;
+            BLI_BITMAP_DISABLE(vert_tag, ml->v);
           }
         }
 
@@ -612,12 +606,12 @@ bool BKE_mesh_validate_arrays(Mesh *mesh,
             PRINT_ERR("\tLoop %u has invalid vert reference (%u)", sp->loopstart + j, ml->v);
             sp->invalid = true;
           }
-          else if (mverts[ml->v].flag & ME_VERT_TMP_TAG) {
+          else if (BLI_BITMAP_TEST(vert_tag, ml->v)) {
             PRINT_ERR("\tPoly %u has duplicated vert reference at corner (%u)", i, j);
             sp->invalid = true;
           }
           else {
-            mverts[ml->v].flag |= ME_VERT_TMP_TAG;
+            BLI_BITMAP_ENABLE(vert_tag, ml->v);
           }
           *v = ml->v;
         }
@@ -690,6 +684,8 @@ bool BKE_mesh_validate_arrays(Mesh *mesh,
         }
       }
     }
+
+    MEM_freeN(vert_tag);
 
     /* Second check pass, testing polys using the same verts. */
     qsort(sort_polys, totpoly, sizeof(SortPoly), search_poly_cmp);
@@ -1001,6 +997,10 @@ bool BKE_mesh_validate_all_customdata(CustomData *vdata,
   CustomData_MeshMasks mask = {0};
   if (check_meshmask) {
     mask = CD_MASK_MESH;
+    /* Normal data isn't in the mask since it is derived data,
+     * but it is valid and should not be removed. */
+    mask.vmask |= CD_MASK_NORMAL;
+    mask.pmask |= CD_MASK_NORMAL;
   }
 
   is_valid &= mesh_validate_customdata(
@@ -1097,6 +1097,8 @@ bool BKE_mesh_is_valid(Mesh *me)
 
   bool is_valid = true;
   bool changed = true;
+
+  BKE_mesh_assert_normals_dirty_or_calculated(me);
 
   is_valid &= BKE_mesh_validate_all_customdata(
       &me->vdata,

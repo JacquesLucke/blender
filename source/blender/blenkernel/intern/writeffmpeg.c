@@ -1,19 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- * Partial Copyright (c) 2006 Peter Schlaile
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Partial Copyright 2006 Peter Schlaile. */
 
 /** \file
  * \ingroup bke
@@ -726,14 +712,12 @@ static AVStream *alloc_video_stream(FFMpegContext *context,
     }
   }
 
-  if (codec_id == AV_CODEC_ID_VP9) {
-    if (rd->im_format.planes == R_IMF_PLANES_RGBA) {
-      c->pix_fmt = AV_PIX_FMT_YUVA420P;
-    }
+  if (codec_id == AV_CODEC_ID_VP9 && rd->im_format.planes == R_IMF_PLANES_RGBA) {
+    c->pix_fmt = AV_PIX_FMT_YUVA420P;
   }
-
-  /* Use 4:4:4 instead of 4:2:0 pixel format for lossless rendering. */
-  if ((codec_id == AV_CODEC_ID_H264 || codec_id == AV_CODEC_ID_VP9) && context->ffmpeg_crf == 0) {
+  else if ((codec_id == AV_CODEC_ID_H264 || codec_id == AV_CODEC_ID_VP9) &&
+           context->ffmpeg_crf == 0) {
+    /* Use 4:4:4 instead of 4:2:0 pixel format for lossless rendering. */
     c->pix_fmt = AV_PIX_FMT_YUV444P;
   }
 
@@ -1434,6 +1418,8 @@ int BKE_ffmpeg_append(void *context_v,
     /* Add +1 frame because we want to encode audio up until the next video frame. */
     write_audio_frames(
         context, (frame - start_frame + 1) / (((double)rd->frs_sec) / (double)rd->frs_sec_base));
+#  else
+    UNUSED_VARS(start_frame);
 #  endif
 
     if (context->ffmpeg_autosplit) {

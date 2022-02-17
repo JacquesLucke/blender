@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008, Blender Foundation
- * This is a new part of Blender
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. */
 
 /** \file
  * \ingroup edgpencil
@@ -54,7 +38,9 @@
 #include "BKE_deform.h"
 #include "BKE_global.h"
 #include "BKE_gpencil.h"
+#include "BKE_gpencil_curve.h"
 #include "BKE_gpencil_geom.h"
+#include "BKE_gpencil_update_cache.h"
 #include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -834,7 +820,7 @@ static short gpencil_stroke_addpoint(tGPsdata *p,
     /* color strength */
     if (brush_settings->flag & GP_BRUSH_USE_STRENGTH_PRESSURE) {
       pt->strength *= BKE_curvemapping_evaluateF(brush_settings->curve_strength, 0, pressure);
-      CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
+      CLAMP(pt->strength, MIN2(GPENCIL_STRENGTH_MIN, brush_settings->draw_strength), 1.0f);
     }
 
     /* Set vertex colors for buffer. */
@@ -918,6 +904,19 @@ static short gpencil_stroke_addpoint(tGPsdata *p,
   return GP_STROKEADD_INVALID;
 }
 
+static void gpencil_stroke_unselect(bGPdata *gpd, bGPDstroke *gps)
+{
+  gps->flag &= ~GP_STROKE_SELECT;
+  BKE_gpencil_stroke_select_index_reset(gps);
+  for (int i = 0; i < gps->totpoints; i++) {
+    gps->points[i].flag &= ~GP_SPOINT_SELECT;
+  }
+  /* Update the selection from the stroke to the curve. */
+  if (gps->editcurve) {
+    BKE_gpencil_editcurve_stroke_sync_selection(gpd, gps, gps->editcurve);
+  }
+}
+
 /* make a new stroke from the buffer data */
 static void gpencil_stroke_newfrombuffer(tGPsdata *p)
 {
@@ -928,6 +927,7 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
   tGPspoint *ptc;
   MDeformVert *dvert = NULL;
   Brush *brush = p->brush;
+  BrushGpencilSettings *brush_settings = brush->gpencil_settings;
   ToolSettings *ts = p->scene->toolsettings;
   Depsgraph *depsgraph = p->depsgraph;
   Object *obact = (Object *)p->ownerPtr.data;
@@ -1016,7 +1016,7 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
       /* copy pressure and time */
       pt->pressure = ptc->pressure;
       pt->strength = ptc->strength;
-      CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
+      CLAMP(pt->strength, MIN2(GPENCIL_STRENGTH_MIN, brush_settings->draw_strength), 1.0f);
       copy_v4_v4(pt->vert_color, ptc->vert_color);
       pt->time = ptc->time;
       /* Apply the vertex color to point. */
@@ -1050,7 +1050,7 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
       /* copy pressure and time */
       pt->pressure = ptc->pressure;
       pt->strength = ptc->strength;
-      CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
+      CLAMP(pt->strength, MIN2(GPENCIL_STRENGTH_MIN, brush_settings->draw_strength), 1.0f);
       pt->time = ptc->time;
       /* Apply the vertex color to point. */
       ED_gpencil_point_vertex_color_set(ts, brush, pt, ptc);
@@ -1175,7 +1175,7 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
       /* copy pressure and time */
       pt->pressure = ptc->pressure;
       pt->strength = ptc->strength;
-      CLAMP(pt->strength, GPENCIL_STRENGTH_MIN, 1.0f);
+      CLAMP(pt->strength, MIN2(GPENCIL_STRENGTH_MIN, brush_settings->draw_strength), 1.0f);
       copy_v4_v4(pt->vert_color, ptc->vert_color);
       pt->time = ptc->time;
       pt->uv_fac = ptc->uv_fac;
@@ -1282,7 +1282,7 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
 
   /* Join with existing strokes. */
   if (ts->gpencil_flags & GP_TOOL_FLAG_AUTOMERGE_STROKE) {
-    if (gps->prev != NULL) {
+    if ((gps->prev != NULL) || (gps->next != NULL)) {
       BKE_gpencil_stroke_boundingbox_calc(gps);
       float diff_mat[4][4], ctrl1[2], ctrl2[2];
       BKE_gpencil_layer_transform_matrix_get(depsgraph, p->ob, gpl, diff_mat);
@@ -1300,7 +1300,12 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
                                                                    ctrl2,
                                                                    GPENCIL_MINIMUM_JOIN_DIST,
                                                                    &pt_index);
+
         if (gps_target != NULL) {
+          /* Unselect all points of source and destination strokes. This is required to avoid
+           * a change in the resolution of the original strokes during the join. */
+          gpencil_stroke_unselect(gpd, gps);
+          gpencil_stroke_unselect(gpd, gps_target);
           gps = ED_gpencil_stroke_join_and_trim(p->gpd, p->gpf, gps, gps_target, pt_index);
         }
         else {
@@ -1321,6 +1326,7 @@ static void gpencil_stroke_newfrombuffer(tGPsdata *p)
   }
 
   gpencil_update_cache(p->gpd);
+  BKE_gpencil_tag_full_update(p->gpd, gpl, p->gpf, NULL);
 }
 
 /* --- 'Eraser' for 'Paint' Tool ------ */
@@ -1486,7 +1492,7 @@ static void gpencil_stroke_eraser_dostroke(tGPsdata *p,
       bGPDspoint pt_temp;
       gpencil_point_to_parent_space(gps->points, p->diff_mat, &pt_temp);
       gpencil_point_to_xy(&p->gsc, gps, &pt_temp, &pc1[0], &pc1[1]);
-      /* do boundbox check first */
+      /* Do bound-box check first. */
       if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
         /* only check if point is inside */
         if (len_v2v2_int(mval_i, pc1) <= radius) {
@@ -1511,7 +1517,7 @@ static void gpencil_stroke_eraser_dostroke(tGPsdata *p,
       gpencil_point_to_parent_space(pt1, p->diff_mat, &npt);
       gpencil_point_to_xy(&p->gsc, gps, &npt, &pc1[0], &pc1[1]);
 
-      /* do boundbox check first */
+      /* Do bound-box check first. */
       if ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) {
         /* only check if point is inside */
         if (len_v2v2_int(mval_i, pc1) <= radius) {
@@ -1581,7 +1587,7 @@ static void gpencil_stroke_eraser_dostroke(tGPsdata *p,
         copy_v2_v2_int(pc0, pc1);
       }
 
-      /* Check that point segment of the boundbox of the eraser stroke */
+      /* Check that point segment of the bound-box of the eraser stroke. */
       if (((!ELEM(V2D_IS_CLIPPED, pc0[0], pc0[1])) && BLI_rcti_isect_pt(rect, pc0[0], pc0[1])) ||
           ((!ELEM(V2D_IS_CLIPPED, pc1[0], pc1[1])) && BLI_rcti_isect_pt(rect, pc1[0], pc1[1])) ||
           ((!ELEM(V2D_IS_CLIPPED, pc2[0], pc2[1])) && BLI_rcti_isect_pt(rect, pc2[0], pc2[1]))) {
@@ -2088,6 +2094,9 @@ static void gpencil_session_cleanup(tGPsdata *p)
   gpd->runtime.sbuffer_used = 0;
   gpd->runtime.sbuffer_size = 0;
   gpd->runtime.sbuffer_sflag = 0;
+  /* This update is required for update-on-write because the sbuffer data is not longer overwritten
+   * by a copy-on-write. */
+  ED_gpencil_sbuffer_update_eval(gpd, p->ob_eval);
   p->inittime = 0.0;
 }
 
@@ -2116,6 +2125,7 @@ static void gpencil_paint_initstroke(tGPsdata *p,
   p->gpl = BKE_gpencil_layer_active_get(p->gpd);
   if (p->gpl == NULL) {
     p->gpl = BKE_gpencil_layer_addnew(p->gpd, DATA_("GP_Layer"), true, false);
+    BKE_gpencil_tag_full_update(p->gpd, NULL, NULL, NULL);
     changed = true;
     if (p->custom_color[3]) {
       copy_v3_v3(p->gpl->color, p->custom_color);
@@ -2198,10 +2208,15 @@ static void gpencil_paint_initstroke(tGPsdata *p,
     }
 
     bool need_tag = p->gpl->actframe == NULL;
+    bGPDframe *actframe = p->gpl->actframe;
+
     p->gpf = BKE_gpencil_layer_frame_get(p->gpl, CFRA, add_frame_mode);
     /* Only if there wasn't an active frame, need update. */
     if (need_tag) {
-      DEG_id_tag_update(&p->gpd->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
+      DEG_id_tag_update(&p->gpd->id, ID_RECALC_GEOMETRY);
+    }
+    if (actframe != p->gpl->actframe) {
+      BKE_gpencil_tag_full_update(p->gpd, p->gpl, NULL, NULL);
     }
 
     if (p->gpf == NULL) {

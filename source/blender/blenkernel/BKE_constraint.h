@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -162,9 +146,7 @@ void BKE_constraint_unique_name(struct bConstraint *con, struct ListBase *list);
 /**
  * Allocate and duplicate a single constraint, outside of any object/pose context.
  */
-struct bConstraint *BKE_constraint_duplicate_ex(struct bConstraint *src,
-                                                const int flag,
-                                                const bool do_extern);
+struct bConstraint *BKE_constraint_duplicate_ex(struct bConstraint *src, int flag, bool do_extern);
 
 /**
  * Add a copy of the given constraint for the given bone.
@@ -188,7 +170,7 @@ void BKE_constraints_copy(struct ListBase *dst, const struct ListBase *src, bool
  */
 void BKE_constraints_copy_ex(struct ListBase *dst,
                              const struct ListBase *src,
-                             const int flag,
+                             int flag,
                              bool do_extern);
 /**
  * Run the given callback on all ID-blocks in list of constraints.
@@ -280,18 +262,6 @@ bool BKE_constraint_apply_and_remove_for_pose(struct Depsgraph *depsgraph,
 
 void BKE_constraint_panel_expand(struct bConstraint *con);
 
-/* Constraints + Proxies function prototypes */
-
-/**
- * Rescue all constraints tagged as being #CONSTRAINT_PROXY_LOCAL
- * (i.e. added to bone that's proxy-synced in this file).
- */
-void BKE_constraints_proxylocal_extract(struct ListBase *dst, struct ListBase *src);
-/**
- * Returns if the owner of the constraint is proxy-protected.
- */
-bool BKE_constraints_proxylocked_owner(struct Object *ob, struct bPoseChannel *pchan);
-
 /* Constraint Evaluation function prototypes */
 
 /**
@@ -319,7 +289,7 @@ void BKE_constraint_mat_convertspace(struct Object *ob,
                                      float mat[4][4],
                                      short from,
                                      short to,
-                                     const bool keep_scale);
+                                     bool keep_scale);
 
 /**
  * This function is a relic from the prior implementations of the constraints system, when all

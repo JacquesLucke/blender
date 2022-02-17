@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2019, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2019 Blender Foundation. */
 
 /** \file
  * \ingroup draw
@@ -23,11 +8,13 @@
 #pragma once
 
 struct DRWSubdivCache;
+struct MeshRenderData;
 struct TaskGraph;
 
 #include "DNA_customdata_types.h"
 
 #include "BKE_attribute.h"
+#include "BKE_object.h"
 
 #include "GPU_batch.h"
 #include "GPU_index_buffer.h"
@@ -107,11 +94,13 @@ ENUM_OPERATORS(eMRDataType, MR_DATA_POLYS_SORTED)
 extern "C" {
 #endif
 
-BLI_INLINE int mesh_render_mat_len_get(const Mesh *me)
+BLI_INLINE int mesh_render_mat_len_get(const Object *object, const Mesh *me)
 {
-  /* In edit mode, the displayed mesh is stored in the edit-mesh. */
-  if (me->edit_mesh && me->edit_mesh->mesh_eval_final) {
-    return MAX2(1, me->edit_mesh->mesh_eval_final->totcol);
+  if (me->edit_mesh != NULL) {
+    const Mesh *editmesh_eval_final = BKE_object_get_editmesh_eval_final(object);
+    if (editmesh_eval_final != NULL) {
+      return MAX2(1, editmesh_eval_final->totcol);
+    }
   }
   return MAX2(1, me->totcol);
 }
@@ -328,22 +317,23 @@ typedef struct MeshBatchCache {
 void mesh_buffer_cache_create_requested(struct TaskGraph *task_graph,
                                         MeshBatchCache *cache,
                                         MeshBufferCache *mbc,
+                                        Object *object,
                                         Mesh *me,
-                                        const bool is_editmode,
-                                        const bool is_paint_mode,
-                                        const bool is_mode_active,
+                                        bool is_editmode,
+                                        bool is_paint_mode,
+                                        bool is_mode_active,
                                         const float obmat[4][4],
-                                        const bool do_final,
-                                        const bool do_uvedit,
-                                        const bool use_subsurf_fdots,
+                                        bool do_final,
+                                        bool do_uvedit,
+                                        bool use_subsurf_fdots,
                                         const Scene *scene,
                                         const struct ToolSettings *ts,
-                                        const bool use_hide);
+                                        bool use_hide);
 
 void mesh_buffer_cache_create_requested_subdiv(MeshBatchCache *cache,
                                                MeshBufferCache *mbc,
                                                struct DRWSubdivCache *subdiv_cache,
-                                               const struct ToolSettings *ts);
+                                               struct MeshRenderData *mr);
 
 #ifdef __cplusplus
 }

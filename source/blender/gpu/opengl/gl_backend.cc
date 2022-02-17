@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2020, Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -240,12 +224,16 @@ static void detect_workarounds()
     GLContext::unused_fb_slot_workaround = true;
     /* Turn off extensions. */
     GCaps.shader_image_load_store_support = false;
+    GCaps.shader_storage_buffer_objects_support = false;
     GLContext::base_instance_support = false;
     GLContext::clear_texture_support = false;
     GLContext::copy_image_support = false;
     GLContext::debug_layer_support = false;
     GLContext::direct_state_access_support = false;
     GLContext::fixed_restart_index_support = false;
+    GLContext::geometry_shader_invocations = false;
+    GLContext::layered_rendering_support = false;
+    GLContext::native_barycentric_support = false;
     GLContext::multi_bind_support = false;
     GLContext::multi_draw_indirect_support = false;
     GLContext::shader_draw_parameters_support = false;
@@ -418,6 +406,12 @@ static void detect_workarounds()
       strstr(renderer, "HD Graphics 4000")) {
     GLContext::generate_mipmap_workaround = true;
   }
+
+  /* Buggy interface query functions cause crashes when handling SSBOs (T93680) */
+  if (GPU_type_matches(GPU_DEVICE_INTEL, GPU_OS_ANY, GPU_DRIVER_ANY) &&
+      (strstr(renderer, "HD Graphics 4400") || strstr(renderer, "HD Graphics 4600"))) {
+    GCaps.shader_storage_buffer_objects_support = false;
+  }
 }  // namespace blender::gpu
 
 /** Internal capabilities. */
@@ -434,7 +428,11 @@ bool GLContext::clear_texture_support = false;
 bool GLContext::copy_image_support = false;
 bool GLContext::debug_layer_support = false;
 bool GLContext::direct_state_access_support = false;
+bool GLContext::explicit_location_support = false;
+bool GLContext::geometry_shader_invocations = false;
 bool GLContext::fixed_restart_index_support = false;
+bool GLContext::layered_rendering_support = false;
+bool GLContext::native_barycentric_support = false;
 bool GLContext::multi_bind_support = false;
 bool GLContext::multi_draw_indirect_support = false;
 bool GLContext::shader_draw_parameters_support = false;
@@ -492,7 +490,11 @@ void GLBackend::capabilities_init()
   GLContext::copy_image_support = GLEW_ARB_copy_image;
   GLContext::debug_layer_support = GLEW_VERSION_4_3 || GLEW_KHR_debug || GLEW_ARB_debug_output;
   GLContext::direct_state_access_support = GLEW_ARB_direct_state_access;
+  GLContext::explicit_location_support = GLEW_VERSION_4_3;
+  GLContext::geometry_shader_invocations = GLEW_ARB_gpu_shader5;
   GLContext::fixed_restart_index_support = GLEW_ARB_ES3_compatibility;
+  GLContext::layered_rendering_support = GLEW_AMD_vertex_shader_layer;
+  GLContext::native_barycentric_support = GLEW_AMD_shader_explicit_vertex_parameter;
   GLContext::multi_bind_support = GLEW_ARB_multi_bind;
   GLContext::multi_draw_indirect_support = GLEW_ARB_multi_draw_indirect;
   GLContext::shader_draw_parameters_support = GLEW_ARB_shader_draw_parameters;

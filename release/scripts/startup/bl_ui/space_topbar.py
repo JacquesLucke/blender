@@ -1,20 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # <pep8 compliant>
 import bpy
@@ -481,7 +465,7 @@ class TOPBAR_MT_file_export(Menu):
     bl_owner_use_filter = False
 
     def draw(self, _context):
-        self.layout.operator("wm.obj_export", text="Wavefront OBJ (.obj) - New")
+        self.layout.operator("wm.obj_export", text="Wavefront OBJ (.obj)")
         if bpy.app.build_options.collada:
             self.layout.operator("wm.collada_export",
                                  text="Collada (Default) (.dae)")
@@ -831,6 +815,14 @@ class TOPBAR_PT_name(Panel):
             if item:
                 row = row_with_icon(layout, 'NODE')
                 row.prop(item, "label", text="")
+                found = True
+        elif space_type == 'NLA_EDITOR':
+            layout.label(text="NLA Strip Name")
+            item = next(
+                (strip for strip in context.selected_nla_strips if strip.active), None)
+            if item:
+                row = row_with_icon(layout, 'NLA')
+                row.prop(item, "name", text="")
                 found = True
         else:
             if mode == 'POSE' or (mode == 'WEIGHT_PAINT' and context.pose_object):

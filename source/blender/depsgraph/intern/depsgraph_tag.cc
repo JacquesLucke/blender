@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2013 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2013 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup depsgraph
@@ -87,7 +71,7 @@ void depsgraph_geometry_tag_to_component(const ID *id, NodeType *component_type)
 
 bool is_selectable_data_id_type(const ID_Type id_type)
 {
-  return ELEM(id_type, ID_ME, ID_CU, ID_MB, ID_LT, ID_GD, ID_HA, ID_PT, ID_VO);
+  return ELEM(id_type, ID_ME, ID_CU, ID_MB, ID_LT, ID_GD, ID_CV, ID_PT, ID_VO);
 }
 
 void depsgraph_select_tag_to_component_opcode(const ID *id,
@@ -211,7 +195,7 @@ void depsgraph_tag_to_component_opcode(const ID *id,
     case ID_RECALC_SEQUENCER_STRIPS:
       *component_type = NodeType::SEQUENCER;
       break;
-    case ID_RECALC_AUDIO_SEEK:
+    case ID_RECALC_FRAME_CHANGE:
     case ID_RECALC_AUDIO_FPS:
     case ID_RECALC_AUDIO_VOLUME:
     case ID_RECALC_AUDIO_MUTE:
@@ -284,6 +268,7 @@ void depsgraph_tag_component(Depsgraph *graph,
    * here. */
   if (component_node == nullptr) {
     if (component_type == NodeType::ANIMATION) {
+      id_node->is_cow_explicitly_tagged = true;
       depsgraph_id_tag_copy_on_write(graph, id_node, update_source);
     }
     return;
@@ -300,6 +285,9 @@ void depsgraph_tag_component(Depsgraph *graph,
   /* If component depends on copy-on-write, tag it as well. */
   if (component_node->need_tag_cow_before_update()) {
     depsgraph_id_tag_copy_on_write(graph, id_node, update_source);
+  }
+  if (component_type == NodeType::COPY_ON_WRITE) {
+    id_node->is_cow_explicitly_tagged = true;
   }
 }
 
@@ -522,12 +510,6 @@ void graph_tag_ids_for_visible_update(Depsgraph *graph)
    * this. */
   for (deg::IDNode *id_node : graph->id_nodes) {
     const ID_Type id_type = GS(id_node->id_orig->name);
-    if (id_type == ID_OB) {
-      Object *object_orig = reinterpret_cast<Object *>(id_node->id_orig);
-      if (object_orig->proxy != nullptr) {
-        object_orig->proxy->proxy_from = object_orig;
-      }
-    }
 
     if (!id_node->visible_components_mask) {
       /* ID has no components which affects anything visible.
@@ -593,7 +575,7 @@ NodeType geometry_tag_to_component(const ID *id)
         case OB_LATTICE:
         case OB_MBALL:
         case OB_GPENCIL:
-        case OB_HAIR:
+        case OB_CURVES:
         case OB_POINTCLOUD:
         case OB_VOLUME:
           return NodeType::GEOMETRY;
@@ -607,7 +589,7 @@ NodeType geometry_tag_to_component(const ID *id)
     case ID_CU:
     case ID_LT:
     case ID_MB:
-    case ID_HA:
+    case ID_CV:
     case ID_PT:
     case ID_VO:
     case ID_GR:
@@ -733,8 +715,8 @@ const char *DEG_update_tag_as_string(IDRecalcFlag flag)
       return "EDITORS";
     case ID_RECALC_SEQUENCER_STRIPS:
       return "SEQUENCER_STRIPS";
-    case ID_RECALC_AUDIO_SEEK:
-      return "AUDIO_SEEK";
+    case ID_RECALC_FRAME_CHANGE:
+      return "FRAME_CHANGE";
     case ID_RECALC_AUDIO_FPS:
       return "AUDIO_FPS";
     case ID_RECALC_AUDIO_VOLUME:
@@ -888,6 +870,7 @@ void DEG_ids_clear_recalc(Depsgraph *depsgraph, const bool backup)
      * correctly when there are multiple depsgraph with others still using
      * the recalc flag. */
     id_node->is_user_modified = false;
+    id_node->is_cow_explicitly_tagged = false;
     deg_graph_clear_id_recalc_flags(id_node->id_cow);
     if (deg_graph->is_active) {
       deg_graph_clear_id_recalc_flags(id_node->id_orig);

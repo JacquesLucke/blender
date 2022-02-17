@@ -1,25 +1,9 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008, Blender Foundation
- * This is a new part of Blender
- * Operators for editing Grease Pencil strokes
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. */
 
 /** \file
  * \ingroup edgpencil
+ * Operators for editing Grease Pencil strokes.
  */
 
 #include <math.h>
@@ -3956,8 +3940,8 @@ static void gpencil_smooth_stroke(bContext *C, wmOperator *op)
           }
           if (smooth_thickness) {
             /* thickness need to repeat process several times */
-            for (int r2 = 0; r2 < 20; r2++) {
-              BKE_gpencil_stroke_smooth_thickness(gps, i, factor);
+            for (int r2 = 0; r2 < repeat * 2; r2++) {
+              BKE_gpencil_stroke_smooth_thickness(gps, i, 1.0f - factor);
             }
           }
           if (smooth_uv) {
@@ -4626,6 +4610,31 @@ static int gpencil_stroke_separate_exec(bContext *C, wmOperator *op)
                   BKE_report(op->reports, RPT_ERROR, "Not implemented!");
                 }
                 else {
+                  /* Check if all points are selected. */
+                  bool all_points_selected = true;
+                  for (i = 0, pt = gps->points; i < gps->totpoints; i++, pt++) {
+                    if ((pt->flag & GP_SPOINT_SELECT) == 0) {
+                      all_points_selected = false;
+                      break;
+                    }
+                  }
+
+                  /* Separate the entire stroke. */
+                  if (all_points_selected) {
+                    /* deselect old stroke */
+                    gps->flag &= ~GP_STROKE_SELECT;
+                    BKE_gpencil_stroke_select_index_reset(gps);
+                    /* unlink from source frame */
+                    BLI_remlink(&gpf->strokes, gps);
+                    gps->prev = gps->next = NULL;
+                    /* relink to destination frame */
+                    BLI_addtail(&gpf_dst->strokes, gps);
+                    /* Reassign material. */
+                    gps->mat_nr = idx;
+
+                    continue;
+                  }
+
                   /* make copy of source stroke */
                   bGPDstroke *gps_dst = BKE_gpencil_stroke_duplicate(gps, true, true);
 

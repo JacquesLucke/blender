@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #pragma once
 
@@ -25,7 +12,7 @@ ccl_device_noinline_cpu float3 svm_magic(float3 p, float scale, int n, float dis
   /*
    * Prevent NaNs due to input p
    * Sin and Cosine are periodic about [0 2*PI) so the following
-   * will yeild a more accurate result. As it stops the input values
+   * will yield a more accurate result. As it stops the input values
    * going out of range for floats which caused a NaN. The
    * calculation of (px + py + pz)*5 can cause an Inf when one or more
    * values are very large the cos or sin of this results in a NaN

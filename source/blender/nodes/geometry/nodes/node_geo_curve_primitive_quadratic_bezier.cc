@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_spline.hh"
 #include "node_geometry_util.hh"
@@ -58,9 +44,9 @@ static std::unique_ptr<CurveEval> create_quadratic_bezier_curve(const float3 p1,
   const float step = 1.0f / resolution;
   for (const int i : IndexRange(resolution + 1)) {
     const float factor = step * i;
-    const float3 q1 = float3::interpolate(p1, p2, factor);
-    const float3 q2 = float3::interpolate(p2, p3, factor);
-    positions[i] = float3::interpolate(q1, q2, factor);
+    const float3 q1 = math::interpolate(p1, p2, factor);
+    const float3 q2 = math::interpolate(p2, p3, factor);
+    positions[i] = math::interpolate(q1, q2, factor);
   }
 
   curve->add_spline(std::move(spline));

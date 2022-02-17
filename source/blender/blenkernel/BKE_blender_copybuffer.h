@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -63,7 +49,7 @@ bool BKE_copybuffer_copy_end(struct Main *bmain_src,
 bool BKE_copybuffer_read(struct Main *bmain_dst,
                          const char *libname,
                          struct ReportList *reports,
-                         const uint64_t id_types_mask);
+                         uint64_t id_types_mask);
 /**
  * Paste data-blocks from the given .blend file 'buffer'  (i.e. append them).
  *
@@ -80,9 +66,9 @@ bool BKE_copybuffer_read(struct Main *bmain_dst,
  */
 int BKE_copybuffer_paste(struct bContext *C,
                          const char *libname,
-                         const int flag,
+                         int flag,
                          struct ReportList *reports,
-                         const uint64_t id_types_mask);
+                         uint64_t id_types_mask);
 
 #ifdef __cplusplus
 }

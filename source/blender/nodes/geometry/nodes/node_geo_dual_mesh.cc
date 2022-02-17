@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_task.hh"
 
@@ -415,7 +401,7 @@ static void sort_vertex_polys(const Mesh &mesh,
     }
   }
   else {
-    /* Any polygon can be the first. Just need to check the orientation.*/
+    /* Any polygon can be the first. Just need to check the orientation. */
     const MLoop &first_loop = mesh.mloop[poly_vertex_corners[0].first];
     const MLoop &second_loop = mesh.mloop[poly_vertex_corners[0].second];
     if (first_loop.v == vertex_index) {
@@ -554,7 +540,7 @@ static bool vertex_needs_dissolving(const int vertex,
 
 /**
  * Finds 'normal' vertices which are connected to only two polygons and marks them to not be
- * used in the datastructures derived from the mesh. For each pair of polygons which has such a
+ * used in the data-structures derived from the mesh. For each pair of polygons which has such a
  * vertex, an edge is created for the dual mesh between the centers of those two polygons. All
  * edges in the input mesh which contain such a vertex are marked as 'done' to prevent duplicate
  * edges being created. (See T94144)
@@ -703,7 +689,7 @@ static void calc_dual_mesh(GeometrySet &geometry_set,
    * exactly one edge in the original, we can use this array to keep track of whether it still
    * needs to be created or not. If it's not -1 it gives the index in `new_edges` of the dual
    * edge. The edges coming from preserving the boundaries only get added once anyway, so we
-   * don't need a hashmap for that. */
+   * don't need a hash-map for that. */
   Array<int> old_to_new_edges_map(mesh_in.totedge);
   old_to_new_edges_map.fill(-1);
 

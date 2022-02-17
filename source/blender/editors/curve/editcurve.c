@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edcurve
@@ -4953,19 +4937,22 @@ bool ed_editnurb_spin(
 
     if ((a & 1) == 0) {
       rotateflagNurb(editnurb, SELECT, cent, scalemat1);
-      weightflagNurb(editnurb, SELECT, 0.25 * M_SQRT2);
+      weightflagNurb(editnurb, SELECT, 0.5 * M_SQRT2);
     }
     else {
       rotateflagNurb(editnurb, SELECT, cent, scalemat2);
-      weightflagNurb(editnurb, SELECT, 4.0 / M_SQRT2);
+      weightflagNurb(editnurb, SELECT, 2.0 / M_SQRT2);
     }
   }
 
   if (ok) {
     LISTBASE_FOREACH (Nurb *, nu, editnurb) {
       if (ED_curve_nurb_select_check(v3d, nu)) {
-        nu->orderv = 4;
-        nu->flagv |= CU_NURB_CYCLIC;
+        nu->orderv = 3;
+        /* It is challenging to create a good approximation of a circle with uniform knots vector
+         * (which is forced in Blender for cyclic NURBS curves). Here a NURBS circle is constructed
+         * by connecting four Bezier arcs. */
+        nu->flagv |= CU_NURB_CYCLIC | CU_NURB_BEZIER;
         BKE_nurb_knot_calc_v(nu);
       }
     }

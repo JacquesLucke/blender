@@ -1,27 +1,11 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# The Original Code is Copyright (C) 2006, Blender Foundation
-# All rights reserved.
-# ***** END GPL LICENSE BLOCK *****
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright 2006 Blender Foundation. All rights reserved.
 
 add_subdirectory(composite)
 add_subdirectory(function)
 add_subdirectory(geometry)
 add_subdirectory(shader)
+add_subdirectory(texture)
 
 set(INC
   .
@@ -47,36 +31,13 @@ set(INC
   ../windowmanager
   ../../../intern/glew-mx
   ../../../intern/guardedalloc
+
+  # dna_type_offsets.h
+  ${CMAKE_CURRENT_BINARY_DIR}/../makesdna/intern
 )
 
 
 set(SRC
-  texture/nodes/node_texture_at.c
-  texture/nodes/node_texture_bricks.c
-  texture/nodes/node_texture_checker.c
-  texture/nodes/node_texture_common.c
-  texture/nodes/node_texture_compose.c
-  texture/nodes/node_texture_coord.c
-  texture/nodes/node_texture_curves.c
-  texture/nodes/node_texture_decompose.c
-  texture/nodes/node_texture_distance.c
-  texture/nodes/node_texture_hueSatVal.c
-  texture/nodes/node_texture_image.c
-  texture/nodes/node_texture_invert.c
-  texture/nodes/node_texture_math.c
-  texture/nodes/node_texture_mixRgb.c
-  texture/nodes/node_texture_output.c
-  texture/nodes/node_texture_proc.c
-  texture/nodes/node_texture_rotate.c
-  texture/nodes/node_texture_scale.c
-  texture/nodes/node_texture_texture.c
-  texture/nodes/node_texture_translate.c
-  texture/nodes/node_texture_valToNor.c
-  texture/nodes/node_texture_valToRgb.c
-  texture/nodes/node_texture_viewer.c
-  texture/node_texture_tree.c
-  texture/node_texture_util.c
-
   intern/derived_node_tree.cc
   intern/geometry_nodes_eval_log.cc
   intern/math_functions.cc
@@ -87,11 +48,9 @@ set(SRC
   intern/node_multi_function.cc
   intern/node_socket.cc
   intern/node_socket_declarations.cc
-  intern/socket_search_link.cc
   intern/node_tree_ref.cc
   intern/node_util.c
-
-  texture/node_texture_util.h
+  intern/socket_search_link.cc
 
   NOD_common.h
   NOD_composite.h
@@ -107,8 +66,8 @@ set(SRC
   NOD_shader.h
   NOD_socket.h
   NOD_socket_declarations.hh
-  NOD_socket_search_link.hh
   NOD_socket_declarations_geometry.hh
+  NOD_socket_search_link.hh
   NOD_static_types.h
   NOD_texture.h
   intern/node_common.h
@@ -123,17 +82,18 @@ set(LIB
   bf_nodes_function
   bf_nodes_geometry
   bf_nodes_shader
+  bf_nodes_texture
 )
 
 if(WITH_BULLET)
   list(APPEND INC_SYS
     ${BULLET_INCLUDE_DIRS}
-    "../../../intern/rigidbody/"
+    ../../../intern/rigidbody
   )
   if(NOT WITH_SYSTEM_BULLET)
   list(APPEND LIB
     extern_bullet
-    )
+  )
   endif()
 
   list(APPEND LIB
@@ -154,10 +114,6 @@ if(WITH_PYTHON)
     ${PYTHON_LIBRARIES}
   )
   add_definitions(-DWITH_PYTHON)
-endif()
-
-if(WITH_INTERNATIONAL)
-  add_definitions(-DWITH_INTERNATIONAL)
 endif()
 
 if(WITH_TBB)
@@ -204,3 +160,6 @@ if(WITH_OPENVDB)
 endif()
 
 blender_add_lib(bf_nodes "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# Needed so we can use dna_type_offsets.h for defaults initialization.
+add_dependencies(bf_nodes bf_dna)

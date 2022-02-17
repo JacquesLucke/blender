@@ -1,25 +1,9 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 by Nicholas Bishop
- * All rights reserved.
- * Implements the Sculpt Mode tools
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 by Nicholas Bishop. All rights reserved. */
 
 /** \file
  * \ingroup edsculpt
+ * Implements the Sculpt Mode tools.
  */
 
 #include "MEM_guardedalloc.h"
@@ -72,6 +56,8 @@
 #include "BKE_screen.h"
 #include "BKE_subdiv_ccg.h"
 #include "BKE_subsurf.h"
+
+#include "NOD_texture.h"
 
 #include "DEG_depsgraph.h"
 
@@ -176,13 +162,8 @@ void SCULPT_vertex_normal_get(SculptSession *ss, int index, float no[3])
 {
   switch (BKE_pbvh_type(ss->pbvh)) {
     case PBVH_FACES: {
-      if (ss->shapekey_active || ss->deform_modifiers_active) {
-        const MVert *mverts = BKE_pbvh_get_verts(ss->pbvh);
-        normal_short_to_float_v3(no, mverts[index].no);
-      }
-      else {
-        normal_short_to_float_v3(no, ss->mvert[index].no);
-      }
+      const float(*vert_normals)[3] = BKE_pbvh_get_vert_normals(ss->pbvh);
+      copy_v3_v3(no, vert_normals[index]);
       break;
     }
     case PBVH_BMESH:
@@ -352,7 +333,7 @@ void SCULPT_vertex_visible_set(SculptSession *ss, int index, bool visible)
   switch (BKE_pbvh_type(ss->pbvh)) {
     case PBVH_FACES:
       SET_FLAG_FROM_TEST(ss->mvert[index].flag, !visible, ME_HIDE);
-      ss->mvert[index].flag |= ME_VERT_PBVH_UPDATE;
+      BKE_pbvh_vert_mark_update(ss->pbvh, index);
       break;
     case PBVH_BMESH:
       BM_elem_flag_set(BM_vert_at_index(ss->bm, index), BM_ELEM_HIDDEN, !visible);
@@ -595,7 +576,7 @@ static void UNUSED_FUNCTION(sculpt_visibility_sync_vertex_to_face_sets)(SculptSe
       ss->face_sets[vert_map->indices[i]] = -abs(ss->face_sets[vert_map->indices[i]]);
     }
   }
-  ss->mvert[index].flag |= ME_VERT_PBVH_UPDATE;
+  BKE_pbvh_vert_mark_update(ss->pbvh, index);
 }
 
 void SCULPT_visibility_sync_all_vertex_to_face_sets(SculptSession *ss)
@@ -1387,10 +1368,10 @@ static void paint_mesh_restore_co_task_cb(void *__restrict userdata,
     if (orig_data.unode->type == SCULPT_UNDO_COORDS) {
       copy_v3_v3(vd.co, orig_data.co);
       if (vd.no) {
-        copy_v3_v3_short(vd.no, orig_data.no);
+        copy_v3_v3(vd.no, orig_data.no);
       }
       else {
-        normal_short_to_float_v3(vd.fno, orig_data.no);
+        copy_v3_v3(vd.fno, orig_data.no);
       }
     }
     else if (orig_data.unode->type == SCULPT_UNDO_MASK) {
@@ -1401,7 +1382,7 @@ static void paint_mesh_restore_co_task_cb(void *__restrict userdata,
     }
 
     if (vd.mvert) {
-      vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+      BKE_pbvh_vert_mark_update(ss->pbvh, vd.index);
     }
   }
   BKE_pbvh_vertex_iter_end;
@@ -1689,7 +1670,7 @@ const float *SCULPT_brush_frontface_normal_from_falloff_shape(SculptSession *ss,
 
 static float frontface(const Brush *br,
                        const float sculpt_normal[3],
-                       const short no[3],
+                       const float no[3],
                        const float fno[3])
 {
   if (!(br->flag & BRUSH_FRONTFACE)) {
@@ -1698,10 +1679,7 @@ static float frontface(const Brush *br,
 
   float dot;
   if (no) {
-    float tmp[3];
-
-    normal_short_to_float_v3(tmp, no);
-    dot = dot_v3v3(tmp, sculpt_normal);
+    dot = dot_v3v3(no, sculpt_normal);
   }
   else {
     dot = dot_v3v3(fno, sculpt_normal);
@@ -1938,19 +1916,19 @@ static void calc_area_normal_and_center_task_cb(void *__restrict userdata,
       float co[3];
 
       /* For bm_vert only. */
-      short no_s[3];
+      float no_s[3];
 
       if (use_original) {
         if (unode->bm_entry) {
           const float *temp_co;
-          const short *temp_no_s;
+          const float *temp_no_s;
           BM_log_original_vert_data(ss->bm_log, vd.bm_vert, &temp_co, &temp_no_s);
           copy_v3_v3(co, temp_co);
-          copy_v3_v3_short(no_s, temp_no_s);
+          copy_v3_v3(no_s, temp_no_s);
         }
         else {
           copy_v3_v3(co, unode->co[vd.i]);
-          copy_v3_v3_short(no_s, unode->no[vd.i]);
+          copy_v3_v3(no_s, unode->no[vd.i]);
         }
       }
       else {
@@ -1970,11 +1948,11 @@ static void calc_area_normal_and_center_task_cb(void *__restrict userdata,
       data->any_vertex_sampled = true;
 
       if (use_original) {
-        normal_short_to_float_v3(no, no_s);
+        copy_v3_v3(no, no_s);
       }
       else {
         if (vd.no) {
-          normal_short_to_float_v3(no, vd.no);
+          copy_v3_v3(no, vd.no);
         }
         else {
           copy_v3_v3(no, vd.fno);
@@ -2128,10 +2106,6 @@ bool SCULPT_pbvh_calc_area_normal(const Brush *brush,
   return data.any_vertex_sampled;
 }
 
-/**
- * This calculates flatten center and area normal together,
- * amortizing the memory bandwidth and loop overhead to calculate both at the same time.
- */
 void SCULPT_calc_area_normal_and_center(
     Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode, float r_area_no[3], float r_area_co[3])
 {
@@ -2354,7 +2328,7 @@ float SCULPT_brush_strength_factor(SculptSession *ss,
                                    const Brush *br,
                                    const float brush_point[3],
                                    const float len,
-                                   const short vno[3],
+                                   const float vno[3],
                                    const float fno[3],
                                    const float mask,
                                    const int vertex_index,
@@ -2527,9 +2501,23 @@ void SCULPT_clip(Sculpt *sd, SculptSession *ss, float co[3], const float val[3])
       continue;
     }
 
-    if (ss->cache && (ss->cache->flag & (CLIP_X << i)) &&
-        (fabsf(co[i]) <= ss->cache->clip_tolerance[i])) {
-      co[i] = 0.0f;
+    bool do_clip = false;
+    float co_clip[3];
+    if (ss->cache && (ss->cache->flag & (CLIP_X << i))) {
+      /* Take possible mirror object into account. */
+      mul_v3_m4v3(co_clip, ss->cache->clip_mirror_mtx, co);
+
+      if (fabsf(co_clip[i]) <= ss->cache->clip_tolerance[i]) {
+        co_clip[i] = 0.0f;
+        float imtx[4][4];
+        invert_m4_m4(imtx, ss->cache->clip_mirror_mtx);
+        mul_m4_v3(imtx, co_clip);
+        do_clip = true;
+      }
+    }
+
+    if (do_clip) {
+      co[i] = co_clip[i];
     }
     else {
       co[i] = val[i];
@@ -2984,7 +2972,7 @@ static void do_gravity_task_cb_ex(void *__restrict userdata,
     mul_v3_v3fl(proxy[vd.i], offset, fade);
 
     if (vd.mvert) {
-      vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+      BKE_pbvh_vert_mark_update(ss->pbvh, vd.index);
     }
   }
   BKE_pbvh_vertex_iter_end;
@@ -3228,13 +3216,21 @@ static void do_brush_action(Sculpt *sd, Object *ob, Brush *brush, UnifiedPaintSe
     }
   }
 
-  /* Initialize auto-masking cache. For anchored brushes with spherical falloff,
-   * we start off with zero radius, thus we have no PBVH nodes on the first brush step. */
+  /* For anchored brushes with spherical falloff, we start off with zero radius, thus we have no
+   * PBVH nodes on the first brush step. */
   if (totnode ||
       ((brush->falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) && (brush->flag & BRUSH_ANCHORED))) {
     if (SCULPT_stroke_is_first_brush_step(ss->cache)) {
+      /* Initialize auto-masking cache. */
       if (SCULPT_is_automasking_enabled(sd, ss, brush)) {
         ss->cache->automasking = SCULPT_automasking_cache_init(sd, brush, ob);
+      }
+      /* Initialize surface smooth cache. */
+      if ((brush->sculpt_tool == SCULPT_TOOL_SMOOTH) &&
+          (brush->smooth_deform_type == BRUSH_SMOOTH_DEFORM_SURFACE)) {
+        BLI_assert(ss->cache->surface_smooth_laplacian_disp == NULL);
+        ss->cache->surface_smooth_laplacian_disp = MEM_callocN(
+            sizeof(float[3]) * SCULPT_vertex_count_get(ss), "HC smooth laplacian b");
       }
     }
   }
@@ -3634,11 +3630,6 @@ void SCULPT_flush_stroke_deform(Sculpt *sd, Object *ob, bool is_proxy_used)
     }
 
     MEM_SAFE_FREE(nodes);
-
-    /* Modifiers could depend on mesh normals, so we should update them.
-     * NOTE: then if sculpting happens on locked key, normals should be re-calculate after applying
-     * coords from key-block on base mesh. */
-    BKE_mesh_calc_normals(me);
   }
   else if (ss->shapekey_active) {
     sculpt_update_keyblock(ob);
@@ -3949,8 +3940,7 @@ static const char *sculpt_tool_name(Sculpt *sd)
   return "Sculpting";
 }
 
-/**
- * Operator for applying a stroke (various attributes including mouse path)
+/* Operator for applying a stroke (various attributes including mouse path)
  * using the current brush. */
 
 void SCULPT_cache_free(StrokeCache *cache)
@@ -3985,6 +3975,8 @@ static void sculpt_init_mirror_clipping(Object *ob, SculptSession *ss)
 {
   ModifierData *md;
 
+  unit_m4(ss->cache->clip_mirror_mtx);
+
   for (md = ob->modifiers.first; md; md = md->next) {
     if (!(md->type == eModifierType_Mirror && (md->mode & eModifierMode_Realtime))) {
       continue;
@@ -4006,6 +3998,73 @@ static void sculpt_init_mirror_clipping(Object *ob, SculptSession *ss)
       if (mmd->tolerance > ss->cache->clip_tolerance[i]) {
         ss->cache->clip_tolerance[i] = mmd->tolerance;
       }
+
+      /* Store matrix for mirror object clipping. */
+      if (mmd->mirror_ob) {
+        float imtx_mirror_ob[4][4];
+        invert_m4_m4(imtx_mirror_ob, mmd->mirror_ob->obmat);
+        mul_m4_m4m4(ss->cache->clip_mirror_mtx, imtx_mirror_ob, ob->obmat);
+      }
+    }
+  }
+}
+
+static void smooth_brush_toggle_on(const bContext *C, Paint *paint, StrokeCache *cache)
+{
+  Scene *scene = CTX_data_scene(C);
+  Brush *brush = paint->brush;
+
+  if (brush->sculpt_tool == SCULPT_TOOL_MASK) {
+    cache->saved_mask_brush_tool = brush->mask_tool;
+    brush->mask_tool = BRUSH_MASK_SMOOTH;
+  }
+  else if (ELEM(brush->sculpt_tool,
+                SCULPT_TOOL_SLIDE_RELAX,
+                SCULPT_TOOL_DRAW_FACE_SETS,
+                SCULPT_TOOL_PAINT,
+                SCULPT_TOOL_SMEAR)) {
+    /* Do nothing, this tool has its own smooth mode. */
+  }
+  else {
+    int cur_brush_size = BKE_brush_size_get(scene, brush);
+
+    BLI_strncpy(cache->saved_active_brush_name,
+                brush->id.name + 2,
+                sizeof(cache->saved_active_brush_name));
+
+    /* Switch to the smooth brush. */
+    brush = BKE_paint_toolslots_brush_get(paint, SCULPT_TOOL_SMOOTH);
+    if (brush) {
+      BKE_paint_brush_set(paint, brush);
+      cache->saved_smooth_size = BKE_brush_size_get(scene, brush);
+      BKE_brush_size_set(scene, brush, cur_brush_size);
+      BKE_curvemapping_init(brush->curve);
+    }
+  }
+}
+
+static void smooth_brush_toggle_off(const bContext *C, Paint *paint, StrokeCache *cache)
+{
+  Main *bmain = CTX_data_main(C);
+  Scene *scene = CTX_data_scene(C);
+  Brush *brush = BKE_paint_brush(paint);
+
+  if (brush->sculpt_tool == SCULPT_TOOL_MASK) {
+    brush->mask_tool = cache->saved_mask_brush_tool;
+  }
+  else if (ELEM(brush->sculpt_tool,
+                SCULPT_TOOL_SLIDE_RELAX,
+                SCULPT_TOOL_DRAW_FACE_SETS,
+                SCULPT_TOOL_PAINT,
+                SCULPT_TOOL_SMEAR)) {
+    /* Do nothing. */
+  }
+  else {
+    /* Try to switch back to the saved/previous brush. */
+    BKE_brush_size_set(scene, brush, cache->saved_smooth_size);
+    brush = (Brush *)BKE_libblock_find_name(bmain, ID_BR, cache->saved_active_brush_name);
+    if (brush) {
+      BKE_paint_brush_set(paint, brush);
     }
   }
 }
@@ -4015,8 +4074,6 @@ static void sculpt_update_cache_invariants(
     bContext *C, Sculpt *sd, SculptSession *ss, wmOperator *op, const float mouse[2])
 {
   StrokeCache *cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
-  Main *bmain = CTX_data_main(C);
-  Scene *scene = CTX_data_scene(C);
   UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
   Brush *brush = BKE_paint_brush(&sd->paint);
   ViewContext *vc = paint_stroke_view_context(op->customdata);
@@ -4081,35 +4138,9 @@ static void sculpt_update_cache_invariants(
 
   /* Alt-Smooth. */
   if (cache->alt_smooth) {
-    if (brush->sculpt_tool == SCULPT_TOOL_MASK) {
-      cache->saved_mask_brush_tool = brush->mask_tool;
-      brush->mask_tool = BRUSH_MASK_SMOOTH;
-    }
-    else if (ELEM(brush->sculpt_tool,
-                  SCULPT_TOOL_SLIDE_RELAX,
-                  SCULPT_TOOL_DRAW_FACE_SETS,
-                  SCULPT_TOOL_PAINT,
-                  SCULPT_TOOL_SMEAR)) {
-      /* Do nothing, this tool has its own smooth mode. */
-    }
-    else {
-      Paint *p = &sd->paint;
-      Brush *br;
-      int size = BKE_brush_size_get(scene, brush);
-
-      BLI_strncpy(cache->saved_active_brush_name,
-                  brush->id.name + 2,
-                  sizeof(cache->saved_active_brush_name));
-
-      br = (Brush *)BKE_libblock_find_name(bmain, ID_BR, "Smooth");
-      if (br) {
-        BKE_paint_brush_set(p, br);
-        brush = br;
-        cache->saved_smooth_size = BKE_brush_size_get(scene, brush);
-        BKE_brush_size_set(scene, brush, size);
-        BKE_curvemapping_init(brush->curve);
-      }
-    }
+    smooth_brush_toggle_on(C, &sd->paint, cache);
+    /* Refresh the brush pointer in case we switched brush in the toggle function. */
+    brush = BKE_paint_brush(&sd->paint);
   }
 
   copy_v2_v2(cache->mouse, cache->initial_mouse);
@@ -4117,9 +4148,7 @@ static void sculpt_update_cache_invariants(
   copy_v2_v2(ups->tex_mouse, cache->initial_mouse);
 
   /* Truly temporary data that isn't stored in properties. */
-
   cache->vc = vc;
-
   cache->brush = brush;
 
   /* Cache projection matrix. */
@@ -5237,9 +5266,7 @@ static void sculpt_brush_exit_tex(Sculpt *sd)
 
 static void sculpt_stroke_done(const bContext *C, struct PaintStroke *UNUSED(stroke))
 {
-  Main *bmain = CTX_data_main(C);
   Object *ob = CTX_data_active_object(C);
-  Scene *scene = CTX_data_scene(C);
   SculptSession *ss = ob->sculpt;
   Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
 
@@ -5257,23 +5284,9 @@ static void sculpt_stroke_done(const bContext *C, struct PaintStroke *UNUSED(str
 
   /* Alt-Smooth. */
   if (ss->cache->alt_smooth) {
-    if (brush->sculpt_tool == SCULPT_TOOL_MASK) {
-      brush->mask_tool = ss->cache->saved_mask_brush_tool;
-    }
-    else if (ELEM(brush->sculpt_tool,
-                  SCULPT_TOOL_SLIDE_RELAX,
-                  SCULPT_TOOL_DRAW_FACE_SETS,
-                  SCULPT_TOOL_PAINT,
-                  SCULPT_TOOL_SMEAR)) {
-      /* Do nothing. */
-    }
-    else {
-      BKE_brush_size_set(scene, brush, ss->cache->saved_smooth_size);
-      brush = (Brush *)BKE_libblock_find_name(bmain, ID_BR, ss->cache->saved_active_brush_name);
-      if (brush) {
-        BKE_paint_brush_set(&sd->paint, brush);
-      }
-    }
+    smooth_brush_toggle_off(C, &sd->paint, ss->cache);
+    /* Refresh the brush pointer in case we switched brush in the toggle function. */
+    brush = BKE_paint_brush(&sd->paint);
   }
 
   if (SCULPT_is_automasking_enabled(sd, ss, brush)) {

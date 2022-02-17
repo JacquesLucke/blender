@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #ifdef WITH_OPENVDB
 #  include <openvdb/openvdb.h>
@@ -37,7 +23,7 @@ namespace blender::nodes {
 
 static bool use_translate(const float3 rotation, const float3 scale)
 {
-  if (compare_ff(rotation.length_squared(), 0.0f, 1e-9f) != 1) {
+  if (compare_ff(math::length_squared(rotation), 0.0f, 1e-9f) != 1) {
     return false;
   }
   if (compare_ff(scale.x, 1.0f, 1e-9f) != 1 || compare_ff(scale.y, 1.0f, 1e-9f) != 1 ||
@@ -49,7 +35,7 @@ static bool use_translate(const float3 rotation, const float3 scale)
 
 static void translate_mesh(Mesh &mesh, const float3 translation)
 {
-  if (!translation.is_zero()) {
+  if (!math::is_zero(translation)) {
     BKE_mesh_translate(&mesh, translation, false);
   }
 }

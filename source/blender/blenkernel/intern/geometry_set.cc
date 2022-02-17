@@ -1,21 +1,9 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_map.hh"
 #include "BLI_task.hh"
+
+#include "BLT_translation.h"
 
 #include "BKE_attribute.h"
 #include "BKE_attribute_access.hh"
@@ -549,6 +537,48 @@ void GeometrySet::modify_geometry_sets(ForeachSubGeometryCallback callback)
   blender::threading::parallel_for_each(
       geometry_sets, [&](GeometrySet *geometry_set) { callback(*geometry_set); });
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Mesh and Curve Normals Field Input
+ * \{ */
+
+namespace blender::bke {
+
+GVArray NormalFieldInput::get_varray_for_context(const GeometryComponent &component,
+                                                 const AttributeDomain domain,
+                                                 IndexMask mask) const
+{
+  if (component.type() == GEO_COMPONENT_TYPE_MESH) {
+    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
+    if (const Mesh *mesh = mesh_component.get_for_read()) {
+      return mesh_normals_varray(mesh_component, *mesh, mask, domain);
+    }
+  }
+  else if (component.type() == GEO_COMPONENT_TYPE_CURVE) {
+    const CurveComponent &curve_component = static_cast<const CurveComponent &>(component);
+    return curve_normals_varray(curve_component, domain);
+  }
+  return {};
+}
+
+std::string NormalFieldInput::socket_inspection_name() const
+{
+  return TIP_("Normal");
+}
+
+uint64_t NormalFieldInput::hash() const
+{
+  return 213980475983;
+}
+
+bool NormalFieldInput::is_equal_to(const fn::FieldNode &other) const
+{
+  return dynamic_cast<const NormalFieldInput *>(&other) != nullptr;
+}
+
+}  // namespace blender::bke
 
 /** \} */
 

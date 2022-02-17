@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -328,6 +312,20 @@ static void seq_prefetch_update_scene(Scene *scene)
   seq_prefetch_init_depsgraph(pfjob);
 }
 
+static void seq_prefetch_update_active_seqbase(PrefetchJob *pfjob)
+{
+  MetaStack *ms_orig = SEQ_meta_stack_active_get(SEQ_editing_get(pfjob->scene));
+  Editing *ed_eval = SEQ_editing_get(pfjob->scene_eval);
+
+  if (ms_orig != NULL) {
+    Sequence *meta_eval = seq_prefetch_get_original_sequence(ms_orig->parseq, pfjob->scene_eval);
+    SEQ_seqbase_active_set(ed_eval, &meta_eval->seqbase);
+  }
+  else {
+    SEQ_seqbase_active_set(ed_eval, &ed_eval->seqbase);
+  }
+}
+
 static void seq_prefetch_resume(Scene *scene)
 {
   PrefetchJob *pfjob = seq_prefetch_job_get(scene);
@@ -486,7 +484,7 @@ static void *seq_prefetch_frames(void *job)
      */
     pfjob->scene_eval->ed->prefetch_job = pfjob;
 
-    ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(pfjob->scene));
+    ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(pfjob->scene_eval));
     if (seq_prefetch_must_skip_frame(pfjob, seqbase)) {
       pfjob->num_frames_prefetched++;
       continue;
@@ -549,6 +547,7 @@ static PrefetchJob *seq_prefetch_start_ex(const SeqRenderData *context, float cf
 
   seq_prefetch_update_scene(context->scene);
   seq_prefetch_update_context(context);
+  seq_prefetch_update_active_seqbase(pfjob);
 
   BLI_threadpool_remove(&pfjob->threads, pfjob);
   BLI_threadpool_insert(&pfjob->threads, pfjob);

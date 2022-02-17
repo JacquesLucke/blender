@@ -1,27 +1,10 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
- * Modifier stack implementation.
- *
- * BKE_modifier.h contains the function prototypes for this file.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
+ * Modifier stack implementation.
+ * BKE_modifier.h contains the function prototypes for this file.
  */
 
 /* Allow using deprecated functionality for .blend file I/O. */
@@ -148,7 +131,7 @@ void BKE_modifier_panel_expand(ModifierData *md)
 
 /***/
 
-ModifierData *BKE_modifier_new(int type)
+static ModifierData *modifier_allocate_and_init(int type)
 {
   const ModifierTypeInfo *mti = BKE_modifier_get_info(type);
   ModifierData *md = MEM_callocN(mti->structSize, mti->structName);
@@ -168,6 +151,13 @@ ModifierData *BKE_modifier_new(int type)
   if (mti->initData) {
     mti->initData(md);
   }
+
+  return md;
+}
+
+ModifierData *BKE_modifier_new(int type)
+{
+  ModifierData *md = modifier_allocate_and_init(type);
 
   BKE_modifier_session_uuid_generate(md);
 
@@ -290,6 +280,16 @@ ModifierData *BKE_modifiers_findby_name(const Object *ob, const char *name)
   return BLI_findstring(&(ob->modifiers), name, offsetof(ModifierData, name));
 }
 
+ModifierData *BKE_modifiers_findby_session_uuid(const Object *ob, const SessionUUID *session_uuid)
+{
+  LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
+    if (BLI_session_uuid_is_equal(&md->session_uuid, session_uuid)) {
+      return md;
+    }
+  }
+  return NULL;
+}
+
 void BKE_modifiers_clear_errors(Object *ob)
 {
   LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
@@ -320,6 +320,16 @@ void BKE_modifiers_foreach_tex_link(Object *ob, TexWalkFunc walk, void *userData
       mti->foreachTexLink(md, ob, walk, userData);
     }
   }
+}
+
+ModifierData *BKE_modifier_copy_ex(const ModifierData *md, int flag)
+{
+  ModifierData *md_dst = modifier_allocate_and_init(md->type);
+
+  BLI_strncpy(md_dst->name, md->name, sizeof(md_dst->name));
+  BKE_modifier_copydata_ex(md, md_dst, flag);
+
+  return md_dst;
 }
 
 void BKE_modifier_copydata_generic(const ModifierData *md_src,
@@ -355,7 +365,7 @@ static void modifier_copy_data_id_us_cb(void *UNUSED(userData),
   }
 }
 
-void BKE_modifier_copydata_ex(ModifierData *md, ModifierData *target, const int flag)
+void BKE_modifier_copydata_ex(const ModifierData *md, ModifierData *target, const int flag)
 {
   const ModifierTypeInfo *mti = BKE_modifier_get_info(md->type);
 
@@ -381,11 +391,11 @@ void BKE_modifier_copydata_ex(ModifierData *md, ModifierData *target, const int 
   }
   else {
     /* In the case copyData made full byte copy force UUID to be re-generated. */
-    BKE_modifier_session_uuid_generate(md);
+    BKE_modifier_session_uuid_generate(target);
   }
 }
 
-void BKE_modifier_copydata(ModifierData *md, ModifierData *target)
+void BKE_modifier_copydata(const ModifierData *md, ModifierData *target)
 {
   BKE_modifier_copydata_ex(md, target, 0);
 }
@@ -439,9 +449,7 @@ void BKE_modifier_set_error(const Object *ob, ModifierData *md, const char *_for
 #ifndef NDEBUG
   if ((md->mode & eModifierMode_Virtual) == 0) {
     /* Ensure correct object is passed in. */
-    const Object *ob_orig = (Object *)DEG_get_original_id((ID *)&ob->id);
-    const ModifierData *md_orig = md->orig_modifier_data ? md->orig_modifier_data : md;
-    BLI_assert(BLI_findindex(&ob_orig->modifiers, md_orig) != -1);
+    BLI_assert(BKE_modifier_get_original(ob, md) != NULL);
   }
 #endif
 
@@ -984,7 +992,6 @@ struct Mesh *BKE_modifier_modify_mesh(ModifierData *md,
                                       struct Mesh *me)
 {
   const ModifierTypeInfo *mti = BKE_modifier_get_info(md->type);
-  BLI_assert(CustomData_has_layer(&me->pdata, CD_NORMAL) == false);
 
   if (me->runtime.wrapper_type == ME_WRAPPER_TYPE_BMESH) {
     if ((mti->flags & eModifierTypeFlag_AcceptsBMesh) == 0) {
@@ -1005,8 +1012,6 @@ void BKE_modifier_deform_verts(ModifierData *md,
                                int numVerts)
 {
   const ModifierTypeInfo *mti = BKE_modifier_get_info(md->type);
-  BLI_assert(!me || CustomData_has_layer(&me->pdata, CD_NORMAL) == false);
-
   if (me && mti->dependsOnNormals && mti->dependsOnNormals(md)) {
     modwrap_dependsOnNormals(me);
   }
@@ -1021,8 +1026,6 @@ void BKE_modifier_deform_vertsEM(ModifierData *md,
                                  int numVerts)
 {
   const ModifierTypeInfo *mti = BKE_modifier_get_info(md->type);
-  BLI_assert(!me || CustomData_has_layer(&me->pdata, CD_NORMAL) == false);
-
   if (me && mti->dependsOnNormals && mti->dependsOnNormals(md)) {
     BKE_mesh_calc_normals(me);
   }
@@ -1041,8 +1044,11 @@ Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(Object *ob_eval,
     BMEditMesh *em = BKE_editmesh_from_object(ob_eval);
     /* 'em' might not exist yet in some cases, just after loading a .blend file, see T57878. */
     if (em != NULL) {
-      me = (get_cage_mesh && em->mesh_eval_cage != NULL) ? em->mesh_eval_cage :
-                                                           em->mesh_eval_final;
+      Mesh *editmesh_eval_final = BKE_object_get_editmesh_eval_final(ob_eval);
+      Mesh *editmesh_eval_cage = BKE_object_get_editmesh_eval_cage(ob_eval);
+
+      me = (get_cage_mesh && editmesh_eval_cage != NULL) ? editmesh_eval_cage :
+                                                           editmesh_eval_final;
     }
   }
   if (me == NULL) {
@@ -1054,12 +1060,10 @@ Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(Object *ob_eval,
   return me;
 }
 
-ModifierData *BKE_modifier_get_original(ModifierData *md)
+ModifierData *BKE_modifier_get_original(const Object *object, ModifierData *md)
 {
-  if (md->orig_modifier_data == NULL) {
-    return md;
-  }
-  return md->orig_modifier_data;
+  const Object *object_orig = DEG_get_original_object((Object *)object);
+  return BKE_modifiers_findby_session_uuid(object_orig, &md->session_uuid);
 }
 
 struct ModifierData *BKE_modifier_get_evaluated(Depsgraph *depsgraph,
@@ -1070,7 +1074,7 @@ struct ModifierData *BKE_modifier_get_evaluated(Depsgraph *depsgraph,
   if (object_eval == object) {
     return md;
   }
-  return BKE_modifiers_findby_name(object_eval, md->name);
+  return BKE_modifiers_findby_session_uuid(object_eval, &md->session_uuid);
 }
 
 void BKE_modifier_check_uuids_unique_and_report(const Object *object)
@@ -1184,8 +1188,8 @@ void BKE_modifier_blend_write(BlendWriter *writer, ListBase *modbase)
 
 #if 0
       CollisionModifierData *collmd = (CollisionModifierData *)md;
-      // TODO: CollisionModifier should use pointcache
-      // + have proper reset events before enabling this
+      /* TODO: CollisionModifier should use pointcache
+       * + have proper reset events before enabling this. */
       writestruct(wd, DATA, MVert, collmd->numverts, collmd->x);
       writestruct(wd, DATA, MVert, collmd->numverts, collmd->xnew);
       writestruct(wd, DATA, MFace, collmd->numfaces, collmd->mfaces);

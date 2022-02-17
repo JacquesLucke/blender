@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup texnodes
@@ -49,10 +33,10 @@ static void exec(void *data,
     params_from_cdata(&params, cdata);
 
     if (in[1] && in[1]->hasinput && !in[0]->hasinput) {
-      tex_input_rgba(&target->tr, in[1], &params, cdata->thread);
+      tex_input_rgba(target->trgba, in[1], &params, cdata->thread);
     }
     else {
-      tex_input_rgba(&target->tr, in[0], &params, cdata->thread);
+      tex_input_rgba(target->trgba, in[0], &params, cdata->thread);
     }
   }
   else {
@@ -61,9 +45,9 @@ static void exec(void *data,
       TexParams params;
       params_from_cdata(&params, cdata);
 
-      tex_input_rgba(&target->tr, in[0], &params, cdata->thread);
+      tex_input_rgba(target->trgba, in[0], &params, cdata->thread);
 
-      target->tin = (target->tr + target->tg + target->tb) / 3.0f;
+      target->tin = (target->trgba[0] + target->trgba[1] + target->trgba[2]) / 3.0f;
       target->talpha = true;
 
       if (target->nor) {

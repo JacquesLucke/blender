@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -273,6 +257,7 @@ void *GPU_texture_read(GPUTexture *tex, eGPUDataFormat data_format, int miplvl);
  * \warning Only work for 2D texture for now.
  * \warning Only clears the mip 0 of the texture.
  * \param data_format: data format of the pixel data.
+ * \note The format is float for unorm textures.
  * \param data: 1 pixel worth of data to fill the texture with.
  */
 void GPU_texture_clear(GPUTexture *tex, eGPUDataFormat data_format, const void *data);
@@ -281,7 +266,7 @@ void GPU_texture_free(GPUTexture *tex);
 
 void GPU_texture_ref(GPUTexture *tex);
 void GPU_texture_bind(GPUTexture *tex, int unit);
-void GPU_texture_bind_ex(GPUTexture *tex, eGPUSamplerState state, int unit, const bool set_number);
+void GPU_texture_bind_ex(GPUTexture *tex, eGPUSamplerState state, int unit, bool set_number);
 void GPU_texture_unbind(GPUTexture *tex);
 void GPU_texture_unbind_all(void);
 
@@ -301,6 +286,12 @@ void GPU_texture_filter_mode(GPUTexture *tex, bool use_filter);
 void GPU_texture_mipmap_mode(GPUTexture *tex, bool use_mipmap, bool use_filter);
 void GPU_texture_wrap_mode(GPUTexture *tex, bool use_repeat, bool use_clamp);
 void GPU_texture_swizzle_set(GPUTexture *tex, const char swizzle[4]);
+
+/**
+ * Return the number of dimensions of the texture ignoring dimension of layers (1, 2 or 3).
+ * Cube textures are considered 2D.
+ */
+int GPU_texture_dimensions(const GPUTexture *tex);
 
 int GPU_texture_width(const GPUTexture *tex);
 int GPU_texture_height(const GPUTexture *tex);

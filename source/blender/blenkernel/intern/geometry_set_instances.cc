@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_collection.h"
 #include "BKE_geometry_set_instances.hh"
@@ -69,9 +55,18 @@ GeometrySet object_get_evaluated_geometry_set(const Object &object)
   }
 
   /* Otherwise, construct a new geometry set with the component based on the object type. */
-  GeometrySet geometry_set;
   if (object.type == OB_MESH) {
+    GeometrySet geometry_set;
     add_final_mesh_as_geometry_component(object, geometry_set);
+    return geometry_set;
+  }
+  if (object.type == OB_EMPTY && object.instance_collection != nullptr) {
+    GeometrySet geometry_set;
+    Collection &collection = *object.instance_collection;
+    InstancesComponent &instances = geometry_set.get_component_for_write<InstancesComponent>();
+    const int handle = instances.add_reference(collection);
+    instances.add_instance(handle, float4x4::identity());
+    return geometry_set;
   }
 
   /* TODO: Cover the case of point clouds without modifiers-- they may not be covered by the
@@ -80,7 +75,7 @@ GeometrySet object_get_evaluated_geometry_set(const Object &object)
   /* TODO: Add volume support. */
 
   /* Return by value since there is not always an existing geometry set owned elsewhere to use. */
-  return geometry_set;
+  return {};
 }
 
 static void geometry_set_collect_recursive_collection_instance(
@@ -98,13 +93,6 @@ static void geometry_set_collect_recursive_object(const Object &object,
 {
   GeometrySet instance_geometry_set = object_get_evaluated_geometry_set(object);
   geometry_set_collect_recursive(instance_geometry_set, transform, r_sets);
-
-  if (object.type == OB_EMPTY) {
-    const Collection *collection_instance = object.instance_collection;
-    if (collection_instance != nullptr) {
-      geometry_set_collect_recursive_collection_instance(*collection_instance, transform, r_sets);
-    }
-  }
 }
 
 static void geometry_set_collect_recursive_collection(const Collection &collection,

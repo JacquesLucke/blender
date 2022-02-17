@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -331,7 +317,12 @@ const EnumPropertyItem rna_enum_modifier_triangulate_quad_method_items[] = {
      "SHORTEST_DIAGONAL",
      0,
      "Shortest Diagonal",
-     "Split the quads based on the distance between the vertices"},
+     "Split the quads along their shortest diagonal"},
+    {MOD_TRIANGULATE_QUAD_LONGEDGE,
+     "LONGEST_DIAGONAL",
+     0,
+     "Longest Diagonal",
+     "Split the quads along their longest diagonal"},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -1736,7 +1727,7 @@ static void rna_def_modifier_subsurf(BlenderRNA *brna)
   prop = RNA_def_property(srna, "use_creases", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flags", eSubsurfModifierFlag_UseCrease);
   RNA_def_property_ui_text(
-      prop, "Use Creases", "Use mesh edge crease information to sharpen edges");
+      prop, "Use Creases", "Use mesh crease information to sharpen edges or corners");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_custom_normals", PROP_BOOLEAN, PROP_NONE);
@@ -1951,7 +1942,7 @@ static void rna_def_modifier_multires(BlenderRNA *brna)
   prop = RNA_def_property(srna, "use_creases", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flags", eMultiresModifierFlag_UseCrease);
   RNA_def_property_ui_text(
-      prop, "Use Creases", "Use mesh edge crease information to sharpen edges");
+      prop, "Use Creases", "Use mesh crease information to sharpen edges or corners");
   RNA_def_property_update(prop, 0, "rna_Modifier_update");
 
   prop = RNA_def_property(srna, "use_custom_normals", PROP_BOOLEAN, PROP_NONE);

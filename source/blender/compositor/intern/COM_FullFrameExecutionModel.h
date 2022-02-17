@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2021, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. */
 
 #pragma once
 
@@ -75,10 +60,8 @@ class FullFrameExecutionModel : public ExecutionModel {
    * Returns input buffers with an offset relative to given output coordinates.
    * Returned memory buffers must be deleted.
    */
-  Vector<MemoryBuffer *> get_input_buffers(NodeOperation *op,
-                                           const int output_x,
-                                           const int output_y);
-  MemoryBuffer *create_operation_buffer(NodeOperation *op, const int output_x, const int output_y);
+  Vector<MemoryBuffer *> get_input_buffers(NodeOperation *op, int output_x, int output_y);
+  MemoryBuffer *create_operation_buffer(NodeOperation *op, int output_x, int output_y);
   void render_operation(NodeOperation *op);
 
   void operation_finished(NodeOperation *operation);

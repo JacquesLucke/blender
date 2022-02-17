@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup cmpnodes
@@ -28,7 +12,7 @@
 
 /* ******************* Color Correction ********************************* */
 
-namespace blender::nodes {
+namespace blender::nodes::node_composite_colorcorrection_cc {
 
 static void cmp_node_colorcorrection_declare(NodeDeclarationBuilder &b)
 {
@@ -36,8 +20,6 @@ static void cmp_node_colorcorrection_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>(N_("Mask")).default_value(1.0f).min(0.0f).max(1.0f);
   b.add_output<decl::Color>(N_("Image"));
 }
-
-}  // namespace blender::nodes
 
 static void node_composit_init_colorcorrection(bNodeTree *UNUSED(ntree), bNode *node)
 {
@@ -284,16 +266,20 @@ static void node_composit_buts_colorcorrection_ex(uiLayout *layout,
   uiItemR(row, ptr, "midtones_end", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
 }
 
+}  // namespace blender::nodes::node_composite_colorcorrection_cc
+
 void register_node_type_cmp_colorcorrection()
 {
+  namespace file_ns = blender::nodes::node_composite_colorcorrection_cc;
+
   static bNodeType ntype;
 
   cmp_node_type_base(&ntype, CMP_NODE_COLORCORRECTION, "Color Correction", NODE_CLASS_OP_COLOR);
-  ntype.declare = blender::nodes::cmp_node_colorcorrection_declare;
-  ntype.draw_buttons = node_composit_buts_colorcorrection;
-  ntype.draw_buttons_ex = node_composit_buts_colorcorrection_ex;
+  ntype.declare = file_ns::cmp_node_colorcorrection_declare;
+  ntype.draw_buttons = file_ns::node_composit_buts_colorcorrection;
+  ntype.draw_buttons_ex = file_ns::node_composit_buts_colorcorrection_ex;
   node_type_size(&ntype, 400, 200, 600);
-  node_type_init(&ntype, node_composit_init_colorcorrection);
+  node_type_init(&ntype, file_ns::node_composit_init_colorcorrection);
   node_type_storage(
       &ntype, "NodeColorCorrection", node_free_standard_storage, node_copy_standard_storage);
 

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2011 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spclip
@@ -95,8 +79,8 @@ bool ED_mask_spline_select_check(const struct MaskSpline *spline);
 bool ED_mask_layer_select_check(const struct MaskLayer *mask_layer);
 bool ED_mask_select_check(const struct Mask *mask);
 
-void ED_mask_spline_select_set(struct MaskSpline *spline, const bool do_select);
-void ED_mask_layer_select_set(struct MaskLayer *mask_layer, const bool do_select);
+void ED_mask_spline_select_set(struct MaskSpline *spline, bool do_select);
+void ED_mask_layer_select_set(struct MaskLayer *mask_layer, bool do_select);
 void ED_mask_select_toggle_all(struct Mask *mask, int action);
 void ED_mask_select_flush_all(struct Mask *mask);
 
@@ -126,8 +110,8 @@ bool ED_mask_find_nearest_diff_point(const struct bContext *C,
                                      int threshold,
                                      bool feather,
                                      float tangent[2],
-                                     const bool use_deform,
-                                     const bool use_project,
+                                     bool use_deform,
+                                     bool use_project,
                                      struct MaskLayer **r_mask_layer,
                                      struct MaskSpline **r_spline,
                                      struct MaskSplinePoint **r_point,
@@ -136,7 +120,7 @@ bool ED_mask_find_nearest_diff_point(const struct bContext *C,
 bool ED_mask_feather_find_nearest(const struct bContext *C,
                                   struct Mask *mask,
                                   const float normal_co[2],
-                                  const float threshold,
+                                  float threshold,
                                   struct MaskLayer **r_mask_layer,
                                   struct MaskSpline **r_spline,
                                   struct MaskSplinePoint **r_point,
@@ -145,7 +129,7 @@ bool ED_mask_feather_find_nearest(const struct bContext *C,
 struct MaskSplinePoint *ED_mask_point_find_nearest(const struct bContext *C,
                                                    struct Mask *mask,
                                                    const float normal_co[2],
-                                                   const float threshold,
+                                                   float threshold,
                                                    struct MaskLayer **r_mask_layer,
                                                    struct MaskSpline **r_spline,
                                                    eMaskWhichHandle *r_which_handle,

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup shdnodes
@@ -25,7 +9,7 @@
 
 #include "BLI_color.hh"
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
 
 namespace blender::nodes::node_shader_color_ramp_cc {
 
@@ -35,25 +19,6 @@ static void sh_node_valtorgb_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>(N_("Fac")).default_value(0.5f).min(0.0f).max(1.0f).subtype(PROP_FACTOR);
   b.add_output<decl::Color>(N_("Color"));
   b.add_output<decl::Float>(N_("Alpha"));
-};
-
-static void node_shader_exec_valtorgb(void *UNUSED(data),
-                                      int UNUSED(thread),
-                                      bNode *node,
-                                      bNodeExecData *UNUSED(execdata),
-                                      bNodeStack **in,
-                                      bNodeStack **out)
-{
-  /* stack order in: fac */
-  /* stack order out: col, alpha */
-
-  if (node->storage) {
-    float fac;
-    nodestack_get_vec(&fac, SOCK_FLOAT, in[0]);
-
-    BKE_colorband_evaluate((ColorBand *)node->storage, fac, out[0]->vec);
-    out[1]->vec[0] = out[0]->vec[3];
-  }
 }
 
 static void node_shader_init_valtorgb(bNodeTree *UNUSED(ntree), bNode *node)
@@ -181,7 +146,6 @@ void register_node_type_sh_valtorgb()
   node_type_init(&ntype, file_ns::node_shader_init_valtorgb);
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
   node_type_storage(&ntype, "ColorBand", node_free_standard_storage, node_copy_standard_storage);
-  node_type_exec(&ntype, nullptr, nullptr, file_ns::node_shader_exec_valtorgb);
   node_type_gpu(&ntype, file_ns::gpu_shader_valtorgb);
   ntype.build_multi_function = file_ns::sh_node_valtorgb_build_multi_function;
 

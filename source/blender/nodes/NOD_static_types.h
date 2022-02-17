@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup nodes
@@ -96,6 +82,7 @@ DefNode(ShaderNode,     SH_NODE_LIGHT_FALLOFF,      0,                      "LIG
 DefNode(ShaderNode,     SH_NODE_OBJECT_INFO,        0,                      "OBJECT_INFO",        ObjectInfo,       "Object Info",       ""       )
 DefNode(ShaderNode,     SH_NODE_PARTICLE_INFO,      0,                      "PARTICLE_INFO",      ParticleInfo,     "Particle Info",     ""       )
 DefNode(ShaderNode,     SH_NODE_HAIR_INFO,          0,                      "HAIR_INFO",          HairInfo,         "Hair Info",         ""       )
+DefNode(ShaderNode,     SH_NODE_POINT_INFO,         0,                      "POINT_INFO",         PointInfo,        "Point Info",        ""       )
 DefNode(ShaderNode,     SH_NODE_VOLUME_INFO,        0,                      "VOLUME_INFO",        VolumeInfo,       "Volume Info",       ""       )
 DefNode(ShaderNode,     SH_NODE_WIREFRAME,          def_sh_tex_wireframe,   "WIREFRAME",          Wireframe,        "Wireframe",         ""       )
 DefNode(ShaderNode,     SH_NODE_WAVELENGTH,         0,                      "WAVELENGTH",         Wavelength,       "Wavelength",        ""       )
@@ -148,7 +135,7 @@ DefNode(CompositorNode, CMP_NODE_BLUR,           def_cmp_blur,           "BLUR",
 DefNode(CompositorNode, CMP_NODE_FILTER,         def_cmp_filter,         "FILTER",         Filter,           "Filter",            ""              )
 DefNode(CompositorNode, CMP_NODE_MAP_VALUE,      def_cmp_map_value,      "MAP_VALUE",      MapValue,         "Map Value",         ""              )
 DefNode(CompositorNode, CMP_NODE_MAP_RANGE,      def_cmp_map_range,      "MAP_RANGE",      MapRange,         "Map Range",         ""              )
-DefNode(CompositorNode, CMP_NODE_TIME,           def_time,               "TIME",           Time,             "Time",              ""              )
+DefNode(CompositorNode, CMP_NODE_TIME,           def_time,               "TIME",           Time,             "Time Curve",        ""              )
 DefNode(CompositorNode, CMP_NODE_VECBLUR,        def_cmp_vector_blur,    "VECBLUR",        VecBlur,          "Vector Blur",       ""              )
 DefNode(CompositorNode, CMP_NODE_SEPRGBA,        0,                      "SEPRGBA",        SepRGBA,          "Separate RGBA",     ""              )
 DefNode(CompositorNode, CMP_NODE_SEPHSVA,        0,                      "SEPHSVA",        SepHSVA,          "Separate HSVA",     ""              )
@@ -227,6 +214,10 @@ DefNode(CompositorNode, CMP_NODE_DENOISE,        def_cmp_denoise,        "DENOIS
 DefNode(CompositorNode, CMP_NODE_EXPOSURE,       0,                      "EXPOSURE",       Exposure,         "Exposure",          ""              )
 DefNode(CompositorNode, CMP_NODE_ANTIALIASING,   def_cmp_antialiasing,   "ANTIALIASING",   AntiAliasing,     "Anti-Aliasing",     ""              )
 DefNode(CompositorNode, CMP_NODE_POSTERIZE,      0,                      "POSTERIZE",      Posterize,        "Posterize",         ""              )
+DefNode(CompositorNode, CMP_NODE_CONVERT_COLOR_SPACE,def_cmp_convert_color_space, "CONVERT_COLORSPACE", ConvertColorSpace, "Color Space",""       )
+DefNode(CompositorNode, CMP_NODE_SCENE_TIME,     0,                      "SCENE_TIME",      SceneTime,        "Scene Time",        ""              )
+DefNode(CompositorNode, CMP_NODE_COMBINE_XYZ,    0,                      "COMBINE_XYZ",    CombineXYZ,       "Combine XYZ",       ""              )
+DefNode(CompositorNode, CMP_NODE_SEPARATE_XYZ,   0,                      "SEPARATE_XYZ",   SeparateXYZ,      "Separate XYZ",      ""              )
 
 DefNode(TextureNode,    TEX_NODE_OUTPUT,         def_tex_output,         "OUTPUT",         Output,           "Output",            ""              )
 DefNode(TextureNode,    TEX_NODE_CHECKER,        0,                      "CHECKER",        Checker,          "Checker",           ""              )
@@ -333,6 +324,7 @@ DefNode(GeometryNode, GEO_NODE_CONVEX_HULL, 0, "CONVEX_HULL", ConvexHull, "Conve
 DefNode(GeometryNode, GEO_NODE_CURVE_ENDPOINT_SELECTION, 0, "CURVE_ENDPOINT_SELECTION", CurveEndpointSelection, "Endpoint Selection", "")
 DefNode(GeometryNode, GEO_NODE_CURVE_HANDLE_TYPE_SELECTION, def_geo_curve_handle_type_selection, "CURVE_HANDLE_TYPE_SELECTION", CurveHandleTypeSelection, "Handle Type Selection", "")
 DefNode(GeometryNode, GEO_NODE_CURVE_LENGTH, 0, "CURVE_LENGTH", CurveLength, "Curve Length", "")
+DefNode(GeometryNode, GEO_NODE_CURVE_PRIMITIVE_ARC, def_geo_curve_primitive_arc, "CURVE_PRIMITIVE_ARC", CurveArc, "Arc", "")
 DefNode(GeometryNode, GEO_NODE_CURVE_PRIMITIVE_BEZIER_SEGMENT, def_geo_curve_primitive_bezier_segment, "CURVE_PRIMITIVE_BEZIER_SEGMENT", CurvePrimitiveBezierSegment, "Bezier Segment", "")
 DefNode(GeometryNode, GEO_NODE_CURVE_PRIMITIVE_CIRCLE, def_geo_curve_primitive_circle, "CURVE_PRIMITIVE_CIRCLE", CurvePrimitiveCircle, "Curve Circle", "")
 DefNode(GeometryNode, GEO_NODE_CURVE_PRIMITIVE_LINE, def_geo_curve_primitive_line, "CURVE_PRIMITIVE_LINE", CurvePrimitiveLine, "Curve Line", "")
@@ -349,8 +341,11 @@ DefNode(GeometryNode, GEO_NODE_DELETE_GEOMETRY, def_geo_delete_geometry, "DELETE
 DefNode(GeometryNode, GEO_NODE_DISTRIBUTE_POINTS_ON_FACES, def_geo_distribute_points_on_faces, "DISTRIBUTE_POINTS_ON_FACES", DistributePointsOnFaces, "Distribute Points on Faces", "")
 DefNode(GeometryNode, GEO_NODE_ACCUMULATE_FIELD, def_geo_accumulate_field, "ACCUMULATE_FIELD", AccumulateField, "Accumulate Field", "")
 DefNode(GeometryNode, GEO_NODE_DUAL_MESH, 0, "DUAL_MESH", DualMesh, "Dual Mesh", "")
+DefNode(GeometryNode, GEO_NODE_EXTRUDE_MESH, def_geo_extrude_mesh, "EXTRUDE_MESH", ExtrudeMesh, "Extrude Mesh", "")
+DefNode(GeometryNode, GEO_NODE_FIELD_AT_INDEX, def_geo_field_at_index, "FIELD_AT_INDEX", FieldAtIndex, "Field at Index", "")
 DefNode(GeometryNode, GEO_NODE_FILL_CURVE, def_geo_curve_fill, "FILL_CURVE", FillCurve, "Fill Curve", "")
 DefNode(GeometryNode, GEO_NODE_FILLET_CURVE, def_geo_curve_fillet, "FILLET_CURVE", FilletCurve, "Fillet Curve", "")
+DefNode(GeometryNode, GEO_NODE_FLIP_FACES, 0, "FLIP_FACES", FlipFaces, "Flip Faces", "")
 DefNode(GeometryNode, GEO_NODE_GEOMETRY_TO_INSTANCE, 0, "GEOMETRY_TO_INSTANCE", GeometryToInstance, "Geometry to Instance", "")
 DefNode(GeometryNode, GEO_NODE_IMAGE_TEXTURE, def_geo_image_texture, "IMAGE_TEXTURE", ImageTexture, "Image Texture", "")
 DefNode(GeometryNode, GEO_NODE_INPUT_CURVE_HANDLES, 0, "INPUT_CURVE_HANDLES", InputCurveHandlePositions, "Curve Handle Positions", "")
@@ -380,6 +375,7 @@ DefNode(GeometryNode, GEO_NODE_INSTANCES_TO_POINTS, 0, "INSTANCES_TO_POINTS", In
 DefNode(GeometryNode, GEO_NODE_IS_VIEWPORT, 0, "IS_VIEWPORT", IsViewport, "Is Viewport", "")
 DefNode(GeometryNode, GEO_NODE_JOIN_GEOMETRY, 0, "JOIN_GEOMETRY", JoinGeometry, "Join Geometry", "")
 DefNode(GeometryNode, GEO_NODE_MATERIAL_SELECTION, 0, "MATERIAL_SELECTION", MaterialSelection, "Material Selection", "")
+DefNode(GeometryNode, GEO_NODE_MERGE_BY_DISTANCE, 0, "MERGE_BY_DISTANCE", MergeByDistance, "Merge by Distance", "")
 DefNode(GeometryNode, GEO_NODE_MESH_BOOLEAN, def_geo_boolean, "MESH_BOOLEAN", MeshBoolean, "Mesh Boolean", "")
 DefNode(GeometryNode, GEO_NODE_MESH_PRIMITIVE_CIRCLE, def_geo_mesh_circle, "MESH_PRIMITIVE_CIRCLE", MeshCircle, "Mesh Circle", "")
 DefNode(GeometryNode, GEO_NODE_MESH_PRIMITIVE_CONE, def_geo_mesh_cone, "MESH_PRIMITIVE_CONE", MeshCone, "Cone", "")
@@ -402,6 +398,7 @@ DefNode(GeometryNode, GEO_NODE_RESAMPLE_CURVE, def_geo_curve_resample, "RESAMPLE
 DefNode(GeometryNode, GEO_NODE_REVERSE_CURVE, 0, "REVERSE_CURVE", ReverseCurve, "Reverse Curve", "")
 DefNode(GeometryNode, GEO_NODE_ROTATE_INSTANCES, 0, "ROTATE_INSTANCES", RotateInstances, "Rotate Instances", "")
 DefNode(GeometryNode, GEO_NODE_SAMPLE_CURVE, def_geo_curve_sample, "SAMPLE_CURVE", SampleCurve, "Sample Curve", "")
+DefNode(GeometryNode, GEO_NODE_SCALE_ELEMENTS, def_geo_scale_elements, "SCALE_ELEMENTS", ScaleElements, "Scale Elements", "")
 DefNode(GeometryNode, GEO_NODE_SCALE_INSTANCES, 0, "SCALE_INSTANCES", ScaleInstances, "Scale Instances", "")
 DefNode(GeometryNode, GEO_NODE_SEPARATE_COMPONENTS, 0, "SEPARATE_COMPONENTS", SeparateComponents, "Separate Components", "")
 DefNode(GeometryNode, GEO_NODE_SEPARATE_GEOMETRY, def_geo_separate_geometry, "SEPARATE_GEOMETRY", SeparateGeometry, "Separate Geometry", "")

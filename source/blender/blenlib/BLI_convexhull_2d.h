@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -32,7 +18,7 @@ extern "C" {
  * \param r_points: An array of the convex hull vertex indices (max is n).
  * \returns the number of points in r_points.
  */
-int BLI_convexhull_2d_sorted(const float (*points)[2], const int n, int r_points[]);
+int BLI_convexhull_2d_sorted(const float (*points)[2], int n, int r_points[]);
 /**
  * A.M. Andrew's monotone chain 2D convex hull algorithm.
  *
@@ -43,7 +29,7 @@ int BLI_convexhull_2d_sorted(const float (*points)[2], const int n, int r_points
  * even though the final result will be no more than \a n in size.
  * \returns the number of points in r_points.
  */
-int BLI_convexhull_2d(const float (*points)[2], const int n, int r_points[]);
+int BLI_convexhull_2d(const float (*points)[2], int n, int r_points[]);
 
 /**
  * \return The best angle for fitting the convex hull to an axis aligned bounding box.

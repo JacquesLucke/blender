@@ -1,10 +1,8 @@
-/* Apache License, Version 2.0 */
+/* SPDX-License-Identifier: Apache-2.0 */
 
-#include <fstream>
 #include <gtest/gtest.h>
 #include <ios>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <system_error>
 
@@ -29,6 +27,8 @@
 #include "obj_exporter_tests.hh"
 
 namespace blender::io::obj {
+/* Set this true to keep comparison-failing test output in temp file directory. */
+constexpr bool save_failing_test_output = false;
 
 /* This is also the test name. */
 class obj_exporter_test : public BlendfileLoadingBaseTest {
@@ -58,7 +58,7 @@ TEST_F(obj_exporter_test, filter_objects_curves_as_mesh)
     return;
   }
   auto [objmeshes, objcurves]{filter_supported_objects(depsgraph, _export.params)};
-  EXPECT_EQ(objmeshes.size(), 17);
+  EXPECT_EQ(objmeshes.size(), 19);
   EXPECT_EQ(objcurves.size(), 0);
 }
 
@@ -71,7 +71,7 @@ TEST_F(obj_exporter_test, filter_objects_curves_as_nurbs)
   }
   _export.params.export_curves_as_nurbs = true;
   auto [objmeshes, objcurves]{filter_supported_objects(depsgraph, _export.params)};
-  EXPECT_EQ(objmeshes.size(), 16);
+  EXPECT_EQ(objmeshes.size(), 18);
   EXPECT_EQ(objcurves.size(), 2);
 }
 
@@ -183,21 +183,27 @@ static std::unique_ptr<OBJWriter> init_writer(const OBJExportParams &params,
   }
 }
 
-/* The following is relative to BKE_tempdir_base. */
-const char *const temp_file_path = "output.OBJ";
+/* The following is relative to BKE_tempdir_base.
+ * Use Latin Capital Letter A with Ogonek, Cyrillic Capital Letter Zhe
+ * at the end, to test I/O on non-English file names. */
+const char *const temp_file_path = "output\xc4\x84\xd0\x96.OBJ";
 
 static std::string read_temp_file_in_string(const std::string &file_path)
 {
-  std::ifstream temp_stream(file_path);
-  std::ostringstream input_ss;
-  input_ss << temp_stream.rdbuf();
-  return input_ss.str();
+  std::string res;
+  size_t buffer_len;
+  void *buffer = BLI_file_read_text_as_mem(file_path.c_str(), 0, &buffer_len);
+  if (buffer != nullptr) {
+    res.assign((const char *)buffer, buffer_len);
+    MEM_freeN(buffer);
+  }
+  return res;
 }
 
 TEST(obj_exporter_writer, header)
 {
   /* Because testing doesn't fully initialize Blender, we need the following. */
-  BKE_tempdir_init(NULL);
+  BKE_tempdir_init(nullptr);
   std::string out_file_path = blender::tests::flags_test_release_dir() + "/" + temp_file_path;
   {
     OBJExportParamsDefault _export;
@@ -229,24 +235,57 @@ TEST(obj_exporter_writer, mtllib)
   }
   const std::string result = read_temp_file_in_string(out_file_path);
   ASSERT_EQ(result, "mtllib blah.mtl\nmtllib blah.mtl\n");
+  BLI_delete(out_file_path.c_str(), false, false);
+}
+
+TEST(obj_exporter_writer, format_handler_buffer_chunking)
+{
+  /* Use a tiny buffer chunk size, so that the test below ends up creating several blocks. */
+  FormatHandler<eFileType::OBJ, 16, 8> h;
+  h.write<eOBJSyntaxElement::object_name>("abc");
+  h.write<eOBJSyntaxElement::object_name>("abcd");
+  h.write<eOBJSyntaxElement::object_name>("abcde");
+  h.write<eOBJSyntaxElement::object_name>("abcdef");
+  h.write<eOBJSyntaxElement::object_name>("012345678901234567890123456789abcd");
+  h.write<eOBJSyntaxElement::object_name>("123");
+  h.write<eOBJSyntaxElement::curve_element_begin>();
+  h.write<eOBJSyntaxElement::new_line>();
+  h.write<eOBJSyntaxElement::nurbs_parameter_begin>();
+  h.write<eOBJSyntaxElement::new_line>();
+
+  size_t got_blocks = h.get_block_count();
+  ASSERT_EQ(got_blocks, 7);
+
+  std::string got_string = h.get_as_string();
+  using namespace std::string_literals;
+  const char *expected = R"(o abc
+o abcd
+o abcde
+o abcdef
+o 012345678901234567890123456789abcd
+o 123
+curv 0.0 1.0
+parm u 0.0
+)";
+  ASSERT_EQ(got_string, expected);
 }
 
 /* Return true if string #a and string #b are equal after their first newline. */
 static bool strings_equal_after_first_lines(const std::string &a, const std::string &b)
 {
-  /* If `dbg_level > 0` then a failing test will print context around the first mismatch. */
-  const bool dbg_level = 0;
+  /* If `dbg_level` is true then a failing test will print context around the first mismatch. */
+  const bool dbg_level = false;
   const size_t a_len = a.size();
   const size_t b_len = b.size();
   const size_t a_next = a.find_first_of('\n');
   const size_t b_next = b.find_first_of('\n');
   if (a_next == std::string::npos || b_next == std::string::npos) {
-    if (dbg_level > 0) {
+    if (dbg_level) {
       std::cout << "Couldn't find newline in one of args\n";
     }
     return false;
   }
-  if (dbg_level > 0) {
+  if (dbg_level) {
     if (a.compare(a_next, a_len - a_next, b, b_next, b_len - b_next) != 0) {
       for (int i = 0; i < a_len - a_next && i < b_len - b_next; ++i) {
         if (a[a_next + i] != b[b_next + i]) {
@@ -283,25 +322,37 @@ class obj_exporter_regression_test : public obj_exporter_test {
       return;
     }
     /* Because testing doesn't fully initialize Blender, we need the following. */
-    BKE_tempdir_init(NULL);
+    BKE_tempdir_init(nullptr);
     std::string tempdir = std::string(BKE_tempdir_base());
     std::string out_file_path = tempdir + BLI_path_basename(golden_obj.c_str());
-    strncpy(params.filepath, out_file_path.c_str(), FILE_MAX);
+    strncpy(params.filepath, out_file_path.c_str(), FILE_MAX - 1);
     params.blen_filepath = blendfile.c_str();
     export_frame(depsgraph, params, out_file_path.c_str());
     std::string output_str = read_temp_file_in_string(out_file_path);
 
     std::string golden_file_path = blender::tests::flags_test_asset_dir() + "/" + golden_obj;
     std::string golden_str = read_temp_file_in_string(golden_file_path);
-    ASSERT_TRUE(strings_equal_after_first_lines(output_str, golden_str));
-    BLI_delete(out_file_path.c_str(), false, false);
+    bool are_equal = strings_equal_after_first_lines(output_str, golden_str);
+    if (save_failing_test_output && !are_equal) {
+      printf("failing test output in %s\n", out_file_path.c_str());
+    }
+    ASSERT_TRUE(are_equal);
+    if (!save_failing_test_output || are_equal) {
+      BLI_delete(out_file_path.c_str(), false, false);
+    }
     if (!golden_mtl.empty()) {
       std::string out_mtl_file_path = tempdir + BLI_path_basename(golden_mtl.c_str());
       std::string output_mtl_str = read_temp_file_in_string(out_mtl_file_path);
       std::string golden_mtl_file_path = blender::tests::flags_test_asset_dir() + "/" + golden_mtl;
       std::string golden_mtl_str = read_temp_file_in_string(golden_mtl_file_path);
-      ASSERT_TRUE(strings_equal_after_first_lines(output_mtl_str, golden_mtl_str));
-      BLI_delete(out_mtl_file_path.c_str(), false, false);
+      are_equal = strings_equal_after_first_lines(output_mtl_str, golden_mtl_str);
+      if (save_failing_test_output && !are_equal) {
+        printf("failing test output in %s\n", out_mtl_file_path.c_str());
+      }
+      ASSERT_TRUE(are_equal);
+      if (!save_failing_test_output || are_equal) {
+        BLI_delete(out_mtl_file_path.c_str(), false, false);
+      }
     }
   }
 };
@@ -365,6 +416,19 @@ TEST_F(obj_exporter_regression_test, nurbs_as_nurbs)
       "io_tests/blend_geometry/nurbs.blend", "io_tests/obj/nurbs.obj", "", _export.params);
 }
 
+TEST_F(obj_exporter_regression_test, nurbs_curves_as_nurbs)
+{
+  OBJExportParamsDefault _export;
+  _export.params.forward_axis = OBJ_AXIS_Y_FORWARD;
+  _export.params.up_axis = OBJ_AXIS_Z_UP;
+  _export.params.export_materials = false;
+  _export.params.export_curves_as_nurbs = true;
+  compare_obj_export_to_golden("io_tests/blend_geometry/nurbs_curves.blend",
+                               "io_tests/obj/nurbs_curves.obj",
+                               "",
+                               _export.params);
+}
+
 TEST_F(obj_exporter_regression_test, nurbs_as_mesh)
 {
   OBJExportParamsDefault _export;
@@ -385,6 +449,18 @@ TEST_F(obj_exporter_regression_test, cube_all_data_triangulated)
   _export.params.export_triangulated_mesh = true;
   compare_obj_export_to_golden("io_tests/blend_geometry/cube_all_data.blend",
                                "io_tests/obj/cube_all_data_triangulated.obj",
+                               "",
+                               _export.params);
+}
+
+TEST_F(obj_exporter_regression_test, cube_normal_edit)
+{
+  OBJExportParamsDefault _export;
+  _export.params.forward_axis = OBJ_AXIS_Y_FORWARD;
+  _export.params.up_axis = OBJ_AXIS_Z_UP;
+  _export.params.export_materials = false;
+  compare_obj_export_to_golden("io_tests/blend_geometry/cube_normal_edit.blend",
+                               "io_tests/obj/cube_normal_edit.obj",
                                "",
                                _export.params);
 }

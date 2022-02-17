@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2016 by Mike Erwin.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 by Mike Erwin. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -30,6 +14,7 @@
 
 #include "GPU_index_buffer.h"
 #include "GPU_shader.h"
+#include "GPU_uniform_buffer.h"
 #include "GPU_vertex_buffer.h"
 
 #define GPU_BATCH_VBO_MAX_LEN 16
@@ -170,6 +155,8 @@ void GPU_batch_program_set_builtin_with_config(GPUBatch *batch,
   GPU_shader_uniform_4fv_array((batch)->shader, name, len, val);
 #define GPU_batch_uniform_mat4(batch, name, val) \
   GPU_shader_uniform_mat4((batch)->shader, name, val);
+#define GPU_batch_uniformbuf_bind(batch, name, ubo) \
+  GPU_uniformbuf_bind(ubo, GPU_shader_get_uniform_block_binding((batch)->shader, name));
 #define GPU_batch_texture_bind(batch, name, tex) \
   GPU_texture_bind(tex, GPU_shader_get_texture_binding((batch)->shader, name));
 

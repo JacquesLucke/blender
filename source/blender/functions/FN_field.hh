@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -87,8 +73,7 @@ class FieldNode {
 
  public:
   FieldNode(FieldNodeType node_type);
-
-  virtual ~FieldNode() = default;
+  virtual ~FieldNode();
 
   virtual const CPPType &output_cpp_type(int output_index) const = 0;
 
@@ -230,6 +215,7 @@ class FieldOperation : public FieldNode {
  public:
   FieldOperation(std::shared_ptr<const MultiFunction> function, Vector<GField> inputs = {});
   FieldOperation(const MultiFunction &function, Vector<GField> inputs = {});
+  ~FieldOperation();
 
   Span<GField> inputs() const;
   const MultiFunction &multi_function() const;
@@ -259,6 +245,7 @@ class FieldInput : public FieldNode {
 
  public:
   FieldInput(const CPPType &type, std::string debug_name = "");
+  ~FieldInput();
 
   /**
    * Get the value of this specific input based on the given context. The returned virtual array,
@@ -308,7 +295,7 @@ struct FieldInputs {
  */
 class FieldContext {
  public:
-  ~FieldContext() = default;
+  virtual ~FieldContext() = default;
 
   virtual GVArray get_varray_for_input(const FieldInput &field_input,
                                        IndexMask mask,
@@ -448,7 +435,7 @@ class FieldEvaluator : NonMovable, NonCopyable {
    * to avoid calculations for unnecessary elements later on. The evaluator will own the indices in
    * some cases, so it must live at least as long as the returned mask.
    */
-  IndexMask get_evaluated_as_mask(const int field_index);
+  IndexMask get_evaluated_as_mask(int field_index);
 };
 
 /**

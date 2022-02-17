@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -140,7 +126,7 @@ static char *rna_PoseBone_path(PointerRNA *ptr)
 
 static bool rna_bone_group_poll(Object *ob, ReportList *reports)
 {
-  if ((ob->proxy != NULL) || (ob->proxy_group != NULL) || ID_IS_OVERRIDE_LIBRARY(ob)) {
+  if (ID_IS_OVERRIDE_LIBRARY(ob)) {
     BKE_report(reports, RPT_ERROR, "Cannot edit bone groups for proxies or library overrides");
     return false;
   }
@@ -717,7 +703,7 @@ static int rna_PoseChannel_proxy_editable(PointerRNA *ptr, const char **r_info)
   bArmature *arm = ob->data;
   bPoseChannel *pchan = (bPoseChannel *)ptr->data;
 
-  if (ob->proxy && pchan->bone && (pchan->bone->layer & arm->layer_protected)) {
+  if (false && pchan->bone && (pchan->bone->layer & arm->layer_protected)) {
     *r_info = "Can't edit property of a proxy on a protected layer";
     return 0;
   }

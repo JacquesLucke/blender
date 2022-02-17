@@ -1,21 +1,8 @@
-/*
+/* SPDX-License-Identifier: Apache-2.0
  * Adapted from code Copyright 2009-2010 NVIDIA Corporation,
  * and code copyright 2009-2012 Intel Corporation
  *
- * Modifications Copyright 2011-2013, Blender Foundation.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ * Modifications Copyright 2011-2022 Blender Foundation. */
 
 #if BVH_FEATURE(BVH_HAIR)
 #  define NODE_INTERSECT bvh_node_intersect
@@ -146,7 +133,7 @@ ccl_device_inline
           --stack_ptr;
 
           /* primitive intersection */
-          while (prim_addr < prim_addr2) {
+          for (; prim_addr < prim_addr2; prim_addr++) {
             kernel_assert((kernel_tex_fetch(__prim_type, prim_addr) & PRIMITIVE_ALL) ==
                           (type & PRIMITIVE_ALL));
             bool hit;
@@ -156,16 +143,32 @@ ccl_device_inline
              * might give a few % performance improvement */
             Intersection isect ccl_optional_struct_init;
 
+            const int prim_object = (object == OBJECT_NONE) ?
+                                        kernel_tex_fetch(__prim_object, prim_addr) :
+                                        object;
+            const int prim = kernel_tex_fetch(__prim_index, prim_addr);
+            if (intersection_skip_self_shadow(ray->self, prim_object, prim)) {
+              continue;
+            }
+
             switch (type & PRIMITIVE_ALL) {
               case PRIMITIVE_TRIANGLE: {
                 hit = triangle_intersect(
-                    kg, &isect, P, dir, t_max_current, visibility, object, prim_addr);
+                    kg, &isect, P, dir, t_max_current, visibility, prim_object, prim, prim_addr);
                 break;
               }
 #if BVH_FEATURE(BVH_MOTION)
               case PRIMITIVE_MOTION_TRIANGLE: {
-                hit = motion_triangle_intersect(
-                    kg, &isect, P, dir, t_max_current, ray->time, visibility, object, prim_addr);
+                hit = motion_triangle_intersect(kg,
+                                                &isect,
+                                                P,
+                                                dir,
+                                                t_max_current,
+                                                ray->time,
+                                                visibility,
+                                                prim_object,
+                                                prim,
+                                                prim_addr);
                 break;
               }
 #endif
@@ -182,20 +185,9 @@ ccl_device_inline
                   }
                 }
 
-                const int curve_object = (object == OBJECT_NONE) ?
-                                             kernel_tex_fetch(__prim_object, prim_addr) :
-                                             object;
                 const int curve_type = kernel_tex_fetch(__prim_type, prim_addr);
-                const int curve_prim = kernel_tex_fetch(__prim_index, prim_addr);
-                hit = curve_intersect(kg,
-                                      &isect,
-                                      P,
-                                      dir,
-                                      t_max_current,
-                                      curve_object,
-                                      curve_prim,
-                                      ray->time,
-                                      curve_type);
+                hit = curve_intersect(
+                    kg, &isect, P, dir, t_max_current, prim_object, prim, ray->time, curve_type);
 
                 break;
               }
@@ -211,20 +203,9 @@ ccl_device_inline
                   }
                 }
 
-                const int point_object = (object == OBJECT_NONE) ?
-                                             kernel_tex_fetch(__prim_object, prim_addr) :
-                                             object;
-                const int point_prim = kernel_tex_fetch(__prim_index, prim_addr);
                 const int point_type = kernel_tex_fetch(__prim_type, prim_addr);
-                hit = point_intersect(kg,
-                                      &isect,
-                                      P,
-                                      dir,
-                                      t_max_current,
-                                      point_object,
-                                      point_prim,
-                                      ray->time,
-                                      point_type);
+                hit = point_intersect(
+                    kg, &isect, P, dir, t_max_current, prim_object, prim, ray->time, point_type);
                 break;
               }
 #endif /* BVH_FEATURE(BVH_POINTCLOUD) */
@@ -301,8 +282,6 @@ ccl_device_inline
                 integrator_state_write_shadow_isect(state, &isect, record_index);
               }
             }
-
-            prim_addr++;
           }
         }
         else {

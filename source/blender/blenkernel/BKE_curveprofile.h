@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright (C) 2019 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2019 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -62,8 +46,8 @@ struct CurveProfile *BKE_curveprofile_copy(const struct CurveProfile *profile);
  * \return Whether the handle moved from its start position.
  */
 bool BKE_curveprofile_move_handle(struct CurveProfilePoint *point,
-                                  const bool handle_1,
-                                  const bool snap,
+                                  bool handle_1,
+                                  bool snap,
                                   const float delta[2]);
 
 /**
@@ -76,7 +60,7 @@ bool BKE_curveprofile_move_handle(struct CurveProfilePoint *point,
  */
 bool BKE_curveprofile_move_point(struct CurveProfile *profile,
                                  struct CurveProfilePoint *point,
-                                 const bool snap,
+                                 bool snap,
                                  const float delta[2]);
 
 /**
@@ -92,7 +76,7 @@ bool BKE_curveprofile_remove_point(struct CurveProfile *profile, struct CurvePro
  *
  * \note Requires #BKE_curveprofile_update call after.
  */
-void BKE_curveprofile_remove_by_flag(struct CurveProfile *profile, const short flag);
+void BKE_curveprofile_remove_by_flag(struct CurveProfile *profile, short flag);
 
 /**
  * Adds a new point at the specified location. The choice for which points to place the new vertex
@@ -151,7 +135,7 @@ enum {
  * \param update_flags: Bit-field with fields defined in header file.
  * Controls removing doubles and clipping.
  */
-void BKE_curveprofile_update(struct CurveProfile *profile, const int update_flags);
+void BKE_curveprofile_update(struct CurveProfile *profile, int update_flags);
 
 /**
  * Does a single evaluation along the profile's path.

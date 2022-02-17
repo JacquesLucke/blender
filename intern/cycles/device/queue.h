@@ -1,24 +1,12 @@
-/*
- * Copyright 2011-2021 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #pragma once
 
 #include "device/kernel.h"
 
 #include "device/graphics_interop.h"
+#include "util/debug.h"
 #include "util/log.h"
 #include "util/map.h"
 #include "util/string.h"
@@ -42,7 +30,7 @@ struct DeviceKernelArguments {
     KERNEL_FILM_CONVERT,
   };
 
-  static const int MAX_ARGS = 16;
+  static const int MAX_ARGS = 18;
   Type types[MAX_ARGS];
   void *values[MAX_ARGS];
   size_t sizes[MAX_ARGS];
@@ -85,6 +73,8 @@ struct DeviceKernelArguments {
   }
   void add(const Type type, const void *value, size_t size)
   {
+    assert(count < MAX_ARGS);
+
     types[count] = type;
     values[count] = (void *)value;
     sizes[count] = size;

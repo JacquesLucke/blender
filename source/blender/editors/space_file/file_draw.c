@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spfile
@@ -240,6 +224,7 @@ static void file_draw_string(int sx,
   UI_fontstyle_draw(&fs,
                     &rect,
                     fname,
+                    sizeof(fname),
                     col,
                     &(struct uiFontStyleDraw_Params){
                         .align = align,
@@ -289,12 +274,12 @@ static void file_draw_string_multiline(int sx,
   UI_fontstyle_draw_ex(&style->widget,
                        &rect,
                        string,
+                       len,
                        text_col,
                        &(struct uiFontStyleDraw_Params){
                            .align = UI_STYLE_TEXT_LEFT,
                            .word_wrap = true,
                        },
-                       len,
                        NULL,
                        NULL,
                        &result);
@@ -402,19 +387,19 @@ static void file_draw_preview(const SpaceFile *sfile,
   }
 
   IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
-  immDrawPixelsTexScaled(&state,
-                         (float)xco,
-                         (float)yco,
-                         imb->x,
-                         imb->y,
-                         GPU_RGBA8,
-                         true,
-                         imb->rect,
-                         scale,
-                         scale,
-                         1.0f,
-                         1.0f,
-                         col);
+  immDrawPixelsTexTiled_scaling(&state,
+                                (float)xco,
+                                (float)yco,
+                                imb->x,
+                                imb->y,
+                                GPU_RGBA8,
+                                true,
+                                imb->rect,
+                                scale,
+                                scale,
+                                1.0f,
+                                1.0f,
+                                col);
 
   GPU_blend(GPU_BLEND_ALPHA);
 
@@ -905,7 +890,8 @@ void file_draw_list(const bContext *C, ARegion *region)
      * since it's filelist_file_cache_block() and filelist_cache_previews_update()
      * which controls previews task. */
     {
-      const bool previews_running = filelist_cache_previews_running(files);
+      const bool previews_running = filelist_cache_previews_running(files) &&
+                                    !filelist_cache_previews_done(files);
       //          printf("%s: preview task: %d\n", __func__, previews_running);
       if (previews_running && !sfile->previews_timer) {
         sfile->previews_timer = WM_event_add_timer_notifier(

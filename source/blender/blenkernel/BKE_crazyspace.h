@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -26,10 +10,12 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+
 struct BMEditMesh;
 struct Depsgraph;
 struct Mesh;
 struct Object;
+struct ReportList;
 struct Scene;
 
 /* crazyspace.c */
@@ -43,7 +29,7 @@ void BKE_crazyspace_set_quats_editmesh(struct BMEditMesh *em,
                                        float (*origcos)[3],
                                        float (*mappedcos)[3],
                                        float (*quats)[4],
-                                       const bool use_select);
+                                       bool use_select);
 void BKE_crazyspace_set_quats_mesh(struct Mesh *me,
                                    float (*origcos)[3],
                                    float (*mappedcos)[3],
@@ -68,6 +54,31 @@ void BKE_crazyspace_build_sculpt(struct Depsgraph *depsgraph,
                                  struct Object *ob,
                                  float (**deformmats)[3][3],
                                  float (**deformcos)[3]);
+
+/* -------------------------------------------------------------------- */
+/** \name Crazy-Space API
+ * \{ */
+
+void BKE_crazyspace_api_eval(struct Depsgraph *depsgraph,
+                             struct Scene *scene,
+                             struct Object *object,
+                             struct ReportList *reports);
+
+void BKE_crazyspace_api_displacement_to_deformed(struct Object *object,
+                                                 struct ReportList *reports,
+                                                 int vertex_index,
+                                                 float displacement[3],
+                                                 float r_displacement_deformed[3]);
+
+void BKE_crazyspace_api_displacement_to_original(struct Object *object,
+                                                 struct ReportList *reports,
+                                                 int vertex_index,
+                                                 float displacement_deformed[3],
+                                                 float r_displacement[3]);
+
+void BKE_crazyspace_api_eval_clear(struct Object *object);
+
+/** \} */
 
 #ifdef __cplusplus
 }

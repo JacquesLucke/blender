@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_array.hh"
 #include "BLI_task.hh"
@@ -282,18 +268,20 @@ static void copy_uniform_sample_point_attributes(const Span<SplinePtr> splines,
       }
 
       if (!data.tangents.is_empty()) {
-        spline.sample_with_index_factors<float3>(
-            spline.evaluated_tangents(), uniform_samples, data.tangents.slice(offset, size));
-        for (float3 &tangent : data.tangents) {
-          tangent.normalize();
+        Span<float3> src_tangents = spline.evaluated_tangents();
+        MutableSpan<float3> sampled_tangents = data.tangents.slice(offset, size);
+        spline.sample_with_index_factors<float3>(src_tangents, uniform_samples, sampled_tangents);
+        for (float3 &vector : sampled_tangents) {
+          vector = math::normalize(vector);
         }
       }
 
       if (!data.normals.is_empty()) {
-        spline.sample_with_index_factors<float3>(
-            spline.evaluated_normals(), uniform_samples, data.normals.slice(offset, size));
-        for (float3 &normals : data.normals) {
-          normals.normalize();
+        Span<float3> src_normals = spline.evaluated_normals();
+        MutableSpan<float3> sampled_normals = data.normals.slice(offset, size);
+        spline.sample_with_index_factors<float3>(src_normals, uniform_samples, sampled_normals);
+        for (float3 &vector : sampled_normals) {
+          vector = math::normalize(vector);
         }
       }
     }

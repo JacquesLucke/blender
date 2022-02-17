@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edcurve
@@ -155,7 +139,7 @@ void ed_editnurb_translate_flag(struct ListBase *editnurb,
 /**
  * Only for #OB_SURF.
  */
-bool ed_editnurb_extrude_flag(struct EditNurb *editnurb, const uint8_t flag);
+bool ed_editnurb_extrude_flag(struct EditNurb *editnurb, uint8_t flag);
 /**
  * \param axis: is in world-space.
  * \param cent: is in object-space.

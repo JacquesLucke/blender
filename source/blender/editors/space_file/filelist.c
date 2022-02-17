@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spfile
@@ -339,7 +323,10 @@ typedef struct FileListEntryCache {
   /* Previews handling. */
   TaskPool *previews_pool;
   ThreadQueue *previews_done;
-  size_t previews_todo_count;
+  /** Counter for previews that are not fully loaded and ready to display yet. So includes all
+   * previews either in `previews_pool` or `previews_done`. #filelist_cache_previews_update() makes
+   * previews in `preview_done` ready for display, so the counter is decremented there. */
+  int previews_todo_count;
 } FileListEntryCache;
 
 /* FileListCache.flags */
@@ -521,7 +508,7 @@ static int compare_apply_inverted(int val, const struct FileSortData *sort_data)
  * 2) If not possible (file names match) and both represent local IDs, sort by ID-type.
  * 3) If not possible and only one is a local ID, place files representing local IDs first.
  *
- * TODO (not actually implemented, but should be):
+ * TODO: (not actually implemented, but should be):
  * 4) If no file represents a local ID, sort by file path, so that files higher up the file system
  *    hierarchy are placed first.
  */
@@ -852,7 +839,8 @@ static bool is_filtered_hidden(const char *filename,
 
 /**
  * Apply the filter string as file path matching pattern.
- * \return true when the file should be in the result set, false if it should be filtered out. */
+ * \return true when the file should be in the result set, false if it should be filtered out.
+ */
 static bool is_filtered_file_relpath(const FileListInternEntry *file, const FileListFilter *filter)
 {
   if (filter->filter_search[0] == '\0') {
@@ -1646,7 +1634,6 @@ static void filelist_cache_preview_runf(TaskPool *__restrict pool, void *taskdat
   preview_taskdata->preview = NULL;
 
   BLI_thread_queue_push(cache->previews_done, preview);
-  atomic_fetch_and_sub_z(&cache->previews_todo_count, 1);
 
   //  printf("%s: End (%d)...\n", __func__, threadid);
 }
@@ -1688,6 +1675,7 @@ static void filelist_cache_previews_clear(FileListEntryCache *cache)
       }
       MEM_freeN(preview);
     }
+    cache->previews_todo_count = 0;
   }
 }
 
@@ -1758,7 +1746,6 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
       preview->icon_id = BKE_icon_imbuf_create(imbuf);
     }
     BLI_thread_queue_push(cache->previews_done, preview);
-    atomic_fetch_and_sub_z(&cache->previews_todo_count, 1);
   }
   else {
     if (entry->redirection_path) {
@@ -1779,6 +1766,7 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
                        true,
                        filelist_cache_preview_freef);
   }
+  cache->previews_todo_count++;
 }
 
 static void filelist_cache_init(FileListEntryCache *cache, size_t cache_size)
@@ -1876,8 +1864,6 @@ FileList *filelist_new(short type)
   p->filelist.nbr_entries = FILEDIR_NBR_ENTRIES_UNSET;
   filelist_settype(p, type);
 
-  p->indexer = &file_indexer_noop;
-
   return p;
 }
 
@@ -1889,6 +1875,7 @@ void filelist_settype(FileList *filelist, short type)
 
   filelist->type = type;
   filelist->tags = 0;
+  filelist->indexer = &file_indexer_noop;
   switch (filelist->type) {
     case FILE_MAIN:
       filelist->check_dir_fn = filelist_checkdir_main;
@@ -2064,7 +2051,7 @@ static char *fileentry_uiname(const char *root,
     BLI_join_dirfile(abspath, sizeof(abspath), root, relpath);
     name = BLF_display_name_from_file(abspath);
     if (name) {
-      /* Allocated string, so no need to BLI_strdup.*/
+      /* Allocated string, so no need to #BLI_strdup. */
       return name;
     }
   }
@@ -2693,6 +2680,7 @@ bool filelist_cache_previews_update(FileList *filelist)
     }
 
     MEM_freeN(preview);
+    cache->previews_todo_count--;
   }
 
   return changed;
@@ -2714,7 +2702,7 @@ bool filelist_cache_previews_done(FileList *filelist)
   }
 
   return (cache->previews_pool == NULL) || (cache->previews_done == NULL) ||
-         (cache->previews_todo_count == (size_t)BLI_thread_queue_len(cache->previews_done));
+         (cache->previews_todo_count == 0);
 }
 
 /* would recognize .blend as well */
@@ -2779,7 +2767,8 @@ int ED_path_extension_type(const char *path)
                                  NULL)) {
     return FILE_TYPE_TEXT;
   }
-  if (BLI_path_extension_check_n(path, ".ttf", ".ttc", ".pfb", ".otf", ".otc", NULL)) {
+  if (BLI_path_extension_check_n(
+          path, ".ttf", ".ttc", ".pfb", ".otf", ".otc", ".woff", ".woff2", NULL)) {
     return FILE_TYPE_FTFONT;
   }
   if (BLI_path_extension_check(path, ".btx")) {
@@ -3661,7 +3650,7 @@ static void filelist_readjob_recursive_dir_add_items(const bool do_lib,
         list_lib_options |= LIST_LIB_RECURSIVE;
       }
       /* Only load assets when browsing an asset library. For normal file browsing we return all
-       * entries. `FLF_ASSETS_ONLY` filter can be enabled/disabled by the user.*/
+       * entries. `FLF_ASSETS_ONLY` filter can be enabled/disabled by the user. */
       if (filelist->asset_library_ref) {
         list_lib_options |= LIST_LIB_ASSETS_ONLY;
       }

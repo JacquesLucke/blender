@@ -1,23 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * The Original Code is: some of this file.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bli
@@ -432,13 +414,6 @@ MINLINE void add_v3_v3v3(float r[3], const float a[3], const float b[3])
 }
 
 MINLINE void add_v3fl_v3fl_v3i(float r[3], const float a[3], const int b[3])
-{
-  r[0] = a[0] + (float)b[0];
-  r[1] = a[1] + (float)b[1];
-  r[2] = a[2] + (float)b[2];
-}
-
-MINLINE void add_v3fl_v3fl_v3s(float r[3], const float a[3], const short b[3])
 {
   r[0] = a[0] + (float)b[0];
   r[1] = a[1] + (float)b[1];

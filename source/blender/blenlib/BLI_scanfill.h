@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -114,10 +98,8 @@ enum {
   BLI_SCANFILL_CALC_LOOSE = (1 << 4),
 };
 void BLI_scanfill_begin(ScanFillContext *sf_ctx);
-unsigned int BLI_scanfill_calc(ScanFillContext *sf_ctx, const int flag);
-unsigned int BLI_scanfill_calc_ex(ScanFillContext *sf_ctx,
-                                  const int flag,
-                                  const float nor_proj[3]);
+unsigned int BLI_scanfill_calc(ScanFillContext *sf_ctx, int flag);
+unsigned int BLI_scanfill_calc_ex(ScanFillContext *sf_ctx, int flag, const float nor_proj[3]);
 void BLI_scanfill_end(ScanFillContext *sf_ctx);
 
 void BLI_scanfill_begin_arena(ScanFillContext *sf_ctx, struct MemArena *arena);

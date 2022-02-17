@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 by Janne Karhu.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 by Janne Karhu. All rights reserved. */
 
 /** \file
  * \ingroup edphys
@@ -1441,7 +1425,7 @@ void recalc_emitter_field(Depsgraph *UNUSED(depsgraph), Object *UNUSED(ob), Part
   PTCacheEdit *edit = psys->edit;
   Mesh *mesh = edit->psmd_eval->mesh_final;
   float *vec, *nor;
-  int i, totface /*, totvert*/;
+  int i, totface;
 
   if (!mesh) {
     return;
@@ -1454,7 +1438,7 @@ void recalc_emitter_field(Depsgraph *UNUSED(depsgraph), Object *UNUSED(ob), Part
   BLI_kdtree_3d_free(edit->emitter_field);
 
   totface = mesh->totface;
-  // totvert = dm->getNumVerts(dm); /* UNUSED */
+  // int totvert = dm->getNumVerts(dm); /* UNUSED */
 
   edit->emitter_cosnos = MEM_callocN(sizeof(float[6]) * totface, "emitter cosnos");
 
@@ -1463,26 +1447,28 @@ void recalc_emitter_field(Depsgraph *UNUSED(depsgraph), Object *UNUSED(ob), Part
   vec = edit->emitter_cosnos;
   nor = vec + 3;
 
+  const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(mesh);
+
   for (i = 0; i < totface; i++, vec += 6, nor += 6) {
     MFace *mface = &mesh->mface[i];
     MVert *mvert;
 
     mvert = &mesh->mvert[mface->v1];
     copy_v3_v3(vec, mvert->co);
-    copy_v3fl_v3s(nor, mvert->no);
+    copy_v3_v3(nor, vert_normals[mface->v1]);
 
     mvert = &mesh->mvert[mface->v2];
     add_v3_v3v3(vec, vec, mvert->co);
-    add_v3fl_v3fl_v3s(nor, nor, mvert->no);
+    add_v3_v3(nor, vert_normals[mface->v2]);
 
     mvert = &mesh->mvert[mface->v3];
     add_v3_v3v3(vec, vec, mvert->co);
-    add_v3fl_v3fl_v3s(nor, nor, mvert->no);
+    add_v3_v3(nor, vert_normals[mface->v3]);
 
     if (mface->v4) {
       mvert = &mesh->mvert[mface->v4];
       add_v3_v3v3(vec, vec, mvert->co);
-      add_v3fl_v3fl_v3s(nor, nor, mvert->no);
+      add_v3_v3(nor, vert_normals[mface->v4]);
 
       mul_v3_fl(vec, 0.25);
     }

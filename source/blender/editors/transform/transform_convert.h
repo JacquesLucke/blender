@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edtransform
@@ -48,9 +32,9 @@ int special_transform_moving(TransInfo *t);
 void special_aftertrans_update(struct bContext *C, TransInfo *t);
 void sort_trans_data_dist(TransInfo *t);
 void createTransData(struct bContext *C, TransInfo *t);
-bool clipUVTransform(TransInfo *t, float vec[2], const bool resize);
+bool clipUVTransform(TransInfo *t, float vec[2], bool resize);
 void clipUVData(TransInfo *t);
-void transform_convert_flush_handle2D(TransData *td, TransData2D *td2d, const float y_fac);
+void transform_convert_flush_handle2D(TransData *td, TransData2D *td2d, float y_fac);
 /**
  * Called for updating while transform acts, once per redraw.
  */
@@ -83,7 +67,7 @@ void transform_around_single_fallback(TransInfo *t);
  *                  but may want to use a different one at times (if caller does not operate on
  *                  selection).
  */
-void posttrans_fcurve_clean(struct FCurve *fcu, const int sel_flag, const bool use_handle);
+void posttrans_fcurve_clean(struct FCurve *fcu, int sel_flag, bool use_handle);
 /**
  * Little helper function for ObjectToTransData used to give certain
  * constraints (ChildOf, FollowPath, and others that may be added)
@@ -124,10 +108,8 @@ void special_aftertrans_update__actedit(bContext *C, TransInfo *t);
  * Sets transform flags in the bones.
  * Returns total number of bones with #BONE_TRANSFORM.
  */
-int transform_convert_pose_transflags_update(Object *ob,
-                                             const int mode,
-                                             const short around,
-                                             bool has_translate_rotate[2]);
+void transform_convert_pose_transflags_update(Object *ob, int mode, short around);
+
 /**
  * When objects array is NULL, use 't->data_container' as is.
  */
@@ -208,9 +190,9 @@ struct TransMeshDataCrazySpace {
 };
 
 void transform_convert_mesh_islands_calc(struct BMEditMesh *em,
-                                         const bool calc_single_islands,
-                                         const bool calc_island_center,
-                                         const bool calc_island_axismtx,
+                                         bool calc_single_islands,
+                                         bool calc_island_center,
+                                         bool calc_island_axismtx,
                                          struct TransIslandData *r_island_data);
 void transform_convert_mesh_islanddata_free(struct TransIslandData *island_data);
 /**
@@ -223,8 +205,8 @@ void transform_convert_mesh_connectivity_distance(struct BMesh *bm,
                                                   float *dists,
                                                   int *index);
 void transform_convert_mesh_mirrordata_calc(struct BMEditMesh *em,
-                                            const bool use_select,
-                                            const bool use_topology,
+                                            bool use_select,
+                                            bool use_topology,
                                             const bool mirror_axis[3],
                                             struct TransMirrorData *r_mirror_data);
 void transform_convert_mesh_mirrordata_free(struct TransMirrorData *mirror_data);

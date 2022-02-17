@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -965,7 +951,7 @@ static void rna_wmKeyMapItem_keymodifier_set(PointerRNA *ptr, int value)
   if (value == EVT_ESCKEY) {
     /* pass */
   }
-  else if (value >= EVT_AKEY) {
+  else if (ISKEYBOARD(value) && !ISKEYMODIFIER(value)) {
     kmi->keymodifier = value;
   }
   else {
@@ -2175,7 +2161,8 @@ static void rna_def_event(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Mouse Previous Y Position", "The window relative vertical location of the mouse");
 
-  prop = RNA_def_property(srna, "pressure", PROP_FLOAT, PROP_NONE);
+  prop = RNA_def_property(srna, "pressure", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_default(prop, 1.0f);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_float_funcs(prop, "rna_Event_pressure_get", NULL, NULL);
   RNA_def_property_ui_text(

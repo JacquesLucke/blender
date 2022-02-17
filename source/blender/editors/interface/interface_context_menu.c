@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -809,12 +795,18 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but, const wmEvent *ev
       else {
         if (is_array_component) {
           ot = WM_operatortype_find("UI_OT_override_type_set_button", false);
-          uiItemFullO_ptr(
-              layout, ot, "Define Overrides", ICON_NONE, NULL, WM_OP_INVOKE_DEFAULT, 0, &op_ptr);
+          uiItemFullO_ptr(layout,
+                          ot,
+                          CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Define Overrides"),
+                          ICON_NONE,
+                          NULL,
+                          WM_OP_INVOKE_DEFAULT,
+                          0,
+                          &op_ptr);
           RNA_boolean_set(&op_ptr, "all", true);
           uiItemFullO_ptr(layout,
                           ot,
-                          "Define Single Override",
+                          CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Define Single Override"),
                           ICON_NONE,
                           NULL,
                           WM_OP_INVOKE_DEFAULT,
@@ -825,7 +817,7 @@ bool ui_popup_context_menu_for_button(bContext *C, uiBut *but, const wmEvent *ev
         else {
           uiItemFullO(layout,
                       "UI_OT_override_type_set_button",
-                      "Define Override",
+                      CTX_IFACE_(BLT_I18NCONTEXT_OPERATOR_DEFAULT, "Define Override"),
                       ICON_NONE,
                       NULL,
                       WM_OP_INVOKE_DEFAULT,

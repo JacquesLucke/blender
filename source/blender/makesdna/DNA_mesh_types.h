@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup DNA
@@ -82,6 +66,10 @@ typedef struct Mesh_Runtime {
   struct Mesh *mesh_eval;
   void *eval_mutex;
 
+  /* A separate mutex is needed for normal calculation, because sometimes
+   * the normals are needed while #eval_mutex is already locked. */
+  void *normals_mutex;
+
   /** Needed to ensure some thread-safety during render data pre-processing. */
   void *render_mutex;
 
@@ -129,6 +117,17 @@ typedef struct Mesh_Runtime {
   char wrapper_type_finalize;
 
   /**
+   * Settings for lazily evaluating the subdivision on the CPU if needed. These are
+   * set in the modifier when GPU subdivision can be performed.
+   */
+  char subsurf_apply_render;
+  char subsurf_use_optimal_display;
+  char _pad[2];
+  int subsurf_resolution;
+
+  void *_pad2;
+
+  /**
    * Used to mark when derived data needs to be recalculated for a certain layer.
    * Currently only normals.
    */
@@ -137,15 +136,6 @@ typedef struct Mesh_Runtime {
   int64_t cd_dirty_edge;
   int64_t cd_dirty_loop;
   int64_t cd_dirty_poly;
-
-  /**
-   * Settings for lazily evaluating the subdivision on the CPU if needed. These are
-   * set in the modifier when GPU subdivision can be performed.
-   */
-  char subsurf_apply_render;
-  char subsurf_use_optimal_display;
-  char _pad[2];
-  int subsurf_resolution;
 
 } Mesh_Runtime;
 
@@ -422,6 +412,7 @@ enum {
   ME_CDFLAG_VERT_BWEIGHT = 1 << 0,
   ME_CDFLAG_EDGE_BWEIGHT = 1 << 1,
   ME_CDFLAG_EDGE_CREASE = 1 << 2,
+  ME_CDFLAG_VERT_CREASE = 1 << 3,
 };
 
 /** #Mesh.remesh_mode */

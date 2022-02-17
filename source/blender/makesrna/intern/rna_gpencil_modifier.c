@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -3211,6 +3197,12 @@ static void rna_def_modifier_gpencillineart(BlenderRNA *brna)
       prop, "Boundaries", "Filter feature lines based on face mark boundaries");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
+  prop = RNA_def_property(srna, "use_face_mark_keep_contour", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(
+      prop, NULL, "calculation_flags", LRT_FILTER_FACE_MARK_KEEP_CONTOUR);
+  RNA_def_property_ui_text(prop, "Keep Contour", "Preserve contour lines while filtering");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
   prop = RNA_def_property(srna, "chaining_image_threshold", PROP_FLOAT, PROP_DISTANCE);
   RNA_def_property_ui_text(
       prop,
@@ -3229,6 +3221,12 @@ static void rna_def_modifier_gpencillineart(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, NULL, "calculation_flags", LRT_CHAIN_GEOMETRY_SPACE);
   RNA_def_property_ui_text(
       prop, "Use Geometry Space", "Use geometry distance for chaining instead of image space");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "use_detail_preserve", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "calculation_flags", LRT_CHAIN_PRESERVE_DETAILS);
+  RNA_def_property_ui_text(
+      prop, "Preserve Details", "Keep the zig-zag \"noise\" in initial chaining");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
   prop = RNA_def_property(srna, "use_overlap_edge_type_support", PROP_BOOLEAN, PROP_NONE);
@@ -3444,6 +3442,21 @@ static void rna_def_modifier_gpencillineart(BlenderRNA *brna)
       prop,
       "Image Boundary Trimming",
       "Trim all edges right at the boundary of image(including overscan region)");
+
+  prop = RNA_def_property(srna, "use_back_face_culling", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "calculation_flags", LRT_USE_BACK_FACE_CULLING);
+  RNA_def_property_ui_text(
+      prop,
+      "Back Face Culling",
+      "Remove all back faces to speed up calculation, this will create edges in "
+      "different occlusion levels than when disabled");
+  RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
+
+  prop = RNA_def_property(srna, "use_invert_collection", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flags", LRT_GPENCIL_INVERT_COLLECTION);
+  RNA_def_property_ui_text(prop,
+                           "Invert Collection Filtering",
+                           "Select everything except lines from specified collection");
   RNA_def_property_update(prop, 0, "rna_GpencilModifier_update");
 
   RNA_define_lib_overridable(false);

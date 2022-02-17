@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 20014 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2014 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -41,12 +25,12 @@
 #include "BKE_armature.h"
 #include "BKE_constraint.h"
 #include "BKE_curve.h"
+#include "BKE_curves.h"
 #include "BKE_displist.h"
 #include "BKE_editmesh.h"
 #include "BKE_effect.h"
 #include "BKE_gpencil.h"
 #include "BKE_gpencil_modifier.h"
-#include "BKE_hair.h"
 #include "BKE_image.h"
 #include "BKE_key.h"
 #include "BKE_lattice.h"
@@ -160,12 +144,6 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
   /* includes all keys and modifiers */
   switch (ob->type) {
     case OB_MESH: {
-#if 0
-      BMEditMesh *em = (ob->mode & OB_MODE_EDIT) ? BKE_editmesh_from_object(ob) : NULL;
-#else
-      BMEditMesh *em = (ob->mode & OB_MODE_EDIT) ? ((Mesh *)ob->data)->edit_mesh : NULL;
-#endif
-
       CustomData_MeshMasks cddata_masks = scene->customdata_mask;
       CustomData_MeshMasks_update(&cddata_masks, &CD_MASK_BAREMESH);
       /* Custom attributes should not be removed automatically. They might be used by the render
@@ -175,6 +153,11 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
       cddata_masks.fmask |= CD_MASK_PROP_ALL;
       cddata_masks.pmask |= CD_MASK_PROP_ALL;
       cddata_masks.lmask |= CD_MASK_PROP_ALL;
+
+      /* Also copy over normal layers to avoid recomputation. */
+      cddata_masks.pmask |= CD_MASK_NORMAL;
+      cddata_masks.vmask |= CD_MASK_NORMAL;
+
       /* Make sure Freestyle edge/face marks appear in DM for render (see T40315).
        * Due to Line Art implementation, edge marks should also be shown in viewport. */
 #ifdef WITH_FREESTYLE
@@ -187,25 +170,11 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
         cddata_masks.lmask |= CD_MASK_MLOOPUV | CD_MASK_MLOOPCOL;
         cddata_masks.vmask |= CD_MASK_ORCO | CD_MASK_PROP_COLOR;
       }
-      if (em) {
-        makeDerivedMesh(depsgraph, scene, ob, em, &cddata_masks); /* was CD_MASK_BAREMESH */
-      }
-      else {
-        makeDerivedMesh(depsgraph, scene, ob, NULL, &cddata_masks);
-      }
+      makeDerivedMesh(depsgraph, scene, ob, &cddata_masks); /* was CD_MASK_BAREMESH */
       break;
     }
     case OB_ARMATURE:
-      if (ID_IS_LINKED(ob) && ob->proxy_from) {
-        if (BKE_pose_copy_result(ob->pose, ob->proxy_from->pose) == false) {
-          printf("Proxy copy error, lib Object: %s proxy Object: %s\n",
-                 ob->id.name + 2,
-                 ob->proxy_from->id.name + 2);
-        }
-      }
-      else {
-        BKE_pose_where_is(depsgraph, scene, ob);
-      }
+      BKE_pose_where_is(depsgraph, scene, ob);
       break;
 
     case OB_MBALL:
@@ -229,8 +198,8 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
       BKE_gpencil_update_layer_transforms(depsgraph, ob);
       break;
     }
-    case OB_HAIR:
-      BKE_hair_data_update(depsgraph, scene, ob);
+    case OB_CURVES:
+      BKE_curves_data_update(depsgraph, scene, ob);
       break;
     case OB_POINTCLOUD:
       BKE_pointcloud_data_update(depsgraph, scene, ob);
@@ -317,33 +286,8 @@ void BKE_object_sync_to_original(Depsgraph *depsgraph, Object *object)
   object_sync_boundbox_to_original(object_orig, object);
 }
 
-bool BKE_object_eval_proxy_copy(Depsgraph *depsgraph, Object *object)
+void BKE_object_eval_uber_transform(Depsgraph *UNUSED(depsgraph), Object *UNUSED(object))
 {
-  /* Handle proxy copy for target, */
-  if (ID_IS_LINKED(object) && object->proxy_from) {
-    DEG_debug_print_eval(depsgraph, __func__, object->id.name, object);
-    if (object->proxy_from->proxy_group) {
-      /* Transform proxy into group space. */
-      Object *obg = object->proxy_from->proxy_group;
-      float imat[4][4];
-      invert_m4_m4(imat, obg->obmat);
-      mul_m4_m4m4(object->obmat, imat, object->proxy_from->obmat);
-      /* Should always be true. */
-      if (obg->instance_collection) {
-        add_v3_v3(object->obmat[3], obg->instance_collection->instance_offset);
-      }
-    }
-    else {
-      copy_m4_m4(object->obmat, object->proxy_from->obmat);
-    }
-    return true;
-  }
-  return false;
-}
-
-void BKE_object_eval_uber_transform(Depsgraph *depsgraph, Object *object)
-{
-  BKE_object_eval_proxy_copy(depsgraph, object);
 }
 
 void BKE_object_data_batch_cache_dirty_tag(ID *object_data)
@@ -365,8 +309,8 @@ void BKE_object_data_batch_cache_dirty_tag(ID *object_data)
     case ID_GD:
       BKE_gpencil_batch_cache_dirty_tag((struct bGPdata *)object_data);
       break;
-    case ID_HA:
-      BKE_hair_batch_cache_dirty_tag((struct Hair *)object_data, BKE_HAIR_BATCH_DIRTY_ALL);
+    case ID_CV:
+      BKE_curves_batch_cache_dirty_tag((struct Curves *)object_data, BKE_CURVES_BATCH_DIRTY_ALL);
       break;
     case ID_PT:
       BKE_pointcloud_batch_cache_dirty_tag((struct PointCloud *)object_data,

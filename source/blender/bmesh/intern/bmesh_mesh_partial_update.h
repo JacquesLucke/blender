@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -59,7 +45,7 @@ typedef struct BMPartialUpdate {
 BMPartialUpdate *BM_mesh_partial_create_from_verts(BMesh *bm,
                                                    const BMPartialUpdate_Params *params,
                                                    const unsigned int *verts_mask,
-                                                   const int verts_mask_count)
+                                                   int verts_mask_count)
     ATTR_NONNULL(1, 2, 3) ATTR_WARN_UNUSED_RESULT;
 
 /**
@@ -71,7 +57,7 @@ BMPartialUpdate *BM_mesh_partial_create_from_verts_group_single(
     BMesh *bm,
     const BMPartialUpdate_Params *params,
     const unsigned int *verts_mask,
-    const int verts_mask_count) ATTR_NONNULL(1, 2, 3) ATTR_WARN_UNUSED_RESULT;
+    int verts_mask_count) ATTR_NONNULL(1, 2, 3) ATTR_WARN_UNUSED_RESULT;
 
 /**
  * All Connected, operate on all faces that have vertices in the same group.
@@ -93,9 +79,7 @@ BMPartialUpdate *BM_mesh_partial_create_from_verts_group_single(
  * \param verts_group_count: The number of non-zero values in `verts_groups`.
  */
 BMPartialUpdate *BM_mesh_partial_create_from_verts_group_multi(
-    BMesh *bm,
-    const BMPartialUpdate_Params *params,
-    const int *verts_group,
-    const int verts_group_count) ATTR_NONNULL(1, 2, 3) ATTR_WARN_UNUSED_RESULT;
+    BMesh *bm, const BMPartialUpdate_Params *params, const int *verts_group, int verts_group_count)
+    ATTR_NONNULL(1, 2, 3) ATTR_WARN_UNUSED_RESULT;
 
 void BM_mesh_partial_destroy(BMPartialUpdate *bmpinfo) ATTR_NONNULL(1);

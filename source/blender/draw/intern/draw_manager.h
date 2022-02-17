@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup draw
@@ -205,8 +190,10 @@ typedef enum {
 
   /* Compute Commands. */
   DRW_CMD_COMPUTE = 8,
+  DRW_CMD_COMPUTE_REF = 9,
 
   /* Other Commands */
+  DRW_CMD_BARRIER = 11,
   DRW_CMD_CLEAR = 12,
   DRW_CMD_DRWSTATE = 13,
   DRW_CMD_STENCIL = 14,
@@ -249,6 +236,14 @@ typedef struct DRWCommandCompute {
   int groups_z_len;
 } DRWCommandCompute;
 
+typedef struct DRWCommandComputeRef {
+  int *groups_ref;
+} DRWCommandComputeRef;
+
+typedef struct DRWCommandBarrier {
+  eGPUBarrier type;
+} DRWCommandBarrier;
+
 typedef struct DRWCommandDrawProcedural {
   GPUBatch *batch;
   DRWResourceHandle handle;
@@ -286,6 +281,8 @@ typedef union DRWCommand {
   DRWCommandDrawInstanceRange instance_range;
   DRWCommandDrawProcedural procedural;
   DRWCommandCompute compute;
+  DRWCommandComputeRef compute_ref;
+  DRWCommandBarrier barrier;
   DRWCommandSetMutableState state;
   DRWCommandSetStencil stencil;
   DRWCommandSetSelectID select_id;
@@ -300,7 +297,7 @@ struct DRWCallBuffer {
 };
 
 /** Used by #DRWUniform.type */
-/* TODO(jbakker): rename to DRW_RESOURCE/DRWResourceType. */
+/* TODO(@jbakker): rename to DRW_RESOURCE/DRWResourceType. */
 typedef enum {
   DRW_UNIFORM_INT = 0,
   DRW_UNIFORM_INT_COPY,
@@ -314,6 +311,7 @@ typedef enum {
   DRW_UNIFORM_BLOCK_REF,
   DRW_UNIFORM_TFEEDBACK_TARGET,
   DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE,
+  DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE_REF,
   /** Per drawcall uniforms/UBO */
   DRW_UNIFORM_BLOCK_OBMATS,
   DRW_UNIFORM_BLOCK_OBINFOS,
@@ -344,6 +342,11 @@ struct DRWUniform {
     union {
       GPUUniformBuf *block;
       GPUUniformBuf **block_ref;
+    };
+    /* DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE */
+    union {
+      GPUVertBuf *vertbuf;
+      GPUVertBuf **vertbuf_ref;
     };
     /* DRW_UNIFORM_FLOAT_COPY */
     float fvalue[4];
@@ -529,7 +532,7 @@ typedef struct DRWData {
   struct GHash *obattrs_ubo_pool;
   uint ubo_len;
   /** Texture pool to reuse temp texture across engines. */
-  /* TODO(fclem) the pool could be shared even between viewports. */
+  /* TODO(@fclem): The pool could be shared even between view-ports. */
   struct DRWTexturePool *texture_pool;
   /** Per stereo view data. Contains engine data and default framebuffers. */
   struct DRWViewData *view_data[2];
@@ -549,7 +552,7 @@ typedef struct DupliKey {
 typedef struct DRWManager {
   /* TODO: clean up this struct a bit. */
   /* Cache generation */
-  /* TODO(fclem) Rename to data. */
+  /* TODO(@fclem): Rename to data. */
   DRWData *vmempool;
   /** Active view data structure for one of the 2 stereo view. Not related to DRWView. */
   struct DRWViewData *view_data_active;
@@ -570,9 +573,9 @@ typedef struct DRWManager {
   struct Object *dupli_origin;
   /** Object-data referenced by the current dupli object. */
   struct ID *dupli_origin_data;
-  /** Ghash: #DupliKey -> void pointer for each enabled engine. */
+  /** Hash-map: #DupliKey -> void pointer for each enabled engine. */
   struct GHash *dupli_ghash;
-  /** TODO(fclem): try to remove usage of this. */
+  /** TODO(@fclem): try to remove usage of this. */
   DRWInstanceData *object_instance_data[MAX_INSTANCE_DATA_SIZE];
   /* Dupli data for the current dupli for each enabled engine. */
   void **dupli_datas;
@@ -615,7 +618,7 @@ typedef struct DRWManager {
   DRWView *view_active;
   DRWView *view_previous;
   uint primary_view_ct;
-  /** TODO(fclem): Remove this. Only here to support
+  /** TODO(@fclem): Remove this. Only here to support
    * shaders without common_view_lib.glsl */
   DRWViewUboStorage view_storage_cpy;
 
@@ -640,7 +643,7 @@ typedef struct DRWManager {
   GPUDrawList *draw_list;
 
   struct {
-    /* TODO(fclem): optimize: use chunks. */
+    /* TODO(@fclem): optimize: use chunks. */
     DRWDebugLine *lines;
     DRWDebugSphere *spheres;
   } debug;

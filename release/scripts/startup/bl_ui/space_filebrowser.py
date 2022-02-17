@@ -1,20 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # <pep8 compliant>
 
@@ -761,6 +745,15 @@ class ASSETBROWSER_PT_metadata_preview(asset_utils.AssetMetaDataPanel, Panel):
         col.operator("ed.lib_id_load_custom_preview", icon='FILEBROWSER', text="")
         col.separator()
         col.operator("ed.lib_id_generate_preview", icon='FILE_REFRESH', text="")
+        col.menu("ASSETBROWSER_MT_metadata_preview_menu", icon='DOWNARROW_HLT', text="")
+
+
+class ASSETBROWSER_MT_metadata_preview_menu(bpy.types.Menu):
+    bl_label = "Preview"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("ed.lib_id_generate_preview_from_object", text="Render Active Object")
 
 
 class ASSETBROWSER_PT_metadata_tags(asset_utils.AssetMetaDataPanel, Panel):
@@ -840,6 +833,7 @@ classes = (
     ASSETBROWSER_MT_view,
     ASSETBROWSER_MT_select,
     ASSETBROWSER_MT_edit,
+    ASSETBROWSER_MT_metadata_preview_menu,
     ASSETBROWSER_PT_metadata,
     ASSETBROWSER_PT_metadata_preview,
     ASSETBROWSER_PT_metadata_tags,
@@ -847,10 +841,10 @@ classes = (
     ASSETBROWSER_MT_context_menu,
 )
 
-def asset_path_str_get(self):
+def asset_path_str_get(_self):
     asset_file_handle = bpy.context.asset_file_handle
     if asset_file_handle is None:
-        return None
+        return ""
 
     if asset_file_handle.local_id:
         return "Current File"

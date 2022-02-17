@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edobj
@@ -1356,15 +1340,6 @@ void ED_object_constraint_update(Main *bmain, Object *ob)
 static void object_pose_tag_update(Main *bmain, Object *ob)
 {
   BKE_pose_tag_recalc(bmain, ob->pose); /* Checks & sort pose channels. */
-  if (ob->proxy && ob->adt) {
-    /* We need to make use of ugly #POSE_ANIMATION_WORKAROUND here too,
-     * else anim data are not reloaded after calling `BKE_pose_rebuild()`,
-     * which causes T43872.
-     * Note that this is a bit wide here, since we cannot be sure whether there are some locked
-     * proxy bones or not.
-     * XXX Temp hack until new depsgraph hopefully solves this. */
-    DEG_id_tag_update(&ob->id, ID_RECALC_ANIMATION);
-  }
 }
 
 void ED_object_constraint_dependency_update(Main *bmain, Object *ob)
@@ -2453,12 +2428,6 @@ static int constraint_add_exec(
 
   if ((ob->type == OB_ARMATURE) && (pchan)) {
     BKE_pose_tag_recalc(bmain, ob->pose); /* sort pose channels */
-    if (BKE_constraints_proxylocked_owner(ob, pchan) && ob->adt) {
-      /* We need to make use of ugly POSE_ANIMATION_WORKAROUND here too,
-       * else anim data are not reloaded after calling `BKE_pose_rebuild()`, which causes T43872.
-       * XXX Temp hack until new depsgraph hopefully solves this. */
-      DEG_id_tag_update(&ob->id, ID_RECALC_ANIMATION);
-    }
     DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY | ID_RECALC_TRANSFORM);
   }
   else {

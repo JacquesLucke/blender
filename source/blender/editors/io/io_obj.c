@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editor/io
@@ -46,7 +32,7 @@
 #include "IO_wavefront_obj.h"
 #include "io_obj.h"
 
-const EnumPropertyItem io_obj_transform_axis_forward[] = {
+static const EnumPropertyItem io_obj_transform_axis_forward[] = {
     {OBJ_AXIS_X_FORWARD, "X_FORWARD", 0, "X", "Positive X axis"},
     {OBJ_AXIS_Y_FORWARD, "Y_FORWARD", 0, "Y", "Positive Y axis"},
     {OBJ_AXIS_Z_FORWARD, "Z_FORWARD", 0, "Z", "Positive Z axis"},
@@ -55,7 +41,7 @@ const EnumPropertyItem io_obj_transform_axis_forward[] = {
     {OBJ_AXIS_NEGATIVE_Z_FORWARD, "NEGATIVE_Z_FORWARD", 0, "-Z (Default)", "Negative Z axis"},
     {0, NULL, 0, NULL, NULL}};
 
-const EnumPropertyItem io_obj_transform_axis_up[] = {
+static const EnumPropertyItem io_obj_transform_axis_up[] = {
     {OBJ_AXIS_X_UP, "X_UP", 0, "X", "Positive X axis"},
     {OBJ_AXIS_Y_UP, "Y_UP", 0, "Y (Default)", "Positive Y axis"},
     {OBJ_AXIS_Z_UP, "Z_UP", 0, "Z", "Positive Z axis"},
@@ -64,7 +50,7 @@ const EnumPropertyItem io_obj_transform_axis_up[] = {
     {OBJ_AXIS_NEGATIVE_Z_UP, "NEGATIVE_Z_UP", 0, "-Z", "Negative Z axis"},
     {0, NULL, 0, NULL, NULL}};
 
-const EnumPropertyItem io_obj_export_evaluation_mode[] = {
+static const EnumPropertyItem io_obj_export_evaluation_mode[] = {
     {DAG_EVAL_RENDER, "DAG_EVAL_RENDER", 0, "Render", "Export objects as they appear in render"},
     {DAG_EVAL_VIEWPORT,
      "DAG_EVAL_VIEWPORT",
@@ -234,7 +220,7 @@ static bool wm_obj_export_check(bContext *C, wmOperator *op)
   /* Both forward and up axes cannot be the same (or same except opposite sign). */
   if (RNA_enum_get(op->ptr, "forward_axis") % TOTAL_AXES ==
       (RNA_enum_get(op->ptr, "up_axis") % TOTAL_AXES)) {
-    /* TODO (ankitm) Show a warning here. */
+    /* TODO(@ankitm): Show a warning here. */
     RNA_enum_set(op->ptr, "up_axis", RNA_enum_get(op->ptr, "up_axis") % TOTAL_AXES + 1);
     changed = true;
   }

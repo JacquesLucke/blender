@@ -1,18 +1,5 @@
-#
-# Copyright 2011-2013 Blender Foundation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2011-2022 Blender Foundation
 
 # <pep8 compliant>
 from __future__ import annotations
@@ -118,11 +105,11 @@ def use_optix(context):
 
     return (get_device_type(context) == 'OPTIX' and cscene.device == 'GPU')
 
-
-def use_sample_all_lights(context):
+def use_multi_device(context):
     cscene = context.scene.cycles
-
-    return cscene.sample_all_lights_direct or cscene.sample_all_lights_indirect
+    if cscene.device != 'GPU':
+        return False
+    return context.preferences.addons[__package__].preferences.has_multi_device()
 
 
 def show_device_active(context):
@@ -667,6 +654,10 @@ class CYCLES_RENDER_PT_performance_acceleration_structure(CyclesButtonsPanel, Pa
     bl_label = "Acceleration Structure"
     bl_parent_id = "CYCLES_RENDER_PT_performance"
 
+    @classmethod
+    def poll(cls, context):
+        return not use_optix(context) or use_multi_device(context)
+
     def draw(self, context):
         import _cycles
 
@@ -679,21 +670,33 @@ class CYCLES_RENDER_PT_performance_acceleration_structure(CyclesButtonsPanel, Pa
 
         col = layout.column()
 
-        use_embree = False
+        use_embree = _cycles.with_embree
+
         if use_cpu(context):
-            use_embree = _cycles.with_embree
-            if not use_embree:
+            col.prop(cscene, "debug_use_spatial_splits")
+            if use_embree:
+                col.prop(cscene, "debug_use_compact_bvh")
+            else:
+                sub = col.column()
+                sub.active = not cscene.debug_use_spatial_splits
+                sub.prop(cscene, "debug_bvh_time_steps")
+
+                col.prop(cscene, "debug_use_hair_bvh")
+
                 sub = col.column(align=True)
                 sub.label(text="Cycles built without Embree support")
                 sub.label(text="CPU raytracing performance will be poor")
+        else:
+            col.prop(cscene, "debug_use_spatial_splits")
+            sub = col.column()
+            sub.active = not cscene.debug_use_spatial_splits
+            sub.prop(cscene, "debug_bvh_time_steps")
 
-        col.prop(cscene, "debug_use_spatial_splits")
-        sub = col.column()
-        sub.active = not use_embree
-        sub.prop(cscene, "debug_use_hair_bvh")
-        sub = col.column()
-        sub.active = not cscene.debug_use_spatial_splits and not use_embree
-        sub.prop(cscene, "debug_bvh_time_steps")
+            col.prop(cscene, "debug_use_hair_bvh")
+
+            # CPU is used in addition to a GPU
+            if use_multi_device(context) and use_embree:
+                col.prop(cscene, "debug_use_compact_bvh")
 
 
 class CYCLES_RENDER_PT_performance_final_render(CyclesButtonsPanel, Panel):
@@ -1803,17 +1806,44 @@ class CYCLES_RENDER_PT_bake_output(CyclesButtonsPanel, Panel):
         rd = scene.render
 
         if rd.use_bake_multires:
-            layout.prop(rd, "bake_margin")
             layout.prop(rd, "use_bake_clear", text="Clear Image")
-
             if rd.bake_type == 'DISPLACEMENT':
                 layout.prop(rd, "use_bake_lores_mesh")
         else:
             layout.prop(cbk, "target")
-
             if cbk.target == 'IMAGE_TEXTURES':
-                layout.prop(cbk, "margin")
                 layout.prop(cbk, "use_clear", text="Clear Image")
+
+class CYCLES_RENDER_PT_bake_output_margin(CyclesButtonsPanel, Panel):
+    bl_label = "Margin"
+    bl_context = "render"
+    bl_parent_id = "CYCLES_RENDER_PT_bake_output"
+    COMPAT_ENGINES = {'CYCLES'}
+
+    @classmethod
+    def poll(cls, context):
+        scene = context.scene
+        cbk = scene.render.bake
+        return cbk.target == 'IMAGE_TEXTURES'
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False  # No animation.
+
+        scene = context.scene
+        cscene = scene.cycles
+        cbk = scene.render.bake
+        rd = scene.render
+
+        if rd.use_bake_multires:
+            layout.prop(rd, "bake_margin_type", text="Type")
+            layout.prop(rd, "bake_margin", text="Size")
+        else:
+            if cbk.target == 'IMAGE_TEXTURES':
+                layout.prop(cbk, "margin_type", text="Type")
+                layout.prop(cbk, "margin", text="Size")
+
 
 
 class CYCLES_RENDER_PT_debug(CyclesDebugButtonsPanel, Panel):
@@ -2183,6 +2213,7 @@ classes = (
     CYCLES_RENDER_PT_bake_influence,
     CYCLES_RENDER_PT_bake_selected_to_active,
     CYCLES_RENDER_PT_bake_output,
+    CYCLES_RENDER_PT_bake_output_margin,
     CYCLES_RENDER_PT_debug,
     node_panel(CYCLES_MATERIAL_PT_settings),
     node_panel(CYCLES_MATERIAL_PT_settings_surface),

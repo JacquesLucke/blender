@@ -1,20 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # <pep8-80 compliant>
 
@@ -101,6 +85,19 @@ class Collection(bpy_types.ID):
     __slots__ = ()
 
     @property
+    def children_recursive(self):
+        """A list of all children from this collection."""
+        children_recursive = []
+
+        def recurse(parent):
+            for child in parent.children:
+                children_recursive.append(child)
+                recurse(child)
+
+        recurse(self)
+        return children_recursive
+
+    @property
     def users_dupli_group(self):
         """The collection instance objects this collection is used in"""
         import bpy
@@ -119,6 +116,27 @@ class Object(bpy_types.ID):
         import bpy
         return tuple(child for child in bpy.data.objects
                      if child.parent == self)
+
+    @property
+    def children_recursive(self):
+        """A list of all children from this object.
+
+        .. note:: Takes ``O(len(bpy.data.objects))`` time."""
+        import bpy
+        parent_child_map = {}
+        for child in bpy.data.objects:
+            if (parent := child.parent) is not None:
+                parent_child_map.setdefault(parent, []).append(child)
+
+        children_recursive = []
+
+        def recurse(parent):
+            for child in parent_child_map.get(parent, ()):
+                children_recursive.append(child)
+                recurse(child)
+
+        recurse(self)
+        return children_recursive
 
     @property
     def users_collection(self):

@@ -1,19 +1,6 @@
-/*
+/* SPDX-License-Identifier: Apache-2.0
  * Copyright 2019, NVIDIA Corporation.
- * Copyright 2019, Blender Foundation.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+ * Copyright 2019-2022 Blender Foundation. */
 
 #ifdef WITH_OPTIX
 
@@ -226,7 +213,7 @@ bool OptiXDevice::load_kernels(const uint kernel_features)
   pipeline_options.usesMotionBlur = false;
   pipeline_options.traversableGraphFlags =
       OPTIX_TRAVERSABLE_GRAPH_FLAG_ALLOW_SINGLE_LEVEL_INSTANCING;
-  pipeline_options.numPayloadValues = 6;
+  pipeline_options.numPayloadValues = 8;
   pipeline_options.numAttributeValues = 2; /* u, v */
   pipeline_options.exceptionFlags = OPTIX_EXCEPTION_FLAG_NONE;
   pipeline_options.pipelineLaunchParamsVariableName = "__params"; /* See globals.h */
@@ -566,6 +553,19 @@ class OptiXDevice::DenoiseContext {
       }
     }
 
+    if (denoise_params.temporally_stable) {
+      prev_output.device_pointer = render_buffers->buffer.device_pointer;
+
+      prev_output.offset = buffer_params.get_pass_offset(PASS_DENOISING_PREVIOUS);
+
+      prev_output.stride = buffer_params.stride;
+      prev_output.pass_stride = buffer_params.pass_stride;
+
+      num_input_passes += 1;
+      use_pass_flow = true;
+      pass_motion = buffer_params.get_pass_offset(PASS_MOTION);
+    }
+
     use_guiding_passes = (num_input_passes - 1) > 0;
 
     if (use_guiding_passes) {
@@ -574,6 +574,7 @@ class OptiXDevice::DenoiseContext {
 
         guiding_params.pass_albedo = pass_denoising_albedo;
         guiding_params.pass_normal = pass_denoising_normal;
+        guiding_params.pass_flow = pass_motion;
 
         guiding_params.stride = buffer_params.stride;
         guiding_params.pass_stride = buffer_params.pass_stride;
@@ -587,6 +588,10 @@ class OptiXDevice::DenoiseContext {
         if (use_pass_normal) {
           guiding_params.pass_normal = guiding_params.pass_stride;
           guiding_params.pass_stride += 3;
+        }
+        if (use_pass_flow) {
+          guiding_params.pass_flow = guiding_params.pass_stride;
+          guiding_params.pass_stride += 2;
         }
 
         guiding_params.stride = buffer_params.width;
@@ -605,6 +610,16 @@ class OptiXDevice::DenoiseContext {
   RenderBuffers *render_buffers = nullptr;
   const BufferParams &buffer_params;
 
+  /* Previous output. */
+  struct {
+    device_ptr device_pointer = 0;
+
+    int offset = PASS_UNUSED;
+
+    int stride = -1;
+    int pass_stride = -1;
+  } prev_output;
+
   /* Device-side storage of the guiding passes. */
   device_only_memory<float> guiding_buffer;
 
@@ -614,6 +629,7 @@ class OptiXDevice::DenoiseContext {
     /* NOTE: Are only initialized when the corresponding guiding pass is enabled. */
     int pass_albedo = PASS_UNUSED;
     int pass_normal = PASS_UNUSED;
+    int pass_flow = PASS_UNUSED;
 
     int stride = -1;
     int pass_stride = -1;
@@ -624,6 +640,7 @@ class OptiXDevice::DenoiseContext {
   bool use_guiding_passes = false;
   bool use_pass_albedo = false;
   bool use_pass_normal = false;
+  bool use_pass_flow = false;
 
   int num_samples = 0;
 
@@ -632,6 +649,7 @@ class OptiXDevice::DenoiseContext {
   /* NOTE: Are only initialized when the corresponding guiding pass is enabled. */
   int pass_denoising_albedo = PASS_UNUSED;
   int pass_denoising_normal = PASS_UNUSED;
+  int pass_motion = PASS_UNUSED;
 
   /* For passes which don't need albedo channel for denoising we replace the actual albedo with
    * the (0.5, 0.5, 0.5). This flag indicates that the real albedo pass has been replaced with
@@ -702,6 +720,7 @@ bool OptiXDevice::denoise_filter_guiding_preprocess(DenoiseContext &context)
                              &context.guiding_params.pass_stride,
                              &context.guiding_params.pass_albedo,
                              &context.guiding_params.pass_normal,
+                             &context.guiding_params.pass_flow,
                              &context.render_buffers->buffer.device_pointer,
                              &buffer_params.offset,
                              &buffer_params.stride,
@@ -709,6 +728,7 @@ bool OptiXDevice::denoise_filter_guiding_preprocess(DenoiseContext &context)
                              &context.pass_sample_count,
                              &context.pass_denoising_albedo,
                              &context.pass_denoising_normal,
+                             &context.pass_motion,
                              &buffer_params.full_x,
                              &buffer_params.full_y,
                              &buffer_params.width,
@@ -881,7 +901,8 @@ bool OptiXDevice::denoise_create_if_needed(DenoiseContext &context)
 {
   const bool recreate_denoiser = (denoiser_.optix_denoiser == nullptr) ||
                                  (denoiser_.use_pass_albedo != context.use_pass_albedo) ||
-                                 (denoiser_.use_pass_normal != context.use_pass_normal);
+                                 (denoiser_.use_pass_normal != context.use_pass_normal) ||
+                                 (denoiser_.use_pass_flow != context.use_pass_flow);
   if (!recreate_denoiser) {
     return true;
   }
@@ -895,8 +916,14 @@ bool OptiXDevice::denoise_create_if_needed(DenoiseContext &context)
   OptixDenoiserOptions denoiser_options = {};
   denoiser_options.guideAlbedo = context.use_pass_albedo;
   denoiser_options.guideNormal = context.use_pass_normal;
+
+  OptixDenoiserModelKind model = OPTIX_DENOISER_MODEL_KIND_HDR;
+  if (context.use_pass_flow) {
+    model = OPTIX_DENOISER_MODEL_KIND_TEMPORAL;
+  }
+
   const OptixResult result = optixDenoiserCreate(
-      this->context, OPTIX_DENOISER_MODEL_KIND_HDR, &denoiser_options, &denoiser_.optix_denoiser);
+      this->context, model, &denoiser_options, &denoiser_.optix_denoiser);
 
   if (result != OPTIX_SUCCESS) {
     set_error("Failed to create OptiX denoiser");
@@ -906,6 +933,7 @@ bool OptiXDevice::denoise_create_if_needed(DenoiseContext &context)
   /* OptiX denoiser handle was created with the requested number of input passes. */
   denoiser_.use_pass_albedo = context.use_pass_albedo;
   denoiser_.use_pass_normal = context.use_pass_normal;
+  denoiser_.use_pass_flow = context.use_pass_flow;
 
   /* OptiX denoiser has been created, but it needs configuration. */
   denoiser_.is_configured = false;
@@ -965,8 +993,10 @@ bool OptiXDevice::denoise_run(DenoiseContext &context, const DenoisePass &pass)
   OptixImage2D color_layer = {0};
   OptixImage2D albedo_layer = {0};
   OptixImage2D normal_layer = {0};
+  OptixImage2D flow_layer = {0};
 
   OptixImage2D output_layer = {0};
+  OptixImage2D prev_output_layer = {0};
 
   /* Color pass. */
   {
@@ -980,6 +1010,19 @@ bool OptiXDevice::denoise_run(DenoiseContext &context, const DenoisePass &pass)
     color_layer.rowStrideInBytes = pass_stride_in_bytes * context.buffer_params.stride;
     color_layer.pixelStrideInBytes = pass_stride_in_bytes;
     color_layer.format = OPTIX_PIXEL_FORMAT_FLOAT3;
+  }
+
+  /* Previous output. */
+  if (context.prev_output.offset != PASS_UNUSED) {
+    const int64_t pass_stride_in_bytes = context.prev_output.pass_stride * sizeof(float);
+
+    prev_output_layer.data = context.prev_output.device_pointer +
+                             context.prev_output.offset * sizeof(float);
+    prev_output_layer.width = width;
+    prev_output_layer.height = height;
+    prev_output_layer.rowStrideInBytes = pass_stride_in_bytes * context.prev_output.stride;
+    prev_output_layer.pixelStrideInBytes = pass_stride_in_bytes;
+    prev_output_layer.format = OPTIX_PIXEL_FORMAT_FLOAT3;
   }
 
   /* Optional albedo and color passes. */
@@ -1005,21 +1048,32 @@ bool OptiXDevice::denoise_run(DenoiseContext &context, const DenoisePass &pass)
       normal_layer.pixelStrideInBytes = pixel_stride_in_bytes;
       normal_layer.format = OPTIX_PIXEL_FORMAT_FLOAT3;
     }
+
+    if (context.use_pass_flow) {
+      flow_layer.data = d_guiding_buffer + context.guiding_params.pass_flow * sizeof(float);
+      flow_layer.width = width;
+      flow_layer.height = height;
+      flow_layer.rowStrideInBytes = row_stride_in_bytes;
+      flow_layer.pixelStrideInBytes = pixel_stride_in_bytes;
+      flow_layer.format = OPTIX_PIXEL_FORMAT_FLOAT2;
+    }
   }
 
   /* Denoise in-place of the noisy input in the render buffers. */
   output_layer = color_layer;
 
-  /* Finally run denoising. */
-  OptixDenoiserParams params = {}; /* All parameters are disabled/zero. */
-
-  OptixDenoiserLayer image_layers = {};
-  image_layers.input = color_layer;
-  image_layers.output = output_layer;
-
   OptixDenoiserGuideLayer guide_layers = {};
   guide_layers.albedo = albedo_layer;
   guide_layers.normal = normal_layer;
+  guide_layers.flow = flow_layer;
+
+  OptixDenoiserLayer image_layers = {};
+  image_layers.input = color_layer;
+  image_layers.previousOutput = prev_output_layer;
+  image_layers.output = output_layer;
+
+  /* Finally run denoising. */
+  OptixDenoiserParams params = {}; /* All parameters are disabled/zero. */
 
   optix_assert(optixUtilDenoiserInvokeTiled(denoiser_.optix_denoiser,
                                             denoiser_.queue.stream(),
@@ -1519,7 +1573,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
         if (ob->is_traceable() && ob->use_motion()) {
           total_motion_transform_size = align_up(total_motion_transform_size,
                                                  OPTIX_TRANSFORM_BYTE_ALIGNMENT);
-          const size_t motion_keys = max(ob->get_motion().size(), 2) - 2;
+          const size_t motion_keys = max(ob->get_motion().size(), (size_t)2) - 2;
           total_motion_transform_size = total_motion_transform_size +
                                         sizeof(OptixSRTMotionTransform) +
                                         motion_keys * sizeof(OptixSRTData);
@@ -1593,7 +1647,7 @@ void OptiXDevice::build_bvh(BVH *bvh, Progress &progress, bool refit)
 
       /* Insert motion traversable if object has motion. */
       if (motion_blur && ob->use_motion()) {
-        size_t motion_keys = max(ob->get_motion().size(), 2) - 2;
+        size_t motion_keys = max(ob->get_motion().size(), (size_t)2) - 2;
         size_t motion_transform_size = sizeof(OptixSRTMotionTransform) +
                                        motion_keys * sizeof(OptixSRTData);
 

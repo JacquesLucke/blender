@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation, Joshua Leung
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation, Joshua Leung. All rights reserved. */
 
 #pragma once
 
@@ -143,7 +127,7 @@ const FModifierTypeInfo *fmodifier_get_typeinfo(const struct FModifier *fcm);
  * This function should be used for getting the appropriate type-info when only
  * a F-Curve modifier type is known.
  */
-const FModifierTypeInfo *get_fmodifier_typeinfo(const int type);
+const FModifierTypeInfo *get_fmodifier_typeinfo(int type);
 
 /* ---------------------- */
 
@@ -266,7 +250,7 @@ void BKE_fcurve_foreach_id(struct FCurve *fcu, struct LibraryForeachIDData *data
  * Find the F-Curve affecting the given RNA-access path + index,
  * in the list of F-Curves provided.
  */
-struct FCurve *BKE_fcurve_find(ListBase *list, const char rna_path[], const int array_index);
+struct FCurve *BKE_fcurve_find(ListBase *list, const char rna_path[], int array_index);
 
 /**
  * Quick way to loop over all f-curves of a given 'path'.
@@ -322,8 +306,8 @@ struct FCurve *BKE_fcurve_find_by_rna_context_ui(struct bContext *C,
  * Returns the index to insert at (data already at that index will be offset if replace is 0)
  */
 int BKE_fcurve_bezt_binarysearch_index(const struct BezTriple array[],
-                                       const float frame,
-                                       const int arraylen,
+                                       float frame,
+                                       int arraylen,
                                        bool *r_replace);
 
 /* fcurve_cache.c */
@@ -336,7 +320,7 @@ struct FCurvePathCache *BKE_fcurve_pathcache_create(ListBase *list);
 void BKE_fcurve_pathcache_destroy(struct FCurvePathCache *fcache);
 struct FCurve *BKE_fcurve_pathcache_find(struct FCurvePathCache *fcache,
                                          const char rna_path[],
-                                         const int array_index);
+                                         int array_index);
 /**
  * Fill in an array of F-Curve, leave NULL when not found.
  *
@@ -351,7 +335,7 @@ int BKE_fcurve_pathcache_find_array(struct FCurvePathCache *fcache,
  * Calculate the extents of F-Curve's keyframes.
  */
 bool BKE_fcurve_calc_range(
-    struct FCurve *fcu, float *min, float *max, const bool do_sel_only, const bool do_min_length);
+    struct FCurve *fcu, float *min, float *max, bool do_sel_only, bool do_min_length);
 
 /**
  * Calculate the extents of F-Curve's data.
@@ -361,8 +345,8 @@ bool BKE_fcurve_calc_bounds(struct FCurve *fcu,
                             float *xmax,
                             float *ymin,
                             float *ymax,
-                            const bool do_sel_only,
-                            const bool include_handles);
+                            bool do_sel_only,
+                            bool include_handles);
 
 /**
  * Return an array of keyed frames, rounded to `interval`.
@@ -373,11 +357,11 @@ bool BKE_fcurve_calc_bounds(struct FCurve *fcu,
  * however this risks very small differences in float values being treated as separate keyframes.
  */
 float *BKE_fcurves_calc_keyed_frames_ex(struct FCurve **fcurve_array,
-                                        const int fcurve_array_len,
-                                        const float interval,
+                                        int fcurve_array_len,
+                                        float interval,
                                         int *r_frames_len);
 float *BKE_fcurves_calc_keyed_frames(struct FCurve **fcurve_array,
-                                     const int fcurve_array_len,
+                                     int fcurve_array_len,
                                      int *r_frames_len);
 
 /**
@@ -472,7 +456,7 @@ void calchandles_fcurve_ex(struct FCurve *fcu, eBezTriple_Flag handle_sel_flag);
  * \param use_handle: Check selection state of individual handles, otherwise always update both
  * handles if the key is selected.
  */
-void testhandles_fcurve(struct FCurve *fcu, eBezTriple_Flag sel_flag, const bool use_handle);
+void testhandles_fcurve(struct FCurve *fcu, eBezTriple_Flag sel_flag, bool use_handle);
 /**
  * This function sorts BezTriples so that they are arranged in chronological order,
  * as tools working on F-Curves expect that the BezTriples are in order.
@@ -546,7 +530,7 @@ void fcurve_store_samples(
 /**
  * Convert baked/sampled f-curves into bezt/regular f-curves.
  */
-void fcurve_samples_to_keyframes(struct FCurve *fcu, const int start, const int end);
+void fcurve_samples_to_keyframes(struct FCurve *fcu, int start, int end);
 
 /* ************* F-Curve .blend file API ******************** */
 

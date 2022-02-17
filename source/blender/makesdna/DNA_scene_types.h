@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup DNA
@@ -563,10 +547,17 @@ typedef struct BakeData {
 
   char target;
   char save_mode;
-  char _pad[6];
+  char margin_type;
+  char _pad[5];
 
   struct Object *cage_object;
 } BakeData;
+
+/** #BakeData.margin_type (char) */
+typedef enum eBakeMarginType {
+  R_BAKE_ADJACENT_FACES = 0,
+  R_BAKE_EXTEND = 1,
+} eBakeMarginType;
 
 /** #BakeData.normal_swizzle (char) */
 typedef enum eBakeNormalSwizzle {
@@ -715,7 +706,9 @@ typedef struct RenderData {
 
   /* Bake Render options */
   short bake_mode, bake_flag;
-  short bake_filter, bake_samples;
+  short bake_margin, bake_samples;
+  short bake_margin_type;
+  char _pad9[6];
   float bake_biasdist, bake_user_scale;
 
   /* path to render output */
@@ -1341,8 +1334,10 @@ typedef struct SequencerToolSettings {
   short snap_flag;
   /* eSeqOverlapMode */
   int overlap_mode;
-  /** When there are many snap points, 0-1 range corresponds to resolution from boundbox to all
-   * possible snap points. */
+  /**
+   * When there are many snap points,
+   * 0-1 range corresponds to resolution from bound-box to all possible snap points.
+   */
   int snap_distance;
   int pivot_point;
 } SequencerToolSettings;
@@ -1396,13 +1391,14 @@ typedef struct ToolSettings {
   char object_flag;
 
   /* Selection Mode for Mesh */
-  short selectmode;
+  char selectmode;
 
   /* UV Calculation */
   char unwrapper;
   char uvcalc_flag;
   char uv_flag;
   char uv_selectmode;
+  char uv_sticky;
 
   float uvcalc_margin;
 
@@ -2304,6 +2300,13 @@ enum {
 #define UV_SELECT_EDGE 2
 #define UV_SELECT_FACE 4
 #define UV_SELECT_ISLAND 8
+
+/** #ToolSettings.uv_sticky */
+enum {
+  SI_STICKY_LOC = 0,
+  SI_STICKY_DISABLE = 1,
+  SI_STICKY_VERTEX = 2,
+};
 
 /** #ToolSettings.gpencil_flags */
 typedef enum eGPencil_Flags {

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_task.hh"
 #include "BLI_timeit.hh"
@@ -85,7 +71,7 @@ static bool calculate_mesh_proximity(const VArray<float3> &positions,
     for (int i : range) {
       const int index = mask[i];
       /* Use the distance to the last found point as upper bound to speedup the bvh lookup. */
-      nearest.dist_sq = float3::distance_squared(nearest.co, positions[index]);
+      nearest.dist_sq = math::distance_squared(float3(nearest.co), positions[index]);
 
       BLI_bvhtree_find_nearest(
           bvh_data.tree, positions[index], &nearest, bvh_data.nearest_callback, &bvh_data);
@@ -191,8 +177,12 @@ class ProximityFunction : public fn::MultiFunction {
     }
 
     if (!success) {
-      positions.fill_indices(mask, float3(0));
-      distances.fill_indices(mask, 0.0f);
+      if (!positions.is_empty()) {
+        positions.fill_indices(mask, float3(0));
+      }
+      if (!distances.is_empty()) {
+        distances.fill_indices(mask, 0.0f);
+      }
       return;
     }
 

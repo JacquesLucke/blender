@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup draw
@@ -33,7 +18,7 @@ struct ParticleSystem;
 struct TaskGraph;
 
 struct Curve;
-struct Hair;
+struct Curves;
 struct Lattice;
 struct Mesh;
 struct MetaBall;
@@ -60,7 +45,7 @@ void DRW_curve_batch_cache_validate(struct Curve *cu);
 void DRW_curve_batch_cache_free(struct Curve *cu);
 
 void DRW_mesh_batch_cache_dirty_tag(struct Mesh *me, eMeshBatchDirtyMode mode);
-void DRW_mesh_batch_cache_validate(struct Mesh *me);
+void DRW_mesh_batch_cache_validate(struct Object *object, struct Mesh *me);
 void DRW_mesh_batch_cache_free(struct Mesh *me);
 
 void DRW_lattice_batch_cache_dirty_tag(struct Lattice *lt, int mode);
@@ -73,9 +58,9 @@ void DRW_particle_batch_cache_free(struct ParticleSystem *psys);
 void DRW_gpencil_batch_cache_dirty_tag(struct bGPdata *gpd);
 void DRW_gpencil_batch_cache_free(struct bGPdata *gpd);
 
-void DRW_hair_batch_cache_dirty_tag(struct Hair *hair, int mode);
-void DRW_hair_batch_cache_validate(struct Hair *hair);
-void DRW_hair_batch_cache_free(struct Hair *hair);
+void DRW_curves_batch_cache_dirty_tag(struct Curves *curves, int mode);
+void DRW_curves_batch_cache_validate(struct Curves *curves);
+void DRW_curves_batch_cache_free(struct Curves *curves);
 
 void DRW_pointcloud_batch_cache_dirty_tag(struct PointCloud *pointcloud, int mode);
 void DRW_pointcloud_batch_cache_validate(struct PointCloud *pointcloud);
@@ -105,7 +90,7 @@ void DRW_mesh_batch_cache_free_old(struct Mesh *me, int ctime);
 /** \name Generic
  * \{ */
 
-void DRW_vertbuf_create_wiredata(struct GPUVertBuf *vbo, const int vert_len);
+void DRW_vertbuf_create_wiredata(struct GPUVertBuf *vbo, int vert_len);
 
 /** \} */
 
@@ -178,7 +163,7 @@ void DRW_displist_indexbuf_create_edges_adjacency_lines(struct ListBase *lb,
 
 struct GPUBatch *DRW_lattice_batch_cache_get_all_edges(struct Lattice *lt,
                                                        bool use_weight,
-                                                       const int actdef);
+                                                       int actdef);
 struct GPUBatch *DRW_lattice_batch_cache_get_all_verts(struct Lattice *lt);
 struct GPUBatch *DRW_lattice_batch_cache_get_edit_verts(struct Lattice *lt);
 
@@ -188,7 +173,7 @@ struct GPUBatch *DRW_lattice_batch_cache_get_edit_verts(struct Lattice *lt);
 /** \name Hair
  * \{ */
 
-int DRW_hair_material_count_get(struct Hair *hair);
+int DRW_curves_material_count_get(struct Curves *curves);
 
 /** \} */
 
@@ -228,22 +213,26 @@ void DRW_mesh_batch_cache_create_requested(struct TaskGraph *task_graph,
                                            struct Object *ob,
                                            struct Mesh *me,
                                            const struct Scene *scene,
-                                           const bool is_paint_mode,
-                                           const bool use_hide);
+                                           bool is_paint_mode,
+                                           bool use_hide);
 
 struct GPUBatch *DRW_mesh_batch_cache_get_all_verts(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_all_edges(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_loose_edges(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_edge_detection(struct Mesh *me, bool *r_is_manifold);
 struct GPUBatch *DRW_mesh_batch_cache_get_surface(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_surface_edges(struct Mesh *me);
-struct GPUBatch **DRW_mesh_batch_cache_get_surface_shaded(struct Mesh *me,
+struct GPUBatch *DRW_mesh_batch_cache_get_surface_edges(struct Object *object, struct Mesh *me);
+struct GPUBatch **DRW_mesh_batch_cache_get_surface_shaded(struct Object *object,
+                                                          struct Mesh *me,
                                                           struct GPUMaterial **gpumat_array,
                                                           uint gpumat_array_len);
-struct GPUBatch **DRW_mesh_batch_cache_get_surface_texpaint(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_surface_texpaint_single(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_surface_vertpaint(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_surface_sculpt(struct Mesh *me);
+struct GPUBatch **DRW_mesh_batch_cache_get_surface_texpaint(struct Object *object,
+                                                            struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_surface_texpaint_single(struct Object *object,
+                                                                  struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_surface_vertpaint(struct Object *object,
+                                                            struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_surface_sculpt(struct Object *object, struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_surface_weights(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_sculpt_overlays(struct Mesh *me);
 
@@ -293,14 +282,16 @@ struct GPUBatch *DRW_mesh_batch_cache_get_wireframes_face(struct Mesh *me);
  * The `cache->tot_area` and cache->tot_uv_area` update are calculation are
  * only valid after calling `DRW_mesh_batch_cache_create_requested`.
  */
-struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces_stretch_area(struct Mesh *me,
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces_stretch_area(struct Object *object,
+                                                                    struct Mesh *me,
                                                                     float **tot_area,
                                                                     float **tot_uv_area);
-struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces_stretch_angle(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edituv_edges(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edituv_verts(struct Mesh *me);
-struct GPUBatch *DRW_mesh_batch_cache_get_edituv_facedots(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces_stretch_angle(struct Object *object,
+                                                                     struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_faces(struct Object *object, struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_edges(struct Object *object, struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_verts(struct Object *object, struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_edituv_facedots(struct Object *object, struct Mesh *me);
 
 /** \} */
 
@@ -308,7 +299,7 @@ struct GPUBatch *DRW_mesh_batch_cache_get_edituv_facedots(struct Mesh *me);
 /** \name For Image UV Editor
  * \{ */
 
-struct GPUBatch *DRW_mesh_batch_cache_get_uv_edges(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_uv_edges(struct Object *object, struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_edit_mesh_analysis(struct Mesh *me);
 
 /** \} */
@@ -321,7 +312,7 @@ struct GPUVertBuf *DRW_mesh_batch_cache_pos_vertbuf_get(struct Mesh *me);
 struct GPUVertBuf *DRW_curve_batch_cache_pos_vertbuf_get(struct Curve *cu);
 struct GPUVertBuf *DRW_mball_batch_cache_pos_vertbuf_get(struct Object *ob);
 
-int DRW_mesh_material_count_get(const struct Mesh *me);
+int DRW_mesh_material_count_get(const struct Object *object, const struct Mesh *me);
 
 /* See 'common_globals_lib.glsl' for duplicate defines. */
 

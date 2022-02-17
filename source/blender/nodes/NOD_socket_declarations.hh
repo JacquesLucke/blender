@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -21,7 +7,7 @@
 #include "RNA_types.h"
 
 #include "BLI_color.hh"
-#include "BLI_float3.hh"
+#include "BLI_math_vec_types.hh"
 
 namespace blender::nodes::decl {
 
@@ -47,9 +33,9 @@ class Float : public SocketDeclaration {
 
 class FloatBuilder : public SocketDeclarationBuilder<Float> {
  public:
-  FloatBuilder &min(const float value);
-  FloatBuilder &max(const float value);
-  FloatBuilder &default_value(const float value);
+  FloatBuilder &min(float value);
+  FloatBuilder &max(float value);
+  FloatBuilder &default_value(float value);
   FloatBuilder &subtype(PropertySubType subtype);
 };
 
@@ -75,9 +61,9 @@ class Int : public SocketDeclaration {
 
 class IntBuilder : public SocketDeclarationBuilder<Int> {
  public:
-  IntBuilder &min(const int value);
-  IntBuilder &max(const int value);
-  IntBuilder &default_value(const int value);
+  IntBuilder &min(int value);
+  IntBuilder &max(int value);
+  IntBuilder &default_value(int value);
   IntBuilder &subtype(PropertySubType subtype);
 };
 
@@ -105,8 +91,8 @@ class VectorBuilder : public SocketDeclarationBuilder<Vector> {
  public:
   VectorBuilder &default_value(const float3 value);
   VectorBuilder &subtype(PropertySubType subtype);
-  VectorBuilder &min(const float min);
-  VectorBuilder &max(const float max);
+  VectorBuilder &min(float min);
+  VectorBuilder &max(float max);
   VectorBuilder &compact();
 };
 
@@ -127,7 +113,7 @@ class Bool : public SocketDeclaration {
 
 class BoolBuilder : public SocketDeclarationBuilder<Bool> {
  public:
-  BoolBuilder &default_value(const bool value);
+  BoolBuilder &default_value(bool value);
 };
 
 class ColorBuilder;

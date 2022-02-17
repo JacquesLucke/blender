@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2004 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2004 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edmesh
@@ -333,9 +317,6 @@ void EDBM_mesh_clear(BMEditMesh *em)
 {
   /* clear bmesh */
   BM_mesh_clear(em->bm);
-
-  /* Free evaluated meshes & cache. */
-  BKE_editmesh_free_derived_caches(em);
 
   /* free tessellation data */
   em->tottri = 0;
@@ -1404,8 +1385,6 @@ void EDBM_update(Mesh *mesh, const struct EDBMUpdate_Params *params)
     BM_lnorspace_invalidate(em->bm, false);
     em->bm->spacearr_dirty &= ~BM_SPACEARR_BMO_SET;
   }
-  /* Don't keep stale evaluated mesh data around, see: T38872. */
-  BKE_editmesh_free_derived_caches(em);
 
 #ifdef DEBUG
   {

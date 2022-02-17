@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -121,7 +105,7 @@ static void image_init(Image *ima, short source, short type);
 static void image_free_packedfiles(Image *ima);
 static void copy_image_packedfiles(ListBase *lb_dst, const ListBase *lb_src);
 
-/* Reset runtime image fields when datablock is being initialized. */
+/* Reset runtime image fields when data-block is being initialized. */
 static void image_runtime_reset(struct Image *image)
 {
   memset(&image->runtime, 0, sizeof(image->runtime));
@@ -129,11 +113,27 @@ static void image_runtime_reset(struct Image *image)
   BLI_mutex_init(image->runtime.cache_mutex);
 }
 
-/* Reset runtime image fields when datablock is being copied.  */
+/* Reset runtime image fields when data-block is being copied. */
 static void image_runtime_reset_on_copy(struct Image *image)
 {
   image->runtime.cache_mutex = MEM_mallocN(sizeof(ThreadMutex), "image runtime cache_mutex");
   BLI_mutex_init(image->runtime.cache_mutex);
+
+  image->runtime.partial_update_register = NULL;
+  image->runtime.partial_update_user = NULL;
+}
+
+static void image_runtime_free_data(struct Image *image)
+{
+  BLI_mutex_end(image->runtime.cache_mutex);
+  MEM_freeN(image->runtime.cache_mutex);
+  image->runtime.cache_mutex = NULL;
+
+  if (image->runtime.partial_update_user != NULL) {
+    BKE_image_partial_update_free(image->runtime.partial_update_user);
+    image->runtime.partial_update_user = NULL;
+  }
+  BKE_image_partial_update_register_free(image);
 }
 
 static void image_init_data(ID *id)
@@ -213,10 +213,8 @@ static void image_free_data(ID *id)
   BKE_previewimg_free(&image->preview);
 
   BLI_freelistN(&image->tiles);
-  BLI_freelistN(&image->gpu_refresh_areas);
 
-  BLI_mutex_end(image->runtime.cache_mutex);
-  MEM_freeN(image->runtime.cache_mutex);
+  image_runtime_free_data(image);
 }
 
 static void image_foreach_cache(ID *id,
@@ -321,7 +319,8 @@ static void image_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   ima->cache = NULL;
   ima->gpuflag = 0;
   BLI_listbase_clear(&ima->anims);
-  BLI_listbase_clear(&ima->gpu_refresh_areas);
+  ima->runtime.partial_update_register = NULL;
+  ima->runtime.partial_update_user = NULL;
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 2; j++) {
       for (int resolution = 0; resolution < IMA_TEXTURE_RESOLUTION_LEN; resolution++) {
@@ -401,7 +400,6 @@ static void image_blend_read_data(BlendDataReader *reader, ID *id)
 
   ima->lastused = 0;
   ima->gpuflag = 0;
-  BLI_listbase_clear(&ima->gpu_refresh_areas);
 
   image_runtime_reset(ima);
 }
@@ -2446,7 +2444,7 @@ void BKE_image_stamp_buf(Scene *scene,
 
     /* and draw the text. */
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.file, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.file, sizeof(stamp_data.file));
 
     /* the extra pixel for background. */
     y -= BUFF_MARGIN_Y * 2;
@@ -2469,7 +2467,7 @@ void BKE_image_stamp_buf(Scene *scene,
                       y + h + BUFF_MARGIN_Y);
 
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.date, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.date, sizeof(stamp_data.date));
 
     /* the extra pixel for background. */
     y -= BUFF_MARGIN_Y * 2;
@@ -2492,7 +2490,7 @@ void BKE_image_stamp_buf(Scene *scene,
                       y + h + BUFF_MARGIN_Y);
 
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.rendertime, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.rendertime, sizeof(stamp_data.rendertime));
 
     /* the extra pixel for background. */
     y -= BUFF_MARGIN_Y * 2;
@@ -2515,7 +2513,7 @@ void BKE_image_stamp_buf(Scene *scene,
                       y + h + BUFF_MARGIN_Y);
 
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.memory, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.memory, sizeof(stamp_data.memory));
 
     /* the extra pixel for background. */
     y -= BUFF_MARGIN_Y * 2;
@@ -2538,7 +2536,7 @@ void BKE_image_stamp_buf(Scene *scene,
                       y + h + BUFF_MARGIN_Y);
 
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.hostname, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.hostname, sizeof(stamp_data.hostname));
 
     /* the extra pixel for background. */
     y -= BUFF_MARGIN_Y * 2;
@@ -2562,7 +2560,7 @@ void BKE_image_stamp_buf(Scene *scene,
                       y + h + BUFF_MARGIN_Y);
 
     BLF_position(mono, x, y + y_ofs + (h - h_fixed), 0.0);
-    BLF_draw_buffer(mono, stamp_data.note, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.note, sizeof(stamp_data.note));
   }
   BLF_disable(mono, BLF_WORD_WRAP);
 
@@ -2586,7 +2584,7 @@ void BKE_image_stamp_buf(Scene *scene,
 
     /* and pad the text. */
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.marker, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.marker, sizeof(stamp_data.marker));
 
     /* space width. */
     x += w + pad;
@@ -2609,7 +2607,7 @@ void BKE_image_stamp_buf(Scene *scene,
 
     /* and pad the text. */
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.time, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.time, sizeof(stamp_data.time));
 
     /* space width. */
     x += w + pad;
@@ -2631,7 +2629,7 @@ void BKE_image_stamp_buf(Scene *scene,
 
     /* and pad the text. */
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.frame, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.frame, sizeof(stamp_data.frame));
 
     /* space width. */
     x += w + pad;
@@ -2651,7 +2649,7 @@ void BKE_image_stamp_buf(Scene *scene,
                       x + w + BUFF_MARGIN_X,
                       y + h + BUFF_MARGIN_Y);
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.camera, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.camera, sizeof(stamp_data.camera));
 
     /* space width. */
     x += w + pad;
@@ -2671,7 +2669,7 @@ void BKE_image_stamp_buf(Scene *scene,
                       x + w + BUFF_MARGIN_X,
                       y + h + BUFF_MARGIN_Y);
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.cameralens, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.cameralens, sizeof(stamp_data.cameralens));
   }
 
   if (TEXT_SIZE_CHECK(stamp_data.scene, w, h)) {
@@ -2693,7 +2691,7 @@ void BKE_image_stamp_buf(Scene *scene,
 
     /* and pad the text. */
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.scene, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.scene, sizeof(stamp_data.scene));
   }
 
   if (TEXT_SIZE_CHECK(stamp_data.strip, w, h)) {
@@ -2715,7 +2713,7 @@ void BKE_image_stamp_buf(Scene *scene,
                       y + h + BUFF_MARGIN_Y);
 
     BLF_position(mono, x, y + y_ofs, 0.0);
-    BLF_draw_buffer(mono, stamp_data.strip, BLF_DRAW_STR_DUMMY_MAX);
+    BLF_draw_buffer(mono, stamp_data.strip, sizeof(stamp_data.strip));
   }
 
   /* cleanup the buffer. */
@@ -3553,7 +3551,7 @@ static void image_tag_frame_recalc(Image *ima, ID *iuser_id, ImageUser *iuser, v
     iuser->flag |= IMA_NEED_FRAME_RECALC;
 
     if (iuser_id) {
-      /* Must copy image user changes to CoW datablock. */
+      /* Must copy image user changes to CoW data-block. */
       DEG_id_tag_update(iuser_id, ID_RECALC_COPY_ON_WRITE);
     }
   }
@@ -3568,7 +3566,7 @@ static void image_tag_reload(Image *ima, ID *iuser_id, ImageUser *iuser, void *c
       image_update_views_format(ima, iuser);
     }
     if (iuser_id) {
-      /* Must copy image user changes to CoW datablock. */
+      /* Must copy image user changes to CoW data-block. */
       DEG_id_tag_update(iuser_id, ID_RECALC_COPY_ON_WRITE);
     }
   }
@@ -4062,9 +4060,8 @@ bool BKE_image_fill_tile(struct Image *ima,
 
 void BKE_image_ensure_tile_token(char *filename)
 {
-  if (filename == NULL) {
-    return;
-  }
+  BLI_assert_msg(BLI_path_slash_find(filename) == NULL,
+                 "Only the file-name component should be used!");
 
   /* Is there a '<' character in the filename? Assume tokens already present. */
   if (strstr(filename, "<") != NULL) {
@@ -4364,7 +4361,7 @@ RenderResult *BKE_image_acquire_renderresult(Scene *scene, Image *ima)
     }
     else {
       rr = BKE_image_get_renderslot(ima, ima->render_slot)->render;
-      ima->gpuflag |= IMA_GPU_REFRESH;
+      BKE_image_partial_update_mark_full_update(ima);
     }
 
     /* set proper views */
@@ -5732,7 +5729,7 @@ void BKE_image_user_frame_calc(Image *ima, ImageUser *iuser, int cfra)
       /* NOTE: a single texture and refresh doesn't really work when
        * multiple image users may use different frames, this is to
        * be improved with perhaps a GPU texture cache. */
-      ima->gpuflag |= IMA_GPU_REFRESH;
+      BKE_image_partial_update_mark_full_update(ima);
       ima->gpuframenr = iuser->framenr;
     }
 
@@ -5774,7 +5771,7 @@ static void image_user_id_has_animation(Image *ima,
 bool BKE_image_user_id_has_animation(ID *id)
 {
   /* For the dependency graph, this does not consider nested node
-   * trees as these are handled as their own datablock. */
+   * trees as these are handled as their own data-block. */
   bool has_animation = false;
   bool skip_nested_nodes = true;
   image_walk_id_all_users(id, skip_nested_nodes, &has_animation, image_user_id_has_animation);

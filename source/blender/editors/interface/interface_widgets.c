@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edinterface
@@ -2130,11 +2114,11 @@ static void widget_draw_text(const uiFontStyle *fstyle,
       UI_fontstyle_draw_ex(fstyle,
                            rect,
                            drawstr + but->ofs,
+                           drawlen,
                            wcol->text,
                            &(struct uiFontStyleDraw_Params){
                                .align = align,
                            },
-                           drawlen,
                            &font_xofs,
                            &font_yofs,
                            NULL);
@@ -2194,6 +2178,7 @@ static void widget_draw_text(const uiFontStyle *fstyle,
     UI_fontstyle_draw(fstyle,
                       rect,
                       drawstr_right,
+                      UI_MAX_DRAW_STR,
                       col,
                       &(struct uiFontStyleDraw_Params){
                           .align = UI_STYLE_TEXT_RIGHT,
@@ -5417,11 +5402,11 @@ void ui_draw_menu_item(const uiFontStyle *fstyle,
     UI_fontstyle_draw_ex(fstyle,
                          rect,
                          drawstr,
+                         sizeof(drawstr),
                          wt->wcol.text,
                          &(struct uiFontStyleDraw_Params){
                              .align = UI_STYLE_TEXT_LEFT,
                          },
-                         BLF_DRAW_STR_DUMMY_MAX,
                          &xofs,
                          &yofs,
                          &info);
@@ -5468,6 +5453,7 @@ void ui_draw_menu_item(const uiFontStyle *fstyle,
       UI_fontstyle_draw(fstyle,
                         rect,
                         hint_drawstr,
+                        sizeof(hint_drawstr),
                         wt->wcol.text,
                         &(struct uiFontStyleDraw_Params){
                             .align = UI_STYLE_TEXT_RIGHT,
@@ -5523,6 +5509,7 @@ void ui_draw_preview_item_stateless(const uiFontStyle *fstyle,
     UI_fontstyle_draw(fstyle,
                       &trect,
                       drawstr,
+                      sizeof(drawstr),
                       text_col,
                       &(struct uiFontStyleDraw_Params){
                           .align = text_align,

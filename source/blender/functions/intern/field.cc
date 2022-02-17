@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_map.hh"
 #include "BLI_multi_value_map.hh"
@@ -571,6 +557,13 @@ bool IndexFieldInput::is_equal_to(const fn::FieldNode &other) const
 }
 
 /* --------------------------------------------------------------------
+ * FieldNode.
+ */
+
+/* Avoid generating the destructor in every translation unit. */
+FieldNode::~FieldNode() = default;
+
+/* --------------------------------------------------------------------
  * FieldOperation.
  */
 
@@ -580,6 +573,9 @@ FieldOperation::FieldOperation(std::shared_ptr<const MultiFunction> function,
 {
   owned_function_ = std::move(function);
 }
+
+/* Avoid generating the destructor in every translation unit. */
+FieldOperation::~FieldOperation() = default;
 
 /**
  * Returns the field inputs used by all the provided fields.
@@ -654,6 +650,9 @@ FieldInput::FieldInput(const CPPType &type, std::string debug_name)
   field_inputs->deduplicated_nodes.add_new(*this);
   field_inputs_ = std::move(field_inputs);
 }
+
+/* Avoid generating the destructor in every translation unit. */
+FieldInput::~FieldInput() = default;
 
 /* --------------------------------------------------------------------
  * FieldConstant.

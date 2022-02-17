@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup DNA
@@ -45,7 +31,7 @@ uint DNA_elem_id_strip(char *elem);
  * return true if it does, with start/end offsets.
  */
 bool DNA_elem_id_match(const char *elem_search,
-                       const int elem_search_len,
+                       int elem_search_len,
                        const char *elem_full,
                        uint *r_elem_full_offset);
 /**
@@ -53,12 +39,12 @@ bool DNA_elem_id_match(const char *elem_search,
  */
 char *DNA_elem_id_rename(struct MemArena *mem_arena,
                          const char *elem_src,
-                         const int elem_src_len,
+                         int elem_src_len,
                          const char *elem_dst,
-                         const int elem_dst_len,
+                         int elem_dst_len,
                          const char *elem_src_full,
-                         const int elem_src_full_len,
-                         const uint elem_src_full_offset_len);
+                         int elem_src_full_len,
+                         uint elem_src_full_offset_len);
 
 /**
  * When requesting version info, support both directions.

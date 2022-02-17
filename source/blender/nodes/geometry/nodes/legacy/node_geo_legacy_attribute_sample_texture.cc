@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_compiler_attrs.h"
 #include "BLI_task.hh"
@@ -93,7 +79,7 @@ static void execute_on_component(GeometryComponent &component, const GeoNodeExec
       /* For legacy reasons we have to map [0, 1] to [-1, 1] to support uv mappings. */
       const float3 remapped_position = position * 2.0f - float3(1.0f);
       BKE_texture_get_value(nullptr, texture, remapped_position, &texture_result, false);
-      colors[i] = {texture_result.tr, texture_result.tg, texture_result.tb, texture_result.ta};
+      copy_v4_v4(colors[i], texture_result.trgba);
     }
   });
 

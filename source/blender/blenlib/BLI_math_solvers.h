@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2015 by Blender Foundation
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2015 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -77,7 +61,7 @@ void BLI_svd_m3(const float m3[3][3], float r_U[3][3], float r_S[3], float r_V[3
  * \return true if success
  */
 bool BLI_tridiagonal_solve(
-    const float *a, const float *b, const float *c, const float *d, float *r_x, const int count);
+    const float *a, const float *b, const float *c, const float *d, float *r_x, int count);
 /**
  * \brief Solve a possibly cyclic tridiagonal system using the Sherman-Morrison formula.
  *
@@ -85,7 +69,7 @@ bool BLI_tridiagonal_solve(
  * \return true if success
  */
 bool BLI_tridiagonal_solve_cyclic(
-    const float *a, const float *b, const float *c, const float *d, float *r_x, const int count);
+    const float *a, const float *b, const float *c, const float *d, float *r_x, int count);
 
 /**
  * Generic 3 variable Newton's method solver.

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edsculpt
@@ -560,13 +544,6 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
                                                     thread_id);
 
     float brush_disp[3];
-    float normal[3];
-    if (vd.no) {
-      normal_short_to_float_v3(normal, vd.no);
-    }
-    else {
-      copy_v3_v3(normal, vd.fno);
-    }
 
     switch (brush->cloth_deform_type) {
       case BRUSH_CLOTH_DEFORM_DRAG:
@@ -621,7 +598,7 @@ static void do_cloth_brush_apply_forces_task_cb_ex(void *__restrict userdata,
         mul_v3_v3fl(force, disp_center, fade);
       } break;
       case BRUSH_CLOTH_DEFORM_INFLATE:
-        mul_v3_v3fl(force, normal, fade);
+        mul_v3_v3fl(force, vd.no ? vd.no : vd.fno, fade);
         break;
       case BRUSH_CLOTH_DEFORM_EXPAND:
         cloth_sim->length_constraint_tweak[vd.index] += fade * 0.1f;
@@ -821,7 +798,7 @@ static void do_cloth_brush_solve_simulation_task_cb_ex(
     copy_v3_v3(vd.co, cloth_sim->pos[vd.index]);
 
     if (vd.mvert) {
-      vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+      BKE_pbvh_vert_mark_update(ss->pbvh, vd.index);
     }
   }
   BKE_pbvh_vertex_iter_end;

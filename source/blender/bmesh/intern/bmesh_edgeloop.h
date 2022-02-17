@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2013 by Campbell Barton.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2013 by Campbell Barton. All rights reserved. */
 
 #pragma once
 
@@ -48,16 +32,14 @@ void BM_mesh_edgeloops_calc_normal(BMesh *bm, struct ListBase *eloops);
 void BM_mesh_edgeloops_calc_normal_aligned(BMesh *bm,
                                            struct ListBase *eloops,
                                            const float no_align[3]);
-void BM_mesh_edgeloops_calc_order(BMesh *bm, ListBase *eloops, const bool use_normals);
+void BM_mesh_edgeloops_calc_order(BMesh *bm, ListBase *eloops, bool use_normals);
 
 /**
  * Copy a single edge-loop.
  * \return new edge-loops.
  */
 struct BMEdgeLoopStore *BM_edgeloop_copy(struct BMEdgeLoopStore *el_store);
-struct BMEdgeLoopStore *BM_edgeloop_from_verts(BMVert **v_arr,
-                                               const int v_arr_tot,
-                                               bool is_closed);
+struct BMEdgeLoopStore *BM_edgeloop_from_verts(BMVert **v_arr, int v_arr_tot, bool is_closed);
 
 void BM_edgeloop_free(struct BMEdgeLoopStore *el_store);
 bool BM_edgeloop_is_closed(struct BMEdgeLoopStore *el_store);

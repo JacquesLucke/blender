@@ -1,24 +1,7 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * - Blender Foundation, 2003-2009
- * - Peter Schlaile <peter [at] schlaile [dot] de> 2005/2006
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved.
+ *           2003-2009 Blender Foundation.
+ *           2005-2006 Peter Schlaile <peter [at] schlaile [dot] de> */
 
 /** \file
  * \ingroup bke
@@ -35,10 +18,12 @@
 
 #include "BLI_blenlib.h"
 
+#include "BKE_animsys.h"
 #include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_scene.h"
 
+#include "SEQ_animation.h"
 #include "SEQ_edit.h"
 #include "SEQ_iterator.h"
 #include "SEQ_relations.h"
@@ -583,7 +568,8 @@ void SEQ_ensure_unique_name(Sequence *seq, Scene *scene)
 
   BLI_strncpy_utf8(name, seq->name + 2, sizeof(name));
   SEQ_sequence_base_unique_name_recursive(scene, &scene->ed->seqbase, seq);
-  SEQ_dupe_animdata(scene, name, seq->name + 2);
+  BKE_animdata_fix_paths_rename(
+      &scene->id, scene->adt, NULL, "sequence_editor.sequences_all", name, seq->name + 2, 0, 0, 0);
 
   if (seq->type == SEQ_TYPE_META) {
     LISTBASE_FOREACH (Sequence *, seq_child, &seq->seqbase) {

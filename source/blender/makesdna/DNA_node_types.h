@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup DNA
@@ -38,6 +22,7 @@ struct ID;
 struct Image;
 struct ListBase;
 struct Material;
+struct PreviewImage;
 struct Tex;
 struct bGPdata;
 struct bNodeInstanceHash;
@@ -46,7 +31,6 @@ struct bNodePreview;
 struct bNodeTreeExec;
 struct bNodeType;
 struct uiBlock;
-struct PreviewImage;
 
 #define NODE_MAXSTR 64
 
@@ -106,15 +90,21 @@ typedef struct bNodeSocket {
   /** MAX_NAME. */
   char name[64];
 
-  /* XXX deprecated, only used for the Image and OutputFile nodes,
-   * should be removed at some point.
-   */
-  /** Custom storage. */
+  /** Only used for the Image and OutputFile nodes, should be removed at some point. */
   void *storage;
 
-  short type, flag;
-  /** Max. number of links. Read via nodeSocketLinkLimit,
-   * because the limit might be defined on the socket type. */
+  /**
+   * The socket's data type. #eNodeSocketDatatype.
+   */
+  short type;
+  /** #eNodeSocketFlag */
+  short flag;
+  /**
+   * Maximum number of links that can connect to the socket. Read via #nodeSocketLinkLimit, because
+   * the limit might be defined on the socket type, in which case this value does not have any
+   * effect. It is necessary to store this in the socket because it is exposed as an RNA property
+   * for custom nodes.
+   */
   short limit;
   /** Input/output type. */
   short in_out;
@@ -123,6 +113,10 @@ typedef struct bNodeSocket {
   /** Runtime type identifier. */
   char idname[64];
 
+  /**
+   * The location of the sockets, in the view-space of the node editor.
+   * \note These are runtime data-- only calculated when drawing, and could be removed from DNA.
+   */
   float locx, locy;
 
   /** Default input value used for unlinked sockets. */
@@ -307,7 +301,7 @@ typedef struct bNode {
 
   char _pad1[4];
 
-  /** Entire boundbox (world-space). */
+  /** Entire bound-box (world-space). */
   rctf totr;
   /** Optional preview area. */
   rctf prvr;
@@ -367,7 +361,7 @@ typedef struct bNode {
 #define NODE_PREVIEW 4
 #define NODE_HIDDEN 8
 #define NODE_ACTIVE 16
-#define NODE_ACTIVE_ID 32
+// #define NODE_ACTIVE_ID 32 /* deprecated */
 /* Used to indicate which group output node is used and which viewer node is active. */
 #define NODE_DO_OUTPUT 64
 #define __NODE_GROUP_EDIT 128 /* DEPRECATED */
@@ -504,8 +498,10 @@ typedef struct bNodeTree {
   /** Information about how inputs and outputs of the node group interact with fields. */
   FieldInferencingInterfaceHandle *field_inferencing_interface;
 
-  /** Set init on fileread. */
-  int type, init;
+  int type;
+
+  char _pad1[4];
+
   /**
    * Sockets in groups have unique identifiers, adding new sockets always
    * will increase this counter.
@@ -588,9 +584,6 @@ typedef struct bNodeTree {
 #define NTREE_COMPOSIT 1
 #define NTREE_TEXTURE 2
 #define NTREE_GEOMETRY 3
-
-/** #NodeTree.init, flag */
-#define NTREE_TYPE_INIT 1
 
 /** #NodeTree.flag */
 #define NTREE_DS_EXPAND (1 << 0)            /* for animation editors */
@@ -922,6 +915,11 @@ typedef struct NodeColorspill {
   float limscale;
   float uspillr, uspillg, uspillb;
 } NodeColorspill;
+
+typedef struct NodeConvertColorSpace {
+  char from_color_space[64];
+  char to_color_space[64];
+} NodeConvertColorSpace;
 
 typedef struct NodeDilateErode {
   char falloff;
@@ -1370,6 +1368,11 @@ typedef struct NodeGeometryPointTranslate {
   uint8_t input_type;
 } NodeGeometryPointTranslate;
 
+typedef struct NodeGeometryExtrudeMesh {
+  /* GeometryNodeExtrudeMeshMode */
+  uint8_t mode;
+} NodeGeometryExtrudeMesh;
+
 typedef struct NodeGeometryObjectInfo {
   /* GeometryNodeTransformSpace. */
   uint8_t transform_space;
@@ -1488,6 +1491,11 @@ typedef struct NodeGeometryCurveSelectHandles {
   uint8_t mode;
 } NodeGeometryCurveSelectHandles;
 
+typedef struct NodeGeometryCurvePrimitiveArc {
+  /* GeometryNodeCurvePrimitiveArcMode. */
+  uint8_t mode;
+} NodeGeometryCurvePrimitiveArc;
+
 typedef struct NodeGeometryCurvePrimitiveLine {
   /* GeometryNodeCurvePrimitiveLineMode. */
   uint8_t mode;
@@ -1591,7 +1599,8 @@ typedef struct NodeGeometryStringToCurves {
   uint8_t align_x;
   /* GeometryNodeStringToCurvesAlignYMode */
   uint8_t align_y;
-  char _pad[1];
+  /* GeometryNodeStringToCurvesPivotMode */
+  uint8_t pivot_mode;
 } NodeGeometryStringToCurves;
 
 typedef struct NodeGeometryDeleteGeometry {
@@ -1823,7 +1832,6 @@ enum {
 /* math node clamp */
 #define SHD_MATH_CLAMP 1
 
-/** Math node operations. */
 typedef enum NodeMathOperation {
   NODE_MATH_ADD = 0,
   NODE_MATH_SUBTRACT = 1,
@@ -1867,7 +1875,6 @@ typedef enum NodeMathOperation {
   NODE_MATH_SMOOTH_MAX = 39,
 } NodeMathOperation;
 
-/** Vector Math node operations. */
 typedef enum NodeVectorMathOperation {
   NODE_VECTOR_MATH_ADD = 0,
   NODE_VECTOR_MATH_SUBTRACT = 1,
@@ -1901,14 +1908,20 @@ typedef enum NodeVectorMathOperation {
   NODE_VECTOR_MATH_MULTIPLY_ADD = 26,
 } NodeVectorMathOperation;
 
-/** Boolean math node operations. */
-enum {
+typedef enum NodeBooleanMathOperation {
   NODE_BOOLEAN_MATH_AND = 0,
   NODE_BOOLEAN_MATH_OR = 1,
   NODE_BOOLEAN_MATH_NOT = 2,
-};
 
-/** Float compare node operations. */
+  NODE_BOOLEAN_MATH_NAND = 3,
+  NODE_BOOLEAN_MATH_NOR = 4,
+  NODE_BOOLEAN_MATH_XNOR = 5,
+  NODE_BOOLEAN_MATH_XOR = 6,
+
+  NODE_BOOLEAN_MATH_IMPLY = 7,
+  NODE_BOOLEAN_MATH_NIMPLY = 8,
+} NodeBooleanMathOperation;
+
 typedef enum NodeCompareMode {
   NODE_COMPARE_MODE_ELEMENT = 0,
   NODE_COMPARE_MODE_LENGTH = 1,
@@ -1926,10 +1939,8 @@ typedef enum NodeCompareOperation {
   NODE_COMPARE_NOT_EQUAL = 5,
   NODE_COMPARE_COLOR_BRIGHTER = 6,
   NODE_COMPARE_COLOR_DARKER = 7,
-
 } NodeCompareOperation;
 
-/** Float to Int node operations. */
 typedef enum FloatToIntRoundingMode {
   FN_NODE_FLOAT_TO_INT_ROUND = 0,
   FN_NODE_FLOAT_TO_INT_FLOOR = 1,
@@ -2103,6 +2114,7 @@ typedef enum GeometryNodeTriangulateQuads {
   GEO_NODE_TRIANGULATE_QUAD_FIXED = 1,
   GEO_NODE_TRIANGULATE_QUAD_ALTERNATE = 2,
   GEO_NODE_TRIANGULATE_QUAD_SHORTEDGE = 3,
+  GEO_NODE_TRIANGULATE_QUAD_LONGEDGE = 4,
 } GeometryNodeTriangulateQuads;
 
 typedef enum GeometryNodePointInstanceType {
@@ -2133,6 +2145,12 @@ typedef enum GeometryNodeDistributePointsOnFacesMode {
   GEO_NODE_POINT_DISTRIBUTE_POINTS_ON_FACES_RANDOM = 0,
   GEO_NODE_POINT_DISTRIBUTE_POINTS_ON_FACES_POISSON = 1,
 } GeometryNodeDistributePointsOnFacesMode;
+
+typedef enum GeometryNodeExtrudeMeshMode {
+  GEO_NODE_EXTRUDE_MESH_VERTICES = 0,
+  GEO_NODE_EXTRUDE_MESH_EDGES = 1,
+  GEO_NODE_EXTRUDE_MESH_FACES = 2,
+} GeometryNodeExtrudeMeshMode;
 
 typedef enum GeometryNodeRotatePointsType {
   GEO_NODE_POINT_ROTATE_TYPE_EULER = 0,
@@ -2221,6 +2239,11 @@ typedef enum GeometryNodeMeshLineCountMode {
   GEO_NODE_MESH_LINE_COUNT_RESOLUTION = 1,
 } GeometryNodeMeshLineCountMode;
 
+typedef enum GeometryNodeCurvePrimitiveArcMode {
+  GEO_NODE_CURVE_PRIMITIVE_ARC_TYPE_POINTS = 0,
+  GEO_NODE_CURVE_PRIMITIVE_ARC_TYPE_RADIUS = 1,
+} GeometryNodeCurvePrimitiveArcMode;
+
 typedef enum GeometryNodeCurvePrimitiveLineMode {
   GEO_NODE_CURVE_PRIMITIVE_LINE_MODE_POINTS = 0,
   GEO_NODE_CURVE_PRIMITIVE_LINE_MODE_DIRECTION = 1
@@ -2305,6 +2328,16 @@ typedef enum GeometryNodeStringToCurvesAlignYMode {
   GEO_NODE_STRING_TO_CURVES_ALIGN_Y_BOTTOM = 4,
 } GeometryNodeStringToCurvesAlignYMode;
 
+typedef enum GeometryNodeStringToCurvesPivotMode {
+  GEO_NODE_STRING_TO_CURVES_PIVOT_MODE_MIDPOINT = 0,
+  GEO_NODE_STRING_TO_CURVES_PIVOT_MODE_TOP_LEFT = 1,
+  GEO_NODE_STRING_TO_CURVES_PIVOT_MODE_TOP_CENTER = 2,
+  GEO_NODE_STRING_TO_CURVES_PIVOT_MODE_TOP_RIGHT = 3,
+  GEO_NODE_STRING_TO_CURVES_PIVOT_MODE_BOTTOM_LEFT = 4,
+  GEO_NODE_STRING_TO_CURVES_PIVOT_MODE_BOTTOM_CENTER = 5,
+  GEO_NODE_STRING_TO_CURVES_PIVOT_MODE_BOTTOM_RIGHT = 6,
+} GeometryNodeStringToCurvesPivotMode;
+
 typedef enum GeometryNodeDeleteGeometryMode {
   GEO_NODE_DELETE_GEOMETRY_MODE_ALL = 0,
   GEO_NODE_DELETE_GEOMETRY_MODE_EDGE_FACE = 1,
@@ -2314,6 +2347,11 @@ typedef enum GeometryNodeDeleteGeometryMode {
 typedef enum GeometryNodeRealizeInstancesFlag {
   GEO_NODE_REALIZE_INSTANCES_LEGACY_BEHAVIOR = (1 << 0),
 } GeometryNodeRealizeInstancesFlag;
+
+typedef enum GeometryNodeScaleElementsMode {
+  GEO_NODE_SCALE_ELEMENTS_UNIFORM = 0,
+  GEO_NODE_SCALE_ELEMENTS_SINGLE_AXIS = 1,
+} GeometryNodeScaleElementsMode;
 
 #ifdef __cplusplus
 }

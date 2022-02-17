@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup blenloader
@@ -39,21 +25,18 @@ struct ARegion *do_versions_add_region_if_not_found(struct ListBase *regionbase,
  *
  * \return the ID (if found).
  */
-ID *do_versions_rename_id(Main *bmain,
-                          const short id_type,
-                          const char *name_src,
-                          const char *name_dst);
+ID *do_versions_rename_id(Main *bmain, short id_type, const char *name_src, const char *name_dst);
 
 void version_node_socket_name(struct bNodeTree *ntree,
-                              const int node_type,
+                              int node_type,
                               const char *old_name,
                               const char *new_name);
 void version_node_input_socket_name(struct bNodeTree *ntree,
-                                    const int node_type,
+                                    int node_type,
                                     const char *old_name,
                                     const char *new_name);
 void version_node_output_socket_name(struct bNodeTree *ntree,
-                                     const int node_type,
+                                     int node_type,
                                      const char *old_name,
                                      const char *new_name);
 
@@ -85,7 +68,7 @@ void version_node_socket_index_animdata(
 /**
  * Replace the ID name of all nodes in the tree with the given type with the new name.
  */
-void version_node_id(struct bNodeTree *ntree, const int node_type, const char *new_name);
+void version_node_id(struct bNodeTree *ntree, int node_type, const char *new_name);
 
 /**
  * Convert `SocketName.001` unique name format to `SocketName_001`. Previously both were used.
@@ -100,6 +83,10 @@ struct bNodeSocket *version_node_add_socket_if_not_exist(struct bNodeTree *ntree
                                                          const char *identifier,
                                                          const char *name);
 
+/**
+ * The versioning code generally expects `SOCK_IN_USE` to be set correctly. This function updates
+ * the flag on all sockets after changes to the node tree.
+ */
 void version_socket_update_is_used(bNodeTree *ntree);
 
 #ifdef __cplusplus

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edanimation
@@ -307,11 +291,13 @@ void clean_fcurve(struct bAnimContext *ac, bAnimListElem *ale, float thresh, boo
   }
 }
 
-/** Find the first segment of consecutive selected curve points, starting from \a start_index.
+/**
+ * Find the first segment of consecutive selected curve points, starting from \a start_index.
  * Keys that have BEZT_FLAG_IGNORE_TAG set are treated as unselected.
  * \param r_segment_start_idx: returns the start index of the segment.
  * \param r_segment_len: returns the number of curve points in the segment.
- * \return whether such a segment was found or not.*/
+ * \return whether such a segment was found or not.
+ */
 static bool find_fcurve_segment(FCurve *fcu,
                                 const int start_index,
                                 int *r_segment_start_idx,
@@ -345,10 +331,6 @@ static bool find_fcurve_segment(FCurve *fcu,
   return in_segment;
 }
 
-/* Return a list of FCurveSegment with a start index and a length.
- * A segment is a continuous selection of keyframes.
- * Keys that have BEZT_FLAG_IGNORE_TAG set are treated as unselected.
- * The caller is responsible for freeing the memory. */
 ListBase find_fcurve_segments(FCurve *fcu)
 {
   ListBase segments = {NULL, NULL};

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -99,7 +83,7 @@ enum {
 GHash *BLI_ghash_new_ex(GHashHashFP hashfp,
                         GHashCmpFP cmpfp,
                         const char *info,
-                        const unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+                        unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 /**
  * Wraps #BLI_ghash_new_ex with zero entries reserved.
  */
@@ -124,7 +108,7 @@ void BLI_ghash_free(GHash *gh, GHashKeyFreeFP keyfreefp, GHashValFreeFP valfreef
 /**
  * Reserve given amount of entries (resize \a gh accordingly if needed).
  */
-void BLI_ghash_reserve(GHash *gh, const unsigned int nentries_reserve);
+void BLI_ghash_reserve(GHash *gh, unsigned int nentries_reserve);
 /**
  * Insert a key/value pair into the \a gh.
  *
@@ -226,7 +210,7 @@ void BLI_ghash_clear(GHash *gh, GHashKeyFreeFP keyfreefp, GHashValFreeFP valfree
 void BLI_ghash_clear_ex(GHash *gh,
                         GHashKeyFreeFP keyfreefp,
                         GHashValFreeFP valfreefp,
-                        const unsigned int nentries_reserve);
+                        unsigned int nentries_reserve);
 /**
  * Remove \a key from \a gh, returning the value or NULL if the key wasn't found.
  *
@@ -372,7 +356,7 @@ typedef GHashIterState GSetIterState;
 GSet *BLI_gset_new_ex(GSetHashFP hashfp,
                       GSetCmpFP cmpfp,
                       const char *info,
-                      const unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+                      unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GSet *BLI_gset_new(GSetHashFP hashfp,
                    GSetCmpFP cmpfp,
                    const char *info) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
@@ -428,7 +412,7 @@ bool BLI_gset_haskey(const GSet *gs, const void *key) ATTR_WARN_UNUSED_RESULT;
 bool BLI_gset_pop(GSet *gs, GSetIterState *state, void **r_key) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL();
 bool BLI_gset_remove(GSet *gs, const void *key, GSetKeyFreeFP keyfreefp);
-void BLI_gset_clear_ex(GSet *gs, GSetKeyFreeFP keyfreefp, const unsigned int nentries_reserve);
+void BLI_gset_clear_ex(GSet *gs, GSetKeyFreeFP keyfreefp, unsigned int nentries_reserve);
 void BLI_gset_clear(GSet *gs, GSetKeyFreeFP keyfreefp);
 
 /* When set's are used for key & value. */
@@ -630,30 +614,30 @@ void BLI_ghashutil_pairfree(void *ptr);
  * Wrapper GHash Creation Functions
  */
 
-GHash *BLI_ghash_ptr_new_ex(const char *info, const unsigned int nentries_reserve)
-    ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+GHash *BLI_ghash_ptr_new_ex(const char *info,
+                            unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GHash *BLI_ghash_ptr_new(const char *info) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
-GHash *BLI_ghash_str_new_ex(const char *info, const unsigned int nentries_reserve)
-    ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+GHash *BLI_ghash_str_new_ex(const char *info,
+                            unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GHash *BLI_ghash_str_new(const char *info) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
-GHash *BLI_ghash_int_new_ex(const char *info, const unsigned int nentries_reserve)
-    ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+GHash *BLI_ghash_int_new_ex(const char *info,
+                            unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GHash *BLI_ghash_int_new(const char *info) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
-GHash *BLI_ghash_pair_new_ex(const char *info, const unsigned int nentries_reserve)
-    ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+GHash *BLI_ghash_pair_new_ex(const char *info,
+                             unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GHash *BLI_ghash_pair_new(const char *info) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 
 GSet *BLI_gset_ptr_new_ex(const char *info,
-                          const unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+                          unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GSet *BLI_gset_ptr_new(const char *info);
 GSet *BLI_gset_str_new_ex(const char *info,
-                          const unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+                          unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GSet *BLI_gset_str_new(const char *info);
-GSet *BLI_gset_pair_new_ex(const char *info, const unsigned int nentries_reserve)
-    ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+GSet *BLI_gset_pair_new_ex(const char *info,
+                           unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GSet *BLI_gset_pair_new(const char *info) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GSet *BLI_gset_int_new_ex(const char *info,
-                          const unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
+                          unsigned int nentries_reserve) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 GSet *BLI_gset_int_new(const char *info) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT;
 
 /** \} */

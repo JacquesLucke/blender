@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -42,12 +26,12 @@ void BLI_quadric_clear(Quadric *q);
 
 void BLI_quadric_add_qu_qu(Quadric *a, const Quadric *b);
 void BLI_quadric_add_qu_ququ(Quadric *r, const Quadric *a, const Quadric *b);
-void BLI_quadric_mul(Quadric *a, const double scalar);
+void BLI_quadric_mul(Quadric *a, double scalar);
 
 /* Solve. */
 
 double BLI_quadric_evaluate(const Quadric *q, const double v[3]);
-bool BLI_quadric_optimize(const Quadric *q, double v[3], const double epsilon);
+bool BLI_quadric_optimize(const Quadric *q, double v[3], double epsilon);
 
 #ifdef __cplusplus
 }

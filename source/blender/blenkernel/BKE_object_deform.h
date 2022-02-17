@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -68,16 +54,14 @@ struct MDeformVert *BKE_object_defgroup_data_create(struct ID *id);
  * \param use_selection: Only operate on selection.
  * \return True if any vertex was removed, false otherwise.
  */
-bool BKE_object_defgroup_clear(struct Object *ob,
-                               struct bDeformGroup *dg,
-                               const bool use_selection);
+bool BKE_object_defgroup_clear(struct Object *ob, struct bDeformGroup *dg, bool use_selection);
 /**
  * Remove all verts (or only selected ones) from all vgroups. Work in Object and Edit modes.
  *
  * \param use_selection: Only operate on selection.
  * \return True if any vertex was removed, false otherwise.
  */
-bool BKE_object_defgroup_clear_all(struct Object *ob, const bool use_selection);
+bool BKE_object_defgroup_clear_all(struct Object *ob, bool use_selection);
 
 /**
  * Remove given vgroup from object. Work in Object and Edit modes.
@@ -120,7 +104,7 @@ bool *BKE_object_defgroup_subset_from_select_type(struct Object *ob,
  * Store indices from the defgroup_validmap (faster lookups in some cases).
  */
 void BKE_object_defgroup_subset_to_index_array(const bool *defgroup_validmap,
-                                               const int defgroup_tot,
+                                               int defgroup_tot,
                                                int *r_defgroup_subset_map);
 
 /* ********** */
@@ -129,8 +113,8 @@ void BKE_object_defgroup_subset_to_index_array(const bool *defgroup_validmap,
  * Gets the status of "flag" for each #bDeformGroup
  * in the object data's vertex group list and returns an array containing them
  */
-bool *BKE_object_defgroup_lock_flags_get(struct Object *ob, const int defbase_tot);
-bool *BKE_object_defgroup_validmap_get(struct Object *ob, const int defbase_tot);
+bool *BKE_object_defgroup_lock_flags_get(struct Object *ob, int defbase_tot);
+bool *BKE_object_defgroup_validmap_get(struct Object *ob, int defbase_tot);
 /**
  * Returns total selected vgroups,
  * `wpi.defbase_sel` is assumed malloc'd, all values are set.

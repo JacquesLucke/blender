@@ -1,23 +1,10 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Gradienter Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Gradienter Foundation. All rights reserved. */
 
-#include "../node_shader_util.h"
+#include "node_shader_util.hh"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
 
 namespace blender::nodes::node_shader_tex_gradient_cc {
 
@@ -27,7 +14,12 @@ static void sh_node_tex_gradient_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Vector>(N_("Vector")).hide_value().implicit_field();
   b.add_output<decl::Color>(N_("Color")).no_muted_links();
   b.add_output<decl::Float>(N_("Fac")).no_muted_links();
-};
+}
+
+static void node_shader_buts_tex_gradient(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "gradient_type", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
+}
 
 static void node_shader_init_tex_gradient(bNodeTree *UNUSED(ntree), bNode *node)
 {
@@ -122,7 +114,7 @@ class GradientFunction : public fn::MultiFunction {
           /* Bias a little bit for the case where input is a unit length vector,
            * to get exactly zero instead of a small random value depending
            * on float precision. */
-          const float r = std::max(0.999999f - vector[i].length(), 0.0f);
+          const float r = std::max(0.999999f - math::length(vector[i]), 0.0f);
           fac[i] = r * r;
         }
         break;
@@ -132,7 +124,7 @@ class GradientFunction : public fn::MultiFunction {
           /* Bias a little bit for the case where input is a unit length vector,
            * to get exactly zero instead of a small random value depending
            * on float precision. */
-          fac[i] = std::max(0.999999f - vector[i].length(), 0.0f);
+          fac[i] = std::max(0.999999f - math::length(vector[i]), 0.0f);
         }
         break;
       }
@@ -163,6 +155,7 @@ void register_node_type_sh_tex_gradient()
 
   sh_fn_node_type_base(&ntype, SH_NODE_TEX_GRADIENT, "Gradient Texture", NODE_CLASS_TEXTURE);
   ntype.declare = file_ns::sh_node_tex_gradient_declare;
+  ntype.draw_buttons = file_ns::node_shader_buts_tex_gradient;
   node_type_init(&ntype, file_ns::node_shader_init_tex_gradient);
   node_type_storage(
       &ntype, "NodeTexGradient", node_free_standard_storage, node_copy_standard_storage);

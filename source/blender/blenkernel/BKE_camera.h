@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -46,7 +30,7 @@ void *BKE_camera_add(struct Main *bmain, const char *name);
 /**
  * Get the camera's DOF value, takes the DOF object into account.
  */
-float BKE_camera_object_dof_distance(struct Object *ob);
+float BKE_camera_object_dof_distance(const struct Object *ob);
 
 int BKE_camera_sensor_fit(int sensor_fit, float sizex, float sizey);
 float BKE_camera_sensor_size(int sensor_fit, float sensor_x, float sensor_y);
@@ -110,8 +94,8 @@ void BKE_camera_params_compute_matrix(CameraParams *params);
 
 void BKE_camera_view_frame_ex(const struct Scene *scene,
                               const struct Camera *camera,
-                              const float drawsize,
-                              const bool do_clip,
+                              float drawsize,
+                              bool do_clip,
                               const float scale[3],
                               float r_asp[2],
                               float r_shift[2],
@@ -151,7 +135,7 @@ struct Object *BKE_camera_multiview_render(const struct Scene *scene,
  */
 void BKE_camera_multiview_view_matrix(const struct RenderData *rd,
                                       const struct Object *camera,
-                                      const bool is_left,
+                                      bool is_left,
                                       float r_viewmat[4][4]);
 void BKE_camera_multiview_model_matrix(const struct RenderData *rd,
                                        const struct Object *camera,

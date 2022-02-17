@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spfile
@@ -34,11 +18,11 @@ extern "C" {
 struct ARegion;
 struct ARegionType;
 struct AssetLibrary;
-struct FileSelectParams;
 struct FileAssetSelectParams;
+struct FileSelectParams;
 struct SpaceFile;
-struct uiLayout;
 struct View2D;
+struct uiLayout;
 
 /* file_draw.c */
 
@@ -128,7 +112,7 @@ void fileselect_refresh_params(struct SpaceFile *sfile);
 /**
  * Sets #FileSelectParams.file (name of selected file)
  */
-void fileselect_file_set(SpaceFile *sfile, const int index);
+void fileselect_file_set(SpaceFile *sfile, int index);
 bool file_attribute_column_type_enabled(const FileSelectParams *params,
                                         FileAttributeColumnType column);
 /**
@@ -204,7 +188,7 @@ void file_tools_region_panels_register(struct ARegionType *art);
 
 /* file_utils.c */
 
-void file_tile_boundbox(const ARegion *region, FileLayout *layout, const int file, rcti *r_bounds);
+void file_tile_boundbox(const ARegion *region, FileLayout *layout, int file, rcti *r_bounds);
 
 /**
  * If \a path leads to a .blend, remove the trailing slash (if needed).

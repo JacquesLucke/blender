@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -59,6 +43,7 @@
 #include "BKE_fluid.h"
 #include "BKE_global.h"
 #include "BKE_layer.h"
+#include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
@@ -715,9 +700,10 @@ bool get_effector_data(EffectorCache *eff,
   else if (eff->pd && eff->pd->shape == PFIELD_SHAPE_POINTS) {
     /* TODO: hair and points object support */
     const Mesh *me_eval = BKE_object_get_evaluated_mesh(eff->ob);
+    const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(me_eval);
     if (me_eval != NULL) {
       copy_v3_v3(efd->loc, me_eval->mvert[*efd->index].co);
-      normal_short_to_float_v3(efd->nor, me_eval->mvert[*efd->index].no);
+      copy_v3_v3(efd->nor, vert_normals[*efd->index]);
 
       mul_m4_v3(eff->ob->obmat, efd->loc);
       mul_mat3_m4_v3(eff->ob->obmat, efd->nor);
@@ -906,9 +892,9 @@ static void do_texture_effector(EffectorCache *eff,
       eff->pd->tex, tex_co, NULL, NULL, 0, result, 0, NULL, scene_color_manage, false);
 
   if (hasrgb && mode == PFIELD_TEX_RGB) {
-    force[0] = (0.5f - result->tr) * strength;
-    force[1] = (0.5f - result->tg) * strength;
-    force[2] = (0.5f - result->tb) * strength;
+    force[0] = (0.5f - result->trgba[0]) * strength;
+    force[1] = (0.5f - result->trgba[1]) * strength;
+    force[2] = (0.5f - result->trgba[2]) * strength;
   }
   else if (nabla != 0) {
     strength /= nabla;
@@ -931,7 +917,8 @@ static void do_texture_effector(EffectorCache *eff,
       /* generate intensity if texture only has rgb value */
       if (hasrgb & TEX_RGB) {
         for (int i = 0; i < 4; i++) {
-          result[i].tin = (1.0f / 3.0f) * (result[i].tr + result[i].tg + result[i].tb);
+          result[i].tin = (1.0f / 3.0f) *
+                          (result[i].trgba[0] + result[i].trgba[1] + result[i].trgba[2]);
         }
       }
       force[0] = (result[0].tin - result[1].tin) * strength;
@@ -941,12 +928,12 @@ static void do_texture_effector(EffectorCache *eff,
     else { /*PFIELD_TEX_CURL*/
       float dbdy, dgdz, drdz, dbdx, dgdx, drdy;
 
-      dbdy = result[2].tb - result[0].tb;
-      dgdz = result[3].tg - result[0].tg;
-      drdz = result[3].tr - result[0].tr;
-      dbdx = result[1].tb - result[0].tb;
-      dgdx = result[1].tg - result[0].tg;
-      drdy = result[2].tr - result[0].tr;
+      dbdy = result[2].trgba[2] - result[0].trgba[2];
+      dgdz = result[3].trgba[1] - result[0].trgba[1];
+      drdz = result[3].trgba[0] - result[0].trgba[0];
+      dbdx = result[1].trgba[2] - result[0].trgba[2];
+      dgdx = result[1].trgba[1] - result[0].trgba[1];
+      drdy = result[2].trgba[0] - result[0].trgba[0];
 
       force[0] = (dbdy - dgdz) * strength;
       force[1] = (drdz - dbdx) * strength;

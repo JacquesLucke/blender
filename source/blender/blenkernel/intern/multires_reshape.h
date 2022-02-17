@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -106,6 +90,9 @@ typedef struct MultiresReshapeContext {
   /* Indexed by base face index, returns first ptex face index corresponding
    * to that base face. */
   int *face_ptex_offset;
+
+  /* Vertex crease custom data layer, null if none is present. */
+  const float *cd_vertex_crease;
 } MultiresReshapeContext;
 
 /**
@@ -225,8 +212,8 @@ GridCoord multires_reshape_ptex_coord_to_grid(const MultiresReshapeContext *resh
  * Is calculated for the given surface derivatives at a given base face corner.
  */
 void multires_reshape_tangent_matrix_for_corner(const MultiresReshapeContext *reshape_context,
-                                                const int face_index,
-                                                const int corner,
+                                                int face_index,
+                                                int corner,
                                                 const float dPdu[3],
                                                 const float dPdv[3],
                                                 float r_tangent_matrix[3][3]);
@@ -266,7 +253,7 @@ void multires_reshape_evaluate_limit_at_grid(const MultiresReshapeContext *resha
 /**
  * Make sure custom data is allocated for the given level.
  */
-void multires_reshape_ensure_grids(struct Mesh *mesh, const int level);
+void multires_reshape_ensure_grids(struct Mesh *mesh, int level);
 
 /* --------------------------------------------------------------------
  * Functions specific to reshaping from a set of vertices in a object position.
@@ -283,7 +270,7 @@ void multires_reshape_ensure_grids(struct Mesh *mesh, const int level);
 bool multires_reshape_assign_final_coords_from_vertcos(
     const MultiresReshapeContext *reshape_context,
     const float (*vert_coords)[3],
-    const int num_vert_coords);
+    int num_vert_coords);
 
 /* --------------------------------------------------------------------
  * Functions specific to reshaping from CCG.
@@ -338,7 +325,7 @@ void multires_reshape_smooth_object_grids_with_details(
  * Makes it so surface on top level looks smooth. Details are not preserved
  */
 void multires_reshape_smooth_object_grids(const MultiresReshapeContext *reshape_context,
-                                          const enum eMultiresSubdivideModeType mode);
+                                          enum eMultiresSubdivideModeType mode);
 
 /* --------------------------------------------------------------------
  * Displacement, space conversion.

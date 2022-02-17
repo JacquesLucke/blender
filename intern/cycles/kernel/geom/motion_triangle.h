@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 /* Motion Triangle Primitive
  *
@@ -114,6 +101,52 @@ ccl_device_inline void motion_triangle_vertices(
   verts[0] = (1.0f - t) * verts[0] + t * next_verts[0];
   verts[1] = (1.0f - t) * verts[1] + t * next_verts[1];
   verts[2] = (1.0f - t) * verts[2] + t * next_verts[2];
+}
+
+ccl_device_inline void motion_triangle_vertices_and_normals(
+    KernelGlobals kg, int object, int prim, float time, float3 verts[3], float3 normals[3])
+{
+  /* get motion info */
+  int numsteps, numverts;
+  object_motion_info(kg, object, &numsteps, &numverts, NULL);
+
+  /* Figure out which steps we need to fetch and their interpolation factor. */
+  int maxstep = numsteps * 2;
+  int step = min((int)(time * maxstep), maxstep - 1);
+  float t = time * maxstep - step;
+
+  /* Find attribute. */
+  int offset = intersection_find_attribute(kg, object, ATTR_STD_MOTION_VERTEX_POSITION);
+  kernel_assert(offset != ATTR_STD_NOT_FOUND);
+
+  /* Fetch vertex coordinates. */
+  float3 next_verts[3];
+  uint4 tri_vindex = kernel_tex_fetch(__tri_vindex, prim);
+
+  motion_triangle_verts_for_step(kg, tri_vindex, offset, numverts, numsteps, step, verts);
+  motion_triangle_verts_for_step(kg, tri_vindex, offset, numverts, numsteps, step + 1, next_verts);
+
+  /* Interpolate between steps. */
+  verts[0] = (1.0f - t) * verts[0] + t * next_verts[0];
+  verts[1] = (1.0f - t) * verts[1] + t * next_verts[1];
+  verts[2] = (1.0f - t) * verts[2] + t * next_verts[2];
+
+  /* Compute smooth normal. */
+
+  /* Find attribute. */
+  offset = intersection_find_attribute(kg, object, ATTR_STD_MOTION_VERTEX_NORMAL);
+  kernel_assert(offset != ATTR_STD_NOT_FOUND);
+
+  /* Fetch vertex coordinates. */
+  float3 next_normals[3];
+  motion_triangle_normals_for_step(kg, tri_vindex, offset, numverts, numsteps, step, normals);
+  motion_triangle_normals_for_step(
+      kg, tri_vindex, offset, numverts, numsteps, step + 1, next_normals);
+
+  /* Interpolate between steps. */
+  normals[0] = (1.0f - t) * normals[0] + t * next_normals[0];
+  normals[1] = (1.0f - t) * normals[1] + t * next_normals[1];
+  normals[2] = (1.0f - t) * normals[2] + t * next_normals[2];
 }
 
 ccl_device_inline float3 motion_triangle_smooth_normal(

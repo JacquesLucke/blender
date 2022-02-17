@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_task.hh"
 
@@ -185,7 +171,7 @@ class SampleCurveFunction : public fn::MultiFunction {
       for (const int i : mask) {
         const Spline::LookupResult &lookup = lookups[i];
         const Span<float3> evaluated_tangents = splines[spline_indices[i]]->evaluated_tangents();
-        sampled_tangents[i] = sample_with_lookup(lookup, evaluated_tangents).normalized();
+        sampled_tangents[i] = math::normalize(sample_with_lookup(lookup, evaluated_tangents));
       }
     }
 
@@ -193,7 +179,7 @@ class SampleCurveFunction : public fn::MultiFunction {
       for (const int i : mask) {
         const Spline::LookupResult &lookup = lookups[i];
         const Span<float3> evaluated_normals = splines[spline_indices[i]]->evaluated_normals();
-        sampled_normals[i] = sample_with_lookup(lookup, evaluated_normals).normalized();
+        sampled_normals[i] = math::normalize(sample_with_lookup(lookup, evaluated_normals));
       }
     }
   }

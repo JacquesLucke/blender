@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -465,6 +451,9 @@ static MenuSearch_Data *menu_items_from_ui_create(
     const char *idname_array[] = {
         /* While we could include this, it's just showing filenames to load. */
         "TOPBAR_MT_file_open_recent",
+        /* Showing undo history is not helpful since users may accidentally undo
+         * an action they intend to run. */
+        "TOPBAR_MT_undo_history",
     };
     for (int i = 0; i < ARRAY_SIZE(idname_array); i++) {
       MenuType *mt = WM_menutype_find(idname_array[i], false);

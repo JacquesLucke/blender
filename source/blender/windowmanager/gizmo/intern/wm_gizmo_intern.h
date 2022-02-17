@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup wm
@@ -40,7 +26,7 @@ bool wm_gizmo_select_set_ex(
 bool wm_gizmo_select_and_highlight(bContext *C, struct wmGizmoMap *gzmap, struct wmGizmo *gz);
 
 void wm_gizmo_calculate_scale(struct wmGizmo *gz, const bContext *C);
-void wm_gizmo_update(struct wmGizmo *gz, const bContext *C, const bool refresh_map);
+void wm_gizmo_update(struct wmGizmo *gz, const bContext *C, bool refresh_map);
 
 int wm_gizmo_is_visible(struct wmGizmo *gz);
 enum {
@@ -75,7 +61,7 @@ struct wmGizmoGroup *wm_gizmogroup_find_by_type(const struct wmGizmoMap *gzmap,
 struct wmGizmo *wm_gizmogroup_find_intersected_gizmo(wmWindowManager *wm,
                                                      const struct wmGizmoGroup *gzgroup,
                                                      struct bContext *C,
-                                                     const int event_modifier,
+                                                     int event_modifier,
                                                      const int mval[2],
                                                      int *r_part);
 /**
@@ -84,10 +70,10 @@ struct wmGizmo *wm_gizmogroup_find_intersected_gizmo(wmWindowManager *wm,
  */
 void wm_gizmogroup_intersectable_gizmos_to_list(wmWindowManager *wm,
                                                 const struct wmGizmoGroup *gzgroup,
-                                                const int event_modifier,
+                                                int event_modifier,
                                                 struct BLI_Buffer *visible_gizmos);
 bool wm_gizmogroup_is_visible_in_drawstep(const struct wmGizmoGroup *gzgroup,
-                                          const eWM_GizmoFlagMapDrawStep drawstep);
+                                          eWM_GizmoFlagMapDrawStep drawstep);
 
 void wm_gizmogrouptype_setup_keymap(struct wmGizmoGroupType *gzgt, struct wmKeyConfig *keyconf);
 

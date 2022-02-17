@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edscr
@@ -2083,15 +2067,31 @@ typedef struct sAreaSplitData {
 
 } sAreaSplitData;
 
+static bool area_split_allowed(const ScrArea *area, const eScreenAxis dir_axis)
+{
+  if (!area || area->global) {
+    /* Must be a non-global area. */
+    return false;
+  }
+
+  if ((dir_axis == SCREEN_AXIS_V && area->winx <= 2 * AREAMINX) ||
+      (dir_axis == SCREEN_AXIS_H && area->winy <= 2 * ED_area_headersize())) {
+    /* Must be at least double minimum sizes to split into two. */
+    return false;
+  }
+
+  return true;
+}
+
 static void area_split_draw_cb(const struct wmWindow *UNUSED(win), void *userdata)
 {
   const wmOperator *op = userdata;
 
   sAreaSplitData *sd = op->customdata;
-  if (sd->sarea) {
-    const eScreenAxis dir_axis = RNA_enum_get(op->ptr, "direction");
-    float fac = RNA_float_get(op->ptr, "factor");
+  const eScreenAxis dir_axis = RNA_enum_get(op->ptr, "direction");
 
+  if (area_split_allowed(sd->sarea, dir_axis)) {
+    float fac = RNA_float_get(op->ptr, "factor");
     screen_draw_split_preview(sd->sarea, dir_axis, fac);
   }
 }
@@ -2120,18 +2120,6 @@ static bool area_split_init(bContext *C, wmOperator *op)
 
   /* required properties */
   const eScreenAxis dir_axis = RNA_enum_get(op->ptr, "direction");
-
-  /* minimal size */
-  if (dir_axis == SCREEN_AXIS_V) {
-    if (area->winx < 2 * AREAMINX) {
-      return false;
-    }
-  }
-  else {
-    if (area->winy < 2 * ED_area_headersize()) {
-      return false;
-    }
-  }
 
   /* custom data */
   sAreaSplitData *sd = (sAreaSplitData *)MEM_callocN(sizeof(sAreaSplitData), "op_area_split");
@@ -2188,6 +2176,10 @@ static bool area_split_apply(bContext *C, wmOperator *op)
 
   float fac = RNA_float_get(op->ptr, "factor");
   const eScreenAxis dir_axis = RNA_enum_get(op->ptr, "direction");
+
+  if (!area_split_allowed(sd->sarea, dir_axis)) {
+    return false;
+  }
 
   sd->narea = area_split(win, screen, sd->sarea, dir_axis, fac, false); /* false = no merge */
 
@@ -2254,9 +2246,15 @@ static void area_split_exit(bContext *C, wmOperator *op)
 
 static void area_split_preview_update_cursor(bContext *C, wmOperator *op)
 {
-  wmWindow *win = CTX_wm_window(C);
+  sAreaSplitData *sd = (sAreaSplitData *)op->customdata;
   const eScreenAxis dir_axis = RNA_enum_get(op->ptr, "direction");
-  WM_cursor_set(win, (dir_axis == SCREEN_AXIS_H) ? WM_CURSOR_H_SPLIT : WM_CURSOR_V_SPLIT);
+  if (area_split_allowed(sd->sarea, dir_axis)) {
+    WM_cursor_set(CTX_wm_window(C),
+                  (dir_axis == SCREEN_AXIS_H) ? WM_CURSOR_H_SPLIT : WM_CURSOR_V_SPLIT);
+  }
+  else {
+    WM_cursor_set(CTX_wm_window(C), WM_CURSOR_STOP);
+  }
 }
 
 /* UI callback, adds new handler */
@@ -2509,6 +2507,9 @@ static int area_split_modal(bContext *C, wmOperator *op, const wmEvent *event)
       if (sd->sarea) {
         ED_area_tag_redraw(sd->sarea);
       }
+
+      area_split_preview_update_cursor(C, op);
+
       /* area context not set */
       sd->sarea = BKE_screen_find_area_xy(CTX_wm_screen(C), SPACE_TYPE_ANY, event->xy);
 
@@ -2591,7 +2592,7 @@ typedef struct RegionMoveData {
   ARegion *region;
   ScrArea *area;
   int bigger, smaller, origval;
-  int origx, origy;
+  int orig_xy[2];
   int maxsize;
   AZEdge edge;
 
@@ -2699,8 +2700,7 @@ static int region_scale_invoke(bContext *C, wmOperator *op, const wmEvent *event
     }
     rmd->area = sad->sa1;
     rmd->edge = az->edge;
-    rmd->origx = event->xy[0];
-    rmd->origy = event->xy[1];
+    copy_v2_v2_int(rmd->orig_xy, event->xy);
     rmd->maxsize = area_max_regionsize(rmd->area, rmd->region, rmd->edge);
 
     /* if not set we do now, otherwise it uses type */
@@ -2787,7 +2787,7 @@ static int region_scale_modal(bContext *C, wmOperator *op, const wmEvent *event)
                            (BLI_rcti_size_x(&rmd->region->v2d.mask) + 1);
       const int snap_size_threshold = (U.widget_unit * 2) / aspect;
       if (ELEM(rmd->edge, AE_LEFT_TO_TOPRIGHT, AE_RIGHT_TO_TOPLEFT)) {
-        delta = event->xy[0] - rmd->origx;
+        delta = event->xy[0] - rmd->orig_xy[0];
         if (rmd->edge == AE_LEFT_TO_TOPRIGHT) {
           delta = -delta;
         }
@@ -2820,7 +2820,7 @@ static int region_scale_modal(bContext *C, wmOperator *op, const wmEvent *event)
         }
       }
       else {
-        delta = event->xy[1] - rmd->origy;
+        delta = event->xy[1] - rmd->orig_xy[1];
         if (rmd->edge == AE_BOTTOM_TO_TOPLEFT) {
           delta = -delta;
         }
@@ -2862,7 +2862,7 @@ static int region_scale_modal(bContext *C, wmOperator *op, const wmEvent *event)
     }
     case LEFTMOUSE:
       if (event->val == KM_RELEASE) {
-        if (len_manhattan_v2v2_int(event->xy, &rmd->origx) <= WM_EVENT_CURSOR_MOTION_THRESHOLD) {
+        if (len_manhattan_v2v2_int(event->xy, rmd->orig_xy) <= WM_EVENT_CURSOR_MOTION_THRESHOLD) {
           if (rmd->region->flag & RGN_FLAG_HIDDEN) {
             region_scale_toggle_hidden(C, rmd);
           }
@@ -2969,7 +2969,7 @@ static int frame_offset_exec(bContext *C, wmOperator *op)
 
   areas_do_frame_follow(C, false);
 
-  DEG_id_tag_update(&scene->id, ID_RECALC_AUDIO_SEEK);
+  DEG_id_tag_update(&scene->id, ID_RECALC_FRAME_CHANGE);
 
   WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
 
@@ -3030,7 +3030,7 @@ static int frame_jump_exec(bContext *C, wmOperator *op)
 
     areas_do_frame_follow(C, true);
 
-    DEG_id_tag_update(&scene->id, ID_RECALC_AUDIO_SEEK);
+    DEG_id_tag_update(&scene->id, ID_RECALC_FRAME_CHANGE);
 
     WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
   }
@@ -3144,7 +3144,7 @@ static int keyframe_jump_exec(bContext *C, wmOperator *op)
 
   areas_do_frame_follow(C, true);
 
-  DEG_id_tag_update(&scene->id, ID_RECALC_AUDIO_SEEK);
+  DEG_id_tag_update(&scene->id, ID_RECALC_FRAME_CHANGE);
 
   WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
 
@@ -3208,7 +3208,7 @@ static int marker_jump_exec(bContext *C, wmOperator *op)
 
   areas_do_frame_follow(C, true);
 
-  DEG_id_tag_update(&scene->id, ID_RECALC_AUDIO_SEEK);
+  DEG_id_tag_update(&scene->id, ID_RECALC_FRAME_CHANGE);
 
   WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
 
@@ -4609,7 +4609,7 @@ static int screen_animation_step_invoke(bContext *C, wmOperator *UNUSED(op), con
   if (scene_eval == NULL) {
     /* Happens when undo/redo system is used during playback, nothing meaningful we can do here. */
   }
-  else if (scene_eval->id.recalc & ID_RECALC_AUDIO_SEEK) {
+  else if (scene_eval->id.recalc & ID_RECALC_FRAME_CHANGE) {
     /* Ignore seek here, the audio will be updated to the scene frame after jump during next
      * dependency graph update. */
   }
@@ -4724,7 +4724,7 @@ static int screen_animation_step_invoke(bContext *C, wmOperator *UNUSED(op), con
   }
 
   if (sad->flag & ANIMPLAY_FLAG_JUMPED) {
-    DEG_id_tag_update(&scene->id, ID_RECALC_AUDIO_SEEK);
+    DEG_id_tag_update(&scene->id, ID_RECALC_FRAME_CHANGE);
 #ifdef PROFILE_AUDIO_SYNCH
     old_frame = CFRA;
 #endif

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup render
@@ -107,7 +91,7 @@ struct RenderPass *render_layer_add_pass(struct RenderResult *rr,
                                          const char *name,
                                          const char *viewname,
                                          const char *chan_id,
-                                         const bool allocate);
+                                         bool allocate);
 
 /**
  * Called for reading temp files, and for external engines.
@@ -128,16 +112,16 @@ bool render_result_exr_file_cache_read(struct Render *re);
 
 struct ImBuf *render_result_rect_to_ibuf(struct RenderResult *rr,
                                          const struct RenderData *rd,
-                                         const int view_id);
+                                         int view_id);
 
-void render_result_rect_fill_zero(struct RenderResult *rr, const int view_id);
+void render_result_rect_fill_zero(struct RenderResult *rr, int view_id);
 void render_result_rect_get_pixels(struct RenderResult *rr,
                                    unsigned int *rect,
                                    int rectx,
                                    int recty,
                                    const struct ColorManagedViewSettings *view_settings,
                                    const struct ColorManagedDisplaySettings *display_settings,
-                                   const int view_id);
+                                   int view_id);
 
 /**
  * Create a new views #ListBase in rr without duplicating the memory pointers.

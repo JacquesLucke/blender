@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 #pragma once
 
 /** \file
@@ -82,18 +66,15 @@ float *BKE_mball_make_orco(struct Object *ob, struct ListBase *dispbase);
  * meta-ball, because this meta-ball influence polygonization of meta-balls. */
 void BKE_mball_properties_copy(struct Scene *scene, struct Object *active_object);
 
-bool BKE_mball_minmax_ex(const struct MetaBall *mb,
-                         float min[3],
-                         float max[3],
-                         const float obmat[4][4],
-                         const short flag);
+bool BKE_mball_minmax_ex(
+    const struct MetaBall *mb, float min[3], float max[3], const float obmat[4][4], short flag);
 
 /* Basic vertex data functions. */
 
 bool BKE_mball_minmax(const struct MetaBall *mb, float min[3], float max[3]);
 bool BKE_mball_center_median(const struct MetaBall *mb, float r_cent[3]);
 bool BKE_mball_center_bounds(const struct MetaBall *mb, float r_cent[3]);
-void BKE_mball_transform(struct MetaBall *mb, const float mat[4][4], const bool do_props);
+void BKE_mball_transform(struct MetaBall *mb, const float mat[4][4], bool do_props);
 void BKE_mball_translate(struct MetaBall *mb, const float offset[3]);
 
 /**
@@ -101,7 +82,7 @@ void BKE_mball_translate(struct MetaBall *mb, const float offset[3]);
  *
  * \note don't do context manipulation here (rna uses).
  */
-struct MetaElem *BKE_mball_element_add(struct MetaBall *mb, const int type);
+struct MetaElem *BKE_mball_element_add(struct MetaBall *mb, int type);
 
 /* *** select funcs *** */
 

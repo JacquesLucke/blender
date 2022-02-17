@@ -1,23 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * The Original Code is: some of this file.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bli
@@ -3299,8 +3281,8 @@ static bool point_in_slice(const float p[3],
   return (h >= 0.0f && h <= 1.0f);
 }
 
-/* adult sister defining the slice planes by the origin and the normal
- * NOTE |normal| may not be 1 but defining the thickness of the slice */
+/* Adult sister defining the slice planes by the origin and the normal.
+ * NOTE: |normal| may not be 1 but defining the thickness of the slice. */
 static bool point_in_slice_as(const float p[3], const float origin[3], const float normal[3])
 {
   float h, rp[3];
@@ -3720,7 +3702,7 @@ void barycentric_weights_v2_quad(const float v1[2],
   /* NOTE(campbell): fabsf() here is not needed for convex quads
    * (and not used in #interp_weights_poly_v2).
    * But in the case of concave/bow-tie quads for the mask rasterizer it
-   * gives unreliable results without adding absf(). If this becomes an issue for more general
+   * gives unreliable results without adding `absf()`. If this becomes an issue for more general
    * usage we could have this optional or use a different function. */
 #define MEAN_VALUE_HALF_TAN_V2(_area, i1, i2) \
   ((_area = cross_v2v2(dirs[i1], dirs[i2])) != 0.0f ? \

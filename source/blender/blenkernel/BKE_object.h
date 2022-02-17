@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -67,11 +53,9 @@ void BKE_object_workob_calc_parent(struct Depsgraph *depsgraph,
                                    struct Object *workob);
 
 void BKE_object_transform_copy(struct Object *ob_tar, const struct Object *ob_src);
-void BKE_object_copy_softbody(struct Object *ob_dst, const struct Object *ob_src, const int flag);
-struct ParticleSystem *BKE_object_copy_particlesystem(struct ParticleSystem *psys, const int flag);
-void BKE_object_copy_particlesystems(struct Object *ob_dst,
-                                     const struct Object *ob_src,
-                                     const int flag);
+void BKE_object_copy_softbody(struct Object *ob_dst, const struct Object *ob_src, int flag);
+struct ParticleSystem *BKE_object_copy_particlesystem(struct ParticleSystem *psys, int flag);
+void BKE_object_copy_particlesystems(struct Object *ob_dst, const struct Object *ob_src, int flag);
 void BKE_object_free_particlesystems(struct Object *ob);
 void BKE_object_free_softbody(struct Object *ob);
 void BKE_object_free_curve_cache(struct Object *ob);
@@ -140,23 +124,11 @@ bool BKE_object_copy_gpencil_modifier(struct Object *ob_dst, struct GpencilModif
  */
 bool BKE_object_modifier_stack_copy(struct Object *ob_dst,
                                     const struct Object *ob_src,
-                                    const bool do_copy_all,
-                                    const int flag_subdata);
+                                    bool do_copy_all,
+                                    int flag_subdata);
 void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_src);
-void BKE_object_free_modifiers(struct Object *ob, const int flag);
-void BKE_object_free_shaderfx(struct Object *ob, const int flag);
-
-/**
- * Proxy rule:
- * - `lib_object->proxy_from` == the one we borrow from, set temporally while object_update.
- * - `local_object->proxy` == pointer to library object, saved in files and read.
- * - `local_object->proxy_group` == pointer to collection dupli-object, saved in files and read.
- */
-void BKE_object_make_proxy(struct Main *bmain,
-                           struct Object *ob,
-                           struct Object *target,
-                           struct Object *cob);
-void BKE_object_copy_proxy_drivers(struct Object *ob, struct Object *target);
+void BKE_object_free_modifiers(struct Object *ob, int flag);
+void BKE_object_free_shaderfx(struct Object *ob, int flag);
 
 bool BKE_object_exists_check(struct Main *bmain, const struct Object *obtest);
 /**
@@ -187,7 +159,7 @@ typedef enum eObjectVisibilityResult {
 /**
  * Return which parts of the object are visible, as evaluated by depsgraph.
  */
-int BKE_object_visibility(const struct Object *ob, const int dag_eval_mode);
+int BKE_object_visibility(const struct Object *ob, int dag_eval_mode);
 
 /**
  * More general add: creates minimum required data, but without vertices etc.
@@ -268,7 +240,7 @@ struct Object *BKE_object_duplicate(struct Main *bmain,
 /**
  * Use with newly created objects to set their size (used to apply scene-scale).
  */
-void BKE_object_obdata_size_init(struct Object *ob, const float size);
+void BKE_object_obdata_size_init(struct Object *ob, float size);
 
 void BKE_object_scale_to_mat3(struct Object *ob, float r_mat[3][3]);
 void BKE_object_rot_to_mat3(const struct Object *ob, float r_mat[3][3], bool use_drot);
@@ -289,12 +261,12 @@ void BKE_object_apply_mat4_ex(struct Object *ob,
                               const float mat[4][4],
                               struct Object *parent,
                               const float parentinv[4][4],
-                              const bool use_compat);
+                              bool use_compat);
 /** See #BKE_object_apply_mat4_ex */
 void BKE_object_apply_mat4(struct Object *ob,
                            const float mat[4][4],
-                           const bool use_compat,
-                           const bool use_parent);
+                           bool use_compat,
+                           bool use_parent);
 void BKE_object_matrix_local_get(struct Object *ob, float r_mat[4][4]);
 
 bool BKE_object_pose_context_check(const struct Object *ob);
@@ -379,20 +351,20 @@ void BKE_object_dimensions_set_ex(struct Object *ob,
                                   const float ob_obmat_orig[4][4]);
 void BKE_object_dimensions_set(struct Object *ob, const float value[3], int axis_mask);
 
-void BKE_object_empty_draw_type_set(struct Object *ob, const int value);
+void BKE_object_empty_draw_type_set(struct Object *ob, int value);
 /**
  * Use this to temporally disable/enable bound-box.
  */
-void BKE_object_boundbox_flag(struct Object *ob, int flag, const bool set);
+void BKE_object_boundbox_flag(struct Object *ob, int flag, bool set);
 void BKE_object_boundbox_calc_from_mesh(struct Object *ob, const struct Mesh *me_eval);
 bool BKE_object_boundbox_calc_from_evaluated_geometry(struct Object *ob);
-void BKE_object_minmax(struct Object *ob, float r_min[3], float r_max[3], const bool use_hidden);
+void BKE_object_minmax(struct Object *ob, float r_min[3], float r_max[3], bool use_hidden);
 bool BKE_object_minmax_dupli(struct Depsgraph *depsgraph,
                              struct Scene *scene,
                              struct Object *ob,
                              float r_min[3],
                              float r_max[3],
-                             const bool use_hidden);
+                             bool use_hidden);
 
 /**
  * Sometimes min-max isn't enough, we need to loop over each point.
@@ -423,7 +395,7 @@ void BKE_object_tfm_protected_backup(const struct Object *ob, ObjectTfmProtected
 
 void BKE_object_tfm_protected_restore(struct Object *ob,
                                       const ObjectTfmProtectedChannels *obtfm,
-                                      const short protectflag);
+                                      short protectflag);
 
 void BKE_object_tfm_copy(struct Object *object_dst, const struct Object *object_src);
 
@@ -446,8 +418,7 @@ void BKE_object_eval_constraints(struct Depsgraph *depsgraph,
                                  struct Object *ob);
 void BKE_object_eval_transform_final(struct Depsgraph *depsgraph, struct Object *ob);
 
-bool BKE_object_eval_proxy_copy(struct Depsgraph *depsgraph, struct Object *object);
-void BKE_object_eval_uber_transform(struct Depsgraph *depsgraph, struct Object *ob);
+void BKE_object_eval_uber_transform(struct Depsgraph *depsgraph, struct Object *object);
 void BKE_object_eval_uber_data(struct Depsgraph *depsgraph,
                                struct Scene *scene,
                                struct Object *ob);
@@ -471,10 +442,10 @@ void BKE_object_select_update(struct Depsgraph *depsgraph, struct Object *object
 
 void BKE_object_eval_eval_base_flags(struct Depsgraph *depsgraph,
                                      struct Scene *scene,
-                                     const int view_layer_index,
+                                     int view_layer_index,
                                      struct Object *object,
                                      int base_index,
-                                     const bool is_from_set);
+                                     bool is_from_set);
 
 void BKE_object_handle_data_update(struct Depsgraph *depsgraph,
                                    struct Scene *scene,
@@ -488,13 +459,7 @@ void BKE_object_handle_data_update(struct Depsgraph *depsgraph,
  */
 void BKE_object_handle_update(struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob);
 /**
- * Proxy rule:
- * - lib_object->proxy_from == the one we borrow from, only set temporal and cleared here.
- * - local_object->proxy    == pointer to library object, saved in files and read.
- *
- * Function below is polluted with proxy exceptions, cleanup will follow!
- *
- * The main object update call, for object matrix, constraints, keys and displist (modifiers)
+ * The main object update call, for object matrix, constraints, keys and #DispList (modifiers)
  * requires flags to be set!
  *
  * Ideally we shouldn't have to pass the rigid body world,
@@ -503,8 +468,7 @@ void BKE_object_handle_update(struct Depsgraph *depsgraph, struct Scene *scene, 
 void BKE_object_handle_update_ex(struct Depsgraph *depsgraph,
                                  struct Scene *scene,
                                  struct Object *ob,
-                                 struct RigidBodyWorld *rbw,
-                                 const bool do_proxy_update);
+                                 struct RigidBodyWorld *rbw);
 
 void BKE_object_sculpt_data_create(struct Object *ob);
 
@@ -532,6 +496,9 @@ struct Mesh *BKE_object_get_pre_modified_mesh(const struct Object *object);
  */
 struct Mesh *BKE_object_get_original_mesh(const struct Object *object);
 
+struct Mesh *BKE_object_get_editmesh_eval_final(const struct Object *object);
+struct Mesh *BKE_object_get_editmesh_eval_cage(const struct Object *object);
+
 /* Lattice accessors.
  * These functions return either the regular lattice, or the edit-mode lattice,
  * whichever is currently in use. */
@@ -544,7 +511,7 @@ void BKE_object_delete_ptcache(struct Object *ob, int index);
 struct KeyBlock *BKE_object_shapekey_insert(struct Main *bmain,
                                             struct Object *ob,
                                             const char *name,
-                                            const bool from_mix);
+                                            bool from_mix);
 bool BKE_object_shapekey_remove(struct Main *bmain, struct Object *ob, struct KeyBlock *kb);
 bool BKE_object_shapekey_free(struct Main *bmain, struct Object *ob);
 
@@ -594,7 +561,7 @@ void BKE_object_runtime_reset(struct Object *object);
 /**
  * Reset all pointers which we don't want to be shared when copying the object.
  */
-void BKE_object_runtime_reset_on_copy(struct Object *object, const int flag);
+void BKE_object_runtime_reset_on_copy(struct Object *object, int flag);
 /**
  * The function frees memory used by the runtime data, but not the runtime field itself.
  *

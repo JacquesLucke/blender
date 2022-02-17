@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_spline.hh"
 
@@ -101,8 +87,8 @@ static void node_update(bNodeTree *ntree, bNode *node)
 
 static bool colinear_f3_f3_f3(const float3 p1, const float3 p2, const float3 p3)
 {
-  const float3 a = (p2 - p1).normalized();
-  const float3 b = (p3 - p1).normalized();
+  const float3 a = math::normalize(p2 - p1);
+  const float3 b = math::normalize(p3 - p1);
   return (ELEM(a, b, b * -1.0f));
 }
 
@@ -122,18 +108,18 @@ static std::unique_ptr<CurveEval> create_point_circle_curve(
 
   float3 center;
   /* Midpoints of `P1->P2` and `P2->P3`. */
-  const float3 q1 = float3::interpolate(p1, p2, 0.5f);
-  const float3 q2 = float3::interpolate(p2, p3, 0.5f);
+  const float3 q1 = math::interpolate(p1, p2, 0.5f);
+  const float3 q2 = math::interpolate(p2, p3, 0.5f);
 
   /* Normal Vectors of `P1->P2` and `P2->P3` */
-  const float3 v1 = (p2 - p1).normalized();
-  const float3 v2 = (p3 - p2).normalized();
+  const float3 v1 = math::normalize(p2 - p1);
+  const float3 v2 = math::normalize(p3 - p2);
 
   /* Normal of plane of main 2 segments P1->P2 and `P2->P3`. */
-  const float3 v3 = float3::cross(v1, v2).normalized();
+  const float3 v3 = math::normalize(math::cross(v1, v2));
 
   /* Normal of plane of first perpendicular bisector and `P1->P2`. */
-  const float3 v4 = float3::cross(v3, v1).normalized();
+  const float3 v4 = math::normalize(math::cross(v3, v1));
 
   /* Determine Center-point from the intersection of 3 planes. */
   float plane_1[4], plane_2[4], plane_3[4];
@@ -148,7 +134,7 @@ static std::unique_ptr<CurveEval> create_point_circle_curve(
   }
 
   /* Get the radius from the center-point to p1. */
-  const float r = float3::distance(p1, center);
+  const float r = math::distance(p1, center);
   const float theta_step = ((2 * M_PI) / (float)resolution);
   for (const int i : IndexRange(resolution)) {
 

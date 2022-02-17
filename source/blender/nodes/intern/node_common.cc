@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup nodes
@@ -420,6 +404,11 @@ void BKE_node_tree_unlink_id(ID *id, struct bNodeTree *ntree)
 /** \name Node #GROUP_INPUT / #GROUP_OUTPUT
  * \{ */
 
+static bool is_group_extension_socket(const bNode *node, const bNodeSocket *socket)
+{
+  return socket->type == SOCK_CUSTOM && ELEM(node->type, NODE_GROUP_OUTPUT, NODE_GROUP_INPUT);
+}
+
 static void node_group_input_init(bNodeTree *ntree, bNode *node)
 {
   node_group_input_update(ntree, node);
@@ -471,7 +460,7 @@ void node_group_input_update(bNodeTree *ntree, bNode *node)
      * This could be improved by choosing the "best" type among all links,
      * whatever that means.
      */
-    if (link->tosock->type != SOCK_CUSTOM) {
+    if (!is_group_extension_socket(link->tonode, link->tosock)) {
       exposelink = link;
       break;
     }
@@ -568,7 +557,7 @@ void node_group_output_update(bNodeTree *ntree, bNode *node)
      * This could be improved by choosing the "best" type among all links,
      * whatever that means.
      */
-    if (link->fromsock->type != SOCK_CUSTOM) {
+    if (!is_group_extension_socket(link->fromnode, link->fromsock)) {
       exposelink = link;
       break;
     }

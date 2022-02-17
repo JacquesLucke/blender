@@ -1,27 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup shdnodes
  */
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
 
 namespace blender::nodes::node_shader_mix_rgb_cc {
 
@@ -32,32 +16,6 @@ static void sh_node_mix_rgb_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Color>(N_("Color1")).default_value({0.5f, 0.5f, 0.5f, 1.0f});
   b.add_input<decl::Color>(N_("Color2")).default_value({0.5f, 0.5f, 0.5f, 1.0f});
   b.add_output<decl::Color>(N_("Color"));
-};
-
-static void node_shader_exec_mix_rgb(void *UNUSED(data),
-                                     int UNUSED(thread),
-                                     bNode *node,
-                                     bNodeExecData *UNUSED(execdata),
-                                     bNodeStack **in,
-                                     bNodeStack **out)
-{
-  /* stack order in: fac, col1, col2 */
-  /* stack order out: col */
-  float col[3];
-  float fac;
-  float vec[3];
-
-  nodestack_get_vec(&fac, SOCK_FLOAT, in[0]);
-  CLAMP(fac, 0.0f, 1.0f);
-
-  nodestack_get_vec(col, SOCK_VECTOR, in[1]);
-  nodestack_get_vec(vec, SOCK_VECTOR, in[2]);
-
-  ramp_blend(node->custom1, col, fac, vec);
-  if (node->custom2 & SHD_MIXRGB_CLAMP) {
-    CLAMP3(col, 0.0f, 1.0f);
-  }
-  copy_v3_v3(out[0]->vec, col);
 }
 
 static const char *gpu_shader_get_name(int mode)
@@ -192,7 +150,6 @@ void register_node_type_sh_mix_rgb()
   sh_fn_node_type_base(&ntype, SH_NODE_MIX_RGB, "Mix", NODE_CLASS_OP_COLOR);
   ntype.declare = file_ns::sh_node_mix_rgb_declare;
   ntype.labelfunc = node_blend_label;
-  node_type_exec(&ntype, nullptr, nullptr, file_ns::node_shader_exec_mix_rgb);
   node_type_gpu(&ntype, file_ns::gpu_shader_mix_rgb);
   ntype.build_multi_function = file_ns::sh_node_mix_rgb_build_multi_function;
 

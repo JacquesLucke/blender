@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -904,7 +888,7 @@ static GeometrySet curve_calc_modifiers_post(Depsgraph *depsgraph,
       int totvert;
       float(*vertex_coords)[3] = BKE_mesh_vert_coords_alloc(mesh, &totvert);
       if (mti->dependsOnNormals != nullptr && mti->dependsOnNormals(md)) {
-        BKE_mesh_ensure_normals(mesh);
+        BKE_mesh_vertex_normals_ensure(mesh);
       }
       mti->deformVerts(md, &mectx_deform, mesh, vertex_coords, totvert);
       BKE_mesh_vert_coords_apply(mesh, vertex_coords);
@@ -912,7 +896,7 @@ static GeometrySet curve_calc_modifiers_post(Depsgraph *depsgraph,
     }
     else {
       if (mti->dependsOnNormals != nullptr && mti->dependsOnNormals(md)) {
-        BKE_mesh_ensure_normals(mesh);
+        BKE_mesh_vertex_normals_ensure(mesh);
       }
       Mesh *output_mesh = mti->modifyMesh(md, &mectx_apply, mesh);
       if (mesh != output_mesh) {
@@ -924,7 +908,7 @@ static GeometrySet curve_calc_modifiers_post(Depsgraph *depsgraph,
   if (geometry_set.has_mesh()) {
     Mesh *final_mesh = geometry_set.get_mesh_for_write();
 
-    BKE_mesh_calc_normals(final_mesh);
+    BKE_mesh_ensure_normals_for_display(final_mesh);
 
     BLI_strncpy(final_mesh->id.name, cu->id.name, sizeof(final_mesh->id.name));
     *((short *)final_mesh->id.name) = ID_ME;

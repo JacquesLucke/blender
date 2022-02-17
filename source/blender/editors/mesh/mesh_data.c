@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edmesh
@@ -1019,11 +1003,6 @@ static int mesh_customdata_custom_splitnormals_add_exec(bContext *C, wmOperator 
       /* Tag edges as sharp according to smooth threshold if needed,
        * to preserve autosmooth shading. */
       if (me->flag & ME_AUTOSMOOTH) {
-        float(*polynors)[3] = MEM_mallocN(sizeof(*polynors) * (size_t)me->totpoly, __func__);
-
-        BKE_mesh_calc_normals_poly(
-            me->mvert, me->totvert, me->mloop, me->totloop, me->mpoly, me->totpoly, polynors);
-
         BKE_edges_sharp_from_angle_set(me->mvert,
                                        me->totvert,
                                        me->medge,
@@ -1031,11 +1010,9 @@ static int mesh_customdata_custom_splitnormals_add_exec(bContext *C, wmOperator 
                                        me->mloop,
                                        me->totloop,
                                        me->mpoly,
-                                       polynors,
+                                       BKE_mesh_poly_normals_ensure(me),
                                        me->totpoly,
                                        me->smoothresh);
-
-        MEM_freeN(polynors);
       }
 
       CustomData_add_layer(data, CD_CUSTOMLOOPNORMAL, CD_DEFAULT, NULL, me->totloop);

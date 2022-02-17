@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -41,6 +27,7 @@
 #include "WM_api.h"
 
 /* XXX uses private header of file-space. */
+#include "../space_file/file_indexer.h"
 #include "../space_file/filelist.h"
 
 #include "ED_asset_handle.h"
@@ -48,10 +35,6 @@
 #include "ED_asset_list.h"
 #include "ED_asset_list.hh"
 #include "asset_library_reference.hh"
-
-/* Enable asset indexing. Currently disabled as ID properties aren't indexed yet and is needed for
- * object snapping. See {D12990}. */
-//#define SPACE_FILE_ENABLE_ASSET_INDEXING
 
 namespace blender::ed::asset {
 
@@ -174,9 +157,8 @@ void AssetList::setup()
       "",
       "");
 
-#ifdef SPACE_FILE_ENABLE_ASSET_INDEXING
-  filelist_setindexer(files, &file_indexer_asset);
-#endif
+  const bool use_asset_indexer = !USER_EXPERIMENTAL_TEST(&U, no_asset_indexing);
+  filelist_setindexer(files, use_asset_indexer ? &file_indexer_asset : &file_indexer_noop);
 
   char path[FILE_MAXDIR] = "";
   if (user_library) {

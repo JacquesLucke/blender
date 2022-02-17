@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -29,7 +15,7 @@
 
 #include "node_geometry_util.hh"
 
-namespace blender::nodes {
+namespace blender::nodes::node_geo_delete_geometry_cc {
 
 using blender::bke::CustomDataAttributes;
 
@@ -1270,6 +1256,10 @@ static void separate_mesh_selection(GeometrySet &geometry_set,
   do_mesh_separation(geometry_set, src_component, selection, invert, selection_domain, mode);
 }
 
+}  // namespace blender::nodes::node_geo_delete_geometry_cc
+
+namespace blender::nodes {
+
 void separate_geometry(GeometrySet &geometry_set,
                        const AttributeDomain domain,
                        const GeometryNodeDeleteGeometryMode mode,
@@ -1277,28 +1267,30 @@ void separate_geometry(GeometrySet &geometry_set,
                        const bool invert,
                        bool &r_is_error)
 {
+  namespace file_ns = blender::nodes::node_geo_delete_geometry_cc;
+
   bool some_valid_domain = false;
   if (geometry_set.has_pointcloud()) {
     if (domain == ATTR_DOMAIN_POINT) {
-      separate_point_cloud_selection(geometry_set, selection_field, invert);
+      file_ns::separate_point_cloud_selection(geometry_set, selection_field, invert);
       some_valid_domain = true;
     }
   }
   if (geometry_set.has_mesh()) {
     if (ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_EDGE, ATTR_DOMAIN_FACE, ATTR_DOMAIN_CORNER)) {
-      separate_mesh_selection(geometry_set, selection_field, domain, mode, invert);
+      file_ns::separate_mesh_selection(geometry_set, selection_field, domain, mode, invert);
       some_valid_domain = true;
     }
   }
   if (geometry_set.has_curve()) {
     if (ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE)) {
-      separate_curve_selection(geometry_set, selection_field, domain, invert);
+      file_ns::separate_curve_selection(geometry_set, selection_field, domain, invert);
       some_valid_domain = true;
     }
   }
   if (geometry_set.has_instances()) {
     if (domain == ATTR_DOMAIN_INSTANCE) {
-      separate_instance_selection(geometry_set, selection_field, invert);
+      file_ns::separate_instance_selection(geometry_set, selection_field, invert);
       some_valid_domain = true;
     }
   }
@@ -1354,16 +1346,16 @@ static void node_geo_exec(GeoNodeExecParams params)
   const AttributeDomain domain = static_cast<AttributeDomain>(storage.domain);
   const GeometryNodeDeleteGeometryMode mode = (GeometryNodeDeleteGeometryMode)storage.mode;
 
-  bool all_is_error = false;
-  geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    bool this_is_error = false;
-    /* Invert here because we want to keep the things not in the selection. */
-    separate_geometry(geometry_set, domain, mode, selection_field, true, this_is_error);
-    all_is_error &= this_is_error;
-  });
-  if (all_is_error) {
-    /* Only show this if none of the instances/components actually changed. */
-    params.error_message_add(NodeWarningType::Info, TIP_("No geometry with given domain"));
+  if (domain == ATTR_DOMAIN_INSTANCE) {
+    bool is_error;
+    separate_geometry(geometry_set, domain, mode, selection_field, true, is_error);
+  }
+  else {
+    geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
+      bool is_error;
+      /* Invert here because we want to keep the things not in the selection. */
+      separate_geometry(geometry_set, domain, mode, selection_field, true, is_error);
+    });
   }
 
   params.set_output("Geometry", std::move(geometry_set));

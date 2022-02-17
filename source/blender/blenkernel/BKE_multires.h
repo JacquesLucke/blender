@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 by Nicholas Bishop
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 by Nicholas Bishop. All rights reserved. */
 
 #pragma once
 
@@ -167,7 +151,7 @@ void multiresModifier_ensure_external_read(struct Mesh *mesh,
 /**** interpolation stuff ****/
 /* Adapted from `sculptmode.c` */
 
-void old_mdisps_bilinear(float out[3], float (*disps)[3], const int st, float u, float v);
+void old_mdisps_bilinear(float out[3], float (*disps)[3], int st, float u, float v);
 /**
  * Find per-corner coordinate with given per-face UV coord.
  */
@@ -175,9 +159,9 @@ int mdisp_rot_face_to_crn(struct MVert *mvert,
                           struct MPoly *mpoly,
                           struct MLoop *mloop,
                           const struct MLoopTri *lt,
-                          const int face_side,
-                          const float u,
-                          const float v,
+                          int face_side,
+                          float u,
+                          float v,
                           float *x,
                           float *y);
 
@@ -187,7 +171,7 @@ bool multiresModifier_reshapeFromVertcos(struct Depsgraph *depsgraph,
                                          struct Object *object,
                                          struct MultiresModifierData *mmd,
                                          const float (*vert_coords)[3],
-                                         const int num_vert_coords);
+                                         int num_vert_coords);
 /**
  * Returns truth on success, false otherwise.
  *
@@ -202,7 +186,7 @@ bool multiresModifier_reshapeFromDeformModifier(struct Depsgraph *depsgraph,
                                                 struct Object *ob,
                                                 struct MultiresModifierData *mmd,
                                                 struct ModifierData *deform_md);
-bool multiresModifier_reshapeFromCCG(const int tot_level,
+bool multiresModifier_reshapeFromCCG(int tot_level,
                                      struct Mesh *coarse_mesh,
                                      struct SubdivCCG *subdiv_ccg);
 
@@ -216,7 +200,7 @@ typedef enum eMultiresSubdivideModeType {
 
 void multiresModifier_subdivide(struct Object *object,
                                 struct MultiresModifierData *mmd,
-                                const eMultiresSubdivideModeType mode);
+                                eMultiresSubdivideModeType mode);
 void multires_subdivide_create_tangent_displacement_linear_grids(struct Object *object,
                                                                  struct MultiresModifierData *mmd);
 
@@ -226,8 +210,8 @@ void multires_subdivide_create_tangent_displacement_linear_grids(struct Object *
  */
 void multiresModifier_subdivide_to_level(struct Object *object,
                                          struct MultiresModifierData *mmd,
-                                         const int top_level,
-                                         const eMultiresSubdivideModeType mode);
+                                         int top_level,
+                                         eMultiresSubdivideModeType mode);
 
 /* Subdivision integration, defined in multires_subdiv.c */
 
@@ -242,9 +226,9 @@ void BKE_multires_subdiv_mesh_settings_init(struct SubdivToMeshSettings *mesh_se
                                             const struct Scene *scene,
                                             const struct Object *object,
                                             const struct MultiresModifierData *mmd,
-                                            const bool use_render_params,
-                                            const bool ignore_simplify,
-                                            const bool ignore_control_edges);
+                                            bool use_render_params,
+                                            bool ignore_simplify,
+                                            bool ignore_control_edges);
 
 /* General helpers. */
 
@@ -257,7 +241,7 @@ void BKE_multires_subdiv_mesh_settings_init(struct SubdivToMeshSettings *mesh_se
 BLI_INLINE void BKE_multires_construct_tangent_matrix(float tangent_matrix[3][3],
                                                       const float dPdu[3],
                                                       const float dPdv[3],
-                                                      const int corner);
+                                                      int corner);
 
 /* Versioning. */
 

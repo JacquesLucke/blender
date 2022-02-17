@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -193,7 +177,6 @@ bool wm_file_or_session_data_has_unsaved_changes(const Main *bmain, const wmWind
 static void wm_window_match_init(bContext *C, ListBase *wmlist)
 {
   *wmlist = G_MAIN->wm;
-  BLI_listbase_clear(&G_MAIN->wm);
 
   wmWindow *active_win = CTX_wm_window(C);
 
@@ -219,6 +202,8 @@ static void wm_window_match_init(bContext *C, ListBase *wmlist)
       wm->message_bus = NULL;
     }
   }
+
+  BLI_listbase_clear(&G_MAIN->wm);
 
   /* reset active window */
   CTX_wm_window_set(C, active_win);
@@ -263,7 +248,7 @@ static void wm_window_substitute_old(wmWindowManager *oldwm,
   win->eventstate = oldwin->eventstate;
   oldwin->eventstate = NULL;
 
-  /* ensure proper screen rescaling */
+  /* Ensure proper screen re-scaling. */
   win->sizex = oldwin->sizex;
   win->sizey = oldwin->sizey;
   win->posx = oldwin->posx;
@@ -873,18 +858,16 @@ static void file_read_reports_finalize(BlendFileReadReport *bf_reports)
                 duration_lib_override_recursive_resync_seconds);
   }
 
-  if (bf_reports->count.linked_proxies != 0 ||
-      bf_reports->count.proxies_to_lib_overrides_success != 0 ||
+  if (bf_reports->count.proxies_to_lib_overrides_success != 0 ||
       bf_reports->count.proxies_to_lib_overrides_failures != 0) {
-    BKE_reportf(bf_reports->reports,
-                RPT_WARNING,
-                "Proxies are deprecated (%d proxies were automatically converted to library "
-                "overrides, %d proxies could not be converted and %d linked proxies were kept "
-                "untouched). If you need to keep proxies for the time being, please disable the "
-                "`Proxy to Override Auto Conversion` in Experimental user preferences",
-                bf_reports->count.proxies_to_lib_overrides_success,
-                bf_reports->count.proxies_to_lib_overrides_failures,
-                bf_reports->count.linked_proxies);
+    BKE_reportf(
+        bf_reports->reports,
+        RPT_WARNING,
+        "Proxies have been removed from Blender (%d proxies were automatically converted "
+        "to library overrides, %d proxies could not be converted and were cleared). "
+        "Please also consider re-saving any library .blend file with the newest Blender version.",
+        bf_reports->count.proxies_to_lib_overrides_success,
+        bf_reports->count.proxies_to_lib_overrides_failures);
   }
 
   if (bf_reports->count.sequence_strips_skipped != 0) {
@@ -1520,11 +1503,29 @@ static void wm_history_file_update(void)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Save Main Blend-File (internal) Screen-Shot
+/** \name Thumbnail Generation: Screen-Shot / Camera View
  *
- * Screen-shot the active window.
+ * Thumbnail Sizes
+ * ===============
+ *
+ * - `PREVIEW_RENDER_LARGE_HEIGHT * 2` is used to render a large thumbnail,
+ *   giving some over-sampling when scaled down:
+ *
+ * - There are two outputs for this thumbnail:
+ *
+ *   - An image is saved to the thumbnail cache, sized at #PREVIEW_RENDER_LARGE_HEIGHT.
+ *
+ *   - A smaller thumbnail is stored in the `.blend` file it's self, sized at #BLEN_THUMB_SIZE.
+ *     The size is kept small to prevent thumbnails bloating the size of `.blend` files.
+ *
+ *     The this thumbnail will be extracted if the file is shared or the local thumbnail cache
+ *     is cleared. see: `blendthumb_extract.cc` for logic that extracts the thumbnail.
+ *
  * \{ */
 
+/**
+ * Screen-shot the active window.
+ */
 static ImBuf *blend_file_thumb_from_screenshot(bContext *C, BlendThumbnail **r_thumb)
 {
   *r_thumb = NULL;
@@ -1570,15 +1571,11 @@ static ImBuf *blend_file_thumb_from_screenshot(bContext *C, BlendThumbnail **r_t
   return ibuf;
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Save Main Blend-File (internal) Camera View
- *
+/**
  * Render the current scene with the active camera.
- * \{ */
-
-/* screen can be NULL */
+ *
+ * \param screen: can be NULL.
+ */
 static ImBuf *blend_file_thumb_from_camera(const bContext *C,
                                            Scene *scene,
                                            bScreen *screen,
@@ -1616,7 +1613,6 @@ static ImBuf *blend_file_thumb_from_camera(const bContext *C,
     return NULL;
   }
 
-  /* gets scaled to BLEN_THUMB_SIZE */
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
 
   /* Note that with scaling, this ends up being 0.5,
@@ -1687,6 +1683,12 @@ static ImBuf *blend_file_thumb_from_camera(const bContext *C,
 
   return ibuf;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Write Main Blend-File (internal)
+ * \{ */
 
 bool write_crash_blend(void)
 {
@@ -2016,7 +2018,7 @@ void wm_autosave_delete(void)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Initialize WM_OT_open_xxx properties
+/** \name Initialize `WM_OT_open_*` Properties
  *
  * Check if load_ui was set by the caller.
  * Fall back to user preference when file flags not specified.
@@ -2686,7 +2688,7 @@ static char *wm_open_mainfile_description(struct bContext *UNUSED(C),
 
   BLI_stat_t stats;
   if (BLI_stat(path, &stats) == -1) {
-    return BLI_sprintfN("%s\n\n%s", path, N_("File Not Found"));
+    return BLI_sprintfN("%s\n\n%s", path, TIP_("File Not Found"));
   }
 
   /* Date. */
@@ -2696,7 +2698,7 @@ static char *wm_open_mainfile_description(struct bContext *UNUSED(C),
   BLI_filelist_entry_datetime_to_string(
       NULL, (int64_t)stats.st_mtime, false, time_st, date_st, &is_today, &is_yesterday);
   if (is_today || is_yesterday) {
-    BLI_strncpy(date_st, is_today ? N_("Today") : N_("Yesterday"), sizeof(date_st));
+    BLI_strncpy(date_st, is_today ? TIP_("Today") : TIP_("Yesterday"), sizeof(date_st));
   }
 
   /* Size. */
@@ -2704,7 +2706,7 @@ static char *wm_open_mainfile_description(struct bContext *UNUSED(C),
   BLI_filelist_entry_size_to_string(NULL, (uint64_t)stats.st_size, false, size_str);
 
   return BLI_sprintfN(
-      "%s\n\n%s: %s %s\n%s: %s", path, N_("Modified"), date_st, time_st, N_("Size"), size_str);
+      "%s\n\n%s: %s %s\n%s: %s", path, TIP_("Modified"), date_st, time_st, TIP_("Size"), size_str);
 }
 
 /* currently fits in a pointer */
@@ -3151,8 +3153,8 @@ static char *wm_save_as_mainfile_get_description(bContext *UNUSED(C),
                                                  PointerRNA *ptr)
 {
   if (RNA_boolean_get(ptr, "copy")) {
-    return BLI_strdup(
-        "Save the current file in the desired location but do not make the saved file active");
+    return BLI_strdup(TIP_(
+        "Save the current file in the desired location but do not make the saved file active"));
   }
   return NULL;
 }

@@ -1,26 +1,10 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- * Generic 2d view with should allow drawing grids,
- * panning, zooming, scrolling, ..
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup editorui
+ * Generic 2D view with should allow drawing grids,
+ * panning, zooming, scrolling, .. etc.
  */
 
 #pragma once
@@ -175,7 +159,7 @@ void UI_view2d_view_ortho(const struct View2D *v2d);
  * \param xaxis: if non-zero, only use cur x-axis,
  * otherwise use cur-yaxis (mostly this will be used for x).
  */
-void UI_view2d_view_orthoSpecial(struct ARegion *region, struct View2D *v2d, const bool xaxis);
+void UI_view2d_view_orthoSpecial(struct ARegion *region, struct View2D *v2d, bool xaxis);
 /**
  * Restore view matrices after drawing.
  */
@@ -435,7 +419,7 @@ void ED_keymap_view2d(struct wmKeyConfig *keyconf);
 void UI_view2d_smooth_view(struct bContext *C,
                            struct ARegion *region,
                            const struct rctf *cur,
-                           const int smooth_viewtx);
+                           int smooth_viewtx);
 
 #define UI_MARKER_MARGIN_Y (42 * UI_DPI_FAC)
 #define UI_TIME_SCRUB_MARGIN_Y (23 * UI_DPI_FAC)

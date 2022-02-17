@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup modifiers
@@ -84,6 +68,9 @@ static void requiredDataMask(Object *UNUSED(ob),
   if (smd->flags & eSubsurfModifierFlag_UseCustomNormals) {
     r_cddata_masks->lmask |= CD_MASK_NORMAL;
     r_cddata_masks->lmask |= CD_MASK_CUSTOMLOOPNORMAL;
+  }
+  if (smd->flags & eSubsurfModifierFlag_UseCrease) {
+    r_cddata_masks->vmask |= CD_MASK_CREASE;
   }
 }
 
@@ -242,9 +229,10 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   if ((ctx->flag & MOD_APPLY_TO_BASE_MESH) == 0) {
     Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
     const bool is_render_mode = (ctx->flag & MOD_APPLY_RENDER) != 0;
-    /* Same check as in `DRW_mesh_batch_cache_create_requested` to keep both code coherent. */
-    const bool is_editmode = (mesh->edit_mesh != NULL) &&
-                             (mesh->edit_mesh->mesh_eval_final != NULL);
+    /* Same check as in `DRW_mesh_batch_cache_create_requested` to keep both code coherent. The
+     * difference is that here we do not check for the final edit mesh pointer as it is not yet
+     * assigned at this stage of modifier stack evaluation. */
+    const bool is_editmode = (mesh->edit_mesh != NULL);
     const int required_mode = BKE_subsurf_modifier_eval_required_mode(is_render_mode, is_editmode);
     if (BKE_subsurf_modifier_can_do_gpu_subdiv_ex(scene, ctx->object, smd, required_mode, false)) {
       subdiv_cache_cpu_evaluation_settings(ctx, mesh, smd);
@@ -496,7 +484,6 @@ ModifierTypeInfo modifierType_Subsurf = {
     /* deformVertsEM */ NULL,
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ modifyMesh,
-    /* modifyHair */ NULL,
     /* modifyGeometrySet */ NULL,
 
     /* initData */ initData,

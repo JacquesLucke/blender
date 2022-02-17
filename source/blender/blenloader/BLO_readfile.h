@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 #pragma once
 
 #include "BLI_listbase.h"
@@ -117,8 +101,6 @@ typedef struct BlendFileReadReport {
     /* Number of root override IDs that were resynced. */
     int resynced_lib_overrides;
 
-    /* Number of (non-converted) linked proxies. */
-    int linked_proxies;
     /* Number of proxies converted to library overrides. */
     int proxies_to_lib_overrides_success;
     /* Number of proxies that failed to convert to library overrides. */
@@ -233,7 +215,7 @@ BlendHandle *BLO_blendhandle_from_memory(const void *mem,
 struct LinkNode *BLO_blendhandle_get_datablock_names(BlendHandle *bh,
                                                      int ofblocktype,
 
-                                                     const bool use_assets_only,
+                                                     bool use_assets_only,
                                                      int *r_tot_names);
 /**
  * Gets the names and asset-data (if ID is an asset) of data-blocks in a file of a certain type.
@@ -246,8 +228,10 @@ struct LinkNode *BLO_blendhandle_get_datablock_names(BlendHandle *bh,
  * \return A BLI_linklist of `BLODataBlockInfo *`.
  * The links and #BLODataBlockInfo.asset_data should be freed with MEM_freeN.
  */
-struct LinkNode * /*BLODataBlockInfo */ BLO_blendhandle_get_datablock_info(
-    BlendHandle *bh, int ofblocktype, const bool use_assets_only, int *r_tot_info_items);
+struct LinkNode * /*BLODataBlockInfo */ BLO_blendhandle_get_datablock_info(BlendHandle *bh,
+                                                                           int ofblocktype,
+                                                                           bool use_assets_only,
+                                                                           int *r_tot_info_items);
 /**
  * Gets the previews of all the data-blocks in a file of a certain type
  * (e.g. all the scene previews in a file).
@@ -367,12 +351,12 @@ typedef struct LibraryLink_Params {
 
 void BLO_library_link_params_init(struct LibraryLink_Params *params,
                                   struct Main *bmain,
-                                  const int flag,
-                                  const int id_tag_extra);
+                                  int flag,
+                                  int id_tag_extra);
 void BLO_library_link_params_init_with_context(struct LibraryLink_Params *params,
                                                struct Main *bmain,
-                                               const int flag,
-                                               const int id_tag_extra,
+                                               int flag,
+                                               int id_tag_extra,
                                                struct Scene *scene,
                                                struct ViewLayer *view_layer,
                                                const struct View3D *v3d);
@@ -400,7 +384,7 @@ struct Main *BLO_library_link_begin(BlendHandle **bh,
  */
 struct ID *BLO_library_link_named_part(struct Main *mainl,
                                        BlendHandle **bh,
-                                       const short idcode,
+                                       short idcode,
                                        const char *name,
                                        const struct LibraryLink_Params *params);
 /**
@@ -435,7 +419,7 @@ typedef struct TempLibraryContext {
 
 TempLibraryContext *BLO_library_temp_load_id(struct Main *real_main,
                                              const char *blend_file_path,
-                                             const short idcode,
+                                             short idcode,
                                              const char *idname,
                                              struct ReportList *reports);
 void BLO_library_temp_free(TempLibraryContext *temp_lib_ctx);

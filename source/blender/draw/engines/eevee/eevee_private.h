@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup DNA
@@ -176,7 +161,7 @@ enum {
   VAR_MAT_MESH = (1 << 0),
   VAR_MAT_VOLUME = (1 << 1),
   VAR_MAT_HAIR = (1 << 2),
-  /* VAR_MAT_PROBE = (1 << 3), UNUSED */
+  VAR_MAT_POINTCLOUD = (1 << 3),
   VAR_MAT_BLEND = (1 << 4),
   VAR_MAT_LOOKDEV = (1 << 5),
   VAR_MAT_HOLDOUT = (1 << 6),
@@ -192,8 +177,8 @@ enum {
 /* Material shader cache keys */
 enum {
   /* HACK: This assumes the struct GPUShader will never be smaller than our variations.
-   * This allow us to only keep one ghash and avoid bigger keys comparisons/hashing.
-   * We combine the GPUShader pointer with the key. */
+   * This allow us to only keep one #GHash and avoid bigger keys comparisons/hashing.
+   * We combine the #GPUShader pointer with the key. */
   KEY_CULL = (1 << 0),
   KEY_REFRACT = (1 << 1),
   KEY_HAIR = (1 << 2),
@@ -1385,9 +1370,9 @@ void EEVEE_cryptomatte_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *s
 void EEVEE_cryptomatte_particle_hair_cache_populate(EEVEE_Data *vedata,
                                                     EEVEE_ViewLayerData *sldata,
                                                     Object *ob);
-void EEVEE_cryptomatte_object_hair_cache_populate(EEVEE_Data *vedata,
-                                                  EEVEE_ViewLayerData *sldata,
-                                                  Object *ob);
+void EEVEE_cryptomatte_object_curves_cache_populate(EEVEE_Data *vedata,
+                                                    EEVEE_ViewLayerData *sldata,
+                                                    Object *ob);
 void EEVEE_cryptomatte_output_accumulate(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 /**
  * Register the render passes needed for cryptomatte
@@ -1499,7 +1484,7 @@ void EEVEE_temporal_sampling_create_view(EEVEE_Data *vedata);
 int EEVEE_temporal_sampling_sample_count_get(const Scene *scene, const EEVEE_StorageList *stl);
 int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_offset_calc(const double ht_point[2],
-                                         const float filter_size,
+                                         float filter_size,
                                          float r_offset[2]);
 void EEVEE_temporal_sampling_matrices_calc(EEVEE_EffectsInfo *effects, const double ht_point[2]);
 /**
@@ -1533,7 +1518,7 @@ void EEVEE_volumes_free(void);
 void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
                         EEVEE_Data *vedata,
                         Object *camera,
-                        const bool minimal);
+                        bool minimal);
 void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_effects_draw_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 /**

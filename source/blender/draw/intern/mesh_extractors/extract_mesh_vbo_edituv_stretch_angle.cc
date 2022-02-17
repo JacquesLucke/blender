@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
@@ -240,7 +224,7 @@ static void extract_edituv_stretch_angle_init_subdiv(const DRWSubdivCache *subdi
   GPUVertBuf *pos_nor = cache->final.buff.vbo.pos_nor;
   GPUVertBuf *uvs = cache->final.buff.vbo.uv;
 
-  /* UVs are stored contiguouly so we need to compute the offset in the UVs buffer for the active
+  /* UVs are stored contiguously so we need to compute the offset in the UVs buffer for the active
    * UV layer. */
   CustomData *cd_ldata = (mr->extract_type == MR_EXTRACT_MESH) ? &mr->me->ldata : &mr->bm->ldata;
 

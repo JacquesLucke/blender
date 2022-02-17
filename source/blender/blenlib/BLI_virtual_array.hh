@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -79,7 +65,7 @@ template<typename T> class VArrayImpl {
    * Get the element at #index. This does not return a reference, because the value may be computed
    * on the fly.
    */
-  virtual T get(const int64_t index) const = 0;
+  virtual T get(int64_t index) const = 0;
 
   /**
    * Return true when the virtual array is a plain array internally.
@@ -202,7 +188,7 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
   /**
    * Assign the provided #value to the #index.
    */
-  virtual void set(const int64_t index, T value) = 0;
+  virtual void set(int64_t index, T value) = 0;
 
   /**
    * Copy all elements from the provided span into the virtual array.

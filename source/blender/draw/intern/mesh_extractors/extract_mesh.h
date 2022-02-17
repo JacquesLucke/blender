@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
@@ -84,7 +68,8 @@ typedef struct MeshRenderData {
   const float (*bm_poly_centers)[3];
 
   int *v_origindex, *e_origindex, *p_origindex;
-  int crease_ofs;
+  int edge_crease_ofs;
+  int vert_crease_ofs;
   int bweight_ofs;
   int freestyle_edge_ofs;
   int freestyle_face_ofs;
@@ -100,8 +85,9 @@ typedef struct MeshRenderData {
   BMFace *efa_act_uv;
   /* Data created on-demand (usually not for #BMesh based data). */
   MLoopTri *mlooptri;
+  const float (*vert_normals)[3];
+  const float (*poly_normals)[3];
   float (*loop_normals)[3];
-  float (*poly_normals)[3];
   int *lverts, *ledges;
 
   struct {
@@ -173,37 +159,34 @@ BLI_INLINE const float *bm_face_no_get(const MeshRenderData *mr, const BMFace *e
 
 /* TODO(jbakker): move parameters inside a struct. */
 
-typedef void(ExtractTriBMeshFn)(const MeshRenderData *mr,
-                                BMLoop **elt,
-                                const int elt_index,
-                                void *data);
+typedef void(ExtractTriBMeshFn)(const MeshRenderData *mr, BMLoop **elt, int elt_index, void *data);
 typedef void(ExtractTriMeshFn)(const MeshRenderData *mr,
                                const MLoopTri *mlt,
-                               const int elt_index,
+                               int elt_index,
                                void *data);
 typedef void(ExtractPolyBMeshFn)(const MeshRenderData *mr,
                                  const BMFace *f,
-                                 const int f_index,
+                                 int f_index,
                                  void *data);
 typedef void(ExtractPolyMeshFn)(const MeshRenderData *mr,
                                 const MPoly *mp,
-                                const int mp_index,
+                                int mp_index,
                                 void *data);
 typedef void(ExtractLEdgeBMeshFn)(const MeshRenderData *mr,
                                   const BMEdge *eed,
-                                  const int ledge_index,
+                                  int ledge_index,
                                   void *data);
 typedef void(ExtractLEdgeMeshFn)(const MeshRenderData *mr,
                                  const MEdge *med,
-                                 const int ledge_index,
+                                 int ledge_index,
                                  void *data);
 typedef void(ExtractLVertBMeshFn)(const MeshRenderData *mr,
                                   const BMVert *eve,
-                                  const int lvert_index,
+                                  int lvert_index,
                                   void *data);
 typedef void(ExtractLVertMeshFn)(const MeshRenderData *mr,
                                  const MVert *mv,
-                                 const int lvert_index,
+                                 int lvert_index,
                                  void *data);
 typedef void(ExtractLooseGeomSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
                                        const MeshRenderData *mr,
@@ -225,10 +208,19 @@ typedef void(ExtractInitSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
                                   struct MeshBatchCache *cache,
                                   void *buf,
                                   void *data);
-typedef void(ExtractIterSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
-                                  const MeshRenderData *mr,
-                                  void *data);
+typedef void(ExtractIterSubdivBMeshFn)(const struct DRWSubdivCache *subdiv_cache,
+                                       const MeshRenderData *mr,
+                                       void *data,
+                                       uint subdiv_quad_index,
+                                       const BMFace *coarse_quad);
+typedef void(ExtractIterSubdivMeshFn)(const struct DRWSubdivCache *subdiv_cache,
+                                      const MeshRenderData *mr,
+                                      void *data,
+                                      uint subdiv_quad_index,
+                                      const MPoly *coarse_quad);
 typedef void(ExtractFinishSubdivFn)(const struct DRWSubdivCache *subdiv_cache,
+                                    const MeshRenderData *mr,
+                                    struct MeshBatchCache *cache,
                                     void *buf,
                                     void *data);
 
@@ -250,7 +242,8 @@ typedef struct MeshExtract {
   ExtractFinishFn *finish;
   /** Executed on main thread for subdivision evaluation. */
   ExtractInitSubdivFn *init_subdiv;
-  ExtractIterSubdivFn *iter_subdiv;
+  ExtractIterSubdivBMeshFn *iter_subdiv_bm;
+  ExtractIterSubdivMeshFn *iter_subdiv_mesh;
   ExtractFinishSubdivFn *finish_subdiv;
   /** Used to request common data. */
   eMRDataType data_type;
@@ -272,34 +265,37 @@ typedef struct MeshExtract {
  * \param is_mode_active: When true, use the modifiers from the edit-data,
  * otherwise don't use modifiers as they are not from this object.
  */
-MeshRenderData *mesh_render_data_create(Mesh *me,
-                                        const bool is_editmode,
-                                        const bool is_paint_mode,
-                                        const bool is_mode_active,
+MeshRenderData *mesh_render_data_create(Object *object,
+                                        Mesh *me,
+                                        bool is_editmode,
+                                        bool is_paint_mode,
+                                        bool is_mode_active,
                                         const float obmat[4][4],
-                                        const bool do_final,
-                                        const bool do_uvedit,
+                                        bool do_final,
+                                        bool do_uvedit,
                                         const ToolSettings *ts);
 void mesh_render_data_free(MeshRenderData *mr);
-void mesh_render_data_update_normals(MeshRenderData *mr, const eMRDataType data_flag);
+void mesh_render_data_update_normals(MeshRenderData *mr, eMRDataType data_flag);
 void mesh_render_data_update_loose_geom(MeshRenderData *mr,
                                         MeshBufferCache *cache,
-                                        const eMRIterType iter_type,
-                                        const eMRDataType data_flag);
+                                        eMRIterType iter_type,
+                                        eMRDataType data_flag);
 void mesh_render_data_update_polys_sorted(MeshRenderData *mr,
                                           MeshBufferCache *cache,
-                                          const eMRDataType data_flag);
+                                          eMRDataType data_flag);
 /**
  * Part of the creation of the #MeshRenderData that happens in a thread.
  */
 void mesh_render_data_update_looptris(MeshRenderData *mr,
-                                      const eMRIterType iter_type,
-                                      const eMRDataType data_flag);
+                                      eMRIterType iter_type,
+                                      eMRDataType data_flag);
 
 /* draw_cache_extract_mesh_extractors.c */
 typedef struct EditLoopData {
   uchar v_flag;
   uchar e_flag;
+  /* This is used for both vertex and edge creases. The edge crease value is stored in the bottom 4
+   * bits, while the vertex crease is stored in the upper 4 bits. */
   uchar crease;
   uchar bweight;
 } EditLoopData;
@@ -307,19 +303,19 @@ typedef struct EditLoopData {
 void *mesh_extract_buffer_get(const MeshExtract *extractor, MeshBufferList *mbuflist);
 eMRIterType mesh_extract_iter_type(const MeshExtract *ext);
 const MeshExtract *mesh_extract_override_get(const MeshExtract *extractor,
-                                             const bool do_hq_normals,
-                                             const bool do_single_mat);
+                                             bool do_hq_normals,
+                                             bool do_single_mat);
 void mesh_render_data_face_flag(const MeshRenderData *mr,
                                 const BMFace *efa,
-                                const int cd_ofs,
+                                int cd_ofs,
                                 EditLoopData *eattr);
 void mesh_render_data_loop_flag(const MeshRenderData *mr,
                                 BMLoop *l,
-                                const int cd_ofs,
+                                int cd_ofs,
                                 EditLoopData *eattr);
 void mesh_render_data_loop_edge_flag(const MeshRenderData *mr,
                                      BMLoop *l,
-                                     const int cd_ofs,
+                                     int cd_ofs,
                                      EditLoopData *eattr);
 
 extern const MeshExtract extract_tris;

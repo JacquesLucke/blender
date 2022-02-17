@@ -1,18 +1,5 @@
-#
-# Copyright 2011-2013 Blender Foundation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2011-2022 Blender Foundation
 
 # <pep8 compliant>
 from __future__ import annotations
@@ -74,7 +61,7 @@ enum_panorama_types = (
                           "Similar to most fisheye modern lens, takes sensor dimensions into consideration"),
     ('MIRRORBALL', "Mirror Ball", "Uses the mirror ball mapping"),
     ('FISHEYE_LENS_POLYNOMIAL', "Fisheye Lens Polynomial",
-     "Defines the lens projection as polynomial to allow real world camera lenses to be mimicked."),
+     "Defines the lens projection as polynomial to allow real world camera lenses to be mimicked"),
 )
 
 enum_curve_shape = (
@@ -667,6 +654,11 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         description="Use special type BVH optimized for hair (uses more ram but renders faster)",
         default=True,
     )
+    debug_use_compact_bvh: BoolProperty(
+        name="Use Compact BVH",
+        description="Use compact BVH structure (uses less ram but renders slower)",
+        default=True,
+    )
     debug_bvh_time_steps: IntProperty(
         name="BVH Time Steps",
         description="Split BVH primitives by this number of time steps to speed up render time in cost of memory",
@@ -802,7 +794,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         name="Tile Size",
         default=2048,
         description="",
-        min=8, max=16384,
+        min=8, max=8192,
     )
 
     # Various fine-tuning debug flags
@@ -896,27 +888,27 @@ class CyclesCameraSettings(bpy.types.PropertyGroup):
 
     fisheye_polynomial_k0: FloatProperty(
         name="Fisheye Polynomial K0",
-        description="Coefficient K0 of the lens polinomial",
+        description="Coefficient K0 of the lens polynomial",
         default=camera.default_fisheye_polynomial[0], precision=6, step=0.1, subtype='ANGLE',
     )
     fisheye_polynomial_k1: FloatProperty(
         name="Fisheye Polynomial K1",
-        description="Coefficient K1 of the lens polinomial",
+        description="Coefficient K1 of the lens polynomial",
         default=camera.default_fisheye_polynomial[1], precision=6, step=0.1, subtype='ANGLE',
     )
     fisheye_polynomial_k2: FloatProperty(
         name="Fisheye Polynomial K2",
-        description="Coefficient K2 of the lens polinomial",
+        description="Coefficient K2 of the lens polynomial",
         default=camera.default_fisheye_polynomial[2], precision=6, step=0.1, subtype='ANGLE',
     )
     fisheye_polynomial_k3: FloatProperty(
         name="Fisheye Polynomial K3",
-        description="Coefficient K3 of the lens polinomial",
+        description="Coefficient K3 of the lens polynomial",
         default=camera.default_fisheye_polynomial[3], precision=6, step=0.1, subtype='ANGLE',
     )
     fisheye_polynomial_k4: FloatProperty(
         name="Fisheye Polynomial K4",
-        description="Coefficient K4 of the lens polinomial",
+        description="Coefficient K4 of the lens polynomial",
         default=camera.default_fisheye_polynomial[4], precision=6, step=0.1, subtype='ANGLE',
     )
 
@@ -1369,6 +1361,12 @@ class CyclesPreferences(bpy.types.AddonPreferences):
         default=False,
     )
 
+    use_metalrt: BoolProperty(
+        name="MetalRT (Experimental)",
+        description="MetalRT for ray tracing uses less memory for scenes which use curves extensively, and can give better performance in specific cases. However this support is experimental and some scenes may render incorrectly",
+        default=False,
+    )
+
     def find_existing_device_entry(self, device):
         for device_entry in self.devices:
             if device_entry.id == device[2] and device_entry.type == device[1]:
@@ -1447,6 +1445,19 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                     num += 1
         return num
 
+    def has_multi_device(self):
+        import _cycles
+        compute_device_type = self.get_compute_device_type()
+        device_list = _cycles.available_devices(compute_device_type)
+        for device in device_list:
+            if device[1] == compute_device_type:
+                continue
+            for dev in self.devices:
+                if dev.use and dev.id == device[2]:
+                    return True
+
+        return False
+
     def has_active_device(self):
         return self.get_num_gpu_devices() > 0
 
@@ -1474,7 +1485,8 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                 if sys.platform[:3] == "win":
                     col.label(text="and AMD Radeon Pro 21.Q4 driver or newer", icon='BLANK1')
             elif device_type == 'METAL':
-                col.label(text="Requires Apple Silicon and macOS 12.0 or newer", icon='BLANK1')
+                col.label(text="Requires Apple Silicon with macOS 12.2 or newer", icon='BLANK1')
+                col.label(text="or AMD with macOS 12.3 or newer", icon='BLANK1')
             return
 
         for device in devices:
@@ -1500,6 +1512,12 @@ class CyclesPreferences(bpy.types.AddonPreferences):
             row = layout.row()
             row.use_property_split = True
             row.prop(self, "peer_memory")
+
+        if compute_device_type == 'METAL':
+            row = layout.row()
+            row.use_property_split = True
+            row.prop(self, "use_metalrt")
+
 
     def draw(self, context):
         self.draw_impl(self.layout, context)

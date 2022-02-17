@@ -1,27 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2014 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2014 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup shdnodes
  */
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
 
 namespace blender::nodes::node_shader_sepcomb_xyz_cc {
 
@@ -32,7 +16,7 @@ static void sh_node_sepxyz_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("X"));
   b.add_output<decl::Float>(N_("Y"));
   b.add_output<decl::Float>(N_("Z"));
-};
+}
 
 static int gpu_shader_sepxyz(GPUMaterial *mat,
                              bNode *node,
@@ -111,7 +95,7 @@ static void sh_node_combxyz_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>(N_("Y")).min(-10000.0f).max(10000.0f);
   b.add_input<decl::Float>(N_("Z")).min(-10000.0f).max(10000.0f);
   b.add_output<decl::Vector>(N_("Vector"));
-};
+}
 
 static int gpu_shader_combxyz(GPUMaterial *mat,
                               bNode *node,

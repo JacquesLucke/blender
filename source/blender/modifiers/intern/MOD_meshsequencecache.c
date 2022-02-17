@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup modifiers
@@ -343,10 +329,6 @@ static void velocity_panel_draw(const bContext *UNUSED(C), Panel *panel)
     return;
   }
 
-  if (RNA_pointer_is_null(&fileptr)) {
-    return;
-  }
-
   uiLayoutSetPropSep(layout, true);
   uiTemplateCacheFileVelocity(layout, &fileptr);
   uiItemR(layout, ptr, "velocity_scale", 0, NULL, ICON_NONE);
@@ -361,10 +343,6 @@ static void time_panel_draw(const bContext *UNUSED(C), Panel *panel)
 
   PointerRNA fileptr;
   if (!uiTemplateCacheFilePointer(ptr, "cache_file", &fileptr)) {
-    return;
-  }
-
-  if (RNA_pointer_is_null(&fileptr)) {
     return;
   }
 
@@ -384,12 +362,24 @@ static void render_procedural_panel_draw(const bContext *C, Panel *panel)
     return;
   }
 
-  if (RNA_pointer_is_null(&fileptr)) {
+  uiLayoutSetPropSep(layout, true);
+  uiTemplateCacheFileProcedural(layout, C, &fileptr);
+}
+
+static void override_layers_panel_draw(const bContext *C, Panel *panel)
+{
+  uiLayout *layout = panel->layout;
+
+  PointerRNA ob_ptr;
+  PointerRNA *ptr = modifier_panel_get_property_pointers(panel, &ob_ptr);
+
+  PointerRNA fileptr;
+  if (!uiTemplateCacheFilePointer(ptr, "cache_file", &fileptr)) {
     return;
   }
 
   uiLayoutSetPropSep(layout, true);
-  uiTemplateCacheFileProcedural(layout, C, &fileptr);
+  uiTemplateCacheFileLayers(layout, C, &fileptr);
 }
 
 static void panelRegister(ARegionType *region_type)
@@ -405,6 +395,12 @@ static void panelRegister(ARegionType *region_type)
                              panel_type);
   modifier_subpanel_register(
       region_type, "velocity", "Velocity", NULL, velocity_panel_draw, panel_type);
+  modifier_subpanel_register(region_type,
+                             "override_layers",
+                             "Override Layers",
+                             NULL,
+                             override_layers_panel_draw,
+                             panel_type);
 }
 
 static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
@@ -430,7 +426,6 @@ ModifierTypeInfo modifierType_MeshSequenceCache = {
     /* deformVertsEM */ NULL,
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ modifyMesh,
-    /* modifyHair */ NULL,
     /* modifyGeometrySet */ NULL,
 
     /* initData */ initData,

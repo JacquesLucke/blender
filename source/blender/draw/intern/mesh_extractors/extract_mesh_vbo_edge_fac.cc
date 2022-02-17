@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
@@ -78,7 +62,7 @@ static void extract_edge_fac_init(const MeshRenderData *mr,
     data->edge_loop_count = static_cast<uchar *>(
         MEM_callocN(sizeof(uint32_t) * mr->edge_len, __func__));
 
-    /* HACK(fclem) Detecting the need for edge render.
+    /* HACK(@fclem): Detecting the need for edge render.
      * We could have a flag in the mesh instead or check the modifier stack. */
     const MEdge *med = mr->medge;
     for (int e_index = 0; e_index < mr->edge_len; e_index++, med++) {
@@ -149,9 +133,8 @@ static void extract_edge_fac_iter_poly_mesh(const MeshRenderData *mr,
         const MLoop *ml_next = &mr->mloop[ml_index_other];
         const MVert *v1 = &mr->mvert[ml->v];
         const MVert *v2 = &mr->mvert[ml_next->v];
-        float vnor_f[3];
-        normal_short_to_float_v3(vnor_f, v1->no);
-        float ratio = loop_edge_factor_get(mr->poly_normals[mp_index], v1->co, vnor_f, v2->co);
+        float ratio = loop_edge_factor_get(
+            mr->poly_normals[mp_index], v1->co, mr->vert_normals[ml->v], v2->co);
         data->vbo_data[ml_index] = ratio * 253 + 1;
       }
       else {

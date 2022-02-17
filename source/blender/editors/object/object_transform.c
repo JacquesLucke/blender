@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edobj
@@ -811,8 +795,8 @@ static int apply_objects_internal(bContext *C,
       /* adjust data */
       BKE_mesh_transform(me, mat, true);
 
-      /* update normals */
-      BKE_mesh_calc_normals(me);
+      /* If normal layers exist, they are now dirty. */
+      BKE_mesh_normals_tag_dirty(me);
     }
     else if (ob->type == OB_ARMATURE) {
       bArmature *arm = ob->data;
@@ -1409,7 +1393,7 @@ static int object_origin_set_exec(bContext *C, wmOperator *op)
                   mul_v3_m4v3(&pt->x, diff_mat, mpt);
                 }
 
-                /* Apply transform to editcurve*/
+                /* Apply transform to edit-curve. */
                 if (gps->editcurve != NULL) {
                   for (i = 0; i < gps->editcurve->tot_curve_points; i++) {
                     BezTriple *bezt = &gps->editcurve->curve_points[i].bezt;

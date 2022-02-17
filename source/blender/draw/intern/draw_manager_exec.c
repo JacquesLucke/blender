@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup draw
@@ -354,9 +339,9 @@ static bool draw_call_is_culled(const DRWResourceHandle *handle, DRWView *view)
   return (culling->mask & view->culling_mask) != 0;
 }
 
-void DRW_view_set_active(DRWView *view)
+void DRW_view_set_active(const DRWView *view)
 {
-  DST.view_active = (view) ? view : DST.view_default;
+  DST.view_active = (view != NULL) ? ((DRWView *)view) : DST.view_default;
 }
 
 const DRWView *DRW_view_get_active(void)
@@ -662,8 +647,11 @@ static void draw_update_uniforms(DRWShadingGroup *shgroup,
           *use_tfeedback = GPU_shader_transform_feedback_enable(shgroup->shader,
                                                                 ((GPUVertBuf *)uni->pvalue));
           break;
+        case DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE_REF:
+          GPU_vertbuf_bind_as_ssbo(*uni->vertbuf_ref, uni->location);
+          break;
         case DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE:
-          GPU_vertbuf_bind_as_ssbo((GPUVertBuf *)uni->pvalue, uni->location);
+          GPU_vertbuf_bind_as_ssbo(uni->vertbuf, uni->location);
           break;
           /* Legacy/Fallback support. */
         case DRW_UNIFORM_BASE_INSTANCE:
@@ -1048,6 +1036,15 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
                                cmd->compute.groups_x_len,
                                cmd->compute.groups_y_len,
                                cmd->compute.groups_z_len);
+          break;
+        case DRW_CMD_COMPUTE_REF:
+          GPU_compute_dispatch(shgroup->shader,
+                               cmd->compute_ref.groups_ref[0],
+                               cmd->compute_ref.groups_ref[1],
+                               cmd->compute_ref.groups_ref[2]);
+          break;
+        case DRW_CMD_BARRIER:
+          GPU_memory_barrier(cmd->barrier.type);
           break;
       }
     }

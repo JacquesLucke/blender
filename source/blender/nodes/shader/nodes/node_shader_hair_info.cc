@@ -1,36 +1,19 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
-#include "../node_shader_util.h"
+#include "node_shader_util.hh"
 
 namespace blender::nodes::node_shader_hair_info_cc {
 
-static bNodeSocketTemplate outputs[] = {
-    {SOCK_FLOAT, N_("Is Strand"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-    {SOCK_FLOAT, N_("Intercept"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-    {SOCK_FLOAT, N_("Length"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-    {SOCK_FLOAT, N_("Thickness"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-    {SOCK_VECTOR, N_("Tangent Normal"), 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-    // { SOCK_FLOAT,  0, N_("Fade"),             0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 1.0f},
-    {SOCK_FLOAT, N_("Random")},
-    {-1, ""},
-};
+static void node_declare(NodeDeclarationBuilder &b)
+{
+  b.add_output<decl::Float>(N_("Is Strand"));
+  b.add_output<decl::Float>(N_("Intercept"));
+  b.add_output<decl::Float>(N_("Length"));
+  b.add_output<decl::Float>(N_("Thickness"));
+  b.add_output<decl::Vector>(N_("Tangent Normal"));
+  b.add_output<decl::Float>(N_("Random"));
+}
 
 static int node_shader_gpu_hair_info(GPUMaterial *mat,
                                      bNode *node,
@@ -55,7 +38,7 @@ void register_node_type_sh_hair_info()
   static bNodeType ntype;
 
   sh_node_type_base(&ntype, SH_NODE_HAIR_INFO, "Hair Info", NODE_CLASS_INPUT);
-  node_type_socket_templates(&ntype, nullptr, file_ns::outputs);
+  ntype.declare = file_ns::node_declare;
   node_type_gpu(&ntype, file_ns::node_shader_gpu_hair_info);
 
   nodeRegisterType(&ntype);

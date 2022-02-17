@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -28,12 +14,11 @@
 #  include <iostream>
 
 #  include "BLI_array.hh"
-#  include "BLI_double3.hh"
-#  include "BLI_float3.hh"
 #  include "BLI_index_range.hh"
 #  include "BLI_map.hh"
 #  include "BLI_math_mpq.hh"
-#  include "BLI_mpq3.hh"
+#  include "BLI_math_vec_mpq_types.hh"
+#  include "BLI_math_vec_types.hh"
 #  include "BLI_span.hh"
 #  include "BLI_utility_mixins.hh"
 #  include "BLI_vector.hh"
@@ -91,7 +76,7 @@ struct Plane {
 
   Plane() = default;
   Plane(const mpq3 &norm_exact, const mpq_class &d_exact);
-  Plane(const double3 &norm, const double d);
+  Plane(const double3 &norm, double d);
 
   /** Test equality on the exact fields. */
   bool operator==(const Plane &other) const;

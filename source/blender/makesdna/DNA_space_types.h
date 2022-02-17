@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 /** \file
  * \ingroup DNA
  *
@@ -65,7 +49,14 @@ struct wmTimer;
 typedef struct SpaceProperties_Runtime SpaceProperties_Runtime;
 
 /** Defined in `node_intern.hh`. */
+#ifdef __cplusplus
+namespace blender::ed::space_node {
+struct SpaceNode_Runtime;
+}  // namespace blender::ed::space_node
+using SpaceNode_Runtime = blender::ed::space_node::SpaceNode_Runtime;
+#else
 typedef struct SpaceNode_Runtime SpaceNode_Runtime;
+#endif
 
 /** Defined in `file_intern.h`. */
 typedef struct SpaceFile_Runtime SpaceFile_Runtime;
@@ -259,7 +250,7 @@ typedef enum eSpaceButtons_OutlinerSync {
 /** \name Outliner
  * \{ */
 
-/** Defined in `outliner_intern.h`. */
+/** Defined in `outliner_intern.hh`. */
 typedef struct SpaceOutliner_Runtime SpaceOutliner_Runtime;
 
 /** Outliner */
@@ -986,7 +977,7 @@ enum eFileDetails {
  */
 #define FILE_SELECT_MAX_RECURSIONS (FILE_MAX_LIBEXTRA / 2)
 
-/** Filesel types. */
+/** File selector types. */
 typedef enum eFileSelectType {
   FILE_LOADLIB = 1,
   FILE_MAIN = 2,
@@ -1000,7 +991,7 @@ typedef enum eFileSelectType {
   FILE_SPECIAL = 9,
 } eFileSelectType;
 
-/** filesel op property -> action. */
+/** File-selector op property -> action. */
 typedef enum eFileSel_Action {
   FILE_OPENFILE = 0,
   FILE_SAVE = 1,
@@ -1223,11 +1214,10 @@ typedef struct SpaceImage {
   /** UV draw type. */
   char dt_uv;
   /** Sticky selection type. */
-  char sticky;
   char dt_uvstretch;
   char around;
 
-  char _pad1[3];
+  char _pad1[4];
 
   int flag;
 
@@ -1273,15 +1263,6 @@ typedef enum eSpaceImage_Mode {
   SI_MODE_MASK = 2,
   SI_MODE_UV = 3,
 } eSpaceImage_Mode;
-
-/* SpaceImage.sticky
- * Note DISABLE should be 0, however would also need to re-arrange icon order,
- * also, sticky loc is the default mode so this means we don't need to 'do_versions' */
-typedef enum eSpaceImage_Sticky {
-  SI_STICKY_LOC = 0,
-  SI_STICKY_DISABLE = 1,
-  SI_STICKY_VERTEX = 2,
-} eSpaceImage_Sticky;
 
 /** #SpaceImage.flag */
 typedef enum eSpaceImage_Flag {
@@ -1755,7 +1736,7 @@ typedef struct SpaceClip {
    */
   float stabmat[4][4], unistabmat[4][4];
 
-  /* movie postprocessing */
+  /** Movie postprocessing. */
   int postproc_flag;
 
   /* grease pencil */

@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. */
 
 /** \file
  * \ingroup edanimation
@@ -1281,6 +1266,61 @@ static short set_bezt_sine(KeyframeEditData *UNUSED(ked), BezTriple *bezt)
     bezt->ipo = BEZT_IPO_SINE;
   }
   return 0;
+}
+
+static void handle_flatten(float vec[3][3], const int idx, const float direction[2])
+{
+  BLI_assert_msg(idx == 0 || idx == 2, "handle_flatten() expects a handle index");
+
+  add_v2_v2v2(vec[idx], vec[1], direction);
+}
+
+static void handle_set_length(float vec[3][3], const int idx, const float handle_length)
+{
+  BLI_assert_msg(idx == 0 || idx == 2, "handle_set_length() expects a handle index");
+
+  float handle_direction[2];
+  sub_v2_v2v2(handle_direction, vec[idx], vec[1]);
+  normalize_v2_length(handle_direction, handle_length);
+  add_v2_v2v2(vec[idx], vec[1], handle_direction);
+}
+
+void ANIM_fcurve_equalize_keyframes_loop(FCurve *fcu,
+                                         const eEditKeyframes_Equalize mode,
+                                         const float handle_length,
+                                         const bool flatten)
+{
+  uint i;
+  BezTriple *bezt;
+  const float flat_direction_left[2] = {-handle_length, 0.f};
+  const float flat_direction_right[2] = {handle_length, 0.f};
+
+  /* Loop through an F-Curves keyframes. */
+  for (bezt = fcu->bezt, i = 0; i < fcu->totvert; bezt++, i++) {
+    if ((bezt->f2 & SELECT) == 0) {
+      continue;
+    }
+
+    /* Perform handle equalization if mode is 'Both' or 'Left'. */
+    if (mode & EQUALIZE_HANDLES_LEFT) {
+      if (flatten) {
+        handle_flatten(bezt->vec, 0, flat_direction_left);
+      }
+      else {
+        handle_set_length(bezt->vec, 0, handle_length);
+      }
+    }
+
+    /* Perform handle equalization if mode is 'Both' or 'Right'. */
+    if (mode & EQUALIZE_HANDLES_RIGHT) {
+      if (flatten) {
+        handle_flatten(bezt->vec, 2, flat_direction_right);
+      }
+      else {
+        handle_set_length(bezt->vec, 2, handle_length);
+      }
+    }
+  }
 }
 
 KeyframeEditFunc ANIM_editkeyframes_ipo(short mode)

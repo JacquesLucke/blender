@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup RNA
@@ -617,6 +601,19 @@ static void rna_uiTemplateCacheFileTimeSettings(uiLayout *layout,
   }
 
   uiTemplateCacheFileTimeSettings(layout, &fileptr);
+}
+
+static void rna_uiTemplateCacheFileLayers(uiLayout *layout,
+                                          bContext *C,
+                                          PointerRNA *ptr,
+                                          const char *propname)
+{
+  PointerRNA fileptr;
+  if (!uiTemplateCacheFilePointer(ptr, propname, &fileptr)) {
+    return;
+  }
+
+  uiTemplateCacheFileLayers(layout, C, &fileptr);
 }
 
 static void rna_uiTemplatePathBuilder(uiLayout *layout,
@@ -1845,6 +1842,11 @@ void RNA_api_ui_layout(StructRNA *srna)
   func = RNA_def_function(
       srna, "template_cache_file_time_settings", "rna_uiTemplateCacheFileTimeSettings");
   RNA_def_function_ui_description(func, "Show cache files time settings");
+  api_ui_item_rna_common(func);
+
+  func = RNA_def_function(srna, "template_cache_file_layers", "rna_uiTemplateCacheFileLayers");
+  RNA_def_function_ui_description(func, "Show cache files override layers properties");
+  RNA_def_function_flag(func, FUNC_USE_CONTEXT);
   api_ui_item_rna_common(func);
 
   func = RNA_def_function(srna, "template_recent_files", "uiTemplateRecentFiles");

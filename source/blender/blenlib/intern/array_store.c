@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bli
@@ -439,7 +425,7 @@ static void bchunk_list_ensure_min_size_last(const BArrayInfo *info,
       if (data_merge_len <= info->chunk_byte_size_max) {
         /* we have enough space to merge */
 
-        /* remove last from linklist */
+        /* Remove last from the linked-list. */
         BLI_assert(chunk_list->chunk_refs.last != chunk_list->chunk_refs.first);
         cref->prev->next = NULL;
         chunk_list->chunk_refs.last = cref->prev;

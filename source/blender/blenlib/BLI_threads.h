@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -167,7 +151,7 @@ typedef pthread_cond_t ThreadCondition;
 
 void BLI_condition_init(ThreadCondition *cond);
 void BLI_condition_wait(ThreadCondition *cond, ThreadMutex *mutex);
-void BLI_condition_wait_global_mutex(ThreadCondition *cond, const int type);
+void BLI_condition_wait_global_mutex(ThreadCondition *cond, int type);
 void BLI_condition_notify_one(ThreadCondition *cond);
 void BLI_condition_notify_all(ThreadCondition *cond);
 void BLI_condition_end(ThreadCondition *cond);
@@ -209,13 +193,6 @@ void BLI_thread_queue_nowait(ThreadQueue *queue);
 #  define BLI_thread_local_get(name) name
 #  define BLI_thread_local_set(name, value) name = value
 #endif /* defined(__APPLE__) */
-
-/* **** Special functions to help performance on crazy NUMA setups. **** */
-
-/* Make sure process/thread is using NUMA node with fast memory access. */
-
-void BLI_thread_put_process_on_fast_node(void);
-void BLI_thread_put_thread_on_fast_node(void);
 
 #ifdef __cplusplus
 }

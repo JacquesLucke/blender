@@ -1,20 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # <pep8 compliant>
 import bpy
@@ -66,7 +50,7 @@ class GeometryNodeCategory(SortedNodeCategory):
 
 
 # menu entry for node group tools
-def group_tools_draw(self, layout, _context):
+def group_tools_draw(_self, layout, _context):
     layout.operator("node.group_make")
     layout.operator("node.group_ungroup")
     layout.separator()
@@ -142,6 +126,8 @@ def mesh_node_items(context):
         yield NodeItemCustom(draw=lambda self, layout, context: layout.separator())
 
     yield NodeItem("GeometryNodeDualMesh")
+    yield NodeItem("GeometryNodeExtrudeMesh")
+    yield NodeItem("GeometryNodeFlipFaces")
     yield NodeItem("GeometryNodeMeshBoolean")
     yield NodeItem("GeometryNodeMeshToCurve")
     yield NodeItem("GeometryNodeMeshToPoints")
@@ -149,6 +135,7 @@ def mesh_node_items(context):
     yield NodeItem("GeometryNodeSubdivideMesh")
     yield NodeItem("GeometryNodeSubdivisionSurface")
     yield NodeItem("GeometryNodeTriangulate")
+    yield NodeItem("GeometryNodeScaleElements")
     yield NodeItemCustom(draw=lambda self, layout, context: layout.separator())
     yield NodeItem("GeometryNodeInputMeshEdgeAngle")
     yield NodeItem("GeometryNodeInputMeshEdgeNeighbors")
@@ -178,6 +165,7 @@ def geometry_node_items(context):
     yield NodeItem("GeometryNodeConvexHull")
     yield NodeItem("GeometryNodeDeleteGeometry")
     yield NodeItem("GeometryNodeGeometryToInstance")
+    yield NodeItem("GeometryNodeMergeByDistance")
     yield NodeItem("GeometryNodeProximity")
     yield NodeItem("GeometryNodeJoinGeometry")
     yield NodeItem("GeometryNodeRaycast")
@@ -387,6 +375,7 @@ shader_node_categories = [
         NodeItem("ShaderNodeAmbientOcclusion"),
         NodeItem("ShaderNodeObjectInfo"),
         NodeItem("ShaderNodeHairInfo"),
+        NodeItem("ShaderNodePointInfo"),
         NodeItem("ShaderNodeVolumeInfo"),
         NodeItem("ShaderNodeParticleInfo"),
         NodeItem("ShaderNodeCameraData"),
@@ -501,6 +490,7 @@ compositor_node_categories = [
         NodeItem("CompositorNodeTexture"),
         NodeItem("CompositorNodeBokehImage"),
         NodeItem("CompositorNodeTime"),
+        NodeItem("CompositorNodeSceneTime"),
         NodeItem("CompositorNodeTrackPos"),
     ]),
     CompositorNodeCategory("CMP_OUTPUT", "Output", items=[
@@ -541,7 +531,10 @@ compositor_node_categories = [
         NodeItem("CompositorNodeCombYUVA"),
         NodeItem("CompositorNodeSepYCCA"),
         NodeItem("CompositorNodeCombYCCA"),
+        NodeItem("CompositorNodeSeparateXYZ"),
+        NodeItem("CompositorNodeCombineXYZ"),
         NodeItem("CompositorNodeSwitchView"),
+        NodeItem("CompositorNodeConvertColorSpace"),
     ]),
     CompositorNodeCategory("CMP_OP_FILTER", "Filter", items=[
         NodeItem("CompositorNodeBlur"),
@@ -702,6 +695,7 @@ geometry_node_categories = [
         NodeItem("GeometryNodeCurvePrimitiveCircle"),
         NodeItem("GeometryNodeCurveStar"),
         NodeItem("GeometryNodeCurveSpiral"),
+        NodeItem("GeometryNodeCurveArc"),
         NodeItem("GeometryNodeCurveQuadraticBezier"),
         NodeItem("GeometryNodeCurvePrimitiveQuadrilateral"),
         NodeItem("GeometryNodeCurvePrimitiveBezierSegment"),
@@ -755,6 +749,7 @@ geometry_node_categories = [
     ]),
     GeometryNodeCategory("GEO_UTILITIES", "Utilities", items=[
         NodeItem("GeometryNodeAccumulateField"),
+        NodeItem("GeometryNodeFieldAtIndex"),
         NodeItem("ShaderNodeMapRange"),
         NodeItem("ShaderNodeFloatCurve"),
         NodeItem("ShaderNodeClamp"),

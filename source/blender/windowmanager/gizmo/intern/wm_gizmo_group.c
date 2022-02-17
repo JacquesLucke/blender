@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2014 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2014 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -706,7 +690,7 @@ wmKeyMap *WM_gizmogroup_setup_keymap_generic_maybe_drag(const wmGizmoGroupType *
 /**
  * Variation of #WM_gizmogroup_keymap_common but with keymap items for selection
  *
- * TODO(campbell): move to Python.
+ * TODO(@campbellbarton): move to Python.
  *
  * \param name: Typically #wmGizmoGroupType.name
  * \param params: Typically #wmGizmoGroupType.gzmap_params
@@ -719,7 +703,7 @@ static wmKeyMap *WM_gizmogroup_keymap_template_select_ex(
   wmKeyMap *km = WM_keymap_ensure(kc, name, params->spaceid, params->regionid);
   const bool do_init = BLI_listbase_is_empty(&km->items);
 
-  /* FIXME(campbell) */
+  /* FIXME(@campbellbarton): Currently hard coded. */
 #if 0
   const int select_mouse = (U.flag & USER_LMOUSESELECT) ? LEFTMOUSE : RIGHTMOUSE;
   const int select_tweak = (U.flag & USER_LMOUSESELECT) ? EVT_TWEAK_L : EVT_TWEAK_R;

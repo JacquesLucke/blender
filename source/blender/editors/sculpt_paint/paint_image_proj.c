@@ -1,22 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * The Original Code is: some of this file.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edsculpt
@@ -414,6 +397,7 @@ typedef struct ProjPaintState {
   int totvert_eval;
 
   const MVert *mvert_eval;
+  const float (*vert_normals)[3];
   const MEdge *medge_eval;
   const MPoly *mpoly_eval;
   const MLoop *mloop_eval;
@@ -1718,10 +1702,10 @@ static float project_paint_uvpixel_mask(const ProjPaintState *ps,
     float no[3], angle_cos;
 
     if (mp->flag & ME_SMOOTH) {
-      const short *no1, *no2, *no3;
-      no1 = ps->mvert_eval[lt_vtri[0]].no;
-      no2 = ps->mvert_eval[lt_vtri[1]].no;
-      no3 = ps->mvert_eval[lt_vtri[2]].no;
+      const float *no1, *no2, *no3;
+      no1 = ps->vert_normals[lt_vtri[0]];
+      no2 = ps->vert_normals[lt_vtri[1]];
+      no3 = ps->vert_normals[lt_vtri[2]];
 
       no[0] = w[0] * no1[0] + w[1] * no2[0] + w[2] * no3[0];
       no[1] = w[0] * no1[1] + w[1] * no2[1] + w[2] * no3[1];
@@ -1729,17 +1713,12 @@ static float project_paint_uvpixel_mask(const ProjPaintState *ps,
       normalize_v3(no);
     }
     else {
-#if 1
       /* In case the normalizing per pixel isn't optimal,
        * we could cache or access from evaluated mesh. */
       normal_tri_v3(no,
                     ps->mvert_eval[lt_vtri[0]].co,
                     ps->mvert_eval[lt_vtri[1]].co,
                     ps->mvert_eval[lt_vtri[2]].co);
-#else
-      /* Don't use because some modifiers don't have normal data (subsurf for eg). */
-      copy_v3_v3(no, (float *)ps->dm->getTessFaceData(ps->dm, tri_index, CD_NORMAL));
-#endif
     }
 
     if (UNLIKELY(ps->is_flip_object)) {
@@ -3871,7 +3850,6 @@ static void proj_paint_state_screen_coords_init(ProjPaintState *ps, const int di
 
 static void proj_paint_state_cavity_init(ProjPaintState *ps)
 {
-  const MVert *mv;
   const MEdge *me;
   float *cavities;
   int a;
@@ -3891,13 +3869,11 @@ static void proj_paint_state_cavity_init(ProjPaintState *ps)
       sub_v3_v3(edges[me->v1], e);
       counter[me->v1]++;
     }
-    for (a = 0, mv = ps->mvert_eval; a < ps->totvert_eval; a++, mv++) {
+    for (a = 0; a < ps->totvert_eval; a++) {
       if (counter[a] > 0) {
-        float no[3];
         mul_v3_fl(edges[a], 1.0f / counter[a]);
-        normal_short_to_float_v3(no, mv->no);
         /* Augment the difference. */
-        cavities[a] = saacos(10.0f * dot_v3v3(no, edges[a])) * (float)M_1_PI;
+        cavities[a] = saacos(10.0f * dot_v3v3(ps->vert_normals[a], edges[a])) * (float)M_1_PI;
       }
       else {
         cavities[a] = 0.0;
@@ -3964,7 +3940,7 @@ static void proj_paint_state_vert_flags_init(ProjPaintState *ps)
     ps->vertFlags = MEM_callocN(sizeof(char) * ps->totvert_eval, "paint-vertFlags");
 
     for (a = 0, mv = ps->mvert_eval; a < ps->totvert_eval; a++, mv++) {
-      normal_short_to_float_v3(no, mv->no);
+      copy_v3_v3(no, ps->vert_normals[a]);
       if (UNLIKELY(ps->is_flip_object)) {
         negate_v3(no);
       }
@@ -4064,6 +4040,7 @@ static bool proj_paint_state_mesh_eval_init(const bContext *C, ProjPaintState *p
   ps->mat_array[totmat - 1] = NULL;
 
   ps->mvert_eval = ps->me_eval->mvert;
+  ps->vert_normals = BKE_mesh_vertex_normals_ensure(ps->me_eval);
   if (ps->do_mask_cavity) {
     ps->medge_eval = ps->me_eval->medge;
   }
@@ -6082,7 +6059,8 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
     view_data = IDP_GetPropertyTypeFromGroup(idgroup, PROJ_VIEW_DATA_ID, IDP_ARRAY);
 
     /* type check to make sure its ok */
-    if (view_data->len != PROJ_VIEW_DATA_SIZE || view_data->subtype != IDP_FLOAT) {
+    if (view_data != NULL &&
+        (view_data->len != PROJ_VIEW_DATA_SIZE || view_data->subtype != IDP_FLOAT)) {
       BKE_report(op->reports, RPT_ERROR, "Image project data invalid");
       return OPERATOR_CANCELLED;
     }
@@ -6567,7 +6545,7 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 
     nodeSetActive(ntree, imanode);
 
-    /* Connect to first available principled bsdf node. */
+    /* Connect to first available principled BSDF node. */
     bNode *in_node = ntreeFindType(ntree, SH_NODE_BSDF_PRINCIPLED);
     bNode *out_node = imanode;
 

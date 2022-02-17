@@ -1,23 +1,11 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #ifndef __BLENDER_UTIL_H__
 #define __BLENDER_UTIL_H__
 
 #include "scene/mesh.h"
+#include "scene/scene.h"
 
 #include "util/algorithm.h"
 #include "util/array.h"
@@ -668,6 +656,40 @@ static inline uint object_ray_visibility(BL::Object &b_ob)
   flag |= b_ob.visible_volume_scatter() ? PATH_RAY_VOLUME_SCATTER : 0;
 
   return flag;
+}
+
+/* Check whether some of "built-in" motion-related attributes are needed to be exported (includes
+ * things like velocity from cache modifier, fluid simulation).
+ *
+ * NOTE: This code is run prior to object motion blur initialization. so can not access properties
+ * set by `sync_object_motion_init()`. */
+static inline bool object_need_motion_attribute(BObjectInfo &b_ob_info, Scene *scene)
+{
+  const Scene::MotionType need_motion = scene->need_motion();
+  if (need_motion == Scene::MOTION_NONE) {
+    /* Simple case: neither motion pass nor motion blur is needed, no need in the motion related
+     * attributes. */
+    return false;
+  }
+
+  if (need_motion == Scene::MOTION_BLUR) {
+    /* A bit tricky and implicit case:
+     * - Motion blur is enabled in the scene, which implies specific number of time steps for
+     *   objects.
+     * - If the object has motion blur disabled on it, it will have 0 time steps.
+     * - Motion attribute expects non-zero time steps.
+     *
+     * Avoid adding motion attributes if the motion blur will enforce 0 motion steps. */
+    PointerRNA cobject = RNA_pointer_get(&b_ob_info.real_object.ptr, "cycles");
+    const bool use_motion = get_boolean(cobject, "use_motion_blur");
+    if (!use_motion) {
+      return false;
+    }
+  }
+
+  /* Motion pass which implies 3 motion steps, or motion blur which is not disabled on object
+   * level. */
+  return true;
 }
 
 class EdgeMap {

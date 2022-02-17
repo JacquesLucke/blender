@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #include "scene/background.h"
 #include "scene/camera.h"
@@ -787,6 +774,7 @@ SceneParams BlenderSync::get_scene_params(BL::Scene &b_scene, bool background)
     params.bvh_type = BVH_TYPE_DYNAMIC;
 
   params.use_bvh_spatial_split = RNA_boolean_get(&cscene, "debug_use_spatial_splits");
+  params.use_bvh_compact_structure = RNA_boolean_get(&cscene, "debug_use_compact_bvh");
   params.use_bvh_unaligned_nodes = RNA_boolean_get(&cscene, "debug_use_hair_bvh");
   params.num_bvh_time_steps = RNA_int_get(&cscene, "debug_bvh_time_steps");
 
@@ -831,6 +819,14 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine &b_engine,
 {
   SessionParams params;
   PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
+
+  if (background && !b_engine.is_preview()) {
+    /* Viewport and preview renders do not require temp directory and do request session
+     * parameters more often than the background render.
+     * Optimize RNA-C++ usage and memory allocation a bit by saving string access which we know is
+     * not needed for viewport render. */
+    params.temp_dir = b_engine.temporary_directory();
+  }
 
   /* feature set */
   params.experimental = (get_enum(cscene, "feature_set") != 0);
