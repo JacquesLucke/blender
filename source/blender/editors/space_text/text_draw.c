@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup sptext
@@ -79,10 +64,8 @@ static void text_font_end(const TextDrawContext *UNUSED(tdc))
 
 static int text_font_draw(const TextDrawContext *tdc, int x, int y, const char *str)
 {
-  int columns;
-
   BLF_position(tdc->font_id, x, y, 0);
-  columns = BLF_draw_mono(tdc->font_id, str, BLF_DRAW_STR_DUMMY_MAX, tdc->cwidth_px);
+  const int columns = BLF_draw_mono(tdc->font_id, str, BLF_DRAW_STR_DUMMY_MAX, tdc->cwidth_px);
 
   return tdc->cwidth_px * columns;
 }
@@ -90,18 +73,17 @@ static int text_font_draw(const TextDrawContext *tdc, int x, int y, const char *
 static int text_font_draw_character(const TextDrawContext *tdc, int x, int y, char c)
 {
   BLF_position(tdc->font_id, x, y, 0);
-  BLF_draw(tdc->font_id, &c, 1);
+  BLF_draw_mono(tdc->font_id, &c, 1, tdc->cwidth_px);
 
   return tdc->cwidth_px;
 }
 
-static int text_font_draw_character_utf8(const TextDrawContext *tdc, int x, int y, const char *c)
+static int text_font_draw_character_utf8(
+    const TextDrawContext *tdc, int x, int y, const char *c, const int c_len)
 {
-  int columns;
-
-  const size_t len = BLI_str_utf8_size_safe(c);
+  BLI_assert(c_len == BLI_str_utf8_size_safe(c));
   BLF_position(tdc->font_id, x, y, 0);
-  columns = BLF_draw_mono(tdc->font_id, c, len, tdc->cwidth_px);
+  const int columns = BLF_draw_mono(tdc->font_id, c, c_len, tdc->cwidth_px);
 
   return tdc->cwidth_px * columns;
 }
@@ -463,13 +445,15 @@ static int text_draw_wrapped(const SpaceText *st,
       }
 
       /* Draw the visible portion of text on the overshot line */
-      for (a = fstart, ma = mstart; ma < mend; a++, ma += BLI_str_utf8_size_safe(str + ma)) {
+      for (a = fstart, ma = mstart; ma < mend; a++) {
         if (use_syntax) {
           if (fmt_prev != format[a]) {
             format_draw_color(tdc, fmt_prev = format[a]);
           }
         }
-        x += text_font_draw_character_utf8(tdc, x, y, str + ma);
+        const int c_len = BLI_str_utf8_size_safe(str + ma);
+        x += text_font_draw_character_utf8(tdc, x, y, str + ma, c_len);
+        ma += c_len;
         fpos++;
       }
       y -= TXT_LINE_HEIGHT(st);
@@ -491,15 +475,16 @@ static int text_draw_wrapped(const SpaceText *st,
   }
 
   /* Draw the remaining text */
-  for (a = fstart, ma = mstart; str[ma] && y > clip_min_y;
-       a++, ma += BLI_str_utf8_size_safe(str + ma)) {
+  for (a = fstart, ma = mstart; str[ma] && y > clip_min_y; a++) {
     if (use_syntax) {
       if (fmt_prev != format[a]) {
         format_draw_color(tdc, fmt_prev = format[a]);
       }
     }
 
-    x += text_font_draw_character_utf8(tdc, x, y, str + ma);
+    const int c_len = BLI_str_utf8_size_safe(str + ma);
+    x += text_font_draw_character_utf8(tdc, x, y, str + ma, c_len);
+    ma += c_len;
   }
 
   flatten_string_free(&fs);
@@ -559,8 +544,9 @@ static void text_draw(const SpaceText *st,
       if (format[a] != fmt_prev) {
         format_draw_color(tdc, fmt_prev = format[a]);
       }
-      x += text_font_draw_character_utf8(tdc, x, y, in + str_shift);
-      str_shift += BLI_str_utf8_size_safe(in + str_shift);
+      const int c_len = BLI_str_utf8_size_safe(in + str_shift);
+      x += text_font_draw_character_utf8(tdc, x, y, in + str_shift, c_len);
+      str_shift += c_len;
     }
   }
   else {

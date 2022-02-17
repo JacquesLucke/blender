@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup draw
@@ -64,6 +49,15 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+/* Uncomment to track unused resource bindings. */
+// #define DRW_UNUSED_RESOURCE_TRACKING
+
+#ifdef DRW_UNUSED_RESOURCE_TRACKING
+#  define DRW_DEBUG_FILE_LINE_ARGS , const char *file, int line
+#else
+#  define DRW_DEBUG_FILE_LINE_ARGS
 #endif
 
 struct GPUBatch;
@@ -468,6 +462,10 @@ void DRW_shgroup_call_compute(DRWShadingGroup *shgroup,
                               int groups_x_len,
                               int groups_y_len,
                               int groups_z_len);
+/**
+ * \warning this keeps the ref to groups_ref until it actually dispatch.
+ */
+void DRW_shgroup_call_compute_ref(DRWShadingGroup *shgroup, int groups_ref[3]);
 void DRW_shgroup_call_procedural_points(DRWShadingGroup *sh, Object *ob, uint point_count);
 void DRW_shgroup_call_procedural_lines(DRWShadingGroup *sh, Object *ob, uint line_count);
 void DRW_shgroup_call_procedural_triangles(DRWShadingGroup *sh, Object *ob, uint tri_count);
@@ -534,6 +532,11 @@ void DRW_shgroup_stencil_set(DRWShadingGroup *shgroup,
 void DRW_shgroup_stencil_mask(DRWShadingGroup *shgroup, uint mask);
 
 /**
+ * Issue a barrier command.
+ */
+void DRW_shgroup_barrier(DRWShadingGroup *shgroup, eGPUBarrier type);
+
+/**
  * Issue a clear command.
  */
 void DRW_shgroup_clear_framebuffer(DRWShadingGroup *shgroup,
@@ -559,12 +562,12 @@ void DRW_shgroup_uniform_texture(DRWShadingGroup *shgroup,
 void DRW_shgroup_uniform_texture_ref(DRWShadingGroup *shgroup,
                                      const char *name,
                                      struct GPUTexture **tex);
-void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup,
-                               const char *name,
-                               const struct GPUUniformBuf *ubo);
-void DRW_shgroup_uniform_block_ref(DRWShadingGroup *shgroup,
-                                   const char *name,
-                                   struct GPUUniformBuf **ubo);
+void DRW_shgroup_uniform_block_ex(DRWShadingGroup *shgroup,
+                                  const char *name,
+                                  const struct GPUUniformBuf *ubo DRW_DEBUG_FILE_LINE_ARGS);
+void DRW_shgroup_uniform_block_ref_ex(DRWShadingGroup *shgroup,
+                                      const char *name,
+                                      struct GPUUniformBuf **ubo DRW_DEBUG_FILE_LINE_ARGS);
 void DRW_shgroup_uniform_float(DRWShadingGroup *shgroup,
                                const char *name,
                                const float *value,
@@ -624,9 +627,32 @@ void DRW_shgroup_uniform_vec4_array_copy(DRWShadingGroup *shgroup,
                                          const char *name,
                                          const float (*value)[4],
                                          int arraysize);
-void DRW_shgroup_vertex_buffer(DRWShadingGroup *shgroup,
-                               const char *name,
-                               struct GPUVertBuf *vertex_buffer);
+void DRW_shgroup_vertex_buffer_ex(DRWShadingGroup *shgroup,
+                                  const char *name,
+                                  struct GPUVertBuf *vertex_buffer DRW_DEBUG_FILE_LINE_ARGS);
+void DRW_shgroup_vertex_buffer_ref_ex(DRWShadingGroup *shgroup,
+                                      const char *name,
+                                      struct GPUVertBuf **vertex_buffer DRW_DEBUG_FILE_LINE_ARGS);
+
+#ifdef DRW_UNUSED_RESOURCE_TRACKING
+#  define DRW_shgroup_vertex_buffer(shgroup, name, vert) \
+    DRW_shgroup_vertex_buffer_ex(shgroup, name, vert, __FILE__, __LINE__)
+#  define DRW_shgroup_vertex_buffer_ref(shgroup, name, vert) \
+    DRW_shgroup_vertex_buffer_ref_ex(shgroup, name, vert, __FILE__, __LINE__)
+#  define DRW_shgroup_uniform_block(shgroup, name, ubo) \
+    DRW_shgroup_uniform_block_ex(shgroup, name, ubo, __FILE__, __LINE__)
+#  define DRW_shgroup_uniform_block_ref(shgroup, name, ubo) \
+    DRW_shgroup_uniform_block_ref_ex(shgroup, name, ubo, __FILE__, __LINE__)
+#else
+#  define DRW_shgroup_vertex_buffer(shgroup, name, vert) \
+    DRW_shgroup_vertex_buffer_ex(shgroup, name, vert)
+#  define DRW_shgroup_vertex_buffer_ref(shgroup, name, vert) \
+    DRW_shgroup_vertex_buffer_ref_ex(shgroup, name, vert)
+#  define DRW_shgroup_uniform_block(shgroup, name, ubo) \
+    DRW_shgroup_uniform_block_ex(shgroup, name, ubo)
+#  define DRW_shgroup_uniform_block_ref(shgroup, name, ubo) \
+    DRW_shgroup_uniform_block_ref_ex(shgroup, name, ubo)
+#endif
 
 bool DRW_shgroup_is_empty(DRWShadingGroup *shgroup);
 

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -143,18 +129,6 @@ bool BKE_object_modifier_stack_copy(struct Object *ob_dst,
 void BKE_object_link_modifiers(struct Object *ob_dst, const struct Object *ob_src);
 void BKE_object_free_modifiers(struct Object *ob, int flag);
 void BKE_object_free_shaderfx(struct Object *ob, int flag);
-
-/**
- * Proxy rule:
- * - `lib_object->proxy_from` == the one we borrow from, set temporally while object_update.
- * - `local_object->proxy` == pointer to library object, saved in files and read.
- * - `local_object->proxy_group` == pointer to collection dupli-object, saved in files and read.
- */
-void BKE_object_make_proxy(struct Main *bmain,
-                           struct Object *ob,
-                           struct Object *target,
-                           struct Object *cob);
-void BKE_object_copy_proxy_drivers(struct Object *ob, struct Object *target);
 
 bool BKE_object_exists_check(struct Main *bmain, const struct Object *obtest);
 /**
@@ -444,8 +418,7 @@ void BKE_object_eval_constraints(struct Depsgraph *depsgraph,
                                  struct Object *ob);
 void BKE_object_eval_transform_final(struct Depsgraph *depsgraph, struct Object *ob);
 
-bool BKE_object_eval_proxy_copy(struct Depsgraph *depsgraph, struct Object *object);
-void BKE_object_eval_uber_transform(struct Depsgraph *depsgraph, struct Object *ob);
+void BKE_object_eval_uber_transform(struct Depsgraph *depsgraph, struct Object *object);
 void BKE_object_eval_uber_data(struct Depsgraph *depsgraph,
                                struct Scene *scene,
                                struct Object *ob);
@@ -486,12 +459,6 @@ void BKE_object_handle_data_update(struct Depsgraph *depsgraph,
  */
 void BKE_object_handle_update(struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob);
 /**
- * Proxy rule:
- * - lib_object->proxy_from == the one we borrow from, only set temporal and cleared here.
- * - local_object->proxy    == pointer to library object, saved in files and read.
- *
- * Function below is polluted with proxy exceptions, cleanup will follow!
- *
  * The main object update call, for object matrix, constraints, keys and #DispList (modifiers)
  * requires flags to be set!
  *
@@ -501,8 +468,7 @@ void BKE_object_handle_update(struct Depsgraph *depsgraph, struct Scene *scene, 
 void BKE_object_handle_update_ex(struct Depsgraph *depsgraph,
                                  struct Scene *scene,
                                  struct Object *ob,
-                                 struct RigidBodyWorld *rbw,
-                                 bool do_proxy_update);
+                                 struct RigidBodyWorld *rbw);
 
 void BKE_object_sculpt_data_create(struct Object *ob);
 

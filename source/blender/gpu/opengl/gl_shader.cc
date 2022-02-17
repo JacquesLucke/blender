@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -85,7 +69,7 @@ static const char *to_string(const Interpolation &interp)
     case Interpolation::NO_PERSPECTIVE:
       return "noperspective";
     default:
-      return "unkown";
+      return "unknown";
   }
 }
 
@@ -122,6 +106,74 @@ static const char *to_string(const Type &type)
       return "ivec4";
     case Type::BOOL:
       return "bool";
+    default:
+      return "unknown";
+  }
+}
+
+static const char *to_string(const eGPUTextureFormat &type)
+{
+  switch (type) {
+    case GPU_RGBA8UI:
+      return "rgba8ui";
+    case GPU_RGBA8I:
+      return "rgba8i";
+    case GPU_RGBA8:
+      return "rgba8";
+    case GPU_RGBA32UI:
+      return "rgba32ui";
+    case GPU_RGBA32I:
+      return "rgba32i";
+    case GPU_RGBA32F:
+      return "rgba32f";
+    case GPU_RGBA16UI:
+      return "rgba16ui";
+    case GPU_RGBA16I:
+      return "rgba16i";
+    case GPU_RGBA16F:
+      return "rgba16f";
+    case GPU_RGBA16:
+      return "rgba16";
+    case GPU_RG8UI:
+      return "rg8ui";
+    case GPU_RG8I:
+      return "rg8i";
+    case GPU_RG8:
+      return "rg8";
+    case GPU_RG32UI:
+      return "rg32ui";
+    case GPU_RG32I:
+      return "rg32i";
+    case GPU_RG32F:
+      return "rg32f";
+    case GPU_RG16UI:
+      return "rg16ui";
+    case GPU_RG16I:
+      return "rg16i";
+    case GPU_RG16F:
+      return "rg16f";
+    case GPU_RG16:
+      return "rg16";
+    case GPU_R8UI:
+      return "r8ui";
+    case GPU_R8I:
+      return "r8i";
+    case GPU_R8:
+      return "r8";
+    case GPU_R32UI:
+      return "r32ui";
+    case GPU_R32I:
+      return "r32i";
+    case GPU_R32F:
+      return "r32f";
+    case GPU_R16UI:
+      return "r16ui";
+    case GPU_R16I:
+      return "r16i";
+    case GPU_R16F:
+      return "r16f";
+    case GPU_R16:
+      return "r16";
     default:
       return "unkown";
   }
@@ -294,7 +346,7 @@ static void print_resource(std::ostream &os, const ShaderCreateInfo::Resource &r
   if (GLContext::explicit_location_support) {
     os << "layout(binding = " << res.slot;
     if (res.bind_type == ShaderCreateInfo::Resource::BindType::IMAGE) {
-      os << ", " << res.image.format;
+      os << ", " << to_string(res.image.format);
     }
     else if (res.bind_type == ShaderCreateInfo::Resource::BindType::UNIFORM_BUFFER) {
       os << ", std140";
@@ -447,11 +499,13 @@ static std::string main_function_wrapper(std::string &pre_main, std::string &pos
 std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) const
 {
   std::stringstream ss;
-  std::string post_main = "";
+  std::string post_main;
 
   ss << "\n/* Inputs. */\n";
   for (const ShaderCreateInfo::VertIn &attr : info.vertex_inputs_) {
-    if (GLContext::explicit_location_support) {
+    if (GLContext::explicit_location_support &&
+        /* Fix issue with AMDGPU-PRO + workbench_prepass_mesh_vert.glsl being quantized. */
+        GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_ANY, GPU_DRIVER_OFFICIAL) == false) {
       ss << "layout(location = " << attr.index << ") ";
     }
     ss << "in " << to_string(attr.type) << " " << attr.name << ";\n";
@@ -478,7 +532,7 @@ std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) con
   ss << "\n";
 
   if (post_main.empty() == false) {
-    std::string pre_main = "";
+    std::string pre_main;
     ss << main_function_wrapper(pre_main, post_main);
   }
   return ss.str();
@@ -487,7 +541,7 @@ std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) con
 std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) const
 {
   std::stringstream ss;
-  std::string pre_main = "";
+  std::string pre_main;
 
   ss << "\n/* Interfaces. */\n";
   const Vector<StageInterfaceInfo *> &in_interfaces = (info.geometry_source_.is_empty()) ?
@@ -541,7 +595,7 @@ std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) c
   ss << "\n";
 
   if (pre_main.empty() == false) {
-    std::string post_main = "";
+    std::string post_main;
     ss << main_function_wrapper(pre_main, post_main);
   }
   return ss.str();
@@ -661,7 +715,7 @@ std::string GLShader::workaround_geometry_shader_source_create(
     ss << "  gl_Layer = gpu_Layer[0];\n";
   }
   for (auto i : IndexRange(3)) {
-    for (auto iface : info_modified.vertex_out_interfaces_) {
+    for (StageInterfaceInfo *iface : info_modified.vertex_out_interfaces_) {
       for (auto &inout : iface->inouts) {
         ss << "  " << iface->instance_name << "_out." << inout.name;
         ss << " = " << iface->instance_name << "_in[" << i << "]." << inout.name << ";\n";
@@ -736,7 +790,7 @@ static char *glsl_patch_default_get()
     STR_CONCAT(patch, slen, "#extension GL_ARB_texture_cube_map_array : enable\n");
     STR_CONCAT(patch, slen, "#define GPU_ARB_texture_cube_map_array\n");
   }
-  if (GLEW_ARB_conservative_depth) {
+  if (!GLEW_VERSION_4_2 && GLEW_ARB_conservative_depth) {
     STR_CONCAT(patch, slen, "#extension GL_ARB_conservative_depth : enable\n");
   }
   if (GPU_shader_image_load_store_support()) {
@@ -758,6 +812,9 @@ static char *glsl_patch_default_get()
 
   /* Vulkan GLSL compat. */
   STR_CONCAT(patch, slen, "#define gpu_InstanceIndex (gl_InstanceID + gpu_BaseInstance)\n");
+
+  /* Array compat. */
+  STR_CONCAT(patch, slen, "#define array(_type) _type[]\n");
 
   /* Derivative sign can change depending on implementation. */
   STR_CONCATF(patch, slen, "#define DFDX_SIGN %1.1f\n", GLContext::derivative_signs[0]);

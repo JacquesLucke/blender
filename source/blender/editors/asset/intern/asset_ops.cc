@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -38,6 +24,8 @@
 #include "ED_util.h"
 /* XXX needs access to the file list, should all be done via the asset system in future. */
 #include "ED_fileselect.h"
+
+#include "BLT_translation.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -342,8 +330,8 @@ static bool asset_clear_poll(bContext *C)
   IDVecStats ctx_stats = asset_operation_get_id_vec_stats_from_context(C);
 
   if (!ctx_stats.has_asset) {
-    const char *msg_single = "Data-block is not marked as asset";
-    const char *msg_multiple = "No data-block selected that is marked as asset";
+    const char *msg_single = TIP_("Data-block is not marked as asset");
+    const char *msg_multiple = TIP_("No data-block selected that is marked as asset");
     CTX_wm_operator_poll_msg_set(C, ctx_stats.is_single ? msg_single : msg_multiple);
     return false;
   }
@@ -365,8 +353,8 @@ static char *asset_clear_get_description(struct bContext *UNUSED(C),
   }
 
   return BLI_strdup(
-      "Delete all asset metadata, turning the selected asset data-blocks back into normal "
-      "data-blocks, and set Fake User to ensure the data-blocks will still be saved");
+      TIP_("Delete all asset metadata, turning the selected asset data-blocks back into normal "
+           "data-blocks, and set Fake User to ensure the data-blocks will still be saved"));
 }
 
 static void ASSET_OT_clear(wmOperatorType *ot)

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -265,8 +251,8 @@ static size_t id_delete(Main *bmain, const bool do_tagged_deletion)
       }
       for (id = last_remapped_id->next; id; id = id->next) {
         /* Will tag 'never NULL' users of this ID too.
-         * Note that we cannot use BKE_libblock_unlink() here,
-         * since it would ignore indirect (and proxy!)
+         *
+         * NOTE: #BKE_libblock_unlink() cannot be used here, since it would ignore indirect
          * links, this can lead to nasty crashing here in second, actual deleting loop.
          * Also, this will also flag users of deleted data that cannot be unlinked
          * (object using deleted obdata, etc.), so that they also get deleted. */
@@ -315,9 +301,9 @@ static size_t id_delete(Main *bmain, const bool do_tagged_deletion)
       }
 
       /* Will tag 'never NULL' users of this ID too.
-       * Note that we cannot use BKE_libblock_unlink() here, since it would ignore indirect
-       * (and proxy!) links, this can lead to nasty crashing here in second,
-       * actual deleting loop.
+       *
+       * NOTE: #BKE_libblock_unlink() cannot be used here, since it would ignore indirect
+       * links, this can lead to nasty crashing here in second, actual deleting loop.
        * Also, this will also flag users of deleted data that cannot be unlinked
        * (object using deleted obdata, etc.), so that they also get deleted. */
       BKE_libblock_remap_multiple_locked(bmain,

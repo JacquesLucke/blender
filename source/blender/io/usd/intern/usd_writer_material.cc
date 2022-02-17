@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "usd_writer_material.h"
 
@@ -96,7 +82,7 @@ struct InputSpec {
 };
 
 /* Map Blender socket names to USD Preview Surface InputSpec structs. */
-typedef std::map<std::string, InputSpec> InputSpecMap;
+using InputSpecMap = std::map<std::string, InputSpec>;
 
 /* Static function forward declarations. */
 static pxr::UsdShadeShader create_usd_preview_shader(const USDExporterContext &usd_export_context,
@@ -286,7 +272,7 @@ static void create_uvmap_shader(const USDExporterContext &usd_export_context,
     }
 
     bNode *uv_node = traverse_channel(tex_node_sock, SH_NODE_UVMAP);
-    if (uv_node == NULL) {
+    if (uv_node == nullptr) {
       continue;
     }
 
@@ -391,7 +377,7 @@ static void export_in_memory_texture(Image *ima,
   BKE_image_path_ensure_ext_from_imformat(file_name, &imageFormat);
 
   char export_path[FILE_MAX];
-  BLI_path_join(export_path, FILE_MAX, export_dir.c_str(), file_name, NULL);
+  BLI_path_join(export_path, FILE_MAX, export_dir.c_str(), file_name, nullptr);
 
   if (!allow_overwrite && BLI_exists(export_path)) {
     return;
@@ -590,7 +576,7 @@ static std::string get_tex_image_asset_path(bNode *node,
     BLI_split_file_part(path.c_str(), file_path, FILE_MAX);
 
     if (export_params.relative_texture_paths) {
-      BLI_path_join(exp_path, FILE_MAX, ".", "textures", file_path, NULL);
+      BLI_path_join(exp_path, FILE_MAX, ".", "textures", file_path, nullptr);
     }
     else {
       /* Create absolute path in the textures directory. */
@@ -602,7 +588,7 @@ static std::string get_tex_image_asset_path(bNode *node,
 
       char dir_path[FILE_MAX];
       BLI_split_dir_part(stage_path.c_str(), dir_path, FILE_MAX);
-      BLI_path_join(exp_path, FILE_MAX, dir_path, "textures", file_path, NULL);
+      BLI_path_join(exp_path, FILE_MAX, dir_path, "textures", file_path, nullptr);
     }
     return exp_path;
   }
@@ -697,7 +683,7 @@ static void copy_single_file(Image *ima, const std::string &dest_dir, const bool
   BLI_split_file_part(source_path, file_name, FILE_MAX);
 
   char dest_path[FILE_MAX];
-  BLI_path_join(dest_path, FILE_MAX, dest_dir.c_str(), file_name, NULL);
+  BLI_path_join(dest_path, FILE_MAX, dest_dir.c_str(), file_name, nullptr);
 
   if (!allow_overwrite && BLI_exists(dest_path)) {
     return;
@@ -743,7 +729,7 @@ static void export_texture(bNode *node,
   BLI_split_dir_part(stage_path.c_str(), usd_dir_path, FILE_MAX);
 
   char tex_dir_path[FILE_MAX];
-  BLI_path_join(tex_dir_path, FILE_MAX, usd_dir_path, "textures", SEP_STR, NULL);
+  BLI_path_join(tex_dir_path, FILE_MAX, usd_dir_path, "textures", SEP_STR, nullptr);
 
   BLI_dir_create_recursive(tex_dir_path);
 

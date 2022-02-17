@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -5850,14 +5834,6 @@ static void add_new_constraint_to_list(Object *ob, bPoseChannel *pchan, bConstra
     BLI_addtail(list, con);
     BKE_constraint_unique_name(con, list);
 
-    /* if the target list is a list on some PoseChannel belonging to a proxy-protected
-     * Armature layer, we must tag newly added constraints with a flag which allows them
-     * to persist after proxy syncing has been done
-     */
-    if (BKE_constraints_proxylocked_owner(ob, pchan)) {
-      con->flag |= CONSTRAINT_PROXY_LOCAL;
-    }
-
     /* make this constraint the active one */
     BKE_constraints_active_set(list, con);
   }
@@ -6211,45 +6187,6 @@ bool BKE_constraint_is_nonlocal_in_liboverride(const Object *ob, const bConstrai
 {
   return (ID_IS_OVERRIDE_LIBRARY(ob) &&
           (con == NULL || (con->flag & CONSTRAINT_OVERRIDE_LIBRARY_LOCAL) == 0));
-}
-
-/* -------- Constraints and Proxies ------- */
-
-void BKE_constraints_proxylocal_extract(ListBase *dst, ListBase *src)
-{
-  bConstraint *con, *next;
-
-  /* for each tagged constraint, remove from src and move to dst */
-  for (con = src->first; con; con = next) {
-    next = con->next;
-
-    /* check if tagged */
-    if (con->flag & CONSTRAINT_PROXY_LOCAL) {
-      BLI_remlink(src, con);
-      BLI_addtail(dst, con);
-    }
-  }
-}
-
-bool BKE_constraints_proxylocked_owner(Object *ob, bPoseChannel *pchan)
-{
-  /* Currently, constraints can only be on object or bone level */
-  if (ob && ob->proxy) {
-    if (ob->pose && pchan) {
-      bArmature *arm = ob->data;
-
-      /* On bone-level, check if bone is on proxy-protected layer */
-      if ((pchan->bone) && (pchan->bone->layer & arm->layer_protected)) {
-        return true;
-      }
-    }
-    else {
-      /* FIXME: constraints on object-level are not handled well yet */
-      return true;
-    }
-  }
-
-  return false;
 }
 
 /* -------- Target-Matrix Stuff ------- */

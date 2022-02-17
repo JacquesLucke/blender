@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2022, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2022 Blender Foundation. */
 
 #pragma once
 
@@ -294,6 +279,10 @@ class UniformArrayBuffer : public detail::UniformCommon<T, len, false> {
   {
     /* TODO(@fclem): We should map memory instead. */
     this->data_ = (T *)MEM_mallocN_aligned(len * sizeof(T), 16, this->name_);
+  }
+  ~UniformArrayBuffer()
+  {
+    MEM_freeN(this->data_);
   }
 };
 
@@ -674,20 +663,20 @@ class Texture : NonCopyable {
     if (h == 0) {
       return GPU_texture_create_1d(name_, w, mips, format, data);
     }
-    else if (d == 0) {
-      if (layered) {
-        return GPU_texture_create_1d_array(name_, w, h, mips, format, data);
-      }
-      else {
-        return GPU_texture_create_2d(name_, w, h, mips, format, data);
-      }
-    }
     else if (cubemap) {
       if (layered) {
         return GPU_texture_create_cube_array(name_, w, d, mips, format, data);
       }
       else {
         return GPU_texture_create_cube(name_, w, mips, format, data);
+      }
+    }
+    else if (d == 0) {
+      if (layered) {
+        return GPU_texture_create_1d_array(name_, w, h, mips, format, data);
+      }
+      else {
+        return GPU_texture_create_2d(name_, w, h, mips, format, data);
       }
     }
     else {

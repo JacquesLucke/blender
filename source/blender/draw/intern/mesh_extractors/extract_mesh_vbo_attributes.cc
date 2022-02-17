@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
@@ -99,6 +83,7 @@ static uint gpu_component_size_for_attribute_type(CustomDataType type)
 {
   switch (type) {
     case CD_PROP_BOOL:
+    case CD_PROP_INT8:
     case CD_PROP_INT32:
     case CD_PROP_FLOAT: {
       /* TODO(@kevindietrich): should be 1 when scalar attributes conversion is handled by us. See
@@ -326,6 +311,10 @@ static void extract_attr_init(const MeshRenderData *mr,
       extract_attr_generic<bool, float3>(mr, vbo, request);
       break;
     }
+    case CD_PROP_INT8: {
+      extract_attr_generic<int8_t, float3>(mr, vbo, request);
+      break;
+    }
     case CD_PROP_INT32: {
       extract_attr_generic<int32_t, float3>(mr, vbo, request);
       break;
@@ -376,6 +365,10 @@ static void extract_attr_init_subdiv(const DRWSubdivCache *subdiv_cache,
   switch (request.cd_type) {
     case CD_PROP_BOOL: {
       extract_attr_generic<bool, float3>(mr, src_data, request);
+      break;
+    }
+    case CD_PROP_INT8: {
+      extract_attr_generic<int8_t, float3>(mr, src_data, request);
       break;
     }
     case CD_PROP_INT32: {

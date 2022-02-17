@@ -1,19 +1,4 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-# ***** END GPL LICENSE BLOCK *****
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # Use '--write-blend=/tmp/test.blend' to view output
 
@@ -289,6 +274,13 @@ add_blender_test(
 add_blender_test(
   bl_animation_fcurves
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_animation_fcurves.py
+  --
+  --testdir "${TEST_SRC_DIR}/animation"
+)
+
+add_blender_test(
+  bl_rigging_symmetrize
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_rigging_symmetrize.py
   --
   --testdir "${TEST_SRC_DIR}/animation"
 )
@@ -691,19 +683,16 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
         set(_cycles_render_tests bake;${render_tests};osl)
 
         foreach(render_test ${_cycles_render_tests})
-          # Enable just one simple test for Metal until more tests are passing.
-          if((NOT (_cycles_device MATCHES "METAL")) OR (render_test MATCHES "camera"))
-            add_python_test(
-              cycles_${render_test}_${_cycles_device_lower}
-              ${CMAKE_CURRENT_LIST_DIR}/cycles_render_tests.py
-              -blender "${TEST_BLENDER_EXE}"
-              -testdir "${TEST_SRC_DIR}/render/${render_test}"
-              -idiff "${OPENIMAGEIO_IDIFF}"
-              -outdir "${TEST_OUT_DIR}/cycles"
-              -device ${_cycles_device}
-              -blacklist ${_cycles_blacklist}
-            )
-          endif()
+          add_python_test(
+            cycles_${render_test}_${_cycles_device_lower}
+            ${CMAKE_CURRENT_LIST_DIR}/cycles_render_tests.py
+            -blender "${TEST_BLENDER_EXE}"
+            -testdir "${TEST_SRC_DIR}/render/${render_test}"
+            -idiff "${OPENIMAGEIO_IDIFF}"
+            -outdir "${TEST_OUT_DIR}/cycles"
+            -device ${_cycles_device}
+            -blacklist ${_cycles_blacklist}
+          )
         endforeach()
       endforeach()
     endif()

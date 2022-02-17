@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edutil
@@ -195,12 +179,12 @@ static void set_mapped_co(void *vuserdata, int index, const float co[3], const f
   }
 }
 
-bool ED_transverts_check_obedit(Object *obedit)
+bool ED_transverts_check_obedit(const Object *obedit)
 {
   return (ELEM(obedit->type, OB_ARMATURE, OB_LATTICE, OB_MESH, OB_SURF, OB_CURVE, OB_MBALL));
 }
 
-void ED_transverts_create_from_obedit(TransVertStore *tvs, Object *obedit, const int mode)
+void ED_transverts_create_from_obedit(TransVertStore *tvs, const Object *obedit, const int mode)
 {
   Nurb *nu;
   BezTriple *bezt;
@@ -214,7 +198,7 @@ void ED_transverts_create_from_obedit(TransVertStore *tvs, Object *obedit, const
   tvs->transverts_tot = 0;
 
   if (obedit->type == OB_MESH) {
-    BMEditMesh *em = BKE_editmesh_from_object(obedit);
+    BMEditMesh *em = BKE_editmesh_from_object((Object *)obedit);
     BMesh *bm = em->bm;
     BMIter iter;
     void *userdata[2] = {em, NULL};
@@ -312,10 +296,13 @@ void ED_transverts_create_from_obedit(TransVertStore *tvs, Object *obedit, const
       userdata[1] = tvs->transverts;
     }
 
-    struct Mesh *editmesh_eval_cage = BKE_object_get_editmesh_eval_cage(obedit);
-    if (tvs->transverts && editmesh_eval_cage) {
-      BM_mesh_elem_table_ensure(bm, BM_VERT);
-      BKE_mesh_foreach_mapped_vert(editmesh_eval_cage, set_mapped_co, userdata, MESH_FOREACH_NOP);
+    if (mode & TM_CALC_MAPLOC) {
+      struct Mesh *editmesh_eval_cage = BKE_object_get_editmesh_eval_cage(obedit);
+      if (tvs->transverts && editmesh_eval_cage) {
+        BM_mesh_elem_table_ensure(bm, BM_VERT);
+        BKE_mesh_foreach_mapped_vert(
+            editmesh_eval_cage, set_mapped_co, userdata, MESH_FOREACH_NOP);
+      }
     }
   }
   else if (obedit->type == OB_ARMATURE) {

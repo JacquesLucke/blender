@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup obj
@@ -22,7 +8,8 @@
 #include "BKE_node.h"
 
 #include "BLI_map.hh"
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector.h"
+#include "BLI_math_vector.hh"
 #include "BLI_path_util.h"
 
 #include "DNA_material_types.h"
@@ -193,8 +180,8 @@ static void store_bsdf_properties(const nodes::NodeRef *bsdf_node,
     copy_property_from_node(SOCK_FLOAT, bnode, "Roughness", {&roughness, 1});
   }
   /* Empirical approximation. Importer should use the inverse of this method. */
-  float spec_exponent = (1.0f - roughness) * 30;
-  spec_exponent *= spec_exponent;
+  float spec_exponent = (1.0f - roughness);
+  spec_exponent *= spec_exponent * 1000.0f;
 
   float specular = material->spec;
   if (bnode) {

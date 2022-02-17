@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2017 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2017 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
@@ -505,8 +489,9 @@ static bool custom_data_match_attribute(const CustomData *custom_data,
                                         int *r_layer_index,
                                         int *r_type)
 {
-  const int possible_attribute_types[6] = {
+  const int possible_attribute_types[7] = {
       CD_PROP_BOOL,
+      CD_PROP_INT8,
       CD_PROP_INT32,
       CD_PROP_FLOAT,
       CD_PROP_FLOAT2,
@@ -655,6 +640,7 @@ static DRW_MeshCDMask mesh_cd_calc_used_gpu_layers(const Object *object,
             break;
           }
           case CD_PROP_BOOL:
+          case CD_PROP_INT8:
           case CD_PROP_INT32:
           case CD_PROP_FLOAT:
           case CD_PROP_FLOAT2:
@@ -2076,7 +2062,20 @@ void DRW_mesh_batch_cache_create_requested(struct TaskGraph *task_graph,
   }
 
   if (do_subdivision) {
-    DRW_create_subdivision(scene, ob, me, cache, &cache->final, ts);
+    DRW_create_subdivision(scene,
+                           ob,
+                           me,
+                           cache,
+                           &cache->final,
+                           is_editmode,
+                           is_paint_mode,
+                           is_mode_active,
+                           ob->obmat,
+                           true,
+                           false,
+                           use_subsurf_fdots,
+                           ts,
+                           use_hide);
   }
   else {
     /* The subsurf modifier may have been recently removed, or another modifier was added after it,

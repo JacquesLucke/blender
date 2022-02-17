@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "MOD_nodes_evaluator.hh"
 
@@ -1347,7 +1333,7 @@ class GeometryNodesEvaluator {
     }
     input_state.usage = ValueUsage::Unused;
 
-    /* If the input is unused, it's value can be destructed now. */
+    /* If the input is unused, its value can be destructed now. */
     this->destruct_input_value_if_exists(locked_node, socket);
 
     if (input_state.was_ready_for_execution) {

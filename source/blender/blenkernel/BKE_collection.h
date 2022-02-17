@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -123,11 +109,20 @@ struct Collection *BKE_collection_object_find(struct Main *bmain,
 bool BKE_collection_is_empty(const struct Collection *collection);
 
 /**
- * Add object to collection
+ * Add object to given collection, ensuring this collection is 'editable' (i.e. local and not a
+ * liboverride), and finding a suitable parent one otherwise.
  */
 bool BKE_collection_object_add(struct Main *bmain,
                                struct Collection *collection,
                                struct Object *ob);
+/**
+ * Same as #BKE_collection_object_add, but unconditionally adds the object to the given collection.
+ *
+ * NOTE: required in certain cases, like do-versioning or complex ID management tasks.
+ */
+bool BKE_collection_object_add_notest(struct Main *bmain,
+                                      struct Collection *collection,
+                                      struct Object *ob);
 /**
  * Add \a ob_dst to all scene collections that reference object \a ob_src is in.
  * Used for copying objects.
