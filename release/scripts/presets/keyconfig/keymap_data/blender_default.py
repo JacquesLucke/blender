@@ -5460,6 +5460,7 @@ def km_sculpt_curves(params):
 
     items.extend([
         ("sculpt_curves.brush_stroke", {"type": 'LEFTMOUSE', "value": 'PRESS'}, None),
+        *_template_paint_radial_control("sculpt"),
     ])
 
     return keymap
