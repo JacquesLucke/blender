@@ -20,6 +20,7 @@
 
 #include "RNA_access.h"
 
+#include "DNA_brush_types.h"
 #include "DNA_curves_types.h"
 
 #include "DEG_depsgraph.h"
@@ -60,6 +61,7 @@ static void stroke_update_step(bContext *C,
 {
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   Object *object = CTX_data_active_object(C);
+  ToolSettings *tool_settings = CTX_data_tool_settings(C);
   CurvesSculptSession &session = bke::curves_sculpt_session_ensure(*object);
   if (!session.current_stroke.has_value()) {
     session.current_stroke.emplace();
@@ -80,6 +82,8 @@ static void stroke_update_step(bContext *C,
   float4x4 ob_imat;
   invert_m4_m4(ob_imat.values, object->obmat);
 
+  Brush *brush = BKE_paint_brush(&tool_settings->curves_sculpt->paint);
+
   float3 ray_start, ray_end;
   ED_view3d_win_to_segment_clipped(
       depsgraph, view_context.region, view_context.v3d, mouse_position, ray_start, ray_end, true);
@@ -87,19 +91,19 @@ static void stroke_update_step(bContext *C,
   ray_end = ob_imat * ray_end;
   stroke.ray_starts.append(ray_start);
   stroke.ray_ends.append(ray_end);
-  // const float3 ray_direction = math::normalize(ray_end - ray_start);
+  const float3 ray_direction = math::normalize(ray_end - ray_start);
   // std::cout << ray_start << " -> " << ray_end << "\n";
 
   if (stroke.ray_starts.size() == 1) {
     return;
   }
 
-  const float3 P1 = stroke.ray_starts.as_span().take_back(2)[0];
-  const float3 P2 = stroke.ray_starts.as_span().take_back(2)[1];
-  const float3 P3 = stroke.ray_ends.as_span().take_back(2)[0];
-  const float3 P4 = stroke.ray_ends.as_span().take_back(2)[1];
+  if (brush->curves_sculpt_tool == 0) {
+    const float3 P1 = stroke.ray_starts.as_span().take_back(2)[0];
+    const float3 P2 = stroke.ray_starts.as_span().take_back(2)[1];
+    const float3 P3 = stroke.ray_ends.as_span().take_back(2)[0];
+    const float3 P4 = stroke.ray_ends.as_span().take_back(2)[1];
 
-  {
     Vector<int> curves_to_remove;
     MutableSpan<float3> positions = curves.positions();
     for (const int curve_i : IndexRange(curves.curve_size)) {
@@ -124,16 +128,14 @@ static void stroke_update_step(bContext *C,
     }
     curves.tag_positions_changed();
   }
-
-  // {
-
-  //   curves.resize(curves.point_size + 2, curves.curve_size + 1);
-  //   MutableSpan<float3> positions = curves.positions().take_back(2);
-  //   positions[0] = ray_start + ray_direction * 4;
-  //   positions[1] = ray_start + ray_direction * 6;
-  //   MutableSpan<int> offsets = curves.offsets();
-  //   offsets.last() = curves.point_size;
-  // }
+  else {
+    curves.resize(curves.point_size + 2, curves.curve_size + 1);
+    MutableSpan<float3> positions = curves.positions().take_back(2);
+    positions[0] = ray_start + ray_direction * 8;
+    positions[1] = ray_start + ray_direction * 10;
+    MutableSpan<int> offsets = curves.offsets();
+    offsets.last() = curves.point_size;
+  }
 
   DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
   ED_region_tag_redraw(view_context.region);
