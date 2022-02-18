@@ -22,6 +22,8 @@
 #include "RNA_define.h"
 #include "RNA_types.h"
 
+#include "../sculpt_paint/paint_intern.h"
+
 static bool curves_sculptmode_toggle_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
@@ -48,10 +50,15 @@ static int curves_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 
   if (is_mode_set) {
     ob->mode = OB_MODE_OBJECT;
+    WM_paint_cursor_end(
+        static_cast<wmPaintCursor *>(scene->toolsettings->curves_sculpt->paint.paint_cursor));
+    scene->toolsettings->curves_sculpt->paint.paint_cursor = nullptr;
   }
   else {
     BKE_paint_ensure(scene->toolsettings, (Paint **)&scene->toolsettings->curves_sculpt);
     ob->mode = OB_MODE_SCULPT_CURVES;
+
+    paint_cursor_start(&scene->toolsettings->curves_sculpt->paint, nullptr);
   }
 
   WM_toolsystem_update_from_context_view3d(C);
