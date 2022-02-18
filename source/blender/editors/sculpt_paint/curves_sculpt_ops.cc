@@ -9,6 +9,13 @@
 
 #include "ED_curves_sculpt.h"
 
+#include "BKE_curves_sculpt.hh"
+
+#include "BLI_math_vector.hh"
+#include "BLI_vector.hh"
+
+#include "RNA_access.h"
+
 #include "curves_sculpt_intern.h"
 #include "paint_intern.h"
 
@@ -17,6 +24,11 @@ bool CURVES_SCULPT_mode_poll(struct bContext *C)
   Object *ob = CTX_data_active_object(C);
   return ob && ob->mode & OB_MODE_SCULPT_CURVES;
 }
+
+namespace blender::ed::curves_sculpt {
+
+using bke::CurvesSculptSession;
+using bke::CurvesSculptStroke;
 
 static bool stroke_get_location(bContext *C, float out[3], const float mouse[2])
 {
@@ -33,14 +45,29 @@ static bool stroke_test_start(bContext *C, struct wmOperator *op, const float mo
   return true;
 }
 
-static void stroke_update_step(bContext *C, PaintStroke *stroke, PointerRNA *itemptr)
+static void stroke_update_step(bContext *C,
+                               PaintStroke *UNUSED(paint_stroke),
+                               PointerRNA *stroke_element)
 {
-  UNUSED_VARS(C, stroke, itemptr);
+  Object *object = CTX_data_active_object(C);
+  CurvesSculptSession &session = bke::curves_sculpt_session_ensure(*object);
+  if (!session.current_stroke.has_value()) {
+    session.current_stroke.emplace();
+  }
+
+  CurvesSculptStroke &stroke = *session.current_stroke;
+
+  float2 mouse_position;
+  RNA_float_get_array(stroke_element, "mouse", mouse_position);
+  stroke.mouse_positions.append(mouse_position);
+  stroke.mouse_positions.as_span().print_as_lines("Mouse Positions");
 }
 
-static void stroke_done(const bContext *C, PaintStroke *stroke)
+static void stroke_done(const bContext *C, PaintStroke *UNUSED(stroke))
 {
-  UNUSED_VARS(C, stroke);
+  Object *object = CTX_data_active_object(C);
+  CurvesSculptSession &session = bke::curves_sculpt_session_ensure(*object);
+  session.current_stroke.reset();
 }
 
 static int sculpt_curves_stroke_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -79,7 +106,10 @@ static void SCULPT_CURVES_OT_brush_stroke(struct wmOperatorType *ot)
   paint_stroke_operator_properties(ot);
 }
 
+}  // namespace blender::ed::curves_sculpt
+
 void ED_operatortypes_sculpt_curves()
 {
+  using namespace blender::ed::curves_sculpt;
   WM_operatortype_append(SCULPT_CURVES_OT_brush_stroke);
 }

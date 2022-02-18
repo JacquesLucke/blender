@@ -74,6 +74,7 @@
 #include "BKE_crazyspace.h"
 #include "BKE_curve.h"
 #include "BKE_curves.hh"
+#include "BKE_curves_sculpt.hh"
 #include "BKE_deform.h"
 #include "BKE_displist.h"
 #include "BKE_duplilist.h"
@@ -293,6 +294,7 @@ static void object_free_data(ID *id)
   sbFree(ob);
 
   BKE_sculptsession_free(ob);
+  MEM_delete(ob->runtime.curves_sculpt_session);
 
   BLI_freelistN(&ob->pc_ids);
 
@@ -4953,6 +4955,8 @@ void BKE_object_runtime_reset_on_copy(Object *object, const int UNUSED(flag))
 
   runtime->crazyspace_deform_imats = nullptr;
   runtime->crazyspace_deform_cos = nullptr;
+
+  runtime->curves_sculpt_session = nullptr;
 }
 
 void BKE_object_runtime_free_data(Object *object)

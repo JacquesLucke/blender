@@ -104,6 +104,7 @@ set(SRC
   intern/curve.cc
   intern/curves.cc
   intern/curves_geometry.cc
+  intern/curves_sculpt.cc
   intern/curve_bevel.c
   intern/curve_convert.c
   intern/curve_decimate.c

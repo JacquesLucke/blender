@@ -99,6 +99,15 @@ enum {
 
 struct CustomData_MeshMasks;
 
+#ifdef __cplusplus
+namespace blender::bke {
+struct CurvesSculptSession;
+}
+using CurvesSculptSessionHandle = blender::bke::CurvesSculptSession;
+#else
+typedef struct CurvesSculptSessionHandle CurvesSculptSessionHandle;
+#endif
+
 /** Not saved in file! */
 typedef struct Object_Runtime {
   /**
@@ -206,6 +215,9 @@ typedef struct Object_Runtime {
   int crazyspace_num_verts;
 
   int _pad3[3];
+
+  CurvesSculptSessionHandle *curves_sculpt_session;
+  void *_pad4;
 } Object_Runtime;
 
 typedef struct ObjectLineArt {
