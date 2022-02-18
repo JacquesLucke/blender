@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_float4x4.hh"
+#include "BLI_math_geom.h"
 #include "BLI_math_vector.hh"
 #include "BLI_utildefines.h"
 #include "BLI_vector.hh"
@@ -84,15 +85,55 @@ static void stroke_update_step(bContext *C,
       depsgraph, view_context.region, view_context.v3d, mouse_position, ray_start, ray_end, true);
   ray_start = ob_imat * ray_start;
   ray_end = ob_imat * ray_end;
-  const float3 ray_direction = math::normalize(ray_end - ray_start);
-  std::cout << ray_start << " -> " << ray_end << "\n";
+  stroke.ray_starts.append(ray_start);
+  stroke.ray_ends.append(ray_end);
+  // const float3 ray_direction = math::normalize(ray_end - ray_start);
+  // std::cout << ray_start << " -> " << ray_end << "\n";
 
-  curves.resize(curves.point_size + 2, curves.curve_size + 1);
-  MutableSpan<float3> positions = curves.positions().take_back(2);
-  positions[0] = ray_start + ray_direction * 4;
-  positions[1] = ray_start + ray_direction * 6;
-  MutableSpan<int> offsets = curves.offsets();
-  offsets.last() = curves.point_size;
+  if (stroke.ray_starts.size() == 1) {
+    return;
+  }
+
+  const float3 P1 = stroke.ray_starts.as_span().take_back(2)[0];
+  const float3 P2 = stroke.ray_starts.as_span().take_back(2)[1];
+  const float3 P3 = stroke.ray_ends.as_span().take_back(2)[0];
+  const float3 P4 = stroke.ray_ends.as_span().take_back(2)[1];
+
+  {
+    Vector<int> curves_to_remove;
+    MutableSpan<float3> positions = curves.positions();
+    for (const int curve_i : IndexRange(curves.curve_size)) {
+      const IndexRange point_range = curves.range_for_curve(curve_i);
+      for (const int segment_i : IndexRange(point_range.size() - 1)) {
+        const float3 start = positions[point_range[segment_i]];
+        const float3 end = positions[point_range[segment_i + 1]];
+        float lambda;
+        const bool is_intersecting =
+            isect_line_segment_tri_v3(start, end, P1, P2, P3, &lambda, nullptr) ||
+            isect_line_segment_tri_v3(start, end, P2, P3, P4, &lambda, nullptr);
+        if (is_intersecting) {
+          curves_to_remove.append(curve_i);
+          break;
+        }
+      }
+    }
+    for (const int curve_i : curves_to_remove) {
+      for (const int point_i : curves.range_for_curve(curve_i)) {
+        positions[point_i] = {0.0f, 0.0f, 0.0f};
+      }
+    }
+    curves.tag_positions_changed();
+  }
+
+  // {
+
+  //   curves.resize(curves.point_size + 2, curves.curve_size + 1);
+  //   MutableSpan<float3> positions = curves.positions().take_back(2);
+  //   positions[0] = ray_start + ray_direction * 4;
+  //   positions[1] = ray_start + ray_direction * 6;
+  //   MutableSpan<int> offsets = curves.offsets();
+  //   offsets.last() = curves.point_size;
+  // }
 
   DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
   ED_region_tag_redraw(view_context.region);

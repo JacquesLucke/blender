@@ -14,6 +14,8 @@ namespace blender::bke {
 class CurvesSculptStroke {
  public:
   Vector<float2> mouse_positions;
+  Vector<float3> ray_starts;
+  Vector<float3> ray_ends;
 };
 
 class CurvesSculptSession {
