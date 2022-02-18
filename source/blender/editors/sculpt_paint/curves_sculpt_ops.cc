@@ -76,9 +76,14 @@ static void stroke_update_step(bContext *C,
   ViewContext view_context;
   ED_view3d_viewcontext_init(C, &view_context, depsgraph);
 
+  float4x4 ob_imat;
+  invert_m4_m4(ob_imat.values, object->obmat);
+
   float3 ray_start, ray_end;
   ED_view3d_win_to_segment_clipped(
       depsgraph, view_context.region, view_context.v3d, mouse_position, ray_start, ray_end, true);
+  ray_start = ob_imat * ray_start;
+  ray_end = ob_imat * ray_end;
   const float3 ray_direction = math::normalize(ray_end - ray_start);
   std::cout << ray_start << " -> " << ray_end << "\n";
 
