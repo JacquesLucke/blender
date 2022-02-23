@@ -2449,9 +2449,98 @@ static void link_attach_highlight(ScrArea *area)
   }
 }
 
+static bool link_is_valid(const bNodeTree &ntree, const bNodeSocket &from, const bNodeSocket &to)
+{
+  return ntree.typeinfo->validate_link(static_cast<eNodeSocketDatatype>(from.type),
+                                       static_cast<eNodeSocketDatatype>(to.type));
+}
+
 static void link_attach_highlighted(Main *bmain, ScrArea *area)
 {
-  UNUSED_VARS(bmain, area);
+  std::optional<DragInfo> drag_info_opt = prepare_drag_info(area);
+  if (!drag_info_opt) {
+    return;
+  }
+  DragInfo &drag_info = *drag_info_opt;
+  SpaceNode &snode = *drag_info.snode;
+  bNodeTree &ntree = *snode.edittree;
+
+  bNodeLink *old_link = nullptr;
+  LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
+    if (link->flag & NODE_LINKFLAG_HILITE) {
+      old_link = link;
+      break;
+    }
+  }
+  if (old_link == nullptr) {
+    return;
+  }
+
+  /* Get pointers because the old link is removed. */
+  bNode &link_left_node = *old_link->fromnode;
+  bNode &link_right_node = *old_link->tonode;
+  bNodeSocket &link_left_socket = *old_link->fromsock;
+  bNodeSocket &link_right_socket = *old_link->tosock;
+  const int link_multi_input_index = old_link->multi_input_socket_index;
+
+  nodeRemLink(&ntree, old_link);
+
+  MultiValueMap<bNodeSocket *, bNodeLink *> link_map;
+  LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
+    link_map.add(link->fromsock, link);
+    link_map.add(link->tosock, link);
+  }
+
+  bNodeSocket *best_input = nullptr;
+  bNodeLink *best_input_link = nullptr;
+  LISTBASE_FOREACH (bNodeSocket *, socket, &drag_info.left_node->inputs) {
+    if (socket->flag & SOCK_UNAVAIL) {
+      continue;
+    }
+    const Span<bNodeLink *> links = link_map.lookup(socket);
+    if (!links.is_empty()) {
+      best_input = socket;
+      best_input_link = links[0];
+      break;
+    }
+  }
+  if (best_input == nullptr) {
+    best_input = get_main_socket(ntree, *drag_info.left_node, SOCK_IN);
+    if (best_input != nullptr && !link_is_valid(ntree, link_left_socket, *best_input)) {
+      best_input = nullptr;
+    }
+  }
+
+  bNodeSocket *best_output = get_main_socket(ntree, *drag_info.right_node, SOCK_OUT);
+  if (best_output != nullptr && ntree.typeinfo->validate_link != nullptr &&
+      !link_is_valid(ntree, *best_output, link_right_socket)) {
+    best_output = nullptr;
+  }
+
+  if (best_input != nullptr && best_input_link == nullptr) {
+    nodeAddLink(&ntree, &link_left_node, &link_left_socket, drag_info.left_node, best_input);
+  }
+  if (best_output != nullptr) {
+    bNodeLink *link = nodeAddLink(
+        &ntree, drag_info.right_node, best_output, &link_right_node, &link_right_socket);
+    link->multi_input_socket_index = link_multi_input_index;
+  }
+
+  if (link_right_socket.flag & SOCK_MULTI_INPUT) {
+    sort_multi_input_socket_links(snode, link_right_node, nullptr, nullptr);
+  }
+
+  if ((snode.flag & SNODE_SKIP_INSOFFSET) == 0) {
+    NodeInsertOfsData *iofsd = MEM_cnew<NodeInsertOfsData>(__func__);
+
+    iofsd->insert = drag_info.left_node;
+    iofsd->prev = &link_left_node;
+    iofsd->next = &link_right_node;
+
+    snode.runtime->iofsd = iofsd;
+  }
+
+  ED_node_tree_propagate_change(nullptr, bmain, snode.edittree);
 }
 
 }  // namespace blender::ed::space_node::link_attach
