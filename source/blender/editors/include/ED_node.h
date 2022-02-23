@@ -89,14 +89,9 @@ float ED_node_grid_size(void);
 
 /* node_relationships.cc */
 
-/**
- * Test == 0, clear all intersect flags.
- */
-void ED_node_link_intersect_test(struct ScrArea *area, int test);
-/**
- * Assumes link with #NODE_LINKFLAG_HILITE set.
- */
-void ED_node_link_insert(struct Main *bmain, struct ScrArea *area);
+void ED_node_link_attach_highlight(struct ScrArea *area);
+void ED_node_link_attach_highlight_clear(struct ScrArea *area);
+void ED_node_link_attach_highlighted(struct Main *bmain, struct ScrArea *area);
 
 /* node_edit.cc */
 
