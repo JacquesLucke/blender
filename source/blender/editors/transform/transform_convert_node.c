@@ -204,9 +204,7 @@ void flushTransNodes(TransInfo *t)
     }
 
     /* handle intersection with noodles */
-    if (tc->data_len == 1) {
-      ED_node_link_attach_highlight(t->area);
-    }
+    ED_node_link_attach_highlight(t->area);
   }
 }
 

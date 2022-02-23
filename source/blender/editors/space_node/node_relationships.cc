@@ -1319,7 +1319,7 @@ void NODE_OT_link_make(wmOperatorType *ot)
 
 static bool node_links_intersect(bNodeLink &link, const float mcoords[][2], int tot)
 {
-  float coord_array[NODE_LINK_RESOL + 1][2];
+  std::array<float2, NODE_LINK_RESOL + 1> coord_array;
 
   if (node_link_bezier_points(nullptr, nullptr, link, coord_array, NODE_LINK_RESOL)) {
     for (int i = 0; i < tot - 1; i++) {
@@ -2277,19 +2277,198 @@ void NODE_OT_insert_offset(wmOperatorType *ot)
 /** \name Attach node to existing link
  * \{ */
 
+namespace blender::ed::space_node::link_attach {
+
+static void link_attach_highlight_clear(ScrArea *area)
+{
+  if (area == nullptr || area->spacetype != SPACE_NODE) {
+    return;
+  }
+  SpaceNode *snode = static_cast<SpaceNode *>(area->spacedata.first);
+  if (snode->edittree == nullptr) {
+    return;
+  }
+  LISTBASE_FOREACH (bNodeLink *, link, &snode->edittree->links) {
+    link->flag &= ~NODE_LINKFLAG_HILITE;
+  }
+}
+
+struct DragInfo {
+  SpaceNode *snode;
+  bNode *left_node;
+  bNode *right_node;
+};
+
+static std::optional<DragInfo> prepare_drag_info(ScrArea *area)
+{
+  if (area == nullptr || area->spacetype != SPACE_NODE) {
+    return std::nullopt;
+  }
+
+  SpaceNode *snode = static_cast<SpaceNode *>(area->spacedata.first);
+  bNodeTree *ntree = snode->edittree;
+  if (ntree == nullptr) {
+    return std::nullopt;
+  }
+
+  Vector<bNode *> selected_nodes;
+  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+    if (node->flag & SELECT) {
+      selected_nodes.append(node);
+    }
+  }
+  if (selected_nodes.is_empty()) {
+    return std::nullopt;
+  }
+
+  std::pair<bNode **, bNode **> minmax_nodes = std::minmax_element(
+      selected_nodes.begin(), selected_nodes.end(), [](const bNode *a, const bNode *b) {
+        return a->totr.xmin < b->totr.xmin;
+      });
+
+  DragInfo drag_info;
+  drag_info.snode = snode;
+  drag_info.left_node = *minmax_nodes.first;
+  drag_info.right_node = *minmax_nodes.second;
+
+  return drag_info;
+}
+
+static bool node_intersects_line_segment(const bNode &node, const float2 &v1, const float2 &v2)
+{
+  return BLI_rctf_isect_segment(&node.totr, v1, v2);
+}
+
+static bool link_intersects_nodes(const Span<float2> link_coords, const Span<const bNode *> nodes)
+{
+  for (const bNode *node : nodes) {
+    bool found_intersection = false;
+    for (const int i : IndexRange(link_coords.size() - 1)) {
+      if (node_intersects_line_segment(*node, link_coords[i], link_coords[i + 1])) {
+        found_intersection = true;
+        break;
+      }
+    }
+    if (!found_intersection) {
+      return false;
+    }
+  }
+  return true;
+}
+
+static float link_weight_for_node(const bNode &node, const float2 &v1, const float2 &v2)
+{
+  const float2 node_xy{node.totr.xmin, node.totr.ymax};
+  return -dist_squared_to_line_segment_v2(node_xy, v1, v2);
+}
+
+static void link_attach_highlight(ScrArea *area)
+{
+  link_attach_highlight_clear(area);
+
+  std::optional<DragInfo> drag_info_opt = prepare_drag_info(area);
+  if (!drag_info_opt) {
+    return;
+  }
+  DragInfo &drag_info = *drag_info_opt;
+  bNodeTree &ntree = *drag_info.snode->edittree;
+
+  ARegion *region = BKE_area_find_region_type(area, RGN_TYPE_WINDOW);
+
+  MultiValueMap<bNodeSocket *, bNodeLink *> link_map;
+  LISTBASE_FOREACH (bNodeLink *, link, &ntree.links) {
+    link_map.add(link->fromsock, link);
+    link_map.add(link->tosock, link);
+  }
+
+  LISTBASE_FOREACH (bNodeSocket *, socket, &drag_info.right_node->outputs) {
+    if (socket->flag & SOCK_UNAVAIL) {
+      continue;
+    }
+    if (!link_map.lookup(socket).is_empty()) {
+      return;
+    }
+  }
+
+  bNodeSocket *origin_socket = nullptr;
+  LISTBASE_FOREACH (bNodeSocket *, socket, &drag_info.left_node->inputs) {
+    if (socket->flag & SOCK_UNAVAIL) {
+      continue;
+    }
+    const Span<bNodeLink *> links = link_map.lookup(socket);
+    if (links.is_empty()) {
+      continue;
+    }
+    if (links.size() >= 2) {
+      return;
+    }
+    if (origin_socket != nullptr) {
+      return;
+    }
+    origin_socket = links[0]->fromsock;
+  }
+
+  bNodeLink *best_link = nullptr;
+  float best_link_weight = -FLT_MAX;
+
+  LISTBASE_FOREACH (bNodeLink *, link, &drag_info.snode->edittree->links) {
+    if (node_link_is_hidden_or_dimmed(region->v2d, *link)) {
+      continue;
+    }
+    if (origin_socket != nullptr && link->fromsock != origin_socket) {
+      continue;
+    }
+    if (ELEM(link->tonode, drag_info.left_node, drag_info.right_node) ||
+        ELEM(link->fromnode, drag_info.left_node, drag_info.right_node)) {
+      continue;
+    }
+
+    std::array<float2, NODE_LINK_RESOL + 1> link_coords;
+    if (!node_link_bezier_points(nullptr, nullptr, *link, link_coords, NODE_LINK_RESOL)) {
+      continue;
+    }
+    if (!link_intersects_nodes(link_coords, {drag_info.left_node, drag_info.right_node})) {
+      continue;
+    }
+
+    float max_link_weight = -FLT_MAX;
+    for (const int i : IndexRange(NODE_LINK_RESOL)) {
+      const float link_weight = link_weight_for_node(
+          *drag_info.left_node, link_coords[i], link_coords[i + 1]);
+      max_link_weight = std::max(max_link_weight, link_weight);
+    }
+
+    if (max_link_weight > best_link_weight) {
+      best_link = link;
+      best_link_weight = max_link_weight;
+    }
+  }
+
+  if (best_link != nullptr) {
+    best_link->flag |= NODE_LINKFLAG_HILITE;
+  }
+}
+
+static void link_attach_highlighted(Main *bmain, ScrArea *area)
+{
+  UNUSED_VARS(bmain, area);
+}
+
+}  // namespace blender::ed::space_node::link_attach
+
 void ED_node_link_attach_highlight(ScrArea *area)
 {
-  UNUSED_VARS(area);
+  blender::ed::space_node::link_attach::link_attach_highlight(area);
 }
 
 void ED_node_link_attach_highlight_clear(ScrArea *area)
 {
-  UNUSED_VARS(area);
+  blender::ed::space_node::link_attach::link_attach_highlight_clear(area);
 }
 
 void ED_node_link_attach_highlighted(Main *bmain, ScrArea *area)
 {
-  UNUSED_VARS(bmain, area);
+  blender::ed::space_node::link_attach::link_attach_highlighted(bmain, area);
 }
 
 /** \} */

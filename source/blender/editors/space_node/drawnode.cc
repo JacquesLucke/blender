@@ -1642,17 +1642,20 @@ bool node_link_bezier_handles(const View2D *v2d,
 bool node_link_bezier_points(const View2D *v2d,
                              const SpaceNode *snode,
                              const bNodeLink &link,
-                             float coord_array[][2],
+                             blender::MutableSpan<float2> r_coord_array,
                              const int resol)
 {
+  BLI_assert(r_coord_array.size() == resol + 1);
+
   float vec[4][2];
+  float *r_array = r_coord_array.cast<float>().data();
 
   if (node_link_bezier_handles(v2d, snode, link, vec)) {
     /* always do all three, to prevent data hanging around */
     BKE_curve_forward_diff_bezier(
-        vec[0][0], vec[1][0], vec[2][0], vec[3][0], coord_array[0] + 0, resol, sizeof(float[2]));
+        vec[0][0], vec[1][0], vec[2][0], vec[3][0], r_array + 0, resol, sizeof(float[2]));
     BKE_curve_forward_diff_bezier(
-        vec[0][1], vec[1][1], vec[2][1], vec[3][1], coord_array[0] + 1, resol, sizeof(float[2]));
+        vec[0][1], vec[1][1], vec[2][1], vec[3][1], r_array + 1, resol, sizeof(float[2]));
 
     return true;
   }

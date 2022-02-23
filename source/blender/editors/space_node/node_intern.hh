@@ -211,7 +211,7 @@ void node_draw_link_bezier(const bContext &C,
 bool node_link_bezier_points(const View2D *v2d,
                              const SpaceNode *snode,
                              const bNodeLink &link,
-                             float coord_array[][2],
+                             blender::MutableSpan<float2> r_coords,
                              int resol);
 /**
  * Return quadratic beziers points for a given nodelink and clip if v2d is not nullptr.
