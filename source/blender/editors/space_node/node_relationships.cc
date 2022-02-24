@@ -2321,15 +2321,33 @@ static std::optional<DragInfo> prepare_drag_info(ScrArea *area)
     return std::nullopt;
   }
 
-  std::pair<bNode **, bNode **> minmax_nodes = std::minmax_element(
-      selected_nodes.begin(), selected_nodes.end(), [](const bNode *a, const bNode *b) {
-        return a->totr.xmin < b->totr.xmin;
-      });
+  const std::pair<int, int> default_link_counts{0, 0};
+  Map<bNode *, std::pair<int, int>> link_counts_map;
+  LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
+    link_counts_map.lookup_or_add(link->tonode, default_link_counts).first++;
+    link_counts_map.lookup_or_add(link->fromnode, default_link_counts).second++;
+  }
 
   DragInfo drag_info;
   drag_info.snode = snode;
-  drag_info.left_node = *minmax_nodes.first;
-  drag_info.right_node = *minmax_nodes.second;
+  drag_info.left_node = *std::min_element(
+      selected_nodes.begin(), selected_nodes.end(), [&](bNode *a, bNode *b) {
+        if (a->totr.xmin < b->totr.xmin) {
+          return true;
+        }
+        const int num_origins_a = link_counts_map.lookup_default(a, default_link_counts).first;
+        const int num_origins_b = link_counts_map.lookup_default(b, default_link_counts).first;
+        return num_origins_a < num_origins_b;
+      });
+  drag_info.right_node = *std::max_element(
+      selected_nodes.begin(), selected_nodes.end(), [&](bNode *a, bNode *b) {
+        if (a->totr.xmax < b->totr.xmax) {
+          return true;
+        }
+        const int num_targets_a = link_counts_map.lookup_default(a, default_link_counts).second;
+        const int num_targets_b = link_counts_map.lookup_default(b, default_link_counts).second;
+        return num_targets_a > num_targets_b;
+      });
 
   return drag_info;
 }
@@ -2427,7 +2445,7 @@ static void link_attach_highlight(ScrArea *area)
     if (!node_link_bezier_points(nullptr, nullptr, *link, link_coords, NODE_LINK_RESOL)) {
       continue;
     }
-    if (!link_intersects_nodes(link_coords, {drag_info.left_node, drag_info.right_node})) {
+    if (!link_intersects_nodes(link_coords, {drag_info.left_node})) {
       continue;
     }
 
