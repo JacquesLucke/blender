@@ -5628,6 +5628,8 @@ def km_transform_modal_map(_params):
         ("AUTOCONSTRAINPLANE", {"type": 'MIDDLEMOUSE', "value": 'ANY', "shift": True}, None),
         ("PRECISION", {"type": 'LEFT_SHIFT', "value": 'ANY', "any": True}, None),
         ("PRECISION", {"type": 'RIGHT_SHIFT', "value": 'ANY', "any": True}, None),
+        ("NODE_LINK_OFF", {"type": 'LEFT_ALT', "value": 'ANY'}, None),
+        ("NODE_LINK_OFF", {"type": 'RIGHT_ALT', "value": 'ANY'}, None),
     ])
 
     return keymap

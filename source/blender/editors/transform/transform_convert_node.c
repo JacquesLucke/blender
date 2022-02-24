@@ -204,7 +204,12 @@ void flushTransNodes(TransInfo *t)
     }
 
     /* handle intersection with noodles */
-    ED_node_link_attach_highlight(t->area);
+    if (t->modifiers & MOD_NODE_LINK_OFF) {
+      ED_node_link_attach_highlight_clear(t->area);
+    }
+    else {
+      ED_node_link_attach_highlight(t->area);
+    }
   }
 }
 

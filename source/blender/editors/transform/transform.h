@@ -148,6 +148,7 @@ typedef enum {
   MOD_SNAP = 1 << 2,
   MOD_SNAP_INVERT = 1 << 3,
   MOD_CONSTRAINT_SELECT_PLANE = 1 << 4,
+  MOD_NODE_LINK_OFF = 1 << 5,
 } eTModifier;
 
 /** #TransSnap.status */
@@ -278,6 +279,8 @@ enum {
   TFM_MODAL_AUTOCONSTRAINTPLANE = 29,
 
   TFM_MODAL_PRECISION = 30,
+
+  TFM_MODAL_NODE_LINK_OFF = 31,
 };
 
 /** \} */

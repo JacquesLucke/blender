@@ -627,6 +627,7 @@ static bool transform_modal_item_poll(const wmOperator *op, int value)
       }
       break;
     }
+    case TFM_MODAL_NODE_LINK_OFF:
     case TFM_MODAL_INSERTOFS_TOGGLE_DIR: {
       if (t->spacetype != SPACE_NODE) {
         return false;
@@ -697,6 +698,7 @@ wmKeyMap *transform_modal_keymap(wmKeyConfig *keyconf)
       {TFM_MODAL_AUTOCONSTRAINT, "AUTOCONSTRAIN", 0, "Automatic Constraint", ""},
       {TFM_MODAL_AUTOCONSTRAINTPLANE, "AUTOCONSTRAINPLANE", 0, "Automatic Constraint Plane", ""},
       {TFM_MODAL_PRECISION, "PRECISION", 0, "Precision Mode", ""},
+      {TFM_MODAL_NODE_LINK_OFF, "NODE_LINK_OFF", 0, "Link Node Off", ""},
       {0, NULL, 0, NULL, NULL},
   };
 
@@ -1136,6 +1138,16 @@ int transformEvent(TransInfo *t, const wmEvent *event)
         else if (event->prev_val == KM_RELEASE) {
           t->modifiers &= ~MOD_PRECISION;
           t->mouse.precision = 0;
+          t->redraw |= TREDRAW_HARD;
+        }
+        break;
+      case TFM_MODAL_NODE_LINK_OFF:
+        if (event->prev_val == KM_PRESS) {
+          t->modifiers |= MOD_NODE_LINK_OFF;
+          t->redraw |= TREDRAW_HARD;
+        }
+        else if (event->prev_val == KM_RELEASE) {
+          t->modifiers &= ~MOD_NODE_LINK_OFF;
           t->redraw |= TREDRAW_HARD;
         }
         break;
