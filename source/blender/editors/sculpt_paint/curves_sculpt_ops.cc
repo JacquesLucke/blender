@@ -213,14 +213,14 @@ class MoveOperation : public CurvesSculptStrokeOperation {
 
 class AddOperation : public CurvesSculptStrokeOperation {
  private:
-  KDTree_3d *old_points_kdtree_ = nullptr;
+  Vector<KDTree_3d *> old_kdtrees_;
   int old_curves_size_ = 0;
 
  public:
   ~AddOperation()
   {
-    if (old_points_kdtree_ != nullptr) {
-      BLI_kdtree_3d_free(old_points_kdtree_);
+    for (KDTree_3d *kdtree : old_kdtrees_) {
+      BLI_kdtree_3d_free(kdtree);
     }
   }
 
@@ -316,15 +316,16 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
     free_bvhtree_from_mesh(&bvhtree);
 
-    if (old_points_kdtree_ == nullptr) {
-      old_points_kdtree_ = BLI_kdtree_3d_new(curves.curves_size());
+    if (old_kdtrees_.is_empty()) {
+      KDTree_3d *kdtree = BLI_kdtree_3d_new(curves.curves_size());
       for (const int curve_i : curves.curves_range()) {
         const int first_point_i = curves.offsets()[curve_i];
         const float3 root_position = curves.positions()[first_point_i];
-        BLI_kdtree_3d_insert(old_points_kdtree_, curve_i, root_position);
+        BLI_kdtree_3d_insert(kdtree, INT32_MAX, root_position);
       }
-      BLI_kdtree_3d_balance(old_points_kdtree_);
+      BLI_kdtree_3d_balance(kdtree);
       old_curves_size_ = curves.curves_size();
+      old_kdtrees_.append(kdtree);
     }
 
     struct NewPointsData {
@@ -377,10 +378,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
               if (math::distance(point_pos, hit_pos) > brush_radius_3d) {
                 continue;
               }
-              KDTreeNearest_3d nearest;
-              nearest.index = -1;
-              BLI_kdtree_3d_find_nearest(old_points_kdtree_, point_pos, &nearest);
-              if (nearest.index >= 0 && nearest.dist < minimum_distance) {
+              if (this->is_too_close_to_existing_point(point_pos, minimum_distance)) {
                 continue;
               }
 
@@ -425,11 +423,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
               if (!isect_point_tri_prism_v3(point_pos, v0, v1, v2)) {
                 continue;
               }
-
-              KDTreeNearest_3d nearest;
-              nearest.index = -1;
-              BLI_kdtree_3d_find_nearest(old_points_kdtree_, point_pos, &nearest);
-              if (nearest.index >= 0 && nearest.dist < minimum_distance) {
+              if (this->is_too_close_to_existing_point(point_pos, minimum_distance)) {
                 continue;
               }
 
@@ -456,8 +450,8 @@ class AddOperation : public CurvesSculptStrokeOperation {
     const int tot_points_before_elimination = new_points.positions.size();
 
     const int curves_added_previously = curves.curves_size() - old_curves_size_;
-    KDTree_3d *new_points_kdtree = BLI_kdtree_3d_new(tot_points_before_elimination +
-                                                     curves_added_previously);
+    const int new_points_kdtree_size = tot_points_before_elimination + curves_added_previously;
+    KDTree_3d *new_points_kdtree = BLI_kdtree_3d_new(new_points_kdtree_size);
     for (const int curve_i : IndexRange(old_curves_size_, curves_added_previously)) {
       const int first_point_i = curves.offsets()[curve_i];
       const float3 root_position = curves.positions()[first_point_i];
@@ -511,6 +505,24 @@ class AddOperation : public CurvesSculptStrokeOperation {
     }
 
     const int tot_new_curves = new_points.positions.size();
+    const int tot_curves_not_in_kdtree_yet = curves_added_previously + tot_new_curves;
+
+    if (tot_curves_not_in_kdtree_yet > 2000) {
+      KDTree_3d *kdtree = BLI_kdtree_3d_new(tot_curves_not_in_kdtree_yet);
+      for (const int curve_i : IndexRange(old_curves_size_, curves_added_previously)) {
+        const int first_point_i = curves.offsets()[curve_i];
+        const float3 root_position = curves.positions()[first_point_i];
+        BLI_kdtree_3d_insert(kdtree, INT32_MAX, root_position);
+      }
+      for (const int point_i : new_points.positions.index_range()) {
+        const float3 position = new_points.positions[point_i];
+        BLI_kdtree_3d_insert(kdtree, INT32_MAX, position);
+      }
+      BLI_kdtree_3d_balance(kdtree);
+      old_curves_size_ += tot_curves_not_in_kdtree_yet;
+      old_kdtrees_.append(kdtree);
+    }
+
     const int segment_count = 2;
     curves.resize(curves.points_size() + tot_new_curves * segment_count,
                   curves.curves_size() + tot_new_curves);
@@ -539,6 +551,19 @@ class AddOperation : public CurvesSculptStrokeOperation {
     const float add_probability = fractf(amount_f);
     const bool add_point = add_probability > rng.get_float();
     return (int)amount_f + (int)add_point;
+  }
+
+  bool is_too_close_to_existing_point(const float3 position, const float minimum_distance) const
+  {
+    for (KDTree_3d *kdtree : old_kdtrees_) {
+      KDTreeNearest_3d nearest;
+      nearest.index = -1;
+      BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
+      if (nearest.index >= 0 && nearest.dist < minimum_distance) {
+        return true;
+      }
+    }
+    return false;
   }
 };
 
