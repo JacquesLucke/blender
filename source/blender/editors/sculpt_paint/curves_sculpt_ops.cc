@@ -7,6 +7,8 @@
 #include "BKE_context.h"
 #include "BKE_curves.hh"
 #include "BKE_lib_id.h"
+#include "BKE_mesh.h"
+#include "BKE_mesh_runtime.h"
 #include "BKE_paint.h"
 
 #include "WM_api.h"
@@ -21,12 +23,16 @@
 
 #include "DNA_brush_types.h"
 #include "DNA_curves_types.h"
+#include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
 #include "DNA_screen_types.h"
 
 #include "RNA_access.h"
 
 #include "BLI_index_mask_ops.hh"
 #include "BLI_math_vector.hh"
+#include "BLI_rand.hh"
+#include "PIL_time.h"
 
 #include "curves_sculpt_intern.h"
 #include "paint_intern.h"
@@ -213,7 +219,6 @@ class AddOperation : public CurvesSculptStrokeOperation {
     Object &object = *CTX_data_active_object(C);
     ARegion *region = CTX_wm_region(C);
     View3D *v3d = CTX_wm_view3d(C);
-    RegionView3D *rv3d = CTX_wm_region_view3d(C);
 
     const Object *surface_ob = reinterpret_cast<const Object *>(
         BKE_libblock_find_name(&bmain, ID_OB, "Cube"));
@@ -226,7 +231,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
     CurvesSculpt &curves_sculpt = *scene.toolsettings->curves_sculpt;
     Brush &brush = *BKE_paint_brush(&curves_sculpt.paint);
-    const float brush_radius = BKE_brush_size_get(&scene, &brush);
+    const float brush_radius_screen = BKE_brush_size_get(&scene, &brush);
 
     Curves &curves_id = *static_cast<Curves *>(object.data);
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
@@ -234,13 +239,24 @@ class AddOperation : public CurvesSculptStrokeOperation {
     float3 ray_start, ray_end;
     ED_view3d_win_to_segment_clipped(
         &depsgraph, region, v3d, stroke_extension.mouse_position, ray_start, ray_end, true);
-
-    float4x4 ob_imat;
-    invert_m4_m4(ob_imat.values, object.obmat);
-
     ray_start = surface_ob_imat * ray_start;
     ray_end = surface_ob_imat * ray_end;
     const float3 ray_direction = math::normalize(ray_end - ray_start);
+
+    float3 offset_ray_start, offset_ray_end;
+    ED_view3d_win_to_segment_clipped(&depsgraph,
+                                     region,
+                                     v3d,
+                                     stroke_extension.mouse_position +
+                                         float2(0, brush_radius_screen),
+                                     offset_ray_start,
+                                     offset_ray_end,
+                                     true);
+    offset_ray_start = surface_ob_imat * offset_ray_start;
+    offset_ray_end = surface_ob_imat * offset_ray_end;
+
+    float4x4 ob_imat;
+    invert_m4_m4(ob_imat.values, object.obmat);
 
     BVHTreeFromMesh bvhtree;
     BKE_bvhtree_from_mesh_get(&bvhtree, &surface, BVHTREE_FROM_LOOPTRI, 2);
@@ -255,21 +271,92 @@ class AddOperation : public CurvesSculptStrokeOperation {
                          &ray_hit,
                          bvhtree.raycast_callback,
                          &bvhtree);
-    free_bvhtree_from_mesh(&bvhtree);
 
     if (ray_hit.index == -1) {
+      free_bvhtree_from_mesh(&bvhtree);
       return;
     }
+    const float3 hit_pos = ray_hit.co;
+    const float brush_radius_3d = dist_to_line_v3(hit_pos, offset_ray_start, offset_ray_end);
 
-    const float3 hair_root = ob_imat * surface_ob_mat * float3(ray_hit.co);
-    const float3 hair_tip = ob_imat * surface_ob_mat * (float3(ray_hit.co) + float3(ray_hit.no));
+    const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&surface),
+                                  BKE_mesh_runtime_looptri_len(&surface)};
 
-    curves.resize(curves.points_size() + 2, curves.curves_size() + 1);
+    Vector<int> looptri_indices;
+
+    struct RangeQueryUserData {
+      Vector<int> &indices;
+    } range_query_user_data = {looptri_indices};
+
+    BLI_bvhtree_range_query(
+        bvhtree.tree,
+        hit_pos,
+        brush_radius_3d,
+        [](void *userdata, int index, const float co[3], float dist_sq) {
+          UNUSED_VARS(co, dist_sq);
+          RangeQueryUserData &data = *static_cast<RangeQueryUserData *>(userdata);
+          data.indices.append(index);
+        },
+        &range_query_user_data);
+
+    free_bvhtree_from_mesh(&bvhtree);
+
+    Vector<float3> new_barycentric_coords;
+    Vector<int> new_looptri_indices;
+    Vector<float3> new_positions;
+    Vector<float3> new_normals;
+
+    RandomNumberGenerator rng{(uint32_t)get_default_hash(PIL_check_seconds_timer())};
+
+    for (const int looptri_index : looptri_indices) {
+      const MLoopTri &looptri = looptris[looptri_index];
+      const float3 &v0 = surface.mvert[surface.mloop[looptri.tri[0]].v].co;
+      const float3 &v1 = surface.mvert[surface.mloop[looptri.tri[1]].v].co;
+      const float3 &v2 = surface.mvert[surface.mloop[looptri.tri[2]].v].co;
+      const float area = area_tri_v3(v0, v1, v2);
+      const float amount_f = area * 100;
+      const float add_probability = fractf(amount_f);
+      const bool add_point = add_probability > rng.get_float();
+      const int amount = (int)amount_f + (int)add_point;
+
+      float3 normal;
+      normal_tri_v3(normal, v0, v1, v2);
+
+      for ([[maybe_unused]] const int i : IndexRange(amount)) {
+        const float3 bary_coord = rng.get_barycentric_coordinates();
+        float3 point_pos;
+        interp_v3_v3v3v3(point_pos, v0, v1, v2, bary_coord);
+
+        if (math::distance(point_pos, hit_pos) > brush_radius_3d) {
+          continue;
+        }
+
+        new_barycentric_coords.append(bary_coord);
+        new_looptri_indices.append(looptri_index);
+        new_positions.append(point_pos);
+        new_normals.append(normal);
+      }
+    }
+
+    const int tot_new_curves = new_positions.size();
+    const int segment_count = 2;
+    curves.resize(curves.points_size() + tot_new_curves * segment_count,
+                  curves.curves_size() + tot_new_curves);
+
     MutableSpan<int> offsets = curves.offsets();
     MutableSpan<float3> positions = curves.positions();
-    offsets.last() = offsets.last(1) + 2;
-    positions.last(1) = hair_root;
-    positions.last(0) = hair_tip;
+
+    for (const int i : IndexRange(tot_new_curves)) {
+      const int curve_i = curves.curves_size() - tot_new_curves + i;
+      const int first_point_i = offsets[curve_i];
+      offsets[curve_i + 1] = offsets[curve_i] + segment_count;
+
+      const float3 root = ob_imat * surface_ob_mat * new_positions[i];
+      const float3 tip = ob_imat * surface_ob_mat * (new_positions[i] + 0.1 * new_normals[i]);
+
+      positions[first_point_i] = root;
+      positions[first_point_i + 1] = tip;
+    }
 
     DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
     ED_region_tag_redraw(region);
