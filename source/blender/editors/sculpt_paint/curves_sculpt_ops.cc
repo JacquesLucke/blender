@@ -3,8 +3,10 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_brush.h"
+#include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
+#include "BKE_lib_id.h"
 #include "BKE_paint.h"
 
 #include "WM_api.h"
@@ -201,6 +203,79 @@ class MoveOperation : public CurvesSculptStrokeOperation {
   }
 };
 
+class AddOperation : public CurvesSculptStrokeOperation {
+ public:
+  void on_stroke_extended(bContext *C, const StrokeExtension &stroke_extension)
+  {
+    Main &bmain = *CTX_data_main(C);
+    Depsgraph &depsgraph = *CTX_data_depsgraph_pointer(C);
+    Scene &scene = *CTX_data_scene(C);
+    Object &object = *CTX_data_active_object(C);
+    ARegion *region = CTX_wm_region(C);
+    View3D *v3d = CTX_wm_view3d(C);
+    RegionView3D *rv3d = CTX_wm_region_view3d(C);
+
+    const Object *surface_ob = reinterpret_cast<const Object *>(
+        BKE_libblock_find_name(&bmain, ID_OB, "Cube"));
+    if (surface_ob == nullptr || surface_ob->type != OB_MESH) {
+      return;
+    }
+    const Mesh &surface = *static_cast<const Mesh *>(surface_ob->data);
+    const float4x4 surface_ob_mat = surface_ob->obmat;
+    const float4x4 surface_ob_imat = surface_ob_mat.inverted();
+
+    CurvesSculpt &curves_sculpt = *scene.toolsettings->curves_sculpt;
+    Brush &brush = *BKE_paint_brush(&curves_sculpt.paint);
+    const float brush_radius = BKE_brush_size_get(&scene, &brush);
+
+    Curves &curves_id = *static_cast<Curves *>(object.data);
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+
+    float3 ray_start, ray_end;
+    ED_view3d_win_to_segment_clipped(
+        &depsgraph, region, v3d, stroke_extension.mouse_position, ray_start, ray_end, true);
+
+    float4x4 ob_imat;
+    invert_m4_m4(ob_imat.values, object.obmat);
+
+    ray_start = surface_ob_imat * ray_start;
+    ray_end = surface_ob_imat * ray_end;
+    const float3 ray_direction = math::normalize(ray_end - ray_start);
+
+    BVHTreeFromMesh bvhtree;
+    BKE_bvhtree_from_mesh_get(&bvhtree, &surface, BVHTREE_FROM_LOOPTRI, 2);
+
+    BVHTreeRayHit ray_hit;
+    ray_hit.dist = FLT_MAX;
+    ray_hit.index = -1;
+    BLI_bvhtree_ray_cast(bvhtree.tree,
+                         ray_start,
+                         ray_direction,
+                         0.0f,
+                         &ray_hit,
+                         bvhtree.raycast_callback,
+                         &bvhtree);
+    free_bvhtree_from_mesh(&bvhtree);
+
+    if (ray_hit.index == -1) {
+      return;
+    }
+
+    const float3 hair_root = ob_imat * surface_ob_mat * float3(ray_hit.co);
+    const float3 hair_tip = ob_imat * surface_ob_mat * (float3(ray_hit.co) + float3(ray_hit.no));
+
+    curves.resize(curves.points_size() + 2, curves.curves_size() + 1);
+    MutableSpan<int> offsets = curves.offsets();
+    MutableSpan<float3> positions = curves.positions();
+    offsets.last() = offsets.last(1) + 2;
+    positions.last(1) = hair_root;
+    positions.last(0) = hair_tip;
+
+    DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
+    ED_region_tag_redraw(region);
+  }
+};
+
 static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bContext *C,
                                                                           wmOperator *UNUSED(op))
 {
@@ -212,6 +287,8 @@ static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bConte
       return std::make_unique<MoveOperation>();
     case CURVES_SCULPT_TOOL_TEST2:
       return std::make_unique<DeleteOperation>();
+    case CURVES_SCULPT_TOOL_TEST3:
+      return std::make_unique<AddOperation>();
   }
   BLI_assert_unreachable();
   return {};
