@@ -30,8 +30,10 @@
 #include "RNA_access.h"
 
 #include "BLI_index_mask_ops.hh"
+#include "BLI_kdtree.h"
 #include "BLI_math_vector.hh"
 #include "BLI_rand.hh"
+
 #include "PIL_time.h"
 
 #include "curves_sculpt_intern.h"
@@ -210,7 +212,18 @@ class MoveOperation : public CurvesSculptStrokeOperation {
 };
 
 class AddOperation : public CurvesSculptStrokeOperation {
+ private:
+  KDTree_3d *old_points_kdtree_ = nullptr;
+  int old_curves_size_ = 0;
+
  public:
+  ~AddOperation()
+  {
+    if (old_points_kdtree_ != nullptr) {
+      BLI_kdtree_3d_free(old_points_kdtree_);
+    }
+  }
+
   void on_stroke_extended(bContext *C, const StrokeExtension &stroke_extension)
   {
     Main &bmain = *CTX_data_main(C);
@@ -303,83 +316,201 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
     free_bvhtree_from_mesh(&bvhtree);
 
-    Vector<float3> new_barycentric_coords;
-    Vector<int> new_looptri_indices;
-    Vector<float3> new_positions;
-    Vector<float3> new_normals;
+    if (old_points_kdtree_ == nullptr) {
+      old_points_kdtree_ = BLI_kdtree_3d_new(curves.curves_size());
+      for (const int curve_i : curves.curves_range()) {
+        const int first_point_i = curves.offsets()[curve_i];
+        const float3 root_position = curves.positions()[first_point_i];
+        BLI_kdtree_3d_insert(old_points_kdtree_, curve_i, root_position);
+      }
+      BLI_kdtree_3d_balance(old_points_kdtree_);
+      old_curves_size_ = curves.curves_size();
+    }
+
+    struct NewPointsData {
+      Vector<float3> bary_coords;
+      Vector<int> looptri_indices;
+      Vector<float3> positions;
+      Vector<float3> normals;
+    };
+
+    threading::EnumerableThreadSpecific<NewPointsData> new_points_per_thread;
+
+    const double time = PIL_check_seconds_timer();
+    const uint64_t time_as_int = *reinterpret_cast<const uint64_t *>(&time);
+    const uint32_t rng_base_seed = time_as_int ^ (time_as_int >> 32);
 
     RandomNumberGenerator rng{(uint32_t)get_default_hash(PIL_check_seconds_timer())};
 
-    const float density = 100.0f;
+    const float density = 10000.0f;
+    /* Just a rough estimate. */
+    const float minimum_distance = 1.0f / std::sqrt(density) * 0.82f;
 
-    for (const int looptri_index : looptri_indices) {
-      const MLoopTri &looptri = looptris[looptri_index];
-      const float3 &v0 = surface.mvert[surface.mloop[looptri.tri[0]].v].co;
-      const float3 &v1 = surface.mvert[surface.mloop[looptri.tri[1]].v].co;
-      const float3 &v2 = surface.mvert[surface.mloop[looptri.tri[2]].v].co;
-      const float looptri_area = area_tri_v3(v0, v1, v2);
+    float4x4 transform = ob_imat * surface_ob_mat;
 
-      float3 normal;
-      normal_tri_v3(normal, v0, v1, v2);
+    threading::parallel_for(looptri_indices.index_range(), 512, [&](const IndexRange range) {
+      RandomNumberGenerator looptri_rng{rng_base_seed + (uint32_t)range.start()};
 
-      if (looptri_area < area_threshold) {
-        const int amount = this->float_to_int_amount(looptri_area * density, rng);
+      for (const int looptri_index : looptri_indices.as_span().slice(range)) {
+        const MLoopTri &looptri = looptris[looptri_index];
+        const float3 &v0 = transform * float3(surface.mvert[surface.mloop[looptri.tri[0]].v].co);
+        const float3 &v1 = transform * float3(surface.mvert[surface.mloop[looptri.tri[1]].v].co);
+        const float3 &v2 = transform * float3(surface.mvert[surface.mloop[looptri.tri[2]].v].co);
+        const float looptri_area = area_tri_v3(v0, v1, v2);
 
-        for ([[maybe_unused]] const int i : IndexRange(amount)) {
-          const float3 bary_coord = rng.get_barycentric_coordinates();
-          float3 point_pos;
-          interp_v3_v3v3v3(point_pos, v0, v1, v2, bary_coord);
+        float3 normal;
+        normal_tri_v3(normal, v0, v1, v2);
 
-          if (math::distance(point_pos, hit_pos) > brush_radius_3d) {
-            continue;
-          }
+        if (looptri_area < area_threshold) {
+          const int amount = this->float_to_int_amount(looptri_area * density, looptri_rng);
 
-          new_barycentric_coords.append(bary_coord);
-          new_looptri_indices.append(looptri_index);
-          new_positions.append(point_pos);
-          new_normals.append(normal);
+          threading::parallel_for(IndexRange(amount), 512, [&](const IndexRange amount_range) {
+            RandomNumberGenerator point_rng{rng_base_seed + looptri_index * 1000 +
+                                            (uint32_t)amount_range.start()};
+            NewPointsData &new_points = new_points_per_thread.local();
+
+            for ([[maybe_unused]] const int i : amount_range) {
+              const float3 bary_coord = point_rng.get_barycentric_coordinates();
+              float3 point_pos;
+              interp_v3_v3v3v3(point_pos, v0, v1, v2, bary_coord);
+
+              if (math::distance(point_pos, hit_pos) > brush_radius_3d) {
+                continue;
+              }
+              KDTreeNearest_3d nearest;
+              nearest.index = -1;
+              BLI_kdtree_3d_find_nearest(old_points_kdtree_, point_pos, &nearest);
+              if (nearest.index >= 0 && nearest.dist < minimum_distance) {
+                continue;
+              }
+
+              new_points.bary_coords.append(bary_coord);
+              new_points.looptri_indices.append(looptri_index);
+              new_points.positions.append(point_pos);
+              new_points.normals.append(normal);
+            }
+          });
+        }
+        else {
+          float3 hit_pos_proj = hit_pos;
+          project_v3_plane(hit_pos_proj, normal, v0);
+          const float proj_distance_sq = math::distance_squared(hit_pos_proj, hit_pos);
+          const float brush_radius_factor_sq = 1.0f -
+                                               std::min(1.0f,
+                                                        proj_distance_sq / brush_radius_3d_sq);
+          const float radius_proj_sq = brush_radius_3d_sq * brush_radius_factor_sq;
+          const float radius_proj = std::sqrt(radius_proj_sq);
+          const float circle_area = M_PI * radius_proj_sq;
+
+          const int amount = this->float_to_int_amount(circle_area * density, rng);
+
+          const float3 axis_1 = math::normalize(v1 - v0) * radius_proj;
+          const float3 axis_2 = math::normalize(
+                                    math::cross(axis_1, math::cross(axis_1, v2 - v0))) *
+                                radius_proj;
+
+          threading::parallel_for(IndexRange(amount), 512, [&](const IndexRange amount_range) {
+            RandomNumberGenerator point_rng{rng_base_seed + looptri_index * 1000 +
+                                            (uint32_t)amount_range.start()};
+            NewPointsData &new_points = new_points_per_thread.local();
+
+            for ([[maybe_unused]] const int i : amount_range) {
+              const float r = std::sqrt(rng.get_float());
+              const float angle = rng.get_float() * 2 * M_PI;
+              const float x = r * std::cos(angle);
+              const float y = r * std::sin(angle);
+
+              const float3 point_pos = hit_pos_proj + axis_1 * x + axis_2 * y;
+
+              if (!isect_point_tri_prism_v3(point_pos, v0, v1, v2)) {
+                continue;
+              }
+
+              KDTreeNearest_3d nearest;
+              nearest.index = -1;
+              BLI_kdtree_3d_find_nearest(old_points_kdtree_, point_pos, &nearest);
+              if (nearest.index >= 0 && nearest.dist < minimum_distance) {
+                continue;
+              }
+
+              float3 bary_coord;
+              interp_weights_tri_v3(bary_coord, v0, v1, v2, point_pos);
+
+              new_points.bary_coords.append(bary_coord);
+              new_points.looptri_indices.append(looptri_index);
+              new_points.positions.append(point_pos);
+              new_points.normals.append(normal);
+            }
+          });
         }
       }
-      else {
-        float3 hit_pos_proj = hit_pos;
-        project_v3_plane(hit_pos_proj, normal, v0);
-        const float proj_distance_sq = math::distance_squared(hit_pos_proj, hit_pos);
-        const float brush_radius_factor_sq = 1.0f -
-                                             std::min(1.0f, proj_distance_sq / brush_radius_3d_sq);
-        const float radius_proj_sq = brush_radius_3d_sq * brush_radius_factor_sq;
-        const float radius_proj = std::sqrt(radius_proj_sq);
-        const float circle_area = M_PI * radius_proj_sq;
+    });
 
-        const int amount = this->float_to_int_amount(circle_area * density, rng);
+    NewPointsData new_points;
+    for (const NewPointsData &local_new_points : new_points_per_thread) {
+      new_points.bary_coords.extend(local_new_points.bary_coords);
+      new_points.looptri_indices.extend(local_new_points.looptri_indices);
+      new_points.positions.extend(local_new_points.positions);
+      new_points.normals.extend(local_new_points.normals);
+    }
+    const int tot_points_before_elimination = new_points.positions.size();
 
-        const float3 axis_1 = math::normalize(v1 - v0) * radius_proj;
-        const float3 axis_2 = math::normalize(math::cross(axis_1, math::cross(axis_1, v2 - v0))) *
-                              radius_proj;
+    const int curves_added_previously = curves.curves_size() - old_curves_size_;
+    KDTree_3d *new_points_kdtree = BLI_kdtree_3d_new(tot_points_before_elimination +
+                                                     curves_added_previously);
+    for (const int curve_i : IndexRange(old_curves_size_, curves_added_previously)) {
+      const int first_point_i = curves.offsets()[curve_i];
+      const float3 root_position = curves.positions()[first_point_i];
+      BLI_kdtree_3d_insert(new_points_kdtree, INT32_MAX, root_position);
+    }
+    for (const int point_i : new_points.positions.index_range()) {
+      const float3 position = new_points.positions[point_i];
+      BLI_kdtree_3d_insert(new_points_kdtree, point_i, position);
+    }
+    BLI_kdtree_3d_balance(new_points_kdtree);
 
-        for ([[maybe_unused]] const int i : IndexRange(amount)) {
-          const float r = std::sqrt(rng.get_float());
-          const float angle = rng.get_float() * 2 * M_PI;
-          const float x = r * std::cos(angle);
-          const float y = r * std::sin(angle);
+    Array<bool> elimination_mask(tot_points_before_elimination, false);
 
-          const float3 point_pos = hit_pos_proj + axis_1 * x + axis_2 * y;
+    for (const int point_i : IndexRange(tot_points_before_elimination)) {
+      const float3 query_position = new_points.positions[point_i];
 
-          if (!isect_point_tri_prism_v3(point_pos, v0, v1, v2)) {
-            continue;
-          }
+      struct MinimumDistanceCheckData {
+        int point_i;
+        MutableSpan<bool> elimination_mask;
+      } callback_data = {point_i, elimination_mask};
 
-          float3 bary_coords;
-          interp_weights_tri_v3(bary_coords, v0, v1, v2, point_pos);
+      BLI_kdtree_3d_range_search_cb(
+          new_points_kdtree,
+          query_position,
+          minimum_distance,
+          [](void *user_data, int index, const float *UNUSED(co), float UNUSED(dist_sq)) {
+            MinimumDistanceCheckData &data = *static_cast<MinimumDistanceCheckData *>(user_data);
+            if (index == data.point_i) {
+              /* Don't check distance to itself. */
+              return true;
+            }
+            if (index != INT32_MAX && data.elimination_mask[index]) {
+              /* The point is eliminated already. */
+              return true;
+            }
+            data.elimination_mask[data.point_i] = true;
+            return false;
+          },
+          &callback_data);
+    }
 
-          new_barycentric_coords.append(bary_coords);
-          new_looptri_indices.append(looptri_index);
-          new_positions.append(point_pos);
-          new_normals.append(normal);
-        }
+    BLI_kdtree_3d_free(new_points_kdtree);
+
+    for (int i = tot_points_before_elimination - 1; i >= 0; i--) {
+      if (elimination_mask[i]) {
+        new_points.positions.remove_and_reorder(i);
+        new_points.bary_coords.remove_and_reorder(i);
+        new_points.looptri_indices.remove_and_reorder(i);
+        new_points.normals.remove_and_reorder(i);
       }
     }
 
-    const int tot_new_curves = new_positions.size();
+    const int tot_new_curves = new_points.positions.size();
     const int segment_count = 2;
     curves.resize(curves.points_size() + tot_new_curves * segment_count,
                   curves.curves_size() + tot_new_curves);
@@ -392,8 +523,8 @@ class AddOperation : public CurvesSculptStrokeOperation {
       const int first_point_i = offsets[curve_i];
       offsets[curve_i + 1] = offsets[curve_i] + segment_count;
 
-      const float3 root = ob_imat * surface_ob_mat * new_positions[i];
-      const float3 tip = ob_imat * surface_ob_mat * (new_positions[i] + 0.01 * new_normals[i]);
+      const float3 root = new_points.positions[i];
+      const float3 tip = root + 0.01f * new_points.normals[i];
 
       positions[first_point_i] = root;
       positions[first_point_i + 1] = tip;
