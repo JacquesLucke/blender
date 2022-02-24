@@ -278,6 +278,8 @@ class AddOperation : public CurvesSculptStrokeOperation {
     }
     const float3 hit_pos = ray_hit.co;
     const float brush_radius_3d = dist_to_line_v3(hit_pos, offset_ray_start, offset_ray_end);
+    const float brush_radius_3d_sq = brush_radius_3d * brush_radius_3d;
+    const float area_threshold = M_PI * brush_radius_3d_sq;
 
     const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&surface),
                                   BKE_mesh_runtime_looptri_len(&surface)};
@@ -308,33 +310,69 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
     RandomNumberGenerator rng{(uint32_t)get_default_hash(PIL_check_seconds_timer())};
 
+    const float density = 100.0f;
+
     for (const int looptri_index : looptri_indices) {
       const MLoopTri &looptri = looptris[looptri_index];
       const float3 &v0 = surface.mvert[surface.mloop[looptri.tri[0]].v].co;
       const float3 &v1 = surface.mvert[surface.mloop[looptri.tri[1]].v].co;
       const float3 &v2 = surface.mvert[surface.mloop[looptri.tri[2]].v].co;
-      const float area = area_tri_v3(v0, v1, v2);
-      const float amount_f = area * 100;
-      const float add_probability = fractf(amount_f);
-      const bool add_point = add_probability > rng.get_float();
-      const int amount = (int)amount_f + (int)add_point;
+      const float looptri_area = area_tri_v3(v0, v1, v2);
 
       float3 normal;
       normal_tri_v3(normal, v0, v1, v2);
 
-      for ([[maybe_unused]] const int i : IndexRange(amount)) {
-        const float3 bary_coord = rng.get_barycentric_coordinates();
-        float3 point_pos;
-        interp_v3_v3v3v3(point_pos, v0, v1, v2, bary_coord);
+      if (looptri_area < area_threshold) {
+        const int amount = this->float_to_int_amount(looptri_area * density, rng);
 
-        if (math::distance(point_pos, hit_pos) > brush_radius_3d) {
-          continue;
+        for ([[maybe_unused]] const int i : IndexRange(amount)) {
+          const float3 bary_coord = rng.get_barycentric_coordinates();
+          float3 point_pos;
+          interp_v3_v3v3v3(point_pos, v0, v1, v2, bary_coord);
+
+          if (math::distance(point_pos, hit_pos) > brush_radius_3d) {
+            continue;
+          }
+
+          new_barycentric_coords.append(bary_coord);
+          new_looptri_indices.append(looptri_index);
+          new_positions.append(point_pos);
+          new_normals.append(normal);
         }
+      }
+      else {
+        float3 hit_pos_proj = hit_pos;
+        project_v3_plane(hit_pos_proj, normal, v0);
+        const float proj_distance_sq = math::distance_squared(hit_pos_proj, hit_pos);
+        const float brush_radius_factor_sq = 1.0f -
+                                             std::min(1.0f, proj_distance_sq / brush_radius_3d_sq);
+        const float radius_proj_sq = brush_radius_3d_sq * brush_radius_factor_sq;
+        const float radius_proj = std::sqrt(radius_proj_sq);
+        const float circle_area = M_PI * radius_proj_sq;
 
-        new_barycentric_coords.append(bary_coord);
-        new_looptri_indices.append(looptri_index);
-        new_positions.append(point_pos);
-        new_normals.append(normal);
+        const int amount = this->float_to_int_amount(circle_area * density, rng);
+
+        const float3 axis_1 = math::normalize(v1 - v0) * radius_proj;
+        const float3 axis_2 = math::normalize(math::cross(axis_1, math::cross(axis_1, v2 - v0))) *
+                              radius_proj;
+
+        for ([[maybe_unused]] const int i : IndexRange(amount)) {
+          const float r = std::sqrt(rng.get_float());
+          const float angle = rng.get_float() * 2 * M_PI;
+          const float x = r * std::cos(angle);
+          const float y = r * std::sin(angle);
+
+          const float3 point_pos = hit_pos_proj + axis_1 * x + axis_2 * y;
+
+          if (!isect_point_tri_prism_v3(point_pos, v0, v1, v2)) {
+            continue;
+          }
+
+          new_barycentric_coords.append({0, 0, 0}); /* TODO */
+          new_looptri_indices.append(looptri_index);
+          new_positions.append(point_pos);
+          new_normals.append(normal);
+        }
       }
     }
 
@@ -352,7 +390,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
       offsets[curve_i + 1] = offsets[curve_i] + segment_count;
 
       const float3 root = ob_imat * surface_ob_mat * new_positions[i];
-      const float3 tip = ob_imat * surface_ob_mat * (new_positions[i] + 0.1 * new_normals[i]);
+      const float3 tip = ob_imat * surface_ob_mat * (new_positions[i] + 0.01 * new_normals[i]);
 
       positions[first_point_i] = root;
       positions[first_point_i + 1] = tip;
@@ -360,6 +398,13 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
     DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
     ED_region_tag_redraw(region);
+  }
+
+  int float_to_int_amount(float amount_f, RandomNumberGenerator &rng)
+  {
+    const float add_probability = fractf(amount_f);
+    const bool add_point = add_probability > rng.get_float();
+    return (int)amount_f + (int)add_point;
   }
 };
 
