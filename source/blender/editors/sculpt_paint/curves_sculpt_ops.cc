@@ -368,7 +368,10 @@ class AddOperation : public CurvesSculptStrokeOperation {
             continue;
           }
 
-          new_barycentric_coords.append({0, 0, 0}); /* TODO */
+          float3 bary_coords;
+          interp_weights_tri_v3(bary_coords, v0, v1, v2, point_pos);
+
+          new_barycentric_coords.append(bary_coords);
           new_looptri_indices.append(looptri_index);
           new_positions.append(point_pos);
           new_normals.append(normal);
