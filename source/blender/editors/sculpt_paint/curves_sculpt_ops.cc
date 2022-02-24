@@ -74,6 +74,65 @@ class CurvesSculptStrokeOperation {
   virtual void on_stroke_extended(bContext *C, const StrokeExtension &stroke_extension) = 0;
 };
 
+static void remove_curves(CurvesGeometry &curves, const IndexMask curves_to_remove)
+{
+  const Vector<IndexRange> old_curve_ranges = curves_to_remove.extract_ranges_invert(
+      curves.curves_range(), nullptr);
+  const int tot_ranges = old_curve_ranges.size();
+
+  Array<IndexRange> old_point_ranges(tot_ranges);
+  index_mask_ops::get_element_ranges(
+      old_curve_ranges, Span<int>(curves.offsets()), old_point_ranges);
+
+  Array<IndexRange> new_curve_ranges(tot_ranges);
+  index_mask_ops::compress_ranges(old_curve_ranges, new_curve_ranges);
+
+  Array<IndexRange> new_point_ranges(tot_ranges);
+  index_mask_ops::compress_ranges(old_point_ranges, new_point_ranges);
+
+  const int new_curves_size = new_curve_ranges.is_empty() ?
+                                  0 :
+                                  new_curve_ranges.last().one_after_last();
+  const int new_points_size = new_point_ranges.is_empty() ?
+                                  0 :
+                                  new_point_ranges.last().one_after_last();
+
+  CurvesGeometry new_curves{new_points_size, new_curves_size};
+
+  Span<int> old_offsets = curves.offsets();
+  MutableSpan<int> new_offsets = new_curves.offsets();
+  for (const int range_i : IndexRange(tot_ranges)) {
+    const int old_first_offset = old_point_ranges[range_i].start();
+    const int new_first_offset = new_point_ranges[range_i].start();
+    const int curves_in_range = new_curve_ranges[range_i].size();
+    for (const int curve_i : IndexRange(curves_in_range)) {
+      const int old_curve_i = old_curve_ranges[range_i][curve_i];
+      const int new_curve_i = new_curve_ranges[range_i][curve_i];
+      const int old_curve_offset = old_offsets[old_curve_i];
+      const int new_curve_offset = old_curve_offset - old_first_offset + new_first_offset;
+      new_offsets[new_curve_i] = new_curve_offset;
+    }
+  }
+  new_offsets.last() = new_points_size;
+
+  Span<float3> old_positions = curves.positions();
+  MutableSpan<float3> new_positions = new_curves.positions();
+  for (const int range_i : IndexRange(tot_ranges)) {
+    const IndexRange old_points_range = old_point_ranges[range_i];
+    const IndexRange new_points_range = new_point_ranges[range_i];
+    BLI_assert(old_points_range.size() == new_points_range.size());
+    uninitialized_copy_n(old_positions.data() + old_points_range.start(),
+                         old_points_range.size(),
+                         new_positions.data() + new_points_range.start());
+  }
+
+  old_point_ranges.as_span().print_as_lines("Old Point Ranges");
+
+  /* TODO: Use move. */
+  curves.~CurvesGeometry();
+  new (&curves) CurvesGeometry(new_curves);
+}
+
 class DeleteOperation : public CurvesSculptStrokeOperation {
  private:
   float2 last_mouse_position_;
@@ -122,14 +181,16 @@ class DeleteOperation : public CurvesSculptStrokeOperation {
           return false;
         });
 
+    remove_curves(curves, curves_to_remove);
+
     /* Just reset positions instead of actually removing the curves. This is just a prototype. */
-    threading::parallel_for(curves_to_remove.index_range(), 512, [&](const IndexRange range) {
-      for (const int curve_i : curves_to_remove.slice(range)) {
-        for (const int point_i : curves.range_for_curve(curve_i)) {
-          positions[point_i] = {0.0f, 0.0f, 0.0f};
-        }
-      }
-    });
+    // threading::parallel_for(curves_to_remove.index_range(), 512, [&](const IndexRange range) {
+    //   for (const int curve_i : curves_to_remove.slice(range)) {
+    //     for (const int point_i : curves.range_for_curve(curve_i)) {
+    //       positions[point_i] = {0.0f, 0.0f, 0.0f};
+    //     }
+    //   }
+    // });
 
     curves.tag_positions_changed();
     DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);

@@ -194,3 +194,18 @@ IndexMask find_indices_based_on_predicate__merge(
 }
 
 }  // namespace blender::index_mask_ops::detail
+
+namespace blender::index_mask_ops {
+
+void compress_ranges(Span<IndexRange> ranges, MutableSpan<IndexRange> r_compressed_ranges)
+{
+  int64_t offset = 0;
+  for (const int64_t i : ranges.index_range()) {
+    const IndexRange old_range = ranges[i];
+    const IndexRange new_range{offset, old_range.size()};
+    r_compressed_ranges[i] = new_range;
+    offset += old_range.size();
+  }
+}
+
+}  // namespace blender::index_mask_ops

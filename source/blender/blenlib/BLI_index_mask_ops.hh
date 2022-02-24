@@ -57,4 +57,23 @@ inline IndexMask find_indices_based_on_predicate(const IndexMask indices_to_chec
   return detail::find_indices_based_on_predicate__merge(indices_to_check, sub_masks, r_indices);
 }
 
+void compress_ranges(Span<IndexRange> ranges, MutableSpan<IndexRange> r_compressed_ranges);
+
+template<typename T>
+void get_element_ranges(const Span<IndexRange> ranges,
+                        const Span<T> offsets,
+                        MutableSpan<IndexRange> r_element_ranges)
+{
+  threading::parallel_for(ranges.index_range(), 1024, [&](const IndexRange thread_range) {
+    for (const int64_t i : thread_range) {
+      const IndexRange range = ranges[i];
+      const int64_t start = static_cast<int64_t>(offsets[range.start()]);
+      const int64_t end = static_cast<int64_t>(offsets[range.one_after_last()]);
+      const int64_t size = end - start;
+      const IndexRange element_range{start, size};
+      r_element_ranges[i] = element_range;
+    }
+  });
+}
+
 }  // namespace blender::index_mask_ops
