@@ -245,6 +245,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
     CurvesSculpt &curves_sculpt = *scene.toolsettings->curves_sculpt;
     Brush &brush = *BKE_paint_brush(&curves_sculpt.paint);
     const float brush_radius_screen = BKE_brush_size_get(&scene, &brush);
+    const float strength = BKE_brush_alpha_get(&scene, &brush);
 
     Curves &curves_id = *static_cast<Curves *>(object.data);
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
@@ -343,7 +344,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
     RandomNumberGenerator rng{(uint32_t)get_default_hash(PIL_check_seconds_timer())};
 
-    const float density = 10000.0f;
+    const float density = 10000.0f * strength;
     /* Just a rough estimate. */
     const float minimum_distance = 1.0f / std::sqrt(density) * 0.82f;
 
@@ -536,7 +537,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
       offsets[curve_i + 1] = offsets[curve_i] + segment_count;
 
       const float3 root = new_points.positions[i];
-      const float3 tip = root + 0.01f * new_points.normals[i];
+      const float3 tip = root + 0.1f * new_points.normals[i];
 
       positions[first_point_i] = root;
       positions[first_point_i + 1] = tip;
