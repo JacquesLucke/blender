@@ -645,13 +645,13 @@ class Vector {
   const T &last(const int64_t n = 0) const
   {
     BLI_assert(n >= 0);
-    BLI_assert(n < size_);
+    BLI_assert(n < this->size());
     return *(end_ - 1 - n);
   }
   T &last(const int64_t n = 0)
   {
     BLI_assert(n >= 0);
-    BLI_assert(n < size_);
+    BLI_assert(n < this->size());
     return *(end_ - 1 - n);
   }
 
