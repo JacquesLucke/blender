@@ -216,6 +216,8 @@ class AddOperation : public CurvesSculptStrokeOperation {
   Vector<KDTree_3d *> old_kdtrees_;
   int old_curves_size_ = 0;
 
+  static constexpr int DummyIndex = INT32_MAX;
+
  public:
   ~AddOperation()
   {
@@ -304,13 +306,8 @@ class AddOperation : public CurvesSculptStrokeOperation {
     free_bvhtree_from_mesh(&bvhtree);
 
     if (old_kdtrees_.is_empty()) {
-      KDTree_3d *kdtree = BLI_kdtree_3d_new(curves.curves_size());
-      for (const int curve_i : curves.curves_range()) {
-        const int first_point_i = curves.offsets()[curve_i];
-        const float3 root_position = curves.positions()[first_point_i];
-        BLI_kdtree_3d_insert(kdtree, INT32_MAX, root_position);
-      }
-      BLI_kdtree_3d_balance(kdtree);
+      KDTree_3d *kdtree = this->kdtree_from_curve_roots_and_positions(
+          curves, curves.curves_range(), {});
       old_curves_size_ = curves.curves_size();
       old_kdtrees_.append(kdtree);
     }
@@ -434,25 +431,14 @@ class AddOperation : public CurvesSculptStrokeOperation {
       new_points.positions.extend(local_new_points.positions);
       new_points.normals.extend(local_new_points.normals);
     }
-    const int tot_points_before_elimination = new_points.positions.size();
 
     const int curves_added_previously = curves.curves_size() - old_curves_size_;
-    const int new_points_kdtree_size = tot_points_before_elimination + curves_added_previously;
-    KDTree_3d *new_points_kdtree = BLI_kdtree_3d_new(new_points_kdtree_size);
-    for (const int curve_i : IndexRange(old_curves_size_, curves_added_previously)) {
-      const int first_point_i = curves.offsets()[curve_i];
-      const float3 root_position = curves.positions()[first_point_i];
-      BLI_kdtree_3d_insert(new_points_kdtree, INT32_MAX, root_position);
-    }
+    KDTree_3d *new_points_kdtree = this->kdtree_from_curve_roots_and_positions(
+        curves, IndexRange(old_curves_size_, curves_added_previously), new_points.positions);
+
+    Array<bool> elimination_mask(new_points.positions.size(), false);
+
     for (const int point_i : new_points.positions.index_range()) {
-      const float3 position = new_points.positions[point_i];
-      BLI_kdtree_3d_insert(new_points_kdtree, point_i, position);
-    }
-    BLI_kdtree_3d_balance(new_points_kdtree);
-
-    Array<bool> elimination_mask(tot_points_before_elimination, false);
-
-    for (const int point_i : IndexRange(tot_points_before_elimination)) {
       const float3 query_position = new_points.positions[point_i];
 
       struct MinimumDistanceCheckData {
@@ -482,7 +468,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
     BLI_kdtree_3d_free(new_points_kdtree);
 
-    for (int i = tot_points_before_elimination - 1; i >= 0; i--) {
+    for (int i = new_points.positions.size() - 1; i >= 0; i--) {
       if (elimination_mask[i]) {
         new_points.positions.remove_and_reorder(i);
         new_points.bary_coords.remove_and_reorder(i);
@@ -495,17 +481,8 @@ class AddOperation : public CurvesSculptStrokeOperation {
     const int tot_curves_not_in_kdtree_yet = curves_added_previously + tot_new_curves;
 
     if (tot_curves_not_in_kdtree_yet > 2000) {
-      KDTree_3d *kdtree = BLI_kdtree_3d_new(tot_curves_not_in_kdtree_yet);
-      for (const int curve_i : IndexRange(old_curves_size_, curves_added_previously)) {
-        const int first_point_i = curves.offsets()[curve_i];
-        const float3 root_position = curves.positions()[first_point_i];
-        BLI_kdtree_3d_insert(kdtree, INT32_MAX, root_position);
-      }
-      for (const int point_i : new_points.positions.index_range()) {
-        const float3 position = new_points.positions[point_i];
-        BLI_kdtree_3d_insert(kdtree, INT32_MAX, position);
-      }
-      BLI_kdtree_3d_balance(kdtree);
+      KDTree_3d *kdtree = this->kdtree_from_curve_roots_and_positions(
+          curves, IndexRange(old_curves_size_, curves_added_previously), new_points.positions);
       old_curves_size_ += tot_curves_not_in_kdtree_yet;
       old_kdtrees_.append(kdtree);
     }
@@ -555,6 +532,24 @@ class AddOperation : public CurvesSculptStrokeOperation {
         &range_query_user_data);
 
     return looptri_indices;
+  }
+
+  KDTree_3d *kdtree_from_curve_roots_and_positions(const CurvesGeometry &curves,
+                                                   const IndexRange curves_range,
+                                                   Span<float3> extra_positions)
+  {
+    const int tot_points = curves_range.size() + extra_positions.size();
+    KDTree_3d *kdtree = BLI_kdtree_3d_new(tot_points);
+    for (const int curve_i : curves_range) {
+      const int first_point_i = curves.offsets()[curve_i];
+      const float3 root_position = curves.positions()[first_point_i];
+      BLI_kdtree_3d_insert(kdtree, DummyIndex, root_position);
+    }
+    for (const int i : extra_positions.index_range()) {
+      BLI_kdtree_3d_insert(kdtree, i, extra_positions[i]);
+    }
+    BLI_kdtree_3d_balance(kdtree);
+    return kdtree;
   }
 
   int float_to_int_amount(float amount_f, RandomNumberGenerator &rng)
