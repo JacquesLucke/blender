@@ -394,13 +394,15 @@ class AddOperation : public CurvesSculptStrokeOperation {
   NewPointsData sample_new_points(const float density,
                                   const float minimum_distance,
                                   const float brush_radius_3d,
-                                  const float3 &brush_pos,
+                                  const float3 &surface_brush_pos,
                                   const Span<int> looptri_indices,
                                   const float4x4 &transform,
                                   const Mesh &surface)
   {
     const float brush_radius_3d_sq = brush_radius_3d * brush_radius_3d;
     const float area_threshold = M_PI * brush_radius_3d_sq;
+
+    const float3 brush_pos = transform * surface_brush_pos;
 
     const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&surface),
                                   BKE_mesh_runtime_looptri_len(&surface)};
