@@ -319,40 +319,11 @@ class AddOperation : public CurvesSculptStrokeOperation {
     const float minimum_distance = 1.0f / std::sqrt(density) * 0.82f;
 
     const float4x4 transform = ob_imat * surface_ob_mat;
+
     NewPointsData new_points = this->sample_new_points(
         density, minimum_distance, brush_radius_3d, hit_pos, looptri_indices, transform, surface);
-
     this->eliminate_too_close_points(new_points, curves, minimum_distance);
-
-    const int curves_added_previously = curves.curves_size() - old_curves_size_;
-    const int tot_new_curves = new_points.positions.size();
-    const int tot_curves_not_in_kdtree_yet = curves_added_previously + tot_new_curves;
-
-    if (tot_curves_not_in_kdtree_yet > 2000) {
-      KDTree_3d *kdtree = this->kdtree_from_curve_roots_and_positions(
-          curves, IndexRange(old_curves_size_, curves_added_previously), new_points.positions);
-      old_curves_size_ += tot_curves_not_in_kdtree_yet;
-      old_kdtrees_.append(kdtree);
-    }
-
-    const int segment_count = 2;
-    curves.resize(curves.points_size() + tot_new_curves * segment_count,
-                  curves.curves_size() + tot_new_curves);
-
-    MutableSpan<int> offsets = curves.offsets();
-    MutableSpan<float3> positions = curves.positions();
-
-    for (const int i : IndexRange(tot_new_curves)) {
-      const int curve_i = curves.curves_size() - tot_new_curves + i;
-      const int first_point_i = offsets[curve_i];
-      offsets[curve_i + 1] = offsets[curve_i] + segment_count;
-
-      const float3 root = new_points.positions[i];
-      const float3 tip = root + 0.1f * new_points.normals[i];
-
-      positions[first_point_i] = root;
-      positions[first_point_i + 1] = tip;
-    }
+    this->insert_new_curves(new_points, curves);
 
     DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
     ED_region_tag_redraw(region);
@@ -387,6 +358,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
                                                    const IndexRange curves_range,
                                                    Span<float3> extra_positions)
   {
+    SCOPED_TIMER(__func__);
     const int tot_points = curves_range.size() + extra_positions.size();
     KDTree_3d *kdtree = BLI_kdtree_3d_new(tot_points);
     for (const int curve_i : curves_range) {
@@ -429,6 +401,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
                                   const float4x4 &transform,
                                   const Mesh &surface)
   {
+    SCOPED_TIMER(__func__);
     const float brush_radius_3d_sq = brush_radius_3d * brush_radius_3d;
     const float area_threshold = M_PI * brush_radius_3d_sq;
 
@@ -548,6 +521,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
                                   const CurvesGeometry &curves,
                                   const float minimum_distance)
   {
+    SCOPED_TIMER(__func__);
     Array<bool> elimination_mask(points.positions.size(), false);
 
     const int curves_added_previously = curves.curves_size() - old_curves_size_;
@@ -591,6 +565,31 @@ class AddOperation : public CurvesSculptStrokeOperation {
         points.looptri_indices.remove_and_reorder(i);
         points.normals.remove_and_reorder(i);
       }
+    }
+  }
+
+  void insert_new_curves(const NewPointsData &new_points, CurvesGeometry &curves)
+  {
+    SCOPED_TIMER(__func__);
+    const int tot_new_curves = new_points.positions.size();
+
+    const int segment_count = 2;
+    curves.resize(curves.points_size() + tot_new_curves * segment_count,
+                  curves.curves_size() + tot_new_curves);
+
+    MutableSpan<int> offsets = curves.offsets();
+    MutableSpan<float3> positions = curves.positions();
+
+    for (const int i : IndexRange(tot_new_curves)) {
+      const int curve_i = curves.curves_size() - tot_new_curves + i;
+      const int first_point_i = offsets[curve_i];
+      offsets[curve_i + 1] = offsets[curve_i] + segment_count;
+
+      const float3 root = new_points.positions[i];
+      const float3 tip = root + 0.1f * new_points.normals[i];
+
+      positions[first_point_i] = root;
+      positions[first_point_i + 1] = tip;
     }
   }
 };
