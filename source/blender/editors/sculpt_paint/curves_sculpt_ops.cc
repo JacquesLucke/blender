@@ -322,51 +322,9 @@ class AddOperation : public CurvesSculptStrokeOperation {
     NewPointsData new_points = this->sample_new_points(
         density, minimum_distance, brush_radius_3d, hit_pos, looptri_indices, transform, surface);
 
+    this->eliminate_too_close_points(new_points, curves, minimum_distance);
+
     const int curves_added_previously = curves.curves_size() - old_curves_size_;
-    KDTree_3d *new_points_kdtree = this->kdtree_from_curve_roots_and_positions(
-        curves, IndexRange(old_curves_size_, curves_added_previously), new_points.positions);
-
-    Array<bool> elimination_mask(new_points.positions.size(), false);
-
-    for (const int point_i : new_points.positions.index_range()) {
-      const float3 query_position = new_points.positions[point_i];
-
-      struct MinimumDistanceCheckData {
-        int point_i;
-        MutableSpan<bool> elimination_mask;
-      } callback_data = {point_i, elimination_mask};
-
-      BLI_kdtree_3d_range_search_cb(
-          new_points_kdtree,
-          query_position,
-          minimum_distance,
-          [](void *user_data, int index, const float *UNUSED(co), float UNUSED(dist_sq)) {
-            MinimumDistanceCheckData &data = *static_cast<MinimumDistanceCheckData *>(user_data);
-            if (index == data.point_i) {
-              /* Don't check distance to itself. */
-              return true;
-            }
-            if (index != INT32_MAX && data.elimination_mask[index]) {
-              /* The point is eliminated already. */
-              return true;
-            }
-            data.elimination_mask[data.point_i] = true;
-            return false;
-          },
-          &callback_data);
-    }
-
-    BLI_kdtree_3d_free(new_points_kdtree);
-
-    for (int i = new_points.positions.size() - 1; i >= 0; i--) {
-      if (elimination_mask[i]) {
-        new_points.positions.remove_and_reorder(i);
-        new_points.bary_coords.remove_and_reorder(i);
-        new_points.looptri_indices.remove_and_reorder(i);
-        new_points.normals.remove_and_reorder(i);
-      }
-    }
-
     const int tot_new_curves = new_points.positions.size();
     const int tot_curves_not_in_kdtree_yet = curves_added_previously + tot_new_curves;
 
@@ -584,6 +542,56 @@ class AddOperation : public CurvesSculptStrokeOperation {
       new_points.normals.extend(local_new_points.normals);
     }
     return new_points;
+  }
+
+  void eliminate_too_close_points(NewPointsData &points,
+                                  const CurvesGeometry &curves,
+                                  const float minimum_distance)
+  {
+    Array<bool> elimination_mask(points.positions.size(), false);
+
+    const int curves_added_previously = curves.curves_size() - old_curves_size_;
+    KDTree_3d *new_points_kdtree = this->kdtree_from_curve_roots_and_positions(
+        curves, IndexRange(old_curves_size_, curves_added_previously), points.positions);
+
+    for (const int point_i : points.positions.index_range()) {
+      const float3 query_position = points.positions[point_i];
+
+      struct MinimumDistanceCheckData {
+        int point_i;
+        MutableSpan<bool> elimination_mask;
+      } callback_data = {point_i, elimination_mask};
+
+      BLI_kdtree_3d_range_search_cb(
+          new_points_kdtree,
+          query_position,
+          minimum_distance,
+          [](void *user_data, int index, const float *UNUSED(co), float UNUSED(dist_sq)) {
+            MinimumDistanceCheckData &data = *static_cast<MinimumDistanceCheckData *>(user_data);
+            if (index == data.point_i) {
+              /* Don't check distance to itself. */
+              return true;
+            }
+            if (index != INT32_MAX && data.elimination_mask[index]) {
+              /* The point is eliminated already. */
+              return true;
+            }
+            data.elimination_mask[data.point_i] = true;
+            return false;
+          },
+          &callback_data);
+    }
+
+    BLI_kdtree_3d_free(new_points_kdtree);
+
+    for (int i = points.positions.size() - 1; i >= 0; i--) {
+      if (elimination_mask[i]) {
+        points.positions.remove_and_reorder(i);
+        points.bary_coords.remove_and_reorder(i);
+        points.looptri_indices.remove_and_reorder(i);
+        points.normals.remove_and_reorder(i);
+      }
+    }
   }
 };
 
