@@ -298,22 +298,8 @@ class AddOperation : public CurvesSculptStrokeOperation {
     const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&surface),
                                   BKE_mesh_runtime_looptri_len(&surface)};
 
-    Vector<int> looptri_indices;
-
-    struct RangeQueryUserData {
-      Vector<int> &indices;
-    } range_query_user_data = {looptri_indices};
-
-    BLI_bvhtree_range_query(
-        bvhtree.tree,
-        hit_pos,
-        brush_radius_3d,
-        [](void *userdata, int index, const float co[3], float dist_sq) {
-          UNUSED_VARS(co, dist_sq);
-          RangeQueryUserData &data = *static_cast<RangeQueryUserData *>(userdata);
-          data.indices.append(index);
-        },
-        &range_query_user_data);
+    Vector<int> looptri_indices = this->find_looptri_indices_to_consider(
+        bvhtree, hit_pos, brush_radius_3d);
 
     free_bvhtree_from_mesh(&bvhtree);
 
@@ -545,6 +531,30 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
     DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
     ED_region_tag_redraw(region);
+  }
+
+  Vector<int> find_looptri_indices_to_consider(BVHTreeFromMesh &bvhtree,
+                                               const float3 &brush_pos,
+                                               const float brush_radius_3d)
+  {
+    Vector<int> looptri_indices;
+
+    struct RangeQueryUserData {
+      Vector<int> &indices;
+    } range_query_user_data = {looptri_indices};
+
+    BLI_bvhtree_range_query(
+        bvhtree.tree,
+        brush_pos,
+        brush_radius_3d,
+        [](void *userdata, int index, const float co[3], float dist_sq) {
+          UNUSED_VARS(co, dist_sq);
+          RangeQueryUserData &data = *static_cast<RangeQueryUserData *>(userdata);
+          data.indices.append(index);
+        },
+        &range_query_user_data);
+
+    return looptri_indices;
   }
 
   int float_to_int_amount(float amount_f, RandomNumberGenerator &rng)
