@@ -235,29 +235,28 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
   void on_stroke_extended(bContext *C, const StrokeExtension &stroke_extension)
   {
-    Main &bmain = *CTX_data_main(C);
     Depsgraph &depsgraph = *CTX_data_depsgraph_pointer(C);
     Scene &scene = *CTX_data_scene(C);
     Object &object = *CTX_data_active_object(C);
     ARegion *region = CTX_wm_region(C);
     View3D *v3d = CTX_wm_view3d(C);
 
-    const Object *surface_ob = reinterpret_cast<const Object *>(
-        BKE_libblock_find_name(&bmain, ID_OB, "Cube"));
-    if (surface_ob == nullptr || surface_ob->type != OB_MESH) {
+    Curves &curves_id = *static_cast<Curves *>(object.data);
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+
+    if (curves_id.surface == nullptr || curves_id.surface->type != OB_MESH) {
       return;
     }
-    const Mesh &surface = *static_cast<const Mesh *>(surface_ob->data);
-    const float4x4 surface_ob_mat = surface_ob->obmat;
+
+    const Object &surface_ob = *curves_id.surface;
+    const Mesh &surface = *static_cast<const Mesh *>(surface_ob.data);
+    const float4x4 surface_ob_mat = surface_ob.obmat;
     const float4x4 surface_ob_imat = surface_ob_mat.inverted();
 
     CurvesSculpt &curves_sculpt = *scene.toolsettings->curves_sculpt;
     Brush &brush = *BKE_paint_brush(&curves_sculpt.paint);
     const float brush_radius_screen = BKE_brush_size_get(&scene, &brush);
     const float strength = BKE_brush_alpha_get(&scene, &brush);
-
-    Curves &curves_id = *static_cast<Curves *>(object.data);
-    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
 
     float3 ray_start, ray_end;
     ED_view3d_win_to_segment_clipped(
@@ -314,7 +313,7 @@ class AddOperation : public CurvesSculptStrokeOperation {
       old_kdtrees_.append(kdtree);
     }
 
-    const float density = 10000.0f * strength;
+    const float density = 1000.0f * strength;
     /* Just a rough estimate. */
     const float minimum_distance = 1.0f / std::sqrt(density) * 0.82f;
 
