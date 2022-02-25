@@ -358,7 +358,6 @@ class AddOperation : public CurvesSculptStrokeOperation {
                                                    const IndexRange curves_range,
                                                    Span<float3> extra_positions)
   {
-    SCOPED_TIMER(__func__);
     const int tot_points = curves_range.size() + extra_positions.size();
     KDTree_3d *kdtree = BLI_kdtree_3d_new(tot_points);
     for (const int curve_i : curves_range) {
@@ -401,7 +400,6 @@ class AddOperation : public CurvesSculptStrokeOperation {
                                   const float4x4 &transform,
                                   const Mesh &surface)
   {
-    SCOPED_TIMER(__func__);
     const float brush_radius_3d_sq = brush_radius_3d * brush_radius_3d;
     const float area_threshold = M_PI * brush_radius_3d_sq;
 
@@ -521,43 +519,57 @@ class AddOperation : public CurvesSculptStrokeOperation {
                                   const CurvesGeometry &curves,
                                   const float minimum_distance)
   {
-    SCOPED_TIMER(__func__);
     Array<bool> elimination_mask(points.positions.size(), false);
 
     const int curves_added_previously = curves.curves_size() - old_curves_size_;
     KDTree_3d *new_points_kdtree = this->kdtree_from_curve_roots_and_positions(
         curves, IndexRange(old_curves_size_, curves_added_previously), points.positions);
 
+    Array<Vector<int>> points_in_range(points.positions.size());
+    threading::parallel_for(points.positions.index_range(), 256, [&](const IndexRange range) {
+      for (const int point_i : range) {
+        const float3 query_position = points.positions[point_i];
+
+        struct CallbackData {
+          int point_i;
+          Vector<int> &found_indices;
+          MutableSpan<bool> elimination_mask;
+        } callback_data = {point_i, points_in_range[point_i], elimination_mask};
+
+        BLI_kdtree_3d_range_search_cb(
+            new_points_kdtree,
+            query_position,
+            minimum_distance,
+            [](void *user_data, int index, const float *UNUSED(co), float UNUSED(dist_sq)) {
+              CallbackData &data = *static_cast<CallbackData *>(user_data);
+              if (index == data.point_i) {
+                /* Ignore self. */
+                return true;
+              }
+              if (index == DummyIndex) {
+                /* An already existing point is too close, so this new point will be eliminated. */
+                data.elimination_mask[data.point_i] = true;
+                return false;
+              }
+              data.found_indices.append(index);
+              return true;
+            },
+            &callback_data);
+      }
+    });
+
     for (const int point_i : points.positions.index_range()) {
-      const float3 query_position = points.positions[point_i];
+      if (elimination_mask[point_i]) {
+        /* Point is eliminated already. */
+        continue;
+      }
 
-      struct MinimumDistanceCheckData {
-        int point_i;
-        MutableSpan<bool> elimination_mask;
-      } callback_data = {point_i, elimination_mask};
-
-      BLI_kdtree_3d_range_search_cb(
-          new_points_kdtree,
-          query_position,
-          minimum_distance,
-          [](void *user_data, int index, const float *UNUSED(co), float UNUSED(dist_sq)) {
-            MinimumDistanceCheckData &data = *static_cast<MinimumDistanceCheckData *>(user_data);
-            if (index == data.point_i) {
-              /* Don't check distance to itself. */
-              return true;
-            }
-            if (index != INT32_MAX && data.elimination_mask[index]) {
-              /* The point is eliminated already. */
-              return true;
-            }
-            data.elimination_mask[data.point_i] = true;
-            return false;
-          },
-          &callback_data);
+      for (const int other_point_i : points_in_range[point_i]) {
+        elimination_mask[other_point_i] = true;
+      }
     }
 
     BLI_kdtree_3d_free(new_points_kdtree);
-
     for (int i = points.positions.size() - 1; i >= 0; i--) {
       if (elimination_mask[i]) {
         points.positions.remove_and_reorder(i);
@@ -570,7 +582,6 @@ class AddOperation : public CurvesSculptStrokeOperation {
 
   void insert_new_curves(const NewPointsData &new_points, CurvesGeometry &curves)
   {
-    SCOPED_TIMER(__func__);
     const int tot_new_curves = new_points.positions.size();
 
     const int segment_count = 2;
