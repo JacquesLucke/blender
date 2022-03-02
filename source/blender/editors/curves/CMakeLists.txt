@@ -6,6 +6,7 @@ set(INC
   ../../blenlib
   ../../blentranslation
   ../../depsgraph
+  ../../functions
   ../../makesdna
   ../../makesrna
   ../../windowmanager
@@ -13,6 +14,7 @@ set(INC
 )
 
 set(SRC
+  intern/curves_add.cc
   intern/curves_ops.cc
 )
 

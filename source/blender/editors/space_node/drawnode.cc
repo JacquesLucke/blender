@@ -147,7 +147,7 @@ static void node_buts_curvefloat(uiLayout *layout, bContext *UNUSED(C), PointerR
 }  // namespace blender::ed::space_node
 
 #define SAMPLE_FLT_ISNONE FLT_MAX
-/* Bad bad, 2.5 will do better? ... no it won't! */
+/* Bad! 2.5 will do better? ... no it won't! */
 static float _sample_col[4] = {SAMPLE_FLT_ISNONE};
 void ED_node_sample_set(const float col[4])
 {
@@ -1967,9 +1967,10 @@ void node_draw_link_bezier(const bContext &C,
                            const bNodeLink &link,
                            const int th_col1,
                            const int th_col2,
-                           const int th_col3)
+                           const int th_col3,
+                           const bool selected)
 {
-  const float dim_factor = node_link_dim_factor(v2d, link);
+  const float dim_factor = selected ? 1.0f : node_link_dim_factor(v2d, link);
   float thickness = 1.5f;
   float dash_factor = 1.0f;
 
@@ -2025,19 +2026,17 @@ void node_draw_link_bezier(const bContext &C,
     }
 
     /* Highlight links connected to selected nodes. */
-    const bool is_fromnode_selected = link.fromnode && link.fromnode->flag & SELECT;
-    const bool is_tonode_selected = link.tonode && link.tonode->flag & SELECT;
-    if (is_fromnode_selected || is_tonode_selected) {
+    if (selected) {
       float color_selected[4];
       UI_GetThemeColor4fv(TH_EDGE_SELECT, color_selected);
       const float alpha = color_selected[3];
 
       /* Interpolate color if highlight color is not fully transparent. */
       if (alpha != 0.0) {
-        if (is_fromnode_selected) {
+        if (link.fromsock) {
           interp_v3_v3v3(colors[1], colors[1], color_selected, alpha);
         }
-        if (is_tonode_selected) {
+        if (link.tosock) {
           interp_v3_v3v3(colors[2], colors[2], color_selected, alpha);
         }
       }
@@ -2102,7 +2101,8 @@ void node_draw_link_bezier(const bContext &C,
 void node_draw_link(const bContext &C,
                     const View2D &v2d,
                     const SpaceNode &snode,
-                    const bNodeLink &link)
+                    const bNodeLink &link,
+                    const bool selected)
 {
   int th_col1 = TH_WIRE_INNER, th_col2 = TH_WIRE_INNER, th_col3 = TH_WIRE;
 
@@ -2146,7 +2146,7 @@ void node_draw_link(const bContext &C,
     }
   }
 
-  node_draw_link_bezier(C, v2d, snode, link, th_col1, th_col2, th_col3);
+  node_draw_link_bezier(C, v2d, snode, link, th_col1, th_col2, th_col3, selected);
 }
 
 }  // namespace blender::ed::space_node

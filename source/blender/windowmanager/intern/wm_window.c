@@ -1104,10 +1104,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
         win->active = 0; /* XXX */
 
         /* clear modifiers for inactive windows */
-        win->eventstate->alt = 0;
-        win->eventstate->ctrl = 0;
-        win->eventstate->shift = 0;
-        win->eventstate->oskey = 0;
+        win->eventstate->modifier = 0;
         win->eventstate->keymodifier = 0;
 
         break;
@@ -1138,7 +1135,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
         kdata.ascii = '\0';
         kdata.utf8_buf[0] = '\0';
 
-        if (win->eventstate->shift) {
+        if (win->eventstate->modifier & KM_SHIFT) {
           if ((keymodifier & KM_SHIFT) == 0) {
             kdata.key = GHOST_kKeyLeftShift;
             wm_event_add_ghostevent(wm, win, GHOST_kEventKeyUp, &kdata);
@@ -1147,11 +1144,11 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 #ifdef USE_WIN_ACTIVATE
         else {
           if (keymodifier & KM_SHIFT) {
-            win->eventstate->shift = KM_MOD_HELD;
+            win->eventstate->modifier |= KM_SHIFT;
           }
         }
 #endif
-        if (win->eventstate->ctrl) {
+        if (win->eventstate->modifier & KM_CTRL) {
           if ((keymodifier & KM_CTRL) == 0) {
             kdata.key = GHOST_kKeyLeftControl;
             wm_event_add_ghostevent(wm, win, GHOST_kEventKeyUp, &kdata);
@@ -1160,11 +1157,11 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 #ifdef USE_WIN_ACTIVATE
         else {
           if (keymodifier & KM_CTRL) {
-            win->eventstate->ctrl = KM_MOD_HELD;
+            win->eventstate->modifier |= KM_CTRL;
           }
         }
 #endif
-        if (win->eventstate->alt) {
+        if (win->eventstate->modifier & KM_ALT) {
           if ((keymodifier & KM_ALT) == 0) {
             kdata.key = GHOST_kKeyLeftAlt;
             wm_event_add_ghostevent(wm, win, GHOST_kEventKeyUp, &kdata);
@@ -1173,11 +1170,11 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 #ifdef USE_WIN_ACTIVATE
         else {
           if (keymodifier & KM_ALT) {
-            win->eventstate->alt = KM_MOD_HELD;
+            win->eventstate->modifier |= KM_ALT;
           }
         }
 #endif
-        if (win->eventstate->oskey) {
+        if (win->eventstate->modifier & KM_OSKEY) {
           if ((keymodifier & KM_OSKEY) == 0) {
             kdata.key = GHOST_kKeyOS;
             wm_event_add_ghostevent(wm, win, GHOST_kEventKeyUp, &kdata);
@@ -1186,7 +1183,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
 #ifdef USE_WIN_ACTIVATE
         else {
           if (keymodifier & KM_OSKEY) {
-            win->eventstate->oskey = KM_MOD_HELD;
+            win->eventstate->modifier |= KM_OSKEY;
           }
         }
 #endif
@@ -1216,7 +1213,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
         wm_event_init_from_window(win, &event);
         event.type = MOUSEMOVE;
         copy_v2_v2_int(event.prev_xy, event.xy);
-        event.is_repeat = false;
+        event.flag = 0;
 
         wm_event_add(win, &event);
 
@@ -1347,7 +1344,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr C_void_ptr
         /* activate region */
         event.type = MOUSEMOVE;
         copy_v2_v2_int(event.prev_xy, event.xy);
-        event.is_repeat = false;
+        event.flag = 0;
 
         /* No context change! C->wm->windrawable is drawable, or for area queues. */
         wm->winactive = win;
@@ -1488,7 +1485,7 @@ static bool wm_window_timer(const bContext *C)
         event.type = wt->event_type;
         event.val = KM_NOTHING;
         event.keymodifier = 0;
-        event.is_repeat = false;
+        event.flag = 0;
         event.custom = EVT_DATA_TIMER;
         event.customdata = wt;
         wm_event_add(win, &event);
@@ -1844,56 +1841,23 @@ bool wm_window_get_swap_interval(wmWindow *win, int *intervalOut)
 /** \name Find Window Utility
  * \{ */
 
-static void wm_window_desktop_pos_get(const wmWindow *win,
-                                      const int screen_pos[2],
-                                      int r_desk_pos[2])
+wmWindow *WM_window_find_under_cursor(wmWindow *win, const int mval[2], int r_mval[2])
 {
-  /* To desktop space. */
-  r_desk_pos[0] = screen_pos[0] + (int)(U.pixelsize * win->posx);
-  r_desk_pos[1] = screen_pos[1] + (int)(U.pixelsize * win->posy);
-}
+  int tmp[2];
+  copy_v2_v2_int(tmp, mval);
+  wm_cursor_position_to_ghost(win, &tmp[0], &tmp[1]);
 
-static void wm_window_screen_pos_get(const wmWindow *win,
-                                     const int desktop_pos[2],
-                                     int r_scr_pos[2])
-{
-  /* To window space. */
-  r_scr_pos[0] = desktop_pos[0] - (int)(U.pixelsize * win->posx);
-  r_scr_pos[1] = desktop_pos[1] - (int)(U.pixelsize * win->posy);
-}
+  GHOST_WindowHandle ghostwin = GHOST_GetWindowUnderCursor(g_system, tmp[0], tmp[1]);
 
-wmWindow *WM_window_find_under_cursor(const wmWindowManager *wm,
-                                      const wmWindow *win_ignore,
-                                      const wmWindow *win,
-                                      const int mval[2],
-                                      int r_mval[2])
-{
-  int desk_pos[2];
-  wm_window_desktop_pos_get(win, mval, desk_pos);
-
-  /* TODO: This should follow the order of the activated windows.
-   * The current solution is imperfect but usable in most cases. */
-  LISTBASE_FOREACH (wmWindow *, win_iter, &wm->windows) {
-    if (win_iter == win_ignore) {
-      continue;
-    }
-
-    if (win_iter->windowstate == GHOST_kWindowStateMinimized) {
-      continue;
-    }
-
-    int scr_pos[2];
-    wm_window_screen_pos_get(win_iter, desk_pos, scr_pos);
-
-    if (scr_pos[0] >= 0 && scr_pos[1] >= 0 && scr_pos[0] <= WM_window_pixels_x(win_iter) &&
-        scr_pos[1] <= WM_window_pixels_y(win_iter)) {
-
-      copy_v2_v2_int(r_mval, scr_pos);
-      return win_iter;
-    }
+  if (!ghostwin) {
+    return NULL;
   }
 
-  return NULL;
+  wmWindow *r_win = GHOST_GetWindowUserData(ghostwin);
+  wm_cursor_position_from_ghost(r_win, &tmp[0], &tmp[1]);
+  copy_v2_v2_int(r_mval, tmp);
+
+  return r_win;
 }
 
 void WM_window_pixel_sample_read(const wmWindowManager *wm,

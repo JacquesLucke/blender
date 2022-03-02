@@ -33,20 +33,20 @@ static void node_init(bNodeTree *UNUSED(tree), bNode *node)
   node->storage = data;
 }
 
-static BezierSpline::HandleType handle_type_from_input_type(GeometryNodeCurveHandleType type)
+static HandleType handle_type_from_input_type(GeometryNodeCurveHandleType type)
 {
   switch (type) {
     case GEO_NODE_CURVE_HANDLE_AUTO:
-      return BezierSpline::HandleType::Auto;
+      return BEZIER_HANDLE_AUTO;
     case GEO_NODE_CURVE_HANDLE_ALIGN:
-      return BezierSpline::HandleType::Align;
+      return BEZIER_HANDLE_ALIGN;
     case GEO_NODE_CURVE_HANDLE_FREE:
-      return BezierSpline::HandleType::Free;
+      return BEZIER_HANDLE_FREE;
     case GEO_NODE_CURVE_HANDLE_VECTOR:
-      return BezierSpline::HandleType::Vector;
+      return BEZIER_HANDLE_VECTOR;
   }
   BLI_assert_unreachable();
-  return BezierSpline::HandleType::Auto;
+  return BEZIER_HANDLE_AUTO;
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -60,14 +60,14 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   bool has_bezier_spline = false;
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    if (!geometry_set.has_curve()) {
+    if (!geometry_set.has_curves()) {
       return;
     }
 
     /* Retrieve data for write access so we can avoid new allocations for the handles data. */
     CurveComponent &curve_component = geometry_set.get_component_for_write<CurveComponent>();
-    CurveEval &curve = *curve_component.get_for_write();
-    MutableSpan<SplinePtr> splines = curve.splines();
+    std::unique_ptr<CurveEval> curve = curves_to_curve_eval(*curve_component.get_for_read());
+    MutableSpan<SplinePtr> splines = curve->splines();
 
     GeometryComponentFieldContext field_context{curve_component, ATTR_DOMAIN_POINT};
     const int domain_size = curve_component.attribute_domain_size(ATTR_DOMAIN_POINT);
@@ -77,18 +77,18 @@ static void node_geo_exec(GeoNodeExecParams params)
     selection_evaluator.evaluate();
     const VArray<bool> &selection = selection_evaluator.get_evaluated<bool>(0);
 
-    const BezierSpline::HandleType new_handle_type = handle_type_from_input_type(type);
+    const HandleType new_handle_type = handle_type_from_input_type(type);
     int point_index = 0;
 
     for (SplinePtr &spline : splines) {
-      if (spline->type() != Spline::Type::Bezier) {
+      if (spline->type() != CURVE_TYPE_BEZIER) {
         point_index += spline->positions().size();
         continue;
       }
 
       has_bezier_spline = true;
       BezierSpline &bezier_spline = static_cast<BezierSpline &>(*spline);
-      if (ELEM(new_handle_type, BezierSpline::HandleType::Free, BezierSpline::HandleType::Align)) {
+      if (ELEM(new_handle_type, BEZIER_HANDLE_FREE, BEZIER_HANDLE_ALIGN)) {
         /* In this case the automatically calculated handle types need to be "baked", because
          * they're possibly changing from a type that is calculated automatically to a type that
          * is positioned manually. */
@@ -108,6 +108,8 @@ static void node_geo_exec(GeoNodeExecParams params)
       }
       bezier_spline.mark_cache_invalid();
     }
+
+    curve_component.replace(curve_eval_to_curves(*curve));
   });
   if (!has_bezier_spline) {
     params.error_message_add(NodeWarningType::Info, TIP_("No Bezier splines in input curve"));

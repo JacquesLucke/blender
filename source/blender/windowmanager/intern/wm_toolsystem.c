@@ -663,6 +663,8 @@ static const char *toolsystem_default_tool(const bToolKey *tkey)
           return "builtin_brush.Weight";
         case CTX_MODE_VERTEX_GPENCIL:
           return "builtin_brush.Draw";
+        case CTX_MODE_SCULPT_CURVES:
+          return "builtin_brush.Test 1";
           /* end temporary hack. */
 
         case CTX_MODE_PARTICLE:
@@ -804,13 +806,34 @@ void WM_toolsystem_do_msg_notify_tag_refresh(bContext *C,
   WM_toolsystem_refresh_screen_area(workspace, view_layer, area);
 }
 
+static IDProperty *idprops_ensure_named_group(IDProperty *group, const char *idname)
+{
+  IDProperty *prop = IDP_GetPropertyFromGroup(group, idname);
+  if ((prop == NULL) || (prop->type != IDP_GROUP)) {
+    IDPropertyTemplate val = {0};
+    prop = IDP_New(IDP_GROUP, &val, __func__);
+    STRNCPY(prop->name, idname);
+    IDP_ReplaceInGroup_ex(group, prop, NULL);
+  }
+  return prop;
+}
+
+IDProperty *WM_toolsystem_ref_properties_get_idprops(bToolRef *tref)
+{
+  IDProperty *group = tref->properties;
+  if (group == NULL) {
+    return NULL;
+  }
+  return IDP_GetPropertyFromGroup(group, tref->idname);
+}
+
 IDProperty *WM_toolsystem_ref_properties_ensure_idprops(bToolRef *tref)
 {
   if (tref->properties == NULL) {
     IDPropertyTemplate val = {0};
-    tref->properties = IDP_New(IDP_GROUP, &val, "wmOperatorProperties");
+    tref->properties = IDP_New(IDP_GROUP, &val, __func__);
   }
-  return tref->properties;
+  return idprops_ensure_named_group(tref->properties, tref->idname);
 }
 
 bool WM_toolsystem_ref_properties_get_ex(bToolRef *tref,
@@ -818,7 +841,7 @@ bool WM_toolsystem_ref_properties_get_ex(bToolRef *tref,
                                          StructRNA *type,
                                          PointerRNA *r_ptr)
 {
-  IDProperty *group = tref->properties;
+  IDProperty *group = WM_toolsystem_ref_properties_get_idprops(tref);
   IDProperty *prop = group ? IDP_GetPropertyFromGroup(group, idname) : NULL;
   RNA_pointer_create(NULL, type, prop, r_ptr);
   return (prop != NULL);
@@ -830,17 +853,7 @@ void WM_toolsystem_ref_properties_ensure_ex(bToolRef *tref,
                                             PointerRNA *r_ptr)
 {
   IDProperty *group = WM_toolsystem_ref_properties_ensure_idprops(tref);
-  IDProperty *prop = IDP_GetPropertyFromGroup(group, idname);
-  if (prop == NULL) {
-    IDPropertyTemplate val = {0};
-    prop = IDP_New(IDP_GROUP, &val, "wmGenericProperties");
-    STRNCPY(prop->name, idname);
-    IDP_ReplaceInGroup_ex(group, prop, NULL);
-  }
-  else {
-    BLI_assert(prop->type == IDP_GROUP);
-  }
-
+  IDProperty *prop = idprops_ensure_named_group(group, idname);
   RNA_pointer_create(NULL, type, prop, r_ptr);
 }
 
@@ -857,8 +870,9 @@ void WM_toolsystem_ref_properties_init_for_keymap(bToolRef *tref,
     IDPropertyTemplate val = {0};
     dst_ptr->data = IDP_New(IDP_GROUP, &val, "wmOpItemProp");
   }
-  if (tref->properties != NULL) {
-    IDProperty *prop = IDP_GetPropertyFromGroup(tref->properties, ot->idname);
+  IDProperty *group = WM_toolsystem_ref_properties_get_idprops(tref);
+  if (group != NULL) {
+    IDProperty *prop = IDP_GetPropertyFromGroup(group, ot->idname);
     if (prop) {
       /* Important key-map items properties don't get overwritten by the tools.
        * - When a key-map item doesn't set a property, the tool-systems is used.

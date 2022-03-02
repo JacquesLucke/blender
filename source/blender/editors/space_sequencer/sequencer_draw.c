@@ -1636,7 +1636,9 @@ static void sequencer_draw_gpencil_overlay(const bContext *C)
   ED_annotation_draw_view2d(C, 0);
 }
 
-/* Draw content and safety borders borders. */
+/**
+ * Draw content and safety borders.
+ */
 static void sequencer_draw_borders_overlay(const SpaceSeq *sseq,
                                            const View2D *v2d,
                                            const Scene *scene)
@@ -1926,7 +1928,6 @@ static void sequencer_draw_display_buffer(const bContext *C,
   if (!glsl_used) {
     immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
     immUniformColor3f(1.0f, 1.0f, 1.0f);
-    immUniform1i("image", 0);
   }
 
   immBegin(GPU_PRIM_TRI_FAN, 4);

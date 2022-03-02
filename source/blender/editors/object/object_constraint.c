@@ -511,7 +511,7 @@ static void test_constraint(
            *
            * In other cases it should be impossible to have a type mismatch.
            */
-          if (ct->tar->type != OB_CURVE) {
+          if (ct->tar->type != OB_CURVES_LEGACY) {
             con->flag |= CONSTRAINT_DISABLE;
           }
           else {
@@ -1443,6 +1443,11 @@ static int constraint_delete_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Object *ob = ED_object_active_context(C);
   bConstraint *con = edit_constraint_property_get(C, op, ob, 0);
+
+  if (con == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
   ListBase *lb = ED_object_constraint_list_from_constraint(ob, con, NULL);
 
   /* Store name temporarily for report. */
@@ -1510,6 +1515,11 @@ static int constraint_apply_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Object *ob = ED_object_active_context(C);
   bConstraint *con = edit_constraint_property_get(C, op, ob, 0);
+
+  if (con == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
   bPoseChannel *pchan;
   ListBase *constraints = ED_object_constraint_list_from_constraint(ob, con, &pchan);
 
@@ -1602,6 +1612,11 @@ static int constraint_copy_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Object *ob = ED_object_active_context(C);
   bConstraint *con = edit_constraint_property_get(C, op, ob, 0);
+
+  if (con == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
   bPoseChannel *pchan;
   ListBase *constraints = ED_object_constraint_list_from_constraint(ob, con, &pchan);
 
@@ -1682,6 +1697,11 @@ static int constraint_copy_to_selected_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Object *obact = ED_object_active_context(C);
   bConstraint *con = edit_constraint_property_get(C, op, obact, 0);
+
+  if (con == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
   bPoseChannel *pchan;
   ED_object_constraint_list_from_constraint(obact, con, &pchan);
 
@@ -2275,7 +2295,8 @@ static bool get_new_constraint_target(
 
           break;
         }
-        if (((!only_curve) || (ob->type == OB_CURVE)) && ((!only_mesh) || (ob->type == OB_MESH))) {
+        if (((!only_curve) || (ob->type == OB_CURVES_LEGACY)) &&
+            ((!only_mesh) || (ob->type == OB_MESH))) {
           /* set target */
           *tar_ob = ob;
           found = true;

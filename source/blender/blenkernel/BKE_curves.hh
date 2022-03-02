@@ -82,6 +82,8 @@ class CurvesGeometry : public ::CurvesGeometry {
 
   int points_size() const;
   int curves_size() const;
+  IndexRange points_range() const;
+  IndexRange curves_range() const;
 
   /**
    * The total number of points in the evaluated poly curve.
@@ -116,6 +118,9 @@ class CurvesGeometry : public ::CurvesGeometry {
    */
   Span<int> offsets() const;
   MutableSpan<int> offsets();
+
+  VArray<bool> cyclic() const;
+  MutableSpan<bool> cyclic();
 
   /* --------------------------------------------------------------------
    * Operations.
@@ -152,5 +157,10 @@ class CurvesGeometry : public ::CurvesGeometry {
 };
 
 Curves *curves_new_nomain(int point_size, int curves_size);
+
+/**
+ * Create a new curves data-block containing a single curve with the given length and type.
+ */
+Curves *curves_new_nomain_single(int point_size, CurveType type);
 
 }  // namespace blender::bke

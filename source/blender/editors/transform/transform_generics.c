@@ -731,7 +731,8 @@ void postTrans(bContext *C, TransInfo *t)
   if (t->data_len_all != 0) {
     FOREACH_TRANS_DATA_CONTAINER (t, tc) {
       /* free data malloced per trans-data */
-      if (ELEM(t->obedit_type, OB_CURVE, OB_SURF, OB_GPENCIL) || (t->spacetype == SPACE_GRAPH)) {
+      if (ELEM(t->obedit_type, OB_CURVES_LEGACY, OB_SURF, OB_GPENCIL) ||
+          (t->spacetype == SPACE_GRAPH)) {
         TransData *td = tc->data;
         for (int a = 0; a < tc->data_len; a++, td++) {
           if (td->flag & TD_BEZTRIPLE) {
@@ -1145,7 +1146,7 @@ void calculateCenter(TransInfo *t)
 
         projectFloatView(t, axis, t->center2d);
 
-        /* rotate only needs correct 2d center, grab needs ED_view3d_calc_zfac() value */
+        /* Rotate only needs correct 2d center, grab needs #ED_view3d_calc_zfac() value. */
         if (t->mode == TFM_TRANSLATION) {
           copy_v3_v3(t->center_global, axis);
         }
@@ -1154,17 +1155,16 @@ void calculateCenter(TransInfo *t)
   }
 
   if (t->spacetype == SPACE_VIEW3D) {
-    /* ED_view3d_calc_zfac() defines a factor for perspective depth correction,
-     * used in ED_view3d_win_to_delta() */
+    /* #ED_view3d_calc_zfac() defines a factor for perspective depth correction,
+     * used in #ED_view3d_win_to_delta(). */
 
-    /* zfac is only used convertViewVec only in cases operator was invoked in RGN_TYPE_WINDOW
-     * and never used in other cases.
+    /* NOTE: `t->zfac` is only used #convertViewVec only in cases operator was invoked in
+     * #RGN_TYPE_WINDOW and never used in other cases.
      *
-     * We need special case here as well, since ED_view3d_calc_zfac will crash when called
-     * for a region different from RGN_TYPE_WINDOW.
-     */
+     * We need special case here as well, since #ED_view3d_calc_zfac will crash when called
+     * for a region different from #RGN_TYPE_WINDOW. */
     if (t->region->regiontype == RGN_TYPE_WINDOW) {
-      t->zfac = ED_view3d_calc_zfac(t->region->regiondata, t->center_global, NULL);
+      t->zfac = ED_view3d_calc_zfac(t->region->regiondata, t->center_global);
     }
     else {
       t->zfac = 0.0f;

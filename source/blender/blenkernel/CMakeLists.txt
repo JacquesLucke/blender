@@ -131,6 +131,7 @@ set(SRC
   intern/fmodifier.c
   intern/freestyle.c
   intern/geometry_component_curve.cc
+  intern/geometry_component_curves.cc
   intern/geometry_component_instances.cc
   intern/geometry_component_mesh.cc
   intern/geometry_component_pointcloud.cc
@@ -200,7 +201,7 @@ set(SRC
   intern/mesh_sample.cc
   intern/mesh_tangent.c
   intern/mesh_tessellate.c
-  intern/mesh_validate.c
+  intern/mesh_validate.cc
   intern/mesh_wrapper.c
   intern/modifier.c
   intern/movieclip.c
@@ -377,6 +378,7 @@ set(SRC
   BKE_idprop.hh
   BKE_idtype.h
   BKE_image.h
+  BKE_image_partial_update.hh
   BKE_image_save.h
   BKE_ipo.h
   BKE_kelvinlet.h

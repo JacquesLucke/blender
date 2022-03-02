@@ -700,7 +700,7 @@ static void MARKER_OT_add(wmOperatorType *ot)
 typedef struct MarkerMove {
   SpaceLink *slink;
   ListBase *markers;
-  int event_type; /* store invoke-event, to verify */
+  short event_type, event_val; /* store invoke-event, to verify */
   int *oldframe, evtx, firstx;
   NumInput num;
 } MarkerMove;
@@ -844,6 +844,7 @@ static int ed_marker_move_invoke(bContext *C, wmOperator *op, const wmEvent *eve
     mm->evtx = event->xy[0];
     mm->firstx = event->xy[0];
     mm->event_type = event->type;
+    mm->event_val = event->val;
 
     /* add temp handler */
     WM_event_add_modal_handler(C, op);
@@ -941,7 +942,7 @@ static int ed_marker_move_modal(bContext *C, wmOperator *op, const wmEvent *even
       case EVT_PADENTER:
       case LEFTMOUSE:
       case MIDDLEMOUSE:
-        if (WM_event_is_modal_tweak_exit(event, mm->event_type)) {
+        if (WM_event_is_modal_drag_exit(event, mm->event_type, mm->event_val)) {
           ed_marker_move_exit(C, op);
           WM_event_add_notifier(C, NC_SCENE | ND_MARKERS, NULL);
           WM_event_add_notifier(C, NC_ANIMATION | ND_MARKERS, NULL);
@@ -960,7 +961,13 @@ static int ed_marker_move_modal(bContext *C, wmOperator *op, const wmEvent *even
             mm->evtx = event->xy[0];
             fac = ((float)(event->xy[0] - mm->firstx) * dx);
 
-            apply_keyb_grid(event->shift, event->ctrl, &fac, 0.0, FPS, 0.1 * FPS, 0);
+            apply_keyb_grid((event->modifier & KM_SHIFT) != 0,
+                            (event->modifier & KM_CTRL) != 0,
+                            &fac,
+                            0.0,
+                            FPS,
+                            0.1 * FPS,
+                            0);
 
             RNA_int_set(op->ptr, "frames", (int)fac);
             ed_marker_move_apply(C, op);

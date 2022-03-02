@@ -8,10 +8,12 @@
 #pragma once
 
 #include "image_batches.hh"
+#include "image_buffer_cache.hh"
 #include "image_partial_updater.hh"
 #include "image_private.hh"
 #include "image_shader_params.hh"
 #include "image_texture_info.hh"
+#include "image_usage.hh"
 #include "image_wrappers.hh"
 
 #include "DRW_render.h"
@@ -25,8 +27,8 @@ constexpr int SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN = 1;
 
 struct IMAGE_InstanceData {
   struct Image *image;
-  /** Copy of the last image user to detect iuser differences that require a full update. */
-  struct ImageUser last_image_user;
+  /** Usage data of the previous time, to identify changes that require a full update. */
+  ImageUsage last_usage;
 
   PartialImageUpdater partial_update;
 
@@ -47,11 +49,18 @@ struct IMAGE_InstanceData {
     DRWPass *depth_pass;
   } passes;
 
+  /**
+   * Cache containing the float buffers when drawing byte images.
+   */
+  FloatBufferCache float_buffers;
+
   /** \brief Transform matrix to convert a normalized screen space coordinates to texture space. */
   float ss_to_texture[4][4];
   TextureInfo texture_infos[SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN];
 
  public:
+  virtual ~IMAGE_InstanceData() = default;
+
   void clear_dirty_flag()
   {
     reset_dirty_flag(false);
@@ -95,24 +104,13 @@ struct IMAGE_InstanceData {
     }
   }
 
-  void update_image_user(const ImageUser *image_user)
+  void update_image_usage(const ImageUser *image_user)
   {
-    short requested_pass = image_user ? image_user->pass : 0;
-    short requested_layer = image_user ? image_user->layer : 0;
-    short requested_view = image_user ? image_user->multi_index : 0;
-    /* There is room for 2 multiview textures. When a higher number is requested we should always
-     * target the first view slot. This is fine as multi view images aren't used together. */
-    if (requested_view > 1) {
-      requested_view = 0;
-    }
-
-    if (last_image_user.pass != requested_pass || last_image_user.layer != requested_layer ||
-        last_image_user.multi_index != requested_view) {
-
-      last_image_user.pass = requested_pass;
-      last_image_user.layer = requested_layer;
-      last_image_user.multi_index = requested_view;
+    ImageUsage usage(image, image_user, flags.do_tile_drawing);
+    if (last_usage != usage) {
+      last_usage = usage;
       reset_dirty_flag(true);
+      float_buffers.clear();
     }
   }
 

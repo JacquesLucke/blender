@@ -681,6 +681,7 @@ void nodeRemLink(struct bNodeTree *ntree, struct bNodeLink *link);
 void nodeRemSocketLinks(struct bNodeTree *ntree, struct bNodeSocket *sock);
 void nodeMuteLinkToggle(struct bNodeTree *ntree, struct bNodeLink *link);
 bool nodeLinkIsHidden(const struct bNodeLink *link);
+bool nodeLinkIsSelected(const struct bNodeLink *link);
 void nodeInternalRelink(struct bNodeTree *ntree, struct bNode *node);
 
 void nodeToView(const struct bNode *node, float x, float y, float *rx, float *ry);
@@ -1514,6 +1515,8 @@ struct TexResult;
 #define GEO_NODE_SCALE_ELEMENTS 1151
 #define GEO_NODE_EXTRUDE_MESH 1152
 #define GEO_NODE_MERGE_BY_DISTANCE 1153
+#define GEO_NODE_DUPLICATE_ELEMENTS 1154
+#define GEO_NODE_INPUT_MESH_FACE_IS_PLANAR 1155
 
 /** \} */
 

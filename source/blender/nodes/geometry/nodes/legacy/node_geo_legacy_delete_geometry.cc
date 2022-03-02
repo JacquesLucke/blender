@@ -111,9 +111,9 @@ static void spline_copy_builtin_attributes(const Spline &spline,
   copy_data(spline.radii(), r_spline.radii(), mask);
   copy_data(spline.tilts(), r_spline.tilts(), mask);
   switch (spline.type()) {
-    case Spline::Type::Poly:
+    case CURVE_TYPE_POLY:
       break;
-    case Spline::Type::Bezier: {
+    case CURVE_TYPE_BEZIER: {
       const BezierSpline &src = static_cast<const BezierSpline &>(spline);
       BezierSpline &dst = static_cast<BezierSpline &>(r_spline);
       copy_data(src.handle_positions_left(), dst.handle_positions_left(), mask);
@@ -122,10 +122,14 @@ static void spline_copy_builtin_attributes(const Spline &spline,
       copy_data(src.handle_types_right(), dst.handle_types_right(), mask);
       break;
     }
-    case Spline::Type::NURBS: {
+    case CURVE_TYPE_NURBS: {
       const NURBSpline &src = static_cast<const NURBSpline &>(spline);
       NURBSpline &dst = static_cast<NURBSpline &>(r_spline);
       copy_data(src.weights(), dst.weights(), mask);
+      break;
+    }
+    case CURVE_TYPE_CATMULL_ROM: {
+      BLI_assert_unreachable();
       break;
     }
   }
@@ -231,9 +235,9 @@ static void delete_curve_selection(const CurveComponent &in_component,
                                    const bool invert)
 {
   std::unique_ptr<CurveEval> r_curve = curve_delete(
-      *in_component.get_for_read(), selection_name, invert);
+      *curves_to_curve_eval(*in_component.get_for_read()), selection_name, invert);
   if (r_curve) {
-    r_component.replace(r_curve.release());
+    r_component.replace(curve_eval_to_curves(*r_curve));
   }
   else {
     r_component.clear();

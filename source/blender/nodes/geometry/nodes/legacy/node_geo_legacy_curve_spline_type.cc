@@ -148,8 +148,8 @@ static SplinePtr poly_to_bezier(const Spline &input)
   output->positions().copy_from(input.positions());
   output->radii().copy_from(input.radii());
   output->tilts().copy_from(input.tilts());
-  output->handle_types_left().fill(BezierSpline::HandleType::Vector);
-  output->handle_types_right().fill(BezierSpline::HandleType::Vector);
+  output->handle_types_left().fill(BEZIER_HANDLE_VECTOR);
+  output->handle_types_right().fill(BEZIER_HANDLE_VECTOR);
   output->set_resolution(12);
   Spline::copy_base_settings(input, *output);
   output->attributes = input.attributes;
@@ -166,8 +166,8 @@ static SplinePtr nurbs_to_bezier(const Spline &input)
   scale_input_assign<float3>(input.positions(), 3, 2, output->handle_positions_right());
   scale_input_assign<float>(input.radii(), 3, 2, output->radii());
   scale_input_assign<float>(input.tilts(), 3, 2, output->tilts());
-  output->handle_types_left().fill(BezierSpline::HandleType::Align);
-  output->handle_types_right().fill(BezierSpline::HandleType::Align);
+  output->handle_types_left().fill(BEZIER_HANDLE_ALIGN);
+  output->handle_types_right().fill(BEZIER_HANDLE_ALIGN);
   output->set_resolution(nurbs_spline.resolution());
   Spline::copy_base_settings(input, *output);
   output->attributes.reallocate(output->size());
@@ -183,11 +183,11 @@ static SplinePtr nurbs_to_bezier(const Spline &input)
 static SplinePtr convert_to_bezier(const Spline &input, GeoNodeExecParams params)
 {
   switch (input.type()) {
-    case Spline::Type::Bezier:
+    case CURVE_TYPE_BEZIER:
       return input.copy();
-    case Spline::Type::Poly:
+    case CURVE_TYPE_POLY:
       return poly_to_bezier(input);
-    case Spline::Type::NURBS:
+    case CURVE_TYPE_NURBS:
       if (input.size() < 6) {
         params.error_message_add(
             NodeWarningType::Info,
@@ -202,6 +202,10 @@ static SplinePtr convert_to_bezier(const Spline &input, GeoNodeExecParams params
         }
         return nurbs_to_bezier(input);
       }
+    case CURVE_TYPE_CATMULL_ROM: {
+      BLI_assert_unreachable();
+      return {};
+    }
   }
   BLI_assert_unreachable();
   return {};
@@ -210,12 +214,15 @@ static SplinePtr convert_to_bezier(const Spline &input, GeoNodeExecParams params
 static SplinePtr convert_to_nurbs(const Spline &input)
 {
   switch (input.type()) {
-    case Spline::Type::NURBS:
+    case CURVE_TYPE_NURBS:
       return input.copy();
-    case Spline::Type::Bezier:
+    case CURVE_TYPE_BEZIER:
       return bezier_to_nurbs(input);
-    case Spline::Type::Poly:
+    case CURVE_TYPE_POLY:
       return poly_to_nurbs(input);
+    case CURVE_TYPE_CATMULL_ROM:
+      BLI_assert_unreachable();
+      return {};
   }
   BLI_assert_unreachable();
   return {};
@@ -229,40 +236,40 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Curve");
   geometry_set = geometry::realize_instances_legacy(geometry_set);
-  if (!geometry_set.has_curve()) {
+  if (!geometry_set.has_curves()) {
     params.set_output("Curve", geometry_set);
     return;
   }
 
   const CurveComponent *curve_component = geometry_set.get_component_for_read<CurveComponent>();
-  const CurveEval &curve = *curve_component->get_for_read();
+  const std::unique_ptr<CurveEval> curve = curves_to_curve_eval(*curve_component->get_for_read());
 
   const std::string selection_name = params.extract_input<std::string>("Selection");
   VArray<bool> selection = curve_component->attribute_get_for_read(
       selection_name, ATTR_DOMAIN_CURVE, true);
 
   std::unique_ptr<CurveEval> new_curve = std::make_unique<CurveEval>();
-  for (const int i : curve.splines().index_range()) {
+  for (const int i : curve->splines().index_range()) {
     if (selection[i]) {
       switch (output_type) {
         case GEO_NODE_SPLINE_TYPE_POLY:
-          new_curve->add_spline(convert_to_poly_spline(*curve.splines()[i]));
+          new_curve->add_spline(convert_to_poly_spline(*curve->splines()[i]));
           break;
         case GEO_NODE_SPLINE_TYPE_BEZIER:
-          new_curve->add_spline(convert_to_bezier(*curve.splines()[i], params));
+          new_curve->add_spline(convert_to_bezier(*curve->splines()[i], params));
           break;
         case GEO_NODE_SPLINE_TYPE_NURBS:
-          new_curve->add_spline(convert_to_nurbs(*curve.splines()[i]));
+          new_curve->add_spline(convert_to_nurbs(*curve->splines()[i]));
           break;
       }
     }
     else {
-      new_curve->add_spline(curve.splines()[i]->copy());
+      new_curve->add_spline(curve->splines()[i]->copy());
     }
   }
 
-  new_curve->attributes = curve.attributes;
-  params.set_output("Curve", GeometrySet::create_with_curve(new_curve.release()));
+  new_curve->attributes = curve->attributes;
+  params.set_output("Curve", GeometrySet::create_with_curves(curve_eval_to_curves(*new_curve)));
 }
 
 }  // namespace blender::nodes::node_geo_legacy_curve_spline_type_cc
