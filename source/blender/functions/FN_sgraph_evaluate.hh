@@ -1017,8 +1017,8 @@ template<typename SGraphAdapter> class ExecuteNodeParamsT final : public Execute
 };
 
 template<typename SGraphAdapter>
-void SGraphEvaluator<SGraphAdapter>::execute_node(const NodeT<SGraphAdapter> node,
-                                                  NodeState &node_state)
+inline void SGraphEvaluator<SGraphAdapter>::execute_node(const NodeT<SGraphAdapter> node,
+                                                         NodeState &node_state)
 {
   ExecuteNodeParamsT<SGraphAdapter> execute_params{*this, node, node_state};
   executor_.execute_node(node.id, execute_params);
