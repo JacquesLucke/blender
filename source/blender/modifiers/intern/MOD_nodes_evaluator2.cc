@@ -6,7 +6,6 @@
 
 namespace blender::modifiers::geometry_nodes {
 
-using fn::CPPType;
 using namespace nodes::node_tree_ref_types;
 
 class GeometryNodesExecutor : public fn::sgraph::SGraphExecuteSemantics<const NodeRef *> {

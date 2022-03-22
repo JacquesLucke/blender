@@ -22,8 +22,10 @@
 
 #include <mutex>
 
+#include "BLI_cpp_type.hh"
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_function_ref.hh"
+#include "BLI_generic_pointer.hh"
 #include "BLI_linear_allocator.hh"
 #include "BLI_map.hh"
 #include "BLI_stack.hh"
@@ -31,8 +33,6 @@
 #include "BLI_task.hh"
 #include "BLI_vector_set.hh"
 
-#include "FN_cpp_type.hh"
-#include "FN_generic_pointer.hh"
 #include "FN_sgraph.hh"
 
 namespace blender::fn::sgraph {
