@@ -104,7 +104,7 @@ struct ExampleSGraphAdapter {
   }
 };
 
-class ExampleExecutor : public SGraphExecuteSemantics<ExampleSGraphAdapter::NodeID> {
+class ExampleExecutor : public SGraphExecuteSemantics<ExampleSGraphAdapter> {
  public:
   SGraphT<ExampleSGraphAdapter> graph_;
   using NodeID = ExampleSGraphAdapter::NodeID;

@@ -69,8 +69,10 @@ class ExecuteGraphIO {
   virtual void set_output_by_copy(int index, GPointer value) = 0;
 };
 
-template<typename NodeID> class SGraphExecuteSemantics {
+template<typename SGraphAdapter> class SGraphExecuteSemantics {
  public:
+  using NodeID = typename SGraphAdapter::NodeID;
+
   virtual const CPPType *input_socket_type(const NodeID &node, int input_index) const = 0;
   virtual const CPPType *output_socket_type(const NodeID &node, int output_index) const = 0;
   virtual void load_unlinked_single_input(const NodeID &node,
@@ -165,7 +167,7 @@ template<typename SGraphAdapter> class SGraphEvaluator {
   using OutSocket = OutSocketT<SGraphAdapter>;
   using Socket = SocketT<SGraphAdapter>;
   using Link = LinkT<SGraphAdapter>;
-  using Executor = SGraphExecuteSemantics<NodeID>;
+  using Executor = SGraphExecuteSemantics<SGraphAdapter>;
   using NodeState = NodeStateT<SGraphAdapter>;
   using InputState = InputStateT<SGraphAdapter>;
   using MultiInputValue = MultiInputValueT<SGraphAdapter>;

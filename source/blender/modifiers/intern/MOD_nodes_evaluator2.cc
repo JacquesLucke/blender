@@ -8,10 +8,9 @@ namespace blender::modifiers::geometry_nodes {
 
 using namespace nodes::node_tree_ref_types;
 
-class GeometryNodesExecutor : public fn::sgraph::SGraphExecuteSemantics<const NodeRef *> {
+class GeometryNodesExecutor
+    : public fn::sgraph::SGraphExecuteSemantics<nodes::NodeTreeRefSGraphAdapter> {
  private:
-  using NodeID = const NodeRef *;
-
   const NodeTreeRef &tree_ref_;
 
  public:
