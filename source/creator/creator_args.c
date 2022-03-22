@@ -35,7 +35,7 @@
 #  include "BKE_context.h"
 
 #  include "BKE_global.h"
-#  include "BKE_image.h"
+#  include "BKE_image_format.h"
 #  include "BKE_lib_id.h"
 #  include "BKE_main.h"
 #  include "BKE_report.h"
@@ -262,7 +262,7 @@ static int *parse_int_relative_clamp_n(
   int i = 0;
   while (true) {
     const char *str_end = strchr(str, sep);
-    if ((*str == sep) || (*str == '\0')) {
+    if (ELEM(*str, sep, '\0')) {
       static const char *msg = "incorrect comma use";
       *r_err_msg = msg;
       goto fail;

@@ -75,6 +75,7 @@
 #include "ED_screen.h"
 
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "UI_interface.h"
 
@@ -310,7 +311,7 @@ static int material_slot_assign_exec(bContext *C, wmOperator *UNUSED(op))
         }
       }
     }
-    else if (ELEM(ob->type, OB_CURVE, OB_SURF)) {
+    else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF)) {
       Nurb *nu;
       ListBase *nurbs = BKE_curve_editNurbs_get((Curve *)ob->data);
 
@@ -411,7 +412,7 @@ static int material_slot_de_select(bContext *C, bool select)
         changed = EDBM_deselect_by_material(em, mat_nr_active, select);
       }
     }
-    else if (ELEM(ob->type, OB_CURVE, OB_SURF)) {
+    else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF)) {
       ListBase *nurbs = BKE_curve_editNurbs_get((Curve *)ob->data);
       Nurb *nu;
       BPoint *bp;
@@ -1141,7 +1142,7 @@ static void light_cache_bake_tag_cache(Scene *scene, wmOperator *op)
   }
 }
 
-/* catch esc */
+/** Catch escape key to cancel. */
 static int light_cache_bake_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   Scene *scene = (Scene *)op->customdata;

@@ -493,18 +493,6 @@ void RNA_def_main_simulations(BlenderRNA *brna, PropertyRNA *cprop);
 
 /* ID Properties */
 
-extern StringPropertyRNA rna_PropertyGroupItem_string;
-extern IntPropertyRNA rna_PropertyGroupItem_int;
-extern IntPropertyRNA rna_PropertyGroupItem_int_array;
-extern FloatPropertyRNA rna_PropertyGroupItem_float;
-extern FloatPropertyRNA rna_PropertyGroupItem_float_array;
-extern PointerPropertyRNA rna_PropertyGroupItem_group;
-extern PointerPropertyRNA rna_PropertyGroupItem_id;
-extern CollectionPropertyRNA rna_PropertyGroupItem_collection;
-extern CollectionPropertyRNA rna_PropertyGroupItem_idp_array;
-extern FloatPropertyRNA rna_PropertyGroupItem_double;
-extern FloatPropertyRNA rna_PropertyGroupItem_double_array;
-
 #ifndef __RNA_ACCESS_H__
 extern StructRNA RNA_PropertyGroupItem;
 extern StructRNA RNA_PropertyGroup;
@@ -649,7 +637,7 @@ const char *rna_translate_ui_text(const char *text,
                                   struct PropertyRNA *prop,
                                   bool translate);
 
-/* Internal functions that cycles uses so we need to declare (tsk tsk) */
+/* Internal functions that cycles uses so we need to declare (tsk!). */
 void rna_RenderPass_rect_set(PointerRNA *ptr, const float *values);
 
 #ifdef RNA_RUNTIME

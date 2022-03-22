@@ -196,14 +196,14 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
     }
   }
 
-  if (ELEM(ob->type, OB_CURVE, OB_FONT, OB_SURF)) {
+  if (ELEM(ob->type, OB_CURVES_LEGACY, OB_FONT, OB_SURF)) {
     OVERLAY_ExtraCallBuffers *cb = OVERLAY_extra_call_buffer_get(vedata, ob);
     float *color;
     DRW_object_wire_theme_get(ob, draw_ctx->view_layer, &color);
 
     struct GPUBatch *geom = NULL;
     switch (ob->type) {
-      case OB_CURVE:
+      case OB_CURVES_LEGACY:
         geom = DRW_cache_curve_edge_wire_get(ob);
         break;
       case OB_FONT:
@@ -276,8 +276,12 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
     const bool is_sculpt_mode = ((ob->mode & OB_MODE_SCULPT) != 0) && (ob->sculpt != NULL);
     const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->v3d) &&
                                  !DRW_state_is_image_render();
+    const bool is_instance = (ob->base_flag & BASE_FROM_DUPLI);
+    const bool instance_parent_in_edit_mode = is_instance ? DRW_object_is_in_edit_mode(
+                                                                DRW_object_get_dupli_parent(ob)) :
+                                                            false;
     const bool use_coloring = (use_wire && !is_edit_mode && !is_sculpt_mode &&
-                               !has_edit_mesh_cage);
+                               !has_edit_mesh_cage && !instance_parent_in_edit_mode);
     geom = DRW_cache_object_face_wireframe_get(ob);
 
     if (geom || use_sculpt_pbvh) {

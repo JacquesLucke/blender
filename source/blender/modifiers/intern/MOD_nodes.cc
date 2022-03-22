@@ -63,6 +63,7 @@
 
 #include "RNA_access.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
@@ -89,9 +90,14 @@
 
 using blender::Array;
 using blender::ColorGeometry4f;
+using blender::CPPType;
 using blender::destruct_ptr;
 using blender::float3;
 using blender::FunctionRef;
+using blender::GMutablePointer;
+using blender::GMutableSpan;
+using blender::GPointer;
+using blender::GVArray;
 using blender::IndexRange;
 using blender::Map;
 using blender::MultiValueMap;
@@ -104,9 +110,6 @@ using blender::Vector;
 using blender::bke::OutputAttribute;
 using blender::fn::Field;
 using blender::fn::GField;
-using blender::fn::GMutablePointer;
-using blender::fn::GPointer;
-using blender::fn::GVArray;
 using blender::fn::ValueOrField;
 using blender::fn::ValueOrFieldCPPType;
 using blender::nodes::FieldInferencingInterface;
@@ -455,6 +458,10 @@ static IDProperty *id_property_create_from_socket(const bNodeSocket &socket)
       ui_data->base.rna_subtype = PROP_COLOR;
       ui_data->default_array = (double *)MEM_mallocN(sizeof(double[4]), __func__);
       ui_data->default_array_len = 4;
+      ui_data->min = 0.0;
+      ui_data->max = FLT_MAX;
+      ui_data->soft_min = 0.0;
+      ui_data->soft_max = 1.0;
       for (const int i : IndexRange(4)) {
         ui_data->default_array[i] = double(value->value[i]);
       }
@@ -1258,8 +1265,34 @@ static void modifyGeometry(ModifierData *md,
     return;
   }
 
+  bool use_orig_index_verts = false;
+  bool use_orig_index_edges = false;
+  bool use_orig_index_polys = false;
+  if (geometry_set.has_mesh()) {
+    const Mesh &mesh = *geometry_set.get_mesh_for_read();
+    use_orig_index_verts = CustomData_has_layer(&mesh.vdata, CD_ORIGINDEX);
+    use_orig_index_edges = CustomData_has_layer(&mesh.edata, CD_ORIGINDEX);
+    use_orig_index_polys = CustomData_has_layer(&mesh.pdata, CD_ORIGINDEX);
+  }
+
   geometry_set = compute_geometry(
       tree, input_nodes, output_node, std::move(geometry_set), nmd, ctx);
+
+  if (geometry_set.has_mesh()) {
+    /* Add #CD_ORIGINDEX layers if they don't exist already. This is required because the
+     * #eModifierTypeFlag_SupportsMapping flag is set. If the layers did not exist before, it is
+     * assumed that the output mesh does not have a mapping to the original mesh. */
+    Mesh &mesh = *geometry_set.get_mesh_for_write();
+    if (use_orig_index_verts) {
+      CustomData_add_layer(&mesh.vdata, CD_ORIGINDEX, CD_DEFAULT, nullptr, mesh.totvert);
+    }
+    if (use_orig_index_edges) {
+      CustomData_add_layer(&mesh.edata, CD_ORIGINDEX, CD_DEFAULT, nullptr, mesh.totedge);
+    }
+    if (use_orig_index_polys) {
+      CustomData_add_layer(&mesh.pdata, CD_ORIGINDEX, CD_DEFAULT, nullptr, mesh.totpoly);
+    }
+  }
 }
 
 static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh)
@@ -1397,7 +1430,7 @@ static void add_attribute_search_button(const bContext &C,
                                  0.0f,
                                  0.0f,
                                  0.0f,
-                                 "");
+                                 socket.description);
 
   const Object *object = ED_object_context(&C);
   BLI_assert(object != nullptr);
@@ -1592,27 +1625,15 @@ static void panel_draw(const bContext *C, Panel *panel)
   }
 
   /* Draw node warnings. */
-  bool has_legacy_node = false;
   if (nmd->runtime_eval_log != nullptr) {
     const geo_log::ModifierLog &log = *static_cast<geo_log::ModifierLog *>(nmd->runtime_eval_log);
     log.foreach_node_log([&](const geo_log::NodeLog &node_log) {
       for (const geo_log::NodeWarning &warning : node_log.warnings()) {
-        if (warning.type == geo_log::NodeWarningType::Legacy) {
-          has_legacy_node = true;
-        }
-        else if (warning.type != geo_log::NodeWarningType::Info) {
+        if (warning.type != geo_log::NodeWarningType::Info) {
           uiItemL(layout, warning.message.c_str(), ICON_ERROR);
         }
       }
     });
-  }
-
-  if (has_legacy_node) {
-    uiLayout *row = uiLayoutRow(layout, false);
-    uiItemL(row, TIP_("Node tree has legacy node"), ICON_ERROR);
-    uiLayout *sub = uiLayoutRow(row, false);
-    uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_RIGHT);
-    uiItemO(sub, "", ICON_VIEWZOOM, "NODE_OT_geometry_node_view_legacy");
   }
 
   modifier_panel_end(layout, ptr);

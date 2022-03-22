@@ -82,6 +82,7 @@
 #include "BKE_world.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 #include "RNA_types.h"
 
 #include "SEQ_iterator.h"
@@ -221,7 +222,8 @@ OperationCode bone_target_opcode(ID *target,
 
 bool object_have_geometry_component(const Object *object)
 {
-  return ELEM(object->type, OB_MESH, OB_CURVE, OB_FONT, OB_SURF, OB_MBALL, OB_LATTICE, OB_GPENCIL);
+  return ELEM(
+      object->type, OB_MESH, OB_CURVES_LEGACY, OB_FONT, OB_SURF, OB_MBALL, OB_LATTICE, OB_GPENCIL);
 }
 
 }  // namespace
@@ -537,7 +539,7 @@ void DepsgraphRelationBuilder::build_id(ID *id)
       break;
     case ID_ME:
     case ID_MB:
-    case ID_CU:
+    case ID_CU_LEGACY:
     case ID_LT:
     case ID_CV:
     case ID_PT:
@@ -827,7 +829,7 @@ void DepsgraphRelationBuilder::build_object_data(Object *object)
   /* type-specific data. */
   switch (object->type) {
     case OB_MESH:
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
     case OB_FONT:
     case OB_SURF:
     case OB_MBALL:
@@ -983,7 +985,7 @@ void DepsgraphRelationBuilder::build_object_parent(Object *object)
         add_relation(parent_key, object_transform_key, "Lattice Deform Parent");
         add_relation(geom_key, object_transform_key, "Lattice Deform Parent Geom");
       }
-      else if (object->parent->type == OB_CURVE) {
+      else if (object->parent->type == OB_CURVES_LEGACY) {
         Curve *cu = (Curve *)object->parent->data;
 
         if (cu->flag & CU_PATH) {
@@ -1597,6 +1599,14 @@ void DepsgraphRelationBuilder::build_driver_data(ID *id, FCurve *fcu)
       add_relation(property_exit_key, parameters_key, "Driven Property -> Properties");
     }
   }
+
+  /* Assume drivers on a node tree affect the evaluated output of the node tree. In theory we could
+   * check if the driven value actually affects the output, i.e. if it drives a node that is linked
+   * to the output. */
+  if (GS(id_ptr->name) == ID_NT) {
+    ComponentKey ntree_output_key(id_ptr, NodeType::NTREE_OUTPUT);
+    add_relation(driver_key, ntree_output_key, "Drivers -> NTree Output");
+  }
 }
 
 void DepsgraphRelationBuilder::build_driver_variables(ID *id, FCurve *fcu)
@@ -2040,7 +2050,7 @@ void DepsgraphRelationBuilder::build_shapekeys(Key *key)
  *   Therefore, each user of a piece of shared geometry data ends up evaluating
  *   its own version of the stuff, complete with whatever modifiers it may use.
  *
- * - The data-blocks for the geometry data - "obdata" (e.g. ID_ME, ID_CU, ID_LT.)
+ * - The data-blocks for the geometry data - "obdata" (e.g. ID_ME, ID_CU_LEGACY, ID_LT.)
  *   are used for
  *     1) calculating the bounding boxes of the geometry data,
  *     2) aggregating inward links from other objects (e.g. for text on curve)
@@ -2125,7 +2135,7 @@ void DepsgraphRelationBuilder::build_object_data_geometry(Object *object)
   /* Materials. */
   build_materials(object->mat, object->totcol);
   /* Geometry collision. */
-  if (ELEM(object->type, OB_MESH, OB_CURVE, OB_LATTICE)) {
+  if (ELEM(object->type, OB_MESH, OB_CURVES_LEGACY, OB_LATTICE)) {
     // add geometry collider relations
   }
   /* Make sure uber update is the last in the dependencies. */
@@ -2220,7 +2230,7 @@ void DepsgraphRelationBuilder::build_object_data_geometry_datablock(ID *obdata)
       break;
     case ID_MB:
       break;
-    case ID_CU: {
+    case ID_CU_LEGACY: {
       Curve *cu = (Curve *)obdata;
       if (cu->bevobj != nullptr) {
         ComponentKey bevob_geom_key(&cu->bevobj->id, NodeType::GEOMETRY);
@@ -2362,8 +2372,9 @@ void DepsgraphRelationBuilder::build_light(Light *lamp)
   /* light's nodetree */
   if (lamp->nodetree != nullptr) {
     build_nodetree(lamp->nodetree);
-    ComponentKey nodetree_key(&lamp->nodetree->id, NodeType::NTREE_OUTPUT);
-    add_relation(nodetree_key, shading_key, "NTree->Light Parameters");
+    OperationKey ntree_key(
+        &lamp->nodetree->id, NodeType::NTREE_OUTPUT, OperationCode::NTREE_OUTPUT);
+    add_relation(ntree_key, shading_key, "NTree->Light Parameters");
     build_nested_nodetree(&lamp->id, lamp->nodetree);
   }
 }

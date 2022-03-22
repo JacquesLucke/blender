@@ -8,10 +8,12 @@
 #pragma once
 
 #include "image_batches.hh"
+#include "image_buffer_cache.hh"
 #include "image_partial_updater.hh"
 #include "image_private.hh"
 #include "image_shader_params.hh"
 #include "image_texture_info.hh"
+#include "image_usage.hh"
 #include "image_wrappers.hh"
 
 #include "DRW_render.h"
@@ -21,10 +23,12 @@
  *
  * 4 textures are used to reduce uploading screen space textures when translating the image.
  */
-constexpr int SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN = 4;
+constexpr int SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN = 1;
 
 struct IMAGE_InstanceData {
   struct Image *image;
+  /** Usage data of the previous time, to identify changes that require a full update. */
+  ImageUsage last_usage;
 
   PartialImageUpdater partial_update;
 
@@ -45,11 +49,18 @@ struct IMAGE_InstanceData {
     DRWPass *depth_pass;
   } passes;
 
+  /**
+   * Cache containing the float buffers when drawing byte images.
+   */
+  FloatBufferCache float_buffers;
+
   /** \brief Transform matrix to convert a normalized screen space coordinates to texture space. */
   float ss_to_texture[4][4];
   TextureInfo texture_infos[SCREEN_SPACE_DRAWING_MODE_TEXTURE_LEN];
 
  public:
+  virtual ~IMAGE_InstanceData() = default;
+
   void clear_dirty_flag()
   {
     reset_dirty_flag(false);
@@ -90,6 +101,16 @@ struct IMAGE_InstanceData {
       }
       BatchUpdater batch_updater(info);
       batch_updater.update_batch();
+    }
+  }
+
+  void update_image_usage(const ImageUser *image_user)
+  {
+    ImageUsage usage(image, image_user, flags.do_tile_drawing);
+    if (last_usage != usage) {
+      last_usage = usage;
+      reset_dirty_flag(true);
+      float_buffers.clear();
     }
   }
 

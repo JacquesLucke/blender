@@ -24,6 +24,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "BKE_action.h"
 #include "BKE_context.h"
@@ -659,7 +660,7 @@ static int action_unlink_invoke(bContext *C, wmOperator *op, const wmEvent *even
 {
   /* NOTE: this is hardcoded to match the behavior for the unlink button
    * (in interface_templates.c). */
-  RNA_boolean_set(op->ptr, "force_delete", event->shift != 0);
+  RNA_boolean_set(op->ptr, "force_delete", event->modifier & KM_SHIFT);
   return action_unlink_exec(C, op);
 }
 

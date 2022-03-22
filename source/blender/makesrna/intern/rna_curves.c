@@ -16,6 +16,8 @@
 #include "BLI_math_base.h"
 #include "BLI_string.h"
 
+#include "WM_types.h"
+
 #ifdef RNA_RUNTIME
 
 #  include "BLI_math_vector.h"
@@ -43,7 +45,7 @@ static void rna_Curves_curve_offset_data_begin(CollectionPropertyIterator *iter,
 {
   const Curves *curves = rna_curves(ptr);
   rna_iterator_array_begin(iter,
-                           (void *)curves->geometry.offsets,
+                           (void *)curves->geometry.curve_offsets,
                            sizeof(int),
                            curves->geometry.curve_size + 1,
                            false,
@@ -95,7 +97,7 @@ static char *rna_CurvePoint_path(PointerRNA *ptr)
 static int rna_CurveSlice_index_get(PointerRNA *ptr)
 {
   Curves *curves = rna_curves(ptr);
-  return (int)((int *)ptr->data - curves->geometry.offsets);
+  return (int)((int *)ptr->data - curves->geometry.curve_offsets);
 }
 
 static char *rna_CurveSlice_path(PointerRNA *ptr)
@@ -220,7 +222,7 @@ static void rna_def_curves(BlenderRNA *brna)
   /* Point and Curve RNA API helpers. */
 
   prop = RNA_def_property(srna, "curves", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, NULL, "geometry.offsets", "geometry.curve_size");
+  RNA_def_property_collection_sdna(prop, NULL, "geometry.curve_offsets", "geometry.curve_size");
   RNA_def_property_struct_type(prop, "CurveSlice");
   RNA_def_property_ui_text(prop, "Curves", "All curves in the data-block");
 
@@ -243,7 +245,7 @@ static void rna_def_curves(BlenderRNA *brna)
   RNA_define_verify_sdna(1);
 
   prop = RNA_def_property(srna, "curve_offset_data", PROP_COLLECTION, PROP_NONE);
-  RNA_def_property_collection_sdna(prop, NULL, "geometry.offsets", NULL);
+  RNA_def_property_collection_sdna(prop, NULL, "geometry.curve_offsets", NULL);
   RNA_def_property_struct_type(prop, "IntAttributeValue");
   RNA_def_property_collection_funcs(prop,
                                     "rna_Curves_curve_offset_data_begin",
@@ -264,6 +266,13 @@ static void rna_def_curves(BlenderRNA *brna)
   RNA_def_property_srna(prop, "IDMaterials"); /* see rna_ID.c */
   RNA_def_property_collection_funcs(
       prop, NULL, NULL, NULL, NULL, NULL, NULL, NULL, "rna_IDMaterials_assign_int");
+
+  prop = RNA_def_property(srna, "surface", PROP_POINTER, PROP_NONE);
+  RNA_def_property_struct_type(prop, "Object");
+  RNA_def_property_flag(prop, PROP_EDITABLE);
+  RNA_def_property_pointer_funcs(prop, NULL, NULL, NULL, "rna_Mesh_object_poll");
+  RNA_def_property_ui_text(prop, "Surface", "Mesh object that the curves can be attached to");
+  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
 
   /* attributes */
   rna_def_attributes_common(srna);

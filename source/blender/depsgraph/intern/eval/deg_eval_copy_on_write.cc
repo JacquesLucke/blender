@@ -41,6 +41,7 @@
 #include "DNA_ID.h"
 #include "DNA_anim_types.h"
 #include "DNA_armature_types.h"
+#include "DNA_gpencil_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
@@ -125,7 +126,7 @@ void nested_id_hack_discard_pointers(ID *id_cow)
     SPECIAL_CASE(ID_WO, World, nodetree)
     SPECIAL_CASE(ID_SIM, Simulation, nodetree)
 
-    SPECIAL_CASE(ID_CU, Curve, key)
+    SPECIAL_CASE(ID_CU_LEGACY, Curve, key)
     SPECIAL_CASE(ID_LT, Lattice, key)
     SPECIAL_CASE(ID_ME, Mesh, key)
 
@@ -174,7 +175,7 @@ const ID *nested_id_hack_get_discarded_pointers(NestedIDHackTempStorage *storage
     SPECIAL_CASE(ID_WO, World, nodetree, world)
     SPECIAL_CASE(ID_SIM, Simulation, nodetree, simulation)
 
-    SPECIAL_CASE(ID_CU, Curve, key, curve)
+    SPECIAL_CASE(ID_CU_LEGACY, Curve, key, curve)
     SPECIAL_CASE(ID_LT, Lattice, key, lattice)
     SPECIAL_CASE(ID_ME, Mesh, key, mesh)
 
@@ -214,7 +215,7 @@ void nested_id_hack_restore_pointers(const ID *old_id, ID *new_id)
     SPECIAL_CASE(ID_WO, World, nodetree)
     SPECIAL_CASE(ID_SIM, Simulation, nodetree)
 
-    SPECIAL_CASE(ID_CU, Curve, key)
+    SPECIAL_CASE(ID_CU_LEGACY, Curve, key)
     SPECIAL_CASE(ID_LT, Lattice, key)
     SPECIAL_CASE(ID_ME, Mesh, key)
 
@@ -252,7 +253,7 @@ void ntree_hack_remap_pointers(const Depsgraph *depsgraph, ID *id_cow)
     SPECIAL_CASE(ID_WO, World, nodetree, bNodeTree)
     SPECIAL_CASE(ID_SIM, Simulation, nodetree, bNodeTree)
 
-    SPECIAL_CASE(ID_CU, Curve, key, Key)
+    SPECIAL_CASE(ID_CU_LEGACY, Curve, key, Key)
     SPECIAL_CASE(ID_LT, Lattice, key, Key)
     SPECIAL_CASE(ID_ME, Mesh, key, Key)
 
@@ -578,7 +579,7 @@ void update_edit_mode_pointers(const Depsgraph *depsgraph, const ID *id_orig, ID
     case ID_ME:
       update_mesh_edit_mode_pointers(id_orig, id_cow);
       break;
-    case ID_CU:
+    case ID_CU_LEGACY:
       update_curve_edit_mode_pointers(depsgraph, id_orig, id_cow);
       break;
     case ID_MB:
@@ -731,6 +732,16 @@ void update_id_after_copy(const Depsgraph *depsgraph,
       scene_cow->toolsettings = scene_orig->toolsettings;
       scene_cow->eevee.light_cache_data = scene_orig->eevee.light_cache_data;
       scene_setup_view_layers_after_remap(depsgraph, id_node, reinterpret_cast<Scene *>(id_cow));
+      break;
+    }
+    /* FIXME: This is a temporary fix to update the runtime pointers properly, see T96216. Should
+     * be removed at some point. */
+    case ID_GD: {
+      bGPdata *gpd_cow = (bGPdata *)id_cow;
+      bGPDlayer *gpl = (bGPDlayer *)(gpd_cow->layers.first);
+      if (gpl != nullptr && gpl->runtime.gpl_orig == nullptr) {
+        BKE_gpencil_data_update_orig_pointers((bGPdata *)id_orig, gpd_cow);
+      }
       break;
     }
     default:
@@ -953,7 +964,7 @@ void discard_edit_mode_pointers(ID *id_cow)
     case ID_ME:
       discard_mesh_edit_mode_pointers(id_cow);
       break;
-    case ID_CU:
+    case ID_CU_LEGACY:
       discard_curve_edit_mode_pointers(id_cow);
       break;
     case ID_MB:

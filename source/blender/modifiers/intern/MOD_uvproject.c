@@ -32,6 +32,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
@@ -284,9 +285,6 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
   }
 
   mesh->runtime.is_original = false;
-
-  /* Mark tessellated CD layers as dirty. */
-  mesh->runtime.cd_dirty_vert |= CD_MASK_TESSLOOPNORMAL;
 
   return mesh;
 }

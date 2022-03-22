@@ -240,6 +240,7 @@ static void detect_workarounds()
     GLContext::texture_cube_map_array_support = false;
     GLContext::texture_filter_anisotropic_support = false;
     GLContext::texture_gather_support = false;
+    GLContext::texture_storage_support = false;
     GLContext::vertex_attrib_binding_support = false;
     return;
   }
@@ -268,6 +269,11 @@ static void detect_workarounds()
     GCaps.mip_render_workaround = true;
     GCaps.shader_image_load_store_support = false;
     GCaps.broken_amd_driver = true;
+  }
+  /* Compute shaders have some issues with those versions (see T94936). */
+  if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_ANY, GPU_DRIVER_OFFICIAL) &&
+      (strstr(version, "4.5.14831") || strstr(version, "4.5.14760"))) {
+    GCaps.compute_shader_support = false;
   }
   /* We have issues with this specific renderer. (see T74024) */
   if (GPU_type_matches(GPU_DEVICE_ATI, GPU_OS_UNIX, GPU_DRIVER_OPENSOURCE) &&
@@ -420,6 +426,8 @@ GLint GLContext::max_cubemap_size = 0;
 GLint GLContext::max_texture_3d_size = 0;
 GLint GLContext::max_ubo_binds = 0;
 GLint GLContext::max_ubo_size = 0;
+GLint GLContext::max_ssbo_binds = 0;
+GLint GLContext::max_ssbo_size = 0;
 
 /** Extensions. */
 
@@ -436,9 +444,11 @@ bool GLContext::native_barycentric_support = false;
 bool GLContext::multi_bind_support = false;
 bool GLContext::multi_draw_indirect_support = false;
 bool GLContext::shader_draw_parameters_support = false;
+bool GLContext::stencil_texturing_support = false;
 bool GLContext::texture_cube_map_array_support = false;
 bool GLContext::texture_filter_anisotropic_support = false;
 bool GLContext::texture_gather_support = false;
+bool GLContext::texture_storage_support = false;
 bool GLContext::vertex_attrib_binding_support = false;
 
 /** Workarounds. */
@@ -478,13 +488,17 @@ void GLBackend::capabilities_init()
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 0, &GCaps.max_work_group_size[0]);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 1, &GCaps.max_work_group_size[1]);
     glGetIntegeri_v(GL_MAX_COMPUTE_WORK_GROUP_SIZE, 2, &GCaps.max_work_group_size[2]);
+    glGetIntegerv(GL_MAX_SHADER_STORAGE_BUFFER_BINDINGS,
+                  &GCaps.max_shader_storage_buffer_bindings);
   }
   GCaps.shader_storage_buffer_objects_support = GLEW_ARB_shader_storage_buffer_object;
   /* GL specific capabilities. */
   glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &GLContext::max_texture_3d_size);
   glGetIntegerv(GL_MAX_CUBE_MAP_TEXTURE_SIZE, &GLContext::max_cubemap_size);
   glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_BLOCKS, &GLContext::max_ubo_binds);
+  glGetIntegerv(GL_MAX_FRAGMENT_SHADER_STORAGE_BLOCKS, &GLContext::max_ssbo_binds);
   glGetIntegerv(GL_MAX_UNIFORM_BLOCK_SIZE, &GLContext::max_ubo_size);
+  glGetIntegerv(GL_MAX_SHADER_STORAGE_BLOCK_SIZE, &GLContext::max_ssbo_size);
   GLContext::base_instance_support = GLEW_ARB_base_instance;
   GLContext::clear_texture_support = GLEW_ARB_clear_texture;
   GLContext::copy_image_support = GLEW_ARB_copy_image;
@@ -498,9 +512,11 @@ void GLBackend::capabilities_init()
   GLContext::multi_bind_support = GLEW_ARB_multi_bind;
   GLContext::multi_draw_indirect_support = GLEW_ARB_multi_draw_indirect;
   GLContext::shader_draw_parameters_support = GLEW_ARB_shader_draw_parameters;
+  GLContext::stencil_texturing_support = GLEW_VERSION_4_3;
   GLContext::texture_cube_map_array_support = GLEW_ARB_texture_cube_map_array;
   GLContext::texture_filter_anisotropic_support = GLEW_EXT_texture_filter_anisotropic;
   GLContext::texture_gather_support = GLEW_ARB_texture_gather;
+  GLContext::texture_storage_support = GLEW_VERSION_4_3;
   GLContext::vertex_attrib_binding_support = GLEW_ARB_vertex_attrib_binding;
 
   detect_workarounds();

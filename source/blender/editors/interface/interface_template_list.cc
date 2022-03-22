@@ -23,6 +23,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "UI_interface.h"
 #include "UI_view2d.h"
@@ -598,7 +599,7 @@ static char *uilist_item_tooltip_func(bContext *UNUSED(C), void *argN, const cha
 }
 
 /**
- * \note Note that \a layout_type may be null.
+ * \note that \a layout_type may be null.
  */
 static uiList *ui_list_ensure(bContext *C,
                               uiListType *ui_list_type,

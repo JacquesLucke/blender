@@ -141,7 +141,6 @@ typedef struct FFMpegCodecData {
   int audio_bitrate;
   int audio_mixrate;
   int audio_channels;
-  char _pad0[4];
   float audio_volume;
   int gop_size;
   /** Only used if FFMPEG_USE_MAX_B_FRAMES flag is set. */
@@ -156,9 +155,7 @@ typedef struct FFMpegCodecData {
   int rc_buffer_size;
   int mux_packet_size;
   int mux_rate;
-  char _pad1[4];
-
-  IDProperty *properties;
+  void *_pad1;
 } FFMpegCodecData;
 
 /* ************************************************************* */
@@ -434,6 +431,7 @@ typedef struct ImageFormatData {
   /* color management */
   ColorManagedViewSettings view_settings;
   ColorManagedDisplaySettings display_settings;
+  ColorManagedColorspaceSettings linear_colorspace_settings;
 } ImageFormatData;
 
 /** #ImageFormatData.imtype */
@@ -469,8 +467,8 @@ typedef struct ImageFormatData {
 #define R_IMF_IMTYPE_INVALID 255
 
 /** #ImageFormatData.flag */
-#define R_IMF_FLAG_ZBUF (1 << 0)        /* was R_OPENEXR_ZBUF */
-#define R_IMF_FLAG_PREVIEW_JPG (1 << 1) /* was R_PREVIEW_JPG */
+#define R_IMF_FLAG_ZBUF (1 << 0)
+#define R_IMF_FLAG_PREVIEW_JPG (1 << 1)
 
 /* Return values from #BKE_imtype_valid_depths, note this is depths per channel. */
 /** #ImageFormatData.depth */
@@ -995,6 +993,25 @@ typedef struct Sculpt {
   struct Object *gravity_object;
 } Sculpt;
 
+typedef enum CurvesSculptFlag {
+  CURVES_SCULPT_FLAG_INTERPOLATE_LENGTH = (1 << 0),
+  CURVES_SCULPT_FLAG_INTERPOLATE_SHAPE = (1 << 1),
+} CurvesSculptFlag;
+
+typedef struct CurvesSculpt {
+  Paint paint;
+  /** Minimum distance between newly added curves on a surface. */
+  float distance;
+
+  /** CurvesSculptFlag. */
+  uint32_t flag;
+
+  /** Length of newly added curves when it is not interpolated from other curves. */
+  float curve_length;
+
+  char _pad[4];
+} CurvesSculpt;
+
 typedef struct UvSculpt {
   Paint paint;
 } UvSculpt;
@@ -1380,6 +1397,8 @@ typedef struct ToolSettings {
   GpSculptPaint *gp_sculptpaint;
   /** Gpencil weight paint. */
   GpWeightPaint *gp_weightpaint;
+  /** Curves sculpt. */
+  CurvesSculpt *curves_sculpt;
 
   /* Vertex group weight - used only for editmode, not weight
    * paint */
@@ -1391,13 +1410,14 @@ typedef struct ToolSettings {
   char object_flag;
 
   /* Selection Mode for Mesh */
-  short selectmode;
+  char selectmode;
 
   /* UV Calculation */
   char unwrapper;
   char uvcalc_flag;
   char uv_flag;
   char uv_selectmode;
+  char uv_sticky;
 
   float uvcalc_margin;
 
@@ -1462,13 +1482,18 @@ typedef struct ToolSettings {
   /* Transform */
   char transform_pivot_point;
   char transform_flag;
+  /** Snap elements (per spacetype). */
   char snap_mode;
   char snap_node_mode;
   char snap_uv_mode;
+  /** Generic flags (per spacetype). */
   char snap_flag;
-  /** UV equivalent of `snap_flag`, limited to: #SCE_SNAP_ABS_GRID. */
+  char snap_flag_node;
+  char snap_flag_seq;
   char snap_uv_flag;
+  /** Default snap source. */
   char snap_target;
+  /** Snap mask for transform modes. */
   char snap_transform_mode_flag;
 
   char proportional_edit, prop_mode;
@@ -1498,16 +1523,14 @@ typedef struct ToolSettings {
   char gpencil_selectmode_vertex;
 
   /* UV painting */
-  char _pad2[1];
   char uv_sculpt_settings;
   char uv_relax_method;
-  /* XXX: these sculpt_paint_* fields are deprecated, use the
-   * unified_paint_settings field instead! */
-  short sculpt_paint_settings DNA_DEPRECATED;
 
   char workspace_tool_type;
 
-  char _pad5[1];
+  /* XXX: these sculpt_paint_* fields are deprecated, use the
+   * unified_paint_settings field instead! */
+  short sculpt_paint_settings DNA_DEPRECATED;
   int sculpt_paint_unified_size DNA_DEPRECATED;
   float sculpt_paint_unified_unprojected_radius DNA_DEPRECATED;
   float sculpt_paint_unified_alpha DNA_DEPRECATED;
@@ -1987,7 +2010,7 @@ extern const char *RE_engine_id_CYCLES;
    ((v3d == NULL) || (((1 << (base)->object->type) & (v3d)->object_type_exclude_select) == 0)) && \
    (((base)->flag & BASE_SELECTABLE) != 0))
 #define BASE_SELECTED(v3d, base) (BASE_VISIBLE(v3d, base) && (((base)->flag & BASE_SELECTED) != 0))
-#define BASE_EDITABLE(v3d, base) (BASE_VISIBLE(v3d, base) && ((base)->object->id.lib == NULL))
+#define BASE_EDITABLE(v3d, base) (BASE_VISIBLE(v3d, base) && !ID_IS_LINKED((base)->object))
 #define BASE_SELECTED_EDITABLE(v3d, base) \
   (BASE_EDITABLE(v3d, base) && (((base)->flag & BASE_SELECTED) != 0))
 
@@ -2048,7 +2071,6 @@ enum {
 #define SCE_SNAP_NO_SELF (1 << 4)
 #define SCE_SNAP_ABS_GRID (1 << 5)
 #define SCE_SNAP_BACKFACE_CULLING (1 << 6)
-#define SCE_SNAP_SEQ (1 << 7)
 
 /** #ToolSettings.snap_target */
 #define SCE_SNAP_TARGET_CLOSEST 0
@@ -2299,6 +2321,13 @@ enum {
 #define UV_SELECT_EDGE 2
 #define UV_SELECT_FACE 4
 #define UV_SELECT_ISLAND 8
+
+/** #ToolSettings.uv_sticky */
+enum {
+  SI_STICKY_LOC = 0,
+  SI_STICKY_DISABLE = 1,
+  SI_STICKY_VERTEX = 2,
+};
 
 /** #ToolSettings.gpencil_flags */
 typedef enum eGPencil_Flags {

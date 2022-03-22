@@ -202,8 +202,8 @@ static int stroke_march_next_point(const bGPDstroke *gps,
   int next_point_index = index_next_pt;
   bGPDspoint *pt = nullptr;
 
-  if (!(next_point_index < gps->totpoints)) {
-    return -1;
+  if (next_point_index == gps->totpoints) {
+    next_point_index = 0;
   }
 
   copy_v3_v3(step_start, current);
@@ -211,15 +211,33 @@ static int stroke_march_next_point(const bGPDstroke *gps,
   copy_v3_v3(point, &pt->x);
   remaining_till_next = len_v3v3(point, step_start);
 
-  while (remaining_till_next < remaining_march) {
+  while (remaining_till_next < remaining_march && next_point_index) {
     remaining_march -= remaining_till_next;
     pt = &gps->points[next_point_index];
+    if (pt->flag & GP_SPOINT_TEMP_TAG) {
+      pt = &gps->points[next_point_index];
+      copy_v3_v3(result, &pt->x);
+      *pressure = gps->points[next_point_index].pressure;
+      *strength = gps->points[next_point_index].strength;
+      memcpy(vert_color, gps->points[next_point_index].vert_color, sizeof(float[4]));
+
+      *index_from = next_point_index == 0 ? (gps->totpoints - 1) : (next_point_index - 1);
+      *index_to = next_point_index;
+      *ratio_result = 1.0f;
+      next_point_index++;
+      return next_point_index == 0 ? gps->totpoints : next_point_index;
+    }
+    next_point_index++;
     copy_v3_v3(point, &pt->x);
     copy_v3_v3(step_start, point);
-    next_point_index++;
     if (!(next_point_index < gps->totpoints)) {
-      next_point_index = gps->totpoints - 1;
-      break;
+      if (gps->flag & GP_STROKE_CYCLIC) {
+        next_point_index = 0;
+      }
+      else {
+        next_point_index = gps->totpoints - 1;
+        break;
+      }
     }
     pt = &gps->points[next_point_index];
     copy_v3_v3(point, &pt->x);
@@ -232,35 +250,37 @@ static int stroke_march_next_point(const bGPDstroke *gps,
     *strength = gps->points[next_point_index].strength;
     memcpy(vert_color, gps->points[next_point_index].vert_color, sizeof(float[4]));
 
-    *index_from = next_point_index - 1;
+    *index_from = next_point_index == 0 ? (gps->totpoints - 1) : (next_point_index - 1);
     *index_to = next_point_index;
     *ratio_result = 1.0f;
 
     return 0;
   }
 
+  *index_from = next_point_index == 0 ? (gps->totpoints - 1) : (next_point_index - 1);
+  *index_to = next_point_index;
+
   float ratio = remaining_march / remaining_till_next;
   interp_v3_v3v3(result, step_start, point, ratio);
+  *ratio_result = ratio;
+
   *pressure = interpf(
-      gps->points[next_point_index].pressure, gps->points[next_point_index - 1].pressure, ratio);
+      gps->points[next_point_index].pressure, gps->points[*index_from].pressure, ratio);
   *strength = interpf(
-      gps->points[next_point_index].strength, gps->points[next_point_index - 1].strength, ratio);
+      gps->points[next_point_index].strength, gps->points[*index_from].strength, ratio);
   interp_v4_v4v4(vert_color,
-                 gps->points[next_point_index - 1].vert_color,
+                 gps->points[*index_from].vert_color,
                  gps->points[next_point_index].vert_color,
                  ratio);
 
-  *index_from = next_point_index - 1;
-  *index_to = next_point_index;
-  *ratio_result = ratio;
-
-  return next_point_index;
+  return next_point_index == 0 ? gps->totpoints : next_point_index;
 }
 
 static int stroke_march_next_point_no_interp(const bGPDstroke *gps,
                                              const int index_next_pt,
                                              const float *current,
                                              const float dist,
+                                             const float sharp_threshold,
                                              float *result)
 {
   float remaining_till_next = 0.0f;
@@ -270,8 +290,8 @@ static int stroke_march_next_point_no_interp(const bGPDstroke *gps,
   int next_point_index = index_next_pt;
   bGPDspoint *pt = nullptr;
 
-  if (!(next_point_index < gps->totpoints)) {
-    return -1;
+  if (next_point_index == gps->totpoints) {
+    next_point_index = 0;
   }
 
   copy_v3_v3(step_start, current);
@@ -279,15 +299,29 @@ static int stroke_march_next_point_no_interp(const bGPDstroke *gps,
   copy_v3_v3(point, &pt->x);
   remaining_till_next = len_v3v3(point, step_start);
 
-  while (remaining_till_next < remaining_march) {
+  while (remaining_till_next < remaining_march && next_point_index) {
     remaining_march -= remaining_till_next;
     pt = &gps->points[next_point_index];
+    if (next_point_index < gps->totpoints - 1 &&
+        angle_v3v3v3(&gps->points[next_point_index - 1].x,
+                     &gps->points[next_point_index].x,
+                     &gps->points[next_point_index + 1].x) < sharp_threshold) {
+      copy_v3_v3(result, &pt->x);
+      pt->flag |= GP_SPOINT_TEMP_TAG;
+      next_point_index++;
+      return next_point_index == 0 ? gps->totpoints : next_point_index;
+    }
+    next_point_index++;
     copy_v3_v3(point, &pt->x);
     copy_v3_v3(step_start, point);
-    next_point_index++;
     if (!(next_point_index < gps->totpoints)) {
-      next_point_index = gps->totpoints - 1;
-      break;
+      if (gps->flag & GP_STROKE_CYCLIC) {
+        next_point_index = 0;
+      }
+      else {
+        next_point_index = gps->totpoints - 1;
+        break;
+      }
     }
     pt = &gps->points[next_point_index];
     copy_v3_v3(point, &pt->x);
@@ -296,15 +330,16 @@ static int stroke_march_next_point_no_interp(const bGPDstroke *gps,
   if (remaining_till_next < remaining_march) {
     pt = &gps->points[next_point_index];
     copy_v3_v3(result, &pt->x);
+    /* Stroke marching only terminates here. */
     return 0;
   }
 
   float ratio = remaining_march / remaining_till_next;
   interp_v3_v3v3(result, step_start, point, ratio);
-  return next_point_index;
+  return next_point_index == 0 ? gps->totpoints : next_point_index;
 }
 
-static int stroke_march_count(const bGPDstroke *gps, const float dist)
+static int stroke_march_count(const bGPDstroke *gps, const float dist, const float sharp_threshold)
 {
   int point_count = 0;
   float point[3];
@@ -315,8 +350,13 @@ static int stroke_march_count(const bGPDstroke *gps, const float dist)
   copy_v3_v3(point, &pt->x);
   point_count++;
 
+  /* Sharp points will be tagged by the stroke_march_next_point_no_interp() call below. */
+  for (int i = 0; i < gps->totpoints; i++) {
+    gps->points[i].flag &= (~GP_SPOINT_TEMP_TAG);
+  }
+
   while ((next_point_index = stroke_march_next_point_no_interp(
-              gps, next_point_index, point, dist, point)) > -1) {
+              gps, next_point_index, point, dist, sharp_threshold, point)) > -1) {
     point_count++;
     if (next_point_index == 0) {
       break; /* last point finished */
@@ -394,7 +434,11 @@ static void stroke_interpolate_deform_weights(
   }
 }
 
-bool BKE_gpencil_stroke_sample(bGPdata *gpd, bGPDstroke *gps, const float dist, const bool select)
+bool BKE_gpencil_stroke_sample(bGPdata *gpd,
+                               bGPDstroke *gps,
+                               const float dist,
+                               const bool select,
+                               const float sharp_threshold)
 {
   bGPDspoint *pt = gps->points;
   bGPDspoint *pt1 = nullptr;
@@ -406,7 +450,11 @@ bool BKE_gpencil_stroke_sample(bGPdata *gpd, bGPDstroke *gps, const float dist, 
     return false;
   }
   /* TODO: Implement feature point preservation. */
-  int count = stroke_march_count(gps, dist);
+  int count = stroke_march_count(gps, dist, sharp_threshold);
+  const bool is_cyclic = (gps->flag & GP_STROKE_CYCLIC) != 0;
+  if (is_cyclic) {
+    count--;
+  }
 
   bGPDspoint *new_pt = (bGPDspoint *)MEM_callocN(sizeof(bGPDspoint) * count,
                                                  "gp_stroke_points_sampled");
@@ -455,6 +503,9 @@ bool BKE_gpencil_stroke_sample(bGPdata *gpd, bGPDstroke *gps, const float dist, 
                                                      &ratio_result,
                                                      &index_from,
                                                      &index_to)) > -1) {
+    if (is_cyclic && next_point_index == 0) {
+      break; /* last point finished */
+    }
     pt2 = &new_pt[i];
     copy_v3_v3(&pt2->x, last_coord);
     new_pt[i].pressure = pressure;
@@ -489,6 +540,7 @@ bool BKE_gpencil_stroke_sample(bGPdata *gpd, bGPDstroke *gps, const float dist, 
     gps->dvert = new_dv;
   }
 
+  BLI_assert(i == count);
   gps->totpoints = i;
 
   /* Calc geometry data. */
@@ -1986,7 +2038,7 @@ void BKE_gpencil_stroke_simplify_adaptive(bGPdata *gpd, bGPDstroke *gps, float e
 
 void BKE_gpencil_stroke_simplify_fixed(bGPdata *gpd, bGPDstroke *gps)
 {
-  if (gps->totpoints < 5) {
+  if (gps->totpoints < 4) {
     return;
   }
 
@@ -2001,7 +2053,7 @@ void BKE_gpencil_stroke_simplify_fixed(bGPdata *gpd, bGPDstroke *gps)
 
   /* resize gps */
   int newtot = (gps->totpoints - 2) / 2;
-  if (((gps->totpoints - 2) % 2) > 0) {
+  if ((gps->totpoints % 2) != 0) {
     newtot++;
   }
   newtot += 2;
@@ -2052,27 +2104,30 @@ void BKE_gpencil_stroke_subdivide(bGPdata *gpd, bGPDstroke *gps, int level, int 
   MDeformVert *dvert_final = nullptr;
   MDeformVert *dvert_next = nullptr;
   int totnewpoints, oldtotpoints;
-  int i2;
+
+  bool cyclic = (gps->flag & GP_STROKE_CYCLIC) != 0;
 
   for (int s = 0; s < level; s++) {
-    totnewpoints = gps->totpoints - 1;
+    totnewpoints = gps->totpoints;
+    if (!cyclic) {
+      totnewpoints--;
+    }
     /* duplicate points in a temp area */
-    temp_points = (bGPDspoint *)MEM_dupallocN(gps->points);
+    temp_points = gps->points;
     oldtotpoints = gps->totpoints;
 
     /* resize the points arrays */
     gps->totpoints += totnewpoints;
-    gps->points = (bGPDspoint *)MEM_recallocN(gps->points, sizeof(*gps->points) * gps->totpoints);
+    gps->points = (bGPDspoint *)MEM_malloc_arrayN(gps->totpoints, sizeof(*gps->points), __func__);
     if (gps->dvert != nullptr) {
-      temp_dverts = (MDeformVert *)MEM_dupallocN(gps->dvert);
-      gps->dvert = (MDeformVert *)MEM_recallocN(gps->dvert, sizeof(*gps->dvert) * gps->totpoints);
+      temp_dverts = gps->dvert;
+      gps->dvert = (MDeformVert *)MEM_malloc_arrayN(gps->totpoints, sizeof(*gps->dvert), __func__);
     }
 
     /* move points from last to first to new place */
-    i2 = gps->totpoints - 1;
-    for (int i = oldtotpoints - 1; i > 0; i--) {
+    for (int i = 0; i < oldtotpoints; i++) {
       bGPDspoint *pt = &temp_points[i];
-      bGPDspoint *pt_final = &gps->points[i2];
+      bGPDspoint *pt_final = &gps->points[i * 2];
 
       copy_v3_v3(&pt_final->x, &pt->x);
       pt_final->pressure = pt->pressure;
@@ -2085,18 +2140,16 @@ void BKE_gpencil_stroke_subdivide(bGPdata *gpd, bGPDstroke *gps, int level, int 
 
       if (gps->dvert != nullptr) {
         dvert = &temp_dverts[i];
-        dvert_final = &gps->dvert[i2];
+        dvert_final = &gps->dvert[i * 2];
         dvert_final->totweight = dvert->totweight;
         dvert_final->dw = dvert->dw;
       }
-      i2 -= 2;
     }
     /* interpolate mid points */
-    i2 = 1;
-    for (int i = 0; i < oldtotpoints - 1; i++) {
-      bGPDspoint *pt = &temp_points[i];
-      bGPDspoint *next = &temp_points[i + 1];
-      bGPDspoint *pt_final = &gps->points[i2];
+    for (int i = cyclic ? 0 : 1, j = cyclic ? oldtotpoints - 1 : 0; i < oldtotpoints; j = i, i++) {
+      bGPDspoint *pt = &temp_points[j];
+      bGPDspoint *next = &temp_points[i];
+      bGPDspoint *pt_final = &gps->points[j * 2 + 1];
 
       /* add a half way point */
       interp_v3_v3v3(&pt_final->x, &pt->x, &next->x, 0.5f);
@@ -2109,9 +2162,9 @@ void BKE_gpencil_stroke_subdivide(bGPdata *gpd, bGPDstroke *gps, int level, int 
       interp_v4_v4v4(pt_final->vert_color, pt->vert_color, next->vert_color, 0.5f);
 
       if (gps->dvert != nullptr) {
-        dvert = &temp_dverts[i];
-        dvert_next = &temp_dverts[i + 1];
-        dvert_final = &gps->dvert[i2];
+        dvert = &temp_dverts[j];
+        dvert_next = &temp_dverts[i];
+        dvert_final = &gps->dvert[j * 2 + 1];
 
         dvert_final->totweight = dvert->totweight;
         dvert_final->dw = (MDeformWeight *)MEM_dupallocN(dvert->dw);
@@ -2126,8 +2179,6 @@ void BKE_gpencil_stroke_subdivide(bGPdata *gpd, bGPDstroke *gps, int level, int 
           }
         }
       }
-
-      i2 += 2;
     }
 
     MEM_SAFE_FREE(temp_points);
@@ -2135,20 +2186,18 @@ void BKE_gpencil_stroke_subdivide(bGPdata *gpd, bGPDstroke *gps, int level, int 
 
     /* Move points to smooth stroke (not simple type). */
     if (type != GP_SUBDIV_SIMPLE) {
-      /* duplicate points in a temp area with the new subdivide data */
-      temp_points = (bGPDspoint *)MEM_dupallocN(gps->points);
-
+      float mid[3];
       /* extreme points are not changed */
-      for (int i = 0; i < gps->totpoints - 2; i++) {
-        bGPDspoint *pt = &temp_points[i];
-        bGPDspoint *next = &temp_points[i + 1];
-        bGPDspoint *pt_final = &gps->points[i + 1];
+      for (int i = cyclic ? 0 : 2, j = cyclic ? gps->totpoints - 2 : 0; i < gps->totpoints - 2;
+           j = i, i += 2) {
+        bGPDspoint *prev = &gps->points[j + 1];
+        bGPDspoint *pt = &gps->points[i];
+        bGPDspoint *next = &gps->points[i + 1];
 
         /* move point */
-        interp_v3_v3v3(&pt_final->x, &pt->x, &next->x, 0.5f);
+        interp_v3_v3v3(mid, &prev->x, &next->x, 0.5f);
+        interp_v3_v3v3(&pt->x, mid, &pt->x, 0.5f);
       }
-      /* free temp memory */
-      MEM_SAFE_FREE(temp_points);
     }
   }
 
@@ -2297,7 +2346,7 @@ static int gpencil_walk_edge(GHash *v_table,
       gped_init = &gp_edges[edge];
       idx++;
 
-      /* Avoid to follow already visited vertice. */
+      /* Avoid following already visited vertices. */
       if (reverse) {
         if (BLI_ghash_haskey(v_table, POINTER_FROM_INT(gped->v1))) {
           edge = -1;

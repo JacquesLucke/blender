@@ -10,6 +10,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_armature_types.h"
+#include "DNA_material_types.h"
 #include "DNA_modifier_types.h" /* for handling geometry nodes properties */
 #include "DNA_object_types.h"   /* for OB_DATA_SUPPORT_ID */
 #include "DNA_screen_types.h"
@@ -27,6 +28,7 @@
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_override.h"
+#include "BKE_material.h"
 #include "BKE_node.h"
 #include "BKE_report.h"
 #include "BKE_screen.h"
@@ -38,6 +40,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 #include "RNA_types.h"
 
 #include "UI_interface.h"
@@ -314,7 +317,7 @@ static int operator_button_property_finish(bContext *C, PointerRNA *ptr, Propert
   RNA_property_update(C, ptr, prop);
 
   /* as if we pressed the button */
-  UI_context_active_but_prop_handle(C);
+  UI_context_active_but_prop_handle(C, false);
 
   /* Since we don't want to undo _all_ edits to settings, eg window
    * edits on the screen or on operator settings.
@@ -324,6 +327,19 @@ static int operator_button_property_finish(bContext *C, PointerRNA *ptr, Propert
     return OPERATOR_FINISHED;
   }
   return OPERATOR_CANCELLED;
+}
+
+static int operator_button_property_finish_with_undo(bContext *C,
+                                                     PointerRNA *ptr,
+                                                     PropertyRNA *prop)
+{
+  /* Perform updates required for this property. */
+  RNA_property_update(C, ptr, prop);
+
+  /* As if we pressed the button. */
+  UI_context_active_but_prop_handle(C, true);
+
+  return OPERATOR_FINISHED;
 }
 
 static bool reset_default_button_poll(bContext *C)
@@ -350,7 +366,7 @@ static int reset_default_button_exec(bContext *C, wmOperator *op)
   /* if there is a valid property that is editable... */
   if (ptr.data && prop && RNA_property_editable(&ptr, prop)) {
     if (RNA_property_reset(&ptr, prop, (all) ? -1 : index)) {
-      return operator_button_property_finish(C, &ptr, prop);
+      return operator_button_property_finish_with_undo(C, &ptr, prop);
     }
   }
 
@@ -369,7 +385,9 @@ static void UI_OT_reset_default_button(wmOperatorType *ot)
   ot->exec = reset_default_button_exec;
 
   /* flags */
-  ot->flag = OPTYPE_UNDO;
+  /* Don't set #OPTYPE_UNDO because #operator_button_property_finish_with_undo
+   * is responsible for the undo push. */
+  ot->flag = 0;
 
   /* properties */
   RNA_def_boolean(ot->srna, "all", 1, "All", "Reset to default values all elements of the array");
@@ -1656,7 +1674,7 @@ static int edittranslation_exec(bContext *C, wmOperator *op)
   RNA_string_set(&ptr, "rna_prop", rna_prop.strinfo);
   RNA_string_set(&ptr, "rna_enum", rna_enum.strinfo);
   RNA_string_set(&ptr, "rna_ctxt", rna_ctxt.strinfo);
-  const int ret = WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &ptr);
+  const int ret = WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &ptr, NULL);
 
   /* Clean up */
   if (but_label.strinfo) {
@@ -2094,6 +2112,86 @@ static void UI_OT_tree_view_item_rename(wmOperatorType *ot)
 
   ot->flag = OPTYPE_INTERNAL;
 }
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Material Drag/Drop Operator
+ *
+ * \{ */
+
+static bool ui_drop_material_poll(bContext *C)
+{
+  PointerRNA ptr = CTX_data_pointer_get_type(C, "object", &RNA_Object);
+  Object *ob = ptr.data;
+  if (ob == NULL) {
+    return false;
+  }
+
+  PointerRNA mat_slot = CTX_data_pointer_get_type(C, "material_slot", &RNA_MaterialSlot);
+  if (RNA_pointer_is_null(&mat_slot)) {
+    return false;
+  }
+
+  return true;
+}
+
+static int ui_drop_material_exec(bContext *C, wmOperator *op)
+{
+  Main *bmain = CTX_data_main(C);
+
+  if (!RNA_struct_property_is_set(op->ptr, "session_uuid")) {
+    return OPERATOR_CANCELLED;
+  }
+  const uint32_t session_uuid = (uint32_t)RNA_int_get(op->ptr, "session_uuid");
+  Material *ma = (Material *)BKE_libblock_find_session_uuid(bmain, ID_MA, session_uuid);
+  if (ma == NULL) {
+    return OPERATOR_CANCELLED;
+  }
+
+  PointerRNA ptr = CTX_data_pointer_get_type(C, "object", &RNA_Object);
+  Object *ob = ptr.data;
+  BLI_assert(ob);
+
+  PointerRNA mat_slot = CTX_data_pointer_get_type(C, "material_slot", &RNA_MaterialSlot);
+  BLI_assert(mat_slot.data);
+  const int target_slot = RNA_int_get(&mat_slot, "slot_index") + 1;
+
+  /* only drop grease pencil material on grease pencil objects */
+  if ((ma->gp_style != NULL) && (ob->type != OB_GPENCIL)) {
+    return OPERATOR_CANCELLED;
+  }
+
+  BKE_object_material_assign(bmain, ob, ma, target_slot, BKE_MAT_ASSIGN_USERPREF);
+
+  WM_event_add_notifier(C, NC_OBJECT | ND_OB_SHADING, ob);
+  WM_event_add_notifier(C, NC_SPACE | ND_SPACE_VIEW3D, NULL);
+  WM_event_add_notifier(C, NC_MATERIAL | ND_SHADING_LINKS, ma);
+  DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM);
+
+  return OPERATOR_FINISHED;
+}
+
+static void UI_OT_drop_material(wmOperatorType *ot)
+{
+  ot->name = "Drop Material in Material slots";
+  ot->description = "Drag material to Material slots in Properties";
+  ot->idname = "UI_OT_drop_material";
+
+  ot->poll = ui_drop_material_poll;
+  ot->exec = ui_drop_material_exec;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_INTERNAL;
+
+  PropertyRNA *prop = RNA_def_int(ot->srna,
+                                  "session_uuid",
+                                  0,
+                                  INT32_MIN,
+                                  INT32_MAX,
+                                  "Session UUID",
+                                  "Session UUID of the data-block to assign",
+                                  INT32_MIN,
+                                  INT32_MAX);
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE | PROP_HIDDEN);
+}
 
 /** \} */
 
@@ -2115,6 +2213,7 @@ void ED_operatortypes_ui(void)
   WM_operatortype_append(UI_OT_jump_to_target_button);
   WM_operatortype_append(UI_OT_drop_color);
   WM_operatortype_append(UI_OT_drop_name);
+  WM_operatortype_append(UI_OT_drop_material);
 #ifdef WITH_PYTHON
   WM_operatortype_append(UI_OT_editsource);
   WM_operatortype_append(UI_OT_edittranslation_init);

@@ -21,12 +21,14 @@
 #include "BKE_customdata.h"
 #include "BKE_editmesh.h"
 #include "BKE_mesh.h"
+#include "BKE_mesh_runtime.h"
 #include "BKE_report.h"
 
 #include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -1110,6 +1112,8 @@ static void mesh_add_verts(Mesh *mesh, int len)
   mesh->vdata = vdata;
   BKE_mesh_update_customdata_pointers(mesh, false);
 
+  BKE_mesh_runtime_clear_cache(mesh);
+
   /* scan the input list and insert the new vertices */
 
   /* set default flags */
@@ -1146,6 +1150,8 @@ static void mesh_add_edges(Mesh *mesh, int len)
   mesh->edata = edata;
   BKE_mesh_update_customdata_pointers(mesh, false); /* new edges don't change tessellation */
 
+  BKE_mesh_runtime_clear_cache(mesh);
+
   /* set default flags */
   medge = &mesh->medge[mesh->totedge];
   for (i = 0; i < len; i++, medge++) {
@@ -1173,6 +1179,8 @@ static void mesh_add_loops(Mesh *mesh, int len)
   if (!CustomData_has_layer(&ldata, CD_MLOOP)) {
     CustomData_add_layer(&ldata, CD_MLOOP, CD_CALLOC, NULL, totloop);
   }
+
+  BKE_mesh_runtime_clear_cache(mesh);
 
   CustomData_free(&mesh->ldata, mesh->totloop);
   mesh->ldata = ldata;
@@ -1204,6 +1212,8 @@ static void mesh_add_polys(Mesh *mesh, int len)
   CustomData_free(&mesh->pdata, mesh->totpoly);
   mesh->pdata = pdata;
   BKE_mesh_update_customdata_pointers(mesh, true);
+
+  BKE_mesh_runtime_clear_cache(mesh);
 
   /* set default flags */
   mpoly = &mesh->mpoly[mesh->totpoly];

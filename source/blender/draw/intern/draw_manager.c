@@ -85,6 +85,7 @@
 
 #include "engines/basic/basic_engine.h"
 #include "engines/eevee/eevee_engine.h"
+#include "engines/eevee_next/eevee_engine.h"
 #include "engines/external/external_engine.h"
 #include "engines/gpencil/gpencil_engine.h"
 #include "engines/image/image_engine.h"
@@ -615,7 +616,7 @@ static void drw_manager_init(DRWManager *dst, GPUViewport *viewport, const int s
   }
 
   if (G_draw.view_ubo == NULL) {
-    G_draw.view_ubo = GPU_uniformbuf_create_ex(sizeof(DRWViewUboStorage), NULL, "G_draw.view_ubo");
+    G_draw.view_ubo = GPU_uniformbuf_create_ex(sizeof(ViewInfos), NULL, "G_draw.view_ubo");
   }
 
   if (dst->draw_list == NULL) {
@@ -2774,7 +2775,7 @@ void DRW_draw_depth_object(
       GPU_uniformbuf_free(ubo);
 
     } break;
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
     case OB_SURF:
       break;
   }
@@ -2896,6 +2897,13 @@ void DRW_engine_register(DrawEngineType *draw_engine_type)
 
   BLI_addtail(&g_registered_engines.engines, draw_engine);
   g_registered_engines.len = BLI_listbase_count(&g_registered_engines.engines);
+}
+
+void DRW_engines_register_experimental(void)
+{
+  if (U.experimental.enable_eevee_next) {
+    RE_engines_register(&DRW_engine_viewport_eevee_next_type);
+  }
 }
 
 void DRW_engines_register(void)

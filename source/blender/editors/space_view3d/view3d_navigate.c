@@ -12,6 +12,8 @@
 #include "BLI_math.h"
 #include "BLI_rect.h"
 
+#include "BLT_translation.h"
+
 #include "BKE_armature.h"
 #include "BKE_context.h"
 #include "BKE_gpencil_geom.h"
@@ -396,7 +398,7 @@ ViewOpsData *viewops_data_create(bContext *C, const wmEvent *event, enum eViewOp
   {
     float tvec[3];
     negate_v3_v3(tvec, rv3d->ofs);
-    vod->init.zfac = ED_view3d_calc_zfac(rv3d, tvec, NULL);
+    vod->init.zfac = ED_view3d_calc_zfac(rv3d, tvec);
   }
 
   vod->reverse = 1.0f;
@@ -544,26 +546,24 @@ static void axis_set_view(bContext *C,
 
 void viewmove_apply(ViewOpsData *vod, int x, int y)
 {
-  if (ED_view3d_offset_lock_check(vod->v3d, vod->rv3d)) {
-    vod->rv3d->ofs_lock[0] -= ((vod->prev.event_xy[0] - x) * 2.0f) / (float)vod->region->winx;
-    vod->rv3d->ofs_lock[1] -= ((vod->prev.event_xy[1] - y) * 2.0f) / (float)vod->region->winy;
+  const float event_ofs[2] = {
+      vod->prev.event_xy[0] - x,
+      vod->prev.event_xy[1] - y,
+  };
+
+  if ((vod->rv3d->persp == RV3D_CAMOB) && !ED_view3d_camera_lock_check(vod->v3d, vod->rv3d)) {
+    ED_view3d_camera_view_pan(vod->region, event_ofs);
   }
-  else if ((vod->rv3d->persp == RV3D_CAMOB) && !ED_view3d_camera_lock_check(vod->v3d, vod->rv3d)) {
-    const float zoomfac = BKE_screen_view3d_zoom_to_fac(vod->rv3d->camzoom) * 2.0f;
-    vod->rv3d->camdx += (vod->prev.event_xy[0] - x) / (vod->region->winx * zoomfac);
-    vod->rv3d->camdy += (vod->prev.event_xy[1] - y) / (vod->region->winy * zoomfac);
-    CLAMP(vod->rv3d->camdx, -1.0f, 1.0f);
-    CLAMP(vod->rv3d->camdy, -1.0f, 1.0f);
+  else if (ED_view3d_offset_lock_check(vod->v3d, vod->rv3d)) {
+    vod->rv3d->ofs_lock[0] -= (event_ofs[0] * 2.0f) / (float)vod->region->winx;
+    vod->rv3d->ofs_lock[1] -= (event_ofs[1] * 2.0f) / (float)vod->region->winy;
   }
   else {
     float dvec[3];
-    float mval_f[2];
 
-    mval_f[0] = x - vod->prev.event_xy[0];
-    mval_f[1] = y - vod->prev.event_xy[1];
-    ED_view3d_win_to_delta(vod->region, mval_f, dvec, vod->init.zfac);
+    ED_view3d_win_to_delta(vod->region, event_ofs, vod->init.zfac, dvec);
 
-    add_v3_v3(vod->rv3d->ofs, dvec);
+    sub_v3_v3(vod->rv3d->ofs, dvec);
 
     if (RV3D_LOCK_FLAGS(vod->rv3d) & RV3D_BOXVIEW) {
       view3d_boxview_sync(vod->area, vod->region);
@@ -1153,16 +1153,16 @@ static int view_axis_exec(bContext *C, wmOperator *op)
     float quat_test[4];
 
     if (viewnum == RV3D_VIEW_LEFT) {
-      axis_angle_to_quat(quat_rotate, rv3d->viewinv[1], -M_PI / 2.0f);
+      axis_angle_to_quat(quat_rotate, rv3d->viewinv[1], -M_PI_2);
     }
     else if (viewnum == RV3D_VIEW_RIGHT) {
-      axis_angle_to_quat(quat_rotate, rv3d->viewinv[1], M_PI / 2.0f);
+      axis_angle_to_quat(quat_rotate, rv3d->viewinv[1], M_PI_2);
     }
     else if (viewnum == RV3D_VIEW_TOP) {
-      axis_angle_to_quat(quat_rotate, rv3d->viewinv[0], -M_PI / 2.0f);
+      axis_angle_to_quat(quat_rotate, rv3d->viewinv[0], -M_PI_2);
     }
     else if (viewnum == RV3D_VIEW_BOTTOM) {
-      axis_angle_to_quat(quat_rotate, rv3d->viewinv[0], M_PI / 2.0f);
+      axis_angle_to_quat(quat_rotate, rv3d->viewinv[0], M_PI_2);
     }
     else if (viewnum == RV3D_VIEW_FRONT) {
       unit_qt(quat_rotate);
@@ -1241,6 +1241,8 @@ void VIEW3D_OT_view_axis(wmOperatorType *ot)
 
   ot->prop = RNA_def_enum(ot->srna, "type", prop_view_items, 0, "View", "Preset viewpoint to use");
   RNA_def_property_flag(ot->prop, PROP_SKIP_SAVE);
+  RNA_def_property_translation_context(ot->prop, BLT_I18NCONTEXT_EDITOR_VIEW3D);
+
   prop = RNA_def_boolean(
       ot->srna, "align_active", 0, "Align Active", "Align to the active object's axis");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);

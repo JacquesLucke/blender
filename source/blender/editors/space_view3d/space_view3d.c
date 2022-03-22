@@ -413,6 +413,9 @@ static void view3d_main_region_init(wmWindowManager *wm, ARegion *region)
   keymap = WM_keymap_ensure(wm->defaultconf, "Particle", 0, 0);
   WM_event_add_keymap_handler(&region->handlers, keymap);
 
+  keymap = WM_keymap_ensure(wm->defaultconf, "Sculpt Curves", 0, 0);
+  WM_event_add_keymap_handler(&region->handlers, keymap);
+
   /* editfont keymap swallows all... */
   keymap = WM_keymap_ensure(wm->defaultconf, "Font", 0, 0);
   WM_event_add_keymap_handler(&region->handlers, keymap);
@@ -798,7 +801,7 @@ static void view3d_lightcache_update(bContext *C)
   RNA_int_set(&op_ptr, "delay", 200);
   RNA_enum_set_identifier(C, &op_ptr, "subset", "DIRTY");
 
-  WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_ptr);
+  WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_ptr, NULL);
 
   WM_operator_properties_free(&op_ptr);
 }
@@ -1475,6 +1478,9 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
     case CTX_MODE_EDIT_CURVE:
       ARRAY_SET_ITEMS(contexts, ".curve_edit");
       break;
+    case CTX_MODE_EDIT_CURVES:
+      ARRAY_SET_ITEMS(contexts, ".curves_edit");
+      break;
     case CTX_MODE_EDIT_SURFACE:
       ARRAY_SET_ITEMS(contexts, ".curve_edit");
       break;
@@ -1522,6 +1528,9 @@ void ED_view3d_buttons_region_layout_ex(const bContext *C,
       break;
     case CTX_MODE_VERTEX_GPENCIL:
       ARRAY_SET_ITEMS(contexts, ".greasepencil_vertex");
+      break;
+    case CTX_MODE_SCULPT_CURVES:
+      ARRAY_SET_ITEMS(contexts, ".curves_sculpt");
       break;
     default:
       break;

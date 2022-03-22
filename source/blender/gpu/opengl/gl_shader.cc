@@ -174,8 +174,12 @@ static const char *to_string(const eGPUTextureFormat &type)
       return "r16f";
     case GPU_R16:
       return "r16";
+    case GPU_R11F_G11F_B10F:
+      return "r11f_g11f_b10f";
+    case GPU_RGB10_A2:
+      return "rgb10_a2";
     default:
-      return "unkown";
+      return "unknown";
   }
 }
 
@@ -499,7 +503,7 @@ static std::string main_function_wrapper(std::string &pre_main, std::string &pos
 std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) const
 {
   std::stringstream ss;
-  std::string post_main = "";
+  std::string post_main;
 
   ss << "\n/* Inputs. */\n";
   for (const ShaderCreateInfo::VertIn &attr : info.vertex_inputs_) {
@@ -532,7 +536,7 @@ std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) con
   ss << "\n";
 
   if (post_main.empty() == false) {
-    std::string pre_main = "";
+    std::string pre_main;
     ss << main_function_wrapper(pre_main, post_main);
   }
   return ss.str();
@@ -541,7 +545,7 @@ std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) con
 std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) const
 {
   std::stringstream ss;
-  std::string pre_main = "";
+  std::string pre_main;
 
   ss << "\n/* Interfaces. */\n";
   const Vector<StageInterfaceInfo *> &in_interfaces = (info.geometry_source_.is_empty()) ?
@@ -576,6 +580,9 @@ std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) c
       pre_main += "  gpu_BaryCoordNoPersp = stable_bary_(gl_BaryCoordNoPerspAMD);\n";
     }
   }
+  if (info.early_fragment_test_) {
+    ss << "layout(early_fragment_tests) in;\n";
+  }
   ss << "\n/* Outputs. */\n";
   for (const ShaderCreateInfo::FragOut &output : info.fragment_outputs_) {
     ss << "layout(location = " << output.index;
@@ -595,7 +602,7 @@ std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) c
   ss << "\n";
 
   if (pre_main.empty() == false) {
-    std::string post_main = "";
+    std::string post_main;
     ss << main_function_wrapper(pre_main, post_main);
   }
   return ss.str();
@@ -667,7 +674,7 @@ std::string GLShader::compute_layout_declare(const ShaderCreateInfo &info) const
     ss << ", local_size_y = " << info.compute_layout_.local_size_y;
   }
   if (info.compute_layout_.local_size_z != -1) {
-    ss << ", local_size_y = " << info.compute_layout_.local_size_z;
+    ss << ", local_size_z = " << info.compute_layout_.local_size_z;
   }
   ss << ") in;\n";
   ss << "\n";
@@ -715,7 +722,7 @@ std::string GLShader::workaround_geometry_shader_source_create(
     ss << "  gl_Layer = gpu_Layer[0];\n";
   }
   for (auto i : IndexRange(3)) {
-    for (auto iface : info_modified.vertex_out_interfaces_) {
+    for (StageInterfaceInfo *iface : info_modified.vertex_out_interfaces_) {
       for (auto &inout : iface->inouts) {
         ss << "  " << iface->instance_name << "_out." << inout.name;
         ss << " = " << iface->instance_name << "_in[" << i << "]." << inout.name << ";\n";
@@ -836,6 +843,10 @@ static char *glsl_patch_compute_get()
   /* Version need to go first. */
   STR_CONCAT(patch, slen, "#version 430\n");
   STR_CONCAT(patch, slen, "#extension GL_ARB_compute_shader :enable\n");
+
+  /* Array compat. */
+  STR_CONCAT(patch, slen, "#define array(_type) _type[]\n");
+
   BLI_assert(slen < sizeof(patch));
   return patch;
 }

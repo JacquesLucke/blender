@@ -90,8 +90,8 @@ static int chunk_number_for_pixel(int pixel_offset)
   return chunk_offset;
 }
 
-struct PartialUpdateUserImpl;
 struct PartialUpdateRegisterImpl;
+struct PartialUpdateUserImpl;
 
 /**
  * Wrap PartialUpdateUserImpl to its C-struct (PartialUpdateUser).
@@ -198,8 +198,8 @@ struct TileChangeset {
     tile_width = image_buffer->x;
     tile_height = image_buffer->y;
 
-    int chunk_x_len = tile_width / CHUNK_SIZE;
-    int chunk_y_len = tile_height / CHUNK_SIZE;
+    int chunk_x_len = (tile_width + CHUNK_SIZE - 1) / CHUNK_SIZE;
+    int chunk_y_len = (tile_height + CHUNK_SIZE - 1) / CHUNK_SIZE;
     init_chunks(chunk_x_len, chunk_y_len);
     return true;
   }

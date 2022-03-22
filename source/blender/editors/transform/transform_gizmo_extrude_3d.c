@@ -153,7 +153,7 @@ static void gizmo_mesh_extrude_setup(const bContext *C, wmGizmoGroup *gzgroup)
       op_idname = "ARMATURE_OT_extrude_move";
       ggd->normal_axis = 1;
     }
-    else if (obact->type == OB_CURVE) {
+    else if (obact->type == OB_CURVES_LEGACY) {
       op_idname = "CURVE_OT_extrude_move";
       ggd->normal_axis = 2;
     }
@@ -485,7 +485,6 @@ static void gizmo_mesh_extrude_message_subscribe(const bContext *C,
     Scene *scene = CTX_data_scene(C);
     PointerRNA toolsettings_ptr;
     RNA_pointer_create(&scene->id, &RNA_ToolSettings, scene->toolsettings, &toolsettings_ptr);
-    extern PropertyRNA rna_ToolSettings_workspace_tool_type;
     const PropertyRNA *props[] = {
         &rna_ToolSettings_workspace_tool_type,
     };

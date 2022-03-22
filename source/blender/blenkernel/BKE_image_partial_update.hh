@@ -21,8 +21,8 @@
 #include "DNA_image_types.h"
 
 extern "C" {
-struct PartialUpdateUser;
 struct PartialUpdateRegister;
+struct PartialUpdateUser;
 }
 
 namespace blender::bke::image {
@@ -212,7 +212,7 @@ template<typename TileData = NoTileData> struct PartialUpdateChecker {
     ePartialUpdateCollectResult result_code;
 
    private:
-    TileNumber last_tile_number;
+    TileNumber last_tile_number = 0;
 
    public:
     CollectResult(PartialUpdateChecker<TileData> *checker, ePartialUpdateCollectResult result_code)

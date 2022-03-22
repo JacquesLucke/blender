@@ -34,6 +34,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -427,7 +428,7 @@ static int pose_clear_paths_exec(bContext *C, wmOperator *op)
 /* operator callback/wrapper */
 static int pose_clear_paths_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  if ((event->shift) && !RNA_struct_property_is_set(op->ptr, "only_selected")) {
+  if ((event->modifier & KM_SHIFT) && !RNA_struct_property_is_set(op->ptr, "only_selected")) {
     RNA_boolean_set(op->ptr, "only_selected", true);
   }
   return pose_clear_paths_exec(C, op);

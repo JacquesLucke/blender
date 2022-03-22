@@ -79,11 +79,6 @@ static void deformStroke(GpencilModifierData *md,
   short type = gps->totpoints < 3 ? GP_SUBDIV_SIMPLE : mmd->type;
 
   BKE_gpencil_stroke_subdivide(gpd, gps, mmd->level, type);
-
-  /* If the stroke is cyclic, must generate the closing geometry. */
-  if (gps->flag & GP_STROKE_CYCLIC) {
-    BKE_gpencil_stroke_close(gps);
-  }
 }
 
 static void bakeModifier(struct Main *UNUSED(bmain),
@@ -91,15 +86,7 @@ static void bakeModifier(struct Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
-  bGPdata *gpd = ob->data;
-
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
-      }
-    }
-  }
+  generic_bake_deform_stroke(depsgraph, md, ob, false, deformStroke);
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)

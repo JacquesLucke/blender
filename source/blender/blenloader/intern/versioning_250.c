@@ -1644,7 +1644,7 @@ void blo_do_versions_250(FileData *fd, Library *lib, Main *bmain)
             BLI_addtail((ListBase *)&ob->modifiers, lmd);
             ob->partype = PAROBJECT;
           }
-          else if (parent->type == OB_CURVE && ob->partype == PARCURVE) {
+          else if (parent->type == OB_CURVES_LEGACY && ob->partype == PARCURVE) {
             CurveModifierData *cmd;
 
             cmd = (CurveModifierData *)BKE_modifier_new(eModifierType_Curve);
@@ -1723,7 +1723,7 @@ void blo_do_versions_250(FileData *fd, Library *lib, Main *bmain)
         brush->crease_pinch_factor = 0.5f;
       }
 
-      /* will sculpt no vertexes */
+      /* will sculpt no vertices */
       if (brush->plane_trim == 0) {
         brush->plane_trim = 0.5f;
       }

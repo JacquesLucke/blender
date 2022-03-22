@@ -685,10 +685,10 @@ class USERPREF_PT_viewport_display(ViewportPanel, CenterAlignMixIn, Panel):
         prefs = context.preferences
         view = prefs.view
 
-        col = layout.column(heading="Show")
+        col = layout.column(heading="Text Info Overlay")
         col.prop(view, "show_object_info", text="Object Info")
         col.prop(view, "show_view_name", text="View Name")
-        col.prop(view, "show_playback_fps", text="Playback FPS")
+        col.prop(view, "show_playback_fps", text="Playback Frame Rate (FPS)")
 
         layout.separator()
 
@@ -1718,6 +1718,7 @@ class USERPREF_PT_ndof_settings(Panel):
         if show_3dview_settings:
             col.prop(props, "ndof_show_guide")
         col.prop(props, "ndof_zoom_invert")
+        col.prop(props, "ndof_lock_camera_pan_zoom")
         row = col.row(heading="Pan")
         row.prop(props, "ndof_pan_yz_swap_axis", text="Swap Y and Z Axes")
 
@@ -2261,6 +2262,7 @@ class USERPREF_PT_experimental_new_features(ExperimentalPanel, Panel):
                 ({"property": "use_sculpt_tools_tilt"}, "T82877"),
                 ({"property": "use_extended_asset_browser"}, ("project/view/130/", "Project Page")),
                 ({"property": "use_override_templates"}, ("T73318", "Milestone 4")),
+                ({"property": "use_named_attribute_nodes"}, ("T91742")),
             ),
         )
 
@@ -2274,6 +2276,7 @@ class USERPREF_PT_experimental_prototypes(ExperimentalPanel, Panel):
                 ({"property": "use_new_curves_type"}, "T68981"),
                 ({"property": "use_new_point_cloud_type"}, "T75717"),
                 ({"property": "use_full_frame_compositor"}, "T88150"),
+                ({"property": "enable_eevee_next"}, "T93220"),
             ),
         )
 
@@ -2293,7 +2296,6 @@ class USERPREF_PT_experimental_debugging(ExperimentalPanel, Panel):
                 ({"property": "use_undo_legacy"}, "T60695"),
                 ({"property": "override_auto_resync"}, "T83811"),
                 ({"property": "use_cycles_debug"}, None),
-                ({"property": "use_geometry_nodes_legacy"}, "T91274"),
                 ({"property": "show_asset_debug_info"}, None),
                 ({"property": "use_asset_indexing"}, None),
             ),

@@ -89,7 +89,7 @@ class SpreadsheetLayoutDrawer : public SpreadsheetDrawer {
       return;
     }
 
-    const fn::GVArray &data = column.data();
+    const GVArray &data = column.data();
 
     if (data.type().is<int>()) {
       const int value = data.get<int>(real_index);
@@ -254,6 +254,23 @@ class SpreadsheetLayoutDrawer : public SpreadsheetDrawer {
           break;
         }
       }
+    }
+    else if (data.type().is<std::string>()) {
+      uiDefIconTextBut(params.block,
+                       UI_BTYPE_LABEL,
+                       0,
+                       ICON_NONE,
+                       data.get<std::string>(real_index).c_str(),
+                       params.xmin,
+                       params.ymin,
+                       params.width,
+                       params.height,
+                       nullptr,
+                       0,
+                       0,
+                       0,
+                       0,
+                       nullptr);
     }
   }
 

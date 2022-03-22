@@ -1928,7 +1928,7 @@ static int gpencil_blank_frame_add_exec(bContext *C, wmOperator *op)
   if (ELEM(NULL, gpd, active_gpl)) {
     /* Let's just be lazy, and call the "Add New Layer" operator,
      * which sets everything up as required. */
-    WM_operator_name_call(C, "GPENCIL_OT_layer_add", WM_OP_EXEC_DEFAULT, NULL);
+    WM_operator_name_call(C, "GPENCIL_OT_layer_add", WM_OP_EXEC_DEFAULT, NULL, NULL);
   }
 
   /* Go through each layer, adding a frame after the active one
@@ -4356,6 +4356,7 @@ static int gpencil_stroke_sample_exec(bContext *C, wmOperator *op)
 {
   bGPdata *gpd = ED_gpencil_data_get_active(C);
   const float length = RNA_float_get(op->ptr, "length");
+  const float sharp_threshold = RNA_float_get(op->ptr, "sharp_threshold");
 
   /* sanity checks */
   if (ELEM(NULL, gpd)) {
@@ -4365,7 +4366,7 @@ static int gpencil_stroke_sample_exec(bContext *C, wmOperator *op)
   /* Go through each editable + selected stroke */
   GP_EDITABLE_STROKES_BEGIN (gpstroke_iter, C, gpl, gps) {
     if (gps->flag & GP_STROKE_SELECT) {
-      BKE_gpencil_stroke_sample(gpd, gps, length, true);
+      BKE_gpencil_stroke_sample(gpd, gps, length, true, sharp_threshold);
     }
   }
   GP_EDITABLE_STROKES_END(gpstroke_iter);
@@ -5429,9 +5430,10 @@ static int gpencil_stroke_normalize_exec(bContext *C, wmOperator *op)
           if (ED_gpencil_stroke_can_use(C, gps) == false) {
             continue;
           }
-
-          bool selected = (is_curve_edit) ? gps->editcurve->flag |= GP_CURVE_SELECT :
-                                            (gps->flag & GP_STROKE_SELECT);
+          bool is_curve_ready = (gps->editcurve != NULL);
+          bool selected = (is_curve_edit && is_curve_ready) ?
+                              (gps->editcurve->flag & GP_CURVE_SELECT) :
+                              (gps->flag & GP_STROKE_SELECT);
           if (!selected) {
             continue;
           }
@@ -5444,7 +5446,7 @@ static int gpencil_stroke_normalize_exec(bContext *C, wmOperator *op)
           }
 
           /* Loop all Polyline points. */
-          if (!is_curve_edit) {
+          if (!is_curve_edit || !is_curve_ready) {
             for (int i = 0; i < gps->totpoints; i++) {
               bGPDspoint *pt = &gps->points[i];
               if (mode == GP_NORMALIZE_THICKNESS) {

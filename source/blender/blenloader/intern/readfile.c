@@ -161,14 +161,14 @@
  * which keeps large arrays in memory from data-blocks we may not even use.
  *
  * \note This is disabled when using compression,
- * while zlib supports seek it's unusably slow, see: T61880.
+ * while ZLIB supports seek it's unusably slow, see: T61880.
  */
 #define USE_BHEAD_READ_ON_DEMAND
 
-/* use GHash for BHead name-based lookups (speeds up linking) */
+/** Use #GHash for #BHead name-based lookups (speeds up linking). */
 #define USE_GHASH_BHEAD
 
-/* Use GHash for restoring pointers by name */
+/** Use #GHash for restoring pointers by name. */
 #define USE_GHASH_RESTORE_POINTER
 
 static CLG_LogRef LOG = {"blo.readfile"};
@@ -194,8 +194,10 @@ typedef struct BHeadN {
 
 #define BHEADN_FROM_BHEAD(bh) ((BHeadN *)POINTER_OFFSET(bh, -(int)offsetof(BHeadN, bhead)))
 
-/* We could change this in the future, for now it's simplest if only data is delayed
- * because ID names are used in lookup tables. */
+/**
+ * We could change this in the future, for now it's simplest if only data is delayed
+ * because ID names are used in lookup tables.
+ */
 #define BHEAD_USE_READ_ON_DEMAND(bhead) ((bhead)->code == DATA)
 
 void BLO_reportf_wrap(BlendFileReadReport *reports, eReportType type, const char *format, ...)
@@ -320,15 +322,22 @@ static void oldnewmap_increase_size(OldNewMap *onm)
 
 /* Public OldNewMap API */
 
-static OldNewMap *oldnewmap_new(void)
+static void oldnewmap_init_data(OldNewMap *onm, const int capacity_exp)
 {
-  OldNewMap *onm = MEM_callocN(sizeof(*onm), "OldNewMap");
+  memset(onm, 0x0, sizeof(*onm));
 
-  onm->capacity_exp = DEFAULT_SIZE_EXP;
+  onm->capacity_exp = capacity_exp;
   onm->entries = MEM_malloc_arrayN(
       ENTRIES_CAPACITY(onm), sizeof(*onm->entries), "OldNewMap.entries");
   onm->map = MEM_malloc_arrayN(MAP_CAPACITY(onm), sizeof(*onm->map), "OldNewMap.map");
   oldnewmap_clear_map(onm);
+}
+
+static OldNewMap *oldnewmap_new(void)
+{
+  OldNewMap *onm = MEM_mallocN(sizeof(*onm), "OldNewMap");
+
+  oldnewmap_init_data(onm, DEFAULT_SIZE_EXP);
 
   return onm;
 }
@@ -395,9 +404,10 @@ static void oldnewmap_clear(OldNewMap *onm)
     }
   }
 
-  onm->capacity_exp = DEFAULT_SIZE_EXP;
-  oldnewmap_clear_map(onm);
-  onm->nentries = 0;
+  MEM_freeN(onm->entries);
+  MEM_freeN(onm->map);
+
+  oldnewmap_init_data(onm, DEFAULT_SIZE_EXP);
 }
 
 static void oldnewmap_free(OldNewMap *onm)
@@ -2913,7 +2923,7 @@ static const char *dataname(short id_code)
       return "Data from MA";
     case ID_TE:
       return "Data from TE";
-    case ID_CU:
+    case ID_CU_LEGACY:
       return "Data from CU";
     case ID_GR:
       return "Data from GR";
@@ -4703,9 +4713,9 @@ static void read_library_linked_ids(FileData *basefd,
           read_library_linked_id(basefd, fd, mainvar, id, realid);
         }
 
-        /* realid shall never be NULL - unless some source file/lib is broken
+        /* `realid` shall never be NULL - unless some source file/lib is broken
          * (known case: some directly linked shapekey from a missing lib...). */
-        /* BLI_assert(*realid != NULL); */
+        // BLI_assert(*realid != NULL);
 
         /* Now that we have a real ID, replace all pointers to placeholders in
          * fd->libmap with pointers to the real data-blocks. We do this for all

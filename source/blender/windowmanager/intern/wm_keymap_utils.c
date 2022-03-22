@@ -29,62 +29,62 @@
 /** \name Wrappers for #WM_keymap_add_item
  * \{ */
 
-wmKeyMapItem *WM_keymap_add_menu(
-    wmKeyMap *keymap, const char *idname, int type, int val, int modifier, int keymodifier)
+wmKeyMapItem *WM_keymap_add_menu(wmKeyMap *keymap,
+                                 const char *idname,
+                                 int type,
+                                 int val,
+                                 int modifier,
+                                 int keymodifier,
+                                 int direction)
 {
   wmKeyMapItem *kmi = WM_keymap_add_item(
-      keymap, "WM_OT_call_menu", type, val, modifier, keymodifier);
+      keymap, "WM_OT_call_menu", type, val, modifier, keymodifier, direction);
   RNA_string_set(kmi->ptr, "name", idname);
   return kmi;
 }
 
-wmKeyMapItem *WM_keymap_add_menu_pie(
-    wmKeyMap *keymap, const char *idname, int type, int val, int modifier, int keymodifier)
+wmKeyMapItem *WM_keymap_add_menu_pie(wmKeyMap *keymap,
+                                     const char *idname,
+                                     int type,
+                                     int val,
+                                     int modifier,
+                                     int keymodifier,
+                                     int direction)
 {
   wmKeyMapItem *kmi = WM_keymap_add_item(
-      keymap, "WM_OT_call_menu_pie", type, val, modifier, keymodifier);
+      keymap, "WM_OT_call_menu_pie", type, val, modifier, keymodifier, direction);
   RNA_string_set(kmi->ptr, "name", idname);
   return kmi;
 }
 
-wmKeyMapItem *WM_keymap_add_panel(
-    wmKeyMap *keymap, const char *idname, int type, int val, int modifier, int keymodifier)
+wmKeyMapItem *WM_keymap_add_panel(wmKeyMap *keymap,
+                                  const char *idname,
+                                  int type,
+                                  int val,
+                                  int modifier,
+                                  int keymodifier,
+                                  int direction)
 {
   wmKeyMapItem *kmi = WM_keymap_add_item(
-      keymap, "WM_OT_call_panel", type, val, modifier, keymodifier);
+      keymap, "WM_OT_call_panel", type, val, modifier, keymodifier, direction);
   RNA_string_set(kmi->ptr, "name", idname);
   /* TODO: we might want to disable this. */
   RNA_boolean_set(kmi->ptr, "keep_open", false);
   return kmi;
 }
 
-wmKeyMapItem *WM_keymap_add_tool(
-    wmKeyMap *keymap, const char *idname, int type, int val, int modifier, int keymodifier)
+wmKeyMapItem *WM_keymap_add_tool(wmKeyMap *keymap,
+                                 const char *idname,
+                                 int type,
+                                 int val,
+                                 int modifier,
+                                 int keymodifier,
+                                 int direction)
 {
   wmKeyMapItem *kmi = WM_keymap_add_item(
-      keymap, "WM_OT_tool_set_by_id", type, val, modifier, keymodifier);
+      keymap, "WM_OT_tool_set_by_id", type, val, modifier, keymodifier, direction);
   RNA_string_set(kmi->ptr, "name", idname);
   return kmi;
-}
-
-void WM_keymap_add_context_enum_set_items(wmKeyMap *keymap,
-                                          const EnumPropertyItem *items,
-                                          const char *data_path,
-                                          int type_start,
-                                          int val,
-                                          int modifier,
-                                          int keymodifier)
-{
-  for (int i = 0, type_offset = 0; items[i].identifier; i++) {
-    if (items[i].identifier[0] == '\0') {
-      continue;
-    }
-    wmKeyMapItem *kmi = WM_keymap_add_item(
-        keymap, "WM_OT_context_set_enum", type_start + type_offset, val, modifier, keymodifier);
-    RNA_string_set(kmi->ptr, "data_path", data_path);
-    RNA_string_set(kmi->ptr, "value", items[i].identifier);
-    type_offset += 1;
-  }
 }
 
 /** \} */
@@ -105,6 +105,9 @@ wmKeyMap *WM_keymap_guess_from_context(const bContext *C)
         break;
       case CTX_MODE_EDIT_CURVE:
         km_id = "Curve";
+        break;
+      case CTX_MODE_EDIT_CURVES:
+        km_id = "Curves";
         break;
       case CTX_MODE_EDIT_SURFACE:
         km_id = "Curve";
@@ -156,6 +159,9 @@ wmKeyMap *WM_keymap_guess_from_context(const bContext *C)
         break;
       case CTX_MODE_VERTEX_GPENCIL:
         km_id = "Grease Pencil Stroke Vertex Mode";
+        break;
+      case CTX_MODE_SCULPT_CURVES:
+        km_id = "Curves Sculpt";
         break;
     }
   }

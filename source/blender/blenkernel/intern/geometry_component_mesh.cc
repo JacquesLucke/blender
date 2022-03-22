@@ -260,7 +260,7 @@ static GVArray adapt_mesh_domain_point_to_corner(const Mesh &mesh, const GVArray
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     new_varray = VArray<T>::ForFunc(mesh.totloop,
-                                    [mesh, varray = varray.typed<T>()](const int64_t loop_index) {
+                                    [&mesh, varray = varray.typed<T>()](const int64_t loop_index) {
                                       const int vertex_index = mesh.mloop[loop_index].v;
                                       return varray[vertex_index];
                                     });
@@ -276,7 +276,7 @@ static GVArray adapt_mesh_domain_corner_to_face(const Mesh &mesh, const GVArray 
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
       if constexpr (std::is_same_v<T, bool>) {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [mesh, varray = varray.typed<bool>()](const int face_index) {
+            mesh.totpoly, [&mesh, varray = varray.typed<bool>()](const int face_index) {
               /* A face is selected if all of its corners were selected. */
               const MPoly &poly = mesh.mpoly[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
@@ -289,7 +289,7 @@ static GVArray adapt_mesh_domain_corner_to_face(const Mesh &mesh, const GVArray 
       }
       else {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [mesh, varray = varray.typed<T>()](const int face_index) {
+            mesh.totpoly, [&mesh, varray = varray.typed<T>()](const int face_index) {
               T return_value;
               attribute_math::DefaultMixer<T> mixer({&return_value, 1});
               const MPoly &poly = mesh.mpoly[face_index];
@@ -530,7 +530,7 @@ static GVArray adapt_mesh_domain_point_to_face(const Mesh &mesh, const GVArray &
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
       if constexpr (std::is_same_v<T, bool>) {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [mesh, varray = varray.typed<bool>()](const int face_index) {
+            mesh.totpoly, [&mesh, varray = varray.typed<bool>()](const int face_index) {
               /* A face is selected if all of its vertices were selected. */
               const MPoly &poly = mesh.mpoly[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
@@ -544,7 +544,7 @@ static GVArray adapt_mesh_domain_point_to_face(const Mesh &mesh, const GVArray &
       }
       else {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [mesh, varray = varray.typed<T>()](const int face_index) {
+            mesh.totpoly, [&mesh, varray = varray.typed<T>()](const int face_index) {
               T return_value;
               attribute_math::DefaultMixer<T> mixer({&return_value, 1});
               const MPoly &poly = mesh.mpoly[face_index];
@@ -571,14 +571,14 @@ static GVArray adapt_mesh_domain_point_to_edge(const Mesh &mesh, const GVArray &
       if constexpr (std::is_same_v<T, bool>) {
         /* An edge is selected if both of its vertices were selected. */
         new_varray = VArray<bool>::ForFunc(
-            mesh.totedge, [mesh, varray = varray.typed<bool>()](const int edge_index) {
+            mesh.totedge, [&mesh, varray = varray.typed<bool>()](const int edge_index) {
               const MEdge &edge = mesh.medge[edge_index];
               return varray[edge.v1] && varray[edge.v2];
             });
       }
       else {
         new_varray = VArray<T>::ForFunc(
-            mesh.totedge, [mesh, varray = varray.typed<T>()](const int edge_index) {
+            mesh.totedge, [&mesh, varray = varray.typed<T>()](const int edge_index) {
               T return_value;
               attribute_math::DefaultMixer<T> mixer({&return_value, 1});
               const MEdge &edge = mesh.medge[edge_index];
@@ -713,7 +713,7 @@ static GVArray adapt_mesh_domain_edge_to_face(const Mesh &mesh, const GVArray &v
       if constexpr (std::is_same_v<T, bool>) {
         /* A face is selected if all of its edges are selected. */
         new_varray = VArray<bool>::ForFunc(
-            mesh.totpoly, [mesh, varray = varray.typed<T>()](const int face_index) {
+            mesh.totpoly, [&mesh, varray = varray.typed<T>()](const int face_index) {
               const MPoly &poly = mesh.mpoly[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
                 const MLoop &loop = mesh.mloop[loop_index];
@@ -726,7 +726,7 @@ static GVArray adapt_mesh_domain_edge_to_face(const Mesh &mesh, const GVArray &v
       }
       else {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [mesh, varray = varray.typed<T>()](const int face_index) {
+            mesh.totpoly, [&mesh, varray = varray.typed<T>()](const int face_index) {
               T return_value;
               attribute_math::DefaultMixer<T> mixer({&return_value, 1});
               const MPoly &poly = mesh.mpoly[face_index];
@@ -746,8 +746,8 @@ static GVArray adapt_mesh_domain_edge_to_face(const Mesh &mesh, const GVArray &v
 
 }  // namespace blender::bke
 
-blender::fn::GVArray MeshComponent::attribute_try_adapt_domain_impl(
-    const blender::fn::GVArray &varray,
+blender::GVArray MeshComponent::attribute_try_adapt_domain_impl(
+    const blender::GVArray &varray,
     const AttributeDomain from_domain,
     const AttributeDomain to_domain) const
 {
@@ -852,18 +852,6 @@ static GVMutableArray make_derived_write_attribute(void *data, const int domain_
 {
   return VMutableArray<ElemT>::template ForDerivedSpan<StructT, GetFunc, SetFunc>(
       MutableSpan<StructT>((StructT *)data, domain_size));
-}
-
-template<typename T>
-static GVArray make_array_read_attribute(const void *data, const int domain_size)
-{
-  return VArray<T>::ForSpan(Span<T>((const T *)data, domain_size));
-}
-
-template<typename T>
-static GVMutableArray make_array_write_attribute(void *data, const int domain_size)
-{
-  return VMutableArray<T>::ForSpan(MutableSpan<T>((T *)data, domain_size));
 }
 
 static float3 get_vertex_position(const MVert &vert)
@@ -1061,6 +1049,11 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
     if (mesh->dvert == nullptr) {
       return true;
     }
+
+    /* Copy the data layer if it is shared with some other mesh. */
+    mesh->dvert = (MDeformVert *)CustomData_duplicate_referenced_layer(
+        &mesh->vdata, CD_MDEFORMVERT, mesh->totvert);
+
     for (MDeformVert &dvert : MutableSpan(mesh->dvert, mesh->totvert)) {
       MDeformWeight *weight = BKE_defvert_find_index(&dvert, index);
       BKE_defvert_remove_group(&dvert, weight);

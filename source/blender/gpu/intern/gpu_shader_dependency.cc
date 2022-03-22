@@ -8,6 +8,7 @@
  * shader files.
  */
 
+#include <iomanip>
 #include <iostream>
 
 #include "BLI_map.hh"
@@ -21,6 +22,9 @@ extern "C" {
 #define SHADER_SOURCE(datatoc, filename, filepath) extern char datatoc[];
 #include "glsl_draw_source_list.h"
 #include "glsl_gpu_source_list.h"
+#ifdef WITH_OCIO
+#  include "glsl_ocio_source_list.h"
+#endif
 #undef SHADER_SOURCE
 }
 
@@ -133,15 +137,14 @@ struct GPUSource {
     int64_t line_end = input.find("\n", offset);
     int64_t line_start = input.rfind("\n", offset) + 1;
     int64_t char_number = offset - line_start + 1;
-    char line_prefix[16] = "";
-    SNPRINTF(line_prefix, "%5ld | ", line_number);
 
     /* TODO Use clog. */
 
     std::cout << fullpath << ":" << line_number << ":" << char_number;
 
     std::cout << " error: " << message << "\n";
-    std::cout << line_prefix << input.substr(line_start, line_end - line_start) << "\n";
+    std::cout << std::setw(5) << line_number << " | "
+              << input.substr(line_start, line_end - line_start) << "\n";
     std::cout << "      | ";
     for (int64_t i = 0; i < char_number - 1; i++) {
       std::cout << " ";
@@ -186,7 +189,7 @@ struct GPUSource {
   {
     const StringRefNull input = source;
     std::string output;
-    int64_t cursor = 0;
+    int64_t cursor = -1;
     int64_t last_pos = 0;
     const bool is_cpp = filename.endswith(".hh");
 
@@ -201,9 +204,13 @@ struct GPUSource {
   }
 
     while (true) {
-      cursor = find_keyword(input, "enum ", cursor);
+      cursor = find_keyword(input, "enum ", cursor + 1);
       if (cursor == -1) {
         break;
+      }
+      /* Skip matches like `typedef enum myEnum myType;` */
+      if (cursor >= 8 && input.substr(cursor - 8, 8) == "typedef ") {
+        continue;
       }
       /* Output anything between 2 enums blocks. */
       output += input.substr(last_pos, cursor - last_pos);
@@ -348,6 +355,9 @@ void gpu_shader_dependency_init()
   g_sources->add_new(filename, new GPUSource(filepath, filename, datatoc));
 #include "glsl_draw_source_list.h"
 #include "glsl_gpu_source_list.h"
+#ifdef WITH_OCIO
+#  include "glsl_ocio_source_list.h"
+#endif
 #undef SHADER_SOURCE
 
   int errors = 0;
@@ -355,6 +365,7 @@ void gpu_shader_dependency_init()
     errors += value->init_dependencies(*g_sources);
   }
   BLI_assert_msg(errors == 0, "Dependency errors detected: Aborting");
+  UNUSED_VARS_NDEBUG(errors);
 }
 
 void gpu_shader_dependency_exit()

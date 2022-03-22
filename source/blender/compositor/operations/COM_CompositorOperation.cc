@@ -90,11 +90,10 @@ void CompositorOperation::deinit_execution()
       re = nullptr;
     }
 
+    Image *image = BKE_image_ensure_viewer(G.main, IMA_TYPE_R_RESULT, "Render Result");
+    BKE_image_partial_update_mark_full_update(image);
     BLI_thread_lock(LOCK_DRAW_IMAGE);
-    BKE_image_signal(G.main,
-                     BKE_image_ensure_viewer(G.main, IMA_TYPE_R_RESULT, "Render Result"),
-                     nullptr,
-                     IMA_SIGNAL_FREE);
+    BKE_image_signal(G.main, image, nullptr, IMA_SIGNAL_FREE);
     BLI_thread_unlock(LOCK_DRAW_IMAGE);
   }
   else {
@@ -115,7 +114,7 @@ void CompositorOperation::deinit_execution()
 
 void CompositorOperation::execute_region(rcti *rect, unsigned int /*tile_number*/)
 {
-  float color[8];  // 7 is enough
+  float color[8]; /* 7 is enough. */
   float *buffer = output_buffer_;
   float *zbuffer = depth_buffer_;
 

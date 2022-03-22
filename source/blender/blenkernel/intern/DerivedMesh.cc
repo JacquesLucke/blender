@@ -546,6 +546,7 @@ static Mesh *create_orco_mesh(Object *ob, Mesh *me, BMEditMesh *em, int layer)
 
   if (em) {
     mesh = BKE_mesh_from_bmesh_for_eval_nomain(em->bm, nullptr, me);
+    BKE_mesh_ensure_default_orig_index_customdata(mesh);
   }
   else {
     mesh = BKE_mesh_copy_for_eval(me, true);
@@ -722,7 +723,7 @@ static Mesh *modifier_modify_mesh_and_geometry_set(ModifierData *md,
 }
 
 static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
-                                Scene *scene,
+                                const Scene *scene,
                                 Object *ob,
                                 const bool use_deform,
                                 const bool need_mapping,
@@ -1142,12 +1143,7 @@ static void mesh_calc_modifiers(struct Depsgraph *depsgraph,
    * we need to apply these back onto the Mesh. If we have no
    * Mesh then we need to build one. */
   if (mesh_final == nullptr) {
-    /* NOTE: this check on cdmask is a bit dodgy, it handles the issue at stake here (see T68211),
-     * but other cases might require similar handling?
-     * Could be a good idea to define a proper CustomData_MeshMask for that then. */
-    if (deformed_verts == nullptr && allow_shared_mesh &&
-        (final_datamask.lmask & CD_MASK_NORMAL) == 0 &&
-        (final_datamask.pmask & CD_MASK_NORMAL) == 0) {
+    if (deformed_verts == nullptr && allow_shared_mesh) {
       mesh_final = mesh_input;
     }
     else {
@@ -1240,7 +1236,7 @@ float (*editbmesh_vert_coords_alloc(BMEditMesh *em, int *r_vert_len))[3]
   return cos;
 }
 
-bool editbmesh_modifier_is_enabled(Scene *scene,
+bool editbmesh_modifier_is_enabled(const Scene *scene,
                                    const Object *ob,
                                    ModifierData *md,
                                    bool has_prev_mesh)
@@ -1301,7 +1297,7 @@ static void editbmesh_calc_modifier_final_normals(Mesh *mesh_final,
 }
 
 static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
-                                     Scene *scene,
+                                     const Scene *scene,
                                      Object *ob,
                                      BMEditMesh *em_input,
                                      const CustomData_MeshMasks *dataMask,
@@ -1364,6 +1360,12 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
         em_input, &final_datamask, nullptr, mesh_input);
   }
 
+  /* The mesh from edit mode should not have any original index layers already, since those
+   * are added during evaluation when necessary and are redundant on an original mesh. */
+  BLI_assert(CustomData_get_layer(&em_input->bm->pdata, CD_ORIGINDEX) == nullptr &&
+             CustomData_get_layer(&em_input->bm->edata, CD_ORIGINDEX) == nullptr &&
+             CustomData_get_layer(&em_input->bm->pdata, CD_ORIGINDEX) == nullptr);
+
   /* Clear errors before evaluation. */
   BKE_modifiers_clear_errors(ob);
 
@@ -1402,6 +1404,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
       else if (isPrevDeform && mti->dependsOnNormals && mti->dependsOnNormals(md)) {
         if (mesh_final == nullptr) {
           mesh_final = BKE_mesh_from_bmesh_for_eval_nomain(em_input->bm, nullptr, mesh_input);
+          BKE_mesh_ensure_default_orig_index_customdata(mesh_final);
           ASSERT_IS_VALID_MESH(mesh_final);
         }
         BLI_assert(deformed_verts != nullptr);
@@ -1465,7 +1468,7 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
 
       /* set the DerivedMesh to only copy needed data */
       CustomData_MeshMasks_update(&mask, &append_mask);
-      /* XXX WHAT? ovewrites mask ??? */
+      /* XXX WHAT? overwrites mask ??? */
       /* CD_MASK_ORCO may have been cleared above */
       mask = md_datamask->mask;
       mask.vmask |= CD_MASK_ORIGINDEX;
@@ -1510,7 +1513,9 @@ static void editbmesh_calc_modifiers(struct Depsgraph *depsgraph,
       }
       else {
         Mesh *me_orig = mesh_input;
-        if (me_orig->id.tag & LIB_TAG_COPIED_ON_WRITE) {
+        /* Modifying the input mesh is weak, however as there can only be one object in edit mode
+         * even if multiple are sharing the same mesh this should be thread safe. */
+        if ((me_orig->id.tag & LIB_TAG_COPIED_ON_WRITE) && (ob->mode & OB_MODE_EDIT)) {
           if (!BKE_mesh_runtime_ensure_edit_data(me_orig)) {
             BKE_mesh_runtime_reset_edit_data(me_orig);
           }
@@ -1595,7 +1600,7 @@ static void mesh_build_extra_data(struct Depsgraph *depsgraph, Object *ob, Mesh 
 }
 
 static void mesh_build_data(struct Depsgraph *depsgraph,
-                            Scene *scene,
+                            const Scene *scene,
                             Object *ob,
                             const CustomData_MeshMasks *dataMask,
                             const bool need_mapping)
@@ -1661,7 +1666,7 @@ static void mesh_build_data(struct Depsgraph *depsgraph,
 }
 
 static void editbmesh_build_data(struct Depsgraph *depsgraph,
-                                 Scene *scene,
+                                 const Scene *scene,
                                  Object *obedit,
                                  BMEditMesh *em,
                                  CustomData_MeshMasks *dataMask)
@@ -1754,7 +1759,7 @@ static void object_get_datamask(const Depsgraph *depsgraph,
 }
 
 void makeDerivedMesh(struct Depsgraph *depsgraph,
-                     Scene *scene,
+                     const Scene *scene,
                      Object *ob,
                      const CustomData_MeshMasks *dataMask)
 {
@@ -1790,7 +1795,7 @@ void makeDerivedMesh(struct Depsgraph *depsgraph,
 /***/
 
 Mesh *mesh_get_eval_final(struct Depsgraph *depsgraph,
-                          Scene *scene,
+                          const Scene *scene,
                           Object *ob,
                           const CustomData_MeshMasks *dataMask)
 {
@@ -1819,14 +1824,13 @@ Mesh *mesh_get_eval_final(struct Depsgraph *depsgraph,
     mesh_eval = BKE_object_get_evaluated_mesh(ob);
   }
 
-  if (mesh_eval != nullptr) {
-    BLI_assert(!(mesh_eval->runtime.cd_dirty_vert & CD_MASK_NORMAL));
-  }
+  BKE_mesh_assert_normals_dirty_or_calculated(mesh_eval);
+
   return mesh_eval;
 }
 
 Mesh *mesh_get_eval_deform(struct Depsgraph *depsgraph,
-                           Scene *scene,
+                           const Scene *scene,
                            Object *ob,
                            const CustomData_MeshMasks *dataMask)
 {
@@ -1866,7 +1870,7 @@ Mesh *mesh_get_eval_deform(struct Depsgraph *depsgraph,
 }
 
 Mesh *mesh_create_eval_final(Depsgraph *depsgraph,
-                             Scene *scene,
+                             const Scene *scene,
                              Object *ob,
                              const CustomData_MeshMasks *dataMask)
 {
@@ -1877,7 +1881,7 @@ Mesh *mesh_create_eval_final(Depsgraph *depsgraph,
 }
 
 Mesh *mesh_create_eval_no_deform(Depsgraph *depsgraph,
-                                 Scene *scene,
+                                 const Scene *scene,
                                  Object *ob,
                                  const CustomData_MeshMasks *dataMask)
 {
@@ -1888,7 +1892,7 @@ Mesh *mesh_create_eval_no_deform(Depsgraph *depsgraph,
 }
 
 Mesh *mesh_create_eval_no_deform_render(Depsgraph *depsgraph,
-                                        Scene *scene,
+                                        const Scene *scene,
                                         Object *ob,
                                         const CustomData_MeshMasks *dataMask)
 {
@@ -1901,7 +1905,7 @@ Mesh *mesh_create_eval_no_deform_render(Depsgraph *depsgraph,
 /***/
 
 Mesh *editbmesh_get_eval_cage(struct Depsgraph *depsgraph,
-                              Scene *scene,
+                              const Scene *scene,
                               Object *obedit,
                               BMEditMesh *em,
                               const CustomData_MeshMasks *dataMask)
@@ -1922,12 +1926,12 @@ Mesh *editbmesh_get_eval_cage(struct Depsgraph *depsgraph,
 }
 
 Mesh *editbmesh_get_eval_cage_from_orig(struct Depsgraph *depsgraph,
-                                        Scene *scene,
+                                        const Scene *scene,
                                         Object *obedit,
                                         const CustomData_MeshMasks *dataMask)
 {
   BLI_assert((obedit->id.tag & LIB_TAG_COPIED_ON_WRITE) == 0);
-  Scene *scene_eval = (Scene *)DEG_get_evaluated_id(depsgraph, &scene->id);
+  const Scene *scene_eval = (const Scene *)DEG_get_evaluated_id(depsgraph, (ID *)&scene->id);
   Object *obedit_eval = (Object *)DEG_get_evaluated_id(depsgraph, &obedit->id);
   BMEditMesh *em_eval = BKE_editmesh_from_object(obedit_eval);
   return editbmesh_get_eval_cage(depsgraph, scene_eval, obedit_eval, em_eval, dataMask);

@@ -64,7 +64,7 @@ static void deformStroke(GpencilModifierData *md,
                                       mmd->material,
                                       mmd->pass_index,
                                       mmd->layer_pass,
-                                      mmd->mode == GP_SIMPLIFY_SAMPLE ? 2 : 4,
+                                      mmd->mode == GP_SIMPLIFY_SAMPLE ? 2 : 3,
                                       gpl,
                                       gps,
                                       mmd->flag & GP_SIMPLIFY_INVERT_LAYER,
@@ -88,7 +88,7 @@ static void deformStroke(GpencilModifierData *md,
       break;
     }
     case GP_SIMPLIFY_SAMPLE: {
-      BKE_gpencil_stroke_sample(gpd, gps, mmd->length, false);
+      BKE_gpencil_stroke_sample(gpd, gps, mmd->length, false, mmd->sharp_threshold);
       break;
     }
     case GP_SIMPLIFY_MERGE: {
@@ -105,15 +105,7 @@ static void bakeModifier(struct Main *UNUSED(bmain),
                          GpencilModifierData *md,
                          Object *ob)
 {
-  bGPdata *gpd = ob->data;
-
-  LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
-    LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        deformStroke(md, depsgraph, ob, gpl, gpf, gps);
-      }
-    }
-  }
+  generic_bake_deform_stroke(depsgraph, md, ob, false, deformStroke);
 }
 
 static void foreachIDLink(GpencilModifierData *md, Object *ob, IDWalkFunc walk, void *userData)
@@ -143,6 +135,7 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   }
   else if (mode == GP_SIMPLIFY_SAMPLE) {
     uiItemR(layout, ptr, "length", 0, NULL, ICON_NONE);
+    uiItemR(layout, ptr, "sharp_threshold", 0, NULL, ICON_NONE);
   }
   else if (mode == GP_SIMPLIFY_MERGE) {
     uiItemR(layout, ptr, "distance", 0, NULL, ICON_NONE);

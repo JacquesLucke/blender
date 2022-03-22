@@ -339,7 +339,7 @@ typedef struct FileListEntryPreview {
   char path[FILE_MAX];
   uint flags;
   int index;
-
+  int attributes; /* from FileDirEntry. */
   int icon_id;
 } FileListEntryPreview;
 
@@ -851,6 +851,20 @@ static bool is_filtered_file_relpath(const FileListInternEntry *file, const File
   return fnmatch(filter->filter_search, file->relpath, FNM_CASEFOLD) == 0;
 }
 
+/**
+ * Apply the filter string as matching pattern on file name.
+ * \return true when the file should be in the result set, false if it should be filtered out.
+ */
+static bool is_filtered_file_name(const FileListInternEntry *file, const FileListFilter *filter)
+{
+  if (filter->filter_search[0] == '\0') {
+    return true;
+  }
+
+  /* If there's a filter string, apply it as filter even if FLF_DO_FILTER is not set. */
+  return fnmatch(filter->filter_search, file->name, FNM_CASEFOLD) == 0;
+}
+
 /** \return true when the file should be in the result set, false if it should be filtered out. */
 static bool is_filtered_file_type(const FileListInternEntry *file, const FileListFilter *filter)
 {
@@ -890,7 +904,8 @@ static bool is_filtered_file(FileListInternEntry *file,
                              const char *UNUSED(root),
                              FileListFilter *filter)
 {
-  return is_filtered_file_type(file, filter) && is_filtered_file_relpath(file, filter);
+  return is_filtered_file_type(file, filter) &&
+         (is_filtered_file_relpath(file, filter) || is_filtered_file_name(file, filter));
 }
 
 static bool is_filtered_id_file_type(const FileListInternEntry *file,
@@ -1623,8 +1638,10 @@ static void filelist_cache_preview_runf(TaskPool *__restrict pool, void *taskdat
 
   IMB_thumb_path_lock(preview->path);
   /* Always generate biggest preview size for now, it's simpler and avoids having to re-generate
-   * in case user switch to a bigger preview size. */
-  ImBuf *imbuf = IMB_thumb_manage(preview->path, THB_LARGE, source);
+   * in case user switch to a bigger preview size. Do not create preview when file is offline. */
+  ImBuf *imbuf = (preview->attributes & FILE_ATTR_OFFLINE) ?
+                     IMB_thumb_read(preview->path, THB_LARGE) :
+                     IMB_thumb_manage(preview->path, THB_LARGE, source);
   IMB_thumb_path_unlock(preview->path);
   if (imbuf) {
     preview->icon_id = BKE_icon_imbuf_create(imbuf);
@@ -1704,11 +1721,6 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
 
   BLI_assert(cache->flags & FLC_PREVIEWS_ACTIVE);
 
-  if (!entry->preview_icon_id && (entry->attributes & FILE_ATTR_OFFLINE)) {
-    entry->flags |= FILE_ENTRY_INVALID_PREVIEW;
-    return;
-  }
-
   if (entry->preview_icon_id) {
     return;
   }
@@ -1735,6 +1747,7 @@ static void filelist_cache_previews_push(FileList *filelist, FileDirEntry *entry
   FileListEntryPreview *preview = MEM_mallocN(sizeof(*preview), __func__);
   preview->index = index;
   preview->flags = entry->typeflag;
+  preview->attributes = entry->attributes;
   preview->icon_id = 0;
 
   if (preview_in_memory) {
@@ -2245,7 +2258,7 @@ FileDirEntry *filelist_file_ex(struct FileList *filelist, const int index, const
   cache->misc_entries_indices[cache->misc_cursor] = index;
   cache->misc_cursor = (cache->misc_cursor + 1) % cache_size;
 
-#if 0 /* Actually no, only block cached entries should have preview imho. */
+#if 0 /* Actually no, only block cached entries should have preview IMHO. */
   if (cache->previews_pool) {
     filelist_cache_previews_push(filelist, ret, index);
   }
@@ -3462,8 +3475,7 @@ static void filelist_readjob_main_recursive(Main *bmain, FileList *filelist)
           //                  files->entry->nr = totbl + 1;
           files->entry->poin = id;
           fake = id->flag & LIB_FAKEUSER;
-          if (idcode == ID_MA || idcode == ID_TE || idcode == ID_LA || idcode == ID_WO ||
-              idcode == ID_IM) {
+          if (ELEM(idcode, ID_MA, ID_TE, ID_LA, ID_WO, ID_IM)) {
             files->typeflag |= FILE_TYPE_IMAGE;
           }
 #  if 0

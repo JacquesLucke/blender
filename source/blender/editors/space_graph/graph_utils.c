@@ -27,6 +27,7 @@
 #include "UI_interface.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "graph_intern.h" /* own include */
 
@@ -185,6 +186,7 @@ bool graphop_editable_keyframes_poll(bContext *C)
   filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_FOREDIT | ANIMFILTER_CURVE_VISIBLE);
   items = ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
   if (items == 0) {
+    CTX_wm_operator_poll_msg_set(C, "There is no animation data to operate on");
     return found;
   }
 

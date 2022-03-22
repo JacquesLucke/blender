@@ -38,6 +38,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_ui_common.h"
 #include "MOD_util.h"
@@ -371,7 +372,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   int tot_doubles;
 
   const bool use_merge = (amd->flags & MOD_ARR_MERGE) != 0;
-  const bool use_recalc_normals = (mesh->runtime.cd_dirty_vert & CD_MASK_NORMAL) || use_merge;
+  const bool use_recalc_normals = BKE_mesh_vertex_normals_are_dirty(mesh) || use_merge;
   const bool use_offset_ob = ((amd->offset_type & MOD_ARR_OFF_OBJ) && amd->offset_ob != NULL);
 
   int start_cap_nverts = 0, start_cap_nedges = 0, start_cap_npolys = 0, start_cap_nloops = 0;
@@ -396,8 +397,10 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
 
   Object *start_cap_ob = amd->start_cap;
   if (start_cap_ob && start_cap_ob != ctx->object) {
-    vgroup_start_cap_remap = BKE_object_defgroup_index_map_create(
-        start_cap_ob, ctx->object, &vgroup_start_cap_remap_len);
+    if (start_cap_ob->type == OB_MESH && ctx->object->type == OB_MESH) {
+      vgroup_start_cap_remap = BKE_object_defgroup_index_map_create(
+          start_cap_ob, ctx->object, &vgroup_start_cap_remap_len);
+    }
 
     start_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(start_cap_ob, false);
     if (start_cap_mesh) {
@@ -409,8 +412,10 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   }
   Object *end_cap_ob = amd->end_cap;
   if (end_cap_ob && end_cap_ob != ctx->object) {
-    vgroup_end_cap_remap = BKE_object_defgroup_index_map_create(
-        end_cap_ob, ctx->object, &vgroup_end_cap_remap_len);
+    if (start_cap_ob->type == OB_MESH && ctx->object->type == OB_MESH) {
+      vgroup_end_cap_remap = BKE_object_defgroup_index_map_create(
+          end_cap_ob, ctx->object, &vgroup_end_cap_remap_len);
+    }
 
     end_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(end_cap_ob, false);
     if (end_cap_mesh) {
@@ -819,7 +824,7 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
    * In other cases it should be impossible to have a type mismatch.
    */
 
-  if (amd->curve_ob && amd->curve_ob->type != OB_CURVE) {
+  if (amd->curve_ob && amd->curve_ob->type != OB_CURVES_LEGACY) {
     return true;
   }
   if (amd->start_cap && amd->start_cap->type != OB_MESH) {

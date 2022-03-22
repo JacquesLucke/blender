@@ -10,9 +10,9 @@
 #include "DNA_pointcloud_types.h"
 #include "DNA_volume_types.h"
 
+#include "BKE_curves.hh"
 #include "BKE_mesh.h"
 #include "BKE_pointcloud.h"
-#include "BKE_spline.hh"
 #include "BKE_volume.h"
 
 #include "DEG_depsgraph_query.h"
@@ -125,8 +125,8 @@ static void translate_geometry_set(GeometrySet &geometry,
                                    const float3 translation,
                                    const Depsgraph &depsgraph)
 {
-  if (CurveEval *curve = geometry.get_curve_for_write()) {
-    curve->translate(translation);
+  if (Curves *curves = geometry.get_curves_for_write()) {
+    bke::CurvesGeometry::wrap(curves->geometry).translate(translation);
   }
   if (Mesh *mesh = geometry.get_mesh_for_write()) {
     translate_mesh(*mesh, translation);
@@ -146,8 +146,8 @@ void transform_geometry_set(GeometrySet &geometry,
                             const float4x4 &transform,
                             const Depsgraph &depsgraph)
 {
-  if (CurveEval *curve = geometry.get_curve_for_write()) {
-    curve->transform(transform);
+  if (Curves *curves = geometry.get_curves_for_write()) {
+    bke::CurvesGeometry::wrap(curves->geometry).transform(transform);
   }
   if (Mesh *mesh = geometry.get_mesh_for_write()) {
     transform_mesh(*mesh, transform);

@@ -1610,6 +1610,14 @@ uiBut *uiDefAutoButR(uiBlock *block,
                      int y,
                      int width,
                      int height);
+void uiDefAutoButsArrayR(uiBlock *block,
+                         PointerRNA *ptr,
+                         PropertyRNA *prop,
+                         const int icon,
+                         const int x,
+                         const int y,
+                         const int tot_width,
+                         const int height);
 /**
  * \a check_prop callback filters functions to avoid drawing certain properties,
  * in cases where PROP_HIDDEN flag can't be used for a property.
@@ -2902,7 +2910,7 @@ uiBut *UI_context_active_but_prop_get(const struct bContext *C,
                                       struct PointerRNA *r_ptr,
                                       struct PropertyRNA **r_prop,
                                       int *r_index);
-void UI_context_active_but_prop_handle(struct bContext *C);
+void UI_context_active_but_prop_handle(struct bContext *C, bool handle_undo);
 void UI_context_active_but_clear(struct bContext *C, struct wmWindow *win, struct ARegion *region);
 
 struct wmOperator *UI_context_active_operator_get(const struct bContext *C);

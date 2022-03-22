@@ -53,6 +53,7 @@
 #include "BIK_api.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "BLO_read_write.h"
 
@@ -1244,7 +1245,7 @@ void BKE_pose_update_constraint_flags(bPose *pose)
         /* if we have a valid target, make sure that this will get updated on frame-change
          * (needed for when there is no anim-data for this pose)
          */
-        if ((data->tar) && (data->tar->type == OB_CURVE)) {
+        if ((data->tar) && (data->tar->type == OB_CURVES_LEGACY)) {
           pose->flag |= POSE_CONSTRAINTS_TIMEDEPEND;
         }
       }

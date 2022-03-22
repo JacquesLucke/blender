@@ -1075,11 +1075,10 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     }
   }
 
-  /* ton: made this 230 instead of 229,
-   * to be sure (tuho files) and this is a reliable check anyway
+  /* NOTE(@ton): made this 230 instead of 229,
+   * to be sure (files from the `tuhopuu` branch) and this is a reliable check anyway
    * nevertheless, we might need to think over a fitness (initialize)
-   * check apart from the do_versions()
-   */
+   * check apart from the do_versions(). */
 
   if (bmain->versionfile <= 230) {
     bScreen *screen;
@@ -1356,7 +1355,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
           bFollowPathConstraint *data = con->data;
           Object *obc = blo_do_versions_newlibadr(fd, lib, data->tar);
 
-          if (obc && obc->type == OB_CURVE) {
+          if (obc && obc->type == OB_CURVES_LEGACY) {
             Curve *cu = blo_do_versions_newlibadr(fd, lib, obc->data);
             if (cu) {
               cu->flag |= CU_PATH;

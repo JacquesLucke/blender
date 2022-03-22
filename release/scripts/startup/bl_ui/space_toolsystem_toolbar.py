@@ -1065,11 +1065,8 @@ class _defs_edit_mesh:
             show_extra = False
             props = tool.operator_properties("mesh.knife_tool")
             if not extra:
-                row = layout.row()
                 layout.prop(props, "use_occlude_geometry")
-                row = layout.row()
                 layout.prop(props, "only_selected")
-                row = layout.row()
                 layout.prop(props, "xray")
                 region_is_header = bpy.context.region.type == 'TOOL_HEADER'
                 if region_is_header:
@@ -2306,6 +2303,19 @@ class _defs_gpencil_weight:
         )
 
 
+class _defs_curves_sculpt:
+
+    @staticmethod
+    def generate_from_brushes(context):
+        return generate_from_enum_ex(
+            context,
+            idname_prefix="builtin_brush.",
+            icon_prefix="ops.curves.sculpt_",
+            type= bpy.types.Brush,
+            attr="curves_sculpt_tool",
+        )
+
+
 class _defs_gpencil_vertex:
 
     @staticmethod
@@ -3064,6 +3074,9 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
                 if _defs_gpencil_vertex.poll_select_mask(context)
                 else ()
             ),
+        ],
+        'SCULPT_CURVES': [
+            _defs_curves_sculpt.generate_from_brushes,
         ],
     }
 

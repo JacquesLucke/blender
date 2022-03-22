@@ -1339,8 +1339,7 @@ class NodeTreeMainUpdater {
   {
     Vector<const SocketRef *> sockets;
     for (const NodeRef *node : tree.nodes()) {
-      const bNode *bnode = node->bnode();
-      if (bnode->typeinfo->nclass != NODE_CLASS_OUTPUT && bnode->type != NODE_GROUP_OUTPUT) {
+      if (!this->is_output_node(*node)) {
         continue;
       }
       for (const InputSocketRef *socket : node->inputs()) {
@@ -1350,6 +1349,24 @@ class NodeTreeMainUpdater {
       }
     }
     return sockets;
+  }
+
+  bool is_output_node(const NodeRef &node) const
+  {
+    const bNode &bnode = *node.bnode();
+    if (bnode.typeinfo->nclass == NODE_CLASS_OUTPUT) {
+      return true;
+    }
+    if (bnode.type == NODE_GROUP_OUTPUT) {
+      return true;
+    }
+    /* Assume node groups without output sockets are outputs. */
+    /* TODO: Store whether a node group contains a top-level output node (e.g. Material Output) in
+     * run-time information on the node group itself. */
+    if (bnode.type == NODE_GROUP && node.outputs().is_empty()) {
+      return true;
+    }
+    return false;
   }
 
   /**
@@ -1438,6 +1455,16 @@ class NodeTreeMainUpdater {
             socket_hash = noise::hash(socket_hash, input_socket_hash);
           }
         }
+        /* The Image Texture node has a special case. The behavior of the color output changes
+         * depending on whether the Alpha output is linked. */
+        if (node.bnode()->type == SH_NODE_TEX_IMAGE && socket.index() == 0) {
+          BLI_assert(socket.name() == "Color");
+          const OutputSocketRef &alpha_socket = node.output(1);
+          BLI_assert(alpha_socket.name() == "Alpha");
+          if (alpha_socket.is_directly_linked()) {
+            socket_hash = noise::hash(socket_hash);
+          }
+        }
         hash_by_socket_id[socket.id()] = socket_hash;
         sockets_to_check.pop();
       }
@@ -1468,7 +1495,8 @@ class NodeTreeMainUpdater {
 
     while (!sockets_to_check.is_empty()) {
       const SocketRef &in_out_socket = *sockets_to_check.pop();
-      const bNode &bnode = *in_out_socket.node().bnode();
+      const NodeRef &node = in_out_socket.node();
+      const bNode &bnode = *node.bnode();
       const bNodeSocket &bsocket = *in_out_socket.bsocket();
       if (bsocket.changed_flag != NTREE_CHANGED_NOTHING) {
         return true;
@@ -1493,13 +1521,25 @@ class NodeTreeMainUpdater {
       }
       else {
         const OutputSocketRef &socket = in_out_socket.as_output();
-        for (const InputSocketRef *input_socket : socket.node().inputs()) {
+        for (const InputSocketRef *input_socket : node.inputs()) {
           if (input_socket->is_available()) {
             bool &pushed = pushed_by_socket_id[input_socket->id()];
             if (!pushed) {
               sockets_to_check.push(input_socket);
               pushed = true;
             }
+          }
+        }
+        /* The Normal node has a special case, because the value stored in the first output socket
+         * is used as input in the node. */
+        if (bnode.type == SH_NODE_NORMAL && socket.index() == 1) {
+          BLI_assert(socket.name() == "Dot");
+          const OutputSocketRef &normal_output = node.output(0);
+          BLI_assert(normal_output.name() == "Normal");
+          bool &pushed = pushed_by_socket_id[normal_output.id()];
+          if (!pushed) {
+            sockets_to_check.push(&normal_output);
+            pushed = true;
           }
         }
       }

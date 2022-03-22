@@ -4,9 +4,9 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_pointcloud_types.h"
 
+#include "BKE_curves.hh"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
-#include "BKE_spline.hh"
 
 #include "node_geometry_util.hh"
 
@@ -161,14 +161,13 @@ static Mesh *compute_hull(const GeometrySet &geometry_set)
     positions_span = varray.get_internal_span();
   }
 
-  if (geometry_set.has_curve()) {
-    const CurveEval &curve = *geometry_set.get_curve_for_read();
-    for (const SplinePtr &spline : curve.splines()) {
-      positions_span = spline->evaluated_positions();
-      total_size += positions_span.size();
-      count++;
-      span_count++;
-    }
+  if (geometry_set.has_curves()) {
+    count++;
+    span_count++;
+    const Curves &curves_id = *geometry_set.get_curves_for_read();
+    const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
+    positions_span = curves.evaluated_positions();
+    total_size += positions_span.size();
   }
 
   if (count == 0) {
@@ -201,13 +200,12 @@ static Mesh *compute_hull(const GeometrySet &geometry_set)
     offset += varray.size();
   }
 
-  if (geometry_set.has_curve()) {
-    const CurveEval &curve = *geometry_set.get_curve_for_read();
-    for (const SplinePtr &spline : curve.splines()) {
-      Span<float3> array = spline->evaluated_positions();
-      positions.as_mutable_span().slice(offset, array.size()).copy_from(array);
-      offset += array.size();
-    }
+  if (geometry_set.has_curves()) {
+    const Curves &curves_id = *geometry_set.get_curves_for_read();
+    const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
+    Span<float3> array = curves.evaluated_positions();
+    positions.as_mutable_span().slice(offset, array.size()).copy_from(array);
+    offset += array.size();
   }
 
   return hull_from_bullet(geometry_set.get_mesh_for_read(), positions);
@@ -238,20 +236,16 @@ static void read_positions(const GeometryComponent &component,
   }
 }
 
-static void read_curve_positions(const CurveEval &curve,
+static void read_curve_positions(const Curves &curves_id,
                                  Span<float4x4> transforms,
                                  Vector<float3> *r_coords)
 {
-  const Array<int> offsets = curve.evaluated_point_offsets();
-  const int total_size = offsets.last();
+  const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
+  const int total_size = curves.evaluated_points_size();
   r_coords->reserve(r_coords->size() + total_size * transforms.size());
-  for (const SplinePtr &spline : curve.splines()) {
-    Span<float3> positions = spline->evaluated_positions();
-    for (const float4x4 &transform : transforms) {
-      for (const float3 &position : positions) {
-        r_coords->append(transform * position);
-      }
-    }
+  r_coords->as_mutable_span().take_back(total_size).copy_from(curves.evaluated_positions());
+  for (const float3 &position : curves.evaluated_positions()) {
+    r_coords->append(transform * postition);
   }
 }
 
@@ -272,8 +266,8 @@ static Mesh *convex_hull_from_instances(const GeometrySet &geometry_set)
     if (set.has_mesh()) {
       read_positions(*set.get_component_for_read<MeshComponent>(), transforms, &coords);
     }
-    if (set.has_curve()) {
-      read_curve_positions(*set.get_curve_for_read(), transforms, &coords);
+    if (set.has_curves()) {
+      read_curve_positions(*set.get_curves_for_read(), transforms, &coords);
     }
   }
   return hull_from_bullet(nullptr, coords);

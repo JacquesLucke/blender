@@ -739,14 +739,14 @@ void BKE_mesh_to_curve(Main *bmain, Depsgraph *depsgraph, Scene *UNUSED(scene), 
   BKE_mesh_to_curve_nurblist(me_eval, &nurblist, 1);
 
   if (nurblist.first) {
-    Curve *cu = BKE_curve_add(bmain, ob->id.name + 2, OB_CURVE);
+    Curve *cu = BKE_curve_add(bmain, ob->id.name + 2, OB_CURVES_LEGACY);
     cu->flag |= CU_3D;
 
     cu->nurb = nurblist;
 
     id_us_min(&((Mesh *)ob->data)->id);
     ob->data = cu;
-    ob->type = OB_CURVE;
+    ob->type = OB_CURVES_LEGACY;
 
     BKE_object_free_derived_caches(ob);
   }
@@ -886,7 +886,7 @@ static void object_for_curve_to_mesh_free(Object *temp_object)
 {
   /* Clear edit mode pointers that were explicitly copied to the temporary curve. */
   ID *final_object_data = static_cast<ID *>(temp_object->data);
-  if (GS(final_object_data->name) == ID_CU) {
+  if (GS(final_object_data->name) == ID_CU_LEGACY) {
     Curve &curve = *reinterpret_cast<Curve *>(final_object_data);
     curve.editfont = nullptr;
     curve.editnurb = nullptr;
@@ -901,7 +901,7 @@ static void object_for_curve_to_mesh_free(Object *temp_object)
  */
 static void curve_to_mesh_eval_ensure(Object &object)
 {
-  BLI_assert(GS(static_cast<ID *>(object.data)->name) == ID_CU);
+  BLI_assert(GS(static_cast<ID *>(object.data)->name) == ID_CU_LEGACY);
   Curve &curve = *static_cast<Curve *>(object.data);
   /* Clear all modifiers for the bevel object.
    *
@@ -953,11 +953,11 @@ static const Mesh *get_evaluated_mesh_from_object(const Object *object)
   return nullptr;
 }
 
-static const CurveEval *get_evaluated_curve_from_object(const Object *object)
+static const Curves *get_evaluated_curves_from_object(const Object *object)
 {
   GeometrySet *geometry_set_eval = object->runtime.geometry_set_eval;
   if (geometry_set_eval) {
-    return geometry_set_eval->get_curve_for_read();
+    return geometry_set_eval->get_curves_for_read();
   }
   return nullptr;
 }
@@ -968,8 +968,9 @@ static Mesh *mesh_new_from_evaluated_curve_type_object(const Object *evaluated_o
   if (mesh) {
     return BKE_mesh_copy_for_eval(mesh, false);
   }
-  const CurveEval *curve = get_evaluated_curve_from_object(evaluated_object);
-  if (curve) {
+  const Curves *curves = get_evaluated_curves_from_object(evaluated_object);
+  if (curves) {
+    std::unique_ptr<CurveEval> curve = curves_to_curve_eval(*curves);
     return blender::bke::curve_to_wire_mesh(*curve);
   }
   return nullptr;
@@ -1037,7 +1038,12 @@ static Mesh *mesh_new_from_mesh(Object *object, Mesh *mesh)
 {
   /* While we could copy this into the new mesh,
    * add the data to 'mesh' so future calls to this function don't need to re-convert the data. */
-  BKE_mesh_wrapper_ensure_mdata(mesh);
+  if (mesh->runtime.wrapper_type == ME_WRAPPER_TYPE_BMESH) {
+    BKE_mesh_wrapper_ensure_mdata(mesh);
+  }
+  else {
+    mesh = BKE_mesh_wrapper_ensure_subdivision(object, mesh);
+  }
 
   Mesh *mesh_result = (Mesh *)BKE_id_copy_ex(
       nullptr, &mesh->id, nullptr, LIB_ID_CREATE_NO_MAIN | LIB_ID_CREATE_NO_USER_REFCOUNT);
@@ -1074,7 +1080,7 @@ static Mesh *mesh_new_from_mesh_object_with_layers(Depsgraph *depsgraph,
     mask.pmask |= CD_MASK_ORIGINDEX;
   }
   Mesh *result = mesh_create_eval_final(depsgraph, scene, &object_for_eval, &mask);
-  return result;
+  return BKE_mesh_wrapper_ensure_subdivision(object, result);
 }
 
 static Mesh *mesh_new_from_mesh_object(Depsgraph *depsgraph,
@@ -1105,7 +1111,7 @@ Mesh *BKE_mesh_new_from_object(Depsgraph *depsgraph,
   Mesh *new_mesh = nullptr;
   switch (object->type) {
     case OB_FONT:
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
     case OB_SURF:
       new_mesh = mesh_new_from_curve_type_object(object);
       break;
@@ -1177,7 +1183,7 @@ Mesh *BKE_mesh_new_from_object_to_bmain(Main *bmain,
                                         Object *object,
                                         bool preserve_all_data_layers)
 {
-  BLI_assert(ELEM(object->type, OB_FONT, OB_CURVE, OB_SURF, OB_MBALL, OB_MESH));
+  BLI_assert(ELEM(object->type, OB_FONT, OB_CURVES_LEGACY, OB_SURF, OB_MBALL, OB_MESH));
 
   Mesh *mesh = BKE_mesh_new_from_object(depsgraph, object, preserve_all_data_layers, false);
   if (mesh == nullptr) {
@@ -1216,6 +1222,9 @@ Mesh *BKE_mesh_new_from_object_to_bmain(Main *bmain,
   mesh->mat = nullptr;
 
   BKE_mesh_nomain_to_mesh(mesh, mesh_in_bmain, nullptr, &CD_MASK_MESH, true);
+
+  /* Anonymous attributes shouldn't exist on original data. */
+  BKE_mesh_anonymous_attributes_remove(mesh_in_bmain);
 
   /* User-count is required because so far mesh was in a limbo, where library management does
    * not perform any user management (i.e. copy of a mesh will not increase users of materials). */
@@ -1473,17 +1482,8 @@ void BKE_mesh_nomain_to_mesh(Mesh *mesh_src,
   tmp.cd_flag = mesh_src->cd_flag;
   tmp.runtime.deformed_only = mesh_src->runtime.deformed_only;
 
-  tmp.runtime.cd_dirty_poly = mesh_src->runtime.cd_dirty_poly;
-  tmp.runtime.cd_dirty_vert = mesh_src->runtime.cd_dirty_vert;
-
-  /* Ensure that when no normal layers exist, they are marked dirty, because
-   * normals might not have been included in the mask of copied layers. */
-  if (!CustomData_has_layer(&tmp.vdata, CD_NORMAL)) {
-    tmp.runtime.cd_dirty_vert |= CD_MASK_NORMAL;
-  }
-  if (!CustomData_has_layer(&tmp.pdata, CD_NORMAL)) {
-    tmp.runtime.cd_dirty_poly |= CD_MASK_NORMAL;
-  }
+  /* Clear the normals completely, since the new vertex / polygon count might be different. */
+  BKE_mesh_clear_derived_normals(&tmp);
 
   if (CustomData_has_layer(&mesh_src->vdata, CD_SHAPEKEY)) {
     KeyBlock *kb;

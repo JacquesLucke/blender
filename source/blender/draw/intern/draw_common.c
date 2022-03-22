@@ -135,7 +135,7 @@ void DRW_globals_update(void)
 
   UI_GetThemeColor4fv(TH_CFRAME, gb->colorCurrentFrame);
 
-  /* Metaball */
+  /* Meta-ball. */
   UI_COLOR_RGBA_FROM_U8(0xA0, 0x30, 0x30, 0xFF, gb->colorMballRadius);
   UI_COLOR_RGBA_FROM_U8(0xF0, 0xA0, 0xA0, 0xFF, gb->colorMballRadiusSelect);
   UI_COLOR_RGBA_FROM_U8(0x30, 0xA0, 0x30, 0xFF, gb->colorMballStiffness);
@@ -412,7 +412,7 @@ bool DRW_object_is_flat(Object *ob, int *r_axis)
 
   if (!ELEM(ob->type,
             OB_MESH,
-            OB_CURVE,
+            OB_CURVES_LEGACY,
             OB_SURF,
             OB_FONT,
             OB_MBALL,

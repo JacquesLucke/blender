@@ -70,6 +70,7 @@
 #include "BKE_idprop.h"
 #include "BKE_idtype.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
@@ -201,15 +202,8 @@ static void scene_init_data(ID *id)
               colorspace_name,
               sizeof(scene->sequencer_colorspace_settings.name));
 
-  /* Those next two sets (render and baking settings) are not currently in use,
-   * but are exposed to RNA API and hence must have valid data. */
-  BKE_color_managed_display_settings_init(&scene->r.im_format.display_settings);
-  BKE_color_managed_view_settings_init_render(
-      &scene->r.im_format.view_settings, &scene->r.im_format.display_settings, "Filmic");
-
-  BKE_color_managed_display_settings_init(&scene->r.bake.im_format.display_settings);
-  BKE_color_managed_view_settings_init_render(
-      &scene->r.bake.im_format.view_settings, &scene->r.bake.im_format.display_settings, "Filmic");
+  BKE_image_format_init(&scene->r.im_format, true);
+  BKE_image_format_init(&scene->r.bake.im_format, true);
 
   /* Curve Profile */
   scene->toolsettings->custom_bevel_profile_preset = BKE_curveprofile_add(PROF_PRESET_LINE);
@@ -295,15 +289,8 @@ static void scene_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
   BKE_color_managed_colorspace_settings_copy(&scene_dst->sequencer_colorspace_settings,
                                              &scene_src->sequencer_colorspace_settings);
 
-  BKE_color_managed_display_settings_copy(&scene_dst->r.im_format.display_settings,
-                                          &scene_src->r.im_format.display_settings);
-  BKE_color_managed_view_settings_copy(&scene_dst->r.im_format.view_settings,
-                                       &scene_src->r.im_format.view_settings);
-
-  BKE_color_managed_display_settings_copy(&scene_dst->r.bake.im_format.display_settings,
-                                          &scene_src->r.bake.im_format.display_settings);
-  BKE_color_managed_view_settings_copy(&scene_dst->r.bake.im_format.view_settings,
-                                       &scene_src->r.bake.im_format.view_settings);
+  BKE_image_format_copy(&scene_dst->r.im_format, &scene_src->r.im_format);
+  BKE_image_format_copy(&scene_dst->r.bake.im_format, &scene_src->r.bake.im_format);
 
   BKE_curvemapping_copy_data(&scene_dst->r.mblur_shutter_curve, &scene_src->r.mblur_shutter_curve);
 
@@ -315,12 +302,6 @@ static void scene_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
     scene_dst->r.avicodecdata = MEM_dupallocN(scene_src->r.avicodecdata);
     scene_dst->r.avicodecdata->lpFormat = MEM_dupallocN(scene_dst->r.avicodecdata->lpFormat);
     scene_dst->r.avicodecdata->lpParms = MEM_dupallocN(scene_dst->r.avicodecdata->lpParms);
-  }
-
-  if (scene_src->r.ffcodecdata.properties) {
-    /* intentionally check sce_dst not sce_src. */ /* XXX ??? comment outdated... */
-    scene_dst->r.ffcodecdata.properties = IDP_CopyProperty_ex(scene_src->r.ffcodecdata.properties,
-                                                              flag_subdata);
   }
 
   if (scene_src->display.shading.prop) {
@@ -393,10 +374,6 @@ static void scene_free_data(ID *id)
     MEM_freeN(scene->r.avicodecdata);
     scene->r.avicodecdata = NULL;
   }
-  if (scene->r.ffcodecdata.properties) {
-    IDP_FreeProperty(scene->r.ffcodecdata.properties);
-    scene->r.ffcodecdata.properties = NULL;
-  }
 
   scene_free_markers(scene, do_id_user);
   BLI_freelistN(&scene->transform_spaces);
@@ -412,6 +389,8 @@ static void scene_free_data(ID *id)
   BKE_sound_destroy_scene(scene);
 
   BKE_color_managed_view_settings_free(&scene->view_settings);
+  BKE_image_format_free(&scene->r.im_format);
+  BKE_image_format_free(&scene->r.bake.im_format);
 
   BKE_previewimg_free(&scene->preview);
   BKE_curvemapping_free_data(&scene->r.mblur_shutter_curve);
@@ -718,6 +697,16 @@ static void scene_foreach_toolsettings(LibraryForeachIDData *data,
                             reader,
                             &toolsett_old->gp_weightpaint->paint));
   }
+  if (toolsett->curves_sculpt) {
+    BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_FUNCTION_CALL(
+        data,
+        do_undo_restore,
+        scene_foreach_paint(data,
+                            &toolsett->curves_sculpt->paint,
+                            do_undo_restore,
+                            reader,
+                            &toolsett_old->curves_sculpt->paint));
+  }
 
   BKE_LIB_FOREACHID_UNDO_PRESERVE_PROCESS_IDSUPER(data,
                                                   toolsett->gp_sculpt.guide.reference_object,
@@ -799,6 +788,9 @@ static void scene_foreach_id(ID *id, LibraryForeachIDData *data)
     BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
         data, SEQ_for_each_callback(&scene->ed->seqbase, seq_foreach_member_id_cb, data));
   }
+
+  BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(data,
+                                          BKE_keyingsets_foreach_id(data, &scene->keyingsets));
 
   /* This pointer can be NULL during old files reading, better be safe than sorry. */
   if (scene->master_collection != NULL) {
@@ -969,6 +961,10 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
     BLO_write_struct(writer, GpWeightPaint, tos->gp_weightpaint);
     BKE_paint_blend_write(writer, &tos->gp_weightpaint->paint);
   }
+  if (tos->curves_sculpt) {
+    BLO_write_struct(writer, CurvesSculpt, tos->curves_sculpt);
+    BKE_paint_blend_write(writer, &tos->curves_sculpt->paint);
+  }
   /* write grease-pencil custom ipo curve to file */
   if (tos->gp_interpolate.custom_ipo) {
     BKE_curvemapping_blend_write(writer, tos->gp_interpolate.custom_ipo);
@@ -1011,9 +1007,6 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
       BLO_write_raw(writer, (size_t)sce->r.avicodecdata->cbParms, sce->r.avicodecdata->lpParms);
     }
   }
-  if (sce->r.ffcodecdata.properties) {
-    IDP_BlendWrite(writer, sce->r.ffcodecdata.properties);
-  }
 
   /* writing dynamic list of TimeMarkers to the blend file */
   LISTBASE_FOREACH (TimeMarker *, marker, &sce->markers) {
@@ -1040,6 +1033,8 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   }
 
   BKE_color_managed_view_settings_blend_write(writer, &sce->view_settings);
+  BKE_image_format_blend_write(writer, &sce->r.im_format);
+  BKE_image_format_blend_write(writer, &sce->r.bake.im_format);
 
   /* writing RigidBodyWorld data to the blend file */
   if (sce->rigidbody_world) {
@@ -1145,6 +1140,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
     direct_link_paint_helper(reader, sce, (Paint **)&sce->toolsettings->gp_vertexpaint);
     direct_link_paint_helper(reader, sce, (Paint **)&sce->toolsettings->gp_sculptpaint);
     direct_link_paint_helper(reader, sce, (Paint **)&sce->toolsettings->gp_weightpaint);
+    direct_link_paint_helper(reader, sce, (Paint **)&sce->toolsettings->curves_sculpt);
 
     BKE_paint_blend_read_data(reader, sce, &sce->toolsettings->imapaint.paint);
 
@@ -1253,11 +1249,6 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
     BLO_read_data_address(reader, &sce->r.avicodecdata->lpFormat);
     BLO_read_data_address(reader, &sce->r.avicodecdata->lpParms);
   }
-  if (sce->r.ffcodecdata.properties) {
-    BLO_read_data_address(reader, &sce->r.ffcodecdata.properties);
-    IDP_BlendDataRead(reader, &sce->r.ffcodecdata.properties);
-  }
-
   BLO_read_list(reader, &(sce->markers));
   LISTBASE_FOREACH (TimeMarker *, marker, &sce->markers) {
     BLO_read_data_address(reader, &marker->prop);
@@ -1276,6 +1267,8 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
   }
 
   BKE_color_managed_view_settings_blend_read_data(reader, &sce->view_settings);
+  BKE_image_format_blend_read_data(reader, &sce->r.im_format);
+  BKE_image_format_blend_read_data(reader, &sce->r.bake.im_format);
 
   BLO_read_data_address(reader, &sce->rigidbody_world);
   RigidBodyWorld *rbw = sce->rigidbody_world;
@@ -1402,6 +1395,9 @@ static void scene_blend_read_lib(BlendLibReader *reader, ID *id)
   }
   if (sce->toolsettings->gp_weightpaint) {
     BKE_paint_blend_read_lib(reader, sce, &sce->toolsettings->gp_weightpaint->paint);
+  }
+  if (sce->toolsettings->curves_sculpt) {
+    BKE_paint_blend_read_lib(reader, sce, &sce->toolsettings->curves_sculpt->paint);
   }
 
   if (sce->toolsettings->sculpt) {
@@ -1723,6 +1719,10 @@ ToolSettings *BKE_toolsettings_copy(ToolSettings *toolsettings, const int flag)
     ts->gp_weightpaint = MEM_dupallocN(ts->gp_weightpaint);
     BKE_paint_copy(&ts->gp_weightpaint->paint, &ts->gp_weightpaint->paint, flag);
   }
+  if (ts->curves_sculpt) {
+    ts->curves_sculpt = MEM_dupallocN(ts->curves_sculpt);
+    BKE_paint_copy(&ts->curves_sculpt->paint, &ts->curves_sculpt->paint, flag);
+  }
 
   BKE_paint_copy(&ts->imapaint.paint, &ts->imapaint.paint, flag);
   ts->particle.paintcursor = NULL;
@@ -1777,6 +1777,10 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
   if (toolsettings->gp_weightpaint) {
     BKE_paint_free(&toolsettings->gp_weightpaint->paint);
     MEM_freeN(toolsettings->gp_weightpaint);
+  }
+  if (toolsettings->curves_sculpt) {
+    BKE_paint_free(&toolsettings->curves_sculpt->paint);
+    MEM_freeN(toolsettings->curves_sculpt);
   }
   BKE_paint_free(&toolsettings->imapaint.paint);
 
@@ -1844,15 +1848,8 @@ Scene *BKE_scene_duplicate(Main *bmain, Scene *sce, eSceneCopyMethod type)
     BKE_color_managed_colorspace_settings_copy(&sce_copy->sequencer_colorspace_settings,
                                                &sce->sequencer_colorspace_settings);
 
-    BKE_color_managed_display_settings_copy(&sce_copy->r.im_format.display_settings,
-                                            &sce->r.im_format.display_settings);
-    BKE_color_managed_view_settings_copy(&sce_copy->r.im_format.view_settings,
-                                         &sce->r.im_format.view_settings);
-
-    BKE_color_managed_display_settings_copy(&sce_copy->r.bake.im_format.display_settings,
-                                            &sce->r.bake.im_format.display_settings);
-    BKE_color_managed_view_settings_copy(&sce_copy->r.bake.im_format.view_settings,
-                                         &sce->r.bake.im_format.view_settings);
+    BKE_image_format_copy(&sce_copy->r.im_format, &sce->r.im_format);
+    BKE_image_format_copy(&sce_copy->r.bake.im_format, &sce->r.bake.im_format);
 
     BKE_curvemapping_copy_data(&sce_copy->r.mblur_shutter_curve, &sce->r.mblur_shutter_curve);
 
@@ -1868,10 +1865,6 @@ Scene *BKE_scene_duplicate(Main *bmain, Scene *sce, eSceneCopyMethod type)
       sce_copy->r.avicodecdata = MEM_dupallocN(sce->r.avicodecdata);
       sce_copy->r.avicodecdata->lpFormat = MEM_dupallocN(sce_copy->r.avicodecdata->lpFormat);
       sce_copy->r.avicodecdata->lpParms = MEM_dupallocN(sce_copy->r.avicodecdata->lpParms);
-    }
-
-    if (sce->r.ffcodecdata.properties) { /* intentionally check scen not sce. */
-      sce_copy->r.ffcodecdata.properties = IDP_CopyProperty(sce->r.ffcodecdata.properties);
     }
 
     BKE_sound_reset_scene_runtime(sce_copy);
@@ -3130,7 +3123,9 @@ int BKE_scene_multiview_view_id_get(const RenderData *rd, const char *viewname)
   return 0;
 }
 
-void BKE_scene_multiview_filepath_get(SceneRenderView *srv, const char *filepath, char *r_filepath)
+void BKE_scene_multiview_filepath_get(const SceneRenderView *srv,
+                                      const char *filepath,
+                                      char *r_filepath)
 {
   BLI_strncpy(r_filepath, filepath, FILE_MAX);
   BLI_path_suffix(r_filepath, FILE_MAX, srv->suffix, "");

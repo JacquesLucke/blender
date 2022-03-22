@@ -3263,8 +3263,8 @@ static struct IDFilterEnumPropertyItem rna_enum_space_file_id_filter_categories[
      ICON_OUTLINER_COLLECTION,
      "Objects & Collections",
      "Show objects and collections"},
-    {FILTER_ID_AR | FILTER_ID_CU | FILTER_ID_LT | FILTER_ID_MB | FILTER_ID_ME | FILTER_ID_CV |
-         FILTER_ID_PT | FILTER_ID_VO,
+    {FILTER_ID_AR | FILTER_ID_CU_LEGACY | FILTER_ID_LT | FILTER_ID_MB | FILTER_ID_ME |
+         FILTER_ID_CV | FILTER_ID_PT | FILTER_ID_VO,
      "category_geometry",
      ICON_NODETREE,
      "Geometry",
@@ -3428,25 +3428,6 @@ static void rna_def_space_image_uv(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
-  static const EnumPropertyItem sticky_mode_items[] = {
-      {SI_STICKY_DISABLE,
-       "DISABLED",
-       ICON_STICKY_UVS_DISABLE,
-       "Disabled",
-       "Sticky vertex selection disabled"},
-      {SI_STICKY_LOC,
-       "SHARED_LOCATION",
-       ICON_STICKY_UVS_LOC,
-       "Shared Location",
-       "Select UVs that are at the same location and share a mesh vertex"},
-      {SI_STICKY_VERTEX,
-       "SHARED_VERTEX",
-       ICON_STICKY_UVS_VERT,
-       "Shared Vertex",
-       "Select UVs that share a mesh vertex, whether or not they are at the same location"},
-      {0, NULL, 0, NULL, NULL},
-  };
-
   static const EnumPropertyItem dt_uvstretch_items[] = {
       {SI_UVDT_STRETCH_ANGLE, "ANGLE", 0, "Angle", "Angular distortion between UV and 3D angles"},
       {SI_UVDT_STRETCH_AREA, "AREA", 0, "Area", "Area distortion between UV and 3D faces"},
@@ -3465,14 +3446,6 @@ static void rna_def_space_image_uv(BlenderRNA *brna)
   RNA_def_struct_nested(brna, srna, "SpaceImageEditor");
   RNA_def_struct_path_func(srna, "rna_SpaceUVEditor_path");
   RNA_def_struct_ui_text(srna, "Space UV Editor", "UV editor data for the image editor space");
-
-  /* selection */
-  prop = RNA_def_property(srna, "sticky_select_mode", PROP_ENUM, PROP_NONE);
-  RNA_def_property_enum_sdna(prop, NULL, "sticky");
-  RNA_def_property_enum_items(prop, sticky_mode_items);
-  RNA_def_property_ui_text(
-      prop, "Sticky Selection Mode", "Method for extending UV vertex selection");
-  RNA_def_property_update(prop, NC_SPACE | ND_SPACE_IMAGE, NULL);
 
   /* drawing */
   prop = RNA_def_property(srna, "edge_display_type", PROP_ENUM, PROP_NONE);
@@ -4986,7 +4959,9 @@ static void rna_def_space_view3d(BlenderRNA *brna)
       const char *identifier[2];
     } info[] = {
         {"Mesh", (1 << OB_MESH), {"show_object_viewport_mesh", "show_object_select_mesh"}},
-        {"Curve", (1 << OB_CURVE), {"show_object_viewport_curve", "show_object_select_curve"}},
+        {"Curve",
+         (1 << OB_CURVES_LEGACY),
+         {"show_object_viewport_curve", "show_object_select_curve"}},
         {"Surface", (1 << OB_SURF), {"show_object_viewport_surf", "show_object_select_surf"}},
         {"Meta", (1 << OB_MBALL), {"show_object_viewport_meta", "show_object_select_meta"}},
         {"Font", (1 << OB_FONT), {"show_object_viewport_font", "show_object_select_font"}},
@@ -5494,7 +5469,7 @@ static void rna_def_space_sequencer_preview_overlay(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "show_cursor", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", SEQ_PREVIEW_SHOW_2D_CURSOR);
-  RNA_def_property_ui_text(prop, "2D cursor", "");
+  RNA_def_property_ui_text(prop, "2D Cursor", "");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_SEQUENCER, NULL);
 }
 

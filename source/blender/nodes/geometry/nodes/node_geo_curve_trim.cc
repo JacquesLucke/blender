@@ -367,15 +367,18 @@ static void trim_spline(SplinePtr &spline,
                         const Spline::LookupResult end)
 {
   switch (spline->type()) {
-    case Spline::Type::Bezier:
+    case CURVE_TYPE_BEZIER:
       trim_bezier_spline(*spline, start, end);
       break;
-    case Spline::Type::Poly:
+    case CURVE_TYPE_POLY:
       trim_poly_spline(*spline, start, end);
       break;
-    case Spline::Type::NURBS:
+    case CURVE_TYPE_NURBS:
       spline = std::make_unique<PolySpline>(trim_nurbs_spline(*spline, start, end));
       break;
+    case CURVE_TYPE_CATMULL_ROM:
+      BLI_assert_unreachable();
+      spline = {};
   }
   spline->mark_cache_invalid();
 }
@@ -400,8 +403,8 @@ static void to_single_point_bezier(Spline &spline, const Spline::LookupResult &l
   const BezierSpline::InsertResult new_point = bezier.calculate_segment_insertion(
       trim.left_index, trim.right_index, trim.factor);
   bezier.positions().first() = new_point.position;
-  bezier.handle_types_left().first() = BezierSpline::HandleType::Free;
-  bezier.handle_types_right().first() = BezierSpline::HandleType::Free;
+  bezier.handle_types_left().first() = BEZIER_HANDLE_FREE;
+  bezier.handle_types_right().first() = BEZIER_HANDLE_FREE;
   bezier.handle_positions_left().first() = new_point.left_handle;
   bezier.handle_positions_right().first() = new_point.right_handle;
 
@@ -477,15 +480,18 @@ static PolySpline to_single_point_nurbs(const Spline &spline, const Spline::Look
 static void to_single_point_spline(SplinePtr &spline, const Spline::LookupResult &lookup)
 {
   switch (spline->type()) {
-    case Spline::Type::Bezier:
+    case CURVE_TYPE_BEZIER:
       to_single_point_bezier(*spline, lookup);
       break;
-    case Spline::Type::Poly:
+    case CURVE_TYPE_POLY:
       to_single_point_poly(*spline, lookup);
       break;
-    case Spline::Type::NURBS:
+    case CURVE_TYPE_NURBS:
       spline = std::make_unique<PolySpline>(to_single_point_nurbs(*spline, lookup));
       break;
+    case CURVE_TYPE_CATMULL_ROM:
+      BLI_assert_unreachable();
+      spline = {};
   }
 }
 
@@ -494,7 +500,7 @@ static void geometry_set_curve_trim(GeometrySet &geometry_set,
                                     Field<float> &start_field,
                                     Field<float> &end_field)
 {
-  if (!geometry_set.has_curve()) {
+  if (!geometry_set.has_curves()) {
     return;
   }
 
@@ -509,8 +515,8 @@ static void geometry_set_curve_trim(GeometrySet &geometry_set,
   const blender::VArray<float> &starts = evaluator.get_evaluated<float>(0);
   const blender::VArray<float> &ends = evaluator.get_evaluated<float>(1);
 
-  CurveEval &curve = *geometry_set.get_curve_for_write();
-  MutableSpan<SplinePtr> splines = curve.splines();
+  std::unique_ptr<CurveEval> curve = curves_to_curve_eval(*geometry_set.get_curves_for_read());
+  MutableSpan<SplinePtr> splines = curve->splines();
 
   threading::parallel_for(splines.index_range(), 128, [&](IndexRange range) {
     for (const int i : range) {
@@ -559,6 +565,8 @@ static void geometry_set_curve_trim(GeometrySet &geometry_set,
       }
     }
   });
+
+  geometry_set.replace_curves(curve_eval_to_curves(*curve));
 }
 
 static void node_geo_exec(GeoNodeExecParams params)

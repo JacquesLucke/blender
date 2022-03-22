@@ -628,7 +628,7 @@ void Transform_Properties(struct wmOperatorType *ot, int flags)
                         "Proportional Falloff",
                         "Falloff type for proportional editing mode");
     /* Abusing id_curve :/ */
-    RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_CURVE);
+    RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_CURVE_LEGACY);
     RNA_def_float(ot->srna,
                   "proportional_size",
                   1,
@@ -1311,9 +1311,7 @@ static void TRANSFORM_OT_transform(struct wmOperatorType *ot)
                            P_ALIGN_SNAP | P_GPENCIL_EDIT | P_CENTER);
 }
 
-static int transform_from_gizmo_invoke(bContext *C,
-                                       wmOperator *UNUSED(op),
-                                       const wmEvent *UNUSED(event))
+static int transform_from_gizmo_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
   bToolRef *tref = WM_toolsystem_ref_from_context(C);
   if (tref) {
@@ -1343,7 +1341,7 @@ static int transform_from_gizmo_invoke(bContext *C,
         PointerRNA op_ptr;
         WM_operator_properties_create_ptr(&op_ptr, ot);
         RNA_boolean_set(&op_ptr, "release_confirm", true);
-        WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_ptr);
+        WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_ptr, event);
         WM_operator_properties_free(&op_ptr);
         return OPERATOR_FINISHED;
       }

@@ -185,7 +185,11 @@ static bool is_event_over_node_or_socket(bContext *C, const wmEvent *event)
   SpaceNode *snode = CTX_wm_space_node(C);
   ARegion *region = CTX_wm_region(C);
   float2 mouse;
-  UI_view2d_region_to_view(&region->v2d, event->mval[0], event->mval[1], &mouse.x, &mouse.y);
+
+  int mval[2];
+  WM_event_drag_start_mval(event, region, mval);
+
+  UI_view2d_region_to_view(&region->v2d, mval[0], mval[1], &mouse.x, &mouse.y);
   return is_position_over_node_or_socket(*snode, mouse);
 }
 
@@ -730,7 +734,7 @@ static int node_box_select_exec(bContext *C, wmOperator *op)
         /* Frame nodes are selectable by their borders (including their whole rect - as for other
          * nodes - would prevent selection of other nodes inside that frame. */
         const rctf frame_inside = node_frame_rect_inside(*node);
-        if (BLI_rctf_isect(&rectf, &node->totr, NULL) &&
+        if (BLI_rctf_isect(&rectf, &node->totr, nullptr) &&
             !BLI_rctf_inside_rctf(&frame_inside, &rectf)) {
           nodeSetSelected(node, select);
           is_inside = true;
@@ -932,7 +936,7 @@ static bool do_lasso_select_node(bContext *C,
         BLI_rctf_rcti_copy(&rectf, &rect);
         UI_view2d_region_to_view_rctf(&region->v2d, &rectf, &rectf);
         const rctf frame_inside = node_frame_rect_inside(*node);
-        if (BLI_rctf_isect(&rectf, &node->totr, NULL) &&
+        if (BLI_rctf_isect(&rectf, &node->totr, nullptr) &&
             !BLI_rctf_inside_rctf(&frame_inside, &rectf)) {
           nodeSetSelected(node, select);
           changed = true;

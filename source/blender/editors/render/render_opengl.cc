@@ -34,6 +34,8 @@
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
+#include "BKE_image_save.h"
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
@@ -312,13 +314,13 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
         imb_freerectfloatImBuf(out);
       }
       BLI_assert((oglrender->sizex == ibuf->x) && (oglrender->sizey == ibuf->y));
-      RE_render_result_rect_from_ibuf(rr, &scene->r, out, oglrender->view_id);
+      RE_render_result_rect_from_ibuf(rr, out, oglrender->view_id);
       IMB_freeImBuf(out);
     }
     else if (gpd) {
       /* If there are no strips, Grease Pencil still needs a buffer to draw on */
       ImBuf *out = IMB_allocImBuf(oglrender->sizex, oglrender->sizey, 32, IB_rect);
-      RE_render_result_rect_from_ibuf(rr, &scene->r, out, oglrender->view_id);
+      RE_render_result_rect_from_ibuf(rr, out, oglrender->view_id);
       IMB_freeImBuf(out);
     }
 
@@ -414,7 +416,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
     if ((scene->r.stamp & R_STAMP_ALL) && (scene->r.stamp & R_STAMP_DRAW)) {
       BKE_image_stamp_buf(scene, camera, nullptr, rect, rectf, rr->rectx, rr->recty, 4);
     }
-    RE_render_result_rect_from_ibuf(rr, &scene->r, ibuf_result, oglrender->view_id);
+    RE_render_result_rect_from_ibuf(rr, ibuf_result, oglrender->view_id);
     IMB_freeImBuf(ibuf_result);
   }
 }
@@ -439,7 +441,7 @@ static void screen_opengl_render_write(OGLRender *oglrender)
 
   /* write images as individual images or stereo */
   BKE_render_result_stamp_info(scene, scene->camera, rr, false);
-  ok = RE_WriteRenderViewsImage(oglrender->reports, rr, scene, false, name);
+  ok = BKE_image_render_write(oglrender->reports, rr, scene, false, name);
 
   RE_ReleaseResultImage(oglrender->re);
 
@@ -512,7 +514,7 @@ static void screen_opengl_render_apply(const bContext *C, OGLRender *oglrender)
     ibuf->userflags |= IB_DISPLAY_BUFFER_INVALID;
   }
   BKE_image_release_ibuf(oglrender->ima, ibuf, lock);
-  oglrender->ima->gpuflag |= IMA_GPU_REFRESH;
+  BKE_image_partial_update_mark_full_update(oglrender->ima);
 
   if (oglrender->write_still) {
     screen_opengl_render_write(oglrender);
@@ -599,30 +601,30 @@ static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
   const ID_Type id_type = GS(id->name);
   switch (id_type) {
     /* Whitelist: */
-    case ID_ME:  /* Mesh */
-    case ID_CU:  /* Curve */
-    case ID_MB:  /* MetaBall */
-    case ID_MA:  /* Material */
-    case ID_TE:  /* Tex (Texture) */
-    case ID_IM:  /* Image */
-    case ID_LT:  /* Lattice */
-    case ID_LA:  /* Light */
-    case ID_CA:  /* Camera */
-    case ID_KE:  /* Key (shape key) */
-    case ID_VF:  /* VFont (Vector Font) */
-    case ID_TXT: /* Text */
-    case ID_SPK: /* Speaker */
-    case ID_SO:  /* Sound */
-    case ID_AR:  /* bArmature */
-    case ID_NT:  /* bNodeTree */
-    case ID_PA:  /* ParticleSettings */
-    case ID_MC:  /* MovieClip */
-    case ID_MSK: /* Mask */
-    case ID_LP:  /* LightProbe */
-    case ID_CV:  /* Curves */
-    case ID_PT:  /* PointCloud */
-    case ID_VO:  /* Volume */
-    case ID_SIM: /* Simulation */
+    case ID_ME:        /* Mesh */
+    case ID_CU_LEGACY: /* Curve */
+    case ID_MB:        /* MetaBall */
+    case ID_MA:        /* Material */
+    case ID_TE:        /* Tex (Texture) */
+    case ID_IM:        /* Image */
+    case ID_LT:        /* Lattice */
+    case ID_LA:        /* Light */
+    case ID_CA:        /* Camera */
+    case ID_KE:        /* Key (shape key) */
+    case ID_VF:        /* VFont (Vector Font) */
+    case ID_TXT:       /* Text */
+    case ID_SPK:       /* Speaker */
+    case ID_SO:        /* Sound */
+    case ID_AR:        /* bArmature */
+    case ID_NT:        /* bNodeTree */
+    case ID_PA:        /* ParticleSettings */
+    case ID_MC:        /* MovieClip */
+    case ID_MSK:       /* Mask */
+    case ID_LP:        /* LightProbe */
+    case ID_CV:        /* Curves */
+    case ID_PT:        /* PointCloud */
+    case ID_VO:        /* Volume */
+    case ID_SIM:       /* Simulation */
       break;
 
       /* Blacklist: */
@@ -1070,7 +1072,7 @@ static void write_result_func(TaskPool *__restrict pool, void *task_data_v)
                                  nullptr);
 
     BKE_render_result_stamp_info(scene, scene->camera, rr, false);
-    ok = RE_WriteRenderViewsImage(nullptr, rr, scene, true, name);
+    ok = BKE_image_render_write(nullptr, rr, scene, true, name);
     if (!ok) {
       BKE_reportf(&reports, RPT_ERROR, "Write error: cannot save %s", name);
     }

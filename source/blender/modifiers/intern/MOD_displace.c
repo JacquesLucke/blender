@@ -36,6 +36,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -313,8 +314,7 @@ static void displaceModifier_do(DisplaceModifierData *dmd,
     if (CustomData_has_layer(ldata, CD_CUSTOMLOOPNORMAL)) {
       float(*clnors)[3] = NULL;
 
-      if ((mesh->runtime.cd_dirty_vert & CD_MASK_NORMAL) ||
-          !CustomData_has_layer(ldata, CD_NORMAL)) {
+      if (!CustomData_has_layer(ldata, CD_NORMAL)) {
         BKE_mesh_calc_normals_split(mesh);
       }
 

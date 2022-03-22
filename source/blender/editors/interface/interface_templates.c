@@ -73,6 +73,7 @@
 #include "RE_engine.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -609,7 +610,7 @@ static void template_id_cb(bContext *C, void *arg_litem, void *arg_event)
       RNA_property_pointer_set(&template_ui->ptr, template_ui->prop, idptr, NULL);
       RNA_property_update(C, &template_ui->ptr, template_ui->prop);
 
-      if (id && CTX_wm_window(C)->eventstate->shift) {
+      if (id && CTX_wm_window(C)->eventstate->modifier & KM_SHIFT) {
         /* only way to force-remove data (on save) */
         id_us_clear_real(id);
         id_fake_user_clear(id);
@@ -635,7 +636,7 @@ static void template_id_cb(bContext *C, void *arg_litem, void *arg_event)
     case UI_ID_LOCAL:
       if (id) {
         Main *bmain = CTX_data_main(C);
-        if (CTX_wm_window(C)->eventstate->shift) {
+        if (CTX_wm_window(C)->eventstate->modifier & KM_SHIFT) {
           if (ID_IS_OVERRIDABLE_LIBRARY(id)) {
             /* Only remap that specific ID usage to overriding local data-block. */
             ID *override_id = BKE_lib_override_library_create_from_id(bmain, id, false);
@@ -686,7 +687,7 @@ static void template_id_cb(bContext *C, void *arg_litem, void *arg_event)
         idptr = RNA_property_pointer_get(&template_ui->ptr, template_ui->prop);
         RNA_property_pointer_set(&template_ui->ptr, template_ui->prop, idptr, NULL);
         RNA_property_update(C, &template_ui->ptr, template_ui->prop);
-        undo_push_label = "Override Data-Block";
+        undo_push_label = "Make Local";
       }
       break;
     case UI_ID_ALONE:
@@ -731,7 +732,7 @@ static const char *template_id_browse_tip(const StructRNA *type)
         return N_("Browse Object to be linked");
       case ID_ME:
         return N_("Browse Mesh Data to be linked");
-      case ID_CU:
+      case ID_CU_LEGACY:
         return N_("Browse Curve Data to be linked");
       case ID_MB:
         return N_("Browse Metaball Data to be linked");
@@ -844,7 +845,7 @@ static uiBut *template_id_def_new_but(uiBlock *block,
                             BLT_I18NCONTEXT_ID_SCENE,
                             BLT_I18NCONTEXT_ID_OBJECT,
                             BLT_I18NCONTEXT_ID_MESH,
-                            BLT_I18NCONTEXT_ID_CURVE,
+                            BLT_I18NCONTEXT_ID_CURVE_LEGACY,
                             BLT_I18NCONTEXT_ID_METABALL,
                             BLT_I18NCONTEXT_ID_MATERIAL,
                             BLT_I18NCONTEXT_ID_TEXTURE,
@@ -1004,7 +1005,7 @@ static void template_ID(const bContext *C,
       UI_but_flag_enable(but, UI_BUT_REDALERT);
     }
 
-    if (id->lib) {
+    if (ID_IS_LINKED(id)) {
       if (id->tag & LIB_TAG_INDIRECT) {
         but = uiDefIconBut(block,
                            UI_BTYPE_BUT,
@@ -2013,7 +2014,7 @@ static void constraint_reorder(bContext *C, Panel *panel, int new_index)
   RNA_int_set(&props_ptr, "index", new_index);
   /* Set owner to #EDIT_CONSTRAINT_OWNER_OBJECT or #EDIT_CONSTRAINT_OWNER_BONE. */
   RNA_enum_set(&props_ptr, "owner", constraint_from_bone ? 1 : 0);
-  WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &props_ptr);
+  WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &props_ptr, NULL);
   WM_operator_properties_free(&props_ptr);
 }
 
@@ -5539,7 +5540,7 @@ static void handle_layer_buttons(bContext *C, void *arg1, void *arg2)
   uiBut *but = arg1;
   const int cur = POINTER_AS_INT(arg2);
   wmWindow *win = CTX_wm_window(C);
-  const int shift = win->eventstate->shift;
+  const bool shift = win->eventstate->modifier & KM_SHIFT;
 
   if (!shift) {
     const int tot = RNA_property_array_length(&but->rnapoin, but->rnaprop);
@@ -5653,7 +5654,7 @@ static void do_running_jobs(bContext *C, void *UNUSED(arg), int event)
       WM_jobs_stop(CTX_wm_manager(C), CTX_wm_screen(C), NULL);
       break;
     case B_STOPANIM:
-      WM_operator_name_call(C, "SCREEN_OT_animation_play", WM_OP_INVOKE_SCREEN, NULL);
+      WM_operator_name_call(C, "SCREEN_OT_animation_play", WM_OP_INVOKE_SCREEN, NULL, NULL);
       break;
     case B_STOPCOMPO:
       WM_jobs_stop(CTX_wm_manager(C), CTX_data_scene(C), NULL);
@@ -6329,6 +6330,10 @@ void uiTemplateNodeSocket(uiLayout *layout, bContext *UNUSED(C), float color[4])
 
 void uiTemplateCacheFileVelocity(uiLayout *layout, PointerRNA *fileptr)
 {
+  if (RNA_pointer_is_null(fileptr)) {
+    return;
+  }
+
   /* Ensure that the context has a CacheFile as this may not be set inside of modifiers panels. */
   uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
 
@@ -6338,6 +6343,10 @@ void uiTemplateCacheFileVelocity(uiLayout *layout, PointerRNA *fileptr)
 
 void uiTemplateCacheFileProcedural(uiLayout *layout, const bContext *C, PointerRNA *fileptr)
 {
+  if (RNA_pointer_is_null(fileptr)) {
+    return;
+  }
+
   /* Ensure that the context has a CacheFile as this may not be set inside of modifiers panels. */
   uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
 
@@ -6384,6 +6393,10 @@ void uiTemplateCacheFileProcedural(uiLayout *layout, const bContext *C, PointerR
 
 void uiTemplateCacheFileTimeSettings(uiLayout *layout, PointerRNA *fileptr)
 {
+  if (RNA_pointer_is_null(fileptr)) {
+    return;
+  }
+
   /* Ensure that the context has a CacheFile as this may not be set inside of modifiers panels. */
   uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
 
@@ -6434,6 +6447,10 @@ uiListType *UI_UL_cache_file_layers()
 
 void uiTemplateCacheFileLayers(uiLayout *layout, const bContext *C, PointerRNA *fileptr)
 {
+  if (RNA_pointer_is_null(fileptr)) {
+    return;
+  }
+
   /* Ensure that the context has a CacheFile as this may not be set inside of modifiers panels. */
   uiLayoutSetContextPointer(layout, "edit_cachefile", fileptr);
 

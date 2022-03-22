@@ -41,6 +41,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "RNA_enum_types.h"
 
@@ -574,6 +575,14 @@ static bool curve_draw_init(bContext *C, wmOperator *op, bool is_invoke)
     cdd->vc.scene = CTX_data_scene(C);
     cdd->vc.view_layer = CTX_data_view_layer(C);
     cdd->vc.obedit = CTX_data_edit_object(C);
+
+    /* Using an empty stroke complicates logic later,
+     * it's simplest to disallow early on (see: T94085). */
+    if (RNA_collection_is_empty(op->ptr, "stroke")) {
+      MEM_freeN(cdd);
+      BKE_report(op->reports, RPT_ERROR, "The \"stroke\" cannot be empty");
+      return false;
+    }
   }
 
   op->customdata = cdd;

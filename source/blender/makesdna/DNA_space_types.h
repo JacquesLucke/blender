@@ -782,7 +782,7 @@ typedef struct FileSelectParams {
   char _pad1[2];
 
   /* short */
-  /** XXXXX for now store type here, should be moved to the operator. */
+  /** XXX: for now store type here, should be moved to the operator. */
   short type; /* eFileSelectType */
   /** Settings for filter, hiding dots files. */
   short flag;
@@ -797,7 +797,7 @@ typedef struct FileSelectParams {
   /** Filter when (flags & FILE_FILTER) is true. */
   int filter;
 
-  /** Max number of levels in dirtree to show at once, 0 to disable recursion. */
+  /** Max number of levels in directory tree to show at once, 0 to disable recursion. */
   short recursion_level;
 
   char _pad4[2];
@@ -894,10 +894,9 @@ typedef struct SpaceFile {
    */
   ListBase folder_histories; /* FileFolderHistory */
 
-  /* operator that is invoking fileselect
-   * op->exec() will be called on the 'Load' button.
-   * if operator provides op->cancel(), then this will be invoked
-   * on the cancel button.
+  /**
+   * The operator that is invoking file-select `op->exec()` will be called on the 'Load' button.
+   * if operator provides op->cancel(), then this will be invoked on the cancel button.
    */
   struct wmOperator *op;
 
@@ -1214,11 +1213,10 @@ typedef struct SpaceImage {
   /** UV draw type. */
   char dt_uv;
   /** Sticky selection type. */
-  char sticky;
   char dt_uvstretch;
   char around;
 
-  char _pad1[3];
+  char _pad1[4];
 
   int flag;
 
@@ -1264,15 +1262,6 @@ typedef enum eSpaceImage_Mode {
   SI_MODE_MASK = 2,
   SI_MODE_UV = 3,
 } eSpaceImage_Mode;
-
-/* SpaceImage.sticky
- * Note DISABLE should be 0, however would also need to re-arrange icon order,
- * also, sticky loc is the default mode so this means we don't need to 'do_versions' */
-typedef enum eSpaceImage_Sticky {
-  SI_STICKY_LOC = 0,
-  SI_STICKY_DISABLE = 1,
-  SI_STICKY_VERTEX = 2,
-} eSpaceImage_Sticky;
 
 /** #SpaceImage.flag */
 typedef enum eSpaceImage_Flag {

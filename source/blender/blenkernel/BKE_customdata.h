@@ -716,7 +716,7 @@ void CustomData_data_transfer(const struct MeshPairRemap *me_remap,
  * \param write_layers_buff: An optional buffer for r_write_layers (to avoid allocating it).
  * \param write_layers_size: The size of pre-allocated \a write_layer_buff.
  *
- * \warning After this funcion has ran, given custom data is no more valid from Blender POV
+ * \warning After this function has ran, given custom data is no more valid from Blender POV
  * (its `totlayer` is invalid). This function shall always be called with localized data
  * (as it is in write_meshes()).
  *
@@ -750,4 +750,13 @@ void CustomData_debug_info_from_layers(const struct CustomData *data,
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+#  include "BLI_cpp_type.hh"
+
+namespace blender::bke {
+const CPPType *custom_data_type_to_cpp_type(const CustomDataType type);
+CustomDataType cpp_type_to_custom_data_type(const CPPType &type);
+}  // namespace blender::bke
 #endif

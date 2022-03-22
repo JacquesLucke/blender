@@ -44,6 +44,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -89,7 +90,7 @@ struct CompoJob {
 
 float node_socket_calculate_height(const bNodeSocket &socket)
 {
-  float sock_height = NODE_SOCKSIZE * 2.0f;
+  float sock_height = NODE_SOCKSIZE * NODE_SOCKSIZE_DRAW_MULIPLIER;
   if (socket.flag & SOCK_MULTI_INPUT) {
     sock_height += max_ii(NODE_MULTI_INPUT_LINK_GAP * 0.5f * socket.total_inputs, NODE_SOCKSIZE);
   }
@@ -896,19 +897,15 @@ struct NodeSizeWidget {
   int directions;
 };
 
-static void node_resize_init(bContext *C,
-                             wmOperator *op,
-                             const wmEvent *UNUSED(event),
-                             const bNode *node,
-                             NodeResizeDirection dir)
+static void node_resize_init(
+    bContext *C, wmOperator *op, const float cursor[2], const bNode *node, NodeResizeDirection dir)
 {
-  SpaceNode *snode = CTX_wm_space_node(C);
-
   NodeSizeWidget *nsw = MEM_cnew<NodeSizeWidget>(__func__);
 
   op->customdata = nsw;
-  nsw->mxstart = snode->runtime->cursor[0] * UI_DPI_FAC;
-  nsw->mystart = snode->runtime->cursor[1] * UI_DPI_FAC;
+
+  nsw->mxstart = cursor[0];
+  nsw->mystart = cursor[1];
 
   /* store old */
   nsw->oldlocx = node->locx;
@@ -955,8 +952,10 @@ static int node_resize_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
   switch (event->type) {
     case MOUSEMOVE: {
+      int mval[2];
+      WM_event_drag_start_mval(event, region, mval);
       float mx, my;
-      UI_view2d_region_to_view(&region->v2d, event->mval[0], event->mval[1], &mx, &my);
+      UI_view2d_region_to_view(&region->v2d, mval[0], mval[1], &mx, &my);
       float dx = (mx - nsw->mxstart) / UI_DPI_FAC;
       float dy = (my - nsw->mystart) / UI_DPI_FAC;
 
@@ -1057,13 +1056,15 @@ static int node_resize_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
   /* convert mouse coordinates to v2d space */
   float cursor[2];
-  UI_view2d_region_to_view(&region->v2d, event->mval[0], event->mval[1], &cursor[0], &cursor[1]);
+  int mval[2];
+  WM_event_drag_start_mval(event, region, mval);
+  UI_view2d_region_to_view(&region->v2d, mval[0], mval[1], &cursor[0], &cursor[1]);
   const NodeResizeDirection dir = node_get_resize_direction(node, cursor[0], cursor[1]);
   if (dir == NODE_RESIZE_NONE) {
     return OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH;
   }
 
-  node_resize_init(C, op, event, node, dir);
+  node_resize_init(C, op, cursor, node, dir);
   return OPERATOR_RUNNING_MODAL;
 }
 
@@ -1160,12 +1161,16 @@ bool node_find_indicated_socket(SpaceNode &snode,
 {
   rctf rect;
 
+  const float size_sock_padded = NODE_SOCKSIZE + 4;
+
   *nodep = nullptr;
   *sockp = nullptr;
 
   /* check if we click in a socket */
   LISTBASE_FOREACH (bNode *, node, &snode.edittree->nodes) {
-    BLI_rctf_init_pt_radius(&rect, cursor, NODE_SOCKSIZE + 4);
+    BLI_rctf_init_pt_radius(&rect, cursor, size_sock_padded);
+    rctf node_visible;
+    BLI_rctf_init_pt_radius(&node_visible, cursor, size_sock_padded);
 
     if (!(node->flag & NODE_HIDDEN)) {
       /* extra padding inside and out - allow dragging on the text areas too */
@@ -1184,7 +1189,7 @@ bool node_find_indicated_socket(SpaceNode &snode,
         if (!nodeSocketIsHidden(sock)) {
           if (sock->flag & SOCK_MULTI_INPUT && !(node->flag & NODE_HIDDEN)) {
             if (cursor_isect_multi_input_socket(cursor, *sock)) {
-              if (node == visible_node(snode, rect)) {
+              if (node == visible_node(snode, node_visible)) {
                 *nodep = node;
                 *sockp = sock;
                 return true;
@@ -1192,7 +1197,7 @@ bool node_find_indicated_socket(SpaceNode &snode,
             }
           }
           else if (BLI_rctf_isect_pt(&rect, sock->locx, sock->locy)) {
-            if (node == visible_node(snode, rect)) {
+            if (node == visible_node(snode, node_visible)) {
               *nodep = node;
               *sockp = sock;
               return true;
@@ -1205,7 +1210,7 @@ bool node_find_indicated_socket(SpaceNode &snode,
       LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
         if (!nodeSocketIsHidden(sock)) {
           if (BLI_rctf_isect_pt(&rect, sock->locx, sock->locy)) {
-            if (node == visible_node(snode, rect)) {
+            if (node == visible_node(snode, node_visible)) {
               *nodep = node;
               *sockp = sock;
               return true;
@@ -1499,7 +1504,7 @@ int node_render_changed_exec(bContext *C, wmOperator *UNUSED(op))
       /* To keep keyframe positions. */
       sce->r.scemode |= R_NO_FRAME_UPDATE;
 
-      WM_operator_name_call(C, "RENDER_OT_render", WM_OP_INVOKE_DEFAULT, &op_ptr);
+      WM_operator_name_call(C, "RENDER_OT_render", WM_OP_INVOKE_DEFAULT, &op_ptr, nullptr);
 
       WM_operator_properties_free(&op_ptr);
 

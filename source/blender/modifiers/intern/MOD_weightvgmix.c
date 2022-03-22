@@ -31,6 +31,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
@@ -104,6 +105,12 @@ static float mix_weight(float weight, float weight2, char mix_mode)
   }
   if (mix_mode == MOD_WVG_MIX_AVG) {
     return (weight + weight2) * 0.5f;
+  }
+  if (mix_mode == MOD_WVG_MIX_MIN) {
+    return (weight < weight2 ? weight : weight2);
+  }
+  if (mix_mode == MOD_WVG_MIX_MAX) {
+    return (weight > weight2 ? weight : weight2);
   }
 
   return weight2;
@@ -213,7 +220,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
   /*
    * Note that we only invert the weight values within provided vgroups, the selection based on
-   * which vertice is affected because it belongs or not to a group remains unchanged.
+   * which vertex is affected because it belongs or not to a group remains unchanged.
    * In other words, vertices not belonging to a group won't be affected, even though their
    * inverted 'virtual' weight would be 1.0f.
    */

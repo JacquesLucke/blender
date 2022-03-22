@@ -91,6 +91,7 @@
 #include "BKE_world.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 #include "RNA_types.h"
 
 #include "DEG_depsgraph.h"
@@ -335,16 +336,10 @@ void DepsgraphNodeBuilder::begin_build()
      * same as id_orig. Additionally, such ID might have been removed, which makes the check
      * for whether id_cow is expanded to access freed memory. In order to deal with this we
      * check whether CoW is needed based on a scalar value which does not lead to access of
-     * possibly deleted memory.
-     * Additionally, this saves some space in the map by skipping mapping for datablocks which
-     * do not need CoW, */
-    if (!deg_copy_on_write_is_needed(id_node->id_type)) {
-      id_node->id_cow = nullptr;
-      continue;
-    }
-
+     * possibly deleted memory. */
     IDInfo *id_info = (IDInfo *)MEM_mallocN(sizeof(IDInfo), "depsgraph id info");
-    if (deg_copy_on_write_is_expanded(id_node->id_cow) && id_node->id_orig != id_node->id_cow) {
+    if (deg_copy_on_write_is_needed(id_node->id_type) &&
+        deg_copy_on_write_is_expanded(id_node->id_cow) && id_node->id_orig != id_node->id_cow) {
       id_info->id_cow = id_node->id_cow;
     }
     else {
@@ -580,7 +575,7 @@ void DepsgraphNodeBuilder::build_id(ID *id)
       break;
     case ID_ME:
     case ID_MB:
-    case ID_CU:
+    case ID_CU_LEGACY:
     case ID_LT:
     case ID_GD:
     case ID_CV:
@@ -872,7 +867,7 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
   /* type-specific data. */
   switch (object->type) {
     case OB_MESH:
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
     case OB_FONT:
     case OB_SURF:
     case OB_MBALL:
@@ -1414,7 +1409,7 @@ void DepsgraphNodeBuilder::build_particle_settings(ParticleSettings *particle_se
   }
 }
 
-/* Shapekeys */
+/* Shape-keys. */
 void DepsgraphNodeBuilder::build_shapekeys(Key *key)
 {
   if (built_map_.checkIsBuiltAndTag(key)) {
@@ -1504,7 +1499,7 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
       op_node->set_as_entry();
       break;
     }
-    case ID_CU: {
+    case ID_CU_LEGACY: {
       op_node = add_operation_node(obdata,
                                    NodeType::GEOMETRY,
                                    OperationCode::GEOMETRY_EVAL,

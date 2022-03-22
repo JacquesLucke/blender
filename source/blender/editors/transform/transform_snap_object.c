@@ -477,7 +477,10 @@ static void iter_snap_objects(SnapObjectContext *sctx,
       }
     }
     else if (snap_select == SNAP_NOT_SELECTED) {
-      if ((base->flag & BASE_SELECTED) || (base->flag_legacy & BA_WAS_SEL)) {
+      if (is_object_active && base->object->mode != OB_MODE_OBJECT) {
+        /* Pass. Consider the selection of elements being edited. */
+      }
+      else if ((base->flag & BASE_SELECTED) || (base->flag_legacy & BA_WAS_SEL)) {
         continue;
       }
     }
@@ -1051,7 +1054,7 @@ static void raycast_obj_fn(SnapObjectContext *sctx,
                            dt->r_hit_list);
       break;
     }
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
     case OB_SURF:
     case OB_FONT: {
       if (!is_object_active) {
@@ -1818,6 +1821,7 @@ static short snapArmature(SnapObjectContext *sctx,
                           const struct SnapObjectParams *params,
                           Object *ob_eval,
                           const float obmat[4][4],
+                          bool is_object_active,
                           /* read/write args */
                           float *dist_px,
                           /* return args */
@@ -1838,9 +1842,10 @@ static short snapArmature(SnapObjectContext *sctx,
   dist_squared_to_projected_aabb_precalc(
       &neasrest_precalc, lpmat, sctx->runtime.win_size, sctx->runtime.mval);
 
-  bool use_obedit = ((bArmature *)ob_eval->data)->edbo != NULL;
+  bArmature *arm = ob_eval->data;
+  const bool is_editmode = arm->edbo != NULL;
 
-  if (use_obedit == false) {
+  if (is_editmode == false) {
     /* Test BoundBox */
     BoundBox *bb = BKE_armature_boundbox_get(ob_eval);
     if (bb && !snap_bound_box_check_dist(bb->vec[0],
@@ -1859,10 +1864,11 @@ static short snapArmature(SnapObjectContext *sctx,
     mul_v4_m4v4(clip_planes_local[i], tobmat, sctx->runtime.clip_plane[i]);
   }
 
-  const eSnapSelect snap_select = params->snap_select;
-  bool is_persp = sctx->runtime.view_proj == VIEW_PROJ_PERSP;
+  const bool is_posemode = is_object_active && (ob_eval->mode & OB_MODE_POSE);
+  const bool skip_selected = (is_editmode || is_posemode) &&
+                             (params->snap_select == SNAP_NOT_SELECTED);
+  const bool is_persp = sctx->runtime.view_proj == VIEW_PROJ_PERSP;
 
-  bArmature *arm = ob_eval->data;
   if (arm->edbo) {
     LISTBASE_FOREACH (EditBone *, eBone, arm->edbo) {
       if (eBone->layer & arm->layer) {
@@ -1872,7 +1878,7 @@ static short snapArmature(SnapObjectContext *sctx,
         }
 
         const bool is_selected = (eBone->flag & (BONE_ROOTSEL | BONE_TIPSEL)) != 0;
-        if (is_selected && snap_select == SNAP_NOT_SELECTED) {
+        if (is_selected && skip_selected) {
           continue;
         }
         bool has_vert_snap = false;
@@ -1916,10 +1922,16 @@ static short snapArmature(SnapObjectContext *sctx,
   else if (ob_eval->pose && ob_eval->pose->chanbase.first) {
     LISTBASE_FOREACH (bPoseChannel *, pchan, &ob_eval->pose->chanbase) {
       Bone *bone = pchan->bone;
-      /* skip hidden bones */
       if (!bone || (bone->flag & (BONE_HIDDEN_P | BONE_HIDDEN_PG))) {
+        /* Skip hidden bones. */
         continue;
       }
+
+      const bool is_selected = (bone->flag & (BONE_SELECTED | BONE_ROOTSEL | BONE_TIPSEL)) != 0;
+      if (is_selected && skip_selected) {
+        continue;
+      }
+
       bool has_vert_snap = false;
       const float *head_vec = pchan->pose_head;
       const float *tail_vec = pchan->pose_tail;
@@ -2685,7 +2697,7 @@ static void snap_obj_fn(SnapObjectContext *sctx,
                         const struct SnapObjectParams *params,
                         Object *ob_eval,
                         float obmat[4][4],
-                        bool UNUSED(is_object_active),
+                        bool is_object_active,
                         void *data)
 {
   struct SnapObjUserData *dt = data;
@@ -2721,10 +2733,17 @@ static void snap_obj_fn(SnapObjectContext *sctx,
       break;
     }
     case OB_ARMATURE:
-      retval = snapArmature(
-          sctx, params, ob_eval, obmat, dt->dist_px, dt->r_loc, dt->r_no, dt->r_index);
+      retval = snapArmature(sctx,
+                            params,
+                            ob_eval,
+                            obmat,
+                            is_object_active,
+                            dt->dist_px,
+                            dt->r_loc,
+                            dt->r_no,
+                            dt->r_index);
       break;
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
       retval = snapCurve(
           sctx, params, ob_eval, obmat, dt->dist_px, dt->r_loc, dt->r_no, dt->r_index);
       break; /* Use ATTR_FALLTHROUGH if we want to snap to the generated mesh. */
@@ -3098,7 +3117,7 @@ static short transform_snap_context_project_view3d_mixed_impl(
     sctx->runtime.has_occlusion_plane = false;
 
     /* By convention we only snap to the original elements of a curve. */
-    if (has_hit && ob_eval->type != OB_CURVE) {
+    if (has_hit && ob_eval->type != OB_CURVES_LEGACY) {
       /* Compute the new clip_pane but do not add it yet. */
       float new_clipplane[4];
       BLI_ASSERT_UNIT_V3(no);

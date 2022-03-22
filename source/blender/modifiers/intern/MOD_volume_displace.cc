@@ -35,6 +35,7 @@
 #include "RE_texture.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "BLI_math_vector.h"
 
@@ -189,10 +190,8 @@ struct DisplaceGridOp {
 
   template<typename GridType> void operator()()
   {
-    if constexpr (blender::is_same_any_v<GridType,
-                                         openvdb::points::PointDataGrid,
-                                         openvdb::StringGrid,
-                                         openvdb::MaskGrid>) {
+    if constexpr (blender::
+                      is_same_any_v<GridType, openvdb::points::PointDataGrid, openvdb::MaskGrid>) {
       /* We don't support displacing these grid types yet. */
       return;
     }

@@ -330,7 +330,7 @@ enum {
 /* 2 characters for ID code and 64 for actual name */
 #define MAX_ID_NAME 66
 
-/* ID_Runtime.remapping_status */
+/* ID_Runtime_Remap.status */
 enum {
   /** new_id is directly linked in current .blend. */
   ID_REMAP_IS_LINKED_DIRECT = 1 << 0,
@@ -573,6 +573,10 @@ typedef struct PreviewImage {
 #define ID_IS_OVERRIDE_LIBRARY(_id) \
   (ID_IS_OVERRIDE_LIBRARY_REAL(_id) || ID_IS_OVERRIDE_LIBRARY_VIRTUAL(_id))
 
+#define ID_IS_OVERRIDE_LIBRARY_HIERARCHY_ROOT(_id) \
+  (!ID_IS_OVERRIDE_LIBRARY_REAL(_id) || \
+   ((ID *)(_id))->override_library->hierarchy_root == ((ID *)(_id)))
+
 #define ID_IS_OVERRIDE_LIBRARY_TEMPLATE(_id) \
   (((ID *)(_id))->override_library != NULL && ((ID *)(_id))->override_library->reference == NULL)
 
@@ -605,7 +609,7 @@ typedef struct PreviewImage {
 
 /** id->flag (persistent). */
 enum {
-  /** Don't delete the datablock even if unused. */
+  /** Don't delete the data-block even if unused. */
   LIB_FAKEUSER = 1 << 9,
   /**
    * The data-block is a sub-data of another one.
@@ -613,14 +617,14 @@ enum {
    */
   LIB_EMBEDDED_DATA = 1 << 10,
   /**
-   * Datablock is from a library and linked indirectly, with LIB_TAG_INDIRECT
+   * Data-block is from a library and linked indirectly, with LIB_TAG_INDIRECT
    * tag set. But the current .blend file also has a weak pointer to it that
    * we want to restore if possible, and silently drop if it's missing.
    */
   LIB_INDIRECT_WEAK_LINK = 1 << 11,
   /**
    * The data-block is a sub-data of another one, which is an override.
-   * Note that this also applies to shapekeys, even though they are not 100% embedded data...
+   * Note that this also applies to shape-keys, even though they are not 100% embedded data.
    */
   LIB_EMBEDDED_DATA_LIB_OVERRIDE = 1 << 12,
   /**
@@ -879,7 +883,7 @@ typedef enum IDRecalcFlag {
 #define FILTER_ID_AR (1ULL << 1)
 #define FILTER_ID_BR (1ULL << 2)
 #define FILTER_ID_CA (1ULL << 3)
-#define FILTER_ID_CU (1ULL << 4)
+#define FILTER_ID_CU_LEGACY (1ULL << 4)
 #define FILTER_ID_GD (1ULL << 5)
 #define FILTER_ID_GR (1ULL << 6)
 #define FILTER_ID_IM (1ULL << 7)
@@ -912,12 +916,12 @@ typedef enum IDRecalcFlag {
 #define FILTER_ID_SIM (1ULL << 35)
 
 #define FILTER_ID_ALL \
-  (FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU | FILTER_ID_GD | \
-   FILTER_ID_GR | FILTER_ID_IM | FILTER_ID_LA | FILTER_ID_LS | FILTER_ID_LT | FILTER_ID_MA | \
-   FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | FILTER_ID_NT | FILTER_ID_OB | \
-   FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | FILTER_ID_SO | \
-   FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF | FILTER_ID_WS | \
-   FILTER_ID_LP | FILTER_ID_CV | FILTER_ID_PT | FILTER_ID_VO | FILTER_ID_SIM)
+  (FILTER_ID_AC | FILTER_ID_AR | FILTER_ID_BR | FILTER_ID_CA | FILTER_ID_CU_LEGACY | \
+   FILTER_ID_GD | FILTER_ID_GR | FILTER_ID_IM | FILTER_ID_LA | FILTER_ID_LS | FILTER_ID_LT | \
+   FILTER_ID_MA | FILTER_ID_MB | FILTER_ID_MC | FILTER_ID_ME | FILTER_ID_MSK | FILTER_ID_NT | \
+   FILTER_ID_OB | FILTER_ID_PA | FILTER_ID_PAL | FILTER_ID_PC | FILTER_ID_SCE | FILTER_ID_SPK | \
+   FILTER_ID_SO | FILTER_ID_TE | FILTER_ID_TXT | FILTER_ID_VF | FILTER_ID_WO | FILTER_ID_CF | \
+   FILTER_ID_WS | FILTER_ID_LP | FILTER_ID_CV | FILTER_ID_PT | FILTER_ID_VO | FILTER_ID_SIM)
 
 /**
  * This enum defines the index assigned to each type of IDs in the array returned by
@@ -998,7 +1002,7 @@ enum {
   /* Object data types. */
   INDEX_ID_AR,
   INDEX_ID_ME,
-  INDEX_ID_CU,
+  INDEX_ID_CU_LEGACY,
   INDEX_ID_MB,
   INDEX_ID_CV,
   INDEX_ID_PT,

@@ -76,6 +76,7 @@ ustring OSLRenderServices::u_raster("raster");
 ustring OSLRenderServices::u_ndc("NDC");
 ustring OSLRenderServices::u_object_location("object:location");
 ustring OSLRenderServices::u_object_color("object:color");
+ustring OSLRenderServices::u_object_alpha("object:alpha");
 ustring OSLRenderServices::u_object_index("object:index");
 ustring OSLRenderServices::u_geom_dupli_generated("geom:dupli_generated");
 ustring OSLRenderServices::u_geom_dupli_uv("geom:dupli_uv");
@@ -873,6 +874,10 @@ bool OSLRenderServices::get_object_standard_attribute(const KernelGlobalsCPU *kg
     float3 f = object_color(kg, sd->object);
     return set_attribute_float3(f, type, derivatives, val);
   }
+  else if (name == u_object_alpha) {
+    float f = object_alpha(kg, sd->object);
+    return set_attribute_float(f, type, derivatives, val);
+  }
   else if (name == u_object_index) {
     float f = object_pass_id(kg, sd->object);
     return set_attribute_float(f, type, derivatives, val);
@@ -1638,12 +1643,16 @@ bool OSLRenderServices::trace(TraceOpt &options,
   ray.D = TO_FLOAT3(R);
   ray.t = (options.maxdist == 1.0e30f) ? FLT_MAX : options.maxdist - options.mindist;
   ray.time = sd->time;
+  ray.self.object = OBJECT_NONE;
+  ray.self.prim = PRIM_NONE;
+  ray.self.light_object = OBJECT_NONE;
+  ray.self.light_prim = PRIM_NONE;
 
   if (options.mindist == 0.0f) {
     /* avoid self-intersections */
     if (ray.P == sd->P) {
-      bool transmit = (dot(sd->Ng, ray.D) < 0.0f);
-      ray.P = ray_offset(sd->P, (transmit) ? -sd->Ng : sd->Ng);
+      ray.self.object = sd->object;
+      ray.self.prim = sd->prim;
     }
   }
   else {

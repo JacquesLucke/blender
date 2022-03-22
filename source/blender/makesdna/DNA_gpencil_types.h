@@ -18,14 +18,12 @@ extern "C" {
 struct AnimData;
 struct Curve;
 struct Curve;
-struct MDeformVert;
 struct GPencilUpdateCache;
+struct MDeformVert;
 
 #define GP_DEFAULT_PIX_FACTOR 1.0f
 #define GP_DEFAULT_GRID_LINES 4
 #define GP_MAX_INPUT_SAMPLES 10
-
-#define GP_MATERIAL_BUFFER_LEN 256
 
 #define GP_DEFAULT_CURVE_RESOLUTION 32
 #define GP_DEFAULT_CURVE_ERROR 0.1f

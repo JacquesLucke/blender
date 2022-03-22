@@ -23,6 +23,7 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
@@ -123,7 +124,7 @@ static void bake_progress_update(void *bjv, float progress)
   }
 }
 
-/* catch esc */
+/** Catch escape key to cancel. */
 static int bake_modal(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
   /* no running blender, remove handler and pass through */
@@ -301,6 +302,7 @@ static void bake_targets_refresh(BakeTargets *targets)
     Image *ima = targets->images[i].image;
 
     if (ima) {
+      BKE_image_partial_update_mark_full_update(ima);
       LISTBASE_FOREACH (ImageTile *, tile, &ima->tiles) {
         BKE_image_free_gputextures(ima);
         DEG_id_tag_update(&ima->id, 0);
@@ -605,7 +607,7 @@ static bool bake_objects_check(Main *bmain,
         continue;
       }
 
-      if (ELEM(ob_iter->type, OB_MESH, OB_FONT, OB_CURVE, OB_SURF, OB_MBALL) == false) {
+      if (ELEM(ob_iter->type, OB_MESH, OB_FONT, OB_CURVES_LEGACY, OB_SURF, OB_MBALL) == false) {
         BKE_reportf(reports,
                     RPT_ERROR,
                     "Object \"%s\" is not a mesh or can't be converted to a mesh (Curve, Text, "
@@ -1038,19 +1040,18 @@ static void bake_targets_populate_pixels_vertex_colors(BakeTargets *targets,
        * materials and UVs. */
       pixel->seed = v;
 
-      /* Barycentric coordinates, nudged a bit to avoid precision issues that
-       * may happen when exactly at the vertex coordinate. */
+      /* Barycentric coordinates. */
       if (j == 0) {
-        pixel->uv[0] = 1.0f - FLT_EPSILON;
-        pixel->uv[1] = FLT_EPSILON / 2.0f;
+        pixel->uv[0] = 1.0f;
+        pixel->uv[1] = 0.0f;
       }
       else if (j == 1) {
-        pixel->uv[0] = FLT_EPSILON / 2.0f;
-        pixel->uv[1] = 1.0f - FLT_EPSILON;
+        pixel->uv[0] = 0.0f;
+        pixel->uv[1] = 1.0f;
       }
       else if (j == 2) {
-        pixel->uv[0] = FLT_EPSILON / 2.0f;
-        pixel->uv[1] = FLT_EPSILON / 2.0f;
+        pixel->uv[0] = 0.0f;
+        pixel->uv[1] = 0.0f;
       }
     }
   }

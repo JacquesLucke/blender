@@ -2568,11 +2568,13 @@ void BKE_gpencil_visible_stroke_advanced_iter(ViewLayer *view_layer,
         layer_cb(gpl, gpf, NULL, thunk);
       }
 
-      LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
-        if (gps->totpoints == 0) {
-          continue;
+      if (stroke_cb) {
+        LISTBASE_FOREACH (bGPDstroke *, gps, &gpf->strokes) {
+          if (gps->totpoints == 0) {
+            continue;
+          }
+          stroke_cb(gpl, gpf, gps, thunk);
         }
-        stroke_cb(gpl, gpf, gps, thunk);
       }
     }
     /* Draw Active frame on top. */
@@ -2590,12 +2592,13 @@ void BKE_gpencil_visible_stroke_advanced_iter(ViewLayer *view_layer,
         gpl->opacity = prev_opacity;
         continue;
       }
-
-      LISTBASE_FOREACH (bGPDstroke *, gps, &act_gpf->strokes) {
-        if (gps->totpoints == 0) {
-          continue;
+      if (stroke_cb) {
+        LISTBASE_FOREACH (bGPDstroke *, gps, &act_gpf->strokes) {
+          if (gps->totpoints == 0) {
+            continue;
+          }
+          stroke_cb(gpl, act_gpf, gps, thunk);
         }
-        stroke_cb(gpl, act_gpf, gps, thunk);
       }
     }
 
@@ -2823,7 +2826,7 @@ void BKE_gpencil_frame_selected_hash(bGPdata *gpd, struct GHash *r_list)
 
 bool BKE_gpencil_can_avoid_full_copy_on_write(const Depsgraph *depsgraph, bGPdata *gpd)
 {
-  /* For now, we only use the update cache in the active depsgraph. Othwerwise we might access the
+  /* For now, we only use the update cache in the active depsgraph. Otherwise we might access the
    * cache while another depsgraph frees it. */
   if (!DEG_is_active(depsgraph)) {
     return false;

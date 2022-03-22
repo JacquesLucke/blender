@@ -22,7 +22,7 @@
 namespace blender::gpu::shader {
 
 #ifndef GPU_SHADER_CREATE_INFO
-/* Helps intelisense / auto-completion. */
+/* Helps intellisense / auto-completion. */
 #  define GPU_SHADER_INTERFACE_INFO(_interface, _inst_name) \
     StageInterfaceInfo _interface(#_interface, _inst_name); \
     _interface
@@ -255,7 +255,7 @@ struct StageInterfaceInfo {
 };
 
 /**
- * @brief Describe inputs & outputs, stage interfaces, resources and sources of a shader.
+ * \brief Describe inputs & outputs, stage interfaces, resources and sources of a shader.
  *        If all data is correctly provided, this is all that is needed to create and compile
  *        a GPUShader.
  *
@@ -271,6 +271,8 @@ struct ShaderCreateInfo {
   bool finalized_ = false;
   /** If true, all resources will have an automatic location assigned. */
   bool auto_resource_location_ = false;
+  /** If true, force depth and stencil tests to always happen before fragment shader invocation. */
+  bool early_fragment_test_ = false;
   /**
    * Maximum length of all the resource names including each null terminator.
    * Only for names used by gpu::ShaderInterface.
@@ -497,9 +499,9 @@ struct ShaderCreateInfo {
 
   /**
    * IMPORTANT: invocations count is only used if GL_ARB_gpu_shader5 is supported. On
-   * implementations that do not supports it, the max_vertices will be be multiplied by
-   * invocations. Your shader needs to account for this fact. Use `#ifdef GPU_ARB_gpu_shader5`
-   * and make a code path that does not rely on gl_InvocationID.
+   * implementations that do not supports it, the max_vertices will be multiplied by invocations.
+   * Your shader needs to account for this fact. Use `#ifdef GPU_ARB_gpu_shader5` and make a code
+   * path that does not rely on #gl_InvocationID.
    */
   Self &geometry_layout(PrimitiveIn prim_in,
                         PrimitiveOut prim_out,
@@ -518,6 +520,16 @@ struct ShaderCreateInfo {
     compute_layout_.local_size_x = local_size_x;
     compute_layout_.local_size_y = local_size_y;
     compute_layout_.local_size_z = local_size_z;
+    return *(Self *)this;
+  }
+
+  /**
+   * Force fragment tests before fragment shader invocation.
+   * IMPORTANT: This is incompatible with using the gl_FragDepth output.
+   */
+  Self &early_fragment_test(bool enable)
+  {
+    early_fragment_test_ = enable;
     return *(Self *)this;
   }
 

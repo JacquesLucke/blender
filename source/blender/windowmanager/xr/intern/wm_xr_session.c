@@ -1188,8 +1188,9 @@ void wm_xr_session_actions_update(wmWindowManager *wm)
         &state->viewer_pose, settings->base_scale * state->nav_scale, state->viewer_viewmat);
   }
 
-  int ret = GHOST_XrSyncActions(xr_context, active_action_set ? active_action_set->name : NULL);
-  if (!ret) {
+  const bool synced = GHOST_XrSyncActions(xr_context,
+                                          active_action_set ? active_action_set->name : NULL);
+  if (!synced) {
     return;
   }
 
@@ -1303,7 +1304,7 @@ static void wm_xr_session_surface_draw(bContext *C)
 
   GHOST_XrSessionDrawViews(wm->xr.runtime->context, &draw_data);
 
-  /* There's no active framebuffer if the session was cancelled (exception while drawing views). */
+  /* There's no active frame-buffer if the session was canceled (exception while drawing views). */
   if (GPU_framebuffer_active_get()) {
     GPU_framebuffer_restore();
   }

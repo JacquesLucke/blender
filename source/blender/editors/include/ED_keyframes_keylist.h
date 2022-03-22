@@ -183,10 +183,10 @@ void mask_to_keylist(struct bDopeSheet *ads,
 
 /* ActKeyColumn API ---------------- */
 
-/* Checks if ActKeyColumn has any block data */
+/** Checks if #ActKeyColumn has any block data. */
 bool actkeyblock_is_valid(const ActKeyColumn *ac);
 
-/* Checks if ActKeyColumn can be used as a block (i.e. drawn/used to detect "holds") */
+/** Checks if #ActKeyColumn can be used as a block (i.e. drawn/used to detect "holds"). */
 int actkeyblock_get_valid_hold(const ActKeyColumn *ac);
 
 #ifdef __cplusplus

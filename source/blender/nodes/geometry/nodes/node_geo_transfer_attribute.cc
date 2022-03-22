@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_generic_array.hh"
 #include "BLI_kdopbvh.h"
 #include "BLI_task.hh"
 
@@ -12,8 +13,6 @@
 #include "BKE_mesh_runtime.h"
 #include "BKE_mesh_sample.hh"
 
-#include "FN_generic_array.hh"
-
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -24,7 +23,6 @@
 namespace blender::nodes::node_geo_transfer_attribute_cc {
 
 using namespace blender::bke::mesh_surface_sample;
-using blender::fn::GArray;
 
 NODE_STORAGE_FUNCS(NodeGeometryTransferAttribute)
 
@@ -778,7 +776,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       break;
     }
     case GEO_NODE_ATTRIBUTE_TRANSFER_NEAREST: {
-      if (geometry.has_curve() && !geometry.has_mesh() && !geometry.has_pointcloud()) {
+      if (geometry.has_curves() && !geometry.has_mesh() && !geometry.has_pointcloud()) {
         params.error_message_add(NodeWarningType::Error,
                                  TIP_("The source geometry must contain a mesh or a point cloud"));
         return return_default();

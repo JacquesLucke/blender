@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_array.hh"
+#include "BLI_generic_virtual_array.hh"
 #include "BLI_span.hh"
 #include "BLI_task.hh"
 #include "BLI_timeit.hh"
@@ -9,21 +10,19 @@
 #include "BKE_attribute_math.hh"
 #include "BKE_spline.hh"
 
-#include "FN_generic_virtual_array.hh"
-
 using blender::Array;
 using blender::float3;
+using blender::GMutableSpan;
+using blender::GSpan;
+using blender::GVArray;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
 using blender::VArray;
 using blender::attribute_math::convert_to_static_type;
 using blender::bke::AttributeIDRef;
-using blender::fn::GMutableSpan;
-using blender::fn::GSpan;
-using blender::fn::GVArray;
 
-Spline::Type Spline::type() const
+CurveType Spline::type() const
 {
   return type_;
 }
@@ -34,15 +33,18 @@ void Spline::copy_base_settings(const Spline &src, Spline &dst)
   dst.is_cyclic_ = src.is_cyclic_;
 }
 
-static SplinePtr create_spline(const Spline::Type type)
+static SplinePtr create_spline(const CurveType type)
 {
   switch (type) {
-    case Spline::Type::Poly:
+    case CURVE_TYPE_POLY:
       return std::make_unique<PolySpline>();
-    case Spline::Type::Bezier:
+    case CURVE_TYPE_BEZIER:
       return std::make_unique<BezierSpline>();
-    case Spline::Type::NURBS:
+    case CURVE_TYPE_NURBS:
       return std::make_unique<NURBSpline>();
+    case CURVE_TYPE_CATMULL_ROM:
+      BLI_assert_unreachable();
+      return {};
   }
   BLI_assert_unreachable();
   return {};
@@ -97,7 +99,7 @@ void Spline::reverse()
 
   this->attributes.foreach_attribute(
       [&](const AttributeIDRef &id, const AttributeMetaData &meta_data) {
-        std::optional<blender::fn::GMutableSpan> attribute = this->attributes.get_for_write(id);
+        std::optional<blender::GMutableSpan> attribute = this->attributes.get_for_write(id);
         if (!attribute) {
           BLI_assert_unreachable();
           return false;

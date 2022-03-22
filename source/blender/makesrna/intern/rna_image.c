@@ -13,6 +13,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_node_tree_update.h"
 
 #include "DEG_depsgraph.h"
@@ -103,6 +104,7 @@ static void rna_Image_generated_update(Main *bmain, Scene *UNUSED(scene), Pointe
 {
   Image *ima = (Image *)ptr->owner_id;
   BKE_image_signal(bmain, ima, NULL, IMA_SIGNAL_FREE);
+  BKE_image_partial_update_mark_full_update(ima);
 }
 
 static void rna_Image_colormanage_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *ptr)
@@ -141,6 +143,7 @@ static void rna_Image_views_format_update(Main *bmain, Scene *scene, PointerRNA 
   }
 
   BKE_image_release_ibuf(ima, ibuf, lock);
+  BKE_image_partial_update_mark_full_update(ima);
 }
 
 static void rna_ImageUser_update(Main *bmain, Scene *scene, PointerRNA *ptr)
@@ -236,8 +239,8 @@ static int rna_Image_file_format_get(PointerRNA *ptr)
 {
   Image *image = (Image *)ptr->data;
   ImBuf *ibuf = BKE_image_acquire_ibuf(image, NULL, NULL);
-  int imtype = BKE_image_ftype_to_imtype(ibuf ? ibuf->ftype : IMB_FTYPE_NONE,
-                                         ibuf ? &ibuf->foptions : NULL);
+  int imtype = BKE_ftype_to_imtype(ibuf ? ibuf->ftype : IMB_FTYPE_NONE,
+                                   ibuf ? &ibuf->foptions : NULL);
 
   BKE_image_release_ibuf(image, ibuf, NULL);
 
@@ -249,7 +252,7 @@ static void rna_Image_file_format_set(PointerRNA *ptr, int value)
   Image *image = (Image *)ptr->data;
   if (BKE_imtype_is_movie(value) == 0) { /* should be able to throw an error here */
     ImbFormatOptions options;
-    int ftype = BKE_image_imtype_to_ftype(value, &options);
+    int ftype = BKE_imtype_to_ftype(value, &options);
     BKE_image_file_format_set(image, ftype, &options);
   }
 }
@@ -594,7 +597,7 @@ static void rna_render_slots_active_set(PointerRNA *ptr,
     int index = BLI_findindex(&image->renderslots, slot);
     if (index != -1) {
       image->render_slot = index;
-      image->gpuflag |= IMA_GPU_REFRESH;
+      BKE_image_partial_update_mark_full_update(image);
     }
   }
 }
@@ -610,7 +613,7 @@ static void rna_render_slots_active_index_set(PointerRNA *ptr, int value)
   Image *image = (Image *)ptr->owner_id;
   int num_slots = BLI_listbase_count(&image->renderslots);
   image->render_slot = value;
-  image->gpuflag |= IMA_GPU_REFRESH;
+  BKE_image_partial_update_mark_full_update(image);
   CLAMP(image->render_slot, 0, num_slots - 1);
 }
 

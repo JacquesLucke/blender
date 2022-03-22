@@ -18,9 +18,11 @@
 #include "DNA_meshdata_types.h"
 
 #include "BLI_bitmap.h"
+#include "BLI_color.hh"
 #include "BLI_endian_switch.h"
 #include "BLI_math.h"
 #include "BLI_math_color_blend.h"
+#include "BLI_math_vector.hh"
 #include "BLI_mempool.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
@@ -1450,6 +1452,21 @@ static bool layerValidate_propfloat2(void *data, const uint totitems, const bool
   return has_errors;
 }
 
+static void layerInterp_propbool(const void **sources,
+                                 const float *weights,
+                                 const float *UNUSED(sub_weights),
+                                 int count,
+                                 void *dest)
+{
+  bool result = false;
+  for (int i = 0; i < count; i++) {
+    const float interp_weight = weights[i];
+    const bool src = *(const bool *)sources[i];
+    result |= src && (interp_weight > 0.0f);
+  }
+  *(bool *)dest = result;
+}
+
 static const LayerTypeInfo LAYERTYPEINFO[CD_NUMTYPES] = {
     /* 0: CD_MVERT */
     {sizeof(MVert), "MVert", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
@@ -1777,7 +1794,7 @@ static const LayerTypeInfo LAYERTYPEINFO[CD_NUMTYPES] = {
     /* 44: CD_RADIUS */
     {sizeof(float), "MFloatProperty", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     /* 45: CD_PROP_INT8 */
-    {sizeof(int8_t), "MInt8Property", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    {sizeof(int8_t), "MInt8Property", 1, N_("Int8"), nullptr, nullptr, nullptr, nullptr, nullptr},
     /* 46: CD_HAIRMAPPING */ /* UNUSED */
     {-1, "", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     /* 47: CD_PROP_COLOR */
@@ -1838,7 +1855,7 @@ static const LayerTypeInfo LAYERTYPEINFO[CD_NUMTYPES] = {
      N_("Boolean"),
      nullptr,
      nullptr,
-     nullptr,
+     layerInterp_propbool,
      nullptr,
      nullptr,
      nullptr,
@@ -1959,10 +1976,10 @@ const CustomData_MeshMasks CD_MASK_BMESH = {
      CD_MASK_GRID_PAINT_MASK | CD_MASK_PROP_ALL),
 };
 const CustomData_MeshMasks CD_MASK_EVERYTHING = {
-    /* vmask */ (CD_MASK_MVERT | CD_MASK_BM_ELEM_PYPTR | CD_MASK_ORIGINDEX | CD_MASK_NORMAL |
-                 CD_MASK_MDEFORMVERT | CD_MASK_BWEIGHT | CD_MASK_MVERT_SKIN | CD_MASK_ORCO |
-                 CD_MASK_CLOTH_ORCO | CD_MASK_SHAPEKEY | CD_MASK_SHAPE_KEYINDEX |
-                 CD_MASK_PAINT_MASK | CD_MASK_PROP_ALL | CD_MASK_PROP_COLOR | CD_MASK_CREASE),
+    /* vmask */ (CD_MASK_MVERT | CD_MASK_BM_ELEM_PYPTR | CD_MASK_ORIGINDEX | CD_MASK_MDEFORMVERT |
+                 CD_MASK_BWEIGHT | CD_MASK_MVERT_SKIN | CD_MASK_ORCO | CD_MASK_CLOTH_ORCO |
+                 CD_MASK_SHAPEKEY | CD_MASK_SHAPE_KEYINDEX | CD_MASK_PAINT_MASK |
+                 CD_MASK_PROP_ALL | CD_MASK_PROP_COLOR | CD_MASK_CREASE),
     /* emask */
     (CD_MASK_MEDGE | CD_MASK_BM_ELEM_PYPTR | CD_MASK_ORIGINDEX | CD_MASK_BWEIGHT | CD_MASK_CREASE |
      CD_MASK_FREESTYLE_EDGE | CD_MASK_PROP_ALL),
@@ -1971,7 +1988,7 @@ const CustomData_MeshMasks CD_MASK_EVERYTHING = {
      CD_MASK_ORIGSPACE | CD_MASK_TANGENT | CD_MASK_TESSLOOPNORMAL | CD_MASK_PREVIEW_MCOL |
      CD_MASK_PROP_ALL),
     /* pmask */
-    (CD_MASK_MPOLY | CD_MASK_BM_ELEM_PYPTR | CD_MASK_ORIGINDEX | CD_MASK_NORMAL | CD_MASK_FACEMAP |
+    (CD_MASK_MPOLY | CD_MASK_BM_ELEM_PYPTR | CD_MASK_ORIGINDEX | CD_MASK_FACEMAP |
      CD_MASK_FREESTYLE_FACE | CD_MASK_PROP_ALL | CD_MASK_SCULPT_FACE_SETS),
     /* lmask */
     (CD_MASK_MLOOP | CD_MASK_BM_ELEM_PYPTR | CD_MASK_MDISPS | CD_MASK_NORMAL | CD_MASK_MLOOPUV |
@@ -5219,3 +5236,56 @@ void CustomData_debug_info_from_layers(const CustomData *data, const char *inden
 }
 
 #endif /* NDEBUG */
+
+namespace blender::bke {
+
+const blender::CPPType *custom_data_type_to_cpp_type(const CustomDataType type)
+{
+  switch (type) {
+    case CD_PROP_FLOAT:
+      return &CPPType::get<float>();
+    case CD_PROP_FLOAT2:
+      return &CPPType::get<float2>();
+    case CD_PROP_FLOAT3:
+      return &CPPType::get<float3>();
+    case CD_PROP_INT32:
+      return &CPPType::get<int>();
+    case CD_PROP_COLOR:
+      return &CPPType::get<ColorGeometry4f>();
+    case CD_PROP_BOOL:
+      return &CPPType::get<bool>();
+    case CD_PROP_INT8:
+      return &CPPType::get<int8_t>();
+    default:
+      return nullptr;
+  }
+  return nullptr;
+}
+
+CustomDataType cpp_type_to_custom_data_type(const blender::CPPType &type)
+{
+  if (type.is<float>()) {
+    return CD_PROP_FLOAT;
+  }
+  if (type.is<float2>()) {
+    return CD_PROP_FLOAT2;
+  }
+  if (type.is<float3>()) {
+    return CD_PROP_FLOAT3;
+  }
+  if (type.is<int>()) {
+    return CD_PROP_INT32;
+  }
+  if (type.is<ColorGeometry4f>()) {
+    return CD_PROP_COLOR;
+  }
+  if (type.is<bool>()) {
+    return CD_PROP_BOOL;
+  }
+  if (type.is<int8_t>()) {
+    return CD_PROP_INT8;
+  }
+  return static_cast<CustomDataType>(-1);
+}
+
+}  // namespace blender::bke

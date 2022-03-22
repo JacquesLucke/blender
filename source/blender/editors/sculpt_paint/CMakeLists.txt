@@ -9,6 +9,7 @@ set(INC
   ../../bmesh
   ../../depsgraph
   ../../draw
+  ../../functions
   ../../gpu
   ../../imbuf
   ../../makesdna
@@ -21,14 +22,22 @@ set(INC
   ../../../../intern/eigen
   ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 set(SRC
+  curves_sculpt_add.cc
+  curves_sculpt_comb.cc
+  curves_sculpt_delete.cc
+  curves_sculpt_ops.cc
+  curves_sculpt_snake_hook.cc
   paint_cursor.c
   paint_curve.c
   paint_curve_undo.c
   paint_hide.c
-  paint_image.c
+  paint_image.cc
+  paint_image_ops_paint.cc
   paint_image_2d.c
   paint_image_2d_curve_mask.cc
   paint_image_proj.c
@@ -66,6 +75,8 @@ set(SRC
   sculpt_undo.c
   sculpt_uv.c
 
+  curves_sculpt_intern.h
+  curves_sculpt_intern.hh
   paint_intern.h
   sculpt_intern.h
 )
@@ -75,5 +86,19 @@ set(LIB
   bf_blenlib
 )
 
+if(WITH_TBB)
+  list(APPEND INC_SYS
+    ${TBB_INCLUDE_DIRS}
+  )
+  add_definitions(-DWITH_TBB)
+  if(WIN32)
+    # TBB includes Windows.h which will define min/max macros
+    # that will collide with the stl versions.
+    add_definitions(-DNOMINMAX)
+  endif()
+endif()
 
 blender_add_lib(bf_editor_sculpt_paint "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# RNA_prototypes.h
+add_dependencies(bf_editor_sculpt_paint bf_rna)

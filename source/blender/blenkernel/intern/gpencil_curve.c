@@ -50,8 +50,8 @@
 static int gpencil_check_same_material_color(Object *ob_gp,
                                              const float color_stroke[4],
                                              const float color_fill[4],
-                                             const bool do_fill,
                                              const bool do_stroke,
+                                             const bool do_fill,
                                              Material **r_mat)
 {
   int index = -1;
@@ -443,7 +443,7 @@ static void gpencil_convert_spline(Main *bmain,
   }
 
   if (sample > 0.0f) {
-    BKE_gpencil_stroke_sample(gpd, gps, sample, false);
+    BKE_gpencil_stroke_sample(gpd, gps, sample, false, 0);
   }
 
   /* Recalc fill geometry. */

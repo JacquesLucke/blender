@@ -468,6 +468,52 @@ class _draw_tool_settings_context_mode:
 
         return True
 
+    @staticmethod
+    def SCULPT_CURVES(context, layout, tool):
+        if (tool is None) or (not tool.has_datablock):
+            return False
+
+        tool_settings = context.tool_settings
+        paint = tool_settings.curves_sculpt
+        layout.template_ID_preview(paint, "brush", rows=3, cols=8, hide_buttons=True)
+
+        brush = paint.brush
+        if brush is None:
+            return False
+
+        UnifiedPaintPanel.prop_unified(
+            layout,
+            context,
+            brush,
+            "size",
+            unified_name="use_unified_size",
+            text="Radius",
+            slider=True,
+            header=True
+        )
+
+        if brush.curves_sculpt_tool not in ("ADD", "DELETE"):
+            UnifiedPaintPanel.prop_unified(
+                layout,
+                context,
+                brush,
+                "strength",
+                unified_name="use_unified_strength",
+                header=True
+            )
+
+        if brush.curves_sculpt_tool == "ADD":
+            layout.prop(brush, "use_frontface")
+            layout.prop(brush, "falloff_shape", expand=True)
+            layout.prop(brush.curves_sculpt_settings, "add_amount")
+            layout.prop(tool_settings.curves_sculpt, "curve_length")
+            layout.prop(tool_settings.curves_sculpt, "interpolate_length")
+            layout.prop(tool_settings.curves_sculpt, "interpolate_shape")
+
+        if brush.curves_sculpt_tool == "TEST1":
+            layout.prop(tool_settings.curves_sculpt, "distance")
+
+
 
 class VIEW3D_HT_header(Header):
     bl_space_type = 'VIEW_3D'
@@ -823,7 +869,7 @@ class VIEW3D_MT_editor_menus(Menu):
                 layout.menu("VIEW3D_MT_select_paint_mask")
             elif mesh.use_paint_mask_vertex and mode_string in {'PAINT_WEIGHT', 'PAINT_VERTEX'}:
                 layout.menu("VIEW3D_MT_select_paint_mask_vertex")
-        elif mode_string != 'SCULPT':
+        elif mode_string not in {'SCULPT', 'SCULPT_CURVES'}:
             layout.menu("VIEW3D_MT_select_%s" % mode_string.lower())
 
         if gp_edit:
@@ -866,7 +912,7 @@ class VIEW3D_MT_editor_menus(Menu):
                 layout.menu("VIEW3D_MT_edit_curve_segments")
 
         elif obj:
-            if mode_string != 'PAINT_TEXTURE':
+            if mode_string not in {'PAINT_TEXTURE', 'SCULPT_CURVES'}:
                 layout.menu("VIEW3D_MT_%s" % mode_string.lower())
             if mode_string == 'SCULPT':
                 layout.menu("VIEW3D_MT_mask")
@@ -1165,23 +1211,24 @@ class VIEW3D_MT_view_viewpoint(Menu):
 
     def draw(self, _context):
         layout = self.layout
+        i18n_text_ctxt = bpy.app.translations.contexts_C_to_py['BLT_I18NCONTEXT_EDITOR_VIEW3D']
 
-        layout.operator("view3d.view_camera", text="Camera")
-
-        layout.separator()
-
-        layout.operator("view3d.view_axis", text="Top").type = 'TOP'
-        layout.operator("view3d.view_axis", text="Bottom").type = 'BOTTOM'
+        layout.operator("view3d.view_camera", text="Camera", text_ctxt=i18n_text_ctxt)
 
         layout.separator()
 
-        layout.operator("view3d.view_axis", text="Front").type = 'FRONT'
-        layout.operator("view3d.view_axis", text="Back").type = 'BACK'
+        layout.operator("view3d.view_axis", text="Top", text_ctxt=i18n_text_ctxt).type = 'TOP'
+        layout.operator("view3d.view_axis", text="Bottom", text_ctxt=i18n_text_ctxt).type = 'BOTTOM'
 
         layout.separator()
 
-        layout.operator("view3d.view_axis", text="Right").type = 'RIGHT'
-        layout.operator("view3d.view_axis", text="Left").type = 'LEFT'
+        layout.operator("view3d.view_axis", text="Front", text_ctxt=i18n_text_ctxt).type = 'FRONT'
+        layout.operator("view3d.view_axis", text="Back", text_ctxt=i18n_text_ctxt).type = 'BACK'
+
+        layout.separator()
+
+        layout.operator("view3d.view_axis", text="Right", text_ctxt=i18n_text_ctxt).type = 'RIGHT'
+        layout.operator("view3d.view_axis", text="Left", text_ctxt=i18n_text_ctxt).type = 'LEFT'
 
 
 class VIEW3D_MT_view_navigation(Menu):
@@ -1210,6 +1257,7 @@ class VIEW3D_MT_view_navigation(Menu):
         layout.operator("view3d.zoom", text="Zoom In").delta = 1
         layout.operator("view3d.zoom", text="Zoom Out").delta = -1
         layout.operator("view3d.zoom_border", text="Zoom Region...")
+        layout.operator("view3d.dolly", text="Dolly View...")
         layout.operator("view3d.zoom_camera_1_to_1", text="Zoom Camera 1:1")
 
         layout.separator()
@@ -1247,32 +1295,33 @@ class VIEW3D_MT_view_align_selected(Menu):
 
     def draw(self, _context):
         layout = self.layout
+        i18n_text_ctxt = bpy.app.translations.contexts_C_to_py['BLT_I18NCONTEXT_EDITOR_VIEW3D']
 
-        props = layout.operator("view3d.view_axis", text="Top")
+        props = layout.operator("view3d.view_axis", text="Top", text_ctxt=i18n_text_ctxt)
         props.align_active = True
         props.type = 'TOP'
 
-        props = layout.operator("view3d.view_axis", text="Bottom")
+        props = layout.operator("view3d.view_axis", text="Bottom", text_ctxt=i18n_text_ctxt)
         props.align_active = True
         props.type = 'BOTTOM'
 
         layout.separator()
 
-        props = layout.operator("view3d.view_axis", text="Front")
+        props = layout.operator("view3d.view_axis", text="Front", text_ctxt=i18n_text_ctxt)
         props.align_active = True
         props.type = 'FRONT'
 
-        props = layout.operator("view3d.view_axis", text="Back")
+        props = layout.operator("view3d.view_axis", text="Back", text_ctxt=i18n_text_ctxt)
         props.align_active = True
         props.type = 'BACK'
 
         layout.separator()
 
-        props = layout.operator("view3d.view_axis", text="Right")
+        props = layout.operator("view3d.view_axis", text="Right", text_ctxt=i18n_text_ctxt)
         props.align_active = True
         props.type = 'RIGHT'
 
-        props = layout.operator("view3d.view_axis", text="Left")
+        props = layout.operator("view3d.view_axis", text="Left", text_ctxt=i18n_text_ctxt)
         props.align_active = True
         props.type = 'LEFT'
 
@@ -1897,6 +1946,13 @@ class VIEW3D_MT_select_paint_mask_vertex(Menu):
         layout.separator()
 
         layout.operator("paint.vert_select_ungrouped", text="Ungrouped Vertices")
+
+
+class VIEW3D_MT_select_edit_curves(Menu):
+    bl_label = "Select"
+
+    def draw(self, _context):
+        pass
 
 
 class VIEW3D_MT_angle_control(Menu):
@@ -5123,6 +5179,13 @@ class VIEW3D_MT_edit_gpencil_showhide(Menu):
         layout.operator("gpencil.hide", text="Hide Inactive Layers").unselected = True
 
 
+class VIEW3D_MT_edit_curves(Menu):
+    bl_label = "Curves"
+
+    def draw(self, _context):
+        pass
+
+
 class VIEW3D_MT_object_mode_pie(Menu):
     bl_label = "Mode"
 
@@ -7440,13 +7503,20 @@ class VIEW3D_PT_sculpt_context_menu(Panel):
             UnifiedPaintPanel.prop_unified_color_picker(split, context, brush, "color", value_slider=True)
             layout.prop(brush, "blend", text="")
 
+        ups = context.tool_settings.unified_paint_settings
+        size = "size"
+        size_owner = ups if ups.use_unified_size else brush
+        if size_owner.use_locked_size == 'SCENE':
+            size = "unprojected_radius"
+
         UnifiedPaintPanel.prop_unified(
             layout,
             context,
             brush,
-            "size",
+            size,
             unified_name="use_unified_size",
             pressure_name="use_pressure_size",
+            text="Radius",
             slider=True,
         )
         UnifiedPaintPanel.prop_unified(
@@ -7544,6 +7614,7 @@ classes = (
     VIEW3D_MT_select_gpencil,
     VIEW3D_MT_select_paint_mask,
     VIEW3D_MT_select_paint_mask_vertex,
+    VIEW3D_MT_select_edit_curves,
     VIEW3D_MT_angle_control,
     VIEW3D_MT_mesh_add,
     VIEW3D_MT_curve_add,
@@ -7666,6 +7737,7 @@ classes = (
     VIEW3D_MT_edit_armature_names,
     VIEW3D_MT_edit_armature_delete,
     VIEW3D_MT_edit_gpencil_transform,
+    VIEW3D_MT_edit_curves,
     VIEW3D_MT_object_mode_pie,
     VIEW3D_MT_view_pie,
     VIEW3D_MT_transform_gizmo_pie,

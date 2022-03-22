@@ -216,7 +216,6 @@ enum_direct_light_sampling_type = (
 )
 
 def update_render_passes(self, context):
-    scene = context.scene
     view_layer = context.view_layer
     view_layer.update_render_passes()
 
@@ -349,8 +348,8 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     scrambling_distance: FloatProperty(
         name="Scrambling Distance",
         default=1.0,
-        min=0.0, max=1.0,
-        description="Reduce randomization between pixels to improve GPU rendering performance, at the cost of possible rendering artifacts if set too low. Only works when not using adaptive sampling",
+        min=0.0, soft_max=1.0,
+        description="Reduce randomization between pixels to improve GPU rendering performance, at the cost of possible rendering artifacts if set too low",
     )
     preview_scrambling_distance: BoolProperty(
         name="Scrambling Distance viewport",
@@ -361,7 +360,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     auto_scrambling_distance: BoolProperty(
         name="Automatic Scrambling Distance",
         default=False,
-        description="Automatically reduce the randomization between pixels to improve GPU rendering performance, at the cost of possible rendering artifacts. Only works when not using adaptive sampling",
+        description="Automatically reduce the randomization between pixels to improve GPU rendering performance, at the cost of possible rendering artifacts",
     )
 
     use_layer_samples: EnumProperty(
@@ -1353,7 +1352,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
         items=CyclesPreferences.get_device_types,
     )
 
-    devices: bpy.props.CollectionProperty(type=CyclesDeviceSettings)
+    devices: CollectionProperty(type=CyclesDeviceSettings)
 
     peer_memory: BoolProperty(
         name="Distribute memory across devices",
@@ -1485,7 +1484,8 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                 if sys.platform[:3] == "win":
                     col.label(text="and AMD Radeon Pro 21.Q4 driver or newer", icon='BLANK1')
             elif device_type == 'METAL':
-                col.label(text="Requires Apple Silicon and macOS 12.0 or newer", icon='BLANK1')
+                col.label(text="Requires Apple Silicon with macOS 12.2 or newer", icon='BLANK1')
+                col.label(text="or AMD with macOS 12.3 or newer", icon='BLANK1')
             return
 
         for device in devices:
@@ -1513,9 +1513,12 @@ class CyclesPreferences(bpy.types.AddonPreferences):
             row.prop(self, "peer_memory")
 
         if compute_device_type == 'METAL':
-            row = layout.row()
-            row.use_property_split = True
-            row.prop(self, "use_metalrt")
+            import platform
+            # MetalRT only works on Apple Silicon at present, pending argument encoding fixes on AMD
+            if platform.machine() == 'arm64':
+                row = layout.row()
+                row.use_property_split = True
+                row.prop(self, "use_metalrt")
 
 
     def draw(self, context):

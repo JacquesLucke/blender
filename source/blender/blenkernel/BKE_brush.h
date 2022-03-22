@@ -8,13 +8,13 @@
  * General operations for brushes.
  */
 
+#include "DNA_color_types.h"
 #include "DNA_object_enums.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-enum eCurveMappingPreset;
 struct Brush;
 struct ImBuf;
 struct ImagePool;
@@ -52,6 +52,9 @@ bool BKE_brush_delete(struct Main *bmain, struct Brush *brush);
  * Add grease pencil settings.
  */
 void BKE_brush_init_gpencil_settings(struct Brush *brush);
+
+void BKE_brush_init_curves_sculpt_settings(struct Brush *brush);
+
 struct Brush *BKE_brush_first_search(struct Main *bmain, eObjectMode ob_mode);
 
 void BKE_brush_sculpt_reset(struct Brush *brush);
