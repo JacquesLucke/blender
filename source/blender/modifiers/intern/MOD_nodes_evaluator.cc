@@ -15,6 +15,7 @@
 
 #include "BLT_translation.h"
 
+#include "BLI_contextual_logger.hh"
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_generic_value_map.hh"
 #include "BLI_stack.hh"

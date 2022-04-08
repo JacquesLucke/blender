@@ -49,6 +49,7 @@ set(SRC
   intern/bitmap_draw_2d.c
   intern/boxpack_2d.c
   intern/buffer.c
+  intern/contextual_logger.cc
   intern/convexhull_2d.c
   intern/cpp_type.cc
   intern/delaunay_2d.cc
@@ -174,6 +175,7 @@ set(SRC
   BLI_compiler_compat.h
   BLI_compiler_typecheck.h
   BLI_console.h
+  BLI_contextual_logger.hh
   BLI_convexhull_2d.h
   BLI_cpp_type.hh
   BLI_cpp_type_make.hh
