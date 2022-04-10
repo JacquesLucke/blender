@@ -203,14 +203,36 @@ class RandomFloatFunction : public fn::MultiFunction {
     const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
     MutableSpan<float> values = params.uninitialized_single_output<float>(4, "Value");
 
-    for (int64_t i : mask) {
-      const float min_value = min_values[i];
-      const float max_value = max_values[i];
-      const int seed = seeds[i];
-      const int id = ids[i];
+    auto fn = [&](auto in_indices,
+                  auto out_indices,
+                  auto min_values,
+                  auto max_values,
+                  auto ids,
+                  auto seeds,
+                  float *__restrict r_values) {
+      for (const int64_t i : IndexRange(in_indices.size())) {
+        const int64_t in_index = in_indices[i];
+        const int64_t out_index = out_indices[i];
 
-      const float value = noise::hash_to_float(seed, id);
-      values[i] = value * (max_value - min_value) + min_value;
+        const float min_value = min_values[in_index];
+        const float max_value = max_values[in_index];
+        const int seed = seeds[in_index];
+        const int id = ids[in_index];
+
+        const float value = noise::hash_to_float(seed, id);
+        r_values[out_index] = value * (max_value - min_value) + min_value;
+      }
+    };
+
+    ArrayDevirtualizer<decltype(fn),
+                       SingleInputTag<float>,
+                       SingleInputTag<float>,
+                       SingleInputTag<int>,
+                       SingleInputTag<int>,
+                       SingleOutputTag<float>>
+        devirtualizer{fn, &mask, &min_values, &max_values, &ids, &seeds, &values};
+    if (!devirtualizer.try_execute_devirtualized()) {
+      devirtualizer.execute_materialized();
     }
   }
 };
