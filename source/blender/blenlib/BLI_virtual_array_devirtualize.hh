@@ -57,11 +57,10 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     this->init(std::make_index_sequence<sizeof...(Args)>{});
   }
 
-  bool execute_fallback()
+  void execute_fallback()
   {
     BLI_assert(!executed_);
     this->execute_fallback_impl(std::make_index_sequence<sizeof...(Args)>{});
-    return true;
   }
 
   bool try_execute_devirtualized()
