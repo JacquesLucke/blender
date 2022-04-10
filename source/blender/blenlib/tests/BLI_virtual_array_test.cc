@@ -246,8 +246,8 @@ TEST(virtual_array, Devirtualize)
   IndexMask mask(IndexRange(10));
   VArray<int> in1 = VArray<int>::ForSingle(3, 10);
   // VArray<int> in2 = VArray<int>::ForSingle(5, 10);
-  VArray<int> in2 = VArray<int>::ForContainer(Array<int>(10, 5));
-  // VArray<int> in2 = VArray<int>::ForFunc(10, [](int64_t i) { return (int)i; });
+  // VArray<int> in2 = VArray<int>::ForContainer(Array<int>(10, 5));
+  VArray<int> in2 = VArray<int>::ForFunc(10, [](int64_t i) { return (int)i; });
   std::array<int, 10> out1_array;
   MutableSpan<int> out1 = out1_array;
   out1.fill(-1);
@@ -255,7 +255,9 @@ TEST(virtual_array, Devirtualize)
   ArrayDevirtualizer<decltype(fn), SingleInputTag<int>, SingleInputTag<int>, SingleOutputTag<int>>
       devirtualizer{fn, &mask, &in1, &in2, &out1};
 
-  devirtualizer.try_execute_devirtualized();
+  if (!devirtualizer.try_execute_devirtualized()) {
+    devirtualizer.execute_fallback();
+  }
 
   EXPECT_EQ(out1[0], 8);
   EXPECT_EQ(out1[1], 8);

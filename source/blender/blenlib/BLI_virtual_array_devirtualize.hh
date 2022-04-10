@@ -102,9 +102,11 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
   void try_execute_devirtualized_impl_call(std::tuple<Mode...> /* modes */,
                                            std::index_sequence<I...> /* indices */)
   {
-    fn_(mask_,
-        mask_,
-        this->get_execute_param<I, std::tuple_element_t<I, std::tuple<Mode...>>>()...);
+    mask_.to_best_mask_type([&](auto mask) {
+      fn_(mask,
+          mask,
+          this->get_execute_param<I, std::tuple_element_t<I, std::tuple<Mode...>>>()...);
+    });
     executed_ = true;
   }
 
