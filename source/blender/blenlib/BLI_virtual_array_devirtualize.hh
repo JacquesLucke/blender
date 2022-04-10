@@ -37,6 +37,9 @@ struct DevirtualizeSpan {
 struct DevirtualizeSingle {
 };
 
+template<typename TagsTuple, size_t I>
+using BaseType = typename std::tuple_element_t<I, TagsTuple>::BaseType;
+
 template<typename Fn, typename... Args> class ArrayDevirtualizer {
  private:
   using TagsTuple = std::tuple<Args...>;
@@ -69,7 +72,63 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     return this->try_execute_devirtualized_impl();
   }
 
+  void execute_materialized()
+  {
+    BLI_assert(!executed_);
+    this->execute_materialized_impl(std::make_index_sequence<sizeof...(Args)>{});
+  }
+
  private:
+  template<size_t... I> void execute_materialized_impl(std::index_sequence<I...> /* indices */)
+  {
+    static constexpr int64_t MaxChunkSize = 32;
+    const int64_t mask_size = mask_.size();
+    std::tuple<TypedBuffer<BaseType<TagsTuple, I>, MaxChunkSize>...> buffers_owner;
+    std::tuple<MutableSpan<BaseType<TagsTuple, I>>...> buffers = {
+        MutableSpan{std::get<I>(buffers_owner).ptr(), std::min(mask_size, MaxChunkSize)}...};
+
+    for (int64_t chunk_start = 0; chunk_start < mask_size; chunk_start += MaxChunkSize) {
+      const int64_t chunk_size = std::min(mask_size - chunk_start, MaxChunkSize);
+      const IndexMask sliced_mask = mask_.slice(chunk_start, chunk_size);
+      const int64_t sliced_mask_size = sliced_mask.size();
+      (
+          [&]() {
+            using ParamTag = std::tuple_element_t<I, TagsTuple>;
+            using T = typename ParamTag::BaseType;
+            if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
+              MutableSpan in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
+              const VArray<T> *varray = std::get<I>(params_);
+              varray->materialize_compressed_to_uninitialized(sliced_mask, in_chunk);
+            }
+          }(),
+          ...);
+
+      fn_(IndexRange(sliced_mask_size), sliced_mask, [&]() {
+        using ParamTag = std::tuple_element_t<I, TagsTuple>;
+        using T = typename ParamTag::BaseType;
+        if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
+          MutableSpan<T> in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
+          return in_chunk;
+        }
+        else if constexpr (std::is_base_of_v<SingleOutputTagBase, ParamTag>) {
+          MutableSpan<T> out_span = *std::get<I>(params_);
+          return out_span.data();
+        }
+      }()...);
+
+      (
+          [&]() {
+            using ParamTag = std::tuple_element_t<I, TagsTuple>;
+            using T = typename ParamTag::BaseType;
+            if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
+              MutableSpan<T> in_chunk = std::get<I>(buffers);
+              destruct_n(in_chunk.data(), sliced_mask_size);
+            }
+          }(),
+          ...);
+    }
+  }
+
   template<typename... Mode> bool try_execute_devirtualized_impl()
   {
     if constexpr (sizeof...(Mode) == sizeof...(Args)) {

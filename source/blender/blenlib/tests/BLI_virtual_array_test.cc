@@ -256,7 +256,7 @@ TEST(virtual_array, Devirtualize)
       devirtualizer{fn, &mask, &in1, &in2, &out1};
 
   if (!devirtualizer.try_execute_devirtualized()) {
-    devirtualizer.execute_fallback();
+    devirtualizer.execute_materialized();
   }
 
   EXPECT_EQ(out1[0], 8);
