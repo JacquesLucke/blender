@@ -131,18 +131,6 @@ class CustomMF_SI_SI_SO : public MultiFunction {
     };
   }
 
-  template<typename ElementFuncT, typename MaskT, typename In1Array, typename In2Array>
-  BLI_NOINLINE static void execute_SI_SI_SO(const ElementFuncT &element_fn,
-                                            MaskT mask,
-                                            const In1Array &in1,
-                                            const In2Array &in2,
-                                            Out1 *__restrict r_out)
-  {
-    for (const int64_t i : mask) {
-      new (r_out + i) Out1(element_fn(in1[i], in2[i]));
-    }
-  }
-
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
     const VArray<In1> &in1 = params.readonly_single_input<In1>(0);
