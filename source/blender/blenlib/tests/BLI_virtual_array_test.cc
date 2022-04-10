@@ -225,7 +225,7 @@ TEST(virtual_array, MaterializeCompressed)
 
 TEST(virtual_array, Devirtualize)
 {
-  auto fn = [](auto in_indices, auto out_indices, auto in1, auto in2, MutableSpan<int> out1) {
+  auto fn = [](auto in_indices, auto out_indices, auto in1, auto in2, int *__restrict out1) {
     for (const int64_t i : IndexRange(in_indices.size())) {
       const int64_t in_i = in_indices[i];
       const int64_t out_i = out_indices[i];

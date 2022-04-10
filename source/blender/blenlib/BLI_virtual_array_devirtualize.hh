@@ -71,7 +71,18 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
 
   template<size_t... I> void execute_fallback_impl(std::index_sequence<I...> /* indices */)
   {
-    fn_(mask_, mask_, *std::get<I>(params_)...);
+    fn_(mask_, mask_, this->get_execute_param<I>()...);
+  }
+
+  template<size_t I> auto get_execute_param()
+  {
+    using ParamTag = std::tuple_element_t<I, TagsTuple>;
+    if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
+      return *std::get<I>(params_);
+    }
+    else if constexpr (std::is_base_of_v<SingleOutputTagBase, ParamTag>) {
+      return std::get<I>(params_)->data();
+    }
   }
 };
 
