@@ -30,11 +30,13 @@ template<typename T> struct ParamType<SingleOutputTag<T>> {
   using type = MutableSpan<T>;
 };
 
-struct DevirtualizeNone {
+enum class DevirtualizeMode {
+  None,
+  Span,
+  Single,
 };
-struct DevirtualizeSpan {
-};
-struct DevirtualizeSingle {
+
+template<DevirtualizeMode... Mode> struct DevirtualizeModeSequence {
 };
 
 template<typename TagsTuple, size_t I>
@@ -69,7 +71,7 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
   bool try_execute_devirtualized()
   {
     BLI_assert(!executed_);
-    return this->try_execute_devirtualized_impl();
+    return this->try_execute_devirtualized_impl(DevirtualizeModeSequence<>());
   }
 
   void execute_materialized()
@@ -146,10 +148,11 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     }
   }
 
-  template<typename... Mode> bool try_execute_devirtualized_impl()
+  template<DevirtualizeMode... Mode>
+  bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> modes)
   {
     if constexpr (sizeof...(Mode) == sizeof...(Args)) {
-      this->try_execute_devirtualized_impl_call(std::tuple<Mode...>(),
+      this->try_execute_devirtualized_impl_call(modes,
                                                 std::make_index_sequence<sizeof...(Args)>());
       return true;
     }
@@ -158,30 +161,30 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
       using ParamTag = std::tuple_element_t<I, TagsTuple>;
       if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
         if (varray_is_single_[I]) {
-          return this->try_execute_devirtualized_impl<Mode..., DevirtualizeSingle>();
+          return this->try_execute_devirtualized_impl(
+              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>());
         }
         else if (varray_is_span_[I]) {
-          return this->try_execute_devirtualized_impl<Mode..., DevirtualizeSpan>();
+          return this->try_execute_devirtualized_impl(
+              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>());
         }
         else {
           return false;
         }
       }
       else {
-        return this->try_execute_devirtualized_impl<Mode..., DevirtualizeNone>();
+        return this->try_execute_devirtualized_impl(
+            DevirtualizeModeSequence<Mode..., DevirtualizeMode::None>());
       }
     }
   }
 
-  template<typename... Mode, size_t... I>
-  void try_execute_devirtualized_impl_call(std::tuple<Mode...> /* modes */,
+  template<DevirtualizeMode... Mode, size_t... I>
+  void try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...> /* modes */,
                                            std::index_sequence<I...> /* indices */)
   {
-    mask_.to_best_mask_type([&](auto mask) {
-      fn_(mask,
-          mask,
-          this->get_execute_param<I, std::tuple_element_t<I, std::tuple<Mode...>>>()...);
-    });
+    mask_.to_best_mask_type(
+        [&](auto mask) { fn_(mask, mask, this->get_execute_param<I, Mode>()...); });
     executed_ = true;
   }
 
@@ -204,23 +207,23 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
 
   template<size_t... I> void execute_fallback_impl(std::index_sequence<I...> /* indices */)
   {
-    fn_(mask_, mask_, this->get_execute_param<I, DevirtualizeNone>()...);
+    fn_(mask_, mask_, this->get_execute_param<I, DevirtualizeMode::None>()...);
     executed_ = true;
   }
 
-  template<size_t I, typename Mode> auto get_execute_param()
+  template<size_t I, DevirtualizeMode Mode> auto get_execute_param()
   {
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
     if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
       using T = typename ParamTag::BaseType;
       const VArray<T> *varray = std::get<I>(params_);
-      if constexpr (std::is_same_v<Mode, DevirtualizeNone>) {
+      if constexpr (Mode == DevirtualizeMode::None) {
         return *varray;
       }
-      else if constexpr (std::is_same_v<Mode, DevirtualizeSingle>) {
+      else if constexpr (Mode == DevirtualizeMode::Single) {
         return SingleAsSpan(*varray);
       }
-      else if constexpr (std::is_same_v<Mode, DevirtualizeSpan>) {
+      else if constexpr (Mode == DevirtualizeMode::Span) {
         return varray->get_internal_span();
       }
     }
