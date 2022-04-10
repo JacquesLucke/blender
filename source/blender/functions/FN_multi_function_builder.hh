@@ -183,27 +183,30 @@ class CustomMF_SI_SI_SI_SO : public MultiFunction {
                const VArray<In2> &in2,
                const VArray<In3> &in3,
                MutableSpan<Out1> out1) {
-      /* Virtual arrays are not devirtualized yet, to avoid generating lots of code without further
-       * consideration. */
-      execute_SI_SI_SI_SO(element_fn, mask, in1, in2, in3, out1.data());
-    };
-  }
+      auto fn = [&](auto in_indices,
+                    auto out_indices,
+                    auto in1,
+                    auto in2,
+                    auto in3,
+                    Out1 *__restrict out1) {
+        BLI_assert(in_indices.size() == out_indices.size());
+        for (const int64_t i : IndexRange(in_indices.size())) {
+          const int64_t in_index = in_indices[i];
+          const int64_t out_index = out_indices[i];
+          new (out1 + out_index) Out1(element_fn(in1[in_index], in2[in_index], in3[in_index]));
+        }
+      };
 
-  template<typename ElementFuncT,
-           typename MaskT,
-           typename In1Array,
-           typename In2Array,
-           typename In3Array>
-  BLI_NOINLINE static void execute_SI_SI_SI_SO(const ElementFuncT &element_fn,
-                                               MaskT mask,
-                                               const In1Array &in1,
-                                               const In2Array &in2,
-                                               const In3Array &in3,
-                                               Out1 *__restrict r_out)
-  {
-    for (const int64_t i : mask) {
-      new (r_out + i) Out1(element_fn(in1[i], in2[i], in3[i]));
-    }
+      ArrayDevirtualizer<decltype(fn),
+                         SingleInputTag<In1>,
+                         SingleInputTag<In2>,
+                         SingleInputTag<In3>,
+                         SingleOutputTag<Out1>>
+          devirtualizer{fn, &mask, &in1, &in2, &in3, &out1};
+      if (!devirtualizer.try_execute_devirtualized()) {
+        devirtualizer.execute_materialized();
+      }
+    };
   }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
