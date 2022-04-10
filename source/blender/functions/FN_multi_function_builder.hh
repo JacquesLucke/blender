@@ -49,7 +49,7 @@ template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunctio
   template<typename ElementFuncT> static FunctionT create_function(ElementFuncT element_fn)
   {
     return [=](IndexMask mask, const VArray<In1> &in1, MutableSpan<Out1> out1) {
-      auto fn = [&](auto in_indices, auto out_indices, auto in1, Out1 *out1) {
+      auto fn = [&](auto in_indices, auto out_indices, auto in1, Out1 *__restrict out1) {
         BLI_assert(in_indices.size() == out_indices.size());
         for (const int64_t i : IndexRange(in_indices.size())) {
           const int64_t in_index = in_indices[i];
@@ -111,11 +111,23 @@ class CustomMF_SI_SI_SO : public MultiFunction {
                const VArray<In1> &in1,
                const VArray<In2> &in2,
                MutableSpan<Out1> out1) {
-      /* Devirtualization results in a 2-3x speedup for some simple functions. */
-      devirtualize_varray2(in1, in2, [&](const auto &in1, const auto &in2) {
-        mask.to_best_mask_type(
-            [&](const auto &mask) { execute_SI_SI_SO(element_fn, mask, in1, in2, out1.data()); });
-      });
+      auto fn = [&](auto in_indices, auto out_indices, auto in1, auto in2, Out1 *__restrict out1) {
+        BLI_assert(in_indices.size() == out_indices.size());
+        for (const int64_t i : IndexRange(in_indices.size())) {
+          const int64_t in_index = in_indices[i];
+          const int64_t out_index = out_indices[i];
+          new (out1 + out_index) Out1(element_fn(in1[in_index], in2[in_index]));
+        }
+      };
+
+      ArrayDevirtualizer<decltype(fn),
+                         SingleInputTag<In1>,
+                         SingleInputTag<In2>,
+                         SingleOutputTag<Out1>>
+          devirtualizer{fn, &mask, &in1, &in2, &out1};
+      if (!devirtualizer.try_execute_devirtualized()) {
+        devirtualizer.execute_materialized();
+      }
     };
   }
 
