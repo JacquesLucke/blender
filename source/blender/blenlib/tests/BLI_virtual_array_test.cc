@@ -223,19 +223,31 @@ TEST(virtual_array, MaterializeCompressed)
   }
 }
 
-TEST(virtual_array, Devirtualize)
-{
-  auto fn = [](auto in_indices, auto out_indices, auto in1, auto in2, int *__restrict out1) {
+struct MyOperator {
+  template<typename InIndices, typename OutIndices, typename In1Array, typename In2Array>
+  void operator()(InIndices in_indices,
+                  OutIndices out_indices,
+                  In1Array in1,
+                  In2Array in2,
+                  int *__restrict out1)
+  {
     for (const int64_t i : IndexRange(in_indices.size())) {
       const int64_t in_i = in_indices[i];
       const int64_t out_i = out_indices[i];
       out1[out_i] = in1[in_i] + in2[in_i];
     }
-  };
+  }
+};
+
+TEST(virtual_array, Devirtualize)
+{
+  MyOperator fn;
 
   IndexMask mask(IndexRange(10));
   VArray<int> in1 = VArray<int>::ForSingle(3, 10);
-  VArray<int> in2 = VArray<int>::ForSingle(5, 10);
+  // VArray<int> in2 = VArray<int>::ForSingle(5, 10);
+  VArray<int> in2 = VArray<int>::ForContainer(Array<int>(10, 5));
+  // VArray<int> in2 = VArray<int>::ForFunc(10, [](int64_t i) { return (int)i; });
   std::array<int, 10> out1_array;
   MutableSpan<int> out1 = out1_array;
   out1.fill(-1);
@@ -243,7 +255,7 @@ TEST(virtual_array, Devirtualize)
   ArrayDevirtualizer<decltype(fn), SingleInputTag<int>, SingleInputTag<int>, SingleOutputTag<int>>
       devirtualizer{fn, &mask, &in1, &in2, &out1};
 
-  devirtualizer.execute_fallback();
+  devirtualizer.try_execute_devirtualized();
 
   EXPECT_EQ(out1[0], 8);
   EXPECT_EQ(out1[1], 8);
