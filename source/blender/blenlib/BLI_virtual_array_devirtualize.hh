@@ -11,10 +11,12 @@ namespace blender {
 struct SingleInputTagBase {
 };
 template<typename T> struct SingleInputTag : public SingleInputTagBase {
+  using BaseType = T;
 };
 struct SingleOutputTagBase {
 };
 template<typename T> struct SingleOutputTag : public SingleOutputTagBase {
+  using BaseType = T;
 };
 
 template<typename T> struct ParamType {
@@ -26,6 +28,12 @@ template<typename T> struct ParamType<SingleInputTag<T>> {
 
 template<typename T> struct ParamType<SingleOutputTag<T>> {
   using type = MutableSpan<T>;
+};
+
+enum class DevirtualizeMode {
+  None,
+  Span,
+  Single,
 };
 
 template<typename Fn, typename... Args> class ArrayDevirtualizer {
@@ -71,14 +79,26 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
 
   template<size_t... I> void execute_fallback_impl(std::index_sequence<I...> /* indices */)
   {
-    fn_(mask_, mask_, this->get_execute_param<I>()...);
+    fn_(mask_, mask_, this->get_execute_param<I, DevirtualizeMode::None>()...);
   }
 
-  template<size_t I> auto get_execute_param()
+  template<size_t I, DevirtualizeMode mode> auto get_execute_param()
   {
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
     if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
-      return *std::get<I>(params_);
+      using T = typename ParamTag::BaseType;
+      static_assert(
+          ELEM(mode, DevirtualizeMode::None, DevirtualizeMode::Single, DevirtualizeMode::Span));
+      const VArray<T> *varray = std::get<I>(params_);
+      if constexpr (mode == DevirtualizeMode::None) {
+        return *varray;
+      }
+      else if constexpr (mode == DevirtualizeMode::Single) {
+        return SingleAsSpan(*varray);
+      }
+      else if constexpr (mode == DevirtualizeMode::Span) {
+        return varray->get_internal_span();
+      }
     }
     else if constexpr (std::is_base_of_v<SingleOutputTagBase, ParamTag>) {
       return std::get<I>(params_)->data();
