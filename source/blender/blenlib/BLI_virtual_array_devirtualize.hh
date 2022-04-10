@@ -87,6 +87,21 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     std::tuple<MutableSpan<BaseType<TagsTuple, I>>...> buffers = {
         MutableSpan{std::get<I>(buffers_owner).ptr(), std::min(mask_size, MaxChunkSize)}...};
 
+    (
+        [&]() {
+          using ParamTag = std::tuple_element_t<I, TagsTuple>;
+          using T = typename ParamTag::BaseType;
+          if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
+            MutableSpan in_chunk = std::get<I>(buffers);
+            if (varray_is_single_[I]) {
+              const VArray<T> *varray = std::get<I>(params_);
+              const T in_single = varray->get_internal_single();
+              in_chunk.fill(in_single);
+            }
+          }
+        }(),
+        ...);
+
     for (int64_t chunk_start = 0; chunk_start < mask_size; chunk_start += MaxChunkSize) {
       const int64_t chunk_size = std::min(mask_size - chunk_start, MaxChunkSize);
       const IndexMask sliced_mask = mask_.slice(chunk_start, chunk_size);
@@ -96,9 +111,11 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
             using ParamTag = std::tuple_element_t<I, TagsTuple>;
             using T = typename ParamTag::BaseType;
             if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
-              MutableSpan in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
-              const VArray<T> *varray = std::get<I>(params_);
-              varray->materialize_compressed_to_uninitialized(sliced_mask, in_chunk);
+              if (!varray_is_single_[I]) {
+                MutableSpan in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
+                const VArray<T> *varray = std::get<I>(params_);
+                varray->materialize_compressed_to_uninitialized(sliced_mask, in_chunk);
+              }
             }
           }(),
           ...);
