@@ -208,22 +208,22 @@ class RandomFloatFunction : public fn::MultiFunction {
       *r_value = value * (max_value - min_value) + min_value;
     };
 
-    using namespace varray_devirtualize::common;
+    namespace devi = varray_devirtualize::common;
 
-    auto devirtualizer = devirtualizer_from_element_fn<decltype(element_fn),
-                                                       InputTag<float>,
-                                                       InputTag<float>,
-                                                       InputTag<int>,
-                                                       InputTag<int>,
-                                                       OutputTag<float>>(
+    auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(element_fn),
+                                                             devi::InputTag<float>,
+                                                             devi::InputTag<float>,
+                                                             devi::InputTag<int>,
+                                                             devi::InputTag<int>,
+                                                             devi::OutputTag<float>>(
         element_fn, &mask, &min_values, &max_values, &ids, &seeds, &values);
 
-    if (!devirtualizer.try_execute_devirtualized<MaskMode::Range | MaskMode::Mask>(
-            ParamModeSequence<ParamMode::Single,
-                              ParamMode::Single,
-                              ParamMode::Span,
-                              ParamMode::Single,
-                              ParamMode::None>())) {
+    if (!devirtualizer.try_execute_devirtualized<devi::MaskMode::Range | devi::MaskMode::Mask>(
+            devi::ParamModeSequence<devi::ParamMode::Single,
+                                    devi::ParamMode::Single,
+                                    devi::ParamMode::Span,
+                                    devi::ParamMode::Single,
+                                    devi::ParamMode::None>())) {
       devirtualizer.execute_materialized();
     }
   }

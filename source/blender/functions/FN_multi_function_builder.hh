@@ -52,10 +52,10 @@ template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunctio
       auto wrapped_element_fn = [&](const In1 &in1, Out1 *r_out1) {
         new (r_out1) Out1(element_fn(in1));
       };
-      using namespace varray_devirtualize::common;
-      auto devirtualizer = devirtualizer_from_element_fn<decltype(wrapped_element_fn),
-                                                         InputTag<In1>,
-                                                         OutputTag<Out1>>(
+      namespace devi = varray_devirtualize::common;
+      auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
+                                                               devi::InputTag<In1>,
+                                                               devi::OutputTag<Out1>>(
           wrapped_element_fn, &mask, &in1, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
@@ -111,11 +111,11 @@ class CustomMF_SI_SI_SO : public MultiFunction {
       auto wrapped_element_fn = [&](const In1 &in1, const In2 &in2, Out1 *r_out1) {
         new (r_out1) Out1(element_fn(in1, in2));
       };
-      using namespace varray_devirtualize::common;
-      auto devirtualizer = devirtualizer_from_element_fn<decltype(wrapped_element_fn),
-                                                         InputTag<In1>,
-                                                         InputTag<In2>,
-                                                         OutputTag<Out1>>(
+      namespace devi = varray_devirtualize::common;
+      auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
+                                                               devi::InputTag<In1>,
+                                                               devi::InputTag<In2>,
+                                                               devi::OutputTag<Out1>>(
           wrapped_element_fn, &mask, &in1, &in2, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
@@ -178,12 +178,12 @@ class CustomMF_SI_SI_SI_SO : public MultiFunction {
       auto wrapped_element_fn = [&](const In1 &in1, const In2 &in2, const In3 &in3, Out1 *r_out1) {
         new (r_out1) Out1(element_fn(in1, in2, in3));
       };
-      using namespace varray_devirtualize::common;
-      auto devirtualizer = devirtualizer_from_element_fn<decltype(wrapped_element_fn),
-                                                         InputTag<In1>,
-                                                         InputTag<In2>,
-                                                         InputTag<In3>,
-                                                         OutputTag<Out1>>(
+      namespace devi = varray_devirtualize::common;
+      auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
+                                                               devi::InputTag<In1>,
+                                                               devi::InputTag<In2>,
+                                                               devi::InputTag<In3>,
+                                                               devi::OutputTag<Out1>>(
           wrapped_element_fn, &mask, &in1, &in2, &in3, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
@@ -252,13 +252,13 @@ class CustomMF_SI_SI_SI_SI_SO : public MultiFunction {
           [&](const In1 &in1, const In2 &in2, const In3 &in3, const In4 &in4, Out1 *r_out1) {
             new (r_out1) Out1(element_fn(in1, in2, in3, in4));
           };
-      using namespace varray_devirtualize::common;
-      auto devirtualizer = devirtualizer_from_element_fn<decltype(wrapped_element_fn),
-                                                         InputTag<In1>,
-                                                         InputTag<In2>,
-                                                         InputTag<In3>,
-                                                         InputTag<In4>,
-                                                         OutputTag<Out1>>(
+      namespace devi = varray_devirtualize::common;
+      auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
+                                                               devi::InputTag<In1>,
+                                                               devi::InputTag<In2>,
+                                                               devi::InputTag<In3>,
+                                                               devi::InputTag<In4>,
+                                                               devi::OutputTag<Out1>>(
           wrapped_element_fn, &mask, &in1, &in2, &in3, &in4, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
