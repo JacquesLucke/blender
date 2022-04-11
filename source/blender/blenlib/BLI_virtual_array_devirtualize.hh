@@ -150,10 +150,10 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
   }
 
   template<DevirtualizeMode... Mode>
-  bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> modes)
+  bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> /* modes */)
   {
     if constexpr (sizeof...(Mode) == sizeof...(Args)) {
-      this->try_execute_devirtualized_impl_call(modes,
+      this->try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...>(),
                                                 std::make_index_sequence<sizeof...(Args)>());
       return true;
     }
