@@ -51,30 +51,30 @@ using DevirtualizeModeSequence = EnumSequence<DevirtualizeMode, Mode...>;
 template<typename TagsTuple, size_t I>
 using BaseType = typename std::tuple_element_t<I, TagsTuple>::BaseType;
 
-template<typename Fn, typename... Args> class Devirtualizer {
+template<typename Fn, typename... Params> class Devirtualizer {
  private:
-  using TagsTuple = std::tuple<Args...>;
+  using TagsTuple = std::tuple<Params...>;
 
   Fn fn_;
   IndexMask mask_;
-  std::tuple<const typename ParamType<Args>::type *...> params_;
+  std::tuple<const typename ParamType<Params>::type *...> params_;
 
-  std::array<bool, sizeof...(Args)> varray_is_span_;
-  std::array<bool, sizeof...(Args)> varray_is_single_;
+  std::array<bool, sizeof...(Params)> varray_is_span_;
+  std::array<bool, sizeof...(Params)> varray_is_single_;
 
   bool executed_ = false;
 
  public:
-  Devirtualizer(Fn fn, const IndexMask *mask, const typename ParamType<Args>::type *...params)
+  Devirtualizer(Fn fn, const IndexMask *mask, const typename ParamType<Params>::type *...params)
       : fn_(std::move(fn)), mask_(*mask), params_{params...}
   {
-    this->init(std::make_index_sequence<sizeof...(Args)>{});
+    this->init(std::make_index_sequence<sizeof...(Params)>{});
   }
 
   void execute_fallback()
   {
     BLI_assert(!executed_);
-    this->execute_fallback_impl(std::make_index_sequence<sizeof...(Args)>{});
+    this->execute_fallback_impl(std::make_index_sequence<sizeof...(Params)>{});
   }
 
   bool try_execute_devirtualized()
@@ -84,14 +84,14 @@ template<typename Fn, typename... Args> class Devirtualizer {
         ->try_execute_devirtualized<MaskDevirtualizeMode::Mask | MaskDevirtualizeMode::Range>(
             make_enum_sequence<DevirtualizeMode,
                                DevirtualizeMode::Span | DevirtualizeMode::Single,
-                               sizeof...(Args)>());
+                               sizeof...(Params)>());
   }
 
   template<MaskDevirtualizeMode MaskMode, DevirtualizeMode... AllowedModes>
   bool try_execute_devirtualized(DevirtualizeModeSequence<AllowedModes...> /* allowed_modes */)
   {
     BLI_assert(!executed_);
-    static_assert(sizeof...(AllowedModes) == sizeof...(Args));
+    static_assert(sizeof...(AllowedModes) == sizeof...(Params));
     return this->try_execute_devirtualized_impl<MaskMode>(
         DevirtualizeModeSequence<>(), DevirtualizeModeSequence<AllowedModes...>());
   }
@@ -99,7 +99,7 @@ template<typename Fn, typename... Args> class Devirtualizer {
   void execute_materialized()
   {
     BLI_assert(!executed_);
-    this->execute_materialized_impl(std::make_index_sequence<sizeof...(Args)>{});
+    this->execute_materialized_impl(std::make_index_sequence<sizeof...(Params)>{});
   }
 
  private:
@@ -174,9 +174,9 @@ template<typename Fn, typename... Args> class Devirtualizer {
   bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> /* modes */,
                                       DevirtualizeModeSequence<> /* allowed_modes */)
   {
-    static_assert(sizeof...(Mode) == sizeof...(Args));
+    static_assert(sizeof...(Mode) == sizeof...(Params));
     return this->try_execute_devirtualized_impl_call<MaskMode>(
-        DevirtualizeModeSequence<Mode...>(), std::make_index_sequence<sizeof...(Args)>());
+        DevirtualizeModeSequence<Mode...>(), std::make_index_sequence<sizeof...(Params)>());
   }
 
   template<MaskDevirtualizeMode MaskMode,
@@ -187,7 +187,7 @@ template<typename Fn, typename... Args> class Devirtualizer {
       DevirtualizeModeSequence<Mode...> /* modes */,
       DevirtualizeModeSequence<AllowedModes, RemainingAllowedModes...> /* allowed_modes */)
   {
-    static_assert(sizeof...(Mode) + sizeof...(RemainingAllowedModes) + 1 == sizeof...(Args));
+    static_assert(sizeof...(Mode) + sizeof...(RemainingAllowedModes) + 1 == sizeof...(Params));
 
     constexpr size_t I = sizeof...(Mode);
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
