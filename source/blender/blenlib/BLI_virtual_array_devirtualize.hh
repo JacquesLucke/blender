@@ -325,6 +325,28 @@ devirtualizer_from_element_fn(ElementFn element_fn,
       executor, mask, params...};
 }
 
+namespace presets {
+
+struct Fallback {
+  template<typename Fn, typename... ParamTags>
+  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  {
+    devirtualizer.execute_fallback();
+  }
+};
+
+struct AllSpanSingleOrMaterialized {
+  template<typename Fn, typename... ParamTags>
+  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  {
+    if (!devirtualizer.try_execute_devirtualized()) {
+      devirtualizer.execute_materialized();
+    }
+  }
+};
+
+}  // namespace presets
+
 namespace common {
 using blender::varray_devirtualize::devirtualizer_from_element_fn;
 using blender::varray_devirtualize::InputTag;
