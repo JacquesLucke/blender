@@ -440,39 +440,6 @@ class MapRangeSteppedFunction : public fn::MultiFunction {
   }
 };
 
-class MapRangeSmootherstepFunction : public fn::MultiFunction {
- public:
-  MapRangeSmootherstepFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Map Range Smoothstep"};
-    map_range_signature(&signature, false);
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float> &values = params.readonly_single_input<float>(0, "Value");
-    const VArray<float> &from_min = params.readonly_single_input<float>(1, "From Min");
-    const VArray<float> &from_max = params.readonly_single_input<float>(2, "From Max");
-    const VArray<float> &to_min = params.readonly_single_input<float>(3, "To Min");
-    const VArray<float> &to_max = params.readonly_single_input<float>(4, "To Max");
-    MutableSpan<float> results = params.uninitialized_single_output<float>(5, "Result");
-
-    for (int64_t i : mask) {
-      float factor = safe_divide(values[i] - from_min[i], from_max[i] - from_min[i]);
-      factor = std::clamp(factor, 0.0f, 1.0f);
-      factor = factor * factor * factor * (factor * (factor * 6.0f - 15.0f) + 10.0f);
-      results[i] = to_min[i] + factor * (to_max[i] - to_min[i]);
-    }
-  }
-};
-
 static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   const NodeMapRange &storage = node_storage(builder.node());
@@ -601,8 +568,26 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
           break;
         }
         case NODE_MAP_RANGE_SMOOTHERSTEP: {
-          static MapRangeSmootherstepFunction smootherstep;
-          builder.set_matching_fn(smootherstep);
+          static fn::CustomMF<devi::InputTag<float>,
+                              devi::InputTag<float>,
+                              devi::InputTag<float>,
+                              devi::InputTag<float>,
+                              devi::InputTag<float>,
+                              devi::OutputTag<float>>
+              fn{"Map Range Smoothstep",
+                 [](float value,
+                    float from_min,
+                    float from_max,
+                    float to_min,
+                    float to_max,
+                    float *r_value) {
+                   float factor = safe_divide(value - from_min, from_max - from_min);
+                   factor = std::clamp(factor, 0.0f, 1.0f);
+                   factor = factor * factor * factor * (factor * (factor * 6.0f - 15.0f) + 10.0f);
+                   *r_value = to_min + factor * (to_max - to_min);
+                 },
+                 devi::presets::OneSpanOtherSingle<0>()};
+          builder.set_matching_fn(fn);
           break;
         }
         default:
