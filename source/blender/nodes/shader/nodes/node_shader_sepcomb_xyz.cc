@@ -9,6 +9,8 @@
 
 namespace blender::nodes::node_shader_sepcomb_xyz_cc {
 
+namespace devi = varray_devirtualize;
+
 static void sh_node_sepxyz_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
@@ -105,8 +107,15 @@ static int gpu_shader_combxyz(GPUMaterial *mat,
 
 static void sh_node_combxyz_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  static fn::CustomMF_SI_SI_SI_SO<float, float, float, float3> fn{
-      "Combine Vector", [](float x, float y, float z) { return float3(x, y, z); }};
+  static fn::CustomMF<devi::InputTag<float>,
+                      devi::InputTag<float>,
+                      devi::InputTag<float>,
+                      devi::OutputTag<float3>>
+      fn{"Combine Vector",
+         [](float x, float y, float z, float3 *r_value) {
+           *r_value = {x, y, z};
+         },
+         devi::presets::AllSpanOrSingle()};
   builder.set_matching_fn(fn);
 }
 
