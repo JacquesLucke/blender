@@ -134,47 +134,6 @@ static void fn_node_random_value_gather_link_search(GatherLinkSearchOpParams &pa
   }
 }
 
-class RandomIntFunction : public fn::MultiFunction {
- public:
-  RandomIntFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Random Value"};
-    signature.single_input<int>("Min");
-    signature.single_input<int>("Max");
-    signature.single_input<int>("ID");
-    signature.single_input<int>("Seed");
-    signature.single_output<int>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<int> &min_values = params.readonly_single_input<int>(0, "Min");
-    const VArray<int> &max_values = params.readonly_single_input<int>(1, "Max");
-    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
-    MutableSpan<int> values = params.uninitialized_single_output<int>(4, "Value");
-
-    /* Add one to the maximum and use floor to produce an even
-     * distribution for the first and last values (See T93591). */
-    for (int64_t i : mask) {
-      const float min_value = min_values[i];
-      const float max_value = max_values[i] + 1.0f;
-      const int seed = seeds[i];
-      const int id = ids[i];
-
-      const float value = noise::hash_to_float(id, seed);
-      values[i] = floor(value * (max_value - min_value) + min_value);
-    }
-  }
-};
-
 class RandomBoolFunction : public fn::MultiFunction {
  public:
   RandomBoolFunction()
@@ -250,7 +209,19 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
       break;
     }
     case CD_PROP_INT32: {
-      static RandomIntFunction fn;
+      static fn::CustomMF<devi::InputTag<int>,
+                          devi::InputTag<int>,
+                          devi::InputTag<int>,
+                          devi::InputTag<int>,
+                          devi::OutputTag<int>>
+          fn{"Random Int",
+             [](int min_value, int max_value, int id, int seed, int *r_value) {
+               const float value = noise::hash_to_float(id, seed);
+               /* Add one to the maximum and use floor to produce an even
+                * distribution for the first and last values (See T93591). */
+               *r_value = floor(value * (max_value + 1 - min_value) + min_value);
+             },
+             devi::presets::OneSpanOtherSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }
