@@ -424,16 +424,55 @@ class MapRangeFunction : public fn::MultiFunction {
     const VArray<float> &to_max = params.readonly_single_input<float>(4, "To Max");
     MutableSpan<float> results = params.uninitialized_single_output<float>(5, "Result");
 
-    for (int64_t i : mask) {
-      float factor = safe_divide(values[i] - from_min[i], from_max[i] - from_min[i]);
-      results[i] = to_min[i] + factor * (to_max[i] - to_min[i]);
-    }
+    namespace devi = varray_devirtualize::common;
+
+    auto execute = [&](auto element_fn) {
+      auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(element_fn),
+                                                               devi::InputTag<float>,
+                                                               devi::InputTag<float>,
+                                                               devi::InputTag<float>,
+                                                               devi::InputTag<float>,
+                                                               devi::InputTag<float>,
+                                                               devi::OutputTag<float>>(
+          element_fn, &mask, &values, &from_min, &from_max, &to_min, &to_max, &results);
+      if (!devirtualizer.try_execute_devirtualized()) {
+        devirtualizer.execute_materialized();
+      }
+    };
 
     if (clamp_) {
-      for (int64_t i : mask) {
-        results[i] = clamp_range(results[i], to_min[i], to_max[i]);
-      }
+      auto element_fn = [](const float value,
+                           const float from_min,
+                           const float from_max,
+                           const float to_min,
+                           const float to_max,
+                           float *r_result) {
+        const float result = map_range(value, from_min, from_max, to_min, to_max);
+        *r_result = clamp_range(result, to_min, to_max);
+      };
+      execute(element_fn);
     }
+    else {
+      auto element_fn = [](const float value,
+                           const float from_min,
+                           const float from_max,
+                           const float to_min,
+                           const float to_max,
+                           float *r_result) {
+        *r_result = map_range(value, from_min, from_max, to_min, to_max);
+      };
+      execute(element_fn);
+    }
+  }
+
+  static float map_range(const float value,
+                         const float from_min,
+                         const float from_max,
+                         const float to_min,
+                         const float to_max)
+  {
+    float factor = safe_divide(value - from_min, from_max - from_min);
+    return to_min + factor * (to_max - to_min);
   }
 };
 
