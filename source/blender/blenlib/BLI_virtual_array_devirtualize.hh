@@ -81,11 +81,19 @@ template<typename Fn, typename... Args> class Devirtualizer {
   {
     BLI_assert(!executed_);
     return this
-        ->try_execute_devirtualized_impl<MaskDevirtualizeMode::Mask | MaskDevirtualizeMode::Range>(
-            DevirtualizeModeSequence<>(),
+        ->try_execute_devirtualized<MaskDevirtualizeMode::Mask | MaskDevirtualizeMode::Range>(
             make_enum_sequence<DevirtualizeMode,
                                DevirtualizeMode::Span | DevirtualizeMode::Single,
                                sizeof...(Args)>());
+  }
+
+  template<MaskDevirtualizeMode MaskMode, DevirtualizeMode... AllowedModes>
+  bool try_execute_devirtualized(DevirtualizeModeSequence<AllowedModes...> /* allowed_modes */)
+  {
+    BLI_assert(!executed_);
+    static_assert(sizeof...(AllowedModes) == sizeof...(Args));
+    return this->try_execute_devirtualized_impl<MaskMode>(
+        DevirtualizeModeSequence<>(), DevirtualizeModeSequence<AllowedModes...>());
   }
 
   void execute_materialized()
