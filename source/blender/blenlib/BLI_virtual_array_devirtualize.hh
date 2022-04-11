@@ -31,9 +31,9 @@ template<typename T> struct ParamType<SingleOutputTag<T>> {
 };
 
 enum class DevirtualizeMode {
-  None,
-  Span,
-  Single,
+  None = 0,
+  Span = (1 << 0),
+  Single = (1 << 1),
 };
 ENUM_OPERATORS(DevirtualizeMode, DevirtualizeMode::Single);
 
@@ -173,19 +173,21 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     constexpr size_t I = sizeof...(Mode);
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
     if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
-      if (varray_is_single_[I]) {
-        return this->try_execute_devirtualized_impl(
-            DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>(),
-            DevirtualizeModeSequence<RemainingAllowedModes...>());
+      if constexpr ((AllowedModes & DevirtualizeMode::Single) != DevirtualizeMode::None) {
+        if (varray_is_single_[I]) {
+          return this->try_execute_devirtualized_impl(
+              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>(),
+              DevirtualizeModeSequence<RemainingAllowedModes...>());
+        }
       }
-      else if (varray_is_span_[I]) {
-        return this->try_execute_devirtualized_impl(
-            DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>(),
-            DevirtualizeModeSequence<RemainingAllowedModes...>());
+      if constexpr ((AllowedModes & DevirtualizeMode::Span) != DevirtualizeMode::None) {
+        if (varray_is_span_[I]) {
+          return this->try_execute_devirtualized_impl(
+              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>(),
+              DevirtualizeModeSequence<RemainingAllowedModes...>());
+        }
       }
-      else {
-        return false;
-      }
+      return false;
     }
     else {
       return this->try_execute_devirtualized_impl(
