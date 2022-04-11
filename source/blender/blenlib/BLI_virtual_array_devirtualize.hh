@@ -327,7 +327,7 @@ devirtualizer_from_element_fn(ElementFn element_fn,
 
 namespace presets {
 
-struct Fallback {
+struct NoDevirtualization {
   template<typename Fn, typename... ParamTags>
   void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
   {

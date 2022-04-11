@@ -25,15 +25,11 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
 
   using TagsSequence = TypeSequence<ParamTags...>;
 
-  constexpr static auto default_devirtualize_fn = [](auto devirtualizer) {
-    devirtualizer.execute_fallback();
-  };
-
  public:
-  template<typename ElementFn, typename DevirtualizeFn = devi::presets::Fallback>
+  template<typename ElementFn, typename DevirtualizeFn = devi::presets::Materialized>
   CustomMF(const char *name,
            ElementFn element_fn,
-           DevirtualizeFn devirtualize_fn = devi::presets::Fallback())
+           DevirtualizeFn devirtualize_fn = devi::presets::Materialized())
   {
     MFSignatureBuilder signature{name};
     add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
