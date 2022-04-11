@@ -40,15 +40,16 @@ static void node_float_to_int_label(const bNodeTree *UNUSED(ntree),
 
 static const fn::MultiFunction *get_multi_function(bNode &bnode)
 {
-  static fn::CustomMF_SI_SO<float, int> round_fn{"Round", [](float a) { return (int)round(a); }};
+  // static fn::CustomMF_SI_SO<float, int> round_fn{"Round", [](float a) { return (int)round(a);
+  // }};
   static fn::CustomMF_SI_SO<float, int> floor_fn{"Floor", [](float a) { return (int)floor(a); }};
   static fn::CustomMF_SI_SO<float, int> ceil_fn{"Ceiling", [](float a) { return (int)ceil(a); }};
   static fn::CustomMF_SI_SO<float, int> trunc_fn{"Truncate",
                                                  [](float a) { return (int)trunc(a); }};
 
   namespace devi = varray_devirtualize;
-  static fn::CustomMF<devi::InputTag<int>, devi::InputTag<int>, devi::OutputTag<int>> fn(
-      "Hello", [](int a, int b, int *r_c) { *r_c = a + b; });
+  static fn::CustomMF<devi::InputTag<float>, devi::OutputTag<int>> round_fn(
+      "Round", [](float a, int *dst) { *dst = (int)round(a); });
 
   switch (static_cast<FloatToIntRoundingMode>(bnode.custom1)) {
     case FN_NODE_FLOAT_TO_INT_ROUND:

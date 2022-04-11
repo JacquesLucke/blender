@@ -30,6 +30,8 @@ template<typename T> struct ParamType<OutputTag<T>> {
   using type = MutableSpan<T>;
 };
 
+template<typename Tag> using ParamType_t = typename ParamType<Tag>::type;
+
 enum class ParamMode {
   None = 0,
   Span = (1 << 0),
