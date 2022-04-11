@@ -226,61 +226,6 @@ static float3 clamp_range(const float3 value, const float3 min, const float3 max
                 clamp_range(value.z, min.z, max.z));
 }
 
-static void map_range_vector_signature(fn::MFSignatureBuilder *signature, bool use_steps)
-{
-  signature->single_input<float3>("Vector");
-  signature->single_input<float3>("From Min");
-  signature->single_input<float3>("From Max");
-  signature->single_input<float3>("To Min");
-  signature->single_input<float3>("To Max");
-  if (use_steps) {
-    signature->single_input<float3>("Steps");
-  }
-  signature->single_output<float3>("Vector");
-}
-
-class MapRangeSteppedVectorFunction : public fn::MultiFunction {
- private:
-  bool clamp_;
-
- public:
-  MapRangeSteppedVectorFunction(bool clamp) : clamp_(clamp)
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Vector Map Range Stepped"};
-    map_range_vector_signature(&signature, true);
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float3> &values = params.readonly_single_input<float3>(0, "Vector");
-    const VArray<float3> &from_min = params.readonly_single_input<float3>(1, "From Min");
-    const VArray<float3> &from_max = params.readonly_single_input<float3>(2, "From Max");
-    const VArray<float3> &to_min = params.readonly_single_input<float3>(3, "To Min");
-    const VArray<float3> &to_max = params.readonly_single_input<float3>(4, "To Max");
-    const VArray<float3> &steps = params.readonly_single_input<float3>(5, "Steps");
-    MutableSpan<float3> results = params.uninitialized_single_output<float3>(6, "Vector");
-
-    for (int64_t i : mask) {
-      float3 factor = math::safe_divide(values[i] - from_min[i], from_max[i] - from_min[i]);
-      factor = math::safe_divide(math::floor(factor * (steps[i] + 1.0f)), steps[i]);
-      results[i] = factor * (to_max[i] - to_min[i]) + to_min[i];
-    }
-
-    if (clamp_) {
-      for (int64_t i : mask) {
-        results[i] = clamp_range(results[i], to_min[i], to_max[i]);
-      }
-    }
-  }
-};
-
 template<bool Clamp> static auto build_float_linear()
 {
   return fn::CustomMF<devi::InputTag<float>,
@@ -354,6 +299,34 @@ template<bool Clamp> static auto build_vector_linear()
       devi::presets::OneSpanOtherSingle<0>()};
 }
 
+template<bool Clamp> static auto build_vector_stepped()
+{
+  return fn::CustomMF<devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::OutputTag<float3>>{
+      Clamp ? "Vector Map Range Stepped (clamped)" : "Vector Map Range Stepped (unclamped)",
+      [](const float3 &value,
+         const float3 &from_min,
+         const float3 &from_max,
+         const float3 &to_min,
+         const float3 &to_max,
+         const float3 &steps,
+         float3 *r_value) {
+        float3 factor = math::safe_divide(value - from_min, from_max - from_min);
+        factor = math::safe_divide(math::floor(factor * (steps + 1.0f)), steps);
+        float3 result = factor * (to_max - to_min) + to_min;
+        if constexpr (Clamp) {
+          result = clamp_range(result, to_min, to_max);
+        }
+        *r_value = result;
+      },
+      devi::presets::OneSpanOtherSingle<0>()};
+}
+
 static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   const NodeMapRange &storage = node_storage(builder.node());
@@ -376,12 +349,12 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
         }
         case NODE_MAP_RANGE_STEPPED: {
           if (clamp) {
-            static MapRangeSteppedVectorFunction fn_stepped_with_clamp{true};
-            builder.set_matching_fn(fn_stepped_with_clamp);
+            static auto fn = build_vector_stepped<true>();
+            builder.set_matching_fn(fn);
           }
           else {
-            static MapRangeSteppedVectorFunction fn_stepped_without_clamp{false};
-            builder.set_matching_fn(fn_stepped_without_clamp);
+            static auto fn = build_vector_stepped<false>();
+            builder.set_matching_fn(fn);
           }
           break;
         }
