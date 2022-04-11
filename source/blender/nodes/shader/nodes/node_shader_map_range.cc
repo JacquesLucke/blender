@@ -239,46 +239,6 @@ static void map_range_vector_signature(fn::MFSignatureBuilder *signature, bool u
   signature->single_output<float3>("Vector");
 }
 
-class MapRangeVectorFunction : public fn::MultiFunction {
- private:
-  bool clamp_;
-
- public:
-  MapRangeVectorFunction(bool clamp) : clamp_(clamp)
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Vector Map Range"};
-    map_range_vector_signature(&signature, false);
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float3> &values = params.readonly_single_input<float3>(0, "Vector");
-    const VArray<float3> &from_min = params.readonly_single_input<float3>(1, "From Min");
-    const VArray<float3> &from_max = params.readonly_single_input<float3>(2, "From Max");
-    const VArray<float3> &to_min = params.readonly_single_input<float3>(3, "To Min");
-    const VArray<float3> &to_max = params.readonly_single_input<float3>(4, "To Max");
-    MutableSpan<float3> results = params.uninitialized_single_output<float3>(5, "Vector");
-
-    for (int64_t i : mask) {
-      float3 factor = math::safe_divide(values[i] - from_min[i], from_max[i] - from_min[i]);
-      results[i] = factor * (to_max[i] - to_min[i]) + to_min[i];
-    }
-
-    if (clamp_) {
-      for (int64_t i : mask) {
-        results[i] = clamp_range(results[i], to_min[i], to_max[i]);
-      }
-    }
-  }
-};
-
 class MapRangeSteppedVectorFunction : public fn::MultiFunction {
  private:
   bool clamp_;
@@ -369,6 +329,31 @@ template<bool Clamp> static auto build_float_stepped()
       devi::presets::OneSpanOtherSingle<0>()};
 }
 
+template<bool Clamp> static auto build_vector_linear()
+{
+  return fn::CustomMF<devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::InputTag<float3>,
+                      devi::OutputTag<float3>>{
+      Clamp ? "Vector Map Range (clamped)" : "Vector Map Range (unclamped)",
+      [](const float3 &value,
+         const float3 &from_min,
+         const float3 &from_max,
+         const float3 &to_min,
+         const float3 &to_max,
+         float3 *r_value) {
+        float3 factor = math::safe_divide(value - from_min, from_max - from_min);
+        float3 result = factor * (to_max - to_min) + to_min;
+        if constexpr (Clamp) {
+          result = clamp_range(result, to_min, to_max);
+        }
+        *r_value = result;
+      },
+      devi::presets::OneSpanOtherSingle<0>()};
+}
+
 static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   const NodeMapRange &storage = node_storage(builder.node());
@@ -380,12 +365,12 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
       switch (interpolation_type) {
         case NODE_MAP_RANGE_LINEAR: {
           if (clamp) {
-            static MapRangeVectorFunction fn_with_clamp{true};
-            builder.set_matching_fn(fn_with_clamp);
+            static auto fn = build_vector_linear<true>();
+            builder.set_matching_fn(fn);
           }
           else {
-            static MapRangeVectorFunction fn_without_clamp{false};
-            builder.set_matching_fn(fn_without_clamp);
+            static auto fn = build_vector_linear<false>();
+            builder.set_matching_fn(fn);
           }
           break;
         }
