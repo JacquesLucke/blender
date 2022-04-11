@@ -319,39 +319,6 @@ class MapRangeSteppedVectorFunction : public fn::MultiFunction {
   }
 };
 
-class MapRangeSmoothstepVectorFunction : public fn::MultiFunction {
- public:
-  MapRangeSmoothstepVectorFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Vector Map Range Smoothstep"};
-    map_range_vector_signature(&signature, false);
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float3> &values = params.readonly_single_input<float3>(0, "Vector");
-    const VArray<float3> &from_min = params.readonly_single_input<float3>(1, "From Min");
-    const VArray<float3> &from_max = params.readonly_single_input<float3>(2, "From Max");
-    const VArray<float3> &to_min = params.readonly_single_input<float3>(3, "To Min");
-    const VArray<float3> &to_max = params.readonly_single_input<float3>(4, "To Max");
-    MutableSpan<float3> results = params.uninitialized_single_output<float3>(5, "Vector");
-
-    for (int64_t i : mask) {
-      float3 factor = math::safe_divide(values[i] - from_min[i], from_max[i] - from_min[i]);
-      clamp_v3(factor, 0.0f, 1.0f);
-      factor = (float3(3.0f) - 2.0f * factor) * (factor * factor);
-      results[i] = factor * (to_max[i] - to_min[i]) + to_min[i];
-    }
-  }
-};
-
 class MapRangeSmootherstepVectorFunction : public fn::MultiFunction {
  public:
   MapRangeSmootherstepVectorFunction()
@@ -474,8 +441,26 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
           break;
         }
         case NODE_MAP_RANGE_SMOOTHSTEP: {
-          static MapRangeSmoothstepVectorFunction smoothstep;
-          builder.set_matching_fn(smoothstep);
+          static fn::CustomMF<devi::InputTag<float3>,
+                              devi::InputTag<float3>,
+                              devi::InputTag<float3>,
+                              devi::InputTag<float3>,
+                              devi::InputTag<float3>,
+                              devi::OutputTag<float3>>
+              fn{"Vector Map Range Smoothstep",
+                 [](float3 value,
+                    float3 from_min,
+                    float3 from_max,
+                    float3 to_min,
+                    float3 to_max,
+                    float3 *r_value) {
+                   float3 factor = math::safe_divide(value - from_min, from_max - from_min);
+                   clamp_v3(factor, 0.0f, 1.0f);
+                   factor = (float3(3.0f) - 2.0f * factor) * (factor * factor);
+                   *r_value = factor * (to_max - to_min) + to_min;
+                 },
+                 devi::presets::OneSpanOtherSingle<0>()};
+          builder.set_matching_fn(fn);
           break;
         }
         case NODE_MAP_RANGE_SMOOTHERSTEP: {
