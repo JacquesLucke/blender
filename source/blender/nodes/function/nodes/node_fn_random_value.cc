@@ -134,40 +134,6 @@ static void fn_node_random_value_gather_link_search(GatherLinkSearchOpParams &pa
   }
 }
 
-class RandomBoolFunction : public fn::MultiFunction {
- public:
-  RandomBoolFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Random Value"};
-    signature.single_input<float>("Probability");
-    signature.single_input<int>("ID");
-    signature.single_input<int>("Seed");
-    signature.single_output<bool>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float> &probabilities = params.readonly_single_input<float>(0, "Probability");
-    const VArray<int> &ids = params.readonly_single_input<int>(1, "ID");
-    const VArray<int> &seeds = params.readonly_single_input<int>(2, "Seed");
-    MutableSpan<bool> values = params.uninitialized_single_output<bool>(3, "Value");
-
-    for (int64_t i : mask) {
-      const int seed = seeds[i];
-      const int id = ids[i];
-      const float probability = probabilities[i];
-      values[i] = noise::hash_to_float(id, seed) <= probability;
-    }
-  }
-};
-
 static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   const NodeRandomValue &storage = node_storage(builder.node());
@@ -226,7 +192,15 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
       break;
     }
     case CD_PROP_BOOL: {
-      static RandomBoolFunction fn;
+      static fn::CustomMF<devi::InputTag<float>,
+                          devi::InputTag<int>,
+                          devi::InputTag<int>,
+                          devi::OutputTag<bool>>
+          fn{"Random Bool",
+             [](float probability, int id, int seed, bool *r_value) {
+               *r_value = noise::hash_to_float(id, seed) <= probability;
+             },
+             devi::presets::OneSpanOtherSingle<1>()};
       builder.set_matching_fn(fn);
       break;
     }
