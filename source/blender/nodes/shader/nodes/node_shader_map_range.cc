@@ -21,6 +21,8 @@ namespace blender::nodes::node_shader_map_range_cc {
 
 NODE_STORAGE_FUNCS(NodeMapRange)
 
+namespace devi = varray_devirtualize;
+
 static void sh_node_map_range_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
@@ -374,13 +376,31 @@ class MapRangeSteppedFunction : public fn::MultiFunction {
   }
 };
 
+template<bool Clamp> static auto build_float_linear()
+{
+  return fn::CustomMF<devi::InputTag<float>,
+                      devi::InputTag<float>,
+                      devi::InputTag<float>,
+                      devi::InputTag<float>,
+                      devi::InputTag<float>,
+                      devi::OutputTag<float>>{
+      Clamp ? "Map Range (clamped)" : "Map Range (unclamped)",
+      [](float value, float from_min, float from_max, float to_min, float to_max, float *r_value) {
+        const float factor = safe_divide(value - from_min, from_max - from_min);
+        float result = to_min + factor * (to_max - to_min);
+        if (Clamp) {
+          result = clamp_range(result, to_min, to_max);
+        }
+        *r_value = result;
+      },
+      devi::presets::OneSpanOtherSingle<0>()};
+}
+
 static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   const NodeMapRange &storage = node_storage(builder.node());
   bool clamp = storage.clamp != 0;
   int interpolation_type = storage.interpolation_type;
-
-  namespace devi = varray_devirtualize;
 
   switch (storage.data_type) {
     case CD_PROP_FLOAT3:
@@ -461,44 +481,11 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
       switch (interpolation_type) {
         case NODE_MAP_RANGE_LINEAR: {
           if (clamp) {
-            static fn::CustomMF<devi::InputTag<float>,
-                                devi::InputTag<float>,
-                                devi::InputTag<float>,
-                                devi::InputTag<float>,
-                                devi::InputTag<float>,
-                                devi::OutputTag<float>>
-                fn{"Map Range (clamped)",
-                   [](float value,
-                      float from_min,
-                      float from_max,
-                      float to_min,
-                      float to_max,
-                      float *r_value) {
-                     const float factor = safe_divide(value - from_min, from_max - from_min);
-                     const float unclamped_result = to_min + factor * (to_max - to_min);
-                     *r_value = clamp_range(unclamped_result, to_min, to_max);
-                   },
-                   devi::presets::OneSpanOtherSingle<0>()};
+            static auto fn = build_float_linear<true>();
             builder.set_matching_fn(fn);
           }
           else {
-            static fn::CustomMF<devi::InputTag<float>,
-                                devi::InputTag<float>,
-                                devi::InputTag<float>,
-                                devi::InputTag<float>,
-                                devi::InputTag<float>,
-                                devi::OutputTag<float>>
-                fn{"Map Range (unclamped)",
-                   [](float value,
-                      float from_min,
-                      float from_max,
-                      float to_min,
-                      float to_max,
-                      float *r_value) {
-                     const float factor = safe_divide(value - from_min, from_max - from_min);
-                     *r_value = to_min + factor * (to_max - to_min);
-                   },
-                   devi::presets::OneSpanOtherSingle<0>()};
+            static auto fn = build_float_linear<false>();
             builder.set_matching_fn(fn);
           }
           break;
