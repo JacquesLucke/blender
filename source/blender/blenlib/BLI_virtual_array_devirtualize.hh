@@ -255,7 +255,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
     executed_ = true;
   }
 
-  template<size_t I, ParamMode Mode> auto get_execute_param()
+  template<size_t I, ParamMode Mode> decltype(auto) get_execute_param()
   {
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
     if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
