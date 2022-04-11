@@ -210,11 +210,11 @@ class RandomFloatFunction : public fn::MultiFunction {
 
     auto devirtualizer =
         varray_devirtualize::from_element_fn<decltype(element_fn),
-                                             varray_devirtualize::SingleInputTag<float>,
-                                             varray_devirtualize::SingleInputTag<float>,
-                                             varray_devirtualize::SingleInputTag<int>,
-                                             varray_devirtualize::SingleInputTag<int>,
-                                             varray_devirtualize::SingleOutputTag<float>>(
+                                             varray_devirtualize::InputTag<float>,
+                                             varray_devirtualize::InputTag<float>,
+                                             varray_devirtualize::InputTag<int>,
+                                             varray_devirtualize::InputTag<int>,
+                                             varray_devirtualize::OutputTag<float>>(
             element_fn, &mask, &min_values, &max_values, &ids, &seeds, &values);
 
     if (!devirtualizer.try_execute_devirtualized<varray_devirtualize::MaskDevirtualizeMode::Range |

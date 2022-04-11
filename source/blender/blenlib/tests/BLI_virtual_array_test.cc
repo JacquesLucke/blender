@@ -253,9 +253,9 @@ TEST(virtual_array, Devirtualize)
   out1.fill(-1);
 
   varray_devirtualize::Devirtualizer<decltype(fn),
-                                     varray_devirtualize::SingleInputTag<int>,
-                                     varray_devirtualize::SingleInputTag<int>,
-                                     varray_devirtualize::SingleOutputTag<int>>
+                                     varray_devirtualize::InputTag<int>,
+                                     varray_devirtualize::InputTag<int>,
+                                     varray_devirtualize::OutputTag<int>>
       devirtualizer{fn, &mask, &in1, &in2, &out1};
 
   if (!devirtualizer.try_execute_devirtualized()) {
