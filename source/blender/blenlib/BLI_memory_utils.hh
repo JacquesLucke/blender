@@ -550,6 +550,17 @@ template<typename T, T... Elements> struct EnumSequence {
   }
 };
 
+template<typename T, T Element, size_t... I>
+EnumSequence<T, ((I == 0) ? Element : Element)...> make_enum_sequence_impl(
+    std::index_sequence<I...> /* indices */)
+{
+  return {};
+}
+
+template<typename T, T Element, size_t Size>
+using make_enum_sequence = decltype(make_enum_sequence_impl<T, Element>(
+    std::make_index_sequence<Size>()));
+
 }  // namespace blender
 
 namespace blender::detail {

@@ -72,7 +72,9 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
   bool try_execute_devirtualized()
   {
     BLI_assert(!executed_);
-    return this->try_execute_devirtualized_impl(DevirtualizeModeSequence<>());
+    return this->try_execute_devirtualized_impl(
+        DevirtualizeModeSequence<>(),
+        make_enum_sequence<DevirtualizeMode, DevirtualizeMode::None, sizeof...(Args)>());
   }
 
   void execute_materialized()
@@ -149,9 +151,11 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     }
   }
 
-  template<DevirtualizeMode... Mode>
-  bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> /* modes */)
+  template<DevirtualizeMode... Mode, DevirtualizeMode... AllowedMode>
+  bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> /* modes */,
+                                      DevirtualizeModeSequence<AllowedMode...> /* allowed_modes */)
   {
+    static_assert(sizeof...(AllowedMode) == sizeof...(Args));
     if constexpr (sizeof...(Mode) == sizeof...(Args)) {
       this->try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...>(),
                                                 std::make_index_sequence<sizeof...(Args)>());
@@ -163,11 +167,13 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
       if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
         if (varray_is_single_[I]) {
           return this->try_execute_devirtualized_impl(
-              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>());
+              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>(),
+              DevirtualizeModeSequence<AllowedMode...>());
         }
         else if (varray_is_span_[I]) {
           return this->try_execute_devirtualized_impl(
-              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>());
+              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>(),
+              DevirtualizeModeSequence<AllowedMode...>());
         }
         else {
           return false;
@@ -175,7 +181,8 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
       }
       else {
         return this->try_execute_devirtualized_impl(
-            DevirtualizeModeSequence<Mode..., DevirtualizeMode::None>());
+            DevirtualizeModeSequence<Mode..., DevirtualizeMode::None>(),
+            DevirtualizeModeSequence<AllowedMode...>());
       }
     }
   }

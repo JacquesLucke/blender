@@ -255,9 +255,9 @@ TEST(virtual_array, Devirtualize)
   ArrayDevirtualizer<decltype(fn), SingleInputTag<int>, SingleInputTag<int>, SingleOutputTag<int>>
       devirtualizer{fn, &mask, &in1, &in2, &out1};
 
-  devirtualizer.execute_materialized();
-  // if (!devirtualizer.try_execute_devirtualized()) {
-  // }
+  if (!devirtualizer.try_execute_devirtualized()) {
+    devirtualizer.execute_materialized();
+  }
 
   EXPECT_EQ(out1[0], 8);
   EXPECT_EQ(out1[1], 8);
