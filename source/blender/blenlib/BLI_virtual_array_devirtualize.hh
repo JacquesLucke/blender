@@ -335,6 +335,14 @@ struct Fallback {
   }
 };
 
+struct Materialized {
+  template<typename Fn, typename... ParamTags>
+  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  {
+    devirtualizer.execute_materialized();
+  }
+};
+
 struct AllSpanSingleOrMaterialized {
   template<typename Fn, typename... ParamTags>
   void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
