@@ -16,6 +16,8 @@
 
 namespace blender::fn {
 
+namespace devi = varray_devirtualize;
+
 template<typename... ParamTags> class CustomMF : public MultiFunction {
  private:
   std::function<void(IndexMask mask, MFParams params)> fn_;
@@ -99,50 +101,14 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
  * This example creates a function that adds 10 to the incoming values:
  * `CustomMF_SI_SO<int, int> fn("add 10", [](int value) { return value + 10; });`
  */
-template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunction {
- private:
-  using FunctionT = std::function<void(IndexMask, const VArray<In1> &, MutableSpan<Out1>)>;
-  FunctionT function_;
-  MFSignature signature_;
-
+template<typename In1, typename Out1>
+class CustomMF_SI_SO : public CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>> {
  public:
-  CustomMF_SI_SO(const char *name, FunctionT function) : function_(std::move(function))
-  {
-    MFSignatureBuilder signature{name};
-    signature.single_input<In1>("In1");
-    signature.single_output<Out1>("Out1");
-    signature_ = signature.build();
-    this->set_signature(&signature_);
-  }
-
   template<typename ElementFuncT>
   CustomMF_SI_SO(const char *name, ElementFuncT element_fn)
-      : CustomMF_SI_SO(name, CustomMF_SI_SO::create_function(element_fn))
+      : CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>>(
+            name, [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); })
   {
-  }
-
-  template<typename ElementFuncT> static FunctionT create_function(ElementFuncT element_fn)
-  {
-    return [=](IndexMask mask, const VArray<In1> &in1, MutableSpan<Out1> out1) {
-      auto wrapped_element_fn = [&](const In1 &in1, Out1 *r_out1) {
-        new (r_out1) Out1(element_fn(in1));
-      };
-      namespace devi = varray_devirtualize::common;
-      auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
-                                                               devi::InputTag<In1>,
-                                                               devi::OutputTag<Out1>>(
-          wrapped_element_fn, &mask, &in1, &out1);
-      if (!devirtualizer.try_execute_devirtualized()) {
-        devirtualizer.execute_materialized();
-      }
-    };
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    const VArray<In1> &in1 = params.readonly_single_input<In1>(0);
-    MutableSpan<Out1> out1 = params.uninitialized_single_output<Out1>(1);
-    function_(mask, in1, out1);
   }
 };
 
