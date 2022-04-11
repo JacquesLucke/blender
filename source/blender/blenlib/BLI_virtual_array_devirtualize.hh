@@ -74,7 +74,9 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     BLI_assert(!executed_);
     return this->try_execute_devirtualized_impl(
         DevirtualizeModeSequence<>(),
-        make_enum_sequence<DevirtualizeMode, DevirtualizeMode::None, sizeof...(Args)>());
+        make_enum_sequence<DevirtualizeMode,
+                           DevirtualizeMode::Span | DevirtualizeMode::Single,
+                           sizeof...(Args)>());
   }
 
   void execute_materialized()
