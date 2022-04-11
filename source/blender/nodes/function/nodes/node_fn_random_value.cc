@@ -134,48 +134,6 @@ static void fn_node_random_value_gather_link_search(GatherLinkSearchOpParams &pa
   }
 }
 
-class RandomVectorFunction : public fn::MultiFunction {
- public:
-  RandomVectorFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Random Value"};
-    signature.single_input<float3>("Min");
-    signature.single_input<float3>("Max");
-    signature.single_input<int>("ID");
-    signature.single_input<int>("Seed");
-    signature.single_output<float3>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float3> &min_values = params.readonly_single_input<float3>(0, "Min");
-    const VArray<float3> &max_values = params.readonly_single_input<float3>(1, "Max");
-    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
-    MutableSpan<float3> values = params.uninitialized_single_output<float3>(4, "Value");
-
-    for (int64_t i : mask) {
-      const float3 min_value = min_values[i];
-      const float3 max_value = max_values[i];
-      const int seed = seeds[i];
-      const int id = ids[i];
-
-      const float x = noise::hash_to_float(seed, id, 0);
-      const float y = noise::hash_to_float(seed, id, 1);
-      const float z = noise::hash_to_float(seed, id, 2);
-
-      values[i] = float3(x, y, z) * (max_value - min_value) + min_value;
-    }
-  }
-};
-
 class RandomIntFunction : public fn::MultiFunction {
  public:
   RandomIntFunction()
@@ -260,7 +218,19 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
 
   switch (data_type) {
     case CD_PROP_FLOAT3: {
-      static RandomVectorFunction fn;
+      static fn::CustomMF<devi::InputTag<float3>,
+                          devi::InputTag<float3>,
+                          devi::InputTag<int>,
+                          devi::InputTag<int>,
+                          devi::OutputTag<float3>>
+          fn{"Random Vector",
+             [](float3 min_value, float3 max_value, int id, int seed, float3 *r_value) {
+               const float x = noise::hash_to_float(seed, id, 0);
+               const float y = noise::hash_to_float(seed, id, 1);
+               const float z = noise::hash_to_float(seed, id, 2);
+               *r_value = float3(x, y, z) * (max_value - min_value) + min_value;
+             },
+             devi::presets::OneSpanOtherSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }
@@ -270,7 +240,7 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
                           devi::InputTag<int>,
                           devi::InputTag<int>,
                           devi::OutputTag<float>>
-          fn{"Random Value",
+          fn{"Random Float",
              [](float min_value, float max_value, int id, int seed, float *r_value) {
                const float value = noise::hash_to_float(seed, id);
                *r_value = value * (max_value - min_value) + min_value;
