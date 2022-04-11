@@ -53,9 +53,9 @@ template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunctio
         new (r_out1) Out1(element_fn(in1));
       };
       auto devirtualizer =
-          varray_devirtualize::from_element_fn<decltype(wrapped_element_fn),
-                                               varray_devirtualize::InputTag<In1>,
-                                               varray_devirtualize::OutputTag<Out1>>(
+          varray_devirtualize::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
+                                                             varray_devirtualize::InputTag<In1>,
+                                                             varray_devirtualize::OutputTag<Out1>>(
               wrapped_element_fn, &mask, &in1, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
@@ -112,10 +112,10 @@ class CustomMF_SI_SI_SO : public MultiFunction {
         new (r_out1) Out1(element_fn(in1, in2));
       };
       auto devirtualizer =
-          varray_devirtualize::from_element_fn<decltype(wrapped_element_fn),
-                                               varray_devirtualize::InputTag<In1>,
-                                               varray_devirtualize::InputTag<In2>,
-                                               varray_devirtualize::OutputTag<Out1>>(
+          varray_devirtualize::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
+                                                             varray_devirtualize::InputTag<In1>,
+                                                             varray_devirtualize::InputTag<In2>,
+                                                             varray_devirtualize::OutputTag<Out1>>(
               wrapped_element_fn, &mask, &in1, &in2, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
@@ -179,11 +179,11 @@ class CustomMF_SI_SI_SI_SO : public MultiFunction {
         new (r_out1) Out1(element_fn(in1, in2, in3));
       };
       auto devirtualizer =
-          varray_devirtualize::from_element_fn<decltype(wrapped_element_fn),
-                                               varray_devirtualize::InputTag<In1>,
-                                               varray_devirtualize::InputTag<In2>,
-                                               varray_devirtualize::InputTag<In3>,
-                                               varray_devirtualize::OutputTag<Out1>>(
+          varray_devirtualize::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
+                                                             varray_devirtualize::InputTag<In1>,
+                                                             varray_devirtualize::InputTag<In2>,
+                                                             varray_devirtualize::InputTag<In3>,
+                                                             varray_devirtualize::OutputTag<Out1>>(
               wrapped_element_fn, &mask, &in1, &in2, &in3, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
@@ -253,12 +253,12 @@ class CustomMF_SI_SI_SI_SI_SO : public MultiFunction {
             new (r_out1) Out1(element_fn(in1, in2, in3, in4));
           };
       auto devirtualizer =
-          varray_devirtualize::from_element_fn<decltype(wrapped_element_fn),
-                                               varray_devirtualize::InputTag<In1>,
-                                               varray_devirtualize::InputTag<In2>,
-                                               varray_devirtualize::InputTag<In3>,
-                                               varray_devirtualize::InputTag<In4>,
-                                               varray_devirtualize::OutputTag<Out1>>(
+          varray_devirtualize::devirtualizer_from_element_fn<decltype(wrapped_element_fn),
+                                                             varray_devirtualize::InputTag<In1>,
+                                                             varray_devirtualize::InputTag<In2>,
+                                                             varray_devirtualize::InputTag<In3>,
+                                                             varray_devirtualize::InputTag<In4>,
+                                                             varray_devirtualize::OutputTag<Out1>>(
               wrapped_element_fn, &mask, &in1, &in2, &in3, &in4, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();

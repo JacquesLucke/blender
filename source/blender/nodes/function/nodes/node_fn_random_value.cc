@@ -208,23 +208,22 @@ class RandomFloatFunction : public fn::MultiFunction {
       *r_value = value * (max_value - min_value) + min_value;
     };
 
-    auto devirtualizer =
-        varray_devirtualize::from_element_fn<decltype(element_fn),
-                                             varray_devirtualize::InputTag<float>,
-                                             varray_devirtualize::InputTag<float>,
-                                             varray_devirtualize::InputTag<int>,
-                                             varray_devirtualize::InputTag<int>,
-                                             varray_devirtualize::OutputTag<float>>(
-            element_fn, &mask, &min_values, &max_values, &ids, &seeds, &values);
+    using namespace varray_devirtualize::common;
 
-    if (!devirtualizer.try_execute_devirtualized<varray_devirtualize::MaskMode::Range |
-                                                 varray_devirtualize::MaskMode::Mask>(
-            varray_devirtualize::DevirtualizeModeSequence<
-                varray_devirtualize::ParamMode::Single,
-                varray_devirtualize::ParamMode::Single,
-                varray_devirtualize::ParamMode::Span,
-                varray_devirtualize::ParamMode::Single,
-                varray_devirtualize::ParamMode::None>())) {
+    auto devirtualizer = devirtualizer_from_element_fn<decltype(element_fn),
+                                                       InputTag<float>,
+                                                       InputTag<float>,
+                                                       InputTag<int>,
+                                                       InputTag<int>,
+                                                       OutputTag<float>>(
+        element_fn, &mask, &min_values, &max_values, &ids, &seeds, &values);
+
+    if (!devirtualizer.try_execute_devirtualized<MaskMode::Range | MaskMode::Mask>(
+            ParamModeSequence<ParamMode::Single,
+                              ParamMode::Single,
+                              ParamMode::Span,
+                              ParamMode::Single,
+                              ParamMode::None>())) {
       devirtualizer.execute_materialized();
     }
   }
