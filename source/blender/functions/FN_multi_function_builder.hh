@@ -49,19 +49,14 @@ template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunctio
   template<typename ElementFuncT> static FunctionT create_function(ElementFuncT element_fn)
   {
     return [=](IndexMask mask, const VArray<In1> &in1, MutableSpan<Out1> out1) {
-      auto fn = [&](auto in_indices, auto out_indices, auto in1, Out1 *__restrict out1) {
-        BLI_assert(in_indices.size() == out_indices.size());
-        for (const int64_t i : IndexRange(in_indices.size())) {
-          const int64_t in_index = in_indices[i];
-          const int64_t out_index = out_indices[i];
-          new (out1 + out_index) Out1(element_fn(in1[in_index]));
-        }
+      auto wrapped_element_fn = [&](const In1 &in1, Out1 *r_out1) {
+        new (r_out1) Out1(element_fn(in1));
       };
-
-      varray_devirtualize::Devirtualizer<decltype(fn),
-                                         varray_devirtualize::SingleInputTag<In1>,
-                                         varray_devirtualize::SingleOutputTag<Out1>>
-          devirtualizer{fn, &mask, &in1, &out1};
+      auto devirtualizer =
+          varray_devirtualize::from_element_fn<decltype(wrapped_element_fn),
+                                               varray_devirtualize::SingleInputTag<In1>,
+                                               varray_devirtualize::SingleOutputTag<Out1>>(
+              wrapped_element_fn, &mask, &in1, &out1);
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
       }
