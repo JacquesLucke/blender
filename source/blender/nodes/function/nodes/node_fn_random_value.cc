@@ -217,14 +217,14 @@ class RandomFloatFunction : public fn::MultiFunction {
                                              varray_devirtualize::OutputTag<float>>(
             element_fn, &mask, &min_values, &max_values, &ids, &seeds, &values);
 
-    if (!devirtualizer.try_execute_devirtualized<varray_devirtualize::MaskDevirtualizeMode::Range |
-                                                 varray_devirtualize::MaskDevirtualizeMode::Mask>(
+    if (!devirtualizer.try_execute_devirtualized<varray_devirtualize::MaskMode::Range |
+                                                 varray_devirtualize::MaskMode::Mask>(
             varray_devirtualize::DevirtualizeModeSequence<
-                varray_devirtualize::DevirtualizeMode::Single,
-                varray_devirtualize::DevirtualizeMode::Single,
-                varray_devirtualize::DevirtualizeMode::Span,
-                varray_devirtualize::DevirtualizeMode::Single,
-                varray_devirtualize::DevirtualizeMode::None>())) {
+                varray_devirtualize::ParamMode::Single,
+                varray_devirtualize::ParamMode::Single,
+                varray_devirtualize::ParamMode::Span,
+                varray_devirtualize::ParamMode::Single,
+                varray_devirtualize::ParamMode::None>())) {
       devirtualizer.execute_materialized();
     }
   }

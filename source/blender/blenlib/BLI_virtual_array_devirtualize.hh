@@ -30,23 +30,22 @@ template<typename T> struct ParamType<OutputTag<T>> {
   using type = MutableSpan<T>;
 };
 
-enum class DevirtualizeMode {
+enum class ParamMode {
   None = 0,
   Span = (1 << 0),
   Single = (1 << 1),
   VArray = (1 << 2),
 };
-ENUM_OPERATORS(DevirtualizeMode, DevirtualizeMode::VArray);
+ENUM_OPERATORS(ParamMode, ParamMode::VArray);
 
-enum class MaskDevirtualizeMode {
+enum class MaskMode {
   None = 0,
   Mask = (1 << 0),
   Range = (1 << 1),
 };
-ENUM_OPERATORS(MaskDevirtualizeMode, MaskDevirtualizeMode::Range);
+ENUM_OPERATORS(MaskMode, MaskMode::Range);
 
-template<DevirtualizeMode... Mode>
-using DevirtualizeModeSequence = EnumSequence<DevirtualizeMode, Mode...>;
+template<ParamMode... Mode> using DevirtualizeModeSequence = EnumSequence<ParamMode, Mode...>;
 
 template<typename TagsTuple, size_t I>
 using BaseType = typename std::tuple_element_t<I, TagsTuple>::BaseType;
@@ -80,14 +79,13 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   bool try_execute_devirtualized()
   {
     BLI_assert(!executed_);
-    return this
-        ->try_execute_devirtualized<MaskDevirtualizeMode::Mask | MaskDevirtualizeMode::Range>(
-            make_enum_sequence<DevirtualizeMode,
-                               DevirtualizeMode::Span | DevirtualizeMode::Single,
-                               sizeof...(ParamTags)>());
+    return this->try_execute_devirtualized<MaskMode::Mask | MaskMode::Range>(
+        make_enum_sequence<ParamMode,
+                           ParamMode::Span | ParamMode::Single,
+                           sizeof...(ParamTags)>());
   }
 
-  template<MaskDevirtualizeMode MaskMode, DevirtualizeMode... AllowedModes>
+  template<MaskMode MaskMode, ParamMode... AllowedModes>
   bool try_execute_devirtualized(DevirtualizeModeSequence<AllowedModes...> /* allowed_modes */)
   {
     BLI_assert(!executed_);
@@ -170,7 +168,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
     }
   }
 
-  template<MaskDevirtualizeMode MaskMode, DevirtualizeMode... Mode>
+  template<MaskMode MaskMode, ParamMode... Mode>
   bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> /* modes */,
                                       DevirtualizeModeSequence<> /* allowed_modes */)
   {
@@ -179,10 +177,10 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
         DevirtualizeModeSequence<Mode...>(), std::make_index_sequence<sizeof...(ParamTags)>());
   }
 
-  template<MaskDevirtualizeMode MaskMode,
-           DevirtualizeMode... Mode,
-           DevirtualizeMode AllowedModes,
-           DevirtualizeMode... RemainingAllowedModes>
+  template<MaskMode MaskMode,
+           ParamMode... Mode,
+           ParamMode AllowedModes,
+           ParamMode... RemainingAllowedModes>
   bool try_execute_devirtualized_impl(
       DevirtualizeModeSequence<Mode...> /* modes */,
       DevirtualizeModeSequence<AllowedModes, RemainingAllowedModes...> /* allowed_modes */)
@@ -192,46 +190,46 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
     constexpr size_t I = sizeof...(Mode);
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
     if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
-      if constexpr ((AllowedModes & DevirtualizeMode::Single) != DevirtualizeMode::None) {
+      if constexpr ((AllowedModes & ParamMode::Single) != ParamMode::None) {
         if (varray_is_single_[I]) {
           return this->try_execute_devirtualized_impl<MaskMode>(
-              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>(),
+              DevirtualizeModeSequence<Mode..., ParamMode::Single>(),
               DevirtualizeModeSequence<RemainingAllowedModes...>());
         }
       }
-      if constexpr ((AllowedModes & DevirtualizeMode::Span) != DevirtualizeMode::None) {
+      if constexpr ((AllowedModes & ParamMode::Span) != ParamMode::None) {
         if (varray_is_span_[I]) {
           return this->try_execute_devirtualized_impl<MaskMode>(
-              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>(),
+              DevirtualizeModeSequence<Mode..., ParamMode::Span>(),
               DevirtualizeModeSequence<RemainingAllowedModes...>());
         }
       }
-      if constexpr ((AllowedModes & DevirtualizeMode::VArray) != DevirtualizeMode::None) {
+      if constexpr ((AllowedModes & ParamMode::VArray) != ParamMode::None) {
         return this->try_execute_devirtualized_impl<MaskMode>(
-            DevirtualizeModeSequence<Mode..., DevirtualizeMode::VArray>(),
+            DevirtualizeModeSequence<Mode..., ParamMode::VArray>(),
             DevirtualizeModeSequence<RemainingAllowedModes...>());
       }
       return false;
     }
     else {
       return this->try_execute_devirtualized_impl<MaskMode>(
-          DevirtualizeModeSequence<Mode..., DevirtualizeMode::None>(),
+          DevirtualizeModeSequence<Mode..., ParamMode::None>(),
           DevirtualizeModeSequence<RemainingAllowedModes...>());
     }
   }
 
-  template<MaskDevirtualizeMode MaskMode, DevirtualizeMode... Mode, size_t... I>
+  template<MaskMode MaskMode, ParamMode... Mode, size_t... I>
   bool try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...> /* modes */,
                                            std::index_sequence<I...> /* indices */)
   {
-    if constexpr ((MaskMode & MaskDevirtualizeMode::Range) != MaskDevirtualizeMode::None) {
+    if constexpr ((MaskMode & MaskMode::Range) != MaskMode::None) {
       if (mask_.is_range()) {
         const IndexRange mask_range = mask_.as_range();
         fn_(mask_range, mask_range, this->get_execute_param<I, Mode>()...);
         return true;
       }
     }
-    if constexpr ((MaskMode & MaskDevirtualizeMode::Mask) != MaskDevirtualizeMode::None) {
+    if constexpr ((MaskMode & MaskMode::Mask) != MaskMode::None) {
       fn_(mask_, mask_, this->get_execute_param<I, Mode>()...);
       return true;
     }
@@ -257,23 +255,23 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
 
   template<size_t... I> void execute_fallback_impl(std::index_sequence<I...> /* indices */)
   {
-    fn_(mask_, mask_, this->get_execute_param<I, DevirtualizeMode::None>()...);
+    fn_(mask_, mask_, this->get_execute_param<I, ParamMode::None>()...);
     executed_ = true;
   }
 
-  template<size_t I, DevirtualizeMode Mode> auto get_execute_param()
+  template<size_t I, ParamMode Mode> auto get_execute_param()
   {
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
     if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
       using T = typename ParamTag::BaseType;
       const VArray<T> *varray = std::get<I>(params_);
-      if constexpr (ELEM(Mode, DevirtualizeMode::None, DevirtualizeMode::VArray)) {
+      if constexpr (ELEM(Mode, ParamMode::None, ParamMode::VArray)) {
         return *varray;
       }
-      else if constexpr (Mode == DevirtualizeMode::Single) {
+      else if constexpr (Mode == ParamMode::Single) {
         return SingleAsSpan(*varray);
       }
-      else if constexpr (Mode == DevirtualizeMode::Span) {
+      else if constexpr (Mode == ParamMode::Span) {
         return varray->get_internal_span();
       }
     }
