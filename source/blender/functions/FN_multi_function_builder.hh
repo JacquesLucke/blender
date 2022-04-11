@@ -16,6 +16,81 @@
 
 namespace blender::fn {
 
+template<typename... ParamTags> class CustomMF : public MultiFunction {
+ private:
+  std::function<void(IndexMask mask, MFParams params)> fn_;
+  MFSignature signature_;
+
+  using TagsSequence = TypeSequence<ParamTags...>;
+
+ public:
+  template<typename ElementFn> CustomMF(const char *name, ElementFn element_fn)
+  {
+    MFSignatureBuilder signature{name};
+    add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
+    signature_ = signature.build();
+    this->set_signature(&signature_);
+
+    fn_ = [element_fn](IndexMask mask, MFParams params) {
+      execute(element_fn, mask, params, std::make_index_sequence<TagsSequence::size()>());
+    };
+  }
+
+  template<typename ElementFn, size_t... I>
+  static void execute(ElementFn element_fn,
+                      IndexMask mask,
+                      MFParams params,
+                      std::index_sequence<I...> /* indices */)
+  {
+    namespace devi = varray_devirtualize;
+
+    std::tuple<devi::ParamType_t<ParamTags>...> retrieved_params;
+    (
+        [&]() {
+          using ParamTag = typename TagsSequence::at_index<I>;
+          using T = typename ParamTag::BaseType;
+
+          if constexpr (std::is_base_of_v<devi::InputTagBase, ParamTag>) {
+            std::get<I>(retrieved_params) = params.readonly_single_input<T>(I);
+          }
+          if constexpr (std::is_base_of_v<devi::OutputTagBase, ParamTag>) {
+            std::get<I>(retrieved_params) = params.uninitialized_single_output<T>(I);
+          }
+        }(),
+        ...);
+
+    devi::Devirtualizer devirtualizer =
+        devi::devirtualizer_from_element_fn<decltype(element_fn), ParamTags...>(
+            element_fn, &mask, &std::get<I>(retrieved_params)...);
+    devirtualizer.execute_fallback();
+  }
+
+  template<size_t... I>
+  static void add_signature_parameters(MFSignatureBuilder &signature,
+                                       std::index_sequence<I...> /* indices */)
+  {
+    namespace devi = varray_devirtualize;
+    (
+        [&]() {
+          using ParamTag = typename TagsSequence::at_index<I>;
+          if constexpr (std::is_base_of_v<devi::InputTagBase, ParamTag>) {
+            using T = typename ParamTag::BaseType;
+            signature.single_input<T>("In");
+          }
+          if constexpr (std::is_base_of_v<devi::OutputTagBase, ParamTag>) {
+            using T = typename ParamTag::BaseType;
+            signature.single_output<T>("Out");
+          }
+        }(),
+        ...);
+  }
+
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    fn_(mask, params);
+  }
+};
+
 /**
  * Generates a multi-function with the following parameters:
  * 1. single input (SI) of type In1
@@ -436,81 +511,6 @@ template<typename T> class CustomMF_Constant : public MultiFunction {
       }
     }
     return false;
-  }
-};
-
-template<typename... ParamTags> class CustomMF : public MultiFunction {
- private:
-  std::function<void(IndexMask mask, MFParams params)> fn_;
-  MFSignature signature_;
-
-  using TagsSequence = TypeSequence<ParamTags...>;
-
- public:
-  template<typename ElementFn> CustomMF(const char *name, ElementFn element_fn)
-  {
-    MFSignatureBuilder signature{name};
-    add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
-    signature_ = signature.build();
-    this->set_signature(&signature_);
-
-    fn_ = [element_fn](IndexMask mask, MFParams params) {
-      execute(element_fn, mask, params, std::make_index_sequence<TagsSequence::size()>());
-    };
-  }
-
-  template<typename ElementFn, size_t... I>
-  static void execute(ElementFn element_fn,
-                      IndexMask mask,
-                      MFParams params,
-                      std::index_sequence<I...> /* indices */)
-  {
-    namespace devi = varray_devirtualize;
-
-    std::tuple<devi::ParamType_t<ParamTags>...> retrieved_params;
-    (
-        [&]() {
-          using ParamTag = typename TagsSequence::at_index<I>;
-          using T = typename ParamTag::BaseType;
-
-          if constexpr (std::is_base_of_v<devi::InputTagBase, ParamTag>) {
-            std::get<I>(retrieved_params) = params.readonly_single_input<T>(I);
-          }
-          if constexpr (std::is_base_of_v<devi::OutputTagBase, ParamTag>) {
-            std::get<I>(retrieved_params) = params.uninitialized_single_output<T>(I);
-          }
-        }(),
-        ...);
-
-    devi::Devirtualizer devirtualizer =
-        devi::devirtualizer_from_element_fn<decltype(element_fn), ParamTags...>(
-            element_fn, &mask, &std::get<I>(retrieved_params)...);
-    devirtualizer.execute_fallback();
-  }
-
-  template<size_t... I>
-  static void add_signature_parameters(MFSignatureBuilder &signature,
-                                       std::index_sequence<I...> /* indices */)
-  {
-    namespace devi = varray_devirtualize;
-    (
-        [&]() {
-          using ParamTag = typename TagsSequence::at_index<I>;
-          if constexpr (std::is_base_of_v<devi::InputTagBase, ParamTag>) {
-            using T = typename ParamTag::BaseType;
-            signature.single_input<T>("In");
-          }
-          if constexpr (std::is_base_of_v<devi::OutputTagBase, ParamTag>) {
-            using T = typename ParamTag::BaseType;
-            signature.single_output<T>("Out");
-          }
-        }(),
-        ...);
-  }
-
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
-  {
-    fn_(mask, params);
   }
 };
 
