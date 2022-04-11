@@ -203,35 +203,28 @@ class RandomFloatFunction : public fn::MultiFunction {
     const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
     MutableSpan<float> values = params.uninitialized_single_output<float>(4, "Value");
 
-    auto fn = [&](auto in_indices,
-                  auto out_indices,
-                  auto min_values,
-                  auto max_values,
-                  auto ids,
-                  auto seeds,
-                  float *__restrict r_values) {
-      for (const int64_t i : IndexRange(in_indices.size())) {
-        const int64_t in_index = in_indices[i];
-        const int64_t out_index = out_indices[i];
-
-        const float min_value = min_values[in_index];
-        const float max_value = max_values[in_index];
-        const int seed = seeds[in_index];
-        const int id = ids[in_index];
-
-        const float value = noise::hash_to_float(seed, id);
-        r_values[out_index] = value * (max_value - min_value) + min_value;
-      }
+    auto element_fn = [](float min_value, float max_value, int id, int seed, float &r_value) {
+      const float value = noise::hash_to_float(seed, id);
+      r_value = value * (max_value - min_value) + min_value;
     };
 
-    varray_devirtualize::Devirtualizer<decltype(fn),
-                                       varray_devirtualize::SingleInputTag<float>,
-                                       varray_devirtualize::SingleInputTag<float>,
-                                       varray_devirtualize::SingleInputTag<int>,
-                                       varray_devirtualize::SingleInputTag<int>,
-                                       varray_devirtualize::SingleOutputTag<float>>
-        devirtualizer{fn, &mask, &min_values, &max_values, &ids, &seeds, &values};
-    if (!devirtualizer.try_execute_devirtualized()) {
+    auto devirtualizer =
+        varray_devirtualize::from_element_fn<decltype(element_fn),
+                                             varray_devirtualize::SingleInputTag<float>,
+                                             varray_devirtualize::SingleInputTag<float>,
+                                             varray_devirtualize::SingleInputTag<int>,
+                                             varray_devirtualize::SingleInputTag<int>,
+                                             varray_devirtualize::SingleOutputTag<float>>(
+            element_fn, &mask, &min_values, &max_values, &ids, &seeds, &values);
+
+    if (!devirtualizer.try_execute_devirtualized<varray_devirtualize::MaskDevirtualizeMode::Range |
+                                                 varray_devirtualize::MaskDevirtualizeMode::Mask>(
+            varray_devirtualize::DevirtualizeModeSequence<
+                varray_devirtualize::DevirtualizeMode::Single,
+                varray_devirtualize::DevirtualizeMode::Single,
+                varray_devirtualize::DevirtualizeMode::Span,
+                varray_devirtualize::DevirtualizeMode::Single,
+                varray_devirtualize::DevirtualizeMode::None>())) {
       devirtualizer.execute_materialized();
     }
   }
