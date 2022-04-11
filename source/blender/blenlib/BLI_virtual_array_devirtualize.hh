@@ -34,8 +34,9 @@ enum class DevirtualizeMode {
   None = 0,
   Span = (1 << 0),
   Single = (1 << 1),
+  VArray = (1 << 2),
 };
-ENUM_OPERATORS(DevirtualizeMode, DevirtualizeMode::Single);
+ENUM_OPERATORS(DevirtualizeMode, DevirtualizeMode::VArray);
 
 template<DevirtualizeMode... Mode>
 using DevirtualizeModeSequence = EnumSequence<DevirtualizeMode, Mode...>;
@@ -189,6 +190,11 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
               DevirtualizeModeSequence<RemainingAllowedModes...>());
         }
       }
+      if constexpr ((AllowedModes & DevirtualizeMode::VArray) != DevirtualizeMode::None) {
+        return this->try_execute_devirtualized_impl(
+            DevirtualizeModeSequence<Mode..., DevirtualizeMode::VArray>(),
+            DevirtualizeModeSequence<RemainingAllowedModes...>());
+      }
       return false;
     }
     else {
@@ -236,7 +242,7 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
       using T = typename ParamTag::BaseType;
       const VArray<T> *varray = std::get<I>(params_);
-      if constexpr (Mode == DevirtualizeMode::None) {
+      if constexpr (ELEM(Mode, DevirtualizeMode::None, DevirtualizeMode::VArray)) {
         return *varray;
       }
       else if constexpr (Mode == DevirtualizeMode::Single) {
