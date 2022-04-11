@@ -304,7 +304,7 @@ template<typename ElementFn, typename... ParamTags> struct ElementFnExecutor {
           return args[in_index];
         }
         else {
-          return args[out_index];
+          return args + out_index;
         }
       }()...);
     }

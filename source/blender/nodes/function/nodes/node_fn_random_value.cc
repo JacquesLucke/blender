@@ -203,9 +203,9 @@ class RandomFloatFunction : public fn::MultiFunction {
     const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
     MutableSpan<float> values = params.uninitialized_single_output<float>(4, "Value");
 
-    auto element_fn = [](float min_value, float max_value, int id, int seed, float &r_value) {
+    auto element_fn = [](float min_value, float max_value, int id, int seed, float *r_value) {
       const float value = noise::hash_to_float(seed, id);
-      r_value = value * (max_value - min_value) + min_value;
+      *r_value = value * (max_value - min_value) + min_value;
     };
 
     auto devirtualizer =
