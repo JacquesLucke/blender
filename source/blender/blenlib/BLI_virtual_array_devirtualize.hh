@@ -151,39 +151,46 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     }
   }
 
-  template<DevirtualizeMode... Mode, DevirtualizeMode... AllowedMode>
+  template<DevirtualizeMode... Mode>
   bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> /* modes */,
-                                      DevirtualizeModeSequence<AllowedMode...> /* allowed_modes */)
+                                      DevirtualizeModeSequence<> /* allowed_modes */)
   {
-    static_assert(sizeof...(AllowedMode) == sizeof...(Args));
-    if constexpr (sizeof...(Mode) == sizeof...(Args)) {
-      this->try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...>(),
-                                                std::make_index_sequence<sizeof...(Args)>());
-      return true;
-    }
-    else {
-      constexpr size_t I = sizeof...(Mode);
-      using ParamTag = std::tuple_element_t<I, TagsTuple>;
-      if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
-        if (varray_is_single_[I]) {
-          return this->try_execute_devirtualized_impl(
-              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>(),
-              DevirtualizeModeSequence<AllowedMode...>());
-        }
-        else if (varray_is_span_[I]) {
-          return this->try_execute_devirtualized_impl(
-              DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>(),
-              DevirtualizeModeSequence<AllowedMode...>());
-        }
-        else {
-          return false;
-        }
+    static_assert(sizeof...(Mode) == sizeof...(Args));
+    this->try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...>(),
+                                              std::make_index_sequence<sizeof...(Args)>());
+    return true;
+  }
+
+  template<DevirtualizeMode... Mode,
+           DevirtualizeMode AllowedModes,
+           DevirtualizeMode... RemainingAllowedModes>
+  bool try_execute_devirtualized_impl(
+      DevirtualizeModeSequence<Mode...> /* modes */,
+      DevirtualizeModeSequence<AllowedModes, RemainingAllowedModes...> /* allowed_modes */)
+  {
+    static_assert(sizeof...(Mode) + sizeof...(RemainingAllowedModes) + 1 == sizeof...(Args));
+
+    constexpr size_t I = sizeof...(Mode);
+    using ParamTag = std::tuple_element_t<I, TagsTuple>;
+    if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
+      if (varray_is_single_[I]) {
+        return this->try_execute_devirtualized_impl(
+            DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>(),
+            DevirtualizeModeSequence<RemainingAllowedModes...>());
+      }
+      else if (varray_is_span_[I]) {
+        return this->try_execute_devirtualized_impl(
+            DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>(),
+            DevirtualizeModeSequence<RemainingAllowedModes...>());
       }
       else {
-        return this->try_execute_devirtualized_impl(
-            DevirtualizeModeSequence<Mode..., DevirtualizeMode::None>(),
-            DevirtualizeModeSequence<AllowedMode...>());
+        return false;
       }
+    }
+    else {
+      return this->try_execute_devirtualized_impl(
+          DevirtualizeModeSequence<Mode..., DevirtualizeMode::None>(),
+          DevirtualizeModeSequence<RemainingAllowedModes...>());
     }
   }
 
