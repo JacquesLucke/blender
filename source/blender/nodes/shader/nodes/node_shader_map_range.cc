@@ -448,11 +448,11 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
                               devi::InputTag<float3>,
                               devi::OutputTag<float3>>
               fn{"Vector Map Range Smoothstep",
-                 [](float3 value,
-                    float3 from_min,
-                    float3 from_max,
-                    float3 to_min,
-                    float3 to_max,
+                 [](const float3 &value,
+                    const float3 &from_min,
+                    const float3 &from_max,
+                    const float3 &to_min,
+                    const float3 &to_max,
                     float3 *r_value) {
                    float3 factor = math::safe_divide(value - from_min, from_max - from_min);
                    clamp_v3(factor, 0.0f, 1.0f);
