@@ -398,92 +398,6 @@ static void map_range_signature(fn::MFSignatureBuilder *signature, bool use_step
   signature->single_output<float>("Result");
 }
 
-class MapRangeFunction : public fn::MultiFunction {
- private:
-  bool clamp_;
-
- public:
-  MapRangeFunction(bool clamp) : clamp_(clamp)
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Map Range"};
-    map_range_signature(&signature, false);
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float> &values = params.readonly_single_input<float>(0, "Value");
-    const VArray<float> &from_min = params.readonly_single_input<float>(1, "From Min");
-    const VArray<float> &from_max = params.readonly_single_input<float>(2, "From Max");
-    const VArray<float> &to_min = params.readonly_single_input<float>(3, "To Min");
-    const VArray<float> &to_max = params.readonly_single_input<float>(4, "To Max");
-    MutableSpan<float> results = params.uninitialized_single_output<float>(5, "Result");
-
-    auto execute = [&](auto element_fn) {
-      namespace devi = varray_devirtualize::common;
-
-      varray_devirtualize::Devirtualizer devirtualizer =
-          devi::devirtualizer_from_element_fn<decltype(element_fn),
-                                              devi::InputTag<float>,
-                                              devi::InputTag<float>,
-                                              devi::InputTag<float>,
-                                              devi::InputTag<float>,
-                                              devi::InputTag<float>,
-                                              devi::OutputTag<float>>(
-              element_fn, &mask, &values, &from_min, &from_max, &to_min, &to_max, &results);
-      if (!devirtualizer.template try_execute_devirtualized_custom<devi::MaskMode::MaskAndRange>(
-              devi::ParamModeSequence<devi::ParamMode::Span,
-                                      devi::ParamMode::Single,
-                                      devi::ParamMode::Single,
-                                      devi::ParamMode::Single,
-                                      devi::ParamMode::Single,
-                                      devi::ParamMode::None>())) {
-        devirtualizer.execute_materialized();
-      }
-    };
-
-    if (clamp_) {
-      auto element_fn = [](const float value,
-                           const float from_min,
-                           const float from_max,
-                           const float to_min,
-                           const float to_max,
-                           float *r_result) {
-        const float result = map_range(value, from_min, from_max, to_min, to_max);
-        *r_result = clamp_range(result, to_min, to_max);
-      };
-      execute(element_fn);
-    }
-    else {
-      auto element_fn = [](const float value,
-                           const float from_min,
-                           const float from_max,
-                           const float to_min,
-                           const float to_max,
-                           float *r_result) {
-        *r_result = map_range(value, from_min, from_max, to_min, to_max);
-      };
-      execute(element_fn);
-    }
-  }
-
-  static float map_range(const float value,
-                         const float from_min,
-                         const float from_max,
-                         const float to_min,
-                         const float to_max)
-  {
-    float factor = safe_divide(value - from_min, from_max - from_min);
-    return to_min + factor * (to_max - to_min);
-  }
-};
-
 class MapRangeSteppedFunction : public fn::MultiFunction {
  private:
   bool clamp_;
@@ -598,6 +512,8 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
   bool clamp = storage.clamp != 0;
   int interpolation_type = storage.interpolation_type;
 
+  namespace devi = varray_devirtualize;
+
   switch (storage.data_type) {
     case CD_PROP_FLOAT3:
       switch (interpolation_type) {
@@ -641,12 +557,45 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
       switch (interpolation_type) {
         case NODE_MAP_RANGE_LINEAR: {
           if (clamp) {
-            static MapRangeFunction fn_with_clamp{true};
-            builder.set_matching_fn(fn_with_clamp);
+            static fn::CustomMF<devi::InputTag<float>,
+                                devi::InputTag<float>,
+                                devi::InputTag<float>,
+                                devi::InputTag<float>,
+                                devi::InputTag<float>,
+                                devi::OutputTag<float>>
+                fn{"Map Range (clamped)",
+                   [](float value,
+                      float from_min,
+                      float from_max,
+                      float to_min,
+                      float to_max,
+                      float *r_value) {
+                     const float factor = safe_divide(value - from_min, from_max - from_min);
+                     const float unclamped_result = to_min + factor * (to_max - to_min);
+                     *r_value = clamp_range(unclamped_result, to_min, to_max);
+                   },
+                   devi::presets::OneSpanOtherSingle<0>()};
+            builder.set_matching_fn(fn);
           }
           else {
-            static MapRangeFunction fn_without_clamp{false};
-            builder.set_matching_fn(fn_without_clamp);
+            static fn::CustomMF<devi::InputTag<float>,
+                                devi::InputTag<float>,
+                                devi::InputTag<float>,
+                                devi::InputTag<float>,
+                                devi::InputTag<float>,
+                                devi::OutputTag<float>>
+                fn{"Map Range (clamped)",
+                   [](float value,
+                      float from_min,
+                      float from_max,
+                      float to_min,
+                      float to_max,
+                      float *r_value) {
+                     const float factor = safe_divide(value - from_min, from_max - from_min);
+                     *r_value = to_min + factor * (to_max - to_min);
+                   },
+                   devi::presets::OneSpanOtherSingle<0>()};
+            builder.set_matching_fn(fn);
           }
           break;
         }
