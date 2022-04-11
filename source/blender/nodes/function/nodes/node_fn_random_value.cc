@@ -176,60 +176,6 @@ class RandomVectorFunction : public fn::MultiFunction {
   }
 };
 
-class RandomFloatFunction : public fn::MultiFunction {
- public:
-  RandomFloatFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Random Value"};
-    signature.single_input<float>("Min");
-    signature.single_input<float>("Max");
-    signature.single_input<int>("ID");
-    signature.single_input<int>("Seed");
-    signature.single_output<float>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float> &min_values = params.readonly_single_input<float>(0, "Min");
-    const VArray<float> &max_values = params.readonly_single_input<float>(1, "Max");
-    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
-    MutableSpan<float> values = params.uninitialized_single_output<float>(4, "Value");
-
-    auto element_fn = [](float min_value, float max_value, int id, int seed, float *r_value) {
-      const float value = noise::hash_to_float(seed, id);
-      *r_value = value * (max_value - min_value) + min_value;
-    };
-
-    namespace devi = varray_devirtualize::common;
-
-    auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(element_fn),
-                                                             devi::InputTag<float>,
-                                                             devi::InputTag<float>,
-                                                             devi::InputTag<int>,
-                                                             devi::InputTag<int>,
-                                                             devi::OutputTag<float>>(
-        element_fn, &mask, &min_values, &max_values, &ids, &seeds, &values);
-
-    if (!devirtualizer
-             .try_execute_devirtualized_custom<devi::MaskMode::Range | devi::MaskMode::Mask>(
-                 devi::ParamModeSequence<devi::ParamMode::Single,
-                                         devi::ParamMode::Single,
-                                         devi::ParamMode::Span,
-                                         devi::ParamMode::Single,
-                                         devi::ParamMode::None>())) {
-      devirtualizer.execute_materialized();
-    }
-  }
-};
-
 class RandomIntFunction : public fn::MultiFunction {
  public:
   RandomIntFunction()
@@ -310,6 +256,8 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
   const NodeRandomValue &storage = node_storage(builder.node());
   const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
 
+  namespace devi = varray_devirtualize;
+
   switch (data_type) {
     case CD_PROP_FLOAT3: {
       static RandomVectorFunction fn;
@@ -317,7 +265,17 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
       break;
     }
     case CD_PROP_FLOAT: {
-      static RandomFloatFunction fn;
+      static fn::CustomMF<devi::InputTag<float>,
+                          devi::InputTag<float>,
+                          devi::InputTag<int>,
+                          devi::InputTag<int>,
+                          devi::OutputTag<float>>
+          fn{"Random Value",
+             [](float min_value, float max_value, int id, int seed, float *r_value) {
+               const float value = noise::hash_to_float(seed, id);
+               *r_value = value * (max_value - min_value) + min_value;
+             },
+             devi::presets::OneSpanOtherSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }

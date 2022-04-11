@@ -121,7 +121,7 @@ class CustomMF_SI_SO : public CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1
       : CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>>(
             name,
             [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); },
-            devi::presets::AllSpanSingleOrMaterialized())
+            devi::presets::AllSpanOrSingle())
   {
   }
 };
@@ -143,7 +143,7 @@ class CustomMF_SI_SI_SO
             [element_fn](const In1 &in1, const In2 &in2, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2));
             },
-            devi::presets::AllSpanSingleOrMaterialized())
+            devi::presets::AllSpanOrSingle())
   {
   }
 };

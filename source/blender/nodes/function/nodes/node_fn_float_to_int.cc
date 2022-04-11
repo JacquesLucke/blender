@@ -2,6 +2,7 @@
 
 #include <cmath>
 
+#include "BLI_noise.hh"
 #include "BLI_string.h"
 
 #include "RNA_enum_types.h"

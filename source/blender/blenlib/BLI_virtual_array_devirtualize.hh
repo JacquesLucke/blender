@@ -343,11 +343,30 @@ struct Materialized {
   }
 };
 
-struct AllSpanSingleOrMaterialized {
+struct AllSpanOrSingle {
   template<typename Fn, typename... ParamTags>
   void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
   {
     if (!devirtualizer.try_execute_devirtualized()) {
+      devirtualizer.execute_materialized();
+    }
+  }
+};
+
+template<size_t SpanIndex, MaskMode MaskMode = MaskMode::Range> struct OneSpanOtherSingle {
+
+  template<size_t... I>
+  static ParamModeSequence<((I == SpanIndex) ? ParamMode::Span : ParamMode::Single)...> get_modes(
+      std::index_sequence<I...> /* indices */)
+  {
+    return {};
+  }
+
+  template<typename Fn, typename... ParamTags>
+  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  {
+    if (!devirtualizer.template try_execute_devirtualized_custom<MaskMode>(
+            get_modes(std::make_index_sequence<sizeof...(ParamTags)>()))) {
       devirtualizer.execute_materialized();
     }
   }
