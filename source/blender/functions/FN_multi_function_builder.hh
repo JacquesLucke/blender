@@ -104,8 +104,8 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
 template<typename In1, typename Out1>
 class CustomMF_SI_SO : public CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>> {
  public:
-  template<typename ElementFuncT>
-  CustomMF_SI_SO(const char *name, ElementFuncT element_fn)
+  template<typename ElementFn>
+  CustomMF_SI_SO(const char *name, ElementFn element_fn)
       : CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>>(
             name, [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); })
   {
