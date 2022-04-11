@@ -38,6 +38,13 @@ enum class DevirtualizeMode {
 };
 ENUM_OPERATORS(DevirtualizeMode, DevirtualizeMode::VArray);
 
+enum class MaskDevirtualizeMode {
+  None = 0,
+  Mask = (1 << 0),
+  Range = (1 << 1),
+};
+ENUM_OPERATORS(MaskDevirtualizeMode, MaskDevirtualizeMode::Range);
+
 template<DevirtualizeMode... Mode>
 using DevirtualizeModeSequence = EnumSequence<DevirtualizeMode, Mode...>;
 
@@ -73,11 +80,12 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
   bool try_execute_devirtualized()
   {
     BLI_assert(!executed_);
-    return this->try_execute_devirtualized_impl(
-        DevirtualizeModeSequence<>(),
-        make_enum_sequence<DevirtualizeMode,
-                           DevirtualizeMode::Span | DevirtualizeMode::Single,
-                           sizeof...(Args)>());
+    return this
+        ->try_execute_devirtualized_impl<MaskDevirtualizeMode::Mask | MaskDevirtualizeMode::Range>(
+            DevirtualizeModeSequence<>(),
+            make_enum_sequence<DevirtualizeMode,
+                               DevirtualizeMode::Span | DevirtualizeMode::Single,
+                               sizeof...(Args)>());
   }
 
   void execute_materialized()
@@ -154,17 +162,17 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     }
   }
 
-  template<DevirtualizeMode... Mode>
+  template<MaskDevirtualizeMode MaskMode, DevirtualizeMode... Mode>
   bool try_execute_devirtualized_impl(DevirtualizeModeSequence<Mode...> /* modes */,
                                       DevirtualizeModeSequence<> /* allowed_modes */)
   {
     static_assert(sizeof...(Mode) == sizeof...(Args));
-    this->try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...>(),
-                                              std::make_index_sequence<sizeof...(Args)>());
-    return true;
+    return this->try_execute_devirtualized_impl_call<MaskMode>(
+        DevirtualizeModeSequence<Mode...>(), std::make_index_sequence<sizeof...(Args)>());
   }
 
-  template<DevirtualizeMode... Mode,
+  template<MaskDevirtualizeMode MaskMode,
+           DevirtualizeMode... Mode,
            DevirtualizeMode AllowedModes,
            DevirtualizeMode... RemainingAllowedModes>
   bool try_execute_devirtualized_impl(
@@ -178,39 +186,48 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
     if constexpr (std::is_base_of_v<SingleInputTagBase, ParamTag>) {
       if constexpr ((AllowedModes & DevirtualizeMode::Single) != DevirtualizeMode::None) {
         if (varray_is_single_[I]) {
-          return this->try_execute_devirtualized_impl(
+          return this->try_execute_devirtualized_impl<MaskMode>(
               DevirtualizeModeSequence<Mode..., DevirtualizeMode::Single>(),
               DevirtualizeModeSequence<RemainingAllowedModes...>());
         }
       }
       if constexpr ((AllowedModes & DevirtualizeMode::Span) != DevirtualizeMode::None) {
         if (varray_is_span_[I]) {
-          return this->try_execute_devirtualized_impl(
+          return this->try_execute_devirtualized_impl<MaskMode>(
               DevirtualizeModeSequence<Mode..., DevirtualizeMode::Span>(),
               DevirtualizeModeSequence<RemainingAllowedModes...>());
         }
       }
       if constexpr ((AllowedModes & DevirtualizeMode::VArray) != DevirtualizeMode::None) {
-        return this->try_execute_devirtualized_impl(
+        return this->try_execute_devirtualized_impl<MaskMode>(
             DevirtualizeModeSequence<Mode..., DevirtualizeMode::VArray>(),
             DevirtualizeModeSequence<RemainingAllowedModes...>());
       }
       return false;
     }
     else {
-      return this->try_execute_devirtualized_impl(
+      return this->try_execute_devirtualized_impl<MaskMode>(
           DevirtualizeModeSequence<Mode..., DevirtualizeMode::None>(),
           DevirtualizeModeSequence<RemainingAllowedModes...>());
     }
   }
 
-  template<DevirtualizeMode... Mode, size_t... I>
-  void try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...> /* modes */,
+  template<MaskDevirtualizeMode MaskMode, DevirtualizeMode... Mode, size_t... I>
+  bool try_execute_devirtualized_impl_call(DevirtualizeModeSequence<Mode...> /* modes */,
                                            std::index_sequence<I...> /* indices */)
   {
-    mask_.to_best_mask_type(
-        [&](auto mask) { fn_(mask, mask, this->get_execute_param<I, Mode>()...); });
-    executed_ = true;
+    if constexpr ((MaskMode & MaskDevirtualizeMode::Range) != MaskDevirtualizeMode::None) {
+      if (mask_.is_range()) {
+        const IndexRange mask_range = mask_.as_range();
+        fn_(mask_range, mask_range, this->get_execute_param<I, Mode>()...);
+        return true;
+      }
+    }
+    if constexpr ((MaskMode & MaskDevirtualizeMode::Mask) != MaskDevirtualizeMode::None) {
+      fn_(mask_, mask_, this->get_execute_param<I, Mode>()...);
+      return true;
+    }
+    return false;
   }
 
   template<size_t... I> void init(std::index_sequence<I...> /* indices */)
