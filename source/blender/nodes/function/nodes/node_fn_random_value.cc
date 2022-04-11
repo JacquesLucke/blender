@@ -218,12 +218,13 @@ class RandomFloatFunction : public fn::MultiFunction {
                                                              devi::OutputTag<float>>(
         element_fn, &mask, &min_values, &max_values, &ids, &seeds, &values);
 
-    if (!devirtualizer.try_execute_devirtualized<devi::MaskMode::Range | devi::MaskMode::Mask>(
-            devi::ParamModeSequence<devi::ParamMode::Single,
-                                    devi::ParamMode::Single,
-                                    devi::ParamMode::Span,
-                                    devi::ParamMode::Single,
-                                    devi::ParamMode::None>())) {
+    if (!devirtualizer
+             .try_execute_devirtualized_custom<devi::MaskMode::Range | devi::MaskMode::Mask>(
+                 devi::ParamModeSequence<devi::ParamMode::Single,
+                                         devi::ParamMode::Single,
+                                         devi::ParamMode::Span,
+                                         devi::ParamMode::Single,
+                                         devi::ParamMode::None>())) {
       devirtualizer.execute_materialized();
     }
   }

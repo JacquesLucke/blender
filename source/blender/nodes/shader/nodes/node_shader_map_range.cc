@@ -10,6 +10,7 @@
 #include "node_shader_util.hh"
 
 #include "BLI_math_base_safe.h"
+#include "BLI_virtual_array_devirtualize.hh"
 
 #include "NOD_socket_search_link.hh"
 
@@ -424,18 +425,25 @@ class MapRangeFunction : public fn::MultiFunction {
     const VArray<float> &to_max = params.readonly_single_input<float>(4, "To Max");
     MutableSpan<float> results = params.uninitialized_single_output<float>(5, "Result");
 
-    namespace devi = varray_devirtualize::common;
-
     auto execute = [&](auto element_fn) {
-      auto devirtualizer = devi::devirtualizer_from_element_fn<decltype(element_fn),
-                                                               devi::InputTag<float>,
-                                                               devi::InputTag<float>,
-                                                               devi::InputTag<float>,
-                                                               devi::InputTag<float>,
-                                                               devi::InputTag<float>,
-                                                               devi::OutputTag<float>>(
-          element_fn, &mask, &values, &from_min, &from_max, &to_min, &to_max, &results);
-      if (!devirtualizer.try_execute_devirtualized()) {
+      namespace devi = varray_devirtualize::common;
+
+      varray_devirtualize::Devirtualizer devirtualizer =
+          devi::devirtualizer_from_element_fn<decltype(element_fn),
+                                              devi::InputTag<float>,
+                                              devi::InputTag<float>,
+                                              devi::InputTag<float>,
+                                              devi::InputTag<float>,
+                                              devi::InputTag<float>,
+                                              devi::OutputTag<float>>(
+              element_fn, &mask, &values, &from_min, &from_max, &to_min, &to_max, &results);
+      if (!devirtualizer.template try_execute_devirtualized_custom<devi::MaskMode::MaskAndRange>(
+              devi::ParamModeSequence<devi::ParamMode::Span,
+                                      devi::ParamMode::Single,
+                                      devi::ParamMode::Single,
+                                      devi::ParamMode::Single,
+                                      devi::ParamMode::Single,
+                                      devi::ParamMode::None>())) {
         devirtualizer.execute_materialized();
       }
     };

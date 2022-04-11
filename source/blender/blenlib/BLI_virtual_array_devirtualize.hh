@@ -42,6 +42,7 @@ enum class MaskMode {
   None = 0,
   Mask = (1 << 0),
   Range = (1 << 1),
+  MaskAndRange = (Mask | Range),
 };
 ENUM_OPERATORS(MaskMode, MaskMode::Range);
 
@@ -79,14 +80,14 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   bool try_execute_devirtualized()
   {
     BLI_assert(!executed_);
-    return this->try_execute_devirtualized<MaskMode::Mask | MaskMode::Range>(
+    return this->try_execute_devirtualized_custom<MaskMode::MaskAndRange>(
         make_enum_sequence<ParamMode,
                            ParamMode::Span | ParamMode::Single,
                            sizeof...(ParamTags)>());
   }
 
   template<MaskMode MaskMode, ParamMode... AllowedModes>
-  bool try_execute_devirtualized(ParamModeSequence<AllowedModes...> /* allowed_modes */)
+  bool try_execute_devirtualized_custom(ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
     BLI_assert(!executed_);
     static_assert(sizeof...(AllowedModes) == sizeof...(ParamTags));
@@ -146,7 +147,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
         using ParamTag = std::tuple_element_t<I, TagsTuple>;
         using T = typename ParamTag::BaseType;
         if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
-          MutableSpan<T> in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
+          Span<T> in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
           return in_chunk;
         }
         else if constexpr (std::is_base_of_v<OutputTagBase, ParamTag>) {
