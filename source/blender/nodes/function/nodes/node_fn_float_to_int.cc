@@ -46,6 +46,10 @@ static const fn::MultiFunction *get_multi_function(bNode &bnode)
   static fn::CustomMF_SI_SO<float, int> trunc_fn{"Truncate",
                                                  [](float a) { return (int)trunc(a); }};
 
+  namespace devi = varray_devirtualize;
+  static fn::CustomMF<devi::InputTag<int>, devi::InputTag<int>, devi::OutputTag<int>> fn(
+      "Hello", [](int a, int b, int *r_c) { *r_c = a + b; });
+
   switch (static_cast<FloatToIntRoundingMode>(bnode.custom1)) {
     case FN_NODE_FLOAT_TO_INT_ROUND:
       return &round_fn;
