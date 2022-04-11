@@ -543,6 +543,13 @@ Container &move_assign_container(Container &dst, Container &&src) noexcept(
   return dst;
 }
 
+template<typename T, T... Elements> struct EnumSequence {
+  static constexpr size_t size() noexcept
+  {
+    return sizeof...(Elements);
+  }
+};
+
 }  // namespace blender
 
 namespace blender::detail {

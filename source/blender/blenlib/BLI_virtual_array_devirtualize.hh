@@ -35,9 +35,10 @@ enum class DevirtualizeMode {
   Span,
   Single,
 };
+ENUM_OPERATORS(DevirtualizeMode, DevirtualizeMode::Single);
 
-template<DevirtualizeMode... Mode> struct DevirtualizeModeSequence {
-};
+template<DevirtualizeMode... Mode>
+using DevirtualizeModeSequence = EnumSequence<DevirtualizeMode, Mode...>;
 
 template<typename TagsTuple, size_t I>
 using BaseType = typename std::tuple_element_t<I, TagsTuple>::BaseType;
