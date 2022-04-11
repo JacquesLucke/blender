@@ -46,7 +46,7 @@ enum class MaskMode {
 };
 ENUM_OPERATORS(MaskMode, MaskMode::Range);
 
-template<ParamMode... Mode> using ParamModeSequence = EnumSequence<ParamMode, Mode...>;
+template<ParamMode... Mode> using ParamModeSequence = ValueSequence<ParamMode, Mode...>;
 
 template<typename TagsTuple, size_t I>
 using BaseType = typename std::tuple_element_t<I, TagsTuple>::BaseType;
@@ -81,9 +81,9 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   {
     BLI_assert(!executed_);
     return this->try_execute_devirtualized_custom<MaskMode::MaskAndRange>(
-        make_enum_sequence<ParamMode,
-                           ParamMode::Span | ParamMode::Single,
-                           sizeof...(ParamTags)>());
+        make_value_sequence<ParamMode,
+                            ParamMode::Span | ParamMode::Single,
+                            sizeof...(ParamTags)>());
   }
 
   template<MaskMode MaskMode, ParamMode... AllowedModes>
@@ -169,53 +169,46 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
     }
   }
 
-  template<MaskMode MaskMode, ParamMode... Mode>
+  template<MaskMode MaskMode, ParamMode... Mode, ParamMode... AllowedModes>
   bool try_execute_devirtualized_impl(ParamModeSequence<Mode...> /* modes */,
-                                      ParamModeSequence<> /* allowed_modes */)
+                                      ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
-    static_assert(sizeof...(Mode) == sizeof...(ParamTags));
-    return this->try_execute_devirtualized_impl_call<MaskMode>(
-        ParamModeSequence<Mode...>(), std::make_index_sequence<sizeof...(ParamTags)>());
-  }
-
-  template<MaskMode MaskMode,
-           ParamMode... Mode,
-           ParamMode AllowedModes,
-           ParamMode... RemainingAllowedModes>
-  bool try_execute_devirtualized_impl(
-      ParamModeSequence<Mode...> /* modes */,
-      ParamModeSequence<AllowedModes, RemainingAllowedModes...> /* allowed_modes */)
-  {
-    static_assert(sizeof...(Mode) + sizeof...(RemainingAllowedModes) + 1 == sizeof...(ParamTags));
-
-    constexpr size_t I = sizeof...(Mode);
-    using ParamTag = std::tuple_element_t<I, TagsTuple>;
-    if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
-      if constexpr ((AllowedModes & ParamMode::Single) != ParamMode::None) {
-        if (varray_is_single_[I]) {
-          return this->try_execute_devirtualized_impl<MaskMode>(
-              ParamModeSequence<Mode..., ParamMode::Single>(),
-              ParamModeSequence<RemainingAllowedModes...>());
-        }
-      }
-      if constexpr ((AllowedModes & ParamMode::Span) != ParamMode::None) {
-        if (varray_is_span_[I]) {
-          return this->try_execute_devirtualized_impl<MaskMode>(
-              ParamModeSequence<Mode..., ParamMode::Span>(),
-              ParamModeSequence<RemainingAllowedModes...>());
-        }
-      }
-      if constexpr ((AllowedModes & ParamMode::VArray) != ParamMode::None) {
-        return this->try_execute_devirtualized_impl<MaskMode>(
-            ParamModeSequence<Mode..., ParamMode::VArray>(),
-            ParamModeSequence<RemainingAllowedModes...>());
-      }
-      return false;
+    static_assert(sizeof...(AllowedModes) == sizeof...(ParamTags));
+    if constexpr (sizeof...(Mode) == sizeof...(ParamTags)) {
+      return this->try_execute_devirtualized_impl_call<MaskMode>(
+          ParamModeSequence<Mode...>(), std::make_index_sequence<sizeof...(ParamTags)>());
     }
     else {
-      return this->try_execute_devirtualized_impl<MaskMode>(
-          ParamModeSequence<Mode..., ParamMode::None>(),
-          ParamModeSequence<RemainingAllowedModes...>());
+      constexpr size_t I = sizeof...(Mode);
+      using ParamTag = std::tuple_element_t<I, TagsTuple>;
+      if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+        constexpr ParamMode allowed_modes =
+            ParamModeSequence<AllowedModes...>::template at_index<I>();
+        if constexpr ((allowed_modes & ParamMode::Single) != ParamMode::None) {
+          if (varray_is_single_[I]) {
+            return this->try_execute_devirtualized_impl<MaskMode>(
+                ParamModeSequence<Mode..., ParamMode::Single>(),
+                ParamModeSequence<AllowedModes...>());
+          }
+        }
+        if constexpr ((allowed_modes & ParamMode::Span) != ParamMode::None) {
+          if (varray_is_span_[I]) {
+            return this->try_execute_devirtualized_impl<MaskMode>(
+                ParamModeSequence<Mode..., ParamMode::Span>(),
+                ParamModeSequence<AllowedModes...>());
+          }
+        }
+        if constexpr ((allowed_modes & ParamMode::VArray) != ParamMode::None) {
+          return this->try_execute_devirtualized_impl<MaskMode>(
+              ParamModeSequence<Mode..., ParamMode::VArray>(),
+              ParamModeSequence<AllowedModes...>());
+        }
+        return false;
+      }
+      else {
+        return this->try_execute_devirtualized_impl<MaskMode>(
+            ParamModeSequence<Mode..., ParamMode::None>(), ParamModeSequence<AllowedModes...>());
+      }
     }
   }
 
