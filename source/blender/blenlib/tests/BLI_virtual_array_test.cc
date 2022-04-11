@@ -252,7 +252,10 @@ TEST(virtual_array, Devirtualize)
   MutableSpan<int> out1 = out1_array;
   out1.fill(-1);
 
-  ArrayDevirtualizer<decltype(fn), SingleInputTag<int>, SingleInputTag<int>, SingleOutputTag<int>>
+  varray_devirtualize::Devirtualizer<decltype(fn),
+                                     varray_devirtualize::SingleInputTag<int>,
+                                     varray_devirtualize::SingleInputTag<int>,
+                                     varray_devirtualize::SingleOutputTag<int>>
       devirtualizer{fn, &mask, &in1, &in2, &out1};
 
   if (!devirtualizer.try_execute_devirtualized()) {

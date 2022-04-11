@@ -58,8 +58,10 @@ template<typename In1, typename Out1> class CustomMF_SI_SO : public MultiFunctio
         }
       };
 
-      ArrayDevirtualizer<decltype(fn), SingleInputTag<In1>, SingleOutputTag<Out1>> devirtualizer{
-          fn, &mask, &in1, &out1};
+      varray_devirtualize::Devirtualizer<decltype(fn),
+                                         varray_devirtualize::SingleInputTag<In1>,
+                                         varray_devirtualize::SingleOutputTag<Out1>>
+          devirtualizer{fn, &mask, &in1, &out1};
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
       }
@@ -120,10 +122,10 @@ class CustomMF_SI_SI_SO : public MultiFunction {
         }
       };
 
-      ArrayDevirtualizer<decltype(fn),
-                         SingleInputTag<In1>,
-                         SingleInputTag<In2>,
-                         SingleOutputTag<Out1>>
+      varray_devirtualize::Devirtualizer<decltype(fn),
+                                         varray_devirtualize::SingleInputTag<In1>,
+                                         varray_devirtualize::SingleInputTag<In2>,
+                                         varray_devirtualize::SingleOutputTag<Out1>>
           devirtualizer{fn, &mask, &in1, &in2, &out1};
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
@@ -197,11 +199,11 @@ class CustomMF_SI_SI_SI_SO : public MultiFunction {
         }
       };
 
-      ArrayDevirtualizer<decltype(fn),
-                         SingleInputTag<In1>,
-                         SingleInputTag<In2>,
-                         SingleInputTag<In3>,
-                         SingleOutputTag<Out1>>
+      varray_devirtualize::Devirtualizer<decltype(fn),
+                                         varray_devirtualize::SingleInputTag<In1>,
+                                         varray_devirtualize::SingleInputTag<In2>,
+                                         varray_devirtualize::SingleInputTag<In3>,
+                                         varray_devirtualize::SingleOutputTag<Out1>>
           devirtualizer{fn, &mask, &in1, &in2, &in3, &out1};
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();
@@ -282,12 +284,12 @@ class CustomMF_SI_SI_SI_SI_SO : public MultiFunction {
         }
       };
 
-      ArrayDevirtualizer<decltype(fn),
-                         SingleInputTag<In1>,
-                         SingleInputTag<In2>,
-                         SingleInputTag<In3>,
-                         SingleInputTag<In4>,
-                         SingleOutputTag<Out1>>
+      varray_devirtualize::Devirtualizer<decltype(fn),
+                                         varray_devirtualize::SingleInputTag<In1>,
+                                         varray_devirtualize::SingleInputTag<In2>,
+                                         varray_devirtualize::SingleInputTag<In3>,
+                                         varray_devirtualize::SingleInputTag<In4>,
+                                         varray_devirtualize::SingleOutputTag<Out1>>
           devirtualizer{fn, &mask, &in1, &in2, &in3, &in4, &out1};
       if (!devirtualizer.try_execute_devirtualized()) {
         devirtualizer.execute_materialized();

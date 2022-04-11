@@ -224,12 +224,12 @@ class RandomFloatFunction : public fn::MultiFunction {
       }
     };
 
-    ArrayDevirtualizer<decltype(fn),
-                       SingleInputTag<float>,
-                       SingleInputTag<float>,
-                       SingleInputTag<int>,
-                       SingleInputTag<int>,
-                       SingleOutputTag<float>>
+    varray_devirtualize::Devirtualizer<decltype(fn),
+                                       varray_devirtualize::SingleInputTag<float>,
+                                       varray_devirtualize::SingleInputTag<float>,
+                                       varray_devirtualize::SingleInputTag<int>,
+                                       varray_devirtualize::SingleInputTag<int>,
+                                       varray_devirtualize::SingleOutputTag<float>>
         devirtualizer{fn, &mask, &min_values, &max_values, &ids, &seeds, &values};
     if (!devirtualizer.try_execute_devirtualized()) {
       devirtualizer.execute_materialized();

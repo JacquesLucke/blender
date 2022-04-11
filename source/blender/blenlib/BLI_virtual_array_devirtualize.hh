@@ -6,7 +6,7 @@
 
 #include "BLI_virtual_array.hh"
 
-namespace blender {
+namespace blender::varray_devirtualize {
 
 struct SingleInputTagBase {
 };
@@ -51,7 +51,7 @@ using DevirtualizeModeSequence = EnumSequence<DevirtualizeMode, Mode...>;
 template<typename TagsTuple, size_t I>
 using BaseType = typename std::tuple_element_t<I, TagsTuple>::BaseType;
 
-template<typename Fn, typename... Args> class ArrayDevirtualizer {
+template<typename Fn, typename... Args> class Devirtualizer {
  private:
   using TagsTuple = std::tuple<Args...>;
 
@@ -65,7 +65,7 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
   bool executed_ = false;
 
  public:
-  ArrayDevirtualizer(Fn fn, const IndexMask *mask, const typename ParamType<Args>::type *...params)
+  Devirtualizer(Fn fn, const IndexMask *mask, const typename ParamType<Args>::type *...params)
       : fn_(std::move(fn)), mask_(*mask), params_{params...}
   {
     this->init(std::make_index_sequence<sizeof...(Args)>{});
@@ -275,4 +275,4 @@ template<typename Fn, typename... Args> class ArrayDevirtualizer {
   }
 };
 
-}  // namespace blender
+}  // namespace blender::varray_devirtualize
