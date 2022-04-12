@@ -214,35 +214,38 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl3(const NodeVectorMathOperation
     return false;
   }
 
+  static auto devi_fast = devi::presets::AllSpanOrSingle();
+  static auto devi_slow = devi::presets::Materialized();
+
   /* This is just a utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_VECTOR_MATH_ADD:
-      return dispatch([](float3 a, float3 b) { return a + b; });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return a + b; });
     case NODE_VECTOR_MATH_SUBTRACT:
-      return dispatch([](float3 a, float3 b) { return a - b; });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return a - b; });
     case NODE_VECTOR_MATH_MULTIPLY:
-      return dispatch([](float3 a, float3 b) { return a * b; });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return a * b; });
     case NODE_VECTOR_MATH_DIVIDE:
-      return dispatch([](float3 a, float3 b) { return safe_divide(a, b); });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return safe_divide(a, b); });
     case NODE_VECTOR_MATH_CROSS_PRODUCT:
-      return dispatch([](float3 a, float3 b) { return cross_high_precision(a, b); });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return cross_high_precision(a, b); });
     case NODE_VECTOR_MATH_PROJECT:
-      return dispatch([](float3 a, float3 b) { return project(a, b); });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return project(a, b); });
     case NODE_VECTOR_MATH_REFLECT:
-      return dispatch([](float3 a, float3 b) { return reflect(a, normalize(b)); });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return reflect(a, normalize(b)); });
     case NODE_VECTOR_MATH_SNAP:
-      return dispatch([](float3 a, float3 b) { return floor(safe_divide(a, b)) * b; });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return floor(safe_divide(a, b)) * b; });
     case NODE_VECTOR_MATH_MODULO:
-      return dispatch([](float3 a, float3 b) { return mod(a, b); });
+      return dispatch(devi_slow, [](float3 a, float3 b) { return mod(a, b); });
     case NODE_VECTOR_MATH_MINIMUM:
-      return dispatch([](float3 a, float3 b) { return min(a, b); });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return min(a, b); });
     case NODE_VECTOR_MATH_MAXIMUM:
-      return dispatch([](float3 a, float3 b) { return max(a, b); });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return max(a, b); });
     default:
       return false;
   }
@@ -263,17 +266,19 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl(const NodeVectorMathOperation 
     return false;
   }
 
+  static auto devi_fast = devi::presets::AllSpanOrSingle();
+
   /* This is just a utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_VECTOR_MATH_DOT_PRODUCT:
-      return dispatch([](float3 a, float3 b) { return dot(a, b); });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return dot(a, b); });
     case NODE_VECTOR_MATH_DISTANCE:
-      return dispatch([](float3 a, float3 b) { return distance(a, b); });
+      return dispatch(devi_fast, [](float3 a, float3 b) { return distance(a, b); });
     default:
       return false;
   }
@@ -294,21 +299,25 @@ inline bool try_dispatch_float_math_fl3_fl3_fl3_to_fl3(const NodeVectorMathOpera
     return false;
   }
 
+  static auto devi_fast = devi::presets::AllSpanOrSingle();
+  static auto devi_slow = devi::presets::Materialized();
+
   /* This is just a utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_VECTOR_MATH_MULTIPLY_ADD:
-      return dispatch([](float3 a, float3 b, float3 c) { return a * b + c; });
+      return dispatch(devi_fast, [](float3 a, float3 b, float3 c) { return a * b + c; });
     case NODE_VECTOR_MATH_WRAP:
-      return dispatch([](float3 a, float3 b, float3 c) {
+      return dispatch(devi_slow, [](float3 a, float3 b, float3 c) {
         return float3(wrapf(a.x, b.x, c.x), wrapf(a.y, b.y, c.y), wrapf(a.z, b.z, c.z));
       });
     case NODE_VECTOR_MATH_FACEFORWARD:
-      return dispatch([](float3 a, float3 b, float3 c) { return faceforward(a, b, c); });
+      return dispatch(devi_fast,
+                      [](float3 a, float3 b, float3 c) { return faceforward(a, b, c); });
     default:
       return false;
   }
@@ -329,15 +338,18 @@ inline bool try_dispatch_float_math_fl3_fl3_fl_to_fl3(const NodeVectorMathOperat
     return false;
   }
 
+  static auto devi_slow = devi::presets::Materialized();
+
   /* This is just a utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_VECTOR_MATH_REFRACT:
-      return dispatch([](float3 a, float3 b, float c) { return refract(a, normalize(b), c); });
+      return dispatch(devi_slow,
+                      [](float3 a, float3 b, float c) { return refract(a, normalize(b), c); });
     default:
       return false;
   }
@@ -358,15 +370,17 @@ inline bool try_dispatch_float_math_fl3_to_fl(const NodeVectorMathOperation oper
     return false;
   }
 
+  static auto devi_fast = devi::presets::AllSpanOrSingle();
+
   /* This is just a utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_VECTOR_MATH_LENGTH:
-      return dispatch([](float3 in) { return length(in); });
+      return dispatch(devi_fast, [](float3 in) { return length(in); });
     default:
       return false;
   }
@@ -385,15 +399,17 @@ inline bool try_dispatch_float_math_fl3_fl_to_fl3(const NodeVectorMathOperation 
     return false;
   }
 
+  static auto devi_fast = devi::presets::AllSpanOrSingle();
+
   /* This is just a utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_VECTOR_MATH_SCALE:
-      return dispatch([](float3 a, float b) { return a * b; });
+      return dispatch(devi_fast, [](float3 a, float b) { return a * b; });
     default:
       return false;
   }
@@ -414,29 +430,35 @@ inline bool try_dispatch_float_math_fl3_to_fl3(const NodeVectorMathOperation ope
     return false;
   }
 
+  static auto devi_fast = devi::presets::AllSpanOrSingle();
+  static auto devi_slow = devi::presets::Materialized();
+
   /* This is just a utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_VECTOR_MATH_NORMALIZE:
-      return dispatch([](float3 in) { return normalize(in); }); /* Should be safe. */
+      return dispatch(devi_fast, [](float3 in) { return normalize(in); }); /* Should be safe. */
     case NODE_VECTOR_MATH_FLOOR:
-      return dispatch([](float3 in) { return floor(in); });
+      return dispatch(devi_fast, [](float3 in) { return floor(in); });
     case NODE_VECTOR_MATH_CEIL:
-      return dispatch([](float3 in) { return ceil(in); });
+      return dispatch(devi_fast, [](float3 in) { return ceil(in); });
     case NODE_VECTOR_MATH_FRACTION:
-      return dispatch([](float3 in) { return fract(in); });
+      return dispatch(devi_fast, [](float3 in) { return fract(in); });
     case NODE_VECTOR_MATH_ABSOLUTE:
-      return dispatch([](float3 in) { return abs(in); });
+      return dispatch(devi_fast, [](float3 in) { return abs(in); });
     case NODE_VECTOR_MATH_SINE:
-      return dispatch([](float3 in) { return float3(sinf(in.x), sinf(in.y), sinf(in.z)); });
+      return dispatch(devi_slow,
+                      [](float3 in) { return float3(sinf(in.x), sinf(in.y), sinf(in.z)); });
     case NODE_VECTOR_MATH_COSINE:
-      return dispatch([](float3 in) { return float3(cosf(in.x), cosf(in.y), cosf(in.z)); });
+      return dispatch(devi_slow,
+                      [](float3 in) { return float3(cosf(in.x), cosf(in.y), cosf(in.z)); });
     case NODE_VECTOR_MATH_TANGENT:
-      return dispatch([](float3 in) { return float3(tanf(in.x), tanf(in.y), tanf(in.z)); });
+      return dispatch(devi_slow,
+                      [](float3 in) { return float3(tanf(in.x), tanf(in.y), tanf(in.z)); });
     default:
       return false;
   }
