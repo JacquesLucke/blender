@@ -26,28 +26,22 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   using TagsSequence = TypeSequence<ParamTags...>;
 
  public:
-  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
-  CustomMF(const char *name,
-           ElementFn element_fn,
-           DevirtualizeFn devirtualize_fn = devi::presets::None())
+  template<typename ElementFn, typename DeviFn = devi::presets::None>
+  CustomMF(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
   {
     MFSignatureBuilder signature{name};
     add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
     signature_ = signature.build();
     this->set_signature(&signature_);
 
-    fn_ = [element_fn, devirtualize_fn](IndexMask mask, MFParams params) {
-      execute(element_fn,
-              devirtualize_fn,
-              mask,
-              params,
-              std::make_index_sequence<TagsSequence::size()>());
+    fn_ = [element_fn, devi_fn](IndexMask mask, MFParams params) {
+      execute(element_fn, devi_fn, mask, params, std::make_index_sequence<TagsSequence::size()>());
     };
   }
 
-  template<typename ElementFn, typename DevirtualizeFn, size_t... I>
+  template<typename ElementFn, typename DeviFn, size_t... I>
   static void execute(ElementFn element_fn,
-                      DevirtualizeFn devirtualize_fn,
+                      DeviFn devi_fn,
                       IndexMask mask,
                       MFParams params,
                       std::index_sequence<I...> /* indices */)
@@ -72,7 +66,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
     devi::Devirtualizer devirtualizer =
         devi::devirtualizer_from_element_fn<decltype(element_fn), ParamTags...>(
             element_fn, &mask, &std::get<I>(retrieved_params)...);
-    devirtualize_fn(devirtualizer);
+    devi_fn(devirtualizer);
   }
 
   template<size_t... I>
@@ -112,14 +106,12 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
 template<typename In1, typename Out1>
 class CustomMF_SI_SO : public CustomMF<devi::tags::InVArray<In1>, devi::tags::OutSpan<Out1>> {
  public:
-  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
-  CustomMF_SI_SO(const char *name,
-                 ElementFn element_fn,
-                 DevirtualizeFn devirtualize_fn = devi::presets::None())
+  template<typename ElementFn, typename DeviFn = devi::presets::None>
+  CustomMF_SI_SO(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
       : CustomMF<devi::tags::InVArray<In1>, devi::tags::OutSpan<Out1>>(
             name,
             [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); },
-            devirtualize_fn)
+            devi_fn)
   {
   }
 };
@@ -135,16 +127,14 @@ class CustomMF_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
                                           devi::tags::InVArray<In2>,
                                           devi::tags::OutSpan<Out1>> {
  public:
-  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
-  CustomMF_SI_SI_SO(const char *name,
-                    ElementFn element_fn,
-                    DevirtualizeFn devirtualize_fn = devi::presets::None())
+  template<typename ElementFn, typename DeviFn = devi::presets::None>
+  CustomMF_SI_SI_SO(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
       : CustomMF<devi::tags::InVArray<In1>, devi::tags::InVArray<In2>, devi::tags::OutSpan<Out1>>(
             name,
             [element_fn](const In1 &in1, const In2 &in2, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2));
             },
-            devirtualize_fn)
+            devi_fn)
   {
   }
 };
@@ -162,10 +152,10 @@ class CustomMF_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
                                              devi::tags::InVArray<In3>,
                                              devi::tags::OutSpan<Out1>> {
  public:
-  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
+  template<typename ElementFn, typename DeviFn = devi::presets::None>
   CustomMF_SI_SI_SI_SO(const char *name,
                        ElementFn element_fn,
-                       DevirtualizeFn devirtualize_fn = devi::presets::None())
+                       DeviFn devi_fn = devi::presets::None())
       : CustomMF<devi::tags::InVArray<In1>,
                  devi::tags::InVArray<In2>,
                  devi::tags::InVArray<In3>,
@@ -174,7 +164,7 @@ class CustomMF_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
             [element_fn](const In1 &in1, const In2 &in2, const In3 &in3, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2, in3));
             },
-            devirtualize_fn)
+            devi_fn)
   {
   }
 };
@@ -194,10 +184,10 @@ class CustomMF_SI_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
                                                 devi::tags::InVArray<In4>,
                                                 devi::tags::OutSpan<Out1>> {
  public:
-  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
+  template<typename ElementFn, typename DeviFn = devi::presets::None>
   CustomMF_SI_SI_SI_SI_SO(const char *name,
                           ElementFn element_fn,
-                          DevirtualizeFn devirtualize_fn = devi::presets::None())
+                          DeviFn devi_fn = devi::presets::None())
       : CustomMF<devi::tags::InVArray<In1>,
                  devi::tags::InVArray<In2>,
                  devi::tags::InVArray<In3>,
@@ -208,7 +198,7 @@ class CustomMF_SI_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
                 const In1 &in1, const In2 &in2, const In3 &in3, const In4 &in4, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2, in3, in4));
             },
-            devirtualize_fn)
+            devi_fn)
   {
   }
 };
