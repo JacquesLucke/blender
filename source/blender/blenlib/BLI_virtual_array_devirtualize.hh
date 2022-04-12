@@ -398,13 +398,4 @@ template<size_t SpanIndex, MaskMode MaskMode = MaskMode::Range> struct OneSpanOt
 
 }  // namespace presets
 
-namespace common {
-using blender::varray_devirtualize::devirtualizer_from_element_fn;
-using blender::varray_devirtualize::InputTag;
-using blender::varray_devirtualize::MaskMode;
-using blender::varray_devirtualize::OutputTag;
-using blender::varray_devirtualize::ParamMode;
-using blender::varray_devirtualize::ParamModeSequence;
-}  // namespace common
-
 }  // namespace blender::varray_devirtualize
