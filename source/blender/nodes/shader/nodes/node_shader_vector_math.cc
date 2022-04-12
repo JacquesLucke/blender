@@ -231,6 +231,8 @@ static const fn::MultiFunction *get_multi_function(bNode &node)
 
   const fn::MultiFunction *multi_fn = nullptr;
 
+  namespace devi = varray_devirtualize;
+
   try_dispatch_float_math_fl3_fl3_to_fl3(
       operation, [&](auto function, const FloatMathOperationInfo &info) {
         static fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{

@@ -8,11 +8,8 @@
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.hh"
 #include "BLI_string_ref.hh"
-#include "BLI_virtual_array_devirtualize.hh"
 
 namespace blender::nodes {
-
-namespace devi = varray_devirtualize;
 
 struct FloatMathOperationInfo {
   StringRefNull title_case_name;
