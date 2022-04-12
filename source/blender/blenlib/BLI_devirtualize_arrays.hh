@@ -107,7 +107,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
         MutableSpan{std::get<I>(buffers_owner).ptr(), std::min(mask_size, MaxChunkSize)}...};
 
     (
-        [&]() {
+        [&] {
           using ParamTag = tag_at_index<I>;
           using T = typename ParamTag::BaseType;
           if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
@@ -126,7 +126,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
       const IndexMask sliced_mask = mask_.slice(chunk_start, chunk_size);
       const int64_t sliced_mask_size = sliced_mask.size();
       (
-          [&]() {
+          [&] {
             using ParamTag = tag_at_index<I>;
             using T = typename ParamTag::BaseType;
             if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
@@ -139,7 +139,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
           }(),
           ...);
 
-      fn_(IndexRange(sliced_mask_size), sliced_mask, [&]() {
+      fn_(IndexRange(sliced_mask_size), sliced_mask, [&] {
         using ParamTag = tag_at_index<I>;
         using T = typename ParamTag::BaseType;
         if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
@@ -153,7 +153,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
       }()...);
 
       (
-          [&]() {
+          [&] {
             using ParamTag = tag_at_index<I>;
             using T = typename ParamTag::BaseType;
             if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
@@ -231,7 +231,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
     varray_is_span_.fill(false);
     varray_is_single_.fill(false);
     (
-        [&]() {
+        [&] {
           using ParamTag = tag_at_index<I>;
           if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
             const typename ParamTag::ArrayType *varray = std::get<I>(params_);
