@@ -51,7 +51,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
     std::tuple<typename ParamTags::ArrayType...> retrieved_params;
     (
         [&]() {
-          using ParamTag = typename TagsSequence::at_index<I>;
+          using ParamTag = typename TagsSequence::template at_index<I>;
           using T = typename ParamTag::BaseType;
 
           if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
@@ -76,7 +76,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
     namespace devi = devirtualize_arrays;
     (
         [&] {
-          using ParamTag = typename TagsSequence::at_index<I>;
+          using ParamTag = typename TagsSequence::template at_index<I>;
           if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
             using T = typename ParamTag::BaseType;
             signature.single_input<T>("In");

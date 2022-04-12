@@ -49,7 +49,8 @@ template<ParamMode... Mode> using ParamModeSequence = ValueSequence<ParamMode, M
 
 template<typename Fn, typename... ParamTags> class Devirtualizer {
  private:
-  template<size_t I> using tag_at_index = typename TypeSequence<ParamTags...>::at_index<I>;
+  template<size_t I>
+  using tag_at_index = typename TypeSequence<ParamTags...>::template at_index<I>;
 
   Fn fn_;
   IndexMask mask_;
@@ -273,7 +274,8 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
 };
 
 template<typename ElementFn, typename... ParamTags> struct ElementFnExecutor {
-  template<size_t I> using tag_at_index = typename TypeSequence<ParamTags...>::at_index<I>;
+  template<size_t I>
+  using tag_at_index = typename TypeSequence<ParamTags...>::template at_index<I>;
 
   ElementFn element_fn;
 
