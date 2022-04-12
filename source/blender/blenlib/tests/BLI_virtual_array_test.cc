@@ -5,7 +5,6 @@
 #include "BLI_vector.hh"
 #include "BLI_vector_set.hh"
 #include "BLI_virtual_array.hh"
-#include "BLI_virtual_array_devirtualize.hh"
 #include "testing/testing.h"
 
 namespace blender::tests {
@@ -221,49 +220,6 @@ TEST(virtual_array, MaterializeCompressed)
     EXPECT_EQ(compressed_array[1], 4);
     EXPECT_EQ(compressed_array[2], 9);
   }
-}
-
-struct MyOperator {
-  template<typename InIndices, typename OutIndices, typename In1Array, typename In2Array>
-  void operator()(InIndices in_indices,
-                  OutIndices out_indices,
-                  In1Array in1,
-                  In2Array in2,
-                  int *__restrict out1)
-  {
-    for (const int64_t i : IndexRange(in_indices.size())) {
-      const int64_t in_i = in_indices[i];
-      const int64_t out_i = out_indices[i];
-      out1[out_i] = in1[in_i] + in2[in_i];
-    }
-  }
-};
-
-TEST(virtual_array, Devirtualize)
-{
-  MyOperator fn;
-
-  IndexMask mask(IndexRange(10));
-  VArray<int> in1 = VArray<int>::ForSingle(3, 10);
-  VArray<int> in2 = VArray<int>::ForSingle(5, 10);
-  // VArray<int> in2 = VArray<int>::ForContainer(Array<int>(10, 5));
-  // VArray<int> in2 = VArray<int>::ForFunc(10, [](int64_t i) { return (int)i; });
-  std::array<int, 10> out1_array;
-  MutableSpan<int> out1 = out1_array;
-  out1.fill(-1);
-
-  varray_devirtualize::Devirtualizer<decltype(fn),
-                                     varray_devirtualize::InputTag<int>,
-                                     varray_devirtualize::InputTag<int>,
-                                     varray_devirtualize::OutputTag<int>>
-      devirtualizer{fn, &mask, &in1, &in2, &out1};
-
-  if (!devirtualizer.try_execute_devirtualized()) {
-    devirtualizer.execute_materialized();
-  }
-
-  EXPECT_EQ(out1[0], 8);
-  EXPECT_EQ(out1[1], 8);
 }
 
 }  // namespace blender::tests
