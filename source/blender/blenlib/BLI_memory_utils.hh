@@ -543,6 +543,7 @@ Container &move_assign_container(Container &dst, Container &&src) noexcept(
   return dst;
 }
 
+/* Todo: Move to separate file. */
 template<typename T, T Element> struct TypeForValue {
   static constexpr T value = Element;
 };
