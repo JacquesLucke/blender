@@ -98,6 +98,22 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   }
 
  private:
+  template<size_t... I> void init(std::index_sequence<I...> /* indices */)
+  {
+    varray_is_span_.fill(false);
+    varray_is_single_.fill(false);
+    (
+        [&] {
+          using ParamTag = tag_at_index<I>;
+          if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
+            const typename ParamTag::ArrayType *varray = std::get<I>(params_);
+            varray_is_span_[I] = varray->is_span();
+            varray_is_single_[I] = varray->is_single();
+          }
+        }(),
+        ...);
+  }
+
   template<size_t... I> void execute_materialized_impl(std::index_sequence<I...> /* indices */)
   {
     static constexpr int64_t MaxChunkSize = 32;
@@ -215,40 +231,24 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
     if constexpr ((MaskMode & MaskMode::Range) != MaskMode::None) {
       if (mask_.is_range()) {
         const IndexRange mask_range = mask_.as_range();
-        fn_(mask_range, mask_range, this->get_execute_param<I, Mode>()...);
+        fn_(mask_range, mask_range, this->get_devirtualized_parameter<I, Mode>()...);
         return true;
       }
     }
     if constexpr ((MaskMode & MaskMode::Mask) != MaskMode::None) {
-      fn_(mask_, mask_, this->get_execute_param<I, Mode>()...);
+      fn_(mask_, mask_, this->get_devirtualized_parameter<I, Mode>()...);
       return true;
     }
     return false;
   }
 
-  template<size_t... I> void init(std::index_sequence<I...> /* indices */)
-  {
-    varray_is_span_.fill(false);
-    varray_is_single_.fill(false);
-    (
-        [&] {
-          using ParamTag = tag_at_index<I>;
-          if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
-            const typename ParamTag::ArrayType *varray = std::get<I>(params_);
-            varray_is_span_[I] = varray->is_span();
-            varray_is_single_[I] = varray->is_single();
-          }
-        }(),
-        ...);
-  }
-
   template<size_t... I> void execute_fallback_impl(std::index_sequence<I...> /* indices */)
   {
-    fn_(mask_, mask_, this->get_execute_param<I, ParamMode::None>()...);
+    fn_(mask_, mask_, this->get_devirtualized_parameter<I, ParamMode::None>()...);
     executed_ = true;
   }
 
-  template<size_t I, ParamMode Mode> decltype(auto) get_execute_param()
+  template<size_t I, ParamMode Mode> decltype(auto) get_devirtualized_parameter()
   {
     using ParamTag = tag_at_index<I>;
     if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
