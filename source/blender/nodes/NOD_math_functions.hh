@@ -4,12 +4,15 @@
 
 #include "DNA_node_types.h"
 
+#include "BLI_devirtualize_arrays_presets.hh"
 #include "BLI_math_base_safe.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.hh"
 #include "BLI_string_ref.hh"
 
 namespace blender::nodes {
+
+namespace devi = devirtualize_arrays;
 
 struct FloatMathOperationInfo {
   StringRefNull title_case_name;
@@ -49,55 +52,58 @@ inline bool try_dispatch_float_math_fl_to_fl(const int operation, Callback &&cal
     return false;
   }
 
+  static auto devi_fast = devi::presets::AllSpanOrSingle();
+  static auto devi_slow = devi::presets::Materialized();
+
   /* This is just an utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_MATH_EXPONENT:
-      return dispatch([](float a) { return expf(a); });
+      return dispatch(devi_slow, [](float a) { return expf(a); });
     case NODE_MATH_SQRT:
-      return dispatch([](float a) { return safe_sqrtf(a); });
+      return dispatch(devi_fast, [](float a) { return safe_sqrtf(a); });
     case NODE_MATH_INV_SQRT:
-      return dispatch([](float a) { return safe_inverse_sqrtf(a); });
+      return dispatch(devi_fast, [](float a) { return safe_inverse_sqrtf(a); });
     case NODE_MATH_ABSOLUTE:
-      return dispatch([](float a) { return fabs(a); });
+      return dispatch(devi_fast, [](float a) { return fabs(a); });
     case NODE_MATH_RADIANS:
-      return dispatch([](float a) { return (float)DEG2RAD(a); });
+      return dispatch(devi_fast, [](float a) { return (float)DEG2RAD(a); });
     case NODE_MATH_DEGREES:
-      return dispatch([](float a) { return (float)RAD2DEG(a); });
+      return dispatch(devi_fast, [](float a) { return (float)RAD2DEG(a); });
     case NODE_MATH_SIGN:
-      return dispatch([](float a) { return compatible_signf(a); });
+      return dispatch(devi_fast, [](float a) { return compatible_signf(a); });
     case NODE_MATH_ROUND:
-      return dispatch([](float a) { return floorf(a + 0.5f); });
+      return dispatch(devi_fast, [](float a) { return floorf(a + 0.5f); });
     case NODE_MATH_FLOOR:
-      return dispatch([](float a) { return floorf(a); });
+      return dispatch(devi_fast, [](float a) { return floorf(a); });
     case NODE_MATH_CEIL:
-      return dispatch([](float a) { return ceilf(a); });
+      return dispatch(devi_fast, [](float a) { return ceilf(a); });
     case NODE_MATH_FRACTION:
-      return dispatch([](float a) { return a - floorf(a); });
+      return dispatch(devi_fast, [](float a) { return a - floorf(a); });
     case NODE_MATH_TRUNC:
-      return dispatch([](float a) { return a >= 0.0f ? floorf(a) : ceilf(a); });
+      return dispatch(devi_fast, [](float a) { return a >= 0.0f ? floorf(a) : ceilf(a); });
     case NODE_MATH_SINE:
-      return dispatch([](float a) { return sinf(a); });
+      return dispatch(devi_slow, [](float a) { return sinf(a); });
     case NODE_MATH_COSINE:
-      return dispatch([](float a) { return cosf(a); });
+      return dispatch(devi_slow, [](float a) { return cosf(a); });
     case NODE_MATH_TANGENT:
-      return dispatch([](float a) { return tanf(a); });
+      return dispatch(devi_slow, [](float a) { return tanf(a); });
     case NODE_MATH_SINH:
-      return dispatch([](float a) { return sinhf(a); });
+      return dispatch(devi_slow, [](float a) { return sinhf(a); });
     case NODE_MATH_COSH:
-      return dispatch([](float a) { return coshf(a); });
+      return dispatch(devi_slow, [](float a) { return coshf(a); });
     case NODE_MATH_TANH:
-      return dispatch([](float a) { return tanhf(a); });
+      return dispatch(devi_slow, [](float a) { return tanhf(a); });
     case NODE_MATH_ARCSINE:
-      return dispatch([](float a) { return safe_asinf(a); });
+      return dispatch(devi_slow, [](float a) { return safe_asinf(a); });
     case NODE_MATH_ARCCOSINE:
-      return dispatch([](float a) { return safe_acosf(a); });
+      return dispatch(devi_slow, [](float a) { return safe_acosf(a); });
     case NODE_MATH_ARCTANGENT:
-      return dispatch([](float a) { return atanf(a); });
+      return dispatch(devi_slow, [](float a) { return atanf(a); });
   }
   return false;
 }

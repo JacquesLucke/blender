@@ -108,11 +108,12 @@ static const fn::MultiFunction *get_base_multi_function(bNode &node)
 
   namespace devi = devirtualize_arrays;
 
-  try_dispatch_float_math_fl_to_fl(mode, [&](auto function, const FloatMathOperationInfo &info) {
-    static fn::CustomMF_SI_SO<float, float> fn{
-        info.title_case_name.c_str(), function, devi::presets::AllSpanOrSingle()};
-    base_fn = &fn;
-  });
+  try_dispatch_float_math_fl_to_fl(
+      mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
+        static fn::CustomMF_SI_SO<float, float> fn{
+            info.title_case_name.c_str(), function, devi_fn};
+        base_fn = &fn;
+      });
   if (base_fn != nullptr) {
     return base_fn;
   }
