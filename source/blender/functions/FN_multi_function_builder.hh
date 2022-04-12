@@ -54,7 +54,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   {
     namespace devi = devirtualize_arrays;
 
-    std::tuple<devi::ParamType_t<ParamTags>...> retrieved_params;
+    std::tuple<typename ParamTags::ArrayType...> retrieved_params;
     (
         [&]() {
           using ParamTag = typename TagsSequence::at_index<I>;

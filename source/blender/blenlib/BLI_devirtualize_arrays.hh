@@ -18,26 +18,15 @@ struct Output {
 
 template<typename T> struct InVArray : public Input {
   using BaseType = T;
+  using ArrayType = VArray<T>;
 };
 
 template<typename T> struct OutSpan : public Output {
   using BaseType = T;
+  using ArrayType = MutableSpan<T>;
 };
 
 }  // namespace tags
-
-template<typename T> struct ParamType {
-};
-
-template<typename T> struct ParamType<tags::InVArray<T>> {
-  using type = VArray<T>;
-};
-
-template<typename T> struct ParamType<tags::OutSpan<T>> {
-  using type = MutableSpan<T>;
-};
-
-template<typename Tag> using ParamType_t = typename ParamType<Tag>::type;
 
 enum class ParamMode {
   None = 0,
@@ -67,7 +56,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
 
   Fn fn_;
   IndexMask mask_;
-  std::tuple<const typename ParamType<ParamTags>::type *...> params_;
+  std::tuple<const typename ParamTags::ArrayType *...> params_;
 
   std::array<bool, sizeof...(ParamTags)> varray_is_span_;
   std::array<bool, sizeof...(ParamTags)> varray_is_single_;
@@ -75,7 +64,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   bool executed_ = false;
 
  public:
-  Devirtualizer(Fn fn, const IndexMask *mask, const typename ParamType<ParamTags>::type *...params)
+  Devirtualizer(Fn fn, const IndexMask *mask, const typename ParamTags::ArrayType *...params)
       : fn_(std::move(fn)), mask_(*mask), params_{params...}
   {
     this->init(std::make_index_sequence<sizeof...(ParamTags)>{});
@@ -251,7 +240,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   {
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
     if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
-      const typename ParamType<ParamTag>::type *varray = std::get<I>(params_);
+      const typename ParamTag::ArrayType *varray = std::get<I>(params_);
       varray_is_span_[I] = varray->is_span();
       varray_is_single_[I] = varray->is_single();
     }
@@ -326,7 +315,7 @@ template<typename ElementFn, typename... ParamTags>
 Devirtualizer<ElementFnExecutor<ElementFn, ParamTags...>, ParamTags...>
 devirtualizer_from_element_fn(ElementFn element_fn,
                               const IndexMask *mask,
-                              const typename ParamType<ParamTags>::type *...params)
+                              const typename ParamTags::ArrayType *...params)
 {
   ElementFnExecutor<ElementFn, ParamTags...> executor{element_fn};
   return Devirtualizer<ElementFnExecutor<ElementFn, ParamTags...>, ParamTags...>{
