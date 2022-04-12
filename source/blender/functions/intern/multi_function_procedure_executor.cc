@@ -2,6 +2,7 @@
 
 #include "FN_multi_function_procedure_executor.hh"
 
+#include "BLI_profile.hh"
 #include "BLI_stack.hh"
 
 namespace blender::fn {
@@ -1165,6 +1166,7 @@ class InstructionScheduler {
 
 void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext context) const
 {
+  BLI_PROFILE_SCOPE("procedure");
   BLI_assert(procedure_.validate());
 
   LinearAllocator<> linear_allocator;

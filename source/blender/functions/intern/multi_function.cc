@@ -2,6 +2,7 @@
 
 #include "FN_multi_function.hh"
 
+#include "BLI_profile.hh"
 #include "BLI_task.hh"
 #include "BLI_threads.h"
 
@@ -57,6 +58,10 @@ void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context
   if (mask.is_empty()) {
     return;
   }
+  ProfileTask profile_task;
+  BLI_profile_task_begin_named(&profile_task, signature_ref_->function_name);
+  BLI_SCOPED_DEFER([&]() { BLI_profile_task_end(&profile_task); });
+
   const ExecutionHints hints = this->execution_hints();
   const int64_t grain_size = compute_grain_size(hints, mask);
 
@@ -72,6 +77,11 @@ void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context
   }
 
   threading::parallel_for(mask.index_range(), grain_size, [&](const IndexRange sub_range) {
+    ProfileTask sub_task;
+    BLI_profile_task_begin_range(
+        &sub_task, &profile_task, sub_range.start(), sub_range.one_after_last());
+    BLI_SCOPED_DEFER([&]() { BLI_profile_task_end(&sub_task); });
+
     const IndexMask sliced_mask = mask.slice(sub_range);
     if (!hints.allocates_array) {
       /* There is no benefit to changing indices in this case. */
