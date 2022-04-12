@@ -552,8 +552,10 @@ static Field<int> get_curve_count_field(GeoNodeExecParams params,
                                         const GeometryNodeCurveResampleMode mode)
 {
   if (mode == GEO_NODE_CURVE_RESAMPLE_COUNT) {
-    static fn::CustomMF_SI_SO<int, int> max_one_fn("Clamp Above One",
-                                                   [](int value) { return std::max(1, value); });
+    static fn::CustomMF_SI_SO<int, int> max_one_fn(
+        "Clamp Above One",
+        [](int value) { return std::max(1, value); },
+        devi::presets::AllSpanOrSingle());
     auto clamp_op = std::make_shared<FieldOperation>(
         FieldOperation(max_one_fn, {Field<int>(params.extract_input<Field<int>>("Count"))}));
 

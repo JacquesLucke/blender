@@ -4,6 +4,7 @@
 
 #include "BLI_noise.hh"
 #include "BLI_string.h"
+#include "BLI_virtual_array_devirtualize.hh"
 
 #include "RNA_enum_types.h"
 
@@ -13,6 +14,8 @@
 #include "node_function_util.hh"
 
 namespace blender::nodes::node_fn_float_to_int_cc {
+
+namespace devi = varray_devirtualize;
 
 static void fn_node_float_to_int_declare(NodeDeclarationBuilder &b)
 {
@@ -41,11 +44,14 @@ static void node_float_to_int_label(const bNodeTree *UNUSED(ntree),
 
 static const fn::MultiFunction *get_multi_function(bNode &bnode)
 {
-  static fn::CustomMF_SI_SO<float, int> round_fn{"Round", [](float a) { return (int)round(a); }};
-  static fn::CustomMF_SI_SO<float, int> floor_fn{"Floor", [](float a) { return (int)floor(a); }};
-  static fn::CustomMF_SI_SO<float, int> ceil_fn{"Ceiling", [](float a) { return (int)ceil(a); }};
-  static fn::CustomMF_SI_SO<float, int> trunc_fn{"Truncate",
-                                                 [](float a) { return (int)trunc(a); }};
+  static fn::CustomMF_SI_SO<float, int> round_fn{
+      "Round", [](float a) { return (int)round(a); }, devi::presets::AllSpanOrSingle()};
+  static fn::CustomMF_SI_SO<float, int> floor_fn{
+      "Floor", [](float a) { return (int)floor(a); }, devi::presets::AllSpanOrSingle()};
+  static fn::CustomMF_SI_SO<float, int> ceil_fn{
+      "Ceiling", [](float a) { return (int)ceil(a); }, devi::presets::AllSpanOrSingle()};
+  static fn::CustomMF_SI_SO<float, int> trunc_fn{
+      "Truncate", [](float a) { return (int)trunc(a); }, devi::presets::AllSpanOrSingle()};
 
   switch (static_cast<FloatToIntRoundingMode>(bnode.custom1)) {
     case FN_NODE_FLOAT_TO_INT_ROUND:
