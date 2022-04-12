@@ -230,17 +230,16 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   {
     varray_is_span_.fill(false);
     varray_is_single_.fill(false);
-    (this->init_param<I>(), ...);
-  }
-
-  template<size_t I> void init_param()
-  {
-    using ParamTag = tag_at_index<I>;
-    if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
-      const typename ParamTag::ArrayType *varray = std::get<I>(params_);
-      varray_is_span_[I] = varray->is_span();
-      varray_is_single_[I] = varray->is_single();
-    }
+    (
+        [&]() {
+          using ParamTag = tag_at_index<I>;
+          if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
+            const typename ParamTag::ArrayType *varray = std::get<I>(params_);
+            varray_is_span_[I] = varray->is_span();
+            varray_is_single_[I] = varray->is_single();
+          }
+        }(),
+        ...);
   }
 
   template<size_t... I> void execute_fallback_impl(std::index_sequence<I...> /* indices */)
