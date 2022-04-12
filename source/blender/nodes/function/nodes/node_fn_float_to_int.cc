@@ -44,14 +44,15 @@ static void node_float_to_int_label(const bNodeTree *UNUSED(ntree),
 
 static const fn::MultiFunction *get_multi_function(bNode &bnode)
 {
+  static auto devi_preset = devi::presets::AllSpanOrSingle();
   static fn::CustomMF_SI_SO<float, int> round_fn{
-      "Round", [](float a) { return (int)round(a); }, devi::presets::AllSpanOrSingle()};
+      "Round", [](float a) { return (int)round(a); }, devi_preset};
   static fn::CustomMF_SI_SO<float, int> floor_fn{
-      "Floor", [](float a) { return (int)floor(a); }, devi::presets::AllSpanOrSingle()};
+      "Floor", [](float a) { return (int)floor(a); }, devi_preset};
   static fn::CustomMF_SI_SO<float, int> ceil_fn{
-      "Ceiling", [](float a) { return (int)ceil(a); }, devi::presets::AllSpanOrSingle()};
+      "Ceiling", [](float a) { return (int)ceil(a); }, devi_preset};
   static fn::CustomMF_SI_SO<float, int> trunc_fn{
-      "Truncate", [](float a) { return (int)trunc(a); }, devi::presets::AllSpanOrSingle()};
+      "Truncate", [](float a) { return (int)trunc(a); }, devi_preset};
 
   switch (static_cast<FloatToIntRoundingMode>(bnode.custom1)) {
     case FN_NODE_FLOAT_TO_INT_ROUND:
