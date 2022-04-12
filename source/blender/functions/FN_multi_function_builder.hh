@@ -46,8 +46,6 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
                       MFParams params,
                       std::index_sequence<I...> /* indices */)
   {
-    namespace devi = devirtualize_arrays;
-
     std::tuple<typename ParamTags::ArrayType...> retrieved_params;
     (
         [&]() {
@@ -73,7 +71,6 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   static void add_signature_parameters(MFSignatureBuilder &signature,
                                        std::index_sequence<I...> /* indices */)
   {
-    namespace devi = devirtualize_arrays;
     (
         [&] {
           using ParamTag = typename TagsSequence::template at_index<I>;
