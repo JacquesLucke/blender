@@ -283,10 +283,10 @@ template<typename ElementFn, typename... ParamTags> struct ElementFnExecutor {
   ElementFn element_fn;
 
   template<typename InIndices, typename OutIndices, size_t... I, typename... Args>
-  BLI_NOINLINE void execute_element_fn(InIndices in_indices,
-                                       OutIndices out_indices,
-                                       std::index_sequence<I...> /* indices */,
-                                       Args &&__restrict... args)
+  void execute_element_fn(InIndices in_indices,
+                          OutIndices out_indices,
+                          std::index_sequence<I...> /* indices */,
+                          Args &&__restrict... args)
   {
     BLI_assert(in_indices.size() == out_indices.size());
     for (const int64_t i : IndexRange(in_indices.size())) {
