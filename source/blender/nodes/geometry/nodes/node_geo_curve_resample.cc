@@ -564,12 +564,14 @@ static Field<int> get_curve_count_field(GeoNodeExecParams params,
 
   if (mode == GEO_NODE_CURVE_RESAMPLE_LENGTH) {
     static fn::CustomMF_SI_SI_SO<float, float, int> get_count_fn(
-        "Length Input to Count", [](const float curve_length, const float sample_length) {
+        "Length Input to Count",
+        [](const float curve_length, const float sample_length) {
           /* Find the number of sampled segments by dividing the total length by
            * the sample length. Then there is one more sampled point than segment. */
           const int count = int(curve_length / sample_length) + 1;
           return std::max(1, count);
-        });
+        },
+        devi::presets::AllSpanOrSingle());
 
     auto get_count_op = std::make_shared<FieldOperation>(
         FieldOperation(get_count_fn,
@@ -591,9 +593,11 @@ static Field<int> get_curve_count_field(GeoNodeExecParams params,
 static Field<bool> get_selection_field(GeoNodeExecParams params)
 {
   static fn::CustomMF_SI_SI_SO<bool, int, bool> get_selection_fn(
-      "Create Curve Selection", [](const bool orig_selection, const int evaluated_points_num) {
+      "Create Curve Selection",
+      [](const bool orig_selection, const int evaluated_points_num) {
         return orig_selection && evaluated_points_num > 1;
-      });
+      },
+      devi::presets::AllSpanOrSingle());
 
   auto selection_op = std::make_shared<FieldOperation>(
       FieldOperation(get_selection_fn,
