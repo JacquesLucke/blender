@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2004 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2004 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -27,6 +11,7 @@
 extern "C" {
 #endif
 
+struct Editing;
 struct ListBase;
 struct Scene;
 struct SeqCollection;
@@ -65,7 +50,7 @@ bool SEQ_transform_seqbase_shuffle_time(struct SeqCollection *strips_to_shuffle,
                                         struct ListBase *seqbasep,
                                         struct Scene *evil_scene,
                                         struct ListBase *markers,
-                                        const bool use_sync_markers);
+                                        bool use_sync_markers);
 /**
  * Check if the selected seq's reference unselected seq's.
  */
@@ -80,8 +65,14 @@ bool SEQ_transform_seqbase_isolated_sel_check(struct ListBase *seqbase);
  */
 void SEQ_transform_offset_after_frame(struct Scene *scene,
                                       struct ListBase *seqbase,
-                                      const int delta,
-                                      const int timeline_frame);
+                                      int delta,
+                                      int timeline_frame);
+
+/**
+ * Check if `seq` can be moved.
+ * This function also checks `SeqTimelineChannel` flag.
+ */
+bool SEQ_transform_is_locked(struct ListBase *channels, struct Sequence *seq);
 
 /* Image transformation. */
 

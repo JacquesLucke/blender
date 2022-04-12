@@ -1,16 +1,5 @@
-# Copyright 2011-2020 Blender Foundation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2011-2022 Blender Foundation
 
 remove_extra_strict_flags()
 
@@ -61,7 +50,6 @@ set(SRC_KERNEL_DEVICE_GPU_HEADERS
   device/gpu/kernel.h
   device/gpu/parallel_active_index.h
   device/gpu/parallel_prefix_sum.h
-  device/gpu/parallel_reduce.h
   device/gpu/parallel_sorted_index.h
   device/gpu/work_stealing.h
 )
@@ -235,6 +223,7 @@ set(SRC_KERNEL_INTEGRATOR_HEADERS
   integrator/intersect_subsurface.h
   integrator/intersect_volume_stack.h
   integrator/megakernel.h
+  integrator/mnee.h
   integrator/path_state.h
   integrator/shade_background.h
   integrator/shade_light.h
@@ -417,6 +406,11 @@ if(WITH_CYCLES_CUDA_BINARIES)
       --use_fast_math
       -o ${CMAKE_CURRENT_BINARY_DIR}/${cuda_file}
       -Wno-deprecated-gpu-targets)
+
+    if(CUDA_HOST_COMPILER)
+      set(cuda_flags ${cuda_flags}
+        -ccbin="${CUDA_HOST_COMPILER}")
+    endif()
 
     if(WITH_NANOVDB)
       set(cuda_flags ${cuda_flags}

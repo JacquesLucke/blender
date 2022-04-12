@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
@@ -39,6 +25,9 @@ static Mesh *mesh_edge_split(const Mesh &mesh, const IndexMask selection)
   BMesh *bm = BM_mesh_create(&allocsize, &bmesh_create_params);
 
   BMeshFromMeshParams bmesh_from_mesh_params{};
+  bmesh_from_mesh_params.cd_mask_extra.vmask = CD_MASK_ORIGINDEX;
+  bmesh_from_mesh_params.cd_mask_extra.emask = CD_MASK_ORIGINDEX;
+  bmesh_from_mesh_params.cd_mask_extra.pmask = CD_MASK_ORIGINDEX;
   BM_mesh_bm_from_me(bm, &mesh, &bmesh_from_mesh_params);
 
   BM_mesh_elem_table_ensure(bm, BM_EDGE);
@@ -90,7 +79,7 @@ void register_node_type_geo_edge_split()
 
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_SPLIT_EDGES, "Split Edges", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_SPLIT_EDGES, "Split Edges", NODE_CLASS_GEOMETRY);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.declare = file_ns::node_declare;
   nodeRegisterType(&ntype);

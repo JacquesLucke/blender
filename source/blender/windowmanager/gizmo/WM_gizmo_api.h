@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2016 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -108,7 +92,10 @@ struct PointerRNA *WM_gizmo_operator_set(struct wmGizmo *gz,
                                          int part_index,
                                          struct wmOperatorType *ot,
                                          struct IDProperty *properties);
-int WM_gizmo_operator_invoke(struct bContext *C, struct wmGizmo *gz, struct wmGizmoOpElem *gzop);
+int WM_gizmo_operator_invoke(struct bContext *C,
+                             struct wmGizmo *gz,
+                             struct wmGizmoOpElem *gzop,
+                             const struct wmEvent *event);
 
 /* Callbacks. */
 
@@ -138,9 +125,9 @@ void WM_gizmo_set_matrix_offset_rotation_from_yz_axis(struct wmGizmo *gz,
                                                       const float y_axis[3],
                                                       const float z_axis[3]);
 
-void WM_gizmo_set_flag(struct wmGizmo *gz, const int flag, const bool enable);
-void WM_gizmo_set_scale(struct wmGizmo *gz, const float scale);
-void WM_gizmo_set_line_width(struct wmGizmo *gz, const float line_width);
+void WM_gizmo_set_flag(struct wmGizmo *gz, int flag, bool enable);
+void WM_gizmo_set_scale(struct wmGizmo *gz, float scale);
+void WM_gizmo_set_line_width(struct wmGizmo *gz, float line_width);
 
 void WM_gizmo_get_color(const struct wmGizmo *gz, float color[4]);
 void WM_gizmo_set_color(struct wmGizmo *gz, const float color[4]);
@@ -175,7 +162,7 @@ void WM_gizmo_properties_create(struct PointerRNA *ptr, const char *gtstring);
 void WM_gizmo_properties_alloc(struct PointerRNA **ptr,
                                struct IDProperty **properties,
                                const char *gtstring);
-void WM_gizmo_properties_sanitize(struct PointerRNA *ptr, const bool no_context);
+void WM_gizmo_properties_sanitize(struct PointerRNA *ptr, bool no_context);
 /**
  * Set all props to their default.
  *
@@ -184,7 +171,7 @@ void WM_gizmo_properties_sanitize(struct PointerRNA *ptr, const bool no_context)
  * \note There's nothing specific to gizmos here.
  * This could be made a general function.
  */
-bool WM_gizmo_properties_default(struct PointerRNA *ptr, const bool do_update);
+bool WM_gizmo_properties_default(struct PointerRNA *ptr, bool do_update);
 /**
  * Remove all props without #PROP_SKIP_SAVE.
  */
@@ -193,13 +180,14 @@ void WM_gizmo_properties_clear(struct PointerRNA *ptr);
 void WM_gizmo_properties_free(struct PointerRNA *ptr);
 
 /* wm_gizmo_type.c */
+
 const struct wmGizmoType *WM_gizmotype_find(const char *idname, bool quiet);
 void WM_gizmotype_append(void (*gtfunc)(struct wmGizmoType *));
 void WM_gizmotype_append_ptr(void (*gtfunc)(struct wmGizmoType *, void *), void *userdata);
 bool WM_gizmotype_remove(struct bContext *C, struct Main *bmain, const char *idname);
 void WM_gizmotype_remove_ptr(struct bContext *C, struct Main *bmain, struct wmGizmoType *gzt);
 /**
- * Free but don't remove from ghash.
+ * Free but don't remove from #GHash.
  */
 void WM_gizmotype_free_ptr(struct wmGizmoType *gzt);
 /**
@@ -208,6 +196,7 @@ void WM_gizmotype_free_ptr(struct wmGizmoType *gzt);
 void WM_gizmotype_iter(struct GHashIterator *ghi);
 
 /* wm_gizmo_group_type.c */
+
 struct wmGizmoGroupType *WM_gizmogrouptype_find(const char *idname, bool quiet);
 struct wmGizmoGroupType *WM_gizmogrouptype_append(void (*wtfunc)(struct wmGizmoGroupType *));
 struct wmGizmoGroupType *WM_gizmogrouptype_append_ptr(void (*wtfunc)(struct wmGizmoGroupType *,
@@ -241,6 +230,7 @@ void WM_gizmoconfig_update(struct Main *bmain);
 void WM_gizmoconfig_update_tag_group_remove(struct wmGizmoMap *gzmap);
 
 /* wm_maniulator_target_props.c */
+
 struct wmGizmoProperty *WM_gizmo_target_property_array(struct wmGizmo *gz);
 struct wmGizmoProperty *WM_gizmo_target_property_at_index(struct wmGizmo *gz, int index);
 struct wmGizmoProperty *WM_gizmo_target_property_find(struct wmGizmo *gz, const char *idname);
@@ -274,7 +264,7 @@ float WM_gizmo_target_property_float_get(const struct wmGizmo *gz,
 void WM_gizmo_target_property_float_set(struct bContext *C,
                                         const struct wmGizmo *gz,
                                         struct wmGizmoProperty *gz_prop,
-                                        const float value);
+                                        float value);
 
 void WM_gizmo_target_property_float_get_array(const struct wmGizmo *gz,
                                               struct wmGizmoProperty *gz_prop,
@@ -376,15 +366,14 @@ struct wmGizmoGroup *WM_gizmomap_group_find_ptr(struct wmGizmoMap *gzmap,
                                                 const struct wmGizmoGroupType *gzgt);
 
 eWM_GizmoFlagMapDrawStep WM_gizmomap_drawstep_from_gizmo_group(const struct wmGizmoGroup *gzgroup);
-void WM_gizmomap_tag_refresh_drawstep(struct wmGizmoMap *gzmap,
-                                      const eWM_GizmoFlagMapDrawStep drawstep);
+void WM_gizmomap_tag_refresh_drawstep(struct wmGizmoMap *gzmap, eWM_GizmoFlagMapDrawStep drawstep);
 void WM_gizmomap_tag_refresh(struct wmGizmoMap *gzmap);
 
 bool WM_gizmomap_tag_delay_refresh_for_tweak_check(struct wmGizmoMap *gzmap);
 
 void WM_gizmomap_draw(struct wmGizmoMap *gzmap,
                       const struct bContext *C,
-                      const eWM_GizmoFlagMapDrawStep drawstep);
+                      eWM_GizmoFlagMapDrawStep drawstep);
 void WM_gizmomap_add_handlers(struct ARegion *region, struct wmGizmoMap *gzmap);
 /**
  * Select/Deselect all selectable gizmos in \a gzmap.
@@ -392,7 +381,7 @@ void WM_gizmomap_add_handlers(struct ARegion *region, struct wmGizmoMap *gzmap);
  *
  * TODO: select all by type.
  */
-bool WM_gizmomap_select_all(struct bContext *C, struct wmGizmoMap *gzmap, const int action);
+bool WM_gizmomap_select_all(struct bContext *C, struct wmGizmoMap *gzmap, int action);
 bool WM_gizmomap_cursor_set(const struct wmGizmoMap *gzmap, struct wmWindow *win);
 void WM_gizmomap_message_subscribe(const struct bContext *C,
                                    struct wmGizmoMap *gzmap,

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -62,7 +48,7 @@ typedef union IDPropertyTemplate {
  */
 struct IDProperty *IDP_NewIDPArray(const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 struct IDProperty *IDP_CopyIDPArray(const struct IDProperty *array,
-                                    const int flag) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+                                    int flag) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
 /**
  * Shallow copies item.
@@ -102,7 +88,7 @@ void IDP_FreeString(struct IDProperty *prop) ATTR_NONNULL();
 
 typedef void (*IDPWalkFunc)(void *userData, struct IDProperty *idp);
 
-void IDP_AssignID(struct IDProperty *prop, struct ID *id, const int flag);
+void IDP_AssignID(struct IDProperty *prop, struct ID *id, int flag);
 
 /*-------- Group Functions -------*/
 
@@ -113,9 +99,8 @@ void IDP_AssignID(struct IDProperty *prop, struct ID *id, const int flag);
  * \note Use for syncing proxies.
  */
 void IDP_SyncGroupValues(struct IDProperty *dest, const struct IDProperty *src) ATTR_NONNULL();
-void IDP_SyncGroupTypes(struct IDProperty *dest,
-                        const struct IDProperty *src,
-                        const bool do_arraylen) ATTR_NONNULL();
+void IDP_SyncGroupTypes(struct IDProperty *dest, const struct IDProperty *src, bool do_arraylen)
+    ATTR_NONNULL();
 /**
  * Replaces all properties with the same name in a destination group from a source group.
  */
@@ -132,7 +117,7 @@ void IDP_ReplaceInGroup_ex(struct IDProperty *group,
  * If a property is missing in \a dest, add it.
  * Do it recursively.
  */
-void IDP_MergeGroup(struct IDProperty *dest, const struct IDProperty *src, const bool do_overwrite)
+void IDP_MergeGroup(struct IDProperty *dest, const struct IDProperty *src, bool do_overwrite)
     ATTR_NONNULL();
 /**
  * If a property is missing in \a dest, add it.
@@ -140,8 +125,8 @@ void IDP_MergeGroup(struct IDProperty *dest, const struct IDProperty *src, const
  */
 void IDP_MergeGroup_ex(struct IDProperty *dest,
                        const struct IDProperty *src,
-                       const bool do_overwrite,
-                       const int flag) ATTR_NONNULL();
+                       bool do_overwrite,
+                       int flag) ATTR_NONNULL();
 /**
  * This function has a sanity check to make sure ID properties with the same name don't
  * get added to the group.
@@ -180,23 +165,21 @@ struct IDProperty *IDP_GetPropertyFromGroup(const struct IDProperty *prop,
  */
 struct IDProperty *IDP_GetPropertyTypeFromGroup(const struct IDProperty *prop,
                                                 const char *name,
-                                                const char type) ATTR_WARN_UNUSED_RESULT
-    ATTR_NONNULL();
+                                                char type) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
 /*-------- Main Functions --------*/
 /**
- * Get the Group property that contains the id properties for ID id.
+ * Get the Group property that contains the id properties for ID `id`.
  *
  * \param create_if_needed: Set to create the group property and attach it to id if it doesn't
  * exist; otherwise the function will return NULL if there's no Group property attached to the ID.
  */
-struct IDProperty *IDP_GetProperties(struct ID *id,
-                                     const bool create_if_needed) ATTR_WARN_UNUSED_RESULT
+struct IDProperty *IDP_GetProperties(struct ID *id, bool create_if_needed) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL();
 struct IDProperty *IDP_CopyProperty(const struct IDProperty *prop) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL();
 struct IDProperty *IDP_CopyProperty_ex(const struct IDProperty *prop,
-                                       const int flag) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+                                       int flag) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 /**
  * Copy content from source #IDProperty into destination one,
  * freeing destination property's content first.
@@ -208,7 +191,7 @@ void IDP_CopyPropertyContent(struct IDProperty *dst, struct IDProperty *src) ATT
  */
 bool IDP_EqualsProperties_ex(struct IDProperty *prop1,
                              struct IDProperty *prop2,
-                             const bool is_strict) ATTR_WARN_UNUSED_RESULT;
+                             bool is_strict) ATTR_WARN_UNUSED_RESULT;
 
 bool IDP_EqualsProperties(struct IDProperty *prop1,
                           struct IDProperty *prop2) ATTR_WARN_UNUSED_RESULT;
@@ -240,7 +223,7 @@ bool IDP_EqualsProperties(struct IDProperty *prop1,
  * IDP_AddToGroup or MEM_freeN the property, doing anything else might result in
  * a memory leak.
  */
-struct IDProperty *IDP_New(const char type,
+struct IDProperty *IDP_New(char type,
                            const IDPropertyTemplate *val,
                            const char *name) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
@@ -248,9 +231,9 @@ struct IDProperty *IDP_New(const char type,
  * \note This will free allocated data, all child properties of arrays and groups, and unlink IDs!
  * But it does not free the actual #IDProperty struct itself.
  */
-void IDP_FreePropertyContent_ex(struct IDProperty *prop, const bool do_id_user);
+void IDP_FreePropertyContent_ex(struct IDProperty *prop, bool do_id_user);
 void IDP_FreePropertyContent(struct IDProperty *prop);
-void IDP_FreeProperty_ex(struct IDProperty *prop, const bool do_id_user);
+void IDP_FreeProperty_ex(struct IDProperty *prop, bool do_id_user);
 void IDP_FreeProperty(struct IDProperty *prop);
 
 void IDP_ClearProperty(struct IDProperty *prop);
@@ -319,7 +302,7 @@ typedef void (*IDPForeachPropertyCallback)(struct IDProperty *id_property, void 
  * IDP_TYPE_FILTER_ enum in DNA_ID.h.
  */
 void IDP_foreach_property(struct IDProperty *id_property_root,
-                          const int type_filter,
+                          int type_filter,
                           IDPForeachPropertyCallback callback,
                           void *user_data);
 

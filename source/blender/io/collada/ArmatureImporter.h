@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup collada
@@ -120,7 +106,7 @@ class ArmatureImporter : private TransformReader {
   void fix_leaf_bone_hierarchy(bArmature *armature, Bone *bone, bool fix_orientation);
   void fix_leaf_bone(bArmature *armature, EditBone *ebone, BoneExtended *be, bool fix_orientation);
   void fix_parent_connect(bArmature *armature, Bone *bone);
-  void connect_bone_chains(bArmature *armature, Bone *bone, const int max_chain_length);
+  void connect_bone_chains(bArmature *armature, Bone *bone, int max_chain_length);
 
   void set_pose(Object *ob_arm,
                 COLLADAFW::Node *root_node,

@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 /* Functions to evaluate shaders and use the resulting shader closures. */
 
@@ -170,7 +157,11 @@ ccl_device_inline void shader_prepare_surface_closures(KernelGlobals kg,
    *
    * Blurring of bsdf after bounces, for rays that have a small likelihood
    * of following this particular path (diffuse, rough glossy) */
-  if (kernel_data.integrator.filter_glossy != FLT_MAX) {
+  if (kernel_data.integrator.filter_glossy != FLT_MAX
+#ifdef __MNEE__
+      && !(INTEGRATOR_STATE(state, path, mnee) & PATH_MNEE_VALID)
+#endif
+  ) {
     float blur_pdf = kernel_data.integrator.filter_glossy *
                      INTEGRATOR_STATE(state, path, min_ray_pdf);
 
@@ -618,7 +609,8 @@ ccl_device void shader_eval_surface(KernelGlobals kg,
                                     ConstIntegratorGenericState state,
                                     ccl_private ShaderData *ccl_restrict sd,
                                     ccl_global float *ccl_restrict buffer,
-                                    uint32_t path_flag)
+                                    uint32_t path_flag,
+                                    bool use_caustics_storage = false)
 {
   /* If path is being terminated, we are tracing a shadow ray or evaluating
    * emission, then we don't need to store closures. The emission and shadow
@@ -628,7 +620,7 @@ ccl_device void shader_eval_surface(KernelGlobals kg,
     max_closures = 0;
   }
   else {
-    max_closures = kernel_data.max_closures;
+    max_closures = use_caustics_storage ? CAUSTICS_MAX_CLOSURE : kernel_data.max_closures;
   }
 
   sd->num_closure = 0;

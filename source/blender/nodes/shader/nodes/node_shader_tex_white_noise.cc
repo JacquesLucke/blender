@@ -1,25 +1,12 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
-#include "../node_shader_util.h"
+#include "node_shader_util.hh"
 
 #include "BLI_noise.hh"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
 
 namespace blender::nodes::node_shader_tex_white_noise_cc {
 
@@ -33,7 +20,12 @@ static void sh_node_tex_white_noise_declare(NodeDeclarationBuilder &b)
   });
   b.add_output<decl::Float>(N_("Value"));
   b.add_output<decl::Color>(N_("Color"));
-};
+}
+
+static void node_shader_buts_white_noise(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "noise_dimensions", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
+}
 
 static void node_shader_init_tex_white_noise(bNodeTree *UNUSED(ntree), bNode *node)
 {
@@ -182,7 +174,7 @@ class WhiteNoiseFunction : public fn::MultiFunction {
   }
 };
 
-static void sh_node_noise_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_noise_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   bNode &node = builder.node();
   builder.construct_and_set_matching_fn<WhiteNoiseFunction>((int)node.custom1);
@@ -196,9 +188,9 @@ void register_node_type_sh_tex_white_noise()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(
-      &ntype, SH_NODE_TEX_WHITE_NOISE, "White Noise Texture", NODE_CLASS_TEXTURE, 0);
+  sh_fn_node_type_base(&ntype, SH_NODE_TEX_WHITE_NOISE, "White Noise Texture", NODE_CLASS_TEXTURE);
   ntype.declare = file_ns::sh_node_tex_white_noise_declare;
+  ntype.draw_buttons = file_ns::node_shader_buts_white_noise;
   node_type_init(&ntype, file_ns::node_shader_init_tex_white_noise);
   node_type_gpu(&ntype, file_ns::gpu_shader_tex_white_noise);
   node_type_update(&ntype, file_ns::node_shader_update_tex_white_noise);

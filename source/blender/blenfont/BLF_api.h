@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup blf
@@ -60,7 +44,7 @@ int BLF_load_mem_unique(const char *name, const unsigned char *mem, int mem_size
 void BLF_unload(const char *name) ATTR_NONNULL();
 void BLF_unload_id(int fontid);
 
-char *BLF_display_name_from_file(const char *filename);
+char *BLF_display_name_from_file(const char *filepath);
 
 /**
  * Check if font supports a particular glyph.
@@ -122,9 +106,9 @@ void BLF_draw(int fontid, const char *str, size_t str_len) ATTR_NONNULL(2);
 int BLF_draw_mono(int fontid, const char *str, size_t str_len, int cwidth) ATTR_NONNULL(2);
 
 typedef bool (*BLF_GlyphBoundsFn)(const char *str,
-                                  const size_t str_step_ofs,
+                                  size_t str_step_ofs,
                                   const struct rcti *glyph_step_bounds,
-                                  const int glyph_advance_x,
+                                  int glyph_advance_x,
                                   const struct rctf *glyph_bounds,
                                   const int glyph_bearing[2],
                                   void *user_data);
@@ -295,12 +279,12 @@ void BLF_dir_free(char **dirs, int count) ATTR_NONNULL();
  *
  * \note called from a thread, so it bypasses the normal BLF_* api (which isn't thread-safe).
  */
-void BLF_thumb_preview(const char *filename,
+void BLF_thumb_preview(const char *filepath,
                        const char **draw_str,
                        const char **i18n_draw_str,
-                       const unsigned char draw_str_lines,
+                       unsigned char draw_str_lines,
                        const float font_color[4],
-                       const int font_size,
+                       int font_size,
                        unsigned char *buf,
                        int w,
                        int h,
@@ -309,7 +293,7 @@ void BLF_thumb_preview(const char *filename,
 /* blf_default.c */
 
 void BLF_default_dpi(int dpi);
-void BLF_default_size(int size);
+void BLF_default_size(float size);
 void BLF_default_set(int fontid);
 /**
  * Get default font ID so we can pass it to other functions.
@@ -326,8 +310,8 @@ int BLF_set_default(void);
 
 /* blf_font_default.c */
 
-int BLF_load_default(const bool unique);
-int BLF_load_mono_default(const bool unique);
+int BLF_load_default(bool unique);
+int BLF_load_mono_default(bool unique);
 
 #ifdef DEBUG
 void BLF_state_print(int fontid);

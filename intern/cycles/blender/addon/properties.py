@@ -1,18 +1,5 @@
-#
-# Copyright 2011-2013 Blender Foundation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2011-2022 Blender Foundation
 
 # <pep8 compliant>
 from __future__ import annotations
@@ -74,12 +61,12 @@ enum_panorama_types = (
                           "Similar to most fisheye modern lens, takes sensor dimensions into consideration"),
     ('MIRRORBALL', "Mirror Ball", "Uses the mirror ball mapping"),
     ('FISHEYE_LENS_POLYNOMIAL', "Fisheye Lens Polynomial",
-     "Defines the lens projection as polynomial to allow real world camera lenses to be mimicked."),
+     "Defines the lens projection as polynomial to allow real world camera lenses to be mimicked"),
 )
 
 enum_curve_shape = (
-    ('RIBBONS', "Rounded Ribbons", "Render hair as flat ribbon with rounded normals, for fast rendering"),
-    ('THICK', "3D Curves", "Render hair as 3D curve, for accurate results when viewing hair close up"),
+    ('RIBBONS', "Rounded Ribbons", "Render curves as flat ribbons with rounded normals, for fast rendering"),
+    ('THICK', "3D Curves", "Render curves as circular 3D geometry, for accurate results when viewing closely"),
 )
 
 enum_use_layer_samples = (
@@ -229,7 +216,6 @@ enum_direct_light_sampling_type = (
 )
 
 def update_render_passes(self, context):
-    scene = context.scene
     view_layer = context.view_layer
     view_layer.update_render_passes()
 
@@ -362,8 +348,8 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     scrambling_distance: FloatProperty(
         name="Scrambling Distance",
         default=1.0,
-        min=0.0, max=1.0,
-        description="Reduce randomization between pixels to improve GPU rendering performance, at the cost of possible rendering artifacts if set too low. Only works when not using adaptive sampling",
+        min=0.0, soft_max=1.0,
+        description="Reduce randomization between pixels to improve GPU rendering performance, at the cost of possible rendering artifacts if set too low",
     )
     preview_scrambling_distance: BoolProperty(
         name="Scrambling Distance viewport",
@@ -374,7 +360,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     auto_scrambling_distance: BoolProperty(
         name="Automatic Scrambling Distance",
         default=False,
-        description="Automatically reduce the randomization between pixels to improve GPU rendering performance, at the cost of possible rendering artifacts. Only works when not using adaptive sampling",
+        description="Automatically reduce the randomization between pixels to improve GPU rendering performance, at the cost of possible rendering artifacts",
     )
 
     use_layer_samples: EnumProperty(
@@ -442,14 +428,14 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     min_light_bounces: IntProperty(
         name="Min Light Bounces",
         description="Minimum number of light bounces. Setting this higher reduces noise in the first bounces, "
-        "but can also be less efficient for more complex geometry like hair and volumes",
+        "but can also be less efficient for more complex geometry like curves and volumes",
         min=0, max=1024,
         default=0,
     )
     min_transparent_bounces: IntProperty(
         name="Min Transparent Bounces",
         description="Minimum number of transparent bounces. Setting this higher reduces noise in the first bounces, "
-        "but can also be less efficient for more complex geometry like hair and volumes",
+        "but can also be less efficient for more complex geometry like curves and volumes",
         min=0, max=1024,
         default=0,
     )
@@ -663,8 +649,13 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         default=False,
     )
     debug_use_hair_bvh: BoolProperty(
-        name="Use Hair BVH",
-        description="Use special type BVH optimized for hair (uses more ram but renders faster)",
+        name="Use Curves BVH",
+        description="Use special type BVH optimized for curves (uses more ram but renders faster)",
+        default=True,
+    )
+    debug_use_compact_bvh: BoolProperty(
+        name="Use Compact BVH",
+        description="Use compact BVH structure (uses less ram but renders slower)",
         default=True,
     )
     debug_bvh_time_steps: IntProperty(
@@ -802,7 +793,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         name="Tile Size",
         default=2048,
         description="",
-        min=8, max=16384,
+        min=8, max=8192,
     )
 
     # Various fine-tuning debug flags
@@ -896,27 +887,27 @@ class CyclesCameraSettings(bpy.types.PropertyGroup):
 
     fisheye_polynomial_k0: FloatProperty(
         name="Fisheye Polynomial K0",
-        description="Coefficient K0 of the lens polinomial",
+        description="Coefficient K0 of the lens polynomial",
         default=camera.default_fisheye_polynomial[0], precision=6, step=0.1, subtype='ANGLE',
     )
     fisheye_polynomial_k1: FloatProperty(
         name="Fisheye Polynomial K1",
-        description="Coefficient K1 of the lens polinomial",
+        description="Coefficient K1 of the lens polynomial",
         default=camera.default_fisheye_polynomial[1], precision=6, step=0.1, subtype='ANGLE',
     )
     fisheye_polynomial_k2: FloatProperty(
         name="Fisheye Polynomial K2",
-        description="Coefficient K2 of the lens polinomial",
+        description="Coefficient K2 of the lens polynomial",
         default=camera.default_fisheye_polynomial[2], precision=6, step=0.1, subtype='ANGLE',
     )
     fisheye_polynomial_k3: FloatProperty(
         name="Fisheye Polynomial K3",
-        description="Coefficient K3 of the lens polinomial",
+        description="Coefficient K3 of the lens polynomial",
         default=camera.default_fisheye_polynomial[3], precision=6, step=0.1, subtype='ANGLE',
     )
     fisheye_polynomial_k4: FloatProperty(
         name="Fisheye Polynomial K4",
-        description="Coefficient K4 of the lens polinomial",
+        description="Coefficient K4 of the lens polynomial",
         default=camera.default_fisheye_polynomial[4], precision=6, step=0.1, subtype='ANGLE',
     )
 
@@ -1021,6 +1012,12 @@ class CyclesLightSettings(bpy.types.PropertyGroup):
         "note that this will make the light invisible",
         default=False,
     )
+    is_caustics_light: BoolProperty(
+        name="Shadow Caustics",
+        description="Generate approximate caustics in shadows of refractive surfaces. "
+        "Lights, caster and receiver objects must have shadow caustics options set to enable this",
+        default=False,
+    )
 
     @classmethod
     def register(cls):
@@ -1037,6 +1034,12 @@ class CyclesLightSettings(bpy.types.PropertyGroup):
 
 class CyclesWorldSettings(bpy.types.PropertyGroup):
 
+    is_caustics_light: BoolProperty(
+        name="Shadow Caustics",
+        description="Generate approximate caustics in shadows of refractive surfaces. "
+        "Lights, caster and receiver objects must have shadow caustics options set to enable this",
+        default=False,
+    )
     sampling_method: EnumProperty(
         name="Sampling Method",
         description="How to sample the background light",
@@ -1235,6 +1238,21 @@ class CyclesObjectSettings(bpy.types.PropertyGroup):
         subtype='DISTANCE',
     )
 
+    is_caustics_caster: BoolProperty(
+        name="Cast Shadow Caustics",
+        description="With refractive materials, generate approximate caustics in shadows of this object. "
+        "Up to 10 bounces inside this object are taken into account. Lights, caster and receiver objects "
+        "must have shadow caustics options set to enable this",
+        default=False,
+    )
+
+    is_caustics_receiver: BoolProperty(
+        name="Receive Shadow Caustics",
+        description="Receive approximate caustics from refractive materials in shadows on this object. "
+        "Lights, caster and receiver objects must have shadow caustics options set to enable this",
+        default=False,
+    )
+
     @classmethod
     def register(cls):
         bpy.types.Object.cycles = PointerProperty(
@@ -1252,7 +1270,7 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
 
     shape: EnumProperty(
         name="Shape",
-        description="Form of hair",
+        description="Form of curves",
         items=enum_curve_shape,
         default='RIBBONS',
     )
@@ -1266,8 +1284,8 @@ class CyclesCurveRenderSettings(bpy.types.PropertyGroup):
     @classmethod
     def register(cls):
         bpy.types.Scene.cycles_curves = PointerProperty(
-            name="Cycles Hair Rendering Settings",
-            description="Cycles hair rendering settings",
+            name="Cycles Curves Rendering Settings",
+            description="Cycles curves rendering settings",
             type=cls,
         )
 
@@ -1361,11 +1379,17 @@ class CyclesPreferences(bpy.types.AddonPreferences):
         items=CyclesPreferences.get_device_types,
     )
 
-    devices: bpy.props.CollectionProperty(type=CyclesDeviceSettings)
+    devices: CollectionProperty(type=CyclesDeviceSettings)
 
     peer_memory: BoolProperty(
         name="Distribute memory across devices",
         description="Make more room for large scenes to fit by distributing memory across interconnected devices (e.g. via NVLink) rather than duplicating it",
+        default=False,
+    )
+
+    use_metalrt: BoolProperty(
+        name="MetalRT (Experimental)",
+        description="MetalRT for ray tracing uses less memory for scenes which use curves extensively, and can give better performance in specific cases. However this support is experimental and some scenes may render incorrectly",
         default=False,
     )
 
@@ -1447,6 +1471,19 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                     num += 1
         return num
 
+    def has_multi_device(self):
+        import _cycles
+        compute_device_type = self.get_compute_device_type()
+        device_list = _cycles.available_devices(compute_device_type)
+        for device in device_list:
+            if device[1] == compute_device_type:
+                continue
+            for dev in self.devices:
+                if dev.use and dev.id == device[2]:
+                    return True
+
+        return False
+
     def has_active_device(self):
         return self.get_num_gpu_devices() > 0
 
@@ -1470,11 +1507,12 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                 col.label(text="and NVIDIA driver version 470 or newer", icon='BLANK1')
             elif device_type == 'HIP':
                 import sys
-                col.label(text="Requires discrete AMD GPU with RDNA architecture", icon='BLANK1')
+                col.label(text="Requires discrete AMD GPU with Vega architecture", icon='BLANK1')
                 if sys.platform[:3] == "win":
                     col.label(text="and AMD Radeon Pro 21.Q4 driver or newer", icon='BLANK1')
             elif device_type == 'METAL':
-                col.label(text="Requires Apple Silicon and macOS 12.0 or newer", icon='BLANK1')
+                col.label(text="Requires Apple Silicon with macOS 12.2 or newer", icon='BLANK1')
+                col.label(text="or AMD with macOS 12.3 or newer", icon='BLANK1')
             return
 
         for device in devices:
@@ -1500,6 +1538,15 @@ class CyclesPreferences(bpy.types.AddonPreferences):
             row = layout.row()
             row.use_property_split = True
             row.prop(self, "peer_memory")
+
+        if compute_device_type == 'METAL':
+            import platform
+            # MetalRT only works on Apple Silicon at present, pending argument encoding fixes on AMD
+            if platform.machine() == 'arm64':
+                row = layout.row()
+                row.use_property_split = True
+                row.prop(self, "use_metalrt")
+
 
     def draw(self, context):
         self.draw_impl(self.layout, context)

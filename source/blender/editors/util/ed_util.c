@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edutil
@@ -35,6 +19,8 @@
 
 #include "BKE_collection.h"
 #include "BKE_global.h"
+#include "BKE_lib_id.h"
+#include "BKE_lib_remap.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
 #include "BKE_multires.h"
@@ -45,6 +31,8 @@
 #include "BKE_undo_system.h"
 
 #include "DEG_depsgraph.h"
+
+#include "DNA_gpencil_types.h"
 
 #include "ED_armature.h"
 #include "ED_asset.h"
@@ -116,6 +104,10 @@ void ED_editors_init(bContext *C)
       /* For multi-edit mode we may already have mode data (grease pencil does not need it).
        * However we may have a non-active object stuck in a grease-pencil edit mode. */
       if (ob != obact) {
+        bGPdata *gpd = (bGPdata *)ob->data;
+        gpd->flag &= ~(GP_DATA_STROKE_PAINTMODE | GP_DATA_STROKE_EDITMODE |
+                       GP_DATA_STROKE_SCULPTMODE | GP_DATA_STROKE_WEIGHTMODE |
+                       GP_DATA_STROKE_VERTEXMODE);
         ob->mode = OB_MODE_OBJECT;
         DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
       }
@@ -133,8 +125,9 @@ void ED_editors_init(bContext *C)
     if (obact == NULL || ob->type != obact->type) {
       continue;
     }
-    /* Object mode is enforced for linked data (or their obdata). */
-    if (ID_IS_LINKED(ob) || (ob_data != NULL && ID_IS_LINKED(ob_data))) {
+    /* Object mode is enforced for non-editable data (or their obdata). */
+    if (!BKE_id_is_editable(bmain, &ob->id) ||
+        (ob_data != NULL && !BKE_id_is_editable(bmain, ob_data))) {
       continue;
     }
 
@@ -315,7 +308,7 @@ bool ED_editors_flush_edits(Main *bmain)
 /* ***** XXX: functions are using old blender names, cleanup later ***** */
 
 void apply_keyb_grid(
-    int shift, int ctrl, float *val, float fac1, float fac2, float fac3, int invert)
+    bool shift, bool ctrl, float *val, float fac1, float fac2, float fac3, int invert)
 {
   /* fac1 is for 'nothing', fac2 for CTRL, fac3 for SHIFT */
   if (invert) {
@@ -434,11 +427,27 @@ void unpack_menu(bContext *C,
   UI_popup_menu_end(C, pup);
 }
 
-void ED_spacedata_id_remap(struct ScrArea *area, struct SpaceLink *sl, ID *old_id, ID *new_id)
+void ED_spacedata_id_remap(struct ScrArea *area,
+                           struct SpaceLink *sl,
+                           const struct IDRemapper *mappings)
+{
+  SpaceType *st = BKE_spacetype_from_id(sl->spacetype);
+  if (st && st->id_remap) {
+    st->id_remap(area, sl, mappings);
+  }
+}
+
+void ED_spacedata_id_remap_single(struct ScrArea *area,
+                                  struct SpaceLink *sl,
+                                  ID *old_id,
+                                  ID *new_id)
 {
   SpaceType *st = BKE_spacetype_from_id(sl->spacetype);
 
   if (st && st->id_remap) {
-    st->id_remap(area, sl, old_id, new_id);
+    struct IDRemapper *mappings = BKE_id_remapper_create();
+    BKE_id_remapper_add(mappings, old_id, new_id);
+    st->id_remap(area, sl, mappings);
+    BKE_id_remapper_free(mappings);
   }
 }

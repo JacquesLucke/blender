@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edgpencil
@@ -28,6 +12,10 @@
 #include "ED_numinput.h"
 
 #define DEPTH_INVALID 1.0f
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* internal exports only */
 struct Material;
@@ -322,7 +310,7 @@ void gpencil_apply_parent_point(struct Depsgraph *depsgraph,
  * generic based on gpencil_point_to_xy_fl
  */
 void gpencil_point_3d_to_xy(const GP_SpaceConversion *gsc,
-                            const short flag,
+                            short flag,
                             const float pt[3],
                             float xy[2]);
 
@@ -410,7 +398,7 @@ int gpencil_delete_selected_point_wrap(bContext *C);
  * \param gps: Stroke data
  * \param subdivide: Number of times to subdivide
  */
-void gpencil_subdivide_stroke(bGPdata *gpd, bGPDstroke *gps, const int subdivide);
+void gpencil_subdivide_stroke(bGPdata *gpd, bGPDstroke *gps, int subdivide);
 
 /* Layers Enums -------------------------------------- */
 
@@ -842,3 +830,7 @@ struct GP_EditableStrokes_Iter {
 extern const EnumPropertyItem rna_gpencil_reproject_type_items[];
 
 /* ****************************************************** */
+
+#ifdef __cplusplus
+}
+#endif

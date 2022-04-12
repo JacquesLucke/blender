@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008, Blender Foundation
- * This is a new part of Blender (with some old code)
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. */
 
 /** \file
  * \ingroup editors
@@ -62,7 +46,7 @@ struct NlaKeyframingContext;
  * \param use_autokey_mode: include settings from key-framing mode in the result
  * (i.e. replace only).
  */
-eInsertKeyFlags ANIM_get_keyframing_flags(struct Scene *scene, const bool use_autokey_mode);
+eInsertKeyFlags ANIM_get_keyframing_flags(struct Scene *scene, bool use_autokey_mode);
 
 /* -------- */
 
@@ -81,15 +65,13 @@ struct FCurve *ED_action_fcurve_ensure(struct Main *bmain,
                                        const char group[],
                                        struct PointerRNA *ptr,
                                        const char rna_path[],
-                                       const int array_index);
+                                       int array_index);
 
 /**
  * Find the F-Curve from the Active Action,
  * for the given Animation Data block. This assumes that all the destinations are valid.
  */
-struct FCurve *ED_action_fcurve_find(struct bAction *act,
-                                     const char rna_path[],
-                                     const int array_index);
+struct FCurve *ED_action_fcurve_find(struct bAction *act, const char rna_path[], int array_index);
 
 /* -------- */
 
@@ -449,11 +431,11 @@ typedef enum eDriverFCurveCreationMode {
  */
 struct FCurve *verify_driver_fcurve(struct ID *id,
                                     const char rna_path[],
-                                    const int array_index,
+                                    int array_index,
                                     eDriverFCurveCreationMode creation_mode);
 
 struct FCurve *alloc_driver_fcurve(const char rna_path[],
-                                   const int array_index,
+                                   int array_index,
                                    eDriverFCurveCreationMode creation_mode);
 
 /* -------- */

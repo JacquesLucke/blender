@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup nodes
@@ -23,7 +7,7 @@
 
 #include "DNA_node_types.h"
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
 
 #include "NOD_socket_search_link.hh"
 
@@ -49,26 +33,25 @@ static bool sh_fn_poll_default(bNodeType *UNUSED(ntype),
   return true;
 }
 
-void sh_node_type_base(
-    struct bNodeType *ntype, int type, const char *name, short nclass, short flag)
+void sh_node_type_base(struct bNodeType *ntype, int type, const char *name, short nclass)
 {
-  node_type_base(ntype, type, name, nclass, flag);
+  node_type_base(ntype, type, name, nclass);
 
   ntype->poll = sh_node_poll_default;
   ntype->insert_link = node_insert_link_default;
   ntype->gather_link_search_ops = blender::nodes::search_link_ops_for_basic_node;
 }
 
-void sh_fn_node_type_base(bNodeType *ntype, int type, const char *name, short nclass, short flag)
+void sh_fn_node_type_base(bNodeType *ntype, int type, const char *name, short nclass)
 {
-  sh_node_type_base(ntype, type, name, nclass, flag);
+  sh_node_type_base(ntype, type, name, nclass);
   ntype->poll = sh_fn_poll_default;
   ntype->gather_link_search_ops = blender::nodes::search_link_ops_for_basic_node;
 }
 
 /* ****** */
 
-void nodestack_get_vec(float *in, short type_in, bNodeStack *ns)
+static void nodestack_get_vec(float *in, short type_in, bNodeStack *ns)
 {
   const float *from = ns->vec;
 
@@ -179,8 +162,21 @@ static void data_from_gpu_stack_list(ListBase *sockets, bNodeStack **ns, GPUNode
   }
 }
 
-bNode *nodeGetActiveTexture(bNodeTree *ntree)
+bool nodeSupportsActiveFlag(const bNode *node, int sub_activity)
 {
+  BLI_assert(ELEM(sub_activity, NODE_ACTIVE_TEXTURE, NODE_ACTIVE_PAINT_CANVAS));
+  switch (sub_activity) {
+    case NODE_ACTIVE_TEXTURE:
+      return node->typeinfo->nclass == NODE_CLASS_TEXTURE;
+    case NODE_ACTIVE_PAINT_CANVAS:
+      return ELEM(node->type, SH_NODE_TEX_IMAGE, SH_NODE_ATTRIBUTE);
+  }
+  return false;
+}
+
+static bNode *node_get_active(bNodeTree *ntree, int sub_activity)
+{
+  BLI_assert(ELEM(sub_activity, NODE_ACTIVE_TEXTURE, NODE_ACTIVE_PAINT_CANVAS));
   /* this is the node we texture paint and draw in textured draw */
   bNode *inactivenode = nullptr, *activetexnode = nullptr, *activegroup = nullptr;
   bool hasgroup = false;
@@ -190,14 +186,14 @@ bNode *nodeGetActiveTexture(bNodeTree *ntree)
   }
 
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    if (node->flag & NODE_ACTIVE_TEXTURE) {
+    if (node->flag & sub_activity) {
       activetexnode = node;
       /* if active we can return immediately */
       if (node->flag & NODE_ACTIVE) {
         return node;
       }
     }
-    else if (!inactivenode && node->typeinfo->nclass == NODE_CLASS_TEXTURE) {
+    else if (!inactivenode && nodeSupportsActiveFlag(node, sub_activity)) {
       inactivenode = node;
     }
     else if (node->type == NODE_GROUP) {
@@ -212,7 +208,7 @@ bNode *nodeGetActiveTexture(bNodeTree *ntree)
 
   /* first, check active group for textures */
   if (activegroup) {
-    bNode *tnode = nodeGetActiveTexture((bNodeTree *)activegroup->id);
+    bNode *tnode = node_get_active((bNodeTree *)activegroup->id, sub_activity);
     /* active node takes priority, so ignore any other possible nodes here */
     if (tnode) {
       return tnode;
@@ -227,8 +223,8 @@ bNode *nodeGetActiveTexture(bNodeTree *ntree)
     /* node active texture node in this tree, look inside groups */
     LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
       if (node->type == NODE_GROUP) {
-        bNode *tnode = nodeGetActiveTexture((bNodeTree *)node->id);
-        if (tnode && ((tnode->flag & NODE_ACTIVE_TEXTURE) || !inactivenode)) {
+        bNode *tnode = node_get_active((bNodeTree *)node->id, sub_activity);
+        if (tnode && ((tnode->flag & sub_activity) || !inactivenode)) {
           return tnode;
         }
       }
@@ -236,6 +232,16 @@ bNode *nodeGetActiveTexture(bNodeTree *ntree)
   }
 
   return inactivenode;
+}
+
+bNode *nodeGetActiveTexture(bNodeTree *ntree)
+{
+  return node_get_active(ntree, NODE_ACTIVE_TEXTURE);
+}
+
+bNode *nodeGetActivePaintCanvas(bNodeTree *ntree)
+{
+  return node_get_active(ntree, NODE_ACTIVE_PAINT_CANVAS);
 }
 
 void ntreeExecGPUNodes(bNodeTreeExec *exec, GPUMaterial *mat, bNode *output_node)

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_task.hh"
 
@@ -286,7 +272,7 @@ static void create_vertex_poly_map(const Mesh &mesh,
  * boundary vertex, the first and last polygon have a boundary edge connected to the vertex. The
  * `r_shared_edges` array at index i is set to the index of the shared edge between the i-th and
  * `(i+1)-th` sorted polygon. Similarly the `r_sorted_corners` array at index i is set to the
- * corner in the i-th sorted polygon.
+ * corner in the i-th sorted polygon. If the polygons couldn't be sorted, `false` is returned.
  *
  * How the faces are sorted (see diagrams below):
  * (For this explanation we'll assume all faces are oriented clockwise)
@@ -335,7 +321,7 @@ static void create_vertex_poly_map(const Mesh &mesh,
  * - Finally if we are in the normal case we also need to add the last "shared edge" to close the
  *   loop.
  */
-static void sort_vertex_polys(const Mesh &mesh,
+static bool sort_vertex_polys(const Mesh &mesh,
                               const int vertex_index,
                               const bool boundary_vertex,
                               const Span<EdgeType> edge_types,
@@ -344,7 +330,7 @@ static void sort_vertex_polys(const Mesh &mesh,
                               MutableSpan<int> r_sorted_corners)
 {
   if (connected_polygons.size() <= 2 && (!boundary_vertex || connected_polygons.size() == 0)) {
-    return;
+    return true;
   }
 
   /* For each polygon store the two corners whose edge contains the vertex. */
@@ -415,7 +401,7 @@ static void sort_vertex_polys(const Mesh &mesh,
     }
   }
   else {
-    /* Any polygon can be the first. Just need to check the orientation.*/
+    /* Any polygon can be the first. Just need to check the orientation. */
     const MLoop &first_loop = mesh.mloop[poly_vertex_corners[0].first];
     const MLoop &second_loop = mesh.mloop[poly_vertex_corners[0].second];
     if (first_loop.v == vertex_index) {
@@ -448,8 +434,11 @@ static void sort_vertex_polys(const Mesh &mesh,
         break;
       }
     }
-
-    BLI_assert(j != connected_polygons.size());
+    if (j == connected_polygons.size()) {
+      /* The vertex is not manifold because the polygons around the vertex don't form a loop, and
+       * hence can't be sorted. */
+      return false;
+    }
 
     std::swap(connected_polygons[i + 1], connected_polygons[j]);
     std::swap(poly_vertex_corners[i + 1], poly_vertex_corners[j]);
@@ -459,6 +448,7 @@ static void sort_vertex_polys(const Mesh &mesh,
     /* Shared edge between first and last polygon. */
     r_shared_edges.last() = shared_edge_i;
   }
+  return true;
 }
 
 /**
@@ -554,7 +544,7 @@ static bool vertex_needs_dissolving(const int vertex,
 
 /**
  * Finds 'normal' vertices which are connected to only two polygons and marks them to not be
- * used in the datastructures derived from the mesh. For each pair of polygons which has such a
+ * used in the data-structures derived from the mesh. For each pair of polygons which has such a
  * vertex, an edge is created for the dual mesh between the centers of those two polygons. All
  * edges in the input mesh which contain such a vertex are marked as 'done' to prevent duplicate
  * edges being created. (See T94144)
@@ -637,7 +627,7 @@ static void calc_dual_mesh(GeometrySet &geometry_set,
   calc_boundaries(mesh_in, vertex_types, edge_types);
   /* Stores the indices of the polygons connected to the vertex. Because the polygons are looped
    * over in order of their indices, the polygon's indices will be sorted in ascending order.
-   (This can change once they are sorted using `sort_vertex_polys`). */
+   * (This can change once they are sorted using `sort_vertex_polys`). */
   Array<Vector<int>> vertex_poly_indices(mesh_in.totvert);
   Array<Array<int>> vertex_shared_edges(mesh_in.totvert);
   Array<Array<int>> vertex_corners(mesh_in.totvert);
@@ -651,19 +641,26 @@ static void calc_dual_mesh(GeometrySet &geometry_set,
       }
       MutableSpan<int> loop_indices = vertex_poly_indices[i];
       Array<int> sorted_corners(loop_indices.size());
+      bool vertex_ok = true;
       if (vertex_types[i] == VertexType::Normal) {
         Array<int> shared_edges(loop_indices.size());
-        sort_vertex_polys(
+        vertex_ok = sort_vertex_polys(
             mesh_in, i, false, edge_types, loop_indices, shared_edges, sorted_corners);
-        vertex_shared_edges[i] = shared_edges;
+        vertex_shared_edges[i] = std::move(shared_edges);
       }
       else {
         Array<int> shared_edges(loop_indices.size() - 1);
-        sort_vertex_polys(
+        vertex_ok = sort_vertex_polys(
             mesh_in, i, true, edge_types, loop_indices, shared_edges, sorted_corners);
-        vertex_shared_edges[i] = shared_edges;
+        vertex_shared_edges[i] = std::move(shared_edges);
       }
-      vertex_corners[i] = sorted_corners;
+      if (!vertex_ok) {
+        /* The sorting failed which means that the vertex is non-manifold and should be ignored
+         * further on. */
+        vertex_types[i] = VertexType::NonManifold;
+        continue;
+      }
+      vertex_corners[i] = std::move(sorted_corners);
     }
   });
 
@@ -703,7 +700,7 @@ static void calc_dual_mesh(GeometrySet &geometry_set,
    * exactly one edge in the original, we can use this array to keep track of whether it still
    * needs to be created or not. If it's not -1 it gives the index in `new_edges` of the dual
    * edge. The edges coming from preserving the boundaries only get added once anyway, so we
-   * don't need a hashmap for that. */
+   * don't need a hash-map for that. */
   Array<int> old_to_new_edges_map(mesh_in.totedge);
   old_to_new_edges_map.fill(-1);
 
@@ -924,7 +921,7 @@ void register_node_type_geo_dual_mesh()
   namespace file_ns = blender::nodes::node_geo_dual_mesh_cc;
 
   static bNodeType ntype;
-  geo_node_type_base(&ntype, GEO_NODE_DUAL_MESH, "Dual Mesh", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_DUAL_MESH, "Dual Mesh", NODE_CLASS_GEOMETRY);
   ntype.declare = file_ns::node_declare;
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   nodeRegisterType(&ntype);

@@ -1,6 +1,6 @@
-/* Apache License, Version 2.0 */
+/* SPDX-License-Identifier: Apache-2.0 */
 
-#include "BLI_float3.hh"
+#include "BLI_math_vec_types.hh"
 #include "BLI_memory_utils.hh"
 #include "BLI_strict_flags.h"
 #include "testing/testing.h"
@@ -175,5 +175,30 @@ static_assert(is_same_any_v<int, int>);
 static_assert(!is_same_any_v<int, float, bool>);
 static_assert(!is_same_any_v<int, float>);
 static_assert(!is_same_any_v<int>);
+
+TEST(memory_utils, ScopedDefer1)
+{
+  int a = 0;
+  {
+    BLI_SCOPED_DEFER([&]() { a -= 5; });
+    {
+      BLI_SCOPED_DEFER([&]() { a *= 10; });
+      a = 5;
+    }
+  }
+  EXPECT_EQ(a, 45);
+}
+
+TEST(memory_utils, ScopedDefer2)
+{
+  std::string s;
+  {
+    BLI_SCOPED_DEFER([&]() { s += "A"; });
+    BLI_SCOPED_DEFER([&]() { s += "B"; });
+    BLI_SCOPED_DEFER([&]() { s += "C"; });
+    BLI_SCOPED_DEFER([&]() { s += "D"; });
+  }
+  EXPECT_EQ(s, "DCBA");
+}
 
 }  // namespace blender::tests

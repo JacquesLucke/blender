@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "NOD_geometry_nodes_eval_log.hh"
 
@@ -29,7 +15,6 @@
 
 namespace blender::nodes::geometry_nodes_eval_log {
 
-using fn::CPPType;
 using fn::FieldCPPType;
 using fn::FieldInput;
 using fn::GField;
@@ -350,6 +335,16 @@ const NodeLog *ModifierLog::find_node_by_node_editor_context(const SpaceNode &sn
     return nullptr;
   }
   return tree_log->lookup_node_log(node);
+}
+
+const NodeLog *ModifierLog::find_node_by_node_editor_context(const SpaceNode &snode,
+                                                             const StringRef node_name)
+{
+  const TreeLog *tree_log = ModifierLog::find_tree_by_node_editor_context(snode);
+  if (tree_log == nullptr) {
+    return nullptr;
+  }
+  return tree_log->lookup_node_log(node_name);
 }
 
 const SocketLog *ModifierLog::find_socket_by_node_editor_context(const SpaceNode &snode,

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -45,10 +31,8 @@
 namespace blender {
 
 /** Forward declarations for generic virtual arrays. */
-namespace fn {
 class GVArray;
 class GVMutableArray;
-};  // namespace fn
 
 /**
  * Implements the specifics of how the elements of a virtual array are accessed. It contains a
@@ -79,7 +63,7 @@ template<typename T> class VArrayImpl {
    * Get the element at #index. This does not return a reference, because the value may be computed
    * on the fly.
    */
-  virtual T get(const int64_t index) const = 0;
+  virtual T get(int64_t index) const = 0;
 
   /**
    * Return true when the virtual array is a plain array internally.
@@ -123,7 +107,7 @@ template<typename T> class VArrayImpl {
 
   /**
    * Copy values from the virtual array into the provided span. The index of the value in the
-   * virtual is the same as the index in the span.
+   * virtual array is the same as the index in the span.
    */
   virtual void materialize(IndexMask mask, MutableSpan<T> r_span) const
   {
@@ -163,12 +147,41 @@ template<typename T> class VArrayImpl {
   }
 
   /**
+   * Copy values from the virtual array into the provided span. Contrary to #materialize, the index
+   * in virtual array is not the same as the index in the output span. Instead, the span is filled
+   * without gaps.
+   */
+  virtual void materialize_compressed(IndexMask mask, MutableSpan<T> r_span) const
+  {
+    BLI_assert(mask.size() == r_span.size());
+    mask.to_best_mask_type([&](auto best_mask) {
+      for (const int64_t i : IndexRange(best_mask.size())) {
+        r_span[i] = this->get(best_mask[i]);
+      }
+    });
+  }
+
+  /**
+   * Same as #materialize_compressed but #r_span is expected to be uninitialized.
+   */
+  virtual void materialize_compressed_to_uninitialized(IndexMask mask, MutableSpan<T> r_span) const
+  {
+    BLI_assert(mask.size() == r_span.size());
+    T *dst = r_span.data();
+    mask.to_best_mask_type([&](auto best_mask) {
+      for (const int64_t i : IndexRange(best_mask.size())) {
+        new (dst + i) T(this->get(best_mask[i]));
+      }
+    });
+  }
+
+  /**
    * If this virtual wraps another #GVArray, this method should assign the wrapped array to the
    * provided reference. This allows losslessly converting between generic and typed virtual
    * arrays in all cases.
    * Return true when the virtual array was assigned and false when nothing was done.
    */
-  virtual bool try_assign_GVArray(fn::GVArray &UNUSED(varray)) const
+  virtual bool try_assign_GVArray(GVArray &UNUSED(varray)) const
   {
     return false;
   }
@@ -202,7 +215,7 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
   /**
    * Assign the provided #value to the #index.
    */
-  virtual void set(const int64_t index, T value) = 0;
+  virtual void set(int64_t index, T value) = 0;
 
   /**
    * Copy all elements from the provided span into the virtual array.
@@ -225,7 +238,7 @@ template<typename T> class VMutableArrayImpl : public VArrayImpl<T> {
   /**
    * Similar to #VArrayImpl::try_assign_GVArray but for mutable virtual arrays.
    */
-  virtual bool try_assign_GVMutableArray(fn::GVMutableArray &UNUSED(varray)) const
+  virtual bool try_assign_GVMutableArray(GVMutableArray &UNUSED(varray)) const
   {
     return false;
   }
@@ -280,6 +293,26 @@ template<typename T> class VArrayImpl_For_Span : public VMutableArrayImpl<T> {
     }
     const Span<T> other_span = other.get_internal_span();
     return data_ == other_span.data();
+  }
+
+  void materialize_compressed(IndexMask mask, MutableSpan<T> r_span) const override
+  {
+    mask.to_best_mask_type([&](auto best_mask) {
+      for (const int64_t i : IndexRange(best_mask.size())) {
+        r_span[i] = data_[best_mask[i]];
+      }
+    });
+  }
+
+  void materialize_compressed_to_uninitialized(IndexMask mask,
+                                               MutableSpan<T> r_span) const override
+  {
+    T *dst = r_span.data();
+    mask.to_best_mask_type([&](auto best_mask) {
+      for (const int64_t i : IndexRange(best_mask.size())) {
+        new (dst + i) T(data_[best_mask[i]]);
+      }
+    });
   }
 };
 
@@ -357,6 +390,20 @@ template<typename T> class VArrayImpl_For_Single final : public VArrayImpl<T> {
   {
     return value_;
   }
+
+  void materialize_compressed(IndexMask mask, MutableSpan<T> r_span) const override
+  {
+    BLI_assert(mask.size() == r_span.size());
+    UNUSED_VARS_NDEBUG(mask);
+    r_span.fill(value_);
+  }
+
+  void materialize_compressed_to_uninitialized(IndexMask mask,
+                                               MutableSpan<T> r_span) const override
+  {
+    BLI_assert(mask.size() == r_span.size());
+    uninitialized_fill_n(r_span.data(), mask.size(), value_);
+  }
 };
 
 /**
@@ -389,6 +436,29 @@ template<typename T, typename GetFunc> class VArrayImpl_For_Func final : public 
   {
     T *dst = r_span.data();
     mask.foreach_index([&](const int64_t i) { new (dst + i) T(get_func_(i)); });
+  }
+
+  void materialize_compressed(IndexMask mask, MutableSpan<T> r_span) const override
+  {
+    BLI_assert(mask.size() == r_span.size());
+    T *dst = r_span.data();
+    mask.to_best_mask_type([&](auto best_mask) {
+      for (const int64_t i : IndexRange(best_mask.size())) {
+        dst[i] = get_func_(best_mask[i]);
+      }
+    });
+  }
+
+  void materialize_compressed_to_uninitialized(IndexMask mask,
+                                               MutableSpan<T> r_span) const override
+  {
+    BLI_assert(mask.size() == r_span.size());
+    T *dst = r_span.data();
+    mask.to_best_mask_type([&](auto best_mask) {
+      for (const int64_t i : IndexRange(best_mask.size())) {
+        new (dst + i) T(get_func_(best_mask[i]));
+      }
+    });
   }
 };
 
@@ -436,6 +506,29 @@ class VArrayImpl_For_DerivedSpan final : public VMutableArrayImpl<ElemT> {
   {
     ElemT *dst = r_span.data();
     mask.foreach_index([&](const int64_t i) { new (dst + i) ElemT(GetFunc(data_[i])); });
+  }
+
+  void materialize_compressed(IndexMask mask, MutableSpan<ElemT> r_span) const override
+  {
+    BLI_assert(mask.size() == r_span.size());
+    ElemT *dst = r_span.data();
+    mask.to_best_mask_type([&](auto best_mask) {
+      for (const int64_t i : IndexRange(best_mask.size())) {
+        dst[i] = GetFunc(data_[best_mask[i]]);
+      }
+    });
+  }
+
+  void materialize_compressed_to_uninitialized(IndexMask mask,
+                                               MutableSpan<ElemT> r_span) const override
+  {
+    BLI_assert(mask.size() == r_span.size());
+    ElemT *dst = r_span.data();
+    mask.to_best_mask_type([&](auto best_mask) {
+      for (const int64_t i : IndexRange(best_mask.size())) {
+        new (dst + i) ElemT(GetFunc(data_[best_mask[i]]));
+      }
+    });
   }
 
   bool may_have_ownership() const override
@@ -681,7 +774,7 @@ template<typename T> class VArrayCommon {
   }
 
   /**
-   * Returns the internally used span of the virtual array. This invokes undefined behavior is the
+   * Returns the internally used span of the virtual array. This invokes undefined behavior if the
    * virtual array is not stored as a span internally.
    */
   Span<T> get_internal_span() const
@@ -756,8 +849,19 @@ template<typename T> class VArrayCommon {
     impl_->materialize_to_uninitialized(mask, r_span);
   }
 
+  /** Copy some elements of the virtual array into a span. */
+  void materialize_compressed(IndexMask mask, MutableSpan<T> r_span) const
+  {
+    impl_->materialize_compressed(mask, r_span);
+  }
+
+  void materialize_compressed_to_uninitialized(IndexMask mask, MutableSpan<T> r_span) const
+  {
+    impl_->materialize_compressed_to_uninitialized(mask, r_span);
+  }
+
   /** See #GVArrayImpl::try_assign_GVArray. */
-  bool try_assign_GVArray(fn::GVArray &varray) const
+  bool try_assign_GVArray(GVArray &varray) const
   {
     return impl_->try_assign_GVArray(varray);
   }
@@ -974,7 +1078,7 @@ template<typename T> class VMutableArray : public VArrayCommon<T> {
   }
 
   /** See #GVMutableArrayImpl::try_assign_GVMutableArray. */
-  bool try_assign_GVMutableArray(fn::GVMutableArray &varray) const
+  bool try_assign_GVMutableArray(GVMutableArray &varray) const
   {
     return this->get_impl()->try_assign_GVMutableArray(varray);
   }

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edtransform
@@ -153,6 +137,9 @@ typedef enum {
   /** Runs auto-merge & splits. */
   T_AUTOSPLIT = 1 << 21,
 
+  /** Use drag-start position of the event, otherwise use the cursor coordinates (unmodified). */
+  T_EVENT_DRAG_START = (1 << 22),
+
   /** No cursor wrapping on region bounds */
   T_NO_CURSOR_WRAP = 1 << 23,
 } eTFlag;
@@ -201,8 +188,8 @@ typedef enum {
 /** #TransInfo.redraw */
 typedef enum {
   TREDRAW_NOTHING = 0,
-  TREDRAW_HARD = 1,
-  TREDRAW_SOFT = 2,
+  TREDRAW_SOFT = (1 << 0),
+  TREDRAW_HARD = (1 << 1) | TREDRAW_SOFT,
 } eRedrawFlag;
 
 /** #TransInfo.helpline */
@@ -308,7 +295,8 @@ typedef struct TransSnapPoint {
 } TransSnapPoint;
 
 typedef struct TransSnap {
-  short mode;
+  char flag;
+  char mode;
   short target;
   short modePoint;
   short modeSelect;
@@ -580,11 +568,11 @@ typedef struct TransInfo {
   /** Mouse side of the current frame, 'L', 'R' or 'B' */
   char frame_side;
 
-  /** copy from G.vd, prevents feedback. */
+  /** copy from #RegionView3D, prevents feedback. */
   float viewmat[4][4];
   /** and to make sure we don't have to. */
   float viewinv[4][4];
-  /** access G.vd from other space types. */
+  /** Access #RegionView3D from other space types. */
   float persmat[4][4];
   float persinv[4][4];
   short persp;
@@ -608,9 +596,11 @@ typedef struct TransInfo {
   /*************** NEW STUFF *********************/
   /** event type used to launch transform. */
   short launch_event;
-  /** Is the actual launch event a tweak event? (launch_event above is set to the corresponding
-   * mouse button then.) */
-  bool is_launch_event_tweak;
+  /**
+   * Is the actual launch event a drag event?
+   * (`launch_event` is set to the corresponding mouse button then.)
+   */
+  bool is_launch_event_drag;
 
   bool is_orient_default_overwrite;
 
@@ -673,7 +663,6 @@ typedef struct TransInfo {
   int mval[2];
   /** use for 3d view. */
   float zfac;
-  void *draw_handle_apply;
   void *draw_handle_view;
   void *draw_handle_pixel;
   void *draw_handle_cursor;
@@ -712,9 +701,9 @@ int transformEnd(struct bContext *C, TransInfo *t);
 void setTransformViewMatrices(TransInfo *t);
 void setTransformViewAspect(TransInfo *t, float r_aspect[3]);
 void convertViewVec(TransInfo *t, float r_vec[3], double dx, double dy);
-void projectIntViewEx(TransInfo *t, const float vec[3], int adr[2], const eV3DProjTest flag);
+void projectIntViewEx(TransInfo *t, const float vec[3], int adr[2], eV3DProjTest flag);
 void projectIntView(TransInfo *t, const float vec[3], int adr[2]);
-void projectFloatViewEx(TransInfo *t, const float vec[3], float adr[2], const eV3DProjTest flag);
+void projectFloatViewEx(TransInfo *t, const float vec[3], float adr[2], eV3DProjTest flag);
 void projectFloatView(TransInfo *t, const float vec[3], float adr[2]);
 
 void applyAspectRatio(TransInfo *t, float vec[2]);
@@ -732,6 +721,7 @@ struct wmKeyMap *transform_modal_keymap(struct wmKeyConfig *keyconf);
  * \{ */
 
 /* transform_gizmo.c */
+
 #define GIZMO_AXIS_LINE_WIDTH 2.0f
 
 bool gimbal_axis_pose(struct Object *ob, const struct bPoseChannel *pchan, float gmat[3][3]);
@@ -770,7 +760,7 @@ typedef enum {
 } MouseInputMode;
 
 void initMouseInput(
-    TransInfo *t, MouseInput *mi, const float center[2], const int mval[2], const bool precision);
+    TransInfo *t, MouseInput *mi, const float center[2], const int mval[2], bool precision);
 void initMouseInputMode(TransInfo *t, MouseInput *mi, MouseInputMode mode);
 void applyMouseInput(struct TransInfo *t,
                      struct MouseInput *mi,

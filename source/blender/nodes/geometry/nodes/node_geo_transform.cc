@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #ifdef WITH_OPENVDB
 #  include <openvdb/openvdb.h>
@@ -24,9 +10,9 @@
 #include "DNA_pointcloud_types.h"
 #include "DNA_volume_types.h"
 
+#include "BKE_curves.hh"
 #include "BKE_mesh.h"
 #include "BKE_pointcloud.h"
-#include "BKE_spline.hh"
 #include "BKE_volume.h"
 
 #include "DEG_depsgraph_query.h"
@@ -37,7 +23,7 @@ namespace blender::nodes {
 
 static bool use_translate(const float3 rotation, const float3 scale)
 {
-  if (compare_ff(rotation.length_squared(), 0.0f, 1e-9f) != 1) {
+  if (compare_ff(math::length_squared(rotation), 0.0f, 1e-9f) != 1) {
     return false;
   }
   if (compare_ff(scale.x, 1.0f, 1e-9f) != 1 || compare_ff(scale.y, 1.0f, 1e-9f) != 1 ||
@@ -49,7 +35,7 @@ static bool use_translate(const float3 rotation, const float3 scale)
 
 static void translate_mesh(Mesh &mesh, const float3 translation)
 {
-  if (!translation.is_zero()) {
+  if (!math::is_zero(translation)) {
     BKE_mesh_translate(&mesh, translation, false);
   }
 }
@@ -117,8 +103,8 @@ static void transform_volume(Volume &volume, const float4x4 &transform, const De
   memcpy(vdb_matrix.asPointer(), &scale_limited_transform, sizeof(float[4][4]));
   openvdb::Mat4d vdb_matrix_d{vdb_matrix};
 
-  const int num_grids = BKE_volume_num_grids(&volume);
-  for (const int i : IndexRange(num_grids)) {
+  const int grids_num = BKE_volume_num_grids(&volume);
+  for (const int i : IndexRange(grids_num)) {
     VolumeGrid *volume_grid = BKE_volume_grid_get_for_write(&volume, i);
 
     openvdb::GridBase::Ptr grid = BKE_volume_grid_openvdb_for_write(&volume, volume_grid, false);
@@ -139,8 +125,8 @@ static void translate_geometry_set(GeometrySet &geometry,
                                    const float3 translation,
                                    const Depsgraph &depsgraph)
 {
-  if (CurveEval *curve = geometry.get_curve_for_write()) {
-    curve->translate(translation);
+  if (Curves *curves = geometry.get_curves_for_write()) {
+    bke::CurvesGeometry::wrap(curves->geometry).translate(translation);
   }
   if (Mesh *mesh = geometry.get_mesh_for_write()) {
     translate_mesh(*mesh, translation);
@@ -160,8 +146,8 @@ void transform_geometry_set(GeometrySet &geometry,
                             const float4x4 &transform,
                             const Depsgraph &depsgraph)
 {
-  if (CurveEval *curve = geometry.get_curve_for_write()) {
-    curve->transform(transform);
+  if (Curves *curves = geometry.get_curves_for_write()) {
+    bke::CurvesGeometry::wrap(curves->geometry).transform(transform);
   }
   if (Mesh *mesh = geometry.get_mesh_for_write()) {
     transform_mesh(*mesh, transform);
@@ -226,7 +212,7 @@ void register_node_type_geo_transform()
 
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_TRANSFORM, "Transform", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_TRANSFORM, "Transform", NODE_CLASS_GEOMETRY);
   ntype.declare = file_ns::node_declare;
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   nodeRegisterType(&ntype);

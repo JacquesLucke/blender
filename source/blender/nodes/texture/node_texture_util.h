@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup nodes
@@ -108,8 +92,7 @@ typedef struct TexDelegate {
 bool tex_node_poll_default(struct bNodeType *ntype,
                            struct bNodeTree *ntree,
                            const char **r_disabled_hint);
-void tex_node_type_base(
-    struct bNodeType *ntype, int type, const char *name, short nclass, short flag);
+void tex_node_type_base(struct bNodeType *ntype, int type, const char *name, short nclass);
 
 void tex_input_rgba(float *out, bNodeStack *in, TexParams *params, short thread);
 void tex_input_vec(float *out, bNodeStack *in, TexParams *params, short thread);
@@ -123,6 +106,18 @@ void tex_output(bNode *node,
                 TexCallData *data);
 
 void params_from_cdata(TexParams *out, TexCallData *in);
+
+struct bNodeThreadStack *ntreeGetThreadStack(struct bNodeTreeExec *exec, int thread);
+void ntreeReleaseThreadStack(struct bNodeThreadStack *nts);
+bool ntreeExecThreadNodes(struct bNodeTreeExec *exec,
+                          struct bNodeThreadStack *nts,
+                          void *callerdata,
+                          int thread);
+
+struct bNodeTreeExec *ntreeTexBeginExecTree_internal(struct bNodeExecContext *context,
+                                                     struct bNodeTree *ntree,
+                                                     bNodeInstanceKey parent_key);
+void ntreeTexEndExecTree_internal(struct bNodeTreeExec *exec);
 
 #ifdef __cplusplus
 }

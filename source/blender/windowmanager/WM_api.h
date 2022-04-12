@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 #pragma once
 
 /** \file
@@ -47,6 +31,7 @@ struct GHashIterator;
 struct GPUViewport;
 struct ID;
 struct IDProperty;
+struct IDRemapper;
 struct ImBuf;
 struct ImageFormatData;
 struct Main;
@@ -54,6 +39,7 @@ struct MenuType;
 struct PointerRNA;
 struct PropertyRNA;
 struct ScrArea;
+struct SelectPick_Params;
 struct View3D;
 struct ViewLayer;
 struct bContext;
@@ -118,7 +104,7 @@ void WM_init(struct bContext *C, int argc, const char **argv);
 /**
  * \note doesn't run exit() call #WM_exit() for that.
  */
-void WM_exit_ex(struct bContext *C, const bool do_python);
+void WM_exit_ex(struct bContext *C, bool do_python);
 
 /**
  * \brief Main exit function to close Blender ordinarily.
@@ -142,11 +128,7 @@ void WM_reinit_gizmomap_all(struct Main *bmain);
  */
 void WM_script_tag_reload(void);
 
-wmWindow *WM_window_find_under_cursor(const wmWindowManager *wm,
-                                      const wmWindow *win_ignore,
-                                      const wmWindow *win,
-                                      const int mval[2],
-                                      int r_mval[2]);
+wmWindow *WM_window_find_under_cursor(wmWindow *win, const int mval[2], int r_mval[2]);
 void WM_window_pixel_sample_read(const wmWindowManager *wm,
                                  const wmWindow *win,
                                  const int pos[2],
@@ -261,11 +243,12 @@ void WM_window_set_dpi(const wmWindow *win);
 
 bool WM_stereo3d_enabled(struct wmWindow *win, bool only_fullscreen_test);
 
-/* files */
+/* wm_files.c */
+
 void WM_file_autoexec_init(const char *filepath);
 bool WM_file_read(struct bContext *C, const char *filepath, struct ReportList *reports);
-void WM_autosave_init(struct wmWindowManager *wm);
-bool WM_recover_last_session(struct bContext *C, struct ReportList *reports);
+void WM_file_autosave_init(struct wmWindowManager *wm);
+bool WM_file_recover_last_session(struct bContext *C, struct ReportList *reports);
 void WM_file_tag_modified(void);
 
 /**
@@ -277,7 +260,7 @@ struct ID *WM_file_link_datablock(struct Main *bmain,
                                   struct ViewLayer *view_layer,
                                   struct View3D *v3d,
                                   const char *filepath,
-                                  const short id_code,
+                                  short id_code,
                                   const char *id_name,
                                   int flag);
 /**
@@ -289,7 +272,7 @@ struct ID *WM_file_append_datablock(struct Main *bmain,
                                     struct ViewLayer *view_layer,
                                     struct View3D *v3d,
                                     const char *filepath,
-                                    const short id_code,
+                                    short id_code,
                                     const char *id_name,
                                     int flag);
 void WM_lib_reload(struct Library *lib, struct bContext *C, struct ReportList *reports);
@@ -404,7 +387,7 @@ struct wmEventHandler_UI *WM_event_add_ui_handler(const struct bContext *C,
                                                   wmUIHandlerFunc handle_fn,
                                                   wmUIHandlerRemoveFunc remove_fn,
                                                   void *user_data,
-                                                  const char flag);
+                                                  char flag);
 /**
  * \param postpone: Enable for `win->modalhandlers`,
  * this is in a running for () loop in wm_handlers_do().
@@ -413,7 +396,7 @@ void WM_event_remove_ui_handler(ListBase *handlers,
                                 wmUIHandlerFunc handle_fn,
                                 wmUIHandlerRemoveFunc remove_fn,
                                 void *user_data,
-                                const bool postpone);
+                                bool postpone);
 void WM_event_remove_area_handler(struct ListBase *handlers, void *area);
 void WM_event_free_ui_handler_all(struct bContext *C,
                                   ListBase *handlers,
@@ -471,7 +454,7 @@ void WM_main_add_notifier(unsigned int type, void *reference);
  * Clear notifiers by reference, Used so listeners don't act on freed data.
  */
 void WM_main_remove_notifier_reference(const void *reference);
-void WM_main_remap_editor_id_reference(struct ID *old_id, struct ID *new_id);
+void WM_main_remap_editor_id_reference(const struct IDRemapper *mappings);
 
 /* reports */
 /**
@@ -605,9 +588,9 @@ int WM_operator_ui_popup(struct bContext *C, struct wmOperator *op, int width);
 int WM_operator_confirm_message_ex(struct bContext *C,
                                    struct wmOperator *op,
                                    const char *title,
-                                   const int icon,
+                                   int icon,
                                    const char *message,
-                                   const wmOperatorCallContext opcontext);
+                                   wmOperatorCallContext opcontext);
 int WM_operator_confirm_message(struct bContext *C, struct wmOperator *op, const char *message);
 
 /* Operator API. */
@@ -634,14 +617,15 @@ bool WM_operator_poll_context(struct bContext *C, struct wmOperatorType *ot, sho
 /**
  * For running operators with frozen context (modal handlers, menus).
  *
- * \param store: Store settings for re-use.
+ * \param store: Store properties for re-use when an operator has finished
+ * (unless #PROP_SKIP_SAVE is set).
  *
- * \warning do not use this within an operator to call its self! T29537.
+ * \warning do not use this within an operator to call itself! T29537.
  */
-int WM_operator_call_ex(struct bContext *C, struct wmOperator *op, const bool store);
+int WM_operator_call_ex(struct bContext *C, struct wmOperator *op, bool store);
 int WM_operator_call(struct bContext *C, struct wmOperator *op);
 /**
- * This is intended to be used when an invoke operator wants to call exec on its self
+ * This is intended to be used when an invoke operator wants to call exec on itself
  * and is basically like running op->type->exec() directly, no poll checks no freeing,
  * since we assume whoever called invoke will take care of that
  */
@@ -663,19 +647,29 @@ bool WM_operator_is_repeat(const struct bContext *C, const struct wmOperator *op
 bool WM_operator_name_poll(struct bContext *C, const char *opstring);
 /**
  * Invokes operator in context.
+ *
+ * \param event: Optionally pass in an event to use when context uses one of the
+ * `WM_OP_INVOKE_*` values. When left unset the #wmWindow.eventstate will be used,
+ * this can cause problems for operators that read the events type - for example,
+ * storing the key that was pressed so as to be able to detect it's release.
+ * In these cases it's necessary to forward the current event being handled.
  */
 int WM_operator_name_call_ptr(struct bContext *C,
                               struct wmOperatorType *ot,
                               wmOperatorCallContext context,
-                              struct PointerRNA *properties);
+                              struct PointerRNA *properties,
+                              const wmEvent *event);
+/** See #WM_operator_name_call_ptr */
 int WM_operator_name_call(struct bContext *C,
                           const char *opstring,
                           wmOperatorCallContext context,
-                          struct PointerRNA *properties);
+                          struct PointerRNA *properties,
+                          const wmEvent *event);
 int WM_operator_name_call_with_properties(struct bContext *C,
                                           const char *opstring,
                                           wmOperatorCallContext context,
-                                          struct IDProperty *properties);
+                                          struct IDProperty *properties,
+                                          const wmEvent *event);
 /**
  * Similar to #WM_operator_name_call called with #WM_OP_EXEC_DEFAULT context.
  *
@@ -688,12 +682,13 @@ int WM_operator_call_py(struct bContext *C,
                         wmOperatorCallContext context,
                         struct PointerRNA *properties,
                         struct ReportList *reports,
-                        const bool is_undo);
+                        bool is_undo);
 
 void WM_operator_name_call_ptr_with_depends_on_cursor(struct bContext *C,
                                                       wmOperatorType *ot,
                                                       wmOperatorCallContext opcontext,
                                                       PointerRNA *properties,
+                                                      const wmEvent *event,
                                                       const char *drawstr);
 
 /**
@@ -706,7 +701,7 @@ void WM_operator_properties_alloc(struct PointerRNA **ptr,
 /**
  * Make props context sensitive or not.
  */
-void WM_operator_properties_sanitize(struct PointerRNA *ptr, const bool no_context);
+void WM_operator_properties_sanitize(struct PointerRNA *ptr, bool no_context);
 
 /**
  * Set all props to their default.
@@ -716,7 +711,7 @@ void WM_operator_properties_sanitize(struct PointerRNA *ptr, const bool no_conte
  * \note There's nothing specific to operators here.
  * This could be made a general function.
  */
-bool WM_operator_properties_default(struct PointerRNA *ptr, const bool do_update);
+bool WM_operator_properties_default(struct PointerRNA *ptr, bool do_update);
 /**
  * Remove all props without #PROP_SKIP_SAVE.
  */
@@ -738,7 +733,7 @@ wmOperator *WM_operator_last_redo(const struct bContext *C);
 /**
  * Use for drag & drop a path or name with operators invoke() function.
  */
-ID *WM_operator_drop_load_path(struct bContext *C, struct wmOperator *op, const short idcode);
+ID *WM_operator_drop_load_path(struct bContext *C, struct wmOperator *op, short idcode);
 
 bool WM_operator_last_properties_init(struct wmOperator *op);
 bool WM_operator_last_properties_store(struct wmOperator *op);
@@ -746,14 +741,33 @@ bool WM_operator_last_properties_store(struct wmOperator *op);
 /* wm_operator_props.c */
 
 void WM_operator_properties_confirm_or_exec(struct wmOperatorType *ot);
+
+/** Flags for #WM_operator_properties_filesel. */
+typedef enum eFileSel_Flag {
+  WM_FILESEL_RELPATH = 1 << 0,
+  WM_FILESEL_DIRECTORY = 1 << 1,
+  WM_FILESEL_FILENAME = 1 << 2,
+  WM_FILESEL_FILEPATH = 1 << 3,
+  WM_FILESEL_FILES = 1 << 4,
+  /** Show the properties sidebar by default. */
+  WM_FILESEL_SHOW_PROPS = 1 << 5,
+} eFileSel_Flag;
+ENUM_OPERATORS(eFileSel_Flag, WM_FILESEL_SHOW_PROPS)
+
+/** Action for #WM_operator_properties_filesel. */
+typedef enum eFileSel_Action {
+  FILE_OPENFILE = 0,
+  FILE_SAVE = 1,
+} eFileSel_Action;
+
 /**
  * Default properties for file-select.
  */
 void WM_operator_properties_filesel(struct wmOperatorType *ot,
                                     int filter,
                                     short type,
-                                    short action,
-                                    short flag,
+                                    eFileSel_Action action,
+                                    eFileSel_Flag flag,
                                     short display,
                                     short sort);
 /**
@@ -783,6 +797,9 @@ void WM_operator_properties_gesture_straightline(struct wmOperatorType *ot, int 
  * Use with #WM_gesture_circle_invoke
  */
 void WM_operator_properties_gesture_circle(struct wmOperatorType *ot);
+/**
+ * See #ED_select_pick_params_from_operator to initialize parameters defined here.
+ */
 void WM_operator_properties_mouse_select(struct wmOperatorType *ot);
 void WM_operator_properties_select_all(struct wmOperatorType *ot);
 void WM_operator_properties_select_action(struct wmOperatorType *ot,
@@ -815,14 +832,14 @@ void WM_operator_properties_select_walk_direction(struct wmOperatorType *ot);
  * For default click selection (with no modifier keys held), the select operators can do the
  * following:
  * - On a mouse press on an unselected item, change selection and finish immediately after.
- *   This sends an undo push and allows transform to take over should a tweak event be caught now.
+ *   This sends an undo push and allows transform to take over should a click-drag event be caught.
  * - On a mouse press on a selected item, don't change selection state, but start modal execution
  *   of the operator. Idea is that we wait with deselecting other items until we know that the
  *   intention wasn't to tweak (mouse press+drag) all selected items.
- * - If a tweak is recognized before the release event happens, cancel the operator, so that
- *   transform can take over and no undo-push is sent.
- * - If the release event occurs rather than a tweak one, deselect all items but the one under the
- *   cursor, and finish the modal operator.
+ * - If a click-drag is recognized before the release event happens, cancel the operator,
+ *   so that transform can take over and no undo-push is sent.
+ * - If the release event occurs rather than a click-drag one,
+ *   deselect all items but the one under the cursor, and finish the modal operator.
  *
  * This utility, together with #WM_generic_select_invoke() and #WM_generic_select_modal() should
  * help getting the wanted behavior to work. Most generic logic should be handled in these, so that
@@ -847,16 +864,6 @@ void WM_operator_properties_checker_interval_from_op(struct wmOperator *op,
 bool WM_operator_properties_checker_interval_test(const struct CheckerIntervalParams *op_params,
                                                   int depth);
 
-/* flags for WM_operator_properties_filesel */
-#define WM_FILESEL_RELPATH (1 << 0)
-
-#define WM_FILESEL_DIRECTORY (1 << 1)
-#define WM_FILESEL_FILENAME (1 << 2)
-#define WM_FILESEL_FILEPATH (1 << 3)
-#define WM_FILESEL_FILES (1 << 4)
-/* Show the properties sidebar by default. */
-#define WM_FILESEL_SHOW_PROPS (1 << 5)
-
 /**
  * Operator as a Python command (resulting string must be freed).
  *
@@ -870,14 +877,14 @@ bool WM_operator_properties_checker_interval_test(const struct CheckerIntervalPa
  */
 char *WM_operator_pystring_ex(struct bContext *C,
                               struct wmOperator *op,
-                              const bool all_args,
-                              const bool macro_args,
+                              bool all_args,
+                              bool macro_args,
                               struct wmOperatorType *ot,
                               struct PointerRNA *opptr);
 char *WM_operator_pystring(struct bContext *C,
                            struct wmOperator *op,
-                           const bool all_args,
-                           const bool macro_args);
+                           bool all_args,
+                           bool macro_args);
 /**
  * \return true if the string was shortened.
  */
@@ -1045,6 +1052,7 @@ bool WM_paneltype_add(struct PanelType *pt);
 void WM_paneltype_remove(struct PanelType *pt);
 
 /* wm_gesture_ops.c */
+
 int WM_gesture_box_invoke(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 int WM_gesture_box_modal(struct bContext *C, struct wmOperator *op, const struct wmEvent *event);
 void WM_gesture_box_cancel(struct bContext *C, struct wmOperator *op);
@@ -1148,7 +1156,7 @@ int WM_operator_flag_only_pass_through_on_press(int retval, const struct wmEvent
  */
 struct wmDrag *WM_event_start_drag(
     struct bContext *C, int icon, int type, void *poin, double value, unsigned int flags);
-void WM_event_drag_image(struct wmDrag *, struct ImBuf *, float scale, int sx, int sy);
+void WM_event_drag_image(struct wmDrag *, struct ImBuf *, float scale);
 void WM_drag_free(struct wmDrag *drag);
 void WM_drag_data_free(int dragtype, void *poin);
 void WM_drag_free_list(struct ListBase *lb);
@@ -1243,7 +1251,7 @@ void wmOrtho2(float x1, float x2, float y1, float y2);
  * Default pixel alignment for regions.
  */
 void wmOrtho2_region_pixelspace(const struct ARegion *region);
-void wmOrtho2_pixelspace(const float x, const float y);
+void wmOrtho2_pixelspace(float x, float y);
 void wmGetProjectionMatrix(float mat[4][4], const struct rcti *winrct);
 
 /* threaded Jobs Manager */
@@ -1262,6 +1270,8 @@ enum {
   WM_JOB_TYPE_COMPOSITE,
   WM_JOB_TYPE_RENDER,
   WM_JOB_TYPE_RENDER_PREVIEW, /* UI preview */
+  /** Job for the UI to load previews from the file system (uses OS thumbnail cache). */
+  WM_JOB_TYPE_LOAD_PREVIEW, /* UI preview */
   WM_JOB_TYPE_OBJECT_SIM_OCEAN,
   WM_JOB_TYPE_OBJECT_SIM_FLUID,
   WM_JOB_TYPE_OBJECT_BAKE_TEXTURE,
@@ -1440,15 +1450,17 @@ bool WM_window_modal_keymap_status_draw(struct bContext *C,
  */
 void WM_event_print(const struct wmEvent *event);
 
-int WM_event_modifier_flag(const struct wmEvent *event);
-
 /**
- * For modal callbacks, check configuration for how to interpret exit with tweaks.
+ * For modal callbacks, check configuration for how to interpret exit when dragging.
  */
-bool WM_event_is_modal_tweak_exit(const struct wmEvent *event, int tweak_event);
+bool WM_event_is_modal_drag_exit(const struct wmEvent *event,
+                                 short init_event_type,
+                                 short init_event_val);
 bool WM_event_is_last_mousemove(const struct wmEvent *event);
 bool WM_event_is_mouse_drag(const struct wmEvent *event);
 bool WM_event_is_mouse_drag_or_press(const wmEvent *event);
+int WM_event_drag_direction(const wmEvent *event);
+
 /**
  * Detect motion between selection (callers should only use this for selection picking),
  * typically mouse press/click events.
@@ -1468,6 +1480,9 @@ bool WM_cursor_test_motion_and_update(const int mval[2]) ATTR_NONNULL(1) ATTR_WA
 int WM_event_drag_threshold(const struct wmEvent *event);
 bool WM_event_drag_test(const struct wmEvent *event, const int prev_xy[2]);
 bool WM_event_drag_test_with_delta(const struct wmEvent *event, const int delta[2]);
+void WM_event_drag_start_mval(const wmEvent *event, const ARegion *region, int r_mval[2]);
+void WM_event_drag_start_mval_fl(const wmEvent *event, const ARegion *region, float r_mval[2]);
+void WM_event_drag_start_xy(const wmEvent *event, int r_xy[2]);
 
 /**
  * Event map that takes preferences into account.
@@ -1481,9 +1496,7 @@ int WM_userdef_event_map(int kmitype);
 int WM_userdef_event_type_from_keymap_type(int kmitype);
 
 #ifdef WITH_INPUT_NDOF
-void WM_event_ndof_pan_get(const struct wmNDOFMotionData *ndof,
-                           float r_pan[3],
-                           const bool use_zoom);
+void WM_event_ndof_pan_get(const struct wmNDOFMotionData *ndof, float r_pan[3], bool use_zoom);
 void WM_event_ndof_rotate_get(const struct wmNDOFMotionData *ndof, float r_rot[3]);
 
 float WM_event_ndof_to_axis_angle(const struct wmNDOFMotionData *ndof, float axis[3]);
@@ -1600,8 +1613,7 @@ bool WM_xr_action_create(wmXrData *xr,
                          const char *action_set_name,
                          const char *action_name,
                          eXrActionType type,
-                         unsigned int count_subaction_paths,
-                         const char **subaction_paths,
+                         const ListBase *user_paths,
                          struct wmOperatorType *ot,
                          struct IDProperty *op_properties,
                          const char *haptic_name,
@@ -1616,9 +1628,8 @@ bool WM_xr_action_binding_create(wmXrData *xr,
                                  const char *action_set_name,
                                  const char *action_name,
                                  const char *profile_path,
-                                 unsigned int count_subaction_paths,
-                                 const char **subaction_paths,
-                                 const char **component_paths,
+                                 const ListBase *user_paths,
+                                 const ListBase *component_paths,
                                  const float *float_thresholds,
                                  const eXrAxisFlag *axis_flags,
                                  const struct wmXrPose *poses);

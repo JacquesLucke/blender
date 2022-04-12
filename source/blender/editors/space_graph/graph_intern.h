@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spgraph
@@ -34,6 +18,7 @@ struct bContext;
 
 /* ***************************************** */
 /* graph_draw.c */
+
 /**
  * Left hand part.
  */
@@ -109,8 +94,8 @@ void get_graph_keyframe_extents(struct bAnimContext *ac,
                                 float *xmax,
                                 float *ymin,
                                 float *ymax,
-                                const bool do_sel_only,
-                                const bool include_handles);
+                                bool do_sel_only,
+                                bool include_handles);
 
 void GRAPH_OT_previewrange_set(struct wmOperatorType *ot);
 void GRAPH_OT_view_all(struct wmOperatorType *ot);
@@ -129,6 +114,7 @@ void GRAPH_OT_clean(struct wmOperatorType *ot);
 void GRAPH_OT_blend_to_neighbor(struct wmOperatorType *ot);
 void GRAPH_OT_breakdown(struct wmOperatorType *ot);
 void GRAPH_OT_decimate(struct wmOperatorType *ot);
+void GRAPH_OT_blend_to_default(struct wmOperatorType *ot);
 void GRAPH_OT_sample(struct wmOperatorType *ot);
 void GRAPH_OT_bake(struct wmOperatorType *ot);
 void GRAPH_OT_unbake(struct wmOperatorType *ot);
@@ -144,6 +130,7 @@ void GRAPH_OT_easing_type(struct wmOperatorType *ot);
 void GRAPH_OT_frame_jump(struct wmOperatorType *ot);
 void GRAPH_OT_snap_cursor_value(struct wmOperatorType *ot);
 void GRAPH_OT_snap(struct wmOperatorType *ot);
+void GRAPH_OT_equalize_handles(struct wmOperatorType *ot);
 void GRAPH_OT_mirror(struct wmOperatorType *ot);
 
 /* defines for snap keyframes
@@ -156,6 +143,15 @@ enum eGraphKeys_Snap_Mode {
   GRAPHKEYS_SNAP_NEAREST_MARKER,
   GRAPHKEYS_SNAP_HORIZONTAL,
   GRAPHKEYS_SNAP_VALUE,
+};
+
+/* Defines for equalize keyframe handles.
+ * NOTE: Keep in sync with eEditKeyframes_Equalize (in ED_keyframes_edit.h).
+ */
+enum eGraphKeys_Equalize_Mode {
+  GRAPHKEYS_EQUALIZE_LEFT = 1,
+  GRAPHKEYS_EQUALIZE_RIGHT,
+  GRAPHKEYS_EQUALIZE_BOTH,
 };
 
 /* defines for mirror keyframes
@@ -228,5 +224,6 @@ bool graphop_selected_fcurve_poll(struct bContext *C);
 
 /* ***************************************** */
 /* graph_ops.c */
+
 void graphedit_keymap(struct wmKeyConfig *keyconf);
 void graphedit_operatortypes(void);

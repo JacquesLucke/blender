@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -109,7 +95,7 @@ struct BMLog {
 
 typedef struct {
   float co[3];
-  short no[3];
+  float no[3];
   char hflag;
   float mask;
 } BMLogVert;
@@ -200,7 +186,7 @@ static void vert_mask_set(BMVert *v, const float new_mask, const int cd_vert_mas
 static void bm_log_vert_bmvert_copy(BMLogVert *lv, BMVert *v, const int cd_vert_mask_offset)
 {
   copy_v3_v3(lv->co, v->co);
-  normal_float_to_short_v3(lv->no, v->no);
+  copy_v3_v3(lv->no, v->no);
   lv->mask = vert_mask_get(v, cd_vert_mask_offset);
   lv->hflag = v->head.hflag;
 }
@@ -294,7 +280,7 @@ static void bm_log_verts_restore(BMesh *bm, BMLog *log, GHash *verts)
     BMVert *v = BM_vert_create(bm, lv->co, NULL, BM_CREATE_NOP);
     vert_mask_set(v, lv->mask, cd_vert_mask_offset);
     v->head.hflag = lv->hflag;
-    normal_short_to_float_v3(v->no, lv->no);
+    copy_v3_v3(v->no, lv->no);
     bm_log_vert_id_set(log, v, POINTER_AS_UINT(key));
   }
 }
@@ -329,12 +315,9 @@ static void bm_log_vert_values_swap(BMesh *bm, BMLog *log, GHash *verts)
     uint id = POINTER_AS_UINT(key);
     BMVert *v = bm_log_vert_from_id(log, id);
     float mask;
-    short normal[3];
 
     swap_v3_v3(v->co, lv->co);
-    copy_v3_v3_short(normal, lv->no);
-    normal_float_to_short_v3(lv->no, v->no);
-    normal_short_to_float_v3(v->no, normal);
+    swap_v3_v3(v->no, lv->no);
     SWAP(char, v->head.hflag, lv->hflag);
     mask = lv->mask;
     lv->mask = vert_mask_get(v, cd_vert_mask_offset);
@@ -937,7 +920,7 @@ const float *BM_log_original_vert_co(BMLog *log, BMVert *v)
   return lv->co;
 }
 
-const short *BM_log_original_vert_no(BMLog *log, BMVert *v)
+const float *BM_log_original_vert_no(BMLog *log, BMVert *v)
 {
   BMLogEntry *entry = log->current_entry;
   const BMLogVert *lv;
@@ -967,7 +950,7 @@ float BM_log_original_mask(BMLog *log, BMVert *v)
   return lv->mask;
 }
 
-void BM_log_original_vert_data(BMLog *log, BMVert *v, const float **r_co, const short **r_no)
+void BM_log_original_vert_data(BMLog *log, BMVert *v, const float **r_co, const float **r_no)
 {
   BMLogEntry *entry = log->current_entry;
   const BMLogVert *lv;

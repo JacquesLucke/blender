@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -108,6 +94,9 @@ static void brush_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, c
     brush_dst->gpencil_settings->curve_rand_value = BKE_curvemapping_copy(
         brush_src->gpencil_settings->curve_rand_value);
   }
+  if (brush_src->curves_sculpt_settings != NULL) {
+    brush_dst->curves_sculpt_settings = MEM_dupallocN(brush_src->curves_sculpt_settings);
+  }
 
   /* enable fake user by default */
   id_fake_user_set(&brush_dst->id);
@@ -135,6 +124,9 @@ static void brush_free_data(ID *id)
 
     MEM_SAFE_FREE(brush->gpencil_settings);
   }
+  if (brush->curves_sculpt_settings != NULL) {
+    MEM_freeN(brush->curves_sculpt_settings);
+  }
 
   MEM_SAFE_FREE(brush->gradient);
 
@@ -149,38 +141,19 @@ static void brush_make_local(Main *bmain, ID *id, const int flags)
 
   Brush *brush = (Brush *)id;
   const bool lib_local = (flags & LIB_ID_MAKELOCAL_FULL_LIBRARY) != 0;
-  bool force_local = (flags & LIB_ID_MAKELOCAL_FORCE_LOCAL) != 0;
-  bool force_copy = (flags & LIB_ID_MAKELOCAL_FORCE_COPY) != 0;
-  BLI_assert(force_copy == false || force_copy != force_local);
 
-  bool is_local = false, is_lib = false;
-
-  /* - only lib users: do nothing (unless force_local is set)
-   * - only local users: set flag
-   * - mixed: make copy
-   */
+  bool force_local, force_copy;
+  BKE_lib_id_make_local_generic_action_define(bmain, id, flags, &force_local, &force_copy);
 
   if (brush->clone.image) {
     /* Special case: ima always local immediately. Clone image should only have one user anyway. */
     /* FIXME: Recursive calls affecting other non-embedded IDs are really bad and should be avoided
      * in IDType callbacks. Higher-level ID management code usually does not expect such things and
      * does not deal properly with it. */
-    /* NOTE: assert below ensures that the comment above is valid, and that that exception is
+    /* NOTE: assert below ensures that the comment above is valid, and that exception is
      * acceptable for the time being. */
     BKE_lib_id_make_local(bmain, &brush->clone.image->id, 0);
-    BLI_assert(brush->clone.image->id.lib == NULL && brush->clone.image->id.newid == NULL);
-  }
-
-  if (!force_local && !force_copy) {
-    BKE_library_ID_test_usages(bmain, brush, &is_local, &is_lib);
-    if (lib_local || is_local) {
-      if (!is_lib) {
-        force_local = true;
-      }
-      else {
-        force_copy = true;
-      }
-    }
+    BLI_assert(!ID_IS_LINKED(brush->clone.image) && brush->clone.image->id.newid == NULL);
   }
 
   if (force_local) {
@@ -269,6 +242,9 @@ static void brush_blend_write(BlendWriter *writer, ID *id, const void *id_addres
       BKE_curvemapping_blend_write(writer, brush->gpencil_settings->curve_rand_value);
     }
   }
+  if (brush->curves_sculpt_settings) {
+    BLO_write_struct(writer, BrushCurvesSculptSettings, brush->curves_sculpt_settings);
+  }
   if (brush->gradient) {
     BLO_write_struct(writer, ColorBand, brush->gradient);
   }
@@ -340,6 +316,8 @@ static void brush_blend_read_data(BlendDataReader *reader, ID *id)
       BKE_curvemapping_blend_read(reader, brush->gpencil_settings->curve_rand_value);
     }
   }
+
+  BLO_read_data_address(reader, &brush->curves_sculpt_settings);
 
   brush->preview = NULL;
   brush->icon_imbuf = NULL;
@@ -521,6 +499,10 @@ Brush *BKE_brush_add(Main *bmain, const char *name, const eObjectMode ob_mode)
   brush = BKE_id_new(bmain, ID_BR, name);
 
   brush->ob_mode = ob_mode;
+
+  if (ob_mode == OB_MODE_SCULPT_CURVES) {
+    BKE_brush_init_curves_sculpt_settings(brush);
+  }
 
   return brush;
 }
@@ -1570,6 +1552,15 @@ void BKE_brush_gpencil_weight_presets(Main *bmain, ToolSettings *ts, const bool 
   }
 }
 
+void BKE_brush_init_curves_sculpt_settings(Brush *brush)
+{
+  if (brush->curves_sculpt_settings == NULL) {
+    brush->curves_sculpt_settings = MEM_callocN(sizeof(BrushCurvesSculptSettings), __func__);
+  }
+  brush->curves_sculpt_settings->add_amount = 1;
+  brush->curves_sculpt_settings->minimum_length = 0.01f;
+}
+
 struct Brush *BKE_brush_first_search(struct Main *bmain, const eObjectMode ob_mode)
 {
   Brush *brush;
@@ -1843,7 +1834,8 @@ void BKE_brush_sculpt_reset(Brush *br)
       br->tip_roundness = 1.0f;
       br->density = 1.0f;
       br->flag &= ~BRUSH_SPACE_ATTEN;
-      zero_v3(br->rgb);
+      copy_v3_fl(br->rgb, 1.0f);
+      zero_v3(br->secondary_rgb);
       break;
     case SCULPT_TOOL_SMEAR:
       br->alpha = 1.0f;

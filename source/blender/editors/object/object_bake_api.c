@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2004 by Blender Foundation
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2004 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edobj
@@ -39,6 +23,7 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
@@ -89,6 +74,7 @@ typedef struct BakeAPIRender {
   eScenePassType pass_type;
   int pass_filter;
   int margin;
+  eBakeMarginType margin_type;
 
   bool is_clear;
   bool is_selected_to_active;
@@ -138,7 +124,7 @@ static void bake_progress_update(void *bjv, float progress)
   }
 }
 
-/* catch esc */
+/** Catch escape key to cancel. */
 static int bake_modal(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
   /* no running blender, remove handler and pass through */
@@ -184,14 +170,17 @@ static bool write_internal_bake_pixels(Image *image,
                                        const int width,
                                        const int height,
                                        const int margin,
+                                       const char margin_type,
                                        const bool is_clear,
-                                       const bool is_noncolor)
+                                       const bool is_noncolor,
+                                       Mesh const *mesh_eval,
+                                       char const *uv_layer)
 {
   ImBuf *ibuf;
   void *lock;
   bool is_float;
   char *mask_buffer = NULL;
-  const size_t num_pixels = (size_t)width * (size_t)height;
+  const size_t pixels_num = (size_t)width * (size_t)height;
 
   ibuf = BKE_image_acquire_ibuf(image, NULL, &lock);
 
@@ -200,8 +189,8 @@ static bool write_internal_bake_pixels(Image *image,
   }
 
   if (margin > 0 || !is_clear) {
-    mask_buffer = MEM_callocN(sizeof(char) * num_pixels, "Bake Mask");
-    RE_bake_mask_fill(pixel_array, num_pixels, mask_buffer);
+    mask_buffer = MEM_callocN(sizeof(char) * pixels_num, "Bake Mask");
+    RE_bake_mask_fill(pixel_array, pixels_num, mask_buffer);
   }
 
   is_float = (ibuf->rect_float != NULL);
@@ -281,7 +270,7 @@ static bool write_internal_bake_pixels(Image *image,
 
   /* margins */
   if (margin > 0) {
-    RE_bake_margin(ibuf, mask_buffer, margin);
+    RE_bake_margin(ibuf, mask_buffer, margin, margin_type, mesh_eval, uv_layer);
   }
 
   ibuf->userflags |= IB_DISPLAY_BUFFER_INVALID;
@@ -309,10 +298,11 @@ static bool write_internal_bake_pixels(Image *image,
 /* force OpenGL reload */
 static void bake_targets_refresh(BakeTargets *targets)
 {
-  for (int i = 0; i < targets->num_images; i++) {
+  for (int i = 0; i < targets->images_num; i++) {
     Image *ima = targets->images[i].image;
 
     if (ima) {
+      BKE_image_partial_update_mark_full_update(ima);
       LISTBASE_FOREACH (ImageTile *, tile, &ima->tiles) {
         BKE_image_free_gputextures(ima);
         DEG_id_tag_update(&ima->id, 0);
@@ -327,8 +317,11 @@ static bool write_external_bake_pixels(const char *filepath,
                                        const int width,
                                        const int height,
                                        const int margin,
+                                       const int margin_type,
                                        ImageFormatData *im_format,
-                                       const bool is_noncolor)
+                                       const bool is_noncolor,
+                                       Mesh const *mesh_eval,
+                                       char const *uv_layer)
 {
   ImBuf *ibuf = NULL;
   bool ok = false;
@@ -381,11 +374,11 @@ static bool write_external_bake_pixels(const char *filepath,
   /* margins */
   if (margin > 0) {
     char *mask_buffer = NULL;
-    const size_t num_pixels = (size_t)width * (size_t)height;
+    const size_t pixels_num = (size_t)width * (size_t)height;
 
-    mask_buffer = MEM_callocN(sizeof(char) * num_pixels, "Bake Mask");
-    RE_bake_mask_fill(pixel_array, num_pixels, mask_buffer);
-    RE_bake_margin(ibuf, mask_buffer, margin);
+    mask_buffer = MEM_callocN(sizeof(char) * pixels_num, "Bake Mask");
+    RE_bake_mask_fill(pixel_array, pixels_num, mask_buffer);
+    RE_bake_margin(ibuf, mask_buffer, margin, margin_type, mesh_eval, uv_layer);
 
     if (mask_buffer) {
       MEM_freeN(mask_buffer);
@@ -449,7 +442,7 @@ static bool bake_object_check(ViewLayer *view_layer,
 
   if (target == R_BAKE_TARGET_VERTEX_COLORS) {
     MPropCol *mcol = CustomData_get_layer(&me->vdata, CD_PROP_COLOR);
-    const bool mcol_valid = (mcol != NULL && U.experimental.use_sculpt_vertex_colors);
+    const bool mcol_valid = (mcol != NULL);
     MLoopCol *mloopcol = CustomData_get_layer(&me->ldata, CD_MLOOPCOL);
     if (mloopcol == NULL && !mcol_valid) {
       BKE_reportf(reports,
@@ -614,7 +607,7 @@ static bool bake_objects_check(Main *bmain,
         continue;
       }
 
-      if (ELEM(ob_iter->type, OB_MESH, OB_FONT, OB_CURVE, OB_SURF, OB_MBALL) == false) {
+      if (ELEM(ob_iter->type, OB_MESH, OB_FONT, OB_CURVES_LEGACY, OB_SURF, OB_MBALL) == false) {
         BKE_reportf(reports,
                     RPT_ERROR,
                     "Object \"%s\" is not a mesh or can't be converted to a mesh (Curve, Text, "
@@ -677,9 +670,9 @@ static bool bake_targets_init_image_textures(const BakeAPIRender *bkr,
                                              Object *ob,
                                              ReportList *reports)
 {
-  int num_materials = ob->totcol;
+  int materials_num = ob->totcol;
 
-  if (num_materials == 0) {
+  if (materials_num == 0) {
     if (bkr->save_mode == R_BAKE_SAVE_INTERNAL) {
       BKE_report(
           reports, RPT_ERROR, "No active image found, add a material or bake to an external file");
@@ -695,15 +688,15 @@ static bool bake_targets_init_image_textures(const BakeAPIRender *bkr,
   }
 
   /* Over-allocate in case there is more materials than images. */
-  targets->num_materials = num_materials;
-  targets->images = MEM_callocN(sizeof(BakeImage) * targets->num_materials, "BakeTargets.images");
-  targets->material_to_image = MEM_callocN(sizeof(int) * targets->num_materials,
+  targets->materials_num = materials_num;
+  targets->images = MEM_callocN(sizeof(BakeImage) * targets->materials_num, "BakeTargets.images");
+  targets->material_to_image = MEM_callocN(sizeof(int) * targets->materials_num,
                                            "BakeTargets.material_to_image");
 
   /* Error handling and tag (in case multiple materials share the same image). */
   BKE_main_id_tag_idcode(bkr->main, ID_IM, LIB_TAG_DOIT, false);
 
-  for (int i = 0; i < num_materials; i++) {
+  for (int i = 0; i < materials_num; i++) {
     Image *image;
     ED_object_get_active_image(ob, i + 1, &image, NULL, NULL, NULL);
 
@@ -720,10 +713,10 @@ static bool bake_targets_init_image_textures(const BakeAPIRender *bkr,
       }
     }
     else {
-      targets->material_to_image[i] = targets->num_images;
-      targets->images[targets->num_images].image = image;
+      targets->material_to_image[i] = targets->images_num;
+      targets->images[targets->images_num].image = image;
       image->id.tag |= LIB_TAG_DOIT;
-      targets->num_images++;
+      targets->images_num++;
     }
   }
 
@@ -740,7 +733,7 @@ static bool bake_targets_init_internal(const BakeAPIRender *bkr,
   }
 
   /* Saving to image datablocks. */
-  for (int i = 0; i < targets->num_images; i++) {
+  for (int i = 0; i < targets->images_num; i++) {
     BakeImage *bk_image = &targets->images[i];
     void *lock;
     ImBuf *ibuf = BKE_image_acquire_ibuf(bk_image->image, NULL, &lock);
@@ -748,9 +741,9 @@ static bool bake_targets_init_internal(const BakeAPIRender *bkr,
     if (ibuf) {
       bk_image->width = ibuf->x;
       bk_image->height = ibuf->y;
-      bk_image->offset = targets->num_pixels;
+      bk_image->offset = targets->pixels_num;
 
-      targets->num_pixels += (size_t)ibuf->x * (size_t)ibuf->y;
+      targets->pixels_num += (size_t)ibuf->x * (size_t)ibuf->y;
     }
     else {
       BKE_image_release_ibuf(bk_image->image, ibuf, lock);
@@ -767,21 +760,25 @@ static bool bake_targets_output_internal(const BakeAPIRender *bkr,
                                          BakeTargets *targets,
                                          Object *ob,
                                          BakePixel *pixel_array,
-                                         ReportList *reports)
+                                         ReportList *reports,
+                                         Mesh *mesh_eval)
 {
   bool all_ok = true;
 
-  for (int i = 0; i < targets->num_images; i++) {
+  for (int i = 0; i < targets->images_num; i++) {
     BakeImage *bk_image = &targets->images[i];
     const bool ok = write_internal_bake_pixels(bk_image->image,
                                                pixel_array + bk_image->offset,
                                                targets->result +
-                                                   bk_image->offset * targets->num_channels,
+                                                   bk_image->offset * targets->channels_num,
                                                bk_image->width,
                                                bk_image->height,
                                                bkr->margin,
+                                               bkr->margin_type,
                                                bkr->is_clear,
-                                               targets->is_noncolor);
+                                               targets->is_noncolor,
+                                               mesh_eval,
+                                               bkr->uv_layer);
 
     /* might be read by UI to set active image for display */
     bake_update_image(bkr->area, bk_image->image);
@@ -812,15 +809,15 @@ static bool bake_targets_init_external(const BakeAPIRender *bkr,
   }
 
   /* Saving to disk. */
-  for (int i = 0; i < targets->num_images; i++) {
+  for (int i = 0; i < targets->images_num; i++) {
     BakeImage *bk_image = &targets->images[i];
 
     bk_image->width = bkr->width;
     bk_image->height = bkr->height;
-    bk_image->offset = targets->num_pixels;
+    bk_image->offset = targets->pixels_num;
     bk_image->image = NULL;
 
-    targets->num_pixels += (size_t)bkr->width * (size_t)bkr->height;
+    targets->pixels_num += (size_t)bkr->width * (size_t)bkr->height;
 
     if (!bkr->is_split_materials) {
       break;
@@ -829,7 +826,7 @@ static bool bake_targets_init_external(const BakeAPIRender *bkr,
 
   if (!bkr->is_split_materials) {
     /* saving a single image */
-    for (int i = 0; i < targets->num_materials; i++) {
+    for (int i = 0; i < targets->materials_num; i++) {
       targets->material_to_image[i] = 0;
     }
   }
@@ -841,13 +838,13 @@ static bool bake_targets_output_external(const BakeAPIRender *bkr,
                                          BakeTargets *targets,
                                          Object *ob,
                                          Object *ob_eval,
-                                         Mesh *me,
+                                         Mesh *mesh_eval,
                                          BakePixel *pixel_array,
                                          ReportList *reports)
 {
   bool all_ok = true;
 
-  for (int i = 0; i < targets->num_images; i++) {
+  for (int i = 0; i < targets->images_num; i++) {
     BakeImage *bk_image = &targets->images[i];
 
     BakeData *bake = &bkr->scene->r.bake;
@@ -875,8 +872,8 @@ static bool bake_targets_output_external(const BakeAPIRender *bkr,
         if (ob_eval->mat[i]) {
           BLI_path_suffix(name, FILE_MAX, ob_eval->mat[i]->id.name + 2, "_");
         }
-        else if (me->mat[i]) {
-          BLI_path_suffix(name, FILE_MAX, me->mat[i]->id.name + 2, "_");
+        else if (mesh_eval->mat[i]) {
+          BLI_path_suffix(name, FILE_MAX, mesh_eval->mat[i]->id.name + 2, "_");
         }
         else {
           /* if everything else fails, use the material index */
@@ -891,12 +888,15 @@ static bool bake_targets_output_external(const BakeAPIRender *bkr,
     const bool ok = write_external_bake_pixels(name,
                                                pixel_array + bk_image->offset,
                                                targets->result +
-                                                   bk_image->offset * targets->num_channels,
+                                                   bk_image->offset * targets->channels_num,
                                                bk_image->width,
                                                bk_image->height,
                                                bkr->margin,
+                                               bkr->margin_type,
                                                &bake->im_format,
-                                               targets->is_noncolor);
+                                               targets->is_noncolor,
+                                               mesh_eval,
+                                               bkr->uv_layer);
 
     if (!ok) {
       BKE_reportf(reports, RPT_ERROR, "Problem saving baked map in \"%s\"", name);
@@ -926,7 +926,7 @@ static bool bake_targets_init_vertex_colors(BakeTargets *targets, Object *ob, Re
 
   Mesh *me = ob->data;
   MPropCol *mcol = CustomData_get_layer(&me->vdata, CD_PROP_COLOR);
-  const bool mcol_valid = (mcol != NULL && U.experimental.use_sculpt_vertex_colors);
+  const bool mcol_valid = (mcol != NULL);
   MLoopCol *mloopcol = CustomData_get_layer(&me->ldata, CD_MLOOPCOL);
   if (mloopcol == NULL && !mcol_valid) {
     BKE_report(reports, RPT_ERROR, "No vertex colors layer found to bake to");
@@ -934,11 +934,11 @@ static bool bake_targets_init_vertex_colors(BakeTargets *targets, Object *ob, Re
   }
 
   targets->images = MEM_callocN(sizeof(BakeImage), "BakeTargets.images");
-  targets->num_images = 1;
+  targets->images_num = 1;
 
   targets->material_to_image = MEM_callocN(sizeof(int) * ob->totcol,
                                            "BakeTargets.material_to_image");
-  targets->num_materials = ob->totcol;
+  targets->materials_num = ob->totcol;
 
   BakeImage *bk_image = &targets->images[0];
   bk_image->width = me->totloop;
@@ -946,7 +946,7 @@ static bool bake_targets_init_vertex_colors(BakeTargets *targets, Object *ob, Re
   bk_image->offset = 0;
   bk_image->image = NULL;
 
-  targets->num_pixels = bk_image->width * bk_image->height;
+  targets->pixels_num = bk_image->width * bk_image->height;
 
   return true;
 }
@@ -984,10 +984,10 @@ static void bake_targets_populate_pixels_vertex_colors(BakeTargets *targets,
                                                        BakePixel *pixel_array)
 {
   Mesh *me = ob->data;
-  const int num_pixels = targets->num_pixels;
+  const int pixels_num = targets->pixels_num;
 
   /* Initialize blank pixels. */
-  for (int i = 0; i < num_pixels; i++) {
+  for (int i = 0; i < pixels_num; i++) {
     BakePixel *pixel = &pixel_array[i];
 
     pixel->primitive_id = -1;
@@ -1040,19 +1040,18 @@ static void bake_targets_populate_pixels_vertex_colors(BakeTargets *targets,
        * materials and UVs. */
       pixel->seed = v;
 
-      /* Barycentric coordinates, nudged a bit to avoid precision issues that
-       * may happen when exactly at the vertex coordinate. */
+      /* Barycentric coordinates. */
       if (j == 0) {
-        pixel->uv[0] = 1.0f - FLT_EPSILON;
-        pixel->uv[1] = FLT_EPSILON / 2.0f;
+        pixel->uv[0] = 1.0f;
+        pixel->uv[1] = 0.0f;
       }
       else if (j == 1) {
-        pixel->uv[0] = FLT_EPSILON / 2.0f;
-        pixel->uv[1] = 1.0f - FLT_EPSILON;
+        pixel->uv[0] = 0.0f;
+        pixel->uv[1] = 1.0f;
       }
       else if (j == 2) {
-        pixel->uv[0] = FLT_EPSILON / 2.0f;
-        pixel->uv[1] = FLT_EPSILON / 2.0f;
+        pixel->uv[0] = 0.0f;
+        pixel->uv[1] = 0.0f;
       }
     }
   }
@@ -1060,12 +1059,12 @@ static void bake_targets_populate_pixels_vertex_colors(BakeTargets *targets,
   MEM_freeN(looptri);
 }
 
-static void bake_result_add_to_rgba(float rgba[4], const float *result, const int num_channels)
+static void bake_result_add_to_rgba(float rgba[4], const float *result, const int channels_num)
 {
-  if (num_channels == 4) {
+  if (channels_num == 4) {
     add_v4_v4(rgba, result);
   }
-  else if (num_channels == 3) {
+  else if (channels_num == 3) {
     add_v3_v3(rgba, result);
     rgba[3] += 1.0f;
   }
@@ -1081,9 +1080,9 @@ static bool bake_targets_output_vertex_colors(BakeTargets *targets, Object *ob)
 {
   Mesh *me = ob->data;
   MPropCol *mcol = CustomData_get_layer(&me->vdata, CD_PROP_COLOR);
-  const bool mcol_valid = (mcol != NULL && U.experimental.use_sculpt_vertex_colors);
+  const bool mcol_valid = (mcol != NULL);
   MLoopCol *mloopcol = CustomData_get_layer(&me->ldata, CD_MLOOPCOL);
-  const int num_channels = targets->num_channels;
+  const int channels_num = targets->channels_num;
   const float *result = targets->result;
 
   if (mcol_valid) {
@@ -1097,7 +1096,7 @@ static bool bake_targets_output_vertex_colors(BakeTargets *targets, Object *ob)
     MLoop *mloop = me->mloop;
     for (int i = 0; i < totloop; i++, mloop++) {
       const int v = mloop->v;
-      bake_result_add_to_rgba(mcol[v].color, &result[i * num_channels], num_channels);
+      bake_result_add_to_rgba(mcol[v].color, &result[i * channels_num], channels_num);
       num_loops_for_vertex[v]++;
     }
 
@@ -1119,7 +1118,7 @@ static bool bake_targets_output_vertex_colors(BakeTargets *targets, Object *ob)
     for (int i = 0; i < totloop; i++, mloop++, mloopcol++) {
       float rgba[4];
       zero_v4(rgba);
-      bake_result_add_to_rgba(rgba, &result[i * num_channels], num_channels);
+      bake_result_add_to_rgba(rgba, &result[i * channels_num], channels_num);
 
       if (is_noncolor) {
         unit_float_to_uchar_clamp_v4(&mloopcol->r, rgba);
@@ -1161,13 +1160,13 @@ static bool bake_targets_init(const BakeAPIRender *bkr,
     }
   }
 
-  if (targets->num_pixels == 0) {
+  if (targets->pixels_num == 0) {
     return false;
   }
 
   targets->is_noncolor = is_noncolor_pass(bkr->pass_type);
-  targets->num_channels = RE_pass_depth(bkr->pass_type);
-  targets->result = MEM_callocN(sizeof(float) * targets->num_channels * targets->num_pixels,
+  targets->channels_num = RE_pass_depth(bkr->pass_type);
+  targets->result = MEM_callocN(sizeof(float) * targets->channels_num * targets->pixels_num,
                                 "bake return pixels");
 
   return true;
@@ -1183,7 +1182,7 @@ static void bake_targets_populate_pixels(const BakeAPIRender *bkr,
     bake_targets_populate_pixels_vertex_colors(targets, ob, me_eval, pixel_array);
   }
   else {
-    RE_bake_pixels_populate(me_eval, pixel_array, targets->num_pixels, targets, bkr->uv_layer);
+    RE_bake_pixels_populate(me_eval, pixel_array, targets->pixels_num, targets, bkr->uv_layer);
   }
 }
 
@@ -1197,7 +1196,7 @@ static bool bake_targets_output(const BakeAPIRender *bkr,
 {
   if (bkr->target == R_BAKE_TARGET_IMAGE_TEXTURES) {
     if (bkr->save_mode == R_BAKE_SAVE_INTERNAL) {
-      return bake_targets_output_internal(bkr, targets, ob, pixel_array, reports);
+      return bake_targets_output_internal(bkr, targets, ob, pixel_array, reports, me_eval);
     }
     if (bkr->save_mode == R_BAKE_SAVE_EXTERNAL) {
       return bake_targets_output_external(
@@ -1330,7 +1329,7 @@ static int bake(const BakeAPIRender *bkr,
 
   /* Populate the pixel array with the face data. Except if we use a cage, then
    * it is populated later with the cage mesh (smoothed version of the mesh). */
-  pixel_array_low = MEM_mallocN(sizeof(BakePixel) * targets.num_pixels, "bake pixels low poly");
+  pixel_array_low = MEM_mallocN(sizeof(BakePixel) * targets.pixels_num, "bake pixels low poly");
   if ((bkr->is_selected_to_active && (ob_cage == NULL) && bkr->is_cage) == false) {
     bake_targets_populate_pixels(bkr, &targets, ob_low, me_low_eval, pixel_array_low);
   }
@@ -1423,7 +1422,7 @@ static int bake(const BakeAPIRender *bkr,
     ob_low_eval->base_flag &= ~(BASE_VISIBLE_DEPSGRAPH | BASE_ENABLED_RENDER);
 
     /* populate the pixel arrays with the corresponding face data for each high poly object */
-    pixel_array_high = MEM_mallocN(sizeof(BakePixel) * targets.num_pixels,
+    pixel_array_high = MEM_mallocN(sizeof(BakePixel) * targets.pixels_num,
                                    "bake pixels high poly");
 
     if (!RE_bake_pixels_populate_from_objects(me_low_eval,
@@ -1431,7 +1430,7 @@ static int bake(const BakeAPIRender *bkr,
                                               pixel_array_high,
                                               highpoly,
                                               tot_highpoly,
-                                              targets.num_pixels,
+                                              targets.pixels_num,
                                               ob_cage != NULL,
                                               bkr->cage_extrusion,
                                               bkr->max_ray_distance,
@@ -1492,16 +1491,16 @@ static int bake(const BakeAPIRender *bkr,
           break;
         }
         RE_bake_normal_world_to_world(pixel_array_low,
-                                      targets.num_pixels,
-                                      targets.num_channels,
+                                      targets.pixels_num,
+                                      targets.channels_num,
                                       targets.result,
                                       bkr->normal_swizzle);
         break;
       }
       case R_BAKE_SPACE_OBJECT: {
         RE_bake_normal_world_to_object(pixel_array_low,
-                                       targets.num_pixels,
-                                       targets.num_channels,
+                                       targets.pixels_num,
+                                       targets.channels_num,
                                        targets.result,
                                        ob_low_eval,
                                        bkr->normal_swizzle);
@@ -1510,8 +1509,8 @@ static int bake(const BakeAPIRender *bkr,
       case R_BAKE_SPACE_TANGENT: {
         if (bkr->is_selected_to_active) {
           RE_bake_normal_world_to_tangent(pixel_array_low,
-                                          targets.num_pixels,
-                                          targets.num_channels,
+                                          targets.pixels_num,
+                                          targets.channels_num,
                                           targets.result,
                                           me_low_eval,
                                           bkr->normal_swizzle,
@@ -1536,8 +1535,8 @@ static int bake(const BakeAPIRender *bkr,
           }
 
           RE_bake_normal_world_to_tangent(pixel_array_low,
-                                          targets.num_pixels,
-                                          targets.num_channels,
+                                          targets.pixels_num,
+                                          targets.channels_num,
                                           targets.result,
                                           (me_nores) ? me_nores : me_low_eval,
                                           bkr->normal_swizzle,
@@ -1625,6 +1624,7 @@ static void bake_init_api_data(wmOperator *op, bContext *C, BakeAPIRender *bkr)
   bkr->pass_type = RNA_enum_get(op->ptr, "type");
   bkr->pass_filter = RNA_enum_get(op->ptr, "pass_filter");
   bkr->margin = RNA_int_get(op->ptr, "margin");
+  bkr->margin_type = RNA_enum_get(op->ptr, "margin_type");
 
   bkr->save_mode = (eBakeSaveMode)RNA_enum_get(op->ptr, "save_mode");
   bkr->target = (eBakeTarget)RNA_enum_get(op->ptr, "target");
@@ -1669,6 +1669,11 @@ static void bake_init_api_data(wmOperator *op, bContext *C, BakeAPIRender *bkr)
    * external saving will be addressed later */
   if (bkr->save_mode == R_BAKE_SAVE_EXTERNAL) {
     bkr->save_mode = R_BAKE_SAVE_INTERNAL;
+  }
+
+  if (((bkr->pass_type == SCE_PASS_NORMAL) && (bkr->normal_space == R_BAKE_SPACE_TANGENT)) ||
+      bkr->pass_type == SCE_PASS_UV) {
+    bkr->margin_type = R_BAKE_EXTEND;
   }
 }
 
@@ -1816,6 +1821,11 @@ static void bake_set_props(wmOperator *op, Scene *scene)
   prop = RNA_struct_find_property(op->ptr, "margin");
   if (!RNA_property_is_set(op->ptr, prop)) {
     RNA_property_int_set(op->ptr, prop, bake->margin);
+  }
+
+  prop = RNA_struct_find_property(op->ptr, "margin_type");
+  if (!RNA_property_is_set(op->ptr, prop)) {
+    RNA_property_enum_set(op->ptr, prop, bake->margin_type);
   }
 
   prop = RNA_struct_find_property(op->ptr, "use_selected_to_active");
@@ -2008,6 +2018,12 @@ void OBJECT_OT_bake(wmOperatorType *ot)
               "Extends the baked result as a post process filter",
               0,
               64);
+  RNA_def_enum(ot->srna,
+               "margin_type",
+               rna_enum_bake_margin_type_items,
+               R_BAKE_EXTEND,
+               "Margin Type",
+               "Which algorithm to use to generate the margin");
   RNA_def_boolean(ot->srna,
                   "use_selected_to_active",
                   false,

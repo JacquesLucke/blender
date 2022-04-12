@@ -1,26 +1,9 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# The Original Code is Copyright (C) 2021, Blender Foundation
-# All rights reserved.
-# ***** END GPL LICENSE BLOCK *****
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright 2021 Blender Foundation. All rights reserved.
 
 set(INC
   .
-  ../
+  ..
   ../intern
   ../../blenkernel
   ../../blenlib
@@ -36,6 +19,8 @@ set(INC
   ../../windowmanager
   ../../../../intern/guardedalloc
   ../../../../intern/sky/include
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 
@@ -63,7 +48,7 @@ set(SRC
   nodes/node_shader_camera.cc
   nodes/node_shader_clamp.cc
   nodes/node_shader_color_ramp.cc
-  nodes/node_shader_common.c
+  nodes/node_shader_common.cc
   nodes/node_shader_curves.cc
   nodes/node_shader_displacement.cc
   nodes/node_shader_eevee_specular.cc
@@ -71,32 +56,33 @@ set(SRC
   nodes/node_shader_fresnel.cc
   nodes/node_shader_gamma.cc
   nodes/node_shader_geometry.cc
-  nodes/node_shader_hair_info.c
-  nodes/node_shader_holdout.c
-  nodes/node_shader_hueSatVal.c
+  nodes/node_shader_hair_info.cc
+  nodes/node_shader_holdout.cc
+  nodes/node_shader_hueSatVal.cc
   nodes/node_shader_ies_light.cc
-  nodes/node_shader_invert.c
-  nodes/node_shader_layer_weight.c
-  nodes/node_shader_light_falloff.c
-  nodes/node_shader_light_path.c
+  nodes/node_shader_invert.cc
+  nodes/node_shader_layer_weight.cc
+  nodes/node_shader_light_falloff.cc
+  nodes/node_shader_light_path.cc
   nodes/node_shader_map_range.cc
-  nodes/node_shader_mapping.c
+  nodes/node_shader_mapping.cc
   nodes/node_shader_math.cc
   nodes/node_shader_mix_rgb.cc
   nodes/node_shader_mix_shader.cc
-  nodes/node_shader_normal.c
-  nodes/node_shader_normal_map.c
-  nodes/node_shader_object_info.c
-  nodes/node_shader_output_aov.c
-  nodes/node_shader_output_light.c
-  nodes/node_shader_output_linestyle.c
-  nodes/node_shader_output_material.c
-  nodes/node_shader_output_world.c
-  nodes/node_shader_particle_info.c
+  nodes/node_shader_normal.cc
+  nodes/node_shader_normal_map.cc
+  nodes/node_shader_object_info.cc
+  nodes/node_shader_output_aov.cc
+  nodes/node_shader_output_light.cc
+  nodes/node_shader_output_linestyle.cc
+  nodes/node_shader_output_material.cc
+  nodes/node_shader_output_world.cc
+  nodes/node_shader_particle_info.cc
+  nodes/node_shader_point_info.cc
+  nodes/node_shader_rgb.cc
   nodes/node_shader_rgb_to_bw.cc
-  nodes/node_shader_rgb.c
-  nodes/node_shader_script.c
-  nodes/node_shader_sepcomb_hsv.c
+  nodes/node_shader_script.cc
+  nodes/node_shader_sepcomb_hsv.cc
   nodes/node_shader_sepcomb_rgb.cc
   nodes/node_shader_sepcomb_xyz.cc
   nodes/node_shader_shader_to_rgb.cc
@@ -132,15 +118,16 @@ set(SRC
   nodes/node_shader_wavelength.cc
   nodes/node_shader_wireframe.cc
 
-  node_shader_tree.c
+  node_shader_tree.cc
   node_shader_util.cc
 
-  node_shader_util.h
+  node_shader_util.hh
 )
 
 set(LIB
   bf_functions
   bf_intern_sky
+  bf_nodes
 )
 
 if(WITH_PYTHON)
@@ -157,12 +144,16 @@ if(WITH_PYTHON)
   add_definitions(-DWITH_PYTHON)
 endif()
 
-if(WITH_INTERNATIONAL)
-  add_definitions(-DWITH_INTERNATIONAL)
-endif()
-
 if(WITH_FREESTYLE)
   add_definitions(-DWITH_FREESTYLE)
 endif()
 
 blender_add_lib(bf_nodes_shader "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+if(WITH_UNITY_BUILD)
+  set_target_properties(bf_nodes_shader PROPERTIES UNITY_BUILD ON)
+  set_target_properties(bf_nodes_shader PROPERTIES UNITY_BUILD_BATCH_SIZE 10)
+endif()
+
+# RNA_prototypes.h
+add_dependencies(bf_nodes_shader bf_rna)

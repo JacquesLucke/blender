@@ -1,25 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
 /** \file
  * \ingroup bke
  *
- * The \link edmesh EDBM module\endlink is for editmode bmesh stuff.
+ * The \link edmesh EDBM module \endlink is for editmode bmesh stuff.
  * In contrast, this module is for code shared with blenkernel that's
  * only concerned with low level operations on the #BMEditMesh structure.
  */
@@ -62,14 +48,6 @@ typedef struct BMEditMesh {
   struct BMLoop *(*looptris)[3];
   int tottri;
 
-  struct Mesh *mesh_eval_final, *mesh_eval_cage;
-
-  /** Cached cage bounding box of `mesh_eval_cage` for selection. */
-  struct BoundBox *bb_cage;
-
-  /** Evaluated mesh data-mask. */
-  CustomData_MeshMasks lastDataMask;
-
   /** Selection mode (#SCE_SELECT_VERTEX, #SCE_SELECT_EDGE & #SCE_SELECT_FACE). */
   short selectmode;
   /** The active material (assigned to newly created faces). */
@@ -92,6 +70,7 @@ typedef struct BMEditMesh {
 } BMEditMesh;
 
 /* editmesh.c */
+
 void BKE_editmesh_looptri_calc_ex(BMEditMesh *em,
                                   const struct BMeshCalcTessellation_Params *params);
 void BKE_editmesh_looptri_calc(BMEditMesh *em);
@@ -121,7 +100,6 @@ BMEditMesh *BKE_editmesh_copy(BMEditMesh *em);
  * don't add NULL data check here. caller must do that
  */
 BMEditMesh *BKE_editmesh_from_object(struct Object *ob);
-void BKE_editmesh_free_derived_caches(BMEditMesh *em);
 /**
  * \note Does not free the #BMEditMesh struct itself.
  */
@@ -145,7 +123,7 @@ void BKE_editmesh_lnorspace_update(BMEditMesh *em, struct Mesh *me);
  * If auto-smooth not already set, set it.
  */
 void BKE_editmesh_ensure_autosmooth(BMEditMesh *em, struct Mesh *me);
-struct BoundBox *BKE_editmesh_cage_boundbox_get(BMEditMesh *em);
+struct BoundBox *BKE_editmesh_cage_boundbox_get(struct Object *object, BMEditMesh *em);
 
 #ifdef __cplusplus
 }

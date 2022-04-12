@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -24,6 +8,8 @@
 #pragma once
 
 #include <stddef.h>
+
+#include "BKE_attribute.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -61,7 +47,7 @@ GPU_PBVH_Buffers *GPU_pbvh_mesh_buffers_build(const struct MPoly *mpoly,
                                               const struct MVert *mvert,
                                               const int *face_indices,
                                               const int *sculpt_face_sets,
-                                              const int face_indices_len,
+                                              int face_indices_len,
                                               const struct Mesh *mesh);
 
 /**
@@ -96,13 +82,15 @@ enum {
  */
 void GPU_pbvh_mesh_buffers_update(GPU_PBVH_Buffers *buffers,
                                   const struct MVert *mvert,
+                                  const float (*vert_normals)[3],
                                   const float *vmask,
-                                  const struct MLoopCol *vcol,
+                                  const void *vcol_data,
+                                  int vcol_type,
+                                  AttributeDomain vcol_domain,
                                   const int *sculpt_face_sets,
-                                  const int face_sets_color_seed,
-                                  const int face_sets_color_default,
-                                  const struct MPropCol *vtcol,
-                                  const int update_flags);
+                                  int face_sets_color_seed,
+                                  int face_sets_color_default,
+                                  int update_flags);
 
 /**
  * Creates a vertex buffer (coordinate, normal, color) and,
@@ -114,7 +102,7 @@ void GPU_pbvh_bmesh_buffers_update(GPU_PBVH_Buffers *buffers,
                                    struct GSet *bm_faces,
                                    struct GSet *bm_unique_verts,
                                    struct GSet *bm_other_verts,
-                                   const int update_flags);
+                                   int update_flags);
 
 /**
  * Threaded: do not call any functions that use OpenGL calls!
@@ -126,10 +114,10 @@ void GPU_pbvh_grid_buffers_update(GPU_PBVH_Buffers *buffers,
                                   int *grid_indices,
                                   int totgrid,
                                   const int *sculpt_face_sets,
-                                  const int face_sets_color_seed,
-                                  const int face_sets_color_default,
+                                  int face_sets_color_seed,
+                                  int face_sets_color_default,
                                   const struct CCGKey *key,
-                                  const int update_flags);
+                                  int update_flags);
 
 /**
  * Finish update. Not thread safe, must run in OpenGL main thread.

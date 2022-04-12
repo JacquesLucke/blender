@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2018 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2018 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -264,8 +248,8 @@ void BKE_subdiv_eval_limit_point_and_derivatives(Subdiv *subdiv,
    * This happens, for example, in single vertex on Suzannne's nose (where two quads have 2 common
    * edges).
    *
-   * This makes tangent space displacement (such as multires) impossible to be used in those
-   * vertices, so those needs to be addressed in one way or another.
+   * This makes tangent space displacement (such as multi-resolution) impossible to be used in
+   * those vertices, so those needs to be addressed in one way or another.
    *
    * Simplest thing to do: step inside of the face a little bit, where there is known patch at
    * which there must be proper derivatives. This might break continuity of normals, but is better
@@ -295,18 +279,6 @@ void BKE_subdiv_eval_limit_point_and_normal(Subdiv *subdiv,
   BKE_subdiv_eval_limit_point_and_derivatives(subdiv, ptex_face_index, u, v, r_P, dPdu, dPdv);
   cross_v3_v3v3(r_N, dPdu, dPdv);
   normalize_v3(r_N);
-}
-
-void BKE_subdiv_eval_limit_point_and_short_normal(Subdiv *subdiv,
-                                                  const int ptex_face_index,
-                                                  const float u,
-                                                  const float v,
-                                                  float r_P[3],
-                                                  short r_N[3])
-{
-  float N_float[3];
-  BKE_subdiv_eval_limit_point_and_normal(subdiv, ptex_face_index, u, v, r_P, N_float);
-  normal_float_to_short_v3(r_N, N_float);
 }
 
 void BKE_subdiv_eval_face_varying(Subdiv *subdiv,
@@ -347,127 +319,5 @@ void BKE_subdiv_eval_final_point(
   }
   else {
     BKE_subdiv_eval_limit_point(subdiv, ptex_face_index, u, v, r_P);
-  }
-}
-
-/* ===================  Patch queries at given resolution =================== */
-
-/* Move buffer forward by a given number of bytes. */
-static void buffer_apply_offset(void **buffer, const int offset)
-{
-  *buffer = ((unsigned char *)*buffer) + offset;
-}
-
-/* Write given number of floats to the beginning of given buffer. */
-static void buffer_write_float_value(void **buffer, const float *values_buffer, int num_values)
-{
-  memcpy(*buffer, values_buffer, sizeof(float) * num_values);
-}
-
-/* Similar to above, just operates with short values. */
-static void buffer_write_short_value(void **buffer, const short *values_buffer, int num_values)
-{
-  memcpy(*buffer, values_buffer, sizeof(short) * num_values);
-}
-
-void BKE_subdiv_eval_limit_patch_resolution_point(Subdiv *subdiv,
-                                                  const int ptex_face_index,
-                                                  const int resolution,
-                                                  void *buffer,
-                                                  const int offset,
-                                                  const int stride)
-{
-  buffer_apply_offset(&buffer, offset);
-  const float inv_resolution_1 = 1.0f / (float)(resolution - 1);
-  for (int y = 0; y < resolution; y++) {
-    const float v = y * inv_resolution_1;
-    for (int x = 0; x < resolution; x++) {
-      const float u = x * inv_resolution_1;
-      BKE_subdiv_eval_limit_point(subdiv, ptex_face_index, u, v, buffer);
-      buffer_apply_offset(&buffer, stride);
-    }
-  }
-}
-
-void BKE_subdiv_eval_limit_patch_resolution_point_and_derivatives(Subdiv *subdiv,
-                                                                  const int ptex_face_index,
-                                                                  const int resolution,
-                                                                  void *point_buffer,
-                                                                  const int point_offset,
-                                                                  const int point_stride,
-                                                                  void *du_buffer,
-                                                                  const int du_offset,
-                                                                  const int du_stride,
-                                                                  void *dv_buffer,
-                                                                  const int dv_offset,
-                                                                  const int dv_stride)
-{
-  buffer_apply_offset(&point_buffer, point_offset);
-  buffer_apply_offset(&du_buffer, du_offset);
-  buffer_apply_offset(&dv_buffer, dv_offset);
-  const float inv_resolution_1 = 1.0f / (float)(resolution - 1);
-  for (int y = 0; y < resolution; y++) {
-    const float v = y * inv_resolution_1;
-    for (int x = 0; x < resolution; x++) {
-      const float u = x * inv_resolution_1;
-      BKE_subdiv_eval_limit_point_and_derivatives(
-          subdiv, ptex_face_index, u, v, point_buffer, du_buffer, dv_buffer);
-      buffer_apply_offset(&point_buffer, point_stride);
-      buffer_apply_offset(&du_buffer, du_stride);
-      buffer_apply_offset(&dv_buffer, dv_stride);
-    }
-  }
-}
-
-void BKE_subdiv_eval_limit_patch_resolution_point_and_normal(Subdiv *subdiv,
-                                                             const int ptex_face_index,
-                                                             const int resolution,
-                                                             void *point_buffer,
-                                                             const int point_offset,
-                                                             const int point_stride,
-                                                             void *normal_buffer,
-                                                             const int normal_offset,
-                                                             const int normal_stride)
-{
-  buffer_apply_offset(&point_buffer, point_offset);
-  buffer_apply_offset(&normal_buffer, normal_offset);
-  const float inv_resolution_1 = 1.0f / (float)(resolution - 1);
-  for (int y = 0; y < resolution; y++) {
-    const float v = y * inv_resolution_1;
-    for (int x = 0; x < resolution; x++) {
-      const float u = x * inv_resolution_1;
-      float normal[3];
-      BKE_subdiv_eval_limit_point_and_normal(subdiv, ptex_face_index, u, v, point_buffer, normal);
-      buffer_write_float_value(&normal_buffer, normal, 3);
-      buffer_apply_offset(&point_buffer, point_stride);
-      buffer_apply_offset(&normal_buffer, normal_stride);
-    }
-  }
-}
-
-void BKE_subdiv_eval_limit_patch_resolution_point_and_short_normal(Subdiv *subdiv,
-                                                                   const int ptex_face_index,
-                                                                   const int resolution,
-                                                                   void *point_buffer,
-                                                                   const int point_offset,
-                                                                   const int point_stride,
-                                                                   void *normal_buffer,
-                                                                   const int normal_offset,
-                                                                   const int normal_stride)
-{
-  buffer_apply_offset(&point_buffer, point_offset);
-  buffer_apply_offset(&normal_buffer, normal_offset);
-  const float inv_resolution_1 = 1.0f / (float)(resolution - 1);
-  for (int y = 0; y < resolution; y++) {
-    const float v = y * inv_resolution_1;
-    for (int x = 0; x < resolution; x++) {
-      const float u = x * inv_resolution_1;
-      short normal[3];
-      BKE_subdiv_eval_limit_point_and_short_normal(
-          subdiv, ptex_face_index, u, v, point_buffer, normal);
-      buffer_write_short_value(&normal_buffer, normal, 3);
-      buffer_apply_offset(&point_buffer, point_stride);
-      buffer_apply_offset(&normal_buffer, normal_stride);
-    }
   }
 }

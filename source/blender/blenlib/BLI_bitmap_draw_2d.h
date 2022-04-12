@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -55,12 +41,12 @@ void BLI_bitmap_draw_2d_tri_v2i(const int p1[2],
  * } while (++x != x_end);
  * \endcode
  */
-void BLI_bitmap_draw_2d_poly_v2i_n(const int xmin,
-                                   const int ymin,
-                                   const int xmax,
-                                   const int ymax,
+void BLI_bitmap_draw_2d_poly_v2i_n(int xmin,
+                                   int ymin,
+                                   int xmax,
+                                   int ymax,
                                    const int verts[][2],
-                                   const int verts_len,
+                                   int verts_len,
                                    void (*callback)(int x, int x_end, int y, void *),
                                    void *user_data);
 

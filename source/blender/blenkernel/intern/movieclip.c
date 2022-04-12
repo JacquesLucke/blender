@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2011 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -76,6 +60,7 @@
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 #include "IMB_moviecache.h"
+#include "IMB_openexr.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -83,10 +68,6 @@
 #include "GPU_texture.h"
 
 #include "BLO_read_write.h"
-
-#ifdef WITH_OPENEXR
-#  include "intern/openexr/openexr_multi.h"
-#endif
 
 static void free_buffers(MovieClip *clip);
 
@@ -106,7 +87,7 @@ static void movie_clip_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_s
   MovieClip *movie_clip_dst = (MovieClip *)id_dst;
   const MovieClip *movie_clip_src = (const MovieClip *)id_src;
 
-  /* We never handle usercount here for own data. */
+  /* We never handle user-count here for own data. */
   const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
 
   movie_clip_dst->anim = NULL;
@@ -158,12 +139,10 @@ static void movie_clip_foreach_cache(ID *id,
   IDCacheKey key = {
       .id_session_uuid = id->session_uuid,
       .offset_in_ID = offsetof(MovieClip, cache),
-      .cache_v = movie_clip->cache,
   };
   function_callback(id, &key, (void **)&movie_clip->cache, 0, user_data);
 
   key.offset_in_ID = offsetof(MovieClip, tracking.camera.intrinsics);
-  key.cache_v = movie_clip->tracking.camera.intrinsics;
   function_callback(id, &key, (void **)&movie_clip->tracking.camera.intrinsics, 0, user_data);
 }
 
@@ -953,7 +932,7 @@ static MovieClip *movieclip_alloc(Main *bmain, const char *name)
 static void movieclip_load_get_size(MovieClip *clip)
 {
   int width, height;
-  MovieClipUser user = {0};
+  MovieClipUser user = *DNA_struct_default_get(MovieClipUser);
 
   user.framenr = BKE_movieclip_remap_clip_to_scene_frame(clip, 1);
   BKE_movieclip_get_size(clip, &user, &width, &height);
@@ -1178,7 +1157,7 @@ static ImBuf *get_postprocessed_cached_frame(const MovieClip *clip,
     return NULL;
   }
 
-  /* postprocessing happened for other frame */
+  /* Postprocessing happened for other frame. */
   if (cache->postprocessed.framenr != framenr) {
     return NULL;
   }
@@ -1625,8 +1604,10 @@ void BKE_movieclip_get_cache_segments(MovieClip *clip,
   if (clip->cache) {
     int proxy = rendersize_to_proxy(user, clip->flag);
 
+    BLI_thread_lock(LOCK_MOVIECLIP);
     IMB_moviecache_get_cache_segments(
         clip->cache->moviecache, proxy, user->render_flag, r_totseg, r_points);
+    BLI_thread_unlock(LOCK_MOVIECLIP);
   }
 }
 

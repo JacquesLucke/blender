@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup modifiers
@@ -49,6 +33,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MEM_guardedalloc.h"
 
@@ -70,9 +55,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(wmd, DNA_struct_default_get(WaveModifierData), modifier);
 }
 
-static bool dependsOnTime(struct Scene *UNUSED(scene),
-                          ModifierData *UNUSED(md),
-                          const int UNUSED(dag_eval_mode))
+static bool dependsOnTime(struct Scene *UNUSED(scene), ModifierData *UNUSED(md))
 {
   return true;
 }
@@ -148,7 +131,7 @@ static void waveModifier_do(WaveModifierData *md,
                             Object *ob,
                             Mesh *mesh,
                             float (*vertexCos)[3],
-                            int numVerts)
+                            int verts_num)
 {
   WaveModifierData *wmd = (WaveModifierData *)md;
   MVert *mvert = NULL;
@@ -163,8 +146,10 @@ static void waveModifier_do(WaveModifierData *md,
   float falloff_fac = 1.0f; /* when falloff == 0.0f this stays at 1.0f */
   const bool invert_group = (wmd->flag & MOD_WAVE_INVERT_VGROUP) != 0;
 
+  const float(*vert_normals)[3] = NULL;
   if ((wmd->flag & MOD_WAVE_NORM) && (mesh != NULL)) {
     mvert = mesh->mvert;
+    vert_normals = BKE_mesh_vertex_normals_ensure(mesh);
   }
 
   if (wmd->objectcenter != NULL) {
@@ -201,7 +186,7 @@ static void waveModifier_do(WaveModifierData *md,
 
   Tex *tex_target = wmd->texture;
   if (mesh != NULL && tex_target != NULL) {
-    tex_co = MEM_malloc_arrayN(numVerts, sizeof(*tex_co), "waveModifier_do tex_co");
+    tex_co = MEM_malloc_arrayN(verts_num, sizeof(*tex_co), "waveModifier_do tex_co");
     MOD_get_texture_coords((MappingInfoModifierData *)wmd, ctx, ob, mesh, vertexCos, tex_co);
 
     MOD_init_texture((MappingInfoModifierData *)wmd, ctx);
@@ -212,7 +197,7 @@ static void waveModifier_do(WaveModifierData *md,
     float falloff_inv = falloff != 0.0f ? 1.0f / falloff : 1.0f;
     int i;
 
-    for (i = 0; i < numVerts; i++) {
+    for (i = 0; i < verts_num; i++) {
       float *co = vertexCos[i];
       float x = co[0] - wmd->startx;
       float y = co[1] - wmd->starty;
@@ -288,13 +273,13 @@ static void waveModifier_do(WaveModifierData *md,
         if (mvert) {
           /* move along normals */
           if (wmd->flag & MOD_WAVE_NORM_X) {
-            co[0] += (lifefac * amplit) * mvert[i].no[0] / 32767.0f;
+            co[0] += (lifefac * amplit) * vert_normals[i][0];
           }
           if (wmd->flag & MOD_WAVE_NORM_Y) {
-            co[1] += (lifefac * amplit) * mvert[i].no[1] / 32767.0f;
+            co[1] += (lifefac * amplit) * vert_normals[i][1];
           }
           if (wmd->flag & MOD_WAVE_NORM_Z) {
-            co[2] += (lifefac * amplit) * mvert[i].no[2] / 32767.0f;
+            co[2] += (lifefac * amplit) * vert_normals[i][2];
           }
         }
         else {
@@ -312,19 +297,20 @@ static void deformVerts(ModifierData *md,
                         const ModifierEvalContext *ctx,
                         Mesh *mesh,
                         float (*vertexCos)[3],
-                        int numVerts)
+                        int verts_num)
 {
   WaveModifierData *wmd = (WaveModifierData *)md;
   Mesh *mesh_src = NULL;
 
   if (wmd->flag & MOD_WAVE_NORM) {
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, vertexCos, numVerts, true, false);
+    mesh_src = MOD_deform_mesh_eval_get(
+        ctx->object, NULL, mesh, vertexCos, verts_num, true, false);
   }
   else if (wmd->texture != NULL || wmd->defgrp_name[0] != '\0') {
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, numVerts, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, mesh, NULL, verts_num, false, false);
   }
 
-  waveModifier_do(wmd, ctx, ctx->object, mesh_src, vertexCos, numVerts);
+  waveModifier_do(wmd, ctx, ctx->object, mesh_src, vertexCos, verts_num);
 
   if (!ELEM(mesh_src, NULL, mesh)) {
     BKE_id_free(NULL, mesh_src);
@@ -336,17 +322,18 @@ static void deformVertsEM(ModifierData *md,
                           struct BMEditMesh *editData,
                           Mesh *mesh,
                           float (*vertexCos)[3],
-                          int numVerts)
+                          int verts_num)
 {
   WaveModifierData *wmd = (WaveModifierData *)md;
   Mesh *mesh_src = NULL;
 
   if (wmd->flag & MOD_WAVE_NORM) {
     mesh_src = MOD_deform_mesh_eval_get(
-        ctx->object, editData, mesh, vertexCos, numVerts, true, false);
+        ctx->object, editData, mesh, vertexCos, verts_num, true, false);
   }
   else if (wmd->texture != NULL || wmd->defgrp_name[0] != '\0') {
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, editData, mesh, NULL, numVerts, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(
+        ctx->object, editData, mesh, NULL, verts_num, false, false);
   }
 
   /* TODO(Campbell): use edit-mode data only (remove this line). */
@@ -354,7 +341,7 @@ static void deformVertsEM(ModifierData *md,
     BKE_mesh_wrapper_ensure_mdata(mesh_src);
   }
 
-  waveModifier_do(wmd, ctx, ctx->object, mesh_src, vertexCos, numVerts);
+  waveModifier_do(wmd, ctx, ctx->object, mesh_src, vertexCos, verts_num);
 
   if (!ELEM(mesh_src, NULL, mesh)) {
     BKE_id_free(NULL, mesh_src);
@@ -492,7 +479,6 @@ ModifierTypeInfo modifierType_Wave = {
     /* deformVertsEM */ deformVertsEM,
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ NULL,
-    /* modifyHair */ NULL,
     /* modifyGeometrySet */ NULL,
 
     /* initData */ initData,

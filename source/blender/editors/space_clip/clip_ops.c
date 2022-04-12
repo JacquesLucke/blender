@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2011 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spclip
@@ -33,6 +17,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "DNA_defaults.h"
 #include "DNA_scene_types.h" /* min/max frames */
 #include "DNA_userdef_types.h"
 
@@ -201,7 +186,7 @@ static int open_exec(bContext *C, wmOperator *op)
   MovieClip *clip = NULL;
   char str[FILE_MAX];
 
-  if (RNA_collection_length(op->ptr, "files")) {
+  if (!RNA_collection_is_empty(op->ptr, "files")) {
     PointerRNA fileptr;
     PropertyRNA *prop;
     char dir_only[FILE_MAX], file_only[FILE_MAX];
@@ -1081,7 +1066,7 @@ static void change_frame_apply(bContext *C, wmOperator *op)
   SUBFRA = 0.0f;
 
   /* do updates */
-  DEG_id_tag_update(&scene->id, ID_RECALC_AUDIO_SEEK);
+  DEG_id_tag_update(&scene->id, ID_RECALC_FRAME_CHANGE);
   WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
 }
 
@@ -1321,7 +1306,7 @@ static uchar *proxy_thread_next_frame(ProxyQueue *queue,
 
   BLI_spin_lock(&queue->spin);
   if (!*queue->stop && queue->cfra <= queue->efra) {
-    MovieClipUser user = {0};
+    MovieClipUser user = *DNA_struct_default_get(MovieClipUser);
     char name[FILE_MAX];
     size_t size;
     int file;
@@ -1559,7 +1544,8 @@ static int clip_rebuild_proxy_exec(bContext *C, wmOperator *UNUSED(op))
                                                        clip->proxy.build_size_flag,
                                                        clip->proxy.quality,
                                                        true,
-                                                       NULL);
+                                                       NULL,
+                                                       false);
   }
 
   WM_jobs_customdata_set(wm_job, pj, proxy_freejob);
@@ -1793,7 +1779,8 @@ static int clip_set_2d_cursor_exec(bContext *C, wmOperator *op)
 
   WM_event_add_notifier(C, NC_SPACE | ND_SPACE_CLIP, NULL);
 
-  return OPERATOR_FINISHED;
+  /* Use pass-through to allow click-drag to transform the cursor. */
+  return OPERATOR_FINISHED | OPERATOR_PASS_THROUGH;
 }
 
 static int clip_set_2d_cursor_invoke(bContext *C, wmOperator *op, const wmEvent *event)

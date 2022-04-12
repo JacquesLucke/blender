@@ -1,34 +1,18 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup shdnodes
  */
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
 
 namespace blender::nodes::node_shader_value_cc {
 
 static void sh_node_value_declare(NodeDeclarationBuilder &b)
 {
   b.add_output<decl::Float>(N_("Value"));
-};
+}
 
 static int gpu_shader_value(GPUMaterial *mat,
                             bNode *node,
@@ -40,11 +24,11 @@ static int gpu_shader_value(GPUMaterial *mat,
   return GPU_stack_link(mat, node, "set_value", in, out, link);
 }
 
-static void sh_node_value_build_multi_function(blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_value_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   const bNodeSocket *bsocket = (bNodeSocket *)builder.node().outputs.first;
   const bNodeSocketValueFloat *value = (const bNodeSocketValueFloat *)bsocket->default_value;
-  builder.construct_and_set_matching_fn<blender::fn::CustomMF_Constant<float>>(value->value);
+  builder.construct_and_set_matching_fn<fn::CustomMF_Constant<float>>(value->value);
 }
 
 }  // namespace blender::nodes::node_shader_value_cc
@@ -55,7 +39,7 @@ void register_node_type_sh_value()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(&ntype, SH_NODE_VALUE, "Value", NODE_CLASS_INPUT, 0);
+  sh_fn_node_type_base(&ntype, SH_NODE_VALUE, "Value", NODE_CLASS_INPUT);
   ntype.declare = file_ns::sh_node_value_declare;
   node_type_gpu(&ntype, file_ns::gpu_shader_value);
   ntype.build_multi_function = file_ns::sh_node_value_build_multi_function;

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation, Joshua Leung
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation, Joshua Leung. All rights reserved. */
 
 /** \file
  * \ingroup edanimation
@@ -79,6 +63,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "anim_intern.h"
 
@@ -260,7 +245,7 @@ FCurve *ED_action_fcurve_ensure(struct Main *bmain,
   return fcu;
 }
 
-/* Helper for update_autoflags_fcurve() */
+/** Helper for #update_autoflags_fcurve(). */
 static void update_autoflags_fcurve_direct(FCurve *fcu, PropertyRNA *prop)
 {
   /* set additional flags for the F-Curve (i.e. only integer values) */
@@ -320,7 +305,8 @@ void update_autoflags_fcurve(FCurve *fcu, bContext *C, ReportList *reports, Poin
 /* ************************************************** */
 /* KEYFRAME INSERTION */
 
-/* Move the point where a key is about to be inserted to be inside the main cycle range.
+/**
+ * Move the point where a key is about to be inserted to be inside the main cycle range.
  * Returns the type of the cycle if it is enabled and valid.
  */
 static eFCU_Cycle_Type remap_cyclic_keyframe_location(FCurve *fcu, float *px, float *py)
@@ -361,7 +347,7 @@ static eFCU_Cycle_Type remap_cyclic_keyframe_location(FCurve *fcu, float *px, fl
   return type;
 }
 
-/* Used to make curves newly added to a cyclic Action cycle with the correct period. */
+/** Used to make curves newly added to a cyclic Action cycle with the correct period. */
 static void make_new_fcurve_cyclic(const bAction *act, FCurve *fcu)
 {
   /* The curve must contain one (newly-added) keyframe. */
@@ -580,7 +566,7 @@ int insert_vert_fcurve(
     beztr.ipo = BEZT_IPO_BEZ;
   }
   else {
-    /* for UI usage - defaults should come from the userprefs and/or toolsettings */
+    /* For UI usage - defaults should come from the user-preferences and/or tool-settings. */
     beztr.h1 = beztr.h2 = U.keyhandles_new; /* use default handle type here */
 
     /* use default interpolation mode, with exceptions for int/discrete values */
@@ -668,11 +654,13 @@ enum {
   KEYNEEDED_DELNEXT,
 } /*eKeyNeededStatus*/;
 
-/* This helper function determines whether a new keyframe is needed */
-/* Cases where keyframes should not be added:
- * 1. Keyframe to be added between two keyframes with similar values
- * 2. Keyframe to be added on frame where two keyframes are already situated
- * 3. Keyframe lies at point that intersects the linear line between two keyframes
+/**
+ * This helper function determines whether a new keyframe is needed.
+ *
+ * Cases where keyframes should not be added:
+ * 1. Keyframe to be added between two keyframes with similar values.
+ * 2. Keyframe to be added on frame where two keyframes are already situated.
+ * 3. Keyframe lies at point that intersects the linear line between two keyframes.
  */
 static short new_key_needed(FCurve *fcu, float cFrame, float nValue)
 {
@@ -785,7 +773,7 @@ static short new_key_needed(FCurve *fcu, float cFrame, float nValue)
 
 /* ------------------ RNA Data-Access Functions ------------------ */
 
-/* Try to read value using RNA-properties obtained already */
+/** Try to read value using RNA-properties obtained already. */
 static float *setting_get_rna_values(
     PointerRNA *ptr, PropertyRNA *prop, float *buffer, int buffer_size, int *r_count)
 {
@@ -860,7 +848,8 @@ enum {
   VISUALKEY_SCA,
 };
 
-/* This helper function determines if visual-keyframing should be used when
+/**
+ * This helper function determines if visual-keyframing should be used when
  * inserting keyframes for the given channel. As visual-keyframing only works
  * on Object and Pose-Channel blocks, this should only get called for those
  * blocktypes, when using "standard" keying but 'Visual Keying' option in Auto-Keying
@@ -1028,7 +1017,8 @@ static bool visualkey_can_use(PointerRNA *ptr, PropertyRNA *prop)
   return false;
 }
 
-/* This helper function extracts the value to use for visual-keyframing
+/**
+ * This helper function extracts the value to use for visual-keyframing
  * In the event that it is not possible to perform visual keying, try to fall-back
  * to using the default method. Assumes that all data it has been passed is valid.
  */
@@ -1321,7 +1311,7 @@ bool insert_keyframe_direct(ReportList *reports,
   return insert_keyframe_value(reports, &ptr, prop, fcu, anim_eval_context, curval, keytype, flag);
 }
 
-/* Find or create the FCurve based on the given path, and insert the specified value into it. */
+/** Find or create the #FCurve based on the given path, and insert the specified value into it. */
 static bool insert_keyframe_fcurve_value(Main *bmain,
                                          ReportList *reports,
                                          PointerRNA *ptr,
@@ -1845,9 +1835,10 @@ enum {
   COMMONKEY_MODE_DELETE,
 } /*eCommonModifyKey_Modes*/;
 
-/* Polling callback for use with ANIM_*_keyframe() operators
+/**
+ * Polling callback for use with `ANIM_*_keyframe()` operators
  * This is based on the standard ED_operator_areaactive callback,
- * except that it does special checks for a few spacetypes too...
+ * except that it does special checks for a few space-types too.
  */
 static bool modify_key_op_poll(bContext *C)
 {
@@ -1973,7 +1964,8 @@ void ANIM_OT_keyframe_insert_by_name(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* keyingset to use (idname) */
-  prop = RNA_def_string_file_path(ot->srna, "type", "Type", MAX_ID_NAME - 2, "", "");
+  prop = RNA_def_string(
+      ot->srna, "type", NULL, MAX_ID_NAME - 2, "Keying Set", "The Keying Set to use");
   RNA_def_property_flag(prop, PROP_HIDDEN);
   ot->prop = prop;
 }
@@ -1987,23 +1979,57 @@ static int insert_key_menu_invoke(bContext *C, wmOperator *op, const wmEvent *UN
 {
   Scene *scene = CTX_data_scene(C);
 
-  /* if prompting or no active Keying Set, show the menu */
-  if ((scene->active_keyingset == 0) || RNA_boolean_get(op->ptr, "always_prompt")) {
-    uiPopupMenu *pup;
-    uiLayout *layout;
-
-    /* call the menu, which will call this operator again, hence the canceled */
-    pup = UI_popup_menu_begin(C, WM_operatortype_name(op->type, op->ptr), ICON_NONE);
-    layout = UI_popup_menu_layout(pup);
-    uiItemsEnumO(layout, "ANIM_OT_keyframe_insert_menu", "type");
-    UI_popup_menu_end(C, pup);
-
-    return OPERATOR_INTERFACE;
+  /* When there is an active keying set and no request to prompt, keyframe immediately. */
+  if ((scene->active_keyingset != 0) && !RNA_boolean_get(op->ptr, "always_prompt")) {
+    /* Just call the exec() on the active keying-set. */
+    RNA_enum_set(op->ptr, "type", 0);
+    return op->type->exec(C, op);
   }
 
-  /* just call the exec() on the active keyingset */
-  RNA_enum_set(op->ptr, "type", 0);
-  return op->type->exec(C, op);
+  /* Show a menu listing all keying-sets, the enum is expanded here to make use of the
+   * operator that accesses the keying-set by name. This is important for the ability
+   * to assign shortcuts to arbitrarily named keying sets. See T89560.
+   * These menu items perform the key-frame insertion (not this operator)
+   * hence the #OPERATOR_INTERFACE return. */
+  uiPopupMenu *pup = UI_popup_menu_begin(C, WM_operatortype_name(op->type, op->ptr), ICON_NONE);
+  uiLayout *layout = UI_popup_menu_layout(pup);
+
+  /* Even though `ANIM_OT_keyframe_insert_menu` can show a menu in one line,
+   * prefer `ANIM_OT_keyframe_insert_by_name` so users can bind keys to specific
+   * keying sets by name in the key-map instead of the index which isn't stable. */
+  PropertyRNA *prop = RNA_struct_find_property(op->ptr, "type");
+  const EnumPropertyItem *item_array = NULL;
+  int totitem;
+  bool free;
+
+  RNA_property_enum_items_gettexted(C, op->ptr, prop, &item_array, &totitem, &free);
+
+  for (int i = 0; i < totitem; i++) {
+    const EnumPropertyItem *item = &item_array[i];
+    if (item->identifier[0] != '\0') {
+      uiItemStringO(layout,
+                    item->name,
+                    item->icon,
+                    "ANIM_OT_keyframe_insert_by_name",
+                    "type",
+                    item->identifier);
+    }
+    else {
+      /* This enum shouldn't contain headings, assert there are none.
+       * NOTE: If in the future the enum includes them, additional layout code can be
+       * added to show them - although that doesn't seem likely. */
+      BLI_assert(item->name == NULL);
+      uiItemS(layout);
+    }
+  }
+
+  if (free) {
+    MEM_freeN((void *)item_array);
+  }
+
+  UI_popup_menu_end(C, pup);
+
+  return OPERATOR_INTERFACE;
 }
 
 void ANIM_OT_keyframe_insert_menu(wmOperatorType *ot)
@@ -2133,7 +2159,8 @@ void ANIM_OT_keyframe_delete_by_name(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* keyingset to use (idname) */
-  prop = RNA_def_string_file_path(ot->srna, "type", "Type", MAX_ID_NAME - 2, "", "");
+  prop = RNA_def_string(
+      ot->srna, "type", NULL, MAX_ID_NAME - 2, "Keying Set", "The Keying Set to use");
   RNA_def_property_flag(prop, PROP_HIDDEN);
   ot->prop = prop;
 }
@@ -2856,13 +2883,12 @@ static bool object_frame_has_keyframe(Object *ob, float frame, short filter)
     }
   }
 
-  /* try shapekey keyframes (if available, and allowed by filter) */
+  /* Try shape-key keyframes (if available, and allowed by filter). */
   if (!(filter & ANIMFILTER_KEYS_LOCAL) && !(filter & ANIMFILTER_KEYS_NOSKEY)) {
     Key *key = BKE_key_from_object(ob);
 
-    /* shapekeys can have keyframes ('Relative Shape Keys')
-     * or depend on time (old 'Absolute Shape Keys')
-     */
+    /* Shape-keys can have keyframes ('Relative Shape Keys')
+     * or depend on time (old 'Absolute Shape Keys'). */
 
     /* 1. test for relative (with keyframes) */
     if (id_frame_has_keyframe((ID *)key, frame, filter)) {

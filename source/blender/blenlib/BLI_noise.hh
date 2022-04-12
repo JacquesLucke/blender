@@ -1,24 +1,8 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
-#include "BLI_float2.hh"
-#include "BLI_float3.hh"
-#include "BLI_float4.hh"
+#include "BLI_math_vec_types.hh"
 
 namespace blender::noise {
 
@@ -133,12 +117,8 @@ float3 perlin_float3_fractal_distorted(float4 position,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_ridged_multi_fractal(const float co,
-                                    const float H,
-                                    const float lacunarity,
-                                    const float octaves,
-                                    const float offset,
-                                    const float gain);
+float musgrave_ridged_multi_fractal(
+    float co, float H, float lacunarity, float octaves, float offset, float gain);
 /**
  * 2D Ridged Multi-fractal Terrain
  *
@@ -147,12 +127,8 @@ float musgrave_ridged_multi_fractal(const float co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_ridged_multi_fractal(const float2 co,
-                                    const float H,
-                                    const float lacunarity,
-                                    const float octaves,
-                                    const float offset,
-                                    const float gain);
+float musgrave_ridged_multi_fractal(
+    const float2 co, float H, float lacunarity, float octaves, float offset, float gain);
 /**
  * 3D Ridged Multi-fractal Terrain
  *
@@ -161,12 +137,8 @@ float musgrave_ridged_multi_fractal(const float2 co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_ridged_multi_fractal(const float3 co,
-                                    const float H,
-                                    const float lacunarity,
-                                    const float octaves,
-                                    const float offset,
-                                    const float gain);
+float musgrave_ridged_multi_fractal(
+    const float3 co, float H, float lacunarity, float octaves, float offset, float gain);
 /**
  * 4D Ridged Multi-fractal Terrain
  *
@@ -175,12 +147,8 @@ float musgrave_ridged_multi_fractal(const float3 co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_ridged_multi_fractal(const float4 co,
-                                    const float H,
-                                    const float lacunarity,
-                                    const float octaves,
-                                    const float offset,
-                                    const float gain);
+float musgrave_ridged_multi_fractal(
+    const float4 co, float H, float lacunarity, float octaves, float offset, float gain);
 
 /**
  * 1D Hybrid Additive/Multiplicative Multi-fractal Terrain
@@ -190,12 +158,8 @@ float musgrave_ridged_multi_fractal(const float4 co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_hybrid_multi_fractal(const float co,
-                                    const float H,
-                                    const float lacunarity,
-                                    const float octaves,
-                                    const float offset,
-                                    const float gain);
+float musgrave_hybrid_multi_fractal(
+    float co, float H, float lacunarity, float octaves, float offset, float gain);
 /**
  * 2D Hybrid Additive/Multiplicative Multi-fractal Terrain
  *
@@ -204,12 +168,8 @@ float musgrave_hybrid_multi_fractal(const float co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_hybrid_multi_fractal(const float2 co,
-                                    const float H,
-                                    const float lacunarity,
-                                    const float octaves,
-                                    const float offset,
-                                    const float gain);
+float musgrave_hybrid_multi_fractal(
+    const float2 co, float H, float lacunarity, float octaves, float offset, float gain);
 /**
  * 3D Hybrid Additive/Multiplicative Multi-fractal Terrain
  *
@@ -218,12 +178,8 @@ float musgrave_hybrid_multi_fractal(const float2 co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_hybrid_multi_fractal(const float3 co,
-                                    const float H,
-                                    const float lacunarity,
-                                    const float octaves,
-                                    const float offset,
-                                    const float gain);
+float musgrave_hybrid_multi_fractal(
+    const float3 co, float H, float lacunarity, float octaves, float offset, float gain);
 /**
  * 4D Hybrid Additive/Multiplicative Multi-fractal Terrain
  *
@@ -232,12 +188,8 @@ float musgrave_hybrid_multi_fractal(const float3 co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_hybrid_multi_fractal(const float4 co,
-                                    const float H,
-                                    const float lacunarity,
-                                    const float octaves,
-                                    const float offset,
-                                    const float gain);
+float musgrave_hybrid_multi_fractal(
+    const float4 co, float H, float lacunarity, float octaves, float offset, float gain);
 
 /**
  * 1D Musgrave fBm
@@ -246,7 +198,7 @@ float musgrave_hybrid_multi_fractal(const float4 co,
  * \param lacunarity: gap between successive frequencies.
  * \param octaves: number of frequencies in the fBm.
  */
-float musgrave_fBm(const float co, const float H, const float lacunarity, const float octaves);
+float musgrave_fBm(float co, float H, float lacunarity, float octaves);
 
 /**
  * 2D Musgrave fBm
@@ -255,7 +207,7 @@ float musgrave_fBm(const float co, const float H, const float lacunarity, const 
  * \param lacunarity: gap between successive frequencies.
  * \param octaves: number of frequencies in the fBm.
  */
-float musgrave_fBm(const float2 co, const float H, const float lacunarity, const float octaves);
+float musgrave_fBm(const float2 co, float H, float lacunarity, float octaves);
 /**
  * 3D Musgrave fBm
  *
@@ -263,7 +215,7 @@ float musgrave_fBm(const float2 co, const float H, const float lacunarity, const
  * \param lacunarity: gap between successive frequencies.
  * \param octaves: number of frequencies in the fBm.
  */
-float musgrave_fBm(const float3 co, const float H, const float lacunarity, const float octaves);
+float musgrave_fBm(const float3 co, float H, float lacunarity, float octaves);
 /**
  * 4D Musgrave fBm
  *
@@ -271,7 +223,7 @@ float musgrave_fBm(const float3 co, const float H, const float lacunarity, const
  * \param lacunarity: gap between successive frequencies.
  * \param octaves: number of frequencies in the fBm.
  */
-float musgrave_fBm(const float4 co, const float H, const float lacunarity, const float octaves);
+float musgrave_fBm(const float4 co, float H, float lacunarity, float octaves);
 
 /**
  * 1D Musgrave Multi-fractal
@@ -280,10 +232,7 @@ float musgrave_fBm(const float4 co, const float H, const float lacunarity, const
  * \param lacunarity: gap between successive frequencies.
  * \param octaves: number of frequencies in the fBm.
  */
-float musgrave_multi_fractal(const float co,
-                             const float H,
-                             const float lacunarity,
-                             const float octaves);
+float musgrave_multi_fractal(float co, float H, float lacunarity, float octaves);
 /**
  * 2D Musgrave Multi-fractal
  *
@@ -291,10 +240,7 @@ float musgrave_multi_fractal(const float co,
  * \param lacunarity: gap between successive frequencies.
  * \param octaves: number of frequencies in the fBm.
  */
-float musgrave_multi_fractal(const float2 co,
-                             const float H,
-                             const float lacunarity,
-                             const float octaves);
+float musgrave_multi_fractal(const float2 co, float H, float lacunarity, float octaves);
 /**
  * 3D Musgrave Multi-fractal
  *
@@ -302,10 +248,7 @@ float musgrave_multi_fractal(const float2 co,
  * \param lacunarity: gap between successive frequencies.
  * \param octaves: number of frequencies in the fBm.
  */
-float musgrave_multi_fractal(const float3 co,
-                             const float H,
-                             const float lacunarity,
-                             const float octaves);
+float musgrave_multi_fractal(const float3 co, float H, float lacunarity, float octaves);
 /**
  * 4D Musgrave Multi-fractal
  *
@@ -313,10 +256,7 @@ float musgrave_multi_fractal(const float3 co,
  * \param lacunarity: gap between successive frequencies.
  * \param octaves: number of frequencies in the fBm.
  */
-float musgrave_multi_fractal(const float4 co,
-                             const float H,
-                             const float lacunarity,
-                             const float octaves);
+float musgrave_multi_fractal(const float4 co, float H, float lacunarity, float octaves);
 
 /**
  * 1D Musgrave Heterogeneous Terrain
@@ -326,11 +266,7 @@ float musgrave_multi_fractal(const float4 co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_hetero_terrain(const float co,
-                              const float H,
-                              const float lacunarity,
-                              const float octaves,
-                              const float offset);
+float musgrave_hetero_terrain(float co, float H, float lacunarity, float octaves, float offset);
 /**
  * 2D Musgrave Heterogeneous Terrain
  *
@@ -339,11 +275,8 @@ float musgrave_hetero_terrain(const float co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_hetero_terrain(const float2 co,
-                              const float H,
-                              const float lacunarity,
-                              const float octaves,
-                              const float offset);
+float musgrave_hetero_terrain(
+    const float2 co, float H, float lacunarity, float octaves, float offset);
 /**
  * 3D Musgrave Heterogeneous Terrain
  *
@@ -352,11 +285,8 @@ float musgrave_hetero_terrain(const float2 co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_hetero_terrain(const float3 co,
-                              const float H,
-                              const float lacunarity,
-                              const float octaves,
-                              const float offset);
+float musgrave_hetero_terrain(
+    const float3 co, float H, float lacunarity, float octaves, float offset);
 /**
  * 4D Musgrave Heterogeneous Terrain
  *
@@ -365,11 +295,8 @@ float musgrave_hetero_terrain(const float3 co,
  * \param octaves: number of frequencies in the fBm.
  * \param offset: raises the terrain from `sea level'.
  */
-float musgrave_hetero_terrain(const float4 co,
-                              const float H,
-                              const float lacunarity,
-                              const float octaves,
-                              const float offset);
+float musgrave_hetero_terrain(
+    const float4 co, float H, float lacunarity, float octaves, float offset);
 
 /** \} */
 
@@ -377,93 +304,87 @@ float musgrave_hetero_terrain(const float4 co,
 /** \name Voronoi Noise
  * \{ */
 
-void voronoi_f1(
-    const float w, const float randomness, float *r_distance, float3 *r_color, float *r_w);
-void voronoi_smooth_f1(const float w,
-                       const float smoothness,
-                       const float randomness,
-                       float *r_distance,
-                       float3 *r_color,
-                       float *r_w);
-void voronoi_f2(
-    const float w, const float randomness, float *r_distance, float3 *r_color, float *r_w);
-void voronoi_distance_to_edge(const float w, const float randomness, float *r_distance);
-void voronoi_n_sphere_radius(const float w, const float randomness, float *r_radius);
+void voronoi_f1(float w, float randomness, float *r_distance, float3 *r_color, float *r_w);
+void voronoi_smooth_f1(
+    float w, float smoothness, float randomness, float *r_distance, float3 *r_color, float *r_w);
+void voronoi_f2(float w, float randomness, float *r_distance, float3 *r_color, float *r_w);
+void voronoi_distance_to_edge(float w, float randomness, float *r_distance);
+void voronoi_n_sphere_radius(float w, float randomness, float *r_radius);
 
 void voronoi_f1(const float2 coord,
-                const float exponent,
-                const float randomness,
-                const int metric,
+                float exponent,
+                float randomness,
+                int metric,
                 float *r_distance,
                 float3 *r_color,
                 float2 *r_position);
 void voronoi_smooth_f1(const float2 coord,
-                       const float smoothness,
-                       const float exponent,
-                       const float randomness,
-                       const int metric,
+                       float smoothness,
+                       float exponent,
+                       float randomness,
+                       int metric,
                        float *r_distance,
                        float3 *r_color,
                        float2 *r_position);
 void voronoi_f2(const float2 coord,
-                const float exponent,
-                const float randomness,
-                const int metric,
+                float exponent,
+                float randomness,
+                int metric,
                 float *r_distance,
                 float3 *r_color,
                 float2 *r_position);
-void voronoi_distance_to_edge(const float2 coord, const float randomness, float *r_distance);
-void voronoi_n_sphere_radius(const float2 coord, const float randomness, float *r_radius);
+void voronoi_distance_to_edge(const float2 coord, float randomness, float *r_distance);
+void voronoi_n_sphere_radius(const float2 coord, float randomness, float *r_radius);
 
 void voronoi_f1(const float3 coord,
-                const float exponent,
-                const float randomness,
-                const int metric,
+                float exponent,
+                float randomness,
+                int metric,
                 float *r_distance,
                 float3 *r_color,
                 float3 *r_position);
 void voronoi_smooth_f1(const float3 coord,
-                       const float smoothness,
-                       const float exponent,
-                       const float randomness,
-                       const int metric,
+                       float smoothness,
+                       float exponent,
+                       float randomness,
+                       int metric,
                        float *r_distance,
                        float3 *r_color,
                        float3 *r_position);
 void voronoi_f2(const float3 coord,
-                const float exponent,
-                const float randomness,
-                const int metric,
+                float exponent,
+                float randomness,
+                int metric,
                 float *r_distance,
                 float3 *r_color,
                 float3 *r_position);
-void voronoi_distance_to_edge(const float3 coord, const float randomness, float *r_distance);
-void voronoi_n_sphere_radius(const float3 coord, const float randomness, float *r_radius);
+void voronoi_distance_to_edge(const float3 coord, float randomness, float *r_distance);
+void voronoi_n_sphere_radius(const float3 coord, float randomness, float *r_radius);
 
 void voronoi_f1(const float4 coord,
-                const float exponent,
-                const float randomness,
-                const int metric,
+                float exponent,
+                float randomness,
+                int metric,
                 float *r_distance,
                 float3 *r_color,
                 float4 *r_position);
 void voronoi_smooth_f1(const float4 coord,
-                       const float smoothness,
-                       const float exponent,
-                       const float randomness,
-                       const int metric,
+                       float smoothness,
+                       float exponent,
+                       float randomness,
+                       int metric,
                        float *r_distance,
                        float3 *r_color,
                        float4 *r_position);
 void voronoi_f2(const float4 coord,
-                const float exponent,
-                const float randomness,
-                const int metric,
+                float exponent,
+                float randomness,
+                int metric,
                 float *r_distance,
                 float3 *r_color,
                 float4 *r_position);
-void voronoi_distance_to_edge(const float4 coord, const float randomness, float *r_distance);
-void voronoi_n_sphere_radius(const float4 coord, const float randomness, float *r_radius);
+void voronoi_distance_to_edge(const float4 coord, float randomness, float *r_distance);
+void voronoi_n_sphere_radius(const float4 coord, float randomness, float *r_radius);
 
 /** \} */
 

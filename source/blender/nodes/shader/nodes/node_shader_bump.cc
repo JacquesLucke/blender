@@ -1,27 +1,14 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup shdnodes
  */
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
 
 /* **************** BUMP ******************** */
 
@@ -46,12 +33,28 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Vector>(N_("Normal"));
 }
 
+static void node_shader_buts_bump(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "invert", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, 0);
+}
+
 static int gpu_shader_bump(GPUMaterial *mat,
                            bNode *node,
                            bNodeExecData *UNUSED(execdata),
                            GPUNodeStack *in,
                            GPUNodeStack *out)
 {
+  /* If there is no Height input, the node becomes a no-op. */
+  if (!in[2].link) {
+    if (!in[5].link) {
+      return GPU_link(mat, "world_normals_get", &out[0].link);
+    }
+    else {
+      /* Actually running the bump code would normalize, but Cycles handles it as total no-op. */
+      return GPU_link(mat, "vector_copy", in[5].link, &out[0].link);
+    }
+  }
+
   if (!in[5].link) {
     GPU_link(mat, "world_normals_get", &in[5].link);
   }
@@ -71,8 +74,9 @@ void register_node_type_sh_bump()
 
   static bNodeType ntype;
 
-  sh_node_type_base(&ntype, SH_NODE_BUMP, "Bump", NODE_CLASS_OP_VECTOR, 0);
+  sh_node_type_base(&ntype, SH_NODE_BUMP, "Bump", NODE_CLASS_OP_VECTOR);
   ntype.declare = file_ns::node_declare;
+  ntype.draw_buttons = file_ns::node_shader_buts_bump;
   node_type_gpu(&ntype, file_ns::gpu_shader_bump);
 
   nodeRegisterType(&ntype);

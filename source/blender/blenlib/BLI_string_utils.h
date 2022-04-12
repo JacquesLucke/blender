@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2017 by the Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2017 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -50,18 +34,18 @@ typedef bool (*UniquenameCheckCallback)(void *arg, const char *name);
  * \param delim: Delimiter character`.
  * \return Length of \a left.
  */
-size_t BLI_split_name_num(char *left, int *nr, const char *name, const char delim);
+size_t BLI_split_name_num(char *left, int *nr, const char *name, char delim);
 bool BLI_string_is_decimal(const char *string) ATTR_NONNULL();
 
 /**
  * Based on `BLI_split_dirfile()` / `os.path.splitext()`,
  * `"a.b.c"` -> (`"a.b"`, `".c"`).
  */
-void BLI_string_split_suffix(const char *string, char *r_body, char *r_suf, const size_t str_len);
+void BLI_string_split_suffix(const char *string, char *r_body, char *r_suf, size_t str_len);
 /**
  * `"a.b.c"` -> (`"a."`, `"b.c"`).
  */
-void BLI_string_split_prefix(const char *string, char *r_pre, char *r_body, const size_t str_len);
+void BLI_string_split_prefix(const char *string, char *r_pre, char *r_body, size_t str_len);
 
 /**
  * Join strings, return newly allocated string.
@@ -126,8 +110,8 @@ char *BLI_string_join_array_by_sep_char_with_tableN(char sep,
  */
 size_t BLI_string_flip_side_name(char *r_name,
                                  const char *from_name,
-                                 const bool strip_number,
-                                 const size_t name_len);
+                                 bool strip_number,
+                                 size_t name_len);
 
 /**
  * Ensures name is unique (according to criteria specified by caller in unique_check callback),

@@ -1,75 +1,9 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #pragma once
 
 CCL_NAMESPACE_BEGIN
-
-/* Ray offset to avoid self intersection.
- *
- * This function should be used to compute a modified ray start position for
- * rays leaving from a surface. */
-
-ccl_device_inline float3 ray_offset(float3 P, float3 Ng)
-{
-#ifdef __INTERSECTION_REFINE__
-  const float epsilon_f = 1e-5f;
-  /* ideally this should match epsilon_f, but instancing and motion blur
-   * precision makes it problematic */
-  const float epsilon_test = 1.0f;
-  const int epsilon_i = 32;
-
-  float3 res;
-
-  /* x component */
-  if (fabsf(P.x) < epsilon_test) {
-    res.x = P.x + Ng.x * epsilon_f;
-  }
-  else {
-    uint ix = __float_as_uint(P.x);
-    ix += ((ix ^ __float_as_uint(Ng.x)) >> 31) ? -epsilon_i : epsilon_i;
-    res.x = __uint_as_float(ix);
-  }
-
-  /* y component */
-  if (fabsf(P.y) < epsilon_test) {
-    res.y = P.y + Ng.y * epsilon_f;
-  }
-  else {
-    uint iy = __float_as_uint(P.y);
-    iy += ((iy ^ __float_as_uint(Ng.y)) >> 31) ? -epsilon_i : epsilon_i;
-    res.y = __uint_as_float(iy);
-  }
-
-  /* z component */
-  if (fabsf(P.z) < epsilon_test) {
-    res.z = P.z + Ng.z * epsilon_f;
-  }
-  else {
-    uint iz = __float_as_uint(P.z);
-    iz += ((iz ^ __float_as_uint(Ng.z)) >> 31) ? -epsilon_i : epsilon_i;
-    res.z = __uint_as_float(iz);
-  }
-
-  return res;
-#else
-  const float epsilon_f = 1e-4f;
-  return P + epsilon_f * Ng;
-#endif
-}
 
 #if defined(__KERNEL_CPU__)
 ccl_device int intersections_compare(const void *a, const void *b)
@@ -225,6 +159,27 @@ ccl_device_inline float intersection_curve_shadow_transparency(KernelGlobals kg,
   const float f1 = kernel_tex_fetch(__attributes_float, offset + k1);
 
   return (1.0f - u) * f0 + u * f1;
+}
+
+ccl_device_inline bool intersection_skip_self(ccl_private const RaySelfPrimitives &self,
+                                              const int object,
+                                              const int prim)
+{
+  return (self.prim == prim) && (self.object == object);
+}
+
+ccl_device_inline bool intersection_skip_self_shadow(ccl_private const RaySelfPrimitives &self,
+                                                     const int object,
+                                                     const int prim)
+{
+  return ((self.prim == prim) && (self.object == object)) ||
+         ((self.light_prim == prim) && (self.light_object == object));
+}
+
+ccl_device_inline bool intersection_skip_self_local(ccl_private const RaySelfPrimitives &self,
+                                                    const int prim)
+{
+  return (self.prim == prim);
 }
 
 CCL_NAMESPACE_END

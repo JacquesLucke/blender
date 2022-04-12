@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edutil
@@ -23,6 +9,12 @@
 #include "BLI_kdtree.h"
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
+
+#include "DNA_windowmanager_types.h"
+
+#include "RNA_access.h"
+
+#include "WM_types.h"
 
 #include "ED_select_utils.h"
 
@@ -125,4 +117,30 @@ bool ED_select_similar_compare_float_tree(const KDTree_1d *tree,
   }
 
   return false;
+}
+
+eSelectOp ED_select_op_from_operator(wmOperator *op)
+{
+  const bool extend = RNA_boolean_get(op->ptr, "extend");
+  const bool deselect = RNA_boolean_get(op->ptr, "deselect");
+  const bool toggle = RNA_boolean_get(op->ptr, "toggle");
+
+  if (extend) {
+    return SEL_OP_ADD;
+  }
+  if (deselect) {
+    return SEL_OP_SUB;
+  }
+  if (toggle) {
+    return SEL_OP_XOR;
+  }
+  return SEL_OP_SET;
+}
+
+void ED_select_pick_params_from_operator(wmOperator *op, struct SelectPick_Params *params)
+{
+  memset(params, 0x0, sizeof(*params));
+  params->sel_op = ED_select_op_from_operator(op);
+  params->deselect_all = RNA_boolean_get(op->ptr, "deselect_all");
+  params->select_passthrough = RNA_boolean_get(op->ptr, "select_passthrough");
 }

@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup draw_engine
@@ -28,17 +13,21 @@
 
 #include "BLI_alloca.h"
 
+#include "BKE_editmesh.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_particle.h"
+#include "BKE_pbvh.h"
 
+#include "DNA_curves_types.h"
 #include "DNA_fluid_types.h"
-#include "DNA_hair_types.h"
 #include "DNA_image_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
+
+#include "ED_paint.h"
 
 #include "workbench_engine.h"
 #include "workbench_private.h"
@@ -50,8 +39,6 @@ void workbench_engine_init(void *ved)
   WORKBENCH_Data *vedata = ved;
   WORKBENCH_StorageList *stl = vedata->stl;
   WORKBENCH_TextureList *txl = vedata->txl;
-
-  workbench_shader_library_ensure();
 
   workbench_private_data_alloc(stl);
   WORKBENCH_PrivateData *wpd = stl->wpd;
@@ -109,8 +96,6 @@ static void workbench_cache_sculpt_populate(WORKBENCH_PrivateData *wpd,
                                             eV3DShadingColorType color_type)
 {
   const bool use_single_drawcall = !ELEM(color_type, V3D_SHADING_MATERIAL_COLOR);
-  BLI_assert(color_type != V3D_SHADING_TEXTURE_COLOR);
-
   if (use_single_drawcall) {
     DRWShadingGroup *grp = workbench_material_setup(wpd, ob, 0, color_type, NULL);
     DRW_shgroup_call_sculpt(grp, ob, false, false);
@@ -186,12 +171,7 @@ static void workbench_cache_common_populate(WORKBENCH_PrivateData *wpd,
         geom = DRW_cache_mesh_surface_vertpaint_get(ob);
       }
       else {
-        if (U.experimental.use_sculpt_vertex_colors) {
-          geom = DRW_cache_mesh_surface_sculptcolors_get(ob);
-        }
-        else {
-          geom = DRW_cache_mesh_surface_vertpaint_get(ob);
-        }
+        geom = DRW_cache_mesh_surface_sculptcolors_get(ob);
       }
     }
     else {
@@ -241,6 +221,26 @@ static void workbench_cache_hair_populate(WORKBENCH_PrivateData *wpd,
   DRW_shgroup_hair_create_sub(ob, psys, md, grp, NULL);
 }
 
+static const CustomData *workbench_mesh_get_loop_custom_data(const Mesh *mesh)
+{
+  if (mesh->runtime.wrapper_type == ME_WRAPPER_TYPE_BMESH) {
+    BLI_assert(mesh->edit_mesh != NULL);
+    BLI_assert(mesh->edit_mesh->bm != NULL);
+    return &mesh->edit_mesh->bm->ldata;
+  }
+  return &mesh->ldata;
+}
+
+static const CustomData *workbench_mesh_get_vert_custom_data(const Mesh *mesh)
+{
+  if (mesh->runtime.wrapper_type == ME_WRAPPER_TYPE_BMESH) {
+    BLI_assert(mesh->edit_mesh != NULL);
+    BLI_assert(mesh->edit_mesh->bm != NULL);
+    return &mesh->edit_mesh->bm->vdata;
+  }
+  return &mesh->vdata;
+}
+
 /**
  * Decide what color-type to draw the object with.
  * In some cases it can be overwritten by #workbench_material_setup().
@@ -253,6 +253,7 @@ static eV3DShadingColorType workbench_color_type_get(WORKBENCH_PrivateData *wpd,
 {
   eV3DShadingColorType color_type = wpd->shading.color_type;
   const Mesh *me = (ob->type == OB_MESH) ? ob->data : NULL;
+  const CustomData *ldata = (me == NULL) ? NULL : workbench_mesh_get_loop_custom_data(me);
 
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const bool is_active = (ob == draw_ctx->obact);
@@ -262,23 +263,37 @@ static eV3DShadingColorType workbench_color_type_get(WORKBENCH_PrivateData *wpd,
   const bool is_texpaint_mode = is_active && (wpd->ctx_mode == CTX_MODE_PAINT_TEXTURE);
   const bool is_vertpaint_mode = is_active && (wpd->ctx_mode == CTX_MODE_PAINT_VERTEX);
 
+  /* Needed for mesh cache validation, to prevent two copies of
+   * of vertex color arrays from being sent to the GPU (e.g.
+   * when switching from eevee to workbench).
+   */
+  if (ob->sculpt && ob->sculpt->pbvh) {
+    BKE_pbvh_is_drawing_set(ob->sculpt->pbvh, is_sculpt_pbvh);
+  }
+
   if (color_type == V3D_SHADING_TEXTURE_COLOR) {
     if (ob->dt < OB_TEXTURE) {
       color_type = V3D_SHADING_MATERIAL_COLOR;
     }
-    else if ((me == NULL) || (me->mloopuv == NULL)) {
+    else if ((me == NULL) || !CustomData_has_layer(ldata, CD_MLOOPUV)) {
       /* Disable color mode if data layer is unavailable. */
       color_type = V3D_SHADING_MATERIAL_COLOR;
     }
   }
   else if (color_type == V3D_SHADING_VERTEX_COLOR) {
-    if (U.experimental.use_sculpt_vertex_colors) {
-      if ((me == NULL) || !CustomData_has_layer(&me->vdata, CD_PROP_COLOR)) {
-        color_type = V3D_SHADING_OBJECT_COLOR;
-      }
+    if (!me) {
+      color_type = V3D_SHADING_OBJECT_COLOR;
     }
     else {
-      if ((me == NULL) || !CustomData_has_layer(&me->ldata, CD_MLOOPCOL)) {
+      const CustomData *cd_vdata = workbench_mesh_get_vert_custom_data(me);
+      const CustomData *cd_ldata = workbench_mesh_get_loop_custom_data(me);
+
+      bool has_color = (CustomData_has_layer(cd_vdata, CD_PROP_COLOR) ||
+                        CustomData_has_layer(cd_vdata, CD_MLOOPCOL) ||
+                        CustomData_has_layer(cd_ldata, CD_PROP_COLOR) ||
+                        CustomData_has_layer(cd_ldata, CD_MLOOPCOL));
+
+      if (!has_color) {
         color_type = V3D_SHADING_OBJECT_COLOR;
       }
     }
@@ -293,13 +308,13 @@ static eV3DShadingColorType workbench_color_type_get(WORKBENCH_PrivateData *wpd,
 
   if (!is_sculpt_pbvh && !is_render) {
     /* Force texture or vertex mode if object is in paint mode. */
-    if (is_texpaint_mode && me && me->mloopuv) {
+    if (is_texpaint_mode && me && CustomData_has_layer(ldata, CD_MLOOPUV)) {
       color_type = V3D_SHADING_TEXTURE_COLOR;
       if (r_texpaint_mode) {
         *r_texpaint_mode = true;
       }
     }
-    else if (is_vertpaint_mode && me && me->mloopcol) {
+    else if (is_vertpaint_mode && me && CustomData_has_layer(ldata, CD_MLOOPCOL)) {
       color_type = V3D_SHADING_VERTEX_COLOR;
     }
   }
@@ -307,6 +322,16 @@ static eV3DShadingColorType workbench_color_type_get(WORKBENCH_PrivateData *wpd,
   if (is_sculpt_pbvh && color_type == V3D_SHADING_TEXTURE_COLOR) {
     /* Force use of material color for sculpt. */
     color_type = V3D_SHADING_MATERIAL_COLOR;
+  }
+
+  if (is_sculpt_pbvh) {
+    /* Bad call C is required to access the tool system that is context aware. Cast to non-const
+     * due to current API. */
+    bContext *C = (bContext *)DRW_context_state_get()->evil_C;
+    if (C != NULL) {
+      color_type = ED_paint_shading_color_override(
+          C, &wpd->scene->toolsettings->paint_mode, ob, color_type);
+    }
   }
 
   if (r_draw_shadow) {
@@ -398,9 +423,9 @@ void workbench_cache_populate(void *ved, Object *ob)
       workbench_shadow_cache_populate(vedata, ob, has_transp_mat);
     }
   }
-  else if (ob->type == OB_HAIR) {
+  else if (ob->type == OB_CURVES) {
     int color_type = workbench_color_type_get(wpd, ob, NULL, NULL, NULL);
-    workbench_cache_hair_populate(wpd, ob, NULL, NULL, color_type, false, HAIR_MATERIAL_NR);
+    workbench_cache_hair_populate(wpd, ob, NULL, NULL, color_type, false, CURVES_MATERIAL_NR);
   }
   else if (ob->type == OB_VOLUME) {
     if (wpd->shading.type != OB_WIRE) {

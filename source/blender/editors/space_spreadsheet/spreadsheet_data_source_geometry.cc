@@ -1,23 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_virtual_array.hh"
 
 #include "BKE_context.h"
 #include "BKE_editmesh.h"
+#include "BKE_geometry_fields.hh"
+#include "BKE_global.h"
 #include "BKE_lib_id.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_wrapper.h"
@@ -66,11 +54,11 @@ void ExtraColumns::foreach_default_column_ids(
 std::unique_ptr<ColumnValues> ExtraColumns::get_column_values(
     const SpreadsheetColumnID &column_id) const
 {
-  const fn::GSpan *values = columns_.lookup_ptr(column_id.name);
+  const GSpan *values = columns_.lookup_ptr(column_id.name);
   if (values == nullptr) {
     return {};
   }
-  return std::make_unique<ColumnValues>(column_id.name, fn::GVArray::ForSpan(*values));
+  return std::make_unique<ColumnValues>(column_id.name, GVArray::ForSpan(*values));
 }
 
 void GeometryDataSource::foreach_default_column_ids(
@@ -102,6 +90,20 @@ void GeometryDataSource::foreach_default_column_ids(
   if (component_->type() == GEO_COMPONENT_TYPE_INSTANCES) {
     fn({(char *)"Rotation"}, false);
     fn({(char *)"Scale"}, false);
+  }
+  else if (G.debug_value == 4001 && component_->type() == GEO_COMPONENT_TYPE_MESH) {
+    if (domain_ == ATTR_DOMAIN_EDGE) {
+      fn({(char *)"Vertex 1"}, false);
+      fn({(char *)"Vertex 2"}, false);
+    }
+    else if (domain_ == ATTR_DOMAIN_FACE) {
+      fn({(char *)"Corner Start"}, false);
+      fn({(char *)"Corner Size"}, false);
+    }
+    else if (domain_ == ATTR_DOMAIN_CORNER) {
+      fn({(char *)"Vertex"}, false);
+      fn({(char *)"Edge"}, false);
+    }
   }
 }
 
@@ -146,12 +148,59 @@ std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
           }));
     }
   }
+  else if (G.debug_value == 4001 && component_->type() == GEO_COMPONENT_TYPE_MESH) {
+    const MeshComponent &component = static_cast<const MeshComponent &>(*component_);
+    if (const Mesh *mesh = component.get_for_read()) {
+      if (domain_ == ATTR_DOMAIN_EDGE) {
+        if (STREQ(column_id.name, "Vertex 1")) {
+          return std::make_unique<ColumnValues>(
+              column_id.name, VArray<int>::ForFunc(mesh->totedge, [mesh](int64_t index) {
+                return mesh->medge[index].v1;
+              }));
+        }
+        if (STREQ(column_id.name, "Vertex 2")) {
+          return std::make_unique<ColumnValues>(
+              column_id.name, VArray<int>::ForFunc(mesh->totedge, [mesh](int64_t index) {
+                return mesh->medge[index].v2;
+              }));
+        }
+      }
+      else if (domain_ == ATTR_DOMAIN_FACE) {
+        if (STREQ(column_id.name, "Corner Start")) {
+          return std::make_unique<ColumnValues>(
+              column_id.name, VArray<int>::ForFunc(mesh->totpoly, [mesh](int64_t index) {
+                return mesh->mpoly[index].loopstart;
+              }));
+        }
+        if (STREQ(column_id.name, "Corner Size")) {
+          return std::make_unique<ColumnValues>(
+              column_id.name, VArray<int>::ForFunc(mesh->totpoly, [mesh](int64_t index) {
+                return mesh->mpoly[index].totloop;
+              }));
+        }
+      }
+      else if (domain_ == ATTR_DOMAIN_CORNER) {
+        if (STREQ(column_id.name, "Vertex")) {
+          return std::make_unique<ColumnValues>(
+              column_id.name, VArray<int>::ForFunc(mesh->totloop, [mesh](int64_t index) {
+                return mesh->mloop[index].v;
+              }));
+        }
+        if (STREQ(column_id.name, "Edge")) {
+          return std::make_unique<ColumnValues>(
+              column_id.name, VArray<int>::ForFunc(mesh->totloop, [mesh](int64_t index) {
+                return mesh->mloop[index].e;
+              }));
+        }
+      }
+    }
+  }
 
   bke::ReadAttributeLookup attribute = component_->attribute_try_get_for_read(column_id.name);
   if (!attribute) {
     return {};
   }
-  fn::GVArray varray = std::move(attribute.varray);
+  GVArray varray = std::move(attribute.varray);
   if (attribute.domain != domain_) {
     return {};
   }
@@ -412,6 +461,11 @@ static void find_fields_to_evaluate(const SpaceSpreadsheet *sspreadsheet,
         r_fields.add("Viewer", std::move(field));
       }
     }
+    if (const geo_log::GenericValueLog *generic_value_log =
+            dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
+      GPointer value = generic_value_log->value();
+      r_fields.add("Viewer", fn::make_constant_field(*value.type(), value.get()));
+    }
   }
 }
 
@@ -455,7 +509,7 @@ class GeometryComponentCacheValue : public SpreadsheetCache::Value {
  public:
   /* Stores the result of fields evaluated on a geometry component. Without this, fields would have
    * to be reevaluated on every redraw. */
-  Map<std::pair<AttributeDomain, GField>, fn::GArray<>> arrays;
+  Map<std::pair<AttributeDomain, GField>, GArray<>> arrays;
 };
 
 static void add_fields_as_extra_columns(SpaceSpreadsheet *sspreadsheet,
@@ -476,8 +530,8 @@ static void add_fields_as_extra_columns(SpaceSpreadsheet *sspreadsheet,
     const GField &field = item.value;
 
     /* Use the cached evaluated array if it exists, otherwise evaluate the field now. */
-    fn::GArray<> &evaluated_array = cache.arrays.lookup_or_add_cb({domain, field}, [&]() {
-      fn::GArray<> evaluated_array(field.cpp_type(), domain_size);
+    GArray<> &evaluated_array = cache.arrays.lookup_or_add_cb({domain, field}, [&]() {
+      GArray<> evaluated_array(field.cpp_type(), domain_size);
 
       bke::GeometryComponentFieldContext field_context{component, domain};
       fn::FieldEvaluator field_evaluator{field_context, domain_size};

@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #include "scene/shader_nodes.h"
 #include "scene/colorspace.h"
@@ -32,6 +19,7 @@
 #include "util/color.h"
 #include "util/foreach.h"
 #include "util/log.h"
+#include "util/string.h"
 #include "util/transform.h"
 
 #include "kernel/tables.h"
@@ -462,8 +450,12 @@ void ImageTextureNode::compile(OSLCompiler &compiler)
   const ustring known_colorspace = metadata.colorspace;
 
   if (handle.svm_slot() == -1) {
+    /* OIIO currently does not support <UVTILE> substitutions natively. Replace with a format they
+     * understand. */
+    std::string osl_filename = filename.string();
+    string_replace(osl_filename, "<UVTILE>", "<U>_<V>");
     compiler.parameter_texture(
-        "filename", filename, compress_as_srgb ? u_colorspace_raw : known_colorspace);
+        "filename", ustring(osl_filename), compress_as_srgb ? u_colorspace_raw : known_colorspace);
   }
   else {
     compiler.parameter_texture("filename", handle.svm_slot());
@@ -472,7 +464,8 @@ void ImageTextureNode::compile(OSLCompiler &compiler)
   const bool unassociate_alpha = !(ColorSpaceManager::colorspace_is_data(colorspace) ||
                                    alpha_type == IMAGE_ALPHA_CHANNEL_PACKED ||
                                    alpha_type == IMAGE_ALPHA_IGNORE);
-  const bool is_tiled = (filename.find("<UDIM>") != string::npos);
+  const bool is_tiled = (filename.find("<UDIM>") != string::npos ||
+                         filename.find("<UVTILE>") != string::npos);
 
   compiler.parameter(this, "projection");
   compiler.parameter(this, "projection_blend");
@@ -4223,6 +4216,7 @@ NODE_DEFINE(ObjectInfoNode)
 
   SOCKET_OUT_VECTOR(location, "Location");
   SOCKET_OUT_COLOR(color, "Color");
+  SOCKET_OUT_FLOAT(alpha, "Alpha");
   SOCKET_OUT_FLOAT(object_index, "Object Index");
   SOCKET_OUT_FLOAT(material_index, "Material Index");
   SOCKET_OUT_FLOAT(random, "Random");
@@ -4244,6 +4238,11 @@ void ObjectInfoNode::compile(SVMCompiler &compiler)
   out = output("Color");
   if (!out->links.empty()) {
     compiler.add_node(NODE_OBJECT_INFO, NODE_INFO_OB_COLOR, compiler.stack_assign(out));
+  }
+
+  out = output("Alpha");
+  if (!out->links.empty()) {
+    compiler.add_node(NODE_OBJECT_INFO, NODE_INFO_OB_ALPHA, compiler.stack_assign(out));
   }
 
   out = output("Object Index");
@@ -4388,9 +4387,6 @@ NODE_DEFINE(HairInfoNode)
   SOCKET_OUT_FLOAT(size, "Length");
   SOCKET_OUT_FLOAT(thickness, "Thickness");
   SOCKET_OUT_NORMAL(tangent_normal, "Tangent Normal");
-#if 0 /* Output for minimum hair width transparency - deactivated. */
-  SOCKET_OUT_FLOAT(fade, "Fade");
-#endif
   SOCKET_OUT_FLOAT(index, "Random");
 
   return type;
@@ -4448,12 +4444,7 @@ void HairInfoNode::compile(SVMCompiler &compiler)
   if (!out->links.empty()) {
     compiler.add_node(NODE_HAIR_INFO, NODE_INFO_CURVE_TANGENT_NORMAL, compiler.stack_assign(out));
   }
-#if 0
-  out = output("Fade");
-  if(!out->links.empty()) {
-    compiler.add_node(NODE_HAIR_INFO, NODE_INFO_CURVE_FADE, compiler.stack_assign(out));
-  }
-#endif
+
   out = output("Random");
   if (!out->links.empty()) {
     int attr = compiler.attribute(ATTR_STD_CURVE_RANDOM);
@@ -4464,6 +4455,59 @@ void HairInfoNode::compile(SVMCompiler &compiler)
 void HairInfoNode::compile(OSLCompiler &compiler)
 {
   compiler.add(this, "node_hair_info");
+}
+
+/* Point Info */
+
+NODE_DEFINE(PointInfoNode)
+{
+  NodeType *type = NodeType::add("point_info", create, NodeType::SHADER);
+
+  SOCKET_OUT_POINT(position, "Position");
+  SOCKET_OUT_FLOAT(radius, "Radius");
+  SOCKET_OUT_FLOAT(random, "Random");
+
+  return type;
+}
+
+PointInfoNode::PointInfoNode() : ShaderNode(get_node_type())
+{
+}
+
+void PointInfoNode::attributes(Shader *shader, AttributeRequestSet *attributes)
+{
+  if (shader->has_surface_link()) {
+    if (!output("Random")->links.empty())
+      attributes->add(ATTR_STD_POINT_RANDOM);
+  }
+
+  ShaderNode::attributes(shader, attributes);
+}
+
+void PointInfoNode::compile(SVMCompiler &compiler)
+{
+  ShaderOutput *out;
+
+  out = output("Position");
+  if (!out->links.empty()) {
+    compiler.add_node(NODE_POINT_INFO, NODE_INFO_POINT_POSITION, compiler.stack_assign(out));
+  }
+
+  out = output("Radius");
+  if (!out->links.empty()) {
+    compiler.add_node(NODE_POINT_INFO, NODE_INFO_POINT_RADIUS, compiler.stack_assign(out));
+  }
+
+  out = output("Random");
+  if (!out->links.empty()) {
+    int attr = compiler.attribute(ATTR_STD_POINT_RANDOM);
+    compiler.add_node(NODE_ATTR, attr, compiler.stack_assign(out), NODE_ATTR_OUTPUT_FLOAT);
+  }
+}
+
+void PointInfoNode::compile(OSLCompiler &compiler)
+{
+  compiler.add(this, "node_point_info");
 }
 
 /* Volume Info */
@@ -5901,7 +5945,7 @@ VectorMapRangeNode::VectorMapRangeNode() : ShaderNode(get_node_type())
 {
 }
 
-void VectorMapRangeNode::expand(ShaderGraph *graph)
+void VectorMapRangeNode::expand(ShaderGraph * /*graph*/)
 {
 }
 
@@ -6485,9 +6529,9 @@ void CurvesNode::constant_fold(const ConstantFolder &folder, ShaderInput *value_
     float3 pos = (value - make_float3(min_x, min_x, min_x)) / (max_x - min_x);
     float3 result;
 
-    result[0] = rgb_ramp_lookup(curves.data(), pos[0], true, true, curves.size()).x;
-    result[1] = rgb_ramp_lookup(curves.data(), pos[1], true, true, curves.size()).y;
-    result[2] = rgb_ramp_lookup(curves.data(), pos[2], true, true, curves.size()).z;
+    result[0] = rgb_ramp_lookup(curves.data(), pos[0], true, extrapolate, curves.size()).x;
+    result[1] = rgb_ramp_lookup(curves.data(), pos[1], true, extrapolate, curves.size()).y;
+    result[2] = rgb_ramp_lookup(curves.data(), pos[2], true, extrapolate, curves.size()).z;
 
     folder.make_constant(interp(value, result, fac));
   }
@@ -6511,7 +6555,8 @@ void CurvesNode::compile(SVMCompiler &compiler,
   compiler.add_node(type,
                     compiler.encode_uchar4(compiler.stack_assign(fac_in),
                                            compiler.stack_assign(value_in),
-                                           compiler.stack_assign(value_out)),
+                                           compiler.stack_assign(value_out),
+                                           extrapolate),
                     __float_as_int(min_x),
                     __float_as_int(max_x));
 
@@ -6528,6 +6573,7 @@ void CurvesNode::compile(OSLCompiler &compiler, const char *name)
   compiler.parameter_color_array("ramp", curves);
   compiler.parameter(this, "min_x");
   compiler.parameter(this, "max_x");
+  compiler.parameter(this, "extrapolate");
   compiler.add(this, name);
 }
 
@@ -6550,6 +6596,7 @@ NODE_DEFINE(RGBCurvesNode)
   SOCKET_COLOR_ARRAY(curves, "Curves", array<float3>());
   SOCKET_FLOAT(min_x, "Min X", 0.0f);
   SOCKET_FLOAT(max_x, "Max X", 1.0f);
+  SOCKET_BOOLEAN(extrapolate, "Extrapolate", true);
 
   SOCKET_IN_FLOAT(fac, "Fac", 0.0f);
   SOCKET_IN_COLOR(value, "Color", zero_float3());
@@ -6587,6 +6634,7 @@ NODE_DEFINE(VectorCurvesNode)
   SOCKET_VECTOR_ARRAY(curves, "Curves", array<float3>());
   SOCKET_FLOAT(min_x, "Min X", 0.0f);
   SOCKET_FLOAT(max_x, "Max X", 1.0f);
+  SOCKET_BOOLEAN(extrapolate, "Extrapolate", true);
 
   SOCKET_IN_FLOAT(fac, "Fac", 0.0f);
   SOCKET_IN_VECTOR(value, "Vector", zero_float3());
@@ -6624,6 +6672,7 @@ NODE_DEFINE(FloatCurveNode)
   SOCKET_FLOAT_ARRAY(curve, "Curve", array<float>());
   SOCKET_FLOAT(min_x, "Min X", 0.0f);
   SOCKET_FLOAT(max_x, "Max X", 1.0f);
+  SOCKET_BOOLEAN(extrapolate, "Extrapolate", true);
 
   SOCKET_IN_FLOAT(fac, "Factor", 0.0f);
   SOCKET_IN_FLOAT(value, "Value", 0.0f);
@@ -6649,7 +6698,7 @@ void FloatCurveNode::constant_fold(const ConstantFolder &folder)
     }
 
     float pos = (value - min_x) / (max_x - min_x);
-    float result = float_ramp_lookup(curve.data(), pos, true, true, curve.size());
+    float result = float_ramp_lookup(curve.data(), pos, true, extrapolate, curve.size());
 
     folder.make_constant(value + fac * (result - value));
   }
@@ -6672,7 +6721,8 @@ void FloatCurveNode::compile(SVMCompiler &compiler)
   compiler.add_node(NODE_FLOAT_CURVE,
                     compiler.encode_uchar4(compiler.stack_assign(fac_in),
                                            compiler.stack_assign(value_in),
-                                           compiler.stack_assign(value_out)),
+                                           compiler.stack_assign(value_out),
+                                           extrapolate),
                     __float_as_int(min_x),
                     __float_as_int(max_x));
 
@@ -6689,6 +6739,7 @@ void FloatCurveNode::compile(OSLCompiler &compiler)
   compiler.parameter_array("ramp", curve.data(), curve.size());
   compiler.parameter(this, "min_x");
   compiler.parameter(this, "max_x");
+  compiler.parameter(this, "extrapolate");
   compiler.add(this, "node_float_curve");
 }
 

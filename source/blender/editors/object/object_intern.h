@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edobj
@@ -44,7 +28,7 @@ enum eObject_Hook_Add_Mode {
 
 /* internal exports only */
 
-/* object_transform.c */
+/* object_transform.cc */
 
 void OBJECT_OT_location_clear(struct wmOperatorType *ot);
 void OBJECT_OT_rotation_clear(struct wmOperatorType *ot);
@@ -65,7 +49,6 @@ void OBJECT_OT_track_set(struct wmOperatorType *ot);
 void OBJECT_OT_track_clear(struct wmOperatorType *ot);
 void OBJECT_OT_make_local(struct wmOperatorType *ot);
 void OBJECT_OT_make_override_library(struct wmOperatorType *ot);
-void OBJECT_OT_convert_proxy_to_override(struct wmOperatorType *ot);
 void OBJECT_OT_make_single_user(struct wmOperatorType *ot);
 void OBJECT_OT_make_links_scene(struct wmOperatorType *ot);
 void OBJECT_OT_make_links_data(struct wmOperatorType *ot);
@@ -114,7 +97,7 @@ void OBJECT_OT_select_more(struct wmOperatorType *ot);
 void OBJECT_OT_select_less(struct wmOperatorType *ot);
 void OBJECT_OT_select_same_collection(struct wmOperatorType *ot);
 
-/* object_add.c */
+/* object_add.cc */
 
 void OBJECT_OT_add(struct wmOperatorType *ot);
 void OBJECT_OT_add_named(struct wmOperatorType *ot);
@@ -130,12 +113,14 @@ void OBJECT_OT_light_add(struct wmOperatorType *ot);
 void OBJECT_OT_effector_add(struct wmOperatorType *ot);
 void OBJECT_OT_camera_add(struct wmOperatorType *ot);
 void OBJECT_OT_speaker_add(struct wmOperatorType *ot);
-void OBJECT_OT_hair_add(struct wmOperatorType *ot);
+void OBJECT_OT_curves_random_add(struct wmOperatorType *ot);
+void OBJECT_OT_curves_empty_hair_add(struct wmOperatorType *ot);
 void OBJECT_OT_pointcloud_add(struct wmOperatorType *ot);
 /**
  * Only used as menu.
  */
 void OBJECT_OT_collection_instance_add(struct wmOperatorType *ot);
+void OBJECT_OT_collection_external_asset_drop(struct wmOperatorType *ot);
 void OBJECT_OT_data_instance_add(struct wmOperatorType *ot);
 
 void OBJECT_OT_duplicates_make_real(struct wmOperatorType *ot);
@@ -176,8 +161,8 @@ void COLLECTION_OT_objects_remove_active(struct wmOperatorType *ot);
 bool edit_modifier_poll_generic(struct bContext *C,
                                 struct StructRNA *rna_type,
                                 int obtype_flag,
-                                const bool is_editmode_allowed,
-                                const bool is_liboverride_allowed);
+                                bool is_editmode_allowed,
+                                bool is_liboverride_allowed);
 void edit_modifier_properties(struct wmOperatorType *ot);
 bool edit_modifier_invoke_properties(struct bContext *C, struct wmOperator *op);
 
@@ -217,6 +202,7 @@ void OBJECT_OT_surfacedeform_bind(struct wmOperatorType *ot);
 void OBJECT_OT_geometry_nodes_input_attribute_toggle(struct wmOperatorType *ot);
 
 /* object_gpencil_modifiers.c */
+
 void OBJECT_OT_gpencil_modifier_add(struct wmOperatorType *ot);
 void OBJECT_OT_gpencil_modifier_remove(struct wmOperatorType *ot);
 void OBJECT_OT_gpencil_modifier_move_up(struct wmOperatorType *ot);
@@ -231,6 +217,7 @@ void GPENCIL_OT_segment_remove(struct wmOperatorType *ot);
 void GPENCIL_OT_segment_move(struct wmOperatorType *ot);
 
 /* object_shader_fx.c */
+
 void OBJECT_OT_shaderfx_add(struct wmOperatorType *ot);
 void OBJECT_OT_shaderfx_copy(struct wmOperatorType *ot);
 void OBJECT_OT_shaderfx_remove(struct wmOperatorType *ot);
@@ -239,6 +226,7 @@ void OBJECT_OT_shaderfx_move_down(struct wmOperatorType *ot);
 void OBJECT_OT_shaderfx_move_to_index(struct wmOperatorType *ot);
 
 /* object_constraint.c */
+
 void OBJECT_OT_constraint_add(struct wmOperatorType *ot);
 void OBJECT_OT_constraint_add_with_targets(struct wmOperatorType *ot);
 void POSE_OT_constraint_add(struct wmOperatorType *ot);

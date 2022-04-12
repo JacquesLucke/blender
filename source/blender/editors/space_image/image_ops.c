@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup spimage
@@ -54,6 +38,7 @@
 #include "BKE_global.h"
 #include "BKE_icons.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_image_save.h"
 #include "BKE_layer.h"
 #include "BKE_lib_id.h"
@@ -69,13 +54,14 @@
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 #include "IMB_moviecache.h"
-#include "intern/openexr/openexr_multi.h"
+#include "IMB_openexr.h"
 
 #include "RE_pipeline.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "ED_image.h"
 #include "ED_mask.h"
@@ -1499,6 +1485,13 @@ static void image_open_draw(bContext *UNUSED(C), wmOperator *op)
   }
 }
 
+static void image_operator_prop_allow_tokens(wmOperatorType *ot)
+{
+  PropertyRNA *prop = RNA_def_boolean(
+      ot->srna, "allow_path_tokens", true, "", "Allow the path to contain substitution tokens");
+  RNA_def_property_flag(prop, PROP_HIDDEN);
+}
+
 void IMAGE_OT_open(wmOperatorType *ot)
 {
   /* identifiers */
@@ -1516,6 +1509,7 @@ void IMAGE_OT_open(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* properties */
+  image_operator_prop_allow_tokens(ot);
   WM_operator_properties_filesel(ot,
                                  FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE,
                                  FILE_SPECIAL,
@@ -1743,7 +1737,7 @@ static int image_save_options_init(Main *bmain,
 
     if (ELEM(ima->type, IMA_TYPE_R_RESULT, IMA_TYPE_COMPOSITE)) {
       /* imtype */
-      opts->im_format = scene->r.im_format;
+      BKE_image_format_init_for_write(&opts->im_format, scene, NULL);
       is_depth_set = true;
       if (!BKE_image_is_multiview(ima)) {
         /* In case multiview is disabled,
@@ -1759,15 +1753,25 @@ static int image_save_options_init(Main *bmain,
         opts->im_format.planes = ibuf->planes;
       }
       else {
-        BKE_imbuf_to_image_format(&opts->im_format, ibuf);
+        BKE_image_format_from_imbuf(&opts->im_format, ibuf);
       }
 
       /* use the multiview image settings as the default */
       opts->im_format.stereo3d_format = *ima->stereo3d_format;
       opts->im_format.views_format = ima->views_format;
+
+      BKE_image_format_color_management_copy_from_scene(&opts->im_format, scene);
     }
 
-    BLI_strncpy(opts->filepath, ibuf->name, sizeof(opts->filepath));
+    opts->im_format.color_management = R_IMF_COLOR_MANAGEMENT_FOLLOW_SCENE;
+
+    if (ima->source == IMA_SRC_TILED) {
+      BLI_strncpy(opts->filepath, ima->filepath, sizeof(opts->filepath));
+      BLI_path_abs(opts->filepath, ID_BLEND_PATH_FROM_GLOBAL(&ima->id));
+    }
+    else {
+      BLI_strncpy(opts->filepath, ibuf->name, sizeof(opts->filepath));
+    }
 
     /* sanitize all settings */
 
@@ -1804,23 +1808,12 @@ static int image_save_options_init(Main *bmain,
         BLI_path_abs(opts->filepath, is_prev_save ? G.ima : BKE_main_blendfile_path(bmain));
       }
 
-      /* append UDIM numbering if not present */
-      if (ima->source == IMA_SRC_TILED) {
-        char udim[6];
-        ImageTile *tile = ima->tiles.first;
-        BLI_snprintf(udim, sizeof(udim), ".%d", tile->tile_number);
-
+      /* append UDIM marker if not present */
+      if (ima->source == IMA_SRC_TILED && strstr(opts->filepath, "<UDIM>") == NULL) {
         int len = strlen(opts->filepath);
-        STR_CONCAT(opts->filepath, len, udim);
+        STR_CONCAT(opts->filepath, len, ".<UDIM>");
       }
     }
-
-    /* color management */
-    BKE_color_managed_display_settings_copy(&opts->im_format.display_settings,
-                                            &scene->display_settings);
-
-    BKE_color_managed_view_settings_free(&opts->im_format.view_settings);
-    BKE_color_managed_view_settings_copy(&opts->im_format.view_settings, &scene->view_settings);
   }
 
   BKE_image_release_ibuf(ima, ibuf, lock);
@@ -1834,8 +1827,8 @@ static void image_save_options_from_op(Main *bmain,
                                        ImageFormatData *imf)
 {
   if (imf) {
-    BKE_color_managed_view_settings_free(&opts->im_format.view_settings);
-    opts->im_format = *imf;
+    BKE_image_format_free(&opts->im_format);
+    BKE_image_format_copy(&opts->im_format, imf);
   }
 
   if (RNA_struct_property_is_set(op->ptr, "filepath")) {
@@ -1848,8 +1841,8 @@ static void image_save_options_to_op(ImageSaveOptions *opts, wmOperator *op)
 {
   if (op->customdata) {
     ImageSaveData *isd = op->customdata;
-    BKE_color_managed_view_settings_free(&isd->im_format.view_settings);
-    isd->im_format = opts->im_format;
+    BKE_image_format_free(&isd->im_format);
+    BKE_image_format_copy(&isd->im_format, &opts->im_format);
   }
 
   RNA_string_set(op->ptr, "filepath", opts->filepath);
@@ -1883,7 +1876,7 @@ static void image_save_as_free(wmOperator *op)
 {
   if (op->customdata) {
     ImageSaveData *isd = op->customdata;
-    BKE_color_managed_view_settings_free(&isd->im_format.view_settings);
+    BKE_image_format_free(&isd->im_format);
 
     MEM_freeN(op->customdata);
     op->customdata = NULL;
@@ -1925,6 +1918,8 @@ static int image_save_as_exec(bContext *C, wmOperator *op)
     BKE_image_free_packedfiles(image);
   }
 
+  BKE_image_save_options_free(&opts);
+
   image_save_as_free(op);
 
   return OPERATOR_FINISHED;
@@ -1953,6 +1948,7 @@ static int image_save_as_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
   BKE_image_save_options_init(&opts, bmain, scene);
 
   if (image_save_options_init(bmain, &opts, ima, iuser, true, save_as_render) == 0) {
+    BKE_image_save_options_free(&opts);
     return OPERATOR_CANCELLED;
   }
   image_save_options_to_op(&opts, op);
@@ -1969,7 +1965,7 @@ static int image_save_as_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
   isd->image = ima;
   isd->iuser = iuser;
 
-  memcpy(&isd->im_format, &opts.im_format, sizeof(opts.im_format));
+  BKE_image_format_copy(&isd->im_format, &opts.im_format);
   op->customdata = isd;
 
   /* show multiview save options only if image has multiviews */
@@ -1979,6 +1975,7 @@ static int image_save_as_invoke(bContext *C, wmOperator *op, const wmEvent *UNUS
   RNA_property_boolean_set(op->ptr, prop, BKE_image_is_multiview(ima));
 
   image_filesel(C, op, opts.filepath);
+  BKE_image_save_options_free(&opts);
 
   return OPERATOR_RUNNING_MODAL;
 }
@@ -2006,14 +2003,20 @@ static void image_save_as_draw(bContext *UNUSED(C), wmOperator *op)
   ImageSaveData *isd = op->customdata;
   PointerRNA imf_ptr;
   const bool is_multiview = RNA_boolean_get(op->ptr, "show_multiview");
+  const bool use_color_management = RNA_boolean_get(op->ptr, "save_as_render");
 
-  /* image template */
-  RNA_pointer_create(NULL, &RNA_ImageFormatSettings, &isd->im_format, &imf_ptr);
-  uiTemplateImageSettings(layout, &imf_ptr, false);
+  uiLayoutSetPropSep(layout, true);
+  uiLayoutSetPropDecorate(layout, false);
 
   /* main draw call */
   uiDefAutoButsRNA(
       layout, op->ptr, image_save_as_draw_check_prop, NULL, NULL, UI_BUT_LABEL_ALIGN_NONE, false);
+
+  uiItemS(layout);
+
+  /* image template */
+  RNA_pointer_create(NULL, &RNA_ImageFormatSettings, &isd->im_format, &imf_ptr);
+  uiTemplateImageSettings(layout, &imf_ptr, use_color_management);
 
   /* multiview template */
   if (is_multiview) {
@@ -2070,6 +2073,7 @@ void IMAGE_OT_save_as(wmOperatorType *ot)
                   "Copy",
                   "Create a new image file without modifying the current image in blender");
 
+  image_operator_prop_allow_tokens(ot);
   WM_operator_properties_filesel(ot,
                                  FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE,
                                  FILE_SPECIAL,
@@ -2136,6 +2140,7 @@ static int image_save_exec(bContext *C, wmOperator *op)
 
   BKE_image_save_options_init(&opts, bmain, scene);
   if (image_save_options_init(bmain, &opts, image, iuser, false, false) == 0) {
+    BKE_image_save_options_free(&opts);
     return OPERATOR_CANCELLED;
   }
   image_save_options_from_op(bmain, &opts, op, NULL);
@@ -2151,7 +2156,7 @@ static int image_save_exec(bContext *C, wmOperator *op)
     ok = true;
   }
 
-  BKE_color_managed_view_settings_free(&opts.im_format.view_settings);
+  BKE_image_save_options_free(&opts);
 
   if (ok) {
     return OPERATOR_FINISHED;
@@ -2160,7 +2165,7 @@ static int image_save_exec(bContext *C, wmOperator *op)
   return OPERATOR_CANCELLED;
 }
 
-static int image_save_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
+static int image_save_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   Image *ima = image_from_context(C);
   ImageUser *iuser = image_user_from_context(C);
@@ -2168,7 +2173,7 @@ static int image_save_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(
   /* Not writable formats or images without a file-path will go to "Save As". */
   if (!BKE_image_has_packedfile(ima) &&
       (!BKE_image_has_filepath(ima) || !image_file_format_writable(ima, iuser))) {
-    WM_operator_name_call(C, "IMAGE_OT_save_as", WM_OP_INVOKE_DEFAULT, NULL);
+    WM_operator_name_call(C, "IMAGE_OT_save_as", WM_OP_INVOKE_DEFAULT, NULL, event);
     return OPERATOR_CANCELLED;
   }
   return image_save_exec(C, op);
@@ -2403,6 +2408,7 @@ bool ED_image_save_all_modified(const bContext *C, ReportList *reports)
             bool saved_successfully = BKE_image_save(reports, bmain, ima, NULL, &opts);
             ok = ok && saved_successfully;
           }
+          BKE_image_save_options_free(&opts);
         }
       }
     }
@@ -2583,6 +2589,11 @@ static int image_new_exec(bContext *C, wmOperator *op)
   }
   else if (sima) {
     ED_space_image_set(bmain, sima, ima, false);
+  }
+  else {
+    /* #BKE_image_add_generated creates one user by default, remove it if image is not linked to
+     * anything. ref. T94599. */
+    id_us_min(&ima->id);
   }
 
   BKE_image_signal(bmain, ima, (sima) ? &sima->iuser : NULL, IMA_SIGNAL_USER_NEW_IMAGE);
@@ -2779,8 +2790,7 @@ static int image_flip_exec(bContext *C, wmOperator *op)
 
   ED_image_undo_push_end();
 
-  /* force GPU re-upload, all image is invalid. */
-  BKE_image_free_gputextures(ima);
+  BKE_image_partial_update_mark_full_update(ima);
 
   WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, ima);
 
@@ -2899,8 +2909,7 @@ static int image_invert_exec(bContext *C, wmOperator *op)
 
   ED_image_undo_push_end();
 
-  /* Force GPU re-upload, all image is invalid. */
-  BKE_image_free_gputextures(ima);
+  BKE_image_partial_update_mark_full_update(ima);
 
   WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, ima);
 
@@ -2990,8 +2999,7 @@ static int image_scale_exec(bContext *C, wmOperator *op)
 
   ED_image_undo_push_end();
 
-  /* Force GPU re-upload, all image is invalid. */
-  BKE_image_free_gputextures(ima);
+  BKE_image_partial_update_mark_full_update(ima);
 
   DEG_id_tag_update(&ima->id, 0);
   WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, ima);
@@ -3589,7 +3597,7 @@ static void change_frame_apply(bContext *C, wmOperator *op)
   SUBFRA = 0.0f;
 
   /* do updates */
-  DEG_id_tag_update(&scene->id, ID_RECALC_AUDIO_SEEK);
+  DEG_id_tag_update(&scene->id, ID_RECALC_FRAME_CHANGE);
   WM_event_add_notifier(C, NC_SCENE | ND_FRAME, scene);
 }
 

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup editors
@@ -27,7 +13,7 @@
 
 bool peelObjectsTransform(struct TransInfo *t,
                           const float mval[2],
-                          const bool use_peel_object,
+                          bool use_peel_object,
                           /* return args */
                           float r_loc[3],
                           float r_no[3],
@@ -92,9 +78,9 @@ void transform_snap_sequencer_apply_translate(TransInfo *t, float *vec);
  */
 short getAnimEdit_SnapMode(TransInfo *t);
 void snapFrameTransform(TransInfo *t,
-                        const eAnimEdit_AutoSnap autosnap,
-                        const float val_initial,
-                        const float val_final,
+                        eAnimEdit_AutoSnap autosnap,
+                        float val_initial,
+                        float val_final,
                         float *r_val_final);
 /**
  * This function is used by Animation Editor specific transform functions to do
@@ -102,5 +88,5 @@ void snapFrameTransform(TransInfo *t,
  */
 void transform_snap_anim_flush_data(TransInfo *t,
                                     TransData *td,
-                                    const eAnimEdit_AutoSnap autosnap,
+                                    eAnimEdit_AutoSnap autosnap,
                                     float *r_val_final);

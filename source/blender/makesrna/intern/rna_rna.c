@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -1465,7 +1451,7 @@ static int rna_property_override_diff_propptr(Main *bmain,
         *r_override_changed = true;
       }
 
-      if (extended_rna_path != extended_rna_path_buffer && extended_rna_path != rna_path) {
+      if (!ELEM(extended_rna_path, extended_rna_path_buffer, rna_path)) {
         MEM_freeN(extended_rna_path);
       }
 
@@ -2311,7 +2297,7 @@ bool rna_property_override_store_default(Main *UNUSED(bmain),
   return changed;
 }
 
-bool rna_property_override_apply_default(Main *UNUSED(bmain),
+bool rna_property_override_apply_default(Main *bmain,
                                          PointerRNA *ptr_dst,
                                          PointerRNA *ptr_src,
                                          PointerRNA *ptr_storage,
@@ -2332,6 +2318,8 @@ bool rna_property_override_apply_default(Main *UNUSED(bmain),
   const bool is_array = len_dst > 0;
   const int index = is_array ? opop->subitem_reference_index : 0;
   const short override_op = opop->operation;
+
+  bool ret_success = true;
 
   switch (RNA_property_type(prop_dst)) {
     case PROP_BOOLEAN:
@@ -2369,7 +2357,7 @@ bool rna_property_override_apply_default(Main *UNUSED(bmain),
             return false;
         }
       }
-      return true;
+      break;
     case PROP_INT:
       if (is_array && index == -1) {
         int array_stack_a[RNA_STACK_ARRAY], array_stack_b[RNA_STACK_ARRAY];
@@ -2448,7 +2436,7 @@ bool rna_property_override_apply_default(Main *UNUSED(bmain),
             return false;
         }
       }
-      return true;
+      break;
     case PROP_FLOAT:
       if (is_array && index == -1) {
         float array_stack_a[RNA_STACK_ARRAY], array_stack_b[RNA_STACK_ARRAY];
@@ -2541,7 +2529,7 @@ bool rna_property_override_apply_default(Main *UNUSED(bmain),
             return false;
         }
       }
-      return true;
+      break;
     case PROP_ENUM: {
       const int value = RNA_property_enum_get(ptr_src, prop_src);
 
@@ -2554,7 +2542,7 @@ bool rna_property_override_apply_default(Main *UNUSED(bmain),
           BLI_assert_msg(0, "Unsupported RNA override operation on enum");
           return false;
       }
-      return true;
+      break;
     }
     case PROP_POINTER: {
       PointerRNA value = RNA_property_pointer_get(ptr_src, prop_src);
@@ -2567,7 +2555,7 @@ bool rna_property_override_apply_default(Main *UNUSED(bmain),
           BLI_assert_msg(0, "Unsupported RNA override operation on pointer");
           return false;
       }
-      return true;
+      break;
     }
     case PROP_STRING: {
       char buff[256];
@@ -2585,7 +2573,7 @@ bool rna_property_override_apply_default(Main *UNUSED(bmain),
       if (value != buff) {
         MEM_freeN(value);
       }
-      return true;
+      break;
     }
     case PROP_COLLECTION: {
       /* We only support IDProperty-based collection insertion here. */
@@ -2650,19 +2638,27 @@ bool rna_property_override_apply_default(Main *UNUSED(bmain),
           IDProperty *item_idprop_dst = item_ptr_dst.data;
           IDP_CopyPropertyContent(item_idprop_dst, item_idprop_src);
 
-          return RNA_property_collection_move(ptr_dst, prop_dst, item_index_added, item_index_dst);
+          ret_success = RNA_property_collection_move(
+              ptr_dst, prop_dst, item_index_added, item_index_dst);
+          break;
         }
         default:
           BLI_assert_msg(0, "Unsupported RNA override operation on collection");
           return false;
       }
+      break;
     }
     default:
       BLI_assert(0);
       return false;
   }
 
-  return false;
+  /* Default apply callback always call property update. */
+  if (ret_success) {
+    RNA_property_update_main(bmain, NULL, ptr_dst, prop_dst);
+  }
+
+  return ret_success;
 }
 
 #  undef RNA_PROPERTY_GET_SINGLE
@@ -2984,14 +2980,14 @@ static void rna_def_function(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "No Self",
-      "Function does not pass its self as an argument (becomes a static method in python)");
+      "Function does not pass itself as an argument (becomes a static method in python)");
 
   prop = RNA_def_property(srna, "use_self_type", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_boolean_funcs(prop, "rna_Function_use_self_type_get", NULL);
   RNA_def_property_ui_text(prop,
                            "Use Self Type",
-                           "Function passes its self type as an argument (becomes a class method "
+                           "Function passes itself type as an argument (becomes a class method "
                            "in python if use_self is false)");
 }
 
@@ -3117,7 +3113,11 @@ static void rna_def_number_property(StructRNA *srna, PropertyType type)
     prop = RNA_def_property(srna, "precision", PROP_INT, PROP_UNSIGNED);
     RNA_def_property_clear_flag(prop, PROP_EDITABLE);
     RNA_def_property_int_funcs(prop, "rna_FloatProperty_precision_get", NULL, NULL);
-    RNA_def_property_ui_text(prop, "Precision", "Number of digits after the dot used by buttons");
+    RNA_def_property_ui_text(prop,
+                             "Precision",
+                             "Number of digits after the dot used by buttons. Fraction is "
+                             "automatically hidden for exact integer values of fields with unit "
+                             "'NONE' or 'TIME' (frame count) and step divisible by 100");
   }
 }
 

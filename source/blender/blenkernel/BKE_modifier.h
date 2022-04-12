@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -184,7 +170,7 @@ typedef struct ModifierTypeInfo {
    *
    * \param flag: Copying options (see BKE_lib_id.h's LIB_ID_COPY_... flags for more).
    */
-  void (*copyData)(const struct ModifierData *md, struct ModifierData *target, const int flag);
+  void (*copyData)(const struct ModifierData *md, struct ModifierData *target, int flag);
 
   /********************* Deform modifier functions *********************/
 
@@ -244,10 +230,6 @@ typedef struct ModifierTypeInfo {
   struct Mesh *(*modifyMesh)(struct ModifierData *md,
                              const struct ModifierEvalContext *ctx,
                              struct Mesh *mesh);
-
-  struct Hair *(*modifyHair)(struct ModifierData *md,
-                             const struct ModifierEvalContext *ctx,
-                             struct Hair *hair);
 
   /**
    * The modifier has to change the geometry set in-place. The geometry set can contain zero or
@@ -319,10 +301,8 @@ typedef struct ModifierTypeInfo {
    * changes.
    *
    * This function is optional (assumes false if not present).
-   *
-   * The dag_eval_mode should be of type eEvaluationMode.
    */
-  bool (*dependsOnTime)(struct Scene *scene, struct ModifierData *md, const int dag_eval_mode);
+  bool (*dependsOnTime)(struct Scene *scene, struct ModifierData *md);
 
   /**
    * True when a deform modifier uses normals, the requiredDataMask
@@ -415,7 +395,7 @@ void BKE_modifier_panel_expand(struct ModifierData *md);
  */
 struct ModifierData *BKE_modifier_new(int type);
 
-void BKE_modifier_free_ex(struct ModifierData *md, const int flag);
+void BKE_modifier_free_ex(struct ModifierData *md, int flag);
 void BKE_modifier_free(struct ModifierData *md);
 /**
  * Use instead of `BLI_remlink` when the object's active modifier should change.
@@ -427,17 +407,19 @@ void BKE_modifier_session_uuid_generate(struct ModifierData *md);
 
 bool BKE_modifier_unique_name(struct ListBase *modifiers, struct ModifierData *md);
 
+struct ModifierData *BKE_modifier_copy_ex(const struct ModifierData *md, int flag);
+
 /**
  * Callback's can use this to avoid copying every member.
  */
 void BKE_modifier_copydata_generic(const struct ModifierData *md,
                                    struct ModifierData *md_dst,
-                                   const int flag);
-void BKE_modifier_copydata(struct ModifierData *md, struct ModifierData *target);
-void BKE_modifier_copydata_ex(struct ModifierData *md,
+                                   int flag);
+void BKE_modifier_copydata(const struct ModifierData *md, struct ModifierData *target);
+void BKE_modifier_copydata_ex(const struct ModifierData *md,
                               struct ModifierData *target,
-                              const int flag);
-bool BKE_modifier_depends_ontime(struct Scene *scene, struct ModifierData *md, int dag_eval_mode);
+                              int flag);
+bool BKE_modifier_depends_ontime(struct Scene *scene, struct ModifierData *md);
 bool BKE_modifier_supports_mapping(struct ModifierData *md);
 bool BKE_modifier_supports_cage(struct Scene *scene, struct ModifierData *md);
 bool BKE_modifier_couldbe_cage(struct Scene *scene, struct ModifierData *md);
@@ -472,6 +454,8 @@ void BKE_modifiers_foreach_tex_link(struct Object *ob, TexWalkFunc walk, void *u
 
 struct ModifierData *BKE_modifiers_findby_type(const struct Object *ob, ModifierType type);
 struct ModifierData *BKE_modifiers_findby_name(const struct Object *ob, const char *name);
+struct ModifierData *BKE_modifiers_findby_session_uuid(const struct Object *ob,
+                                                       const SessionUUID *session_uuid);
 void BKE_modifiers_clear_errors(struct Object *ob);
 /**
  * used for buttons, to find out if the 'draw deformed in edit-mode option is there.
@@ -570,7 +554,8 @@ const char *BKE_modifier_path_relbase_from_global(struct Object *ob);
  * For a given modifier data, get corresponding original one.
  * If the modifier data is already original, return it as-is.
  */
-struct ModifierData *BKE_modifier_get_original(struct ModifierData *md);
+struct ModifierData *BKE_modifier_get_original(const struct Object *object,
+                                               struct ModifierData *md);
 struct ModifierData *BKE_modifier_get_evaluated(struct Depsgraph *depsgraph,
                                                 struct Object *object,
                                                 struct ModifierData *md);
@@ -604,7 +589,7 @@ void BKE_modifier_deform_vertsEM(ModifierData *md,
  * (i.e. mesh topology remains the same as original one, a.k.a. 'cage' mesh).
  */
 struct Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(struct Object *ob_eval,
-                                                                   const bool get_cage_mesh);
+                                                                   bool get_cage_mesh);
 
 void BKE_modifier_check_uuids_unique_and_report(const struct Object *object);
 

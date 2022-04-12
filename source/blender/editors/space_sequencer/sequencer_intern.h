@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spseq
@@ -33,18 +17,41 @@ struct ARegionType;
 struct Depsgraph;
 struct Main;
 struct Scene;
-struct Sequence;
 struct SeqCollection;
+struct Sequence;
 struct SpaceSeq;
 struct StripElem;
+struct View2D;
 struct bContext;
 struct rctf;
-struct View2D;
 struct wmOperator;
+struct ScrArea;
+struct Editing;
+struct ListBase;
 
 #define OVERLAP_ALPHA 180
 
+typedef struct SeqChannelDrawContext {
+  const struct bContext *C;
+  struct ScrArea *area;
+  struct ARegion *region;
+  struct ARegion *timeline_region;
+  struct View2D *v2d;
+  struct View2D *timeline_region_v2d;
+
+  struct Scene *scene;
+  struct Editing *ed;
+  struct ListBase *seqbase;  /* Displayed seqbase. */
+  struct ListBase *channels; /* Displayed channels. */
+
+  float draw_offset;
+  float channel_height;
+  float frame_width;
+  float scale;
+} SeqChannelDrawContext;
+
 /* sequencer_draw.c */
+
 void draw_timeline_seq(const struct bContext *C, struct ARegion *region);
 void draw_timeline_seq_display(const struct bContext *C, struct ARegion *region);
 void sequencer_draw_preview(const struct bContext *C,
@@ -57,12 +64,12 @@ void sequencer_draw_preview(const struct bContext *C,
                             bool draw_backdrop);
 void color3ubv_from_seq(const struct Scene *curscene,
                         const struct Sequence *seq,
-                        const bool show_strip_color_tag,
+                        bool show_strip_color_tag,
                         uchar r_col[3]);
 
 void sequencer_special_update_set(Sequence *seq);
 /* Get handle width in 2d-View space. */
-float sequence_handle_size_get_clamped(struct Sequence *seq, const float pixelx);
+float sequence_handle_size_get_clamped(struct Sequence *seq, float pixelx);
 
 /* UNUSED */
 /* void seq_reset_imageofs(struct SpaceSeq *sseq); */
@@ -84,6 +91,7 @@ struct ImBuf *sequencer_ibuf_get(struct Main *bmain,
                                  const char *viewname);
 
 /* sequencer_thumbnails.c */
+
 void last_displayed_thumbnails_list_free(void *val);
 void draw_seq_strip_thumbnail(struct View2D *v2d,
                               const struct bContext *C,
@@ -94,7 +102,15 @@ void draw_seq_strip_thumbnail(struct View2D *v2d,
                               float pixelx,
                               float pixely);
 
+/* sequencer_draw_channels.c */
+
+void draw_channels(const struct bContext *C, struct ARegion *region);
+void channel_draw_context_init(const struct bContext *C,
+                               struct ARegion *region,
+                               struct SeqChannelDrawContext *r_context);
+
 /* sequencer_edit.c */
+
 struct View2D;
 void seq_rectf(struct Sequence *seq, struct rctf *rectf);
 struct Sequence *find_nearest_seq(struct Scene *scene,
@@ -197,6 +213,7 @@ void SEQUENCER_OT_strip_color_tag_set(struct wmOperatorType *ot);
 void SEQUENCER_OT_cursor_set(struct wmOperatorType *ot);
 
 /* sequencer_select.c */
+
 void SEQUENCER_OT_select_all(struct wmOperatorType *ot);
 void SEQUENCER_OT_select(struct wmOperatorType *ot);
 void SEQUENCER_OT_select_side_of_frame(struct wmOperatorType *ot);
@@ -211,6 +228,7 @@ void SEQUENCER_OT_select_inverse(struct wmOperatorType *ot);
 void SEQUENCER_OT_select_grouped(struct wmOperatorType *ot);
 
 /* sequencer_add.c */
+
 void SEQUENCER_OT_scene_strip_add(struct wmOperatorType *ot);
 void SEQUENCER_OT_movie_strip_add(struct wmOperatorType *ot);
 void SEQUENCER_OT_movieclip_strip_add(struct wmOperatorType *ot);
@@ -220,10 +238,12 @@ void SEQUENCER_OT_image_strip_add(struct wmOperatorType *ot);
 void SEQUENCER_OT_effect_strip_add(struct wmOperatorType *ot);
 
 /* sequencer_ops.c */
+
 void sequencer_operatortypes(void);
 void sequencer_keymap(struct wmKeyConfig *keyconf);
 
 /* sequencer_scope.c */
+
 struct ImBuf *make_waveform_view_from_ibuf(struct ImBuf *ibuf);
 struct ImBuf *make_sep_waveform_view_from_ibuf(struct ImBuf *ibuf);
 struct ImBuf *make_vectorscope_view_from_ibuf(struct ImBuf *ibuf);
@@ -231,15 +251,18 @@ struct ImBuf *make_zebra_view_from_ibuf(struct ImBuf *ibuf, float perc);
 struct ImBuf *make_histogram_view_from_ibuf(struct ImBuf *ibuf);
 
 /* sequencer_buttons.c */
+
 void sequencer_buttons_register(struct ARegionType *art);
 
 /* sequencer_modifiers.c */
+
 void SEQUENCER_OT_strip_modifier_add(struct wmOperatorType *ot);
 void SEQUENCER_OT_strip_modifier_remove(struct wmOperatorType *ot);
 void SEQUENCER_OT_strip_modifier_move(struct wmOperatorType *ot);
 void SEQUENCER_OT_strip_modifier_copy(struct wmOperatorType *ot);
 
 /* sequencer_view.c */
+
 void SEQUENCER_OT_sample(struct wmOperatorType *ot);
 void SEQUENCER_OT_view_all(struct wmOperatorType *ot);
 void SEQUENCER_OT_view_frame(struct wmOperatorType *ot);
@@ -248,10 +271,16 @@ void SEQUENCER_OT_view_zoom_ratio(struct wmOperatorType *ot);
 void SEQUENCER_OT_view_selected(struct wmOperatorType *ot);
 void SEQUENCER_OT_view_ghost_border(struct wmOperatorType *ot);
 
+/* sequencer_channels_edit.c */
+
+void SEQUENCER_OT_rename_channel(struct wmOperatorType *ot);
+
 /* sequencer_preview.c */
+
 void sequencer_preview_add_sound(const struct bContext *C, struct Sequence *seq);
 
 /* sequencer_add.c */
+
 int sequencer_image_seq_get_minmax_frame(struct wmOperator *op,
                                          int sfra,
                                          int *r_minframe,

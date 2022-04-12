@@ -1,18 +1,6 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+#include "BLI_task.hh"
 
 #include "DNA_ID_enums.h"
 #include "DNA_curve_types.h"
@@ -26,27 +14,27 @@
 
 #include "attribute_access_intern.hh"
 
-using blender::fn::GMutableSpan;
-using blender::fn::GSpan;
-using blender::fn::GVArray;
-using blender::fn::GVArray_GSpan;
+using blender::GMutableSpan;
+using blender::GSpan;
+using blender::GVArray;
+using blender::GVArray_GSpan;
 
 /* -------------------------------------------------------------------- */
 /** \name Geometry Component Implementation
  * \{ */
 
-CurveComponent::CurveComponent() : GeometryComponent(GEO_COMPONENT_TYPE_CURVE)
+CurveComponentLegacy::CurveComponentLegacy() : GeometryComponent(GEO_COMPONENT_TYPE_CURVE)
 {
 }
 
-CurveComponent::~CurveComponent()
+CurveComponentLegacy::~CurveComponentLegacy()
 {
   this->clear();
 }
 
-GeometryComponent *CurveComponent::copy() const
+GeometryComponent *CurveComponentLegacy::copy() const
 {
-  CurveComponent *new_component = new CurveComponent();
+  CurveComponentLegacy *new_component = new CurveComponentLegacy();
   if (curve_ != nullptr) {
     new_component->curve_ = new CurveEval(*curve_);
     new_component->ownership_ = GeometryOwnershipType::Owned;
@@ -54,30 +42,23 @@ GeometryComponent *CurveComponent::copy() const
   return new_component;
 }
 
-void CurveComponent::clear()
+void CurveComponentLegacy::clear()
 {
   BLI_assert(this->is_mutable());
   if (curve_ != nullptr) {
     if (ownership_ == GeometryOwnershipType::Owned) {
       delete curve_;
     }
-    if (curve_for_render_ != nullptr) {
-      /* The curve created by this component should not have any edit mode data. */
-      BLI_assert(curve_for_render_->editfont == nullptr && curve_for_render_->editnurb == nullptr);
-      BKE_id_free(nullptr, curve_for_render_);
-      curve_for_render_ = nullptr;
-    }
-
     curve_ = nullptr;
   }
 }
 
-bool CurveComponent::has_curve() const
+bool CurveComponentLegacy::has_curve() const
 {
   return curve_ != nullptr;
 }
 
-void CurveComponent::replace(CurveEval *curve, GeometryOwnershipType ownership)
+void CurveComponentLegacy::replace(CurveEval *curve, GeometryOwnershipType ownership)
 {
   BLI_assert(this->is_mutable());
   this->clear();
@@ -85,7 +66,7 @@ void CurveComponent::replace(CurveEval *curve, GeometryOwnershipType ownership)
   ownership_ = ownership;
 }
 
-CurveEval *CurveComponent::release()
+CurveEval *CurveComponentLegacy::release()
 {
   BLI_assert(this->is_mutable());
   CurveEval *curve = curve_;
@@ -93,12 +74,12 @@ CurveEval *CurveComponent::release()
   return curve;
 }
 
-const CurveEval *CurveComponent::get_for_read() const
+const CurveEval *CurveComponentLegacy::get_for_read() const
 {
   return curve_;
 }
 
-CurveEval *CurveComponent::get_for_write()
+CurveEval *CurveComponentLegacy::get_for_write()
 {
   BLI_assert(this->is_mutable());
   if (ownership_ == GeometryOwnershipType::ReadOnly) {
@@ -108,17 +89,17 @@ CurveEval *CurveComponent::get_for_write()
   return curve_;
 }
 
-bool CurveComponent::is_empty() const
+bool CurveComponentLegacy::is_empty() const
 {
   return curve_ == nullptr;
 }
 
-bool CurveComponent::owns_direct_data() const
+bool CurveComponentLegacy::owns_direct_data() const
 {
   return ownership_ == GeometryOwnershipType::Owned;
 }
 
-void CurveComponent::ensure_owns_direct_data()
+void CurveComponentLegacy::ensure_owns_direct_data()
 {
   BLI_assert(this->is_mutable());
   if (ownership_ != GeometryOwnershipType::Owned) {
@@ -127,32 +108,13 @@ void CurveComponent::ensure_owns_direct_data()
   }
 }
 
-const Curve *CurveComponent::get_curve_for_render() const
-{
-  if (curve_ == nullptr) {
-    return nullptr;
-  }
-  if (curve_for_render_ != nullptr) {
-    return curve_for_render_;
-  }
-  std::lock_guard lock{curve_for_render_mutex_};
-  if (curve_for_render_ != nullptr) {
-    return curve_for_render_;
-  }
-
-  curve_for_render_ = (Curve *)BKE_id_new_nomain(ID_CU, nullptr);
-  curve_for_render_->curve_eval = curve_;
-
-  return curve_for_render_;
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
 /** \name Attribute Access Helper Functions
  * \{ */
 
-int CurveComponent::attribute_domain_size(const AttributeDomain domain) const
+int CurveComponentLegacy::attribute_domain_size(const AttributeDomain domain) const
 {
   if (curve_ == nullptr) {
     return 0;
@@ -346,9 +308,10 @@ static GVArray adapt_curve_domain_spline_to_point(const CurveEval &curve, GVArra
 
 }  // namespace blender::bke
 
-GVArray CurveComponent::attribute_try_adapt_domain_impl(const GVArray &varray,
-                                                        const AttributeDomain from_domain,
-                                                        const AttributeDomain to_domain) const
+GVArray CurveComponentLegacy::attribute_try_adapt_domain_impl(
+    const GVArray &varray,
+    const AttributeDomain from_domain,
+    const AttributeDomain to_domain) const
 {
   if (!varray) {
     return {};
@@ -373,14 +336,15 @@ GVArray CurveComponent::attribute_try_adapt_domain_impl(const GVArray &varray,
 static CurveEval *get_curve_from_component_for_write(GeometryComponent &component)
 {
   BLI_assert(component.type() == GEO_COMPONENT_TYPE_CURVE);
-  CurveComponent &curve_component = static_cast<CurveComponent &>(component);
+  CurveComponentLegacy &curve_component = static_cast<CurveComponentLegacy &>(component);
   return curve_component.get_for_write();
 }
 
 static const CurveEval *get_curve_from_component_for_read(const GeometryComponent &component)
 {
   BLI_assert(component.type() == GEO_COMPONENT_TYPE_CURVE);
-  const CurveComponent &curve_component = static_cast<const CurveComponent &>(component);
+  const CurveComponentLegacy &curve_component = static_cast<const CurveComponentLegacy &>(
+      component);
   return curve_component.get_for_read();
 }
 
@@ -797,15 +761,7 @@ class VArrayImpl_For_SplinePosition final : public VMutableArrayImpl<float3> {
   {
     const PointIndices indices = lookup_point_indices(offsets_, index);
     Spline &spline = *splines_[indices.spline_index];
-    if (BezierSpline *bezier_spline = dynamic_cast<BezierSpline *>(&spline)) {
-      const float3 delta = value - bezier_spline->positions()[indices.point_index];
-      bezier_spline->handle_positions_left()[indices.point_index] += delta;
-      bezier_spline->handle_positions_right()[indices.point_index] += delta;
-      bezier_spline->positions()[indices.point_index] = value;
-    }
-    else {
-      spline.positions()[indices.point_index] = value;
-    }
+    spline.positions()[indices.point_index] = value;
   }
 
   void set_all(Span<float3> src) final
@@ -814,20 +770,7 @@ class VArrayImpl_For_SplinePosition final : public VMutableArrayImpl<float3> {
       Spline &spline = *splines_[spline_index];
       const int offset = offsets_[spline_index];
       const int next_offset = offsets_[spline_index + 1];
-      if (BezierSpline *bezier_spline = dynamic_cast<BezierSpline *>(&spline)) {
-        MutableSpan<float3> positions = bezier_spline->positions();
-        MutableSpan<float3> handle_positions_left = bezier_spline->handle_positions_left();
-        MutableSpan<float3> handle_positions_right = bezier_spline->handle_positions_right();
-        for (const int i : IndexRange(next_offset - offset)) {
-          const float3 delta = src[offset + i] - positions[i];
-          handle_positions_left[i] += delta;
-          handle_positions_right[i] += delta;
-          positions[i] = src[offset + i];
-        }
-      }
-      else {
-        spline.positions().copy_from(src.slice(offset, next_offset - offset));
-      }
+      spline.positions().copy_from(src.slice(offset, next_offset - offset));
     }
   }
 
@@ -875,7 +818,7 @@ class VArrayImpl_For_BezierHandles final : public VMutableArrayImpl<float3> {
   {
     const PointIndices indices = lookup_point_indices(offsets_, index);
     const Spline &spline = *splines_[indices.spline_index];
-    if (spline.type() == Spline::Type::Bezier) {
+    if (spline.type() == CURVE_TYPE_BEZIER) {
       const BezierSpline &bezier_spline = static_cast<const BezierSpline &>(spline);
       return is_right_ ? bezier_spline.handle_positions_right()[indices.point_index] :
                          bezier_spline.handle_positions_left()[indices.point_index];
@@ -887,13 +830,13 @@ class VArrayImpl_For_BezierHandles final : public VMutableArrayImpl<float3> {
   {
     const PointIndices indices = lookup_point_indices(offsets_, index);
     Spline &spline = *splines_[indices.spline_index];
-    if (spline.type() == Spline::Type::Bezier) {
+    if (spline.type() == CURVE_TYPE_BEZIER) {
       BezierSpline &bezier_spline = static_cast<BezierSpline &>(spline);
       if (is_right_) {
-        bezier_spline.set_handle_position_right(indices.point_index, value);
+        bezier_spline.handle_positions_right()[indices.point_index] = value;
       }
       else {
-        bezier_spline.set_handle_position_left(indices.point_index, value);
+        bezier_spline.handle_positions_left()[indices.point_index] = value;
       }
       bezier_spline.mark_cache_invalid();
     }
@@ -903,18 +846,18 @@ class VArrayImpl_For_BezierHandles final : public VMutableArrayImpl<float3> {
   {
     for (const int spline_index : splines_.index_range()) {
       Spline &spline = *splines_[spline_index];
-      if (spline.type() == Spline::Type::Bezier) {
+      if (spline.type() == CURVE_TYPE_BEZIER) {
         const int offset = offsets_[spline_index];
 
         BezierSpline &bezier_spline = static_cast<BezierSpline &>(spline);
         if (is_right_) {
           for (const int i : IndexRange(bezier_spline.size())) {
-            bezier_spline.set_handle_position_right(i, src[offset + i]);
+            bezier_spline.handle_positions_right()[i] = src[offset + i];
           }
         }
         else {
           for (const int i : IndexRange(bezier_spline.size())) {
-            bezier_spline.set_handle_position_left(i, src[offset + i]);
+            bezier_spline.handle_positions_left()[i] = src[offset + i];
           }
         }
         bezier_spline.mark_cache_invalid();
@@ -944,7 +887,7 @@ class VArrayImpl_For_BezierHandles final : public VMutableArrayImpl<float3> {
   {
     Array<Span<float3>> spans(splines.size());
     for (const int i : spans.index_range()) {
-      if (splines[i]->type() == Spline::Type::Bezier) {
+      if (splines[i]->type() == CURVE_TYPE_BEZIER) {
         BezierSpline &bezier_spline = static_cast<BezierSpline &>(*splines[i]);
         spans[i] = is_right ? bezier_spline.handle_positions_right() :
                               bezier_spline.handle_positions_left();
@@ -1134,7 +1077,7 @@ class PositionAttributeProvider final : public BuiltinPointAttributeProvider<flo
 
     /* Use the regular position virtual array when there aren't any Bezier splines
      * to avoid the overhead of checking the spline type for every point. */
-    if (!curve->has_spline_with_type(Spline::Type::Bezier)) {
+    if (!curve->has_spline_with_type(CURVE_TYPE_BEZIER)) {
       return BuiltinPointAttributeProvider<float3>::try_get_for_write(component);
     }
 
@@ -1175,7 +1118,7 @@ class BezierHandleAttributeProvider : public BuiltinAttributeProvider {
       return {};
     }
 
-    if (!curve->has_spline_with_type(Spline::Type::Bezier)) {
+    if (!curve->has_spline_with_type(CURVE_TYPE_BEZIER)) {
       return {};
     }
 
@@ -1193,7 +1136,7 @@ class BezierHandleAttributeProvider : public BuiltinAttributeProvider {
       return {};
     }
 
-    if (!curve->has_spline_with_type(Spline::Type::Bezier)) {
+    if (!curve->has_spline_with_type(CURVE_TYPE_BEZIER)) {
       return {};
     }
 
@@ -1224,7 +1167,7 @@ class BezierHandleAttributeProvider : public BuiltinAttributeProvider {
       return false;
     }
 
-    return curve->has_spline_with_type(Spline::Type::Bezier) &&
+    return curve->has_spline_with_type(CURVE_TYPE_BEZIER) &&
            component.attribute_domain_size(ATTR_DOMAIN_POINT) != 0;
   }
 };
@@ -1244,7 +1187,8 @@ class DynamicPointAttributeProvider final : public DynamicAttributesProvider {
  private:
   static constexpr uint64_t supported_types_mask = CD_MASK_PROP_FLOAT | CD_MASK_PROP_FLOAT2 |
                                                    CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 |
-                                                   CD_MASK_PROP_COLOR | CD_MASK_PROP_BOOL;
+                                                   CD_MASK_PROP_COLOR | CD_MASK_PROP_BOOL |
+                                                   CD_MASK_PROP_INT8;
 
  public:
   ReadAttributeLookup try_get_for_read(const GeometryComponent &component,
@@ -1489,7 +1433,8 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
 
 }  // namespace blender::bke
 
-const blender::bke::ComponentAttributeProviders *CurveComponent::get_attribute_providers() const
+const blender::bke::ComponentAttributeProviders *CurveComponentLegacy::get_attribute_providers()
+    const
 {
   static blender::bke::ComponentAttributeProviders providers =
       blender::bke::create_attribute_providers_for_curve();

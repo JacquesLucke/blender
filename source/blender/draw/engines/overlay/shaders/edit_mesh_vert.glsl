@@ -1,23 +1,13 @@
 
-uniform sampler2D depthTex;
-uniform float alpha = 1.0;
-uniform ivec4 dataMask = ivec4(0xFF);
+#pragma BLENDER_REQUIRE(common_view_clipping_lib.glsl)
+#pragma BLENDER_REQUIRE(common_view_lib.glsl)
+#pragma BLENDER_REQUIRE(edit_mesh_common_lib.glsl)
 
-in ivec4 data;
-in vec3 pos;
-#ifndef FACEDOT
-in vec3 vnor;
-#else
-in vec4 norAndFlag;
-#  define vnor norAndFlag.xyz
-#endif
-
-out vec4 finalColor;
 #ifdef EDGE
-out vec4 finalColorOuter;
-#endif
-#ifdef USE_GEOM_SHADER
-out int selectOverride;
+/* Ugly but needed to keep the same vertex shader code for other passes. */
+#  define finalColor geometry_in.finalColor_
+#  define finalColorOuter geometry_in.finalColorOuter_
+#  define selectOverride geometry_in.selectOverride_
 #endif
 
 bool test_occlusion()
@@ -44,8 +34,9 @@ void main()
   ivec4 m_data = data & dataMask;
 
 #if defined(VERT)
-  finalColor = EDIT_MESH_vertex_color(m_data.y);
-  gl_PointSize = sizeVertex * 2.0;
+  vertexCrease = float(m_data.z >> 4) / 15.0;
+  finalColor = EDIT_MESH_vertex_color(m_data.y, vertexCrease);
+  gl_PointSize = sizeVertex * ((vertexCrease > 0.0) ? 3.0 : 2.0);
   /* Make selected and active vertex always on top. */
   if ((data.x & VERT_SELECTED) != 0) {
     gl_Position.z -= 5e-7 * abs(gl_Position.w);
@@ -65,9 +56,9 @@ void main()
   selectOverride = (m_data.y & EDGE_SELECTED);
 #  endif
 
-  float crease = float(m_data.z) / 255.0;
+  float edge_crease = float(m_data.z & 0xF) / 15.0;
   float bweight = float(m_data.w) / 255.0;
-  finalColorOuter = EDIT_MESH_edge_color_outer(m_data.y, m_data.x, crease, bweight);
+  finalColorOuter = EDIT_MESH_edge_color_outer(m_data.y, m_data.x, edge_crease, bweight);
 
   if (finalColorOuter.a > 0.0) {
     gl_Position.z -= 5e-7 * abs(gl_Position.w);
@@ -104,7 +95,5 @@ void main()
   finalColor.rgb = non_linear_blend_color(colorEditMeshMiddle.rgb, finalColor.rgb, facing);
 #endif
 
-#ifdef USE_WORLD_CLIP_PLANES
-  world_clip_planes_calc_clip_distance(world_pos);
-#endif
+  view_clipping_distances(world_pos);
 }

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2010 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2010 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -226,12 +210,34 @@ void wm_drags_exit(wmWindowManager *wm, wmWindow *win)
   }
 }
 
-void WM_event_drag_image(wmDrag *drag, ImBuf *imb, float scale, int sx, int sy)
+static bContextStore *wm_drop_ui_context_create(const bContext *C)
+{
+  uiBut *active_but = UI_region_active_but_get(CTX_wm_region(C));
+  if (!active_but) {
+    return NULL;
+  }
+
+  bContextStore *but_context = UI_but_context_get(active_but);
+  if (!but_context) {
+    return NULL;
+  }
+
+  return CTX_store_copy(but_context);
+}
+
+static void wm_drop_ui_context_free(bContextStore **context_store)
+{
+  if (!*context_store) {
+    return;
+  }
+  CTX_store_free(*context_store);
+  *context_store = NULL;
+}
+
+void WM_event_drag_image(wmDrag *drag, ImBuf *imb, float scale)
 {
   drag->imb = imb;
-  drag->scale = scale;
-  drag->sx = sx;
-  drag->sy = sy;
+  drag->imbuf_scale = scale;
 }
 
 void WM_drag_data_free(int dragtype, void *poin)
@@ -259,6 +265,7 @@ void WM_drag_free(wmDrag *drag)
   if (drag->flags & WM_DRAG_FREE_DATA) {
     WM_drag_data_free(drag->type, drag->poin);
   }
+  wm_drop_ui_context_free(&drag->drop_state.ui_context);
   if (drag->drop_state.free_disabled_info) {
     MEM_SAFE_FREE(drag->drop_state.disabled_info);
   }
@@ -309,6 +316,10 @@ static wmDropBox *dropbox_active(bContext *C,
       wmEventHandler_Dropbox *handler = (wmEventHandler_Dropbox *)handler_base;
       if (handler->dropboxes) {
         LISTBASE_FOREACH (wmDropBox *, drop, handler->dropboxes) {
+          if (drag->drop_state.ui_context) {
+            CTX_store_set(C, drag->drop_state.ui_context);
+          }
+
           if (!drop->poll(C, drag, event)) {
             /* If the drop's poll fails, don't set the disabled-info. This would be too aggressive.
              * Instead show it only if the drop box could be used in principle, but the operator
@@ -318,6 +329,7 @@ static wmDropBox *dropbox_active(bContext *C,
 
           const wmOperatorCallContext opcontext = wm_drop_operator_context_get(drop);
           if (WM_operator_poll_context(C, drop->ot, opcontext)) {
+            CTX_store_set(C, NULL);
             return drop;
           }
 
@@ -333,6 +345,7 @@ static wmDropBox *dropbox_active(bContext *C,
       }
     }
   }
+  CTX_store_set(C, NULL);
   return NULL;
 }
 
@@ -367,6 +380,10 @@ static void wm_drop_update_active(bContext *C, wmDrag *drag, const wmEvent *even
     return;
   }
 
+  /* Update UI context, before polling so polls can query this context. */
+  wm_drop_ui_context_free(&drag->drop_state.ui_context);
+  drag->drop_state.ui_context = wm_drop_ui_context_create(C);
+
   wmDropBox *drop_prev = drag->drop_state.active_dropbox;
   wmDropBox *drop = wm_dropbox_active(C, drag, event);
   if (drop != drop_prev) {
@@ -381,11 +398,20 @@ static void wm_drop_update_active(bContext *C, wmDrag *drag, const wmEvent *even
     drag->drop_state.area_from = drop ? CTX_wm_area(C) : NULL;
     drag->drop_state.region_from = drop ? CTX_wm_region(C) : NULL;
   }
+
+  if (!drag->drop_state.active_dropbox) {
+    wm_drop_ui_context_free(&drag->drop_state.ui_context);
+  }
 }
 
 void wm_drop_prepare(bContext *C, wmDrag *drag, wmDropBox *drop)
 {
   const wmOperatorCallContext opcontext = wm_drop_operator_context_get(drop);
+
+  if (drag->drop_state.ui_context) {
+    CTX_store_set(C, drag->drop_state.ui_context);
+  }
+
   /* Optionally copy drag information to operator properties. Don't call it if the
    * operator fails anyway, it might do more than just set properties (e.g.
    * typically import an asset). */
@@ -394,6 +420,11 @@ void wm_drop_prepare(bContext *C, wmDrag *drag, wmDropBox *drop)
   }
 
   wm_drags_exit(CTX_wm_manager(C), CTX_wm_window(C));
+}
+
+void wm_drop_end(bContext *C, wmDrag *UNUSED(drag), wmDropBox *UNUSED(drop))
+{
+  CTX_store_set(C, NULL);
 }
 
 void wm_drags_check_ops(bContext *C, const wmEvent *event)
@@ -620,8 +651,12 @@ void WM_drag_free_imported_drag_ID(struct Main *bmain, wmDrag *drag, wmDropBox *
   }
 
   ID *id = BKE_libblock_find_name(bmain, asset_drag->id_type, name);
-  if (id) {
-    BKE_id_delete(bmain, id);
+  if (id != NULL) {
+    /* Do not delete the dragged ID if it has any user, otherwise if it is a 're-used' ID it will
+     * cause T95636. Note that we need first to add the user that we want to remove in
+     * #BKE_id_free_us. */
+    id_us_plus(id);
+    BKE_id_free_us(bmain, id);
   }
 }
 
@@ -730,6 +765,16 @@ const char *WM_drag_get_item_name(wmDrag *drag)
   return "";
 }
 
+static int wm_drag_imbuf_icon_width_get(const wmDrag *drag)
+{
+  return round_fl_to_int(drag->imb->x * drag->imbuf_scale);
+}
+
+static int wm_drag_imbuf_icon_height_get(const wmDrag *drag)
+{
+  return round_fl_to_int(drag->imb->y * drag->imbuf_scale);
+}
+
 static void wm_drag_draw_icon(bContext *UNUSED(C),
                               wmWindow *UNUSED(win),
                               wmDrag *drag,
@@ -743,24 +788,24 @@ static void wm_drag_draw_icon(bContext *UNUSED(C),
    * #UI_but_drag_attach_image()). */
 
   if (drag->imb) {
-    x = xy[0] - drag->sx / 2;
-    y = xy[1] - drag->sy / 2;
+    x = xy[0] - (wm_drag_imbuf_icon_width_get(drag) / 2);
+    y = xy[1] - (wm_drag_imbuf_icon_height_get(drag) / 2);
 
     float col[4] = {1.0f, 1.0f, 1.0f, 0.65f}; /* this blends texture */
     IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
-    immDrawPixelsTexScaled(&state,
-                           x,
-                           y,
-                           drag->imb->x,
-                           drag->imb->y,
-                           GPU_RGBA8,
-                           false,
-                           drag->imb->rect,
-                           drag->scale,
-                           drag->scale,
-                           1.0f,
-                           1.0f,
-                           col);
+    immDrawPixelsTexTiled_scaling(&state,
+                                  x,
+                                  y,
+                                  drag->imb->x,
+                                  drag->imb->y,
+                                  GPU_RGBA8,
+                                  false,
+                                  drag->imb->rect,
+                                  drag->imbuf_scale,
+                                  drag->imbuf_scale,
+                                  1.0f,
+                                  1.0f,
+                                  col);
   }
   else {
     int padding = 4 * UI_DPI_FAC;
@@ -813,13 +858,16 @@ static void wm_drag_draw_tooltip(bContext *C, wmWindow *win, wmDrag *drag, const
   const int winsize_y = WM_window_pixels_y(win);
   int x, y;
   if (drag->imb) {
-    x = xy[0] - drag->sx / 2;
+    const int icon_width = wm_drag_imbuf_icon_width_get(drag);
+    const int icon_height = wm_drag_imbuf_icon_height_get(drag);
 
-    if (xy[1] + drag->sy / 2 + padding + iconsize < winsize_y) {
-      y = xy[1] + drag->sy / 2 + padding;
+    x = xy[0] - (icon_width / 2);
+
+    if (xy[1] + (icon_height / 2) + padding + iconsize < winsize_y) {
+      y = xy[1] + (icon_height / 2) + padding;
     }
     else {
-      y = xy[1] - drag->sy / 2 - padding - iconsize - padding - iconsize;
+      y = xy[1] - (icon_height / 2) - padding - iconsize - padding - iconsize;
     }
   }
   else {
@@ -852,8 +900,8 @@ static void wm_drag_draw_default(bContext *C, wmWindow *win, wmDrag *drag, const
   /* Item name. */
   if (drag->imb) {
     int iconsize = UI_DPI_ICON_SIZE;
-    xy_tmp[0] = xy[0] - (drag->sx / 2);
-    xy_tmp[1] = xy[1] - (drag->sy / 2) - iconsize;
+    xy_tmp[0] = xy[0] - (wm_drag_imbuf_icon_width_get(drag) / 2);
+    xy_tmp[1] = xy[1] - (wm_drag_imbuf_icon_height_get(drag) / 2) - iconsize;
   }
   else {
     xy_tmp[0] = xy[0] + 10 * UI_DPI_FAC;
@@ -897,6 +945,7 @@ void wm_drags_draw(bContext *C, wmWindow *win)
     if (drag->drop_state.active_dropbox) {
       CTX_wm_area_set(C, drag->drop_state.area_from);
       CTX_wm_region_set(C, drag->drop_state.region_from);
+      CTX_store_set(C, drag->drop_state.ui_context);
 
       /* Drawing should be allowed to assume the context from handling and polling (that's why we
        * restore it above). */
@@ -915,4 +964,5 @@ void wm_drags_draw(bContext *C, wmWindow *win)
   GPU_blend(GPU_BLEND_NONE);
   CTX_wm_area_set(C, NULL);
   CTX_wm_region_set(C, NULL);
+  CTX_store_set(C, NULL);
 }

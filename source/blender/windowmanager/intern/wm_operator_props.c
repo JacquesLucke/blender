@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -34,6 +18,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "ED_select_utils.h"
 
@@ -73,12 +58,12 @@ static const EnumPropertyItem *wm_operator_properties_filesel_sort_items_itemf(
 }
 
 void WM_operator_properties_filesel(wmOperatorType *ot,
-                                    int filter,
-                                    short type,
-                                    short action,
-                                    short flag,
-                                    short display,
-                                    short sort)
+                                    const int filter,
+                                    const short type,
+                                    const eFileSel_Action action,
+                                    const eFileSel_Flag flag,
+                                    const short display,
+                                    const short sort)
 {
   PropertyRNA *prop;
 
@@ -183,6 +168,9 @@ void WM_operator_properties_filesel(wmOperatorType *ot,
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
   prop = RNA_def_boolean(
       ot->srna, "filter_usd", (filter & FILE_TYPE_USD) != 0, "Filter USD files", "");
+  RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
+  prop = RNA_def_boolean(
+      ot->srna, "filter_obj", (filter & FILE_TYPE_OBJECT_IO) != 0, "Filter OBJ files", "");
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
   prop = RNA_def_boolean(ot->srna,
                          "filter_volume",
@@ -395,7 +383,7 @@ void WM_operator_properties_select_operation(wmOperatorType *ot)
       {SEL_OP_SET, "SET", ICON_SELECT_SET, "Set", "Set a new selection"},
       {SEL_OP_ADD, "ADD", ICON_SELECT_EXTEND, "Extend", "Extend existing selection"},
       {SEL_OP_SUB, "SUB", ICON_SELECT_SUBTRACT, "Subtract", "Subtract existing selection"},
-      {SEL_OP_XOR, "XOR", ICON_SELECT_DIFFERENCE, "Difference", "Inverts existing selection"},
+      {SEL_OP_XOR, "XOR", ICON_SELECT_DIFFERENCE, "Difference", "Invert existing selection"},
       {SEL_OP_AND, "AND", ICON_SELECT_INTERSECT, "Intersect", "Intersect existing selection"},
       {0, NULL, 0, NULL, NULL},
   };
@@ -529,6 +517,14 @@ void WM_operator_properties_mouse_select(wmOperatorType *ot)
                          false,
                          "Deselect On Nothing",
                          "Deselect all when nothing under the cursor");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+  /* TODO: currently only used for the 3D viewport. */
+  prop = RNA_def_boolean(ot->srna,
+                         "select_passthrough",
+                         false,
+                         "Only Select Unselected",
+                         "Ignore the select action when the element is already selected");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup imbuf
@@ -379,7 +363,8 @@ struct IndexBuildContext *IMB_anim_index_rebuild_context(struct anim *anim,
                                                          IMB_Proxy_Size proxy_sizes_in_use,
                                                          int quality,
                                                          const bool overwrite,
-                                                         struct GSet *file_list);
+                                                         struct GSet *file_list,
+                                                         bool build_only_on_bad_performance);
 
 /**
  * Will rebuild all used indices and proxies at once.
@@ -431,6 +416,7 @@ bool IMB_anim_can_produce_frames(const struct anim *anim);
 int ismovie(const char *filepath);
 int IMB_anim_get_image_width(struct anim *anim);
 int IMB_anim_get_image_height(struct anim *anim);
+bool IMB_get_gop_decode_time(struct anim *anim);
 
 /**
  *
@@ -536,7 +522,7 @@ void IMB_scaleImBuf_threaded(struct ImBuf *ibuf, unsigned int newx, unsigned int
  * \attention Defined in writeimage.c
  */
 bool IMB_saveiff(struct ImBuf *ibuf, const char *filepath, int flags);
-bool IMB_prepare_write_ImBuf(const bool isfloat, struct ImBuf *ibuf);
+bool IMB_prepare_write_ImBuf(bool isfloat, struct ImBuf *ibuf);
 
 /**
  *
@@ -544,7 +530,7 @@ bool IMB_prepare_write_ImBuf(const bool isfloat, struct ImBuf *ibuf);
  */
 bool IMB_ispic(const char *filepath);
 bool IMB_ispic_type_matches(const char *filepath, int filetype);
-int IMB_ispic_type_from_memory(const unsigned char *buf, const size_t buf_size);
+int IMB_ispic_type_from_memory(const unsigned char *buf, size_t buf_size);
 int IMB_ispic_type(const char *filepath);
 
 /**
@@ -574,6 +560,9 @@ bool IMB_alpha_affects_rgb(const struct ImBuf *ibuf);
  * Create char buffer, color corrected if necessary, for ImBufs that lack one.
  */
 void IMB_rect_from_float(struct ImBuf *ibuf);
+void IMB_float_from_rect_ex(struct ImBuf *dst,
+                            const struct ImBuf *src,
+                            const struct rcti *region_to_update);
 void IMB_float_from_rect(struct ImBuf *ibuf);
 /**
  * No profile conversion.
@@ -837,7 +826,7 @@ void IMB_rectfill_area(struct ImBuf *ibuf,
  */
 void IMB_rectfill_area_replace(
     const struct ImBuf *ibuf, const float col[4], int x1, int y1, int x2, int y2);
-void IMB_rectfill_alpha(struct ImBuf *ibuf, const float value);
+void IMB_rectfill_alpha(struct ImBuf *ibuf, float value);
 
 /**
  * This should not be here, really,
@@ -911,16 +900,16 @@ typedef enum eIMBTransformMode {
 /**
  * \brief Transform source image buffer onto destination image buffer using a transform matrix.
  *
- * \param src Image buffer to read from.
- * \param dst Image buffer to write to. rect or rect_float must already be initialized.
+ * \param src: Image buffer to read from.
+ * \param dst: Image buffer to write to. rect or rect_float must already be initialized.
  * - dst buffer must be a 4 channel buffers.
  * - Only one data type buffer will be used (rect_float has priority over rect)
- * \param mode Cropping/Wrap repeat effect to apply during transformation.
- * \param filter Interpolation to use during sampling.
- * \param transform_matrix Transformation matrix to use.
+ * \param mode: Cropping/Wrap repeat effect to apply during transformation.
+ * \param filter: Interpolation to use during sampling.
+ * \param transform_matrix: Transformation matrix to use.
  * The given matrix should transform between dst pixel space to src pixel space.
  * One unit is one pixel.
- * \param src_crop cropping region how to crop the source buffer. Should only be passed when mode
+ * \param src_crop: Cropping region how to crop the source buffer. Should only be passed when mode
  * is set to #IMB_TRANSFORM_MODE_CROP_SRC. For any other mode this should be empty.
  *
  * During transformation no data/color conversion will happens.
@@ -929,8 +918,8 @@ typedef enum eIMBTransformMode {
  */
 void IMB_transform(const struct ImBuf *src,
                    struct ImBuf *dst,
-                   const eIMBTransformMode mode,
-                   const eIMBInterpolationFilterMode filter,
+                   eIMBTransformMode mode,
+                   eIMBInterpolationFilterMode filter,
                    const float transform_matrix[4][4],
                    const struct rctf *src_crop);
 
@@ -972,40 +961,32 @@ void IMB_update_gpu_texture_sub(struct GPUTexture *tex,
 /**
  * \attention defined in stereoimbuf.c
  */
-void IMB_stereo3d_write_dimensions(const char mode,
-                                   const bool is_squeezed,
-                                   const size_t width,
-                                   const size_t height,
-                                   size_t *r_width,
-                                   size_t *r_height);
-void IMB_stereo3d_read_dimensions(const char mode,
-                                  const bool is_squeezed,
-                                  const size_t width,
-                                  const size_t height,
-                                  size_t *r_width,
-                                  size_t *r_height);
-int *IMB_stereo3d_from_rect(struct ImageFormatData *im_format,
-                            const size_t x,
-                            const size_t y,
-                            const size_t channels,
+void IMB_stereo3d_write_dimensions(
+    char mode, bool is_squeezed, size_t width, size_t height, size_t *r_width, size_t *r_height);
+void IMB_stereo3d_read_dimensions(
+    char mode, bool is_squeezed, size_t width, size_t height, size_t *r_width, size_t *r_height);
+int *IMB_stereo3d_from_rect(const struct ImageFormatData *im_format,
+                            size_t x,
+                            size_t y,
+                            size_t channels,
                             int *rect_left,
                             int *rect_right);
-float *IMB_stereo3d_from_rectf(struct ImageFormatData *im_format,
-                               const size_t x,
-                               const size_t y,
-                               const size_t channels,
+float *IMB_stereo3d_from_rectf(const struct ImageFormatData *im_format,
+                               size_t x,
+                               size_t y,
+                               size_t channels,
                                float *rectf_left,
                                float *rectf_right);
 /**
  * Left/right are always float.
  */
-struct ImBuf *IMB_stereo3d_ImBuf(struct ImageFormatData *im_format,
+struct ImBuf *IMB_stereo3d_ImBuf(const struct ImageFormatData *im_format,
                                  struct ImBuf *ibuf_left,
                                  struct ImBuf *ibuf_right);
 /**
  * Reading a stereo encoded ibuf (*left) and generating two ibufs from it (*left and *right).
  */
-void IMB_ImBufFromStereo3d(struct Stereo3dFormat *s3d,
+void IMB_ImBufFromStereo3d(const struct Stereo3dFormat *s3d,
                            struct ImBuf *ibuf_stereo,
                            struct ImBuf **r_ibuf_left,
                            struct ImBuf **r_ibuf_right);

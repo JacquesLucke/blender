@@ -1,24 +1,7 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * - Blender Foundation, 2003-2009
- * - Peter Schlaile <peter [at] schlaile [dot] de> 2005/2006
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved.
+ *           2003-2009 Blender Foundation.
+ *           2005-2006 Peter Schlaile <peter [at] schlaile [dot] de> */
 
 /** \file
  * \ingroup bke
@@ -33,6 +16,8 @@
 #include "BKE_scene.h"
 #include "BKE_sound.h"
 
+#include "SEQ_animation.h"
+#include "SEQ_channels.h"
 #include "SEQ_effects.h"
 #include "SEQ_iterator.h"
 #include "SEQ_relations.h"
@@ -314,7 +299,7 @@ static int shuffle_seq_time_offset_test(SeqCollection *strips_to_shuffle,
       }
       if (UNLIKELY(SEQ_collection_has_strip(seq_other, strips_to_shuffle))) {
         CLOG_WARN(&LOG,
-                  "Strip overlaps with itself or another strip, that is to be shuffled."
+                  "Strip overlaps with itself or another strip, that is to be shuffled. "
                   "This should never happen.");
         continue;
       }
@@ -405,6 +390,13 @@ void SEQ_transform_offset_after_frame(Scene *scene,
       }
     }
   }
+}
+
+bool SEQ_transform_is_locked(ListBase *channels, Sequence *seq)
+{
+  SeqTimelineChannel *channel = SEQ_channel_get_by_index(channels, seq->machine);
+  return seq->flag & SEQ_LOCK ||
+         (SEQ_channel_is_locked(channel) && ((seq->flag & SEQ_IGNORE_CHANNEL_LOCK) == 0));
 }
 
 void SEQ_image_transform_mirror_factor_get(const Sequence *seq, float r_mirror[2])

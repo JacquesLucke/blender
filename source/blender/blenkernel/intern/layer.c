@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -280,6 +266,8 @@ void BKE_view_layer_free_ex(ViewLayer *view_layer, const bool do_id_user)
   BLI_freelistN(&view_layer->drawdata);
   BLI_freelistN(&view_layer->aovs);
   view_layer->active_aov = NULL;
+  BLI_freelistN(&view_layer->lightgroups);
+  view_layer->active_lightgroup = NULL;
 
   MEM_SAFE_FREE(view_layer->stats);
 
@@ -442,6 +430,29 @@ static void layer_aov_copy_data(ViewLayer *view_layer_dst,
   }
 }
 
+static void layer_lightgroup_copy_data(ViewLayer *view_layer_dst,
+                                       const ViewLayer *view_layer_src,
+                                       ListBase *lightgroups_dst,
+                                       const ListBase *lightgroups_src)
+{
+  if (lightgroups_src != NULL) {
+    BLI_duplicatelist(lightgroups_dst, lightgroups_src);
+  }
+
+  ViewLayerLightgroup *lightgroup_dst = lightgroups_dst->first;
+  const ViewLayerLightgroup *lightgroup_src = lightgroups_src->first;
+
+  while (lightgroup_dst != NULL) {
+    BLI_assert(lightgroup_src);
+    if (lightgroup_src == view_layer_src->active_lightgroup) {
+      view_layer_dst->active_lightgroup = lightgroup_dst;
+    }
+
+    lightgroup_dst = lightgroup_dst->next;
+    lightgroup_src = lightgroup_src->next;
+  }
+}
+
 static void layer_collections_copy_data(ViewLayer *view_layer_dst,
                                         const ViewLayer *view_layer_src,
                                         ListBase *layer_collections_dst,
@@ -509,6 +520,10 @@ void BKE_view_layer_copy_data(Scene *scene_dst,
   BLI_listbase_clear(&view_layer_dst->aovs);
   layer_aov_copy_data(
       view_layer_dst, view_layer_src, &view_layer_dst->aovs, &view_layer_src->aovs);
+
+  BLI_listbase_clear(&view_layer_dst->lightgroups);
+  layer_lightgroup_copy_data(
+      view_layer_dst, view_layer_src, &view_layer_dst->lightgroups, &view_layer_src->lightgroups);
 
   if ((flag & LIB_ID_CREATE_NO_USER_REFCOUNT) == 0) {
     id_us_plus((ID *)view_layer_dst->mat_override);
@@ -1196,6 +1211,23 @@ static bool view_layer_objects_base_cache_validate(ViewLayer *UNUSED(view_layer)
 }
 #endif
 
+void BKE_layer_collection_doversion_2_80(const Scene *scene, ViewLayer *view_layer)
+{
+  LayerCollection *first_layer_collection = view_layer->layer_collections.first;
+  if (BLI_listbase_count_at_most(&view_layer->layer_collections, 2) > 1 ||
+      first_layer_collection->collection != scene->master_collection) {
+    /* In some cases (from older files) we do have a master collection, but no matching layer,
+     * instead all the children of the master collection have their layer collections in the
+     * viewlayer's list. This is not a valid situation, add a layer for the master collection and
+     * add all existing first-level layers as children of that new master layer. */
+    ListBase layer_collections = view_layer->layer_collections;
+    BLI_listbase_clear(&view_layer->layer_collections);
+    LayerCollection *master_layer_collection = layer_collection_add(&view_layer->layer_collections,
+                                                                    scene->master_collection);
+    master_layer_collection->layer_collections = layer_collections;
+  }
+}
+
 void BKE_layer_collection_sync(const Scene *scene, ViewLayer *view_layer)
 {
   if (no_resync) {
@@ -1207,11 +1239,25 @@ void BKE_layer_collection_sync(const Scene *scene, ViewLayer *view_layer)
     return;
   }
 
-  /* In some cases (from older files) we do have a master collection, yet no matching layer. Create
-   * the master one here, so that the rest of the code can work as expected. */
   if (BLI_listbase_is_empty(&view_layer->layer_collections)) {
+    /* In some cases (from older files, or when creating a new ViewLayer from
+     * #BKE_view_layer_add), we do have a master collection, yet no matching layer. Create the
+     * master one here, so that the rest of the code can work as expected. */
     layer_collection_add(&view_layer->layer_collections, scene->master_collection);
   }
+
+#ifndef NDEBUG
+  {
+    BLI_assert_msg(BLI_listbase_count_at_most(&view_layer->layer_collections, 2) == 1,
+                   "ViewLayer's first level of children layer collections should always have "
+                   "exactly one item");
+
+    LayerCollection *first_layer_collection = view_layer->layer_collections.first;
+    BLI_assert_msg(first_layer_collection->collection == scene->master_collection,
+                   "ViewLayer's first layer collection should always be the one for the scene's "
+                   "master collection");
+  }
+#endif
 
   /* Free cache. */
   MEM_SAFE_FREE(view_layer->object_bases_array);
@@ -2239,6 +2285,9 @@ void BKE_view_layer_blend_write(BlendWriter *writer, ViewLayer *view_layer)
   LISTBASE_FOREACH (ViewLayerAOV *, aov, &view_layer->aovs) {
     BLO_write_struct(writer, ViewLayerAOV, aov);
   }
+  LISTBASE_FOREACH (ViewLayerLightgroup *, lightgroup, &view_layer->lightgroups) {
+    BLO_write_struct(writer, ViewLayerLightgroup, lightgroup);
+  }
   write_layer_collections(writer, &view_layer->layer_collections);
 }
 
@@ -2276,6 +2325,9 @@ void BKE_view_layer_blend_read_data(BlendDataReader *reader, ViewLayer *view_lay
 
   BLO_read_list(reader, &view_layer->aovs);
   BLO_read_data_address(reader, &view_layer->active_aov);
+
+  BLO_read_list(reader, &view_layer->lightgroups);
+  BLO_read_data_address(reader, &view_layer->active_lightgroup);
 
   BLI_listbase_clear(&view_layer->drawdata);
   view_layer->object_bases_array = NULL;
@@ -2452,6 +2504,125 @@ ViewLayer *BKE_view_layer_find_with_aov(struct Scene *scene, struct ViewLayerAOV
     }
   }
   return NULL;
+}
+
+/* -------------------------------------------------------------------- */
+/** \name Light Groups
+ * \{ */
+
+static void viewlayer_lightgroup_make_name_unique(ViewLayer *view_layer,
+                                                  ViewLayerLightgroup *lightgroup)
+{
+  /* Don't allow dots, it's incompatible with OpenEXR convention to store channels
+   * as "layer.pass.channel". */
+  BLI_str_replace_char(lightgroup->name, '.', '_');
+  BLI_uniquename(&view_layer->lightgroups,
+                 lightgroup,
+                 DATA_("Lightgroup"),
+                 '_',
+                 offsetof(ViewLayerLightgroup, name),
+                 sizeof(lightgroup->name));
+}
+
+static void viewlayer_lightgroup_active_set(ViewLayer *view_layer, ViewLayerLightgroup *lightgroup)
+{
+  if (lightgroup != NULL) {
+    BLI_assert(BLI_findindex(&view_layer->lightgroups, lightgroup) != -1);
+    view_layer->active_lightgroup = lightgroup;
+  }
+  else {
+    view_layer->active_lightgroup = NULL;
+  }
+}
+
+struct ViewLayerLightgroup *BKE_view_layer_add_lightgroup(struct ViewLayer *view_layer,
+                                                          const char *name)
+{
+  ViewLayerLightgroup *lightgroup;
+  lightgroup = MEM_callocN(sizeof(ViewLayerLightgroup), __func__);
+  if (name && name[0]) {
+    BLI_strncpy(lightgroup->name, name, sizeof(lightgroup->name));
+  }
+  else {
+    BLI_strncpy(lightgroup->name, DATA_("Lightgroup"), sizeof(lightgroup->name));
+  }
+  BLI_addtail(&view_layer->lightgroups, lightgroup);
+  viewlayer_lightgroup_active_set(view_layer, lightgroup);
+  viewlayer_lightgroup_make_name_unique(view_layer, lightgroup);
+  return lightgroup;
+}
+
+void BKE_view_layer_remove_lightgroup(ViewLayer *view_layer, ViewLayerLightgroup *lightgroup)
+{
+  BLI_assert(BLI_findindex(&view_layer->lightgroups, lightgroup) != -1);
+  BLI_assert(lightgroup != NULL);
+  if (view_layer->active_lightgroup == lightgroup) {
+    if (lightgroup->next) {
+      viewlayer_lightgroup_active_set(view_layer, lightgroup->next);
+    }
+    else {
+      viewlayer_lightgroup_active_set(view_layer, lightgroup->prev);
+    }
+  }
+  BLI_freelinkN(&view_layer->lightgroups, lightgroup);
+}
+
+void BKE_view_layer_set_active_lightgroup(ViewLayer *view_layer, ViewLayerLightgroup *lightgroup)
+{
+  viewlayer_lightgroup_active_set(view_layer, lightgroup);
+}
+
+ViewLayer *BKE_view_layer_find_with_lightgroup(struct Scene *scene,
+                                               struct ViewLayerLightgroup *lightgroup)
+{
+  LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
+    if (BLI_findindex(&view_layer->lightgroups, lightgroup) != -1) {
+      return view_layer;
+    }
+  }
+  return NULL;
+}
+
+void BKE_view_layer_rename_lightgroup(ViewLayer *view_layer,
+                                      ViewLayerLightgroup *lightgroup,
+                                      const char *name)
+{
+  BLI_strncpy_utf8(lightgroup->name, name, sizeof(lightgroup->name));
+  viewlayer_lightgroup_make_name_unique(view_layer, lightgroup);
+}
+
+void BKE_lightgroup_membership_get(struct LightgroupMembership *lgm, char *name)
+{
+  if (lgm != NULL) {
+    BLI_strncpy(name, lgm->name, sizeof(lgm->name));
+  }
+  else {
+    name[0] = '\0';
+  }
+}
+
+int BKE_lightgroup_membership_length(struct LightgroupMembership *lgm)
+{
+  if (lgm != NULL) {
+    return strlen(lgm->name);
+  }
+  return 0;
+}
+
+void BKE_lightgroup_membership_set(struct LightgroupMembership **lgm, const char *name)
+{
+  if (name[0] != '\0') {
+    if (*lgm == NULL) {
+      *lgm = MEM_callocN(sizeof(LightgroupMembership), __func__);
+    }
+    BLI_strncpy((*lgm)->name, name, sizeof((*lgm)->name));
+  }
+  else {
+    if (*lgm != NULL) {
+      MEM_freeN(*lgm);
+      *lgm = NULL;
+    }
+  }
 }
 
 /** \} */

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bpygpu
@@ -82,17 +68,27 @@ static PyObject *pygpu_uniformbuffer__tp_new(PyTypeObject *UNUSED(self),
   char err_out[256] = "unknown error. See console";
 
   static const char *_keywords[] = {"data", NULL};
-  static _PyArg_Parser _parser = {"O!:GPUUniformBuf.__new__", _keywords, 0};
+  static _PyArg_Parser _parser = {
+      "O!" /* `data` */
+      ":GPUUniformBuf.__new__",
+      _keywords,
+      0,
+  };
   if (!_PyArg_ParseTupleAndKeywordsFast(args, kwds, &_parser, &BPyGPU_BufferType, &pybuffer_obj)) {
     return NULL;
   }
 
-  if (GPU_context_active_get()) {
-    ubo = GPU_uniformbuf_create_ex(
-        bpygpu_Buffer_size(pybuffer_obj), pybuffer_obj->buf.as_void, "python_uniformbuffer");
+  if (!GPU_context_active_get()) {
+    STRNCPY(err_out, "No active GPU context found");
   }
   else {
-    STRNCPY(err_out, "No active GPU context found");
+    size_t size = bpygpu_Buffer_size(pybuffer_obj);
+    if ((size % 16) != 0) {
+      STRNCPY(err_out, "UBO is not padded to size of vec4");
+    }
+    else {
+      ubo = GPU_uniformbuf_create_ex(size, pybuffer_obj->buf.as_void, "python_uniformbuffer");
+    }
   }
 
   if (ubo == NULL) {

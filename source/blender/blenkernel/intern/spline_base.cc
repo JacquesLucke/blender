@@ -1,20 +1,7 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_array.hh"
+#include "BLI_generic_virtual_array.hh"
 #include "BLI_span.hh"
 #include "BLI_task.hh"
 #include "BLI_timeit.hh"
@@ -23,21 +10,19 @@
 #include "BKE_attribute_math.hh"
 #include "BKE_spline.hh"
 
-#include "FN_generic_virtual_array.hh"
-
 using blender::Array;
 using blender::float3;
+using blender::GMutableSpan;
+using blender::GSpan;
+using blender::GVArray;
 using blender::IndexRange;
 using blender::MutableSpan;
 using blender::Span;
 using blender::VArray;
 using blender::attribute_math::convert_to_static_type;
 using blender::bke::AttributeIDRef;
-using blender::fn::GMutableSpan;
-using blender::fn::GSpan;
-using blender::fn::GVArray;
 
-Spline::Type Spline::type() const
+CurveType Spline::type() const
 {
   return type_;
 }
@@ -48,15 +33,18 @@ void Spline::copy_base_settings(const Spline &src, Spline &dst)
   dst.is_cyclic_ = src.is_cyclic_;
 }
 
-static SplinePtr create_spline(const Spline::Type type)
+static SplinePtr create_spline(const CurveType type)
 {
   switch (type) {
-    case Spline::Type::Poly:
+    case CURVE_TYPE_POLY:
       return std::make_unique<PolySpline>();
-    case Spline::Type::Bezier:
+    case CURVE_TYPE_BEZIER:
       return std::make_unique<BezierSpline>();
-    case Spline::Type::NURBS:
+    case CURVE_TYPE_NURBS:
       return std::make_unique<NURBSpline>();
+    case CURVE_TYPE_CATMULL_ROM:
+      BLI_assert_unreachable();
+      return {};
   }
   BLI_assert_unreachable();
   return {};
@@ -111,7 +99,7 @@ void Spline::reverse()
 
   this->attributes.foreach_attribute(
       [&](const AttributeIDRef &id, const AttributeMetaData &meta_data) {
-        std::optional<blender::fn::GMutableSpan> attribute = this->attributes.get_for_write(id);
+        std::optional<blender::GMutableSpan> attribute = this->attributes.get_for_write(id);
         if (!attribute) {
           BLI_assert_unreachable();
           return false;
@@ -166,13 +154,15 @@ static void accumulate_lengths(Span<float3> positions,
                                const bool is_cyclic,
                                MutableSpan<float> lengths)
 {
+  using namespace blender::math;
+
   float length = 0.0f;
   for (const int i : IndexRange(positions.size() - 1)) {
-    length += float3::distance(positions[i], positions[i + 1]);
+    length += distance(positions[i], positions[i + 1]);
     lengths[i] = length;
   }
   if (is_cyclic) {
-    lengths.last() = length + float3::distance(positions.last(), positions.first());
+    lengths.last() = length + distance(positions.last(), positions.first());
   }
 }
 
@@ -200,11 +190,13 @@ Span<float> Spline::evaluated_lengths() const
 
 static float3 direction_bisect(const float3 &prev, const float3 &middle, const float3 &next)
 {
-  const float3 dir_prev = (middle - prev).normalized();
-  const float3 dir_next = (next - middle).normalized();
+  using namespace blender::math;
 
-  const float3 result = (dir_prev + dir_next).normalized();
-  if (UNLIKELY(result.is_zero())) {
+  const float3 dir_prev = normalize(middle - prev);
+  const float3 dir_next = normalize(next - middle);
+
+  const float3 result = normalize(dir_prev + dir_next);
+  if (UNLIKELY(is_zero(result))) {
     return float3(0.0f, 0.0f, 1.0f);
   }
   return result;
@@ -214,6 +206,8 @@ static void calculate_tangents(Span<float3> positions,
                                const bool is_cyclic,
                                MutableSpan<float3> tangents)
 {
+  using namespace blender::math;
+
   if (positions.size() == 1) {
     tangents.first() = float3(0.0f, 0.0f, 1.0f);
     return;
@@ -232,8 +226,8 @@ static void calculate_tangents(Span<float3> positions,
     tangents.last() = direction_bisect(second_to_last, last, first);
   }
   else {
-    tangents.first() = (positions[1] - positions[0]).normalized();
-    tangents.last() = (positions.last() - positions[positions.size() - 2]).normalized();
+    tangents.first() = normalize(positions[1] - positions[0]);
+    tangents.last() = normalize(positions.last() - positions[positions.size() - 2]);
   }
 }
 
@@ -264,18 +258,22 @@ static float3 rotate_direction_around_axis(const float3 &direction,
                                            const float3 &axis,
                                            const float angle)
 {
+  using namespace blender::math;
+
   BLI_ASSERT_UNIT_V3(direction);
   BLI_ASSERT_UNIT_V3(axis);
 
-  const float3 axis_scaled = axis * float3::dot(direction, axis);
+  const float3 axis_scaled = axis * dot(direction, axis);
   const float3 diff = direction - axis_scaled;
-  const float3 cross = float3::cross(axis, diff);
+  const float3 cross = blender::math::cross(axis, diff);
 
   return axis_scaled + diff * std::cos(angle) + cross * std::sin(angle);
 }
 
 static void calculate_normals_z_up(Span<float3> tangents, MutableSpan<float3> r_normals)
 {
+  using namespace blender::math;
+
   BLI_assert(r_normals.size() == tangents.size());
 
   /* Same as in `vec_to_quat`. */
@@ -286,7 +284,7 @@ static void calculate_normals_z_up(Span<float3> tangents, MutableSpan<float3> r_
       r_normals[i] = {1.0f, 0.0f, 0.0f};
     }
     else {
-      r_normals[i] = float3(tangent.y, -tangent.x, 0.0f).normalized();
+      r_normals[i] = normalize(float3(tangent.y, -tangent.x, 0.0f));
     }
   }
 }
@@ -298,12 +296,14 @@ static float3 calculate_next_normal(const float3 &last_normal,
                                     const float3 &last_tangent,
                                     const float3 &current_tangent)
 {
-  if (last_tangent.is_zero() || current_tangent.is_zero()) {
+  using namespace blender::math;
+
+  if (is_zero(last_tangent) || is_zero(current_tangent)) {
     return last_normal;
   }
   const float angle = angle_normalized_v3v3(last_tangent, current_tangent);
   if (angle != 0.0) {
-    const float3 axis = float3::cross(last_tangent, current_tangent).normalized();
+    const float3 axis = normalize(cross(last_tangent, current_tangent));
     return rotate_direction_around_axis(last_normal, axis, angle);
   }
   return last_normal;
@@ -313,6 +313,7 @@ static void calculate_normals_minimum(Span<float3> tangents,
                                       const bool cyclic,
                                       MutableSpan<float3> r_normals)
 {
+  using namespace blender::math;
   BLI_assert(r_normals.size() == tangents.size());
 
   if (r_normals.is_empty()) {
@@ -327,7 +328,7 @@ static void calculate_normals_minimum(Span<float3> tangents,
     r_normals[0] = {1.0f, 0.0f, 0.0f};
   }
   else {
-    r_normals[0] = float3(first_tangent.y, -first_tangent.x, 0.0f).normalized();
+    r_normals[0] = normalize(float3(first_tangent.y, -first_tangent.x, 0.0f));
   }
 
   /* Forward normal with minimum twist along the entire spline. */
@@ -376,17 +377,12 @@ Span<float3> Spline::evaluated_normals() const
 
   /* Only Z up normals are supported at the moment. */
   switch (this->normal_mode) {
-    case ZUp: {
+    case NORMAL_MODE_Z_UP: {
       calculate_normals_z_up(tangents, normals);
       break;
     }
-    case Minimum: {
+    case NORMAL_MODE_MINIMUM_TWIST: {
       calculate_normals_minimum(tangents, is_cyclic_, normals);
-      break;
-    }
-    case Tangent: {
-      /* Tangent mode is not yet supported. */
-      calculate_normals_z_up(tangents, normals);
       break;
     }
   }

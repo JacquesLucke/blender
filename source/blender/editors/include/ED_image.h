@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup editors
@@ -38,24 +22,25 @@ struct Main;
 struct ReportList;
 struct Scene;
 struct SpaceImage;
+struct View2D;
 struct bContext;
 struct wmOperator;
 struct wmWindowManager;
-struct View2D;
 
 /* image_draw.c */
-float ED_space_image_zoom_level(const struct View2D *v2d, const int grid_dimension);
+
+float ED_space_image_zoom_level(const struct View2D *v2d, int grid_dimension);
 void ED_space_image_grid_steps(struct SpaceImage *sima,
                                float grid_steps[SI_GRID_STEPS_LEN],
-                               const int grid_dimension);
+                               int grid_dimension);
 /**
  * Calculate the increment snapping value for UV/image editor based on the zoom factor
  * The code in here (except the offset part) is used in `grid_frag.glsl` (see `grid_res`) for
  * drawing the grid overlay for the UV/Image editor.
  */
-float ED_space_image_increment_snap_value(const int grid_dimesnions,
+float ED_space_image_increment_snap_value(int grid_dimesnions,
                                           const float grid_steps[SI_GRID_STEPS_LEN],
-                                          const float zoom_factor);
+                                          float zoom_factor);
 
 /* image_edit.c, exported for transform. */
 
@@ -178,6 +163,7 @@ int ED_image_save_all_modified_info(const struct Main *bmain, struct ReportList 
 bool ED_image_save_all_modified(const struct bContext *C, struct ReportList *reports);
 
 /* image_sequence.c */
+
 typedef struct ImageFrameRange {
   struct ImageFrameRange *next, *prev;
 
@@ -198,7 +184,7 @@ typedef struct ImageFrameRange {
  */
 ListBase ED_image_filesel_detect_sequences(struct Main *bmain,
                                            struct wmOperator *op,
-                                           const bool detect_udim);
+                                           bool detect_udim);
 
 #ifdef __cplusplus
 }

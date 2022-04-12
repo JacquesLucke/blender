@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -79,7 +63,7 @@ typedef struct SnapCursorDataIntern {
     int x;
     int y;
 #ifdef USE_SNAP_DETECT_FROM_KEYMAP_HACK
-    short shift, ctrl, alt, oskey;
+    uint8_t modifier;
 #endif
   } last_eventstate;
 
@@ -494,10 +478,7 @@ static bool v3d_cursor_eventstate_has_changed(SnapCursorDataIntern *data_intern,
     }
 #ifdef USE_SNAP_DETECT_FROM_KEYMAP_HACK
     if (!(state && (state->flag & V3D_SNAPCURSOR_TOGGLE_ALWAYS_TRUE))) {
-      if ((event->ctrl != data_intern->last_eventstate.ctrl) ||
-          (event->shift != data_intern->last_eventstate.shift) ||
-          (event->alt != data_intern->last_eventstate.alt) ||
-          (event->oskey != data_intern->last_eventstate.oskey)) {
+      if (event->modifier != data_intern->last_eventstate.modifier) {
         return true;
       }
     }
@@ -523,19 +504,13 @@ static bool v3d_cursor_is_snap_invert(SnapCursorDataIntern *data_intern, const w
   }
 
   const wmEvent *event = wm->winactive->eventstate;
-  if ((event->ctrl == data_intern->last_eventstate.ctrl) &&
-      (event->shift == data_intern->last_eventstate.shift) &&
-      (event->alt == data_intern->last_eventstate.alt) &&
-      (event->oskey == data_intern->last_eventstate.oskey)) {
+  if (event->modifier == data_intern->last_eventstate.modifier) {
     /* Nothing has changed. */
     return data_intern->snap_data.is_snap_invert;
   }
 
   /* Save new eventstate. */
-  data_intern->last_eventstate.ctrl = event->ctrl;
-  data_intern->last_eventstate.shift = event->shift;
-  data_intern->last_eventstate.alt = event->alt;
-  data_intern->last_eventstate.oskey = event->oskey;
+  data_intern->last_eventstate.modifier = event->modifier;
 
   const int snap_on = data_intern->snap_on;
 
@@ -546,10 +521,10 @@ static bool v3d_cursor_is_snap_invert(SnapCursorDataIntern *data_intern, const w
     }
 
     if (kmi->propvalue == snap_on) {
-      if ((ELEM(kmi->type, EVT_LEFTCTRLKEY, EVT_RIGHTCTRLKEY) && event->ctrl) ||
-          (ELEM(kmi->type, EVT_LEFTSHIFTKEY, EVT_RIGHTSHIFTKEY) && event->shift) ||
-          (ELEM(kmi->type, EVT_LEFTALTKEY, EVT_RIGHTALTKEY) && event->alt) ||
-          ((kmi->type == EVT_OSKEY) && event->oskey)) {
+      if ((ELEM(kmi->type, EVT_LEFTCTRLKEY, EVT_RIGHTCTRLKEY) && (event->modifier & KM_CTRL)) ||
+          (ELEM(kmi->type, EVT_LEFTSHIFTKEY, EVT_RIGHTSHIFTKEY) && (event->modifier & KM_SHIFT)) ||
+          (ELEM(kmi->type, EVT_LEFTALTKEY, EVT_RIGHTALTKEY) && (event->modifier & KM_ALT)) ||
+          ((kmi->type == EVT_OSKEY) && (event->modifier & KM_OSKEY))) {
         return true;
       }
     }
@@ -645,9 +620,6 @@ static void v3d_cursor_snap_update(V3DSnapCursorState *state,
       snap_elements &= ~SCE_SNAP_MODE_EDGE_PERPENDICULAR;
     }
 
-    eSnapSelect snap_select = (state->flag & V3D_SNAPCURSOR_SNAP_ONLY_ACTIVE) ? SNAP_ONLY_ACTIVE :
-                                                                                SNAP_ALL;
-
     eSnapEditType edit_mode_type = (state->flag & V3D_SNAPCURSOR_SNAP_EDIT_GEOM_FINAL) ?
                                        SNAP_GEOM_FINAL :
                                    (state->flag & V3D_SNAPCURSOR_SNAP_EDIT_GEOM_CAGE) ?
@@ -665,7 +637,7 @@ static void v3d_cursor_snap_update(V3DSnapCursorState *state,
         v3d,
         snap_elements,
         &(const struct SnapObjectParams){
-            .snap_select = snap_select,
+            .snap_select = SNAP_ALL,
             .edit_mode_type = edit_mode_type,
             .use_occlusion_test = use_occlusion_test,
         },

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -31,7 +17,7 @@ void BM_mesh_elem_toolflags_ensure(BMesh *bm);
 void BM_mesh_elem_toolflags_clear(BMesh *bm);
 
 struct BMeshCreateParams {
-  uint use_toolflags : 1;
+  bool use_toolflags : true;
 };
 
 /**
@@ -74,14 +60,14 @@ void BM_mesh_clear(BMesh *bm);
  * the editing operations are done. These are called by the tools/operator
  * API for each time a tool is executed.
  */
-void bmesh_edit_begin(BMesh *bm, const BMOpTypeFlag type_flag);
+void bmesh_edit_begin(BMesh *bm, BMOpTypeFlag type_flag);
 /**
  * \brief BMesh End Edit
  */
-void bmesh_edit_end(BMesh *bm, const BMOpTypeFlag type_flag);
+void bmesh_edit_end(BMesh *bm, BMOpTypeFlag type_flag);
 
-void BM_mesh_elem_index_ensure_ex(BMesh *bm, const char htype, int elem_offset[4]);
-void BM_mesh_elem_index_ensure(BMesh *bm, const char htype);
+void BM_mesh_elem_index_ensure_ex(BMesh *bm, char htype, int elem_offset[4]);
+void BM_mesh_elem_index_ensure(BMesh *bm, char htype);
 /**
  * Array checking/setting macros.
  *
@@ -109,10 +95,10 @@ bool BM_mesh_elem_table_check(BMesh *bm);
  */
 void BM_mesh_toolflags_set(BMesh *bm, bool use_toolflags);
 
-void BM_mesh_elem_table_ensure(BMesh *bm, const char htype);
+void BM_mesh_elem_table_ensure(BMesh *bm, char htype);
 /* use BM_mesh_elem_table_ensure where possible to avoid full rebuild */
-void BM_mesh_elem_table_init(BMesh *bm, const char htype);
-void BM_mesh_elem_table_free(BMesh *bm, const char htype);
+void BM_mesh_elem_table_init(BMesh *bm, char htype);
+void BM_mesh_elem_table_free(BMesh *bm, char htype);
 
 BLI_INLINE BMVert *BM_vert_at_index(BMesh *bm, const int index)
 {
@@ -133,26 +119,26 @@ BLI_INLINE BMFace *BM_face_at_index(BMesh *bm, const int index)
   return bm->ftable[index];
 }
 
-BMVert *BM_vert_at_index_find(BMesh *bm, const int index);
-BMEdge *BM_edge_at_index_find(BMesh *bm, const int index);
-BMFace *BM_face_at_index_find(BMesh *bm, const int index);
-BMLoop *BM_loop_at_index_find(BMesh *bm, const int index);
+BMVert *BM_vert_at_index_find(BMesh *bm, int index);
+BMEdge *BM_edge_at_index_find(BMesh *bm, int index);
+BMFace *BM_face_at_index_find(BMesh *bm, int index);
+BMLoop *BM_loop_at_index_find(BMesh *bm, int index);
 
 /**
  * Use lookup table when available, else use slower find functions.
  *
  * \note Try to use #BM_mesh_elem_table_ensure instead.
  */
-BMVert *BM_vert_at_index_find_or_table(BMesh *bm, const int index);
-BMEdge *BM_edge_at_index_find_or_table(BMesh *bm, const int index);
-BMFace *BM_face_at_index_find_or_table(BMesh *bm, const int index);
+BMVert *BM_vert_at_index_find_or_table(BMesh *bm, int index);
+BMEdge *BM_edge_at_index_find_or_table(BMesh *bm, int index);
+BMFace *BM_face_at_index_find_or_table(BMesh *bm, int index);
 
 // XXX
 
 /**
  * Return the amount of element of type 'type' in a given bmesh.
  */
-int BM_mesh_elem_count(BMesh *bm, const char htype);
+int BM_mesh_elem_count(BMesh *bm, char htype);
 
 /**
  * Remaps the vertices, edges and/or faces of the bmesh as indicated by vert/edge/face_idx arrays

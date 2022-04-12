@@ -1,19 +1,6 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_generic_array.hh"
 #include "BLI_kdopbvh.h"
 #include "BLI_task.hh"
 
@@ -26,8 +13,6 @@
 #include "BKE_mesh_runtime.h"
 #include "BKE_mesh_sample.hh"
 
-#include "FN_generic_array.hh"
-
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -38,13 +23,12 @@
 namespace blender::nodes::node_geo_transfer_attribute_cc {
 
 using namespace blender::bke::mesh_surface_sample;
-using blender::fn::GArray;
 
 NODE_STORAGE_FUNCS(NodeGeometryTransferAttribute)
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Target"))
+  b.add_input<decl::Geometry>(N_("Source"))
       .supported_type({GEO_COMPONENT_TYPE_MESH,
                        GEO_COMPONENT_TYPE_POINT_CLOUD,
                        GEO_COMPONENT_TYPE_CURVE,
@@ -296,7 +280,7 @@ static void get_closest_mesh_corners(const Mesh &mesh,
       const MLoop &loop = mesh.mloop[loop_index];
       const int vertex_index = loop.v;
       const MVert &mvert = mesh.mvert[vertex_index];
-      const float distance_sq = float3::distance_squared(position, mvert.co);
+      const float distance_sq = math::distance_squared(position, float3(mvert.co));
       if (distance_sq < min_distance_sq) {
         min_distance_sq = distance_sq;
         closest_loop_index = loop_index;
@@ -386,11 +370,11 @@ static bool component_is_available(const GeometrySet &geometry,
 
 /**
  * \note Multi-threading for this function is provided by the field evaluator. Since the #call
- * function could be called many times, calculate the data from the target geometry once and store
+ * function could be called many times, calculate the data from the source geometry once and store
  * it for later.
  */
 class NearestInterpolatedTransferFunction : public fn::MultiFunction {
-  GeometrySet target_;
+  GeometrySet source_;
   GField src_field_;
 
   /**
@@ -403,18 +387,18 @@ class NearestInterpolatedTransferFunction : public fn::MultiFunction {
 
   fn::MFSignature signature_;
 
-  std::optional<GeometryComponentFieldContext> target_context_;
-  std::unique_ptr<FieldEvaluator> target_evaluator_;
-  const GVArray *target_data_;
+  std::optional<GeometryComponentFieldContext> source_context_;
+  std::unique_ptr<FieldEvaluator> source_evaluator_;
+  const GVArray *source_data_;
 
  public:
   NearestInterpolatedTransferFunction(GeometrySet geometry, GField src_field)
-      : target_(std::move(geometry)), src_field_(std::move(src_field))
+      : source_(std::move(geometry)), src_field_(std::move(src_field))
   {
-    target_.ensure_owns_direct_data();
+    source_.ensure_owns_direct_data();
     signature_ = this->create_signature();
     this->set_signature(&signature_);
-    this->evaluate_target_field();
+    this->evaluate_source_field();
   }
 
   fn::MFSignature create_signature()
@@ -430,7 +414,7 @@ class NearestInterpolatedTransferFunction : public fn::MultiFunction {
     const VArray<float3> &positions = params.readonly_single_input<float3>(0, "Position");
     GMutableSpan dst = params.uninitialized_single_output_if_required(1, "Attribute");
 
-    const MeshComponent &mesh_component = *target_.get_component_for_read<MeshComponent>();
+    const MeshComponent &mesh_component = *source_.get_component_for_read<MeshComponent>();
     BLI_assert(mesh_component.has_mesh());
     const Mesh &mesh = *mesh_component.get_for_read();
     BLI_assert(mesh.totpoly > 0);
@@ -441,29 +425,29 @@ class NearestInterpolatedTransferFunction : public fn::MultiFunction {
     get_closest_mesh_looptris(mesh, positions, mask, looptri_indices, {}, sampled_positions);
 
     MeshAttributeInterpolator interp(&mesh, mask, sampled_positions, looptri_indices);
-    interp.sample_data(*target_data_, domain_, eAttributeMapMode::INTERPOLATED, dst);
+    interp.sample_data(*source_data_, domain_, eAttributeMapMode::INTERPOLATED, dst);
   }
 
  private:
-  void evaluate_target_field()
+  void evaluate_source_field()
   {
-    const MeshComponent &mesh_component = *target_.get_component_for_read<MeshComponent>();
-    target_context_.emplace(GeometryComponentFieldContext{mesh_component, domain_});
+    const MeshComponent &mesh_component = *source_.get_component_for_read<MeshComponent>();
+    source_context_.emplace(GeometryComponentFieldContext{mesh_component, domain_});
     const int domain_size = mesh_component.attribute_domain_size(domain_);
-    target_evaluator_ = std::make_unique<FieldEvaluator>(*target_context_, domain_size);
-    target_evaluator_->add(src_field_);
-    target_evaluator_->evaluate();
-    target_data_ = &target_evaluator_->get_evaluated(0);
+    source_evaluator_ = std::make_unique<FieldEvaluator>(*source_context_, domain_size);
+    source_evaluator_->add(src_field_);
+    source_evaluator_->evaluate();
+    source_data_ = &source_evaluator_->get_evaluated(0);
   }
 };
 
 /**
  * \note Multi-threading for this function is provided by the field evaluator. Since the #call
- * function could be called many times, calculate the data from the target geometry once and store
+ * function could be called many times, calculate the data from the source geometry once and store
  * it for later.
  */
 class NearestTransferFunction : public fn::MultiFunction {
-  GeometrySet target_;
+  GeometrySet source_;
   GField src_field_;
   AttributeDomain domain_;
 
@@ -472,7 +456,7 @@ class NearestTransferFunction : public fn::MultiFunction {
   bool use_mesh_;
   bool use_points_;
 
-  /* Store data from the target as a virtual array, since we may only access a few indices. */
+  /* Store data from the source as a virtual array, since we may only access a few indices. */
   std::optional<GeometryComponentFieldContext> mesh_context_;
   std::unique_ptr<FieldEvaluator> mesh_evaluator_;
   const GVArray *mesh_data_;
@@ -483,16 +467,16 @@ class NearestTransferFunction : public fn::MultiFunction {
 
  public:
   NearestTransferFunction(GeometrySet geometry, GField src_field, AttributeDomain domain)
-      : target_(std::move(geometry)), src_field_(std::move(src_field)), domain_(domain)
+      : source_(std::move(geometry)), src_field_(std::move(src_field)), domain_(domain)
   {
-    target_.ensure_owns_direct_data();
+    source_.ensure_owns_direct_data();
     signature_ = this->create_signature();
     this->set_signature(&signature_);
 
-    this->use_mesh_ = component_is_available(target_, GEO_COMPONENT_TYPE_MESH, domain_);
-    this->use_points_ = component_is_available(target_, GEO_COMPONENT_TYPE_POINT_CLOUD, domain_);
+    this->use_mesh_ = component_is_available(source_, GEO_COMPONENT_TYPE_MESH, domain_);
+    this->use_points_ = component_is_available(source_, GEO_COMPONENT_TYPE_POINT_CLOUD, domain_);
 
-    this->evaluate_target_field();
+    this->evaluate_source_field();
   }
 
   fn::MFSignature create_signature()
@@ -509,12 +493,12 @@ class NearestTransferFunction : public fn::MultiFunction {
     GMutableSpan dst = params.uninitialized_single_output_if_required(1, "Attribute");
 
     if (!use_mesh_ && !use_points_) {
-      dst.type().fill_construct_indices(dst.type().default_value(), dst.data(), mask);
+      dst.type().value_initialize_indices(dst.data(), mask);
       return;
     }
 
-    const Mesh *mesh = use_mesh_ ? target_.get_mesh_for_read() : nullptr;
-    const PointCloud *pointcloud = use_points_ ? target_.get_pointcloud_for_read() : nullptr;
+    const Mesh *mesh = use_mesh_ ? source_.get_mesh_for_read() : nullptr;
+    const PointCloud *pointcloud = use_points_ ? source_.get_pointcloud_for_read() : nullptr;
 
     const int tot_samples = mask.min_array_size();
 
@@ -590,10 +574,10 @@ class NearestTransferFunction : public fn::MultiFunction {
   }
 
  private:
-  void evaluate_target_field()
+  void evaluate_source_field()
   {
     if (use_mesh_) {
-      const MeshComponent &mesh = *target_.get_component_for_read<MeshComponent>();
+      const MeshComponent &mesh = *source_.get_component_for_read<MeshComponent>();
       const int domain_size = mesh.attribute_domain_size(domain_);
       mesh_context_.emplace(GeometryComponentFieldContext(mesh, domain_));
       mesh_evaluator_ = std::make_unique<FieldEvaluator>(*mesh_context_, domain_size);
@@ -603,7 +587,7 @@ class NearestTransferFunction : public fn::MultiFunction {
     }
 
     if (use_points_) {
-      const PointCloudComponent &points = *target_.get_component_for_read<PointCloudComponent>();
+      const PointCloudComponent &points = *source_.get_component_for_read<PointCloudComponent>();
       const int domain_size = points.attribute_domain_size(domain_);
       point_context_.emplace(GeometryComponentFieldContext(points, domain_));
       point_evaluator_ = std::make_unique<FieldEvaluator>(*point_context_, domain_size);
@@ -614,7 +598,7 @@ class NearestTransferFunction : public fn::MultiFunction {
   }
 };
 
-static const GeometryComponent *find_target_component(const GeometrySet &geometry,
+static const GeometryComponent *find_source_component(const GeometrySet &geometry,
                                                       const AttributeDomain domain)
 {
   /* Choose the other component based on a consistent order, rather than some more complicated
@@ -634,7 +618,7 @@ static const GeometryComponent *find_target_component(const GeometrySet &geometr
 
 /**
  * The index-based transfer theoretically does not need realized data when there is only one
- * instance geometry set in the target. A future optimization could be removing that limitation
+ * instance geometry set in the source. A future optimization could be removing that limitation
  * internally.
  */
 class IndexTransferFunction : public fn::MultiFunction {
@@ -670,7 +654,7 @@ class IndexTransferFunction : public fn::MultiFunction {
 
   void evaluate_field()
   {
-    const GeometryComponent *component = find_target_component(src_geometry_, domain_);
+    const GeometryComponent *component = find_source_component(src_geometry_, domain_);
     if (component == nullptr) {
       return;
     }
@@ -689,7 +673,7 @@ class IndexTransferFunction : public fn::MultiFunction {
 
     const CPPType &type = dst.type();
     if (src_data_ == nullptr) {
-      type.fill_construct_indices(type.default_value(), dst.data(), mask);
+      type.value_initialize_indices(dst.data(), mask);
       return;
     }
 
@@ -749,7 +733,7 @@ static void output_attribute_field(GeoNodeExecParams &params, GField field)
 
 static void node_geo_exec(GeoNodeExecParams params)
 {
-  GeometrySet geometry = params.extract_input<GeometrySet>("Target");
+  GeometrySet geometry = params.extract_input<GeometrySet>("Source");
   const NodeGeometryTransferAttribute &storage = node_storage(params.node());
   const GeometryNodeAttributeTransferMode mapping = (GeometryNodeAttributeTransferMode)
                                                         storage.mode;
@@ -772,7 +756,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       if (mesh == nullptr) {
         if (!geometry.is_empty()) {
           params.error_message_add(NodeWarningType::Error,
-                                   TIP_("The target geometry must contain a mesh"));
+                                   TIP_("The source geometry must contain a mesh"));
         }
         return return_default();
       }
@@ -780,7 +764,7 @@ static void node_geo_exec(GeoNodeExecParams params)
         /* Don't add a warning for empty meshes. */
         if (mesh->totvert != 0) {
           params.error_message_add(NodeWarningType::Error,
-                                   TIP_("The target mesh must have faces"));
+                                   TIP_("The source mesh must have faces"));
         }
         return return_default();
       }
@@ -792,9 +776,9 @@ static void node_geo_exec(GeoNodeExecParams params)
       break;
     }
     case GEO_NODE_ATTRIBUTE_TRANSFER_NEAREST: {
-      if (geometry.has_curve() && !geometry.has_mesh() && !geometry.has_pointcloud()) {
+      if (geometry.has_curves() && !geometry.has_mesh() && !geometry.has_pointcloud()) {
         params.error_message_add(NodeWarningType::Error,
-                                 TIP_("The target geometry must contain a mesh or a point cloud"));
+                                 TIP_("The source geometry must contain a mesh or a point cloud"));
         return return_default();
       }
       auto fn = std::make_unique<NearestTransferFunction>(
@@ -827,7 +811,7 @@ void register_node_type_geo_transfer_attribute()
   static bNodeType ntype;
 
   geo_node_type_base(
-      &ntype, GEO_NODE_TRANSFER_ATTRIBUTE, "Transfer Attribute", NODE_CLASS_ATTRIBUTE, 0);
+      &ntype, GEO_NODE_TRANSFER_ATTRIBUTE, "Transfer Attribute", NODE_CLASS_ATTRIBUTE);
   node_type_init(&ntype, file_ns::node_init);
   node_type_update(&ntype, file_ns::node_update);
   node_type_storage(&ntype,

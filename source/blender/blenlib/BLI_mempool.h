@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -36,7 +20,7 @@ struct BLI_mempool_chunk;
 typedef struct BLI_mempool BLI_mempool;
 
 BLI_mempool *BLI_mempool_create(unsigned int esize,
-                                unsigned int totelem,
+                                unsigned int elem_num,
                                 unsigned int pchunk,
                                 unsigned int flag)
     ATTR_MALLOC ATTR_WARN_UNUSED_RESULT ATTR_RETURNS_NONNULL;
@@ -56,13 +40,13 @@ void BLI_mempool_free(BLI_mempool *pool, void *addr) ATTR_NONNULL(1, 2);
  * \param pool: The pool to clear.
  * \param totelem_reserve: Optionally reserve how many items should be kept from clearing.
  */
-void BLI_mempool_clear_ex(BLI_mempool *pool, const int totelem_reserve) ATTR_NONNULL(1);
+void BLI_mempool_clear_ex(BLI_mempool *pool, int totelem_reserve) ATTR_NONNULL(1);
 /**
  * Wrap #BLI_mempool_clear_ex with no reserve set.
  */
 void BLI_mempool_clear(BLI_mempool *pool) ATTR_NONNULL(1);
 /**
- * Free the mempool its self (and all elements).
+ * Free the mempool itself (and all elements).
  */
 void BLI_mempool_destroy(BLI_mempool *pool) ATTR_NONNULL(1);
 int BLI_mempool_len(const BLI_mempool *pool) ATTR_NONNULL(1);

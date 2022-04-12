@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup ed
@@ -69,6 +53,7 @@ static void update_curve_mask(CurveMaskCache *curve_mask_cache,
 {
   BLI_assert(curve_mask_cache->curve_mask != nullptr);
   int offset = (int)floorf(diameter / 2.0f);
+  int clamped_radius = max_ff(radius, 1.0);
 
   unsigned short *m = curve_mask_cache->curve_mask;
 
@@ -92,7 +77,7 @@ static void update_curve_mask(CurveMaskCache *curve_mask_cache,
         pixel_xy[1] = static_cast<float>(y) + aa_offset;
         for (int j = 0; j < aa_samples; j++) {
           const float len = len_v2v2(pixel_xy, bpos);
-          const int sample_index = min_ii((len / radius) * CurveSamplesBaseLen,
+          const int sample_index = min_ii((len / clamped_radius) * CurveSamplesBaseLen,
                                           CurveSamplesLen - 1);
           const float sample_weight = curve_mask_cache->sampled_curve[sample_index];
 

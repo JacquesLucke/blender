@@ -1,7 +1,4 @@
 
-uniform bool selectFaces = true;
-uniform bool selectEdges = true;
-
 vec4 EDIT_MESH_edge_color_outer(int edge_flag, int face_flag, float crease, float bweight)
 {
   vec4 color = vec4(0.0);
@@ -36,7 +33,7 @@ vec4 EDIT_MESH_edge_vertex_color(int vertex_flag)
   return color;
 }
 
-vec4 EDIT_MESH_vertex_color(int vertex_flag)
+vec4 EDIT_MESH_vertex_color(int vertex_flag, float vertex_crease)
 {
   if ((vertex_flag & VERT_ACTIVE) != 0) {
     return vec4(colorEditMeshActive.xyz, 1.0);
@@ -45,6 +42,10 @@ vec4 EDIT_MESH_vertex_color(int vertex_flag)
     return colorVertexSelect;
   }
   else {
+    /* Full crease color if not selected nor active. */
+    if (vertex_crease > 0.0) {
+      return mix(colorVertex, colorEdgeCrease, vertex_crease);
+    }
     return colorVertex;
   }
 }

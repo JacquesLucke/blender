@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup nodes
@@ -187,7 +171,7 @@ static void group_verify_socket_list(bNodeTree &node_tree,
       BLI_addtail(&verify_lb, matching_socket);
     }
     else {
-      /* If there was no socket withe the same identifier already, simply create a new socket
+      /* If there was no socket with the same identifier already, simply create a new socket
        * based on the interface socket, which will already add it to the new list. */
       add_new_socket_from_interface(node_tree, node, *interface_socket, in_out);
     }
@@ -238,10 +222,11 @@ void register_node_type_frame()
   bNodeType *ntype = MEM_cnew<bNodeType>("frame node type");
   ntype->free_self = (void (*)(bNodeType *))MEM_freeN;
 
-  node_type_base(ntype, NODE_FRAME, "Frame", NODE_CLASS_LAYOUT, NODE_BACKGROUND);
+  node_type_base(ntype, NODE_FRAME, "Frame", NODE_CLASS_LAYOUT);
   node_type_init(ntype, node_frame_init);
   node_type_storage(ntype, "NodeFrame", node_free_standard_storage, node_copy_standard_storage);
   node_type_size(ntype, 150, 100, 0);
+  ntype->flag |= NODE_BACKGROUND;
 
   nodeRegisterType(ntype);
 }
@@ -267,7 +252,7 @@ void register_node_type_reroute()
   bNodeType *ntype = MEM_cnew<bNodeType>("frame node type");
   ntype->free_self = (void (*)(bNodeType *))MEM_freeN;
 
-  node_type_base(ntype, NODE_REROUTE, "Reroute", NODE_CLASS_LAYOUT, 0);
+  node_type_base(ntype, NODE_REROUTE, "Reroute", NODE_CLASS_LAYOUT);
   node_type_init(ntype, node_reroute_init);
 
   nodeRegisterType(ntype);
@@ -341,7 +326,7 @@ void ntree_update_reroute_nodes(bNodeTree *ntree)
   }
 
   /* Propagate socket types from right to left. This affects reroute nodes that haven't been
-   * changed in the the loop above. */
+   * changed in the loop above. */
   for (bNode *start_node : nodes_linked_with_reroutes) {
     LISTBASE_FOREACH (bNodeSocket *, input_socket, &start_node->inputs) {
       propagate_reroute_type_from_start_socket(input_socket, links_map, reroute_types);
@@ -419,6 +404,11 @@ void BKE_node_tree_unlink_id(ID *id, struct bNodeTree *ntree)
 /** \name Node #GROUP_INPUT / #GROUP_OUTPUT
  * \{ */
 
+static bool is_group_extension_socket(const bNode *node, const bNodeSocket *socket)
+{
+  return socket->type == SOCK_CUSTOM && ELEM(node->type, NODE_GROUP_OUTPUT, NODE_GROUP_INPUT);
+}
+
 static void node_group_input_init(bNodeTree *ntree, bNode *node)
 {
   node_group_input_update(ntree, node);
@@ -470,7 +460,7 @@ void node_group_input_update(bNodeTree *ntree, bNode *node)
      * This could be improved by choosing the "best" type among all links,
      * whatever that means.
      */
-    if (link->tosock->type != SOCK_CUSTOM) {
+    if (!is_group_extension_socket(link->tonode, link->tosock)) {
       exposelink = link;
       break;
     }
@@ -508,7 +498,7 @@ void register_node_type_group_input()
   bNodeType *ntype = MEM_cnew<bNodeType>("node type");
   ntype->free_self = (void (*)(bNodeType *))MEM_freeN;
 
-  node_type_base(ntype, NODE_GROUP_INPUT, "Group Input", NODE_CLASS_INTERFACE, 0);
+  node_type_base(ntype, NODE_GROUP_INPUT, "Group Input", NODE_CLASS_INTERFACE);
   node_type_size(ntype, 140, 80, 400);
   node_type_init(ntype, node_group_input_init);
   node_type_update(ntype, node_group_input_update);
@@ -567,7 +557,7 @@ void node_group_output_update(bNodeTree *ntree, bNode *node)
      * This could be improved by choosing the "best" type among all links,
      * whatever that means.
      */
-    if (link->fromsock->type != SOCK_CUSTOM) {
+    if (!is_group_extension_socket(link->fromnode, link->fromsock)) {
       exposelink = link;
       break;
     }
@@ -606,7 +596,7 @@ void register_node_type_group_output()
   bNodeType *ntype = MEM_cnew<bNodeType>("node type");
   ntype->free_self = (void (*)(bNodeType *))MEM_freeN;
 
-  node_type_base(ntype, NODE_GROUP_OUTPUT, "Group Output", NODE_CLASS_INTERFACE, 0);
+  node_type_base(ntype, NODE_GROUP_OUTPUT, "Group Output", NODE_CLASS_INTERFACE);
   node_type_size(ntype, 140, 80, 400);
   node_type_init(ntype, node_group_output_init);
   node_type_update(ntype, node_group_output_update);

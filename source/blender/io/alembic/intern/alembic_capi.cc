@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup balembic
@@ -159,11 +145,25 @@ static bool gather_objects_paths(const IObject &object, ListBase *object_paths)
 
 CacheArchiveHandle *ABC_create_handle(struct Main *bmain,
                                       const char *filename,
+                                      const CacheFileLayer *layers,
                                       ListBase *object_paths)
 {
-  ArchiveReader *archive = new ArchiveReader(bmain, filename);
+  std::vector<const char *> filenames;
+  filenames.push_back(filename);
 
-  if (!archive->valid()) {
+  while (layers) {
+    if ((layers->flag & CACHEFILE_LAYER_HIDDEN) == 0) {
+      filenames.push_back(layers->filepath);
+    }
+    layers = layers->next;
+  }
+
+  /* We need to reverse the order as overriding archives should come first. */
+  std::reverse(filenames.begin(), filenames.end());
+
+  ArchiveReader *archive = ArchiveReader::get(bmain, filenames);
+
+  if (!archive || !archive->valid()) {
     delete archive;
     return nullptr;
   }
@@ -274,6 +274,7 @@ static std::pair<bool, AbcObjectReader *> visit_object(
     children_claiming_this_object += child_claims_this_object ? 1 : 0;
   }
   BLI_assert(children_claiming_this_object == claiming_child_readers.size());
+  UNUSED_VARS_NDEBUG(children_claiming_this_object);
 
   AbcObjectReader *reader = nullptr;
   const MetaData &md = object.getMetaData();
@@ -447,9 +448,9 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 
   WM_set_locked_interface(data->wm, true);
 
-  ArchiveReader *archive = new ArchiveReader(data->bmain, data->filename);
+  ArchiveReader *archive = ArchiveReader::get(data->bmain, {data->filename});
 
-  if (!archive->valid()) {
+  if (!archive || !archive->valid()) {
     data->error_code = ABC_ARCHIVE_FAIL;
     delete archive;
     return;
@@ -496,7 +497,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
   chrono_t min_time = std::numeric_limits<chrono_t>::max();
   chrono_t max_time = std::numeric_limits<chrono_t>::min();
 
-  ISampleSelector sample_sel(0.0f);
+  ISampleSelector sample_sel(0.0);
   std::vector<AbcObjectReader *>::iterator iter;
   for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
     AbcObjectReader *reader = *iter;
@@ -554,7 +555,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
   i = 0;
   for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
     AbcObjectReader *reader = *iter;
-    reader->setupObjectTransform(0.0f);
+    reader->setupObjectTransform(0.0);
 
     *data->progress = 0.7f + 0.3f * (++i / size);
     *data->do_update = true;
@@ -723,7 +724,7 @@ bool ABC_import(bContext *C,
 
 /* ************************************************************************** */
 
-void ABC_get_transform(CacheReader *reader, float r_mat_world[4][4], float time, float scale)
+void ABC_get_transform(CacheReader *reader, float r_mat_world[4][4], double time, float scale)
 {
   if (!reader) {
     return;
@@ -774,7 +775,7 @@ static AbcObjectReader *get_abc_reader(CacheReader *reader, Object *ob, const ch
   return abc_reader;
 }
 
-static ISampleSelector sample_selector_for_time(float time)
+static ISampleSelector sample_selector_for_time(chrono_t time)
 {
   /* kFloorIndex is used to be compatible with non-interpolating
    * properties; they use the floor. */
@@ -784,7 +785,7 @@ static ISampleSelector sample_selector_for_time(float time)
 Mesh *ABC_read_mesh(CacheReader *reader,
                     Object *ob,
                     Mesh *existing_mesh,
-                    const float time,
+                    const double time,
                     const char **err_str,
                     const int read_flag,
                     const char *velocity_name,
@@ -800,8 +801,11 @@ Mesh *ABC_read_mesh(CacheReader *reader,
       existing_mesh, sample_sel, read_flag, velocity_name, velocity_scale, err_str);
 }
 
-bool ABC_mesh_topology_changed(
-    CacheReader *reader, Object *ob, Mesh *existing_mesh, const float time, const char **err_str)
+bool ABC_mesh_topology_changed(CacheReader *reader,
+                               Object *ob,
+                               const Mesh *existing_mesh,
+                               const double time,
+                               const char **err_str)
 {
   AbcObjectReader *abc_reader = get_abc_reader(reader, ob, err_str);
   if (abc_reader == nullptr) {

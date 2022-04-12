@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #pragma once
 
@@ -59,6 +46,7 @@ CCL_NAMESPACE_BEGIN
 #define LAMP_NONE (~0)
 #define ID_NONE (0.0f)
 #define PASS_UNUSED (~0)
+#define LIGHTGROUP_NONE (~0)
 
 #define INTEGRATOR_SHADOW_ISECT_SIZE_CPU 1024U
 #define INTEGRATOR_SHADOW_ISECT_SIZE_GPU 4U
@@ -114,6 +102,12 @@ CCL_NAMESPACE_BEGIN
 #ifdef __KERNEL_GPU_RAYTRACING__
 #  undef __BAKING__
 #endif /* __KERNEL_GPU_RAYTRACING__ */
+
+/* MNEE currently causes "Compute function exceeds available temporary registers"
+ * on Metal, disabled for now. */
+#ifndef __KERNEL_METAL__
+#  define __MNEE__
+#endif
 
 /* Scene-based selective features compilation. */
 #ifdef __KERNEL_FEATURES__
@@ -202,7 +196,7 @@ enum SamplingPattern {
 
 /* These flags values correspond to `raytypes` in `osl.cpp`, so keep them in sync! */
 
-enum PathRayFlag {
+enum PathRayFlag : uint32_t {
   /* --------------------------------------------------------------------
    * Ray visibility.
    *
@@ -306,6 +300,13 @@ enum PathRayFlag {
   PATH_RAY_SHADOW_CATCHER_BACKGROUND = (1U << 31U),
 };
 
+// 8bit enum, just in case we need to move more variables in it
+enum PathRayMNEE {
+  PATH_MNEE_VALID = (1U << 0U),
+  PATH_MNEE_RECEIVER_ANCESTOR = (1U << 1U),
+  PATH_MNEE_CULL_LIGHT_CONNECTION = (1U << 2U),
+};
+
 /* Configure ray visibility bits for rays and objects respectively,
  * to make shadow catchers work.
  *
@@ -388,6 +389,7 @@ typedef enum PassType {
   PASS_DENOISING_NORMAL,
   PASS_DENOISING_ALBEDO,
   PASS_DENOISING_DEPTH,
+  PASS_DENOISING_PREVIOUS,
 
   /* PASS_SHADOW_CATCHER accumulates contribution of shadow catcher object which is not affected by
    * any other object. The pass accessor will divide the combined pass by the shadow catcher. The
@@ -511,11 +513,20 @@ typedef struct differential {
 
 /* Ray */
 
+typedef struct RaySelfPrimitives {
+  int prim;         /* Primitive the ray is starting from */
+  int object;       /* Instance prim is a part of */
+  int light_prim;   /* Light primitive */
+  int light_object; /* Light object */
+} RaySelfPrimitives;
+
 typedef struct Ray {
   float3 P;   /* origin */
   float3 D;   /* direction */
   float t;    /* length of the ray */
   float time; /* time (for motion blur) */
+
+  RaySelfPrimitives self;
 
 #ifdef __RAY_DIFFERENTIALS__
   float dP;
@@ -652,6 +663,17 @@ typedef struct AttributeDescriptor {
 #  define MAX_CLOSURE __MAX_CLOSURE__
 #endif
 
+/* For manifold next event estimation, we need space to store and evaluate
+ * 2 closures (with extra data) on the refractive interfaces, in addition
+ * to keeping the full sd at the current shading point. We need 4 because a
+ * refractive BSDF is instanced with a companion reflection BSDF, even though
+ * we only need the refractive one, and each of them requires 2 slots. */
+#ifndef __CAUSTICS_MAX_CLOSURE__
+#  define CAUSTICS_MAX_CLOSURE 4
+#else
+#  define CAUSTICS_MAX_CLOSURE __CAUSTICS_MAX_CLOSURE__
+#endif
+
 #ifndef __MAX_VOLUME_STACK_SIZE__
 #  define MAX_VOLUME_STACK_SIZE 32
 #else
@@ -782,11 +804,18 @@ enum ShaderDataObjectFlag {
   SD_OBJECT_SHADOW_CATCHER = (1 << 7),
   /* object has volume attributes */
   SD_OBJECT_HAS_VOLUME_ATTRIBUTES = (1 << 8),
+  /* object is caustics caster */
+  SD_OBJECT_CAUSTICS_CASTER = (1 << 9),
+  /* object is caustics receiver */
+  SD_OBJECT_CAUSTICS_RECEIVER = (1 << 10),
+
+  /* object is using caustics */
+  SD_OBJECT_CAUSTICS = (SD_OBJECT_CAUSTICS_CASTER | SD_OBJECT_CAUSTICS_RECEIVER),
 
   SD_OBJECT_FLAGS = (SD_OBJECT_HOLDOUT_MASK | SD_OBJECT_MOTION | SD_OBJECT_TRANSFORM_APPLIED |
                      SD_OBJECT_NEGATIVE_SCALE_APPLIED | SD_OBJECT_HAS_VOLUME |
                      SD_OBJECT_INTERSECTS_VOLUME | SD_OBJECT_SHADOW_CATCHER |
-                     SD_OBJECT_HAS_VOLUME_ATTRIBUTES)
+                     SD_OBJECT_HAS_VOLUME_ATTRIBUTES | SD_OBJECT_CAUSTICS)
 };
 
 typedef struct ccl_align(16) ShaderData
@@ -885,6 +914,15 @@ typedef struct ccl_align(16) ShaderDataTinyStorage
   char pad[sizeof(ShaderData) - sizeof(ShaderClosure) * MAX_CLOSURE];
 }
 ShaderDataTinyStorage;
+
+/* ShaderDataCausticsStorage needs the same alignment as ShaderData, or else
+ * the pointer cast in AS_SHADER_DATA invokes undefined behavior. */
+typedef struct ccl_align(16) ShaderDataCausticsStorage
+{
+  char pad[sizeof(ShaderData) - sizeof(ShaderClosure) * (MAX_CLOSURE - CAUSTICS_MAX_CLOSURE)];
+}
+ShaderDataCausticsStorage;
+
 #define AS_SHADER_DATA(shader_data_tiny_storage) \
   ((ccl_private ShaderData *)shader_data_tiny_storage)
 
@@ -1071,6 +1109,7 @@ typedef struct KernelFilm {
 
   int pass_aov_color;
   int pass_aov_value;
+  int pass_lightgroup;
 
   /* XYZ to rendering color space transform. float4 instead of float3 to
    * ensure consistent padding/alignment across devices. */
@@ -1155,8 +1194,10 @@ typedef struct KernelBackground {
 
   int use_mis;
 
+  int lightgroup;
+
   /* Padding */
-  int pad1, pad2, pad3;
+  int pad1, pad2;
 } KernelBackground;
 static_assert_align(KernelBackground, 16);
 
@@ -1204,6 +1245,9 @@ typedef struct KernelIntegrator {
   /* mis */
   int use_lamp_mis;
 
+  /* caustics */
+  int use_caustics;
+
   /* sampler */
   int sampling_pattern;
 
@@ -1222,7 +1266,7 @@ typedef struct KernelIntegrator {
   int direct_light_sampling_type;
 
   /* padding */
-  int pad1, pad2;
+  int pad1;
 } KernelIntegrator;
 static_assert_align(KernelIntegrator, 16);
 
@@ -1310,6 +1354,7 @@ typedef struct KernelObject {
   float pass_id;
   float random_number;
   float color[3];
+  float alpha;
   int particle_index;
 
   float dupli_generated[3];
@@ -1331,8 +1376,12 @@ typedef struct KernelObject {
 
   float ao_distance;
 
+  int lightgroup;
+
   uint visibility;
   int primitive_type;
+
+  int pad1;
 } KernelObject;
 static_assert_align(KernelObject, 16);
 
@@ -1384,7 +1433,8 @@ typedef struct KernelLight {
   float max_bounces;
   float random;
   float strength[3];
-  float pad1, pad2;
+  int use_caustics;
+  int lightgroup;
   Transform tfm;
   Transform itfm;
   union {
@@ -1559,26 +1609,26 @@ enum {
 
 /* Kernel Features */
 
-enum KernelFeatureFlag : unsigned int {
+enum KernelFeatureFlag : uint32_t {
   /* Shader nodes. */
   KERNEL_FEATURE_NODE_BSDF = (1U << 0U),
   KERNEL_FEATURE_NODE_EMISSION = (1U << 1U),
   KERNEL_FEATURE_NODE_VOLUME = (1U << 2U),
-  KERNEL_FEATURE_NODE_HAIR = (1U << 3U),
-  KERNEL_FEATURE_NODE_BUMP = (1U << 4U),
-  KERNEL_FEATURE_NODE_BUMP_STATE = (1U << 5U),
-  KERNEL_FEATURE_NODE_VORONOI_EXTRA = (1U << 6U),
-  KERNEL_FEATURE_NODE_RAYTRACE = (1U << 7U),
-  KERNEL_FEATURE_NODE_AOV = (1U << 8U),
-  KERNEL_FEATURE_NODE_LIGHT_PATH = (1U << 9U),
+  KERNEL_FEATURE_NODE_BUMP = (1U << 3U),
+  KERNEL_FEATURE_NODE_BUMP_STATE = (1U << 4U),
+  KERNEL_FEATURE_NODE_VORONOI_EXTRA = (1U << 5U),
+  KERNEL_FEATURE_NODE_RAYTRACE = (1U << 6U),
+  KERNEL_FEATURE_NODE_AOV = (1U << 7U),
+  KERNEL_FEATURE_NODE_LIGHT_PATH = (1U << 8U),
 
   /* Use denoising kernels and output denoising passes. */
-  KERNEL_FEATURE_DENOISING = (1U << 10U),
+  KERNEL_FEATURE_DENOISING = (1U << 9U),
 
   /* Use path tracing kernels. */
-  KERNEL_FEATURE_PATH_TRACING = (1U << 11U),
+  KERNEL_FEATURE_PATH_TRACING = (1U << 10U),
 
   /* BVH/sampling kernel features. */
+  KERNEL_FEATURE_POINTCLOUD = (1U << 11U),
   KERNEL_FEATURE_HAIR = (1U << 12U),
   KERNEL_FEATURE_HAIR_THICK = (1U << 13U),
   KERNEL_FEATURE_OBJECT_MOTION = (1U << 14U),
@@ -1615,9 +1665,6 @@ enum KernelFeatureFlag : unsigned int {
   KERNEL_FEATURE_AO_PASS = (1U << 25U),
   KERNEL_FEATURE_AO_ADDITIVE = (1U << 26U),
   KERNEL_FEATURE_AO = (KERNEL_FEATURE_AO_PASS | KERNEL_FEATURE_AO_ADDITIVE),
-
-  /* Point clouds. */
-  KERNEL_FEATURE_POINTCLOUD = (1U << 27U),
 };
 
 /* Shader node feature mask, to specialize shader evaluation for kernels. */
@@ -1627,7 +1674,7 @@ enum KernelFeatureFlag : unsigned int {
    KERNEL_FEATURE_NODE_LIGHT_PATH)
 #define KERNEL_FEATURE_NODE_MASK_SURFACE_SHADOW \
   (KERNEL_FEATURE_NODE_BSDF | KERNEL_FEATURE_NODE_EMISSION | KERNEL_FEATURE_NODE_VOLUME | \
-   KERNEL_FEATURE_NODE_HAIR | KERNEL_FEATURE_NODE_BUMP | KERNEL_FEATURE_NODE_BUMP_STATE | \
+   KERNEL_FEATURE_NODE_BUMP | KERNEL_FEATURE_NODE_BUMP_STATE | \
    KERNEL_FEATURE_NODE_VORONOI_EXTRA | KERNEL_FEATURE_NODE_LIGHT_PATH)
 #define KERNEL_FEATURE_NODE_MASK_SURFACE \
   (KERNEL_FEATURE_NODE_MASK_SURFACE_SHADOW | KERNEL_FEATURE_NODE_RAYTRACE | \

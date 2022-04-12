@@ -1,19 +1,4 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-# ***** END GPL LICENSE BLOCK *****
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 # Use '--write-blend=/tmp/test.blend' to view output
 
@@ -129,6 +114,11 @@ add_blender_test(
 add_blender_test(
   script_pyapi_prop_array
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_prop_array.py
+)
+
+add_blender_test(
+  script_pyapi_text
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_text.py
 )
 
 # ------------------------------------------------------------------------------
@@ -289,6 +279,13 @@ add_blender_test(
 add_blender_test(
   bl_animation_fcurves
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_animation_fcurves.py
+  --
+  --testdir "${TEST_SRC_DIR}/animation"
+)
+
+add_blender_test(
+  bl_rigging_symmetrize
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_rigging_symmetrize.py
   --
   --testdir "${TEST_SRC_DIR}/animation"
 )
@@ -737,15 +734,17 @@ if(WITH_COMPOSITOR)
   set(compositor_tests
     color
     converter
-    distort
     filter
     input
-    matte
     output
     vector
 
     multiple_node_setups
   )
+
+  if(WITH_LIBMV)
+    list(APPEND compositor_tests distort matte)
+  endif()
 
   foreach(comp_test ${compositor_tests})
     add_python_test(
@@ -767,6 +766,7 @@ set(geo_node_tests
   geometry
   mesh_primitives
   mesh
+  mesh/extrude
   points
   utilities
   vector

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edscr
@@ -144,7 +130,7 @@ static void drawscredge_area_draw(
   }
 
   GPUBatch *batch = batch_screen_edges_get(NULL);
-  GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_AREA_EDGES);
+  GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_AREA_BORDERS);
   GPU_batch_uniform_4fv(batch, "rect", (float *)&rect);
   GPU_batch_draw(batch);
 }
@@ -187,7 +173,7 @@ void ED_screen_draw_edges(wmWindow *win)
     BLI_rcti_do_minmax_v(&scissor_rect, (int[2]){area->v3->vec.x, area->v3->vec.y});
   }
 
-  if (GPU_type_matches(GPU_DEVICE_INTEL_UHD, GPU_OS_UNIX, GPU_DRIVER_ANY)) {
+  if (GPU_type_matches_ex(GPU_DEVICE_INTEL_UHD, GPU_OS_UNIX, GPU_DRIVER_ANY, GPU_BACKEND_OPENGL)) {
     /* For some reason, on linux + Intel UHD Graphics 620 the driver
      * hangs if we don't flush before this. (See T57455) */
     GPU_flush();
@@ -212,7 +198,7 @@ void ED_screen_draw_edges(wmWindow *win)
   GPU_blend(GPU_BLEND_ALPHA);
 
   GPUBatch *batch = batch_screen_edges_get(&verts_per_corner);
-  GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_AREA_EDGES);
+  GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_AREA_BORDERS);
   GPU_batch_uniform_1i(batch, "cornerLen", verts_per_corner);
   GPU_batch_uniform_1f(batch, "scale", corner_scale);
   GPU_batch_uniform_4fv(batch, "color", col);

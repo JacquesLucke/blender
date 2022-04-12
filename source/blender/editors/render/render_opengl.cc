@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup render
@@ -50,6 +34,8 @@
 #include "BKE_fcurve.h"
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
+#include "BKE_image_save.h"
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
@@ -72,7 +58,10 @@
 #include "IMB_colormanagement.h"
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
+
 #include "RE_pipeline.h"
+
+#include "BLT_translation.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -92,7 +81,7 @@
 #endif
 
 /* TODO(sergey): Find better approximation of the scheduled frames.
- * For really highres renders it might fail still. */
+ * For really high-resolution renders it might fail still. */
 #define MAX_SCHEDULED_FRAMES 8
 
 struct OGLRender {
@@ -141,7 +130,7 @@ struct OGLRender {
   wmWindowManager *wm;
   wmWindow *win;
 
-  /** Use to check if running modal or not (invoke'd or exec'd). */
+  /** Use to check if running modal or not (invoked or executed). */
   wmTimer *timer;
 
   void **movie_ctx_arr;
@@ -325,13 +314,13 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
         imb_freerectfloatImBuf(out);
       }
       BLI_assert((oglrender->sizex == ibuf->x) && (oglrender->sizey == ibuf->y));
-      RE_render_result_rect_from_ibuf(rr, &scene->r, out, oglrender->view_id);
+      RE_render_result_rect_from_ibuf(rr, out, oglrender->view_id);
       IMB_freeImBuf(out);
     }
     else if (gpd) {
       /* If there are no strips, Grease Pencil still needs a buffer to draw on */
       ImBuf *out = IMB_allocImBuf(oglrender->sizex, oglrender->sizey, 32, IB_rect);
-      RE_render_result_rect_from_ibuf(rr, &scene->r, out, oglrender->view_id);
+      RE_render_result_rect_from_ibuf(rr, out, oglrender->view_id);
       IMB_freeImBuf(out);
     }
 
@@ -427,7 +416,7 @@ static void screen_opengl_render_doit(const bContext *C, OGLRender *oglrender, R
     if ((scene->r.stamp & R_STAMP_ALL) && (scene->r.stamp & R_STAMP_DRAW)) {
       BKE_image_stamp_buf(scene, camera, nullptr, rect, rectf, rr->rectx, rr->recty, 4);
     }
-    RE_render_result_rect_from_ibuf(rr, &scene->r, ibuf_result, oglrender->view_id);
+    RE_render_result_rect_from_ibuf(rr, ibuf_result, oglrender->view_id);
     IMB_freeImBuf(ibuf_result);
   }
 }
@@ -452,7 +441,7 @@ static void screen_opengl_render_write(OGLRender *oglrender)
 
   /* write images as individual images or stereo */
   BKE_render_result_stamp_info(scene, scene->camera, rr, false);
-  ok = RE_WriteRenderViewsImage(oglrender->reports, rr, scene, false, name);
+  ok = BKE_image_render_write(oglrender->reports, rr, scene, false, name);
 
   RE_ReleaseResultImage(oglrender->re);
 
@@ -525,7 +514,7 @@ static void screen_opengl_render_apply(const bContext *C, OGLRender *oglrender)
     ibuf->userflags |= IB_DISPLAY_BUFFER_INVALID;
   }
   BKE_image_release_ibuf(oglrender->ima, ibuf, lock);
-  oglrender->ima->gpuflag |= IMA_GPU_REFRESH;
+  BKE_image_partial_update_mark_full_update(oglrender->ima);
 
   if (oglrender->write_still) {
     screen_opengl_render_write(oglrender);
@@ -612,30 +601,30 @@ static int gather_frames_to_render_for_id(LibraryIDLinkCallbackData *cb_data)
   const ID_Type id_type = GS(id->name);
   switch (id_type) {
     /* Whitelist: */
-    case ID_ME:  /* Mesh */
-    case ID_CU:  /* Curve */
-    case ID_MB:  /* MetaBall */
-    case ID_MA:  /* Material */
-    case ID_TE:  /* Tex (Texture) */
-    case ID_IM:  /* Image */
-    case ID_LT:  /* Lattice */
-    case ID_LA:  /* Light */
-    case ID_CA:  /* Camera */
-    case ID_KE:  /* Key (shape key) */
-    case ID_VF:  /* VFont (Vector Font) */
-    case ID_TXT: /* Text */
-    case ID_SPK: /* Speaker */
-    case ID_SO:  /* Sound */
-    case ID_AR:  /* bArmature */
-    case ID_NT:  /* bNodeTree */
-    case ID_PA:  /* ParticleSettings */
-    case ID_MC:  /* MovieClip */
-    case ID_MSK: /* Mask */
-    case ID_LP:  /* LightProbe */
-    case ID_HA:  /* Hair */
-    case ID_PT:  /* PointCloud */
-    case ID_VO:  /* Volume */
-    case ID_SIM: /* Simulation */
+    case ID_ME:        /* Mesh */
+    case ID_CU_LEGACY: /* Curve */
+    case ID_MB:        /* MetaBall */
+    case ID_MA:        /* Material */
+    case ID_TE:        /* Tex (Texture) */
+    case ID_IM:        /* Image */
+    case ID_LT:        /* Lattice */
+    case ID_LA:        /* Light */
+    case ID_CA:        /* Camera */
+    case ID_KE:        /* Key (shape key) */
+    case ID_VF:        /* VFont (Vector Font) */
+    case ID_TXT:       /* Text */
+    case ID_SPK:       /* Speaker */
+    case ID_SO:        /* Sound */
+    case ID_AR:        /* bArmature */
+    case ID_NT:        /* bNodeTree */
+    case ID_PA:        /* ParticleSettings */
+    case ID_MC:        /* MovieClip */
+    case ID_MSK:       /* Mask */
+    case ID_LP:        /* LightProbe */
+    case ID_CV:        /* Curves */
+    case ID_PT:        /* PointCloud */
+    case ID_VO:        /* Volume */
+    case ID_SIM:       /* Simulation */
       break;
 
       /* Blacklist: */
@@ -727,7 +716,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
   const bool is_sequencer = RNA_boolean_get(op->ptr, "sequencer");
   const bool is_write_still = RNA_boolean_get(op->ptr, "write_still");
   const eImageFormatDepth color_depth = static_cast<eImageFormatDepth>(
-      (is_animation) ? scene->r.im_format.depth : R_IMF_CHAN_DEPTH_32);
+      (is_animation) ? (eImageFormatDepth)scene->r.im_format.depth : R_IMF_CHAN_DEPTH_32);
   char err_out[256] = "unknown";
 
   if (G.background) {
@@ -781,7 +770,7 @@ static bool screen_opengl_render_init(bContext *C, wmOperator *op)
   }
 
   /* allocate opengl render */
-  oglrender = MEM_cnew<OGLRender>("OGLRender");
+  oglrender = MEM_new<OGLRender>("OGLRender");
   op->customdata = oglrender;
 
   oglrender->ofs = ofs;
@@ -960,7 +949,7 @@ static void screen_opengl_render_end(bContext *C, OGLRender *oglrender)
   CTX_wm_area_set(C, oglrender->prevsa);
   CTX_wm_region_set(C, oglrender->prevar);
 
-  MEM_freeN(oglrender);
+  MEM_delete(oglrender);
 }
 
 static void screen_opengl_render_cancel(bContext *C, wmOperator *op)
@@ -1083,7 +1072,7 @@ static void write_result_func(TaskPool *__restrict pool, void *task_data_v)
                                  nullptr);
 
     BKE_render_result_stamp_info(scene, scene->camera, rr, false);
-    ok = RE_WriteRenderViewsImage(nullptr, rr, scene, true, name);
+    ok = BKE_image_render_write(nullptr, rr, scene, true, name);
     if (!ok) {
       BKE_reportf(&reports, RPT_ERROR, "Write error: cannot save %s", name);
     }
@@ -1115,7 +1104,7 @@ static bool schedule_write_result(OGLRender *oglrender, RenderResult *rr)
   Scene *scene = oglrender->scene;
   WriteTaskData *task_data = MEM_new<WriteTaskData>("write task data");
   task_data->rr = rr;
-  task_data->tmp_scene = *scene;
+  memcpy(&task_data->tmp_scene, scene, sizeof(task_data->tmp_scene));
   BLI_mutex_lock(&oglrender->task_mutex);
   oglrender->num_scheduled_frames++;
   if (oglrender->num_scheduled_frames > MAX_SCHEDULED_FRAMES) {
@@ -1326,12 +1315,12 @@ static char *screen_opengl_render_description(struct bContext *UNUSED(C),
   }
 
   if (RNA_boolean_get(ptr, "render_keyed_only")) {
-    return BLI_strdup(
+    return BLI_strdup(TIP_(
         "Render the viewport for the animation range of this scene, but only render keyframes of "
-        "selected objects");
+        "selected objects"));
   }
 
-  return BLI_strdup("Render the viewport for the animation range of this scene");
+  return BLI_strdup(TIP_("Render the viewport for the animation range of this scene"));
 }
 
 void RENDER_OT_opengl(wmOperatorType *ot)

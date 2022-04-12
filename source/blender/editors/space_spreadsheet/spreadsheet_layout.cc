@@ -1,24 +1,9 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <iomanip>
 #include <sstream>
 
-#include "BLI_float2.hh"
-#include "BLI_float3.hh"
+#include "BLI_math_vec_types.hh"
 
 #include "BKE_geometry_set.hh"
 
@@ -104,10 +89,32 @@ class SpreadsheetLayoutDrawer : public SpreadsheetDrawer {
       return;
     }
 
-    const fn::GVArray &data = column.data();
+    const GVArray &data = column.data();
 
     if (data.type().is<int>()) {
       const int value = data.get<int>(real_index);
+      const std::string value_str = std::to_string(value);
+      uiBut *but = uiDefIconTextBut(params.block,
+                                    UI_BTYPE_LABEL,
+                                    0,
+                                    ICON_NONE,
+                                    value_str.c_str(),
+                                    params.xmin,
+                                    params.ymin,
+                                    params.width,
+                                    params.height,
+                                    nullptr,
+                                    0,
+                                    0,
+                                    0,
+                                    0,
+                                    nullptr);
+      /* Right-align Integers. */
+      UI_but_drawflag_disable(but, UI_BUT_TEXT_LEFT);
+      UI_but_drawflag_enable(but, UI_BUT_TEXT_RIGHT);
+    }
+    if (data.type().is<int8_t>()) {
+      const int8_t value = data.get<int8_t>(real_index);
       const std::string value_str = std::to_string(value);
       uiBut *but = uiDefIconTextBut(params.block,
                                     UI_BTYPE_LABEL,
@@ -247,6 +254,23 @@ class SpreadsheetLayoutDrawer : public SpreadsheetDrawer {
           break;
         }
       }
+    }
+    else if (data.type().is<std::string>()) {
+      uiDefIconTextBut(params.block,
+                       UI_BTYPE_LABEL,
+                       0,
+                       ICON_NONE,
+                       data.get<std::string>(real_index).c_str(),
+                       params.xmin,
+                       params.ymin,
+                       params.width,
+                       params.height,
+                       nullptr,
+                       0,
+                       0,
+                       0,
+                       0,
+                       nullptr);
     }
   }
 

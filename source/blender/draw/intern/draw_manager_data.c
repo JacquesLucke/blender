@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup draw
@@ -231,6 +216,8 @@ static void drw_shgroup_uniform(DRWShadingGroup *shgroup,
   BLI_assert(arraysize > 0 && arraysize <= 16);
   BLI_assert(length >= 0 && length <= 16);
   BLI_assert(!ELEM(type,
+                   DRW_UNIFORM_STORAGE_BLOCK,
+                   DRW_UNIFORM_STORAGE_BLOCK_REF,
                    DRW_UNIFORM_BLOCK,
                    DRW_UNIFORM_BLOCK_REF,
                    DRW_UNIFORM_TEXTURE,
@@ -283,20 +270,90 @@ void DRW_shgroup_uniform_image_ref(DRWShadingGroup *shgroup, const char *name, G
   drw_shgroup_uniform_create_ex(shgroup, loc, DRW_UNIFORM_IMAGE_REF, tex, 0, 0, 1);
 }
 
-void DRW_shgroup_uniform_block(DRWShadingGroup *shgroup,
-                               const char *name,
-                               const GPUUniformBuf *ubo)
+void DRW_shgroup_uniform_block_ex(DRWShadingGroup *shgroup,
+                                  const char *name,
+                                  const GPUUniformBuf *ubo DRW_DEBUG_FILE_LINE_ARGS)
 {
   BLI_assert(ubo != NULL);
   int loc = GPU_shader_get_uniform_block_binding(shgroup->shader, name);
+  if (loc == -1) {
+#ifdef DRW_UNUSED_RESOURCE_TRACKING
+    printf("%s:%d: Unable to locate binding of shader uniform buffer object: %s.\n",
+           file,
+           line,
+           name);
+#else
+    /* TODO(@fclem): Would be good to have, but eevee has too much of this for the moment. */
+    // BLI_assert_msg(0, "Unable to locate binding of shader uniform buffer objects.");
+#endif
+    return;
+  }
   drw_shgroup_uniform_create_ex(shgroup, loc, DRW_UNIFORM_BLOCK, ubo, 0, 0, 1);
 }
 
-void DRW_shgroup_uniform_block_ref(DRWShadingGroup *shgroup, const char *name, GPUUniformBuf **ubo)
+void DRW_shgroup_uniform_block_ref_ex(DRWShadingGroup *shgroup,
+                                      const char *name,
+                                      GPUUniformBuf **ubo DRW_DEBUG_FILE_LINE_ARGS)
 {
   BLI_assert(ubo != NULL);
   int loc = GPU_shader_get_uniform_block_binding(shgroup->shader, name);
+  if (loc == -1) {
+#ifdef DRW_UNUSED_RESOURCE_TRACKING
+    printf("%s:%d: Unable to locate binding of shader uniform buffer object: %s.\n",
+           file,
+           line,
+           name);
+#else
+    /* TODO(@fclem): Would be good to have, but eevee has too much of this for the moment. */
+    // BLI_assert_msg(0, "Unable to locate binding of shader uniform buffer objects.");
+#endif
+    return;
+  }
   drw_shgroup_uniform_create_ex(shgroup, loc, DRW_UNIFORM_BLOCK_REF, ubo, 0, 0, 1);
+}
+
+void DRW_shgroup_storage_block_ex(DRWShadingGroup *shgroup,
+                                  const char *name,
+                                  const GPUStorageBuf *ssbo DRW_DEBUG_FILE_LINE_ARGS)
+{
+  BLI_assert(ssbo != NULL);
+  /* TODO(@fclem): Fix naming inconsistency. */
+  int loc = GPU_shader_get_ssbo(shgroup->shader, name);
+  if (loc == -1) {
+#ifdef DRW_UNUSED_RESOURCE_TRACKING
+    printf("%s:%d: Unable to locate binding of shader storage buffer object: %s.\n",
+           file,
+           line,
+           name);
+#else
+    /* TODO(@fclem): Would be good to have, but eevee has too much of this for the moment. */
+    // BLI_assert_msg(0, "Unable to locate binding of shader storage buffer objects.");
+#endif
+    return;
+  }
+  drw_shgroup_uniform_create_ex(shgroup, loc, DRW_UNIFORM_STORAGE_BLOCK, ssbo, 0, 0, 1);
+}
+
+void DRW_shgroup_storage_block_ref_ex(DRWShadingGroup *shgroup,
+                                      const char *name,
+                                      GPUStorageBuf **ssbo DRW_DEBUG_FILE_LINE_ARGS)
+{
+  BLI_assert(ssbo != NULL);
+  /* TODO(@fclem): Fix naming inconsistency. */
+  int loc = GPU_shader_get_ssbo(shgroup->shader, name);
+  if (loc == -1) {
+#ifdef DRW_UNUSED_RESOURCE_TRACKING
+    printf("%s:%d: Unable to locate binding of shader storage buffer object: %s.\n",
+           file,
+           line,
+           name);
+#else
+    /* TODO(@fclem): Would be good to have, but eevee has too much of this for the moment. */
+    // BLI_assert_msg(0, "Unable to locate binding of shader storage buffer objects.");
+#endif
+    return;
+  }
+  drw_shgroup_uniform_create_ex(shgroup, loc, DRW_UNIFORM_STORAGE_BLOCK_REF, ssbo, 0, 0, 1);
 }
 
 void DRW_shgroup_uniform_bool(DRWShadingGroup *shgroup,
@@ -428,10 +485,9 @@ void DRW_shgroup_uniform_vec4_copy(DRWShadingGroup *shgroup, const char *name, c
   drw_shgroup_uniform(shgroup, name, DRW_UNIFORM_FLOAT_COPY, value, 4, 1);
 }
 
-void DRW_shgroup_uniform_vec4_array_copy(DRWShadingGroup *shgroup,
-                                         const char *name,
-                                         const float (*value)[4],
-                                         int arraysize)
+void DRW_shgroup_uniform_mat4_copy(DRWShadingGroup *shgroup,
+                                   const char *name,
+                                   const float (*value)[4])
 {
   int location = GPU_shader_get_uniform(shgroup->shader, name);
 
@@ -441,23 +497,53 @@ void DRW_shgroup_uniform_vec4_array_copy(DRWShadingGroup *shgroup,
     return;
   }
 
-  for (int i = 0; i < arraysize; i++) {
-    drw_shgroup_uniform_create_ex(
-        shgroup, location + i, DRW_UNIFORM_FLOAT_COPY, &value[i], 0, 4, 1);
+  /* Each array element stored as an individual entry in the uniform list.
+   * All entries from the same array share the same base location,
+   * and array-size used to determine the number of elements
+   * copied in draw_update_uniforms. */
+  for (int i = 0; i < 4; i++) {
+    drw_shgroup_uniform_create_ex(shgroup, location, DRW_UNIFORM_FLOAT_COPY, &value[i], 0, 4, 4);
   }
 }
 
-void DRW_shgroup_vertex_buffer(DRWShadingGroup *shgroup,
-                               const char *name,
-                               GPUVertBuf *vertex_buffer)
+void DRW_shgroup_vertex_buffer_ex(DRWShadingGroup *shgroup,
+                                  const char *name,
+                                  GPUVertBuf *vertex_buffer DRW_DEBUG_FILE_LINE_ARGS)
 {
   int location = GPU_shader_get_ssbo(shgroup->shader, name);
   if (location == -1) {
+#ifdef DRW_UNUSED_RESOURCE_TRACKING
+    printf("%s:%d: Unable to locate binding of shader storage buffer object: %s.\n",
+           file,
+           line,
+           name);
+#else
     BLI_assert_msg(0, "Unable to locate binding of shader storage buffer objects.");
+#endif
     return;
   }
   drw_shgroup_uniform_create_ex(
       shgroup, location, DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE, vertex_buffer, 0, 0, 1);
+}
+
+void DRW_shgroup_vertex_buffer_ref_ex(DRWShadingGroup *shgroup,
+                                      const char *name,
+                                      GPUVertBuf **vertex_buffer DRW_DEBUG_FILE_LINE_ARGS)
+{
+  int location = GPU_shader_get_ssbo(shgroup->shader, name);
+  if (location == -1) {
+#ifdef DRW_UNUSED_RESOURCE_TRACKING
+    printf("%s:%d: Unable to locate binding of shader storage buffer object: %s.\n",
+           file,
+           line,
+           name);
+#else
+    BLI_assert_msg(0, "Unable to locate binding of shader storage buffer objects.");
+#endif
+    return;
+  }
+  drw_shgroup_uniform_create_ex(
+      shgroup, location, DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE_REF, vertex_buffer, 0, 0, 1);
 }
 
 /** \} */
@@ -476,7 +562,7 @@ static void drw_call_calc_orco(Object *ob, float (*r_orcofacs)[4])
       case ID_ME:
         BKE_mesh_texspace_get_reference((Mesh *)ob_data, NULL, &texcoloc, &texcosize);
         break;
-      case ID_CU: {
+      case ID_CU_LEGACY: {
         Curve *cu = (Curve *)ob_data;
         BKE_curve_texspace_ensure(cu);
         texcoloc = cu->loc;
@@ -552,7 +638,7 @@ static void drw_call_obinfos_init(DRWObjectInfos *ob_infos, Object *ob)
 
 static void drw_call_culling_init(DRWCullingState *cull, Object *ob)
 {
-  BoundBox *bbox;
+  const BoundBox *bbox;
   if (ob != NULL && (bbox = BKE_object_boundbox_get(ob))) {
     float corner[3];
     /* Get BoundSphere center and radius from the BoundBox. */
@@ -730,6 +816,24 @@ static void drw_command_compute(DRWShadingGroup *shgroup,
   cmd->groups_z_len = groups_z_len;
 }
 
+static void drw_command_compute_ref(DRWShadingGroup *shgroup, int groups_ref[3])
+{
+  DRWCommandComputeRef *cmd = drw_command_create(shgroup, DRW_CMD_COMPUTE_REF);
+  cmd->groups_ref = groups_ref;
+}
+
+static void drw_command_compute_indirect(DRWShadingGroup *shgroup, GPUStorageBuf *indirect_buf)
+{
+  DRWCommandComputeIndirect *cmd = drw_command_create(shgroup, DRW_CMD_COMPUTE_INDIRECT);
+  cmd->indirect_buf = indirect_buf;
+}
+
+static void drw_command_barrier(DRWShadingGroup *shgroup, eGPUBarrier type)
+{
+  DRWCommandBarrier *cmd = drw_command_create(shgroup, DRW_CMD_BARRIER);
+  cmd->type = type;
+}
+
 static void drw_command_draw_procedural(DRWShadingGroup *shgroup,
                                         GPUBatch *batch,
                                         DRWResourceHandle handle,
@@ -816,7 +920,7 @@ void DRW_shgroup_call_ex(DRWShadingGroup *shgroup,
       culling->user_data = user_data;
     }
     if (bypass_culling) {
-      /* NOTE this will disable culling for the whole object. */
+      /* NOTE: this will disable culling for the whole object. */
       culling->bsphere.radius = -1.0f;
     }
   }
@@ -853,6 +957,26 @@ void DRW_shgroup_call_compute(DRWShadingGroup *shgroup,
   BLI_assert(GPU_compute_shader_support());
 
   drw_command_compute(shgroup, groups_x_len, groups_y_len, groups_z_len);
+}
+
+void DRW_shgroup_call_compute_ref(DRWShadingGroup *shgroup, int groups_ref[3])
+{
+  BLI_assert(GPU_compute_shader_support());
+
+  drw_command_compute_ref(shgroup, groups_ref);
+}
+
+void DRW_shgroup_call_compute_indirect(DRWShadingGroup *shgroup, GPUStorageBuf *indirect_buf)
+{
+  BLI_assert(GPU_compute_shader_support());
+
+  drw_command_compute_indirect(shgroup, indirect_buf);
+}
+void DRW_shgroup_barrier(DRWShadingGroup *shgroup, eGPUBarrier type)
+{
+  BLI_assert(GPU_compute_shader_support());
+
+  drw_command_barrier(shgroup, type);
 }
 
 static void drw_shgroup_call_procedural_add_ex(DRWShadingGroup *shgroup,
@@ -1247,6 +1371,17 @@ static void drw_shgroup_init(DRWShadingGroup *shgroup, GPUShader *shader)
   int baseinst_location = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_BASE_INSTANCE);
   int chunkid_location = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_RESOURCE_CHUNK);
   int resourceid_location = GPU_shader_get_builtin_uniform(shader, GPU_UNIFORM_RESOURCE_ID);
+
+  /* TODO(@fclem): Will take the place of the above after the GPUShaderCreateInfo port. */
+  if (view_ubo_location == -1) {
+    view_ubo_location = GPU_shader_get_builtin_block(shader, GPU_UNIFORM_BLOCK_DRW_VIEW);
+  }
+  if (model_ubo_location == -1) {
+    model_ubo_location = GPU_shader_get_builtin_block(shader, GPU_UNIFORM_BLOCK_DRW_MODEL);
+  }
+  if (info_ubo_location == -1) {
+    info_ubo_location = GPU_shader_get_builtin_block(shader, GPU_UNIFORM_BLOCK_DRW_INFOS);
+  }
 
   if (chunkid_location != -1) {
     drw_shgroup_uniform_create_ex(
@@ -1692,7 +1827,7 @@ static void draw_frustum_bound_sphere_calc(const BoundBox *bbox,
   }
 }
 
-static void draw_view_matrix_state_update(DRWViewUboStorage *storage,
+static void draw_view_matrix_state_update(ViewInfos *storage,
                                           const float viewmat[4][4],
                                           const float winmat[4][4])
 {
@@ -1893,10 +2028,10 @@ void DRW_view_reset(void)
   DST.view_previous = NULL;
 }
 
-void DRW_view_default_set(DRWView *view)
+void DRW_view_default_set(const DRWView *view)
 {
   BLI_assert(DST.view_default == NULL);
-  DST.view_default = view;
+  DST.view_default = (DRWView *)view;
 }
 
 void DRW_view_clip_planes_set(DRWView *view, float (*planes)[4], int plane_len)
@@ -1904,7 +2039,7 @@ void DRW_view_clip_planes_set(DRWView *view, float (*planes)[4], int plane_len)
   BLI_assert(plane_len <= MAX_CLIP_PLANES);
   view->clip_planes_len = plane_len;
   if (plane_len > 0) {
-    memcpy(view->storage.clipplanes, planes, sizeof(float[4]) * plane_len);
+    memcpy(view->storage.clip_planes, planes, sizeof(float[4]) * plane_len);
   }
 }
 
@@ -1956,21 +2091,21 @@ float DRW_view_far_distance_get(const DRWView *view)
 void DRW_view_viewmat_get(const DRWView *view, float mat[4][4], bool inverse)
 {
   view = (view) ? view : DST.view_default;
-  const DRWViewUboStorage *storage = &view->storage;
+  const ViewInfos *storage = &view->storage;
   copy_m4_m4(mat, (inverse) ? storage->viewinv : storage->viewmat);
 }
 
 void DRW_view_winmat_get(const DRWView *view, float mat[4][4], bool inverse)
 {
   view = (view) ? view : DST.view_default;
-  const DRWViewUboStorage *storage = &view->storage;
+  const ViewInfos *storage = &view->storage;
   copy_m4_m4(mat, (inverse) ? storage->wininv : storage->winmat);
 }
 
 void DRW_view_persmat_get(const DRWView *view, float mat[4][4], bool inverse)
 {
   view = (view) ? view : DST.view_default;
-  const DRWViewUboStorage *storage = &view->storage;
+  const ViewInfos *storage = &view->storage;
   copy_m4_m4(mat, (inverse) ? storage->persinv : storage->persmat);
 }
 

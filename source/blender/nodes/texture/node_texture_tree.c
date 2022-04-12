@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup nodes
@@ -47,6 +31,7 @@
 #include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "RE_texture.h"
 
@@ -168,6 +153,63 @@ void register_node_tree_type_tex(void)
   tt->rna_ext.srna = &RNA_TextureNodeTree;
 
   ntreeTypeAdd(tt);
+}
+
+/**** Material/Texture trees ****/
+
+bNodeThreadStack *ntreeGetThreadStack(bNodeTreeExec *exec, int thread)
+{
+  ListBase *lb = &exec->threadstack[thread];
+  bNodeThreadStack *nts;
+
+  for (nts = (bNodeThreadStack *)lb->first; nts; nts = nts->next) {
+    if (!nts->used) {
+      nts->used = true;
+      break;
+    }
+  }
+
+  if (!nts) {
+    nts = MEM_callocN(sizeof(bNodeThreadStack), "bNodeThreadStack");
+    nts->stack = (bNodeStack *)MEM_dupallocN(exec->stack);
+    nts->used = true;
+    BLI_addtail(lb, nts);
+  }
+
+  return nts;
+}
+
+void ntreeReleaseThreadStack(bNodeThreadStack *nts)
+{
+  nts->used = false;
+}
+
+bool ntreeExecThreadNodes(bNodeTreeExec *exec, bNodeThreadStack *nts, void *callerdata, int thread)
+{
+  bNodeStack *nsin[MAX_SOCKET] = {NULL};  /* arbitrary... watch this */
+  bNodeStack *nsout[MAX_SOCKET] = {NULL}; /* arbitrary... watch this */
+  bNodeExec *nodeexec;
+  bNode *node;
+  int n;
+
+  /* nodes are presorted, so exec is in order of list */
+
+  for (n = 0, nodeexec = exec->nodeexec; n < exec->totnodes; n++, nodeexec++) {
+    node = nodeexec->node;
+    if (node->need_exec) {
+      node_get_stack(node, nts->stack, nsin, nsout);
+      /* Handle muted nodes...
+       * If the mute func is not set, assume the node should never be muted,
+       * and hence execute it!
+       */
+      if (node->typeinfo->exec_fn && !(node->flag & NODE_MUTED)) {
+        node->typeinfo->exec_fn(callerdata, thread, node, &nodeexec->data, nsin, nsout);
+      }
+    }
+  }
+
+  /* signal to that all went OK, for render */
+  return true;
 }
 
 bNodeTreeExec *ntreeTexBeginExecTree_internal(bNodeExecContext *context,

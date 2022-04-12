@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2017 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2017 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup sptopbar
@@ -243,8 +227,11 @@ static void undo_history_draw_menu(const bContext *C, Menu *menu)
   if (wm->undo_stack == NULL) {
     return;
   }
+
   int undo_step_count = 0;
-  for (UndoStep *us = wm->undo_stack->steps.first; us; us = us->next) {
+  int undo_step_count_all = 0;
+  for (UndoStep *us = wm->undo_stack->steps.last; us; us = us->prev) {
+    undo_step_count_all += 1;
     if (us->skip) {
       continue;
     }
@@ -255,10 +242,12 @@ static void undo_history_draw_menu(const bContext *C, Menu *menu)
   uiLayout *column = NULL;
 
   const int col_size = 20 + (undo_step_count / 12);
-  int i = 0;
 
   undo_step_count = 0;
-  for (UndoStep *us = wm->undo_stack->steps.first; us; us = us->next, i++) {
+
+  /* Reverse the order so the most recent state is first in the menu. */
+  int i = undo_step_count_all - 1;
+  for (UndoStep *us = wm->undo_stack->steps.last; us; us = us->prev, i--) {
     if (us->skip) {
       continue;
     }

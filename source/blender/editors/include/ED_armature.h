@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup editors
@@ -35,6 +19,7 @@ struct Base;
 struct Bone;
 struct Depsgraph;
 struct EditBone;
+struct GPUSelectResult;
 struct ListBase;
 struct Main;
 struct Mesh;
@@ -42,6 +27,7 @@ struct MeshDeformModifierData;
 struct Object;
 struct ReportList;
 struct Scene;
+struct SelectPick_Params;
 struct UndoType;
 struct View3D;
 struct ViewLayer;
@@ -94,7 +80,7 @@ struct EditBone *ED_armature_ebone_add_primitive(struct Object *obedit_arm,
  */
 float ED_armature_ebone_roll_to_vector(const struct EditBone *bone,
                                        const float align_axis[3],
-                                       const bool axis_only);
+                                       bool axis_only);
 /**
  * \param centermode: 0 == do center, 1 == center new, 2 == center cursor.
  *
@@ -105,8 +91,8 @@ void ED_armature_origin_set(
 /**
  * See #BKE_armature_transform for object-mode transform.
  */
-void ED_armature_edit_transform(struct bArmature *arm, const float mat[4][4], const bool do_props);
-void ED_armature_transform(struct bArmature *arm, const float mat[4][4], const bool do_props);
+void ED_armature_edit_transform(struct bArmature *arm, const float mat[4][4], bool do_props);
+void ED_armature_transform(struct bArmature *arm, const float mat[4][4], bool do_props);
 
 /* armature_naming.c */
 
@@ -138,7 +124,7 @@ void ED_armature_bone_rename(struct Main *bmain,
 void ED_armature_bones_flip_names(struct Main *bmain,
                                   struct bArmature *arm,
                                   struct ListBase *bones_names,
-                                  const bool do_strip_numbers);
+                                  bool do_strip_numbers);
 
 /* armature_ops.c */
 
@@ -157,40 +143,42 @@ int ED_armature_join_objects_exec(struct bContext *C, struct wmOperator *op);
 
 struct Base *ED_armature_base_and_ebone_from_select_buffer(struct Base **bases,
                                                            uint bases_len,
-                                                           int hit,
+                                                           unsigned int select_id,
                                                            struct EditBone **r_ebone);
 struct Object *ED_armature_object_and_ebone_from_select_buffer(struct Object **objects,
                                                                uint objects_len,
-                                                               int hit,
+                                                               unsigned int select_id,
                                                                struct EditBone **r_ebone);
 struct Base *ED_armature_base_and_pchan_from_select_buffer(struct Base **bases,
                                                            uint bases_len,
-                                                           int hit,
+                                                           unsigned int select_id,
                                                            struct bPoseChannel **r_pchan);
 /**
  * For callers that don't need the pose channel.
  */
 struct Base *ED_armature_base_and_bone_from_select_buffer(struct Base **bases,
                                                           uint bases_len,
-                                                          int hit,
+                                                          unsigned int select_id,
                                                           struct Bone **r_bone);
 bool ED_armature_edit_deselect_all(struct Object *obedit);
 bool ED_armature_edit_deselect_all_visible(struct Object *obedit);
 bool ED_armature_edit_deselect_all_multi_ex(struct Base **bases, uint bases_len);
 bool ED_armature_edit_deselect_all_visible_multi_ex(struct Base **bases, uint bases_len);
 bool ED_armature_edit_deselect_all_visible_multi(struct bContext *C);
+/**
+ * \return True when pick finds an element or the selection changed.
+ */
 bool ED_armature_edit_select_pick_bone(struct bContext *C,
                                        struct Base *basact,
                                        struct EditBone *ebone,
                                        int selmask,
-                                       bool extend,
-                                       bool deselect,
-                                       bool toggle);
+                                       const struct SelectPick_Params *params);
 /**
  * Bone selection picking for armature edit-mode in the view3d.
  */
-bool ED_armature_edit_select_pick(
-    struct bContext *C, const int mval[2], bool extend, bool deselect, bool toggle);
+bool ED_armature_edit_select_pick(struct bContext *C,
+                                  const int mval[2],
+                                  const struct SelectPick_Params *params);
 /**
  * Perform a selection operation on elements which have been 'touched',
  * use for lasso & border select but can be used elsewhere too.
@@ -203,7 +191,7 @@ bool ED_armature_edit_select_pick(
  *
  * \note Visibility checks must be done by the caller.
  */
-bool ED_armature_edit_select_op_from_tagged(struct bArmature *arm, const int sel_op);
+bool ED_armature_edit_select_op_from_tagged(struct bArmature *arm, int sel_op);
 
 /* armature_skinning.c */
 
@@ -215,8 +203,8 @@ void ED_object_vgroup_calc_from_armature(struct ReportList *reports,
                                          struct Scene *scene,
                                          struct Object *ob,
                                          struct Object *par,
-                                         const int mode,
-                                         const bool mirror);
+                                         int mode,
+                                         bool mirror);
 
 /* editarmature_undo.c */
 
@@ -251,7 +239,7 @@ bool ED_armature_ebone_is_child_recursive(struct EditBone *ebone_parent,
  * \return The shared parent or NULL.
  */
 struct EditBone *ED_armature_ebone_find_shared_parent(struct EditBone *ebone_child[],
-                                                      const unsigned int ebone_child_tot);
+                                                      unsigned int ebone_child_tot);
 void ED_armature_ebone_to_mat3(struct EditBone *ebone, float r_mat[3][3]);
 void ED_armature_ebone_to_mat4(struct EditBone *ebone, float r_mat[4][4]);
 void ED_armature_ebone_from_mat3(struct EditBone *ebone, const float mat[3][3]);
@@ -282,10 +270,10 @@ void ED_armature_ebone_listbase_temp_clear(struct ListBase *lb);
 /**
  * Free's bones and their properties.
  */
-void ED_armature_ebone_listbase_free(struct ListBase *lb, const bool do_id_user);
+void ED_armature_ebone_listbase_free(struct ListBase *lb, bool do_id_user);
 void ED_armature_ebone_listbase_copy(struct ListBase *lb_dst,
                                      struct ListBase *lb_src,
-                                     const bool do_id_user);
+                                     bool do_id_user);
 
 int ED_armature_ebone_selectflag_get(const struct EditBone *ebone);
 void ED_armature_ebone_selectflag_set(struct EditBone *ebone, int flag);
@@ -294,6 +282,7 @@ void ED_armature_ebone_selectflag_enable(struct EditBone *ebone, int flag);
 void ED_armature_ebone_selectflag_disable(struct EditBone *ebone, int flag);
 
 /* pose_edit.c */
+
 struct Object *ED_pose_object_from_context(struct bContext *C);
 bool ED_object_posemode_exit_ex(struct Main *bmain, struct Object *ob);
 bool ED_object_posemode_exit(struct bContext *C, struct Object *ob);
@@ -320,25 +309,26 @@ void ED_pose_recalculate_paths(struct bContext *C,
 
 /* pose_select.c */
 
-void ED_armature_pose_select_pick_bone(struct ViewLayer *view_layer,
+/**
+ * \return True when pick finds an element or the selection changed.
+ */
+bool ED_armature_pose_select_pick_bone(struct ViewLayer *view_layer,
                                        struct View3D *v3d,
                                        struct Object *ob,
                                        struct Bone *bone,
-                                       bool extend,
-                                       bool deselect,
-                                       bool toggle);
+                                       const struct SelectPick_Params *params);
 /**
  * Called for mode-less pose selection.
  * assumes the active object is still on old situation.
+ *
+ * \return True when pick finds an element or the selection changed.
  */
 bool ED_armature_pose_select_pick_with_buffer(struct ViewLayer *view_layer,
                                               struct View3D *v3d,
                                               struct Base *base,
-                                              const unsigned int *buffer,
+                                              const struct GPUSelectResult *buffer,
                                               short hits,
-                                              bool extend,
-                                              bool deselect,
-                                              bool toggle,
+                                              const struct SelectPick_Params *params,
                                               bool do_nearest);
 /**
  * While in weight-paint mode, a single pose may be active as well.
@@ -353,14 +343,14 @@ void ED_armature_pose_select_in_wpaint_mode(struct ViewLayer *view_layer,
 bool ED_pose_deselect_all_multi_ex(struct Base **bases,
                                    uint bases_len,
                                    int select_mode,
-                                   const bool ignore_visibility);
-bool ED_pose_deselect_all_multi(struct bContext *C, int select_mode, const bool ignore_visibility);
+                                   bool ignore_visibility);
+bool ED_pose_deselect_all_multi(struct bContext *C, int select_mode, bool ignore_visibility);
 /**
  * 'select_mode' is usual SEL_SELECT/SEL_DESELECT/SEL_TOGGLE/SEL_INVERT.
  * When true, 'ignore_visibility' makes this func also affect invisible bones
  * (hidden or on hidden layers).
  */
-bool ED_pose_deselect_all(struct Object *ob, int select_mode, const bool ignore_visibility);
+bool ED_pose_deselect_all(struct Object *ob, int select_mode, bool ignore_visibility);
 void ED_pose_bone_select_tag_update(struct Object *ob);
 /**
  * Utility method for changing the selection status of a bone.
@@ -368,7 +358,9 @@ void ED_pose_bone_select_tag_update(struct Object *ob);
 void ED_pose_bone_select(struct Object *ob, struct bPoseChannel *pchan, bool select);
 
 /* meshlaplacian.c */
-void ED_mesh_deform_bind_callback(struct MeshDeformModifierData *mmd,
+
+void ED_mesh_deform_bind_callback(struct Object *object,
+                                  struct MeshDeformModifierData *mmd,
                                   struct Mesh *cagemesh,
                                   float *vertexcos,
                                   int totvert,

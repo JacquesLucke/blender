@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -25,9 +11,10 @@
 #include "DNA_object_types.h"
 #include "DNA_pointcloud_types.h"
 
-#include "BLI_float3.hh"
+#include "BLI_bounds.hh"
 #include "BLI_index_range.hh"
 #include "BLI_listbase.h"
+#include "BLI_math_vec_types.hh"
 #include "BLI_rand.h"
 #include "BLI_span.hh"
 #include "BLI_string.h"
@@ -268,62 +255,28 @@ PointCloud *BKE_pointcloud_new_nomain(const int totpoint)
   return pointcloud;
 }
 
-struct MinMaxResult {
-  float3 min;
-  float3 max;
-};
-
-static MinMaxResult min_max_no_radii(Span<float3> positions)
+static std::optional<blender::bounds::MinMaxResult<float3>> point_cloud_bounds(
+    const PointCloud &pointcloud)
 {
-  return blender::threading::parallel_reduce(
-      positions.index_range(),
-      1024,
-      MinMaxResult{float3(FLT_MAX), float3(-FLT_MAX)},
-      [&](IndexRange range, const MinMaxResult &init) {
-        MinMaxResult result = init;
-        for (const int i : range) {
-          float3::min_max(positions[i], result.min, result.max);
-        }
-        return result;
-      },
-      [](const MinMaxResult &a, const MinMaxResult &b) {
-        return MinMaxResult{float3::min(a.min, b.min), float3::max(a.max, b.max)};
-      });
-}
-
-static MinMaxResult min_max_with_radii(Span<float3> positions, Span<float> radii)
-{
-  return blender::threading::parallel_reduce(
-      positions.index_range(),
-      1024,
-      MinMaxResult{float3(FLT_MAX), float3(-FLT_MAX)},
-      [&](IndexRange range, const MinMaxResult &init) {
-        MinMaxResult result = init;
-        for (const int i : range) {
-          result.min = float3::min(positions[i] - radii[i], result.min);
-          result.max = float3::max(positions[i] + radii[i], result.max);
-        }
-        return result;
-      },
-      [](const MinMaxResult &a, const MinMaxResult &b) {
-        return MinMaxResult{float3::min(a.min, b.min), float3::max(a.max, b.max)};
-      });
+  Span<float3> positions{reinterpret_cast<float3 *>(pointcloud.co), pointcloud.totpoint};
+  if (pointcloud.radius) {
+    Span<float> radii{pointcloud.radius, pointcloud.totpoint};
+    return blender::bounds::min_max_with_radii(positions, radii);
+  }
+  return blender::bounds::min_max(positions);
 }
 
 bool BKE_pointcloud_minmax(const PointCloud *pointcloud, float r_min[3], float r_max[3])
 {
-  if (!pointcloud->totpoint) {
+  using namespace blender;
+
+  const std::optional<bounds::MinMaxResult<float3>> min_max = point_cloud_bounds(*pointcloud);
+  if (!min_max) {
     return false;
   }
 
-  Span<float3> positions{reinterpret_cast<float3 *>(pointcloud->co), pointcloud->totpoint};
-  const MinMaxResult min_max = (pointcloud->radius) ?
-                                   min_max_with_radii(positions,
-                                                      {pointcloud->radius, pointcloud->totpoint}) :
-                                   min_max_no_radii(positions);
-
-  copy_v3_v3(r_min, float3::min(min_max.min, r_min));
-  copy_v3_v3(r_max, float3::max(min_max.max, r_max));
+  copy_v3_v3(r_min, math::min(min_max->min, float3(r_min)));
+  copy_v3_v3(r_max, math::max(min_max->max, float3(r_max)));
 
   return true;
 }
@@ -340,7 +293,7 @@ BoundBox *BKE_pointcloud_boundbox_get(Object *ob)
     ob->runtime.bb = static_cast<BoundBox *>(MEM_callocN(sizeof(BoundBox), "pointcloud boundbox"));
   }
 
-  blender::float3 min, max;
+  float3 min, max;
   INIT_MINMAX(min, max);
   if (ob->runtime.geometry_set_eval != nullptr) {
     ob->runtime.geometry_set_eval->compute_boundbox_without_instances(&min, &max);

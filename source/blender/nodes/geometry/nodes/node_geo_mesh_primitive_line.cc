@@ -1,21 +1,9 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+
+#include "BLI_task.hh"
 
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -155,8 +143,8 @@ static void node_geo_exec(GeoNodeExecParams params)
     if (count_mode == GEO_NODE_MESH_LINE_COUNT_RESOLUTION) {
       /* Don't allow asymptotic count increase for low resolution values. */
       const float resolution = std::max(params.extract_input<float>("Resolution"), 0.0001f);
-      const int count = total_delta.length() / resolution + 1;
-      const float3 delta = total_delta.normalized() * resolution;
+      const int count = math::length(total_delta) / resolution + 1;
+      const float3 delta = math::normalize(total_delta) * resolution;
       mesh = create_line_mesh(start, delta, count);
     }
     else if (count_mode == GEO_NODE_MESH_LINE_COUNT_TOTAL) {
@@ -183,15 +171,6 @@ static void node_geo_exec(GeoNodeExecParams params)
 
 namespace blender::nodes {
 
-static void fill_edge_data(MutableSpan<MEdge> edges)
-{
-  for (const int i : edges.index_range()) {
-    edges[i].v1 = i;
-    edges[i].v2 = i + 1;
-    edges[i].flag |= ME_LOOSEEDGE;
-  }
-}
-
 Mesh *create_line_mesh(const float3 start, const float3 delta, const int count)
 {
   if (count < 1) {
@@ -203,15 +182,23 @@ Mesh *create_line_mesh(const float3 start, const float3 delta, const int count)
   MutableSpan<MVert> verts{mesh->mvert, mesh->totvert};
   MutableSpan<MEdge> edges{mesh->medge, mesh->totedge};
 
-  short normal[3];
-  normal_float_to_short_v3(normal, delta.normalized());
-
-  for (const int i : verts.index_range()) {
-    copy_v3_v3(verts[i].co, start + delta * i);
-    copy_v3_v3_short(verts[i].no, normal);
-  }
-
-  fill_edge_data(edges);
+  threading::parallel_invoke(
+      [&]() {
+        threading::parallel_for(verts.index_range(), 4096, [&](IndexRange range) {
+          for (const int i : range) {
+            copy_v3_v3(verts[i].co, start + delta * i);
+          }
+        });
+      },
+      [&]() {
+        threading::parallel_for(edges.index_range(), 4096, [&](IndexRange range) {
+          for (const int i : range) {
+            edges[i].v1 = i;
+            edges[i].v2 = i + 1;
+            edges[i].flag |= ME_LOOSEEDGE;
+          }
+        });
+      });
 
   return mesh;
 }
@@ -224,7 +211,7 @@ void register_node_type_geo_mesh_primitive_line()
 
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_MESH_PRIMITIVE_LINE, "Mesh Line", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_MESH_PRIMITIVE_LINE, "Mesh Line", NODE_CLASS_GEOMETRY);
   ntype.declare = file_ns::node_declare;
   node_type_init(&ntype, file_ns::node_init);
   node_type_update(&ntype, file_ns::node_update);

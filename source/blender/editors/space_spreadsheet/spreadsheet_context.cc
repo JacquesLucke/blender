@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "MEM_guardedalloc.h"
 
@@ -465,9 +451,7 @@ bool ED_spreadsheet_context_path_is_active(const bContext *C, SpaceSpreadsheet *
   if (modifier == nullptr) {
     return false;
   }
-  if (!(modifier->flag & eModifierFlag_Active)) {
-    return false;
-  }
+  const bool modifier_is_active = modifier->flag & eModifierFlag_Active;
   if (modifier->type != eModifierType_Nodes) {
     return false;
   }
@@ -493,6 +477,12 @@ bool ED_spreadsheet_context_path_is_active(const bContext *C, SpaceSpreadsheet *
       SpaceNode *snode = (SpaceNode *)sl;
       if (snode->nodetree != root_node_tree) {
         continue;
+      }
+      if (!modifier_is_active) {
+        if (!(snode->flag & SNODE_PIN)) {
+          /* Node tree has to be pinned when the modifier is not active. */
+          continue;
+        }
       }
       if (snode->id != &object->id) {
         continue;

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <cstring>
 
@@ -56,7 +42,7 @@ static void apply_row_filter(const SpreadsheetRowFilter &row_filter,
                              Vector<int64_t> &new_indices)
 {
   const ColumnValues &column = *columns.lookup(row_filter.column_name);
-  const fn::GVArray &column_data = column.data();
+  const GVArray &column_data = column.data();
   if (column_data.type().is<float>()) {
     const float value = row_filter.value_float;
     switch (row_filter.operation) {
@@ -123,9 +109,7 @@ static void apply_row_filter(const SpreadsheetRowFilter &row_filter,
         const float threshold_sq = row_filter.threshold;
         apply_filter_operation(
             column_data.typed<float2>(),
-            [&](const float2 cell) {
-              return float2::distance_squared(cell, value) > threshold_sq;
-            },
+            [&](const float2 cell) { return math::distance_squared(cell, value) > threshold_sq; },
             prev_mask,
             new_indices);
         break;
@@ -155,9 +139,7 @@ static void apply_row_filter(const SpreadsheetRowFilter &row_filter,
         const float threshold_sq = row_filter.threshold;
         apply_filter_operation(
             column_data.typed<float3>(),
-            [&](const float3 cell) {
-              return float3::distance_squared(cell, value) > threshold_sq;
-            },
+            [&](const float3 cell) { return math::distance_squared(cell, value) > threshold_sq; },
             prev_mask,
             new_indices);
         break;

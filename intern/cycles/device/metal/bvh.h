@@ -1,18 +1,5 @@
-/*
- * Copyright 2021 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2021-2022 Blender Foundation */
 
 #pragma once
 
@@ -58,6 +45,11 @@ class BVHMetal : public BVH {
                        id<MTLCommandQueue> queue,
                        Geometry *const geom,
                        bool refit);
+  bool build_BLAS_pointcloud(Progress &progress,
+                             id<MTLDevice> device,
+                             id<MTLCommandQueue> queue,
+                             Geometry *const geom,
+                             bool refit);
   bool build_TLAS(Progress &progress, id<MTLDevice> device, id<MTLCommandQueue> queue, bool refit);
 };
 

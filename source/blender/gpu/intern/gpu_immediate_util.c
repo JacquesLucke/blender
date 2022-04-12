@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup gpu
@@ -195,7 +181,7 @@ static void imm_draw_circle_partial(GPUPrimType prim_type,
                                     float sweep)
 {
   /* shift & reverse angle, increase 'nsegments' to match gluPartialDisk */
-  const float angle_start = -(DEG2RADF(start)) + (float)(M_PI / 2);
+  const float angle_start = -(DEG2RADF(start)) + (float)M_PI_2;
   const float angle_end = -(DEG2RADF(sweep) - angle_start);
   nsegments += 1;
   immBegin(prim_type, nsegments);
@@ -229,7 +215,7 @@ static void imm_draw_disk_partial(GPUPrimType prim_type,
   CLAMP(sweep, -max_angle, max_angle);
 
   /* shift & reverse angle, increase 'nsegments' to match gluPartialDisk */
-  const float angle_start = -(DEG2RADF(start)) + (float)(M_PI / 2);
+  const float angle_start = -(DEG2RADF(start)) + (float)M_PI_2;
   const float angle_end = -(DEG2RADF(sweep) - angle_start);
   nsegments += 1;
   immBegin(prim_type, nsegments * 2);

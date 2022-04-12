@@ -1,20 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 import bpy
 from bpy.types import Operator
@@ -42,7 +26,7 @@ def geometry_node_group_empty_new():
 def geometry_modifier_poll(context):
     ob = context.object
 
-    # Test object support for geometry node modifier (No hair object support yet)
+    # Test object support for geometry node modifier (No curves object support yet)
     if not ob or ob.type not in {'MESH', 'POINTCLOUD', 'VOLUME', 'CURVE', 'FONT'}:
         return False
 
@@ -65,6 +49,9 @@ class NewGeometryNodesModifier(Operator):
 
         if not modifier:
             return {'CANCELLED'}
+
+        group = geometry_node_group_empty_new()
+        modifier.node_group = group
 
         return {'FINISHED'}
 

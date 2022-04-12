@@ -1,27 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup shdnodes
  */
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
 
 namespace blender::nodes::node_shader_curves_cc {
 
@@ -31,21 +15,6 @@ static void sh_node_curve_vec_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>(N_("Fac")).min(0.0f).max(1.0f).default_value(1.0f).subtype(PROP_FACTOR);
   b.add_input<decl::Vector>(N_("Vector")).min(-1.0f).max(1.0f);
   b.add_output<decl::Vector>(N_("Vector"));
-};
-
-static void node_shader_exec_curve_vec(void *UNUSED(data),
-                                       int UNUSED(thread),
-                                       bNode *node,
-                                       bNodeExecData *UNUSED(execdata),
-                                       bNodeStack **in,
-                                       bNodeStack **out)
-{
-  float vec[3];
-
-  /* stack order input:  vec */
-  /* stack order output: vec */
-  nodestack_get_vec(vec, SOCK_VECTOR, in[1]);
-  BKE_curvemapping_evaluate3F((CurveMapping *)node->storage, out[0]->vec, vec);
 }
 
 static void node_shader_init_curve_vec(bNodeTree *UNUSED(ntree), bNode *node)
@@ -64,6 +33,7 @@ static int gpu_shader_curve_vec(GPUMaterial *mat,
 
   CurveMapping *cumap = (CurveMapping *)node->storage;
 
+  BKE_curvemapping_init(cumap);
   BKE_curvemapping_table_RGBA(cumap, &array, &size);
   GPUNodeLink *tex = GPU_color_band(mat, size, array, &layer);
 
@@ -102,35 +72,31 @@ static int gpu_shader_curve_vec(GPUMaterial *mat,
                         GPU_uniform(ext_xyz[2]));
 }
 
-class CurveVecFunction : public blender::fn::MultiFunction {
+class CurveVecFunction : public fn::MultiFunction {
  private:
   const CurveMapping &cumap_;
 
  public:
   CurveVecFunction(const CurveMapping &cumap) : cumap_(cumap)
   {
-    static blender::fn::MFSignature signature = create_signature();
+    static fn::MFSignature signature = create_signature();
     this->set_signature(&signature);
   }
 
-  static blender::fn::MFSignature create_signature()
+  static fn::MFSignature create_signature()
   {
-    blender::fn::MFSignatureBuilder signature{"Curve Vec"};
+    fn::MFSignatureBuilder signature{"Curve Vec"};
     signature.single_input<float>("Fac");
-    signature.single_input<blender::float3>("Vector");
-    signature.single_output<blender::float3>("Vector");
+    signature.single_input<float3>("Vector");
+    signature.single_output<float3>("Vector");
     return signature.build();
   }
 
-  void call(blender::IndexMask mask,
-            blender::fn::MFParams params,
-            blender::fn::MFContext UNUSED(context)) const override
+  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
-    const blender::VArray<blender::float3> &vec_in = params.readonly_single_input<blender::float3>(
-        1, "Vector");
-    blender::MutableSpan<blender::float3> vec_out =
-        params.uninitialized_single_output<blender::float3>(2, "Vector");
+    const VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
+    const VArray<float3> &vec_in = params.readonly_single_input<float3>(1, "Vector");
+    MutableSpan<float3> vec_out = params.uninitialized_single_output<float3>(2, "Vector");
 
     for (int64_t i : mask) {
       BKE_curvemapping_evaluate3F(&cumap_, vec_out[i], vec_in[i]);
@@ -141,8 +107,7 @@ class CurveVecFunction : public blender::fn::MultiFunction {
   }
 };
 
-static void sh_node_curve_vec_build_multi_function(
-    blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_curve_vec_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   bNode &bnode = builder.node();
   CurveMapping *cumap = (CurveMapping *)bnode.storage;
@@ -158,12 +123,11 @@ void register_node_type_sh_curve_vec()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(&ntype, SH_NODE_CURVE_VEC, "Vector Curves", NODE_CLASS_OP_VECTOR, 0);
+  sh_fn_node_type_base(&ntype, SH_NODE_CURVE_VEC, "Vector Curves", NODE_CLASS_OP_VECTOR);
   ntype.declare = file_ns::sh_node_curve_vec_declare;
   node_type_init(&ntype, file_ns::node_shader_init_curve_vec);
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
   node_type_storage(&ntype, "CurveMapping", node_free_curves, node_copy_curves);
-  node_type_exec(&ntype, node_initexec_curves, nullptr, file_ns::node_shader_exec_curve_vec);
   node_type_gpu(&ntype, file_ns::gpu_shader_curve_vec);
   ntype.build_multi_function = file_ns::sh_node_curve_vec_build_multi_function;
 
@@ -180,26 +144,6 @@ static void sh_node_curve_rgb_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>(N_("Fac")).min(0.0f).max(1.0f).default_value(1.0f).subtype(PROP_FACTOR);
   b.add_input<decl::Color>(N_("Color")).default_value({1.0f, 1.0f, 1.0f, 1.0f});
   b.add_output<decl::Color>(N_("Color"));
-};
-
-static void node_shader_exec_curve_rgb(void *UNUSED(data),
-                                       int UNUSED(thread),
-                                       bNode *node,
-                                       bNodeExecData *UNUSED(execdata),
-                                       bNodeStack **in,
-                                       bNodeStack **out)
-{
-  float vec[3];
-  float fac;
-
-  /* stack order input:  vec */
-  /* stack order output: vec */
-  nodestack_get_vec(&fac, SOCK_FLOAT, in[0]);
-  nodestack_get_vec(vec, SOCK_VECTOR, in[1]);
-  BKE_curvemapping_evaluateRGBF((CurveMapping *)node->storage, out[0]->vec, vec);
-  if (fac != 1.0f) {
-    interp_v3_v3v3(out[0]->vec, vec, out[0]->vec, fac);
-  }
 }
 
 static void node_shader_init_curve_rgb(bNodeTree *UNUSED(ntree), bNode *node)
@@ -281,35 +225,33 @@ static int gpu_shader_curve_rgb(GPUMaterial *mat,
                         GPU_uniform(ext_rgba[3]));
 }
 
-class CurveRGBFunction : public blender::fn::MultiFunction {
+class CurveRGBFunction : public fn::MultiFunction {
  private:
   const CurveMapping &cumap_;
 
  public:
   CurveRGBFunction(const CurveMapping &cumap) : cumap_(cumap)
   {
-    static blender::fn::MFSignature signature = create_signature();
+    static fn::MFSignature signature = create_signature();
     this->set_signature(&signature);
   }
 
-  static blender::fn::MFSignature create_signature()
+  static fn::MFSignature create_signature()
   {
-    blender::fn::MFSignatureBuilder signature{"Curve RGB"};
+    fn::MFSignatureBuilder signature{"Curve RGB"};
     signature.single_input<float>("Fac");
-    signature.single_input<blender::ColorGeometry4f>("Color");
-    signature.single_output<blender::ColorGeometry4f>("Color");
+    signature.single_input<ColorGeometry4f>("Color");
+    signature.single_output<ColorGeometry4f>("Color");
     return signature.build();
   }
 
-  void call(blender::IndexMask mask,
-            blender::fn::MFParams params,
-            blender::fn::MFContext UNUSED(context)) const override
+  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
-    const blender::VArray<blender::ColorGeometry4f> &col_in =
-        params.readonly_single_input<blender::ColorGeometry4f>(1, "Color");
-    blender::MutableSpan<blender::ColorGeometry4f> col_out =
-        params.uninitialized_single_output<blender::ColorGeometry4f>(2, "Color");
+    const VArray<float> &fac = params.readonly_single_input<float>(0, "Fac");
+    const VArray<ColorGeometry4f> &col_in = params.readonly_single_input<ColorGeometry4f>(1,
+                                                                                          "Color");
+    MutableSpan<ColorGeometry4f> col_out = params.uninitialized_single_output<ColorGeometry4f>(
+        2, "Color");
 
     for (int64_t i : mask) {
       BKE_curvemapping_evaluateRGBF(&cumap_, col_out[i], col_in[i]);
@@ -320,8 +262,7 @@ class CurveRGBFunction : public blender::fn::MultiFunction {
   }
 };
 
-static void sh_node_curve_rgb_build_multi_function(
-    blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_curve_rgb_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   bNode &bnode = builder.node();
   CurveMapping *cumap = (CurveMapping *)bnode.storage;
@@ -337,12 +278,11 @@ void register_node_type_sh_curve_rgb()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(&ntype, SH_NODE_CURVE_RGB, "RGB Curves", NODE_CLASS_OP_COLOR, 0);
+  sh_fn_node_type_base(&ntype, SH_NODE_CURVE_RGB, "RGB Curves", NODE_CLASS_OP_COLOR);
   ntype.declare = file_ns::sh_node_curve_rgb_declare;
   node_type_init(&ntype, file_ns::node_shader_init_curve_rgb);
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
   node_type_storage(&ntype, "CurveMapping", node_free_curves, node_copy_curves);
-  node_type_exec(&ntype, node_initexec_curves, nullptr, file_ns::node_shader_exec_curve_rgb);
   node_type_gpu(&ntype, file_ns::gpu_shader_curve_rgb);
   ntype.build_multi_function = file_ns::sh_node_curve_rgb_build_multi_function;
 
@@ -363,24 +303,6 @@ static void sh_node_curve_float_declare(NodeDeclarationBuilder &b)
       .subtype(PROP_FACTOR);
   b.add_input<decl::Float>(N_("Value")).default_value(1.0f).is_default_link_socket();
   b.add_output<decl::Float>(N_("Value"));
-};
-
-static void node_shader_exec_curve_float(void *UNUSED(data),
-                                         int UNUSED(thread),
-                                         bNode *node,
-                                         bNodeExecData *UNUSED(execdata),
-                                         bNodeStack **in,
-                                         bNodeStack **out)
-{
-  float value;
-  float fac;
-
-  nodestack_get_vec(&fac, SOCK_FLOAT, in[0]);
-  nodestack_get_vec(&value, SOCK_FLOAT, in[1]);
-  out[0]->vec[0] = BKE_curvemapping_evaluateF((CurveMapping *)node->storage, 0, value);
-  if (fac != 1.0f) {
-    out[0]->vec[0] = (1.0f - fac) * value + fac * out[0]->vec[0];
-  }
 }
 
 static void node_shader_init_curve_float(bNodeTree *UNUSED(ntree), bNode *node)
@@ -399,6 +321,7 @@ static int gpu_shader_curve_float(GPUMaterial *mat,
 
   CurveMapping *cumap = (CurveMapping *)node->storage;
 
+  BKE_curvemapping_init(cumap);
   BKE_curvemapping_table_F(cumap, &array, &size);
   GPUNodeLink *tex = GPU_color_band(mat, size, array, &layer);
 
@@ -429,33 +352,31 @@ static int gpu_shader_curve_float(GPUMaterial *mat,
                         GPU_uniform(ext_xyz));
 }
 
-class CurveFloatFunction : public blender::fn::MultiFunction {
+class CurveFloatFunction : public fn::MultiFunction {
  private:
   const CurveMapping &cumap_;
 
  public:
   CurveFloatFunction(const CurveMapping &cumap) : cumap_(cumap)
   {
-    static blender::fn::MFSignature signature = create_signature();
+    static fn::MFSignature signature = create_signature();
     this->set_signature(&signature);
   }
 
-  static blender::fn::MFSignature create_signature()
+  static fn::MFSignature create_signature()
   {
-    blender::fn::MFSignatureBuilder signature{"Curve Float"};
+    fn::MFSignatureBuilder signature{"Curve Float"};
     signature.single_input<float>("Factor");
     signature.single_input<float>("Value");
     signature.single_output<float>("Value");
     return signature.build();
   }
 
-  void call(blender::IndexMask mask,
-            blender::fn::MFParams params,
-            blender::fn::MFContext UNUSED(context)) const override
+  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
   {
-    const blender::VArray<float> &fac = params.readonly_single_input<float>(0, "Factor");
-    const blender::VArray<float> &val_in = params.readonly_single_input<float>(1, "Value");
-    blender::MutableSpan<float> val_out = params.uninitialized_single_output<float>(2, "Value");
+    const VArray<float> &fac = params.readonly_single_input<float>(0, "Factor");
+    const VArray<float> &val_in = params.readonly_single_input<float>(1, "Value");
+    MutableSpan<float> val_out = params.uninitialized_single_output<float>(2, "Value");
 
     for (int64_t i : mask) {
       val_out[i] = BKE_curvemapping_evaluateF(&cumap_, 0, val_in[i]);
@@ -466,8 +387,7 @@ class CurveFloatFunction : public blender::fn::MultiFunction {
   }
 };
 
-static void sh_node_curve_float_build_multi_function(
-    blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_curve_float_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   bNode &bnode = builder.node();
   CurveMapping *cumap = (CurveMapping *)bnode.storage;
@@ -483,12 +403,11 @@ void register_node_type_sh_curve_float()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(&ntype, SH_NODE_CURVE_FLOAT, "Float Curve", NODE_CLASS_CONVERTER, 0);
+  sh_fn_node_type_base(&ntype, SH_NODE_CURVE_FLOAT, "Float Curve", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::sh_node_curve_float_declare;
   node_type_init(&ntype, file_ns::node_shader_init_curve_float);
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
   node_type_storage(&ntype, "CurveMapping", node_free_curves, node_copy_curves);
-  node_type_exec(&ntype, node_initexec_curves, nullptr, file_ns::node_shader_exec_curve_float);
   node_type_gpu(&ntype, file_ns::gpu_shader_curve_float);
   ntype.build_multi_function = file_ns::sh_node_curve_float_build_multi_function;
 

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <mutex>
 
@@ -34,18 +20,18 @@
 
 #include "attribute_access_intern.hh"
 
-#include "FN_cpp_type_make.hh"
+#include "BLI_cpp_type_make.hh"
 
 using blender::float4x4;
+using blender::GSpan;
 using blender::IndexMask;
 using blender::Map;
 using blender::MutableSpan;
 using blender::Set;
 using blender::Span;
 using blender::VectorSet;
-using blender::fn::GSpan;
 
-MAKE_CPP_TYPE(InstanceReference, InstanceReference, CPPTypeFlags::None)
+BLI_CPP_TYPE_MAKE(InstanceReference, InstanceReference, CPPTypeFlags::None)
 
 /* -------------------------------------------------------------------- */
 /** \name Geometry Component Implementation
@@ -148,27 +134,27 @@ static void copy_data_based_on_mask(Span<T> src, MutableSpan<T> dst, IndexMask m
   });
 }
 
-void InstancesComponent::remove_instances(const IndexMask selection)
+void InstancesComponent::remove_instances(const IndexMask mask)
 {
   using namespace blender;
-  if (selection.is_range() && selection.index_range().first() == 0) {
+  if (mask.is_range() && mask.as_range().start() == 0) {
     /* Deleting from the end of the array can be much faster since no data has to be shifted. */
-    this->resize(selection.size());
+    this->resize(mask.size());
     this->remove_unused_references();
     return;
   }
 
-  Vector<int> new_handles(selection.size());
-  copy_data_based_on_mask<int>(this->instance_reference_handles(), new_handles, selection);
+  Vector<int> new_handles(mask.size());
+  copy_data_based_on_mask<int>(this->instance_reference_handles(), new_handles, mask);
   instance_reference_handles_ = std::move(new_handles);
-  Vector<float4x4> new_transforms(selection.size());
-  copy_data_based_on_mask<float4x4>(this->instance_transforms(), new_transforms, selection);
+  Vector<float4x4> new_transforms(mask.size());
+  copy_data_based_on_mask<float4x4>(this->instance_transforms(), new_transforms, mask);
   instance_transforms_ = std::move(new_transforms);
 
   const bke::CustomDataAttributes &src_attributes = attributes_;
 
   bke::CustomDataAttributes dst_attributes;
-  dst_attributes.reallocate(selection.size());
+  dst_attributes.reallocate(mask.size());
 
   src_attributes.foreach_attribute(
       [&](const bke::AttributeIDRef &id, const AttributeMetaData &meta_data) {
@@ -178,11 +164,11 @@ void InstancesComponent::remove_instances(const IndexMask selection)
 
         GSpan src = *src_attributes.get_for_read(id);
         dst_attributes.create(id, meta_data.data_type);
-        fn::GMutableSpan dst = *dst_attributes.get_for_write(id);
+        GMutableSpan dst = *dst_attributes.get_for_write(id);
 
         attribute_math::convert_to_static_type(src.type(), [&](auto dummy) {
           using T = decltype(dummy);
-          copy_data_based_on_mask<T>(src.typed<T>(), dst.typed<T>(), selection);
+          copy_data_based_on_mask<T>(src.typed<T>(), dst.typed<T>(), mask);
         });
         return true;
       },
@@ -452,18 +438,6 @@ class InstancePositionAttributeProvider final : public BuiltinAttributeProvider 
     return true;
   }
 };
-
-template<typename T>
-static GVArray make_array_read_attribute(const void *data, const int domain_size)
-{
-  return VArray<T>::ForSpan(Span<T>((const T *)data, domain_size));
-}
-
-template<typename T>
-static GVMutableArray make_array_write_attribute(void *data, const int domain_size)
-{
-  return VMutableArray<T>::ForSpan(MutableSpan<T>((T *)data, domain_size));
-}
 
 static ComponentAttributeProviders create_attribute_providers_for_instances()
 {

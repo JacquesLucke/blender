@@ -1,36 +1,15 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
-#include "../node_shader_util.h"
+#include "node_shader_util.hh"
 
 namespace blender::nodes::node_shader_wavelength_cc {
 
-/* **************** Wavelength ******************** */
-static bNodeSocketTemplate sh_node_wavelength_in[] = {
-    {SOCK_FLOAT, N_("Wavelength"), 500.0f, 0.0f, 0.0f, 0.0f, 380.0f, 780.0f},
-    {-1, ""},
-};
-
-static bNodeSocketTemplate sh_node_wavelength_out[] = {
-    {SOCK_RGBA, N_("Color")},
-    {-1, ""},
-};
+static void node_declare(NodeDeclarationBuilder &b)
+{
+  b.add_input<decl::Float>(N_("Wavelength")).default_value(500.0f).min(380.0f).max(780.0f);
+  b.add_output<decl::Color>(N_("Color"));
+}
 
 static int node_shader_gpu_wavelength(GPUMaterial *mat,
                                       bNode *node,
@@ -68,10 +47,9 @@ void register_node_type_sh_wavelength()
 
   static bNodeType ntype;
 
-  sh_node_type_base(&ntype, SH_NODE_WAVELENGTH, "Wavelength", NODE_CLASS_CONVERTER, 0);
+  sh_node_type_base(&ntype, SH_NODE_WAVELENGTH, "Wavelength", NODE_CLASS_CONVERTER);
+  ntype.declare = file_ns::node_declare;
   node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
-  node_type_socket_templates(
-      &ntype, file_ns::sh_node_wavelength_in, file_ns::sh_node_wavelength_out);
   node_type_gpu(&ntype, file_ns::node_shader_gpu_wavelength);
 
   nodeRegisterType(&ntype);

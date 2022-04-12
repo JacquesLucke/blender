@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edinterface
@@ -54,9 +38,11 @@
 
 #include "GPU_batch.h"
 #include "GPU_batch_presets.h"
+#include "GPU_context.h"
 #include "GPU_immediate.h"
 #include "GPU_immediate_util.h"
 #include "GPU_matrix.h"
+#include "GPU_shader_shared.h"
 #include "GPU_state.h"
 
 #include "UI_interface.h"
@@ -324,17 +310,17 @@ void ui_draw_but_IMAGE(ARegion *UNUSED(region),
   }
 
   IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
-  immDrawPixelsTex(&state,
-                   (float)rect->xmin,
-                   (float)rect->ymin,
-                   ibuf->x,
-                   ibuf->y,
-                   GPU_RGBA8,
-                   false,
-                   ibuf->rect,
-                   1.0f,
-                   1.0f,
-                   col);
+  immDrawPixelsTexTiled(&state,
+                        (float)rect->xmin,
+                        (float)rect->ymin,
+                        ibuf->x,
+                        ibuf->y,
+                        GPU_RGBA8,
+                        false,
+                        ibuf->rect,
+                        1.0f,
+                        1.0f,
+                        col);
 
   GPU_blend(GPU_BLEND_NONE);
 
@@ -426,6 +412,8 @@ static void histogram_draw_one(float r,
       immVertex2f(pos_attr, x2, y + (data[i] * h));
     }
     immEnd();
+
+    GPU_line_width(1.0f);
   }
   else {
     /* under the curve */
@@ -559,13 +547,13 @@ void ui_draw_but_HISTOGRAM(ARegion *UNUSED(region),
 
 #undef HISTOGRAM_TOT_GRID_LINES
 
-static void waveform_draw_one(float *waveform, int nbr, const float col[3])
+static void waveform_draw_one(float *waveform, int waveform_num, const float col[3])
 {
   GPUVertFormat format = {0};
   const uint pos_id = GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
   GPUVertBuf *vbo = GPU_vertbuf_create_with_format(&format);
-  GPU_vertbuf_data_alloc(vbo, nbr);
+  GPU_vertbuf_data_alloc(vbo, waveform_num);
 
   GPU_vertbuf_attr_fill(vbo, pos_id, waveform);
 
@@ -1097,12 +1085,23 @@ static void ui_draw_colorband_handle_tri(
 static void ui_draw_colorband_handle_box(
     uint pos, float x1, float y1, float x2, float y2, bool fill)
 {
-  immBegin(fill ? GPU_PRIM_TRI_FAN : GPU_PRIM_LINE_LOOP, 4);
-  immVertex2f(pos, x1, y1);
-  immVertex2f(pos, x1, y2);
-  immVertex2f(pos, x2, y2);
-  immVertex2f(pos, x2, y1);
-  immEnd();
+  if (fill) {
+    immBegin(GPU_PRIM_TRI_STRIP, 4);
+    immVertex2f(pos, x2, y1);
+    immVertex2f(pos, x1, y1);
+    immVertex2f(pos, x2, y2);
+    immVertex2f(pos, x1, y2);
+    immEnd();
+  }
+  else {
+    immBegin(GPU_PRIM_LINE_STRIP, 5);
+    immVertex2f(pos, x1, y1);
+    immVertex2f(pos, x1, y2);
+    immVertex2f(pos, x2, y2);
+    immVertex2f(pos, x2, y1);
+    immVertex2f(pos, x1, y1);
+    immEnd();
+  }
 }
 
 static void ui_draw_colorband_handle(uint shdr_pos,
@@ -1384,10 +1383,16 @@ void ui_draw_but_UNITVEC(uiBut *but,
   GPU_matrix_scale_1f(size);
 
   GPUBatch *sphere = GPU_batch_preset_sphere(2);
+  struct SimpleLightingData simple_lighting_data;
+  copy_v4_fl4(simple_lighting_data.color, diffuse[0], diffuse[1], diffuse[2], 1.0f);
+  copy_v3_v3(simple_lighting_data.light, light);
+  GPUUniformBuf *ubo = GPU_uniformbuf_create_ex(
+      sizeof(struct SimpleLightingData), &simple_lighting_data, __func__);
+
   GPU_batch_program_set_builtin(sphere, GPU_SHADER_SIMPLE_LIGHTING);
-  GPU_batch_uniform_4f(sphere, "color", diffuse[0], diffuse[1], diffuse[2], 1.0f);
-  GPU_batch_uniform_3fv(sphere, "light", light);
+  GPU_batch_uniformbuf_bind(sphere, "simple_lighting_data", ubo);
   GPU_batch_draw(sphere);
+  GPU_uniformbuf_free(ubo);
 
   /* Restore. */
   GPU_face_culling(GPU_CULL_NONE);
@@ -2128,17 +2133,17 @@ void ui_draw_but_TRACKPREVIEW(ARegion *UNUSED(region),
       }
 
       IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
-      immDrawPixelsTex(&state,
-                       rect.xmin,
-                       rect.ymin + 1,
-                       drawibuf->x,
-                       drawibuf->y,
-                       GPU_RGBA8,
-                       true,
-                       drawibuf->rect,
-                       1.0f,
-                       1.0f,
-                       NULL);
+      immDrawPixelsTexTiled(&state,
+                            rect.xmin,
+                            rect.ymin + 1,
+                            drawibuf->x,
+                            drawibuf->y,
+                            GPU_RGBA8,
+                            true,
+                            drawibuf->rect,
+                            1.0f,
+                            1.0f,
+                            NULL);
 
       /* draw cross for pixel position */
       GPU_matrix_translate_2f(rect.xmin + scopes->track_pos[0], rect.ymin + scopes->track_pos[1]);
@@ -2302,54 +2307,29 @@ void UI_draw_box_shadow(const rctf *rect, uchar alpha)
 void ui_draw_dropshadow(
     const rctf *rct, float radius, float aspect, float alpha, int UNUSED(select))
 {
-  float rad;
+  const float max_radius = (BLI_rctf_size_y(rct) - 10.0f) * 0.5f;
+  const float rad = min_ff(radius, max_radius);
 
-  if (radius > (BLI_rctf_size_y(rct) - 10.0f) * 0.5f) {
-    rad = (BLI_rctf_size_y(rct) - 10.0f) * 0.5f;
-  }
-  else {
-    rad = radius;
-  }
+  /* This undoes the scale of the view for higher zoom factors to clamp the shadow size. */
+  const float clamped_aspect = smoothminf(aspect, 1.0f, 0.5f);
 
-  int a, i = 12;
-#if 0
-  if (select) {
-    a = i * aspect; /* same as below */
-  }
-  else
-#endif
-  {
-    a = i * aspect;
-  }
+  const float shadow_softness = 0.6f * U.widget_unit * clamped_aspect;
+  const float shadow_offset = 0.5f * U.widget_unit * clamped_aspect;
+  const float shadow_alpha = 0.5f * alpha;
 
   GPU_blend(GPU_BLEND_ALPHA);
-  const float dalpha = alpha * 2.0f / 255.0f;
-  float calpha = dalpha;
-  float visibility = 1.0f;
-  for (; i--;) {
-    /* alpha ranges from 2 to 20 or so */
-#if 0 /* Old Method (pre 2.8) */
-    float color[4] = {0.0f, 0.0f, 0.0f, calpha};
-    UI_draw_roundbox_4fv(
-        true, rct->xmin - a, rct->ymin - a, rct->xmax + a, rct->ymax - 10.0f + a, rad + a, color);
-#endif
-    /* Compute final visibility to match old method result. */
-    /* TODO: we could just find a better fit function inside the shader instead of this. */
-    visibility = visibility * (1.0f - calpha);
-    calpha += dalpha;
-  }
 
   uiWidgetBaseParameters widget_params = {
       .recti.xmin = rct->xmin,
       .recti.ymin = rct->ymin,
       .recti.xmax = rct->xmax,
-      .recti.ymax = rct->ymax - 10.0f,
-      .rect.xmin = rct->xmin - a,
-      .rect.ymin = rct->ymin - a,
-      .rect.xmax = rct->xmax + a,
-      .rect.ymax = rct->ymax - 10.0f + a,
+      .recti.ymax = rct->ymax - shadow_offset,
+      .rect.xmin = rct->xmin - shadow_softness,
+      .rect.ymin = rct->ymin - shadow_softness,
+      .rect.xmax = rct->xmax + shadow_softness,
+      .rect.ymax = rct->ymax - shadow_offset + shadow_softness,
       .radi = rad,
-      .rad = rad + a,
+      .rad = rad + shadow_softness,
       .round_corners[0] = (roundboxtype & UI_CNR_BOTTOM_LEFT) ? 1.0f : 0.0f,
       .round_corners[1] = (roundboxtype & UI_CNR_BOTTOM_RIGHT) ? 1.0f : 0.0f,
       .round_corners[2] = (roundboxtype & UI_CNR_TOP_RIGHT) ? 1.0f : 0.0f,
@@ -2360,7 +2340,7 @@ void ui_draw_dropshadow(
   GPUBatch *batch = ui_batch_roundbox_shadow_get();
   GPU_batch_program_set_builtin(batch, GPU_SHADER_2D_WIDGET_SHADOW);
   GPU_batch_uniform_4fv_array(batch, "parameters", 4, (const float(*)[4]) & widget_params);
-  GPU_batch_uniform_1f(batch, "alpha", 1.0f - visibility);
+  GPU_batch_uniform_1f(batch, "alpha", shadow_alpha);
   GPU_batch_draw(batch);
 
   /* outline emphasis */

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bmesh
@@ -1007,6 +993,7 @@ void BM_face_triangulate(BMesh *bm,
           break;
         }
         case MOD_TRIANGULATE_QUAD_SHORTEDGE:
+        case MOD_TRIANGULATE_QUAD_LONGEDGE:
         case MOD_TRIANGULATE_QUAD_BEAUTY:
         default: {
           BMLoop *l_v3, *l_v4;
@@ -1022,6 +1009,12 @@ void BM_face_triangulate(BMesh *bm,
             d1 = len_squared_v3v3(l_v4->v->co, l_v2->v->co);
             d2 = len_squared_v3v3(l_v1->v->co, l_v3->v->co);
             split_24 = ((d2 - d1) > 0.0f);
+          }
+          else if (quad_method == MOD_TRIANGULATE_QUAD_LONGEDGE) {
+            float d1, d2;
+            d1 = len_squared_v3v3(l_v4->v->co, l_v2->v->co);
+            d2 = len_squared_v3v3(l_v1->v->co, l_v3->v->co);
+            split_24 = ((d2 - d1) < 0.0f);
           }
           else {
             /* first check if the quad is concave on either diagonal */

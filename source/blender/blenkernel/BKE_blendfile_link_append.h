@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -30,8 +16,8 @@ struct LibraryLink_Params;
 struct Main;
 struct ReportList;
 struct Scene;
-struct ViewLayer;
 struct View3D;
+struct ViewLayer;
 
 typedef struct BlendfileLinkAppendContext BlendfileLinkAppendContext;
 typedef struct BlendfileLinkAppendContextItem BlendfileLinkAppendContextItem;
@@ -54,8 +40,8 @@ void BKE_blendfile_link_append_context_free(struct BlendfileLinkAppendContext *l
  * \param do_set: Set the given \a flag if true, clear it otherwise.
  */
 void BKE_blendfile_link_append_context_flag_set(struct BlendfileLinkAppendContext *lapp_context,
-                                                const int flag,
-                                                const bool do_set);
+                                                int flag,
+                                                bool do_set);
 
 /**
  * Store reference to a Blender's embedded memfile into the context.
@@ -98,7 +84,7 @@ void BKE_blendfile_link_append_context_library_add(struct BlendfileLinkAppendCon
 struct BlendfileLinkAppendContextItem *BKE_blendfile_link_append_context_item_add(
     struct BlendfileLinkAppendContext *lapp_context,
     const char *idname,
-    const short idcode,
+    short idcode,
     void *userdata);
 
 #define BLENDFILE_LINK_APPEND_INVALID -1
@@ -119,8 +105,8 @@ struct BlendfileLinkAppendContextItem *BKE_blendfile_link_append_context_item_ad
 int BKE_blendfile_link_append_context_item_idtypes_from_library_add(
     struct BlendfileLinkAppendContext *lapp_context,
     struct ReportList *reports,
-    const uint64_t id_types_filter,
-    const int library_index);
+    uint64_t id_types_filter,
+    int library_index);
 
 /**
  * Enable search of the given \a item into the library stored at given index in the link/append
@@ -129,7 +115,7 @@ int BKE_blendfile_link_append_context_item_idtypes_from_library_add(
 void BKE_blendfile_link_append_context_item_library_index_enable(
     struct BlendfileLinkAppendContext *lapp_context,
     struct BlendfileLinkAppendContextItem *item,
-    const int library_index);
+    int library_index);
 /**
  * Check if given link/append context is empty (has no items to process) or not.
  */
@@ -150,7 +136,7 @@ typedef enum eBlendfileLinkAppendForeachItemFlag {
    *
    * IMPORTANT: Those 'indirect' items currently may not cover **all** indirectly linked data.
    * See comments in #foreach_libblock_link_append_callback. */
-  BKE_BLENDFILE_LINK_APPEND_FOREACH_ITEM_FLAG_DO_INDIRECT = 1 << 0,
+  BKE_BLENDFILE_LINK_APPEND_FOREACH_ITEM_FLAG_DO_INDIRECT = 1 << 1,
 } eBlendfileLinkAppendForeachItemFlag;
 /**
  * Callback called by #BKE_blendfile_link_append_context_item_foreach over each (or a subset of
@@ -175,7 +161,7 @@ typedef bool (*BKE_BlendfileLinkAppendContexteItemFunction)(
 void BKE_blendfile_link_append_context_item_foreach(
     struct BlendfileLinkAppendContext *lapp_context,
     BKE_BlendfileLinkAppendContexteItemFunction callback_function,
-    const eBlendfileLinkAppendForeachItemFlag flag,
+    eBlendfileLinkAppendForeachItemFlag flag,
     void *userdata);
 
 /**
@@ -215,7 +201,7 @@ void BKE_blendfile_link(struct BlendfileLinkAppendContext *lapp_context,
 void BKE_blendfile_library_relocate(struct BlendfileLinkAppendContext *lapp_context,
                                     struct ReportList *reports,
                                     struct Library *library,
-                                    const bool do_reload);
+                                    bool do_reload);
 
 #ifdef __cplusplus
 }

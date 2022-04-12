@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 #pragma once
 
 /** \file
@@ -38,6 +22,7 @@ struct BlendLibReader;
 struct BlendWriter;
 struct Header;
 struct ID;
+struct IDRemapper;
 struct LibraryForeachIDData;
 struct ListBase;
 struct Menu;
@@ -117,10 +102,7 @@ typedef struct SpaceType {
   bContextDataCallback context;
 
   /* Used when we want to replace an ID by another (or NULL). */
-  void (*id_remap)(struct ScrArea *area,
-                   struct SpaceLink *sl,
-                   struct ID *old_id,
-                   struct ID *new_id);
+  void (*id_remap)(struct ScrArea *area, struct SpaceLink *sl, const struct IDRemapper *mappings);
 
   int (*space_subtype_get)(struct ScrArea *area);
   void (*space_subtype_set)(struct ScrArea *area, int value);
@@ -465,19 +447,18 @@ void BKE_region_callback_refresh_tag_gizmomap_set(void (*callback)(struct wmGizm
  */
 struct ARegion *BKE_area_find_region_type(const struct ScrArea *area, int type);
 struct ARegion *BKE_area_find_region_active_win(struct ScrArea *area);
-struct ARegion *BKE_area_find_region_xy(struct ScrArea *area,
-                                        const int regiontype,
-                                        const int xy[2]) ATTR_NONNULL(3);
+struct ARegion *BKE_area_find_region_xy(struct ScrArea *area, int regiontype, const int xy[2])
+    ATTR_NONNULL(3);
 /**
  * \note This is only for screen level regions (typically menus/popups).
  */
 struct ARegion *BKE_screen_find_region_xy(struct bScreen *screen,
-                                          const int regiontype,
+                                          int regiontype,
                                           const int xy[2]) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL(1, 3);
 
 struct ARegion *BKE_screen_find_main_region_at_xy(struct bScreen *screen,
-                                                  const int space_type,
+                                                  int space_type,
                                                   const int xy[2]) ATTR_NONNULL(1, 3);
 /**
  * \note Ideally we can get the area from the context,
@@ -490,15 +471,12 @@ struct ScrArea *BKE_screen_find_area_from_space(struct bScreen *screen,
  * \note Using this function is generally a last resort, you really want to be
  * using the context when you can - campbell
  */
-struct ScrArea *BKE_screen_find_big_area(struct bScreen *screen,
-                                         const int spacetype,
-                                         const short min);
+struct ScrArea *BKE_screen_find_big_area(struct bScreen *screen, int spacetype, short min);
 struct ScrArea *BKE_screen_area_map_find_area_xy(const struct ScrAreaMap *areamap,
-                                                 const int spacetype,
+                                                 int spacetype,
                                                  const int xy[2]) ATTR_NONNULL(1, 3);
-struct ScrArea *BKE_screen_find_area_xy(struct bScreen *screen,
-                                        const int spacetype,
-                                        const int xy[2]) ATTR_NONNULL(1, 3);
+struct ScrArea *BKE_screen_find_area_xy(struct bScreen *screen, int spacetype, const int xy[2])
+    ATTR_NONNULL(1, 3);
 
 void BKE_screen_gizmo_tag_refresh(struct bScreen *screen);
 

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -53,7 +37,7 @@ typedef struct {
   unsigned int i;
 } SmallHashIter;
 
-void BLI_smallhash_init_ex(SmallHash *sh, const unsigned int nentries_reserve) ATTR_NONNULL(1);
+void BLI_smallhash_init_ex(SmallHash *sh, unsigned int nentries_reserve) ATTR_NONNULL(1);
 void BLI_smallhash_init(SmallHash *sh) ATTR_NONNULL(1);
 /**
  * \note does *not* free *sh itself! only the direct data!
@@ -61,7 +45,7 @@ void BLI_smallhash_init(SmallHash *sh) ATTR_NONNULL(1);
 void BLI_smallhash_release(SmallHash *sh) ATTR_NONNULL(1);
 void BLI_smallhash_insert(SmallHash *sh, uintptr_t key, void *item) ATTR_NONNULL(1);
 /**
- * Inserts a new value to a key that may already be in ghash.
+ * Inserts a new value to a key that may already be in #GHash.
  *
  * Avoids #BLI_smallhash_remove, #BLI_smallhash_insert calls (double lookups)
  *

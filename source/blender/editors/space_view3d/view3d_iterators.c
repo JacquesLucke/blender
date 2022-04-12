@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -39,6 +25,7 @@
 #include "BKE_editmesh.h"
 #include "BKE_mesh_iterators.h"
 #include "BKE_mesh_runtime.h"
+#include "BKE_mesh_wrapper.h"
 #include "BKE_modifier.h"
 
 #include "DEG_depsgraph.h"
@@ -272,8 +259,7 @@ typedef struct foreachScreenFace_userData {
 static void meshobject_foreachScreenVert__mapFunc(void *userData,
                                                   int index,
                                                   const float co[3],
-                                                  const float UNUSED(no_f[3]),
-                                                  const short UNUSED(no_s[3]))
+                                                  const float UNUSED(no[3]))
 {
   foreachScreenObjectVert_userData *data = userData;
   struct MVert *mv = &((Mesh *)(data->vc.obact->data))->mvert[index];
@@ -322,8 +308,7 @@ void meshobject_foreachScreenVert(
 static void mesh_foreachScreenVert__mapFunc(void *userData,
                                             int index,
                                             const float co[3],
-                                            const float UNUSED(no_f[3]),
-                                            const short UNUSED(no_s[3]))
+                                            const float UNUSED(no[3]))
 {
   foreachScreenVert_userData *data = userData;
   BMVert *eve = BM_vert_at_index(data->vc.em->bm, index);
@@ -350,6 +335,7 @@ void mesh_foreachScreenVert(
 
   Mesh *me = editbmesh_get_eval_cage_from_orig(
       vc->depsgraph, vc->scene, vc->obedit, &CD_MASK_BAREMESH);
+  me = BKE_mesh_wrapper_ensure_subdivision(vc->obedit, me);
 
   ED_view3d_check_mats_rv3d(vc->rv3d);
 
@@ -412,6 +398,7 @@ void mesh_foreachScreenEdge(ViewContext *vc,
 
   Mesh *me = editbmesh_get_eval_cage_from_orig(
       vc->depsgraph, vc->scene, vc->obedit, &CD_MASK_BAREMESH);
+  me = BKE_mesh_wrapper_ensure_subdivision(vc->obedit, me);
 
   ED_view3d_check_mats_rv3d(vc->rv3d);
 
@@ -499,6 +486,7 @@ void mesh_foreachScreenEdge_clip_bb_segment(ViewContext *vc,
 
   Mesh *me = editbmesh_get_eval_cage_from_orig(
       vc->depsgraph, vc->scene, vc->obedit, &CD_MASK_BAREMESH);
+  me = BKE_mesh_wrapper_ensure_subdivision(vc->obedit, me);
 
   ED_view3d_check_mats_rv3d(vc->rv3d);
 
@@ -570,6 +558,7 @@ void mesh_foreachScreenFace(
 
   Mesh *me = editbmesh_get_eval_cage_from_orig(
       vc->depsgraph, vc->scene, vc->obedit, &CD_MASK_BAREMESH);
+  me = BKE_mesh_wrapper_ensure_subdivision(vc->obedit, me);
   ED_view3d_check_mats_rv3d(vc->rv3d);
 
   data.vc = *vc;

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_function_util.hh"
 #include <iomanip>
@@ -24,7 +10,7 @@ static void fn_node_value_to_string_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>(N_("Value"));
   b.add_input<decl::Int>(N_("Decimals")).min(0);
   b.add_output<decl::String>(N_("String"));
-};
+}
 
 static void fn_node_value_to_string_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
@@ -45,7 +31,7 @@ void register_node_type_fn_value_to_string()
 
   static bNodeType ntype;
 
-  fn_node_type_base(&ntype, FN_NODE_VALUE_TO_STRING, "Value to String", NODE_CLASS_CONVERTER, 0);
+  fn_node_type_base(&ntype, FN_NODE_VALUE_TO_STRING, "Value to String", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::fn_node_value_to_string_declare;
   ntype.build_multi_function = file_ns::fn_node_value_to_string_build_multi_function;
   nodeRegisterType(&ntype);

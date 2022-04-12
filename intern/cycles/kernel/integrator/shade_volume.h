@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2021 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #pragma once
 
@@ -666,7 +653,8 @@ ccl_device_forceinline void volume_integrate_heterogeneous(
 
   /* Write accumulated emission. */
   if (!is_zero(accum_emission)) {
-    kernel_accum_emission(kg, state, accum_emission, render_buffer);
+    kernel_accum_emission(
+        kg, state, accum_emission, render_buffer, object_lightgroup(kg, sd->object));
   }
 
 #  ifdef __DENOISING_FEATURES__
@@ -791,22 +779,36 @@ ccl_device_forceinline void integrate_volume_direct_light(
 
   /* Write shadow ray and associated state to global memory. */
   integrator_state_write_shadow_ray(kg, shadow_state, &ray);
+  INTEGRATOR_STATE_ARRAY_WRITE(shadow_state, shadow_isect, 0, object) = ray.self.object;
+  INTEGRATOR_STATE_ARRAY_WRITE(shadow_state, shadow_isect, 0, prim) = ray.self.prim;
+  INTEGRATOR_STATE_ARRAY_WRITE(shadow_state, shadow_isect, 1, object) = ray.self.light_object;
+  INTEGRATOR_STATE_ARRAY_WRITE(shadow_state, shadow_isect, 1, prim) = ray.self.light_prim;
 
   /* Copy state from main path to shadow path. */
   const uint16_t bounce = INTEGRATOR_STATE(state, path, bounce);
   const uint16_t transparent_bounce = INTEGRATOR_STATE(state, path, transparent_bounce);
   uint32_t shadow_flag = INTEGRATOR_STATE(state, path, flag);
   shadow_flag |= (is_light) ? PATH_RAY_SHADOW_FOR_LIGHT : 0;
-  shadow_flag |= PATH_RAY_VOLUME_PASS;
   const float3 throughput_phase = throughput * bsdf_eval_sum(&phase_eval);
 
   if (kernel_data.kernel_features & KERNEL_FEATURE_LIGHT_PASSES) {
-    const packed_float3 pass_diffuse_weight = (bounce == 0) ?
-                                                  packed_float3(one_float3()) :
-                                                  INTEGRATOR_STATE(
-                                                      state, path, pass_diffuse_weight);
+    packed_float3 pass_diffuse_weight;
+    packed_float3 pass_glossy_weight;
+
+    if (shadow_flag & PATH_RAY_ANY_PASS) {
+      /* Indirect bounce, use weights from earlier surface or volume bounce. */
+      pass_diffuse_weight = INTEGRATOR_STATE(state, path, pass_diffuse_weight);
+      pass_glossy_weight = INTEGRATOR_STATE(state, path, pass_glossy_weight);
+    }
+    else {
+      /* Direct light, no diffuse/glossy distinction needed for volumes. */
+      shadow_flag |= PATH_RAY_VOLUME_PASS;
+      pass_diffuse_weight = packed_float3(one_float3());
+      pass_glossy_weight = packed_float3(zero_float3());
+    }
+
     INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, pass_diffuse_weight) = pass_diffuse_weight;
-    INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, pass_glossy_weight) = zero_float3();
+    INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, pass_glossy_weight) = pass_glossy_weight;
   }
 
   INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, render_pixel_index) = INTEGRATOR_STATE(
@@ -831,6 +833,12 @@ ccl_device_forceinline void integrate_volume_direct_light(
   if (kernel_data.kernel_features & KERNEL_FEATURE_SHADOW_PASS) {
     INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, unshadowed_throughput) = throughput;
   }
+
+  /* Write Lightgroup, +1 as lightgroup is int but we need to encode into a uint8_t. */
+  INTEGRATOR_STATE_WRITE(
+      shadow_state, shadow_path, lightgroup) = (ls->type != LIGHT_BACKGROUND) ?
+                                                   ls->group + 1 :
+                                                   kernel_data.background.lightgroup + 1;
 
   integrator_state_copy_volume_stack_to_shadow(kg, shadow_state, state);
 }
@@ -873,11 +881,13 @@ ccl_device_forceinline bool integrate_volume_phase_scatter(
   INTEGRATOR_STATE_WRITE(state, ray, P) = sd->P;
   INTEGRATOR_STATE_WRITE(state, ray, D) = normalize(phase_omega_in);
   INTEGRATOR_STATE_WRITE(state, ray, t) = FLT_MAX;
-
 #  ifdef __RAY_DIFFERENTIALS__
   INTEGRATOR_STATE_WRITE(state, ray, dP) = differential_make_compact(sd->dP);
   INTEGRATOR_STATE_WRITE(state, ray, dD) = differential_make_compact(phase_domega_in);
 #  endif
+  // Save memory by storing last hit prim and object in isect
+  INTEGRATOR_STATE_WRITE(state, isect, prim) = sd->prim;
+  INTEGRATOR_STATE_WRITE(state, isect, object) = sd->object;
 
   /* Update throughput. */
   const float3 throughput = INTEGRATOR_STATE(state, path, throughput);

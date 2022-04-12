@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 // #include "BLI_hash.h"
 #include "BLI_noise.hh"
@@ -110,9 +96,8 @@ static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSock
     case SOCK_INT:
       return CD_PROP_INT32;
     case SOCK_VECTOR:
-      return CD_PROP_FLOAT3;
     case SOCK_RGBA:
-      return CD_PROP_COLOR;
+      return CD_PROP_FLOAT3;
     default:
       return {};
   }
@@ -346,7 +331,7 @@ void register_node_type_fn_random_value()
 
   static bNodeType ntype;
 
-  fn_node_type_base(&ntype, FN_NODE_RANDOM_VALUE, "Random Value", NODE_CLASS_CONVERTER, 0);
+  fn_node_type_base(&ntype, FN_NODE_RANDOM_VALUE, "Random Value", NODE_CLASS_CONVERTER);
   node_type_init(&ntype, file_ns::fn_node_random_value_init);
   node_type_update(&ntype, file_ns::fn_node_random_value_update);
   ntype.draw_buttons = file_ns::fn_node_random_value_layout;

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -699,8 +683,7 @@ static int ptcache_dynamicpaint_write(PTCacheFile *pf, void *dp_v)
     if (surface->type == MOD_DPAINT_SURFACE_T_PAINT) {
       in_len = sizeof(PaintPoint) * total_points;
     }
-    else if (surface->type == MOD_DPAINT_SURFACE_T_DISPLACE ||
-             surface->type == MOD_DPAINT_SURFACE_T_WEIGHT) {
+    else if (ELEM(surface->type, MOD_DPAINT_SURFACE_T_DISPLACE, MOD_DPAINT_SURFACE_T_WEIGHT)) {
       in_len = sizeof(float) * total_points;
     }
     else if (surface->type == MOD_DPAINT_SURFACE_T_WAVE) {
@@ -831,31 +814,23 @@ static void ptcache_rigidbody_interpolate(int index,
     RigidBodyOb *rbo = ob->rigidbody_object;
 
     if (rbo->type == RBO_TYPE_ACTIVE) {
-      ParticleKey keys[4];
-      ParticleKey result;
-      float dfra;
-
-      memset(keys, 0, sizeof(keys));
-
-      copy_v3_v3(keys[1].co, rbo->pos);
-      copy_qt_qt(keys[1].rot, rbo->orn);
+      /* It may be possible to improve results by taking into account velocity
+       * for interpolation using psys_interpolate_particle, however this is
+       * not currently cached. */
+      float pos[3], orn[4];
 
       if (old_data) {
-        memcpy(keys[2].co, data, sizeof(float[3]));
-        memcpy(keys[2].rot, data + 3, sizeof(float[4]));
+        memcpy(pos, data, sizeof(float[3]));
+        memcpy(orn, data + 3, sizeof(float[4]));
       }
       else {
-        BKE_ptcache_make_particle_key(&keys[2], 0, data, cfra2);
+        PTCACHE_DATA_TO(data, BPHYS_DATA_LOCATION, index, pos);
+        PTCACHE_DATA_TO(data, BPHYS_DATA_ROTATION, index, orn);
       }
 
-      dfra = cfra2 - cfra1;
-
-      /* NOTE: keys[0] and keys[3] unused for type < 1 (crappy). */
-      psys_interpolate_particle(-1, keys, (cfra - cfra1) / dfra, &result, true);
-      interp_qt_qtqt(result.rot, keys[1].rot, keys[2].rot, (cfra - cfra1) / dfra);
-
-      copy_v3_v3(rbo->pos, result.co);
-      copy_qt_qt(rbo->orn, result.rot);
+      const float t = (cfra - cfra1) / (cfra2 - cfra1);
+      interp_v3_v3v3(rbo->pos, rbo->pos, pos, t);
+      interp_qt_qtqt(rbo->orn, rbo->orn, orn, t);
     }
   }
 }

@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #ifndef __SCENE_H__
 #define __SCENE_H__
@@ -160,6 +147,7 @@ class SceneParams {
 
   BVHType bvh_type;
   bool use_bvh_spatial_split;
+  bool use_bvh_compact_structure;
   bool use_bvh_unaligned_nodes;
   int num_bvh_time_steps;
   int hair_subdivisions;
@@ -171,9 +159,10 @@ class SceneParams {
   SceneParams()
   {
     shadingsystem = SHADINGSYSTEM_SVM;
-    bvh_layout = BVH_LAYOUT_BVH2;
+    bvh_layout = BVH_LAYOUT_AUTO;
     bvh_type = BVH_TYPE_DYNAMIC;
     use_bvh_spatial_split = false;
+    use_bvh_compact_structure = true;
     use_bvh_unaligned_nodes = true;
     num_bvh_time_steps = 0;
     hair_subdivisions = 3;
@@ -187,6 +176,7 @@ class SceneParams {
     return !(shadingsystem == params.shadingsystem && bvh_layout == params.bvh_layout &&
              bvh_type == params.bvh_type &&
              use_bvh_spatial_split == params.use_bvh_spatial_split &&
+             use_bvh_compact_structure == params.use_bvh_compact_structure &&
              use_bvh_unaligned_nodes == params.use_bvh_unaligned_nodes &&
              num_bvh_time_steps == params.num_bvh_time_steps &&
              hair_subdivisions == params.hair_subdivisions && hair_shape == params.hair_shape &&
@@ -206,6 +196,9 @@ class Scene : public NodeOwner {
  public:
   /* Optional name. Is used for logging and reporting. */
   string name;
+
+  /* Maps from Light group names to their pass ID. */
+  map<ustring, int> lightgroups;
 
   /* data */
   BVH *bvh;

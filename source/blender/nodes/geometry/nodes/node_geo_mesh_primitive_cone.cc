@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -524,11 +510,11 @@ static void calculate_selection_outputs(Mesh *mesh,
     if (config.bottom_is_point) {
       selection[config.last_vert] = true;
     }
+    else if (face) {
+      selection.slice(config.bottom_faces_start, config.bottom_faces_len).fill(true);
+    }
     else {
-      selection
-          .slice(config.bottom_faces_start,
-                 face ? config.bottom_faces_len : config.circle_segments)
-          .fill(true);
+      selection.slice(config.last_ring_verts_start + 1, config.circle_segments).fill(true);
     }
     attribute.save();
   }
@@ -676,8 +662,6 @@ static Mesh *create_vertex_mesh()
   /* Returns a mesh with a single vertex at the origin. */
   Mesh *mesh = BKE_mesh_new_nomain(1, 0, 0, 0, 0);
   copy_v3_fl3(mesh->mvert[0].co, 0.0f, 0.0f, 0.0f);
-  const short up[3] = {0, 0, SHRT_MAX};
-  copy_v3_v3_short(mesh->mvert[0].no, up);
   return mesh;
 }
 
@@ -719,8 +703,6 @@ Mesh *create_cylinder_or_cone_mesh(const float radius_top,
   calculate_cone_faces(loops, polys, config);
   calculate_cone_uvs(mesh, config);
   calculate_selection_outputs(mesh, config, attribute_outputs);
-
-  BKE_mesh_normals_tag_dirty(mesh);
 
   return mesh;
 }
@@ -878,7 +860,7 @@ void register_node_type_geo_mesh_primitive_cone()
 
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_MESH_PRIMITIVE_CONE, "Cone", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_MESH_PRIMITIVE_CONE, "Cone", NODE_CLASS_GEOMETRY);
   node_type_init(&ntype, file_ns::node_init);
   node_type_update(&ntype, file_ns::node_update);
   node_type_storage(

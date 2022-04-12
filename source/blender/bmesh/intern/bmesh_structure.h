@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2004 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2004 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -47,7 +31,7 @@ BLI_INLINE BMEdge *bmesh_disk_edge_next(const BMEdge *e, const BMVert *v) ATTR_W
     ATTR_NONNULL();
 BLI_INLINE BMEdge *bmesh_disk_edge_prev(const BMEdge *e, const BMVert *v) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL();
-int bmesh_disk_facevert_count_at_most(const BMVert *v, const int count_max) ATTR_WARN_UNUSED_RESULT
+int bmesh_disk_facevert_count_at_most(const BMVert *v, int count_max) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL();
 /**
  * \brief DISK COUNT FACE VERT
@@ -106,8 +90,7 @@ void bmesh_radial_loop_unlink(BMLoop *l) ATTR_NONNULL();
 
 int bmesh_radial_facevert_count_at_most(const BMLoop *l,
                                         const BMVert *v,
-                                        const int count_max) ATTR_WARN_UNUSED_RESULT
-    ATTR_NONNULL();
+                                        int count_max) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 /**
  * \brief RADIAL COUNT FACE VERT
  *

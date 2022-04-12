@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -44,7 +28,7 @@ int BLI_findindex(const struct ListBase *listbase, const void *vlink) ATTR_WARN_
  */
 int BLI_findstringindex(const struct ListBase *listbase,
                         const char *id,
-                        const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                        int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 
 /**
  * Return a ListBase representing the entire list the given Link is in.
@@ -58,35 +42,41 @@ ListBase BLI_listbase_from_link(struct Link *some_link);
  */
 void *BLI_findlink(const struct ListBase *listbase, int number) ATTR_WARN_UNUSED_RESULT
     ATTR_NONNULL(1);
+
+/**
+ * Returns the nth element after \a link, numbering from 0.
+ */
+void *BLI_findlinkfrom(struct Link *start, int number) ATTR_WARN_UNUSED_RESULT;
+
 /**
  * Finds the first element of \a listbase which contains the null-terminated
  * string \a id at the specified offset, returning NULL if not found.
  */
 void *BLI_findstring(const struct ListBase *listbase,
                      const char *id,
-                     const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                     int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 /**
  * Finds the first element of \a listbase which contains a pointer to the
  * null-terminated string \a id at the specified offset, returning NULL if not found.
  */
 void *BLI_findstring_ptr(const struct ListBase *listbase,
                          const char *id,
-                         const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                         int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 /**
  * Finds the first element of listbase which contains the specified pointer value
  * at the specified offset, returning NULL if not found.
  */
 void *BLI_findptr(const struct ListBase *listbase,
                   const void *ptr,
-                  const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                  int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 /**
  * Finds the first element of listbase which contains the specified bytes
  * at the specified offset, returning NULL if not found.
  */
 void *BLI_listbase_bytes_find(const ListBase *listbase,
                               const void *bytes,
-                              const size_t bytes_size,
-                              const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1, 2);
+                              size_t bytes_size,
+                              int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1, 2);
 /**
  * Find the first item in the list that matches the given string, or the given index as fallback.
  *
@@ -96,8 +86,8 @@ void *BLI_listbase_bytes_find(const ListBase *listbase,
  */
 void *BLI_listbase_string_or_index_find(const struct ListBase *listbase,
                                         const char *string,
-                                        const size_t string_offset,
-                                        const int index) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                                        size_t string_offset,
+                                        int index) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 
 /* Find backwards. */
 
@@ -112,29 +102,29 @@ void *BLI_rfindlink(const struct ListBase *listbase, int number) ATTR_WARN_UNUSE
  */
 void *BLI_rfindstring(const struct ListBase *listbase,
                       const char *id,
-                      const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                      int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 /**
  * Finds the last element of \a listbase which contains a pointer to the
  * null-terminated string \a id at the specified offset, returning NULL if not found.
  */
 void *BLI_rfindstring_ptr(const struct ListBase *listbase,
                           const char *id,
-                          const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                          int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 /**
  * Finds the last element of listbase which contains the specified pointer value
  * at the specified offset, returning NULL if not found.
  */
 void *BLI_rfindptr(const struct ListBase *listbase,
                    const void *ptr,
-                   const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                   int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 /**
  * Finds the last element of listbase which contains the specified bytes
  * at the specified offset, returning NULL if not found.
  */
 void *BLI_listbase_bytes_rfind(const ListBase *listbase,
                                const void *bytes,
-                               const size_t bytes_size,
-                               const int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1, 2);
+                               size_t bytes_size,
+                               int offset) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1, 2);
 
 /**
  * Removes and disposes of the entire contents of \a listbase using guardedalloc.
@@ -221,7 +211,7 @@ void BLI_freelist(struct ListBase *listbase) ATTR_NONNULL(1);
  * \note Use to avoid redundant looping.
  */
 int BLI_listbase_count_at_most(const struct ListBase *listbase,
-                               const int count_max) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
+                               int count_max) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1);
 /**
  * Returns the number of elements in \a listbase.
  */

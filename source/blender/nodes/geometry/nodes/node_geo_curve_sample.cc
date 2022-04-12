@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BLI_task.hh"
 
@@ -136,12 +122,13 @@ class SampleCurveFunction : public fn::MultiFunction {
       }
     };
 
-    if (!geometry_set_.has_curve()) {
+    if (!geometry_set_.has_curves()) {
       return return_default();
     }
 
     const CurveComponent *curve_component = geometry_set_.get_component_for_read<CurveComponent>();
-    const CurveEval *curve = curve_component->get_for_read();
+    const std::unique_ptr<CurveEval> curve = curves_to_curve_eval(
+        *curve_component->get_for_read());
     Span<SplinePtr> splines = curve->splines();
     if (splines.is_empty()) {
       return return_default();
@@ -185,7 +172,7 @@ class SampleCurveFunction : public fn::MultiFunction {
       for (const int i : mask) {
         const Spline::LookupResult &lookup = lookups[i];
         const Span<float3> evaluated_tangents = splines[spline_indices[i]]->evaluated_tangents();
-        sampled_tangents[i] = sample_with_lookup(lookup, evaluated_tangents).normalized();
+        sampled_tangents[i] = math::normalize(sample_with_lookup(lookup, evaluated_tangents));
       }
     }
 
@@ -193,7 +180,7 @@ class SampleCurveFunction : public fn::MultiFunction {
       for (const int i : mask) {
         const Spline::LookupResult &lookup = lookups[i];
         const Span<float3> evaluated_normals = splines[spline_indices[i]]->evaluated_normals();
-        sampled_normals[i] = sample_with_lookup(lookup, evaluated_normals).normalized();
+        sampled_normals[i] = math::normalize(sample_with_lookup(lookup, evaluated_normals));
       }
     }
   }
@@ -248,11 +235,12 @@ static void node_geo_exec(GeoNodeExecParams params)
     return;
   }
 
-  const CurveEval *curve = component->get_for_read();
-  if (curve == nullptr) {
+  if (!component->has_curves()) {
     params.set_default_remaining_outputs();
     return;
   }
+
+  const std::unique_ptr<CurveEval> curve = curves_to_curve_eval(*component->get_for_read());
 
   if (curve->splines().is_empty()) {
     params.set_default_remaining_outputs();
@@ -286,7 +274,7 @@ void register_node_type_geo_curve_sample()
 
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_SAMPLE_CURVE, "Sample Curve", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_SAMPLE_CURVE, "Sample Curve", NODE_CLASS_GEOMETRY);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.declare = file_ns::node_declare;
   node_type_init(&ntype, file_ns::node_type_init);

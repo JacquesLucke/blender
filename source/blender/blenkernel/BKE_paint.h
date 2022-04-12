@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 by Nicholas Bishop
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 by Nicholas Bishop. All rights reserved. */
 
 #pragma once
 
@@ -27,6 +11,8 @@
 #include "BLI_utildefines.h"
 #include "DNA_brush_enums.h"
 #include "DNA_object_enums.h"
+
+#include "BKE_attribute.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -90,9 +76,11 @@ typedef enum ePaintMode {
   PAINT_MODE_VERTEX_GPENCIL = 7,
   PAINT_MODE_SCULPT_GPENCIL = 8,
   PAINT_MODE_WEIGHT_GPENCIL = 9,
+  /** Curves. */
+  PAINT_MODE_SCULPT_CURVES = 10,
 
   /** Keep last. */
-  PAINT_MODE_INVALID = 10,
+  PAINT_MODE_INVALID = 11,
 } ePaintMode;
 
 #define PAINT_MODE_HAS_BRUSH(mode) !ELEM(mode, PAINT_MODE_SCULPT_UV)
@@ -148,14 +136,14 @@ bool BKE_palette_is_empty(const struct Palette *palette);
 void BKE_palette_color_remove(struct Palette *palette, struct PaletteColor *color);
 void BKE_palette_clear(struct Palette *palette);
 
-void BKE_palette_sort_hsv(struct tPaletteColorHSV *color_array, const int totcol);
-void BKE_palette_sort_svh(struct tPaletteColorHSV *color_array, const int totcol);
-void BKE_palette_sort_vhs(struct tPaletteColorHSV *color_array, const int totcol);
-void BKE_palette_sort_luminance(struct tPaletteColorHSV *color_array, const int totcol);
+void BKE_palette_sort_hsv(struct tPaletteColorHSV *color_array, int totcol);
+void BKE_palette_sort_svh(struct tPaletteColorHSV *color_array, int totcol);
+void BKE_palette_sort_vhs(struct tPaletteColorHSV *color_array, int totcol);
+void BKE_palette_sort_luminance(struct tPaletteColorHSV *color_array, int totcol);
 bool BKE_palette_from_hash(struct Main *bmain,
                            struct GHash *color_table,
                            const char *name,
-                           const bool linear);
+                           bool linear);
 
 /* Paint curves. */
 
@@ -172,7 +160,7 @@ void BKE_paint_free(struct Paint *p);
  * #id_us_plus(), rather than if we were copying between 2 existing scenes where a matching
  * value should decrease the existing user count as with #paint_brush_set()
  */
-void BKE_paint_copy(struct Paint *src, struct Paint *tar, const int flag);
+void BKE_paint_copy(struct Paint *src, struct Paint *tar, int flag);
 
 void BKE_paint_runtime_init(const struct ToolSettings *ts, struct Paint *paint);
 
@@ -183,7 +171,7 @@ bool BKE_paint_ensure_from_paintmode(struct Scene *sce, ePaintMode mode);
 struct Paint *BKE_paint_get_active_from_paintmode(struct Scene *sce, ePaintMode mode);
 const struct EnumPropertyItem *BKE_paint_get_tool_enum_from_paintmode(ePaintMode mode);
 const char *BKE_paint_get_tool_prop_id_from_paintmode(ePaintMode mode);
-uint BKE_paint_get_brush_tool_offset_from_paintmode(const ePaintMode mode);
+uint BKE_paint_get_brush_tool_offset_from_paintmode(ePaintMode mode);
 struct Paint *BKE_paint_get_active(struct Scene *sce, struct ViewLayer *view_layer);
 struct Paint *BKE_paint_get_active_from_context(const struct bContext *C);
 ePaintMode BKE_paintmode_get_active_from_context(const struct bContext *C);
@@ -193,7 +181,7 @@ void BKE_paint_brush_set(struct Paint *paint, struct Brush *br);
 struct Palette *BKE_paint_palette(struct Paint *paint);
 void BKE_paint_palette_set(struct Paint *p, struct Palette *palette);
 void BKE_paint_curve_set(struct Brush *br, struct PaintCurve *pc);
-void BKE_paint_curve_clamp_endpoint_add_index(struct PaintCurve *pc, const int add_index);
+void BKE_paint_curve_clamp_endpoint_add_index(struct PaintCurve *pc, int add_index);
 
 /**
  * Return true when in vertex/weight/texture paint + face-select mode?
@@ -231,7 +219,7 @@ bool paint_is_bmesh_face_hidden(struct BMFace *f);
 
 float paint_grid_paint_mask(const struct GridPaintMask *gpm, uint level, uint x, uint y);
 
-void BKE_paint_face_set_overlay_color_get(const int face_set, const int seed, uchar r_color[4]);
+void BKE_paint_face_set_overlay_color_get(int face_set, int seed, uchar r_color[4]);
 
 /* Stroke related. */
 
@@ -507,6 +495,11 @@ typedef struct SculptSession {
 
   struct KeyBlock *shapekey_active;
   struct MPropCol *vcol;
+  struct MLoopCol *mcol;
+
+  AttributeDomain vcol_domain;
+  CustomDataType vcol_type;
+
   float *vmask;
 
   /* Mesh connectivity maps. */
@@ -616,10 +609,6 @@ typedef struct SculptSession {
   float init_pivot_rot[4];
   float init_pivot_scale[3];
 
-  float prev_pivot_pos[3];
-  float prev_pivot_rot[4];
-  float prev_pivot_scale[3];
-
   union {
     struct {
       struct SculptVertexPaintGeomMap gmap;
@@ -652,6 +641,14 @@ typedef struct SculptSession {
    */
   char needs_flush_to_id;
 
+  /**
+   * Some tools follows the shading chosen by the last used tool canvas.
+   * When not set the viewport shading color would be used.
+   *
+   * NOTE: This setting is temporarily until paint mode is added.
+   */
+  bool sticky_shading_color;
+
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);
@@ -681,7 +678,8 @@ void BKE_sculpt_update_object_after_eval(struct Depsgraph *depsgraph, struct Obj
  * Sculpt mode handles multi-res differently from regular meshes, but only if
  * it's the last modifier on the stack and it is not on the first level.
  */
-struct MultiresModifierData *BKE_sculpt_multires_active(struct Scene *scene, struct Object *ob);
+struct MultiresModifierData *BKE_sculpt_multires_active(const struct Scene *scene,
+                                                        struct Object *ob);
 int BKE_sculpt_mask_layers_ensure(struct Object *ob, struct MultiresModifierData *mmd);
 void BKE_sculpt_toolsettings_data_ensure(struct Scene *scene);
 

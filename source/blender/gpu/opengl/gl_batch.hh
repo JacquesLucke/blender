@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2020, Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -91,15 +75,15 @@ class GLVaoCache {
    */
   void insert(const GLShaderInterface *interface, GLuint vao_id);
   void remove(const GLShaderInterface *interface);
-  void clear(void);
+  void clear();
 
  private:
-  void init(void);
+  void init();
   /**
    * The #GLVaoCache object is only valid for one #GLContext.
    * Reset the cache if trying to draw in another context;.
    */
-  void context_check(void);
+  void context_check();
 };
 
 class GLBatch : public Batch {
@@ -113,7 +97,7 @@ class GLBatch : public Batch {
 
   /* Convenience getters. */
 
-  GLIndexBuf *elem_(void) const
+  GLIndexBuf *elem_() const
   {
     return static_cast<GLIndexBuf *>(unwrap(elem));
   }

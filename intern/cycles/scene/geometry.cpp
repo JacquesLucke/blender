@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2020 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #include "bvh/bvh.h"
 #include "bvh/bvh2.h"
@@ -192,8 +179,12 @@ bool Geometry::has_true_displacement() const
   return false;
 }
 
-void Geometry::compute_bvh(
-    Device *device, DeviceScene *dscene, SceneParams *params, Progress *progress, int n, int total)
+void Geometry::compute_bvh(Device *device,
+                           DeviceScene *dscene,
+                           SceneParams *params,
+                           Progress *progress,
+                           size_t n,
+                           size_t total)
 {
   if (progress->get_cancel())
     return;
@@ -236,6 +227,7 @@ void Geometry::compute_bvh(
 
       BVHParams bparams;
       bparams.use_spatial_split = params->use_bvh_spatial_split;
+      bparams.use_compact_structure = params->use_bvh_compact_structure;
       bparams.bvh_layout = bvh_layout;
       bparams.use_unaligned_nodes = dscene->data.bvh.have_curves &&
                                     params->use_bvh_unaligned_nodes;
@@ -1002,10 +994,10 @@ void GeometryManager::device_update_attributes(Device *device,
 
   /* After mesh attributes and patch tables have been copied to device memory,
    * we need to update offsets in the objects. */
-  scene->object_manager->device_update_mesh_offsets(device, dscene, scene);
+  scene->object_manager->device_update_geom_offsets(device, dscene, scene);
 }
 
-void GeometryManager::mesh_calc_offset(Scene *scene, BVHLayout bvh_layout)
+void GeometryManager::geom_calc_offset(Scene *scene, BVHLayout bvh_layout)
 {
   size_t vert_size = 0;
   size_t tri_size = 0;
@@ -1922,7 +1914,7 @@ void GeometryManager::device_update(Device *device,
 
   const BVHLayout bvh_layout = BVHParams::best_bvh_layout(scene->params.bvh_layout,
                                                           device->get_bvh_layout_mask());
-  mesh_calc_offset(scene, bvh_layout);
+  geom_calc_offset(scene, bvh_layout);
   if (true_displacement_used || curve_shadow_transparency_used) {
     scoped_callback_timer timer([scene](double time) {
       if (scene->update_stats) {

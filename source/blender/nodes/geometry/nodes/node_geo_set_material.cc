@@ -1,24 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_geometry_util.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "DNA_curves_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_pointcloud_types.h"
@@ -77,6 +64,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   /* Only add the warnings once, even if there are many unique instances. */
   bool point_selection_warning = false;
   bool volume_selection_warning = false;
+  bool curves_selection_warning = false;
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     if (geometry_set.has_mesh()) {
@@ -103,6 +91,12 @@ static void node_geo_exec(GeoNodeExecParams params)
         point_selection_warning = true;
       }
     }
+    if (Curves *curves = geometry_set.get_curves_for_write()) {
+      BKE_id_material_eval_assign(&curves->id, 1, material);
+      if (selection_field.node().depends_on_input()) {
+        curves_selection_warning = true;
+      }
+    }
   });
 
   if (volume_selection_warning) {
@@ -114,6 +108,11 @@ static void node_geo_exec(GeoNodeExecParams params)
     params.error_message_add(
         NodeWarningType::Info,
         TIP_("Point clouds only support a single material; selection input can not be a field"));
+  }
+  if (curves_selection_warning) {
+    params.error_message_add(
+        NodeWarningType::Info,
+        TIP_("Curves only support a single material; selection input can not be a field"));
   }
 
   params.set_output("Geometry", std::move(geometry_set));
@@ -127,7 +126,7 @@ void register_node_type_geo_set_material()
 
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_SET_MATERIAL, "Set Material", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_SET_MATERIAL, "Set Material", NODE_CLASS_GEOMETRY);
   ntype.declare = file_ns::node_declare;
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   nodeRegisterType(&ntype);

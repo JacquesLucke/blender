@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup DNA
@@ -43,11 +27,16 @@ struct bNodeTree;
 /* WATCH IT: change type? also make changes in ipo.h */
 
 typedef struct TexPaintSlot {
-  /** Image to be painted on. */
+  /** Image to be painted on. Mutual exclusive with attribute_name. */
   struct Image *ima;
   /** Custom-data index for uv layer, #MAX_NAME. */
   char *uvname;
-  /** Do we have a valid image and UV map. */
+  /**
+   * Color attribute name when painting using color attributes. Mutual exclusive with ima.
+   * Points to the name of a CustomDataLayer.
+   */
+  char *attribute_name;
+  /** Do we have a valid image and UV map or attribute. */
   int valid;
   /** Copy of node interpolation setting. */
   int interp;
@@ -293,7 +282,7 @@ typedef struct Material {
 /* #define TEXCO_STRESS    (1 << 14) */ /* deprecated */
 /* #define TEXCO_SPEED     (1 << 15) */ /* deprecated */
 
-/* mapto */
+/** #MTex.mapto */
 #define MAP_COL (1 << 0)
 #define MAP_ALPHA (1 << 7)
 

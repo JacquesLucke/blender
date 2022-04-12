@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edtransform
@@ -34,8 +18,10 @@
 
 #include "UI_view2d.h"
 
+#include "SEQ_channels.h"
 #include "SEQ_effects.h"
 #include "SEQ_iterator.h"
+#include "SEQ_render.h"
 #include "SEQ_sequencer.h"
 
 #include "transform.h"
@@ -137,14 +123,16 @@ static SeqCollection *seq_collection_extract_effects(SeqCollection *collection)
 
 static SeqCollection *query_snap_targets(const TransInfo *t, SeqCollection *snap_sources)
 {
-  ListBase *seqbase = SEQ_active_seqbase_get(SEQ_editing_get(t->scene));
+  Editing *ed = SEQ_editing_get(t->scene);
+  ListBase *seqbase = SEQ_active_seqbase_get(ed);
+  ListBase *channels = SEQ_channels_displayed_get(ed);
   const short snap_flag = SEQ_tool_settings_snap_flag_get(t->scene);
   SeqCollection *snap_targets = SEQ_collection_create(__func__);
   LISTBASE_FOREACH (Sequence *, seq, seqbase) {
     if (seq->flag & SELECT) {
       continue; /* Selected are being transformed. */
     }
-    if ((seq->flag & SEQ_MUTE) && (snap_flag & SEQ_SNAP_IGNORE_MUTED)) {
+    if (SEQ_render_is_muted(channels, seq) && (snap_flag & SEQ_SNAP_IGNORE_MUTED)) {
       continue;
     }
     if (seq->type == SEQ_TYPE_SOUND_RAM && (snap_flag & SEQ_SNAP_IGNORE_SOUND)) {

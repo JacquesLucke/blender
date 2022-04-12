@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup collada
@@ -425,6 +411,7 @@ void bc_triangulate_mesh(Mesh *me)
   BMesh *bm = BM_mesh_create(&bm_mesh_allocsize_default, &bm_create_params);
   BMeshFromMeshParams bm_from_me_params{};
   bm_from_me_params.calc_face_normal = true;
+  bm_from_me_params.calc_vert_normal = true;
   BM_mesh_bm_from_me(bm, me, &bm_from_me_params);
   BM_mesh_triangulate(bm, quad_method, use_beauty, 4, tag_only, nullptr, nullptr, nullptr);
 
@@ -627,8 +614,7 @@ void BoneExtended::set_bone_layers(std::string layerString, std::vector<std::str
     }
 
     /* If numeric layers and labeled layers are used in parallel (unlikely),
-     * we get a potential mixup. Just leave as is for now.
-     */
+     * we get a potential mix-up. Just leave as is for now. */
     this->bone_layers = bc_set_layer(this->bone_layers, pos);
   }
 }

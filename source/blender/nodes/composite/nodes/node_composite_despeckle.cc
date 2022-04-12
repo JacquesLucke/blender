@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup cmpnodes
@@ -28,7 +12,7 @@
 
 /* **************** FILTER  ******************** */
 
-namespace blender::nodes {
+namespace blender::nodes::node_composite_despeckle_cc {
 
 static void cmp_node_despeckle_declare(NodeDeclarationBuilder &b)
 {
@@ -36,8 +20,6 @@ static void cmp_node_despeckle_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Color>(N_("Image")).default_value({1.0f, 1.0f, 1.0f, 1.0f});
   b.add_output<decl::Color>(N_("Image"));
 }
-
-}  // namespace blender::nodes
 
 static void node_composit_init_despeckle(bNodeTree *UNUSED(ntree), bNode *node)
 {
@@ -54,14 +36,19 @@ static void node_composit_buts_despeckle(uiLayout *layout, bContext *UNUSED(C), 
   uiItemR(col, ptr, "threshold_neighbor", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
 }
 
+}  // namespace blender::nodes::node_composite_despeckle_cc
+
 void register_node_type_cmp_despeckle()
 {
+  namespace file_ns = blender::nodes::node_composite_despeckle_cc;
+
   static bNodeType ntype;
 
-  cmp_node_type_base(&ntype, CMP_NODE_DESPECKLE, "Despeckle", NODE_CLASS_OP_FILTER, NODE_PREVIEW);
-  ntype.declare = blender::nodes::cmp_node_despeckle_declare;
-  ntype.draw_buttons = node_composit_buts_despeckle;
-  node_type_init(&ntype, node_composit_init_despeckle);
+  cmp_node_type_base(&ntype, CMP_NODE_DESPECKLE, "Despeckle", NODE_CLASS_OP_FILTER);
+  ntype.declare = file_ns::cmp_node_despeckle_declare;
+  ntype.draw_buttons = file_ns::node_composit_buts_despeckle;
+  ntype.flag |= NODE_PREVIEW;
+  node_type_init(&ntype, file_ns::node_composit_init_despeckle);
 
   nodeRegisterType(&ntype);
 }

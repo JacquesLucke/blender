@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup modifiers
@@ -56,6 +40,7 @@
 #include "RE_engine.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -84,6 +69,9 @@ static void requiredDataMask(Object *UNUSED(ob),
   if (smd->flags & eSubsurfModifierFlag_UseCustomNormals) {
     r_cddata_masks->lmask |= CD_MASK_NORMAL;
     r_cddata_masks->lmask |= CD_MASK_CUSTOMLOOPNORMAL;
+  }
+  if (smd->flags & eSubsurfModifierFlag_UseCrease) {
+    r_cddata_masks->vmask |= CD_MASK_CREASE;
   }
 }
 
@@ -242,11 +230,13 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   if ((ctx->flag & MOD_APPLY_TO_BASE_MESH) == 0) {
     Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
     const bool is_render_mode = (ctx->flag & MOD_APPLY_RENDER) != 0;
-    /* Same check as in `DRW_mesh_batch_cache_create_requested` to keep both code coherent. */
-    const bool is_editmode = (mesh->edit_mesh != NULL) &&
-                             (mesh->edit_mesh->mesh_eval_final != NULL);
+    /* Same check as in `DRW_mesh_batch_cache_create_requested` to keep both code coherent. The
+     * difference is that here we do not check for the final edit mesh pointer as it is not yet
+     * assigned at this stage of modifier stack evaluation. */
+    const bool is_editmode = (mesh->edit_mesh != NULL);
     const int required_mode = BKE_subsurf_modifier_eval_required_mode(is_render_mode, is_editmode);
-    if (BKE_subsurf_modifier_can_do_gpu_subdiv_ex(scene, ctx->object, smd, required_mode, false)) {
+    if (BKE_subsurf_modifier_can_do_gpu_subdiv_ex(
+            scene, ctx->object, mesh, smd, required_mode, false)) {
       subdiv_cache_cpu_evaluation_settings(ctx, mesh, smd);
       return result;
     }
@@ -258,9 +248,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
     /* Happens on bad topology, but also on empty input mesh. */
     return result;
   }
-  const bool use_clnors = (smd->flags & eSubsurfModifierFlag_UseCustomNormals) &&
-                          (mesh->flag & ME_AUTOSMOOTH) &&
-                          CustomData_has_layer(&mesh->ldata, CD_CUSTOMLOOPNORMAL);
+  const bool use_clnors = BKE_subsurf_modifier_use_custom_loop_normals(smd, mesh);
   if (use_clnors) {
     /* If custom normals are present and the option is turned on calculate the split
      * normals and clear flag so the normals get interpolated to the result mesh. */
@@ -295,7 +283,7 @@ static void deformMatrices(ModifierData *md,
                            Mesh *mesh,
                            float (*vertex_cos)[3],
                            float (*deform_matrices)[3][3],
-                           int num_verts)
+                           int verts_num)
 {
 #if !defined(WITH_OPENSUBDIV)
   BKE_modifier_set_error(ctx->object, md, "Disabled, built without OpenSubdiv");
@@ -319,7 +307,7 @@ static void deformMatrices(ModifierData *md,
     /* Happens on bad topology, but also on empty input mesh. */
     return;
   }
-  BKE_subdiv_deform_coarse_vertices(subdiv, mesh, vertex_cos, num_verts);
+  BKE_subdiv_deform_coarse_vertices(subdiv, mesh, vertex_cos, verts_num);
   if (subdiv != runtime_data->subdiv) {
     BKE_subdiv_free(subdiv);
   }
@@ -424,6 +412,13 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   uiItemR(layout, ptr, "show_only_control_edges", 0, NULL, ICON_NONE);
 
+  SubsurfModifierData *smd = ptr->data;
+  Object *ob = ob_ptr.data;
+  Mesh *mesh = ob->data;
+  if (BKE_subsurf_modifier_force_disable_gpu_evaluation_for_mesh(smd, mesh)) {
+    uiItemL(layout, "Autosmooth or custom normals detected, disabling GPU subdivision", ICON_INFO);
+  }
+
   modifier_panel_end(layout, ptr);
 }
 
@@ -496,7 +491,6 @@ ModifierTypeInfo modifierType_Subsurf = {
     /* deformVertsEM */ NULL,
     /* deformMatricesEM */ NULL,
     /* modifyMesh */ modifyMesh,
-    /* modifyHair */ NULL,
     /* modifyGeometrySet */ NULL,
 
     /* initData */ initData,

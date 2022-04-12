@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2012 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2012 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup editors
@@ -79,7 +63,6 @@ bool ED_mask_selected_minmax(const struct bContext *C,
 
 /* mask_draw.c */
 
-void ED_mask_draw(const struct bContext *C, const char draw_flag, const char draw_type);
 /**
  * Sets up the opengl context.
  * width, height are to match the values from #ED_mask_get_size().
@@ -87,26 +70,25 @@ void ED_mask_draw(const struct bContext *C, const char draw_flag, const char dra
 void ED_mask_draw_region(struct Depsgraph *depsgraph,
                          struct Mask *mask,
                          struct ARegion *region,
-                         const char draw_flag,
-                         const char draw_type,
-                         const eMaskOverlayMode overlay_mode,
-                         const int width_i,
-                         const int height_i,
-                         const float aspx,
-                         const float aspy,
-                         const bool do_scale_applied,
-                         const bool do_draw_cb,
+                         char draw_flag,
+                         char draw_type,
+                         eMaskOverlayMode overlay_mode,
+                         int width_i,
+                         int height_i,
+                         float aspx,
+                         float aspy,
+                         bool do_scale_applied,
+                         bool do_draw_cb,
                          float stabmat[4][4],
                          const struct bContext *C);
 
-void ED_mask_draw_frames(
-    struct Mask *mask, struct ARegion *region, const int cfra, const int sfra, const int efra);
+void ED_mask_draw_frames(struct Mask *mask, struct ARegion *region, int cfra, int sfra, int efra);
 
 /* mask_shapekey.c */
 
-void ED_mask_layer_shape_auto_key(struct MaskLayer *mask_layer, const int frame);
-bool ED_mask_layer_shape_auto_key_all(struct Mask *mask, const int frame);
-bool ED_mask_layer_shape_auto_key_select(struct Mask *mask, const int frame);
+void ED_mask_layer_shape_auto_key(struct MaskLayer *mask_layer, int frame);
+bool ED_mask_layer_shape_auto_key_all(struct Mask *mask, int frame);
+bool ED_mask_layer_shape_auto_key_select(struct Mask *mask, int frame);
 
 /* ----------- Mask AnimEdit API ------------------ */
 

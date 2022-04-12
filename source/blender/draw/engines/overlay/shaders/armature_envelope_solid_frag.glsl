@@ -1,20 +1,10 @@
 
-uniform float alpha = 0.6;
-uniform bool isDistance;
-
-flat in vec3 finalStateColor;
-flat in vec3 finalBoneColor;
-in vec3 normalView;
-
-layout(location = 0) out vec4 fragColor;
-layout(location = 1) out vec4 lineOutput;
-
 void main()
 {
   float n = normalize(normalView).z;
   if (isDistance) {
     n = 1.0 - clamp(-n, 0.0, 1.0);
-    fragColor = vec4(1.0, 1.0, 1.0, 0.2) * n;
+    fragColor = vec4(1.0, 1.0, 1.0, 0.33 * alpha) * n;
   }
   else {
     /* Smooth lighting factor. */

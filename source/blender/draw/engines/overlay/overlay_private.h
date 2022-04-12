@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2019, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2019 Blender Foundation. */
 
 /** \file
  * \ingroup DNA
@@ -87,6 +72,7 @@ typedef struct OVERLAY_PassList {
   DRWPass *edit_mesh_edges_ps[2];
   DRWPass *edit_mesh_faces_ps[2];
   DRWPass *edit_mesh_faces_cage_ps[2];
+  DRWPass *edit_curves_points_ps[2];
   DRWPass *edit_mesh_analysis_ps;
   DRWPass *edit_mesh_normals_ps;
   DRWPass *edit_particle_ps;
@@ -216,37 +202,37 @@ typedef struct OVERLAY_ExtraCallBuffers {
   DRWShadingGroup *extra_loose_points;
 } OVERLAY_ExtraCallBuffers;
 
-typedef struct OVERLAY_ArmatureCallBuffers {
+typedef struct OVERLAY_ArmatureCallBuffersInner {
   DRWCallBuffer *box_outline;
-  DRWCallBuffer *box_solid;
-  DRWCallBuffer *box_transp;
+  DRWCallBuffer *box_fill;
 
   DRWCallBuffer *dof_lines;
   DRWCallBuffer *dof_sphere;
 
   DRWCallBuffer *envelope_distance;
   DRWCallBuffer *envelope_outline;
-  DRWCallBuffer *envelope_solid;
-  DRWCallBuffer *envelope_transp;
+  DRWCallBuffer *envelope_fill;
 
   DRWCallBuffer *octa_outline;
-  DRWCallBuffer *octa_solid;
-  DRWCallBuffer *octa_transp;
+  DRWCallBuffer *octa_fill;
 
   DRWCallBuffer *point_outline;
-  DRWCallBuffer *point_solid;
-  DRWCallBuffer *point_transp;
+  DRWCallBuffer *point_fill;
 
   DRWCallBuffer *stick;
 
   DRWCallBuffer *wire;
 
   DRWShadingGroup *custom_outline;
-  DRWShadingGroup *custom_solid;
-  DRWShadingGroup *custom_transp;
+  DRWShadingGroup *custom_fill;
   DRWShadingGroup *custom_wire;
-  GHash *custom_shapes_transp_ghash;
+
   GHash *custom_shapes_ghash;
+} OVERLAY_ArmatureCallBuffersInner;
+
+typedef struct OVERLAY_ArmatureCallBuffers {
+  OVERLAY_ArmatureCallBuffersInner solid;
+  OVERLAY_ArmatureCallBuffersInner transp;
 } OVERLAY_ArmatureCallBuffers;
 
 typedef struct OVERLAY_PrivateData {
@@ -281,6 +267,7 @@ typedef struct OVERLAY_PrivateData {
   DRWShadingGroup *edit_uv_faces_grp;
   DRWShadingGroup *edit_uv_face_dots_grp;
   DRWShadingGroup *edit_uv_stretching_grp;
+  DRWShadingGroup *edit_curves_points_grp[2];
   DRWShadingGroup *extra_grid_grp;
   DRWShadingGroup *facing_grp[2];
   DRWShadingGroup *fade_grp[2];
@@ -314,6 +301,7 @@ typedef struct OVERLAY_PrivateData {
   DRWView *view_edit_verts;
   DRWView *view_edit_text;
   DRWView *view_reference_images;
+  DRWView *view_edit_curves_points;
 
   /** TODO: get rid of this. */
   ListBase smoke_domains;
@@ -362,6 +350,9 @@ typedef struct OVERLAY_PrivateData {
     int flag; /** Copy of #v3d->overlay.edit_flag. */
   } edit_mesh;
   struct {
+    bool do_zbufclip;
+  } edit_curves;
+  struct {
     bool use_weight;
     int select_mode;
   } edit_particle;
@@ -374,6 +365,7 @@ typedef struct OVERLAY_PrivateData {
     bool do_stencil_overlay;
     bool do_mask_overlay;
 
+    bool do_verts;
     bool do_faces;
     bool do_face_dots;
 
@@ -590,11 +582,11 @@ void OVERLAY_extra_line_dashed(OVERLAY_ExtraCallBuffers *cb,
 void OVERLAY_extra_line(OVERLAY_ExtraCallBuffers *cb,
                         const float start[3],
                         const float end[3],
-                        const int color_id);
+                        int color_id);
 void OVERLAY_empty_shape(OVERLAY_ExtraCallBuffers *cb,
                          const float mat[4][4],
-                         const float draw_size,
-                         const char draw_type,
+                         float draw_size,
+                         char draw_type,
                          const float color[4]);
 void OVERLAY_extra_loose_points(OVERLAY_ExtraCallBuffers *cb,
                                 struct GPUBatch *geom,
@@ -683,6 +675,11 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
 void OVERLAY_wireframe_draw(OVERLAY_Data *vedata);
 void OVERLAY_wireframe_in_front_draw(OVERLAY_Data *vedata);
 
+void OVERLAY_edit_curves_init(OVERLAY_Data *vedata);
+void OVERLAY_edit_curves_cache_init(OVERLAY_Data *vedata);
+void OVERLAY_edit_curves_cache_populate(OVERLAY_Data *vedata, Object *ob);
+void OVERLAY_edit_curves_draw(OVERLAY_Data *vedata);
+
 void OVERLAY_shader_library_ensure(void);
 GPUShader *OVERLAY_shader_antialiasing(void);
 GPUShader *OVERLAY_shader_armature_degrees_of_freedom_wire(void);
@@ -714,6 +711,7 @@ GPUShader *OVERLAY_shader_edit_mesh_vert(void);
 GPUShader *OVERLAY_shader_edit_particle_strand(void);
 GPUShader *OVERLAY_shader_edit_particle_point(void);
 GPUShader *OVERLAY_shader_edit_uv_edges_get(void);
+GPUShader *OVERLAY_shader_edit_uv_edges_for_edge_select_get(void);
 GPUShader *OVERLAY_shader_edit_uv_face_get(void);
 GPUShader *OVERLAY_shader_edit_uv_face_dots_get(void);
 GPUShader *OVERLAY_shader_edit_uv_verts_get(void);

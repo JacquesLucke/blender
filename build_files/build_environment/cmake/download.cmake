@@ -1,9 +1,16 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+## Update and uncomment this in the release branch
+# set(BLENDER_VERSION 3.1)
+
 function(download_source dep)
   set(TARGET_FILE ${${dep}_FILE})
   set(TARGET_HASH_TYPE ${${dep}_HASH_TYPE})
   set(TARGET_HASH ${${dep}_HASH})
   if(PACKAGE_USE_UPSTREAM_SOURCES)
     set(TARGET_URI  ${${dep}_URI})
+  elseif(BLENDER_VERSION)
+    set(TARGET_URI  https://svn.blender.org/svnroot/bf-blender/tags/blender-${BLENDER_VERSION}-release/lib/packages/${TARGET_FILE})
   else()
     set(TARGET_URI  https://svn.blender.org/svnroot/bf-blender/trunk/lib/packages/${TARGET_FILE})
   endif()
@@ -94,3 +101,4 @@ download_source(POTRACE)
 download_source(HARU)
 download_source(ZSTD)
 download_source(FLEX)
+download_source(BROTLI)

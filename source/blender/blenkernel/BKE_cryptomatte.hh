@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -70,12 +54,12 @@ struct CryptomatteHash {
   uint32_t hash;
 
   CryptomatteHash(uint32_t hash);
-  CryptomatteHash(const char *name, const int name_len);
+  CryptomatteHash(const char *name, int name_len);
   static CryptomatteHash from_hex_encoded(blender::StringRef hex_encoded);
 
   std::string hex_encoded() const;
   /**
-     Convert a cryptomatte hash to a float.
+   * Convert a cryptomatte hash to a float.
    *
    * Cryptomatte hashes are stored in float textures and images. The conversion is taken from the
    * cryptomatte specification. See Floating point conversion section in

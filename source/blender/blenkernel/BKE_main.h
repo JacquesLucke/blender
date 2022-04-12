@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 #pragma once
 
 /** \file
@@ -89,7 +73,7 @@ typedef struct MainIDRelationsEntry {
   uint tags;
 } MainIDRelationsEntry;
 
-/* MainIDRelationsEntry.tags */
+/** #MainIDRelationsEntry.tags */
 typedef enum eMainIDRelationsEntryTags {
   /* Generic tag marking the entry as to be processed. */
   MAINIDRELATIONS_ENTRY_TAGS_DOIT = 1 << 0,
@@ -182,7 +166,11 @@ typedef struct Main {
   ListBase linestyles;
   ListBase cachefiles;
   ListBase workspaces;
-  ListBase hairs;
+  /**
+   * \note The name `hair_curves` is chosen to be different than `curves`,
+   * but they are generic curve data-blocks, not just for hair.
+   */
+  ListBase hair_curves;
   ListBase pointclouds;
   ListBase volumes;
   ListBase simulations;
@@ -212,12 +200,10 @@ void BKE_main_lock(struct Main *bmain);
 void BKE_main_unlock(struct Main *bmain);
 
 /** Generate the mappings between used IDs and their users, and vice-versa. */
-void BKE_main_relations_create(struct Main *bmain, const short flag);
+void BKE_main_relations_create(struct Main *bmain, short flag);
 void BKE_main_relations_free(struct Main *bmain);
 /** Set or clear given `tag` in all relation entries of given `bmain`. */
-void BKE_main_relations_tag_set(struct Main *bmain,
-                                const eMainIDRelationsEntryTags tag,
-                                const bool value);
+void BKE_main_relations_tag_set(struct Main *bmain, eMainIDRelationsEntryTags tag, bool value);
 
 /**
  * Create a #GSet storing all IDs present in given \a bmain, by their pointers.
@@ -408,6 +394,13 @@ int set_listbasepointers(struct Main *main, struct ListBase *lb[]);
   ((main)->versionfile < (ver) || \
    ((main)->versionfile == (ver) && (main)->subversionfile < (subver)))
 
+/**
+ * The size of thumbnails (optionally) stored in the `.blend` files header.
+ *
+ * NOTE(@campbellbarton): This is kept small as it's stored uncompressed in the `.blend` file,
+ * where a larger size would increase the size of every `.blend` file unreasonably.
+ * If we wanted to increase the size, we'd want to use compression (JPEG or similar).
+ */
 #define BLEN_THUMB_SIZE 128
 
 #define BLEN_THUMB_MEMSIZE(_x, _y) \

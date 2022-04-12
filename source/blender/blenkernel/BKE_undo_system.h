@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 #pragma once
 
 /** \file
@@ -133,7 +119,7 @@ typedef struct UndoType {
 
   bool (*step_encode)(struct bContext *C, struct Main *bmain, UndoStep *us);
   void (*step_decode)(
-      struct bContext *C, struct Main *bmain, UndoStep *us, const eUndoStepDir dir, bool is_final);
+      struct bContext *C, struct Main *bmain, UndoStep *us, eUndoStepDir dir, bool is_final);
 
   /**
    * \note When freeing all steps,
@@ -263,7 +249,7 @@ bool BKE_undosys_step_load_data_ex(UndoStack *ustack,
                                    struct bContext *C,
                                    UndoStep *us_target,
                                    UndoStep *us_reference,
-                                   const bool use_skip);
+                                   bool use_skip);
 /**
  * Undo/Redo until the given `us_target` step becomes the active (currently loaded) one.
  */
@@ -272,7 +258,7 @@ bool BKE_undosys_step_load_data(UndoStack *ustack, struct bContext *C, UndoStep 
  * Undo/Redo until the step matching given `index` in the undo stack becomes the active
  * (currently loaded) one.
  */
-void BKE_undosys_step_load_from_index(UndoStack *ustack, struct bContext *C, const int index);
+void BKE_undosys_step_load_from_index(UndoStack *ustack, struct bContext *C, int index);
 
 /**
  * Undo until `us_target` step becomes the active (currently loaded) one.

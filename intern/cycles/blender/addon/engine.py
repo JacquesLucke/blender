@@ -1,18 +1,5 @@
-#
-# Copyright 2011-2013 Blender Foundation
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2011-2022 Blender Foundation
 
 # <pep8 compliant>
 from __future__ import annotations
@@ -60,9 +47,8 @@ def init():
 
     path = os.path.dirname(__file__)
     user_path = os.path.dirname(os.path.abspath(bpy.utils.user_resource('CONFIG', path='')))
-    temp_path = bpy.app.tempdir
 
-    _cycles.init(path, user_path, temp_path, bpy.app.background)
+    _cycles.init(path, user_path, bpy.app.background)
     _parse_command_line()
 
 
@@ -240,7 +226,11 @@ def list_render_passes(scene, srl):
         if aov.type == 'VALUE':
             yield (aov.name, "X", 'VALUE')
         else:
-            yield (aov.name, "RGB", 'COLOR')
+            yield (aov.name, "RGBA", 'COLOR')
+
+    # Light groups.
+    for lightgroup in srl.lightgroups:
+        yield ("Combined_%s" % lightgroup.name, "RGB", 'COLOR')
 
 
 def register_passes(engine, scene, view_layer):

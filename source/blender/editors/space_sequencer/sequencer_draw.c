@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup spseq
@@ -70,6 +54,9 @@
 
 #include "BIF_glutil.h"
 
+#include "RNA_prototypes.h"
+
+#include "SEQ_channels.h"
 #include "SEQ_effects.h"
 #include "SEQ_iterator.h"
 #include "SEQ_prefetch.h"
@@ -109,6 +96,9 @@ void color3ubv_from_seq(const Scene *curscene,
                         const bool show_strip_color_tag,
                         uchar r_col[3])
 {
+  Editing *ed = SEQ_editing_get(curscene);
+  ListBase *channels = SEQ_channels_displayed_get(ed);
+
   if (show_strip_color_tag && (uint)seq->color_tag < SEQUENCE_COLOR_TOT &&
       seq->color_tag != SEQUENCE_COLOR_NONE) {
     bTheme *btheme = UI_GetTheme();
@@ -228,7 +218,7 @@ void color3ubv_from_seq(const Scene *curscene,
     case SEQ_TYPE_SOUND_RAM:
       UI_GetThemeColor3ubv(TH_SEQ_AUDIO, r_col);
       blendcol[0] = blendcol[1] = blendcol[2] = 128;
-      if (seq->flag & SEQ_MUTE) {
+      if (SEQ_render_is_muted(channels, seq)) {
         UI_GetColorPtrBlendShade3ubv(r_col, blendcol, r_col, 0.5, 20);
       }
       break;
@@ -492,7 +482,7 @@ static void draw_seq_waveform_overlay(View2D *v2d,
 
       bool is_line_strip = (value_max - value_min < 0.05f);
 
-      if (was_line_strip != -1 && is_line_strip != was_line_strip) {
+      if (!ELEM(was_line_strip, -1, is_line_strip)) {
         /* If the previously added strip type isn't the same as the current one,
          * add transition areas so they transition smoothly between each other. */
         if (is_line_strip) {
@@ -582,6 +572,8 @@ static void drawmeta_contents(Scene *scene,
                               float y2,
                               const bool show_strip_color_tag)
 {
+  Editing *ed = SEQ_editing_get(scene);
+  ListBase *channels = SEQ_channels_displayed_get(ed);
   Sequence *seq;
   uchar col[4];
 
@@ -639,7 +631,7 @@ static void drawmeta_contents(Scene *scene,
         color3ubv_from_seq(scene, seq, show_strip_color_tag, col);
       }
 
-      if ((seqm->flag & SEQ_MUTE) || (seq->flag & SEQ_MUTE)) {
+      if (SEQ_render_is_muted(channels, seqm) || SEQ_render_is_muted(channels, seq)) {
         col[3] = 64;
       }
       else {
@@ -933,7 +925,8 @@ static size_t draw_seq_text_get_overlay_string(SpaceSeq *sseq,
 }
 
 /* Draw info text on a sequence strip. */
-static void draw_seq_text_overlay(View2D *v2d,
+static void draw_seq_text_overlay(Scene *scene,
+                                  View2D *v2d,
                                   Sequence *seq,
                                   SpaceSeq *sseq,
                                   float x1,
@@ -942,6 +935,8 @@ static void draw_seq_text_overlay(View2D *v2d,
                                   float y2,
                                   bool seq_active)
 {
+  Editing *ed = SEQ_editing_get(scene);
+  ListBase *channels = SEQ_channels_displayed_get(ed);
   char overlay_string[FILE_MAX];
   size_t overlay_string_len = draw_seq_text_get_overlay_string(
       sseq, seq, overlay_string, sizeof(overlay_string));
@@ -956,7 +951,7 @@ static void draw_seq_text_overlay(View2D *v2d,
   col[3] = 255;
 
   /* Make the text duller when the strip is muted. */
-  if (seq->flag & SEQ_MUTE) {
+  if (SEQ_render_is_muted(channels, seq)) {
     if (seq_active) {
       UI_GetColorPtrShade3ubv(col, col, -70);
     }
@@ -977,6 +972,8 @@ static void draw_seq_text_overlay(View2D *v2d,
 static void draw_sequence_extensions_overlay(
     Scene *scene, Sequence *seq, uint pos, float pixely, const bool show_strip_color_tag)
 {
+  Editing *ed = SEQ_editing_get(scene);
+  ListBase *channels = SEQ_channels_displayed_get(ed);
   float x1, x2, y1, y2;
   uchar col[4], blend_col[3];
 
@@ -992,7 +989,7 @@ static void draw_sequence_extensions_overlay(
   if (seq->flag & SELECT) {
     UI_GetColorPtrShade3ubv(col, col, 50);
   }
-  col[3] = seq->flag & SEQ_MUTE ? MUTE_ALPHA : 200;
+  col[3] = SEQ_render_is_muted(channels, seq) ? MUTE_ALPHA : 200;
   UI_GetColorPtrShade3ubv(col, blend_col, 10);
 
   if (seq->startofs) {
@@ -1015,7 +1012,8 @@ static void draw_sequence_extensions_overlay(
   GPU_blend(GPU_BLEND_NONE);
 }
 
-static void draw_color_strip_band(Sequence *seq, uint pos, float text_margin_y, float y1)
+static void draw_color_strip_band(
+    ListBase *channels, Sequence *seq, uint pos, float text_margin_y, float y1)
 {
   uchar col[4];
   SolidColorVars *colvars = (SolidColorVars *)seq->effectdata;
@@ -1024,7 +1022,7 @@ static void draw_color_strip_band(Sequence *seq, uint pos, float text_margin_y, 
   rgb_float_to_uchar(col, colvars->col);
 
   /* Draw muted strips semi-transparent. */
-  if (seq->flag & SEQ_MUTE) {
+  if (SEQ_render_is_muted(channels, seq)) {
     col[3] = MUTE_ALPHA;
   }
   /* Draw background semi-transparent when overlapping strips. */
@@ -1061,6 +1059,8 @@ static void draw_seq_background(Scene *scene,
                                 bool is_single_image,
                                 bool show_strip_color_tag)
 {
+  Editing *ed = SEQ_editing_get(scene);
+  ListBase *channels = SEQ_channels_displayed_get(ed);
   uchar col[4];
   GPU_blend(GPU_BLEND_ALPHA);
 
@@ -1080,7 +1080,7 @@ static void draw_seq_background(Scene *scene,
   }
 
   /* Draw muted strips semi-transparent. */
-  if (seq->flag & SEQ_MUTE) {
+  if (SEQ_render_is_muted(channels, seq)) {
     col[3] = MUTE_ALPHA;
   }
   /* Draw background semi-transparent when overlapping strips. */
@@ -1317,6 +1317,9 @@ static void draw_seq_strip(const bContext *C,
                            float pixelx,
                            bool seq_active)
 {
+  Editing *ed = SEQ_editing_get(CTX_data_scene(C));
+  ListBase *channels = SEQ_channels_displayed_get(ed);
+
   View2D *v2d = &region->v2d;
   float x1, x2, y1, y2;
   const float handsize_clamped = sequence_handle_size_get_clamped(seq, pixelx);
@@ -1363,7 +1366,7 @@ static void draw_seq_strip(const bContext *C,
 
   /* Draw a color band inside color strip. */
   if (seq->type == SEQ_TYPE_COLOR && y_threshold) {
-    draw_color_strip_band(seq, pos, text_margin_y, y1);
+    draw_color_strip_band(channels, seq, pos, text_margin_y, y1);
   }
 
   /* Draw strip offsets when flag is enabled or during "solo preview". */
@@ -1412,7 +1415,7 @@ static void draw_seq_strip(const bContext *C,
                               BLI_rctf_size_x(&region->v2d.cur) / region->winx);
   }
   /* Draw locked state. */
-  if (seq->flag & SEQ_LOCK) {
+  if (SEQ_transform_is_locked(channels, seq)) {
     draw_seq_locked(x1, y1, x2, y2);
   }
 
@@ -1424,7 +1427,7 @@ static void draw_seq_strip(const bContext *C,
   pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
   immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
-  if ((seq->flag & SEQ_LOCK) == 0) {
+  if (!SEQ_transform_is_locked(channels, seq)) {
     draw_seq_handle(
         v2d, seq, handsize_clamped, SEQ_LEFTHANDLE, pos, seq_active, pixelx, y_threshold);
     draw_seq_handle(
@@ -1451,7 +1454,7 @@ static void draw_seq_strip(const bContext *C,
     if (((x2 - x1) > 32 * pixelx * U.dpi_fac) && ((y2 - y1) > 8 * pixely * U.dpi_fac)) {
       /* Depending on the vertical space, draw text on top or in the center of strip. */
       draw_seq_text_overlay(
-          v2d, seq, sseq, x1, x2, y_threshold ? text_margin_y : y1, y2, seq_active);
+          scene, v2d, seq, sseq, x1, x2, y_threshold ? text_margin_y : y1, y2, seq_active);
     }
   }
 }
@@ -1652,7 +1655,9 @@ static void sequencer_draw_gpencil_overlay(const bContext *C)
   ED_annotation_draw_view2d(C, 0);
 }
 
-/* Draw content and safety borders borders. */
+/**
+ * Draw content and safety borders.
+ */
 static void sequencer_draw_borders_overlay(const SpaceSeq *sseq,
                                            const View2D *v2d,
                                            const Scene *scene)
@@ -1942,7 +1947,6 @@ static void sequencer_draw_display_buffer(const bContext *C,
   if (!glsl_used) {
     immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
     immUniformColor3f(1.0f, 1.0f, 1.0f);
-    immUniform1i("image", 0);
   }
 
   immBegin(GPU_PRIM_TRI_FAN, 4);
@@ -2231,7 +2235,10 @@ void sequencer_draw_preview(const bContext *C,
   }
 
   if (!draw_backdrop && scene->ed != NULL) {
-    SeqCollection *collection = SEQ_query_rendered_strips(scene->ed->seqbasep, timeline_frame, 0);
+    Editing *ed = SEQ_editing_get(scene);
+    ListBase *channels = SEQ_channels_displayed_get(ed);
+    SeqCollection *collection = SEQ_query_rendered_strips(
+        channels, ed->seqbasep, timeline_frame, 0);
     Sequence *seq;
     Sequence *active_seq = SEQ_select_active_get(scene);
     SEQ_ITERATOR_FOREACH (seq, collection) {
@@ -2262,28 +2269,15 @@ void sequencer_draw_preview(const bContext *C,
   seq_prefetch_wm_notify(C, scene);
 }
 
-/* Draw backdrop in sequencer timeline. */
-static void draw_seq_backdrop(View2D *v2d)
+static void draw_seq_timeline_channels(View2D *v2d)
 {
-  int i;
-
   uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
   immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
-
-  /* View backdrop. */
-  immUniformThemeColor(TH_BACK);
-  immRectf(pos, v2d->cur.xmin, v2d->cur.ymin, v2d->cur.xmax, v2d->cur.ymax);
-
-  /* Darker overlay over the view backdrop. */
-  immUniformThemeColorShade(TH_BACK, -10);
-  immRectf(pos, v2d->cur.xmin, -1.0, v2d->cur.xmax, 1.0);
-
-  /* Alternating horizontal stripes. */
-  i = max_ii(1, ((int)v2d->cur.ymin) - 1);
-
   GPU_blend(GPU_BLEND_ALPHA);
   immUniformThemeColor(TH_ROW_ALTERNATE);
 
+  /* Alternating horizontal stripes. */
+  int i = max_ii(1, ((int)v2d->cur.ymin) - 1);
   while (i < v2d->cur.ymax) {
     if (i & 1) {
       immRectf(pos, v2d->cur.xmin, i, v2d->cur.xmax, i + 1);
@@ -2699,7 +2693,6 @@ void draw_timeline_seq(const bContext *C, ARegion *region)
   Editing *ed = SEQ_editing_get(scene);
   SpaceSeq *sseq = CTX_wm_space_seq(C);
   View2D *v2d = &region->v2d;
-  short cfra_flag = 0;
   float col[3];
 
   seq_prefetch_wm_notify(C, scene);
@@ -2710,15 +2703,11 @@ void draw_timeline_seq(const bContext *C, ARegion *region)
   GPU_depth_test(GPU_DEPTH_NONE);
 
   UI_GetThemeColor3fv(TH_BACK, col);
-  if (ed && ed->metastack.first) {
-    GPU_clear_color(col[0], col[1], col[2] - 0.1f, 0.0f);
-  }
-  else {
-    GPU_clear_color(col[0], col[1], col[2], 0.0f);
-  }
+  GPU_clear_color(col[0], col[1], col[2], 0.0f);
 
   UI_view2d_view_ortho(v2d);
-  draw_seq_backdrop(v2d);
+  draw_seq_timeline_channels(v2d);
+
   if ((sseq->flag & SEQ_SHOW_OVERLAY) && (sseq->timeline_overlay.flag & SEQ_TIMELINE_SHOW_GRID)) {
     U.v2d_min_gridsize *= 3;
     UI_view2d_draw_lines_x__discrete_frames_or_seconds(
@@ -2751,9 +2740,6 @@ void draw_timeline_seq(const bContext *C, ARegion *region)
   }
 
   UI_view2d_view_ortho(v2d);
-  if ((sseq->flag & SEQ_DRAWFRAMES) == 0) {
-    cfra_flag |= DRAWCFRA_UNIT_SECONDS;
-  }
 
   UI_view2d_view_orthoSpecial(region, v2d, 1);
   int marker_draw_flag = DRAW_MARKERS_MARGIN;
@@ -2775,14 +2761,6 @@ void draw_timeline_seq(const bContext *C, ARegion *region)
 
   UI_view2d_view_restore(C);
   ED_time_scrub_draw(region, scene, !(sseq->flag & SEQ_DRAWFRAMES), true);
-
-  /* Draw channel numbers. */
-  {
-    rcti rect;
-    BLI_rcti_init(
-        &rect, 0, 15 * UI_DPI_FAC, 15 * UI_DPI_FAC, region->winy - UI_TIME_SCRUB_MARGIN_Y);
-    UI_view2d_draw_scale_y__block(region, v2d, &rect, TH_SCROLL_TEXT);
-  }
 }
 
 void draw_timeline_seq_display(const bContext *C, ARegion *region)

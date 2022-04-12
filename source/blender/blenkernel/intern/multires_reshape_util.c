@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -135,7 +119,7 @@ static void context_init_commoon(MultiresReshapeContext *reshape_context)
 static bool context_is_valid(MultiresReshapeContext *reshape_context)
 {
   if (reshape_context->mdisps == NULL) {
-    /* Multires displacement has been removed before current changes were applies. */
+    /* Multi-resolution displacement has been removed before current changes were applies. */
     return false;
   }
   return true;
@@ -210,6 +194,8 @@ bool multires_reshape_context_create_from_object(MultiresReshapeContext *reshape
 
   reshape_context->top.level = mmd->totlvl;
   reshape_context->top.grid_size = BKE_subdiv_grid_size_from_level(reshape_context->top.level);
+
+  reshape_context->cd_vertex_crease = CustomData_get_layer(&base_mesh->vdata, CD_CREASE);
 
   context_init_commoon(reshape_context);
 

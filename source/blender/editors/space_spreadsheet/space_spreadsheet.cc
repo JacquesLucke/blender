@@ -1,23 +1,10 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <cstring>
 
 #include "BLI_listbase.h"
 
+#include "BKE_lib_remap.h"
 #include "BKE_screen.h"
 
 #include "ED_screen.h"
@@ -171,21 +158,23 @@ static void spreadsheet_keymap(wmKeyConfig *keyconf)
   WM_keymap_ensure(keyconf, "Spreadsheet Generic", SPACE_SPREADSHEET, 0);
 }
 
-static void spreadsheet_id_remap(ScrArea *UNUSED(area), SpaceLink *slink, ID *old_id, ID *new_id)
+static void spreadsheet_id_remap(ScrArea *UNUSED(area),
+                                 SpaceLink *slink,
+                                 const IDRemapper *mappings)
 {
   SpaceSpreadsheet *sspreadsheet = (SpaceSpreadsheet *)slink;
   LISTBASE_FOREACH (SpreadsheetContext *, context, &sspreadsheet->context_path) {
-    if (context->type == SPREADSHEET_CONTEXT_OBJECT) {
-      SpreadsheetContextObject *object_context = (SpreadsheetContextObject *)context;
-      if ((ID *)object_context->object == old_id) {
-        if (new_id && GS(new_id->name) == ID_OB) {
-          object_context->object = (Object *)new_id;
-        }
-        else {
-          object_context->object = nullptr;
-        }
-      }
+    if (context->type != SPREADSHEET_CONTEXT_OBJECT) {
+      continue;
     }
+    SpreadsheetContextObject *object_context = (SpreadsheetContextObject *)context;
+
+    if (object_context->object != nullptr && GS(object_context->object->id.name) != ID_OB) {
+      object_context->object = nullptr;
+      continue;
+    }
+
+    BKE_id_remapper_apply(mappings, ((ID **)&object_context->object), ID_REMAP_APPLY_DEFAULT);
   }
 }
 
@@ -275,7 +264,7 @@ Object *spreadsheet_get_object_eval(const SpaceSpreadsheet *sspreadsheet,
     return nullptr;
   }
   Object *object_orig = (Object *)used_id;
-  if (!ELEM(object_orig->type, OB_MESH, OB_POINTCLOUD, OB_VOLUME, OB_CURVE, OB_FONT)) {
+  if (!ELEM(object_orig->type, OB_MESH, OB_POINTCLOUD, OB_VOLUME, OB_CURVES_LEGACY, OB_FONT)) {
     return nullptr;
   }
 
@@ -551,7 +540,7 @@ static void spreadsheet_footer_region_draw(const bContext *C, ARegion *region)
                                      UI_LAYOUT_HEADER,
                                      UI_HEADER_OFFSET,
                                      region->winy - (region->winy - UI_UNIT_Y) / 2.0f,
-                                     region->sizex,
+                                     region->winx,
                                      1,
                                      0,
                                      style);

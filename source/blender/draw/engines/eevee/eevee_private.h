@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup DNA
@@ -176,7 +161,7 @@ enum {
   VAR_MAT_MESH = (1 << 0),
   VAR_MAT_VOLUME = (1 << 1),
   VAR_MAT_HAIR = (1 << 2),
-  /* VAR_MAT_PROBE = (1 << 3), UNUSED */
+  VAR_MAT_POINTCLOUD = (1 << 3),
   VAR_MAT_BLEND = (1 << 4),
   VAR_MAT_LOOKDEV = (1 << 5),
   VAR_MAT_HOLDOUT = (1 << 6),
@@ -192,8 +177,8 @@ enum {
 /* Material shader cache keys */
 enum {
   /* HACK: This assumes the struct GPUShader will never be smaller than our variations.
-   * This allow us to only keep one ghash and avoid bigger keys comparisons/hashing.
-   * We combine the GPUShader pointer with the key. */
+   * This allow us to only keep one #GHash and avoid bigger keys comparisons/hashing.
+   * We combine the #GPUShader pointer with the key. */
   KEY_CULL = (1 << 0),
   KEY_REFRACT = (1 << 1),
   KEY_HAIR = (1 << 2),
@@ -633,8 +618,23 @@ enum {
 #define MB_CURR 2
 
 typedef struct EEVEE_MotionBlurData {
+  /**
+   * Maps #EEVEE_ObjectKey to #EEVEE_ObjectMotionData.
+   */
   struct GHash *object;
-  struct GHash *geom;
+  /**
+   * Maps original #GPUVertBuf to duplicated #GPUVertBuf.
+   * There are two maps for #MB_PREV and #MB_NEXT.
+   * Only the values are owned.
+   */
+  struct GHash *position_vbo_cache[2];
+  /**
+   * Maps original #GPUVertBuf to #EEVEE_HairMotionStepData.
+   * There are two maps for #MB_PREV and #MB_NEXT.
+   * Only the values are owned.
+   */
+  struct GHash *hair_motion_step_cache[2];
+
   struct {
     float viewmat[4][4];
     float persmat[4][4];
@@ -652,14 +652,15 @@ typedef struct EEVEE_ObjectKey {
   int id[8]; /* MAX_DUPLI_RECUR */
 } EEVEE_ObjectKey;
 
-typedef struct EEVEE_ObjectMotionData {
-  float obmat[3][4][4];
-} EEVEE_ObjectMotionData;
-
 typedef enum eEEVEEMotionData {
   EEVEE_MOTION_DATA_MESH = 0,
   EEVEE_MOTION_DATA_HAIR,
 } eEEVEEMotionData;
+
+typedef struct EEVEE_HairMotionStepData {
+  struct GPUVertBuf *hair_pos;
+  struct GPUTexture *hair_pos_tx;
+} EEVEE_HairMotionStepData;
 
 typedef struct EEVEE_HairMotionData {
   /** Needs to be first to ensure casting. */
@@ -668,8 +669,8 @@ typedef struct EEVEE_HairMotionData {
   /** Allocator will alloc enough slot for all particle systems. Or 1 if it's a hair object. */
   int psys_len;
   struct {
-    struct GPUVertBuf *hair_pos[2];    /* Position buffer for time = t +/- step. */
-    struct GPUTexture *hair_pos_tx[2]; /* Buffer Texture of the corresponding VBO. */
+    /* The vbos and textures are not owned. */
+    EEVEE_HairMotionStepData step_data[2]; /* Data for time = t +/- step. */
   } psys[0];
 } EEVEE_HairMotionData;
 
@@ -679,9 +680,17 @@ typedef struct EEVEE_GeometryMotionData {
   /** To disable deform mb if vertcount mismatch. */
   int use_deform;
 
+  /* The batch and vbos are not owned. */
   struct GPUBatch *batch;    /* Batch for time = t. */
   struct GPUVertBuf *vbo[2]; /* VBO for time = t +/- step. */
 } EEVEE_GeometryMotionData;
+
+typedef struct EEVEE_ObjectMotionData {
+  float obmat[3][4][4];
+
+  EEVEE_GeometryMotionData *geometry_data;
+  EEVEE_HairMotionData *hair_data;
+} EEVEE_ObjectMotionData;
 
 /* ************ EFFECTS DATA ************* */
 
@@ -1077,17 +1086,15 @@ typedef struct EEVEE_PrivateData {
 void EEVEE_motion_blur_data_init(EEVEE_MotionBlurData *mb);
 void EEVEE_motion_blur_data_free(EEVEE_MotionBlurData *mb);
 void EEVEE_view_layer_data_free(void *storage);
+void EEVEE_motion_hair_step_free(EEVEE_HairMotionStepData *step_data);
 EEVEE_ViewLayerData *EEVEE_view_layer_data_get(void);
 EEVEE_ViewLayerData *EEVEE_view_layer_data_ensure_ex(struct ViewLayer *view_layer);
 EEVEE_ViewLayerData *EEVEE_view_layer_data_ensure(void);
 EEVEE_ObjectEngineData *EEVEE_object_data_get(Object *ob);
 EEVEE_ObjectEngineData *EEVEE_object_data_ensure(Object *ob);
-EEVEE_ObjectMotionData *EEVEE_motion_blur_object_data_get(EEVEE_MotionBlurData *mb,
-                                                          Object *ob,
-                                                          bool hair);
-EEVEE_GeometryMotionData *EEVEE_motion_blur_geometry_data_get(EEVEE_MotionBlurData *mb,
-                                                              Object *ob);
-EEVEE_HairMotionData *EEVEE_motion_blur_hair_data_get(EEVEE_MotionBlurData *mb, Object *ob);
+EEVEE_ObjectMotionData *EEVEE_motion_blur_object_data_get(EEVEE_MotionBlurData *mb, Object *ob);
+EEVEE_GeometryMotionData *EEVEE_motion_blur_geometry_data_get(EEVEE_ObjectMotionData *mb_data);
+EEVEE_HairMotionData *EEVEE_motion_blur_hair_data_get(EEVEE_ObjectMotionData *mb_data, Object *ob);
 EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_get(Object *ob);
 EEVEE_LightProbeEngineData *EEVEE_lightprobe_data_ensure(Object *ob);
 EEVEE_LightEngineData *EEVEE_light_data_get(Object *ob);
@@ -1385,9 +1392,9 @@ void EEVEE_cryptomatte_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *s
 void EEVEE_cryptomatte_particle_hair_cache_populate(EEVEE_Data *vedata,
                                                     EEVEE_ViewLayerData *sldata,
                                                     Object *ob);
-void EEVEE_cryptomatte_object_hair_cache_populate(EEVEE_Data *vedata,
-                                                  EEVEE_ViewLayerData *sldata,
-                                                  Object *ob);
+void EEVEE_cryptomatte_object_curves_cache_populate(EEVEE_Data *vedata,
+                                                    EEVEE_ViewLayerData *sldata,
+                                                    Object *ob);
 void EEVEE_cryptomatte_output_accumulate(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 /**
  * Register the render passes needed for cryptomatte
@@ -1406,6 +1413,7 @@ void EEVEE_cryptomatte_store_metadata(EEVEE_Data *vedata, struct RenderResult *r
 void EEVEE_cryptomatte_free(EEVEE_Data *vedata);
 
 /* eevee_occlusion.c */
+
 int EEVEE_occlusion_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_occlusion_output_init(EEVEE_ViewLayerData *sldata,
                                  EEVEE_Data *vedata,
@@ -1417,6 +1425,7 @@ void EEVEE_occlusion_draw_debug(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata)
 void EEVEE_occlusion_free(void);
 
 /* eevee_screen_raytrace.c */
+
 int EEVEE_screen_raytrace_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_screen_raytrace_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_refraction_compute(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
@@ -1427,6 +1436,7 @@ void EEVEE_reflection_output_init(EEVEE_ViewLayerData *sldata,
 void EEVEE_reflection_output_accumulate(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 
 /* eevee_subsurface.c */
+
 void EEVEE_subsurface_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_subsurface_draw_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_subsurface_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
@@ -1443,6 +1453,7 @@ void EEVEE_subsurface_compute(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_subsurface_output_accumulate(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 
 /* eevee_motion_blur.c */
+
 int EEVEE_motion_blur_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_motion_blur_step_set(EEVEE_Data *vedata, int step);
 void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
@@ -1457,10 +1468,12 @@ void EEVEE_motion_blur_cache_finish(EEVEE_Data *vedata);
 void EEVEE_motion_blur_draw(EEVEE_Data *vedata);
 
 /* eevee_mist.c */
+
 void EEVEE_mist_output_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_mist_output_accumulate(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 
 /* eevee_renderpasses.c */
+
 void EEVEE_renderpasses_init(EEVEE_Data *vedata);
 void EEVEE_renderpasses_output_init(EEVEE_ViewLayerData *sldata,
                                     EEVEE_Data *vedata,
@@ -1494,12 +1507,13 @@ bool EEVEE_renderpasses_only_first_sample_pass_active(EEVEE_Data *vedata);
 int EEVEE_renderpasses_aov_hash(const ViewLayerAOV *aov);
 
 /* eevee_temporal_sampling.c */
+
 void EEVEE_temporal_sampling_reset(EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_create_view(EEVEE_Data *vedata);
 int EEVEE_temporal_sampling_sample_count_get(const Scene *scene, const EEVEE_StorageList *stl);
 int EEVEE_temporal_sampling_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_temporal_sampling_offset_calc(const double ht_point[2],
-                                         const float filter_size,
+                                         float filter_size,
                                          float r_offset[2]);
 void EEVEE_temporal_sampling_matrices_calc(EEVEE_EffectsInfo *effects, const double ht_point[2]);
 /**
@@ -1533,7 +1547,7 @@ void EEVEE_volumes_free(void);
 void EEVEE_effects_init(EEVEE_ViewLayerData *sldata,
                         EEVEE_Data *vedata,
                         Object *camera,
-                        const bool minimal);
+                        bool minimal);
 void EEVEE_effects_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_effects_draw_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 /**

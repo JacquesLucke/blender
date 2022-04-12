@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 /* TODO(sergey): There is a bit of headers dependency hell going on
  * here, so for now we just put here. In the future it might be better
@@ -89,6 +76,7 @@ ustring OSLRenderServices::u_raster("raster");
 ustring OSLRenderServices::u_ndc("NDC");
 ustring OSLRenderServices::u_object_location("object:location");
 ustring OSLRenderServices::u_object_color("object:color");
+ustring OSLRenderServices::u_object_alpha("object:alpha");
 ustring OSLRenderServices::u_object_index("object:index");
 ustring OSLRenderServices::u_geom_dupli_generated("geom:dupli_generated");
 ustring OSLRenderServices::u_geom_dupli_uv("geom:dupli_uv");
@@ -116,6 +104,8 @@ ustring OSLRenderServices::u_curve_tangent_normal("geom:curve_tangent_normal");
 ustring OSLRenderServices::u_curve_random("geom:curve_random");
 ustring OSLRenderServices::u_is_point("geom:is_point");
 ustring OSLRenderServices::u_point_radius("geom:point_radius");
+ustring OSLRenderServices::u_point_position("geom:point_position");
+ustring OSLRenderServices::u_point_random("geom:point_random");
 ustring OSLRenderServices::u_normal_map_normal("geom:normal_map_normal");
 ustring OSLRenderServices::u_path_ray_length("path:ray_length");
 ustring OSLRenderServices::u_path_ray_depth("path:ray_depth");
@@ -605,8 +595,8 @@ static bool set_attribute_float4(float4 f, TypeDesc type, bool derivatives, void
   float4 fv[3];
 
   fv[0] = f;
-  fv[1] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
-  fv[2] = make_float4(0.0f, 0.0f, 0.0f, 0.0f);
+  fv[1] = zero_float4();
+  fv[2] = zero_float4();
 
   return set_attribute_float4(fv, type, derivatives, val);
 }
@@ -884,6 +874,10 @@ bool OSLRenderServices::get_object_standard_attribute(const KernelGlobalsCPU *kg
     float3 f = object_color(kg, sd->object);
     return set_attribute_float3(f, type, derivatives, val);
   }
+  else if (name == u_object_alpha) {
+    float f = object_alpha(kg, sd->object);
+    return set_attribute_float(f, type, derivatives, val);
+  }
   else if (name == u_object_index) {
     float f = object_pass_id(kg, sd->object);
     return set_attribute_float(f, type, derivatives, val);
@@ -999,6 +993,10 @@ bool OSLRenderServices::get_object_standard_attribute(const KernelGlobalsCPU *kg
     float3 f = curve_tangent_normal(kg, sd);
     return set_attribute_float3(f, type, derivatives, val);
   }
+  else if (name == u_curve_random) {
+    float f = curve_random(kg, sd);
+    return set_attribute_float(f, type, derivatives, val);
+  }
   /* point attributes */
   else if (name == u_is_point) {
     float f = (sd->type & PRIMITIVE_POINT) != 0;
@@ -1006,6 +1004,14 @@ bool OSLRenderServices::get_object_standard_attribute(const KernelGlobalsCPU *kg
   }
   else if (name == u_point_radius) {
     float f = point_radius(kg, sd);
+    return set_attribute_float(f, type, derivatives, val);
+  }
+  else if (name == u_point_position) {
+    float3 f = point_position(kg, sd);
+    return set_attribute_float3(f, type, derivatives, val);
+  }
+  else if (name == u_point_random) {
+    float f = point_random(kg, sd);
     return set_attribute_float(f, type, derivatives, val);
   }
   else if (name == u_normal_map_normal) {
@@ -1637,12 +1643,16 @@ bool OSLRenderServices::trace(TraceOpt &options,
   ray.D = TO_FLOAT3(R);
   ray.t = (options.maxdist == 1.0e30f) ? FLT_MAX : options.maxdist - options.mindist;
   ray.time = sd->time;
+  ray.self.object = OBJECT_NONE;
+  ray.self.prim = PRIM_NONE;
+  ray.self.light_object = OBJECT_NONE;
+  ray.self.light_prim = PRIM_NONE;
 
   if (options.mindist == 0.0f) {
     /* avoid self-intersections */
     if (ray.P == sd->P) {
-      bool transmit = (dot(sd->Ng, ray.D) < 0.0f);
-      ray.P = ray_offset(sd->P, (transmit) ? -sd->Ng : sd->Ng);
+      ray.self.object = sd->object;
+      ray.self.prim = sd->prim;
     }
   }
   else {

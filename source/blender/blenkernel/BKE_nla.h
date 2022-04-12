@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation, Joshua Leung
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation, Joshua Leung. All rights reserved. */
 
 #pragma once
 
@@ -71,8 +55,8 @@ void BKE_nla_tracks_free(ListBase *tracks, bool do_id_user);
  */
 struct NlaStrip *BKE_nlastrip_copy(struct Main *bmain,
                                    struct NlaStrip *strip,
-                                   const bool use_same_action,
-                                   const int flag);
+                                   bool use_same_action,
+                                   int flag);
 /**
  * Copy a single NLA Track.
  * \param flag: Control ID pointers management, see LIB_ID_CREATE_.../LIB_ID_COPY_...
@@ -80,14 +64,14 @@ struct NlaStrip *BKE_nlastrip_copy(struct Main *bmain,
  */
 struct NlaTrack *BKE_nlatrack_copy(struct Main *bmain,
                                    struct NlaTrack *nlt,
-                                   const bool use_same_actions,
-                                   const int flag);
+                                   bool use_same_actions,
+                                   int flag);
 /**
  * Copy all NLA data.
  * \param flag: Control ID pointers management, see LIB_ID_CREATE_.../LIB_ID_COPY_...
  * flags in BKE_lib_id.h
  */
-void BKE_nla_tracks_copy(struct Main *bmain, ListBase *dst, const ListBase *src, const int flag);
+void BKE_nla_tracks_copy(struct Main *bmain, ListBase *dst, const ListBase *src, int flag);
 
 /**
  * Copy NLA tracks from #adt_source to #adt_dest, and update the active track/strip pointers to
@@ -115,7 +99,7 @@ struct NlaStrip *BKE_nlastrip_new(struct bAction *act);
  */
 struct NlaStrip *BKE_nlastack_add_strip(struct AnimData *adt,
                                         struct bAction *act,
-                                        const bool is_liboverride);
+                                        bool is_liboverride);
 /**
  * Add a NLA Strip referencing the given speaker's sound.
  */
@@ -217,9 +201,7 @@ void BKE_nlatrack_sort_strips(struct NlaTrack *nlt);
  * Add the given NLA-Strip to the given NLA-Track, assuming that it
  * isn't currently attached to another one.
  */
-bool BKE_nlatrack_add_strip(struct NlaTrack *nlt,
-                            struct NlaStrip *strip,
-                            const bool is_liboverride);
+bool BKE_nlatrack_add_strip(struct NlaTrack *nlt, struct NlaStrip *strip, bool is_liboverride);
 
 /**
  * Get the extents of the given NLA-Track including gaps between strips,
@@ -309,7 +291,7 @@ bool BKE_nla_action_is_stashed(struct AnimData *adt, struct bAction *act);
  * "Stash" an action (i.e. store it as a track/layer in the NLA, but non-contributing)
  * to retain it in the file for future uses.
  */
-bool BKE_nla_action_stash(struct AnimData *adt, const bool is_liboverride);
+bool BKE_nla_action_stash(struct AnimData *adt, bool is_liboverride);
 
 /* ............ */
 
@@ -321,7 +303,7 @@ bool BKE_nla_action_stash(struct AnimData *adt, const bool is_liboverride);
  *
  * TODO: maybe we should have checks for this too.
  */
-void BKE_nla_action_pushdown(struct AnimData *adt, const bool is_liboverride);
+void BKE_nla_action_pushdown(struct AnimData *adt, bool is_liboverride);
 
 /**
  * Find the active strip + track combination, and set them up as the tweaking track,

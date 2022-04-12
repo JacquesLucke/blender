@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2011 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -58,7 +42,7 @@ void BKE_tracking_free(struct MovieTracking *tracking);
  */
 void BKE_tracking_copy(struct MovieTracking *tracking_dst,
                        const struct MovieTracking *tracking_src,
-                       const int flag);
+                       int flag);
 
 /**
  * Initialize motion tracking settings to default values,
@@ -177,7 +161,7 @@ void BKE_tracking_track_first_last_frame_get(const struct MovieTrackingTrack *tr
  * Find the minimum starting frame and maximum ending frame within given set of tracks.
  */
 void BKE_tracking_tracks_first_last_frame_minmax(/*const*/ struct MovieTrackingTrack **tracks,
-                                                 const int num_tracks,
+                                                 int num_tracks,
                                                  int *r_first_frame,
                                                  int *r_last_frame);
 
@@ -236,7 +220,7 @@ void BKE_tracking_tracks_join(struct MovieTracking *tracking,
 
 void BKE_tracking_tracks_average(struct MovieTrackingTrack *dst_track,
                                  /*const*/ struct MovieTrackingTrack **src_tracks,
-                                 const int num_src_tracks);
+                                 int num_src_tracks);
 
 struct MovieTrackingTrack *BKE_tracking_track_get_named(struct MovieTracking *tracking,
                                                         struct MovieTrackingObject *object,
@@ -301,7 +285,7 @@ struct MovieTrackingMarker *BKE_tracking_marker_ensure(struct MovieTrackingTrack
  * \returns truth if the result is usable.
  */
 bool BKE_tracking_marker_get_interpolated(struct MovieTrackingTrack *track,
-                                          const int framenr,
+                                          int framenr,
                                           struct MovieTrackingMarker *r_marker);
 
 void BKE_tracking_marker_pattern_minmax(const struct MovieTrackingMarker *marker,
@@ -525,7 +509,8 @@ void BKE_tracking_refine_marker(struct MovieClip *clip,
 
 struct AutoTrackContext *BKE_autotrack_context_new(struct MovieClip *clip,
                                                    struct MovieClipUser *user,
-                                                   const bool is_backwards);
+                                                   bool is_backwards);
+void BKE_autotrack_context_start(struct AutoTrackContext *context);
 bool BKE_autotrack_context_step(struct AutoTrackContext *context);
 void BKE_autotrack_context_sync(struct AutoTrackContext *context);
 void BKE_autotrack_context_sync_user(struct AutoTrackContext *context, struct MovieClipUser *user);

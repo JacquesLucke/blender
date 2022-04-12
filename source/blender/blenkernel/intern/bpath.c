@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -236,7 +222,8 @@ void BKE_bpath_missing_files_check(Main *bmain, ReportList *reports)
   BKE_bpath_foreach_path_main(&(BPathForeachPathData){
       .bmain = bmain,
       .callback_function = check_missing_files_foreach_path_cb,
-      .flag = BKE_BPATH_FOREACH_PATH_ABSOLUTE | BKE_BPATH_FOREACH_PATH_SKIP_PACKED,
+      .flag = BKE_BPATH_FOREACH_PATH_ABSOLUTE | BKE_BPATH_FOREACH_PATH_SKIP_PACKED |
+              BKE_BPATH_FOREACH_PATH_RESOLVE_TOKEN | BKE_BPATH_TRAVERSE_SKIP_WEAK_REFERENCES,
       .user_data = reports});
 }
 
@@ -384,7 +371,8 @@ void BKE_bpath_missing_files_find(Main *bmain,
                                   const bool find_all)
 {
   struct BPathFind_Data data = {NULL};
-  const int flag = BKE_BPATH_FOREACH_PATH_ABSOLUTE | BKE_BPATH_FOREACH_PATH_RELOAD_EDITED;
+  const int flag = BKE_BPATH_FOREACH_PATH_ABSOLUTE | BKE_BPATH_FOREACH_PATH_RELOAD_EDITED |
+                   BKE_BPATH_FOREACH_PATH_RESOLVE_TOKEN;
 
   data.basedir = BKE_main_blendfile_path(bmain);
   data.reports = reports;

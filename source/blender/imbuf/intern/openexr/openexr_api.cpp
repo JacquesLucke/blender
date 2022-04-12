@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright by Gernot Ziegler <gz@lysator.liu.se>.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright by Gernot Ziegler <gz@lysator.liu.se>. All rights reserved. */
 
 /** \file
  * \ingroup openexr
@@ -32,30 +16,46 @@
 #include <stdexcept>
 #include <string>
 
-#include <Iex.h>
-#include <ImathBox.h>
-#include <ImfArray.h>
-#include <ImfChannelList.h>
-#include <ImfCompression.h>
-#include <ImfCompressionAttribute.h>
-#include <ImfIO.h>
-#include <ImfInputFile.h>
-#include <ImfOutputFile.h>
-#include <ImfPixelType.h>
-#include <ImfStandardAttributes.h>
-#include <ImfStringAttribute.h>
-#include <ImfVersion.h>
-#include <half.h>
+/* The OpenEXR version can reliably be found in this header file from OpenEXR,
+ * for both 2.x and 3.x:
+ */
+#include <OpenEXR/OpenEXRConfig.h>
+#define COMBINED_OPENEXR_VERSION \
+  ((10000 * OPENEXR_VERSION_MAJOR) + (100 * OPENEXR_VERSION_MINOR) + OPENEXR_VERSION_PATCH)
+
+#if COMBINED_OPENEXR_VERSION >= 20599
+/* >=2.5.99 -> OpenEXR >=3.0 */
+#  include <Imath/half.h>
+#  include <OpenEXR/ImfFrameBuffer.h>
+#  define exr_file_offset_t uint64_t
+#else
+/* OpenEXR 2.x, use the old locations. */
+#  include <OpenEXR/half.h>
+#  define exr_file_offset_t Int64
+#endif
+
+#include <OpenEXR/Iex.h>
+#include <OpenEXR/ImfArray.h>
+#include <OpenEXR/ImfChannelList.h>
+#include <OpenEXR/ImfCompression.h>
+#include <OpenEXR/ImfCompressionAttribute.h>
+#include <OpenEXR/ImfIO.h>
+#include <OpenEXR/ImfInputFile.h>
+#include <OpenEXR/ImfOutputFile.h>
+#include <OpenEXR/ImfPixelType.h>
+#include <OpenEXR/ImfStandardAttributes.h>
+#include <OpenEXR/ImfStringAttribute.h>
+#include <OpenEXR/ImfVersion.h>
 
 /* multiview/multipart */
-#include <ImfInputPart.h>
-#include <ImfMultiPartInputFile.h>
-#include <ImfMultiPartOutputFile.h>
-#include <ImfMultiView.h>
-#include <ImfOutputPart.h>
-#include <ImfPartHelper.h>
-#include <ImfPartType.h>
-#include <ImfTiledOutputPart.h>
+#include <OpenEXR/ImfInputPart.h>
+#include <OpenEXR/ImfMultiPartInputFile.h>
+#include <OpenEXR/ImfMultiPartOutputFile.h>
+#include <OpenEXR/ImfMultiView.h>
+#include <OpenEXR/ImfOutputPart.h>
+#include <OpenEXR/ImfPartHelper.h>
+#include <OpenEXR/ImfPartType.h>
+#include <OpenEXR/ImfTiledOutputPart.h>
 
 #include "DNA_scene_types.h" /* For OpenEXR compression constants */
 
@@ -78,6 +78,7 @@ _CRTIMP void __cdecl _invalid_parameter_noinfo(void)
 }
 #include "BLI_blenlib.h"
 #include "BLI_math_color.h"
+#include "BLI_string_utils.h"
 #include "BLI_threads.h"
 
 #include "BKE_idprop.h"
@@ -89,8 +90,7 @@ _CRTIMP void __cdecl _invalid_parameter_noinfo(void)
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 #include "IMB_metadata.h"
-
-#include "openexr_multi.h"
+#include "IMB_openexr.h"
 
 using namespace Imf;
 using namespace Imath;
@@ -131,12 +131,12 @@ class IMemStream : public Imf::IStream {
     return false;
   }
 
-  Int64 tellg() override
+  exr_file_offset_t tellg() override
   {
     return _exrpos;
   }
 
-  void seekg(Int64 pos) override
+  void seekg(exr_file_offset_t pos) override
   {
     _exrpos = pos;
   }
@@ -146,8 +146,8 @@ class IMemStream : public Imf::IStream {
   }
 
  private:
-  Int64 _exrpos;
-  Int64 _exrsize;
+  exr_file_offset_t _exrpos;
+  exr_file_offset_t _exrsize;
   unsigned char *_exrbuf;
 };
 
@@ -155,15 +155,15 @@ class IMemStream : public Imf::IStream {
 
 class IFileStream : public Imf::IStream {
  public:
-  IFileStream(const char *filename) : IStream(filename)
+  IFileStream(const char *filepath) : IStream(filepath)
   {
     /* utf-8 file path support on windows */
 #if defined(WIN32)
-    wchar_t *wfilename = alloc_utf16_from_8(filename, 0);
-    ifs.open(wfilename, std::ios_base::binary);
-    free(wfilename);
+    wchar_t *wfilepath = alloc_utf16_from_8(filepath, 0);
+    ifs.open(wfilepath, std::ios_base::binary);
+    free(wfilepath);
 #else
-    ifs.open(filename, std::ios_base::binary);
+    ifs.open(filepath, std::ios_base::binary);
 #endif
 
     if (!ifs) {
@@ -182,12 +182,12 @@ class IFileStream : public Imf::IStream {
     return check_error();
   }
 
-  Int64 tellg() override
+  exr_file_offset_t tellg() override
   {
     return std::streamoff(ifs.tellg());
   }
 
-  void seekg(Int64 pos) override
+  void seekg(exr_file_offset_t pos) override
   {
     ifs.seekg(pos);
     check_error();
@@ -231,19 +231,19 @@ class OMemStream : public OStream {
     ibuf->encodedsize += n;
   }
 
-  Int64 tellp() override
+  exr_file_offset_t tellp() override
   {
     return offset;
   }
 
-  void seekp(Int64 pos) override
+  void seekp(exr_file_offset_t pos) override
   {
     offset = pos;
     ensure_size(offset);
   }
 
  private:
-  void ensure_size(Int64 size)
+  void ensure_size(exr_file_offset_t size)
   {
     /* if buffer is too small increase it. */
     while (size > ibuf->encodedbuffersize) {
@@ -254,22 +254,22 @@ class OMemStream : public OStream {
   }
 
   ImBuf *ibuf;
-  Int64 offset;
+  exr_file_offset_t offset;
 };
 
 /* File Output Stream */
 
 class OFileStream : public OStream {
  public:
-  OFileStream(const char *filename) : OStream(filename)
+  OFileStream(const char *filepath) : OStream(filepath)
   {
     /* utf-8 file path support on windows */
 #if defined(WIN32)
-    wchar_t *wfilename = alloc_utf16_from_8(filename, 0);
-    ofs.open(wfilename, std::ios_base::binary);
-    free(wfilename);
+    wchar_t *wfilepath = alloc_utf16_from_8(filepath, 0);
+    ofs.open(wfilepath, std::ios_base::binary);
+    free(wfilepath);
 #else
-    ofs.open(filename, std::ios_base::binary);
+    ofs.open(filepath, std::ios_base::binary);
 #endif
 
     if (!ofs) {
@@ -284,12 +284,12 @@ class OFileStream : public OStream {
     check_error();
   }
 
-  Int64 tellp() override
+  exr_file_offset_t tellp() override
   {
     return std::streamoff(ofs.tellp());
   }
 
-  void seekp(Int64 pos) override
+  void seekp(exr_file_offset_t pos) override
   {
     ofs.seekp(pos);
     check_error();
@@ -834,7 +834,7 @@ void IMB_exr_add_channel(void *handle,
 }
 
 bool IMB_exr_begin_write(void *handle,
-                         const char *filename,
+                         const char *filepath,
                          int width,
                          int height,
                          int compress,
@@ -872,7 +872,7 @@ bool IMB_exr_begin_write(void *handle,
   /* avoid crash/abort when we don't have permission to write here */
   /* manually create ofstream, so we can handle utf-8 filepaths on windows */
   try {
-    data->ofile_stream = new OFileStream(filename);
+    data->ofile_stream = new OFileStream(filepath);
     data->ofile = new OutputFile(*(data->ofile_stream), header);
   }
   catch (const std::exception &exc) {
@@ -889,7 +889,7 @@ bool IMB_exr_begin_write(void *handle,
 }
 
 void IMB_exrtile_begin_write(
-    void *handle, const char *filename, int mipmap, int width, int height, int tilex, int tiley)
+    void *handle, const char *filepath, int mipmap, int width, int height, int tilex, int tiley)
 {
   ExrHandle *data = (ExrHandle *)handle;
   Header header(width, height);
@@ -941,7 +941,7 @@ void IMB_exrtile_begin_write(
   /* avoid crash/abort when we don't have permission to write here */
   /* manually create ofstream, so we can handle utf-8 filepaths on windows */
   try {
-    data->ofile_stream = new OFileStream(filename);
+    data->ofile_stream = new OFileStream(filepath);
     data->mpofile = new MultiPartOutputFile(*(data->ofile_stream), &headers[0], headers.size());
   }
   catch (const std::exception &) {
@@ -954,19 +954,19 @@ void IMB_exrtile_begin_write(
 }
 
 bool IMB_exr_begin_read(
-    void *handle, const char *filename, int *width, int *height, const bool parse_channels)
+    void *handle, const char *filepath, int *width, int *height, const bool parse_channels)
 {
   ExrHandle *data = (ExrHandle *)handle;
   ExrChannel *echan;
 
   /* 32 is arbitrary, but zero length files crashes exr. */
-  if (!(BLI_exists(filename) && BLI_file_size(filename) > 32)) {
+  if (!(BLI_exists(filepath) && BLI_file_size(filepath) > 32)) {
     return false;
   }
 
   /* avoid crash/abort when we don't have permission to write here */
   try {
-    data->ifile_stream = new IFileStream(filename);
+    data->ifile_stream = new IFileStream(filepath);
     data->ifile = new MultiPartInputFile(*(data->ifile_stream));
   }
   catch (const std::exception &) {

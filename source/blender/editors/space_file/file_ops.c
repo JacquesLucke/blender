@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spfile
@@ -2237,7 +2221,7 @@ static int file_smoothscroll_invoke(bContext *C, wmOperator *UNUSED(op), const w
   RNA_int_set(&op_ptr, "deltax", deltax);
   RNA_int_set(&op_ptr, "deltay", deltay);
 
-  WM_operator_name_call(C, "VIEW2D_OT_pan", WM_OP_EXEC_DEFAULT, &op_ptr);
+  WM_operator_name_call(C, "VIEW2D_OT_pan", WM_OP_EXEC_DEFAULT, &op_ptr, event);
   WM_operator_properties_free(&op_ptr);
 
   ED_region_tag_redraw(region);
@@ -2596,7 +2580,7 @@ void file_directory_enter_handle(bContext *C, void *UNUSED(arg_unused), void *UN
           BLI_strncpy(params->dir, lastdir, sizeof(params->dir));
         }
 
-        WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &ptr);
+        WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &ptr, NULL);
         WM_operator_properties_free(&ptr);
       }
     }
@@ -2624,7 +2608,8 @@ void file_filename_enter_handle(bContext *C, void *UNUSED(arg_unused), void *arg
     matches = file_select_match(sfile, params->file, matched_file);
 
     /* *After* file_select_match! */
-    BLI_filename_make_safe(params->file);
+    const bool allow_tokens = (params->flag & FILE_PATH_TOKENS_ALLOW) != 0;
+    BLI_filename_make_safe_ex(params->file, allow_tokens);
 
     if (matches) {
       /* replace the pattern (or filename that the user typed in,

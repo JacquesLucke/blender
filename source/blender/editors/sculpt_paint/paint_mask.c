@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2012 by Nicholas Bishop
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2012 by Nicholas Bishop. All rights reserved. */
 
 /** \file
  * \ingroup edsculpt
@@ -189,7 +173,7 @@ static int mask_flood_fill_exec(bContext *C, wmOperator *op)
 
   BKE_pbvh_update_vertex_data(pbvh, PBVH_UpdateMask);
 
-  SCULPT_undo_push_end();
+  SCULPT_undo_push_end(ob);
 
   if (nodes) {
     MEM_freeN(nodes);
@@ -723,7 +707,8 @@ static void sculpt_gesture_apply(bContext *C, SculptGestureContext *sgcontext)
 
   operation->sculpt_gesture_end(C, sgcontext);
 
-  SCULPT_undo_push_end();
+  Object *ob = CTX_data_active_object(C);
+  SCULPT_undo_push_end(ob);
 
   SCULPT_tag_update_overlays(C);
 }
@@ -978,6 +963,7 @@ static void sculpt_gesture_trim_normals_update(SculptGestureContext *sgcontext)
                      trim_mesh,
                      (&(struct BMeshFromMeshParams){
                          .calc_face_normal = true,
+                         .calc_vert_normal = true,
                      }));
   BM_mesh_elem_hflag_enable_all(bm, BM_FACE, BM_ELEM_TAG, false);
   BMO_op_callf(bm,
@@ -1091,7 +1077,7 @@ static void sculpt_gesture_trim_geometry_generate(SculptGestureContext *sgcontex
   const int trim_totpolys = (2 * (tot_screen_points - 2)) + (2 * tot_screen_points);
   trim_operation->mesh = BKE_mesh_new_nomain(
       trim_totverts, 0, 0, trim_totpolys * 3, trim_totpolys);
-  trim_operation->true_mesh_co = MEM_malloc_arrayN(trim_totverts, 3 * sizeof(float), "mesh orco");
+  trim_operation->true_mesh_co = MEM_malloc_arrayN(trim_totverts, sizeof(float[3]), "mesh orco");
 
   float depth_front = trim_operation->depth_front;
   float depth_back = trim_operation->depth_back;
@@ -1145,7 +1131,7 @@ static void sculpt_gesture_trim_geometry_generate(SculptGestureContext *sgcontex
 
   /* Get the triangulation for the front/back poly. */
   const int tot_tris_face = tot_screen_points - 2;
-  uint(*r_tris)[3] = MEM_malloc_arrayN(tot_tris_face, 3 * sizeof(uint), "tris");
+  uint(*r_tris)[3] = MEM_malloc_arrayN(tot_tris_face, sizeof(uint[3]), "tris");
   BLI_polyfill_calc(screen_points, tot_screen_points, 0, r_tris);
 
   /* Write the front face triangle indices. */
@@ -1230,12 +1216,14 @@ static void sculpt_gesture_apply_trim(SculptGestureContext *sgcontext)
                      trim_mesh,
                      &((struct BMeshFromMeshParams){
                          .calc_face_normal = true,
+                         .calc_vert_normal = true,
                      }));
 
   BM_mesh_bm_from_me(bm,
                      sculpt_mesh,
                      &((struct BMeshFromMeshParams){
                          .calc_face_normal = true,
+                         .calc_vert_normal = true,
                      }));
 
   const int looptris_tot = poly_to_tri_count(bm->totface, bm->totloop);
@@ -1428,7 +1416,7 @@ static void project_line_gesture_apply_task_cb(void *__restrict userdata,
     }
     add_v3_v3(vd.co, disp);
     if (vd.mvert) {
-      vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+      BKE_pbvh_vert_mark_update(sgcontext->ss->pbvh, vd.index);
     }
     any_updated = true;
   }

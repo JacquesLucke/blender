@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -58,6 +44,7 @@
 #include "BKE_dynamicpaint.h"
 #include "BKE_effect.h"
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -1518,7 +1505,7 @@ static void dynamic_paint_set_init_color_tex_to_vcol_cb(
     multitex_ext_safe(tex, uv, &texres, pool, scene_color_manage, false);
 
     if (texres.tin > pPoint[vert].color[3]) {
-      copy_v3_v3(pPoint[vert].color, &texres.tr);
+      copy_v3_v3(pPoint[vert].color, texres.trgba);
       pPoint[vert].color[3] = texres.tin;
     }
   }
@@ -1559,7 +1546,7 @@ static void dynamic_paint_set_init_color_tex_to_imseq_cb(
   multitex_ext_safe(tex, uv_final, &texres, NULL, scene_color_manage, false);
 
   /* apply color */
-  copy_v3_v3(pPoint[i].color, &texres.tr);
+  copy_v3_v3(pPoint[i].color, texres.trgba);
   pPoint[i].color[3] = texres.tin;
 }
 
@@ -1789,6 +1776,7 @@ typedef struct DynamicPaintModifierApplyData {
   Object *ob;
 
   MVert *mvert;
+  const float (*vert_normals)[3];
   const MLoop *mloop;
   const MPoly *mpoly;
 
@@ -1806,14 +1794,11 @@ static void dynamic_paint_apply_surface_displace_cb(void *__restrict userdata,
   const DynamicPaintSurface *surface = data->surface;
   MVert *mvert = data->mvert;
 
-  float normal[3];
   const float *value = (float *)surface->data->type_data;
   const float val = value[i] * surface->disp_factor;
 
-  normal_short_to_float_v3(normal, mvert[i].no);
-
   /* same as 'mvert[i].co[0] -= normal[0] * val' etc. */
-  madd_v3_v3fl(mvert[i].co, normal, -val);
+  madd_v3_v3fl(mvert[i].co, data->vert_normals[i], -val);
 }
 
 /* apply displacing vertex surface to the derived mesh */
@@ -1832,6 +1817,7 @@ static void dynamicPaint_applySurfaceDisplace(DynamicPaintSurface *surface, Mesh
     DynamicPaintModifierApplyData data = {
         .surface = surface,
         .mvert = mvert,
+        .vert_normals = BKE_mesh_vertex_normals_ensure(result),
     };
     TaskParallelSettings settings;
     BLI_parallel_range_settings_defaults(&settings);
@@ -1898,10 +1884,8 @@ static void dynamic_paint_apply_surface_wave_cb(void *__restrict userdata,
 
   PaintWavePoint *wPoint = (PaintWavePoint *)data->surface->data->type_data;
   MVert *mvert = data->mvert;
-  float normal[3];
 
-  normal_short_to_float_v3(normal, mvert[i].no);
-  madd_v3_v3fl(mvert[i].co, normal, wPoint[i].height);
+  madd_v3_v3fl(mvert[i].co, data->vert_normals[i], wPoint[i].height);
 }
 
 /*
@@ -1988,9 +1972,6 @@ static Mesh *dynamicPaint_Modifier_apply(DynamicPaintModifierData *pmd, Object *
             }
 
             MEM_freeN(fcolor);
-
-            /* Mark tessellated CD layers as dirty. */
-            // result->dirty |= DM_DIRTY_TESS_CDLAYERS;
           }
           /* vertex group paint */
           else if (surface->type == MOD_DPAINT_SURFACE_T_WEIGHT) {
@@ -2030,6 +2011,7 @@ static Mesh *dynamicPaint_Modifier_apply(DynamicPaintModifierData *pmd, Object *
             DynamicPaintModifierApplyData data = {
                 .surface = surface,
                 .mvert = mvert,
+                .vert_normals = BKE_mesh_vertex_normals_ensure(result),
             };
             TaskParallelSettings settings;
             BLI_parallel_range_settings_defaults(&settings);
@@ -3284,7 +3266,7 @@ static void dynamic_paint_output_surface_image_wetmap_cb(
 }
 
 void dynamicPaint_outputSurfaceImage(DynamicPaintSurface *surface,
-                                     char *filename,
+                                     const char *filepath,
                                      short output_layer)
 {
   ImBuf *ibuf = NULL;
@@ -3304,7 +3286,7 @@ void dynamicPaint_outputSurfaceImage(DynamicPaintSurface *surface,
     format = R_IMF_IMTYPE_PNG;
   }
 #endif
-  BLI_strncpy(output_file, filename, sizeof(output_file));
+  BLI_strncpy(output_file, filepath, sizeof(output_file));
   BKE_image_path_ensure_ext_from_imtype(output_file, format);
 
   /* Validate output file path */
@@ -4036,7 +4018,7 @@ static void dynamic_paint_paint_mesh_cell_point_cb_ex(
               treeData->tree, ray_start, ray_dir, 0.0f, &hit, mesh_tris_spherecast_dp, treeData);
 
           if (hit.index != -1) {
-            /* Add factor on supersample filter */
+            /* Add factor on super-sample filter. */
             volume_factor = 1.0f;
             hit_found = HIT_VOLUME;
 
@@ -4287,6 +4269,7 @@ static bool dynamicPaint_paintMesh(Depsgraph *depsgraph,
 
     mesh = BKE_mesh_copy_for_eval(brush_mesh, false);
     mvert = mesh->mvert;
+    const float(*vert_normals)[3] = BKE_mesh_vertex_normals_ensure(mesh);
     mlooptri = BKE_mesh_runtime_looptri_ensure(mesh);
     mloop = mesh->mloop;
     numOfVerts = mesh->totvert;
@@ -4301,7 +4284,7 @@ static bool dynamicPaint_paintMesh(Depsgraph *depsgraph,
       /* for proximity project calculate average normal */
       if (brush->flags & MOD_DPAINT_PROX_PROJECT && brush->collision != MOD_DPAINT_COL_VOLUME) {
         float nor[3];
-        normal_short_to_float_v3(nor, mvert[ii].no);
+        copy_v3_v3(nor, vert_normals[ii]);
         mul_mat3_m4_v3(brushOb->obmat, nor);
         normalize_v3(nor);
 
@@ -5262,7 +5245,6 @@ static void dynamic_paint_effect_shrink_cb(void *__restrict userdata,
   PaintPoint *pPoint = &((PaintPoint *)sData->type_data)[index];
   const PaintPoint *prevPoint = data->prevPoint;
   const float eff_scale = data->eff_scale;
-  float totalAlpha = 0.0f;
 
   const int *n_index = sData->adj_data->n_index;
   const int *n_target = sData->adj_data->n_target;
@@ -5274,8 +5256,6 @@ static void dynamic_paint_effect_shrink_cb(void *__restrict userdata,
                                                                   eff_scale / bNeighs[n_idx].dist;
     const PaintPoint *pPoint_prev = &prevPoint[n_target[n_idx]];
     float a_factor, ea_factor, w_factor;
-
-    totalAlpha += pPoint_prev->e_color[3];
 
     /* Check if neighboring point has lower alpha,
      * if so, decrease this point's alpha as well. */
@@ -5909,6 +5889,7 @@ typedef struct DynamicPaintGenerateBakeData {
   Object *ob;
 
   const MVert *mvert;
+  const float (*vert_normals)[3];
   const Vec3f *canvas_verts;
 
   const bool do_velocity_data;
@@ -5928,7 +5909,6 @@ static void dynamic_paint_generate_bake_data_cb(void *__restrict userdata,
 
   Object *ob = data->ob;
 
-  const MVert *mvert = data->mvert;
   const Vec3f *canvas_verts = data->canvas_verts;
 
   const bool do_velocity_data = data->do_velocity_data;
@@ -5962,9 +5942,9 @@ static void dynamic_paint_generate_bake_data_cb(void *__restrict userdata,
     }
 
     /* Calculate current pixel surface normal */
-    normal_short_to_float_v3(n1, mvert[tPoint->v1].no);
-    normal_short_to_float_v3(n2, mvert[tPoint->v2].no);
-    normal_short_to_float_v3(n3, mvert[tPoint->v3].no);
+    copy_v3_v3(n1, data->vert_normals[tPoint->v1]);
+    copy_v3_v3(n2, data->vert_normals[tPoint->v2]);
+    copy_v3_v3(n3, data->vert_normals[tPoint->v3]);
 
     interp_v3_v3v3v3(
         temp_nor, n1, n2, n3, f_data->barycentricWeights[index * bData->s_num[index]].v);
@@ -6006,7 +5986,7 @@ static void dynamic_paint_generate_bake_data_cb(void *__restrict userdata,
     }
 
     /* normal */
-    normal_short_to_float_v3(temp_nor, mvert[index].no);
+    copy_v3_v3(temp_nor, data->vert_normals[index]);
     if (ELEM(surface->type, MOD_DPAINT_SURFACE_T_DISPLACE, MOD_DPAINT_SURFACE_T_WAVE)) {
       /* Prepare surface normal directional scale to easily convert
        * brush intersection amount between global and local space */
@@ -6145,6 +6125,7 @@ static bool dynamicPaint_generateBakeData(DynamicPaintSurface *surface,
       .surface = surface,
       .ob = ob,
       .mvert = mvert,
+      .vert_normals = BKE_mesh_vertex_normals_ensure(mesh),
       .canvas_verts = canvas_verts,
       .do_velocity_data = do_velocity_data,
       .new_bdata = new_bdata,
@@ -6159,7 +6140,7 @@ static bool dynamicPaint_generateBakeData(DynamicPaintSurface *surface,
 
   /* generate surface space partitioning grid */
   surfaceGenerateGrid(surface);
-  /* calculate current frame adjacency point distances and global dirs */
+  /* Calculate current frame adjacency point distances and global directions. */
   dynamicPaint_prepareAdjacencyData(surface, false);
 
   /* Copy current frame vertices to check against in next frame */

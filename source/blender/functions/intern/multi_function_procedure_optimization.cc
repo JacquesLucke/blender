@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "FN_multi_function_procedure_optimization.hh"
 
@@ -81,7 +67,7 @@ void move_destructs_up(MFProcedure &procedure, MFInstruction &block_end_instr)
     const MFInstructionCursor &prev_cursor = prev_cursors[0];
     current_instr = prev_cursor.instruction();
     if (current_instr == nullptr) {
-      /* Stop when there is no previous instruction. E.g. when this is the first instruction.  */
+      /* Stop when there is no previous instruction. E.g. when this is the first instruction. */
       break;
     }
   }

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 by Blender Foundation
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 Blender Foundation. All rights reserved. */
 /** \file
  * \ingroup render
  *
@@ -45,10 +29,10 @@ extern "C" {
  */
 bool RE_texture_evaluate(const struct MTex *mtex,
                          const float vec[3],
-                         const int thread,
+                         int thread,
                          struct ImagePool *pool,
-                         const bool skip_load_image,
-                         const bool texnode_preview,
+                         bool skip_load_image,
+                         bool texnode_preview,
                          /* Return arguments. */
                          float *r_intensity,
                          float r_rgba[4]) ATTR_NONNULL(1, 2, 7, 8);
@@ -88,7 +72,7 @@ void RE_point_density_minmax(struct Depsgraph *depsgraph,
  */
 void RE_point_density_sample(struct Depsgraph *depsgraph,
                              struct PointDensity *pd,
-                             const int resolution,
+                             int resolution,
                              float *values);
 
 void RE_point_density_free(struct PointDensity *pd);
@@ -99,10 +83,11 @@ void RE_point_density_fix_linking(void);
 
 /**
  * Texture evaluation result.
- * \note `tr tg tb ta` have to remain in this order for array access.
  */
 typedef struct TexResult {
-  float tin, tr, tg, tb, ta;
+  float tin;
+  float trgba[4];
+  /* Is actually a boolean: When true -> use alpha, false -> set alpha to 1.0. */
   int talpha;
   float *nor;
 } TexResult;
@@ -122,10 +107,10 @@ int multitex_ext(struct Tex *tex,
                  float dyt[3],
                  int osatex,
                  struct TexResult *texres,
-                 const short thread,
+                 short thread,
                  struct ImagePool *pool,
                  bool scene_color_manage,
-                 const bool skip_load_image);
+                 bool skip_load_image);
 
 /**
  * Nodes disabled.
@@ -138,7 +123,7 @@ int multitex_ext_safe(struct Tex *tex,
                       struct TexResult *texres,
                       struct ImagePool *pool,
                       bool scene_color_manage,
-                      const bool skip_load_image);
+                      bool skip_load_image);
 
 /**
  * Only for internal node usage.
@@ -152,7 +137,7 @@ int multitex_nodes(struct Tex *tex,
                    float dyt[3],
                    int osatex,
                    struct TexResult *texres,
-                   const short thread,
+                   short thread,
                    short which_output,
                    struct MTex *mtex,
                    struct ImagePool *pool);

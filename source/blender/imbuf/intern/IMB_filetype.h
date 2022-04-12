@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup imbuf
@@ -41,7 +27,7 @@ typedef struct ImFileType {
    * \note that this may only read in a small part of the files header,
    * see: #IMB_ispic_type for details.
    */
-  bool (*is_a)(const unsigned char *buf, const size_t size);
+  bool (*is_a)(const unsigned char *buf, size_t size);
 
   /** Load an image from memory. */
   struct ImBuf *(*load)(const unsigned char *mem,
@@ -93,7 +79,7 @@ void imb_tile_cache_tile_free(struct ImBuf *ibuf, int tx, int ty);
 /** \name Format: PNG (#IMB_FTYPE_PNG)
  * \{ */
 
-bool imb_is_a_png(const unsigned char *mem, const size_t size);
+bool imb_is_a_png(const unsigned char *mem, size_t size);
 struct ImBuf *imb_loadpng(const unsigned char *mem,
                           size_t size,
                           int flags,
@@ -106,7 +92,7 @@ bool imb_savepng(struct ImBuf *ibuf, const char *filepath, int flags);
 /** \name Format: TARGA (#IMB_FTYPE_TGA)
  * \{ */
 
-bool imb_is_a_targa(const unsigned char *buf, const size_t size);
+bool imb_is_a_targa(const unsigned char *buf, size_t size);
 struct ImBuf *imb_loadtarga(const unsigned char *mem,
                             size_t size,
                             int flags,
@@ -119,7 +105,7 @@ bool imb_savetarga(struct ImBuf *ibuf, const char *filepath, int flags);
 /** \name Format: IRIS (#IMB_FTYPE_IMAGIC)
  * \{ */
 
-bool imb_is_a_iris(const unsigned char *mem, const size_t size);
+bool imb_is_a_iris(const unsigned char *mem, size_t size);
 /**
  * Read in a B/W RGB or RGBA iris image file and return an image buffer.
  */
@@ -135,7 +121,7 @@ bool imb_saveiris(struct ImBuf *ibuf, const char *filepath, int flags);
 /** \name Format: JP2 (#IMB_FTYPE_JP2)
  * \{ */
 
-bool imb_is_a_jp2(const unsigned char *buf, const size_t size);
+bool imb_is_a_jp2(const unsigned char *buf, size_t size);
 struct ImBuf *imb_load_jp2(const unsigned char *mem,
                            size_t size,
                            int flags,
@@ -151,7 +137,7 @@ bool imb_save_jp2(struct ImBuf *ibuf, const char *filepath, int flags);
 /** \name Format: JPEG (#IMB_FTYPE_JPG)
  * \{ */
 
-bool imb_is_a_jpeg(const unsigned char *mem, const size_t size);
+bool imb_is_a_jpeg(const unsigned char *mem, size_t size);
 bool imb_savejpeg(struct ImBuf *ibuf, const char *filepath, int flags);
 struct ImBuf *imb_load_jpeg(const unsigned char *buffer,
                             size_t size,
@@ -164,7 +150,7 @@ struct ImBuf *imb_load_jpeg(const unsigned char *buffer,
 /** \name Format: BMP (#IMB_FTYPE_BMP)
  * \{ */
 
-bool imb_is_a_bmp(const unsigned char *buf, const size_t size);
+bool imb_is_a_bmp(const unsigned char *buf, size_t size);
 struct ImBuf *imb_bmp_decode(const unsigned char *mem,
                              size_t size,
                              int flags,
@@ -178,7 +164,7 @@ bool imb_savebmp(struct ImBuf *ibuf, const char *filepath, int flags);
 /** \name Format: CINEON (#IMB_FTYPE_CINEON)
  * \{ */
 
-bool imb_is_a_cineon(const unsigned char *buf, const size_t size);
+bool imb_is_a_cineon(const unsigned char *buf, size_t size);
 bool imb_save_cineon(struct ImBuf *buf, const char *filepath, int flags);
 struct ImBuf *imb_load_cineon(const unsigned char *mem,
                               size_t size,
@@ -191,7 +177,7 @@ struct ImBuf *imb_load_cineon(const unsigned char *mem,
 /** \name Format: DPX (#IMB_FTYPE_DPX)
  * \{ */
 
-bool imb_is_a_dpx(const unsigned char *buf, const size_t size);
+bool imb_is_a_dpx(const unsigned char *buf, size_t size);
 bool imb_save_dpx(struct ImBuf *buf, const char *filepath, int flags);
 struct ImBuf *imb_load_dpx(const unsigned char *mem,
                            size_t size,
@@ -204,7 +190,7 @@ struct ImBuf *imb_load_dpx(const unsigned char *mem,
 /** \name Format: HDR (#IMB_FTYPE_RADHDR)
  * \{ */
 
-bool imb_is_a_hdr(const unsigned char *buf, const size_t size);
+bool imb_is_a_hdr(const unsigned char *buf, size_t size);
 struct ImBuf *imb_loadhdr(const unsigned char *mem,
                           size_t size,
                           int flags,
@@ -218,7 +204,7 @@ bool imb_savehdr(struct ImBuf *ibuf, const char *filepath, int flags);
  * \{ */
 
 void imb_inittiff(void);
-bool imb_is_a_tiff(const unsigned char *buf, const size_t size);
+bool imb_is_a_tiff(const unsigned char *buf, size_t size);
 /**
  * Loads a TIFF file.
  * \param mem: Memory containing the TIFF file.
@@ -250,5 +236,18 @@ void imb_loadtiletiff(
  * \return 1 if the function is successful, 0 on failure.
  */
 bool imb_savetiff(struct ImBuf *ibuf, const char *filepath, int flags);
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Format: TIFF (#IMB_FTYPE_WEBP)
+ * \{ */
+
+bool imb_is_a_webp(const unsigned char *buf, size_t size);
+struct ImBuf *imb_loadwebp(const unsigned char *mem,
+                           size_t size,
+                           int flags,
+                           char colorspace[IM_MAX_SPACE]);
+bool imb_savewebp(struct ImBuf *ibuf, const char *name, int flags);
 
 /** \} */

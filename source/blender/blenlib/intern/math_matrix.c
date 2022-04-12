@@ -1,23 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- *
- * The Original Code is: some of this file.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bli
@@ -2144,6 +2126,16 @@ void mat4_to_size(float size[3], const float M[4][4])
   size[2] = len_v3(M[2]);
 }
 
+float mat3_to_size_max_axis(const float M[3][3])
+{
+  return sqrtf(max_fff(len_squared_v3(M[0]), len_squared_v3(M[1]), len_squared_v3(M[2])));
+}
+
+float mat4_to_size_max_axis(const float M[4][4])
+{
+  return sqrtf(max_fff(len_squared_v3(M[0]), len_squared_v3(M[1]), len_squared_v3(M[2])));
+}
+
 void mat4_to_size_fix_shear(float size[3], const float M[4][4])
 {
   mat4_to_size(size, M);
@@ -2290,6 +2282,17 @@ void scale_m4_fl(float R[4][4], float scale)
 {
   R[0][0] = R[1][1] = R[2][2] = scale;
   R[3][3] = 1.0;
+  R[0][1] = R[0][2] = R[0][3] = 0.0;
+  R[1][0] = R[1][2] = R[1][3] = 0.0;
+  R[2][0] = R[2][1] = R[2][3] = 0.0;
+  R[3][0] = R[3][1] = R[3][2] = 0.0;
+}
+
+void scale_m4_v2(float R[4][4], const float scale[2])
+{
+  R[0][0] = scale[0];
+  R[1][1] = scale[1];
+  R[2][2] = R[3][3] = 1.0;
   R[0][1] = R[0][2] = R[0][3] = 0.0;
   R[1][0] = R[1][2] = R[1][3] = 0.0;
   R[2][0] = R[2][1] = R[2][3] = 0.0;

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2012 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2012 Blender Foundation. All rights reserved. */
 
 #ifndef __OCIO_IMPL_H__
 #define __OCIO_IMPL_H__
@@ -92,6 +76,8 @@ class IOCIOImpl {
   virtual const char *colorSpaceGetName(OCIO_ConstColorSpaceRcPtr *cs) = 0;
   virtual const char *colorSpaceGetDescription(OCIO_ConstColorSpaceRcPtr *cs) = 0;
   virtual const char *colorSpaceGetFamily(OCIO_ConstColorSpaceRcPtr *cs) = 0;
+  virtual int colorSpaceGetNumAliases(OCIO_ConstColorSpaceRcPtr *cs) = 0;
+  virtual const char *colorSpaceGetAlias(OCIO_ConstColorSpaceRcPtr *cs, const int index) = 0;
 
   virtual OCIO_ConstProcessorRcPtr *createDisplayProcessor(OCIO_ConstConfigRcPtr *config,
                                                            const char *input,
@@ -99,7 +85,8 @@ class IOCIOImpl {
                                                            const char *display,
                                                            const char *look,
                                                            const float scale,
-                                                           const float exponent) = 0;
+                                                           const float exponent,
+                                                           const bool inverse) = 0;
 
   virtual OCIO_PackedImageDesc *createOCIO_PackedImageDesc(float *data,
                                                            long width,
@@ -206,6 +193,8 @@ class FallbackImpl : public IOCIOImpl {
   const char *colorSpaceGetName(OCIO_ConstColorSpaceRcPtr *cs);
   const char *colorSpaceGetDescription(OCIO_ConstColorSpaceRcPtr *cs);
   const char *colorSpaceGetFamily(OCIO_ConstColorSpaceRcPtr *cs);
+  int colorSpaceGetNumAliases(OCIO_ConstColorSpaceRcPtr *cs);
+  const char *colorSpaceGetAlias(OCIO_ConstColorSpaceRcPtr *cs, const int index);
 
   OCIO_ConstProcessorRcPtr *createDisplayProcessor(OCIO_ConstConfigRcPtr *config,
                                                    const char *input,
@@ -213,7 +202,8 @@ class FallbackImpl : public IOCIOImpl {
                                                    const char *display,
                                                    const char *look,
                                                    const float scale,
-                                                   const float exponent);
+                                                   const float exponent,
+                                                   const bool inverse);
 
   OCIO_PackedImageDesc *createOCIO_PackedImageDesc(float *data,
                                                    long width,
@@ -293,6 +283,8 @@ class OCIOImpl : public IOCIOImpl {
   const char *colorSpaceGetName(OCIO_ConstColorSpaceRcPtr *cs);
   const char *colorSpaceGetDescription(OCIO_ConstColorSpaceRcPtr *cs);
   const char *colorSpaceGetFamily(OCIO_ConstColorSpaceRcPtr *cs);
+  int colorSpaceGetNumAliases(OCIO_ConstColorSpaceRcPtr *cs);
+  const char *colorSpaceGetAlias(OCIO_ConstColorSpaceRcPtr *cs, const int index);
 
   OCIO_ConstProcessorRcPtr *createDisplayProcessor(OCIO_ConstConfigRcPtr *config,
                                                    const char *input,
@@ -300,7 +292,8 @@ class OCIOImpl : public IOCIOImpl {
                                                    const char *display,
                                                    const char *look,
                                                    const float scale,
-                                                   const float exponent);
+                                                   const float exponent,
+                                                   const bool inverse);
 
   OCIO_PackedImageDesc *createOCIO_PackedImageDesc(float *data,
                                                    long width,

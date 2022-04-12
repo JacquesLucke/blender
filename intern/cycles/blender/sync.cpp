@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #include "scene/background.h"
 #include "scene/camera.h"
@@ -259,7 +246,12 @@ void BlenderSync::sync_data(BL::RenderSettings &b_render,
                             int height,
                             void **python_thread_state)
 {
-  if (!has_updates_) {
+  /* For auto refresh images. */
+  ImageManager *image_manager = scene->image_manager;
+  const int frame = b_scene.frame_current();
+  const bool auto_refresh_update = image_manager->set_animation_frame_update(frame);
+
+  if (!has_updates_ && !auto_refresh_update) {
     return;
   }
 
@@ -274,7 +266,7 @@ void BlenderSync::sync_data(BL::RenderSettings &b_render,
   sync_view_layer(b_view_layer);
   sync_integrator(b_view_layer, background);
   sync_film(b_view_layer, b_v3d);
-  sync_shaders(b_depsgraph, b_v3d);
+  sync_shaders(b_depsgraph, b_v3d, auto_refresh_update);
   sync_images();
 
   geometry_synced.clear(); /* use for objects and motion sync */
@@ -354,31 +346,48 @@ void BlenderSync::sync_integrator(BL::ViewLayer &b_view_layer, bool background)
       cscene, "sampling_pattern", SAMPLING_NUM_PATTERNS, SAMPLING_PATTERN_SOBOL);
   integrator->set_sampling_pattern(sampling_pattern);
 
+  int samples = 1;
   bool use_adaptive_sampling = false;
   if (preview) {
+    samples = get_int(cscene, "preview_samples");
     use_adaptive_sampling = RNA_boolean_get(&cscene, "use_preview_adaptive_sampling");
     integrator->set_use_adaptive_sampling(use_adaptive_sampling);
     integrator->set_adaptive_threshold(get_float(cscene, "preview_adaptive_threshold"));
     integrator->set_adaptive_min_samples(get_int(cscene, "preview_adaptive_min_samples"));
   }
   else {
+    samples = get_int(cscene, "samples");
     use_adaptive_sampling = RNA_boolean_get(&cscene, "use_adaptive_sampling");
     integrator->set_use_adaptive_sampling(use_adaptive_sampling);
     integrator->set_adaptive_threshold(get_float(cscene, "adaptive_threshold"));
     integrator->set_adaptive_min_samples(get_int(cscene, "adaptive_min_samples"));
   }
 
-  int samples = get_int(cscene, "samples");
   float scrambling_distance = get_float(cscene, "scrambling_distance");
   bool auto_scrambling_distance = get_boolean(cscene, "auto_scrambling_distance");
   if (auto_scrambling_distance) {
+    if (samples == 0) {
+      /* If samples is 0, then viewport rendering is set to render infinitely. In that case we
+       * override the samples value with 4096 so the Automatic Scrambling Distance algorithm
+       * picks a Scrambling Distance value with a good balance of performance and correlation
+       * artifacts when rendering to high sample counts. */
+      samples = 4096;
+    }
+
+    if (use_adaptive_sampling) {
+      /* If Adaptive Sampling is enabled, use "min_samples" in the Automatic Scrambling Distance
+       * algorithm to avoid artifacts common with Adaptive Sampling + Scrambling Distance. */
+      const AdaptiveSampling adaptive_sampling = integrator->get_adaptive_sampling();
+      samples = min(samples, adaptive_sampling.min_samples);
+    }
     scrambling_distance *= 4.0f / sqrtf(samples);
   }
 
-  /* only use scrambling distance in the viewport if user wants to and disable with AS */
+  /* Only use scrambling distance in the viewport if user wants to. */
   bool preview_scrambling_distance = get_boolean(cscene, "preview_scrambling_distance");
-  if ((preview && !preview_scrambling_distance) || use_adaptive_sampling)
+  if (preview && !preview_scrambling_distance) {
     scrambling_distance = 1.0f;
+  }
 
   if (scrambling_distance != 1.0f) {
     VLOG(3) << "Using scrambling distance: " << scrambling_distance;
@@ -736,6 +745,20 @@ void BlenderSync::sync_render_passes(BL::RenderLayer &b_rlay, BL::ViewLayer &b_v
     }
   }
 
+  /* Light Group passes. */
+  BL::ViewLayer::lightgroups_iterator b_lightgroup_iter;
+  for (b_view_layer.lightgroups.begin(b_lightgroup_iter);
+       b_lightgroup_iter != b_view_layer.lightgroups.end();
+       ++b_lightgroup_iter) {
+    BL::Lightgroup b_lightgroup(*b_lightgroup_iter);
+
+    string name = string_printf("Combined_%s", b_lightgroup.name().c_str());
+
+    b_engine.add_pass(name.c_str(), 3, "RGB", b_view_layer.name().c_str());
+    Pass *pass = pass_add(scene, PASS_COMBINED, name.c_str(), PassMode::NOISY);
+    pass->set_lightgroup(ustring(b_lightgroup.name()));
+  }
+
   scene->film->set_pass_alpha_threshold(b_view_layer.pass_alpha_threshold());
 }
 
@@ -787,6 +810,7 @@ SceneParams BlenderSync::get_scene_params(BL::Scene &b_scene, bool background)
     params.bvh_type = BVH_TYPE_DYNAMIC;
 
   params.use_bvh_spatial_split = RNA_boolean_get(&cscene, "debug_use_spatial_splits");
+  params.use_bvh_compact_structure = RNA_boolean_get(&cscene, "debug_use_compact_bvh");
   params.use_bvh_unaligned_nodes = RNA_boolean_get(&cscene, "debug_use_hair_bvh");
   params.num_bvh_time_steps = RNA_int_get(&cscene, "debug_bvh_time_steps");
 
@@ -831,6 +855,14 @@ SessionParams BlenderSync::get_session_params(BL::RenderEngine &b_engine,
 {
   SessionParams params;
   PointerRNA cscene = RNA_pointer_get(&b_scene.ptr, "cycles");
+
+  if (background && !b_engine.is_preview()) {
+    /* Viewport and preview renders do not require temp directory and do request session
+     * parameters more often than the background render.
+     * Optimize RNA-C++ usage and memory allocation a bit by saving string access which we know is
+     * not needed for viewport render. */
+    params.temp_dir = b_engine.temporary_directory();
+  }
 
   /* feature set */
   params.experimental = (get_enum(cscene, "feature_set") != 0);

@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #include "scene/object.h"
 #include "device/device.h"
@@ -89,6 +76,7 @@ NODE_DEFINE(Object)
   SOCKET_TRANSFORM(tfm, "Transform", transform_identity());
   SOCKET_UINT(visibility, "Visibility", ~0);
   SOCKET_COLOR(color, "Color", zero_float3());
+  SOCKET_FLOAT(alpha, "Alpha", 0.0f);
   SOCKET_UINT(random_id, "Random ID", 0);
   SOCKET_INT(pass_id, "Pass ID", 0);
   SOCKET_BOOLEAN(use_holdout, "Use Holdout", false);
@@ -102,10 +90,15 @@ NODE_DEFINE(Object)
 
   SOCKET_BOOLEAN(is_shadow_catcher, "Shadow Catcher", false);
 
+  SOCKET_BOOLEAN(is_caustics_caster, "Cast Shadow Caustics", false);
+  SOCKET_BOOLEAN(is_caustics_receiver, "Receive Shadow Caustics", false);
+
   SOCKET_NODE(particle_system, "Particle System", ParticleSystem::get_node_type());
   SOCKET_INT(particle_index, "Particle Index", 0);
 
   SOCKET_FLOAT(ao_distance, "AO Distance", 0.0f);
+
+  SOCKET_STRING(lightgroup, "Light Group", ustring());
 
   return type;
 }
@@ -402,7 +395,8 @@ static float object_volume_density(const Transform &tfm, Geometry *geom)
 
 void ObjectManager::device_update_object_transform(UpdateObjectTransformState *state,
                                                    Object *ob,
-                                                   bool update_all)
+                                                   bool update_all,
+                                                   const Scene *scene)
 {
   KernelObject &kobject = state->objects[ob->index];
   Transform *object_motion_pass = state->object_motion_pass;
@@ -427,6 +421,7 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
   kobject.color[0] = color.x;
   kobject.color[1] = color.y;
   kobject.color[2] = color.z;
+  kobject.alpha = ob->alpha;
   kobject.pass_id = pass_id;
   kobject.random_number = random_number;
   kobject.particle_index = particle_index;
@@ -521,6 +516,14 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
   kobject.visibility = ob->visibility_for_tracing();
   kobject.primitive_type = geom->primitive_type();
 
+  /* Object shadow caustics flag */
+  if (ob->is_caustics_caster) {
+    flag |= SD_OBJECT_CAUSTICS_CASTER;
+  }
+  if (ob->is_caustics_receiver) {
+    flag |= SD_OBJECT_CAUSTICS_RECEIVER;
+  }
+
   /* Object flag. */
   if (ob->use_holdout) {
     flag |= SD_OBJECT_HOLDOUT_MASK;
@@ -531,6 +534,15 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
   /* Have curves. */
   if (geom->geometry_type == Geometry::HAIR) {
     state->have_curves = true;
+  }
+
+  /* Light group. */
+  auto it = scene->lightgroups.find(ob->lightgroup);
+  if (it != scene->lightgroups.end()) {
+    kobject.lightgroup = it->second;
+  }
+  else {
+    kobject.lightgroup = LIGHTGROUP_NONE;
   }
 }
 
@@ -618,7 +630,7 @@ void ObjectManager::device_update_transforms(DeviceScene *dscene, Scene *scene, 
                [&](const blocked_range<size_t> &r) {
                  for (size_t i = r.begin(); i != r.end(); i++) {
                    Object *ob = state.scene->objects[i];
-                   device_update_object_transform(&state, ob, update_all);
+                   device_update_object_transform(&state, ob, update_all, scene);
                  }
                });
 
@@ -821,7 +833,7 @@ void ObjectManager::device_update_flags(
   dscene->object_volume_step.clear_modified();
 }
 
-void ObjectManager::device_update_mesh_offsets(Device *, DeviceScene *dscene, Scene *scene)
+void ObjectManager::device_update_geom_offsets(Device *, DeviceScene *dscene, Scene *scene)
 {
   if (dscene->objects.size() == 0) {
     return;

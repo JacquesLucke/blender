@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2019, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2019 Blender Foundation. */
 
 /** \file
  * \ingroup draw_engine
@@ -209,23 +194,23 @@ void OVERLAY_extra_cache_init(OVERLAY_Data *vedata)
       DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
 
       grp_sub = DRW_shgroup_create_sub(grp);
-      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.colorActive);
+      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.color_active);
       cb->center_active = BUF_POINT(grp_sub, format);
 
       grp_sub = DRW_shgroup_create_sub(grp);
-      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.colorSelect);
+      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.color_select);
       cb->center_selected = BUF_POINT(grp_sub, format);
 
       grp_sub = DRW_shgroup_create_sub(grp);
-      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.colorDeselect);
+      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.color_deselect);
       cb->center_deselected = BUF_POINT(grp_sub, format);
 
       grp_sub = DRW_shgroup_create_sub(grp);
-      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.colorLibrarySelect);
+      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.color_library_select);
       cb->center_selected_lib = BUF_POINT(grp_sub, format);
 
       grp_sub = DRW_shgroup_create_sub(grp);
-      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.colorLibrary);
+      DRW_shgroup_uniform_vec4_copy(grp_sub, "color", G_draw.block.color_library);
       cb->center_deselected_lib = BUF_POINT(grp_sub, format);
     }
   }
@@ -360,18 +345,17 @@ static void OVERLAY_bounds(OVERLAY_ExtraCallBuffers *cb,
                            bool around_origin)
 {
   float center[3], size[3], tmp[4][4], final_mat[4][4];
-  BoundBox bb_local;
 
   if (ob->type == OB_MBALL && !BKE_mball_is_basis(ob)) {
     return;
   }
 
-  BoundBox *bb = BKE_object_boundbox_get(ob);
-
+  const BoundBox *bb = BKE_object_boundbox_get(ob);
+  BoundBox bb_local;
   if (bb == NULL) {
     const float min[3] = {-1.0f, -1.0f, -1.0f}, max[3] = {1.0f, 1.0f, 1.0f};
+    BKE_boundbox_init_from_minmax(&bb_local, min, max);
     bb = &bb_local;
-    BKE_boundbox_init_from_minmax(bb, min, max);
   }
 
   BKE_boundbox_calc_size_aabb(bb, size);
@@ -471,7 +455,7 @@ static void OVERLAY_texture_space(OVERLAY_ExtraCallBuffers *cb, Object *ob, cons
     case ID_ME:
       BKE_mesh_texspace_get_reference((Mesh *)ob_data, NULL, &texcoloc, &texcosize);
       break;
-    case ID_CU: {
+    case ID_CU_LEGACY: {
       Curve *cu = (Curve *)ob_data;
       BKE_curve_texspace_ensure(cu);
       texcoloc = cu->loc;
@@ -484,7 +468,7 @@ static void OVERLAY_texture_space(OVERLAY_ExtraCallBuffers *cb, Object *ob, cons
       texcosize = mb->size;
       break;
     }
-    case ID_HA:
+    case ID_CV:
     case ID_PT:
     case ID_VO: {
       /* No user defined texture space support. */
@@ -514,7 +498,7 @@ static void OVERLAY_forcefield(OVERLAY_ExtraCallBuffers *cb, Object *ob, ViewLay
   int theme_id = DRW_object_wire_theme_get(ob, view_layer, NULL);
   float *color = DRW_color_background_blend_get(theme_id);
   PartDeflect *pd = ob->pd;
-  Curve *cu = (ob->type == OB_CURVE) ? ob->data : NULL;
+  Curve *cu = (ob->type == OB_CURVES_LEGACY) ? ob->data : NULL;
 
   union {
     float mat[4][4];
@@ -771,7 +755,7 @@ void OVERLAY_lightprobe_cache_populate(OVERLAY_Data *vedata, Object *ob)
 
         uint cell_count = prb->grid_resolution_x * prb->grid_resolution_y * prb->grid_resolution_z;
         DRWShadingGroup *grp = DRW_shgroup_create_sub(vedata->stl->pd->extra_grid_grp);
-        DRW_shgroup_uniform_vec4_array_copy(grp, "gridModelMatrix", instdata.mat, 4);
+        DRW_shgroup_uniform_mat4_copy(grp, "gridModelMatrix", instdata.mat);
         DRW_shgroup_call_procedural_points(grp, NULL, cell_count);
       }
       break;
@@ -877,8 +861,8 @@ static void camera_view3d_reconstruction(
   int track_index = 1;
 
   float bundle_color_custom[3];
-  float *bundle_color_solid = G_draw.block.colorBundleSolid;
-  float *bundle_color_unselected = G_draw.block.colorWire;
+  float *bundle_color_solid = G_draw.block.color_bundle_solid;
+  float *bundle_color_unselected = G_draw.block.color_wire;
   uchar text_color_selected[4], text_color_unselected[4];
   /* Color Management: Exception here as texts are drawn in sRGB space directly. */
   UI_GetThemeColor4ubv(TH_SELECT, text_color_selected);
@@ -1050,7 +1034,7 @@ static void camera_stereoscopy_extra(OVERLAY_ExtraCallBuffers *cb,
       DRW_buffer_add_entry_struct(cb->camera_frame, &stereodata);
 
       /* Connecting line between cameras. */
-      OVERLAY_extra_line_dashed(cb, stereodata.pos, instdata->pos, G_draw.block.colorWire);
+      OVERLAY_extra_line_dashed(cb, stereodata.pos, instdata->pos, G_draw.block.color_wire);
     }
 
     if (is_stereo3d_volume && !is_select) {
@@ -1264,8 +1248,8 @@ static void OVERLAY_relationship_lines(OVERLAY_ExtraCallBuffers *cb,
                                        Scene *scene,
                                        Object *ob)
 {
-  float *relation_color = G_draw.block.colorWire;
-  float *constraint_color = G_draw.block.colorGridAxisZ; /* ? */
+  float *relation_color = G_draw.block.color_wire;
+  float *constraint_color = G_draw.block.color_grid_axis_z; /* ? */
 
   if (ob->parent && (DRW_object_visibility_in_active_context(ob->parent) & OB_VISIBLE_SELF)) {
     float *parent_pos = ob->runtime.parent_display_origin;

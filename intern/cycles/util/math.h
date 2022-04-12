@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #ifndef __UTIL_MATH_H__
 #define __UTIL_MATH_H__
@@ -80,6 +67,9 @@ CCL_NAMESPACE_BEGIN
 #ifndef M_SQRT2_F
 #  define M_SQRT2_F (1.4142135623730950f) /* sqrt(2) */
 #endif
+#ifndef M_SQRT3_F
+#  define M_SQRT3_F (1.7320508075688772f) /* sqrt(3) */
+#endif
 #ifndef M_LN2_F
 #  define M_LN2_F (0.6931471805599453f) /* ln(2) */
 #endif
@@ -124,7 +114,41 @@ ccl_device_inline int min(int a, int b)
   return (a < b) ? a : b;
 }
 
-ccl_device_inline uint min(uint a, uint b)
+ccl_device_inline uint32_t max(uint32_t a, uint32_t b)
+{
+  return (a > b) ? a : b;
+}
+
+ccl_device_inline uint32_t min(uint32_t a, uint32_t b)
+{
+  return (a < b) ? a : b;
+}
+
+ccl_device_inline uint64_t max(uint64_t a, uint64_t b)
+{
+  return (a > b) ? a : b;
+}
+
+ccl_device_inline uint64_t min(uint64_t a, uint64_t b)
+{
+  return (a < b) ? a : b;
+}
+
+/* NOTE: On 64bit Darwin the `size_t` is defined as `unsigned long int` and `uint64_t` is defined
+ * as `unsigned long long`. Both of the definitions are 64 bit unsigned integer, but the automatic
+ * substitution does not allow to automatically pick function defined for `uint64_t` as it is not
+ * exactly the same type definition.
+ * Work this around by adding a templated function enabled for `size_t` type which will be used
+ * when there is no explicit specialization of `min()`/`max()` above. */
+
+template<class T>
+ccl_device_inline typename std::enable_if_t<std::is_same_v<T, size_t>, T> max(T a, T b)
+{
+  return (a > b) ? a : b;
+}
+
+template<class T>
+ccl_device_inline typename std::enable_if_t<std::is_same_v<T, size_t>, T> min(T a, T b)
 {
   return (a < b) ? a : b;
 }
@@ -401,7 +425,7 @@ ccl_device_inline float fractf(float x)
   return x - floorf(x);
 }
 
-/* Adapted from godot-engine math_funcs.h. */
+/* Adapted from `godot-engine` math_funcs.h. */
 ccl_device_inline float wrapf(float value, float max, float min)
 {
   float range = max - min;
@@ -901,8 +925,14 @@ ccl_device_inline uint prev_power_of_two(uint x)
 ccl_device_inline uint32_t reverse_integer_bits(uint32_t x)
 {
   /* Use a native instruction if it exists. */
-#if defined(__arm__) || defined(__aarch64__)
+#if defined(__aarch64__) || defined(_M_ARM64)
+  /* Assume the rbit is always available on 64bit ARM architecture. */
   __asm__("rbit %w0, %w1" : "=r"(x) : "r"(x));
+  return x;
+#elif defined(__arm__) && ((__ARM_ARCH > 7) || __ARM_ARCH == 6 && __ARM_ARCH_ISA_THUMB >= 2)
+  /* This ARM instruction is available in ARMv6T2 and above.
+   * This 32-bit Thumb instruction is available in ARMv6T2 and above. */
+  __asm__("rbit %0, %1" : "=r"(x) : "r"(x));
   return x;
 #elif defined(__KERNEL_CUDA__)
   return __brev(x);

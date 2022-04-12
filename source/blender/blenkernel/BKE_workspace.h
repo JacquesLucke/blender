@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -45,7 +31,7 @@ struct WorkSpace *BKE_workspace_add(struct Main *bmain, const char *name);
 void BKE_workspace_remove(struct Main *bmain, struct WorkSpace *workspace);
 
 struct WorkSpaceInstanceHook *BKE_workspace_instance_hook_create(const struct Main *bmain,
-                                                                 const int winid);
+                                                                 int winid);
 void BKE_workspace_instance_hook_free(const struct Main *bmain,
                                       struct WorkSpaceInstanceHook *hook);
 
@@ -97,7 +83,7 @@ struct WorkSpaceLayout *BKE_workspace_layout_iter_circular(
     struct WorkSpaceLayout *start,
     bool (*callback)(const struct WorkSpaceLayout *layout, void *arg),
     void *arg,
-    const bool iter_backward);
+    bool iter_backward);
 
 void BKE_workspace_tool_remove(struct WorkSpace *workspace, struct bToolRef *tref)
     ATTR_NONNULL(1, 2);
@@ -132,13 +118,13 @@ struct WorkSpaceLayout *BKE_workspace_active_layout_get(const struct WorkSpaceIn
  * #WorkSpaceInstanceHook.act_layout should only be modified directly to update the layout pointer.
  */
 void BKE_workspace_active_layout_set(struct WorkSpaceInstanceHook *hook,
-                                     const int winid,
+                                     int winid,
                                      struct WorkSpace *workspace,
                                      struct WorkSpaceLayout *layout) SETTER_ATTRS;
 struct bScreen *BKE_workspace_active_screen_get(const struct WorkSpaceInstanceHook *hook)
     GETTER_ATTRS;
 void BKE_workspace_active_screen_set(struct WorkSpaceInstanceHook *hook,
-                                     const int winid,
+                                     int winid,
                                      struct WorkSpace *workspace,
                                      struct bScreen *screen) SETTER_ATTRS;
 

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
@@ -78,7 +62,7 @@ static void extract_edge_fac_init(const MeshRenderData *mr,
     data->edge_loop_count = static_cast<uchar *>(
         MEM_callocN(sizeof(uint32_t) * mr->edge_len, __func__));
 
-    /* HACK(fclem) Detecting the need for edge render.
+    /* HACK(@fclem): Detecting the need for edge render.
      * We could have a flag in the mesh instead or check the modifier stack. */
     const MEdge *med = mr->medge;
     for (int e_index = 0; e_index < mr->edge_len; e_index++, med++) {
@@ -149,9 +133,8 @@ static void extract_edge_fac_iter_poly_mesh(const MeshRenderData *mr,
         const MLoop *ml_next = &mr->mloop[ml_index_other];
         const MVert *v1 = &mr->mvert[ml->v];
         const MVert *v2 = &mr->mvert[ml_next->v];
-        float vnor_f[3];
-        normal_short_to_float_v3(vnor_f, v1->no);
-        float ratio = loop_edge_factor_get(mr->poly_normals[mp_index], v1->co, vnor_f, v2->co);
+        float ratio = loop_edge_factor_get(
+            mr->poly_normals[mp_index], v1->co, mr->vert_normals[ml->v], v2->co);
         data->vbo_data[ml_index] = ratio * 253 + 1;
       }
       else {
@@ -234,16 +217,17 @@ static GPUVertFormat *get_subdiv_edge_fac_format()
 }
 
 static void extract_edge_fac_init_subdiv(const DRWSubdivCache *subdiv_cache,
-                                         const MeshRenderData *mr,
+                                         const MeshRenderData *UNUSED(mr),
                                          struct MeshBatchCache *cache,
                                          void *buffer,
                                          void *UNUSED(data))
 {
+  const DRWSubdivLooseGeom &loose_geom = subdiv_cache->loose_geom;
   GPUVertBuf *edge_idx = cache->final.buff.vbo.edge_idx;
   GPUVertBuf *pos_nor = cache->final.buff.vbo.pos_nor;
   GPUVertBuf *vbo = static_cast<GPUVertBuf *>(buffer);
   GPU_vertbuf_init_build_on_device(
-      vbo, get_subdiv_edge_fac_format(), subdiv_cache->num_subdiv_loops + mr->loop_loose_len);
+      vbo, get_subdiv_edge_fac_format(), subdiv_cache->num_subdiv_loops + loose_geom.loop_len);
 
   /* Create a temporary buffer for the edge original indices if it was not requested. */
   const bool has_edge_idx = edge_idx != nullptr;
@@ -269,11 +253,11 @@ static void extract_edge_fac_init_subdiv(const DRWSubdivCache *subdiv_cache,
 
 static void extract_edge_fac_loose_geom_subdiv(const DRWSubdivCache *subdiv_cache,
                                                const MeshRenderData *UNUSED(mr),
-                                               const MeshExtractLooseGeom *loose_geom,
                                                void *buffer,
                                                void *UNUSED(data))
 {
-  if (loose_geom->edge_len == 0) {
+  const DRWSubdivLooseGeom &loose_geom = subdiv_cache->loose_geom;
+  if (loose_geom.edge_len == 0) {
     return;
   }
 
@@ -283,7 +267,7 @@ static void extract_edge_fac_loose_geom_subdiv(const DRWSubdivCache *subdiv_cach
   GPU_vertbuf_use(vbo);
 
   uint offset = subdiv_cache->num_subdiv_loops;
-  for (int i = 0; i < loose_geom->edge_len; i++) {
+  for (int i = 0; i < loose_geom.edge_len; i++) {
     if (GPU_crappy_amd_driver()) {
       float loose_edge_fac[2] = {1.0f, 1.0f};
       GPU_vertbuf_update_sub(vbo, offset * sizeof(float), sizeof(loose_edge_fac), loose_edge_fac);

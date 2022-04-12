@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_geometry_util.hh"
 
@@ -38,6 +24,15 @@ static void node_geo_exec(GeoNodeExecParams params)
 {
   const bool legacy_behavior = params.node().custom1 & GEO_NODE_REALIZE_INSTANCES_LEGACY_BEHAVIOR;
 
+  if (legacy_behavior) {
+    params.error_message_add(
+        NodeWarningType::Info,
+        TIP_("This node uses legacy behavior with regards to attributes on "
+             "instances. The behavior can be changed in the node properties in "
+             "the side bar. In most cases the new behavior is the same for files created in "
+             "Blender 3.0"));
+  }
+
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
   geometry::RealizeInstancesOptions options;
   options.keep_original_ids = legacy_behavior;
@@ -54,8 +49,7 @@ void register_node_type_geo_realize_instances()
 
   static bNodeType ntype;
 
-  geo_node_type_base(
-      &ntype, GEO_NODE_REALIZE_INSTANCES, "Realize Instances", NODE_CLASS_GEOMETRY, 0);
+  geo_node_type_base(&ntype, GEO_NODE_REALIZE_INSTANCES, "Realize Instances", NODE_CLASS_GEOMETRY);
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons_ex = file_ns::node_layout;
   ntype.geometry_node_execute = file_ns::node_geo_exec;

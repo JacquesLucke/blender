@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -39,6 +25,7 @@
 #include "BKE_appdir.h"
 #include "BKE_asset.h"
 #include "BKE_asset_catalog.hh"
+#include "BKE_idprop.hh"
 #include "BKE_preferences.h"
 
 #include "CLG_log.h"
@@ -49,9 +36,9 @@ namespace blender::ed::asset::index {
 
 using namespace blender::io::serialize;
 using namespace blender::bke;
+using namespace blender::bke::idprop;
 
 /**
- * \file asset_indexer.cc
  * \brief Indexer for asset libraries.
  *
  * Indexes are stored per input file. Each index can contain zero to multiple asset entries.
@@ -69,12 +56,13 @@ using namespace blender::bke;
  *     "catalog_name": "<catalog_name>",
  *     "description": "<description>",
  *     "author": "<author>",
- *     "tags": ["<tag>"]
+ *     "tags": ["<tag>"],
+ *     "properties": [..]
  *   }]
  * }
  * \endcode
  *
- * NOTE: entries, author, description and tags are optional attributes.
+ * NOTE: entries, author, description, tags and properties are optional attributes.
  *
  * NOTE: File browser uses name and idcode separate. Inside the index they are joined together like
  * #ID.name.
@@ -88,6 +76,7 @@ constexpr StringRef ATTRIBUTE_ENTRIES_CATALOG_NAME("catalog_name");
 constexpr StringRef ATTRIBUTE_ENTRIES_DESCRIPTION("description");
 constexpr StringRef ATTRIBUTE_ENTRIES_AUTHOR("author");
 constexpr StringRef ATTRIBUTE_ENTRIES_TAGS("tags");
+constexpr StringRef ATTRIBUTE_ENTRIES_PROPERTIES("properties");
 
 /** Abstract class for #BlendFile and #AssetIndexFile. */
 class AbstractFile {
@@ -145,7 +134,7 @@ struct AssetEntryReader {
   /**
    * \brief Lookup table containing the elements of the entry.
    */
-  ObjectValue::Lookup lookup;
+  DictionaryValue::Lookup lookup;
 
   StringRefNull get_name_with_idcode() const
   {
@@ -153,7 +142,7 @@ struct AssetEntryReader {
   }
 
  public:
-  AssetEntryReader(const ObjectValue &entry) : lookup(entry.create_lookup())
+  AssetEntryReader(const DictionaryValue &entry) : lookup(entry.create_lookup())
   {
   }
 
@@ -204,7 +193,7 @@ struct AssetEntryReader {
 
   void add_tags_to_meta_data(AssetMetaData *asset_data) const
   {
-    const ObjectValue::LookupValue *value_ptr = lookup.lookup_ptr(ATTRIBUTE_ENTRIES_TAGS);
+    const DictionaryValue::LookupValue *value_ptr = lookup.lookup_ptr(ATTRIBUTE_ENTRIES_TAGS);
     if (value_ptr == nullptr) {
       return;
     }
@@ -216,14 +205,28 @@ struct AssetEntryReader {
       BKE_asset_metadata_tag_add(asset_data, tag_name.c_str());
     }
   }
+
+  void add_properties_to_meta_data(AssetMetaData *asset_data) const
+  {
+    BLI_assert(asset_data->properties == nullptr);
+    const DictionaryValue::LookupValue *value_ptr = lookup.lookup_ptr(
+        ATTRIBUTE_ENTRIES_PROPERTIES);
+    if (value_ptr == nullptr) {
+      return;
+    }
+
+    const Value &value = *(value_ptr->get());
+    IDProperty *properties = convert_from_serialize_value(value);
+    asset_data->properties = properties;
+  }
 };
 
 struct AssetEntryWriter {
  private:
-  ObjectValue::Items &attributes;
+  DictionaryValue::Items &attributes;
 
  public:
-  AssetEntryWriter(ObjectValue &entry) : attributes(entry.elements())
+  AssetEntryWriter(DictionaryValue &entry) : attributes(entry.elements())
   {
   }
 
@@ -274,6 +277,15 @@ struct AssetEntryWriter {
       tag_items.append_as(new StringValue(tag->name));
     }
   }
+
+  void add_properties(const IDProperty *properties)
+  {
+    std::unique_ptr<Value> value = convert_to_serialize_values(properties);
+    if (value == nullptr) {
+      return;
+    }
+    attributes.append_as(std::pair(ATTRIBUTE_ENTRIES_PROPERTIES, value.release()));
+  }
 };
 
 static void init_value_from_file_indexer_entry(AssetEntryWriter &result,
@@ -298,10 +310,14 @@ static void init_value_from_file_indexer_entry(AssetEntryWriter &result,
     result.add_tags(&asset_data.tags);
   }
 
+  if (asset_data.properties != nullptr) {
+    result.add_properties(asset_data.properties);
+  }
+
   /* TODO: asset_data.IDProperties */
 }
 
-static void init_value_from_file_indexer_entries(ObjectValue &result,
+static void init_value_from_file_indexer_entries(DictionaryValue &result,
                                                  const FileIndexerEntries &indexer_entries)
 {
   ArrayValue *entries = new ArrayValue();
@@ -313,7 +329,7 @@ static void init_value_from_file_indexer_entries(ObjectValue &result,
     if (indexer_entry->datablock_info.asset_data == nullptr) {
       continue;
     }
-    ObjectValue *entry_value = new ObjectValue();
+    DictionaryValue *entry_value = new DictionaryValue();
     AssetEntryWriter entry(*entry_value);
     init_value_from_file_indexer_entry(entry, indexer_entry);
     items.append_as(entry_value);
@@ -326,7 +342,7 @@ static void init_value_from_file_indexer_entries(ObjectValue &result,
     return;
   }
 
-  ObjectValue::Items &attributes = result.elements();
+  DictionaryValue::Items &attributes = result.elements();
   attributes.append_as(std::pair(ATTRIBUTE_ENTRIES, entries));
 }
 
@@ -363,13 +379,14 @@ static void init_indexer_entry_from_value(FileIndexerEntry &indexer_entry,
   asset_data->catalog_id = entry.get_catalog_id();
 
   entry.add_tags_to_meta_data(asset_data);
+  entry.add_properties_to_meta_data(asset_data);
 }
 
 static int init_indexer_entries_from_value(FileIndexerEntries &indexer_entries,
-                                           const ObjectValue &value)
+                                           const DictionaryValue &value)
 {
-  const ObjectValue::Lookup attributes = value.create_lookup();
-  const ObjectValue::LookupValue *entries_value = attributes.lookup_ptr(ATTRIBUTE_ENTRIES);
+  const DictionaryValue::Lookup attributes = value.create_lookup();
+  const DictionaryValue::LookupValue *entries_value = attributes.lookup_ptr(ATTRIBUTE_ENTRIES);
   BLI_assert(entries_value != nullptr);
 
   if (entries_value == nullptr) {
@@ -379,7 +396,7 @@ static int init_indexer_entries_from_value(FileIndexerEntries &indexer_entries,
   int num_entries_read = 0;
   const ArrayValue::Items elements = (*entries_value)->as_array_value()->elements();
   for (ArrayValue::Item element : elements) {
-    const AssetEntryReader asset_entry(*element->as_object_value());
+    const AssetEntryReader asset_entry(*element->as_dictionary_value());
 
     FileIndexerEntry *entry = static_cast<FileIndexerEntry *>(
         MEM_callocN(sizeof(FileIndexerEntry), __func__));
@@ -476,15 +493,15 @@ struct AssetLibraryIndex {
       return;
     }
     struct direntry *dir_entries = nullptr;
-    int num_entries = BLI_filelist_dir_contents(index_path, &dir_entries);
-    for (int i = 0; i < num_entries; i++) {
+    const int dir_entries_num = BLI_filelist_dir_contents(index_path, &dir_entries);
+    for (int i = 0; i < dir_entries_num; i++) {
       struct direntry *entry = &dir_entries[i];
       if (BLI_str_endswith(entry->relname, ".index.json")) {
         unused_file_indices.add_as(std::string(entry->path));
       }
     }
 
-    BLI_filelist_free(dir_entries, num_entries);
+    BLI_filelist_free(dir_entries, dir_entries_num);
   }
 
   void mark_as_used(const std::string &filename)
@@ -534,9 +551,9 @@ struct AssetIndex {
   /**
    * `blender::io::serialize::Value` representing the contents of an index file.
    *
-   * Value is used over #ObjectValue as the contents of the index could be corrupted and doesn't
-   * represent an object. In case corrupted files are detected the `get_version` would return
-   * `UNKNOWN_VERSION`.
+   * Value is used over #DictionaryValue as the contents of the index could be corrupted and
+   * doesn't represent an object. In case corrupted files are detected the `get_version` would
+   * return `UNKNOWN_VERSION`.
    */
   std::unique_ptr<Value> contents;
 
@@ -546,8 +563,8 @@ struct AssetIndex {
    */
   AssetIndex(const FileIndexerEntries &indexer_entries)
   {
-    std::unique_ptr<ObjectValue> root = std::make_unique<ObjectValue>();
-    ObjectValue::Items &root_attributes = root->elements();
+    std::unique_ptr<DictionaryValue> root = std::make_unique<DictionaryValue>();
+    DictionaryValue::Items &root_attributes = root->elements();
     root_attributes.append_as(std::pair(ATTRIBUTE_VERSION, new IntValue(CURRENT_VERSION)));
     init_value_from_file_indexer_entries(*root, indexer_entries);
 
@@ -564,12 +581,12 @@ struct AssetIndex {
 
   int get_version() const
   {
-    const ObjectValue *root = contents->as_object_value();
+    const DictionaryValue *root = contents->as_dictionary_value();
     if (root == nullptr) {
       return UNKNOWN_VERSION;
     }
-    const ObjectValue::Lookup attributes = root->create_lookup();
-    const ObjectValue::LookupValue *version_value = attributes.lookup_ptr(ATTRIBUTE_VERSION);
+    const DictionaryValue::Lookup attributes = root->create_lookup();
+    const DictionaryValue::LookupValue *version_value = attributes.lookup_ptr(ATTRIBUTE_VERSION);
     if (version_value == nullptr) {
       return UNKNOWN_VERSION;
     }
@@ -588,7 +605,7 @@ struct AssetIndex {
    */
   int extract_into(FileIndexerEntries &indexer_entries) const
   {
-    const ObjectValue *root = contents->as_object_value();
+    const DictionaryValue *root = contents->as_dictionary_value();
     const int num_entries_read = init_indexer_entries_from_value(indexer_entries, *root);
     return num_entries_read;
   }

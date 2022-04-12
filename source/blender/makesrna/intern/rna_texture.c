@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -35,6 +21,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_paint.h"
 
 #include "RNA_define.h"
@@ -205,8 +192,23 @@ static void rna_Texture_update(Main *bmain, Scene *UNUSED(scene), PointerRNA *pt
 
 static void rna_Texture_mapping_update(Main *bmain, Scene *scene, PointerRNA *ptr)
 {
+  ID *id = ptr->owner_id;
   TexMapping *texmap = ptr->data;
   BKE_texture_mapping_init(texmap);
+
+  if (GS(id->name) == ID_NT) {
+    bNodeTree *ntree = (bNodeTree *)ptr->owner_id;
+    /* Try to find and tag the node that this #TexMapping belongs to. */
+    LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+      /* This assumes that the #TexMapping is stored at the beginning of the node storage. This is
+       * generally true, see #NodeTexBase. If the assumption happens to be false, there might be a
+       * missing update. */
+      if (node->storage == texmap) {
+        BKE_ntree_update_tag_node_property(ntree, node);
+      }
+    }
+  }
+
   rna_Texture_update(bmain, scene, ptr);
 }
 

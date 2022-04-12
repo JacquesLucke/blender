@@ -1,32 +1,19 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup shdnodes
  */
 
-#include "node_shader_util.h"
+#include "node_shader_util.hh"
 
 #include "NOD_math_functions.hh"
 #include "NOD_socket_search_link.hh"
 
 #include "RNA_enum_types.h"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
 
 namespace blender::nodes::node_shader_vector_math_cc {
 
@@ -39,7 +26,12 @@ static void sh_node_vector_math_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Float>(N_("Scale")).default_value(1.0f).min(-10000.0f).max(10000.0f);
   b.add_output<decl::Vector>(N_("Vector"));
   b.add_output<decl::Float>(N_("Value"));
-};
+}
+
+static void node_shader_buts_vect_math(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
+  uiItemR(layout, ptr, "operation", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
+}
 
 class SocketSearchOp {
  public:
@@ -55,12 +47,8 @@ class SocketSearchOp {
 
 static void sh_node_vector_math_gather_link_searches(GatherLinkSearchOpParams &params)
 {
-  if (!ELEM(params.other_socket().type,
-            SOCK_FLOAT,
-            SOCK_BOOLEAN,
-            SOCK_INT,
-            SOCK_VECTOR,
-            SOCK_RGBA)) {
+  if (!params.node_tree().typeinfo->validate_link(
+          static_cast<eNodeSocketDatatype>(params.other_socket().type), SOCK_VECTOR)) {
     return;
   }
 
@@ -237,17 +225,25 @@ static void node_shader_update_vector_math(bNodeTree *ntree, bNode *node)
   }
 }
 
-static const blender::fn::MultiFunction *get_multi_function(bNode &node)
+static const fn::MultiFunction *get_multi_function(bNode &node)
 {
-  using blender::float3;
-
   NodeVectorMathOperation operation = NodeVectorMathOperation(node.custom1);
 
-  const blender::fn::MultiFunction *multi_fn = nullptr;
+  const fn::MultiFunction *multi_fn = nullptr;
 
-  blender::nodes::try_dispatch_float_math_fl3_fl3_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{
+  try_dispatch_float_math_fl3_fl3_to_fl3(operation,
+                                         [&](auto function, const FloatMathOperationInfo &info) {
+                                           static fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{
+                                               info.title_case_name.c_str(), function};
+                                           multi_fn = &fn;
+                                         });
+  if (multi_fn != nullptr) {
+    return multi_fn;
+  }
+
+  try_dispatch_float_math_fl3_fl3_fl3_to_fl3(
+      operation, [&](auto function, const FloatMathOperationInfo &info) {
+        static fn::CustomMF_SI_SI_SI_SO<float3, float3, float3, float3> fn{
             info.title_case_name.c_str(), function};
         multi_fn = &fn;
       });
@@ -255,9 +251,9 @@ static const blender::fn::MultiFunction *get_multi_function(bNode &node)
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_fl3_fl3_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SI_SO<float3, float3, float3, float3> fn{
+  try_dispatch_float_math_fl3_fl3_fl_to_fl3(
+      operation, [&](auto function, const FloatMathOperationInfo &info) {
+        static fn::CustomMF_SI_SI_SI_SO<float3, float3, float, float3> fn{
             info.title_case_name.c_str(), function};
         multi_fn = &fn;
       });
@@ -265,50 +261,38 @@ static const blender::fn::MultiFunction *get_multi_function(bNode &node)
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_fl3_fl_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SI_SO<float3, float3, float, float3> fn{
-            info.title_case_name.c_str(), function};
+  try_dispatch_float_math_fl3_fl3_to_fl(operation,
+                                        [&](auto function, const FloatMathOperationInfo &info) {
+                                          static fn::CustomMF_SI_SI_SO<float3, float3, float> fn{
+                                              info.title_case_name.c_str(), function};
+                                          multi_fn = &fn;
+                                        });
+  if (multi_fn != nullptr) {
+    return multi_fn;
+  }
+
+  try_dispatch_float_math_fl3_fl_to_fl3(operation,
+                                        [&](auto function, const FloatMathOperationInfo &info) {
+                                          static fn::CustomMF_SI_SI_SO<float3, float, float3> fn{
+                                              info.title_case_name.c_str(), function};
+                                          multi_fn = &fn;
+                                        });
+  if (multi_fn != nullptr) {
+    return multi_fn;
+  }
+
+  try_dispatch_float_math_fl3_to_fl3(
+      operation, [&](auto function, const FloatMathOperationInfo &info) {
+        static fn::CustomMF_SI_SO<float3, float3> fn{info.title_case_name.c_str(), function};
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
     return multi_fn;
   }
 
-  blender::nodes::try_dispatch_float_math_fl3_fl3_to_fl(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SO<float3, float3, float> fn{
-            info.title_case_name.c_str(), function};
-        multi_fn = &fn;
-      });
-  if (multi_fn != nullptr) {
-    return multi_fn;
-  }
-
-  blender::nodes::try_dispatch_float_math_fl3_fl_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SI_SO<float3, float, float3> fn{
-            info.title_case_name.c_str(), function};
-        multi_fn = &fn;
-      });
-  if (multi_fn != nullptr) {
-    return multi_fn;
-  }
-
-  blender::nodes::try_dispatch_float_math_fl3_to_fl3(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SO<float3, float3> fn{info.title_case_name.c_str(),
-                                                              function};
-        multi_fn = &fn;
-      });
-  if (multi_fn != nullptr) {
-    return multi_fn;
-  }
-
-  blender::nodes::try_dispatch_float_math_fl3_to_fl(
-      operation, [&](auto function, const blender::nodes::FloatMathOperationInfo &info) {
-        static blender::fn::CustomMF_SI_SO<float3, float> fn{info.title_case_name.c_str(),
-                                                             function};
+  try_dispatch_float_math_fl3_to_fl(
+      operation, [&](auto function, const FloatMathOperationInfo &info) {
+        static fn::CustomMF_SI_SO<float3, float> fn{info.title_case_name.c_str(), function};
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {
@@ -318,10 +302,9 @@ static const blender::fn::MultiFunction *get_multi_function(bNode &node)
   return nullptr;
 }
 
-static void sh_node_vector_math_build_multi_function(
-    blender::nodes::NodeMultiFunctionBuilder &builder)
+static void sh_node_vector_math_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  const blender::fn::MultiFunction *fn = get_multi_function(builder.node());
+  const fn::MultiFunction *fn = get_multi_function(builder.node());
   builder.set_matching_fn(fn);
 }
 
@@ -333,8 +316,9 @@ void register_node_type_sh_vect_math()
 
   static bNodeType ntype;
 
-  sh_fn_node_type_base(&ntype, SH_NODE_VECTOR_MATH, "Vector Math", NODE_CLASS_OP_VECTOR, 0);
+  sh_fn_node_type_base(&ntype, SH_NODE_VECTOR_MATH, "Vector Math", NODE_CLASS_OP_VECTOR);
   ntype.declare = file_ns::sh_node_vector_math_declare;
+  ntype.draw_buttons = file_ns::node_shader_buts_vect_math;
   ntype.labelfunc = node_vector_math_label;
   node_type_gpu(&ntype, file_ns::gpu_shader_vector_math);
   node_type_update(&ntype, file_ns::node_shader_update_vector_math);

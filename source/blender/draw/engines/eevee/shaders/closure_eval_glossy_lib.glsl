@@ -26,10 +26,13 @@ struct ClosureEvalGlossy {
 
 #ifdef STEP_RESOLVE /* SSR */
 /* Prototype. */
+#  ifndef GPU_METAL
+/* MSL does not require prototypes. */
 void raytrace_resolve(ClosureInputGlossy cl_in,
                       inout ClosureEvalGlossy cl_eval,
                       inout ClosureEvalCommon cl_common,
                       inout ClosureOutputGlossy cl_out);
+#  endif
 #endif
 
 ClosureEvalGlossy closure_Glossy_eval_init(inout ClosureInputGlossy cl_in,
@@ -63,7 +66,7 @@ ClosureEvalGlossy closure_Glossy_eval_init(inout ClosureInputGlossy cl_in,
 
   /* The brdf split sum LUT is applied after the radiance accumulation.
    * Correct the LTC so that its energy is constant. */
-  /* TODO(fclem) Optimize this so that only one scale factor is stored. */
+  /* TODO(@fclem): Optimize this so that only one scale factor is stored. */
   vec4 ltc_brdf = texture(utilTex, vec3(lut_uv, LTC_BRDF_LAYER)).barg;
   vec2 split_sum_brdf = ltc_brdf.zw;
   cl_eval.ltc_brdf_scale = (ltc_brdf.x + ltc_brdf.y) / (split_sum_brdf.x + split_sum_brdf.y);

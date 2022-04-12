@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edsculpt
@@ -179,7 +163,7 @@ static void mask_filter_task_cb(void *__restrict userdata,
       update = true;
     }
     if (vd.mvert) {
-      vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+      BKE_pbvh_vert_mark_update(ss->pbvh, vd.index);
     }
   }
   BKE_pbvh_vertex_iter_end;
@@ -255,7 +239,7 @@ static int sculpt_mask_filter_exec(bContext *C, wmOperator *op)
 
   MEM_SAFE_FREE(nodes);
 
-  SCULPT_undo_push_end();
+  SCULPT_undo_push_end(ob);
 
   SCULPT_tag_update_overlays(C);
 
@@ -334,14 +318,7 @@ static float neighbor_dirty_mask(SculptSession *ss, PBVHVertexIter *vd)
 
   if (total > 0) {
     mul_v3_fl(avg, 1.0f / total);
-    float normal[3];
-    if (vd->no) {
-      normal_short_to_float_v3(normal, vd->no);
-    }
-    else {
-      copy_v3_v3(normal, vd->fno);
-    }
-    float dot = dot_v3v3(avg, normal);
+    float dot = dot_v3v3(avg, vd->no ? vd->no : vd->fno);
     float angle = max_ff(saacosf(dot), 0.0f);
     return angle;
   }
@@ -410,7 +387,7 @@ static void dirty_mask_apply_task_cb(void *__restrict userdata,
     *vd.mask = CLAMPIS(mask, 0.0f, 1.0f);
 
     if (vd.mvert) {
-      vd.mvert->flag |= ME_VERT_PBVH_UPDATE;
+      BKE_pbvh_vert_mark_update(ss->pbvh, vd.index);
     }
   }
   BKE_pbvh_vertex_iter_end;
@@ -470,7 +447,7 @@ static int sculpt_dirty_mask_exec(bContext *C, wmOperator *op)
 
   BKE_pbvh_update_vertex_data(pbvh, PBVH_UpdateMask);
 
-  SCULPT_undo_push_end();
+  SCULPT_undo_push_end(ob);
 
   ED_region_tag_redraw(region);
 

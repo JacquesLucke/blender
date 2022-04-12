@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 #include "BKE_subdiv_modifier.h"
 
@@ -70,29 +54,30 @@ static ModifierData *modifier_get_last_enabled_for_mode(const Scene *scene,
   return md;
 }
 
-bool BKE_subsurf_modifier_can_do_gpu_subdiv_ex(const Scene *scene,
-                                               const Object *ob,
-                                               const SubsurfModifierData *smd,
-                                               int required_mode,
-                                               bool skip_check_is_last)
+bool BKE_subsurf_modifier_use_custom_loop_normals(const SubsurfModifierData *smd, const Mesh *mesh)
 {
-  if ((U.gpu_flag & USER_GPU_FLAG_SUBDIVISION_EVALUATION) == 0) {
-    return false;
-  }
+  return (smd->flags & eSubsurfModifierFlag_UseCustomNormals) && (mesh->flag & ME_AUTOSMOOTH) &&
+         CustomData_has_layer(&mesh->ldata, CD_CUSTOMLOOPNORMAL);
+}
 
-  if (!skip_check_is_last) {
-    ModifierData *md = modifier_get_last_enabled_for_mode(scene, ob, required_mode);
-    if (md != (const ModifierData *)smd) {
-      return false;
-    }
-  }
+static bool subsurf_modifier_use_autosmooth_or_split_normals(const SubsurfModifierData *smd,
+                                                             const Mesh *mesh)
+{
+  return (mesh->flag & ME_AUTOSMOOTH) || BKE_subsurf_modifier_use_custom_loop_normals(smd, mesh);
+}
 
+static bool is_subdivision_evaluation_possible_on_gpu(void)
+{
   /* Only OpenGL is supported for OpenSubdiv evaluation for now. */
   if (GPU_backend_get_type() != GPU_BACKEND_OPENGL) {
     return false;
   }
 
-  if (!GPU_compute_shader_support()) {
+  if (!(GPU_compute_shader_support() && GPU_shader_storage_buffer_objects_support())) {
+    return false;
+  }
+
+  if (GPU_max_shader_storage_buffer_bindings() < MAX_GPU_SUBDIV_SSBOS) {
     return false;
   }
 
@@ -104,8 +89,52 @@ bool BKE_subsurf_modifier_can_do_gpu_subdiv_ex(const Scene *scene,
   return true;
 }
 
+bool BKE_subsurf_modifier_force_disable_gpu_evaluation_for_mesh(const SubsurfModifierData *smd,
+                                                                const Mesh *mesh)
+{
+  if ((U.gpu_flag & USER_GPU_FLAG_SUBDIVISION_EVALUATION) == 0) {
+    /* GPU subdivision is explicitly disabled, so we don't force it. */
+    return false;
+  }
+
+  if (!is_subdivision_evaluation_possible_on_gpu()) {
+    /* The GPU type is not compatible with the subdivision. */
+    return false;
+  }
+
+  return subsurf_modifier_use_autosmooth_or_split_normals(smd, mesh);
+}
+
+bool BKE_subsurf_modifier_can_do_gpu_subdiv_ex(const Scene *scene,
+                                               const Object *ob,
+                                               const Mesh *mesh,
+                                               const SubsurfModifierData *smd,
+                                               int required_mode,
+                                               bool skip_check_is_last)
+{
+  if ((U.gpu_flag & USER_GPU_FLAG_SUBDIVISION_EVALUATION) == 0) {
+    return false;
+  }
+
+  /* Deactivate GPU subdivision if autosmooth or custom split normals are used as those are
+   * complicated to support on GPU, and should really be separate workflows. */
+  if (subsurf_modifier_use_autosmooth_or_split_normals(smd, mesh)) {
+    return false;
+  }
+
+  if (!skip_check_is_last) {
+    ModifierData *md = modifier_get_last_enabled_for_mode(scene, ob, required_mode);
+    if (md != (const ModifierData *)smd) {
+      return false;
+    }
+  }
+
+  return is_subdivision_evaluation_possible_on_gpu();
+}
+
 bool BKE_subsurf_modifier_can_do_gpu_subdiv(const Scene *scene,
                                             const Object *ob,
+                                            const Mesh *mesh,
                                             int required_mode)
 {
   ModifierData *md = modifier_get_last_enabled_for_mode(scene, ob, required_mode);
@@ -119,13 +148,11 @@ bool BKE_subsurf_modifier_can_do_gpu_subdiv(const Scene *scene,
   }
 
   return BKE_subsurf_modifier_can_do_gpu_subdiv_ex(
-      scene, ob, (SubsurfModifierData *)md, required_mode, true);
+      scene, ob, mesh, (SubsurfModifierData *)md, required_mode, true);
 }
 
 void (*BKE_subsurf_modifier_free_gpu_cache_cb)(Subdiv *subdiv) = NULL;
 
-/* Main goal of this function is to give usable subdivision surface descriptor
- * which matches settings and topology. */
 Subdiv *BKE_subsurf_modifier_subdiv_descriptor_ensure(const SubsurfModifierData *smd,
                                                       const SubdivSettings *subdiv_settings,
                                                       const Mesh *mesh,

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2011 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spclip
@@ -34,6 +18,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "DNA_defaults.h"
 #include "DNA_mask_types.h"
 
 #include "BLI_fileops.h"
@@ -646,7 +631,7 @@ void ED_space_clip_set_mask(bContext *C, SpaceClip *sc, Mask *mask)
  * \{ */
 
 typedef struct PrefetchJob {
-  /* Clip into which cache the frames will be prefetched into. */
+  /** Clip into which cache the frames will be pre-fetched into. */
   MovieClip *clip;
 
   /* Local copy of the clip which is used to decouple reading in a way which does not require
@@ -686,7 +671,7 @@ static bool check_prefetch_break(void)
 static uchar *prefetch_read_file_to_memory(
     MovieClip *clip, int current_frame, short render_size, short render_flag, size_t *r_size)
 {
-  MovieClipUser user = {0};
+  MovieClipUser user = *DNA_struct_default_get(MovieClipUser);
   user.framenr = current_frame;
   user.render_size = render_size;
   user.render_flag = render_flag;
@@ -733,7 +718,7 @@ static int prefetch_find_uncached_frame(MovieClip *clip,
                                         short direction)
 {
   int current_frame;
-  MovieClipUser user = {0};
+  MovieClipUser user = *DNA_struct_default_get(MovieClipUser);
 
   user.render_size = render_size;
   user.render_flag = render_flag;
@@ -833,7 +818,7 @@ static void prefetch_task_func(TaskPool *__restrict pool, void *task_data)
 
   while ((mem = prefetch_thread_next_frame(queue, clip, &size, &current_frame))) {
     ImBuf *ibuf;
-    MovieClipUser user = {0};
+    MovieClipUser user = *DNA_struct_default_get(MovieClipUser);
     int flag = IB_rect | IB_multilayer | IB_alphamode_detect | IB_metadata;
     int result;
     char *colorspace_name = NULL;
@@ -915,7 +900,7 @@ static bool prefetch_movie_frame(MovieClip *clip,
                                  short render_flag,
                                  short *stop)
 {
-  MovieClipUser user = {0};
+  MovieClipUser user = *DNA_struct_default_get(MovieClipUser);
 
   if (check_prefetch_break() || *stop) {
     return false;

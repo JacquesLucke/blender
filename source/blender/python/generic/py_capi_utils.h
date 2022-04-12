@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pygen
@@ -57,31 +43,31 @@ void PyC_Err_PrintWithFunc(PyObject *py_func);
 void PyC_FileAndNum(const char **r_filename, int *r_lineno);
 void PyC_FileAndNum_Safe(const char **r_filename, int *r_lineno); /* checks python is running */
 int PyC_AsArray_FAST(void *array,
-                     const size_t array_item_size,
+                     size_t array_item_size,
                      PyObject *value_fast,
-                     const Py_ssize_t length,
+                     Py_ssize_t length,
                      const PyTypeObject *type,
                      const char *error_prefix);
 int PyC_AsArray(void *array,
-                const size_t array_item_size,
+                size_t array_item_size,
                 PyObject *value,
-                const Py_ssize_t length,
+                Py_ssize_t length,
                 const PyTypeObject *type,
                 const char *error_prefix);
 
 int PyC_AsArray_Multi_FAST(void *array,
-                           const size_t array_item_size,
+                           size_t array_item_size,
                            PyObject *value_fast,
                            const int *dims,
-                           const int dims_len,
+                           int dims_len,
                            const PyTypeObject *type,
                            const char *error_prefix);
 
 int PyC_AsArray_Multi(void *array,
-                      const size_t array_item_size,
+                      size_t array_item_size,
                       PyObject *value,
                       const int *dims,
-                      const int dims_len,
+                      int dims_len,
                       const PyTypeObject *type,
                       const char *error_prefix);
 
@@ -102,10 +88,10 @@ PyObject *PyC_Tuple_PackArray_Bool(const bool *array, uint len);
 #define PyC_Tuple_Pack_Bool(...) \
   PyC_Tuple_PackArray_Bool(((const bool[]){__VA_ARGS__}), VA_NARGS_COUNT(__VA_ARGS__))
 
-PyObject *PyC_Tuple_PackArray_Multi_F32(const float *array, const int dims[], const int dims_len);
-PyObject *PyC_Tuple_PackArray_Multi_F64(const double *array, const int dims[], const int dims_len);
-PyObject *PyC_Tuple_PackArray_Multi_I32(const int *array, const int dims[], const int dims_len);
-PyObject *PyC_Tuple_PackArray_Multi_Bool(const bool *array, const int dims[], const int dims_len);
+PyObject *PyC_Tuple_PackArray_Multi_F32(const float *array, const int dims[], int dims_len);
+PyObject *PyC_Tuple_PackArray_Multi_F64(const double *array, const int dims[], int dims_len);
+PyObject *PyC_Tuple_PackArray_Multi_I32(const int *array, const int dims[], int dims_len);
+PyObject *PyC_Tuple_PackArray_Multi_Bool(const bool *array, const int dims[], int dims_len);
 
 /**
  * Caller needs to ensure tuple is uninitialized.
@@ -219,8 +205,7 @@ struct PyC_StringEnum {
  * Use with PyArg_ParseTuple's "O&" formatting.
  */
 int PyC_ParseStringEnum(PyObject *o, void *p);
-const char *PyC_StringEnum_FindIDFromValue(const struct PyC_StringEnumItems *items,
-                                           const int value);
+const char *PyC_StringEnum_FindIDFromValue(const struct PyC_StringEnumItems *items, int value);
 
 int PyC_CheckArgs_DeepCopy(PyObject *args);
 

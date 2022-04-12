@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2013 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2013 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup depsgraph
@@ -129,10 +113,10 @@ void DEG_free_node_types(void);
  * \{ */
 
 /** Tag dependency graph for updates when visible scenes/layers changes. */
-void DEG_graph_tag_on_visible_update(Depsgraph *depsgraph, const bool do_time);
+void DEG_graph_tag_on_visible_update(Depsgraph *depsgraph, bool do_time);
 
 /** Tag all dependency graphs for update when visible scenes/layers changes. */
-void DEG_tag_on_visible_update(struct Main *bmain, const bool do_time);
+void DEG_tag_on_visible_update(struct Main *bmain, bool do_time);
 
 /**
  * \note Will return NULL if the flag is not known, allowing to gracefully handle situations
@@ -173,7 +157,7 @@ void DEG_enable_editors_update(struct Depsgraph *depsgraph);
 void DEG_editors_update(struct Depsgraph *depsgraph, bool time);
 
 /** Clear recalc flags after editors or renderers have handled updates. */
-void DEG_ids_clear_recalc(Depsgraph *depsgraph, const bool backup);
+void DEG_ids_clear_recalc(Depsgraph *depsgraph, bool backup);
 
 /**
  * Restore recalc flags, backed up by a previous call to #DEG_ids_clear_recalc.
@@ -220,8 +204,7 @@ typedef struct DEGEditorUpdateContext {
 } DEGEditorUpdateContext;
 
 typedef void (*DEG_EditorUpdateIDCb)(const DEGEditorUpdateContext *update_ctx, struct ID *id);
-typedef void (*DEG_EditorUpdateSceneCb)(const DEGEditorUpdateContext *update_ctx,
-                                        const bool updated);
+typedef void (*DEG_EditorUpdateSceneCb)(const DEGEditorUpdateContext *update_ctx, bool updated);
 
 /** Set callbacks which are being called when depsgraph changes. */
 void DEG_editors_set_update_cb(DEG_EditorUpdateIDCb id_func, DEG_EditorUpdateSceneCb scene_func);
@@ -266,7 +249,7 @@ void DEG_debug_print_eval_subdata_index(struct Depsgraph *depsgraph,
                                         const char *subdata_comment,
                                         const char *subdata_name,
                                         const void *subdata_address,
-                                        const int subdata_index);
+                                        int subdata_index);
 
 void DEG_debug_print_eval_parent_typed(struct Depsgraph *depsgraph,
                                        const char *function_name,

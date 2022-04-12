@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spseq
@@ -39,6 +23,7 @@
 #include "BKE_context.h"
 #include "BKE_global.h"
 #include "BKE_lib_id.h"
+#include "BKE_lib_remap.h"
 #include "BKE_screen.h"
 #include "BKE_sequencer_offscreen.h"
 
@@ -146,6 +131,14 @@ static SpaceLink *sequencer_create(const ScrArea *UNUSED(area), const Scene *sce
   region->regiontype = RGN_TYPE_TOOLS;
   region->alignment = RGN_ALIGN_LEFT;
   region->flag = RGN_FLAG_HIDDEN;
+  region->v2d.flag |= V2D_VIEWSYNC_AREA_VERTICAL;
+
+  /* Channels. */
+  region = MEM_callocN(sizeof(ARegion), "channels for sequencer");
+
+  BLI_addtail(&sseq->regionbase, region);
+  region->regiontype = RGN_TYPE_CHANNELS;
+  region->alignment = RGN_ALIGN_LEFT;
 
   /* Preview region. */
   /* NOTE: if you change values here, also change them in sequencer_init_preview_region. */
@@ -197,6 +190,7 @@ static SpaceLink *sequencer_create(const ScrArea *UNUSED(area), const Scene *sce
   region->v2d.scroll |= (V2D_SCROLL_RIGHT | V2D_SCROLL_VERTICAL_HANDLES);
   region->v2d.keepzoom = 0;
   region->v2d.keeptot = 0;
+  region->v2d.flag |= V2D_VIEWSYNC_AREA_VERTICAL;
   region->v2d.align = V2D_ALIGN_NO_NEG_Y;
 
   sseq->runtime.last_displayed_thumbnails = NULL;
@@ -705,12 +699,6 @@ static void sequencer_main_region_message_subscribe(const wmRegionMessageSubscri
   /* Timeline depends on scene properties. */
   {
     bool use_preview = (scene->r.flag & SCER_PRV_RANGE);
-    extern PropertyRNA rna_Scene_frame_start;
-    extern PropertyRNA rna_Scene_frame_end;
-    extern PropertyRNA rna_Scene_frame_preview_start;
-    extern PropertyRNA rna_Scene_frame_preview_end;
-    extern PropertyRNA rna_Scene_use_preview_range;
-    extern PropertyRNA rna_Scene_frame_current;
     const PropertyRNA *props[] = {
         use_preview ? &rna_Scene_frame_preview_start : &rna_Scene_frame_start,
         use_preview ? &rna_Scene_frame_preview_end : &rna_Scene_frame_end,
@@ -988,22 +976,33 @@ static void sequencer_buttons_region_listener(const wmRegionListenerParams *para
   }
 }
 
-static void sequencer_id_remap(ScrArea *UNUSED(area), SpaceLink *slink, ID *old_id, ID *new_id)
+static void sequencer_id_remap(ScrArea *UNUSED(area),
+                               SpaceLink *slink,
+                               const struct IDRemapper *mappings)
 {
   SpaceSeq *sseq = (SpaceSeq *)slink;
-
-  if (!ELEM(GS(old_id->name), ID_GD)) {
-    return;
-  }
-
-  if ((ID *)sseq->gpd == old_id) {
-    sseq->gpd = (bGPdata *)new_id;
-    id_us_min(old_id);
-    id_us_plus(new_id);
-  }
+  BKE_id_remapper_apply(mappings, (ID **)&sseq->gpd, ID_REMAP_APPLY_DEFAULT);
 }
 
 /* ************************************* */
+
+/* add handlers, stuff you only do once or on area/region changes */
+static void sequencer_channel_region_init(wmWindowManager *wm, ARegion *region)
+{
+  wmKeyMap *keymap;
+
+  region->alignment = RGN_ALIGN_LEFT;
+
+  UI_view2d_region_reinit(&region->v2d, V2D_COMMONVIEW_LIST, region->winx, region->winy);
+
+  keymap = WM_keymap_ensure(wm->defaultconf, "Sequencer Channels", SPACE_SEQ, 0);
+  WM_event_add_keymap_handler_v2d_mask(&region->handlers, keymap);
+}
+
+static void sequencer_channel_region_draw(const bContext *C, ARegion *region)
+{
+  draw_channels(C, region);
+}
 
 void ED_spacetype_sequencer(void)
 {
@@ -1074,6 +1073,16 @@ void ED_spacetype_sequencer(void)
   art->snap_size = ED_region_generic_tools_region_snap_size;
   art->init = sequencer_tools_region_init;
   art->draw = sequencer_tools_region_draw;
+  BLI_addhead(&st->regiontypes, art);
+
+  /* Channels. */
+  art = MEM_callocN(sizeof(ARegionType), "spacetype sequencer channels");
+  art->regionid = RGN_TYPE_CHANNELS;
+  art->prefsizex = UI_COMPACT_PANEL_WIDTH;
+  art->keymapflag = ED_KEYMAP_UI;
+  art->init = sequencer_channel_region_init;
+  art->draw = sequencer_channel_region_draw;
+  art->listener = sequencer_main_region_listener;
   BLI_addhead(&st->regiontypes, art);
 
   /* Tool header. */

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008, Blender Foundation
- * This is a new part of Blender
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. */
 
 #pragma once
 
@@ -57,7 +41,7 @@ bool BKE_gpencil_data_minmax(const struct bGPdata *gpd, float r_min[3], float r_
  * \return True if it was possible to calculate
  */
 bool BKE_gpencil_stroke_minmax(const struct bGPDstroke *gps,
-                               const bool use_select,
+                               bool use_select,
                                float r_min[3],
                                float r_max[3]);
 
@@ -136,8 +120,8 @@ bool BKE_gpencil_stroke_trim(struct bGPdata *gpd, struct bGPDstroke *gps);
 void BKE_gpencil_stroke_merge_distance(struct bGPdata *gpd,
                                        struct bGPDframe *gpf,
                                        struct bGPDstroke *gps,
-                                       const float threshold,
-                                       const bool use_unselected);
+                                       float threshold,
+                                       bool use_unselected);
 
 /**
  * Get points of stroke always flat to view not affected
@@ -167,7 +151,7 @@ void BKE_gpencil_stroke_2d_flat_ref(const struct bGPDspoint *ref_points,
                                     const struct bGPDspoint *points,
                                     int totpoints,
                                     float (*points2d)[2],
-                                    const float scale,
+                                    float scale,
                                     int *r_direction);
 /**
  * Triangulate stroke to generate data for filling areas.
@@ -224,43 +208,90 @@ void BKE_gpencil_point_coords_apply_with_mat4(struct bGPdata *gpd,
  * \param gpd: Grease pencil data-block
  * \param gps: Stroke to sample
  * \param dist: Distance of one segment
+ * \param sharp_threshold: Threshold for preserving sharp corners
  */
 bool BKE_gpencil_stroke_sample(struct bGPdata *gpd,
                                struct bGPDstroke *gps,
                                const float dist,
-                               const bool select);
+                               const bool select,
+                               const float sharp_threshold);
 /**
  * Apply smooth position to stroke point.
  * \param gps: Stroke to smooth
  * \param i: Point index
  * \param inf: Amount of smoothing to apply
+ * \param iterations: Radius of points to consider, equivalent to iterations
  * \param smooth_caps: Apply smooth to stroke extremes
+ * \param keep_shape: Smooth out fine details first
+ * \param r_gps: Stroke to put the result into
  */
 bool BKE_gpencil_stroke_smooth_point(struct bGPDstroke *gps,
-                                     int i,
-                                     float inf,
-                                     const bool smooth_caps);
+                                     int point_index,
+                                     float influence,
+                                     int iterations,
+                                     bool smooth_caps,
+                                     bool keep_shape,
+                                     struct bGPDstroke *r_gps);
 /**
  * Apply smooth strength to stroke point.
  * \param gps: Stroke to smooth
  * \param point_index: Point index
  * \param influence: Amount of smoothing to apply
+ * \param iterations: Radius of points to consider, equivalent to iterations
+ * \param r_gps: Stroke to put the result into
  */
-bool BKE_gpencil_stroke_smooth_strength(struct bGPDstroke *gps, int point_index, float influence);
+bool BKE_gpencil_stroke_smooth_strength(struct bGPDstroke *gps,
+                                        int point_index,
+                                        float influence,
+                                        int iterations,
+                                        struct bGPDstroke *r_gps);
 /**
  * Apply smooth for thickness to stroke point (use pressure).
  * \param gps: Stroke to smooth
  * \param point_index: Point index
  * \param influence: Amount of smoothing to apply
+ * \param iterations: Radius of points to consider, equivalent to iterations
+ * \param r_gps: Stroke to put the result into
  */
-bool BKE_gpencil_stroke_smooth_thickness(struct bGPDstroke *gps, int point_index, float influence);
+bool BKE_gpencil_stroke_smooth_thickness(struct bGPDstroke *gps,
+                                         int point_index,
+                                         float influence,
+                                         int iterations,
+                                         struct bGPDstroke *r_gps);
 /**
- * Apply smooth for UV rotation to stroke point (use pressure).
+ * Apply smooth for UV rotation/factor to stroke point.
  * \param gps: Stroke to smooth
  * \param point_index: Point index
  * \param influence: Amount of smoothing to apply
+ * \param iterations: Radius of points to consider, equivalent to iterations
+ * \param r_gps: Stroke to put the result into
  */
-bool BKE_gpencil_stroke_smooth_uv(struct bGPDstroke *gps, int point_index, float influence);
+bool BKE_gpencil_stroke_smooth_uv(struct bGPDstroke *gps,
+                                  int point_index,
+                                  float influence,
+                                  int iterations,
+                                  struct bGPDstroke *r_gps);
+/**
+ * Apply smooth operation to the stroke.
+ * \param gps: Stroke to smooth
+ * \param influence: The interpolation factor for the smooth and the original stroke
+ * \param iterations: Radius of points to consider, equivalent to iterations
+ * \param smooth_position: Smooth point locations
+ * \param smooth_strength: Smooth point strength
+ * \param smooth_thickness: Smooth point thickness
+ * \param smooth_uv: Smooth uv rotation/factor
+ * \param keep_shape: Use different distribution for smooth locations to keep the shape
+ * \param weights: per point weights to multiply influence with (optional, can be null)
+ */
+void BKE_gpencil_stroke_smooth(struct bGPDstroke *gps,
+                               const float influence,
+                               const int iterations,
+                               const bool smooth_position,
+                               const bool smooth_strength,
+                               const bool smooth_thickness,
+                               const bool smooth_uv,
+                               const bool keep_shape,
+                               const float *weights);
 /**
  * Close grease pencil stroke.
  * \param gps: Stroke to close
@@ -276,7 +307,7 @@ bool BKE_gpencil_stroke_close(struct bGPDstroke *gps);
 void BKE_gpencil_dissolve_points(struct bGPdata *gpd,
                                  struct bGPDframe *gpf,
                                  struct bGPDstroke *gps,
-                                 const short tag);
+                                 short tag);
 
 /**
  * Backbone stretch similar to Freestyle.
@@ -288,23 +319,21 @@ void BKE_gpencil_dissolve_points(struct bGPdata *gpd,
  * \param extra_point_count: When follow_curvature is true, use this amount of extra points.
  */
 bool BKE_gpencil_stroke_stretch(struct bGPDstroke *gps,
-                                const float dist,
-                                const float overshoot_fac,
-                                const short mode,
-                                const bool follow_curvature,
-                                const int extra_point_count,
-                                const float segment_influence,
-                                const float max_angle,
-                                const bool invert_curvature);
+                                float dist,
+                                float overshoot_fac,
+                                short mode,
+                                bool follow_curvature,
+                                int extra_point_count,
+                                float segment_influence,
+                                float max_angle,
+                                bool invert_curvature);
 /**
  * Trim stroke to needed segments.
  * \param gps: Target stroke.
  * \param index_from: the index of the first point to be used in the trimmed result.
  * \param index_to: the index of the last point to be used in the trimmed result.
  */
-bool BKE_gpencil_stroke_trim_points(struct bGPDstroke *gps,
-                                    const int index_from,
-                                    const int index_to);
+bool BKE_gpencil_stroke_trim_points(struct bGPDstroke *gps, int index_from, int index_to);
 /**
  * Split the given stroke into several new strokes, partitioning
  * it based on whether the stroke points have a particular flag
@@ -315,9 +344,9 @@ struct bGPDstroke *BKE_gpencil_stroke_delete_tagged_points(struct bGPdata *gpd,
                                                            struct bGPDstroke *gps,
                                                            struct bGPDstroke *next_stroke,
                                                            int tag_flags,
-                                                           const bool select,
-                                                           const bool flat_cap,
-                                                           const int limit);
+                                                           bool select,
+                                                           bool flat_cap,
+                                                           int limit);
 void BKE_gpencil_curve_delete_tagged_points(struct bGPdata *gpd,
                                             struct bGPDframe *gpf,
                                             struct bGPDstroke *gps,
@@ -341,7 +370,7 @@ void BKE_gpencil_stroke_flip(struct bGPDstroke *gps);
 bool BKE_gpencil_stroke_split(struct bGPdata *gpd,
                               struct bGPDframe *gpf,
                               struct bGPDstroke *gps,
-                              const int before_index,
+                              int before_index,
                               struct bGPDstroke **remaining_gps);
 /**
  * Shrink the stroke by length.
@@ -349,7 +378,7 @@ bool BKE_gpencil_stroke_split(struct bGPdata *gpd,
  * \param dist: delta length
  * \param mode: 1->Start, 2->End
  */
-bool BKE_gpencil_stroke_shrink(struct bGPDstroke *gps, const float dist, const short mode);
+bool BKE_gpencil_stroke_shrink(struct bGPDstroke *gps, float dist, short mode);
 
 /**
  * Calculate grease pencil stroke length.
@@ -360,8 +389,8 @@ bool BKE_gpencil_stroke_shrink(struct bGPDstroke *gps, const float dist, const s
 float BKE_gpencil_stroke_length(const struct bGPDstroke *gps, bool use_3d);
 /** Calculate grease pencil stroke length between points. */
 float BKE_gpencil_stroke_segment_length(const struct bGPDstroke *gps,
-                                        const int start_index,
-                                        const int end_index,
+                                        int start_index,
+                                        int end_index,
                                         bool use_3d);
 
 /**
@@ -375,9 +404,9 @@ void BKE_gpencil_stroke_set_random_color(struct bGPDstroke *gps);
  */
 void BKE_gpencil_stroke_join(struct bGPDstroke *gps_a,
                              struct bGPDstroke *gps_b,
-                             const bool leave_gaps,
-                             const bool fit_thickness,
-                             const bool smooth);
+                             bool leave_gaps,
+                             bool fit_thickness,
+                             bool smooth);
 /**
  * Copy the stroke of the frame to all frames selected (except current).
  */
@@ -385,7 +414,7 @@ void BKE_gpencil_stroke_copy_to_keyframes(struct bGPdata *gpd,
                                           struct bGPDlayer *gpl,
                                           struct bGPDframe *gpf,
                                           struct bGPDstroke *gps,
-                                          const bool tail);
+                                          bool tail);
 
 /**
  * Convert a mesh object to grease pencil stroke.
@@ -408,14 +437,14 @@ bool BKE_gpencil_convert_mesh(struct Main *bmain,
                               struct Scene *scene,
                               struct Object *ob_gp,
                               struct Object *ob_mesh,
-                              const float angle,
-                              const int thickness,
-                              const float offset,
+                              float angle,
+                              int thickness,
+                              float offset,
                               const float matrix[4][4],
-                              const int frame_offset,
-                              const bool use_seams,
-                              const bool use_faces,
-                              const bool use_vgroups);
+                              int frame_offset,
+                              bool use_seams,
+                              bool use_faces,
+                              bool use_vgroups);
 
 /**
  * Subdivide the grease pencil stroke so the number of points is target_number.
@@ -428,8 +457,8 @@ bool BKE_gpencil_convert_mesh(struct Main *bmain,
  */
 void BKE_gpencil_stroke_uniform_subdivide(struct bGPdata *gpd,
                                           struct bGPDstroke *gps,
-                                          const uint32_t target_number,
-                                          const bool select);
+                                          uint32_t target_number,
+                                          bool select);
 
 /**
  * Stroke to view space
@@ -458,7 +487,7 @@ struct bGPDstroke *BKE_gpencil_stroke_perimeter_from_view(struct RegionView3D *r
                                                           struct bGPdata *gpd,
                                                           const struct bGPDlayer *gpl,
                                                           struct bGPDstroke *gps,
-                                                          const int subdivisions,
+                                                          int subdivisions,
                                                           const float diff_mat[4][4]);
 /**
  * Get average pressure.

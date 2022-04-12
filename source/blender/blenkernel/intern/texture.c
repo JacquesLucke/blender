@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -66,6 +50,8 @@
 #include "BKE_node.h"
 #include "BKE_scene.h"
 #include "BKE_texture.h"
+
+#include "NOD_texture.h"
 
 #include "RE_texture.h"
 
@@ -721,10 +707,10 @@ void BKE_texture_get_value_ex(const Scene *scene,
    * if the texture didn't give an RGB value, copy the intensity across
    */
   if (result_type & TEX_RGB) {
-    texres->tin = (1.0f / 3.0f) * (texres->tr + texres->tg + texres->tb);
+    texres->tin = (1.0f / 3.0f) * (texres->trgba[0] + texres->trgba[1] + texres->trgba[2]);
   }
   else {
-    copy_v3_fl(&texres->tr, texres->tin);
+    copy_v3_fl(texres->trgba, texres->tin);
   }
 }
 

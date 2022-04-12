@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bli
@@ -155,8 +139,7 @@ double BLI_dir_free_space(const char *dir) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(
  *
  * \note can return NULL when the size is not big enough
  */
-char *BLI_current_working_dir(char *dir, const size_t maxncpy) ATTR_WARN_UNUSED_RESULT
-    ATTR_NONNULL();
+char *BLI_current_working_dir(char *dir, size_t maxncpy) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 eFileAttributes BLI_file_attributes(const char *path);
 
 /** \} */
@@ -166,10 +149,10 @@ eFileAttributes BLI_file_attributes(const char *path);
  * \{ */
 
 /**
- * Scans the contents of the directory named *dirname, and allocates and fills in an
- * array of entries describing them in *filelist.
+ * Scans the contents of the directory named `dir`, and allocates and fills in an
+ * array of entries describing them in `r_filelist`.
  *
- * \return The length of filelist array.
+ * \return The length of `r_filelist` array.
  */
 unsigned int BLI_filelist_dir_contents(const char *dir, struct direntry **r_filelist);
 /**
@@ -181,7 +164,7 @@ void BLI_filelist_entry_duplicate(struct direntry *dst, const struct direntry *s
  */
 void BLI_filelist_duplicate(struct direntry **dest_filelist,
                             struct direntry *const src_filelist,
-                            const unsigned int nrentries);
+                            unsigned int nrentries);
 /**
  * Frees storage for a single direntry, not the direntry itself.
  */
@@ -189,20 +172,20 @@ void BLI_filelist_entry_free(struct direntry *entry);
 /**
  * Frees storage for an array of #direntry, including the array itself.
  */
-void BLI_filelist_free(struct direntry *filelist, const unsigned int nrentries);
+void BLI_filelist_free(struct direntry *filelist, unsigned int nrentries);
 
 /**
  * Convert given entry's size into human-readable strings.
  */
 void BLI_filelist_entry_size_to_string(const struct stat *st,
-                                       const uint64_t sz,
-                                       const bool compact,
+                                       uint64_t sz,
+                                       bool compact,
                                        char r_size[FILELIST_DIRENTRY_SIZE_LEN]);
 /**
  * Convert given entry's modes into human-readable strings.
  */
 void BLI_filelist_entry_mode_to_string(const struct stat *st,
-                                       const bool compact,
+                                       bool compact,
                                        char r_mode1[FILELIST_DIRENTRY_MODE_LEN],
                                        char r_mode2[FILELIST_DIRENTRY_MODE_LEN],
                                        char r_mode3[FILELIST_DIRENTRY_MODE_LEN]);
@@ -210,7 +193,7 @@ void BLI_filelist_entry_mode_to_string(const struct stat *st,
  * Convert given entry's owner into human-readable strings.
  */
 void BLI_filelist_entry_owner_to_string(const struct stat *st,
-                                        const bool compact,
+                                        bool compact,
                                         char r_owner[FILELIST_DIRENTRY_OWNER_LEN]);
 /**
  * Convert given entry's time into human-readable strings.
@@ -219,8 +202,8 @@ void BLI_filelist_entry_owner_to_string(const struct stat *st,
  * \param r_is_yesterday: optional, returns true if the date matches yesterday's.
  */
 void BLI_filelist_entry_datetime_to_string(const struct stat *st,
-                                           const int64_t ts,
-                                           const bool compact,
+                                           int64_t ts,
+                                           bool compact,
                                            char r_time[FILELIST_DIRENTRY_TIME_LEN],
                                            char r_date[FILELIST_DIRENTRY_DATE_LEN],
                                            bool *r_is_today,
@@ -287,7 +270,7 @@ struct LinkNode *BLI_file_read_as_lines(const char *file) ATTR_WARN_UNUSED_RESUL
 void *BLI_file_read_text_as_mem(const char *filepath, size_t pad_bytes, size_t *r_size);
 /**
  * Return the text file data with:
-
+ *
  * - Newlines replaced with '\0'.
  * - Optionally trim white-space, replacing trailing <space> & <tab> with '\0'.
  *
