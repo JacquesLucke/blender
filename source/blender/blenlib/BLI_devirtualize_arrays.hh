@@ -47,12 +47,9 @@ ENUM_OPERATORS(MaskMode, MaskMode::Range);
 
 template<ParamMode... Mode> using ParamModeSequence = ValueSequence<ParamMode, Mode...>;
 
-template<typename TagsTuple, size_t I>
-using BaseType = typename std::tuple_element_t<I, TagsTuple>::BaseType;
-
 template<typename Fn, typename... ParamTags> class Devirtualizer {
  private:
-  using TagsTuple = std::tuple<ParamTags...>;
+  template<size_t I> using tag_at_index = typename TypeSequence<ParamTags...>::at_index<I>;
 
   Fn fn_;
   IndexMask mask_;
@@ -105,13 +102,13 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   {
     static constexpr int64_t MaxChunkSize = 32;
     const int64_t mask_size = mask_.size();
-    std::tuple<TypedBuffer<BaseType<TagsTuple, I>, MaxChunkSize>...> buffers_owner;
-    std::tuple<MutableSpan<BaseType<TagsTuple, I>>...> buffers = {
+    std::tuple<TypedBuffer<typename tag_at_index<I>::BaseType, MaxChunkSize>...> buffers_owner;
+    std::tuple<MutableSpan<typename tag_at_index<I>::BaseType>...> buffers = {
         MutableSpan{std::get<I>(buffers_owner).ptr(), std::min(mask_size, MaxChunkSize)}...};
 
     (
         [&]() {
-          using ParamTag = std::tuple_element_t<I, TagsTuple>;
+          using ParamTag = tag_at_index<I>;
           using T = typename ParamTag::BaseType;
           if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
             MutableSpan in_chunk = std::get<I>(buffers);
@@ -130,7 +127,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
       const int64_t sliced_mask_size = sliced_mask.size();
       (
           [&]() {
-            using ParamTag = std::tuple_element_t<I, TagsTuple>;
+            using ParamTag = tag_at_index<I>;
             using T = typename ParamTag::BaseType;
             if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
               if (!varray_is_single_[I]) {
@@ -143,7 +140,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
           ...);
 
       fn_(IndexRange(sliced_mask_size), sliced_mask, [&]() {
-        using ParamTag = std::tuple_element_t<I, TagsTuple>;
+        using ParamTag = tag_at_index<I>;
         using T = typename ParamTag::BaseType;
         if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
           Span<T> in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
@@ -157,7 +154,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
 
       (
           [&]() {
-            using ParamTag = std::tuple_element_t<I, TagsTuple>;
+            using ParamTag = tag_at_index<I>;
             using T = typename ParamTag::BaseType;
             if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
               MutableSpan<T> in_chunk = std::get<I>(buffers);
@@ -179,7 +176,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
     }
     else {
       constexpr size_t I = sizeof...(Mode);
-      using ParamTag = std::tuple_element_t<I, TagsTuple>;
+      using ParamTag = tag_at_index<I>;
       if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
         constexpr ParamMode allowed_modes =
             ParamModeSequence<AllowedModes...>::template at_index<I>();
@@ -238,7 +235,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
 
   template<size_t I> void init_param()
   {
-    using ParamTag = std::tuple_element_t<I, TagsTuple>;
+    using ParamTag = tag_at_index<I>;
     if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
       const typename ParamTag::ArrayType *varray = std::get<I>(params_);
       varray_is_span_[I] = varray->is_span();
@@ -254,7 +251,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
 
   template<size_t I, ParamMode Mode> decltype(auto) get_execute_param()
   {
-    using ParamTag = std::tuple_element_t<I, TagsTuple>;
+    using ParamTag = tag_at_index<I>;
     if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
       using T = typename ParamTag::BaseType;
       const VArray<T> *varray = std::get<I>(params_);
@@ -275,7 +272,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
 };
 
 template<typename ElementFn, typename... ParamTags> struct ElementFnExecutor {
-  using TagsTuple = std::tuple<ParamTags...>;
+  template<size_t I> using tag_at_index = typename TypeSequence<ParamTags...>::at_index<I>;
 
   ElementFn element_fn;
 
@@ -290,7 +287,7 @@ template<typename ElementFn, typename... ParamTags> struct ElementFnExecutor {
       const int64_t in_index = in_indices[i];
       const int64_t out_index = out_indices[i];
       element_fn([&]() -> decltype(auto) {
-        using ParamTag = std::tuple_element_t<I, TagsTuple>;
+        using ParamTag = tag_at_index<I>;
         if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
           return args[in_index];
         }
