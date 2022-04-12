@@ -10,13 +10,13 @@
 
 #include <functional>
 
-#include "BLI_virtual_array_devirtualize.hh"
+#include "BLI_devirtualize_arrays.hh"
 
 #include "FN_multi_function.hh"
 
 namespace blender::fn {
 
-namespace devi = varray_devirtualize;
+namespace devi = devirtualize_arrays;
 
 template<typename... ParamTags> class CustomMF : public MultiFunction {
  private:
@@ -52,7 +52,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
                       MFParams params,
                       std::index_sequence<I...> /* indices */)
   {
-    namespace devi = varray_devirtualize;
+    namespace devi = devirtualize_arrays;
 
     std::tuple<devi::ParamType_t<ParamTags>...> retrieved_params;
     (
@@ -79,7 +79,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   static void add_signature_parameters(MFSignatureBuilder &signature,
                                        std::index_sequence<I...> /* indices */)
   {
-    namespace devi = varray_devirtualize;
+    namespace devi = devirtualize_arrays;
     (
         [&]() {
           using ParamTag = typename TagsSequence::at_index<I>;

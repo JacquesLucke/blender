@@ -139,7 +139,7 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
   const NodeRandomValue &storage = node_storage(builder.node());
   const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
 
-  namespace devi = varray_devirtualize;
+  namespace devi = devirtualize_arrays;
 
   switch (data_type) {
     case CD_PROP_FLOAT3: {

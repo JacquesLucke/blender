@@ -6,7 +6,7 @@
 
 #include "BLI_virtual_array.hh"
 
-namespace blender::varray_devirtualize {
+namespace blender::devirtualize_arrays {
 
 struct InputTagBase {
 };
@@ -398,4 +398,4 @@ template<size_t SpanIndex, MaskMode MaskMode = MaskMode::Range> struct OneSpanOt
 
 }  // namespace presets
 
-}  // namespace blender::varray_devirtualize
+}  // namespace blender::devirtualize_arrays

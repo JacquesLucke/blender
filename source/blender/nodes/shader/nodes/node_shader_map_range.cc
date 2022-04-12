@@ -9,8 +9,8 @@
 
 #include "node_shader_util.hh"
 
+#include "BLI_devirtualize_arrays.hh"
 #include "BLI_math_base_safe.h"
-#include "BLI_virtual_array_devirtualize.hh"
 
 #include "NOD_socket_search_link.hh"
 
@@ -21,7 +21,7 @@ namespace blender::nodes::node_shader_map_range_cc {
 
 NODE_STORAGE_FUNCS(NodeMapRange)
 
-namespace devi = varray_devirtualize;
+namespace devi = devirtualize_arrays;
 
 static void sh_node_map_range_declare(NodeDeclarationBuilder &b)
 {

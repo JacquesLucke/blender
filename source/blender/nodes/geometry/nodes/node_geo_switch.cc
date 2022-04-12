@@ -161,7 +161,7 @@ template<typename T> void switch_fields(GeoNodeExecParams &params, const StringR
     Field<T> falses_field = params.extract_input<Field<T>>(name_false);
     Field<T> trues_field = params.extract_input<Field<T>>(name_true);
 
-    namespace devi = varray_devirtualize;
+    namespace devi = devirtualize_arrays;
 
     static fn::CustomMF_SI_SI_SI_SO<bool, T, T, T> switch_fn{
         "Switch",

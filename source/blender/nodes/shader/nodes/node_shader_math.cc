@@ -106,7 +106,7 @@ static const fn::MultiFunction *get_base_multi_function(bNode &node)
   const int mode = node.custom1;
   const fn::MultiFunction *base_fn = nullptr;
 
-  namespace devi = varray_devirtualize;
+  namespace devi = devirtualize_arrays;
 
   try_dispatch_float_math_fl_to_fl(mode, [&](auto function, const FloatMathOperationInfo &info) {
     static fn::CustomMF_SI_SO<float, float> fn{

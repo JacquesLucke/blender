@@ -2,9 +2,9 @@
 
 #include <cmath>
 
+#include "BLI_devirtualize_arrays.hh"
 #include "BLI_noise.hh"
 #include "BLI_string.h"
-#include "BLI_virtual_array_devirtualize.hh"
 
 #include "RNA_enum_types.h"
 
@@ -15,7 +15,7 @@
 
 namespace blender::nodes::node_fn_float_to_int_cc {
 
-namespace devi = varray_devirtualize;
+namespace devi = devirtualize_arrays;
 
 static void fn_node_float_to_int_declare(NodeDeclarationBuilder &b)
 {
