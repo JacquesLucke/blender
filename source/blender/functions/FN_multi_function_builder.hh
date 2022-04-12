@@ -26,10 +26,10 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   using TagsSequence = TypeSequence<ParamTags...>;
 
  public:
-  template<typename ElementFn, typename DevirtualizeFn = devi::presets::Materialized>
+  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
   CustomMF(const char *name,
            ElementFn element_fn,
-           DevirtualizeFn devirtualize_fn = devi::presets::Materialized())
+           DevirtualizeFn devirtualize_fn = devi::presets::None())
   {
     MFSignatureBuilder signature{name};
     add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
@@ -112,12 +112,14 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
 template<typename In1, typename Out1>
 class CustomMF_SI_SO : public CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>> {
  public:
-  template<typename ElementFn>
-  CustomMF_SI_SO(const char *name, ElementFn element_fn)
+  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
+  CustomMF_SI_SO(const char *name,
+                 ElementFn element_fn,
+                 DevirtualizeFn devirtualize_fn = devi::presets::None())
       : CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>>(
             name,
             [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); },
-            devi::presets::AllSpanOrSingle())
+            devirtualize_fn)
   {
   }
 };
@@ -132,14 +134,16 @@ template<typename In1, typename In2, typename Out1>
 class CustomMF_SI_SI_SO
     : public CustomMF<devi::InputTag<In1>, devi::InputTag<In2>, devi::OutputTag<Out1>> {
  public:
-  template<typename ElementFn>
-  CustomMF_SI_SI_SO(const char *name, ElementFn element_fn)
+  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
+  CustomMF_SI_SI_SO(const char *name,
+                    ElementFn element_fn,
+                    DevirtualizeFn devirtualize_fn = devi::presets::None())
       : CustomMF<devi::InputTag<In1>, devi::InputTag<In2>, devi::OutputTag<Out1>>(
             name,
             [element_fn](const In1 &in1, const In2 &in2, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2));
             },
-            devi::presets::AllSpanOrSingle())
+            devirtualize_fn)
   {
   }
 };
@@ -157,8 +161,10 @@ class CustomMF_SI_SI_SI_SO : public CustomMF<devi::InputTag<In1>,
                                              devi::InputTag<In3>,
                                              devi::OutputTag<Out1>> {
  public:
-  template<typename ElementFn>
-  CustomMF_SI_SI_SI_SO(const char *name, ElementFn element_fn)
+  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
+  CustomMF_SI_SI_SI_SO(const char *name,
+                       ElementFn element_fn,
+                       DevirtualizeFn devirtualize_fn = devi::presets::None())
       : CustomMF<devi::InputTag<In1>,
                  devi::InputTag<In2>,
                  devi::InputTag<In3>,
@@ -167,7 +173,7 @@ class CustomMF_SI_SI_SI_SO : public CustomMF<devi::InputTag<In1>,
             [element_fn](const In1 &in1, const In2 &in2, const In3 &in3, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2, in3));
             },
-            devi::presets::Materialized())
+            devirtualize_fn)
   {
   }
 };
@@ -187,8 +193,10 @@ class CustomMF_SI_SI_SI_SI_SO : public CustomMF<devi::InputTag<In1>,
                                                 devi::InputTag<In4>,
                                                 devi::OutputTag<Out1>> {
  public:
-  template<typename ElementFn>
-  CustomMF_SI_SI_SI_SI_SO(const char *name, ElementFn element_fn)
+  template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
+  CustomMF_SI_SI_SI_SI_SO(const char *name,
+                          ElementFn element_fn,
+                          DevirtualizeFn devirtualize_fn = devi::presets::None())
       : CustomMF<devi::InputTag<In1>,
                  devi::InputTag<In2>,
                  devi::InputTag<In3>,
@@ -199,7 +207,7 @@ class CustomMF_SI_SI_SI_SI_SO : public CustomMF<devi::InputTag<In1>,
                 const In1 &in1, const In2 &in2, const In3 &in3, const In4 &in4, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2, in3, in4));
             },
-            devi::presets::Materialized())
+            devirtualize_fn)
   {
   }
 };
