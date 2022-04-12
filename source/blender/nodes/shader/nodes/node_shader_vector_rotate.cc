@@ -81,9 +81,9 @@ static float3 sh_node_vector_rotate_around_axis(const float3 &vector,
   return result + center;
 }
 
-static float3 sh_node_vector_rotate_euler(const float3 vector,
-                                          const float3 center,
-                                          const float3 rotation,
+static float3 sh_node_vector_rotate_euler(const float3 &vector,
+                                          const float3 &center,
+                                          const float3 &rotation,
                                           const bool invert)
 {
   float mat[3][3];
