@@ -33,15 +33,14 @@ struct AllSpanOrSingle {
 };
 
 template<size_t... SpanIndices> struct SomeSpanOtherSingle {
-  template<size_t I> static constexpr bool can_be_span()
+  static constexpr ParamMode get_param_mode(size_t I)
   {
-    return ((I == SpanIndices) || ...);
-  };
+    return ((I == SpanIndices) || ...) ? ParamMode::Span : ParamMode::Single;
+  }
 
   template<size_t... I>
-  static constexpr ParamModeSequence<(can_be_span<I>() ? ParamMode::SpanAndSingle :
-                                                         ParamMode::Single)...>
-      get_modes(std::index_sequence<I...> /* indices */)
+  static constexpr ParamModeSequence<get_param_mode(I)...> get_param_modes(
+      std::index_sequence<I...> /* indices */)
   {
     return {};
   }
@@ -50,7 +49,7 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
   void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
   {
     if (!devirtualizer.template try_execute_devirtualized_custom<MaskMode::Range>(
-            get_modes(std::make_index_sequence<sizeof...(ParamTags)>()))) {
+            get_param_modes(std::make_index_sequence<sizeof...(ParamTags)>()))) {
       devirtualizer.execute_materialized();
     }
   }
