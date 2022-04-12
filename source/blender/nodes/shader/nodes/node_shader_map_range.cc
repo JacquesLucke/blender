@@ -227,12 +227,12 @@ static float3 clamp_range(const float3 value, const float3 min, const float3 max
 
 template<bool Clamp> static auto build_float_linear()
 {
-  return fn::CustomMF<devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::OutputTag<float>>{
+  return fn::CustomMF<devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::OutSpan<float>>{
       Clamp ? "Map Range (clamped)" : "Map Range (unclamped)",
       [](float value, float from_min, float from_max, float to_min, float to_max, float *r_value) {
         const float factor = safe_divide(value - from_min, from_max - from_min);
@@ -247,13 +247,13 @@ template<bool Clamp> static auto build_float_linear()
 
 template<bool Clamp> static auto build_float_stepped()
 {
-  return fn::CustomMF<devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::InputTag<float>,
-                      devi::OutputTag<float>>{
+  return fn::CustomMF<devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::InVArray<float>,
+                      devi::tags::OutSpan<float>>{
       Clamp ? "Map Range Stepped (clamped)" : "Map Range Stepped (unclamped)",
       [](float value,
          float from_min,
@@ -275,12 +275,12 @@ template<bool Clamp> static auto build_float_stepped()
 
 template<bool Clamp> static auto build_vector_linear()
 {
-  return fn::CustomMF<devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::OutputTag<float3>>{
+  return fn::CustomMF<devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::OutSpan<float3>>{
       Clamp ? "Vector Map Range (clamped)" : "Vector Map Range (unclamped)",
       [](const float3 &value,
          const float3 &from_min,
@@ -300,13 +300,13 @@ template<bool Clamp> static auto build_vector_linear()
 
 template<bool Clamp> static auto build_vector_stepped()
 {
-  return fn::CustomMF<devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::InputTag<float3>,
-                      devi::OutputTag<float3>>{
+  return fn::CustomMF<devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::InVArray<float3>,
+                      devi::tags::OutSpan<float3>>{
       Clamp ? "Vector Map Range Stepped (clamped)" : "Vector Map Range Stepped (unclamped)",
       [](const float3 &value,
          const float3 &from_min,
@@ -358,12 +358,12 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
           break;
         }
         case NODE_MAP_RANGE_SMOOTHSTEP: {
-          static fn::CustomMF<devi::InputTag<float3>,
-                              devi::InputTag<float3>,
-                              devi::InputTag<float3>,
-                              devi::InputTag<float3>,
-                              devi::InputTag<float3>,
-                              devi::OutputTag<float3>>
+          static fn::CustomMF<devi::tags::InVArray<float3>,
+                              devi::tags::InVArray<float3>,
+                              devi::tags::InVArray<float3>,
+                              devi::tags::InVArray<float3>,
+                              devi::tags::InVArray<float3>,
+                              devi::tags::OutSpan<float3>>
               fn{"Vector Map Range Smoothstep",
                  [](const float3 &value,
                     const float3 &from_min,
@@ -381,12 +381,12 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
           break;
         }
         case NODE_MAP_RANGE_SMOOTHERSTEP: {
-          static fn::CustomMF<devi::InputTag<float3>,
-                              devi::InputTag<float3>,
-                              devi::InputTag<float3>,
-                              devi::InputTag<float3>,
-                              devi::InputTag<float3>,
-                              devi::OutputTag<float3>>
+          static fn::CustomMF<devi::tags::InVArray<float3>,
+                              devi::tags::InVArray<float3>,
+                              devi::tags::InVArray<float3>,
+                              devi::tags::InVArray<float3>,
+                              devi::tags::InVArray<float3>,
+                              devi::tags::OutSpan<float3>>
               fn{"Vector Map Range Smootherstep",
                  [](const float3 &value,
                     const float3 &from_min,
@@ -432,12 +432,12 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
           break;
         }
         case NODE_MAP_RANGE_SMOOTHSTEP: {
-          static fn::CustomMF<devi::InputTag<float>,
-                              devi::InputTag<float>,
-                              devi::InputTag<float>,
-                              devi::InputTag<float>,
-                              devi::InputTag<float>,
-                              devi::OutputTag<float>>
+          static fn::CustomMF<devi::tags::InVArray<float>,
+                              devi::tags::InVArray<float>,
+                              devi::tags::InVArray<float>,
+                              devi::tags::InVArray<float>,
+                              devi::tags::InVArray<float>,
+                              devi::tags::OutSpan<float>>
               fn{"Map Range Smoothstep",
                  [](float value,
                     float from_min,
@@ -455,12 +455,12 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
           break;
         }
         case NODE_MAP_RANGE_SMOOTHERSTEP: {
-          static fn::CustomMF<devi::InputTag<float>,
-                              devi::InputTag<float>,
-                              devi::InputTag<float>,
-                              devi::InputTag<float>,
-                              devi::InputTag<float>,
-                              devi::OutputTag<float>>
+          static fn::CustomMF<devi::tags::InVArray<float>,
+                              devi::tags::InVArray<float>,
+                              devi::tags::InVArray<float>,
+                              devi::tags::InVArray<float>,
+                              devi::tags::InVArray<float>,
+                              devi::tags::OutSpan<float>>
               fn{"Map Range Smoothstep",
                  [](float value,
                     float from_min,

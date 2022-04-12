@@ -8,25 +8,32 @@
 
 namespace blender::devirtualize_arrays {
 
-struct InputTagBase {
+namespace tags {
+
+struct Input {
 };
-template<typename T> struct InputTag : public InputTagBase {
+
+struct Output {
+};
+
+template<typename T> struct InVArray : public Input {
   using BaseType = T;
 };
-struct OutputTagBase {
-};
-template<typename T> struct OutputTag : public OutputTagBase {
+
+template<typename T> struct OutSpan : public Output {
   using BaseType = T;
 };
+
+}  // namespace tags
 
 template<typename T> struct ParamType {
 };
 
-template<typename T> struct ParamType<InputTag<T>> {
+template<typename T> struct ParamType<tags::InVArray<T>> {
   using type = VArray<T>;
 };
 
-template<typename T> struct ParamType<OutputTag<T>> {
+template<typename T> struct ParamType<tags::OutSpan<T>> {
   using type = MutableSpan<T>;
 };
 
@@ -117,7 +124,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
         [&]() {
           using ParamTag = std::tuple_element_t<I, TagsTuple>;
           using T = typename ParamTag::BaseType;
-          if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+          if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
             MutableSpan in_chunk = std::get<I>(buffers);
             if (varray_is_single_[I]) {
               const VArray<T> *varray = std::get<I>(params_);
@@ -136,7 +143,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
           [&]() {
             using ParamTag = std::tuple_element_t<I, TagsTuple>;
             using T = typename ParamTag::BaseType;
-            if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+            if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
               if (!varray_is_single_[I]) {
                 MutableSpan in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
                 const VArray<T> *varray = std::get<I>(params_);
@@ -149,11 +156,11 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
       fn_(IndexRange(sliced_mask_size), sliced_mask, [&]() {
         using ParamTag = std::tuple_element_t<I, TagsTuple>;
         using T = typename ParamTag::BaseType;
-        if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+        if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
           Span<T> in_chunk = std::get<I>(buffers).take_front(sliced_mask_size);
           return in_chunk;
         }
-        else if constexpr (std::is_base_of_v<OutputTagBase, ParamTag>) {
+        else if constexpr (std::is_base_of_v<tags::Output, ParamTag>) {
           MutableSpan<T> out_span = *std::get<I>(params_);
           return out_span.data();
         }
@@ -163,7 +170,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
           [&]() {
             using ParamTag = std::tuple_element_t<I, TagsTuple>;
             using T = typename ParamTag::BaseType;
-            if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+            if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
               MutableSpan<T> in_chunk = std::get<I>(buffers);
               destruct_n(in_chunk.data(), sliced_mask_size);
             }
@@ -184,7 +191,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
     else {
       constexpr size_t I = sizeof...(Mode);
       using ParamTag = std::tuple_element_t<I, TagsTuple>;
-      if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+      if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
         constexpr ParamMode allowed_modes =
             ParamModeSequence<AllowedModes...>::template at_index<I>();
         if constexpr ((allowed_modes & ParamMode::Single) != ParamMode::None) {
@@ -243,7 +250,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   template<size_t I> void init_param()
   {
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
-    if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+    if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
       const typename ParamType<ParamTag>::type *varray = std::get<I>(params_);
       varray_is_span_[I] = varray->is_span();
       varray_is_single_[I] = varray->is_single();
@@ -259,7 +266,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
   template<size_t I, ParamMode Mode> decltype(auto) get_execute_param()
   {
     using ParamTag = std::tuple_element_t<I, TagsTuple>;
-    if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+    if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
       using T = typename ParamTag::BaseType;
       const VArray<T> *varray = std::get<I>(params_);
       if constexpr (ELEM(Mode, ParamMode::None, ParamMode::VArray)) {
@@ -272,7 +279,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
         return varray->get_internal_span();
       }
     }
-    else if constexpr (std::is_base_of_v<OutputTagBase, ParamTag>) {
+    else if constexpr (std::is_base_of_v<tags::Output, ParamTag>) {
       return std::get<I>(params_)->data();
     }
   }
@@ -295,7 +302,7 @@ template<typename ElementFn, typename... ParamTags> struct ElementFnExecutor {
       const int64_t out_index = out_indices[i];
       element_fn([&]() -> decltype(auto) {
         using ParamTag = std::tuple_element_t<I, TagsTuple>;
-        if constexpr (std::is_base_of_v<InputTagBase, ParamTag>) {
+        if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
           return args[in_index];
         }
         else {

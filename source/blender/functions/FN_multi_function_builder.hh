@@ -60,10 +60,10 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
           using ParamTag = typename TagsSequence::at_index<I>;
           using T = typename ParamTag::BaseType;
 
-          if constexpr (std::is_base_of_v<devi::InputTagBase, ParamTag>) {
+          if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
             std::get<I>(retrieved_params) = params.readonly_single_input<T>(I);
           }
-          if constexpr (std::is_base_of_v<devi::OutputTagBase, ParamTag>) {
+          if constexpr (std::is_base_of_v<devi::tags::Output, ParamTag>) {
             std::get<I>(retrieved_params) = params.uninitialized_single_output<T>(I);
           }
         }(),
@@ -83,11 +83,11 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
     (
         [&]() {
           using ParamTag = typename TagsSequence::at_index<I>;
-          if constexpr (std::is_base_of_v<devi::InputTagBase, ParamTag>) {
+          if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
             using T = typename ParamTag::BaseType;
             signature.single_input<T>("In");
           }
-          if constexpr (std::is_base_of_v<devi::OutputTagBase, ParamTag>) {
+          if constexpr (std::is_base_of_v<devi::tags::Output, ParamTag>) {
             using T = typename ParamTag::BaseType;
             signature.single_output<T>("Out");
           }
@@ -110,13 +110,13 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
  * `CustomMF_SI_SO<int, int> fn("add 10", [](int value) { return value + 10; });`
  */
 template<typename In1, typename Out1>
-class CustomMF_SI_SO : public CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>> {
+class CustomMF_SI_SO : public CustomMF<devi::tags::InVArray<In1>, devi::tags::OutSpan<Out1>> {
  public:
   template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
   CustomMF_SI_SO(const char *name,
                  ElementFn element_fn,
                  DevirtualizeFn devirtualize_fn = devi::presets::None())
-      : CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1>>(
+      : CustomMF<devi::tags::InVArray<In1>, devi::tags::OutSpan<Out1>>(
             name,
             [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); },
             devirtualize_fn)
@@ -131,14 +131,15 @@ class CustomMF_SI_SO : public CustomMF<devi::InputTag<In1>, devi::OutputTag<Out1
  * 3. single output (SO) of type Out1
  */
 template<typename In1, typename In2, typename Out1>
-class CustomMF_SI_SI_SO
-    : public CustomMF<devi::InputTag<In1>, devi::InputTag<In2>, devi::OutputTag<Out1>> {
+class CustomMF_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
+                                          devi::tags::InVArray<In2>,
+                                          devi::tags::OutSpan<Out1>> {
  public:
   template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
   CustomMF_SI_SI_SO(const char *name,
                     ElementFn element_fn,
                     DevirtualizeFn devirtualize_fn = devi::presets::None())
-      : CustomMF<devi::InputTag<In1>, devi::InputTag<In2>, devi::OutputTag<Out1>>(
+      : CustomMF<devi::tags::InVArray<In1>, devi::tags::InVArray<In2>, devi::tags::OutSpan<Out1>>(
             name,
             [element_fn](const In1 &in1, const In2 &in2, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2));
@@ -156,19 +157,19 @@ class CustomMF_SI_SI_SO
  * 4. single output (SO) of type Out1
  */
 template<typename In1, typename In2, typename In3, typename Out1>
-class CustomMF_SI_SI_SI_SO : public CustomMF<devi::InputTag<In1>,
-                                             devi::InputTag<In2>,
-                                             devi::InputTag<In3>,
-                                             devi::OutputTag<Out1>> {
+class CustomMF_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
+                                             devi::tags::InVArray<In2>,
+                                             devi::tags::InVArray<In3>,
+                                             devi::tags::OutSpan<Out1>> {
  public:
   template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
   CustomMF_SI_SI_SI_SO(const char *name,
                        ElementFn element_fn,
                        DevirtualizeFn devirtualize_fn = devi::presets::None())
-      : CustomMF<devi::InputTag<In1>,
-                 devi::InputTag<In2>,
-                 devi::InputTag<In3>,
-                 devi::OutputTag<Out1>>(
+      : CustomMF<devi::tags::InVArray<In1>,
+                 devi::tags::InVArray<In2>,
+                 devi::tags::InVArray<In3>,
+                 devi::tags::OutSpan<Out1>>(
             name,
             [element_fn](const In1 &in1, const In2 &in2, const In3 &in3, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2, in3));
@@ -187,21 +188,21 @@ class CustomMF_SI_SI_SI_SO : public CustomMF<devi::InputTag<In1>,
  * 5. single output (SO) of type Out1
  */
 template<typename In1, typename In2, typename In3, typename In4, typename Out1>
-class CustomMF_SI_SI_SI_SI_SO : public CustomMF<devi::InputTag<In1>,
-                                                devi::InputTag<In2>,
-                                                devi::InputTag<In3>,
-                                                devi::InputTag<In4>,
-                                                devi::OutputTag<Out1>> {
+class CustomMF_SI_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
+                                                devi::tags::InVArray<In2>,
+                                                devi::tags::InVArray<In3>,
+                                                devi::tags::InVArray<In4>,
+                                                devi::tags::OutSpan<Out1>> {
  public:
   template<typename ElementFn, typename DevirtualizeFn = devi::presets::None>
   CustomMF_SI_SI_SI_SI_SO(const char *name,
                           ElementFn element_fn,
                           DevirtualizeFn devirtualize_fn = devi::presets::None())
-      : CustomMF<devi::InputTag<In1>,
-                 devi::InputTag<In2>,
-                 devi::InputTag<In3>,
-                 devi::InputTag<In4>,
-                 devi::OutputTag<Out1>>(
+      : CustomMF<devi::tags::InVArray<In1>,
+                 devi::tags::InVArray<In2>,
+                 devi::tags::InVArray<In3>,
+                 devi::tags::InVArray<In4>,
+                 devi::tags::OutSpan<Out1>>(
             name,
             [element_fn](
                 const In1 &in1, const In2 &in2, const In3 &in3, const In4 &in4, Out1 *out1) {

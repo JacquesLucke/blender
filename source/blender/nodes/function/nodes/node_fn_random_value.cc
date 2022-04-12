@@ -143,11 +143,11 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
 
   switch (data_type) {
     case CD_PROP_FLOAT3: {
-      static fn::CustomMF<devi::InputTag<float3>,
-                          devi::InputTag<float3>,
-                          devi::InputTag<int>,
-                          devi::InputTag<int>,
-                          devi::OutputTag<float3>>
+      static fn::CustomMF<devi::tags::InVArray<float3>,
+                          devi::tags::InVArray<float3>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::OutSpan<float3>>
           fn{"Random Vector",
              [](float3 min_value, float3 max_value, int id, int seed, float3 *r_value) {
                const float x = noise::hash_to_float(seed, id, 0);
@@ -160,11 +160,11 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
       break;
     }
     case CD_PROP_FLOAT: {
-      static fn::CustomMF<devi::InputTag<float>,
-                          devi::InputTag<float>,
-                          devi::InputTag<int>,
-                          devi::InputTag<int>,
-                          devi::OutputTag<float>>
+      static fn::CustomMF<devi::tags::InVArray<float>,
+                          devi::tags::InVArray<float>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::OutSpan<float>>
           fn{"Random Float",
              [](float min_value, float max_value, int id, int seed, float *r_value) {
                const float value = noise::hash_to_float(seed, id);
@@ -175,11 +175,11 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
       break;
     }
     case CD_PROP_INT32: {
-      static fn::CustomMF<devi::InputTag<int>,
-                          devi::InputTag<int>,
-                          devi::InputTag<int>,
-                          devi::InputTag<int>,
-                          devi::OutputTag<int>>
+      static fn::CustomMF<devi::tags::InVArray<int>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::OutSpan<int>>
           fn{"Random Int",
              [](int min_value, int max_value, int id, int seed, int *r_value) {
                const float value = noise::hash_to_float(id, seed);
@@ -192,10 +192,10 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
       break;
     }
     case CD_PROP_BOOL: {
-      static fn::CustomMF<devi::InputTag<float>,
-                          devi::InputTag<int>,
-                          devi::InputTag<int>,
-                          devi::OutputTag<bool>>
+      static fn::CustomMF<devi::tags::InVArray<float>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::InVArray<int>,
+                          devi::tags::OutSpan<bool>>
           fn{"Random Bool",
              [](float probability, int id, int seed, bool *r_value) {
                *r_value = noise::hash_to_float(id, seed) <= probability;
