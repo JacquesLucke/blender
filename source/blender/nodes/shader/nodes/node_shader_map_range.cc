@@ -9,7 +9,6 @@
 
 #include "node_shader_util.hh"
 
-#include "BLI_devirtualize_arrays.hh"
 #include "BLI_math_base_safe.h"
 
 #include "NOD_socket_search_link.hh"

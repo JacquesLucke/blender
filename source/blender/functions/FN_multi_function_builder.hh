@@ -10,7 +10,7 @@
 
 #include <functional>
 
-#include "BLI_devirtualize_arrays.hh"
+#include "BLI_devirtualize_arrays_presets.hh"
 
 #include "FN_multi_function.hh"
 
