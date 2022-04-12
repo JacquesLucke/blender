@@ -123,6 +123,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
         MutableSpan{std::get<I>(buffers_owner).ptr(), std::min(mask_size, MaxChunkSize)}...};
 
     (
+        /* Todo: Destruct. */
         [&] {
           using ParamTag = tag_at_index<I>;
           using T = typename ParamTag::BaseType;
@@ -143,6 +144,7 @@ template<typename Fn, typename... ParamTags> class Devirtualizer {
       const int64_t sliced_mask_size = sliced_mask.size();
       (
           [&] {
+            /* Todo: Range + Span optimization. */
             using ParamTag = tag_at_index<I>;
             using T = typename ParamTag::BaseType;
             if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
@@ -288,6 +290,7 @@ template<typename ElementFn, typename... ParamTags> struct ElementFnExecutor {
       element_fn([&]() -> decltype(auto) {
         using ParamTag = tag_at_index<I>;
         if constexpr (std::is_base_of_v<tags::Input, ParamTag>) {
+          /* Todo: Check VArray::get. */
           return args[in_index];
         }
         else {

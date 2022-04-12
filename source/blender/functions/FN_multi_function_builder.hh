@@ -75,7 +75,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   {
     namespace devi = devirtualize_arrays;
     (
-        [&]() {
+        [&] {
           using ParamTag = typename TagsSequence::at_index<I>;
           if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
             using T = typename ParamTag::BaseType;
