@@ -119,41 +119,44 @@ inline bool try_dispatch_float_math_fl_fl_to_fl(const int operation, Callback &&
     return false;
   }
 
+  static auto devi_fast = devi::presets::AllSpanOrSingle();
+  static auto devi_slow = devi::presets::Materialized();
+
   /* This is just an utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_MATH_ADD:
-      return dispatch([](float a, float b) { return a + b; });
+      return dispatch(devi_fast, [](float a, float b) { return a + b; });
     case NODE_MATH_SUBTRACT:
-      return dispatch([](float a, float b) { return a - b; });
+      return dispatch(devi_fast, [](float a, float b) { return a - b; });
     case NODE_MATH_MULTIPLY:
-      return dispatch([](float a, float b) { return a * b; });
+      return dispatch(devi_fast, [](float a, float b) { return a * b; });
     case NODE_MATH_DIVIDE:
-      return dispatch([](float a, float b) { return safe_divide(a, b); });
+      return dispatch(devi_fast, [](float a, float b) { return safe_divide(a, b); });
     case NODE_MATH_POWER:
-      return dispatch([](float a, float b) { return safe_powf(a, b); });
+      return dispatch(devi_slow, [](float a, float b) { return safe_powf(a, b); });
     case NODE_MATH_LOGARITHM:
-      return dispatch([](float a, float b) { return safe_logf(a, b); });
+      return dispatch(devi_slow, [](float a, float b) { return safe_logf(a, b); });
     case NODE_MATH_MINIMUM:
-      return dispatch([](float a, float b) { return std::min(a, b); });
+      return dispatch(devi_fast, [](float a, float b) { return std::min(a, b); });
     case NODE_MATH_MAXIMUM:
-      return dispatch([](float a, float b) { return std::max(a, b); });
+      return dispatch(devi_fast, [](float a, float b) { return std::max(a, b); });
     case NODE_MATH_LESS_THAN:
-      return dispatch([](float a, float b) { return (float)(a < b); });
+      return dispatch(devi_fast, [](float a, float b) { return (float)(a < b); });
     case NODE_MATH_GREATER_THAN:
-      return dispatch([](float a, float b) { return (float)(a > b); });
+      return dispatch(devi_fast, [](float a, float b) { return (float)(a > b); });
     case NODE_MATH_MODULO:
-      return dispatch([](float a, float b) { return safe_modf(a, b); });
+      return dispatch(devi_fast, [](float a, float b) { return safe_modf(a, b); });
     case NODE_MATH_SNAP:
-      return dispatch([](float a, float b) { return floorf(safe_divide(a, b)) * b; });
+      return dispatch(devi_fast, [](float a, float b) { return floorf(safe_divide(a, b)) * b; });
     case NODE_MATH_ARCTAN2:
-      return dispatch([](float a, float b) { return atan2f(a, b); });
+      return dispatch(devi_slow, [](float a, float b) { return atan2f(a, b); });
     case NODE_MATH_PINGPONG:
-      return dispatch([](float a, float b) { return pingpongf(a, b); });
+      return dispatch(devi_fast, [](float a, float b) { return pingpongf(a, b); });
   }
   return false;
 }
@@ -170,57 +173,29 @@ inline bool try_dispatch_float_math_fl_fl_fl_to_fl(const int operation, Callback
   }
 
   /* This is just an utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
+  auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
+    callback(devi_fn, math_function, *info);
     return true;
   };
 
   switch (operation) {
     case NODE_MATH_MULTIPLY_ADD:
-      return dispatch([](float a, float b, float c) { return a * b + c; });
+      return dispatch(devi::presets::AllSpanOrSingle(),
+                      [](float a, float b, float c) { return a * b + c; });
     case NODE_MATH_COMPARE:
-      return dispatch([](float a, float b, float c) -> float {
-        return ((a == b) || (fabsf(a - b) <= fmaxf(c, FLT_EPSILON))) ? 1.0f : 0.0f;
-      });
+      return dispatch(devi::presets::SomeSpanOtherSingle<0, 1>(),
+                      [](float a, float b, float c) -> float {
+                        return ((a == b) || (fabsf(a - b) <= fmaxf(c, FLT_EPSILON))) ? 1.0f : 0.0f;
+                      });
     case NODE_MATH_SMOOTH_MIN:
-      return dispatch([](float a, float b, float c) { return smoothminf(a, b, c); });
+      return dispatch(devi::presets::SomeSpanOtherSingle<0, 1>(),
+                      [](float a, float b, float c) { return smoothminf(a, b, c); });
     case NODE_MATH_SMOOTH_MAX:
-      return dispatch([](float a, float b, float c) { return -smoothminf(-a, -b, c); });
+      return dispatch(devi::presets::SomeSpanOtherSingle<0, 1>(),
+                      [](float a, float b, float c) { return -smoothminf(-a, -b, c); });
     case NODE_MATH_WRAP:
-      return dispatch([](float a, float b, float c) { return wrapf(a, b, c); });
-  }
-  return false;
-}
-
-/**
- * This is similar to try_dispatch_float_math_fl_to_fl, just with a different callback signature.
- */
-template<typename Callback>
-inline bool try_dispatch_float_math_fl_fl_to_bool(const NodeCompareOperation operation,
-                                                  Callback &&callback)
-{
-  const FloatMathOperationInfo *info = get_float_compare_operation_info(operation);
-  if (info == nullptr) {
-    return false;
-  }
-
-  /* This is just an utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto math_function) -> bool {
-    callback(math_function, *info);
-    return true;
-  };
-
-  switch (operation) {
-    case NODE_COMPARE_LESS_THAN:
-      return dispatch([](float a, float b) { return a < b; });
-    case NODE_COMPARE_LESS_EQUAL:
-      return dispatch([](float a, float b) { return a <= b; });
-    case NODE_COMPARE_GREATER_THAN:
-      return dispatch([](float a, float b) { return a > b; });
-    case NODE_COMPARE_GREATER_EQUAL:
-      return dispatch([](float a, float b) { return a >= b; });
-    default:
-      return false;
+      return dispatch(devi::presets::OneSpanOtherSingle<0>(),
+                      [](float a, float b, float c) { return wrapf(a, b, c); });
   }
   return false;
 }
