@@ -34,19 +34,26 @@
 
 namespace blender::devirtualize_arrays {
 
+/**
+ * Tags are used to tell the #Devirtualizer what types should be devirtualized.
+ */
 namespace tags {
 
+/** Base type for input tags. */
 struct Input {
 };
 
+/** Base type for output tags. */
 struct Output {
 };
 
+/** A tag that specifies that a #VArray is passed in as input. */
 template<typename T> struct InVArray : public Input {
   using BaseType = T;
   using ArrayType = VArray<T>;
 };
 
+/** A tag the specifies that a #MutableSpan is passed in as output. */
 template<typename T> struct OutSpan : public Output {
   using BaseType = T;
   using ArrayType = MutableSpan<T>;
