@@ -61,6 +61,9 @@ template<typename T> struct OutSpan : public Output {
 
 }  // namespace tags
 
+/**
+ * Bit flag that specifies how an individual parameter is or can be devirtualized.
+ */
 enum class ParamMode {
   None = 0,
   Span = (1 << 0),
@@ -70,6 +73,9 @@ enum class ParamMode {
 };
 ENUM_OPERATORS(ParamMode, ParamMode::VArray);
 
+/**
+ * Bit flag that specifies how the mask is or can be devirtualized.
+ */
 enum class MaskMode {
   None = 0,
   Mask = (1 << 0),
@@ -78,13 +84,19 @@ enum class MaskMode {
 };
 ENUM_OPERATORS(MaskMode, MaskMode::Range);
 
+/** Utility to encode multiple #ParamMode in a type. */
 template<ParamMode... Mode> using ParamModeSequence = ValueSequence<ParamMode, Mode...>;
 
+/**
+ * Main class that performs the devirtualization.
+ */
 template<typename Fn, typename... ParamTags> class Devirtualizer {
  private:
+  /** Utility to get the tag of the I-th parameter. */
   template<size_t I>
   using tag_at_index = typename TypeSequence<ParamTags...>::template at_index<I>;
 
+  /** Function to devirtualize. */
   Fn fn_;
   IndexMask mask_;
   std::tuple<const typename ParamTags::ArrayType *...> params_;
