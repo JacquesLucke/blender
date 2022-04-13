@@ -4,6 +4,7 @@
 
 #include <tuple>
 
+#include "BLI_parameter_pack_utils.hh"
 #include "BLI_virtual_array.hh"
 
 namespace blender::devirtualize_arrays {

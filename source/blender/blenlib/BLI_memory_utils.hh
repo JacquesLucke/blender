@@ -543,40 +543,7 @@ Container &move_assign_container(Container &dst, Container &&src) noexcept(
   return dst;
 }
 
-/* Todo: Move to separate file. */
-template<typename T, T Element> struct TypeForValue {
-  static constexpr T value = Element;
-};
 
-template<typename T, T... Elements> struct ValueSequence {
-  static constexpr size_t size() noexcept
-  {
-    return sizeof...(Elements);
-  }
-  template<size_t I> static constexpr T at_index()
-  {
-    return std::tuple_element_t<I, std::tuple<TypeForValue<T, Elements>...>>::value;
-  }
-};
-
-template<typename T, T Element, size_t... I>
-ValueSequence<T, ((I == 0) ? Element : Element)...> make_value_sequence_impl(
-    std::index_sequence<I...> /* indices */)
-{
-  return {};
-}
-
-template<typename... T> struct TypeSequence {
-  template<size_t I> using at_index = std::tuple_element_t<I, std::tuple<T...>>;
-  static constexpr size_t size() noexcept
-  {
-    return sizeof...(T);
-  }
-};
-
-template<typename T, T Element, size_t Size>
-using make_value_sequence = decltype(make_value_sequence_impl<T, Element>(
-    std::make_index_sequence<Size>()));
 
 }  // namespace blender
 

@@ -273,6 +273,7 @@ set(SRC
   BLI_noise.h
   BLI_noise.hh
   BLI_path_util.h
+  BLI_parameter_pack_utils.hh
   BLI_polyfill_2d.h
   BLI_polyfill_2d_beautify.h
   BLI_probing_strategies.hh
