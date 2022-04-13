@@ -2,7 +2,32 @@
 
 #pragma once
 
-#include <tuple>
+/** \file
+ * \ingroup bli
+ *
+ * In geometry nodes, many functions accept fields as inputs. For the implementation that means
+ * that the inputs are virtual arrays. Usually those are backed by actual arrays or single values.
+ *
+ * Using virtual arrays has to downside that individual elements are accessed through a virtual
+ * method call, which has some overhead to normal array access. Whether this overhead is negilible
+ * depends on the context. For very small functions (e.g. a single addition), the overhead can make
+ * the function many times slower. Furthermore, it prevents the compiler from doing some
+ * optimizations (e.g. loop unrolling and inserting simd instructions).
+ *
+ * The solution is to "devirtualize" the virtual arrays in cases when the overhead cannot be
+ * ignored. That means that the function is instantiated multiple times at compile time for the
+ * different cases. For example, there can be an optimized function that adds a span and a single
+ * value, and another function that adds a span and another span. At run-time there is a dynamic
+ * dispatch that executes the best function given the specific virtual arrays.
+ *
+ * The problem with this devirtualization is that it can result in exponentially increasing compile
+ * times and binary sizes, depending on the number of parameters that are devirtualized separately.
+ * So there is always a trade-off between run-time performance and compile-time/binary-size.
+ *
+ * This file provides a utility to devirtualize array parameters to a function using a high level
+ * API. This makes it easy to experiment with different extremes of the mentioned trade-off and
+ * allows finding a good compromise for each function.
+ */
 
 #include "BLI_parameter_pack_utils.hh"
 #include "BLI_virtual_array.hh"
