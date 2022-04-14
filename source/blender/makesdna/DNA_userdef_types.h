@@ -668,9 +668,8 @@ typedef struct UserDef {
   unsigned int dupflag;
   /** #eUserPref_PrefFlag preferences for the preferences. */
   char pref_flag;
-  char savetime;
   char mouse_emulate_3_button_modifier;
-  char _pad4[1];
+  char _pad4[2];
   /** FILE_MAXDIR length. */
   char tempdir[768];
   char fontdir[768];
@@ -719,7 +718,9 @@ typedef struct UserDef {
   /** #eUserpref_UI_Flag2. */
   char uiflag2;
   char gpu_flag;
-  char _pad8[6];
+  char _pad8[2];
+  /** Auto-save interval in seconds. */
+  int savetime;
   /* Experimental flag for app-templates to make changes to behavior
    * which are outside the scope of typical preferences. */
   char app_flag;

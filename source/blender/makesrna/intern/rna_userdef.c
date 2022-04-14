@@ -6299,11 +6299,11 @@ static void rna_def_userdef_filepaths(BlenderRNA *brna)
                            "Warning: Sculpt and edit mode data won't be saved");
   RNA_def_property_update(prop, 0, "rna_userdef_autosave_update");
 
-  prop = RNA_def_property(srna, "auto_save_time", PROP_INT, PROP_NONE);
+  prop = RNA_def_property(srna, "auto_save_time", PROP_INT, PROP_TIME_ABSOLUTE);
   RNA_def_property_int_sdna(prop, NULL, "savetime");
-  RNA_def_property_range(prop, 1, 60);
+  RNA_def_property_range(prop, 1, 3600);
   RNA_def_property_ui_text(
-      prop, "Auto Save Time", "The time (in minutes) to wait between automatic temporary saves");
+      prop, "Auto Save Time", "The time (in seconds) to wait between automatic temporary saves");
   RNA_def_property_update(prop, 0, "rna_userdef_autosave_update");
 
   prop = RNA_def_property(srna, "recent_files", PROP_INT, PROP_NONE);

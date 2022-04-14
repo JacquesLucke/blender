@@ -153,6 +153,7 @@ void WM_file_tag_modified(void)
     /* notifier that data changed, for save-over warning or header */
     WM_main_add_notifier(NC_WM | ND_DATACHANGED, NULL);
   }
+  wm->file_auto_saved = 0;
 }
 
 bool wm_file_or_session_data_has_unsaved_changes(const Main *bmain, const wmWindowManager *wm)
@@ -1924,6 +1925,8 @@ static void wm_autosave_write(Main *bmain, wmWindowManager *wm)
 
   wm_autosave_location(filepath);
 
+  printf("auto save\n");
+
   /* Fast save of last undo-buffer, now with UI. */
   const bool use_memfile = (U.uiflag & USER_GLOBALUNDO) != 0;
   MemFile *memfile = use_memfile ? ED_undosys_stack_memfile_get_active(wm->undo_stack) : NULL;
@@ -1944,6 +1947,8 @@ static void wm_autosave_write(Main *bmain, wmWindowManager *wm)
     /* Error reporting into console. */
     BLO_write_file(bmain, filepath, fileflags, &(const struct BlendFileWriteParams){0}, NULL);
   }
+
+  wm->file_auto_saved = true;
 }
 
 static void wm_autosave_timer_begin_ex(wmWindowManager *wm, double timestep)
@@ -1957,7 +1962,7 @@ static void wm_autosave_timer_begin_ex(wmWindowManager *wm, double timestep)
 
 void wm_autosave_timer_begin(wmWindowManager *wm)
 {
-  wm_autosave_timer_begin_ex(wm, U.savetime * 60.0);
+  wm_autosave_timer_begin_ex(wm, U.savetime);
 }
 
 void wm_autosave_timer_end(wmWindowManager *wm)
@@ -1989,6 +1994,12 @@ void wm_autosave_timer(Main *bmain, wmWindowManager *wm, wmTimer *UNUSED(wt))
         }
       }
     }
+  }
+
+  /* Don't auto-save files that have been saved already. */
+  if (wm->file_saved || wm->file_auto_saved) {
+    wm_autosave_timer_begin(wm);
+    return;
   }
 
   wm_autosave_write(bmain, wm);

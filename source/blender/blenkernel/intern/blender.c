@@ -144,7 +144,7 @@ void BKE_blender_globals_init(void)
 
   memset(&G, 0, sizeof(Global));
 
-  U.savetime = 1;
+  U.savetime = 60;
 
   G_MAIN = BKE_main_new();
 

@@ -26,7 +26,7 @@ const UserDef U_default = {
                USER_DUP_ACT | USER_DUP_LIGHTPROBE | USER_DUP_GPENCIL | USER_DUP_CURVES |
                USER_DUP_POINTCLOUD,
     .pref_flag = USER_PREF_FLAG_SAVE,
-    .savetime = 2,
+    .savetime = 120,
     .tempdir = "",
     .fontdir = "//",
     .renderdir = "//",

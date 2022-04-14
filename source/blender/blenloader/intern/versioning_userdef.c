@@ -452,7 +452,7 @@ void blo_do_versions_userdef(UserDef *userdef)
     userdef->autokey_mode = 2;
   }
   if (userdef->savetime <= 0) {
-    userdef->savetime = 1;
+    userdef->savetime = 60;
     // XXX      error(STRINGIFY(BLENDER_STARTUP_FILE)" is buggy, please consider removing it.\n");
   }
   if (userdef->gizmo_size == 0) {

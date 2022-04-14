@@ -140,6 +140,8 @@ typedef struct wmWindowManager {
   short initialized;
   /** Indicator whether data was saved. */
   short file_saved;
+  short file_auto_saved;
+  char _pad2[6];
   /** Operator stack depth to avoid nested undo pushes. */
   short op_undo_depth;
 
