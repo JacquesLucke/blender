@@ -1015,6 +1015,11 @@ void blo_do_versions_userdef(UserDef *userdef)
     userdef->dupflag |= USER_DUP_CURVES | USER_DUP_POINTCLOUD;
   }
 
+  if (!USER_VERSION_ATLEAST(302, 13)) {
+    /* Convert unit from minutes to seconds. */
+    userdef->savetime *= 60;
+  }
+
   /**
    * Versioning code until next subversion bump goes here.
    *
