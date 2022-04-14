@@ -1935,8 +1935,6 @@ static void wm_autosave_write(Main *bmain, wmWindowManager *wm)
 
   wm_autosave_location(filepath);
 
-  printf("auto save\n");
-
   /* Fast save of last undo-buffer, now with UI. */
   const bool use_memfile = (U.uiflag & USER_GLOBALUNDO) != 0;
   MemFile *memfile = use_memfile ? ED_undosys_stack_memfile_get_active(wm->undo_stack) : NULL;
