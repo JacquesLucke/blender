@@ -1878,28 +1878,8 @@ static bool wm_file_write(bContext *C,
 /** \name Auto-Save API
  * \{ */
 
-static void wm_autosave_location(char *filepath)
+static void wm_autosave_directory(char *path)
 {
-  const int pid = abs(getpid());
-  char path[1024];
-#ifdef WIN32
-  const char *savedir;
-#endif
-
-  /* Normally there is no need to check for this to be NULL,
-   * however this runs on exit when it may be cleared. */
-  Main *bmain = G_MAIN;
-  const char *blendfile_path = bmain ? BKE_main_blendfile_path(bmain) : NULL;
-
-  if (blendfile_path && (blendfile_path[0] != '\0')) {
-    const char *basename = BLI_path_basename(blendfile_path);
-    int len = strlen(basename) - 6;
-    BLI_snprintf(path, sizeof(path), "%.*s_%d_autosave.blend", len, basename, pid);
-  }
-  else {
-    BLI_snprintf(path, sizeof(path), "%d_autosave.blend", pid);
-  }
-
 #ifdef WIN32
   /* XXX Need to investigate how to handle default location of '/tmp/'
    * This is a relative directory on Windows, and it may be
@@ -1910,13 +1890,43 @@ static void wm_autosave_location(char *filepath)
    * through BLI_windows_get_default_root_dir().
    * If there is no C:\tmp autosave fails. */
   if (!BLI_exists(BKE_tempdir_base())) {
-    savedir = BKE_appdir_folder_id_create(BLENDER_USER_AUTOSAVE, NULL);
-    BLI_make_file_string("/", filepath, savedir, path);
+    const char *savedir = BKE_appdir_folder_id_create(BLENDER_USER_AUTOSAVE, NULL);
+    BLI_strncpy(path, savedir, FILE_MAX);
     return;
   }
 #endif
 
-  BLI_join_dirfile(filepath, FILE_MAX, BKE_tempdir_base(), path);
+  BLI_strncpy(path, BKE_tempdir_base(), FILE_MAX);
+}
+
+static void wm_autosave_file_name(char *file_name)
+{
+  const int pid = abs(getpid());
+
+  /* Normally there is no need to check for this to be NULL,
+   * however this runs on exit when it may be cleared. */
+  Main *bmain = G_MAIN;
+  const char *blendfile_path = bmain ? BKE_main_blendfile_path(bmain) : NULL;
+
+  if (blendfile_path && (blendfile_path[0] != '\0')) {
+    const char *basename = BLI_path_basename(blendfile_path);
+    int len = strlen(basename) - 6;
+    BLI_snprintf(file_name, FILE_MAX, "%.*s_%d_autosave.blend", len, basename, pid);
+  }
+  else {
+    BLI_snprintf(file_name, FILE_MAX, "%d_autosave.blend", pid);
+  }
+}
+
+static void wm_autosave_location(char *filepath)
+{
+  char file_name[FILE_MAX];
+  wm_autosave_file_name(file_name);
+
+  char directory[FILE_MAX];
+  wm_autosave_directory(directory);
+
+  BLI_make_file_string("/", filepath, directory, file_name);
 }
 
 static void wm_autosave_write(Main *bmain, wmWindowManager *wm)
@@ -2939,19 +2949,14 @@ void WM_OT_recover_last_session(wmOperatorType *ot)
 /** \name Auto-Save Main .blend File Operator
  * \{ */
 
-static int wm_recover_auto_save_exec(bContext *C, wmOperator *op)
+static int load_auto_save(const char *filepath, bContext *C, wmOperator *op)
 {
-  char filepath[FILE_MAX];
-  bool success;
-
-  RNA_string_get(op->ptr, "filepath", filepath);
-
   wm_open_init_use_scripts(op, true);
   SET_FLAG_FROM_TEST(G.f, RNA_boolean_get(op->ptr, "use_scripts"), G_FLAG_SCRIPT_AUTOEXEC);
 
   G.fileflags |= G_FILE_RECOVER_READ;
 
-  success = wm_file_read_opwrap(C, filepath, op->reports);
+  bool success = wm_file_read_opwrap(C, filepath, op->reports);
 
   G.fileflags &= ~G_FILE_RECOVER_READ;
 
@@ -2966,6 +2971,13 @@ static int wm_recover_auto_save_exec(bContext *C, wmOperator *op)
     return OPERATOR_FINISHED;
   }
   return OPERATOR_CANCELLED;
+}
+
+static int wm_recover_auto_save_exec(bContext *C, wmOperator *op)
+{
+  char filepath[FILE_MAX];
+  RNA_string_get(op->ptr, "filepath", filepath);
+  return load_auto_save(filepath, C, op);
 }
 
 static int wm_recover_auto_save_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
@@ -2996,6 +3008,66 @@ void WM_OT_recover_auto_save(wmOperatorType *ot)
                                  WM_FILESEL_FILEPATH,
                                  FILE_VERTICALDISPLAY,
                                  FILE_SORT_TIME);
+
+  wm_open_mainfile_def_property_use_scripts(ot);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Load latest auto-saved file Operator
+ * \{ */
+
+static int wm_recover_last_auto_save_exec(bContext *C, wmOperator *op)
+{
+  char autosave_directory[FILE_MAX];
+  wm_autosave_directory(autosave_directory);
+  struct direntry *files;
+  const unsigned int files_num = BLI_filelist_dir_contents(autosave_directory, &files);
+
+  const int pid = getpid();
+  const char *include_suffix = "_autosave.blend";
+  char exclude_suffix[FILE_MAX];
+  BLI_snprintf(exclude_suffix, sizeof(exclude_suffix), "%d%s", pid, include_suffix);
+
+  struct timespec latest_time = {0};
+  char latest_path[FILE_MAX];
+  latest_path[0] = '\0';
+
+  for (int i = 0; i < files_num; i++) {
+    struct direntry *file = files + i;
+    if (!BLI_str_endswith(file->path, include_suffix)) {
+      continue;
+    }
+    if (BLI_str_endswith(file->path, exclude_suffix)) {
+      continue;
+    }
+    BLI_stat_t file_stat;
+    if (BLI_stat(file->path, &file_stat) == -1) {
+      continue;
+    }
+    struct timespec file_time = file_stat.st_mtim;
+    if (file_time.tv_sec > latest_time.tv_sec) {
+      latest_time = file_time;
+      BLI_strncpy(latest_path, file->path, sizeof(latest_path));
+    }
+  }
+  BLI_filelist_free(files, files_num);
+
+  if (latest_path[0] == '\0') {
+    return OPERATOR_CANCELLED;
+  }
+  return load_auto_save(latest_path, C, op);
+}
+
+void WM_OT_recover_last_auto_save(wmOperatorType *ot)
+{
+  ot->name = "Recover Last Auto Save";
+  ot->idname = "WM_OT_recover_last_auto_save";
+  ot->description =
+      "Open the last auto-saved .blend file that was saved with a different instance of Blender";
+
+  ot->exec = wm_recover_last_auto_save_exec;
 
   wm_open_mainfile_def_property_use_scripts(ot);
 }

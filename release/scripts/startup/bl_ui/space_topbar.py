@@ -386,6 +386,7 @@ class TOPBAR_MT_file_recover(Menu):
         layout = self.layout
 
         layout.operator("wm.recover_last_session", text="Last Session")
+        layout.operator("wm.recover_last_auto_save", text="Last Auto Save")
         layout.operator("wm.recover_auto_save", text="Auto Save...")
 
 

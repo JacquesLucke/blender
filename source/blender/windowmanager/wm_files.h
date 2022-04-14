@@ -98,6 +98,7 @@ void WM_OT_read_factory_settings(struct wmOperatorType *ot);
 void WM_OT_open_mainfile(struct wmOperatorType *ot);
 
 void WM_OT_revert_mainfile(struct wmOperatorType *ot);
+void WM_OT_recover_last_auto_save(struct wmOperatorType *ot);
 void WM_OT_recover_last_session(struct wmOperatorType *ot);
 void WM_OT_recover_auto_save(struct wmOperatorType *ot);
 
