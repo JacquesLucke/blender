@@ -29,62 +29,64 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   template<typename ElementFn, typename DeviFn = devi::presets::None>
   CustomMF(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
   {
+    UNUSED_VARS(element_fn, devi_fn);
     MFSignatureBuilder signature{name};
-    add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
+    // add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
     signature_ = signature.build();
     this->set_signature(&signature_);
 
-    fn_ = [element_fn, devi_fn](IndexMask mask, MFParams params) {
-      execute(element_fn, devi_fn, mask, params, std::make_index_sequence<TagsSequence::size()>());
-    };
+    // fn_ = [element_fn, devi_fn](IndexMask mask, MFParams params) {
+    //   execute(element_fn, devi_fn, mask, params,
+    //   std::make_index_sequence<TagsSequence::size()>());
+    // };
   }
 
-  template<typename ElementFn, typename DeviFn, size_t... I>
-  static void execute(ElementFn element_fn,
-                      DeviFn devi_fn,
-                      IndexMask mask,
-                      MFParams params,
-                      std::index_sequence<I...> /* indices */)
-  {
-    std::tuple<typename ParamTags::ArrayType...> retrieved_params;
-    (
-        [&]() {
-          using ParamTag = typename TagsSequence::template at_index<I>;
-          using T = typename ParamTag::BaseType;
+  // template<typename ElementFn, typename DeviFn, size_t... I>
+  // static void execute(ElementFn element_fn,
+  //                     DeviFn devi_fn,
+  //                     IndexMask mask,
+  //                     MFParams params,
+  //                     std::index_sequence<I...> /* indices */)
+  // {
+  //   std::tuple<typename ParamTags::ArrayType...> retrieved_params;
+  //   (
+  //       [&]() {
+  //         using ParamTag = typename TagsSequence::template at_index<I>;
+  //         using T = typename ParamTag::BaseType;
 
-          if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
-            std::get<I>(retrieved_params) = params.readonly_single_input<T>(I);
-          }
-          if constexpr (std::is_base_of_v<devi::tags::Output, ParamTag>) {
-            std::get<I>(retrieved_params) = params.uninitialized_single_output<T>(I);
-          }
-        }(),
-        ...);
+  //         if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
+  //           std::get<I>(retrieved_params) = params.readonly_single_input<T>(I);
+  //         }
+  //         if constexpr (std::is_base_of_v<devi::tags::Output, ParamTag>) {
+  //           std::get<I>(retrieved_params) = params.uninitialized_single_output<T>(I);
+  //         }
+  //       }(),
+  //       ...);
 
-    devi::Devirtualizer devirtualizer =
-        devi::devirtualizer_from_element_fn<decltype(element_fn), ParamTags...>(
-            element_fn, &mask, &std::get<I>(retrieved_params)...);
-    devi_fn(devirtualizer);
-  }
+  //   devi::Devirtualizer devirtualizer =
+  //       devi::devirtualizer_from_element_fn<decltype(element_fn), ParamTags...>(
+  //           element_fn, &mask, &std::get<I>(retrieved_params)...);
+  //   devi_fn(devirtualizer);
+  // }
 
-  template<size_t... I>
-  static void add_signature_parameters(MFSignatureBuilder &signature,
-                                       std::index_sequence<I...> /* indices */)
-  {
-    (
-        [&] {
-          using ParamTag = typename TagsSequence::template at_index<I>;
-          if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
-            using T = typename ParamTag::BaseType;
-            signature.single_input<T>("In");
-          }
-          if constexpr (std::is_base_of_v<devi::tags::Output, ParamTag>) {
-            using T = typename ParamTag::BaseType;
-            signature.single_output<T>("Out");
-          }
-        }(),
-        ...);
-  }
+  // template<size_t... I>
+  // static void add_signature_parameters(MFSignatureBuilder &signature,
+  //                                      std::index_sequence<I...> /* indices */)
+  // {
+  //   (
+  //       [&] {
+  //         using ParamTag = typename TagsSequence::template at_index<I>;
+  //         if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
+  //           using T = typename ParamTag::BaseType;
+  //           signature.single_input<T>("In");
+  //         }
+  //         if constexpr (std::is_base_of_v<devi::tags::Output, ParamTag>) {
+  //           using T = typename ParamTag::BaseType;
+  //           signature.single_output<T>("Out");
+  //         }
+  //       }(),
+  //       ...);
+  // }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
@@ -101,11 +103,13 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
  * `CustomMF_SI_SO<int, int> fn("add 10", [](int value) { return value + 10; });`
  */
 template<typename In1, typename Out1>
-class CustomMF_SI_SO : public CustomMF<devi::tags::InVArray<In1>, devi::tags::OutSpan<Out1>> {
+class CustomMF_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
+                                       MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
   template<typename ElementFn, typename DeviFn = devi::presets::None>
   CustomMF_SI_SO(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
-      : CustomMF<devi::tags::InVArray<In1>, devi::tags::OutSpan<Out1>>(
+      : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
+                 MFParamTag<MFParamCategory::SingleOutput, Out1>>(
             name,
             [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); },
             devi_fn)
@@ -120,13 +124,15 @@ class CustomMF_SI_SO : public CustomMF<devi::tags::InVArray<In1>, devi::tags::Ou
  * 3. single output (SO) of type Out1
  */
 template<typename In1, typename In2, typename Out1>
-class CustomMF_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
-                                          devi::tags::InVArray<In2>,
-                                          devi::tags::OutSpan<Out1>> {
+class CustomMF_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
+                                          MFParamTag<MFParamCategory::SingleInput, In2>,
+                                          MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
   template<typename ElementFn, typename DeviFn = devi::presets::None>
   CustomMF_SI_SI_SO(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
-      : CustomMF<devi::tags::InVArray<In1>, devi::tags::InVArray<In2>, devi::tags::OutSpan<Out1>>(
+      : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
+                 MFParamTag<MFParamCategory::SingleInput, In2>,
+                 MFParamTag<MFParamCategory::SingleOutput, Out1>>(
             name,
             [element_fn](const In1 &in1, const In2 &in2, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2));
@@ -144,19 +150,19 @@ class CustomMF_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
  * 4. single output (SO) of type Out1
  */
 template<typename In1, typename In2, typename In3, typename Out1>
-class CustomMF_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
-                                             devi::tags::InVArray<In2>,
-                                             devi::tags::InVArray<In3>,
-                                             devi::tags::OutSpan<Out1>> {
+class CustomMF_SI_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
+                                             MFParamTag<MFParamCategory::SingleInput, In2>,
+                                             MFParamTag<MFParamCategory::SingleInput, In3>,
+                                             MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
   template<typename ElementFn, typename DeviFn = devi::presets::None>
   CustomMF_SI_SI_SI_SO(const char *name,
                        ElementFn element_fn,
                        DeviFn devi_fn = devi::presets::None())
-      : CustomMF<devi::tags::InVArray<In1>,
-                 devi::tags::InVArray<In2>,
-                 devi::tags::InVArray<In3>,
-                 devi::tags::OutSpan<Out1>>(
+      : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
+                 MFParamTag<MFParamCategory::SingleInput, In2>,
+                 MFParamTag<MFParamCategory::SingleInput, In3>,
+                 MFParamTag<MFParamCategory::SingleOutput, Out1>>(
             name,
             [element_fn](const In1 &in1, const In2 &in2, const In3 &in3, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2, in3));
@@ -175,21 +181,21 @@ class CustomMF_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
  * 5. single output (SO) of type Out1
  */
 template<typename In1, typename In2, typename In3, typename In4, typename Out1>
-class CustomMF_SI_SI_SI_SI_SO : public CustomMF<devi::tags::InVArray<In1>,
-                                                devi::tags::InVArray<In2>,
-                                                devi::tags::InVArray<In3>,
-                                                devi::tags::InVArray<In4>,
-                                                devi::tags::OutSpan<Out1>> {
+class CustomMF_SI_SI_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
+                                                MFParamTag<MFParamCategory::SingleInput, In2>,
+                                                MFParamTag<MFParamCategory::SingleInput, In3>,
+                                                MFParamTag<MFParamCategory::SingleInput, In4>,
+                                                MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
   template<typename ElementFn, typename DeviFn = devi::presets::None>
   CustomMF_SI_SI_SI_SI_SO(const char *name,
                           ElementFn element_fn,
                           DeviFn devi_fn = devi::presets::None())
-      : CustomMF<devi::tags::InVArray<In1>,
-                 devi::tags::InVArray<In2>,
-                 devi::tags::InVArray<In3>,
-                 devi::tags::InVArray<In4>,
-                 devi::tags::OutSpan<Out1>>(
+      : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
+                 MFParamTag<MFParamCategory::SingleInput, In2>,
+                 MFParamTag<MFParamCategory::SingleInput, In3>,
+                 MFParamTag<MFParamCategory::SingleInput, In4>,
+                 MFParamTag<MFParamCategory::SingleOutput, Out1>>(
             name,
             [element_fn](
                 const In1 &in1, const In2 &in2, const In3 &in3, const In4 &in4, Out1 *out1) {

@@ -164,20 +164,9 @@ template<typename T> void switch_fields(GeoNodeExecParams &params, const StringR
     namespace devi = devirtualize_arrays;
 
     static fn::CustomMF_SI_SI_SI_SO<bool, T, T, T> switch_fn{
-        "Switch",
-        [](bool condition, const T &false_value, const T &true_value) {
+        "Switch", [](bool condition, const T &false_value, const T &true_value) {
           return condition ? true_value : false_value;
-        },
-        [](auto devirtualizer) {
-          if (!devirtualizer
-                   .template try_execute_devirtualized_custom<devi::MaskMode::MaskAndRange>(
-                       devi::ParamModeSequence<devi::ParamMode::Span,
-                                               devi::ParamMode::SpanAndSingle,
-                                               devi::ParamMode::SpanAndSingle,
-                                               devi::ParamMode::None>())) {
-            devirtualizer.execute_materialized();
-          }
-        }};
+        } /* TODO: Devirtualization. */};
 
     auto switch_op = std::make_shared<FieldOperation>(FieldOperation(
         std::move(switch_fn),

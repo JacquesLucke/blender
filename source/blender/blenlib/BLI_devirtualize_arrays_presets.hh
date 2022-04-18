@@ -7,27 +7,27 @@
 namespace blender::devirtualize_arrays::presets {
 
 struct None {
-  template<typename Fn, typename... ParamTags>
-  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  template<typename Fn, typename... ParamTypes>
+  void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
     devirtualizer.execute_fallback();
   }
 };
 
 struct Materialized {
-  template<typename Fn, typename... ParamTags>
-  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  template<typename Fn, typename... ParamTypes>
+  void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    devirtualizer.execute_materialized();
+    // devirtualizer.execute_materialized();
   }
 };
 
 struct AllSpanOrSingle {
-  template<typename Fn, typename... ParamTags>
-  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  template<typename Fn, typename... ParamTypes>
+  void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
     if (!devirtualizer.try_execute_devirtualized()) {
-      devirtualizer.execute_materialized();
+      // devirtualizer.execute_materialized();
     }
   }
 };
@@ -45,17 +45,17 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
     return {};
   }
 
-  template<typename Fn, typename... ParamTags>
-  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  template<typename Fn, typename... ParamTypes>
+  void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    if (!devirtualizer.template try_execute_devirtualized_custom<MaskMode::Range>(
-            get_param_modes(std::make_index_sequence<sizeof...(ParamTags)>()))) {
-      devirtualizer.execute_materialized();
+    if (!devirtualizer.template try_execute_devirtualized_custom(
+            get_param_modes(std::make_index_sequence<sizeof...(ParamTypes)>()))) {
+      // devirtualizer.execute_materialized();
     }
   }
 };
 
-template<size_t SpanIndex, MaskMode MaskMode = MaskMode::Range> struct OneSpanOtherSingle {
+template<size_t SpanIndex> struct OneSpanOtherSingle {
   template<size_t... I>
   static ParamModeSequence<((I == SpanIndex) ? ParamMode::Span : ParamMode::Single)...> get_modes(
       std::index_sequence<I...> /* indices */)
@@ -63,12 +63,12 @@ template<size_t SpanIndex, MaskMode MaskMode = MaskMode::Range> struct OneSpanOt
     return {};
   }
 
-  template<typename Fn, typename... ParamTags>
-  void operator()(Devirtualizer<Fn, ParamTags...> &devirtualizer)
+  template<typename Fn, typename... ParamTypes>
+  void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    if (!devirtualizer.template try_execute_devirtualized_custom<MaskMode>(
-            get_modes(std::make_index_sequence<sizeof...(ParamTags)>()))) {
-      devirtualizer.execute_materialized();
+    if (!devirtualizer.template try_execute_devirtualized_custom(
+            get_modes(std::make_index_sequence<sizeof...(ParamTypes)>()))) {
+      // devirtualizer.execute_materialized();
     }
   }
 };

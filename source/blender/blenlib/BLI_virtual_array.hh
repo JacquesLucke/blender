@@ -596,6 +596,14 @@ template<typename T> struct VArrayAnyExtraInfo {
 
 }  // namespace detail
 
+/** Utility class to make it easy to check if a type is a #VArray. */
+struct VArrayBase {
+};
+
+/** Utility class to make it easy to check if a type is a #VMutableArray. */
+struct VMutableArrayBase {
+};
+
 /**
  * Utility class to reduce code duplication for methods available on #VArray and #VMutableArray.
  * Deriving #VMutableArray from #VArray would have some issues:
@@ -874,7 +882,7 @@ template<typename T> class VMutableArray;
  * be copied and moved. While it is relatively small, it should still be passed by reference if
  * possible (other than e.g. #Span).
  */
-template<typename T> class VArray : public VArrayCommon<T> {
+template<typename T> class VArray : public VArrayCommon<T>, public VArrayBase {
   friend VMutableArray<T>;
 
  public:
@@ -969,7 +977,7 @@ template<typename T> class VArray : public VArrayCommon<T> {
 /**
  * Similar to #VArray but references a virtual array that can be modified.
  */
-template<typename T> class VMutableArray : public VArrayCommon<T> {
+template<typename T> class VMutableArray : public VArrayCommon<T>, public VMutableArrayBase {
  public:
   VMutableArray() = default;
   VMutableArray(const VMutableArray &other) = default;

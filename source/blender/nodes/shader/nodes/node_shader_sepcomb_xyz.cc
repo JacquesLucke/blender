@@ -107,10 +107,10 @@ static int gpu_shader_combxyz(GPUMaterial *mat,
 
 static void sh_node_combxyz_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
-  static fn::CustomMF<devi::tags::InVArray<float>,
-                      devi::tags::InVArray<float>,
-                      devi::tags::InVArray<float>,
-                      devi::tags::OutSpan<float3>>
+  static fn::CustomMF<fn::MFParamTag<fn::MFParamCategory::SingleInput, float>,
+                      fn::MFParamTag<fn::MFParamCategory::SingleInput, float>,
+                      fn::MFParamTag<fn::MFParamCategory::SingleInput, float>,
+                      fn::MFParamTag<fn::MFParamCategory::SingleOutput, float3>>
       fn{"Combine Vector",
          [](float x, float y, float z, float3 *r_value) {
            *r_value = {x, y, z};
