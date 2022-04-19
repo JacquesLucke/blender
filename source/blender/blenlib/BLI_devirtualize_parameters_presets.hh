@@ -2,7 +2,7 @@
 
 #pragma once
 
-#include "BLI_devirtualize_arrays.hh"
+#include "BLI_devirtualize_parameters.hh"
 
 namespace blender::devirtualize_arrays::presets {
 

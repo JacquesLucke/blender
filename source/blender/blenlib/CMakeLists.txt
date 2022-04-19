@@ -179,8 +179,8 @@ set(SRC
   BLI_cpp_type.hh
   BLI_cpp_type_make.hh
   BLI_delaunay_2d.h
-  BLI_devirtualize_arrays.hh
-  BLI_devirtualize_arrays_presets.hh
+  BLI_devirtualize_parameters.hh
+  BLI_devirtualize_parameters_presets.hh
   BLI_dial_2d.h
   BLI_disjoint_set.hh
   BLI_dlrbTree.h
