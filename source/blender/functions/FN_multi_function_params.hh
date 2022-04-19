@@ -111,7 +111,7 @@ class MFParamsBuilder {
     this->assert_current_param_name(expected_name);
     const int param_index = this->current_param_index();
     const MFParamType &param_type = signature_->param_types[param_index];
-    BLI_assert(param_type.category() == MFParamType::SingleOutput);
+    BLI_assert(param_type.category() == MFParamCategory::SingleOutput);
     const CPPType &type = param_type.data_type().single_type();
     /* An empty span indicates that this is ignored. */
     const GMutableSpan dummy_span{type};
@@ -144,8 +144,8 @@ class MFParamsBuilder {
   GMutableSpan computed_array(int param_index)
   {
     BLI_assert(ELEM(signature_->param_types[param_index].category(),
-                    MFParamType::SingleOutput,
-                    MFParamType::SingleMutable));
+                    MFParamCategory::SingleOutput,
+                    MFParamCategory::SingleMutable));
     int data_index = signature_->data_index(param_index);
     return mutable_spans_[data_index];
   }
@@ -153,8 +153,8 @@ class MFParamsBuilder {
   GVectorArray &computed_vector_array(int param_index)
   {
     BLI_assert(ELEM(signature_->param_types[param_index].category(),
-                    MFParamType::VectorOutput,
-                    MFParamType::VectorMutable));
+                    MFParamCategory::VectorOutput,
+                    MFParamCategory::VectorMutable));
     int data_index = signature_->data_index(param_index);
     return *vector_arrays_[data_index];
   }

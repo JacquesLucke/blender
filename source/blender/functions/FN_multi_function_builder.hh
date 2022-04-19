@@ -31,7 +31,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   {
     UNUSED_VARS(element_fn, devi_fn);
     MFSignatureBuilder signature{name};
-    // add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
+    add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
     signature_ = signature.build();
     this->set_signature(&signature_);
 
@@ -69,24 +69,17 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   //   devi_fn(devirtualizer);
   // }
 
-  // template<size_t... I>
-  // static void add_signature_parameters(MFSignatureBuilder &signature,
-  //                                      std::index_sequence<I...> /* indices */)
-  // {
-  //   (
-  //       [&] {
-  //         using ParamTag = typename TagsSequence::template at_index<I>;
-  //         if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
-  //           using T = typename ParamTag::BaseType;
-  //           signature.single_input<T>("In");
-  //         }
-  //         if constexpr (std::is_base_of_v<devi::tags::Output, ParamTag>) {
-  //           using T = typename ParamTag::BaseType;
-  //           signature.single_output<T>("Out");
-  //         }
-  //       }(),
-  //       ...);
-  // }
+  template<size_t... I>
+  static void add_signature_parameters(MFSignatureBuilder &signature,
+                                       std::index_sequence<I...> /* indices */)
+  {
+    (
+        [&] {
+          using ParamTag = typename TagsSequence::template at_index<I>;
+          signature.add(ParamTag(), "");
+        }(),
+        ...);
+  }
 
   void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
   {
