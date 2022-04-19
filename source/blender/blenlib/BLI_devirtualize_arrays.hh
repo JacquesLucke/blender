@@ -54,48 +54,48 @@ template<DeviMode... Mode> using ParamModeSequence = ValueSequence<DeviMode, Mod
 /**
  * Main class that performs the devirtualization.
  */
-template<typename Fn, typename... ParamTypes> class Devirtualizer {
+template<typename Fn, typename... SourceTypes> class Devirtualizer {
  private:
   /** Utility to get the tag of the I-th parameter. */
   template<size_t I>
-  using type_at_index = typename TypeSequence<ParamTypes...>::template at_index<I>;
+  using type_at_index = typename TypeSequence<SourceTypes...>::template at_index<I>;
 
   /** Function to devirtualize. */
   Fn fn_;
-  std::tuple<const ParamTypes *...> params_;
+  std::tuple<const SourceTypes *...> sources_;
 
-  std::array<bool, sizeof...(ParamTypes)> varray_is_span_;
-  std::array<bool, sizeof...(ParamTypes)> varray_is_single_;
+  std::array<bool, sizeof...(SourceTypes)> source_is_span_;
+  std::array<bool, sizeof...(SourceTypes)> source_is_single_;
 
   bool executed_ = false;
 
  public:
-  Devirtualizer(Fn fn, const ParamTypes *...params) : fn_(std::move(fn)), params_{params...}
+  Devirtualizer(Fn fn, const SourceTypes *...sources) : fn_(std::move(fn)), sources_{sources...}
   {
-    this->init(std::make_index_sequence<sizeof...(ParamTypes)>{});
+    this->init(std::make_index_sequence<sizeof...(SourceTypes)>{});
   }
 
   void execute_fallback()
   {
     BLI_assert(!executed_);
-    this->execute_fallback_impl(std::make_index_sequence<sizeof...(ParamTypes)>{});
+    this->execute_fallback_impl(std::make_index_sequence<sizeof...(SourceTypes)>{});
     this->try_execute_devirtualized_impl_call(
-        make_value_sequence<DeviMode, DeviMode::None, sizeof...(ParamTypes)>(),
-        std::make_index_sequence<sizeof...(ParamTypes)>());
+        make_value_sequence<DeviMode, DeviMode::None, sizeof...(SourceTypes)>(),
+        std::make_index_sequence<sizeof...(SourceTypes)>());
   }
 
   bool try_execute_devirtualized()
   {
     BLI_assert(!executed_);
     return this->try_execute_devirtualized_custom(
-        make_value_sequence<DeviMode, DeviMode::SpanAndSingleAndRange, sizeof...(ParamTypes)>());
+        make_value_sequence<DeviMode, DeviMode::SpanAndSingleAndRange, sizeof...(SourceTypes)>());
   }
 
   template<DeviMode... AllowedModes>
   bool try_execute_devirtualized_custom(ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
     BLI_assert(!executed_);
-    static_assert(sizeof...(AllowedModes) == sizeof...(ParamTypes));
+    static_assert(sizeof...(AllowedModes) == sizeof...(SourceTypes));
     return this->try_execute_devirtualized_impl(ParamModeSequence<>(),
                                                 ParamModeSequence<AllowedModes...>());
   }
@@ -103,15 +103,15 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
  private:
   template<size_t... I> void init(std::index_sequence<I...> /* indices */)
   {
-    varray_is_span_.fill(false);
-    varray_is_single_.fill(false);
+    source_is_span_.fill(false);
+    source_is_single_.fill(false);
     (
         [&] {
           using ParamType = type_at_index<I>;
           if constexpr (std::is_base_of_v<VArrayBase, ParamType>) {
-            const ParamType *varray = std::get<I>(params_);
-            varray_is_span_[I] = varray->is_span();
-            varray_is_single_[I] = varray->is_single();
+            const ParamType *varray = std::get<I>(sources_);
+            source_is_span_[I] = varray->is_span();
+            source_is_single_[I] = varray->is_single();
           }
         }(),
         ...);
@@ -121,10 +121,10 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
   bool try_execute_devirtualized_impl(ParamModeSequence<Mode...> /* modes */,
                                       ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
-    static_assert(sizeof...(AllowedModes) == sizeof...(ParamTypes));
-    if constexpr (sizeof...(Mode) == sizeof...(ParamTypes)) {
-      this->try_execute_devirtualized_impl_call(ParamModeSequence<Mode...>(),
-                                                std::make_index_sequence<sizeof...(ParamTypes)>());
+    static_assert(sizeof...(AllowedModes) == sizeof...(SourceTypes));
+    if constexpr (sizeof...(Mode) == sizeof...(SourceTypes)) {
+      this->try_execute_devirtualized_impl_call(
+          ParamModeSequence<Mode...>(), std::make_index_sequence<sizeof...(SourceTypes)>());
       return true;
     }
     else {
@@ -134,14 +134,14 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
           ParamModeSequence<AllowedModes...>::template at_index<I>();
       if constexpr (std::is_base_of_v<VArrayBase, ParamType>) {
         if constexpr ((allowed_modes & DeviMode::Single) != DeviMode::None) {
-          if (varray_is_single_[I]) {
+          if (source_is_single_[I]) {
             return this->try_execute_devirtualized_impl(
                 ParamModeSequence<Mode..., DeviMode::Single>(),
                 ParamModeSequence<AllowedModes...>());
           }
         }
         if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
-          if (varray_is_span_[I]) {
+          if (source_is_span_[I]) {
             return this->try_execute_devirtualized_impl(
                 ParamModeSequence<Mode..., DeviMode::Span>(),
                 ParamModeSequence<AllowedModes...>());
@@ -156,7 +156,7 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
       }
       else if constexpr (std::is_same_v<IndexMask, ParamType>) {
         if constexpr ((allowed_modes & DeviMode::Range) != DeviMode::None) {
-          const IndexMask &mask = *params_[I];
+          const IndexMask &mask = *sources_[I];
           if (mask.is_range()) {
             return this->try_execute_devirtualized_impl(
                 ParamModeSequence<Mode..., DeviMode::Range>(),
@@ -187,7 +187,7 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
   {
     using ParamType = type_at_index<I>;
     if constexpr (std::is_base_of_v<VArrayBase, ParamType>) {
-      const ParamType &varray = *std::get<I>(params_);
+      const ParamType &varray = *std::get<I>(sources_);
       if constexpr (ELEM(Mode, DeviMode::None, DeviMode::VArray)) {
         return varray;
       }
@@ -199,7 +199,7 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
       }
     }
     else if constexpr (std::is_same_v<IndexMask, ParamType>) {
-      const IndexMask &mask = *std::get<I>(params_);
+      const IndexMask &mask = *std::get<I>(sources_);
       if constexpr (Mode == DeviMode::None) {
         return mask;
       }
