@@ -59,43 +59,44 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   /** Utility to get the tag of the I-th parameter. */
   template<size_t I>
   using type_at_index = typename TypeSequence<SourceTypes...>::template at_index<I>;
+  static constexpr size_t SourceTypesNum = sizeof...(SourceTypes);
 
   /** Function to devirtualize. */
   Fn fn_;
   std::tuple<const SourceTypes *...> sources_;
 
-  std::array<bool, sizeof...(SourceTypes)> source_is_span_;
-  std::array<bool, sizeof...(SourceTypes)> source_is_single_;
+  std::array<bool, SourceTypesNum> source_is_span_;
+  std::array<bool, SourceTypesNum> source_is_single_;
 
   bool executed_ = false;
 
  public:
   Devirtualizer(Fn fn, const SourceTypes *...sources) : fn_(std::move(fn)), sources_{sources...}
   {
-    this->init(std::make_index_sequence<sizeof...(SourceTypes)>{});
+    this->init(std::make_index_sequence<SourceTypesNum>{});
   }
 
   void execute_fallback()
   {
     BLI_assert(!executed_);
-    this->execute_fallback_impl(std::make_index_sequence<sizeof...(SourceTypes)>{});
+    this->execute_fallback_impl(std::make_index_sequence<SourceTypesNum>{});
     this->try_execute_devirtualized_impl_call(
-        make_value_sequence<DeviMode, DeviMode::None, sizeof...(SourceTypes)>(),
-        std::make_index_sequence<sizeof...(SourceTypes)>());
+        make_value_sequence<DeviMode, DeviMode::None, SourceTypesNum>(),
+        std::make_index_sequence<SourceTypesNum>());
   }
 
   bool try_execute_devirtualized()
   {
     BLI_assert(!executed_);
     return this->try_execute_devirtualized_custom(
-        make_value_sequence<DeviMode, DeviMode::SpanAndSingleAndRange, sizeof...(SourceTypes)>());
+        make_value_sequence<DeviMode, DeviMode::SpanAndSingleAndRange, SourceTypesNum>());
   }
 
   template<DeviMode... AllowedModes>
   bool try_execute_devirtualized_custom(ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
     BLI_assert(!executed_);
-    static_assert(sizeof...(AllowedModes) == sizeof...(SourceTypes));
+    static_assert(sizeof...(AllowedModes) == SourceTypesNum);
     return this->try_execute_devirtualized_impl(ParamModeSequence<>(),
                                                 ParamModeSequence<AllowedModes...>());
   }
@@ -121,10 +122,10 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   bool try_execute_devirtualized_impl(ParamModeSequence<Mode...> /* modes */,
                                       ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
-    static_assert(sizeof...(AllowedModes) == sizeof...(SourceTypes));
-    if constexpr (sizeof...(Mode) == sizeof...(SourceTypes)) {
-      this->try_execute_devirtualized_impl_call(
-          ParamModeSequence<Mode...>(), std::make_index_sequence<sizeof...(SourceTypes)>());
+    static_assert(SourceTypesNum == sizeof...(AllowedModes));
+    if constexpr (SourceTypesNum == sizeof...(Mode)) {
+      this->try_execute_devirtualized_impl_call(ParamModeSequence<Mode...>(),
+                                                std::make_index_sequence<SourceTypesNum>());
       return true;
     }
     else {
