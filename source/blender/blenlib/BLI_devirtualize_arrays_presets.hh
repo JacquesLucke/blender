@@ -33,13 +33,13 @@ struct AllSpanOrSingle {
 };
 
 template<size_t... SpanIndices> struct SomeSpanOtherSingle {
-  static constexpr ParamMode get_param_mode(size_t I)
+  static constexpr DeviMode get_devi_mode(size_t I)
   {
-    return ((I == SpanIndices) || ...) ? ParamMode::Span : ParamMode::Single;
+    return ((I == SpanIndices) || ...) ? DeviMode::Span : DeviMode::Single;
   }
 
   template<size_t... I>
-  static constexpr ParamModeSequence<get_param_mode(I)...> get_param_modes(
+  static constexpr ParamModeSequence<get_devi_mode(I)...> get_devi_modes(
       std::index_sequence<I...> /* indices */)
   {
     return {};
@@ -49,7 +49,7 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
     if (!devirtualizer.template try_execute_devirtualized_custom(
-            get_param_modes(std::make_index_sequence<sizeof...(ParamTypes)>()))) {
+            get_devi_modes(std::make_index_sequence<sizeof...(ParamTypes)>()))) {
       // devirtualizer.execute_materialized();
     }
   }
@@ -57,7 +57,7 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
 
 template<size_t SpanIndex> struct OneSpanOtherSingle {
   template<size_t... I>
-  static ParamModeSequence<((I == SpanIndex) ? ParamMode::Span : ParamMode::Single)...> get_modes(
+  static ParamModeSequence<((I == SpanIndex) ? DeviMode::Span : DeviMode::Single)...> get_modes(
       std::index_sequence<I...> /* indices */)
   {
     return {};

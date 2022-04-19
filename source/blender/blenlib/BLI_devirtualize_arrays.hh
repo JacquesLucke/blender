@@ -37,7 +37,7 @@ namespace blender::devirtualize_arrays {
 /**
  * Bit flag that specifies how an individual parameter is or can be devirtualized.
  */
-enum class ParamMode {
+enum class DeviMode {
   None = 0,
   Span = (1 << 0),
   Single = (1 << 1),
@@ -46,10 +46,10 @@ enum class ParamMode {
   SpanAndSingle = Span | Single,
   SpanAndSingleAndRange = Span | Single | Range,
 };
-ENUM_OPERATORS(ParamMode, ParamMode::Range);
+ENUM_OPERATORS(DeviMode, DeviMode::Range);
 
-/** Utility to encode multiple #ParamMode in a type. */
-template<ParamMode... Mode> using ParamModeSequence = ValueSequence<ParamMode, Mode...>;
+/** Utility to encode multiple #DeviMode in a type. */
+template<DeviMode... Mode> using ParamModeSequence = ValueSequence<DeviMode, Mode...>;
 
 /**
  * Main class that performs the devirtualization.
@@ -80,7 +80,7 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
     BLI_assert(!executed_);
     this->execute_fallback_impl(std::make_index_sequence<sizeof...(ParamTypes)>{});
     this->try_execute_devirtualized_impl_call(
-        make_value_sequence<ParamMode, ParamMode::None, sizeof...(ParamTypes)>(),
+        make_value_sequence<DeviMode, DeviMode::None, sizeof...(ParamTypes)>(),
         std::make_index_sequence<sizeof...(ParamTypes)>());
   }
 
@@ -88,10 +88,10 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
   {
     BLI_assert(!executed_);
     return this->try_execute_devirtualized_custom(
-        make_value_sequence<ParamMode, ParamMode::SpanAndSingleAndRange, sizeof...(ParamTypes)>());
+        make_value_sequence<DeviMode, DeviMode::SpanAndSingleAndRange, sizeof...(ParamTypes)>());
   }
 
-  template<ParamMode... AllowedModes>
+  template<DeviMode... AllowedModes>
   bool try_execute_devirtualized_custom(ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
     BLI_assert(!executed_);
@@ -117,7 +117,7 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
         ...);
   }
 
-  template<ParamMode... Mode, ParamMode... AllowedModes>
+  template<DeviMode... Mode, DeviMode... AllowedModes>
   bool try_execute_devirtualized_impl(ParamModeSequence<Mode...> /* modes */,
                                       ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
@@ -130,42 +130,42 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
     else {
       constexpr size_t I = sizeof...(Mode);
       using ParamType = type_at_index<I>;
-      constexpr ParamMode allowed_modes =
+      constexpr DeviMode allowed_modes =
           ParamModeSequence<AllowedModes...>::template at_index<I>();
       if constexpr (std::is_base_of_v<VArrayBase, ParamType>) {
-        if constexpr ((allowed_modes & ParamMode::Single) != ParamMode::None) {
+        if constexpr ((allowed_modes & DeviMode::Single) != DeviMode::None) {
           if (varray_is_single_[I]) {
             return this->try_execute_devirtualized_impl(
-                ParamModeSequence<Mode..., ParamMode::Single>(),
+                ParamModeSequence<Mode..., DeviMode::Single>(),
                 ParamModeSequence<AllowedModes...>());
           }
         }
-        if constexpr ((allowed_modes & ParamMode::Span) != ParamMode::None) {
+        if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
           if (varray_is_span_[I]) {
             return this->try_execute_devirtualized_impl(
-                ParamModeSequence<Mode..., ParamMode::Span>(),
+                ParamModeSequence<Mode..., DeviMode::Span>(),
                 ParamModeSequence<AllowedModes...>());
           }
         }
-        if constexpr ((allowed_modes & ParamMode::VArray) != ParamMode::None) {
+        if constexpr ((allowed_modes & DeviMode::VArray) != DeviMode::None) {
           return this->try_execute_devirtualized_impl(
-              ParamModeSequence<Mode..., ParamMode::VArray>(),
+              ParamModeSequence<Mode..., DeviMode::VArray>(),
               ParamModeSequence<AllowedModes...>());
         }
         return false;
       }
       else if constexpr (std::is_same_v<IndexMask, ParamType>) {
-        if constexpr ((allowed_modes & ParamMode::Range) != ParamMode::None) {
+        if constexpr ((allowed_modes & DeviMode::Range) != DeviMode::None) {
           const IndexMask &mask = *params_[I];
           if (mask.is_range()) {
             return this->try_execute_devirtualized_impl(
-                ParamModeSequence<Mode..., ParamMode::Range>(),
+                ParamModeSequence<Mode..., DeviMode::Range>(),
                 ParamModeSequence<AllowedModes...>());
           }
         }
-        if constexpr ((allowed_modes & ParamMode::Span) != ParamMode::None) {
-          return this->try_execute_devirtualized_impl(
-              ParamModeSequence<Mode..., ParamMode::Span>(), ParamModeSequence<AllowedModes...>());
+        if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
+          return this->try_execute_devirtualized_impl(ParamModeSequence<Mode..., DeviMode::Span>(),
+                                                      ParamModeSequence<AllowedModes...>());
         }
       }
       else {
@@ -174,7 +174,7 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
     }
   }
 
-  template<ParamMode... Mode, size_t... I>
+  template<DeviMode... Mode, size_t... I>
   void try_execute_devirtualized_impl_call(ParamModeSequence<Mode...> /* modes */,
                                            std::index_sequence<I...> /* indices */)
   {
@@ -183,27 +183,27 @@ template<typename Fn, typename... ParamTypes> class Devirtualizer {
     executed_ = true;
   }
 
-  template<size_t I, ParamMode Mode> decltype(auto) get_devirtualized_parameter()
+  template<size_t I, DeviMode Mode> decltype(auto) get_devirtualized_parameter()
   {
     using ParamType = type_at_index<I>;
     if constexpr (std::is_base_of_v<VArrayBase, ParamType>) {
       const ParamType &varray = *std::get<I>(params_);
-      if constexpr (ELEM(Mode, ParamMode::None, ParamMode::VArray)) {
+      if constexpr (ELEM(Mode, DeviMode::None, DeviMode::VArray)) {
         return varray;
       }
-      else if constexpr (Mode == ParamMode::Single) {
+      else if constexpr (Mode == DeviMode::Single) {
         return SingleAsSpan(varray);
       }
-      else if constexpr (Mode == ParamMode::Span) {
+      else if constexpr (Mode == DeviMode::Span) {
         return varray.get_internal_span();
       }
     }
     else if constexpr (std::is_same_v<IndexMask, ParamType>) {
       const IndexMask &mask = *std::get<I>(params_);
-      if constexpr (Mode == ParamMode::None) {
+      if constexpr (Mode == DeviMode::None) {
         return mask;
       }
-      else if constexpr (Mode == ParamMode::Span) {
+      else if constexpr (Mode == DeviMode::Span) {
         return mask.as_range();
       }
     }
