@@ -34,6 +34,9 @@ enum class MFParamCategory {
 template<MFParamCategory Category, typename T> struct MFParamTag {
   static constexpr MFParamCategory category = Category;
   using base_type = T;
+  /* TODO: Doesn't support all categories yet. */
+  using array_type =
+      std::conditional_t<Category == MFParamCategory::SingleInput, VArray<T>, MutableSpan<T>>;
 };
 
 class MFParamType {

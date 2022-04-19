@@ -18,6 +18,15 @@ namespace blender::fn {
 
 namespace devi = devirtualize_arrays;
 
+template<typename... ParamTags, typename ElementFn, typename MaskT, typename... Args>
+void execute_array(TypeSequence<ParamTags...> /* param_tags */,
+                   ElementFn element_fn,
+                   MaskT mask,
+                   Args &&.../*args*/)
+{
+  UNUSED_VARS(element_fn, mask);
+}
+
 template<typename... ParamTags> class CustomMF : public MultiFunction {
  private:
   std::function<void(IndexMask mask, MFParams params)> fn_;
@@ -35,39 +44,42 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
     signature_ = signature.build();
     this->set_signature(&signature_);
 
-    // fn_ = [element_fn, devi_fn](IndexMask mask, MFParams params) {
-    //   execute(element_fn, devi_fn, mask, params,
-    //   std::make_index_sequence<TagsSequence::size()>());
-    // };
+    fn_ = [element_fn, devi_fn](IndexMask mask, MFParams params) {
+      execute(element_fn, devi_fn, mask, params, std::make_index_sequence<TagsSequence::size()>());
+    };
   }
 
-  // template<typename ElementFn, typename DeviFn, size_t... I>
-  // static void execute(ElementFn element_fn,
-  //                     DeviFn devi_fn,
-  //                     IndexMask mask,
-  //                     MFParams params,
-  //                     std::index_sequence<I...> /* indices */)
-  // {
-  //   std::tuple<typename ParamTags::ArrayType...> retrieved_params;
-  //   (
-  //       [&]() {
-  //         using ParamTag = typename TagsSequence::template at_index<I>;
-  //         using T = typename ParamTag::BaseType;
+  template<typename ElementFn, typename DeviFn, size_t... I>
+  static void execute(ElementFn element_fn,
+                      DeviFn devi_fn,
+                      IndexMask mask,
+                      MFParams params,
+                      std::index_sequence<I...> /* indices */)
+  {
+    UNUSED_VARS(element_fn, mask, devi_fn);
+    std::tuple<typename ParamTags::array_type...> retrieved_params;
+    (
+        [&]() {
+          using ParamTag = typename TagsSequence::template at_index<I>;
+          using T = typename ParamTag::base_type;
 
-  //         if constexpr (std::is_base_of_v<devi::tags::Input, ParamTag>) {
-  //           std::get<I>(retrieved_params) = params.readonly_single_input<T>(I);
-  //         }
-  //         if constexpr (std::is_base_of_v<devi::tags::Output, ParamTag>) {
-  //           std::get<I>(retrieved_params) = params.uninitialized_single_output<T>(I);
-  //         }
-  //       }(),
-  //       ...);
+          if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+            std::get<I>(retrieved_params) = params.readonly_single_input<T>(I);
+          }
+          if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
+            std::get<I>(retrieved_params) = params.uninitialized_single_output<T>(I);
+          }
+        }(),
+        ...);
 
-  //   devi::Devirtualizer devirtualizer =
-  //       devi::devirtualizer_from_element_fn<decltype(element_fn), ParamTags...>(
-  //           element_fn, &mask, &std::get<I>(retrieved_params)...);
-  //   devi_fn(devirtualizer);
-  // }
+    auto array_executor = [&](auto &&...args) {
+      execute_array(TagsSequence(), element_fn, std::forward<decltype(args)>(args)...);
+    };
+
+    devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
+        devirtualizer{array_executor, &mask, [&] { return &std::get<I>(retrieved_params); }()...};
+    devirtualizer.execute_fallback();
+  }
 
   template<size_t... I>
   static void add_signature_parameters(MFSignatureBuilder &signature,
