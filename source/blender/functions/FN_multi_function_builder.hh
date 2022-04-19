@@ -18,13 +18,24 @@ namespace blender::fn {
 
 namespace devi = devirtualize_arrays;
 
-template<typename... ParamTags, typename ElementFn, typename MaskT, typename... Args>
+template<typename... ParamTags, size_t... I, typename ElementFn, typename MaskT, typename... Args>
 void execute_array(TypeSequence<ParamTags...> /* param_tags */,
+                   std::index_sequence<I...> /* indices */,
                    ElementFn element_fn,
                    MaskT mask,
-                   Args &&.../*args*/)
+                   Args &&...args)
 {
-  UNUSED_VARS(element_fn, mask);
+  for (const int64_t i : mask) {
+    element_fn([&] {
+      using ParamTag = typename TypeSequence<ParamTags...>::at_index<I>;
+      if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+        return args[i];
+      }
+      else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
+        return &args[i];
+      }
+    }()...);
+  }
 }
 
 template<typename... ParamTags> class CustomMF : public MultiFunction {
@@ -73,7 +84,10 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
         ...);
 
     auto array_executor = [&](auto &&...args) {
-      execute_array(TagsSequence(), element_fn, std::forward<decltype(args)>(args)...);
+      execute_array(TagsSequence(),
+                    std::make_index_sequence<TagsSequence::size()>(),
+                    element_fn,
+                    std::forward<decltype(args)>(args)...);
     };
 
     devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
