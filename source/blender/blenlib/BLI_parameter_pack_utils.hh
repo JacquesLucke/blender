@@ -10,6 +10,7 @@
  */
 
 #include <tuple>
+#include <type_traits>
 
 #include "BLI_utildefines.h"
 
@@ -44,6 +45,14 @@ template<typename T, T... Elements> struct ValueSequence {
     static_assert(I < sizeof...(Elements));
     return std::tuple_element_t<I, std::tuple<TypeForValue<T, Elements>...>>::value;
   }
+
+  /**
+   * Return true if the element is in the sequence.
+   */
+  template<T Element> static constexpr bool contains()
+  {
+    return ((Element == Elements) || ...);
+  }
 };
 
 /**
@@ -67,24 +76,47 @@ template<typename... T> struct TypeSequence {
 
 namespace detail {
 
-template<typename T, T Element, size_t... I>
-ValueSequence<T, ((I == 0) ? Element : Element)...> make_value_sequence_impl(
+template<typename T, T Value, size_t... I>
+inline ValueSequence<T, ((I == 0) ? Value : Value)...> make_value_sequence_impl(
     std::index_sequence<I...> /* indices */)
 {
   return {};
 }
 
+template<typename T, T Value1, T Value2, size_t... Value1Indices, size_t... I>
+inline ValueSequence<T,
+                     (ValueSequence<size_t, Value1Indices...>::template contains<I>() ? Value1 :
+                                                                                        Value2)...>
+    make_two_value_sequence_impl(ValueSequence<size_t, Value1Indices...> /* value1_indices */,
+                                 std::index_sequence<I...> /* indices */)
+{
+  return {};
+};
+
 }  // namespace detail
 
 /**
  * Utility to create a #ValueSequence that has the same value at every index.
- *
- * Example:
- *   `make_value_sequence<MyEnum, MyEnum::A, 3>` becomes
- *   `ValueSequence<MyEnum::A, MyEnum::A, MyEnum::A>`
  */
-template<typename T, T Element, size_t Size>
-using make_value_sequence = decltype(detail::make_value_sequence_impl<T, Element>(
+template<typename T, T Value, size_t Size>
+using make_value_sequence = decltype(detail::make_value_sequence_impl<T, Value>(
     std::make_index_sequence<Size>()));
+
+/**
+ * Utility to create a #ValueSequence that contains two different values. The indices of where the
+ * first value should be used are passed in.
+ */
+template<typename T, T Value1, T Value2, size_t Size, size_t... Value1Indices>
+using make_two_value_sequence = decltype(detail::make_two_value_sequence_impl<T, Value1, Value2>(
+    ValueSequence<size_t, Value1Indices...>(), std::make_index_sequence<Size>()));
+
+namespace parameter_pack_utils_static_tests {
+enum class MyEnum { A, B };
+static_assert(std::is_same_v<make_value_sequence<MyEnum, MyEnum::A, 3>,
+                             ValueSequence<MyEnum, MyEnum::A, MyEnum::A, MyEnum::A>>);
+static_assert(
+    std::is_same_v<make_two_value_sequence<MyEnum, MyEnum::A, MyEnum::B, 5, 1, 2>,
+                   ValueSequence<MyEnum, MyEnum::B, MyEnum::A, MyEnum::A, MyEnum::B, MyEnum::B>>);
+}  // namespace parameter_pack_utils_static_tests
 
 }  // namespace blender

@@ -24,23 +24,11 @@ template<DeviMode Mode> struct AllSame {
 };
 
 template<DeviMode Mode1, DeviMode Mode2, size_t... Mode1Indices> struct TwoModes {
-  static constexpr DeviMode get_devi_mode(size_t I)
-  {
-    return ((I == Mode1Indices) || ...) ? Mode1 : Mode2;
-  }
-
-  template<size_t... I>
-  static constexpr DeviModeSequence<get_devi_mode(I)...> get_devi_modes(
-      std::index_sequence<I...> /* indices */)
-  {
-    return {};
-  }
-
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
     devirtualizer.template try_execute_devirtualized(
-        get_devi_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
+        make_two_value_sequence<DeviMode, Mode1, Mode2, sizeof...(ParamTypes), Mode1Indices...>());
   }
 };
 
