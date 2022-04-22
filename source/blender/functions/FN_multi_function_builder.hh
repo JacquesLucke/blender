@@ -38,6 +38,109 @@ void execute_array(TypeSequence<ParamTags...> /* param_tags */,
   }
 }
 
+template<typename... ParamTags, size_t... I, typename ElementFn, typename... Args>
+void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
+                          std::index_sequence<I...> /* indices */,
+                          const ElementFn element_fn,
+                          const IndexMask mask,
+                          Args &&...args)
+{
+  static constexpr int64_t MaxChunkSize = 32;
+  const int64_t mask_size = mask.size();
+  const int64_t buffer_size = std::min(mask_size, MaxChunkSize);
+  std::tuple<TypedBuffer<typename ParamTags::base_type, MaxChunkSize>...> buffers_owner;
+  std::tuple<MutableSpan<typename ParamTags::base_type>...> buffers = {
+      MutableSpan{std::get<I>(buffers_owner).ptr(), buffer_size}...};
+  std::array<bool, sizeof...(ParamTags)> is_constant_chunk;
+  is_constant_chunk.fill(false);
+
+  (
+      [&] {
+        using ParamTag = ParamTags;
+        using T = typename ParamTag::base_type;
+        if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+          VArray<T> &varray = *args;
+          if (varray.is_single()) {
+            MutableSpan<T> in_chunk{std::get<I>(buffers_owner).ptr(), buffer_size};
+            const T in_single = varray.get_internal_single();
+            uninitialized_fill_n(in_chunk.data(), in_chunk.size(), in_single);
+            std::get<I>(buffers) = in_chunk;
+            is_constant_chunk[I] = true;
+          }
+        }
+      }(),
+      ...);
+
+  auto array_fn = [&](auto input_mask, auto output_mask, auto &&__restrict... chunks) {
+    BLI_assert(input_mask.size() == output_mask.size());
+    for (const int64_t i : IndexRange(input_mask.size())) {
+      const int64_t in_i = input_mask[i];
+      const int64_t out_i = output_mask[i];
+      element_fn([&]() -> decltype(auto) {
+        using ParamTag = ParamTags;
+        if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+          return chunks[in_i];
+        }
+        else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
+          return &chunks[out_i];
+        }
+      }()...);
+    }
+  };
+
+  for (int64_t chunk_start = 0; chunk_start < mask_size; chunk_start += MaxChunkSize) {
+    const int64_t chunk_size = std::min(mask_size - chunk_start, MaxChunkSize);
+    const IndexMask sliced_mask = mask.slice(chunk_start, chunk_size);
+
+    array_fn(IndexRange(chunk_size), sliced_mask, [&] {
+      using ParamTag = ParamTags;
+      using T = typename ParamTag::base_type;
+      if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+        if (is_constant_chunk[I]) {
+          return std::get<I>(buffers);
+        }
+        else {
+          MutableSpan<T> in_chunk{std::get<I>(buffers_owner).ptr(), chunk_size};
+          const VArray<T> &varray = *args;
+          varray.materialize_compressed_to_uninitialized(sliced_mask, in_chunk);
+          return in_chunk;
+        }
+      }
+      else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
+        return args->data();
+      }
+    }()...);
+
+    (
+        [&] {
+          using ParamTag = ParamTags;
+          using T = typename ParamTag::base_type;
+          if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+            if (!is_constant_chunk[I]) {
+              T *in_chunk = std::get<I>(buffers_owner).ptr();
+              destruct_n(in_chunk, chunk_size);
+            }
+          }
+        }(),
+        ...);
+  }
+
+  (
+      [&] {
+        using ParamTag = ParamTags;
+        using T = typename ParamTag::base_type;
+        if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+          if (is_constant_chunk[I]) {
+            MutableSpan<T> in_chunk = std::get<I>(buffers);
+            destruct_n(in_chunk.data(), in_chunk.size());
+          }
+        }
+      }(),
+      ...);
+
+  UNUSED_VARS(element_fn);
+}
+
 template<typename... ParamTags> class CustomMF : public MultiFunction {
  private:
   std::function<void(IndexMask mask, MFParams params)> fn_;
@@ -83,16 +186,22 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
         }(),
         ...);
 
-    auto array_executor = [&](auto &&...args) {
-      execute_array(TagsSequence(),
-                    std::make_index_sequence<TagsSequence::size()>(),
-                    element_fn,
-                    std::forward<decltype(args)>(args)...);
-    };
+    execute_materialized(
+        TypeSequence<ParamTags...>(), std::index_sequence<I...>(), element_fn, mask, [&] {
+          return &std::get<I>(retrieved_params);
+        }()...);
 
-    devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
-        devirtualizer{array_executor, &mask, [&] { return &std::get<I>(retrieved_params); }()...};
-    devirtualizer.execute_fallback();
+    // auto array_executor = [&](auto &&...args) {
+    //   execute_array(TagsSequence(),
+    //                 std::make_index_sequence<TagsSequence::size()>(),
+    //                 element_fn,
+    //                 std::forward<decltype(args)>(args)...);
+    // };
+
+    // devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
+    //     devirtualizer{array_executor, &mask, [&] { return &std::get<I>(retrieved_params);
+    //     }()...};
+    // devirtualizer.execute_fallback();
   }
 
   template<size_t... I>
