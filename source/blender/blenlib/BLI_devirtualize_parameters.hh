@@ -47,7 +47,7 @@ enum class DeviMode {
 ENUM_OPERATORS(DeviMode, DeviMode::Range);
 
 /** Utility to encode multiple #DeviMode in a type. */
-template<DeviMode... Mode> using ParamModeSequence = ValueSequence<DeviMode, Mode...>;
+template<DeviMode... Mode> using DeviModeSequence = ValueSequence<DeviMode, Mode...>;
 
 /**
  * Main class that performs the devirtualization.
@@ -76,12 +76,12 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   }
 
   template<DeviMode... AllowedModes>
-  bool try_execute_devirtualized(ParamModeSequence<AllowedModes...> /* allowed_modes */)
+  bool try_execute_devirtualized(DeviModeSequence<AllowedModes...> /* allowed_modes */)
   {
     BLI_assert(!executed_);
     static_assert(sizeof...(AllowedModes) == SourceTypesNum);
-    return this->try_execute_devirtualized_impl(ParamModeSequence<>(),
-                                                ParamModeSequence<AllowedModes...>());
+    return this->try_execute_devirtualized_impl(DeviModeSequence<>(),
+                                                DeviModeSequence<AllowedModes...>());
   }
 
   void execute_without_devirtualization()
@@ -94,39 +94,37 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
 
  private:
   template<DeviMode... Mode, DeviMode... AllowedModes>
-  bool try_execute_devirtualized_impl(ParamModeSequence<Mode...> /* modes */,
-                                      ParamModeSequence<AllowedModes...> /* allowed_modes */)
+  bool try_execute_devirtualized_impl(DeviModeSequence<Mode...> /* modes */,
+                                      DeviModeSequence<AllowedModes...> /* allowed_modes */)
   {
     static_assert(SourceTypesNum == sizeof...(AllowedModes));
     if constexpr (SourceTypesNum == sizeof...(Mode)) {
-      this->try_execute_devirtualized_impl_call(ParamModeSequence<Mode...>(),
+      this->try_execute_devirtualized_impl_call(DeviModeSequence<Mode...>(),
                                                 std::make_index_sequence<SourceTypesNum>());
       return true;
     }
     else {
       constexpr size_t I = sizeof...(Mode);
       using SourceType = type_at_index<I>;
-      constexpr DeviMode allowed_modes =
-          ParamModeSequence<AllowedModes...>::template at_index<I>();
+      constexpr DeviMode allowed_modes = DeviModeSequence<AllowedModes...>::template at_index<I>();
       if constexpr (std::is_base_of_v<VArrayBase, SourceType>) {
         const SourceType &varray = *std::get<I>(sources_);
         if constexpr ((allowed_modes & DeviMode::Single) != DeviMode::None) {
           if (varray.is_single()) {
             return this->try_execute_devirtualized_impl(
-                ParamModeSequence<Mode..., DeviMode::Single>(),
-                ParamModeSequence<AllowedModes...>());
+                DeviModeSequence<Mode..., DeviMode::Single>(),
+                DeviModeSequence<AllowedModes...>());
           }
         }
         if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
           if (varray.is_span()) {
             return this->try_execute_devirtualized_impl(
-                ParamModeSequence<Mode..., DeviMode::Span>(),
-                ParamModeSequence<AllowedModes...>());
+                DeviModeSequence<Mode..., DeviMode::Span>(), DeviModeSequence<AllowedModes...>());
           }
         }
         if constexpr ((allowed_modes & DeviMode::Keep) != DeviMode::None) {
-          return this->try_execute_devirtualized_impl(ParamModeSequence<Mode..., DeviMode::Keep>(),
-                                                      ParamModeSequence<AllowedModes...>());
+          return this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Keep>(),
+                                                      DeviModeSequence<AllowedModes...>());
         }
         return false;
       }
@@ -135,25 +133,24 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
           const IndexMask &mask = *std::get<I>(sources_);
           if (mask.is_range()) {
             return this->try_execute_devirtualized_impl(
-                ParamModeSequence<Mode..., DeviMode::Range>(),
-                ParamModeSequence<AllowedModes...>());
+                DeviModeSequence<Mode..., DeviMode::Range>(), DeviModeSequence<AllowedModes...>());
           }
         }
         if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
-          return this->try_execute_devirtualized_impl(ParamModeSequence<Mode..., DeviMode::Span>(),
-                                                      ParamModeSequence<AllowedModes...>());
+          return this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Span>(),
+                                                      DeviModeSequence<AllowedModes...>());
         }
         return false;
       }
       else {
-        return this->try_execute_devirtualized_impl(ParamModeSequence<Mode..., DeviMode::Keep>(),
-                                                    ParamModeSequence<AllowedModes...>());
+        return this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Keep>(),
+                                                    DeviModeSequence<AllowedModes...>());
       }
     }
   }
 
   template<DeviMode... Mode, size_t... I>
-  void try_execute_devirtualized_impl_call(ParamModeSequence<Mode...> /* modes */,
+  void try_execute_devirtualized_impl_call(DeviModeSequence<Mode...> /* modes */,
                                            std::index_sequence<I...> /* indices */)
   {
 

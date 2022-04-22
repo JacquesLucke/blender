@@ -32,7 +32,7 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
   }
 
   template<size_t... I>
-  static constexpr ParamModeSequence<get_devi_mode(I)...> get_devi_modes(
+  static constexpr DeviModeSequence<get_devi_mode(I)...> get_devi_modes(
       std::index_sequence<I...> /* indices */)
   {
     return {};
@@ -48,7 +48,7 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
 
 template<size_t SpanIndex> struct OneSpanOtherSingle {
   template<size_t... I>
-  static ParamModeSequence<((I == SpanIndex) ? DeviMode::Span : DeviMode::Single)...> get_modes(
+  static DeviModeSequence<((I == SpanIndex) ? DeviMode::Span : DeviMode::Single)...> get_modes(
       std::index_sequence<I...> /* indices */)
   {
     return {};
