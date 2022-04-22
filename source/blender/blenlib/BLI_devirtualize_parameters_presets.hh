@@ -10,15 +10,7 @@ struct None {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    devirtualizer.execute_fallback();
-  }
-};
-
-struct Materialized {
-  template<typename Fn, typename... ParamTypes>
-  void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
-  {
-    // devirtualizer.execute_materialized();
+    UNUSED_VARS(devirtualizer);
   }
 };
 
@@ -26,9 +18,7 @@ struct AllSpanOrSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    if (!devirtualizer.try_execute_devirtualized()) {
-      // devirtualizer.execute_materialized();
-    }
+    devirtualizer.try_execute_devirtualized();
   }
 };
 
@@ -48,10 +38,9 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    if (!devirtualizer.template try_execute_devirtualized_custom(
-            get_devi_modes(std::make_index_sequence<sizeof...(ParamTypes)>()))) {
-      // devirtualizer.execute_materialized();
-    }
+    UNUSED_VARS(devirtualizer);
+    // devirtualizer.template try_execute_devirtualized_custom(
+    //     get_devi_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
   }
 };
 
@@ -66,10 +55,9 @@ template<size_t SpanIndex> struct OneSpanOtherSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    if (!devirtualizer.template try_execute_devirtualized_custom(
-            get_modes(std::make_index_sequence<sizeof...(ParamTypes)>()))) {
-      // devirtualizer.execute_materialized();
-    }
+    UNUSED_VARS(devirtualizer);
+    // devirtualizer.template try_execute_devirtualized_custom(
+    //     get_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
   }
 };
 

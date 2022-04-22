@@ -76,6 +76,11 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
     this->init(std::make_index_sequence<SourceTypesNum>{});
   }
 
+  bool executed() const
+  {
+    return executed_;
+  }
+
   void execute_fallback()
   {
     BLI_assert(!executed_);
@@ -155,7 +160,7 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
       }
       else if constexpr (std::is_same_v<IndexMask, ParamType>) {
         if constexpr ((allowed_modes & DeviMode::Range) != DeviMode::None) {
-          const IndexMask &mask = *sources_[I];
+          const IndexMask &mask = *std::get<I>(sources_);
           if (mask.is_range()) {
             return this->try_execute_devirtualized_impl(
                 ParamModeSequence<Mode..., DeviMode::Range>(),
@@ -166,9 +171,11 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
           return this->try_execute_devirtualized_impl(ParamModeSequence<Mode..., DeviMode::Span>(),
                                                       ParamModeSequence<AllowedModes...>());
         }
+        return false;
       }
       else {
-        return false;
+        return this->try_execute_devirtualized_impl(ParamModeSequence<Mode..., DeviMode::Keep>(),
+                                                    ParamModeSequence<AllowedModes...>());
       }
     }
   }

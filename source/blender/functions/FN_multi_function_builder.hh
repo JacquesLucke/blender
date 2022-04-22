@@ -19,11 +19,11 @@ namespace blender::fn {
 namespace devi = devirtualize_arrays;
 
 template<typename... ParamTags, size_t... I, typename ElementFn, typename MaskT, typename... Args>
-void execute_array(TypeSequence<ParamTags...> /* param_tags */,
-                   std::index_sequence<I...> /* indices */,
-                   ElementFn element_fn,
-                   MaskT mask,
-                   Args &&...args)
+BLI_NOINLINE void execute_array(TypeSequence<ParamTags...> /* param_tags */,
+                                std::index_sequence<I...> /* indices */,
+                                ElementFn element_fn,
+                                MaskT mask,
+                                Args &&...args)
 {
   for (const int64_t i : mask) {
     element_fn([&] {
@@ -43,11 +43,11 @@ template<typename... ParamTags,
          typename InMask,
          typename OutMask,
          typename... Chunks>
-void execute_materialized_impl(TypeSequence<ParamTags...> /* param_tags */,
-                               const ElementFn element_fn,
-                               InMask in_mask,
-                               OutMask out_mask,
-                               Chunks &&__restrict... chunks)
+BLI_NOINLINE void execute_materialized_impl(TypeSequence<ParamTags...> /* param_tags */,
+                                            const ElementFn element_fn,
+                                            InMask in_mask,
+                                            OutMask out_mask,
+                                            Chunks &&__restrict... chunks)
 {
   BLI_assert(in_mask.size() == out_mask.size());
   for (const int64_t i : IndexRange(in_mask.size())) {
@@ -66,11 +66,11 @@ void execute_materialized_impl(TypeSequence<ParamTags...> /* param_tags */,
 }
 
 template<typename... ParamTags, size_t... I, typename ElementFn, typename... Args>
-void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
-                          std::index_sequence<I...> /* indices */,
-                          const ElementFn element_fn,
-                          const IndexMask mask,
-                          Args &&...args)
+BLI_NOINLINE void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
+                                       std::index_sequence<I...> /* indices */,
+                                       const ElementFn element_fn,
+                                       const IndexMask mask,
+                                       Args &&...args)
 {
   enum class ArgMode {
     Unknown,
@@ -214,22 +214,23 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
         }(),
         ...);
 
-    execute_materialized(
-        TypeSequence<ParamTags...>(), std::index_sequence<I...>(), element_fn, mask, [&] {
-          return &std::get<I>(retrieved_params);
-        }()...);
+    auto array_executor = [&](auto &&...args) {
+      execute_array(TagsSequence(),
+                    std::make_index_sequence<TagsSequence::size()>(),
+                    element_fn,
+                    std::forward<decltype(args)>(args)...);
+    };
 
-    // auto array_executor = [&](auto &&...args) {
-    //   execute_array(TagsSequence(),
-    //                 std::make_index_sequence<TagsSequence::size()>(),
-    //                 element_fn,
-    //                 std::forward<decltype(args)>(args)...);
-    // };
+    devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
+        devirtualizer{array_executor, &mask, [&] { return &std::get<I>(retrieved_params); }()...};
+    devi_fn(devirtualizer);
 
-    // devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
-    //     devirtualizer{array_executor, &mask, [&] { return &std::get<I>(retrieved_params);
-    //     }()...};
-    // devirtualizer.execute_fallback();
+    if (!devirtualizer.executed()) {
+      execute_materialized(
+          TypeSequence<ParamTags...>(), std::index_sequence<I...>(), element_fn, mask, [&] {
+            return &std::get<I>(retrieved_params);
+          }()...);
+    }
   }
 
   template<size_t... I>

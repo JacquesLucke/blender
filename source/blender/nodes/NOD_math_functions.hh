@@ -53,7 +53,7 @@ inline bool try_dispatch_float_math_fl_to_fl(const int operation, Callback &&cal
   }
 
   static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::Materialized();
+  static auto devi_slow = devi::presets::None();
 
   /* This is just an utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -63,7 +63,7 @@ inline bool try_dispatch_float_math_fl_to_fl(const int operation, Callback &&cal
 
   switch (operation) {
     case NODE_MATH_EXPONENT:
-      return dispatch(devi_slow, [](float a) { return expf(a); });
+      return dispatch(devi_fast, [](float a) { return expf(a); });
     case NODE_MATH_SQRT:
       return dispatch(devi_fast, [](float a) { return safe_sqrtf(a); });
     case NODE_MATH_INV_SQRT:
@@ -120,7 +120,7 @@ inline bool try_dispatch_float_math_fl_fl_to_fl(const int operation, Callback &&
   }
 
   static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::Materialized();
+  static auto devi_slow = devi::presets::None();
 
   /* This is just an utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -215,7 +215,7 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl3(const NodeVectorMathOperation
   }
 
   static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::Materialized();
+  static auto devi_slow = devi::presets::None();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -300,7 +300,7 @@ inline bool try_dispatch_float_math_fl3_fl3_fl3_to_fl3(const NodeVectorMathOpera
   }
 
   static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::Materialized();
+  static auto devi_slow = devi::presets::None();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -338,7 +338,7 @@ inline bool try_dispatch_float_math_fl3_fl3_fl_to_fl3(const NodeVectorMathOperat
     return false;
   }
 
-  static auto devi_slow = devi::presets::Materialized();
+  static auto devi_slow = devi::presets::None();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -431,7 +431,7 @@ inline bool try_dispatch_float_math_fl3_to_fl3(const NodeVectorMathOperation ope
   }
 
   static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::Materialized();
+  static auto devi_slow = devi::presets::None();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
