@@ -63,7 +63,7 @@ inline bool try_dispatch_float_math_fl_to_fl(const int operation, Callback &&cal
 
   switch (operation) {
     case NODE_MATH_EXPONENT:
-      return dispatch(devi_fast, [](float a) { return expf(a); });
+      return dispatch(devi_slow, [](float a) { return expf(a); });
     case NODE_MATH_SQRT:
       return dispatch(devi_fast, [](float a) { return safe_sqrtf(a); });
     case NODE_MATH_INV_SQRT:
