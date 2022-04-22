@@ -18,7 +18,7 @@ struct AllSpanOrSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    return devirtualizer.try_execute_devirtualized(
+    devirtualizer.try_execute_devirtualized(
         make_value_sequence<DeviMode,
                             DeviMode::Span | DeviMode::Single | DeviMode::Range,
                             sizeof...(ParamTypes)>());
