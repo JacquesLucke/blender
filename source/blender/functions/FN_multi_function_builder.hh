@@ -18,12 +18,12 @@ namespace blender::fn {
 
 namespace devi = devirtualize_arrays;
 
-template<typename... ParamTags, size_t... I, typename ElementFn, typename MaskT, typename... Args>
+template<typename MaskT, typename... Args, typename... ParamTags, size_t... I, typename ElementFn>
 BLI_NOINLINE void execute_array(TypeSequence<ParamTags...> /* param_tags */,
                                 std::index_sequence<I...> /* indices */,
                                 ElementFn element_fn,
                                 MaskT mask,
-                                Args &&...args)
+                                Args &&__restrict... args)
 {
   for (const int64_t i : mask) {
     element_fn([&] {
