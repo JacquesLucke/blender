@@ -221,11 +221,16 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
                     std::forward<decltype(args)>(args)...);
     };
 
-    devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
-        devirtualizer{array_executor, &mask, [&] { return &std::get<I>(retrieved_params); }()...};
-    devi_fn(devirtualizer);
+    bool executed_devirtualized = false;
+    if constexpr (std::is_same_v<std::decay_t<DeviFn>, devi::presets::None>) {
+      devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
+          devirtualizer{
+              array_executor, &mask, [&] { return &std::get<I>(retrieved_params); }()...};
+      devi_fn(devirtualizer);
+      executed_devirtualized = devirtualizer.executed();
+    }
 
-    if (!devirtualizer.executed()) {
+    if (!executed_devirtualized) {
       execute_materialized(
           TypeSequence<ParamTags...>(), std::index_sequence<I...>(), element_fn, mask, [&] {
             return &std::get<I>(retrieved_params);
