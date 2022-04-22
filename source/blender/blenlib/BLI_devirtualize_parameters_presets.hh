@@ -38,9 +38,8 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    UNUSED_VARS(devirtualizer);
-    // devirtualizer.template try_execute_devirtualized_custom(
-    //     get_devi_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
+    devirtualizer.template try_execute_devirtualized_custom(
+        get_devi_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
   }
 };
 
@@ -55,9 +54,8 @@ template<size_t SpanIndex> struct OneSpanOtherSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    UNUSED_VARS(devirtualizer);
-    // devirtualizer.template try_execute_devirtualized_custom(
-    //     get_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
+    devirtualizer.template try_execute_devirtualized_custom(
+        get_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
   }
 };
 
