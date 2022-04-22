@@ -14,21 +14,19 @@ struct None {
   }
 };
 
-struct AllSpanOrSingle {
+template<DeviMode Mode> struct AllSame {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
     devirtualizer.try_execute_devirtualized(
-        make_value_sequence<DeviMode,
-                            DeviMode::Span | DeviMode::Single | DeviMode::Range,
-                            sizeof...(ParamTypes)>());
+        make_value_sequence<DeviMode, Mode, sizeof...(ParamTypes)>());
   }
 };
 
-template<size_t... SpanIndices> struct SomeSpanOtherSingle {
+template<DeviMode Mode1, DeviMode Mode2, size_t... Mode1Indices> struct TwoModes {
   static constexpr DeviMode get_devi_mode(size_t I)
   {
-    return ((I == SpanIndices) || ...) ? DeviMode::Span : DeviMode::Single;
+    return ((I == Mode1Indices) || ...) ? Mode1 : Mode2;
   }
 
   template<size_t... I>
@@ -46,20 +44,15 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
   }
 };
 
-template<size_t SpanIndex> struct OneSpanOtherSingle {
-  template<size_t... I>
-  static DeviModeSequence<((I == SpanIndex) ? DeviMode::Span : DeviMode::Single)...> get_modes(
-      std::index_sequence<I...> /* indices */)
-  {
-    return {};
-  }
+struct AllSpanOrSingle : public AllSame<DeviMode::Span | DeviMode::Single | DeviMode::Range> {
+};
 
-  template<typename Fn, typename... ParamTypes>
-  void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
-  {
-    devirtualizer.template try_execute_devirtualized(
-        get_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
-  }
+template<size_t... SpanIndices>
+struct SomeSpanOtherSingle : public TwoModes<DeviMode::Span, DeviMode::Single, SpanIndices...> {
+};
+
+template<size_t SpanIndex>
+struct OneSpanOtherSingle : public TwoModes<DeviMode::Span, DeviMode::Single, SpanIndex> {
 };
 
 }  // namespace blender::devirtualize_parameters::presets
