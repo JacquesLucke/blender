@@ -8,11 +8,11 @@
  * In geometry nodes, many functions accept fields as inputs. For the implementation that means
  * that the inputs are virtual arrays. Usually those are backed by actual arrays or single values.
  *
- * Using virtual arrays has to downside that individual elements are accessed through a virtual
- * method call, which has some overhead to normal array access. Whether this overhead is negilible
- * depends on the context. For very small functions (e.g. a single addition), the overhead can make
- * the function many times slower. Furthermore, it prevents the compiler from doing some
- * optimizations (e.g. loop unrolling and inserting simd instructions).
+ * Using virtual arrays has the downside that individual elements are accessed through a virtual
+ * method call, which has some overhead compared to normal array access. Whether this overhead is
+ * negilible depends on the context. For very small functions (e.g. a single addition), the
+ * overhead can make the function many times slower. Furthermore, it prevents the compiler from
+ * doing some optimizations (e.g. loop unrolling and inserting simd instructions).
  *
  * The solution is to "devirtualize" the virtual arrays in cases when the overhead cannot be
  * ignored. That means that the function is instantiated multiple times at compile time for the
