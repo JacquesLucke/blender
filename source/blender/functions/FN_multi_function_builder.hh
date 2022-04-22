@@ -19,11 +19,11 @@ namespace blender::fn {
 namespace devi = devirtualize_parameters;
 
 template<typename MaskT, typename... Args, typename... ParamTags, size_t... I, typename ElementFn>
-BLI_NOINLINE void execute_array(TypeSequence<ParamTags...> /* param_tags */,
-                                std::index_sequence<I...> /* indices */,
-                                ElementFn element_fn,
-                                MaskT mask,
-                                Args &&__restrict... args)
+void execute_array(TypeSequence<ParamTags...> /* param_tags */,
+                   std::index_sequence<I...> /* indices */,
+                   ElementFn element_fn,
+                   MaskT mask,
+                   Args &&__restrict... args)
 {
   for (const int64_t i : mask) {
     element_fn([&] {
@@ -43,11 +43,11 @@ template<typename... ParamTags,
          typename InMask,
          typename OutMask,
          typename... Chunks>
-BLI_NOINLINE void execute_materialized_impl(TypeSequence<ParamTags...> /* param_tags */,
-                                            const ElementFn element_fn,
-                                            InMask in_mask,
-                                            OutMask out_mask,
-                                            Chunks &&__restrict... chunks)
+void execute_materialized_impl(TypeSequence<ParamTags...> /* param_tags */,
+                               const ElementFn element_fn,
+                               InMask in_mask,
+                               OutMask out_mask,
+                               Chunks &&__restrict... chunks)
 {
   BLI_assert(in_mask.size() == out_mask.size());
   for (const int64_t i : IndexRange(in_mask.size())) {
@@ -66,11 +66,11 @@ BLI_NOINLINE void execute_materialized_impl(TypeSequence<ParamTags...> /* param_
 }
 
 template<typename... ParamTags, size_t... I, typename ElementFn, typename... Args>
-BLI_NOINLINE void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
-                                       std::index_sequence<I...> /* indices */,
-                                       const ElementFn element_fn,
-                                       const IndexMask mask,
-                                       Args &&...args)
+void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
+                          std::index_sequence<I...> /* indices */,
+                          const ElementFn element_fn,
+                          const IndexMask mask,
+                          Args &&...args)
 {
   enum class ArgMode {
     Unknown,
