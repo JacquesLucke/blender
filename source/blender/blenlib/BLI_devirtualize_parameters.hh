@@ -65,15 +65,11 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   Fn fn_;
   std::tuple<const SourceTypes *...> sources_;
 
-  std::array<bool, SourceTypesNum> source_is_span_;
-  std::array<bool, SourceTypesNum> source_is_single_;
-
   bool executed_ = false;
 
  public:
   Devirtualizer(Fn fn, const SourceTypes *...sources) : fn_(std::move(fn)), sources_{sources...}
   {
-    this->init(std::make_index_sequence<SourceTypesNum>{});
   }
 
   bool executed() const
@@ -106,22 +102,6 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   }
 
  private:
-  template<size_t... I> void init(std::index_sequence<I...> /* indices */)
-  {
-    source_is_span_.fill(false);
-    source_is_single_.fill(false);
-    (
-        [&] {
-          using ParamType = type_at_index<I>;
-          if constexpr (std::is_base_of_v<VArrayBase, ParamType>) {
-            const ParamType *varray = std::get<I>(sources_);
-            source_is_span_[I] = varray->is_span();
-            source_is_single_[I] = varray->is_single();
-          }
-        }(),
-        ...);
-  }
-
   template<DeviMode... Mode, DeviMode... AllowedModes>
   bool try_execute_devirtualized_impl(ParamModeSequence<Mode...> /* modes */,
                                       ParamModeSequence<AllowedModes...> /* allowed_modes */)
@@ -134,19 +114,20 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
     }
     else {
       constexpr size_t I = sizeof...(Mode);
-      using ParamType = type_at_index<I>;
+      using SourceType = type_at_index<I>;
       constexpr DeviMode allowed_modes =
           ParamModeSequence<AllowedModes...>::template at_index<I>();
-      if constexpr (std::is_base_of_v<VArrayBase, ParamType>) {
+      if constexpr (std::is_base_of_v<VArrayBase, SourceType>) {
+        SourceType &varray = *std::get<I>(sources_);
         if constexpr ((allowed_modes & DeviMode::Single) != DeviMode::None) {
-          if (source_is_single_[I]) {
+          if (varray.is_single()) {
             return this->try_execute_devirtualized_impl(
                 ParamModeSequence<Mode..., DeviMode::Single>(),
                 ParamModeSequence<AllowedModes...>());
           }
         }
         if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
-          if (source_is_span_[I]) {
+          if (varray.is_span()) {
             return this->try_execute_devirtualized_impl(
                 ParamModeSequence<Mode..., DeviMode::Span>(),
                 ParamModeSequence<AllowedModes...>());
@@ -158,7 +139,7 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
         }
         return false;
       }
-      else if constexpr (std::is_same_v<IndexMask, ParamType>) {
+      else if constexpr (std::is_same_v<IndexMask, SourceType>) {
         if constexpr ((allowed_modes & DeviMode::Range) != DeviMode::None) {
           const IndexMask &mask = *std::get<I>(sources_);
           if (mask.is_range()) {
@@ -191,13 +172,13 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
 
   template<size_t I, DeviMode Mode> decltype(auto) get_devirtualized_parameter()
   {
-    using ParamType = type_at_index<I>;
+    using SourceType = type_at_index<I>;
     static_assert(Mode != DeviMode::None);
     if constexpr (Mode == DeviMode::Keep) {
       return *std::get<I>(sources_);
     }
-    if constexpr (std::is_base_of_v<VArrayBase, ParamType>) {
-      const ParamType &varray = *std::get<I>(sources_);
+    if constexpr (std::is_base_of_v<VArrayBase, SourceType>) {
+      const SourceType &varray = *std::get<I>(sources_);
       if constexpr (Mode == DeviMode::Single) {
         return SingleAsSpan(varray);
       }
@@ -205,7 +186,7 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
         return varray.get_internal_span();
       }
     }
-    else if constexpr (std::is_same_v<IndexMask, ParamType>) {
+    else if constexpr (std::is_same_v<IndexMask, SourceType>) {
       const IndexMask &mask = *std::get<I>(sources_);
       if constexpr (ELEM(Mode, DeviMode::Span)) {
         return mask;
