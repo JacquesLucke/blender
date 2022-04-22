@@ -43,8 +43,6 @@ enum class DeviMode {
   Span = (1 << 1),
   Single = (1 << 2),
   Range = (1 << 3),
-  SpanAndSingle = Span | Single,
-  SpanAndSingleAndRange = Span | Single | Range,
 };
 ENUM_OPERATORS(DeviMode, DeviMode::Range);
 
@@ -77,28 +75,21 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
     return executed_;
   }
 
-  void execute_fallback()
-  {
-    BLI_assert(!executed_);
-    this->try_execute_devirtualized_impl_call(
-        make_value_sequence<DeviMode, DeviMode::Keep, SourceTypesNum>(),
-        std::make_index_sequence<SourceTypesNum>());
-  }
-
-  bool try_execute_devirtualized()
-  {
-    BLI_assert(!executed_);
-    return this->try_execute_devirtualized_custom(
-        make_value_sequence<DeviMode, DeviMode::SpanAndSingleAndRange, SourceTypesNum>());
-  }
-
   template<DeviMode... AllowedModes>
-  bool try_execute_devirtualized_custom(ParamModeSequence<AllowedModes...> /* allowed_modes */)
+  bool try_execute_devirtualized(ParamModeSequence<AllowedModes...> /* allowed_modes */)
   {
     BLI_assert(!executed_);
     static_assert(sizeof...(AllowedModes) == SourceTypesNum);
     return this->try_execute_devirtualized_impl(ParamModeSequence<>(),
                                                 ParamModeSequence<AllowedModes...>());
+  }
+
+  void execute_without_devirtualization()
+  {
+    BLI_assert(!executed_);
+    this->try_execute_devirtualized_impl_call(
+        make_value_sequence<DeviMode, DeviMode::Keep, SourceTypesNum>(),
+        std::make_index_sequence<SourceTypesNum>());
   }
 
  private:

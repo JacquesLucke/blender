@@ -18,7 +18,10 @@ struct AllSpanOrSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    devirtualizer.try_execute_devirtualized();
+    return devirtualizer.try_execute_devirtualized(
+        make_value_sequence<DeviMode,
+                            DeviMode::Span | DeviMode::Single | DeviMode::Range,
+                            sizeof...(ParamTypes)>());
   }
 };
 
@@ -38,7 +41,7 @@ template<size_t... SpanIndices> struct SomeSpanOtherSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    devirtualizer.template try_execute_devirtualized_custom(
+    devirtualizer.template try_execute_devirtualized(
         get_devi_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
   }
 };
@@ -54,7 +57,7 @@ template<size_t SpanIndex> struct OneSpanOtherSingle {
   template<typename Fn, typename... ParamTypes>
   void operator()(Devirtualizer<Fn, ParamTypes...> &devirtualizer)
   {
-    devirtualizer.template try_execute_devirtualized_custom(
+    devirtualizer.template try_execute_devirtualized(
         get_modes(std::make_index_sequence<sizeof...(ParamTypes)>()));
   }
 };
