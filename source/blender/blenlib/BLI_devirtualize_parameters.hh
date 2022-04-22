@@ -109,7 +109,7 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
       constexpr DeviMode allowed_modes =
           ParamModeSequence<AllowedModes...>::template at_index<I>();
       if constexpr (std::is_base_of_v<VArrayBase, SourceType>) {
-        SourceType &varray = *std::get<I>(sources_);
+        const SourceType &varray = *std::get<I>(sources_);
         if constexpr ((allowed_modes & DeviMode::Single) != DeviMode::None) {
           if (varray.is_single()) {
             return this->try_execute_devirtualized_impl(
