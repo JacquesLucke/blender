@@ -543,8 +543,6 @@ Container &move_assign_container(Container &dst, Container &&src) noexcept(
   return dst;
 }
 
-
-
 }  // namespace blender
 
 namespace blender::detail {
