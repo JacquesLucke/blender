@@ -16,7 +16,7 @@
 
 namespace blender::fn {
 
-namespace devi = devirtualize_arrays;
+namespace devi = devirtualize_parameters;
 
 template<typename MaskT, typename... Args, typename... ParamTags, size_t... I, typename ElementFn>
 BLI_NOINLINE void execute_array(TypeSequence<ParamTags...> /* param_tags */,

@@ -42,7 +42,7 @@ using fn::GField;
 using fn::ValueOrField;
 using geometry_nodes_eval_log::NamedAttributeUsage;
 using geometry_nodes_eval_log::NodeWarningType;
-namespace devi = devirtualize_arrays;
+namespace devi = devirtualize_parameters;
 
 /**
  * This class exists to separate the memory management details of the geometry nodes evaluator

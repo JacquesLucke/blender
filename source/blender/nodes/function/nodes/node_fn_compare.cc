@@ -19,7 +19,7 @@ namespace blender::nodes::node_fn_compare_cc {
 
 NODE_STORAGE_FUNCS(NodeFunctionCompare)
 
-namespace devi = devirtualize_arrays;
+namespace devi = devirtualize_parameters;
 
 static void fn_node_compare_declare(NodeDeclarationBuilder &b)
 {

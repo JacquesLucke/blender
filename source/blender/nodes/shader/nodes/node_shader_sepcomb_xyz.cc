@@ -9,7 +9,7 @@
 
 namespace blender::nodes::node_shader_sepcomb_xyz_cc {
 
-namespace devi = devirtualize_arrays;
+namespace devi = devirtualize_parameters;
 
 static void sh_node_sepxyz_declare(NodeDeclarationBuilder &b)
 {

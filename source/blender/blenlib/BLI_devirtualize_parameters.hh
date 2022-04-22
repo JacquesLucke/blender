@@ -32,7 +32,7 @@
 #include "BLI_parameter_pack_utils.hh"
 #include "BLI_virtual_array.hh"
 
-namespace blender::devirtualize_arrays {
+namespace blender::devirtualize_parameters {
 
 /**
  * Bit flag that specifies how an individual parameter is or can be devirtualized.
@@ -186,4 +186,4 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   }
 };
 
-}  // namespace blender::devirtualize_arrays
+}  // namespace blender::devirtualize_parameters

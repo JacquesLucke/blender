@@ -4,7 +4,7 @@
 
 #include "BLI_devirtualize_parameters.hh"
 
-namespace blender::devirtualize_arrays::presets {
+namespace blender::devirtualize_parameters::presets {
 
 struct None {
   template<typename Fn, typename... ParamTypes>
@@ -62,4 +62,4 @@ template<size_t SpanIndex> struct OneSpanOtherSingle {
   }
 };
 
-}  // namespace blender::devirtualize_arrays::presets
+}  // namespace blender::devirtualize_parameters::presets

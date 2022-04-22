@@ -20,7 +20,7 @@ namespace blender::nodes::node_shader_map_range_cc {
 
 NODE_STORAGE_FUNCS(NodeMapRange)
 
-namespace devi = devirtualize_arrays;
+namespace devi = devirtualize_parameters;
 
 static void sh_node_map_range_declare(NodeDeclarationBuilder &b)
 {

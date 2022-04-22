@@ -14,7 +14,7 @@
 
 namespace blender::nodes::node_fn_float_to_int_cc {
 
-namespace devi = devirtualize_arrays;
+namespace devi = devirtualize_parameters;
 
 static void fn_node_float_to_int_declare(NodeDeclarationBuilder &b)
 {

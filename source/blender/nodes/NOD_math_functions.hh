@@ -12,7 +12,7 @@
 
 namespace blender::nodes {
 
-namespace devi = devirtualize_arrays;
+namespace devi = devirtualize_parameters;
 
 struct FloatMathOperationInfo {
   StringRefNull title_case_name;

@@ -14,7 +14,7 @@
 
 namespace blender::nodes::node_fn_boolean_math_cc {
 
-namespace devi = devirtualize_arrays;
+namespace devi = devirtualize_parameters;
 
 static void fn_node_boolean_math_declare(NodeDeclarationBuilder &b)
 {
