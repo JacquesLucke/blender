@@ -514,9 +514,9 @@ class _draw_tool_settings_context_mode:
             layout.prop(brush, "use_frontface")
             layout.prop(brush, "falloff_shape", expand=True)
             layout.prop(brush.curves_sculpt_settings, "add_amount")
-            layout.prop(tool_settings.curves_sculpt, "curve_length")
-            layout.prop(tool_settings.curves_sculpt, "interpolate_length")
-            layout.prop(tool_settings.curves_sculpt, "interpolate_shape")
+            layout.prop(brush.curves_sculpt_settings, "curve_length")
+            layout.prop(brush.curves_sculpt_settings, "interpolate_length")
+            layout.prop(brush.curves_sculpt_settings, "interpolate_shape")
 
         if brush.curves_sculpt_tool == 'GROW_SHRINK':
             layout.prop(brush, "direction", expand=True, text="")
@@ -528,9 +528,6 @@ class _draw_tool_settings_context_mode:
         if brush.curves_sculpt_tool == 'SNAKE_HOOK':
             layout.prop(brush, "falloff_shape", expand=True)
             layout.prop(brush, "curve_preset")
-
-        if brush.curves_sculpt_tool == 'TEST1':
-            layout.prop(tool_settings.curves_sculpt, "distance")
 
 
 class VIEW3D_HT_header(Header):
@@ -2834,6 +2831,7 @@ class VIEW3D_MT_object_cleanup(Menu):
         layout.separator()
 
         layout.operator("object.material_slot_remove_unused", text="Remove Unused Material Slots")
+
 
 class VIEW3D_MT_object_asset(Menu):
     bl_label = "Asset"
@@ -6498,7 +6496,6 @@ class VIEW3D_PT_overlay_edit_mesh_normals(Panel):
             sub.prop(overlay, "normals_length", text="Size")
 
         row.prop(overlay, "use_normals_constant_screen_size", text="", icon='FIXED_SIZE')
-
 
 
 class VIEW3D_PT_overlay_edit_mesh_freestyle(Panel):
