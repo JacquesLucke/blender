@@ -223,6 +223,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
 
     bool executed_devirtualized = false;
     if constexpr (!std::is_same_v<std::decay_t<DeviFn>, devi::presets::None>) {
+      /* TODO: Pass index mask in last, so that #devi_fn works as expected. */
       devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
           devirtualizer{
               array_executor, &mask, [&] { return &std::get<I>(retrieved_params); }()...};
