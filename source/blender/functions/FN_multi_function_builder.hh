@@ -38,6 +38,33 @@ void execute_array(TypeSequence<ParamTags...> /* param_tags */,
   }
 }
 
+template<typename... ParamTags,
+         typename ElementFn,
+         typename InMask,
+         typename OutMask,
+         typename... Chunks>
+void execute_materialized_impl(TypeSequence<ParamTags...> /* param_tags */,
+                               const ElementFn element_fn,
+                               InMask in_mask,
+                               OutMask out_mask,
+                               Chunks &&__restrict... chunks)
+{
+  BLI_assert(in_mask.size() == out_mask.size());
+  for (const int64_t i : IndexRange(in_mask.size())) {
+    const int64_t in_i = in_mask[i];
+    const int64_t out_i = out_mask[i];
+    element_fn([&]() -> decltype(auto) {
+      using ParamTag = ParamTags;
+      if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+        return chunks[in_i];
+      }
+      else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
+        return &chunks[out_i];
+      }
+    }()...);
+  }
+}
+
 template<typename... ParamTags, size_t... I, typename ElementFn, typename... Args>
 void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
                           std::index_sequence<I...> /* indices */,
@@ -45,14 +72,21 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
                           const IndexMask mask,
                           Args &&...args)
 {
+  enum class ArgMode {
+    Unknown,
+    Single,
+    Span,
+    Materialized,
+  };
+
   static constexpr int64_t MaxChunkSize = 32;
   const int64_t mask_size = mask.size();
   const int64_t buffer_size = std::min(mask_size, MaxChunkSize);
   std::tuple<TypedBuffer<typename ParamTags::base_type, MaxChunkSize>...> buffers_owner;
   std::tuple<MutableSpan<typename ParamTags::base_type>...> buffers = {
       MutableSpan{std::get<I>(buffers_owner).ptr(), buffer_size}...};
-  std::array<bool, sizeof...(ParamTags)> is_constant_chunk;
-  is_constant_chunk.fill(false);
+  std::array<ArgMode, sizeof...(ParamTags)> arg_modes;
+  arg_modes.fill(ArgMode::Unknown);
 
   (
       [&] {
@@ -65,58 +99,52 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
             const T in_single = varray.get_internal_single();
             uninitialized_fill_n(in_chunk.data(), in_chunk.size(), in_single);
             std::get<I>(buffers) = in_chunk;
-            is_constant_chunk[I] = true;
+            arg_modes[I] = ArgMode::Single;
           }
         }
       }(),
       ...);
 
-  auto array_fn = [&](auto input_mask, auto output_mask, auto &&__restrict... chunks) {
-    BLI_assert(input_mask.size() == output_mask.size());
-    for (const int64_t i : IndexRange(input_mask.size())) {
-      const int64_t in_i = input_mask[i];
-      const int64_t out_i = output_mask[i];
-      element_fn([&]() -> decltype(auto) {
-        using ParamTag = ParamTags;
-        if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
-          return chunks[in_i];
-        }
-        else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
-          return &chunks[out_i];
-        }
-      }()...);
-    }
-  };
-
   for (int64_t chunk_start = 0; chunk_start < mask_size; chunk_start += MaxChunkSize) {
     const int64_t chunk_size = std::min(mask_size - chunk_start, MaxChunkSize);
     const IndexMask sliced_mask = mask.slice(chunk_start, chunk_size);
+    const bool sliced_mask_is_range = sliced_mask.is_range();
 
-    array_fn(IndexRange(chunk_size), sliced_mask, [&] {
-      using ParamTag = ParamTags;
-      using T = typename ParamTag::base_type;
-      if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
-        if (is_constant_chunk[I]) {
-          return std::get<I>(buffers);
-        }
-        else {
-          MutableSpan<T> in_chunk{std::get<I>(buffers_owner).ptr(), chunk_size};
-          const VArray<T> &varray = *args;
-          varray.materialize_compressed_to_uninitialized(sliced_mask, in_chunk);
-          return in_chunk;
-        }
-      }
-      else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
-        return args->data();
-      }
-    }()...);
+    execute_materialized_impl(
+        TypeSequence<ParamTags...>(), element_fn, IndexRange(chunk_size), sliced_mask, [&] {
+          using ParamTag = ParamTags;
+          using T = typename ParamTag::base_type;
+          if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+            if (arg_modes[I] == ArgMode::Single) {
+              return Span<T>(std::get<I>(buffers));
+            }
+            else {
+              const VArray<T> &varray = *args;
+              if (sliced_mask_is_range) {
+                if (varray.is_span()) {
+                  const IndexRange sliced_mask_range = sliced_mask.as_range();
+                  const Span<T> data = varray.get_internal_span();
+                  arg_modes[I] = ArgMode::Span;
+                  return data.slice(sliced_mask_range);
+                }
+              }
+              MutableSpan<T> in_chunk{std::get<I>(buffers_owner).ptr(), chunk_size};
+              varray.materialize_compressed_to_uninitialized(sliced_mask, in_chunk);
+              arg_modes[I] = ArgMode::Materialized;
+              return Span<T>(in_chunk);
+            }
+          }
+          else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
+            return args->data();
+          }
+        }()...);
 
     (
         [&] {
           using ParamTag = ParamTags;
           using T = typename ParamTag::base_type;
           if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
-            if (!is_constant_chunk[I]) {
+            if (arg_modes[I] == ArgMode::Materialized) {
               T *in_chunk = std::get<I>(buffers_owner).ptr();
               destruct_n(in_chunk, chunk_size);
             }
@@ -130,7 +158,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
         using ParamTag = ParamTags;
         using T = typename ParamTag::base_type;
         if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
-          if (is_constant_chunk[I]) {
+          if (arg_modes[I] == ArgMode::Single) {
             MutableSpan<T> in_chunk = std::get<I>(buffers);
             destruct_n(in_chunk.data(), in_chunk.size());
           }
