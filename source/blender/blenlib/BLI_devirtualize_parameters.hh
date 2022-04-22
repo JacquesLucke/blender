@@ -54,15 +54,21 @@ template<DeviMode... Mode> using DeviModeSequence = ValueSequence<DeviMode, Mode
  */
 template<typename Fn, typename... SourceTypes> class Devirtualizer {
  private:
-  /** Utility to get the tag of the I-th parameter. */
+  /** Utility to get the tag of the I-th source type. */
   template<size_t I>
   using type_at_index = typename TypeSequence<SourceTypes...>::template at_index<I>;
   static constexpr size_t SourceTypesNum = sizeof...(SourceTypes);
 
   /** Function to devirtualize. */
   Fn fn_;
+
+  /**
+   * Source values that will be devirtualized. Note that these are stored as pointers to avoid
+   * unnecessary copies. The caller is responsible for keeping the memory alive.
+   */
   std::tuple<const SourceTypes *...> sources_;
 
+  /** Keeps track of whether #fn_ has been called already to avoid calling it twice. */
   bool executed_ = false;
 
  public:
@@ -70,11 +76,26 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   {
   }
 
+  /**
+   * Return true when the function passed to the constructor has been called already.
+   */
   bool executed() const
   {
     return executed_;
   }
 
+  /**
+   * At compile time, generates multiple variants of the function, each of which is optimized for a
+   * different combination of devirtualized parameters. For every parameter, a bit flag is passed
+   * that determines how it will be devirtualized.
+   * At run-time, if possible, one of the generated functions is picked and executed.
+   *
+   * \return True when the devirtualization was successfull and the function has been executed.
+   * False is returned in case any of the parameters couldn't be devirtualized as expected.
+   *
+   * \note This generates an exponential amount of code in the final binary, depending on how many
+   * to-be-virtualized parameters there are.
+   */
   template<DeviMode... AllowedModes>
   bool try_execute_devirtualized(DeviModeSequence<AllowedModes...> /* allowed_modes */)
   {
@@ -84,6 +105,9 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
                                                 DeviModeSequence<AllowedModes...>());
   }
 
+  /**
+   * Execute the function and pass in the original parameters without doing any devirtualization.
+   */
   void execute_without_devirtualization()
   {
     BLI_assert(!executed_);
