@@ -18,23 +18,47 @@ namespace blender::fn {
 
 namespace devi = devirtualize_parameters;
 
+/**
+ * These presets determine what code is generated for a #CustomMF. Different presets make different
+ * trade-offs between run-time performance and compile-time/binary size.
+ */
 namespace CustomMF_presets {
 
+/** Method to execute a function in case devirtualization was not possible. */
 enum class FallbackMode {
-  Materialized,
+  /** Access all elements in virtual arrays through virtual function calls. */
   Simple,
+  /** Process elements in chunks to reduce virtual function call overhead. */
+  Materialized,
 };
 
+/**
+ * The "naive" method to execute a #CustomMF. Every element is processed separately and input
+ * values are retrieved from the virtual arrays one by one. This generates the least amount of
+ * code, but is also the slowest method.
+ */
 struct Simple {
   static constexpr bool use_devirtualization = false;
   static constexpr FallbackMode fallback_mode = FallbackMode::Simple;
 };
 
+/**
+ * This is an improvement over the #Simple method. It still generates a relatively small amount of
+ * code, because the function is only instantiated once. It's generally faster than #Simple,
+ * because inputs are retrieved from the virtual arrays in chunks, reducing virtual method call
+ * overhead.
+ */
 struct Materialized {
   static constexpr bool use_devirtualization = false;
   static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
 };
 
+/**
+ * The most efficient preset, but also potentially generates a lot of code (exponential in the
+ * number of inputs of the function). It generates separate optimized loops for all combinations of
+ * inputs. This should be used for small functions of which all inputs are likely to be single
+ * values or spans, and the number of inputs is relatively small.
+ */
 struct AllSpanOrSingle {
   static constexpr bool use_devirtualization = true;
   static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
@@ -50,6 +74,11 @@ struct AllSpanOrSingle {
   }
 };
 
+/**
+ * A slighly weaker variant of #AllSpanOrSingle. It generates less code, because it assumes that
+ * some of the inputs are most likely single values. It should be used for small functions which
+ * have to many inputs to make #AllSingleOrSpan a reasonable choice.
+ */
 template<size_t... Indices> struct SomeSpanOrSingle {
   static constexpr bool use_devirtualization = true;
   static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
@@ -72,35 +101,44 @@ template<size_t... Indices> struct SomeSpanOrSingle {
 
 namespace detail {
 
+/**
+ * Executes #element_fn for all indices in the mask. The passed in #args contain the input as well
+ * as output parameters. Usually types in #args are devirtualized (e.g. a `Span<int>` is passed in
+ * instead of a `VArray<int>`).
+ */
 template<typename MaskT, typename... Args, typename... ParamTags, size_t... I, typename ElementFn>
 void execute_array(TypeSequence<ParamTags...> /* param_tags */,
                    std::index_sequence<I...> /* indices */,
                    ElementFn element_fn,
                    MaskT mask,
+                   /* Use restrict to tell the compiler that pointer inputs do not alias each
+                    * other. This is important for some compiler optimizations. */
                    Args &&__restrict... args)
 {
   for (const int64_t i : mask) {
-    element_fn([&] {
+    element_fn([&]() -> decltype(auto) {
       using ParamTag = typename TypeSequence<ParamTags...>::at_index<I>;
       if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
+        /* For inputs, pass the value (or a reference to it) to the function. */
         return args[i];
       }
       else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
+        /* For outputs, pass a pointer to the function. This is done instead of passing a
+         * reference, because the pointer points to uninitialized memory. */
         return &args[i];
       }
     }()...);
   }
 }
 
-template<typename... ParamTags,
-         typename ElementFn,
-         typename InMask,
-         typename OutMask,
-         typename... Chunks>
+/**
+ * Similar to #execute_array but accepts two mask inputs, one for inputs and one for outputs.
+ */
+template<typename... ParamTags, typename ElementFn, typename... Chunks>
 void execute_materialized_impl(TypeSequence<ParamTags...> /* param_tags */,
                                const ElementFn element_fn,
-                               InMask in_mask,
-                               OutMask out_mask,
+                               const IndexRange in_mask,
+                               const IndexMask out_mask,
                                Chunks &&__restrict... chunks)
 {
   BLI_assert(in_mask.size() == out_mask.size());
