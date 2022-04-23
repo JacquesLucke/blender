@@ -201,9 +201,11 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
   std::tuple<MutableSpan<typename ParamTags::base_type>...> buffers = {
       MutableSpan{std::get<I>(buffers_owner).ptr(), buffer_size}...};
 
+  /* Information about every parameter. */
   std::tuple<ArgInfo<ParamTags>...> args_info;
 
   (
+      /* Setup information for all parameters. */
       [&] {
         using ParamTag = ParamTags;
         using T = typename ParamTag::base_type;
@@ -211,6 +213,8 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
         if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
           VArray<T> &varray = *args;
           if (varray.is_single()) {
+            /* If an input #VArray is a single value, we have to fill the buffer with that value
+             * only once. The same unchanged buffer can then be reused in every chunk. */
             MutableSpan<T> in_chunk{std::get<I>(buffers_owner).ptr(), buffer_size};
             const T in_single = varray.get_internal_single();
             uninitialized_fill_n(in_chunk.data(), in_chunk.size(), in_single);
@@ -218,47 +222,66 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
             arg_info.mode = ArgMode::Single;
           }
           else if (varray.is_span()) {
+            /* Remember the span so that it doesn't have to be retrieved in every iteration. */
             arg_info.internal_span = varray.get_internal_span();
           }
         }
       }(),
       ...);
 
+  /* Outer loop over all chunks. */
   for (int64_t chunk_start = 0; chunk_start < mask_size; chunk_start += MaxChunkSize) {
     const int64_t chunk_size = std::min(mask_size - chunk_start, MaxChunkSize);
     const IndexMask sliced_mask = mask.slice(chunk_start, chunk_size);
     const bool sliced_mask_is_range = sliced_mask.is_range();
 
     execute_materialized_impl(
-        TypeSequence<ParamTags...>(), element_fn, IndexRange(chunk_size), sliced_mask, [&] {
+        TypeSequence<ParamTags...>(),
+        element_fn,
+        /* Inputs are "compressed" into contiguous arrays without gaps. */
+        IndexRange(chunk_size),
+        /* Outputs are written directly into the correct place in the output arrays. */
+        sliced_mask,
+        /* Prepare every parameter for this chunk. */
+        [&] {
           using ParamTag = ParamTags;
           using T = typename ParamTag::base_type;
           ArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
           if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
             if (arg_info.mode == ArgMode::Single) {
+              /* The single value has been filled into a buffer already, that is reused for every
+               * chunk. */
               return Span<T>(std::get<I>(buffers));
             }
             else {
               const VArray<T> &varray = *args;
               if (sliced_mask_is_range) {
                 if (!arg_info.internal_span.is_empty()) {
+                  /* In this case we can just use an existing span instead of "compressing" it into
+                   * a new temporary buffer. */
                   const IndexRange sliced_mask_range = sliced_mask.as_range();
                   arg_info.mode = ArgMode::Span;
                   return arg_info.internal_span.slice(sliced_mask_range);
                 }
               }
+              /* As a fallback, do a virtual function call to retrieve all elements in the current
+               * chunk. The elements are stored in a temporary buffer that is reused. */
               MutableSpan<T> in_chunk{std::get<I>(buffers_owner).ptr(), chunk_size};
               varray.materialize_compressed_to_uninitialized(sliced_mask, in_chunk);
+              /* Remember that this parameter has been materialized, so that the values are
+               * destructed properly when the chunk is done. */
               arg_info.mode = ArgMode::Materialized;
               return Span<T>(in_chunk);
             }
           }
           else if constexpr (ParamTag::category == MFParamCategory::SingleOutput) {
+            /* For outputs, just pass a pointer. This is important so that `__restrict` works. */
             return args->data();
           }
         }()...);
 
     (
+        /* Destruct values that have been materialized before. */
         [&] {
           using ParamTag = ParamTags;
           using T = typename ParamTag::base_type;
@@ -274,6 +297,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
   }
 
   (
+      /* Destruct buffers for single value inputs. */
       [&] {
         using ParamTag = ParamTags;
         using T = typename ParamTag::base_type;
