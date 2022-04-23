@@ -18,6 +18,60 @@ namespace blender::fn {
 
 namespace devi = devirtualize_parameters;
 
+namespace CustomMF_presets {
+
+enum class FallbackMode {
+  Materialized,
+  Simple,
+};
+
+struct Simple {
+  static constexpr bool use_devirtualization = false;
+  static constexpr FallbackMode fallback_mode = FallbackMode::Simple;
+};
+
+struct Materialized {
+  static constexpr bool use_devirtualization = false;
+  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
+};
+
+struct AllSpanOrSingle {
+  static constexpr bool use_devirtualization = true;
+  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
+
+  template<typename Fn, typename... ParamTypes>
+  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer)
+  {
+    using devi::DeviMode;
+    devirtualizer.try_execute_devirtualized(
+        make_value_sequence<DeviMode,
+                            DeviMode::Span | DeviMode::Single | DeviMode::Range,
+                            sizeof...(ParamTypes)>());
+  }
+};
+
+template<size_t... Indices> struct SomeSpanOrSingle {
+  static constexpr bool use_devirtualization = true;
+  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
+
+  template<typename Fn, typename... ParamTypes>
+  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer)
+  {
+    using devi::DeviMode;
+    devirtualizer.try_execute_devirtualized(
+        make_two_value_sequence<DeviMode,
+                                DeviMode::Span | DeviMode::Single | DeviMode::Range,
+                                DeviMode::Single,
+                                sizeof...(ParamTypes),
+                                0,
+                                (Indices + 1)...>());
+  }
+};
+
+}  // namespace CustomMF_presets
+
+namespace detail {
+
 template<typename MaskT, typename... Args, typename... ParamTags, size_t... I, typename ElementFn>
 void execute_array(TypeSequence<ParamTags...> /* param_tags */,
                    std::index_sequence<I...> /* indices */,
@@ -165,62 +219,9 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
         }
       }(),
       ...);
-
-  UNUSED_VARS(element_fn);
 }
 
-namespace CustomMF_presets {
-
-enum class FallbackMode {
-  Materialized,
-  Simple,
-};
-
-struct Simple {
-  static constexpr bool use_devirtualization = false;
-  static constexpr FallbackMode fallback_mode = FallbackMode::Simple;
-};
-
-struct Materialized {
-  static constexpr bool use_devirtualization = false;
-  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
-};
-
-struct AllSpanOrSingle {
-  static constexpr bool use_devirtualization = true;
-  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
-
-  template<typename Fn, typename... ParamTypes>
-  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer)
-  {
-    using devi::DeviMode;
-    devirtualizer.try_execute_devirtualized(
-        make_value_sequence<DeviMode,
-                            DeviMode::Span | DeviMode::Single | DeviMode::Range,
-                            sizeof...(ParamTypes)>());
-  }
-};
-
-template<size_t... Indices> struct SomeSpanOrSingle {
-  static constexpr bool use_devirtualization = true;
-  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
-
-  template<typename Fn, typename... ParamTypes>
-  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer)
-  {
-    using devi::DeviMode;
-    devirtualizer.try_execute_devirtualized(
-        make_two_value_sequence<DeviMode,
-                                DeviMode::Span | DeviMode::Single | DeviMode::Range,
-                                DeviMode::Single,
-                                sizeof...(ParamTypes),
-                                0,
-                                (Indices + 1)...>());
-  }
-};
-
-}  // namespace CustomMF_presets
-
+}  // namespace detail
 template<typename... ParamTags> class CustomMF : public MultiFunction {
  private:
   std::function<void(IndexMask mask, MFParams params)> fn_;
@@ -268,10 +269,10 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
         ...);
 
     auto array_executor = [&](auto &&...args) {
-      execute_array(TagsSequence(),
-                    std::make_index_sequence<TagsSequence::size()>(),
-                    element_fn,
-                    std::forward<decltype(args)>(args)...);
+      detail::execute_array(TagsSequence(),
+                            std::make_index_sequence<TagsSequence::size()>(),
+                            element_fn,
+                            std::forward<decltype(args)>(args)...);
     };
 
     bool executed_devirtualized = false;
@@ -285,17 +286,17 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
 
     if (!executed_devirtualized) {
       if constexpr (ExecPreset::fallback_mode == CustomMF_presets::FallbackMode::Materialized) {
-        execute_materialized(
+        detail::execute_materialized(
             TypeSequence<ParamTags...>(), std::index_sequence<I...>(), element_fn, mask, [&] {
               return &std::get<I>(retrieved_params);
             }()...);
       }
       else {
-        execute_array(TagsSequence(),
-                      std::make_index_sequence<TagsSequence::size()>(),
-                      element_fn,
-                      mask,
-                      std::get<I>(retrieved_params)...);
+        detail::execute_array(TagsSequence(),
+                              std::make_index_sequence<TagsSequence::size()>(),
+                              element_fn,
+                              mask,
+                              std::get<I>(retrieved_params)...);
       }
     }
   }
