@@ -157,6 +157,11 @@ void execute_materialized_impl(TypeSequence<ParamTags...> /* param_tags */,
   }
 }
 
+/**
+ * Executes #element_fn for all indices in #mask. However, instead of processing every element
+ * separately, processing happens in chunks. This allows retrieving from input virtual arrays in
+ * chunks, which reduces virtual function call overhead.
+ */
 template<typename... ParamTags, size_t... I, typename ElementFn, typename... Args>
 void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
                           std::index_sequence<I...> /* indices */,
@@ -171,14 +176,27 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
     Materialized,
   };
 
+  struct ArgInfo {
+    ArgMode mode = ArgMode::Unknown;
+    bool is_span = false;
+  };
+
+  /* In theory, all elements could be processed in one chunk. However, that has the disadvantage
+   * that large temporary arrays are needed. Using small chunks allows using small arrays, which
+   * are reused multiple times, which improves cache efficiency. The chunk size also shouldn't be
+   * too small, because then overhead of the outer loop over chunks becomes significant again. */
   static constexpr int64_t MaxChunkSize = 32;
   const int64_t mask_size = mask.size();
   const int64_t buffer_size = std::min(mask_size, MaxChunkSize);
+
+  /* Local buffers that are used to temporarily store values retrieved from virtual arrays. */
   std::tuple<TypedBuffer<typename ParamTags::base_type, MaxChunkSize>...> buffers_owner;
+
+  /* A span for each parameter which is either empty or points to memory in #buffers_owner. */
   std::tuple<MutableSpan<typename ParamTags::base_type>...> buffers = {
       MutableSpan{std::get<I>(buffers_owner).ptr(), buffer_size}...};
-  std::array<ArgMode, sizeof...(ParamTags)> arg_modes;
-  arg_modes.fill(ArgMode::Unknown);
+
+  std::array<ArgInfo, sizeof...(ParamTags)> args_info;
 
   (
       [&] {
@@ -191,7 +209,10 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
             const T in_single = varray.get_internal_single();
             uninitialized_fill_n(in_chunk.data(), in_chunk.size(), in_single);
             std::get<I>(buffers) = in_chunk;
-            arg_modes[I] = ArgMode::Single;
+            args_info[I].mode = ArgMode::Single;
+          }
+          else if (varray.is_span()) {
+            args_info[I].is_span = true;
           }
         }
       }(),
@@ -207,22 +228,22 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
           using ParamTag = ParamTags;
           using T = typename ParamTag::base_type;
           if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
-            if (arg_modes[I] == ArgMode::Single) {
+            if (args_info[I].mode == ArgMode::Single) {
               return Span<T>(std::get<I>(buffers));
             }
             else {
               const VArray<T> &varray = *args;
               if (sliced_mask_is_range) {
-                if (varray.is_span()) {
+                if (args_info[I].is_span) {
                   const IndexRange sliced_mask_range = sliced_mask.as_range();
                   const Span<T> data = varray.get_internal_span();
-                  arg_modes[I] = ArgMode::Span;
+                  args_info[I].mode = ArgMode::Span;
                   return data.slice(sliced_mask_range);
                 }
               }
               MutableSpan<T> in_chunk{std::get<I>(buffers_owner).ptr(), chunk_size};
               varray.materialize_compressed_to_uninitialized(sliced_mask, in_chunk);
-              arg_modes[I] = ArgMode::Materialized;
+              args_info[I].mode = ArgMode::Materialized;
               return Span<T>(in_chunk);
             }
           }
@@ -236,7 +257,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
           using ParamTag = ParamTags;
           using T = typename ParamTag::base_type;
           if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
-            if (arg_modes[I] == ArgMode::Materialized) {
+            if (args_info[I].mode == ArgMode::Materialized) {
               T *in_chunk = std::get<I>(buffers_owner).ptr();
               destruct_n(in_chunk, chunk_size);
             }
@@ -250,7 +271,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
         using ParamTag = ParamTags;
         using T = typename ParamTag::base_type;
         if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
-          if (arg_modes[I] == ArgMode::Single) {
+          if (args_info[I].mode == ArgMode::Single) {
             MutableSpan<T> in_chunk = std::get<I>(buffers);
             destruct_n(in_chunk.data(), in_chunk.size());
           }
