@@ -43,7 +43,7 @@ static void node_float_to_int_label(const bNodeTree *UNUSED(ntree),
 
 static const fn::MultiFunction *get_multi_function(bNode &bnode)
 {
-  static auto devi_preset = devi::presets::AllSpanOrSingle();
+  static auto devi_preset = fn::CustomMF_presets::AllSpanOrSingle();
   static fn::CustomMF_SI_SO<float, int> round_fn{
       "Round", [](float a) { return (int)round(a); }, devi_preset};
   static fn::CustomMF_SI_SO<float, int> floor_fn{

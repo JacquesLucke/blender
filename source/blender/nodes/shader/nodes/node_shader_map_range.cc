@@ -242,7 +242,7 @@ template<bool Clamp> static auto build_float_linear()
         }
         *r_value = result;
       },
-      devi::presets::OneSpanOtherSingle<0>()};
+      fn::CustomMF_presets::SomeSpanOrSingle<0>()};
 }
 
 template<bool Clamp> static auto build_float_stepped()
@@ -270,7 +270,7 @@ template<bool Clamp> static auto build_float_stepped()
         }
         *r_value = result;
       },
-      devi::presets::OneSpanOtherSingle<0>()};
+      fn::CustomMF_presets::SomeSpanOrSingle<0>()};
 }
 
 template<bool Clamp> static auto build_vector_linear()
@@ -295,7 +295,7 @@ template<bool Clamp> static auto build_vector_linear()
         }
         *r_value = result;
       },
-      devi::presets::OneSpanOtherSingle<0>()};
+      fn::CustomMF_presets::SomeSpanOrSingle<0>()};
 }
 
 template<bool Clamp> static auto build_vector_stepped()
@@ -323,7 +323,7 @@ template<bool Clamp> static auto build_vector_stepped()
         }
         *r_value = result;
       },
-      devi::presets::OneSpanOtherSingle<0>()};
+      fn::CustomMF_presets::SomeSpanOrSingle<0>()};
 }
 
 static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &builder)
@@ -376,7 +376,7 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
                    factor = (float3(3.0f) - 2.0f * factor) * (factor * factor);
                    *r_value = factor * (to_max - to_min) + to_min;
                  },
-                 devi::presets::OneSpanOtherSingle<0>()};
+                 fn::CustomMF_presets::SomeSpanOrSingle<0>()};
           builder.set_matching_fn(fn);
           break;
         }
@@ -399,7 +399,7 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
                    factor = factor * factor * factor * (factor * (factor * 6.0f - 15.0f) + 10.0f);
                    *r_value = factor * (to_max - to_min) + to_min;
                  },
-                 devi::presets::OneSpanOtherSingle<0>()};
+                 fn::CustomMF_presets::SomeSpanOrSingle<0>()};
           builder.set_matching_fn(fn);
           break;
         }
@@ -450,7 +450,7 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
                    factor = (3.0f - 2.0f * factor) * (factor * factor);
                    *r_value = to_min + factor * (to_max - to_min);
                  },
-                 devi::presets::OneSpanOtherSingle<0>()};
+                 fn::CustomMF_presets::SomeSpanOrSingle<0>()};
           builder.set_matching_fn(fn);
           break;
         }
@@ -473,7 +473,7 @@ static void sh_node_map_range_build_multi_function(NodeMultiFunctionBuilder &bui
                    factor = factor * factor * factor * (factor * (factor * 6.0f - 15.0f) + 10.0f);
                    *r_value = to_min + factor * (to_max - to_min);
                  },
-                 devi::presets::OneSpanOtherSingle<0>()};
+                 fn::CustomMF_presets::SomeSpanOrSingle<0>()};
           builder.set_matching_fn(fn);
           break;
         }

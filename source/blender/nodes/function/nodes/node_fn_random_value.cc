@@ -155,7 +155,7 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
                const float z = noise::hash_to_float(seed, id, 2);
                *r_value = float3(x, y, z) * (max_value - min_value) + min_value;
              },
-             devi::presets::OneSpanOtherSingle<2>()};
+             fn::CustomMF_presets::SomeSpanOrSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }
@@ -170,7 +170,7 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
                const float value = noise::hash_to_float(seed, id);
                *r_value = value * (max_value - min_value) + min_value;
              },
-             devi::presets::OneSpanOtherSingle<2>()};
+             fn::CustomMF_presets::SomeSpanOrSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }
@@ -187,7 +187,7 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
                 * distribution for the first and last values (See T93591). */
                *r_value = floor(value * (max_value + 1 - min_value) + min_value);
              },
-             devi::presets::OneSpanOtherSingle<2>()};
+             fn::CustomMF_presets::SomeSpanOrSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }
@@ -200,7 +200,7 @@ static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &
              [](float probability, int id, int seed, bool *r_value) {
                *r_value = noise::hash_to_float(id, seed) <= probability;
              },
-             devi::presets::OneSpanOtherSingle<1>()};
+             fn::CustomMF_presets::SomeSpanOrSingle<1>()};
       builder.set_matching_fn(fn);
       break;
     }

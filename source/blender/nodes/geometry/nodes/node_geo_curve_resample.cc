@@ -555,7 +555,7 @@ static Field<int> get_curve_count_field(GeoNodeExecParams params,
     static fn::CustomMF_SI_SO<int, int> max_one_fn(
         "Clamp Above One",
         [](int value) { return std::max(1, value); },
-        devi::presets::AllSpanOrSingle());
+        fn::CustomMF_presets::AllSpanOrSingle());
     auto clamp_op = std::make_shared<FieldOperation>(
         FieldOperation(max_one_fn, {Field<int>(params.extract_input<Field<int>>("Count"))}));
 
@@ -571,7 +571,7 @@ static Field<int> get_curve_count_field(GeoNodeExecParams params,
           const int count = int(curve_length / sample_length) + 1;
           return std::max(1, count);
         },
-        devi::presets::AllSpanOrSingle());
+        fn::CustomMF_presets::AllSpanOrSingle());
 
     auto get_count_op = std::make_shared<FieldOperation>(
         FieldOperation(get_count_fn,
@@ -597,7 +597,7 @@ static Field<bool> get_selection_field(GeoNodeExecParams params)
       [](const bool orig_selection, const int evaluated_points_num) {
         return orig_selection && evaluated_points_num > 1;
       },
-      devi::presets::AllSpanOrSingle());
+      fn::CustomMF_presets::AllSpanOrSingle());
 
   auto selection_op = std::make_shared<FieldOperation>(
       FieldOperation(get_selection_fn,

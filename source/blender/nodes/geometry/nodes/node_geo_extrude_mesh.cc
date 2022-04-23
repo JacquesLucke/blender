@@ -1276,7 +1276,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   static fn::CustomMF_SI_SI_SO<float3, float, float3> multiply_fn{
       "Scale",
       [](const float3 &offset, const float scale) { return offset * scale; },
-      devi::presets::AllSpanOrSingle()};
+      fn::CustomMF_presets::AllSpanOrSingle()};
   std::shared_ptr<FieldOperation> multiply_op = std::make_shared<FieldOperation>(
       FieldOperation(multiply_fn, {std::move(offset_field), std::move(scale_field)}));
   const Field<float3> final_offset{std::move(multiply_op)};

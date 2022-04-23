@@ -4,11 +4,12 @@
 
 #include "DNA_node_types.h"
 
-#include "BLI_devirtualize_parameters_presets.hh"
 #include "BLI_math_base_safe.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.hh"
 #include "BLI_string_ref.hh"
+
+#include "FN_multi_function_builder.hh"
 
 namespace blender::nodes {
 
@@ -52,8 +53,8 @@ inline bool try_dispatch_float_math_fl_to_fl(const int operation, Callback &&cal
     return false;
   }
 
-  static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::None();
+  static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
+  static auto devi_slow = fn::CustomMF_presets::Simple();
 
   /* This is just an utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -119,8 +120,8 @@ inline bool try_dispatch_float_math_fl_fl_to_fl(const int operation, Callback &&
     return false;
   }
 
-  static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::None();
+  static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
+  static auto devi_slow = fn::CustomMF_presets::Simple();
 
   /* This is just an utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -180,21 +181,21 @@ inline bool try_dispatch_float_math_fl_fl_fl_to_fl(const int operation, Callback
 
   switch (operation) {
     case NODE_MATH_MULTIPLY_ADD:
-      return dispatch(devi::presets::AllSpanOrSingle(),
+      return dispatch(fn::CustomMF_presets::AllSpanOrSingle(),
                       [](float a, float b, float c) { return a * b + c; });
     case NODE_MATH_COMPARE:
-      return dispatch(devi::presets::SomeSpanOtherSingle<0, 1>(),
+      return dispatch(fn::CustomMF_presets::SomeSpanOrSingle<0, 1>(),
                       [](float a, float b, float c) -> float {
                         return ((a == b) || (fabsf(a - b) <= fmaxf(c, FLT_EPSILON))) ? 1.0f : 0.0f;
                       });
     case NODE_MATH_SMOOTH_MIN:
-      return dispatch(devi::presets::SomeSpanOtherSingle<0, 1>(),
+      return dispatch(fn::CustomMF_presets::SomeSpanOrSingle<0, 1>(),
                       [](float a, float b, float c) { return smoothminf(a, b, c); });
     case NODE_MATH_SMOOTH_MAX:
-      return dispatch(devi::presets::SomeSpanOtherSingle<0, 1>(),
+      return dispatch(fn::CustomMF_presets::SomeSpanOrSingle<0, 1>(),
                       [](float a, float b, float c) { return -smoothminf(-a, -b, c); });
     case NODE_MATH_WRAP:
-      return dispatch(devi::presets::OneSpanOtherSingle<0>(),
+      return dispatch(fn::CustomMF_presets::SomeSpanOrSingle<0>(),
                       [](float a, float b, float c) { return wrapf(a, b, c); });
   }
   return false;
@@ -214,8 +215,8 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl3(const NodeVectorMathOperation
     return false;
   }
 
-  static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::None();
+  static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
+  static auto devi_slow = fn::CustomMF_presets::Simple();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -266,7 +267,7 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl(const NodeVectorMathOperation 
     return false;
   }
 
-  static auto devi_fast = devi::presets::AllSpanOrSingle();
+  static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -299,8 +300,8 @@ inline bool try_dispatch_float_math_fl3_fl3_fl3_to_fl3(const NodeVectorMathOpera
     return false;
   }
 
-  static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::None();
+  static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
+  static auto devi_slow = fn::CustomMF_presets::Simple();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -338,7 +339,7 @@ inline bool try_dispatch_float_math_fl3_fl3_fl_to_fl3(const NodeVectorMathOperat
     return false;
   }
 
-  static auto devi_slow = devi::presets::None();
+  static auto devi_slow = fn::CustomMF_presets::Simple();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -370,7 +371,7 @@ inline bool try_dispatch_float_math_fl3_to_fl(const NodeVectorMathOperation oper
     return false;
   }
 
-  static auto devi_fast = devi::presets::AllSpanOrSingle();
+  static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -399,7 +400,7 @@ inline bool try_dispatch_float_math_fl3_fl_to_fl3(const NodeVectorMathOperation 
     return false;
   }
 
-  static auto devi_fast = devi::presets::AllSpanOrSingle();
+  static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -430,8 +431,8 @@ inline bool try_dispatch_float_math_fl3_to_fl3(const NodeVectorMathOperation ope
     return false;
   }
 
-  static auto devi_fast = devi::presets::AllSpanOrSingle();
-  static auto devi_slow = devi::presets::None();
+  static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
+  static auto devi_slow = fn::CustomMF_presets::Simple();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {

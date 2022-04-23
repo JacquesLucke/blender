@@ -207,7 +207,7 @@ static Field<float> get_length_input_field(const GeoNodeExecParams &params,
         [curve_total_length](float length) {
           return std::clamp(length, 0.0f, curve_total_length);
         },
-        devi::presets::AllSpanOrSingle());
+        fn::CustomMF_presets::AllSpanOrSingle());
     auto clamp_op = std::make_shared<FieldOperation>(
         FieldOperation(std::move(clamp_fn), {std::move(length_field)}));
 
@@ -222,7 +222,7 @@ static Field<float> get_length_input_field(const GeoNodeExecParams &params,
         const float length = factor * curve_total_length;
         return std::clamp(length, 0.0f, curve_total_length);
       },
-      devi::presets::AllSpanOrSingle());
+      fn::CustomMF_presets::AllSpanOrSingle());
   auto process_op = std::make_shared<FieldOperation>(
       FieldOperation(std::move(clamp_fn), {std::move(factor_field)}));
 

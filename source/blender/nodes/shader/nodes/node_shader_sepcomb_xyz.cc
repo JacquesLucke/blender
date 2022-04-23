@@ -115,7 +115,7 @@ static void sh_node_combxyz_build_multi_function(NodeMultiFunctionBuilder &build
          [](float x, float y, float z, float3 *r_value) {
            *r_value = {x, y, z};
          },
-         devi::presets::AllSpanOrSingle()};
+         fn::CustomMF_presets::AllSpanOrSingle()};
   builder.set_matching_fn(fn);
 }
 

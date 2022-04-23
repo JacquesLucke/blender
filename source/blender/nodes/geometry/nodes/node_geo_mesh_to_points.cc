@@ -126,7 +126,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   static fn::CustomMF_SI_SO<float, float> max_zero_fn(
       __func__,
       [](float value) { return std::max(0.0f, value); },
-      devi::presets::AllSpanOrSingle());
+      fn::CustomMF_presets::AllSpanOrSingle());
   auto max_zero_op = std::make_shared<FieldOperation>(
       FieldOperation(max_zero_fn, {std::move(radius)}));
   Field<float> positive_radius(std::move(max_zero_op), 0);

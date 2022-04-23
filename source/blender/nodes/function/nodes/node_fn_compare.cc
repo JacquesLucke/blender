@@ -173,8 +173,8 @@ static const fn::MultiFunction *get_multi_function(bNode &node)
 {
   const NodeFunctionCompare *data = (NodeFunctionCompare *)node.storage;
 
-  static auto devi_all = devi::presets::AllSpanOrSingle();
-  static auto devi_first_two = devi::presets::SomeSpanOtherSingle<0, 1>();
+  static auto devi_all = fn::CustomMF_presets::AllSpanOrSingle();
+  static auto devi_first_two = fn::CustomMF_presets::SomeSpanOrSingle<0, 1>();
 
   switch (data->data_type) {
     case SOCK_FLOAT:

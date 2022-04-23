@@ -10,7 +10,7 @@
 
 #include <functional>
 
-#include "BLI_devirtualize_parameters_presets.hh"
+#include "BLI_devirtualize_parameters.hh"
 
 #include "FN_multi_function.hh"
 
@@ -169,6 +169,58 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
   UNUSED_VARS(element_fn);
 }
 
+namespace CustomMF_presets {
+
+enum class FallbackMode {
+  Materialized,
+  Simple,
+};
+
+struct Simple {
+  static constexpr bool use_devirtualization = false;
+  static constexpr FallbackMode fallback_mode = FallbackMode::Simple;
+};
+
+struct Materialized {
+  static constexpr bool use_devirtualization = false;
+  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
+};
+
+struct AllSpanOrSingle {
+  static constexpr bool use_devirtualization = true;
+  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
+
+  template<typename Fn, typename... ParamTypes>
+  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer)
+  {
+    using devi::DeviMode;
+    devirtualizer.try_execute_devirtualized(
+        make_value_sequence<DeviMode,
+                            DeviMode::Span | DeviMode::Single | DeviMode::Range,
+                            sizeof...(ParamTypes)>());
+  }
+};
+
+template<size_t... Indices> struct SomeSpanOrSingle {
+  static constexpr bool use_devirtualization = true;
+  static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
+
+  template<typename Fn, typename... ParamTypes>
+  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer)
+  {
+    using devi::DeviMode;
+    devirtualizer.try_execute_devirtualized(
+        make_two_value_sequence<DeviMode,
+                                DeviMode::Span | DeviMode::Single | DeviMode::Range,
+                                DeviMode::Single,
+                                sizeof...(ParamTypes),
+                                0,
+                                (Indices + 1)...>());
+  }
+};
+
+}  // namespace CustomMF_presets
+
 template<typename... ParamTags> class CustomMF : public MultiFunction {
  private:
   std::function<void(IndexMask mask, MFParams params)> fn_;
@@ -177,28 +229,29 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
   using TagsSequence = TypeSequence<ParamTags...>;
 
  public:
-  template<typename ElementFn, typename DeviFn = devi::presets::None>
-  CustomMF(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
+  template<typename ElementFn, typename ExecPreset = CustomMF_presets::Materialized>
+  CustomMF(const char *name,
+           ElementFn element_fn,
+           ExecPreset exec_preset = CustomMF_presets::Materialized())
   {
-    UNUSED_VARS(element_fn, devi_fn);
     MFSignatureBuilder signature{name};
     add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
     signature_ = signature.build();
     this->set_signature(&signature_);
 
-    fn_ = [element_fn, devi_fn](IndexMask mask, MFParams params) {
-      execute(element_fn, devi_fn, mask, params, std::make_index_sequence<TagsSequence::size()>());
+    fn_ = [element_fn, exec_preset](IndexMask mask, MFParams params) {
+      execute(
+          element_fn, exec_preset, mask, params, std::make_index_sequence<TagsSequence::size()>());
     };
   }
 
-  template<typename ElementFn, typename DeviFn, size_t... I>
+  template<typename ElementFn, typename ExecPreset, size_t... I>
   static void execute(ElementFn element_fn,
-                      DeviFn devi_fn,
+                      ExecPreset exec_preset,
                       IndexMask mask,
                       MFParams params,
                       std::index_sequence<I...> /* indices */)
   {
-    UNUSED_VARS(element_fn, mask, devi_fn);
     std::tuple<typename ParamTags::array_type...> retrieved_params;
     (
         [&]() {
@@ -222,20 +275,28 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
     };
 
     bool executed_devirtualized = false;
-    if constexpr (!std::is_same_v<std::decay_t<DeviFn>, devi::presets::None>) {
-      /* TODO: Pass index mask in last, so that #devi_fn works as expected. */
+    if constexpr (ExecPreset::use_devirtualization) {
       devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
           devirtualizer{
               array_executor, &mask, [&] { return &std::get<I>(retrieved_params); }()...};
-      devi_fn(devirtualizer);
+      exec_preset.try_devirtualize(devirtualizer);
       executed_devirtualized = devirtualizer.executed();
     }
 
     if (!executed_devirtualized) {
-      execute_materialized(
-          TypeSequence<ParamTags...>(), std::index_sequence<I...>(), element_fn, mask, [&] {
-            return &std::get<I>(retrieved_params);
-          }()...);
+      if constexpr (ExecPreset::fallback_mode == CustomMF_presets::FallbackMode::Materialized) {
+        execute_materialized(
+            TypeSequence<ParamTags...>(), std::index_sequence<I...>(), element_fn, mask, [&] {
+              return &std::get<I>(retrieved_params);
+            }()...);
+      }
+      else {
+        execute_array(TagsSequence(),
+                      std::make_index_sequence<TagsSequence::size()>(),
+                      element_fn,
+                      mask,
+                      std::get<I>(retrieved_params)...);
+      }
     }
   }
 
@@ -269,13 +330,15 @@ template<typename In1, typename Out1>
 class CustomMF_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
                                        MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
-  template<typename ElementFn, typename DeviFn = devi::presets::None>
-  CustomMF_SI_SO(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
+  template<typename ElementFn, typename ExecPreset = CustomMF_presets::Materialized>
+  CustomMF_SI_SO(const char *name,
+                 ElementFn element_fn,
+                 ExecPreset exec_preset = CustomMF_presets::Materialized())
       : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
                  MFParamTag<MFParamCategory::SingleOutput, Out1>>(
             name,
             [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); },
-            devi_fn)
+            exec_preset)
   {
   }
 };
@@ -291,8 +354,10 @@ class CustomMF_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInpu
                                           MFParamTag<MFParamCategory::SingleInput, In2>,
                                           MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
-  template<typename ElementFn, typename DeviFn = devi::presets::None>
-  CustomMF_SI_SI_SO(const char *name, ElementFn element_fn, DeviFn devi_fn = devi::presets::None())
+  template<typename ElementFn, typename ExecPreset = CustomMF_presets::Materialized>
+  CustomMF_SI_SI_SO(const char *name,
+                    ElementFn element_fn,
+                    ExecPreset exec_preset = CustomMF_presets::Materialized())
       : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
                  MFParamTag<MFParamCategory::SingleInput, In2>,
                  MFParamTag<MFParamCategory::SingleOutput, Out1>>(
@@ -300,7 +365,7 @@ class CustomMF_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInpu
             [element_fn](const In1 &in1, const In2 &in2, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2));
             },
-            devi_fn)
+            exec_preset)
   {
   }
 };
@@ -318,10 +383,10 @@ class CustomMF_SI_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleI
                                              MFParamTag<MFParamCategory::SingleInput, In3>,
                                              MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
-  template<typename ElementFn, typename DeviFn = devi::presets::None>
+  template<typename ElementFn, typename ExecPreset = CustomMF_presets::Materialized>
   CustomMF_SI_SI_SI_SO(const char *name,
                        ElementFn element_fn,
-                       DeviFn devi_fn = devi::presets::None())
+                       ExecPreset exec_preset = CustomMF_presets::Materialized())
       : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
                  MFParamTag<MFParamCategory::SingleInput, In2>,
                  MFParamTag<MFParamCategory::SingleInput, In3>,
@@ -330,7 +395,7 @@ class CustomMF_SI_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleI
             [element_fn](const In1 &in1, const In2 &in2, const In3 &in3, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2, in3));
             },
-            devi_fn)
+            exec_preset)
   {
   }
 };
@@ -350,10 +415,10 @@ class CustomMF_SI_SI_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::Sing
                                                 MFParamTag<MFParamCategory::SingleInput, In4>,
                                                 MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
-  template<typename ElementFn, typename DeviFn = devi::presets::None>
+  template<typename ElementFn, typename ExecPreset = CustomMF_presets::Materialized>
   CustomMF_SI_SI_SI_SI_SO(const char *name,
                           ElementFn element_fn,
-                          DeviFn devi_fn = devi::presets::None())
+                          ExecPreset exec_preset = CustomMF_presets::Materialized())
       : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
                  MFParamTag<MFParamCategory::SingleInput, In2>,
                  MFParamTag<MFParamCategory::SingleInput, In3>,
@@ -364,7 +429,7 @@ class CustomMF_SI_SI_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::Sing
                 const In1 &in1, const In2 &in2, const In3 &in3, const In4 &in4, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2, in3, in4));
             },
-            devi_fn)
+            exec_preset)
   {
   }
 };
