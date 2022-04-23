@@ -54,7 +54,7 @@ inline bool try_dispatch_float_math_fl_to_fl(const int operation, Callback &&cal
   }
 
   static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
-  static auto devi_slow = fn::CustomMF_presets::Simple();
+  static auto devi_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just an utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -121,7 +121,7 @@ inline bool try_dispatch_float_math_fl_fl_to_fl(const int operation, Callback &&
   }
 
   static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
-  static auto devi_slow = fn::CustomMF_presets::Simple();
+  static auto devi_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just an utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -216,7 +216,7 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl3(const NodeVectorMathOperation
   }
 
   static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
-  static auto devi_slow = fn::CustomMF_presets::Simple();
+  static auto devi_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -301,7 +301,7 @@ inline bool try_dispatch_float_math_fl3_fl3_fl3_to_fl3(const NodeVectorMathOpera
   }
 
   static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
-  static auto devi_slow = fn::CustomMF_presets::Simple();
+  static auto devi_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -339,7 +339,7 @@ inline bool try_dispatch_float_math_fl3_fl3_fl_to_fl3(const NodeVectorMathOperat
     return false;
   }
 
-  static auto devi_slow = fn::CustomMF_presets::Simple();
+  static auto devi_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
@@ -432,7 +432,7 @@ inline bool try_dispatch_float_math_fl3_to_fl3(const NodeVectorMathOperation ope
   }
 
   static auto devi_fast = fn::CustomMF_presets::AllSpanOrSingle();
-  static auto devi_slow = fn::CustomMF_presets::Simple();
+  static auto devi_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just a utility function to keep the individual cases smaller. */
   auto dispatch = [&](auto devi_fn, auto math_function) -> bool {
