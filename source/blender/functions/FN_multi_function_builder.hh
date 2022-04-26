@@ -88,6 +88,7 @@ template<size_t... Indices> struct SomeSpanOrSingle {
   void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer,
                         TypeSequence<ParamTags...> /* param_tags */)
   {
+    UNUSED_VARS(devirtualizer);
     // devirtualizer.try_execute_devirtualized(
     //     make_two_value_sequence<DeviMode,
     //                             DeviMode::Span | DeviMode::Single | DeviMode::Range,

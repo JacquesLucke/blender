@@ -77,7 +77,7 @@ template<bool AllowSingle, bool AllowSpan> struct DispatchVArray {
 };
 
 struct DispatchKeep {
-  template<typename T, typename Fn> static bool dispatch(const T &value, const Fn &fn)
+  template<typename T, typename Fn> static bool dispatch(const T &UNUSED(value), const Fn &fn)
   {
     return fn([](const T &value) -> const T & { return value; });
   }
