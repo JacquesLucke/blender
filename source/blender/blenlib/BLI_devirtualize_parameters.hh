@@ -36,25 +36,52 @@
 
 namespace blender::devirtualize_parameters {
 
-/**
- * Bit flag that specifies how an individual parameter is or can be devirtualized.
- */
-enum class DeviMode {
-  /* This is used as zero-value to compare to, to avoid casting to int. */
-  None = 0,
-  /* Don't use devirtualization for that parameter, just pass it along. */
-  Keep = (1 << 0),
-  /* Devirtualize #Varray as #Span. */
-  Span = (1 << 1),
-  /* Devirtualize #VArray as #SingleAsSpan.  */
-  Single = (1 << 2),
-  /* Devirtualize #IndexMask as #IndexRange. */
-  Range = (1 << 3),
+template<bool AllowMask, bool AllowRange> struct DispatchIndexMask {
+  template<typename Fn> static bool dispatch(const IndexMask &mask, const Fn &fn)
+  {
+    if constexpr (AllowRange) {
+      if (mask.is_range()) {
+        if (fn([](const IndexMask &mask) -> IndexRange { return mask.as_range(); })) {
+          return true;
+        }
+      }
+    }
+    if constexpr (AllowMask) {
+      if (fn([](const IndexMask &mask) -> const IndexMask & { return mask; })) {
+        return true;
+      }
+    }
+    return false;
+  }
 };
-ENUM_OPERATORS(DeviMode, DeviMode::Range);
 
-/** Utility to encode multiple #DeviMode in a type. */
-template<DeviMode... Mode> using DeviModeSequence = ValueSequence<DeviMode, Mode...>;
+template<bool AllowSingle, bool AllowSpan> struct DispatchVArray {
+  template<typename T, typename Fn> static bool dispatch(const VArray<T> &varray, const Fn &fn)
+  {
+    if constexpr (AllowSingle) {
+      if (varray.is_single()) {
+        if (fn([](const VArray<T> &varray) -> SingleAsSpan<T> { return SingleAsSpan(varray); })) {
+          return true;
+        }
+      }
+    }
+    if constexpr (AllowSpan) {
+      if (varray.is_span()) {
+        if (fn([](const VArray<T> &varray) -> Span<T> { return varray.get_internal_span(); })) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+};
+
+struct DispatchKeep {
+  template<typename T, typename Fn> static bool dispatch(const T &value, const Fn &fn)
+  {
+    return fn([](const T &value) -> const T & { return value; });
+  }
+};
 
 /**
  * Main class that performs the devirtualization.
@@ -102,13 +129,12 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
    * \note This generates an exponential amount of code in the final binary, depending on how many
    * to-be-virtualized parameters there are.
    */
-  template<DeviMode... AllowedModes>
-  void try_execute_devirtualized(DeviModeSequence<AllowedModes...> /* allowed_modes */)
+  template<typename... Dispatchers>
+  void try_execute_devirtualized(TypeSequence<Dispatchers...> /* dispatchers */)
   {
     BLI_assert(!executed_);
-    static_assert(sizeof...(AllowedModes) == SourceTypesNum);
-    this->try_execute_devirtualized_impl(DeviModeSequence<>(),
-                                         DeviModeSequence<AllowedModes...>());
+    static_assert(sizeof...(Dispatchers) == SourceTypesNum);
+    this->try_execute_devirtualized_impl(std::make_tuple(), TypeSequence<Dispatchers...>());
   }
 
   /**
@@ -117,9 +143,7 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   void execute_without_devirtualization()
   {
     BLI_assert(!executed_);
-    this->try_execute_devirtualized_impl_call(
-        make_value_sequence<DeviMode, DeviMode::Keep, SourceTypesNum>(),
-        std::make_index_sequence<SourceTypesNum>());
+    this->try_execute_devirtualized(make_type_sequence<DispatchKeep, SourceTypesNum>());
   }
 
  private:
@@ -134,142 +158,42 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
    *
    * \return True when the function has been executed.
    */
-  template<DeviMode... Mode, DeviMode... AllowedModes>
+  template<typename... Converters, typename... Dispatchers>
   bool try_execute_devirtualized_impl(
       /* Initially empty, but then extended by one element in each recursive step.  */
-      DeviModeSequence<Mode...> /* modes */,
+      const std::tuple<Converters...> &converters,
       /* Bit flag for every parameter. */
-      DeviModeSequence<AllowedModes...> /* allowed_modes */)
+      TypeSequence<Dispatchers...> /* dispatchers */)
   {
-    static_assert(SourceTypesNum == sizeof...(AllowedModes));
-    if constexpr (SourceTypesNum == sizeof...(Mode)) {
+    static_assert(SourceTypesNum == sizeof...(Dispatchers));
+    if constexpr (SourceTypesNum == sizeof...(Converters)) {
       /* End of recursion, now call the function with the determined #DeviModes. */
-      this->try_execute_devirtualized_impl_call(DeviModeSequence<Mode...>(),
-                                                std::make_index_sequence<SourceTypesNum>());
+      this->execute_devirtualized_impl_call(converters,
+                                            std::make_index_sequence<SourceTypesNum>());
       return true;
     }
     else {
       /* Index of the parameter that is checked in the current recursive step. */
-      constexpr size_t I = sizeof...(Mode);
+      constexpr size_t I = sizeof...(Converters);
       /* Non-devirtualized parameter type. */
       using SourceType = type_at_index<I>;
-      /* A bit flag indicating what devirtualizations are allowed in this step. */
-      constexpr DeviMode allowed_modes = DeviModeSequence<AllowedModes...>::template at_index<I>();
-
-      /* Handle #VArray types. */
-      if constexpr (is_VArray_v<SourceType>) {
-        /* The actual virtual array, used for dynamic dispatch at run-time. */
-        const SourceType &varray = *std::get<I>(sources_);
-        /* Check if the virtual array is a single value. */
-        if constexpr ((allowed_modes & DeviMode::Single) != DeviMode::None) {
-          if (varray.is_single()) {
-            if (this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Single>(),
-                                                     DeviModeSequence<AllowedModes...>())) {
-              return true;
-            }
-          }
-        }
-        /* Check if the virtual array is a span. */
-        if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
-          if (varray.is_span()) {
-            if (this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Span>(),
-                                                     DeviModeSequence<AllowedModes...>())) {
-              return true;
-            }
-          }
-        }
-        /* Check if it is ok if the virtual array is not devirtualized. */
-        if constexpr ((allowed_modes & DeviMode::Keep) != DeviMode::None) {
-          if (this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Keep>(),
-                                                   DeviModeSequence<AllowedModes...>())) {
-            return true;
-          }
-        }
-      }
-
-      /* Handle #IndexMask. */
-      else if constexpr (std::is_same_v<IndexMask, SourceType>) {
-        /* Check if the mask is actually a contiguous range. */
-        if constexpr ((allowed_modes & DeviMode::Range) != DeviMode::None) {
-          /* The actual mask used for dynamic dispatch at run-time. */
-          const IndexMask &mask = *std::get<I>(sources_);
-          if (mask.is_range()) {
-            if (this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Range>(),
-                                                     DeviModeSequence<AllowedModes...>())) {
-              return true;
-            }
-          }
-        }
-        /* Check if mask is also allowed to stay a span. */
-        if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
-          if (this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Span>(),
-                                                   DeviModeSequence<AllowedModes...>())) {
-            return true;
-          }
-        }
-      }
-
-      /* Handle unknown types. */
-      else {
-        if (this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Keep>(),
-                                                 DeviModeSequence<AllowedModes...>())) {
-          return true;
-        }
-      }
+      using Dispatcher = typename TypeSequence<Dispatchers...>::template at_index<I>;
+      const SourceType &source_value = *std::get<I>(sources_);
+      return Dispatcher::dispatch(source_value, [&](auto converter) {
+        return this->try_execute_devirtualized_impl(
+            std::tuple_cat(converters, std::make_tuple(converter)),
+            TypeSequence<Dispatchers...>());
+      });
     }
-    return false;
   }
 
-  /**
-   * Actually call the function with devirtualized parameters.
-   */
-  template<DeviMode... Mode, size_t... I>
-  void try_execute_devirtualized_impl_call(DeviModeSequence<Mode...> /* modes */,
-                                           std::index_sequence<I...> /* indices */)
+  template<typename... Converters, size_t... I>
+  void execute_devirtualized_impl_call(const std::tuple<Converters...> converters,
+                                       std::index_sequence<I...> /* indices */)
   {
-
     BLI_assert(!executed_);
-    fn_(this->get_devirtualized_parameter<I, Mode>()...);
+    fn_(std::get<I>(converters)(*std::get<I>(sources_))...);
     executed_ = true;
-  }
-
-  /**
-   * Return the I-th parameter devirtualized using the passed in #DeviMode. This has different
-   * return types based on the template parameters.
-   *
-   * \note It is expected that the caller already knows that the parameter can be devirtualized
-   * with the given mode.
-   */
-  template<size_t I, DeviMode Mode> decltype(auto) get_devirtualized_parameter()
-  {
-    using SourceType = type_at_index<I>;
-    static_assert(Mode != DeviMode::None);
-    if constexpr (Mode == DeviMode::Keep) {
-      /* Don't change the original parameter at all. */
-      return *std::get<I>(sources_);
-    }
-    if constexpr (is_VArray_v<SourceType>) {
-      const SourceType &varray = *std::get<I>(sources_);
-      if constexpr (Mode == DeviMode::Single) {
-        /* Devirtualize virtual array as single value. */
-        return SingleAsSpan(varray);
-      }
-      else if constexpr (Mode == DeviMode::Span) {
-        /* Devirtualize virtual array as span. */
-        return varray.get_internal_span();
-      }
-    }
-    else if constexpr (std::is_same_v<IndexMask, SourceType>) {
-      const IndexMask &mask = *std::get<I>(sources_);
-      if constexpr (ELEM(Mode, DeviMode::Span)) {
-        /* Don't devirtualize mask, it's still a span. */
-        return mask;
-      }
-      else if constexpr (Mode == DeviMode::Range) {
-        /* Devirtualize the mask as range. */
-        return mask.as_range();
-      }
-    }
   }
 };
 
@@ -291,8 +215,7 @@ inline void devirtualize_varray(const VArray<T> &varray, const Func &func, bool 
   using namespace devirtualize_parameters;
   if (enable) {
     Devirtualizer<decltype(func), VArray<T>> devirtualizer(func, &varray);
-    constexpr DeviMode devi_mode = DeviMode::Single | DeviMode::Span;
-    devirtualizer.try_execute_devirtualized(DeviModeSequence<devi_mode>());
+    devirtualizer.try_execute_devirtualized(TypeSequence<DispatchVArray<true, true>>());
     if (devirtualizer.executed()) {
       return;
     }
@@ -314,8 +237,8 @@ inline void devirtualize_varray2(const VArray<T1> &varray1,
   using namespace devirtualize_parameters;
   if (enable) {
     Devirtualizer<decltype(func), VArray<T1>, VArray<T2>> devirtualizer(func, &varray1, &varray2);
-    constexpr DeviMode devi_mode = DeviMode::Single | DeviMode::Span;
-    devirtualizer.try_execute_devirtualized(DeviModeSequence<devi_mode, devi_mode>());
+    devirtualizer.try_execute_devirtualized(
+        TypeSequence<DispatchVArray<true, true>, DispatchVArray<true, true>>());
     if (devirtualizer.executed()) {
       return;
     }

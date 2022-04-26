@@ -93,6 +93,13 @@ inline ValueSequence<T,
   return {};
 };
 
+template<typename T, size_t... I>
+inline TypeSequence<std::conditional_t<I == 0, T, T>...> make_type_sequence_impl(
+    std::index_sequence<I...> /* indices */)
+{
+  return {};
+}
+
 }  // namespace detail
 
 /**
@@ -109,6 +116,10 @@ using make_value_sequence = decltype(detail::make_value_sequence_impl<T, Value>(
 template<typename T, T Value1, T Value2, size_t Size, size_t... Value1Indices>
 using make_two_value_sequence = decltype(detail::make_two_value_sequence_impl<T, Value1, Value2>(
     ValueSequence<size_t, Value1Indices...>(), std::make_index_sequence<Size>()));
+
+template<typename T, size_t Size>
+using make_type_sequence = decltype(detail::make_type_sequence_impl<T>(
+    std::make_index_sequence<Size>()));
 
 namespace parameter_pack_utils_static_tests {
 enum class MyEnum { A, B };

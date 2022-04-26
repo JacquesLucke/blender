@@ -63,14 +63,15 @@ struct AllSpanOrSingle {
   static constexpr bool use_devirtualization = true;
   static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
 
-  template<typename Fn, typename... ParamTypes>
-  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer)
+  template<typename Fn, typename... ParamTypes, typename... ParamTags>
+  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer,
+                        TypeSequence<ParamTags...> /* param_tags */)
   {
-    using devi::DeviMode;
     devirtualizer.try_execute_devirtualized(
-        make_value_sequence<DeviMode,
-                            DeviMode::Span | DeviMode::Single | DeviMode::Range,
-                            sizeof...(ParamTypes)>());
+        TypeSequence<devi::DispatchIndexMask<true, true>,
+                     std::conditional_t<ParamTags::category == MFParamCategory::SingleInput,
+                                        devi::DispatchVArray<true, true>,
+                                        devi::DispatchKeep>...>());
   }
 };
 
@@ -83,17 +84,17 @@ template<size_t... Indices> struct SomeSpanOrSingle {
   static constexpr bool use_devirtualization = true;
   static constexpr FallbackMode fallback_mode = FallbackMode::Materialized;
 
-  template<typename Fn, typename... ParamTypes>
-  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer)
+  template<typename Fn, typename... ParamTypes, typename... ParamTags>
+  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer,
+                        TypeSequence<ParamTags...> /* param_tags */)
   {
-    using devi::DeviMode;
-    devirtualizer.try_execute_devirtualized(
-        make_two_value_sequence<DeviMode,
-                                DeviMode::Span | DeviMode::Single | DeviMode::Range,
-                                DeviMode::Single,
-                                sizeof...(ParamTypes),
-                                0,
-                                (Indices + 1)...>());
+    // devirtualizer.try_execute_devirtualized(
+    //     make_two_value_sequence<DeviMode,
+    //                             DeviMode::Span | DeviMode::Single | DeviMode::Range,
+    //                             DeviMode::Single,
+    //                             sizeof...(ParamTypes),
+    //                             0,
+    //                             (Indices + 1)...>());
   }
 };
 
@@ -372,7 +373,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
       devi::Devirtualizer<decltype(array_executor), IndexMask, typename ParamTags::array_type...>
           devirtualizer{
               array_executor, &mask, [&] { return &std::get<I>(retrieved_params); }()...};
-      exec_preset.try_devirtualize(devirtualizer);
+      exec_preset.try_devirtualize(devirtualizer, TagsSequence());
       executed_devirtualized = devirtualizer.executed();
     }
 
