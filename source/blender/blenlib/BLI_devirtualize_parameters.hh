@@ -36,18 +36,46 @@
 
 namespace blender::devirtualize_parameters {
 
+struct ConvertKeep {
+  template<typename T> static const T &convert(const T &value)
+  {
+    return value;
+  }
+};
+
+struct ConvertIndexMaskToIndexRange {
+  static IndexRange convert(const IndexMask &mask)
+  {
+    return mask.as_range();
+  }
+};
+
+struct ConvertVArrayToSingle {
+  template<typename T> static SingleAsSpan<T> convert(const VArray<T> &varray)
+  {
+    return {varray};
+  }
+};
+
+struct ConvertVArrayToSpan {
+  template<typename T> static Span<T> convert(const VArray<T> &varray)
+  {
+    return varray.get_internal_span();
+  }
+};
+
 template<bool AllowMask, bool AllowRange> struct DispatchIndexMask {
   template<typename Fn> static bool dispatch(const IndexMask &mask, const Fn &fn)
   {
     if constexpr (AllowRange) {
       if (mask.is_range()) {
-        if (fn([](const IndexMask &mask) -> IndexRange { return mask.as_range(); })) {
+        if (fn(ConvertIndexMaskToIndexRange())) {
           return true;
         }
       }
     }
     if constexpr (AllowMask) {
-      if (fn([](const IndexMask &mask) -> const IndexMask & { return mask; })) {
+      if (fn(ConvertKeep())) {
         return true;
       }
     }
@@ -60,14 +88,14 @@ template<bool AllowSingle, bool AllowSpan> struct DispatchVArray {
   {
     if constexpr (AllowSingle) {
       if (varray.is_single()) {
-        if (fn([](const VArray<T> &varray) -> SingleAsSpan<T> { return SingleAsSpan(varray); })) {
+        if (fn(ConvertVArrayToSingle())) {
           return true;
         }
       }
     }
     if constexpr (AllowSpan) {
       if (varray.is_span()) {
-        if (fn([](const VArray<T> &varray) -> Span<T> { return varray.get_internal_span(); })) {
+        if (fn(ConvertVArrayToSpan())) {
           return true;
         }
       }
@@ -79,7 +107,7 @@ template<bool AllowSingle, bool AllowSpan> struct DispatchVArray {
 struct DispatchKeep {
   template<typename T, typename Fn> static bool dispatch(const T &UNUSED(value), const Fn &fn)
   {
-    return fn([](const T &value) -> const T & { return value; });
+    return fn(ConvertKeep());
   }
 };
 
@@ -134,7 +162,7 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   {
     BLI_assert(!executed_);
     static_assert(sizeof...(Dispatchers) == SourceTypesNum);
-    this->try_execute_devirtualized_impl(std::make_tuple(), TypeSequence<Dispatchers...>());
+    this->try_execute_devirtualized_impl(TypeSequence<>(), TypeSequence<Dispatchers...>());
   }
 
   /**
@@ -161,14 +189,14 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
   template<typename... Converters, typename... Dispatchers>
   bool try_execute_devirtualized_impl(
       /* Initially empty, but then extended by one element in each recursive step.  */
-      const std::tuple<Converters...> &converters,
+      TypeSequence<Converters...> /* converters */,
       /* Bit flag for every parameter. */
       TypeSequence<Dispatchers...> /* dispatchers */)
   {
     static_assert(SourceTypesNum == sizeof...(Dispatchers));
     if constexpr (SourceTypesNum == sizeof...(Converters)) {
       /* End of recursion, now call the function with the determined #DeviModes. */
-      this->execute_devirtualized_impl_call(converters,
+      this->execute_devirtualized_impl_call(TypeSequence<Converters...>(),
                                             std::make_index_sequence<SourceTypesNum>());
       return true;
     }
@@ -181,18 +209,17 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
       const SourceType &source_value = *std::get<I>(sources_);
       return Dispatcher::dispatch(source_value, [&](auto converter) {
         return this->try_execute_devirtualized_impl(
-            std::tuple_cat(converters, std::make_tuple(converter)),
-            TypeSequence<Dispatchers...>());
+            TypeSequence<Converters..., decltype(converter)>(), TypeSequence<Dispatchers...>());
       });
     }
   }
 
   template<typename... Converters, size_t... I>
-  void execute_devirtualized_impl_call(const std::tuple<Converters...> converters,
+  void execute_devirtualized_impl_call(TypeSequence<Converters...> /* converters */,
                                        std::index_sequence<I...> /* indices */)
   {
     BLI_assert(!executed_);
-    fn_(std::get<I>(converters)(*std::get<I>(sources_))...);
+    fn_(Converters::convert(*std::get<I>(sources_))...);
     executed_ = true;
   }
 };
