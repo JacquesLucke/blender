@@ -281,4 +281,37 @@ class IndexMask {
                                            Vector<int64_t> *r_skip_amounts) const;
 };
 
+struct ConvertIndexMaskToIndexRange {
+  static IndexRange convert(const IndexMask &mask)
+  {
+    return mask.as_range();
+  }
+};
+
+struct ConvertIndexMaskToIndexMask {
+  static const IndexMask &convert(const IndexMask &mask)
+  {
+    return mask;
+  }
+};
+
+template<bool AllowMask, bool AllowRange> struct DispatchIndexMask {
+  template<typename Fn> static bool dispatch(const IndexMask &mask, const Fn &fn)
+  {
+    if constexpr (AllowRange) {
+      if (mask.is_range()) {
+        if (fn(ConvertIndexMaskToIndexRange())) {
+          return true;
+        }
+      }
+    }
+    if constexpr (AllowMask) {
+      if (fn(ConvertIndexMaskToIndexMask())) {
+        return true;
+      }
+    }
+    return false;
+  }
+};
+
 }  // namespace blender

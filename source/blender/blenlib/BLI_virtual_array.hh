@@ -1213,4 +1213,39 @@ template<typename T> class SingleAsSpan {
   }
 };
 
+struct ConvertVArrayToSingle {
+  template<typename T> static SingleAsSpan<T> convert(const VArray<T> &varray)
+  {
+    return {varray};
+  }
+};
+
+struct ConvertVArrayToSpan {
+  template<typename T> static Span<T> convert(const VArray<T> &varray)
+  {
+    return varray.get_internal_span();
+  }
+};
+
+template<bool AllowSingle, bool AllowSpan> struct DispatchVArray {
+  template<typename T, typename Fn> static bool dispatch(const VArray<T> &varray, const Fn &fn)
+  {
+    if constexpr (AllowSingle) {
+      if (varray.is_single()) {
+        if (fn(ConvertVArrayToSingle())) {
+          return true;
+        }
+      }
+    }
+    if constexpr (AllowSpan) {
+      if (varray.is_span()) {
+        if (fn(ConvertVArrayToSpan())) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+};
+
 }  // namespace blender

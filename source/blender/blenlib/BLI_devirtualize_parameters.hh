@@ -43,67 +43,6 @@ struct ConvertKeep {
   }
 };
 
-struct ConvertIndexMaskToIndexRange {
-  static IndexRange convert(const IndexMask &mask)
-  {
-    return mask.as_range();
-  }
-};
-
-struct ConvertVArrayToSingle {
-  template<typename T> static SingleAsSpan<T> convert(const VArray<T> &varray)
-  {
-    return {varray};
-  }
-};
-
-struct ConvertVArrayToSpan {
-  template<typename T> static Span<T> convert(const VArray<T> &varray)
-  {
-    return varray.get_internal_span();
-  }
-};
-
-template<bool AllowMask, bool AllowRange> struct DispatchIndexMask {
-  template<typename Fn> static bool dispatch(const IndexMask &mask, const Fn &fn)
-  {
-    if constexpr (AllowRange) {
-      if (mask.is_range()) {
-        if (fn(ConvertIndexMaskToIndexRange())) {
-          return true;
-        }
-      }
-    }
-    if constexpr (AllowMask) {
-      if (fn(ConvertKeep())) {
-        return true;
-      }
-    }
-    return false;
-  }
-};
-
-template<bool AllowSingle, bool AllowSpan> struct DispatchVArray {
-  template<typename T, typename Fn> static bool dispatch(const VArray<T> &varray, const Fn &fn)
-  {
-    if constexpr (AllowSingle) {
-      if (varray.is_single()) {
-        if (fn(ConvertVArrayToSingle())) {
-          return true;
-        }
-      }
-    }
-    if constexpr (AllowSpan) {
-      if (varray.is_span()) {
-        if (fn(ConvertVArrayToSpan())) {
-          return true;
-        }
-      }
-    }
-    return false;
-  }
-};
-
 struct DispatchKeep {
   template<typename T, typename Fn> static bool dispatch(const T &UNUSED(value), const Fn &fn)
   {

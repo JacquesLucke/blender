@@ -68,9 +68,9 @@ struct AllSpanOrSingle {
                         TypeSequence<ParamTags...> /* param_tags */)
   {
     devirtualizer.try_execute_devirtualized(
-        TypeSequence<devi::DispatchIndexMask<true, true>,
+        TypeSequence<DispatchIndexMask<true, true>,
                      std::conditional_t<ParamTags::category == MFParamCategory::SingleInput,
-                                        devi::DispatchVArray<true, true>,
+                                        DispatchVArray<true, true>,
                                         devi::DispatchKeep>...>());
   }
 };
