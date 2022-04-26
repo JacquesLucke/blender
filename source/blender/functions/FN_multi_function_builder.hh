@@ -88,14 +88,24 @@ template<size_t... Indices> struct SomeSpanOrSingle {
   void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer,
                         TypeSequence<ParamTags...> /* param_tags */)
   {
-    UNUSED_VARS(devirtualizer);
-    // devirtualizer.try_execute_devirtualized(
-    //     make_two_value_sequence<DeviMode,
-    //                             DeviMode::Span | DeviMode::Single | DeviMode::Range,
-    //                             DeviMode::Single,
-    //                             sizeof...(ParamTypes),
-    //                             0,
-    //                             (Indices + 1)...>());
+    this->try_devirtualize(devirtualizer,
+                           TypeSequence<ParamTags...>(),
+                           std::make_index_sequence<sizeof...(ParamTags)>());
+  }
+
+  template<typename Fn, typename... ParamTypes, typename... ParamTags, size_t... I>
+  void try_devirtualize(devi::Devirtualizer<Fn, ParamTypes...> &devirtualizer,
+                        TypeSequence<ParamTags...> /* param_tags */,
+                        std::index_sequence<I...> /* indices */)
+  {
+    devirtualizer.try_execute_devirtualized(
+        TypeSequence<DispatchIndexMask<true, true>,
+                     std::conditional_t<
+                         ValueSequence<size_t, Indices...>::template contains<I>(),
+                         DispatchVArray<true, true>,
+                         std::conditional_t<ParamTags::category == MFParamCategory::SingleInput,
+                                            DispatchVArray<true, false>,
+                                            devi::DispatchKeep>>...>());
   }
 };
 
