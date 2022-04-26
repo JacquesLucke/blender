@@ -3,6 +3,7 @@
 #include "DEG_depsgraph_query.h"
 
 #include "BLI_task.hh"
+#include "BLI_virtual_array_devirtualize.hh"
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
