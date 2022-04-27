@@ -130,7 +130,13 @@ typedef struct Curves {
   /* Materials. */
   struct Material **mat;
   short totcol;
-  short _pad2[3];
+
+  /**
+   * User-defined symmetry flag (#eMeshSymmetryType) that causes editing operations to maintain
+   * symmetrical geometry.
+   */
+  char symmetry;
+  char _pad2[5];
 
   /**
    * Used as base mesh when curves represent e.g. hair or fur. This surface is used in edit modes.
