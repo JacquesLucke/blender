@@ -188,8 +188,6 @@ struct SnakeHookOperatorExecutor {
 
   void spherical_snake_hook()
   {
-    MutableSpan<float3> positions_cu = curves_->positions_for_write();
-
     float4x4 projection;
     ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
 
@@ -206,9 +204,23 @@ struct SnakeHookOperatorExecutor {
                         brush_end_wo);
     const float3 brush_start_cu = world_to_curves_mat_ * brush_start_wo;
     const float3 brush_end_cu = world_to_curves_mat_ * brush_end_wo;
-    const float3 brush_diff_cu = brush_end_cu - brush_start_cu;
 
     const float brush_radius_cu = self_->brush_3d_.radius_cu;
+
+    const Vector<float3> mirror_factors = get_point_mirror_factors(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float3 &mirror_factor : mirror_factors) {
+      this->spherical_snake_hook_with_mirror(
+          mirror_factor * brush_start_cu, mirror_factor * brush_end_cu, brush_radius_cu);
+    }
+  }
+
+  void spherical_snake_hook_with_mirror(const float3 &brush_start_cu,
+                                        const float3 &brush_end_cu,
+                                        const float brush_radius_cu)
+  {
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
+    const float3 brush_diff_cu = brush_end_cu - brush_start_cu;
     const float brush_radius_sq_cu = pow2f(brush_radius_cu);
 
     threading::parallel_for(curves_->curves_range(), 256, [&](const IndexRange curves_range) {
