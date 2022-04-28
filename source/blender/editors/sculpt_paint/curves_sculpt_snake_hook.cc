@@ -152,6 +152,15 @@ struct SnakeHookOperatorExecutor {
 
   void projected_snake_hook()
   {
+    const Vector<float3> mirror_factors = get_point_mirror_factors(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float3 &mirror_factor : mirror_factors) {
+      this->projected_snake_hook_with_mirror(mirror_factor);
+    }
+  }
+
+  void projected_snake_hook_with_mirror(const float3 &mirror_factor)
+  {
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
 
     float4x4 projection;
@@ -161,7 +170,7 @@ struct SnakeHookOperatorExecutor {
       for (const int curve_i : curves_range) {
         const IndexRange points = curves_->points_for_curve(curve_i);
         const int last_point_i = points.last();
-        const float3 old_pos_cu = positions_cu[last_point_i];
+        const float3 old_pos_cu = mirror_factor * positions_cu[last_point_i];
 
         float2 old_pos_re;
         ED_view3d_project_float_v2_m4(region_, old_pos_cu, old_pos_re, projection.values);
@@ -179,7 +188,7 @@ struct SnakeHookOperatorExecutor {
         float3 new_position_wo;
         ED_view3d_win_to_3d(
             v3d_, region_, curves_to_world_mat_ * old_pos_cu, new_position_re, new_position_wo);
-        const float3 new_position_cu = world_to_curves_mat_ * new_position_wo;
+        const float3 new_position_cu = mirror_factor * (world_to_curves_mat_ * new_position_wo);
 
         this->move_last_point_and_resample(positions_cu.slice(points), new_position_cu);
       }
