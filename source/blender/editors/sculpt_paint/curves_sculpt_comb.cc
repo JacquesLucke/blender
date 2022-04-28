@@ -194,6 +194,16 @@ struct CombOperationExecutor {
    */
   void comb_projected(EnumerableThreadSpecific<Vector<int>> &r_changed_curves)
   {
+    const Vector<float3> mirror_factors = get_point_mirror_factors(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float3 &mirror_factor : mirror_factors) {
+      this->comb_projected_with_mirror(r_changed_curves, mirror_factor);
+    }
+  }
+
+  void comb_projected_with_mirror(EnumerableThreadSpecific<Vector<int>> &r_changed_curves,
+                                  const float3 &mirror_factor)
+  {
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
 
     float4x4 projection;
@@ -207,7 +217,7 @@ struct CombOperationExecutor {
         bool curve_changed = false;
         const IndexRange points = curves_->points_for_curve(curve_i);
         for (const int point_i : points.drop_front(1)) {
-          const float3 old_pos_cu = positions_cu[point_i];
+          const float3 old_pos_cu = mirror_factor * positions_cu[point_i];
 
           /* Find the position of the point in screen space. */
           float2 old_pos_re;
@@ -232,7 +242,7 @@ struct CombOperationExecutor {
           float3 new_position_wo;
           ED_view3d_win_to_3d(
               v3d_, region_, curves_to_world_mat_ * old_pos_cu, new_position_re, new_position_wo);
-          const float3 new_position_cu = world_to_curves_mat_ * new_position_wo;
+          const float3 new_position_cu = mirror_factor * (world_to_curves_mat_ * new_position_wo);
           positions_cu[point_i] = new_position_cu;
 
           curve_changed = true;
@@ -265,8 +275,6 @@ struct CombOperationExecutor {
                         brush_end_wo);
     const float3 brush_start_cu = world_to_curves_mat_ * brush_start_wo;
     const float3 brush_end_cu = world_to_curves_mat_ * brush_end_wo;
-
-    const float3 brush_diff_cu = brush_end_cu - brush_start_cu;
 
     const float brush_radius_cu = self_->brush_3d_.radius_cu;
 
