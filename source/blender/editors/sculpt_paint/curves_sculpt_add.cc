@@ -75,7 +75,7 @@ static void initialize_straight_curve_positions(const float3 &p1,
   }
 }
 
-static Vector<float3> get_point_mirror_factors(const eCurvesSymmetryType symmetry)
+Vector<float3> get_point_mirror_factors(const eCurvesSymmetryType symmetry)
 {
   Vector<float3> factors;
 

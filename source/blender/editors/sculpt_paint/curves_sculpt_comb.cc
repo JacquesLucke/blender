@@ -249,8 +249,6 @@ struct CombOperationExecutor {
    */
   void comb_spherical(EnumerableThreadSpecific<Vector<int>> &r_changed_curves)
   {
-    MutableSpan<float3> positions_cu = curves_->positions_for_write();
-
     float4x4 projection;
     ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
 
@@ -271,7 +269,25 @@ struct CombOperationExecutor {
     const float3 brush_diff_cu = brush_end_cu - brush_start_cu;
 
     const float brush_radius_cu = self_->brush_3d_.radius_cu;
+
+    const Vector<float3> mirror_factors = get_point_mirror_factors(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float3 &mirror_factor : mirror_factors) {
+      this->comb_spherical_with_ray(r_changed_curves,
+                                    mirror_factor * brush_start_cu,
+                                    mirror_factor * brush_end_cu,
+                                    brush_radius_cu);
+    }
+  }
+
+  void comb_spherical_with_ray(EnumerableThreadSpecific<Vector<int>> &r_changed_curves,
+                               const float3 &brush_start_cu,
+                               const float3 &brush_end_cu,
+                               const float brush_radius_cu)
+  {
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
     const float brush_radius_sq_cu = pow2f(brush_radius_cu);
+    const float3 brush_diff_cu = brush_end_cu - brush_start_cu;
 
     threading::parallel_for(curves_->curves_range(), 256, [&](const IndexRange curves_range) {
       Vector<int> &local_changed_curves = r_changed_curves.local();
