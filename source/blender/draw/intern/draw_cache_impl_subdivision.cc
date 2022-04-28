@@ -1899,7 +1899,7 @@ static bool draw_subdiv_create_requested_buffers(const Scene *scene,
                                                  OpenSubdiv_EvaluatorCache *evaluator_cache)
 {
   SubsurfModifierData *smd = reinterpret_cast<SubsurfModifierData *>(
-       BKE_modifiers_findby_session_uuid(ob, &mesh->runtime.subsurf_session_uuid));
+      BKE_modifiers_findby_session_uuid(ob, &mesh->runtime.subsurf_session_uuid));
   BLI_assert(smd);
 
   const bool is_final_render = DRW_state_is_scene_render();
@@ -1952,6 +1952,13 @@ static bool draw_subdiv_create_requested_buffers(const Scene *scene,
   draw_cache->subdiv = subdiv;
   draw_cache->optimal_display = optimal_display;
   draw_cache->num_subdiv_triangles = tris_count_from_number_of_loops(draw_cache->num_subdiv_loops);
+
+  /* Copy topology information for stats display. Use `mesh` directly, as `mesh_eval` could be the
+   * edit mesh. */
+  mesh->runtime.subsurf_totvert = draw_cache->num_subdiv_verts;
+  mesh->runtime.subsurf_totedge = draw_cache->num_subdiv_edges;
+  mesh->runtime.subsurf_totpoly = draw_cache->num_subdiv_quads;
+  mesh->runtime.subsurf_totloop = draw_cache->num_subdiv_loops;
 
   draw_cache->use_custom_loop_normals = (smd->flags & eSubsurfModifierFlag_UseCustomNormals) &&
                                         (mesh_eval->flag & ME_AUTOSMOOTH) &&
