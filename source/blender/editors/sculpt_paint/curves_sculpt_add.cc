@@ -277,10 +277,8 @@ struct AddOperationExecutor {
         eCurvesSymmetryType(curves_id_->symmetry));
 
     for (const float3 &mirror_factor : mirror_factors) {
-      const float3 ray_start_mirrored_su = mirror_factor * ray_start_su;
-      const float3 ray_end_mirrored_su = mirror_factor * ray_end_su;
-
-      this->sample_in_center_with_ray(r_added_points, ray_start_mirrored_su, ray_end_mirrored_su);
+      this->sample_in_center_with_ray(
+          r_added_points, mirror_factor * ray_start_su, mirror_factor * ray_end_su);
     }
   }
 
@@ -387,7 +385,6 @@ struct AddOperationExecutor {
         depsgraph_, region_, v3d_, brush_pos_re_, brush_ray_start_wo, brush_ray_end_wo, true);
     const float3 brush_ray_start_su = world_to_surface_mat_ * brush_ray_start_wo;
     const float3 brush_ray_end_su = world_to_surface_mat_ * brush_ray_end_wo;
-    const float3 brush_ray_direction_su = math::normalize(brush_ray_end_su - brush_ray_start_su);
 
     /* Find ray that starts on the boundary of the brush. That is used to compute the brush radius
      * in 3D. */
@@ -401,6 +398,27 @@ struct AddOperationExecutor {
                                      true);
     const float3 brush_radius_ray_start_su = world_to_surface_mat_ * brush_radius_ray_start_wo;
     const float3 brush_radius_ray_end_su = world_to_surface_mat_ * brush_radius_ray_end_wo;
+
+    const Vector<float3> mirror_factors = get_point_mirror_factors(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float3 &mirror_factor : mirror_factors) {
+      this->sample_spherical_with_ray(rng,
+                                      r_added_points,
+                                      mirror_factor * brush_ray_start_su,
+                                      mirror_factor * brush_ray_end_su,
+                                      mirror_factor * brush_radius_ray_start_su,
+                                      mirror_factor * brush_radius_ray_end_su);
+    }
+  }
+
+  void sample_spherical_with_ray(RandomNumberGenerator &rng,
+                                 AddedPoints &r_added_points,
+                                 const float3 &brush_ray_start_su,
+                                 const float3 &brush_ray_end_su,
+                                 const float3 &brush_radius_ray_start_su,
+                                 const float3 &brush_radius_ray_end_su)
+  {
+    const float3 brush_ray_direction_su = math::normalize(brush_ray_end_su - brush_ray_start_su);
 
     BVHTreeRayHit ray_hit;
     ray_hit.dist = FLT_MAX;
@@ -466,7 +484,8 @@ struct AddOperationExecutor {
     const int max_iterations = 5;
     int current_iteration = 0;
 
-    while (r_added_points.bary_coords.size() < add_amount_) {
+    const int old_amount = r_added_points.bary_coords.size();
+    while (r_added_points.bary_coords.size() < old_amount + add_amount_) {
       if (current_iteration++ >= max_iterations) {
         break;
       }
@@ -546,8 +565,8 @@ struct AddOperationExecutor {
     }
 
     /* Remove samples when there are too many. */
-    while (r_added_points.bary_coords.size() > add_amount_) {
-      const int index_to_remove = rng.get_int32(r_added_points.bary_coords.size());
+    while (r_added_points.bary_coords.size() > old_amount + add_amount_) {
+      const int index_to_remove = rng.get_int32(add_amount_) + old_amount;
       r_added_points.bary_coords.remove_and_reorder(index_to_remove);
       r_added_points.looptri_indices.remove_and_reorder(index_to_remove);
       r_added_points.positions_cu.remove_and_reorder(index_to_remove);
