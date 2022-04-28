@@ -75,6 +75,30 @@ static void initialize_straight_curve_positions(const float3 &p1,
   }
 }
 
+static Vector<float3> get_point_mirror_factors(const eCurvesSymmetryType symmetry)
+{
+  Vector<float3> factors;
+
+  auto symmetry_to_factors = [&](const eCurvesSymmetryType type) -> Span<float> {
+    if (symmetry & type) {
+      static std::array<float, 2> values = {1.0f, -1.0f};
+      return values;
+    }
+    static std::array<float, 1> values = {1.0f};
+    return values;
+  };
+
+  for (const float x : symmetry_to_factors(CURVES_SYMMETRY_X)) {
+    for (const float y : symmetry_to_factors(CURVES_SYMMETRY_Y)) {
+      for (const float z : symmetry_to_factors(CURVES_SYMMETRY_Z)) {
+        factors.append({x, y, z});
+      }
+    }
+  }
+
+  return factors;
+}
+
 /**
  * Utility class that actually executes the update when the stroke is updated. That's useful
  * because it avoids passing a very large number of parameters between functions.
@@ -248,6 +272,22 @@ struct AddOperationExecutor {
         depsgraph_, region_, v3d_, brush_pos_re_, ray_start_wo, ray_end_wo, true);
     const float3 ray_start_su = world_to_surface_mat_ * ray_start_wo;
     const float3 ray_end_su = world_to_surface_mat_ * ray_end_wo;
+
+    const Vector<float3> mirror_factors = get_point_mirror_factors(
+        eCurvesSymmetryType(curves_id_->symmetry));
+
+    for (const float3 &mirror_factor : mirror_factors) {
+      const float3 ray_start_mirrored_su = mirror_factor * ray_start_su;
+      const float3 ray_end_mirrored_su = mirror_factor * ray_end_su;
+
+      this->sample_in_center_with_ray(r_added_points, ray_start_mirrored_su, ray_end_mirrored_su);
+    }
+  }
+
+  void sample_in_center_with_ray(AddedPoints &r_added_points,
+                                 const float3 &ray_start_su,
+                                 const float3 &ray_end_su)
+  {
     const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
 
     BVHTreeRayHit ray_hit;

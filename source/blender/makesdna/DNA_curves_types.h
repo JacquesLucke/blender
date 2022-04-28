@@ -9,6 +9,8 @@
 #include "DNA_ID.h"
 #include "DNA_customdata_types.h"
 
+#include "BLI_utildefines.h"
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -132,7 +134,7 @@ typedef struct Curves {
   short totcol;
 
   /**
-   * User-defined symmetry flag (#eMeshSymmetryType) that causes editing operations to maintain
+   * User-defined symmetry flag (#eCurvesSymmetryType) that causes editing operations to maintain
    * symmetrical geometry.
    */
   char symmetry;
@@ -155,6 +157,14 @@ typedef struct Curves {
 enum {
   HA_DS_EXPAND = (1 << 0),
 };
+
+/** #Curves.symmetry */
+typedef enum eCurvesSymmetryType {
+  CURVES_SYMMETRY_X = 1 << 0,
+  CURVES_SYMMETRY_Y = 1 << 1,
+  CURVES_SYMMETRY_Z = 1 << 2,
+} eCurvesSymmetryType;
+ENUM_OPERATORS(eCurvesSymmetryType, CURVES_SYMMETRY_Z)
 
 /* Only one material supported currently. */
 #define CURVES_MATERIAL_NR 1

@@ -2256,6 +2256,7 @@ static void mesh_symmetry_set_common(PointerRNA *ptr,
     Mesh *mesh = ob->data;
     SET_FLAG_FROM_TEST(mesh->symmetry, value, sym);
   }
+  /* TODO: Don't support curves here, this function is specific to meshes. */
   if (ob->type == OB_CURVES) {
     Curves *curves = ob->data;
     SET_FLAG_FROM_TEST(curves->symmetry, value, sym);
