@@ -320,9 +320,21 @@ struct AddOperationExecutor {
    */
   void sample_projected(RandomNumberGenerator &rng, AddedPoints &r_added_points)
   {
+    const Vector<float3> mirror_factors = get_point_mirror_factors(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float3 &mirror_factor : mirror_factors) {
+      this->sample_projected_with_mirror(rng, r_added_points, mirror_factor);
+    }
+  }
+
+  void sample_projected_with_mirror(RandomNumberGenerator &rng,
+                                    AddedPoints &r_added_points,
+                                    const float3 &mirror_factor)
+  {
+    const int old_amount = r_added_points.bary_coords.size();
     const int max_iterations = std::max(100'000, add_amount_ * 10);
     int current_iteration = 0;
-    while (r_added_points.bary_coords.size() < add_amount_) {
+    while (r_added_points.bary_coords.size() < old_amount + add_amount_) {
       if (current_iteration++ >= max_iterations) {
         break;
       }
@@ -334,8 +346,8 @@ struct AddOperationExecutor {
       float3 ray_start_wo, ray_end_wo;
       ED_view3d_win_to_segment_clipped(
           depsgraph_, region_, v3d_, pos_re, ray_start_wo, ray_end_wo, true);
-      const float3 ray_start_su = world_to_surface_mat_ * ray_start_wo;
-      const float3 ray_end_su = world_to_surface_mat_ * ray_end_wo;
+      const float3 ray_start_su = mirror_factor * (world_to_surface_mat_ * ray_start_wo);
+      const float3 ray_end_su = mirror_factor * (world_to_surface_mat_ * ray_end_wo);
       const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
 
       BVHTreeRayHit ray_hit;
