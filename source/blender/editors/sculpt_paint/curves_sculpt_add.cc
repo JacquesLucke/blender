@@ -75,30 +75,6 @@ static void initialize_straight_curve_positions(const float3 &p1,
   }
 }
 
-Vector<float3> get_point_mirror_factors(const eCurvesSymmetryType symmetry)
-{
-  Vector<float3> factors;
-
-  auto symmetry_to_factors = [&](const eCurvesSymmetryType type) -> Span<float> {
-    if (symmetry & type) {
-      static std::array<float, 2> values = {1.0f, -1.0f};
-      return values;
-    }
-    static std::array<float, 1> values = {1.0f};
-    return values;
-  };
-
-  for (const float x : symmetry_to_factors(CURVES_SYMMETRY_X)) {
-    for (const float y : symmetry_to_factors(CURVES_SYMMETRY_Y)) {
-      for (const float z : symmetry_to_factors(CURVES_SYMMETRY_Z)) {
-        factors.append({x, y, z});
-      }
-    }
-  }
-
-  return factors;
-}
-
 Vector<float4x4> get_symmetry_brush_transforms(const eCurvesSymmetryType symmetry)
 {
   Vector<float4x4> matrices;

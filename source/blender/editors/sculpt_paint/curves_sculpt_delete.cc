@@ -133,6 +133,17 @@ struct DeleteOperationExecutor {
 
   void delete_projected()
   {
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      this->delete_projected_with_symmetry(brush_transform);
+    }
+  }
+
+  void delete_projected_with_symmetry(const float4x4 &brush_transform)
+  {
+    const float4x4 brush_transform_inv = brush_transform.inverted();
+
     float4x4 projection;
     ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
 
@@ -144,8 +155,8 @@ struct DeleteOperationExecutor {
         curves_->curves_range(), 512, indices, [&](const int curve_i) {
           const IndexRange point_range = curves_->points_for_curve(curve_i);
           for (const int segment_i : IndexRange(point_range.size() - 1)) {
-            const float3 pos1_cu = positions_cu[point_range[segment_i]];
-            const float3 pos2_cu = positions_cu[point_range[segment_i + 1]];
+            const float3 pos1_cu = brush_transform_inv * positions_cu[point_range[segment_i]];
+            const float3 pos2_cu = brush_transform_inv * positions_cu[point_range[segment_i + 1]];
 
             float2 pos1_re, pos2_re;
             ED_view3d_project_float_v2_m4(region_, pos1_cu, pos1_re, projection.values);
@@ -182,12 +193,12 @@ struct DeleteOperationExecutor {
     const float3 brush_start_cu = world_to_curves_mat_ * brush_start_wo;
     const float3 brush_end_cu = world_to_curves_mat_ * brush_end_wo;
 
-    const Vector<float3> mirror_factors = get_point_mirror_factors(
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
 
-    for (const float3 &mirror_factor : mirror_factors) {
-      this->delete_spherical_with_symmetry(mirror_factor * brush_start_cu,
-                                           mirror_factor * brush_end_cu);
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      this->delete_spherical_with_symmetry(brush_transform * brush_start_cu,
+                                           brush_transform * brush_end_cu);
     }
   }
 
