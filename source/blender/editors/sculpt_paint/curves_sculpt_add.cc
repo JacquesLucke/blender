@@ -99,6 +99,34 @@ Vector<float3> get_point_mirror_factors(const eCurvesSymmetryType symmetry)
   return factors;
 }
 
+Vector<float4x4> get_symmetry_brush_transforms(const eCurvesSymmetryType symmetry)
+{
+  Vector<float4x4> matrices;
+
+  auto symmetry_to_factors = [&](const eCurvesSymmetryType type) -> Span<float> {
+    if (symmetry & type) {
+      static std::array<float, 2> values = {1.0f, -1.0f};
+      return values;
+    }
+    static std::array<float, 1> values = {1.0f};
+    return values;
+  };
+
+  for (const float x : symmetry_to_factors(CURVES_SYMMETRY_X)) {
+    for (const float y : symmetry_to_factors(CURVES_SYMMETRY_Y)) {
+      for (const float z : symmetry_to_factors(CURVES_SYMMETRY_Z)) {
+        float4x4 matrix = float4x4::identity();
+        matrix.values[0][0] = x;
+        matrix.values[1][1] = y;
+        matrix.values[2][2] = z;
+        matrices.append(matrix);
+      }
+    }
+  }
+
+  return matrices;
+}
+
 /**
  * Utility class that actually executes the update when the stroke is updated. That's useful
  * because it avoids passing a very large number of parameters between functions.
@@ -273,12 +301,12 @@ struct AddOperationExecutor {
     const float3 ray_start_su = world_to_surface_mat_ * ray_start_wo;
     const float3 ray_end_su = world_to_surface_mat_ * ray_end_wo;
 
-    const Vector<float3> mirror_factors = get_point_mirror_factors(
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
 
-    for (const float3 &mirror_factor : mirror_factors) {
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
       this->sample_in_center_with_ray(
-          r_added_points, mirror_factor * ray_start_su, mirror_factor * ray_end_su);
+          r_added_points, brush_transform * ray_start_su, brush_transform * ray_end_su);
     }
   }
 
@@ -320,16 +348,16 @@ struct AddOperationExecutor {
    */
   void sample_projected(RandomNumberGenerator &rng, AddedPoints &r_added_points)
   {
-    const Vector<float3> mirror_factors = get_point_mirror_factors(
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
-    for (const float3 &mirror_factor : mirror_factors) {
-      this->sample_projected_with_mirror(rng, r_added_points, mirror_factor);
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      this->sample_projected_with_mirror(rng, r_added_points, brush_transform);
     }
   }
 
   void sample_projected_with_mirror(RandomNumberGenerator &rng,
                                     AddedPoints &r_added_points,
-                                    const float3 &mirror_factor)
+                                    const float4x4 &brush_transform)
   {
     const int old_amount = r_added_points.bary_coords.size();
     const int max_iterations = std::max(100'000, add_amount_ * 10);
@@ -346,8 +374,8 @@ struct AddOperationExecutor {
       float3 ray_start_wo, ray_end_wo;
       ED_view3d_win_to_segment_clipped(
           depsgraph_, region_, v3d_, pos_re, ray_start_wo, ray_end_wo, true);
-      const float3 ray_start_su = mirror_factor * (world_to_surface_mat_ * ray_start_wo);
-      const float3 ray_end_su = mirror_factor * (world_to_surface_mat_ * ray_end_wo);
+      const float3 ray_start_su = brush_transform * (world_to_surface_mat_ * ray_start_wo);
+      const float3 ray_end_su = brush_transform * (world_to_surface_mat_ * ray_end_wo);
       const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
 
       BVHTreeRayHit ray_hit;
@@ -411,15 +439,15 @@ struct AddOperationExecutor {
     const float3 brush_radius_ray_start_su = world_to_surface_mat_ * brush_radius_ray_start_wo;
     const float3 brush_radius_ray_end_su = world_to_surface_mat_ * brush_radius_ray_end_wo;
 
-    const Vector<float3> mirror_factors = get_point_mirror_factors(
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
-    for (const float3 &mirror_factor : mirror_factors) {
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
       this->sample_spherical_with_ray(rng,
                                       r_added_points,
-                                      mirror_factor * brush_ray_start_su,
-                                      mirror_factor * brush_ray_end_su,
-                                      mirror_factor * brush_radius_ray_start_su,
-                                      mirror_factor * brush_radius_ray_end_su);
+                                      brush_transform * brush_ray_start_su,
+                                      brush_transform * brush_ray_end_su,
+                                      brush_transform * brush_radius_ray_start_su,
+                                      brush_transform * brush_radius_ray_end_su);
     }
   }
 

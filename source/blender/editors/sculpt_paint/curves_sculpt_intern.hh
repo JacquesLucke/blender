@@ -54,5 +54,6 @@ std::optional<CurvesBrush3D> sample_curves_3d_brush(bContext &C,
                                                     float brush_radius_re);
 
 Vector<float3> get_point_mirror_factors(const eCurvesSymmetryType symmetry);
+Vector<float4x4> get_symmetry_brush_transforms(const eCurvesSymmetryType symmetry);
 
 }  // namespace blender::ed::sculpt_paint
