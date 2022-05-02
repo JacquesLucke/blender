@@ -487,6 +487,9 @@ static void write_node_socket(BlendWriter *writer, bNodeSocket *sock)
     IDP_BlendWrite(writer, sock->prop);
   }
 
+  /* This property should only be used for group node "interface" sockets. */
+  BLI_assert(sock->default_attribute_name == nullptr);
+
   write_node_socket_default_value(writer, sock);
 }
 static void write_node_socket_interface(BlendWriter *writer, bNodeSocket *sock)
@@ -496,6 +499,8 @@ static void write_node_socket_interface(BlendWriter *writer, bNodeSocket *sock)
   if (sock->prop) {
     IDP_BlendWrite(writer, sock->prop);
   }
+
+  BLO_write_string(writer, sock->default_attribute_name);
 
   write_node_socket_default_value(writer, sock);
 }
@@ -650,6 +655,7 @@ static void direct_link_node_socket(BlendDataReader *reader, bNodeSocket *sock)
   sock->typeinfo = nullptr;
   BLO_read_data_address(reader, &sock->storage);
   BLO_read_data_address(reader, &sock->default_value);
+  BLO_read_data_address(reader, &sock->default_attribute_name);
   sock->total_inputs = 0; /* Clear runtime data set before drawing. */
   sock->cache = nullptr;
   sock->declaration = nullptr;
@@ -1159,6 +1165,9 @@ static void node_set_typeinfo(const struct bContext *C,
   }
 }
 
+/* Warning: default_value must either be null or match the typeinfo at this point.
+ * This function is called both for initializing new sockets and after loading files.
+ */
 static void node_socket_set_typeinfo(bNodeTree *ntree,
                                      bNodeSocket *sock,
                                      bNodeSocketType *typeinfo)
@@ -2160,6 +2169,9 @@ static void node_socket_copy(bNodeSocket *sock_dst, const bNodeSocket *sock_src,
       socket_id_user_increment(sock_dst);
     }
   }
+
+  sock_dst->default_attribute_name = static_cast<char *>(
+      MEM_dupallocN(sock_src->default_attribute_name));
 
   sock_dst->stack_index = 0;
   /* XXX some compositor nodes (e.g. image, render layers) still store
@@ -3277,9 +3289,9 @@ static bNodeSocket *make_socket_interface(bNodeTree *ntree,
 
   bNodeSocket *sock = MEM_cnew<bNodeSocket>("socket template");
   BLI_strncpy(sock->idname, stype->idname, sizeof(sock->idname));
-  node_socket_set_typeinfo(ntree, sock, stype);
   sock->in_out = in_out;
   sock->type = SOCK_CUSTOM; /* int type undefined by default */
+  node_socket_set_typeinfo(ntree, sock, stype);
 
   /* assign new unique index */
   const int own_index = ntree->cur_index++;
