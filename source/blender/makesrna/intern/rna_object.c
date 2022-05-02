@@ -10,7 +10,6 @@
 #include "DNA_action_types.h"
 #include "DNA_brush_types.h"
 #include "DNA_collection_types.h"
-#include "DNA_curves_types.h"
 #include "DNA_customdata_types.h"
 #include "DNA_gpencil_modifier_types.h"
 #include "DNA_lightprobe_types.h"
@@ -2221,15 +2220,12 @@ static void rna_object_lineart_update(Main *UNUSED(bmain), Scene *UNUSED(scene),
 static bool mesh_symmetry_get_common(PointerRNA *ptr, const eMeshSymmetryType sym)
 {
   const Object *ob = (Object *)ptr->owner_id;
-  if (ob->type == OB_MESH) {
-    const Mesh *mesh = ob->data;
-    return mesh->symmetry & sym;
+  if (ob->type != OB_MESH) {
+    return false;
   }
-  if (ob->type == OB_CURVES) {
-    const Curves *curves = ob->data;
-    return curves->symmetry & sym;
-  }
-  return false;
+
+  const Mesh *mesh = ob->data;
+  return mesh->symmetry & sym;
 }
 
 static bool rna_Object_mesh_symmetry_x_get(PointerRNA *ptr)
@@ -2252,14 +2248,16 @@ static void mesh_symmetry_set_common(PointerRNA *ptr,
                                      const eMeshSymmetryType sym)
 {
   Object *ob = (Object *)ptr->owner_id;
-  if (ob->type == OB_MESH) {
-    Mesh *mesh = ob->data;
-    SET_FLAG_FROM_TEST(mesh->symmetry, value, sym);
+  if (ob->type != OB_MESH) {
+    return;
   }
-  /* TODO: Don't support curves here, this function is specific to meshes. */
-  if (ob->type == OB_CURVES) {
-    Curves *curves = ob->data;
-    SET_FLAG_FROM_TEST(curves->symmetry, value, sym);
+
+  Mesh *mesh = ob->data;
+  if (value) {
+    mesh->symmetry |= sym;
+  }
+  else {
+    mesh->symmetry &= ~sym;
   }
 }
 
@@ -2281,18 +2279,17 @@ static void rna_Object_mesh_symmetry_z_set(PointerRNA *ptr, bool value)
 static int rna_Object_mesh_symmetry_yz_editable(PointerRNA *ptr, const char **UNUSED(r_info))
 {
   const Object *ob = (Object *)ptr->owner_id;
-  if (ob->type == OB_MESH) {
-    const Mesh *mesh = ob->data;
-    if (ob->mode == OB_MODE_WEIGHT_PAINT && mesh->editflag & ME_EDIT_MIRROR_VERTEX_GROUPS) {
-      /* Only X symmetry is available in weightpaint mode. */
-      return 0;
-    }
-    return PROP_EDITABLE;
+  if (ob->type != OB_MESH) {
+    return 0;
   }
-  if (ob->type == OB_CURVES) {
-    return PROP_EDITABLE;
+
+  const Mesh *mesh = ob->data;
+  if (ob->mode == OB_MODE_WEIGHT_PAINT && mesh->editflag & ME_EDIT_MIRROR_VERTEX_GROUPS) {
+    /* Only X symmetry is available in weightpaint mode. */
+    return 0;
   }
-  return 0;
+
+  return PROP_EDITABLE;
 }
 
 void rna_Object_lightgroup_get(PointerRNA *ptr, char *value)
