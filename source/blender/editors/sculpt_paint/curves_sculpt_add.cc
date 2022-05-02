@@ -75,34 +75,6 @@ static void initialize_straight_curve_positions(const float3 &p1,
   }
 }
 
-Vector<float4x4> get_symmetry_brush_transforms(const eCurvesSymmetryType symmetry)
-{
-  Vector<float4x4> matrices;
-
-  auto symmetry_to_factors = [&](const eCurvesSymmetryType type) -> Span<float> {
-    if (symmetry & type) {
-      static std::array<float, 2> values = {1.0f, -1.0f};
-      return values;
-    }
-    static std::array<float, 1> values = {1.0f};
-    return values;
-  };
-
-  for (const float x : symmetry_to_factors(CURVES_SYMMETRY_X)) {
-    for (const float y : symmetry_to_factors(CURVES_SYMMETRY_Y)) {
-      for (const float z : symmetry_to_factors(CURVES_SYMMETRY_Z)) {
-        float4x4 matrix = float4x4::identity();
-        matrix.values[0][0] = x;
-        matrix.values[1][1] = y;
-        matrix.values[2][2] = z;
-        matrices.append(matrix);
-      }
-    }
-  }
-
-  return matrices;
-}
-
 /**
  * Utility class that actually executes the update when the stroke is updated. That's useful
  * because it avoids passing a very large number of parameters between functions.
