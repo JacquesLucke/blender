@@ -165,8 +165,6 @@ struct DeleteOperationExecutor {
 
   void delete_spherical()
   {
-    Span<float3> positions_cu = curves_->positions();
-
     float4x4 projection;
     ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
 
@@ -183,6 +181,19 @@ struct DeleteOperationExecutor {
                         brush_end_wo);
     const float3 brush_start_cu = world_to_curves_mat_ * brush_start_wo;
     const float3 brush_end_cu = world_to_curves_mat_ * brush_end_wo;
+
+    const Vector<float3> mirror_factors = get_point_mirror_factors(
+        eCurvesSymmetryType(curves_id_->symmetry));
+
+    for (const float3 &mirror_factor : mirror_factors) {
+      this->delete_spherical_with_symmetry(mirror_factor * brush_start_cu,
+                                           mirror_factor * brush_end_cu);
+    }
+  }
+
+  void delete_spherical_with_symmetry(const float3 &brush_start_cu, const float3 &brush_end_cu)
+  {
+    Span<float3> positions_cu = curves_->positions();
 
     const float brush_radius_cu = self_->brush_3d_.radius_cu;
     const float brush_radius_sq_cu = pow2f(brush_radius_cu);
