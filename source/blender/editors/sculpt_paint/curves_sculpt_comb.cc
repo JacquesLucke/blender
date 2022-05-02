@@ -173,10 +173,10 @@ struct CombOperationExecutor {
     EnumerableThreadSpecific<Vector<int>> changed_curves;
 
     if (falloff_shape_ == PAINT_FALLOFF_SHAPE_TUBE) {
-      this->comb_projected(changed_curves);
+      this->comb_projected_with_symmetry(changed_curves);
     }
     else if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
-      this->comb_spherical(changed_curves);
+      this->comb_spherical_with_symmetry(changed_curves);
     }
     else {
       BLI_assert_unreachable();
@@ -192,17 +192,17 @@ struct CombOperationExecutor {
   /**
    * Do combing in screen space.
    */
-  void comb_projected(EnumerableThreadSpecific<Vector<int>> &r_changed_curves)
+  void comb_projected_with_symmetry(EnumerableThreadSpecific<Vector<int>> &r_changed_curves)
   {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->comb_projected_with_mirror(r_changed_curves, brush_transform);
+      this->comb_projected(r_changed_curves, brush_transform);
     }
   }
 
-  void comb_projected_with_mirror(EnumerableThreadSpecific<Vector<int>> &r_changed_curves,
-                                  const float4x4 &brush_transform)
+  void comb_projected(EnumerableThreadSpecific<Vector<int>> &r_changed_curves,
+                      const float4x4 &brush_transform)
   {
     const float4x4 brush_transform_inv = brush_transform.inverted();
 
@@ -260,7 +260,7 @@ struct CombOperationExecutor {
   /**
    * Do combing in 3D space.
    */
-  void comb_spherical(EnumerableThreadSpecific<Vector<int>> &r_changed_curves)
+  void comb_spherical_with_symmetry(EnumerableThreadSpecific<Vector<int>> &r_changed_curves)
   {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
@@ -284,17 +284,17 @@ struct CombOperationExecutor {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->comb_spherical_with_ray(r_changed_curves,
-                                    brush_transform * brush_start_cu,
-                                    brush_transform * brush_end_cu,
-                                    brush_radius_cu);
+      this->comb_spherical(r_changed_curves,
+                           brush_transform * brush_start_cu,
+                           brush_transform * brush_end_cu,
+                           brush_radius_cu);
     }
   }
 
-  void comb_spherical_with_ray(EnumerableThreadSpecific<Vector<int>> &r_changed_curves,
-                               const float3 &brush_start_cu,
-                               const float3 &brush_end_cu,
-                               const float brush_radius_cu)
+  void comb_spherical(EnumerableThreadSpecific<Vector<int>> &r_changed_curves,
+                      const float3 &brush_start_cu,
+                      const float3 &brush_end_cu,
+                      const float brush_radius_cu)
   {
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
     const float brush_radius_sq_cu = pow2f(brush_radius_cu);

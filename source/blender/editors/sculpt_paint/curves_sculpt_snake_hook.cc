@@ -136,10 +136,10 @@ struct SnakeHookOperatorExecutor {
     }
 
     if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
-      this->spherical_snake_hook();
+      this->spherical_snake_hook_with_symmetry();
     }
     else if (falloff_shape_ == PAINT_FALLOFF_SHAPE_TUBE) {
-      this->projected_snake_hook();
+      this->projected_snake_hook_with_symmetry();
     }
     else {
       BLI_assert_unreachable();
@@ -150,16 +150,16 @@ struct SnakeHookOperatorExecutor {
     ED_region_tag_redraw(region_);
   }
 
-  void projected_snake_hook()
+  void projected_snake_hook_with_symmetry()
   {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->projected_snake_hook_with_mirror(brush_transform);
+      this->projected_snake_hook(brush_transform);
     }
   }
 
-  void projected_snake_hook_with_mirror(const float4x4 &brush_transform)
+  void projected_snake_hook(const float4x4 &brush_transform)
   {
     const float4x4 brush_transform_inv = brush_transform.inverted();
 
@@ -197,7 +197,7 @@ struct SnakeHookOperatorExecutor {
     });
   }
 
-  void spherical_snake_hook()
+  void spherical_snake_hook_with_symmetry()
   {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
@@ -221,14 +221,14 @@ struct SnakeHookOperatorExecutor {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->spherical_snake_hook_with_mirror(
+      this->spherical_snake_hook(
           brush_transform * brush_start_cu, brush_transform * brush_end_cu, brush_radius_cu);
     }
   }
 
-  void spherical_snake_hook_with_mirror(const float3 &brush_start_cu,
-                                        const float3 &brush_end_cu,
-                                        const float brush_radius_cu)
+  void spherical_snake_hook(const float3 &brush_start_cu,
+                            const float3 &brush_end_cu,
+                            const float brush_radius_cu)
   {
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
     const float3 brush_diff_cu = brush_end_cu - brush_start_cu;

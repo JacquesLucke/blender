@@ -118,10 +118,10 @@ struct DeleteOperationExecutor {
     }
 
     if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
-      this->delete_projected();
+      this->delete_projected_with_symmetry();
     }
     else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
-      this->delete_spherical();
+      this->delete_spherical_with_symmetry();
     }
     else {
       BLI_assert_unreachable();
@@ -131,16 +131,16 @@ struct DeleteOperationExecutor {
     ED_region_tag_redraw(region_);
   }
 
-  void delete_projected()
+  void delete_projected_with_symmetry()
   {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->delete_projected_with_symmetry(brush_transform);
+      this->delete_projected(brush_transform);
     }
   }
 
-  void delete_projected_with_symmetry(const float4x4 &brush_transform)
+  void delete_projected(const float4x4 &brush_transform)
   {
     const float4x4 brush_transform_inv = brush_transform.inverted();
 
@@ -174,7 +174,7 @@ struct DeleteOperationExecutor {
     curves_->remove_curves(curves_to_remove);
   }
 
-  void delete_spherical()
+  void delete_spherical_with_symmetry()
   {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
@@ -197,12 +197,11 @@ struct DeleteOperationExecutor {
         eCurvesSymmetryType(curves_id_->symmetry));
 
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->delete_spherical_with_symmetry(brush_transform * brush_start_cu,
-                                           brush_transform * brush_end_cu);
+      this->delete_spherical(brush_transform * brush_start_cu, brush_transform * brush_end_cu);
     }
   }
 
-  void delete_spherical_with_symmetry(const float3 &brush_start_cu, const float3 &brush_end_cu)
+  void delete_spherical(const float3 &brush_start_cu, const float3 &brush_end_cu)
   {
     Span<float3> positions_cu = curves_->positions();
 

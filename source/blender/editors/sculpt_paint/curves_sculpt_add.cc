@@ -194,13 +194,13 @@ struct AddOperationExecutor {
     /* Sample points on the surface using one of multiple strategies. */
     AddedPoints added_points;
     if (add_amount_ == 1) {
-      this->sample_in_center(added_points);
+      this->sample_in_center_with_symmetry(added_points);
     }
     else if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
-      this->sample_projected(rng, added_points);
+      this->sample_projected_with_symmetry(rng, added_points);
     }
     else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
-      this->sample_spherical(rng, added_points);
+      this->sample_spherical_with_symmetry(rng, added_points);
     }
     else {
       BLI_assert_unreachable();
@@ -241,7 +241,7 @@ struct AddOperationExecutor {
   /**
    * Sample a single point exactly at the mouse position.
    */
-  void sample_in_center(AddedPoints &r_added_points)
+  void sample_in_center_with_symmetry(AddedPoints &r_added_points)
   {
     float3 ray_start_wo, ray_end_wo;
     ED_view3d_win_to_segment_clipped(
@@ -253,14 +253,14 @@ struct AddOperationExecutor {
         eCurvesSymmetryType(curves_id_->symmetry));
 
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->sample_in_center_with_ray(
+      this->sample_in_center(
           r_added_points, brush_transform * ray_start_su, brush_transform * ray_end_su);
     }
   }
 
-  void sample_in_center_with_ray(AddedPoints &r_added_points,
-                                 const float3 &ray_start_su,
-                                 const float3 &ray_end_su)
+  void sample_in_center(AddedPoints &r_added_points,
+                        const float3 &ray_start_su,
+                        const float3 &ray_end_su)
   {
     const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
 
@@ -294,18 +294,18 @@ struct AddOperationExecutor {
   /**
    * Sample points by shooting rays within the brush radius in the 3D view.
    */
-  void sample_projected(RandomNumberGenerator &rng, AddedPoints &r_added_points)
+  void sample_projected_with_symmetry(RandomNumberGenerator &rng, AddedPoints &r_added_points)
   {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->sample_projected_with_mirror(rng, r_added_points, brush_transform);
+      this->sample_projected(rng, r_added_points, brush_transform);
     }
   }
 
-  void sample_projected_with_mirror(RandomNumberGenerator &rng,
-                                    AddedPoints &r_added_points,
-                                    const float4x4 &brush_transform)
+  void sample_projected(RandomNumberGenerator &rng,
+                        AddedPoints &r_added_points,
+                        const float4x4 &brush_transform)
   {
     const int old_amount = r_added_points.bary_coords.size();
     const int max_iterations = std::max(100'000, add_amount_ * 10);
@@ -365,7 +365,7 @@ struct AddOperationExecutor {
   /**
    * Sample points in a 3D sphere around the surface position that the mouse hovers over.
    */
-  void sample_spherical(RandomNumberGenerator &rng, AddedPoints &r_added_points)
+  void sample_spherical_with_symmetry(RandomNumberGenerator &rng, AddedPoints &r_added_points)
   {
     /* Find ray that starts in the center of the brush. */
     float3 brush_ray_start_wo, brush_ray_end_wo;
@@ -390,21 +390,21 @@ struct AddOperationExecutor {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->sample_spherical_with_ray(rng,
-                                      r_added_points,
-                                      brush_transform * brush_ray_start_su,
-                                      brush_transform * brush_ray_end_su,
-                                      brush_transform * brush_radius_ray_start_su,
-                                      brush_transform * brush_radius_ray_end_su);
+      this->sample_spherical(rng,
+                             r_added_points,
+                             brush_transform * brush_ray_start_su,
+                             brush_transform * brush_ray_end_su,
+                             brush_transform * brush_radius_ray_start_su,
+                             brush_transform * brush_radius_ray_end_su);
     }
   }
 
-  void sample_spherical_with_ray(RandomNumberGenerator &rng,
-                                 AddedPoints &r_added_points,
-                                 const float3 &brush_ray_start_su,
-                                 const float3 &brush_ray_end_su,
-                                 const float3 &brush_radius_ray_start_su,
-                                 const float3 &brush_radius_ray_end_su)
+  void sample_spherical(RandomNumberGenerator &rng,
+                        AddedPoints &r_added_points,
+                        const float3 &brush_ray_start_su,
+                        const float3 &brush_ray_end_su,
+                        const float3 &brush_radius_ray_start_su,
+                        const float3 &brush_radius_ray_end_su)
   {
     const float3 brush_ray_direction_su = math::normalize(brush_ray_end_su - brush_ray_start_su);
 
