@@ -462,6 +462,7 @@ typedef enum eBrushCurvesSculptTool {
   CURVES_SCULPT_TOOL_SNAKE_HOOK = 2,
   CURVES_SCULPT_TOOL_ADD = 3,
   CURVES_SCULPT_TOOL_GROW_SHRINK = 4,
+  CURVES_SCULPT_TOOL_PUFF = 5,
 } eBrushCurvesSculptTool;
 
 /** When #BRUSH_ACCUMULATE is used */
