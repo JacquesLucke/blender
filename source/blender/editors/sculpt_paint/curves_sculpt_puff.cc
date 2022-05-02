@@ -6,6 +6,10 @@
 #include "BKE_context.h"
 #include "BKE_mesh_runtime.h"
 
+#include "ED_screen.h"
+
+#include "DEG_depsgraph.h"
+
 #include "DNA_brush_types.h"
 
 /**
@@ -98,6 +102,18 @@ struct PuffOperationExecutor {
     world_to_curves_mat_ = curves_to_world_mat_.inverted();
     surface_to_world_mat_ = surface_ob_->obmat;
     world_to_surface_mat_ = surface_to_world_mat_.inverted();
+
+    if (falloff_shape_ == PAINT_FALLOFF_SHAPE_TUBE) {
+      this->puff_projected();
+    }
+
+    curves_->tag_positions_changed();
+    DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
+    ED_region_tag_redraw(region_);
+  }
+
+  void puff_projected()
+  {
   }
 };
 
