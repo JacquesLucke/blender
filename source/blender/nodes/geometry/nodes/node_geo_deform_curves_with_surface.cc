@@ -94,6 +94,7 @@ static void deform_curves(const MeshComponent &mesh_component,
       float3 new_normal;
       normal_tri_v3(new_normal, deformed_v0, deformed_v1, deformed_v2);
 
+      /* TODO: Take tangend axis into account as well. */
       float rotation_mat[3][3];
       rotation_between_vecs_to_mat3(rotation_mat, old_normal, new_normal);
 
