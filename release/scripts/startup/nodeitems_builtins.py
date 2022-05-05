@@ -82,6 +82,7 @@ def curve_node_items(context):
     yield NodeItem("GeometryNodeSampleCurve")
     yield NodeItem("GeometryNodeSubdivideCurve")
     yield NodeItem("GeometryNodeTrimCurve")
+    yield NodeItem("GeometryNodeDeformCurvesWithSurface")
     yield NodeItemCustom(draw=lambda self, layout, context: layout.separator())
     yield NodeItem("GeometryNodeInputCurveHandlePositions")
     yield NodeItem("GeometryNodeInputTangent")
