@@ -117,7 +117,11 @@ inline T interpolate(const T &a, const T &b, const FactorT &t)
 
 template<typename T> inline T midpoint(const T &a, const T &b)
 {
-  return (a + b) * T(0.5);
+  auto result = (a + b) * T(0.5);
+  if constexpr (std::is_integral_v<T>) {
+    result = std::round(result);
+  }
+  return result;
 }
 
 }  // namespace blender::math
