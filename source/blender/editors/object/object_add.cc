@@ -2111,6 +2111,12 @@ static int object_curves_empty_hair_add_exec(bContext *C, wmOperator *op)
     Curves *curves_id = static_cast<Curves *>(object->data);
     curves_id->surface = surface_ob;
     id_us_plus(&surface_ob->id);
+
+    Mesh *surface = static_cast<Mesh *>(surface_ob->data);
+    const char *uv_name = CustomData_get_active_layer_name(&surface->ldata, CD_MLOOPUV);
+    if (uv_name != nullptr) {
+      curves_id->surface_uv_name = BLI_strdup(uv_name);
+    }
   }
 
   return OPERATOR_FINISHED;
@@ -2127,6 +2133,11 @@ static bool object_curves_empty_hair_add_poll(bContext *C)
   Object *ob = CTX_data_active_object(C);
   if (ob == nullptr || ob->type != OB_MESH) {
     CTX_wm_operator_poll_msg_set(C, "No active mesh object");
+    return false;
+  }
+  Mesh *me = static_cast<Mesh *>(ob->data);
+  if (CustomData_get_active_layer_name(&me->ldata, CD_MLOOPUV) == nullptr) {
+    CTX_wm_operator_poll_msg_set(C, "Active mesh object has no uv map");
     return false;
   }
   return true;
