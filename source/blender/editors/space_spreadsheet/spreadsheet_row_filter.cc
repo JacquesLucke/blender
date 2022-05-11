@@ -3,6 +3,7 @@
 #include <cstring>
 
 #include "BLI_listbase.h"
+#include "BLI_math_rotation.hh"
 
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
@@ -185,6 +186,15 @@ static void apply_row_filter(const SpreadsheetRowFilter &row_filter,
           const float4 cell_floats = {(float)cell.r, (float)cell.g, (float)cell.b, (float)cell.a};
           return len_squared_v4v4(value_floats, cell_floats) <= threshold_sq;
         },
+        prev_mask,
+        new_indices);
+  }
+  else if (column_data.type().is<Quaternion>()) {
+    const float *value = row_filter.value_quaternion;
+    const float threshold_sq = pow2f(row_filter.threshold);
+    apply_filter_operation(
+        column_data.typed<Quaternion>(),
+        [&](const Quaternion &cell) { return len_squared_v4v4(&cell.x, value) <= threshold_sq; },
         prev_mask,
         new_indices);
   }

@@ -1977,6 +1977,7 @@ typedef struct SpreadsheetRowFilter {
   float value_float3[3];
   float value_color[4];
   uint8_t value_byte_color[4];
+  float value_quaternion[4];
 } SpreadsheetRowFilter;
 
 typedef enum eSpaceSpreadsheet_RowFilterFlag {
@@ -2014,6 +2015,7 @@ typedef enum eSpreadsheetColumnValueType {
   SPREADSHEET_VALUE_TYPE_INSTANCES = 6,
   SPREADSHEET_VALUE_TYPE_STRING = 7,
   SPREADSHEET_VALUE_TYPE_BYTE_COLOR = 8,
+  SPREADSHEET_VALUE_TYPE_QUATERNION = 9,
 } eSpreadsheetColumnValueType;
 
 /**

@@ -3,6 +3,7 @@
 #include <iomanip>
 #include <sstream>
 
+#include "BLI_math_rotation.hh"
 #include "BLI_math_vec_types.hh"
 
 #include "BKE_geometry_set.hh"
@@ -275,6 +276,10 @@ class SpreadsheetLayoutDrawer : public SpreadsheetDrawer {
                        0,
                        0,
                        nullptr);
+    }
+    else if (data.type().is<Quaternion>()) {
+      const Quaternion value = data.get<Quaternion>(real_index);
+      this->draw_float_vector(params, Span(&value.x, 4));
     }
   }
 

@@ -43,7 +43,8 @@ static std::string operation_string(const eSpreadsheetColumnValueType data_type,
            SPREADSHEET_VALUE_TYPE_BOOL,
            SPREADSHEET_VALUE_TYPE_INSTANCES,
            SPREADSHEET_VALUE_TYPE_COLOR,
-           SPREADSHEET_VALUE_TYPE_BYTE_COLOR)) {
+           SPREADSHEET_VALUE_TYPE_BYTE_COLOR,
+           SPREADSHEET_VALUE_TYPE_QUATERNION)) {
     return "=";
   }
 
@@ -110,6 +111,14 @@ static std::string value_string(const SpreadsheetRowFilter &row_filter,
              << ", " << (int)row_filter.value_byte_color[3] << ")";
       return result.str();
     }
+    case SPREADSHEET_VALUE_TYPE_QUATERNION: {
+      std::ostringstream result;
+      result.precision(3);
+      result << std::fixed << "(" << row_filter.value_quaternion[0] << ", "
+             << row_filter.value_quaternion[1] << ", " << row_filter.value_quaternion[2] << ", "
+             << row_filter.value_quaternion[3] << ")";
+      return result.str();
+    };
     case SPREADSHEET_VALUE_TYPE_UNKNOWN:
       return "";
   }
@@ -240,6 +249,10 @@ static void spreadsheet_filter_panel_draw(const bContext *C, Panel *panel)
       break;
     case SPREADSHEET_VALUE_TYPE_BYTE_COLOR:
       uiItemR(layout, filter_ptr, "value_byte_color", 0, IFACE_("Value"), ICON_NONE);
+      uiItemR(layout, filter_ptr, "threshold", 0, nullptr, ICON_NONE);
+      break;
+    case SPREADSHEET_VALUE_TYPE_QUATERNION:
+      uiItemR(layout, filter_ptr, "value_quaternion", 0, IFACE_("Value"), ICON_NONE);
       uiItemR(layout, filter_ptr, "threshold", 0, nullptr, ICON_NONE);
       break;
     case SPREADSHEET_VALUE_TYPE_UNKNOWN:

@@ -320,6 +320,8 @@ static float get_default_column_width(const ColumnValues &values)
       return 5.0f;
     case SPREADSHEET_VALUE_TYPE_BYTE_COLOR:
       return 4.0f * int_width;
+    case SPREADSHEET_VALUE_TYPE_QUATERNION:
+      return 4.0f * float_width;
     case SPREADSHEET_VALUE_TYPE_UNKNOWN:
       return 2.0f;
   }

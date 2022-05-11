@@ -7,6 +7,7 @@
 #include "BLI_color.hh"
 #include "BLI_cpp_type.hh"
 #include "BLI_hash.hh"
+#include "BLI_math_rotation.hh"
 #include "BLI_math_vec_types.hh"
 #include "BLI_string.h"
 #include "BLI_string_ref.hh"
@@ -46,6 +47,9 @@ eSpreadsheetColumnValueType cpp_type_to_column_type(const CPPType &type)
   }
   if (type.is<ColorGeometry4b>()) {
     return SPREADSHEET_VALUE_TYPE_BYTE_COLOR;
+  }
+  if (type.is<Quaternion>()) {
+    return SPREADSHEET_VALUE_TYPE_QUATERNION;
   }
 
   return SPREADSHEET_VALUE_TYPE_UNKNOWN;
