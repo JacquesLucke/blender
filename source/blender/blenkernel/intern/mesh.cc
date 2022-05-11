@@ -693,6 +693,7 @@ static int customdata_compare(
           }
           break;
         }
+        case CD_PROP_QUATERNION:
         case CD_PROP_COLOR: {
           const MPropCol *l1_data = (MPropCol *)l1->data;
           const MPropCol *l2_data = (MPropCol *)l2->data;

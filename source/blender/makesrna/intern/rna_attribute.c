@@ -37,6 +37,7 @@ const EnumPropertyItem rna_enum_attribute_type_items[] = {
     {CD_PROP_BOOL, "BOOLEAN", 0, "Boolean", "True or false"},
     {CD_PROP_FLOAT2, "FLOAT2", 0, "2D Vector", "2D vector with floating-point values"},
     {CD_PROP_INT8, "INT8", 0, "8-Bit Integer", "Smaller integer with a range from -128 to 127"},
+    {CD_PROP_QUATERNION, "QUATERNION", 0, "Quaternion", "Rotation or orientation in 3d space"},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -64,6 +65,7 @@ const EnumPropertyItem rna_enum_attribute_type_with_auto_items[] = {
     {CD_PROP_BOOL, "BOOLEAN", 0, "Boolean", "True or false"},
     {CD_PROP_FLOAT2, "FLOAT2", 0, "2D Vector", "2D vector with floating-point values"},
     {CD_PROP_INT8, "INT8", 0, "8-Bit Integer", "Smaller integer with a range from -128 to 127"},
+    {CD_PROP_QUATERNION, "QUATERNION", 0, "Quaternion", "Rotation or orientation in 3d space"},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -145,6 +147,8 @@ static StructRNA *srna_by_custom_data_layer_type(const CustomDataType type)
       return &RNA_Float2Attribute;
     case CD_PROP_INT8:
       return &RNA_ByteIntAttribute;
+    case CD_PROP_QUATERNION:
+      return &RNA_QuaternionAttribute;
     default:
       return NULL;
   }
@@ -267,6 +271,9 @@ static void rna_Attribute_data_begin(CollectionPropertyIterator *iter, PointerRN
       break;
     case CD_PROP_INT8:
       struct_size = sizeof(int8_t);
+      break;
+    case CD_PROP_QUATERNION:
+      struct_size = sizeof(float[4]);
       break;
     default:
       struct_size = 0;
@@ -864,6 +871,39 @@ static void rna_def_attribute_int8(BlenderRNA *brna)
       prop, "rna_ByteIntAttributeValue_get", "rna_ByteIntAttributeValue_set", NULL);
 }
 
+static void rna_def_attribute_quaternion(BlenderRNA *brna)
+{
+  StructRNA *srna;
+  PropertyRNA *prop;
+
+  srna = RNA_def_struct(brna, "QuaternionAttribute", "Attribute");
+  RNA_def_struct_sdna(srna, "CustomDataLayer");
+  RNA_def_struct_ui_text(
+      srna, "Quaternion Attribute", "Geometry attribute that stores quaternions");
+
+  prop = RNA_def_property(srna, "data", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_struct_type(prop, "QuaternionAttributeValue");
+  RNA_def_property_collection_funcs(prop,
+                                    "rna_Attribute_data_begin",
+                                    "rna_iterator_array_next",
+                                    "rna_iterator_array_end",
+                                    "rna_iterator_array_get",
+                                    "rna_Attribute_data_length",
+                                    NULL,
+                                    NULL,
+                                    NULL);
+
+  srna = RNA_def_struct(brna, "QuaternionAttributeValue", NULL);
+  RNA_def_struct_sdna(srna, "vec4f");
+  RNA_def_struct_ui_text(
+      srna, "Quaternion Attribute Value", "Quaternion value in geometry attribute");
+  prop = RNA_def_property(srna, "quaternion", PROP_FLOAT, PROP_DIRECTION);
+  RNA_def_property_ui_text(prop, "Quaternion", "");
+  RNA_def_property_float_sdna(prop, NULL, "x");
+  RNA_def_property_array(prop, 4);
+  RNA_def_property_update(prop, 0, "rna_Attribute_update_data");
+}
+
 static void rna_def_attribute_float2(BlenderRNA *brna)
 {
   StructRNA *srna;
@@ -940,6 +980,7 @@ static void rna_def_attribute(BlenderRNA *brna)
   rna_def_attribute_bool(brna);
   rna_def_attribute_float2(brna);
   rna_def_attribute_int8(brna);
+  rna_def_attribute_quaternion(brna);
 }
 
 /* Mesh/PointCloud/Hair.attributes */

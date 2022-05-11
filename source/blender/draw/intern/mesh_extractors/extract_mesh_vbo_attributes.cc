@@ -9,6 +9,7 @@
 
 #include <functional>
 
+#include "BLI_math_rotation.hh"
 #include "BLI_math_vec_types.hh"
 #include "BLI_string.h"
 
@@ -96,6 +97,7 @@ static uint gpu_component_size_for_attribute_type(CustomDataType type)
     case CD_PROP_FLOAT3: {
       return 3;
     }
+    case CD_PROP_QUATERNION:
     case CD_PROP_COLOR: {
       return 4;
     }
@@ -324,6 +326,10 @@ static void extract_attr_init(const MeshRenderData *mr,
       extract_attr_generic<MPropCol, gpuMeshCol>(mr, vbo, request);
       break;
     }
+    case CD_PROP_QUATERNION: {
+      extract_attr_generic<Quaternion>(mr, vbo, request);
+      break;
+    }
     default: {
       BLI_assert(false);
     }
@@ -378,6 +384,10 @@ static void extract_attr_init_subdiv(const DRWSubdivCache *subdiv_cache,
     }
     case CD_PROP_COLOR: {
       extract_attr_generic<MPropCol, gpuMeshCol>(mr, src_data, request);
+      break;
+    }
+    case CD_PROP_QUATERNION: {
+      extract_attr_generic<Quaternion>(mr, src_data, request);
       break;
     }
     default: {

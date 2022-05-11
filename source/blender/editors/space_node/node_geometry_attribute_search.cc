@@ -145,6 +145,8 @@ static CustomDataType data_type_in_attribute_input_node(const CustomDataType typ
       return CD_PROP_FLOAT3;
     case CD_PROP_INT8:
       return CD_PROP_INT32;
+    case CD_PROP_QUATERNION:
+      return CD_PROP_FLOAT3;
     default:
       return CD_PROP_FLOAT;
   }

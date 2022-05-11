@@ -22,6 +22,7 @@
 #include "BLI_endian_switch.h"
 #include "BLI_math.h"
 #include "BLI_math_color_blend.h"
+#include "BLI_math_rotation.hh"
 #include "BLI_math_vector.hh"
 #include "BLI_mempool.h"
 #include "BLI_path_util.h"
@@ -1918,8 +1919,8 @@ static const LayerTypeInfo LAYERTYPEINFO[CD_NUMTYPES] = {
     {sizeof(float), "MFloatProperty", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     /* 45: CD_PROP_INT8 */
     {sizeof(int8_t), "MInt8Property", 1, N_("Int8"), nullptr, nullptr, nullptr, nullptr, nullptr},
-    /* 46: CD_HAIRMAPPING */ /* UNUSED */
-    {-1, "", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
+    /* 46: CD_PROP_QUATERNION */
+    {sizeof(float[4]), "vec4f", 1, nullptr, nullptr, nullptr, nullptr, nullptr, nullptr},
     /* 47: CD_PROP_COLOR */
     {sizeof(MPropCol),
      "MPropCol",
@@ -5399,6 +5400,8 @@ const blender::CPPType *custom_data_type_to_cpp_type(const CustomDataType type)
       return &CPPType::get<int8_t>();
     case CD_PROP_BYTE_COLOR:
       return &CPPType::get<ColorGeometry4b>();
+    case CD_PROP_QUATERNION:
+      return &CPPType::get<Quaternion>();
     default:
       return nullptr;
   }
@@ -5430,6 +5433,9 @@ CustomDataType cpp_type_to_custom_data_type(const blender::CPPType &type)
   }
   if (type.is<ColorGeometry4b>()) {
     return CD_PROP_BYTE_COLOR;
+  }
+  if (type.is<Quaternion>()) {
+    return CD_PROP_QUATERNION;
   }
   return static_cast<CustomDataType>(-1);
 }

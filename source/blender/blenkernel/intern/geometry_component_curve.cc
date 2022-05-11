@@ -1188,7 +1188,7 @@ class DynamicPointAttributeProvider final : public DynamicAttributesProvider {
   static constexpr uint64_t supported_types_mask = CD_MASK_PROP_FLOAT | CD_MASK_PROP_FLOAT2 |
                                                    CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 |
                                                    CD_MASK_PROP_COLOR | CD_MASK_PROP_BOOL |
-                                                   CD_MASK_PROP_INT8;
+                                                   CD_MASK_PROP_INT8 | CD_MASK_PROP_QUATERNION;
 
  public:
   ReadAttributeLookup try_get_for_read(const GeometryComponent &component,

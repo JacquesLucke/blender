@@ -480,7 +480,7 @@ static bool custom_data_match_attribute(const CustomData *custom_data,
                                         int *r_layer_index,
                                         int *r_type)
 {
-  const int possible_attribute_types[7] = {
+  const int possible_attribute_types[8] = {
       CD_PROP_BOOL,
       CD_PROP_INT8,
       CD_PROP_INT32,
@@ -488,6 +488,7 @@ static bool custom_data_match_attribute(const CustomData *custom_data,
       CD_PROP_FLOAT2,
       CD_PROP_FLOAT3,
       CD_PROP_COLOR,
+      CD_PROP_QUATERNION,
   };
 
   for (int i = 0; i < ARRAY_SIZE(possible_attribute_types); i++) {
@@ -727,7 +728,8 @@ static DRW_MeshCDMask mesh_cd_calc_used_gpu_layers(const Object *object,
           case CD_PROP_INT8:
           case CD_PROP_INT32:
           case CD_PROP_FLOAT:
-          case CD_PROP_FLOAT2: {
+          case CD_PROP_FLOAT2:
+          case CD_PROP_QUATERNION: {
             if (layer != -1 && domain != ATTR_DOMAIN_NUM) {
               drw_mesh_attributes_add_request(attributes, type, layer, domain);
             }
