@@ -274,6 +274,11 @@ static void rna_def_curves(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Surface", "Mesh object that the curves can be attached to");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
 
+  prop = RNA_def_property(srna, "surface_uv_name", PROP_STRING, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop, "Surface UV Name", "UV map on the surface used for attaching curves to it");
+  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, NULL);
+
   /* Symmetry. */
   prop = RNA_def_property(srna, "use_mirror_x", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "symmetry", CURVES_SYMMETRY_X);

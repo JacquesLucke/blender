@@ -151,6 +151,7 @@ typedef struct Curves {
    * This is expected to be a mesh object.
    */
   struct Object *surface;
+  char *surface_uv_name;
 
   /* Draw Cache. */
   void *batch_cache;
