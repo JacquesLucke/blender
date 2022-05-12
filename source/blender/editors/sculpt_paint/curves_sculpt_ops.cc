@@ -93,6 +93,8 @@ static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bConte
       return new_add_operation(C, op.reports);
     case CURVES_SCULPT_TOOL_GROW_SHRINK:
       return new_grow_shrink_operation(mode, &C);
+    case CURVES_SCULPT_TOOL_PINCH:
+      return new_pinch_operation();
   }
   BLI_assert_unreachable();
   return {};

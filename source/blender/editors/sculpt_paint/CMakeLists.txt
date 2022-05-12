@@ -34,6 +34,7 @@ set(SRC
   curves_sculpt_grow_shrink.cc
   curves_sculpt_ops.cc
   curves_sculpt_snake_hook.cc
+  curves_sculpt_pinch.cc
   paint_canvas.cc
   paint_cursor.c
   paint_curve.c
