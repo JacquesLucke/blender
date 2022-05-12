@@ -55,8 +55,32 @@ class PinchOperation : public CurvesSculptStrokeOperation {
 };
 
 struct PinchOperationExecutor {
+  PinchOperation *self_ = nullptr;
+  Depsgraph *depsgraph_ = nullptr;
+  Scene *scene_ = nullptr;
+  Object *object_ = nullptr;
+  ARegion *region_ = nullptr;
+  View3D *v3d_ = nullptr;
+  Curves *curves_id_ = nullptr;
+  CurvesGeometry *curves_ = nullptr;
+
+  float4x4 curves_to_world_mat_;
+  float4x4 world_to_curves_mat_;
+
   void execute(PinchOperation &self, bContext *C, const StrokeExtension &stroke_extension)
   {
+    self_ = &self;
+    depsgraph_ = CTX_data_depsgraph_pointer(C);
+    scene_ = CTX_data_scene(C);
+    object_ = CTX_data_active_object(C);
+    region_ = CTX_wm_region(C);
+    v3d_ = CTX_wm_view3d(C);
+
+    curves_id_ = static_cast<Curves *>(object_->data);
+    curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
+
+    curves_to_world_mat_ = object_->obmat;
+    world_to_curves_mat_ = curves_to_world_mat_.inverted();
   }
 };
 
