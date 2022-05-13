@@ -37,6 +37,7 @@
 #include "BLI_multi_value_map.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_timeit.hh"
+#include "BLI_type_traits.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
@@ -760,65 +761,120 @@ inline StringRefNull NodeTreeRef::name() const
 /** \name SGraph adapter.
  * \{ */
 
-class NodeTreeRefSGraphAdapter {
- private:
-  const NodeTreeRef &tree_;
+struct NodeTreeRefSGraphTypes {
+  using Graph = const NodeTreeRef *;
+  using Node = const NodeRef *;
+  using Link = const LinkRef *;
+  using Socket = const SocketRef *;
+  using InSocket = const InputSocketRef *;
+  using OutSocket = const OutputSocketRef *;
+};
 
- public:
-  using NodeID = const NodeRef *;
+struct NodeTreeRefSGraphAccessor {
+  using Types = NodeTreeRefSGraphTypes;
 
-  NodeTreeRefSGraphAdapter(const NodeTreeRef &tree) : tree_(tree)
-  {
-  }
-
-  int node_inputs_size(const NodeRef *node) const
+  static int node_inputs_num(const NodeTreeRef *UNUSED(tree), const NodeRef *node)
   {
     return node->inputs().size();
   }
 
-  int node_outputs_size(const NodeRef *node) const
+  static int node_outputs_num(const NodeTreeRef *UNUSED(tree), const NodeRef *node)
   {
     return node->outputs().size();
   }
 
-  template<typename F> void foreach_node(const F &f) const
+  static const InputSocketRef *node_input(const NodeTreeRef *UNUSED(tree),
+                                          const NodeRef *node,
+                                          const int index)
   {
-    for (const NodeRef *node : tree_.nodes()) {
+    return &node->input(index);
+  }
+
+  static const OutputSocketRef *node_output(const NodeTreeRef *UNUSED(tree),
+                                            const NodeRef *node,
+                                            const int index)
+  {
+    return &node->output(index);
+  }
+
+  template<typename F> static void foreach_node(const NodeTreeRef *tree, const F &f)
+  {
+    static_assert(is_callable_v<F, void, const NodeRef *>);
+    for (const NodeRef *node : tree->nodes()) {
       f(node);
     }
   }
 
   template<typename F>
-  void foreach_linked_input(const NodeRef *node, const int output_socket_index, const F &f) const
+  static void foreach_link_to_input(const NodeTreeRef *UNUSED(tree),
+                                    const InputSocketRef *socket,
+                                    const F &f)
   {
-    const OutputSocketRef &socket = node->output(output_socket_index);
-    for (const InputSocketRef *linked_socket : socket.directly_linked_sockets()) {
-      f(&linked_socket->node(), linked_socket->index());
+    static_assert(is_callable_v<F, void, const LinkRef *>);
+    for (const LinkRef *link : socket->directly_linked_links()) {
+      f(link);
     }
   }
 
   template<typename F>
-  void foreach_linked_output(const NodeRef *node, const int input_socket_index, const F &f) const
+  static void foreach_link_from_output(const NodeTreeRef *UNUSED(tree),
+                                       const OutputSocketRef *socket,
+                                       const F &f)
   {
-    const InputSocketRef &socket = node->input(input_socket_index);
-    for (const OutputSocketRef *linked_socket : socket.directly_linked_sockets()) {
-      f(&linked_socket->node(), linked_socket->index());
+    static_assert(is_callable_v<F, void, const LinkRef *>);
+    for (const LinkRef *link : socket->directly_linked_links()) {
+      f(link);
     }
   }
 
-  std::string node_debug_name(const NodeRef *node) const
+  static const OutputSocketRef *link_from_socket(const NodeTreeRef *UNUSED(tree),
+                                                 const LinkRef *link)
   {
-    return node->name();
+    return &link->from();
   }
 
-  std::string input_socket_debug_name(const NodeRef *node, const int input_socket_index) const
+  static const InputSocketRef *link_to_socket(const NodeTreeRef *UNUSED(tree), const LinkRef *link)
   {
-    return node->input(input_socket_index).name();
+    return &link->to();
   }
 
-  std::string output_socket_debug_name(const NodeRef *node, const int output_socket_index) const
+  static const NodeRef *node_of_input(const NodeTreeRef *UNUSED(tree),
+                                      const InputSocketRef *socket)
   {
-    return node->output(output_socket_index).name();
+    return &socket->node();
+  }
+
+  static const NodeRef *node_of_output(const NodeTreeRef *UNUSED(tree),
+                                       const OutputSocketRef *socket)
+  {
+    return &socket->node();
+  }
+
+  static int index_of_input(const NodeTreeRef *UNUSED(tree), const InputSocketRef *socket)
+  {
+    return socket->index();
+  }
+
+  static int index_of_output(const NodeTreeRef *UNUSED(tree), const OutputSocketRef *socket)
+  {
+    return socket->index();
+  }
+
+  static std::string node_debug_name(const NodeTreeRef *UNUSED(tree), const NodeRef *node)
+  {
+    return node->label_or_name();
+  }
+
+  static std::string input_debug_name(const NodeTreeRef *UNUSED(tree),
+                                      const InputSocketRef *socket)
+  {
+    return socket->name();
+  }
+
+  static std::string output_debug_name(const NodeTreeRef *UNUSED(tree),
+                                       const OutputSocketRef *socket)
+  {
+    return socket->name();
   }
 };
 

@@ -1212,9 +1212,9 @@ static void modifyGeometry(ModifierData *md,
   DerivedNodeTree tree{*nmd->node_group, tree_refs};
 
   for (const std::unique_ptr<const NodeTreeRef> &tree_ref : tree_refs.values()) {
-    blender::nodes::NodeTreeRefSGraphAdapter real_adapter{*tree_ref};
-    std::cout << "real\n";
-    blender::fn::sgraph::sgraph_adapter_is_valid(real_adapter);
+    const std::string s = blender::fn::sgraph::sgraph_to_dot(
+        blender::fn::sgraph::SGraphT<blender::nodes::NodeTreeRefSGraphAccessor>(tree_ref.get()));
+    std::cout << s << "\n";
   }
 
   if (tree.has_link_cycles()) {

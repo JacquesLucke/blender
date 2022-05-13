@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
-
+/*
 #include "FN_sgraph_evaluate.hh"
 #include "MOD_nodes_evaluator.hh"
 #include "NOD_node_tree_ref.hh"
@@ -60,3 +60,6 @@ class GeometryNodesExecutor
 };
 
 }  // namespace blender::modifiers::geometry_nodes
+
+
+*/
