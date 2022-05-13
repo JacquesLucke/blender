@@ -174,16 +174,16 @@ PackedFile *BKE_packedfile_new_from_memory(void *mem, int memlen)
   return pf;
 }
 
-PackedFile *BKE_packedfile_new(ReportList *reports, const char *filename, const char *basepath)
+PackedFile *BKE_packedfile_new(ReportList *reports, const char *filepath, const char *basepath)
 {
   PackedFile *pf = NULL;
   int file, filelen;
   char name[FILE_MAX];
   void *data;
 
-  /* render result has no filename and can be ignored
+  /* render result has no filepath and can be ignored
    * any other files with no name can be ignored too */
-  if (filename[0] == '\0') {
+  if (filepath[0] == '\0') {
     return pf;
   }
 
@@ -191,7 +191,7 @@ PackedFile *BKE_packedfile_new(ReportList *reports, const char *filename, const 
 
   /* convert relative filenames to absolute filenames */
 
-  BLI_strncpy(name, filename, sizeof(name));
+  BLI_strncpy(name, filepath, sizeof(name));
   BLI_path_abs(name, basepath);
 
   /* open the file
@@ -237,14 +237,14 @@ void BKE_packedfile_pack_all(Main *bmain, ReportList *reports, bool verbose)
 
   for (ima = bmain->images.first; ima; ima = ima->id.next) {
     if (BKE_image_has_packedfile(ima) == false && !ID_IS_LINKED(ima)) {
-      if (ima->source == IMA_SRC_FILE) {
+      if (ELEM(ima->source, IMA_SRC_FILE, IMA_SRC_TILED)) {
         BKE_image_packfiles(reports, ima, ID_BLEND_PATH(bmain, &ima->id));
         tot++;
       }
-      else if (BKE_image_has_multiple_ibufs(ima) && verbose) {
+      else if (ELEM(ima->source, IMA_SRC_MOVIE, IMA_SRC_SEQUENCE) && verbose) {
         BKE_reportf(reports,
                     RPT_WARNING,
-                    "Image '%s' skipped, movies, image sequences and packed files not supported",
+                    "Image '%s' skipped, packing movies or image sequences not supported",
                     ima->id.name + 2);
       }
     }
@@ -285,7 +285,7 @@ void BKE_packedfile_pack_all(Main *bmain, ReportList *reports, bool verbose)
 
 int BKE_packedfile_write_to_file(ReportList *reports,
                                  const char *ref_file_name,
-                                 const char *filename,
+                                 const char *filepath,
                                  PackedFile *pf,
                                  const bool guimode)
 {
@@ -299,7 +299,7 @@ int BKE_packedfile_write_to_file(ReportList *reports,
   if (guimode) {
   }  // XXX  waitcursor(1);
 
-  BLI_strncpy(name, filename, sizeof(name));
+  BLI_strncpy(name, filepath, sizeof(name));
   BLI_path_abs(name, ref_file_name);
 
   if (BLI_exists(name)) {
@@ -358,7 +358,7 @@ int BKE_packedfile_write_to_file(ReportList *reports,
 }
 
 enum ePF_FileCompare BKE_packedfile_compare_to_file(const char *ref_file_name,
-                                                    const char *filename,
+                                                    const char *filepath,
                                                     PackedFile *pf)
 {
   BLI_stat_t st;
@@ -366,7 +366,7 @@ enum ePF_FileCompare BKE_packedfile_compare_to_file(const char *ref_file_name,
   char buf[4096];
   char name[FILE_MAX];
 
-  BLI_strncpy(name, filename, sizeof(name));
+  BLI_strncpy(name, filepath, sizeof(name));
   BLI_path_abs(name, ref_file_name);
 
   if (BLI_stat(name, &st) == -1) {
@@ -494,15 +494,22 @@ static void unpack_generate_paths(const char *name,
 
   if (tempname[0] == '\0') {
     /* NOTE: we generally do not have any real way to re-create extension out of data. */
-    BLI_strncpy(tempname, id->name + 2, sizeof(tempname));
+    const size_t len = BLI_strncpy_rlen(tempname, id->name + 2, sizeof(tempname));
     printf("%s\n", tempname);
 
-    /* For images we can add the file extension based on the file magic. */
+    /* For images ensure that the temporary filename contains tile number information as well as
+     * a file extension based on the file magic. */
     if (id_type == ID_IM) {
-      ImagePackedFile *imapf = ((Image *)id)->packedfiles.last;
+      Image *ima = (Image *)id;
+      ImagePackedFile *imapf = ima->packedfiles.last;
       if (imapf != NULL && imapf->packedfile != NULL) {
         const PackedFile *pf = imapf->packedfile;
         enum eImbFileType ftype = IMB_ispic_type_from_memory((const uchar *)pf->data, pf->size);
+        if (ima->source == IMA_SRC_TILED) {
+          char tile_number[6];
+          BLI_snprintf(tile_number, sizeof(tile_number), ".%d", imapf->tile_number);
+          BLI_strncpy(tempname + len, tile_number, sizeof(tempname) - len);
+        }
         if (ftype != IMB_FTYPE_NONE) {
           const int imtype = BKE_ftype_to_imtype(ftype, NULL);
           BKE_image_path_ensure_ext_from_imtype(tempname, imtype);
@@ -639,6 +646,11 @@ int BKE_packedfile_unpack_image(Main *bmain,
         /* keep the new name in the image for non-pack specific reasons */
         if (how != PF_REMOVE) {
           BLI_strncpy(ima->filepath, new_file_path, sizeof(imapf->filepath));
+          if (ima->source == IMA_SRC_TILED) {
+            /* Ensure that the Image filepath is kept in a tokenized format. */
+            char *filename = (char *)BLI_path_basename(ima->filepath);
+            BKE_image_ensure_tile_token(filename);
+          }
         }
         MEM_freeN(new_file_path);
       }

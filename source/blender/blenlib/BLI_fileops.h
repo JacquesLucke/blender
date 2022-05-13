@@ -178,7 +178,7 @@ void BLI_filelist_free(struct direntry *filelist, unsigned int nrentries);
  * Convert given entry's size into human-readable strings.
  */
 void BLI_filelist_entry_size_to_string(const struct stat *st,
-                                       uint64_t sz,
+                                       uint64_t st_size_fallback,
                                        bool compact,
                                        char r_size[FILELIST_DIRENTRY_SIZE_LEN]);
 /**
@@ -270,7 +270,7 @@ struct LinkNode *BLI_file_read_as_lines(const char *file) ATTR_WARN_UNUSED_RESUL
 void *BLI_file_read_text_as_mem(const char *filepath, size_t pad_bytes, size_t *r_size);
 /**
  * Return the text file data with:
-
+ *
  * - Newlines replaced with '\0'.
  * - Optionally trim white-space, replacing trailing <space> & <tab> with '\0'.
  *

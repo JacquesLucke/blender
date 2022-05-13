@@ -9,8 +9,11 @@
 
 #include "BKE_blender_version.h"
 
+#include "BLI_enumerable_thread_specific.hh"
 #include "BLI_path_util.h"
 #include "BLI_task.hh"
+
+#include "IO_path_util.hh"
 
 #include "obj_export_mesh.hh"
 #include "obj_export_mtl.hh"
@@ -29,7 +32,7 @@ namespace blender::io::obj {
 const int SMOOTH_GROUP_DISABLED = 0;
 const int SMOOTH_GROUP_DEFAULT = 1;
 
-const char *DEFORM_GROUP_DISABLED = "off";
+static const char *DEFORM_GROUP_DISABLED = "off";
 /* There is no deform group default name. Use what the user set in the UI. */
 
 /**
@@ -37,7 +40,7 @@ const char *DEFORM_GROUP_DISABLED = "off";
  * Once a material is assigned, it cannot be turned off; it can only be changed.
  * If a material name is not specified, a white material is used.
  * So an empty material name is written. */
-const char *MATERIAL_GROUP_DISABLED = "";
+static const char *MATERIAL_GROUP_DISABLED = "";
 
 void OBJWriter::write_vert_uv_normal_indices(FormatHandler<eFileType::OBJ> &fh,
                                              const IndexOffsets &offsets,
@@ -308,6 +311,9 @@ void OBJWriter::write_poly_elements(FormatHandler<eFileType::OBJ> &fh,
       obj_mesh_data.tot_uv_vertices());
 
   const int tot_polygons = obj_mesh_data.tot_polygons();
+  const int tot_deform_groups = obj_mesh_data.tot_deform_groups();
+  threading::EnumerableThreadSpecific<Vector<float>> group_weights;
+
   obj_parallel_chunked_output(fh, tot_polygons, [&](FormatHandler<eFileType::OBJ> &buf, int idx) {
     /* Polygon order for writing into the file is not necessarily the same
      * as order in the mesh; it will be sorted by material indices. Remap current
@@ -330,9 +336,12 @@ void OBJWriter::write_poly_elements(FormatHandler<eFileType::OBJ> &fh,
 
     /* Write vertex group if different from previous. */
     if (export_params_.export_vertex_groups) {
+      Vector<float> &local_weights = group_weights.local();
+      local_weights.resize(tot_deform_groups);
       const int16_t prev_group = idx == 0 ? NEGATIVE_INIT :
-                                            obj_mesh_data.get_poly_deform_group_index(prev_i);
-      const int16_t group = obj_mesh_data.get_poly_deform_group_index(i);
+                                            obj_mesh_data.get_poly_deform_group_index(
+                                                prev_i, local_weights);
+      const int16_t group = obj_mesh_data.get_poly_deform_group_index(i, local_weights);
       if (group != prev_group) {
         buf.write<eOBJSyntaxElement::object_group>(
             group == NOT_FOUND ? DEFORM_GROUP_DISABLED :
@@ -376,7 +385,7 @@ void OBJWriter::write_edges_indices(FormatHandler<eFileType::OBJ> &fh,
                                     const IndexOffsets &offsets,
                                     const OBJMesh &obj_mesh_data) const
 {
-  /* Note: ensure_mesh_edges should be called before. */
+  /* NOTE: ensure_mesh_edges should be called before. */
   const int tot_edges = obj_mesh_data.tot_edges();
   for (int edge_index = 0; edge_index < tot_edges; edge_index++) {
     const std::optional<std::array<int, 2>> vertex_indices =
@@ -523,26 +532,31 @@ void MTLWriter::write_bsdf_properties(const MTLMaterial &mtl_material)
 
 void MTLWriter::write_texture_map(
     const MTLMaterial &mtl_material,
-    const Map<const eMTLSyntaxElement, tex_map_XX>::Item &texture_map)
+    const Map<const eMTLSyntaxElement, tex_map_XX>::Item &texture_map,
+    const char *blen_filedir,
+    const char *dest_dir,
+    ePathReferenceMode path_mode,
+    Set<std::pair<std::string, std::string>> &copy_set)
 {
-  std::string translation;
-  std::string scale;
-  std::string map_bump_strength;
-  /* Optional strings should have their own leading spaces. */
+  std::string options;
+  /* Option strings should have their own leading spaces. */
   if (texture_map.value.translation != float3{0.0f, 0.0f, 0.0f}) {
-    translation.append(" -s ").append(float3_to_string(texture_map.value.translation));
+    options.append(" -o ").append(float3_to_string(texture_map.value.translation));
   }
   if (texture_map.value.scale != float3{1.0f, 1.0f, 1.0f}) {
-    scale.append(" -o ").append(float3_to_string(texture_map.value.scale));
+    options.append(" -s ").append(float3_to_string(texture_map.value.scale));
   }
   if (texture_map.key == eMTLSyntaxElement::map_Bump && mtl_material.map_Bump_strength > 0.0001f) {
-    map_bump_strength.append(" -bm ").append(std::to_string(mtl_material.map_Bump_strength));
+    options.append(" -bm ").append(std::to_string(mtl_material.map_Bump_strength));
   }
 
 #define SYNTAX_DISPATCH(eMTLSyntaxElement) \
   if (texture_map.key == eMTLSyntaxElement) { \
-    fmt_handler_.write<eMTLSyntaxElement>(translation + scale + map_bump_strength, \
-                                          texture_map.value.image_path); \
+    std::string path = path_reference( \
+        texture_map.value.image_path.c_str(), blen_filedir, dest_dir, path_mode, &copy_set); \
+    /* Always emit forward slashes for cross-platform compatibility. */ \
+    std::replace(path.begin(), path.end(), '\\', '/'); \
+    fmt_handler_.write<eMTLSyntaxElement>(options, path.c_str()); \
     return; \
   }
 
@@ -557,25 +571,35 @@ void MTLWriter::write_texture_map(
   BLI_assert(!"This map type was not written to the file.");
 }
 
-void MTLWriter::write_materials()
+void MTLWriter::write_materials(const char *blen_filepath,
+                                ePathReferenceMode path_mode,
+                                const char *dest_dir)
 {
   if (mtlmaterials_.size() == 0) {
     return;
   }
+
+  char blen_filedir[PATH_MAX];
+  BLI_split_dir_part(blen_filepath, blen_filedir, PATH_MAX);
+  BLI_path_slash_native(blen_filedir);
+  BLI_path_normalize(nullptr, blen_filedir);
+
   std::sort(mtlmaterials_.begin(),
             mtlmaterials_.end(),
             [](const MTLMaterial &a, const MTLMaterial &b) { return a.name < b.name; });
+  Set<std::pair<std::string, std::string>> copy_set;
   for (const MTLMaterial &mtlmat : mtlmaterials_) {
     fmt_handler_.write<eMTLSyntaxElement::string>("\n");
     fmt_handler_.write<eMTLSyntaxElement::newmtl>(mtlmat.name);
     write_bsdf_properties(mtlmat);
-    for (const Map<const eMTLSyntaxElement, tex_map_XX>::Item &texture_map :
-         mtlmat.texture_maps.items()) {
-      if (!texture_map.value.image_path.empty()) {
-        write_texture_map(mtlmat, texture_map);
+    for (const auto &tex : mtlmat.texture_maps.items()) {
+      if (tex.value.image_path.empty()) {
+        continue;
       }
+      write_texture_map(mtlmat, tex, blen_filedir, dest_dir, path_mode, copy_set);
     }
   }
+  path_reference_copy(copy_set);
 }
 
 Vector<int> MTLWriter::add_materials(const OBJMesh &mesh_to_export)

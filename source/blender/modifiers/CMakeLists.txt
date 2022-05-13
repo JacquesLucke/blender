@@ -61,7 +61,7 @@ set(SRC
   intern/MOD_meshcache_pc2.c
   intern/MOD_meshcache_util.c
   intern/MOD_meshdeform.c
-  intern/MOD_meshsequencecache.c
+  intern/MOD_meshsequencecache.cc
   intern/MOD_mirror.c
   intern/MOD_multires.c
   intern/MOD_nodes.cc
@@ -71,7 +71,7 @@ set(SRC
   intern/MOD_normal_edit.c
   intern/MOD_ocean.c
   intern/MOD_particleinstance.c
-  intern/MOD_particlesystem.c
+  intern/MOD_particlesystem.cc
   intern/MOD_remesh.c
   intern/MOD_screw.c
   intern/MOD_shapekey.c

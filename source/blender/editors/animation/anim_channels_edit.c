@@ -125,6 +125,7 @@ void ANIM_set_active_channel(bAnimContext *ac,
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
+      case ANIMTYPE_NLAACTION:
       case ANIMTYPE_DSSIMULATION: {
         /* need to verify that this data is valid for now */
         if (ale->adt) {
@@ -182,6 +183,7 @@ void ANIM_set_active_channel(bAnimContext *ac,
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
+      case ANIMTYPE_NLAACTION:
       case ANIMTYPE_DSSIMULATION: {
         /* need to verify that this data is valid for now */
         if (ale && ale->adt) {
@@ -199,7 +201,6 @@ void ANIM_set_active_channel(bAnimContext *ac,
       /* unhandled currently, but may be interesting */
       case ANIMTYPE_MASKLAYER:
       case ANIMTYPE_SHAPEKEY:
-      case ANIMTYPE_NLAACTION:
         break;
 
       /* other types */
@@ -312,6 +313,7 @@ static eAnimChannels_SetFlag anim_channels_selection_flag_for_toggle(const ListB
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
+      case ANIMTYPE_NLAACTION:
       case ANIMTYPE_DSSIMULATION: {
         if ((ale->adt) && (ale->adt->flag & ADT_UI_SELECTED)) {
           return ACHANNEL_SETFLAG_CLEAR;
@@ -420,6 +422,7 @@ static void anim_channels_select_set(bAnimContext *ac,
       case ANIMTYPE_DSHAIR:
       case ANIMTYPE_DSPOINTCLOUD:
       case ANIMTYPE_DSVOLUME:
+      case ANIMTYPE_NLAACTION:
       case ANIMTYPE_DSSIMULATION: {
         /* need to verify that this data is valid for now */
         if (ale->adt) {
@@ -1131,7 +1134,7 @@ static void rearrange_nla_channels(bAnimContext *ac, AnimData *adt, eRearrangeAn
 {
   AnimChanRearrangeFp rearrange_func;
   ListBase anim_data_visible = {NULL, NULL};
-  const bool is_liboverride = ID_IS_OVERRIDE_LIBRARY(ac->obact);
+  const bool is_liboverride = (ac->obact != NULL) ? ID_IS_OVERRIDE_LIBRARY(ac->obact) : false;
 
   /* hack: invert mode so that functions will work in right order */
   mode *= -1;
@@ -2789,8 +2792,9 @@ static bool rename_anim_channels(bAnimContext *ac, int channel_index)
   }
 
   /* don't allow renaming linked channels */
-  if ((ale->fcurve_owner_id != NULL && ID_IS_LINKED(ale->fcurve_owner_id)) ||
-      (ale->id != NULL && ID_IS_LINKED(ale->id))) {
+  if ((ale->fcurve_owner_id != NULL &&
+       (ID_IS_LINKED(ale->fcurve_owner_id) || ID_IS_OVERRIDE_LIBRARY(ale->fcurve_owner_id))) ||
+      (ale->id != NULL && (ID_IS_LINKED(ale->id) || ID_IS_OVERRIDE_LIBRARY(ale->id)))) {
     ANIM_animdata_freelist(&anim_data);
     return false;
   }

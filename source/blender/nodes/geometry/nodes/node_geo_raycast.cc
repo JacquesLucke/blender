@@ -298,7 +298,7 @@ class RaycastFunction : public fn::MultiFunction {
       GMutableSpan result = params.uninitialized_single_output_if_required(7, "Attribute");
       if (!result.is_empty()) {
         MeshAttributeInterpolator interp(&mesh, hit_mask, hit_positions, hit_indices);
-        result.type().fill_assign_indices(result.type().default_value(), result.data(), mask);
+        result.type().value_initialize_indices(result.data(), mask);
         interp.sample_data(*target_data_, domain_, get_map_mode(mapping_), result);
       }
     }
@@ -312,8 +312,8 @@ class RaycastFunction : public fn::MultiFunction {
     }
     const MeshComponent &mesh_component = *target_.get_component_for_read<MeshComponent>();
     target_context_.emplace(GeometryComponentFieldContext{mesh_component, domain_});
-    const int domain_size = mesh_component.attribute_domain_size(domain_);
-    target_evaluator_ = std::make_unique<FieldEvaluator>(*target_context_, domain_size);
+    const int domain_num = mesh_component.attribute_domain_num(domain_);
+    target_evaluator_ = std::make_unique<FieldEvaluator>(*target_context_, domain_num);
     target_evaluator_->add(std::move(src_field));
     target_evaluator_->evaluate();
     target_data_ = &target_evaluator_->get_evaluated(0);

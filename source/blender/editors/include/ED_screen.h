@@ -134,6 +134,7 @@ void ED_region_visibility_change_update(struct bContext *C,
                                         struct ScrArea *area,
                                         struct ARegion *region);
 /* screen_ops.c */
+
 /**
  * \note Assumes that \a region itself is not a split version from previous region.
  */
@@ -650,6 +651,7 @@ void ED_region_generic_tools_region_message_subscribe(
 int ED_region_generic_tools_region_snap_size(const struct ARegion *region, int size, int axis);
 
 /* area_query.c */
+
 bool ED_region_overlap_isect_x(const ARegion *region, int event_x);
 bool ED_region_overlap_isect_y(const ARegion *region, int event_y);
 bool ED_region_overlap_isect_xy(const ARegion *region, const int event_xy[2]);
@@ -664,7 +666,7 @@ bool ED_region_panel_category_gutter_calc_rect(const ARegion *region, rcti *r_re
 bool ED_region_panel_category_gutter_isect_xy(const ARegion *region, const int event_xy[2]);
 
 /**
- * \note: This may return true for multiple overlapping regions.
+ * \note This may return true for multiple overlapping regions.
  * If it matters, check overlapped regions first (#ARegion.overlap).
  */
 bool ED_region_contains_xy(const struct ARegion *region, const int event_xy[2]);

@@ -11,6 +11,10 @@
 
 #include "DEG_depsgraph_build.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct MDeformVert;
 struct Mesh;
 struct ModifierData;
@@ -37,7 +41,7 @@ struct Mesh *MOD_deform_mesh_eval_get(struct Object *ob,
                                       struct BMEditMesh *em,
                                       struct Mesh *mesh,
                                       const float (*vertexCos)[3],
-                                      int num_verts,
+                                      int verts_num,
                                       bool use_normals,
                                       bool use_orco);
 
@@ -51,3 +55,7 @@ void MOD_depsgraph_update_object_bone_relation(struct DepsNodeHandle *node,
                                                struct Object *object,
                                                const char *bonename,
                                                const char *description);
+
+#ifdef __cplusplus
+}
+#endif

@@ -549,7 +549,7 @@ typedef enum eAnimChannels_SetFlag {
 /* types of settings for AnimChannels */
 typedef enum eAnimChannel_Settings {
   ACHANNEL_SETTING_SELECT = 0,
-  /** warning: for drawing UI's, need to check if this is off (maybe inverse this later) */
+  /** WARNING: for drawing UI's, need to check if this is off (maybe inverse this later). */
   ACHANNEL_SETTING_PROTECT = 1,
   ACHANNEL_SETTING_MUTE = 2,
   ACHANNEL_SETTING_EXPAND = 3,
@@ -1095,6 +1095,15 @@ void animviz_calc_motionpaths(struct Depsgraph *depsgraph,
                               ListBase *targets,
                               eAnimvizCalcRange range,
                               bool restore);
+
+/**
+ * Update motion path computation range (in `ob.avs` or `armature.avs`) from user choice in
+ * `ob.avs.path_range` or `arm.avs.path_range`, depending on active user mode.
+ *
+ * \param ob: Object to compute range for (must be provided)
+ * \param scene: Used when scene range is chosen.
+ */
+void animviz_motionpath_compute_range(struct Object *ob, struct Scene *scene);
 
 /**
  * Get list of motion paths to be baked for the given object.

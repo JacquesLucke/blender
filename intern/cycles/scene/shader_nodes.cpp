@@ -19,7 +19,6 @@
 #include "util/color.h"
 #include "util/foreach.h"
 #include "util/log.h"
-#include "util/string.h"
 #include "util/transform.h"
 
 #include "kernel/tables.h"
@@ -450,22 +449,19 @@ void ImageTextureNode::compile(OSLCompiler &compiler)
   const ustring known_colorspace = metadata.colorspace;
 
   if (handle.svm_slot() == -1) {
-    /* OIIO currently does not support <UVTILE> substitutions natively. Replace with a format they
-     * understand. */
-    std::string osl_filename = filename.string();
-    string_replace(osl_filename, "<UVTILE>", "<U>_<V>");
     compiler.parameter_texture(
-        "filename", ustring(osl_filename), compress_as_srgb ? u_colorspace_raw : known_colorspace);
+        "filename", filename, compress_as_srgb ? u_colorspace_raw : known_colorspace);
   }
   else {
-    compiler.parameter_texture("filename", handle.svm_slot());
+    compiler.parameter_texture("filename", handle);
   }
 
   const bool unassociate_alpha = !(ColorSpaceManager::colorspace_is_data(colorspace) ||
                                    alpha_type == IMAGE_ALPHA_CHANNEL_PACKED ||
                                    alpha_type == IMAGE_ALPHA_IGNORE);
   const bool is_tiled = (filename.find("<UDIM>") != string::npos ||
-                         filename.find("<UVTILE>") != string::npos);
+                         filename.find("<UVTILE>") != string::npos) ||
+                        handle.num_tiles() > 1;
 
   compiler.parameter(this, "projection");
   compiler.parameter(this, "projection_blend");
@@ -610,7 +606,7 @@ void EnvironmentTextureNode::compile(OSLCompiler &compiler)
         "filename", filename, compress_as_srgb ? u_colorspace_raw : known_colorspace);
   }
   else {
-    compiler.parameter_texture("filename", handle.svm_slot());
+    compiler.parameter_texture("filename", handle);
   }
 
   compiler.parameter(this, "projection");
@@ -965,7 +961,7 @@ void SkyTextureNode::compile(OSLCompiler &compiler)
   compiler.parameter_array("nishita_data", sunsky.nishita_data, 10);
   /* nishita texture */
   if (sky_type == NODE_SKY_NISHITA) {
-    compiler.parameter_texture("filename", handle.svm_slot());
+    compiler.parameter_texture("filename", handle);
   }
   compiler.add(this, "node_sky_texture");
 }
@@ -1860,7 +1856,7 @@ void PointDensityTextureNode::compile(OSLCompiler &compiler)
       handle = image_manager->add_image(filename.string(), image_params());
     }
 
-    compiler.parameter_texture("filename", handle.svm_slot());
+    compiler.parameter_texture("filename", handle);
     if (space == NODE_TEX_VOXEL_SPACE_WORLD) {
       compiler.parameter("mapping", tfm);
       compiler.parameter("use_mapping", 1);
@@ -5010,6 +5006,63 @@ void MixNode::constant_fold(const ConstantFolder &folder)
   }
 }
 
+/* Combine Color */
+
+NODE_DEFINE(CombineColorNode)
+{
+  NodeType *type = NodeType::add("combine_color", create, NodeType::SHADER);
+
+  static NodeEnum type_enum;
+  type_enum.insert("rgb", NODE_COMBSEP_COLOR_RGB);
+  type_enum.insert("hsv", NODE_COMBSEP_COLOR_HSV);
+  type_enum.insert("hsl", NODE_COMBSEP_COLOR_HSL);
+  SOCKET_ENUM(color_type, "Type", type_enum, NODE_COMBSEP_COLOR_RGB);
+
+  SOCKET_IN_FLOAT(r, "Red", 0.0f);
+  SOCKET_IN_FLOAT(g, "Green", 0.0f);
+  SOCKET_IN_FLOAT(b, "Blue", 0.0f);
+
+  SOCKET_OUT_COLOR(color, "Color");
+
+  return type;
+}
+
+CombineColorNode::CombineColorNode() : ShaderNode(get_node_type())
+{
+}
+
+void CombineColorNode::constant_fold(const ConstantFolder &folder)
+{
+  if (folder.all_inputs_constant()) {
+    folder.make_constant(svm_combine_color(color_type, make_float3(r, g, b)));
+  }
+}
+
+void CombineColorNode::compile(SVMCompiler &compiler)
+{
+  ShaderInput *red_in = input("Red");
+  ShaderInput *green_in = input("Green");
+  ShaderInput *blue_in = input("Blue");
+  ShaderOutput *color_out = output("Color");
+
+  int red_stack_offset = compiler.stack_assign(red_in);
+  int green_stack_offset = compiler.stack_assign(green_in);
+  int blue_stack_offset = compiler.stack_assign(blue_in);
+  int color_stack_offset = compiler.stack_assign(color_out);
+
+  compiler.add_node(
+      NODE_COMBINE_COLOR,
+      color_type,
+      compiler.encode_uchar4(red_stack_offset, green_stack_offset, blue_stack_offset),
+      color_stack_offset);
+}
+
+void CombineColorNode::compile(OSLCompiler &compiler)
+{
+  compiler.parameter(this, "color_type");
+  compiler.add(this, "node_combine_color");
+}
+
 /* Combine RGB */
 
 NODE_DEFINE(CombineRGBNode)
@@ -5248,6 +5301,70 @@ void BrightContrastNode::compile(SVMCompiler &compiler)
 void BrightContrastNode::compile(OSLCompiler &compiler)
 {
   compiler.add(this, "node_brightness");
+}
+
+/* Separate Color */
+
+NODE_DEFINE(SeparateColorNode)
+{
+  NodeType *type = NodeType::add("separate_color", create, NodeType::SHADER);
+
+  static NodeEnum type_enum;
+  type_enum.insert("rgb", NODE_COMBSEP_COLOR_RGB);
+  type_enum.insert("hsv", NODE_COMBSEP_COLOR_HSV);
+  type_enum.insert("hsl", NODE_COMBSEP_COLOR_HSL);
+  SOCKET_ENUM(color_type, "Type", type_enum, NODE_COMBSEP_COLOR_RGB);
+
+  SOCKET_IN_COLOR(color, "Color", zero_float3());
+
+  SOCKET_OUT_FLOAT(r, "Red");
+  SOCKET_OUT_FLOAT(g, "Green");
+  SOCKET_OUT_FLOAT(b, "Blue");
+
+  return type;
+}
+
+SeparateColorNode::SeparateColorNode() : ShaderNode(get_node_type())
+{
+}
+
+void SeparateColorNode::constant_fold(const ConstantFolder &folder)
+{
+  if (folder.all_inputs_constant()) {
+    float3 col = svm_separate_color(color_type, color);
+
+    for (int channel = 0; channel < 3; channel++) {
+      if (outputs[channel] == folder.output) {
+        folder.make_constant(col[channel]);
+        return;
+      }
+    }
+  }
+}
+
+void SeparateColorNode::compile(SVMCompiler &compiler)
+{
+  ShaderInput *color_in = input("Color");
+  ShaderOutput *red_out = output("Red");
+  ShaderOutput *green_out = output("Green");
+  ShaderOutput *blue_out = output("Blue");
+
+  int color_stack_offset = compiler.stack_assign(color_in);
+  int red_stack_offset = compiler.stack_assign(red_out);
+  int green_stack_offset = compiler.stack_assign(green_out);
+  int blue_stack_offset = compiler.stack_assign(blue_out);
+
+  compiler.add_node(
+      NODE_SEPARATE_COLOR,
+      color_type,
+      color_stack_offset,
+      compiler.encode_uchar4(red_stack_offset, green_stack_offset, blue_stack_offset));
+}
+
+void SeparateColorNode::compile(OSLCompiler &compiler)
+{
+  compiler.parameter(this, "color_type");
+  compiler.add(this, "node_separate_color");
 }
 
 /* Separate RGB */
@@ -5763,7 +5880,9 @@ BlackbodyNode::BlackbodyNode() : ShaderNode(get_node_type())
 void BlackbodyNode::constant_fold(const ConstantFolder &folder)
 {
   if (folder.all_inputs_constant()) {
-    folder.make_constant(svm_math_blackbody_color(temperature));
+    const float3 rgb_rec709 = svm_math_blackbody_color_rec709(temperature);
+    const float3 rgb = folder.scene->shader_manager->rec709_to_scene_linear(rgb_rec709);
+    folder.make_constant(rgb);
   }
 }
 

@@ -109,6 +109,14 @@ struct ImBuf *IMB_loadiffname(const char *filepath, int flags, char colorspace[I
 
 /**
  *
+ * \attention Defined in readimage.c
+ */
+struct ImBuf *IMB_thumb_load_image(const char *filepath,
+                                   const size_t max_thumb_size,
+                                   char colorspace[IM_MAX_SPACE]);
+
+/**
+ *
  * \attention Defined in allocimbuf.c
  */
 void IMB_freeImBuf(struct ImBuf *ibuf);
@@ -522,7 +530,6 @@ void IMB_scaleImBuf_threaded(struct ImBuf *ibuf, unsigned int newx, unsigned int
  * \attention Defined in writeimage.c
  */
 bool IMB_saveiff(struct ImBuf *ibuf, const char *filepath, int flags);
-bool IMB_prepare_write_ImBuf(bool isfloat, struct ImBuf *ibuf);
 
 /**
  *
@@ -544,12 +551,6 @@ bool IMB_isanim(const char *filepath);
  * \attention Defined in util.c
  */
 int imb_get_anim_type(const char *filepath);
-
-/**
- *
- * \attention Defined in util.c
- */
-bool IMB_isfloat(const struct ImBuf *ibuf);
 
 /**
  * Test if color-space conversions of pixels in buffer need to take into account alpha.

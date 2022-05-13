@@ -238,7 +238,7 @@ class ClonePanel(BrushPanel):
                 col.label(text="Source Clone Slot")
                 col.template_list(
                     "TEXTURE_UL_texpaintslots", "",
-                    mat, "texture_paint_images",
+                    mat, "texture_paint_slots",
                     mat, "paint_clone_slot",
                     rows=2,
                 )
@@ -405,7 +405,13 @@ class FalloffPanel(BrushPanel):
         if not super().poll(context):
             return False
         settings = cls.paint_settings(context)
-        return (settings and settings.brush and settings.brush.curve)
+        if not (settings and settings.brush and settings.brush.curve):
+            return False
+        if cls.get_brush_mode(context) == 'SCULPT_CURVES':
+            brush = settings.brush
+            if brush.curves_sculpt_tool in {'ADD', 'DELETE'}:
+                return False
+        return True
 
     def draw(self, context):
         layout = self.layout
@@ -432,7 +438,13 @@ class FalloffPanel(BrushPanel):
             row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
             row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
 
+        show_fallof_shape = False
         if mode in {'SCULPT', 'PAINT_VERTEX', 'PAINT_WEIGHT'} and brush.sculpt_tool != 'POSE':
+            show_fallof_shape = True
+        if not show_fallof_shape and mode == 'SCULPT_CURVES' and context.space_data.type == 'PROPERTIES':
+            show_fallof_shape = True
+
+        if show_fallof_shape:
             col.separator()
             row = col.row(align=True)
             row.use_property_split = True
@@ -769,6 +781,27 @@ def brush_settings(layout, context, brush, popover=False):
             elif brush.color_type == 'GRADIENT':
                 layout.row().prop(brush, "gradient_fill_mode", expand=True)
 
+    elif mode == 'SCULPT_CURVES':
+        if brush.curves_sculpt_tool == 'ADD':
+            layout.prop(brush.curves_sculpt_settings, "add_amount")
+            layout.prop(brush.curves_sculpt_settings, "curve_length")
+            col = layout.column(heading="Interpolate", align=True)
+            col.prop(brush.curves_sculpt_settings, "interpolate_length", text="Length")
+            col.prop(brush.curves_sculpt_settings, "interpolate_shape", text="Shape")
+            col.prop(brush.curves_sculpt_settings, "interpolate_point_count", text="Point Count")
+
+            col = layout.column()
+            col.active = not brush.curves_sculpt_settings.interpolate_length
+            col.prop(brush.curves_sculpt_settings, "curve_length")
+
+            col = layout.column()
+            col.active = not brush.curves_sculpt_settings.interpolate_point_count
+            col.prop(brush.curves_sculpt_settings, "points_per_curve")
+            use_frontface = True
+        elif brush.curves_sculpt_tool == 'GROW_SHRINK':
+            layout.prop(brush.curves_sculpt_settings, "scale_uniform")
+            layout.prop(brush.curves_sculpt_settings, "minimum_length")
+
 
 def brush_shared_settings(layout, context, brush, popover=False):
     """ Draw simple brush settings that are shared between different paint modes. """
@@ -822,6 +855,12 @@ def brush_shared_settings(layout, context, brush, popover=False):
     if mode == 'UV_SCULPT':
         size = True
         strength = True
+
+    # Sculpt Curves #
+    if mode == 'SCULPT_CURVES':
+        size = True
+        strength = True
+        direction = brush.curves_sculpt_tool == 'GROW_SHRINK'
 
     ### Draw settings. ###
     ups = context.scene.tool_settings.unified_paint_settings

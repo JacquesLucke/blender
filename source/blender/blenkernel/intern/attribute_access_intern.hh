@@ -127,7 +127,7 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
   static constexpr uint64_t supported_types_mask = CD_MASK_PROP_FLOAT | CD_MASK_PROP_FLOAT2 |
                                                    CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 |
                                                    CD_MASK_PROP_COLOR | CD_MASK_PROP_BOOL |
-                                                   CD_MASK_PROP_INT8;
+                                                   CD_MASK_PROP_INT8 | CD_MASK_PROP_BYTE_COLOR;
   const AttributeDomain domain_;
   const CustomDataAccessInfo custom_data_access_;
 
@@ -172,8 +172,8 @@ class CustomDataAttributeProvider final : public DynamicAttributesProvider {
  */
 class NamedLegacyCustomDataProvider final : public DynamicAttributesProvider {
  private:
-  using AsReadAttribute = GVArray (*)(const void *data, int domain_size);
-  using AsWriteAttribute = GVMutableArray (*)(void *data, int domain_size);
+  using AsReadAttribute = GVArray (*)(const void *data, int domain_num);
+  using AsWriteAttribute = GVMutableArray (*)(void *data, int domain_num);
   const AttributeDomain domain_;
   const CustomDataType attribute_type_;
   const CustomDataType stored_type_;
@@ -207,14 +207,14 @@ class NamedLegacyCustomDataProvider final : public DynamicAttributesProvider {
   void foreach_domain(const FunctionRef<void(AttributeDomain)> callback) const final;
 };
 
-template<typename T> GVArray make_array_read_attribute(const void *data, const int domain_size)
+template<typename T> GVArray make_array_read_attribute(const void *data, const int domain_num)
 {
-  return VArray<T>::ForSpan(Span<T>((const T *)data, domain_size));
+  return VArray<T>::ForSpan(Span<T>((const T *)data, domain_num));
 }
 
-template<typename T> GVMutableArray make_array_write_attribute(void *data, const int domain_size)
+template<typename T> GVMutableArray make_array_write_attribute(void *data, const int domain_num)
 {
-  return VMutableArray<T>::ForSpan(MutableSpan<T>((T *)data, domain_size));
+  return VMutableArray<T>::ForSpan(MutableSpan<T>((T *)data, domain_num));
 }
 
 /**
@@ -226,8 +226,8 @@ template<typename T> GVMutableArray make_array_write_attribute(void *data, const
  * if the stored type is the same as the attribute type.
  */
 class BuiltinCustomDataLayerProvider final : public BuiltinAttributeProvider {
-  using AsReadAttribute = GVArray (*)(const void *data, int domain_size);
-  using AsWriteAttribute = GVMutableArray (*)(void *data, int domain_size);
+  using AsReadAttribute = GVArray (*)(const void *data, int domain_num);
+  using AsWriteAttribute = GVMutableArray (*)(void *data, int domain_num);
   using UpdateOnRead = void (*)(const GeometryComponent &component);
   using UpdateOnWrite = void (*)(GeometryComponent &component);
   const CustomDataType stored_type_;

@@ -16,9 +16,7 @@
 
 #include "GHOST_ContextWGL.h"
 
-#ifdef WIN32_COMPOSITING
-#  include <Dwmapi.h>
-#endif
+#include <Dwmapi.h>
 
 #include <assert.h>
 #include <math.h>
@@ -70,6 +68,7 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
       m_normal_state(GHOST_kWindowStateNormal),
       m_user32(::LoadLibrary("user32.dll")),
       m_parentWindowHwnd(parentwindow ? parentwindow->m_hWnd : HWND_DESKTOP),
+      m_directManipulationHelper(NULL),
       m_debug_context(is_debug)
 {
   DWORD style = parentwindow ?
@@ -151,6 +150,12 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
     ::SetWindowPos(m_hWnd, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
   }
 
+  if (parentwindow) {
+    /* Release any parent capture to allow immediate interaction (T90110). */
+    ::ReleaseCapture();
+    parentwindow->lostMouseCapture();
+  }
+
   /* Show the window. */
   int nCmdShow;
   switch (state) {
@@ -165,6 +170,8 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
       nCmdShow = (m_system->m_windowFocus) ? SW_SHOWNORMAL : SW_SHOWNOACTIVATE;
       break;
   }
+
+  ThemeRefresh();
 
   ::ShowWindow(m_hWnd, nCmdShow);
 
@@ -198,6 +205,42 @@ GHOST_WindowWin32::GHOST_WindowWin32(GHOST_SystemWin32 *system,
   /* Allow the showing of a progress bar on the taskbar. */
   CoCreateInstance(
       CLSID_TaskbarList, NULL, CLSCTX_INPROC_SERVER, IID_ITaskbarList3, (LPVOID *)&m_Bar);
+
+  /* Initialize Direct Manipulation. */
+  m_directManipulationHelper = GHOST_DirectManipulationHelper::create(m_hWnd, getDPIHint());
+}
+
+void GHOST_WindowWin32::updateDirectManipulation()
+{
+  if (!m_directManipulationHelper) {
+    return;
+  }
+
+  m_directManipulationHelper->update();
+}
+
+void GHOST_WindowWin32::onPointerHitTest(WPARAM wParam)
+{
+  /* Only DM_POINTERHITTEST can be the first message of input sequence of touchpad input. */
+
+  if (!m_directManipulationHelper) {
+    return;
+  }
+
+  UINT32 pointerId = GET_POINTERID_WPARAM(wParam);
+  POINTER_INPUT_TYPE pointerType;
+  if (GetPointerType(pointerId, &pointerType) && pointerType == PT_TOUCHPAD) {
+    m_directManipulationHelper->onPointerHitTest(pointerId);
+  }
+}
+
+GHOST_TTrackpadInfo GHOST_WindowWin32::getTrackpadInfo()
+{
+  if (!m_directManipulationHelper) {
+    return {0, 0, 0};
+  }
+
+  return m_directManipulationHelper->getTrackpadInfo();
 }
 
 GHOST_WindowWin32::~GHOST_WindowWin32()
@@ -247,6 +290,9 @@ GHOST_WindowWin32::~GHOST_WindowWin32()
     ::DestroyWindow(m_hWnd);
     m_hWnd = 0;
   }
+
+  delete m_directManipulationHelper;
+  m_directManipulationHelper = NULL;
 }
 
 void GHOST_WindowWin32::adjustWindowRectForClosestMonitor(LPRECT win_rect,
@@ -276,7 +322,7 @@ void GHOST_WindowWin32::adjustWindowRectForClosestMonitor(LPRECT win_rect,
   }
 
   /* Adjust to allow for caption, borders, shadows, scaling, etc. Resulting values can be
-   * correctly outside of monitor bounds. Note: You cannot specify WS_OVERLAPPED when calling. */
+   * correctly outside of monitor bounds. NOTE: You cannot specify #WS_OVERLAPPED when calling. */
   if (fpAdjustWindowRectExForDpi) {
     UINT dpiX, dpiY;
     GetDpiForMonitor(hmonitor, MDT_EFFECTIVE_DPI, &dpiX, &dpiY);
@@ -954,6 +1000,7 @@ GHOST_Wintab *GHOST_WindowWin32::getWintab() const
 void GHOST_WindowWin32::loadWintab(bool enable)
 {
   if (!m_wintab) {
+    WINTAB_PRINTF("Loading Wintab for window %p\n", m_hWnd);
     if (m_wintab = GHOST_Wintab::loadWintab(m_hWnd)) {
       if (enable) {
         m_wintab->enable();
@@ -976,6 +1023,7 @@ void GHOST_WindowWin32::loadWintab(bool enable)
 
 void GHOST_WindowWin32::closeWintab()
 {
+  WINTAB_PRINTF("Closing Wintab for window %p\n", m_hWnd);
   delete m_wintab;
   m_wintab = NULL;
 }
@@ -1005,6 +1053,32 @@ GHOST_TabletData GHOST_WindowWin32::getTabletData()
   }
   else {
     return m_lastPointerTabletData;
+  }
+}
+
+void GHOST_WindowWin32::ThemeRefresh()
+{
+  DWORD lightMode;
+  DWORD pcbData = sizeof(lightMode);
+  if (RegGetValueW(HKEY_CURRENT_USER,
+                   L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize\\",
+                   L"AppsUseLightTheme",
+                   RRF_RT_REG_DWORD,
+                   NULL,
+                   &lightMode,
+                   &pcbData) == ERROR_SUCCESS) {
+    BOOL DarkMode = !lightMode;
+
+    /* 20 == DWMWA_USE_IMMERSIVE_DARK_MODE in Windows 11 SDK.  This value was undocumented for
+     * Windows 10 versions 2004 and later, supported for Windows 11 Build 22000 and later. */
+    DwmSetWindowAttribute(this->m_hWnd, 20, &DarkMode, sizeof(DarkMode));
+  }
+}
+
+void GHOST_WindowWin32::updateDPI()
+{
+  if (m_directManipulationHelper) {
+    m_directManipulationHelper->setDPI(getDPIHint());
   }
 }
 

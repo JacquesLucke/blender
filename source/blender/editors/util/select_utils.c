@@ -10,6 +10,12 @@
 #include "BLI_math.h"
 #include "BLI_utildefines.h"
 
+#include "DNA_windowmanager_types.h"
+
+#include "RNA_access.h"
+
+#include "WM_types.h"
+
 #include "ED_select_utils.h"
 
 int ED_select_op_action(const eSelectOp sel_op, const bool is_select, const bool is_inside)
@@ -113,8 +119,12 @@ bool ED_select_similar_compare_float_tree(const KDTree_1d *tree,
   return false;
 }
 
-eSelectOp ED_select_op_from_booleans(const bool extend, const bool deselect, const bool toggle)
+eSelectOp ED_select_op_from_operator(PointerRNA *ptr)
 {
+  const bool extend = RNA_boolean_get(ptr, "extend");
+  const bool deselect = RNA_boolean_get(ptr, "deselect");
+  const bool toggle = RNA_boolean_get(ptr, "toggle");
+
   if (extend) {
     return SEL_OP_ADD;
   }
@@ -126,3 +136,57 @@ eSelectOp ED_select_op_from_booleans(const bool extend, const bool deselect, con
   }
   return SEL_OP_SET;
 }
+
+void ED_select_pick_params_from_operator(PointerRNA *ptr, struct SelectPick_Params *params)
+{
+  memset(params, 0x0, sizeof(*params));
+  params->sel_op = ED_select_op_from_operator(ptr);
+  params->deselect_all = RNA_boolean_get(ptr, "deselect_all");
+  params->select_passthrough = RNA_boolean_get(ptr, "select_passthrough");
+}
+
+/* -------------------------------------------------------------------- */
+/** \name Operator Naming Callbacks
+ * \{ */
+
+const char *ED_select_pick_get_name(wmOperatorType *UNUSED(ot), PointerRNA *ptr)
+{
+  struct SelectPick_Params params = {0};
+  ED_select_pick_params_from_operator(ptr, &params);
+  switch (params.sel_op) {
+    case SEL_OP_ADD:
+      return "Select (Extend)";
+    case SEL_OP_SUB:
+      return "Select (Deselect)";
+    case SEL_OP_XOR:
+      return "Select (Toggle)";
+    case SEL_OP_AND:
+      BLI_assert_unreachable();
+      ATTR_FALLTHROUGH;
+    case SEL_OP_SET:
+      break;
+  }
+  return "Select";
+}
+
+const char *ED_select_circle_get_name(wmOperatorType *UNUSED(ot), PointerRNA *ptr)
+{
+  /* Matches options in #WM_operator_properties_select_operation_simple */
+  const eSelectOp sel_op = RNA_enum_get(ptr, "mode");
+  switch (sel_op) {
+    case SEL_OP_ADD:
+      return "Circle Select (Extend)";
+    case SEL_OP_SUB:
+      return "Circle Select (Deselect)";
+    case SEL_OP_XOR:
+      ATTR_FALLTHROUGH;
+    case SEL_OP_AND:
+      BLI_assert_unreachable();
+      ATTR_FALLTHROUGH;
+    case SEL_OP_SET:
+      break;
+  }
+  return "Circle Select";
+}
+
+/** \} */

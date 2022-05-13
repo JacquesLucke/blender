@@ -49,6 +49,8 @@ static const EnumPropertyItem effector_shape_items[] = {
 
 #  include "BLI_math_base.h"
 
+#  include "RNA_access.h"
+
 /* type specific return values only used from functions */
 static const EnumPropertyItem curve_shape_items[] = {
     {PFIELD_SHAPE_POINT, "POINT", 0, "Point", "Field originates from the object center"},
@@ -239,6 +241,33 @@ static void rna_Cache_toggle_disk_cache(Main *UNUSED(bmain), Scene *UNUSED(scene
   }
 }
 
+bool rna_Cache_use_disk_cache_override_apply(Main *UNUSED(bmain),
+                                             PointerRNA *ptr_dst,
+                                             PointerRNA *ptr_src,
+                                             PointerRNA *UNUSED(ptr_storage),
+                                             PropertyRNA *prop_dst,
+                                             PropertyRNA *prop_src,
+                                             PropertyRNA *UNUSED(prop_storage),
+                                             const int UNUSED(len_dst),
+                                             const int UNUSED(len_src),
+                                             const int UNUSED(len_storage),
+                                             PointerRNA *UNUSED(ptr_item_dst),
+                                             PointerRNA *UNUSED(ptr_item_src),
+                                             PointerRNA *UNUSED(ptr_item_storage),
+                                             IDOverrideLibraryPropertyOperation *opop)
+{
+  BLI_assert(RNA_property_type(prop_dst) == PROP_BOOLEAN);
+  BLI_assert(opop->operation == IDOVERRIDE_LIBRARY_OP_REPLACE);
+  UNUSED_VARS_NDEBUG(opop);
+
+  RNA_property_boolean_set(ptr_dst, prop_dst, RNA_property_boolean_get(ptr_src, prop_src));
+
+  /* DO NOT call `RNA_property_update_main(bmain, NULL, ptr_dst, prop_dst);`, that would trigger
+   * the whole 'update from mem point cache' process, ending up in the complete deletion of an
+   * existing disk-cache if any. */
+  return true;
+}
+
 static void rna_Cache_idname_change(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
   Object *ob = NULL;
@@ -407,7 +436,7 @@ int rna_Cache_info_length(PointerRNA *ptr)
 
   PTCacheID pid = BKE_ptcache_id_find(ob, scene, cache);
 
-  if (cache->flag & PTCACHE_FLAG_INFO_DIRTY) {
+  if (pid.cache != NULL && pid.cache->flag & PTCACHE_FLAG_INFO_DIRTY) {
     BKE_ptcache_update_info(&pid);
   }
 
@@ -983,6 +1012,7 @@ static void rna_def_pointcache_common(StructRNA *srna)
   RNA_def_property_ui_text(
       prop, "Disk Cache", "Save cache files to disk (.blend file must be saved first)");
   RNA_def_property_update(prop, NC_OBJECT, "rna_Cache_toggle_disk_cache");
+  RNA_def_property_override_funcs(prop, NULL, NULL, "rna_Cache_use_disk_cache_override_apply");
 
   prop = RNA_def_property(srna, "is_outdated", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", PTCACHE_OUTDATED);
@@ -1016,6 +1046,7 @@ static void rna_def_pointcache_common(StructRNA *srna)
   prop = RNA_def_property(srna, "info", PROP_STRING, PROP_NONE);
   RNA_def_property_string_sdna(prop, NULL, "info");
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
   /* Note that we do not actually need a getter here, `rna_Cache_info_length` will update the info
    * string just as well. */
   RNA_def_property_string_funcs(prop, NULL, "rna_Cache_info_length", NULL);
@@ -1364,97 +1395,97 @@ static void rna_def_field(BlenderRNA *brna)
   PropertyRNA *prop;
 
   static const EnumPropertyItem field_type_items[] = {
-      {0, "NONE", 0, "None", ""},
-      {PFIELD_FORCE,
-       "FORCE",
-       ICON_FORCE_FORCE,
-       "Force",
-       "Radial field toward the center of object"},
-      {PFIELD_WIND,
-       "WIND",
-       ICON_FORCE_WIND,
-       "Wind",
-       "Constant force along the force object's local Z axis"},
-      {PFIELD_VORTEX,
-       "VORTEX",
-       ICON_FORCE_VORTEX,
-       "Vortex",
-       "Spiraling force that twists the force object's local Z axis"},
-      {PFIELD_MAGNET,
-       "MAGNET",
-       ICON_FORCE_MAGNETIC,
-       "Magnetic",
-       "Forcefield depends on the speed of the particles"},
-      {PFIELD_HARMONIC,
-       "HARMONIC",
-       ICON_FORCE_HARMONIC,
-       "Harmonic",
-       "The source of this force field is the zero point of a harmonic oscillator"},
+      {0, "NONE", ICON_BLANK1, "None", ""},
+      {PFIELD_BOID,
+       "BOID",
+       ICON_FORCE_BOID,
+       "Boid",
+       "Create a force that acts as a boid's predators or target"},
       {PFIELD_CHARGE,
        "CHARGE",
        ICON_FORCE_CHARGE,
        "Charge",
        "Spherical forcefield based on the charge of particles, "
        "only influences other charge force fields"},
-      {PFIELD_LENNARDJ,
-       "LENNARDJ",
-       ICON_FORCE_LENNARDJONES,
-       "Lennard-Jones",
-       "Forcefield based on the Lennard-Jones potential"},
-      {PFIELD_TEXTURE, "TEXTURE", ICON_FORCE_TEXTURE, "Texture", "Force field based on a texture"},
       {PFIELD_GUIDE,
        "GUIDE",
        ICON_FORCE_CURVE,
        "Curve Guide",
        "Create a force along a curve object"},
-      {PFIELD_BOID,
-       "BOID",
-       ICON_FORCE_BOID,
-       "Boid",
-       "Create a force that acts as a boid's predators or target"},
-      {PFIELD_TURBULENCE,
-       "TURBULENCE",
-       ICON_FORCE_TURBULENCE,
-       "Turbulence",
-       "Create turbulence with a noise field"},
       {PFIELD_DRAG, "DRAG", ICON_FORCE_DRAG, "Drag", "Create a force that dampens motion"},
       {PFIELD_FLUIDFLOW,
        "FLUID_FLOW",
        ICON_FORCE_FLUIDFLOW,
        "Fluid Flow",
        "Create a force based on fluid simulation velocities"},
+      {PFIELD_FORCE,
+       "FORCE",
+       ICON_FORCE_FORCE,
+       "Force",
+       "Radial field toward the center of object"},
+      {PFIELD_HARMONIC,
+       "HARMONIC",
+       ICON_FORCE_HARMONIC,
+       "Harmonic",
+       "The source of this force field is the zero point of a harmonic oscillator"},
+      {PFIELD_LENNARDJ,
+       "LENNARDJ",
+       ICON_FORCE_LENNARDJONES,
+       "Lennard-Jones",
+       "Forcefield based on the Lennard-Jones potential"},
+      {PFIELD_MAGNET,
+       "MAGNET",
+       ICON_FORCE_MAGNETIC,
+       "Magnetic",
+       "Forcefield depends on the speed of the particles"},
+      {PFIELD_TEXTURE, "TEXTURE", ICON_FORCE_TEXTURE, "Texture", "Force field based on a texture"},
+      {PFIELD_TURBULENCE,
+       "TURBULENCE",
+       ICON_FORCE_TURBULENCE,
+       "Turbulence",
+       "Create turbulence with a noise field"},
+      {PFIELD_VORTEX,
+       "VORTEX",
+       ICON_FORCE_VORTEX,
+       "Vortex",
+       "Spiraling force that twists the force object's local Z axis"},
+      {PFIELD_WIND,
+       "WIND",
+       ICON_FORCE_WIND,
+       "Wind",
+       "Constant force along the force object's local Z axis"},
       {0, NULL, 0, NULL, NULL},
   };
 
   static const EnumPropertyItem falloff_items[] = {
+      {PFIELD_FALL_CONE, "CONE", 0, "Cone", ""},
       {PFIELD_FALL_SPHERE, "SPHERE", 0, "Sphere", ""},
       {PFIELD_FALL_TUBE, "TUBE", 0, "Tube", ""},
-      {PFIELD_FALL_CONE, "CONE", 0, "Cone", ""},
       {0, NULL, 0, NULL, NULL},
   };
 
   static const EnumPropertyItem texture_items[] = {
-      {PFIELD_TEX_RGB, "RGB", 0, "RGB", ""},
-      {PFIELD_TEX_GRAD, "GRADIENT", 0, "Gradient", ""},
       {PFIELD_TEX_CURL, "CURL", 0, "Curl", ""},
+      {PFIELD_TEX_GRAD, "GRADIENT", 0, "Gradient", ""},
+      {PFIELD_TEX_RGB, "RGB", 0, "RGB", ""},
       {0, NULL, 0, NULL, NULL},
   };
 
   static const EnumPropertyItem zdirection_items[] = {
-      {PFIELD_Z_BOTH, "BOTH", 0, "Both Z", ""},
       {PFIELD_Z_POS, "POSITIVE", 0, "+Z", ""},
       {PFIELD_Z_NEG, "NEGATIVE", 0, "-Z", ""},
+      {PFIELD_Z_BOTH, "BOTH", 0, "Both Z", ""},
       {0, NULL, 0, NULL, NULL},
   };
 
   static const EnumPropertyItem guide_kink_items[] = {
-      {0, "NONE", 0, "Nothing", ""},
+      {0, "NONE", 0, "None", ""},
+      {4, "BRAID", 0, "Braid", ""},
       {1, "CURL", 0, "Curl", ""},
       {2, "RADIAL", 0, "Radial", ""},
-      {3, "WAVE", 0, "Wave", ""},
-      {4, "BRAID", 0, "Braid", ""},
-      {5, "ROTATION", 0, "Rotation", ""},
       {6, "ROLL", 0, "Roll", ""},
+      {5, "ROTATION", 0, "Rotation", ""},
+      {3, "WAVE", 0, "Wave", ""},
       {0, NULL, 0, NULL, NULL},
   };
 

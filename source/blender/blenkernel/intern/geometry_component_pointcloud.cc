@@ -104,7 +104,7 @@ void PointCloudComponent::ensure_owns_direct_data()
 /** \name Attribute Access
  * \{ */
 
-int PointCloudComponent::attribute_domain_size(const AttributeDomain domain) const
+int PointCloudComponent::attribute_domain_num(const AttributeDomain domain) const
 {
   if (pointcloud_ == nullptr) {
     return 0;
@@ -125,8 +125,7 @@ static ComponentAttributeProviders create_attribute_providers_for_point_cloud()
 {
   static auto update_custom_data_pointers = [](GeometryComponent &component) {
     PointCloudComponent &pointcloud_component = static_cast<PointCloudComponent &>(component);
-    PointCloud *pointcloud = pointcloud_component.get_for_write();
-    if (pointcloud != nullptr) {
+    if (PointCloud *pointcloud = pointcloud_component.get_for_write()) {
       BKE_pointcloud_update_customdata_pointers(pointcloud);
     }
   };

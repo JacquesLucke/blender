@@ -113,8 +113,7 @@ static const bNode *get_node_of_type(Span<const nodes::OutputSocketRef *> socket
 
 /**
  * From a texture image shader node, get the image's filepath.
- * Returned filepath is stripped of initial "//". If packed image is found,
- * only the file "name" is returned.
+ * If packed image is found, only the file "name" is returned.
  */
 static const char *get_image_filepath(const bNode *tex_node)
 {
@@ -133,9 +132,6 @@ static const char *get_image_filepath(const bNode *tex_node)
             "Packed image found:'%s'. Unpack and place the image in the same "
             "directory as the .MTL file.\n",
             path);
-  }
-  if (path[0] == '/' && path[1] == '/') {
-    path += 2;
   }
   return path;
 }
@@ -287,14 +283,15 @@ static void store_image_textures(const nodes::NodeRef *bsdf_node,
       /* Find sockets linked to "Color" socket in normal map node. */
       linked_sockets_to_dest_id(normal_map_node, *node_tree, "Color", linked_sockets);
     }
-    else if (texture_map.key == eMTLSyntaxElement::map_Ke) {
-      float emission_strength = 0.0f;
-      copy_property_from_node(SOCK_FLOAT, bnode, "Emission Strength", {&emission_strength, 1});
-      if (emission_strength == 0.0f) {
-        continue;
-      }
-    }
     else {
+      /* Skip emission map if emission strength is zero. */
+      if (texture_map.key == eMTLSyntaxElement::map_Ke) {
+        float emission_strength = 0.0f;
+        copy_property_from_node(SOCK_FLOAT, bnode, "Emission Strength", {&emission_strength, 1});
+        if (emission_strength == 0.0f) {
+          continue;
+        }
+      }
       /* Find sockets linked to the destination socket of interest, in P-BSDF node. */
       linked_sockets_to_dest_id(
           bnode, *node_tree, texture_map.value.dest_socket_id, linked_sockets);

@@ -27,6 +27,7 @@
 #include "BKE_anim_data.h"
 #include "BKE_curves.hh"
 #include "BKE_customdata.h"
+#include "BKE_geometry_set.hh"
 #include "BKE_global.h"
 #include "BKE_idtype.h"
 #include "BKE_lib_id.h"
@@ -77,16 +78,18 @@ static void curves_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, 
    * shallow copy from the source to the destination, and because the copy-on-write functionality
    * isn't supported more generically yet. */
 
-  dst.point_size = src.point_size;
-  dst.curve_size = src.curve_size;
+  dst.point_num = src.point_num;
+  dst.curve_num = src.curve_num;
 
   const eCDAllocType alloc_type = (flag & LIB_ID_COPY_CD_REFERENCE) ? CD_REFERENCE : CD_DUPLICATE;
-  CustomData_copy(&src.point_data, &dst.point_data, CD_MASK_ALL, alloc_type, dst.point_size);
-  CustomData_copy(&src.curve_data, &dst.curve_data, CD_MASK_ALL, alloc_type, dst.curve_size);
+  CustomData_copy(&src.point_data, &dst.point_data, CD_MASK_ALL, alloc_type, dst.point_num);
+  CustomData_copy(&src.curve_data, &dst.curve_data, CD_MASK_ALL, alloc_type, dst.curve_num);
 
   dst.curve_offsets = static_cast<int *>(MEM_dupallocN(src.curve_offsets));
 
   dst.runtime = MEM_new<bke::CurvesGeometryRuntime>(__func__);
+
+  dst.runtime->type_counts = src.runtime->type_counts;
 
   dst.update_customdata_pointers();
 
@@ -133,17 +136,17 @@ static void curves_blend_write(BlendWriter *writer, ID *id, const void *id_addre
   CustomData_blend_write(writer,
                          &curves->geometry.point_data,
                          players,
-                         curves->geometry.point_size,
+                         curves->geometry.point_num,
                          CD_MASK_ALL,
                          &curves->id);
   CustomData_blend_write(writer,
                          &curves->geometry.curve_data,
                          clayers,
-                         curves->geometry.curve_size,
+                         curves->geometry.curve_num,
                          CD_MASK_ALL,
                          &curves->id);
 
-  BLO_write_int32_array(writer, curves->geometry.curve_size + 1, curves->geometry.curve_offsets);
+  BLO_write_int32_array(writer, curves->geometry.curve_num + 1, curves->geometry.curve_offsets);
 
   BLO_write_pointer_array(writer, curves->totcol, curves->mat);
   if (curves->adt) {
@@ -166,13 +169,16 @@ static void curves_blend_read_data(BlendDataReader *reader, ID *id)
   BKE_animdata_blend_read_data(reader, curves->adt);
 
   /* Geometry */
-  CustomData_blend_read(reader, &curves->geometry.point_data, curves->geometry.point_size);
-  CustomData_blend_read(reader, &curves->geometry.curve_data, curves->geometry.curve_size);
+  CustomData_blend_read(reader, &curves->geometry.point_data, curves->geometry.point_num);
+  CustomData_blend_read(reader, &curves->geometry.curve_data, curves->geometry.curve_num);
   update_custom_data_pointers(*curves);
 
-  BLO_read_int32_array(reader, curves->geometry.curve_size + 1, &curves->geometry.curve_offsets);
+  BLO_read_int32_array(reader, curves->geometry.curve_num + 1, &curves->geometry.curve_offsets);
 
   curves->geometry.runtime = MEM_new<blender::bke::CurvesGeometryRuntime>(__func__);
+
+  /* Recalculate curve type count cache that isn't saved in files. */
+  blender::bke::CurvesGeometry::wrap(curves->geometry).update_curve_types();
 
   /* Materials */
   BLO_read_pointer_array(reader, (void **)&curves->mat);
@@ -282,13 +288,11 @@ Curves *BKE_curves_copy_for_eval(Curves *curves_src, bool reference)
   return result;
 }
 
-static Curves *curves_evaluate_modifiers(struct Depsgraph *depsgraph,
-                                         struct Scene *scene,
-                                         Object *object,
-                                         Curves *curves_input)
+static void curves_evaluate_modifiers(struct Depsgraph *depsgraph,
+                                      struct Scene *scene,
+                                      Object *object,
+                                      GeometrySet &geometry_set)
 {
-  Curves *curves = curves_input;
-
   /* Modifier evaluation modes. */
   const bool use_render = (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER);
   const int required_mode = use_render ? eModifierMode_Render : eModifierMode_Realtime;
@@ -308,27 +312,10 @@ static Curves *curves_evaluate_modifiers(struct Depsgraph *depsgraph,
       continue;
     }
 
-    if ((mti->type == eModifierTypeType_OnlyDeform) &&
-        (mti->flags & eModifierTypeFlag_AcceptsVertexCosOnly)) {
-      /* Ensure we are not modifying the input. */
-      if (curves == curves_input) {
-        curves = BKE_curves_copy_for_eval(curves, true);
-      }
-
-      /* Created deformed coordinates array on demand. */
-      blender::bke::CurvesGeometry &geometry = blender::bke::CurvesGeometry::wrap(
-          curves->geometry);
-      MutableSpan<float3> positions = geometry.positions();
-
-      mti->deformVerts(md,
-                       &mectx,
-                       nullptr,
-                       reinterpret_cast<float(*)[3]>(positions.data()),
-                       curves->geometry.point_size);
+    if (mti->modifyGeometrySet != nullptr) {
+      mti->modifyGeometrySet(md, &mectx, &geometry_set);
     }
   }
-
-  return curves;
 }
 
 void BKE_curves_data_update(struct Depsgraph *depsgraph, struct Scene *scene, Object *object)
@@ -338,11 +325,20 @@ void BKE_curves_data_update(struct Depsgraph *depsgraph, struct Scene *scene, Ob
 
   /* Evaluate modifiers. */
   Curves *curves = static_cast<Curves *>(object->data);
-  Curves *curves_eval = curves_evaluate_modifiers(depsgraph, scene, object, curves);
+  GeometrySet geometry_set = GeometrySet::create_with_curves(curves,
+                                                             GeometryOwnershipType::ReadOnly);
+  curves_evaluate_modifiers(depsgraph, scene, object, geometry_set);
 
   /* Assign evaluated object. */
-  const bool is_owned = (curves != curves_eval);
-  BKE_object_eval_assign_data(object, &curves_eval->id, is_owned);
+  Curves *curves_eval = const_cast<Curves *>(geometry_set.get_curves_for_read());
+  if (curves_eval == nullptr) {
+    curves_eval = blender::bke::curves_new_nomain(0, 0);
+    BKE_object_eval_assign_data(object, &curves_eval->id, true);
+  }
+  else {
+    BKE_object_eval_assign_data(object, &curves_eval->id, false);
+  }
+  object->runtime.geometry_set_eval = new GeometrySet(std::move(geometry_set));
 }
 
 /* Draw Cache */
@@ -366,21 +362,28 @@ void BKE_curves_batch_cache_free(Curves *curves)
 
 namespace blender::bke {
 
-Curves *curves_new_nomain(const int point_size, const int curves_size)
+Curves *curves_new_nomain(const int points_num, const int curves_num)
 {
   Curves *curves = static_cast<Curves *>(BKE_id_new_nomain(ID_CV, nullptr));
   CurvesGeometry &geometry = CurvesGeometry::wrap(curves->geometry);
-  geometry.resize(point_size, curves_size);
+  geometry.resize(points_num, curves_num);
   return curves;
 }
 
-Curves *curves_new_nomain_single(const int point_size, const CurveType type)
+Curves *curves_new_nomain_single(const int points_num, const CurveType type)
 {
-  Curves *curves = curves_new_nomain(point_size, 1);
+  Curves *curves = curves_new_nomain(points_num, 1);
   CurvesGeometry &geometry = CurvesGeometry::wrap(curves->geometry);
-  geometry.offsets().last() = point_size;
-  geometry.curve_types().first() = type;
+  geometry.offsets_for_write().last() = points_num;
+  geometry.fill_curve_types(type);
   return curves;
+}
+
+Curves *curves_new_nomain(CurvesGeometry curves)
+{
+  Curves *curves_id = static_cast<Curves *>(BKE_id_new_nomain(ID_CV, nullptr));
+  bke::CurvesGeometry::wrap(curves_id->geometry) = std::move(curves);
+  return curves_id;
 }
 
 }  // namespace blender::bke

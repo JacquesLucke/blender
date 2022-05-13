@@ -1127,7 +1127,7 @@ static void cloth_update_springs(ClothModifierData *clmd)
       spring->lin_stiffness = (v1->bend_stiff + v2->bend_stiff) / 2.0f;
     }
     else if (spring->type == CLOTH_SPRING_TYPE_GOAL) {
-      /* Warning: Appending NEW goal springs does not work
+      /* WARNING: Appending NEW goal springs does not work
        * because implicit solver would need reset! */
 
       /* Activate / Deactivate existing springs */
@@ -1171,6 +1171,7 @@ static Mesh *cloth_make_rest_mesh(ClothModifierData *clmd, Mesh *mesh)
   for (unsigned i = 0; i < mesh->totvert; i++, verts++) {
     copy_v3_v3(mvert[i].co, verts->xrest);
   }
+  BKE_mesh_normals_tag_dirty(new_mesh);
 
   return new_mesh;
 }
@@ -1507,7 +1508,6 @@ static bool cloth_build_springs(ClothModifierData *clmd, Mesh *mesh)
     if (clmd->sim_parms->shapekey_rest &&
         !(clmd->sim_parms->flags & CLOTH_SIMSETTINGS_FLAG_DYNAMIC_BASEMESH)) {
       tmp_mesh = cloth_make_rest_mesh(clmd, mesh);
-      BKE_mesh_calc_normals(tmp_mesh);
     }
 
     EdgeSet *existing_vert_pairs = BLI_edgeset_new("cloth_sewing_edges_graph");

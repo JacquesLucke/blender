@@ -13,10 +13,11 @@ extern "C" {
 #endif
 
 struct Image;
+struct ImageUser;
 struct Main;
+struct RenderResult;
 struct ReportList;
 struct Scene;
-struct RenderResult;
 
 /* Image datablock saving. */
 
@@ -36,9 +37,13 @@ typedef struct ImageSaveOptions {
   bool do_newpath;
 } ImageSaveOptions;
 
-void BKE_image_save_options_init(struct ImageSaveOptions *opts,
+bool BKE_image_save_options_init(ImageSaveOptions *opts,
                                  struct Main *bmain,
-                                 struct Scene *scene);
+                                 struct Scene *scene,
+                                 struct Image *ima,
+                                 struct ImageUser *iuser,
+                                 const bool guess_path,
+                                 const bool save_as_render);
 void BKE_image_save_options_free(struct ImageSaveOptions *opts);
 
 bool BKE_image_save(struct ReportList *reports,
@@ -47,22 +52,28 @@ bool BKE_image_save(struct ReportList *reports,
                     struct ImageUser *iuser,
                     struct ImageSaveOptions *opts);
 
-/* Lower level image writing. */
+/* Render saving. */
 
-/* Save single or multilayer OpenEXR files from the render result.
- * Optionally saves only a specific view or layer. */
+/**
+ * Save single or multi-layer OpenEXR files from the render result.
+ * Optionally saves only a specific view or layer.
+ */
 bool BKE_image_render_write_exr(struct ReportList *reports,
                                 const struct RenderResult *rr,
-                                const char *filename,
+                                const char *filepath,
                                 const struct ImageFormatData *imf,
+                                const bool save_as_render,
                                 const char *view,
                                 int layer);
 
+/**
+ * \param filepath_basis: May be used as-is, or used as a basis for multi-view images.
+ */
 bool BKE_image_render_write(struct ReportList *reports,
                             struct RenderResult *rr,
                             const struct Scene *scene,
                             const bool stamp,
-                            const char *name);
+                            const char *filepath_basis);
 
 #ifdef __cplusplus
 }

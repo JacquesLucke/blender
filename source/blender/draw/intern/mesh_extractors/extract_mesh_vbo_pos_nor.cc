@@ -179,17 +179,6 @@ static void extract_pos_nor_finish(const MeshRenderData *UNUSED(mr),
   MEM_freeN(data->normals);
 }
 
-static GPUVertFormat *get_pos_nor_format()
-{
-  static GPUVertFormat format = {0};
-  if (format.attr_len == 0) {
-    GPU_vertformat_attr_add(&format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
-    GPU_vertformat_attr_add(&format, "nor", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
-    GPU_vertformat_alias_add(&format, "vnor");
-  }
-  return &format;
-}
-
 static GPUVertFormat *get_normals_format()
 {
   static GPUVertFormat format = {0};
@@ -221,7 +210,7 @@ static void extract_pos_nor_init_subdiv(const DRWSubdivCache *subdiv_cache,
 
   /* Initialize the vertex buffer, it was already allocated. */
   GPU_vertbuf_init_build_on_device(
-      vbo, get_pos_nor_format(), subdiv_cache->num_subdiv_loops + loose_geom.loop_len);
+      vbo, draw_subdiv_get_pos_nor_format(), subdiv_cache->num_subdiv_loops + loose_geom.loop_len);
 
   if (subdiv_cache->num_subdiv_loops == 0) {
     return;
@@ -233,7 +222,7 @@ static void extract_pos_nor_init_subdiv(const DRWSubdivCache *subdiv_cache,
     Mesh *coarse_mesh = subdiv_cache->mesh;
     float(*lnors)[3] = static_cast<float(*)[3]>(
         CustomData_get_layer(&coarse_mesh->ldata, CD_NORMAL));
-    BLI_assert(lnors != NULL);
+    BLI_assert(lnors != nullptr);
 
     GPUVertBuf *src_custom_normals = GPU_vertbuf_calloc();
     GPU_vertbuf_init_with_format(src_custom_normals, get_custom_normals_format());

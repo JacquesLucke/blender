@@ -402,7 +402,7 @@ RenderResult *render_result_new(Render *re,
       render_layer_add_pass(rr, rl, 4, RE_PASSNAME_COMBINED, view, "RGBA", false);
     }
 
-    /* NOTE: this has to be in sync with `scene.c`. */
+    /* NOTE: this has to be in sync with `scene.cc`. */
     rl->layflag = SCE_LAY_FLAG_DEFAULT;
     rl->passflag = SCE_PASS_COMBINED;
 
@@ -413,6 +413,11 @@ RenderResult *render_result_new(Render *re,
   /* XXX(ton): obsolete? I now use it for drawing border render offset. */
   rr->xof = re->disprect.xmin + BLI_rcti_cent_x(&re->disprect) - (re->winx / 2);
   rr->yof = re->disprect.ymin + BLI_rcti_cent_y(&re->disprect) - (re->winy / 2);
+
+  /* Preview does not support deferred render result allocation. */
+  if (re->r.scemode & R_BUTS_PREVIEW) {
+    render_result_passes_allocated_ensure(rr);
+  }
 
   return rr;
 }
@@ -988,7 +993,7 @@ void render_result_exr_file_cache_write(Render *re)
   render_result_exr_file_cache_path(re->scene, root, str);
   printf("Caching exr file, %dx%d, %s\n", rr->rectx, rr->recty, str);
 
-  BKE_image_render_write_exr(NULL, rr, str, NULL, NULL, -1);
+  BKE_image_render_write_exr(NULL, rr, str, NULL, true, NULL, -1);
 }
 
 bool render_result_exr_file_cache_read(Render *re)

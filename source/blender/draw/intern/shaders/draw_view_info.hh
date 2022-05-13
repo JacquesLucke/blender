@@ -75,6 +75,16 @@ GPU_SHADER_CREATE_INFO(drw_clipped).define("USE_WORLD_CLIP_PLANES");
 /** \} */
 
 /* -------------------------------------------------------------------- */
+/** \name Draw Globals
+ * \{ */
+
+GPU_SHADER_CREATE_INFO(draw_globals)
+    .typedef_source("draw_common_shader_shared.h")
+    .uniform_buf(7, "GlobalsUboStorage", "globalsBlock", Frequency::PASS);
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
 /** \name Geometry Type
  * \{ */
 
@@ -82,8 +92,6 @@ GPU_SHADER_CREATE_INFO(draw_mesh).additional_info("draw_modelmat", "draw_resourc
 
 GPU_SHADER_CREATE_INFO(draw_hair)
     .sampler(15, ImageType::FLOAT_BUFFER, "hairPointBuffer")
-    .sampler(14, ImageType::UINT_BUFFER, "hairStrandBuffer")
-    .sampler(13, ImageType::UINT_BUFFER, "hairStrandSegBuffer")
     /* TODO(@fclem): Pack these into one UBO. */
     .push_constant(Type::INT, "hairStrandsRes")
     .push_constant(Type::INT, "hairThicknessRes")
@@ -92,7 +100,7 @@ GPU_SHADER_CREATE_INFO(draw_hair)
     .push_constant(Type::FLOAT, "hairRadShape")
     .push_constant(Type::BOOL, "hairCloseTip")
     .push_constant(Type::INT, "hairStrandOffset")
-    .push_constant(Type::VEC4, "hairDupliMatrix", 4)
+    .push_constant(Type::MAT4, "hairDupliMatrix")
     .additional_info("draw_modelmat", "draw_resource_id");
 
 GPU_SHADER_CREATE_INFO(draw_pointcloud)

@@ -132,7 +132,7 @@ typedef struct LineartEdge {
   char min_occ;
 
   /** Also for line type determination on chaining. */
-  unsigned char flags;
+  uint16_t flags;
   unsigned char intersection_mask;
 
   /**
@@ -171,7 +171,7 @@ typedef struct LineartEdgeChainItem {
   /** For restoring position to 3d space. */
   float gpos[3];
   float normal[3];
-  unsigned char line_type;
+  uint16_t line_type;
   char occlusion;
   unsigned char material_mask_bits;
   unsigned char intersection_mask;
@@ -188,6 +188,12 @@ typedef struct LineartChainRegisterEntry {
    * Because we revert list in chaining so we need the flag. */
   char is_left;
 } LineartChainRegisterEntry;
+
+typedef struct LineartAdjacentEdge {
+  unsigned int v1;
+  unsigned int v2;
+  unsigned int e;
+} LineartAdjacentEdge;
 
 enum eLineArtTileRecursiveLimit {
   /* If tile gets this small, it's already much smaller than a pixel. No need to continue
@@ -396,7 +402,7 @@ typedef struct LineartObjectInfo {
 
 typedef struct LineartObjectLoadTaskInfo {
   struct LineartRenderBuffer *rb;
-  struct Depsgraph *dg;
+  int thread_id;
   /* LinkNode styled list */
   LineartObjectInfo *pending;
   /* Used to spread the load across several threads. This can not overflow. */
@@ -481,7 +487,7 @@ typedef struct LineartBoundingArea {
  * r_aligned: True when 1) a and b is exactly on the same straight line and 2) a and b share a
  * common end-point.
  *
- * Important: if r_aligned is true, r_ratio will be either 0 or 1 depending on which point from
+ * IMPORTANT: if r_aligned is true, r_ratio will be either 0 or 1 depending on which point from
  * segment a is shared with segment b. If it's a1 then r_ratio is 0, else then r_ratio is 1. This
  * extra information is needed for line art occlusion stage to work correctly in such cases.
  */

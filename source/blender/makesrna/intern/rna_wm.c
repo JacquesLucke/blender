@@ -896,8 +896,10 @@ static void rna_wmKeyMapItem_map_type_set(PointerRNA *ptr, int value)
   }
 }
 
-/* assumes value to be an enum from rna_enum_event_type_items */
-/* function makes sure keymodifiers are only valid keys, ESC keeps it unaltered */
+/**
+ * Assumes value to be an enum from rna_enum_event_type_items.
+ * Function makes sure keymodifiers are only valid keys, ESC keeps it unaltered.
+ */
 static void rna_wmKeyMapItem_keymodifier_set(PointerRNA *ptr, int value)
 {
   wmKeyMapItem *kmi = ptr->data;
@@ -1412,6 +1414,7 @@ static char *rna_operator_description_cb(bContext *C, wmOperatorType *ot, Pointe
 static void rna_Operator_unregister(struct Main *bmain, StructRNA *type);
 
 /* bpy_operator_wrap.c */
+
 extern void BPY_RNA_operator_wrapper(wmOperatorType *ot, void *userdata);
 extern void BPY_RNA_operator_macro_wrapper(wmOperatorType *ot, void *userdata);
 

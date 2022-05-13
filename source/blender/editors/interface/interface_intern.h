@@ -183,6 +183,9 @@ struct uiBut {
 
   uchar col[4];
 
+  /** See \ref UI_but_func_identity_compare_set(). */
+  uiButIdentityCompareFunc identity_cmp_func;
+
   uiButHandleFunc func;
   void *func_arg1;
   void *func_arg2;
@@ -214,13 +217,12 @@ struct uiBut {
   BIFIconID icon;
   /** Copied from the #uiBlock.emboss */
   eUIEmbossType emboss;
-  /** direction in a pie menu, used for collision detection (RadialDirection) */
-  signed char pie_dir;
+  /** direction in a pie menu, used for collision detection. */
+  RadialDirection pie_dir;
   /** could be made into a single flag */
   bool changed;
   /** so buttons can support unit systems which are not RNA */
   uchar unit_type;
-  short modifier_key;
   short iconadd;
 
   /** #UI_BTYPE_BLOCK data */
@@ -371,6 +373,13 @@ typedef struct uiButCurveMapping {
   struct CurveMapping *edit_cumap;
   eButGradientType gradient_type;
 } uiButCurveMapping;
+
+/** Derived struct for #UI_BTYPE_HOTKEY_EVENT. */
+typedef struct uiButHotkeyEvent {
+  uiBut but;
+
+  short modifier_key;
+} uiButHotkeyEvent;
 
 /**
  * Additional, superimposed icon for a button, invoking an operator.
@@ -850,6 +859,7 @@ struct uiPopupBlockHandle {
 /* exposed as public API in UI_interface.h */
 
 /* interface_region_color_picker.c */
+
 void ui_color_picker_rgb_to_hsv_compat(const float rgb[3], float r_cp[3]);
 void ui_color_picker_rgb_to_hsv(const float rgb[3], float r_cp[3]);
 void ui_color_picker_hsv_to_rgb(const float r_cp[3], float rgb[3]);
@@ -954,7 +964,7 @@ void ui_pie_menu_level_create(uiBlock *block,
                               const EnumPropertyItem *items,
                               int totitem,
                               wmOperatorCallContext context,
-                              int flag);
+                              wmOperatorCallContext flag);
 
 /* interface_region_popup.c */
 
@@ -1027,7 +1037,7 @@ void ui_draw_but_CURVE(struct ARegion *region,
                        const struct uiWidgetColors *wcol,
                        const rcti *rect);
 /**
- *  Draws the curve profile widget. Somewhat similar to ui_draw_but_CURVE.
+ * Draws the curve profile widget. Somewhat similar to ui_draw_but_CURVE.
  */
 void ui_draw_but_CURVEPROFILE(struct ARegion *region,
                               uiBut *but,
@@ -1282,7 +1292,8 @@ uiBut *ui_but_add_search(uiBut *but,
                          PointerRNA *ptr,
                          PropertyRNA *prop,
                          PointerRNA *searchptr,
-                         PropertyRNA *searchprop);
+                         PropertyRNA *searchprop,
+                         bool results_are_suggestions);
 /**
  * Check all buttons defined in this layout,
  * and set any button flagged as UI_BUT_LIST_ITEM as active/selected.
@@ -1514,6 +1525,7 @@ uiButTreeRow *ui_block_view_find_treerow_in_old_block(const uiBlock *new_block,
                                                       const uiTreeViewItemHandle *new_item_handle);
 
 /* interface_templates.c */
+
 struct uiListType *UI_UL_cache_file_layers(void);
 
 #ifdef __cplusplus

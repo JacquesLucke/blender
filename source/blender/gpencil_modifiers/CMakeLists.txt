@@ -37,6 +37,7 @@ set(SRC
   intern/MOD_gpencilbuild.c
   intern/MOD_gpencilcolor.c
   intern/MOD_gpencildash.c
+  intern/MOD_gpencilenvelope.c
   intern/MOD_gpencilhook.c
   intern/MOD_gpencillattice.c
   intern/MOD_gpencillength.c
@@ -64,14 +65,30 @@ set(SRC
 
   # Lineart code
   intern/lineart/lineart_chain.c
+  intern/lineart/lineart_cpp_bridge.cc
   intern/lineart/lineart_cpu.c
   intern/lineart/lineart_ops.c
   intern/lineart/lineart_util.c
 
   intern/lineart/MOD_lineart.h
   intern/lineart/lineart_intern.h
-
 )
+
+if(WITH_TBB)
+add_definitions(-DWITH_TBB)
+if(WIN32)
+  # TBB includes Windows.h which will define min/max macros
+  # that will collide with the stl versions.
+  add_definitions(-DNOMINMAX)
+endif()
+list(APPEND INC_SYS
+  ${TBB_INCLUDE_DIRS}
+)
+
+list(APPEND LIB
+  ${TBB_LIBRARIES}
+)
+endif()
 
 set(LIB
 )

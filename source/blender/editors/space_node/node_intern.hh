@@ -74,8 +74,18 @@ struct SpaceNode_Runtime {
   /** Mouse position for drawing socket-less links and adding nodes. */
   float2 cursor;
 
-  /** For auto compositing. */
-  bool recalc;
+  /**
+   * Indicates that the compositing tree in the space needs to be re-evaluated using the
+   * auto-compositing pipeline.
+   * Takes priority over the regular compositing.
+   */
+  bool recalc_auto_compositing;
+
+  /**
+   * Indicates that the compositing int the space  tree needs to be re-evaluated using
+   * regular compositing pipeline.
+   */
+  bool recalc_regular_compositing;
 
   /** Temporary data for modal linking operator. */
   std::unique_ptr<bNodeLinkDrag> linkdrag;
@@ -94,7 +104,7 @@ enum NodeResizeDirection {
 };
 ENUM_OPERATORS(NodeResizeDirection, NODE_RESIZE_LEFT);
 
-/* Nodes draw without dpi - the view zoom is flexible. */
+/* Nodes draw without DPI - the view zoom is flexible. */
 #define HIDDEN_RAD (0.75f * U.widget_unit)
 #define BASIS_RAD (0.2f * U.widget_unit)
 #define NODE_DYS (U.widget_unit / 2)
@@ -133,6 +143,8 @@ void node_socket_color_get(const bContext &C,
 /* node_draw.cc */
 
 void node_draw_space(const bContext &C, ARegion &region);
+
+void node_socket_add_tooltip(bNodeTree *ntree, bNode *node, bNodeSocket *sock, uiLayout *layout);
 
 /**
  * Sort nodes by selection: unselected nodes first, then selected,
@@ -353,7 +365,6 @@ void NODE_GGT_backdrop_corner_pin(wmGizmoGroupType *gzgt);
 /* node_geometry_attribute_search.cc */
 
 void node_geometry_add_attribute_search_button(const bContext &C,
-                                               const bNodeTree &node_tree,
                                                const bNode &node,
                                                PointerRNA &socket_ptr,
                                                uiLayout &layout);

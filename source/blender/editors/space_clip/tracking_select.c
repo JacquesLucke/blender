@@ -405,10 +405,13 @@ static int select_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   float co[2];
   const bool extend = RNA_boolean_get(op->ptr, "extend");
 
+  /* Special code which allows to slide a marker which belongs to currently selected but not yet
+   * active track. If such track is found activate it and return pass-though so that marker slide
+   * operator can be used immediately after.
+   * This logic makes it convenient to slide markers when left mouse selection is used. */
   if (!extend) {
-    MovieTrackingTrack *track = tracking_marker_check_slide(C, event, NULL, NULL, NULL);
-
-    if (track) {
+    MovieTrackingTrack *track = tracking_find_slidable_track_in_proximity(C, event);
+    if (track != NULL) {
       MovieClip *clip = ED_space_clip_get_clip(sc);
 
       clip->tracking.act_track = track;
@@ -835,6 +838,7 @@ void CLIP_OT_select_circle(wmOperatorType *ot)
   ot->modal = WM_gesture_circle_modal;
   ot->exec = circle_select_exec;
   ot->poll = ED_space_clip_tracking_poll;
+  ot->get_name = ED_select_pick_get_name;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;

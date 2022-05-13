@@ -102,6 +102,7 @@ typedef enum {
   /** Accepts #BMesh input (without conversion). */
   eModifierTypeFlag_AcceptsBMesh = (1 << 11),
 } ModifierTypeFlag;
+ENUM_OPERATORS(ModifierTypeFlag, eModifierTypeFlag_AcceptsBMesh)
 
 typedef void (*IDWalkFunc)(void *userData, struct Object *ob, struct ID **idpoin, int cb_flag);
 typedef void (*TexWalkFunc)(void *userData,
@@ -113,7 +114,7 @@ typedef enum ModifierApplyFlag {
   /** Render time. */
   MOD_APPLY_RENDER = 1 << 0,
   /** Result of evaluation will be cached, so modifier might
-   * want to cache data for quick updates (used by subsurf) */
+   * want to cache data for quick updates (used by subdivision-surface) */
   MOD_APPLY_USECACHE = 1 << 1,
   /** Modifier evaluated for undeformed texture coordinates */
   MOD_APPLY_ORCO = 1 << 2,
@@ -301,10 +302,8 @@ typedef struct ModifierTypeInfo {
    * changes.
    *
    * This function is optional (assumes false if not present).
-   *
-   * The dag_eval_mode should be of type eEvaluationMode.
    */
-  bool (*dependsOnTime)(struct Scene *scene, struct ModifierData *md, int dag_eval_mode);
+  bool (*dependsOnTime)(struct Scene *scene, struct ModifierData *md);
 
   /**
    * True when a deform modifier uses normals, the requiredDataMask
@@ -421,7 +420,7 @@ void BKE_modifier_copydata(const struct ModifierData *md, struct ModifierData *t
 void BKE_modifier_copydata_ex(const struct ModifierData *md,
                               struct ModifierData *target,
                               int flag);
-bool BKE_modifier_depends_ontime(struct Scene *scene, struct ModifierData *md, int dag_eval_mode);
+bool BKE_modifier_depends_ontime(struct Scene *scene, struct ModifierData *md);
 bool BKE_modifier_supports_mapping(struct ModifierData *md);
 bool BKE_modifier_supports_cage(struct Scene *scene, struct ModifierData *md);
 bool BKE_modifier_couldbe_cage(struct Scene *scene, struct ModifierData *md);
@@ -493,7 +492,6 @@ struct Object *BKE_modifiers_is_deformed_by_lattice(struct Object *ob);
 struct Object *BKE_modifiers_is_deformed_by_curve(struct Object *ob);
 bool BKE_modifiers_uses_multires(struct Object *ob);
 bool BKE_modifiers_uses_armature(struct Object *ob, struct bArmature *arm);
-bool BKE_modifiers_uses_subsurf_facedots(const struct Scene *scene, struct Object *ob);
 bool BKE_modifiers_is_correctable_deformed(const struct Scene *scene, struct Object *ob);
 void BKE_modifier_free_temporary_data(struct ModifierData *md);
 

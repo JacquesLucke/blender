@@ -499,9 +499,9 @@ void BlenderStrokeRenderer::test_strip_visibility(Strip::vertex_container &strip
   StrokeVertexRep *svRep[3];
   bool visible;
 
-  // iterate over all vertices and count visible faces and strip segments
-  // (note: a strip segment is a series of visible faces, while two strip
-  // segments are separated by one or more invisible faces)
+  /* Iterate over all vertices and count visible faces and strip segments
+   * (NOTE: a strip segment is a series of visible faces, while two strip
+   * segments are separated by one or more invisible faces). */
   v[0] = strip_vertices.begin();
   v[1] = v[0] + 1;
   v[2] = v[0] + 2;
@@ -608,9 +608,9 @@ void BlenderStrokeRenderer::GenerateStrokeMesh(StrokeGroup *group, bool hasTex)
 
   // colors and transparency (the latter represented by grayscale colors)
   MLoopCol *colors = (MLoopCol *)CustomData_add_layer_named(
-      &mesh->ldata, CD_MLOOPCOL, CD_CALLOC, nullptr, mesh->totloop, "Color");
+      &mesh->ldata, CD_PROP_BYTE_COLOR, CD_CALLOC, nullptr, mesh->totloop, "Color");
   MLoopCol *transp = (MLoopCol *)CustomData_add_layer_named(
-      &mesh->ldata, CD_MLOOPCOL, CD_CALLOC, nullptr, mesh->totloop, "Alpha");
+      &mesh->ldata, CD_PROP_BYTE_COLOR, CD_CALLOC, nullptr, mesh->totloop, "Alpha");
   mesh->mloopcol = colors;
 
   mesh->mat = (Material **)MEM_mallocN(sizeof(Material *) * mesh->totcol, "MaterialList");

@@ -432,7 +432,7 @@ struct DRWView {
   struct DRWView *parent;
 
   ViewInfos storage;
-  /** Number of active clipplanes. */
+  /** Number of active clip planes. */
   int clip_planes_len;
   /** Does culling result needs to be updated. */
   bool is_dirty;
@@ -527,6 +527,10 @@ typedef struct DRWData {
   struct GPUUniformBuf **obinfos_ubo;
   struct GHash *obattrs_ubo_pool;
   uint ubo_len;
+  /** Per draw-call volume object data. */
+  void *volume_grids_ubos; /* VolumeUniformBufPool */
+  /** List of smoke textures to free after drawing. */
+  ListBase smoke_textures;
   /** Texture pool to reuse temp texture across engines. */
   /* TODO(@fclem): The pool could be shared even between view-ports. */
   struct DRWTexturePool *texture_pool;
@@ -613,7 +617,7 @@ typedef struct DRWManager {
   DRWView *view_default;
   DRWView *view_active;
   DRWView *view_previous;
-  uint primary_view_ct;
+  uint primary_view_num;
   /** TODO(@fclem): Remove this. Only here to support
    * shaders without common_view_lib.glsl */
   ViewInfos view_storage_cpy;
@@ -667,7 +671,7 @@ void drw_batch_cache_generate_requested(struct Object *ob);
  * \warning Only evaluated mesh data is handled by this delayed generation.
  */
 void drw_batch_cache_generate_requested_delayed(Object *ob);
-void drw_batch_cache_generate_requested_evaluated_mesh(Object *ob);
+void drw_batch_cache_generate_requested_evaluated_mesh_or_curve(Object *ob);
 
 void drw_resource_buffer_finish(DRWData *vmempool);
 

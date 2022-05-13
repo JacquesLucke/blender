@@ -62,6 +62,13 @@ ModifierLog::ModifierLog(GeoLogger &logger)
       NodeLog &node_log = this->lookup_or_add_node_log(log_by_tree_context, debug_message.node);
       node_log.debug_messages_.append(debug_message.message);
     }
+
+    for (NodeWithUsedNamedAttribute &node_with_attribute_name :
+         local_logger.used_named_attributes_) {
+      NodeLog &node_log = this->lookup_or_add_node_log(log_by_tree_context,
+                                                       node_with_attribute_name.node);
+      node_log.used_named_attributes_.append(std::move(node_with_attribute_name.attribute));
+    }
   }
 }
 
@@ -234,27 +241,27 @@ GeometryValueLog::GeometryValueLog(const GeometrySet &geometry_set, bool log_ful
       case GEO_COMPONENT_TYPE_MESH: {
         const MeshComponent &mesh_component = *(const MeshComponent *)component;
         MeshInfo &info = this->mesh_info.emplace();
-        info.tot_verts = mesh_component.attribute_domain_size(ATTR_DOMAIN_POINT);
-        info.tot_edges = mesh_component.attribute_domain_size(ATTR_DOMAIN_EDGE);
-        info.tot_faces = mesh_component.attribute_domain_size(ATTR_DOMAIN_FACE);
+        info.verts_num = mesh_component.attribute_domain_num(ATTR_DOMAIN_POINT);
+        info.edges_num = mesh_component.attribute_domain_num(ATTR_DOMAIN_EDGE);
+        info.faces_num = mesh_component.attribute_domain_num(ATTR_DOMAIN_FACE);
         break;
       }
       case GEO_COMPONENT_TYPE_CURVE: {
         const CurveComponent &curve_component = *(const CurveComponent *)component;
         CurveInfo &info = this->curve_info.emplace();
-        info.tot_splines = curve_component.attribute_domain_size(ATTR_DOMAIN_CURVE);
+        info.splines_num = curve_component.attribute_domain_num(ATTR_DOMAIN_CURVE);
         break;
       }
       case GEO_COMPONENT_TYPE_POINT_CLOUD: {
         const PointCloudComponent &pointcloud_component = *(const PointCloudComponent *)component;
         PointCloudInfo &info = this->pointcloud_info.emplace();
-        info.tot_points = pointcloud_component.attribute_domain_size(ATTR_DOMAIN_POINT);
+        info.points_num = pointcloud_component.attribute_domain_num(ATTR_DOMAIN_POINT);
         break;
       }
       case GEO_COMPONENT_TYPE_INSTANCES: {
         const InstancesComponent &instances_component = *(const InstancesComponent *)component;
         InstancesInfo &info = this->instances_info.emplace();
-        info.tot_instances = instances_component.instances_amount();
+        info.instances_num = instances_component.instances_num();
         break;
       }
       case GEO_COMPONENT_TYPE_VOLUME: {
@@ -335,6 +342,16 @@ const NodeLog *ModifierLog::find_node_by_node_editor_context(const SpaceNode &sn
     return nullptr;
   }
   return tree_log->lookup_node_log(node);
+}
+
+const NodeLog *ModifierLog::find_node_by_node_editor_context(const SpaceNode &snode,
+                                                             const StringRef node_name)
+{
+  const TreeLog *tree_log = ModifierLog::find_tree_by_node_editor_context(snode);
+  if (tree_log == nullptr) {
+    return nullptr;
+  }
+  return tree_log->lookup_node_log(node_name);
 }
 
 const SocketLog *ModifierLog::find_socket_by_node_editor_context(const SpaceNode &snode,
@@ -474,6 +491,13 @@ void LocalGeoLogger::log_node_warning(DNode node, NodeWarningType type, std::str
 void LocalGeoLogger::log_execution_time(DNode node, std::chrono::microseconds exec_time)
 {
   node_exec_times_.append({node, exec_time});
+}
+
+void LocalGeoLogger::log_used_named_attribute(DNode node,
+                                              std::string attribute_name,
+                                              NamedAttributeUsage usage)
+{
+  used_named_attributes_.append({node, {std::move(attribute_name), usage}});
 }
 
 void LocalGeoLogger::log_debug_message(DNode node, std::string message)
