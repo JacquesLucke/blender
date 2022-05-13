@@ -66,7 +66,6 @@ set(SRC
   intern/MOD_multires.c
   intern/MOD_nodes.cc
   intern/MOD_nodes_evaluator.cc
-  intern/MOD_nodes_evaluator2.cc
   intern/MOD_none.c
   intern/MOD_normal_edit.c
   intern/MOD_ocean.c

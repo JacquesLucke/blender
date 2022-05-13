@@ -21,7 +21,6 @@
  */
 
 #include "FN_sgraph.hh"
-// #include "FN_sgraph_validate_adapter.hh"
 
 #include "BLI_dot_export.hh"
 
@@ -33,8 +32,6 @@ inline std::string sgraph_to_dot(const SGraphT<SGraphAccessor> &graph)
   using SGraph = SGraphT<SGraphAccessor>;
   using Node = typename SGraph::Node;
   using Link = typename SGraph::Link;
-
-  // sgraph_adapter_is_valid(graph.adapter());
 
   dot::DirectedGraph digraph;
   digraph.set_rankdir(dot::Attr_rankdir::LeftToRight);

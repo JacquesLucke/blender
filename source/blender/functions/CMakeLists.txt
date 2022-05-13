@@ -36,7 +36,6 @@ set(SRC
   FN_multi_function_signature.hh
   FN_sgraph.hh
   FN_sgraph_to_dot.hh
-  FN_sgraph_validate_adapter.hh
 )
 
 set(LIB
