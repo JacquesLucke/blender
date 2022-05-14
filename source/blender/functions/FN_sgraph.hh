@@ -78,6 +78,24 @@ template<typename Accessor> class SGraphT : NonCopyable, NonMovable {
     Accessor::foreach_node(graph_, f);
   }
 
+  template<typename F> void foreach_node_input(const Node &node, const F &f) const
+  {
+    static_assert(is_callable_v<F, void, InSocket>);
+    for (const int i : this->node_inputs_range(node)) {
+      const InSocket &socket = this->node_input(node, i);
+      f(socket);
+    }
+  }
+
+  template<typename F> void foreach_node_output(const Node &node, const F &f) const
+  {
+    static_assert(is_callable_v<F, void, OutSocket>);
+    for (const int i : this->node_outputs_range(node)) {
+      const OutSocket &socket = this->node_output(node, i);
+      f(socket);
+    }
+  }
+
   template<typename F> void foreach_link_to_input(const InSocket &socket, const F &f) const
   {
     static_assert(is_callable_v<F, void, Link>);
@@ -90,12 +108,21 @@ template<typename Accessor> class SGraphT : NonCopyable, NonMovable {
     Accessor::foreach_link_from_output(graph_, socket, f);
   }
 
+  template<typename F> void foreach_node_linked_to_input(const InSocket &socket, const F &f) const
+  {
+    static_assert(is_callable_v<F, void, Node>);
+    this->foreach_link_to_input(socket, [&](const Link &link) {
+      const Node &from_node = this->link_from_node(link);
+      f(from_node);
+    });
+  }
+
   template<typename F> void foreach_link(const F &f) const
   {
     static_assert(is_callable_v<F, void, Link>);
     this->foreach_node([&](const Node &node) {
       for (const int i : this->node_outputs_range(node)) {
-        const OutSocket socket = this->node_output(node, i);
+        const OutSocket &socket = this->node_output(node, i);
         this->foreach_link_from_output(socket, f);
       }
     });
@@ -131,6 +158,11 @@ template<typename Accessor> class SGraphT : NonCopyable, NonMovable {
     return Accessor::node_of_output(graph_, socket);
   }
 
+  Node node_of_socket(const Socket &socket) const
+  {
+    return Accessor::node_of_socket(graph_, socket);
+  }
+
   int index_of_input(const InSocket &socket) const
   {
     return Accessor::index_of_input(graph_, socket);
@@ -139,6 +171,31 @@ template<typename Accessor> class SGraphT : NonCopyable, NonMovable {
   int index_of_output(const OutSocket &socket) const
   {
     return Accessor::index_of_output(graph_, socket);
+  }
+
+  int index_of_socket(const Socket &socket) const
+  {
+    return Accessor::index_of_socket(graph_, socket);
+  }
+
+  bool socket_is_input(const Socket &socket) const
+  {
+    return Accessor::socket_is_input(graph_, socket);
+  }
+
+  bool socket_is_output(const Socket &socket) const
+  {
+    return !this->socket_is_input(socket);
+  }
+
+  InSocket socket_to_input(const Socket &socket) const
+  {
+    return Accessor::socket_to_input(graph_, socket);
+  }
+
+  OutSocket socket_to_output(const Socket &socket) const
+  {
+    return Accessor::socket_to_output(graph_, socket);
   }
 
   std::string node_debug_name(const Node &node) const

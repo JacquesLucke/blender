@@ -850,6 +850,11 @@ struct NodeTreeRefSGraphAccessor {
     return &socket->node();
   }
 
+  static const NodeRef *node_of_socket(const NodeTreeRef *UNUSED(tree), const SocketRef *socket)
+  {
+    return &socket->node();
+  }
+
   static int index_of_input(const NodeTreeRef *UNUSED(tree), const InputSocketRef *socket)
   {
     return socket->index();
@@ -858,6 +863,28 @@ struct NodeTreeRefSGraphAccessor {
   static int index_of_output(const NodeTreeRef *UNUSED(tree), const OutputSocketRef *socket)
   {
     return socket->index();
+  }
+
+  static int index_of_socket(const NodeTreeRef *UNUSED(tree), const SocketRef *socket)
+  {
+    return socket->index();
+  }
+
+  static bool socket_is_input(const NodeTreeRef *UNUSED(tree), const SocketRef *socket)
+  {
+    return socket->is_input();
+  }
+
+  static const InputSocketRef *socket_to_input(const NodeTreeRef *UNUSED(tree),
+                                               const SocketRef *socket)
+  {
+    return &socket->as_input();
+  }
+
+  static const OutputSocketRef *socket_to_output(const NodeTreeRef *UNUSED(tree),
+                                                 const SocketRef *socket)
+  {
+    return &socket->as_output();
   }
 
   static std::string node_debug_name(const NodeTreeRef *UNUSED(tree), const NodeRef *node)
