@@ -21,6 +21,7 @@
 #include "BLI_hash.hh"
 #include "BLI_type_traits.hh"
 #include "BLI_utildefines.h"
+#include "BLI_utility_mixins.hh"
 
 namespace blender::fn::sgraph {
 
