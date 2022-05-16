@@ -116,42 +116,6 @@ void OVERLAY_wireframe_cache_init(OVERLAY_Data *vedata)
   }
 }
 
-static void wireframe_hair_cache_populate(OVERLAY_Data *vedata, Object *ob, ParticleSystem *psys)
-{
-  OVERLAY_PrivateData *pd = vedata->stl->pd;
-  const bool is_xray = (ob->dtx & OB_DRAW_IN_FRONT) != 0;
-
-  Object *dupli_parent = DRW_object_get_dupli_parent(ob);
-  DupliObject *dupli_object = DRW_object_get_dupli(ob);
-
-  float dupli_mat[4][4];
-  if ((dupli_parent != NULL) && (dupli_object != NULL)) {
-    if (dupli_object->type & OB_DUPLICOLLECTION) {
-      unit_m4(dupli_mat);
-      Collection *collection = dupli_parent->instance_collection;
-      if (collection != NULL) {
-        sub_v3_v3(dupli_mat[3], collection->instance_offset);
-      }
-      mul_m4_m4m4(dupli_mat, dupli_parent->obmat, dupli_mat);
-    }
-    else {
-      copy_m4_m4(dupli_mat, dupli_object->ob->obmat);
-      invert_m4(dupli_mat);
-      mul_m4_m4m4(dupli_mat, ob->obmat, dupli_mat);
-    }
-  }
-  else {
-    unit_m4(dupli_mat);
-  }
-
-  struct GPUBatch *hairs = DRW_cache_particles_get_hair(ob, psys, NULL);
-
-  const bool use_coloring = true;
-  DRWShadingGroup *shgrp = DRW_shgroup_create_sub(pd->wires_hair_grp[is_xray][use_coloring]);
-  DRW_shgroup_uniform_mat4_copy(shgrp, "hairDupliMatrix", dupli_mat);
-  DRW_shgroup_call_no_cull(shgrp, hairs, ob);
-}
-
 void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
                                       Object *ob,
                                       OVERLAY_DupliData *dupli,
@@ -182,19 +146,6 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
 
   const bool use_wire = !is_mesh_verts_only && ((pd->overlay.flag & V3D_OVERLAY_WIREFRAMES) ||
                                                 (ob->dtx & OB_DRAWWIRE) || (ob->dt == OB_WIRE));
-
-  if (use_wire && pd->wireframe_mode && ob->particlesystem.first) {
-    for (ParticleSystem *psys = ob->particlesystem.first; psys != NULL; psys = psys->next) {
-      if (!DRW_object_is_visible_psys_in_active_context(ob, psys)) {
-        continue;
-      }
-      ParticleSettings *part = psys->part;
-      const int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
-      if (draw_as == PART_DRAW_PATH) {
-        wireframe_hair_cache_populate(vedata, ob, psys);
-      }
-    }
-  }
 
   if (ELEM(ob->type, OB_CURVES_LEGACY, OB_FONT, OB_SURF)) {
     OVERLAY_ExtraCallBuffers *cb = OVERLAY_extra_call_buffer_get(vedata, ob);

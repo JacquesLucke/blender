@@ -389,6 +389,9 @@ typedef struct ParticleSystem {
 
   void *batch_cache;
 
+  /** Hair strands converted to a curves data block. */
+  struct Curves *hair_curves;
+
   /* Set by dependency graph's copy-on-write, allows to quickly go
    * from evaluated particle system to original one.
    *

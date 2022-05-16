@@ -210,67 +210,6 @@ void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Dat
   }
 }
 
-void EEVEE_motion_blur_hair_cache_populate(EEVEE_ViewLayerData *UNUSED(sldata),
-                                           EEVEE_Data *vedata,
-                                           Object *ob,
-                                           ParticleSystem *psys,
-                                           ModifierData *md)
-{
-  EEVEE_PassList *psl = vedata->psl;
-  EEVEE_StorageList *stl = vedata->stl;
-  EEVEE_EffectsInfo *effects = stl->effects;
-  DRWShadingGroup *grp = NULL;
-
-  if (!DRW_state_is_scene_render() || psl->velocity_hair == NULL) {
-    return;
-  }
-
-  /* For now we assume hair objects are always moving. */
-  EEVEE_ObjectMotionData *mb_data = EEVEE_motion_blur_object_data_get(
-      &effects->motion_blur, ob, true);
-
-  if (mb_data) {
-    int mb_step = effects->motion_blur_step;
-    /* Store transform. */
-    DRW_hair_duplimat_get(ob, psys, md, mb_data->obmat[mb_step]);
-
-    EEVEE_HairMotionData *mb_hair = EEVEE_motion_blur_hair_data_get(mb_data, ob);
-    int psys_id = (md != NULL) ? BLI_findindex(&ob->modifiers, md) : 0;
-
-    if (psys_id >= mb_hair->psys_len) {
-      /* This should never happen. It means the modifier list was changed by frame evaluation. */
-      BLI_assert(0);
-      return;
-    }
-
-    if (mb_step == MB_CURR) {
-      /* Fill missing matrices if the object was hidden in previous or next frame. */
-      if (is_zero_m4(mb_data->obmat[MB_PREV])) {
-        copy_m4_m4(mb_data->obmat[MB_PREV], mb_data->obmat[MB_CURR]);
-      }
-      if (is_zero_m4(mb_data->obmat[MB_NEXT])) {
-        copy_m4_m4(mb_data->obmat[MB_NEXT], mb_data->obmat[MB_CURR]);
-      }
-
-      GPUTexture *tex_prev = mb_hair->psys[psys_id].step_data[MB_PREV].hair_pos_tx;
-      GPUTexture *tex_next = mb_hair->psys[psys_id].step_data[MB_NEXT].hair_pos_tx;
-
-      grp = DRW_shgroup_hair_create_sub(ob, psys, md, effects->motion_blur.hair_grp, NULL);
-      DRW_shgroup_uniform_mat4(grp, "prevModelMatrix", mb_data->obmat[MB_PREV]);
-      DRW_shgroup_uniform_mat4(grp, "currModelMatrix", mb_data->obmat[MB_CURR]);
-      DRW_shgroup_uniform_mat4(grp, "nextModelMatrix", mb_data->obmat[MB_NEXT]);
-      DRW_shgroup_uniform_texture(grp, "prvBuffer", tex_prev);
-      DRW_shgroup_uniform_texture(grp, "nxtBuffer", tex_next);
-      DRW_shgroup_uniform_bool(grp, "useDeform", &mb_hair->use_deform, 1);
-    }
-    else {
-      /* Store vertex position buffer. */
-      mb_hair->psys[psys_id].step_data[mb_step].hair_pos = DRW_hair_pos_buffer_get(ob, psys, md);
-      mb_hair->use_deform = true;
-    }
-  }
-}
-
 void EEVEE_motion_blur_curves_cache_populate(EEVEE_ViewLayerData *UNUSED(sldata),
                                              EEVEE_Data *vedata,
                                              Object *ob)

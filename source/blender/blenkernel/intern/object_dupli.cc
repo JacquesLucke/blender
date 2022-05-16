@@ -26,6 +26,7 @@
 #include "DNA_collection_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_vfont_types.h"
@@ -801,6 +802,7 @@ static void make_duplis_geometry_set_impl(const DupliContext *ctx,
       dupli->ob_data = (ID *)pointcloud;
     }
   }
+
   const bool creates_duplis_for_components = component_index >= 1;
 
   const InstancesComponent *component = geometry_set.get_component_for_read<InstancesComponent>();
@@ -1514,6 +1516,14 @@ static void make_duplis_particle_system(const DupliContext *ctx, ParticleSystem 
     }
 
     BLI_rng_free(rng);
+  }
+
+  if (psys->part->type == PART_HAIR && psys->part->ren_as == PART_DRAW_PATH) {
+    if (psys->hair_curves != nullptr) {
+      const int id = totpart + totchild;
+      DupliObject *dupli = make_dupli(ctx, ctx->object, ctx->object->obmat, id);
+      dupli->ob_data = (ID *)psys->hair_curves;
+    }
   }
 
   /* Clean up. */

@@ -1116,6 +1116,10 @@ void psys_free(Object *ob, ParticleSystem *psys)
 
     BKE_particle_batch_cache_free(psys);
 
+    if (psys->hair_curves) {
+      BKE_id_free(NULL, psys->hair_curves);
+    }
+
     MEM_freeN(psys);
   }
 }
@@ -1183,6 +1187,8 @@ void psys_copy_particles(ParticleSystem *psys_dst, ParticleSystem *psys_src)
       }
     }
   }
+
+  psys_dst->hair_curves = NULL;
 }
 
 /************************************************/

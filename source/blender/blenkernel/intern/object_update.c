@@ -223,6 +223,9 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
              (psys->part->ren_as == PART_DRAW_GR && psys->part->instance_collection))) {
           ob->transflag |= OB_DUPLIPARTS;
         }
+        if (psys->part && psys->part->type == PART_HAIR && psys->part->ren_as == PART_DRAW_PATH) {
+          ob->transflag |= OB_DUPLIPARTS;
+        }
 
         particle_system_update(depsgraph, scene, ob, psys, use_render_params);
         psys = psys->next;

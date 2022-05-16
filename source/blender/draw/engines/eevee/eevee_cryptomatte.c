@@ -234,13 +234,11 @@ static DRWShadingGroup *eevee_cryptomatte_shading_group_create(
 static void eevee_cryptomatte_curves_cache_populate(EEVEE_Data *vedata,
                                                     EEVEE_ViewLayerData *sldata,
                                                     Object *ob,
-                                                    ParticleSystem *psys,
-                                                    ModifierData *md,
                                                     Material *material)
 {
   DRWShadingGroup *grp = eevee_cryptomatte_shading_group_create(
       vedata, sldata, ob, material, true);
-  DRW_shgroup_hair_create_sub(ob, psys, md, grp, NULL);
+  DRW_shgroup_curves_create_sub(ob, grp, NULL);
 }
 
 void EEVEE_cryptomatte_object_curves_cache_populate(EEVEE_Data *vedata,
@@ -249,35 +247,7 @@ void EEVEE_cryptomatte_object_curves_cache_populate(EEVEE_Data *vedata,
 {
   BLI_assert(ob->type == OB_CURVES);
   Material *material = BKE_object_material_get_eval(ob, CURVES_MATERIAL_NR);
-  eevee_cryptomatte_curves_cache_populate(vedata, sldata, ob, NULL, NULL, material);
-}
-
-void EEVEE_cryptomatte_particle_hair_cache_populate(EEVEE_Data *vedata,
-                                                    EEVEE_ViewLayerData *sldata,
-                                                    Object *ob)
-{
-  const DRWContextState *draw_ctx = DRW_context_state_get();
-
-  if (ob->type == OB_MESH) {
-    if (ob != draw_ctx->object_edit) {
-      LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
-        if (md->type != eModifierType_ParticleSystem) {
-          continue;
-        }
-        ParticleSystem *psys = ((ParticleSystemModifierData *)md)->psys;
-        if (!DRW_object_is_visible_psys_in_active_context(ob, psys)) {
-          continue;
-        }
-        ParticleSettings *part = psys->part;
-        const int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
-        if (draw_as != PART_DRAW_PATH) {
-          continue;
-        }
-        Material *material = BKE_object_material_get_eval(ob, part->omat);
-        eevee_cryptomatte_curves_cache_populate(vedata, sldata, ob, psys, md, material);
-      }
-    }
-  }
+  eevee_cryptomatte_curves_cache_populate(vedata, sldata, ob, material);
 }
 
 void EEVEE_cryptomatte_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sldata, Object *ob)

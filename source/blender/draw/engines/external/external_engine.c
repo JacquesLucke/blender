@@ -201,24 +201,6 @@ static void external_cache_populate(void *vedata, Object *ob)
     return;
   }
 
-  if (ob->type == OB_MESH && ob->modifiers.first != NULL) {
-    LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
-      if (md->type != eModifierType_ParticleSystem) {
-        continue;
-      }
-      ParticleSystem *psys = ((ParticleSystemModifierData *)md)->psys;
-      if (!DRW_object_is_visible_psys_in_active_context(ob, psys)) {
-        continue;
-      }
-      ParticleSettings *part = psys->part;
-      const int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
-
-      if (draw_as == PART_DRAW_PATH) {
-        struct GPUBatch *hairs = DRW_cache_particles_get_hair(ob, psys, NULL);
-        DRW_shgroup_call(stl->g_data->depth_shgrp, hairs, NULL);
-      }
-    }
-  }
   struct GPUBatch *geom = DRW_cache_object_surface_get(ob);
   if (geom) {
     /* Depth Prepass */

@@ -47,26 +47,8 @@ bool DRW_object_axis_orthogonal_to_view(struct Object *ob, int axis);
 /* draw_hair.cc */
 
 /**
- * This creates a shading group with display hairs.
- * The draw call is already added by this function, just add additional uniforms.
- */
-struct DRWShadingGroup *DRW_shgroup_hair_create_sub(struct Object *object,
-                                                    struct ParticleSystem *psys,
-                                                    struct ModifierData *md,
-                                                    struct DRWShadingGroup *shgrp,
-                                                    struct GPUMaterial *gpu_material);
-
-/**
  * \note Only valid after #DRW_hair_update().
  */
-struct GPUVertBuf *DRW_hair_pos_buffer_get(struct Object *object,
-                                           struct ParticleSystem *psys,
-                                           struct ModifierData *md);
-void DRW_hair_duplimat_get(struct Object *object,
-                           struct ParticleSystem *psys,
-                           struct ModifierData *md,
-                           float (*dupli_mat)[4]);
-
 void DRW_hair_init(void);
 void DRW_hair_update(void);
 void DRW_hair_free(void);

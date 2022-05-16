@@ -158,7 +158,7 @@ Geometry *BlenderSync::sync_geometry(BL::Depsgraph &b_depsgraph,
 
     if (geom_type == Geometry::HAIR) {
       Hair *hair = static_cast<Hair *>(geom);
-      sync_hair(b_depsgraph, b_ob_info, hair);
+      sync_hair(b_ob_info, hair);
     }
     else if (geom_type == Geometry::VOLUME) {
       Volume *volume = static_cast<Volume *>(geom);
@@ -223,7 +223,7 @@ void BlenderSync::sync_geometry_motion(BL::Depsgraph &b_depsgraph,
     if (use_particle_hair) {
 #endif
       Hair *hair = static_cast<Hair *>(geom);
-      sync_hair_motion(b_depsgraph, b_ob_info, hair, motion_step);
+      sync_hair_motion(b_ob_info, hair, motion_step);
     }
     else if (b_ob_info.object_data.is_a(&RNA_Volume) ||
              object_fluid_gas_domain_find(b_ob_info.real_object)) {

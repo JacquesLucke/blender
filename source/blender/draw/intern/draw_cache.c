@@ -3090,10 +3090,6 @@ GPUBatch *DRW_cache_volume_selection_surface_get(Object *ob)
 /** \name Particles
  * \{ */
 
-GPUBatch *DRW_cache_particles_get_hair(Object *object, ParticleSystem *psys, ModifierData *md)
-{
-  return DRW_particles_batch_cache_get_hair(object, psys, md);
-}
 
 GPUBatch *DRW_cache_particles_get_dots(Object *object, ParticleSystem *psys)
 {

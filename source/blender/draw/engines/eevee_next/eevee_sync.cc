@@ -274,41 +274,23 @@ void SyncModule::sync_gpencil(Object *ob, ObjectHandle &ob_handle)
 /** \name Hair
  * \{ */
 
-static void shgroup_curves_call(MaterialPass &matpass,
-                                Object *ob,
-                                ParticleSystem *part_sys = nullptr,
-                                ModifierData *modifier_data = nullptr)
+static void shgroup_curves_call(MaterialPass &matpass, Object *ob)
 {
   if (matpass.shgrp == nullptr) {
     return;
   }
-  DRW_shgroup_hair_create_sub(ob, part_sys, modifier_data, matpass.shgrp, matpass.gpumat);
+  DRW_shgroup_curves_create_sub(ob, matpass.shgrp, matpass.gpumat);
 }
 
-void SyncModule::sync_curves(Object *ob, ObjectHandle &ob_handle, ModifierData *modifier_data)
+void SyncModule::sync_curves(Object *ob, ObjectHandle &ob_handle)
 {
   int mat_nr = CURVES_MATERIAL_NR;
 
-  ParticleSystem *part_sys = nullptr;
-  if (modifier_data != nullptr) {
-    part_sys = reinterpret_cast<ParticleSystemModifierData *>(modifier_data)->psys;
-    if (!DRW_object_is_visible_psys_in_active_context(ob, part_sys)) {
-      return;
-    }
-    ParticleSettings *part_settings = part_sys->part;
-    const int draw_as = (part_settings->draw_as == PART_DRAW_REND) ? part_settings->ren_as :
-                                                                     part_settings->draw_as;
-    if (draw_as != PART_DRAW_PATH) {
-      return;
-    }
-    mat_nr = part_settings->omat;
-  }
-
   Material &material = inst_.materials.material_get(ob, mat_nr - 1, MAT_GEOM_CURVES);
 
-  shgroup_curves_call(material.shading, ob, part_sys, modifier_data);
-  shgroup_curves_call(material.prepass, ob, part_sys, modifier_data);
-  shgroup_curves_call(material.shadow, ob, part_sys, modifier_data);
+  shgroup_curves_call(material.shading, ob);
+  shgroup_curves_call(material.prepass, ob);
+  shgroup_curves_call(material.shadow, ob);
   UNUSED_VARS(ob_handle);
   /* TODO(fclem) Hair velocity. */
   // shading_passes.velocity.gpencil_add(ob, ob_handle);

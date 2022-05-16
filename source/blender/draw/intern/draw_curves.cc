@@ -10,7 +10,10 @@
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
+#include "DNA_curves_types.h"
 #include "DNA_customdata_types.h"
+
+#include "BKE_curves.hh"
 
 #include "GPU_batch.h"
 #include "GPU_capabilities.h"
@@ -195,6 +198,9 @@ DRWShadingGroup *DRW_shgroup_curves_create_sub(Object *object,
 
   int subdiv = scene->r.hair_subdiv;
   int thickness_res = (scene->r.hair_type == SCE_HAIR_SHAPE_STRAND) ? 1 : 2;
+  Curves &curves_id = *reinterpret_cast<Curves *>(object->data);
+  blender::bke::CurvesGeometryRuntime &curves_runtime = *curves_id.geometry.runtime;
+  blender::bke::LegacyHairSettings &legacy_hair_settings = curves_runtime.legacy_hair_settings;
 
   CurvesEvalCache *curves_cache = drw_curves_cache_get(
       object, gpu_material, subdiv, thickness_res);
@@ -208,23 +214,17 @@ DRWShadingGroup *DRW_shgroup_curves_create_sub(Object *object,
   DRW_shgroup_uniform_texture(shgrp, "c", g_dummy_texture);
   DRW_shgroup_uniform_texture(shgrp, "ac", g_dummy_texture);
 
-  /* TODO: Generalize radius implementation for curves data type. */
-  float hair_rad_shape = 0.0f;
-  float hair_rad_root = 0.005f;
-  float hair_rad_tip = 0.0f;
-  bool hair_close_tip = true;
-
   DRW_shgroup_uniform_texture(shgrp, "hairPointBuffer", curves_cache->final[subdiv].proc_tex);
   if (curves_cache->length_tex) {
     DRW_shgroup_uniform_texture(shgrp, "hairLen", curves_cache->length_tex);
   }
   DRW_shgroup_uniform_int(shgrp, "hairStrandsRes", &curves_cache->final[subdiv].strands_res, 1);
   DRW_shgroup_uniform_int_copy(shgrp, "hairThicknessRes", thickness_res);
-  DRW_shgroup_uniform_float_copy(shgrp, "hairRadShape", hair_rad_shape);
+  DRW_shgroup_uniform_float_copy(shgrp, "hairRadShape", legacy_hair_settings.radius_shape);
   DRW_shgroup_uniform_mat4_copy(shgrp, "hairDupliMatrix", object->obmat);
-  DRW_shgroup_uniform_float_copy(shgrp, "hairRadRoot", hair_rad_root);
-  DRW_shgroup_uniform_float_copy(shgrp, "hairRadTip", hair_rad_tip);
-  DRW_shgroup_uniform_bool_copy(shgrp, "hairCloseTip", hair_close_tip);
+  DRW_shgroup_uniform_float_copy(shgrp, "hairRadRoot", legacy_hair_settings.radius_root);
+  DRW_shgroup_uniform_float_copy(shgrp, "hairRadTip", legacy_hair_settings.radius_tip);
+  DRW_shgroup_uniform_bool_copy(shgrp, "hairCloseTip", legacy_hair_settings.close_tip);
   /* TODO(fclem): Until we have a better way to cull the curves and render with orco, bypass
    * culling test. */
   GPUBatch *geom = curves_cache->final[subdiv].proc_hairs[thickness_res - 1];

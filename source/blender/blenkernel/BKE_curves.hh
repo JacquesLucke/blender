@@ -59,6 +59,13 @@ struct BasisCache {
 
 }  // namespace curves::nurbs
 
+struct LegacyHairSettings {
+  float radius_shape = 0.0f;
+  float radius_root = 0.005f;
+  float radius_tip = 0.0f;
+  bool close_tip = true;
+};
+
 /**
  * Contains derived data, caches, and other information not saved in files, besides a few pointers
  * to arrays that are kept in the non-runtime struct to avoid dereferencing this whenever they are
@@ -113,6 +120,8 @@ class CurvesGeometryRuntime {
   mutable Vector<float3> evaluated_normal_cache;
   mutable std::mutex normal_cache_mutex;
   mutable bool normal_cache_dirty = true;
+
+  LegacyHairSettings legacy_hair_settings;
 };
 
 /**

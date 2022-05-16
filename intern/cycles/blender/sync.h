@@ -146,15 +146,11 @@ class BlenderSync {
                         int motion_step);
 
   /* Hair */
-  void sync_hair(BL::Depsgraph b_depsgraph, BObjectInfo &b_ob_info, Hair *hair);
-  void sync_hair_motion(BL::Depsgraph b_depsgraph,
-                        BObjectInfo &b_ob_info,
-                        Hair *hair,
-                        int motion_step);
+  void sync_hair(BObjectInfo &b_ob_info, Hair *hair);
+  void sync_hair_motion(BObjectInfo &b_ob_info, Hair *hair, int motion_step);
   void sync_hair(Hair *hair, BObjectInfo &b_ob_info, bool motion, int motion_step = 0);
   void sync_particle_hair(
       Hair *hair, BL::Mesh &b_mesh, BObjectInfo &b_ob_info, bool motion, int motion_step = 0);
-  bool object_has_particle_hair(BL::Object b_ob);
 
   /* Point Cloud */
   void sync_pointcloud(PointCloud *pointcloud, BObjectInfo &b_ob_info);

@@ -97,14 +97,6 @@ void Instance::object_sync(Object *ob)
 
   ObjectHandle &ob_handle = sync.sync_object(ob);
 
-  if (partsys_is_visible && ob != DRW_context_state_get()->object_edit) {
-    LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
-      if (md->type == eModifierType_ParticleSystem) {
-        sync.sync_curves(ob, ob_handle, md);
-      }
-    }
-  }
-
   if (object_is_visible) {
     switch (ob->type) {
       case OB_LAMP:

@@ -17,6 +17,7 @@
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
+#include "BKE_geometry_set.hh"
 #include "BKE_layer.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
@@ -320,11 +321,30 @@ static void CURVES_OT_convert_to_particle_system(wmOperatorType *ot)
 
 namespace convert_from_particle_system {
 
-static bke::CurvesGeometry particles_to_curves(Object &object, ParticleSystem &psys)
+static float legacy_parameter_to_radius(const float shape,
+                                        const float root,
+                                        const float tip,
+                                        const float t)
+{
+  BLI_assert(t >= 0.0f);
+  BLI_assert(t <= 1.0f);
+  float radius = 1.0f - t;
+
+  if (shape != 0.0f) {
+    if (shape < 0.0f)
+      radius = powf(radius, 1.0f + shape);
+    else
+      radius = powf(radius, 1.0f / (1.0f - shape));
+  }
+  return (radius * (root - tip)) + tip;
+}
+
+void particles_to_curves(Object &object, ParticleSystem &psys, Curves &r_curves_id);
+void particles_to_curves(Object &object, ParticleSystem &psys, Curves &r_curves_id)
 {
   ParticleSettings &settings = *psys.part;
   if (psys.part->type != PART_HAIR) {
-    return {};
+    return;
   }
 
   const bool transfer_parents = (settings.draw & PART_DRAW_PARENT) || settings.childtype == 0;
@@ -359,13 +379,26 @@ static bke::CurvesGeometry particles_to_curves(Object &object, ParticleSystem &p
   const int curves_num = parents_to_transfer.size() + children_to_transfer.size();
   curve_offsets.append(points_num);
   BLI_assert(curve_offsets.size() == curves_num + 1);
-  bke::CurvesGeometry curves(points_num, curves_num);
+  bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(r_curves_id.geometry);
+  curves.resize(points_num, curves_num);
   curves.offsets_for_write().copy_from(curve_offsets);
 
   const float4x4 object_to_world_mat = object.obmat;
   const float4x4 world_to_object_mat = object_to_world_mat.inverted();
 
   MutableSpan<float3> positions = curves.positions_for_write();
+
+  CurveComponent curves_component;
+  curves_component.replace(&r_curves_id, GeometryOwnershipType::Editable);
+  bke::OutputAttribute_Typed radius_attr =
+      curves_component.attribute_try_get_for_output_only<float>("radius", ATTR_DOMAIN_POINT);
+  MutableSpan<float> radius_attr_span = radius_attr.as_span();
+
+  blender::bke::LegacyHairSettings &legacy_hair_settings = curves.runtime->legacy_hair_settings;
+  legacy_hair_settings.close_tip = (settings.shape_flag & PART_SHAPE_CLOSE_TIP) != 0;
+  legacy_hair_settings.radius_shape = settings.shape;
+  legacy_hair_settings.radius_root = settings.rad_root * settings.rad_scale * 0.5f;
+  legacy_hair_settings.radius_tip = settings.rad_tip * settings.rad_scale * 0.5f;
 
   const auto copy_hair_to_curves = [&](const Span<ParticleCacheKey *> hair_cache,
                                        const Span<int> indices_to_transfer,
@@ -377,8 +410,18 @@ static bke::CurvesGeometry particles_to_curves(Object &object, ParticleSystem &p
         const IndexRange points = curves.points_for_curve(curve_i);
         const Span<ParticleCacheKey> keys{hair_cache[hair_i], points.size()};
         for (const int key_i : keys.index_range()) {
-          const float3 key_pos_wo = keys[key_i].co;
-          positions[points[key_i]] = world_to_object_mat * key_pos_wo;
+          const int point_i = points[key_i];
+          const ParticleCacheKey &key = keys[key_i];
+          const float3 key_pos_wo = key.co;
+          const float time = key.time;
+          positions[point_i] = world_to_object_mat * key_pos_wo;
+          radius_attr_span[point_i] = legacy_parameter_to_radius(legacy_hair_settings.radius_shape,
+                                                                 legacy_hair_settings.radius_root,
+                                                                 legacy_hair_settings.radius_tip,
+                                                                 time);
+        }
+        if (legacy_hair_settings.close_tip) {
+          radius_attr_span[points.last()] = 0.0f;
         }
       }
     });
@@ -389,9 +432,10 @@ static bke::CurvesGeometry particles_to_curves(Object &object, ParticleSystem &p
   }
   copy_hair_to_curves(children_cache, children_to_transfer, parents_to_transfer.size());
 
+  radius_attr.save();
+
   curves.update_curve_types();
   curves.tag_topology_changed();
-  return curves;
 }
 
 static int curves_convert_from_particle_system_exec(bContext *C, wmOperator *UNUSED(op))
@@ -425,7 +469,7 @@ static int curves_convert_from_particle_system_exec(bContext *C, wmOperator *UNU
   ob_new->dtx |= OB_DRAWBOUNDOX; /* TODO: Remove once there is actual drawing. */
   Curves *curves_id = static_cast<Curves *>(ob_new->data);
   BKE_object_apply_mat4(ob_new, ob_from_orig->obmat, true, false);
-  bke::CurvesGeometry::wrap(curves_id->geometry) = particles_to_curves(*ob_from_eval, *psys_eval);
+  particles_to_curves(*ob_from_eval, *psys_eval, *curves_id);
 
   DEG_relations_tag_update(&bmain);
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, nullptr);

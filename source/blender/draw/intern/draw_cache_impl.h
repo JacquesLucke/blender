@@ -333,9 +333,6 @@ enum {
 /** \name Particles
  * \{ */
 
-struct GPUBatch *DRW_particles_batch_cache_get_hair(struct Object *object,
-                                                    struct ParticleSystem *psys,
-                                                    struct ModifierData *md);
 struct GPUBatch *DRW_particles_batch_cache_get_dots(struct Object *object,
                                                     struct ParticleSystem *psys);
 struct GPUBatch *DRW_particles_batch_cache_get_edit_strands(struct Object *object,

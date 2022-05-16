@@ -199,28 +199,6 @@ static void workbench_cache_common_populate(WORKBENCH_PrivateData *wpd,
   }
 }
 
-static void workbench_cache_hair_populate(WORKBENCH_PrivateData *wpd,
-                                          Object *ob,
-                                          ParticleSystem *psys,
-                                          ModifierData *md,
-                                          eV3DShadingColorType color_type,
-                                          bool use_texpaint_mode,
-                                          const int matnr)
-{
-  const DRWContextState *draw_ctx = DRW_context_state_get();
-  const Scene *scene = draw_ctx->scene;
-
-  const ImagePaintSettings *imapaint = use_texpaint_mode ? &scene->toolsettings->imapaint : NULL;
-  Image *ima = (imapaint && imapaint->mode == IMAGEPAINT_MODE_IMAGE) ? imapaint->canvas : NULL;
-  eGPUSamplerState state = 0;
-  state |= (imapaint && imapaint->interp == IMAGEPAINT_INTERP_LINEAR) ? GPU_SAMPLER_FILTER : 0;
-  DRWShadingGroup *grp = (use_texpaint_mode) ?
-                             workbench_image_hair_setup(wpd, ob, matnr, ima, NULL, state) :
-                             workbench_material_hair_setup(wpd, ob, matnr, color_type);
-
-  DRW_shgroup_hair_create_sub(ob, psys, md, grp, NULL);
-}
-
 static const CustomData *workbench_mesh_get_loop_custom_data(const Mesh *mesh)
 {
   if (mesh->runtime.wrapper_type == ME_WRAPPER_TYPE_BMESH) {
@@ -363,28 +341,6 @@ void workbench_cache_populate(void *ved, Object *ob)
 
   if (!DRW_object_is_renderable(ob)) {
     return;
-  }
-
-  if (ob->type == OB_MESH && ob->modifiers.first != NULL) {
-    bool use_texpaint_mode;
-    int color_type = workbench_color_type_get(wpd, ob, NULL, &use_texpaint_mode, NULL);
-
-    LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
-      if (md->type != eModifierType_ParticleSystem) {
-        continue;
-      }
-      ParticleSystem *psys = ((ParticleSystemModifierData *)md)->psys;
-      if (!DRW_object_is_visible_psys_in_active_context(ob, psys)) {
-        continue;
-      }
-      ParticleSettings *part = psys->part;
-      const int draw_as = (part->draw_as == PART_DRAW_REND) ? part->ren_as : part->draw_as;
-
-      if (draw_as == PART_DRAW_PATH) {
-        workbench_cache_hair_populate(
-            wpd, ob, psys, md, color_type, use_texpaint_mode, part->omat);
-      }
-    }
   }
 
   if (!(ob->base_flag & BASE_FROM_DUPLI)) {

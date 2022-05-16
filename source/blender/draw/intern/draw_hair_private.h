@@ -75,17 +75,6 @@ typedef struct ParticleHairCache {
   int point_len;
 } ParticleHairCache;
 
-/**
- * Ensure all textures and buffers needed for GPU accelerated drawing.
- */
-bool particles_ensure_procedural_data(struct Object *object,
-                                      struct ParticleSystem *psys,
-                                      struct ModifierData *md,
-                                      struct ParticleHairCache **r_hair_cache,
-                                      struct GPUMaterial *gpu_material,
-                                      int subdiv,
-                                      int thickness_res);
-
 #ifdef __cplusplus
 }
 #endif

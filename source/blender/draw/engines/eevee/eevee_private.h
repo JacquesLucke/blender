@@ -1122,10 +1122,6 @@ void EEVEE_materials_cache_populate(EEVEE_Data *vedata,
                                     EEVEE_ViewLayerData *sldata,
                                     Object *ob,
                                     bool *cast_shadow);
-void EEVEE_particle_hair_cache_populate(EEVEE_Data *vedata,
-                                        EEVEE_ViewLayerData *sldata,
-                                        Object *ob,
-                                        bool *cast_shadow);
 void EEVEE_object_curves_cache_populate(EEVEE_Data *vedata,
                                         EEVEE_ViewLayerData *sldata,
                                         Object *ob,
@@ -1410,9 +1406,6 @@ void EEVEE_cryptomatte_output_init(EEVEE_ViewLayerData *sldata,
                                    int tot_samples);
 void EEVEE_cryptomatte_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_cryptomatte_cache_populate(EEVEE_Data *vedata, EEVEE_ViewLayerData *sldata, Object *ob);
-void EEVEE_cryptomatte_particle_hair_cache_populate(EEVEE_Data *vedata,
-                                                    EEVEE_ViewLayerData *sldata,
-                                                    Object *ob);
 void EEVEE_cryptomatte_object_curves_cache_populate(EEVEE_Data *vedata,
                                                     EEVEE_ViewLayerData *sldata,
                                                     Object *ob);
@@ -1479,11 +1472,6 @@ int EEVEE_motion_blur_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_motion_blur_step_set(EEVEE_Data *vedata, int step);
 void EEVEE_motion_blur_cache_init(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata);
 void EEVEE_motion_blur_cache_populate(EEVEE_ViewLayerData *sldata, EEVEE_Data *vedata, Object *ob);
-void EEVEE_motion_blur_hair_cache_populate(EEVEE_ViewLayerData *sldata,
-                                           EEVEE_Data *vedata,
-                                           Object *ob,
-                                           struct ParticleSystem *psys,
-                                           struct ModifierData *md);
 void EEVEE_motion_blur_curves_cache_populate(EEVEE_ViewLayerData *sldata,
                                              EEVEE_Data *vedata,
                                              Object *ob);

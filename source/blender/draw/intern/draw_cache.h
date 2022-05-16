@@ -197,9 +197,6 @@ struct GPUBatch *DRW_cache_lattice_vert_overlay_get(struct Object *ob);
 
 /* Particles */
 
-struct GPUBatch *DRW_cache_particles_get_hair(struct Object *object,
-                                              struct ParticleSystem *psys,
-                                              struct ModifierData *md);
 struct GPUBatch *DRW_cache_particles_get_dots(struct Object *object, struct ParticleSystem *psys);
 struct GPUBatch *DRW_cache_particles_get_edit_strands(struct Object *object,
                                                       struct ParticleSystem *psys,

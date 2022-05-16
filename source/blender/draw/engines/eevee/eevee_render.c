@@ -215,13 +215,6 @@ void EEVEE_render_cache(void *vedata,
   }
 
   const int ob_visibility = DRW_object_visibility_in_active_context(ob);
-  if (ob_visibility & OB_VISIBLE_PARTICLES) {
-    EEVEE_particle_hair_cache_populate(vedata, sldata, ob, &cast_shadow);
-    if (do_cryptomatte) {
-      EEVEE_cryptomatte_particle_hair_cache_populate(data, sldata, ob);
-    }
-  }
-
   if (ob_visibility & OB_VISIBLE_SELF) {
     if (ELEM(ob->type, OB_MESH, OB_SURF, OB_MBALL)) {
       EEVEE_materials_cache_populate(vedata, sldata, ob, &cast_shadow);

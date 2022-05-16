@@ -18,8 +18,10 @@
 #include "DNA_screen_types.h"
 
 #include "BKE_context.h"
+#include "BKE_curves.hh"
 #include "BKE_editmesh.h"
 #include "BKE_lib_id.h"
+#include "BKE_material.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_particle.h"
@@ -67,6 +69,10 @@ static void freeData(ModifierData *md)
   }
 }
 
+namespace blender::ed::curves::convert_from_particle_system {
+void particles_to_curves(Object &object, ParticleSystem &psys, Curves &r_curves_id);
+}
+
 static void copyData(const ModifierData *md, ModifierData *target, const int flag)
 {
 #if 0
@@ -111,6 +117,11 @@ static void deformVerts(ModifierData *md,
   }
   else {
     return;
+  }
+
+  if (psys->hair_curves != nullptr) {
+    BKE_id_free(nullptr, psys->hair_curves);
+    psys->hair_curves = nullptr;
   }
 
   if (!psys_check_enabled(ctx->object, psys, (ctx->flag & MOD_APPLY_RENDER) != 0)) {
@@ -224,6 +235,17 @@ static void deformVerts(ModifierData *md,
     BLI_assert(md_orig != nullptr);
     ParticleSystemModifierData *psmd_orig = (ParticleSystemModifierData *)md_orig;
     psmd_orig->flag = psmd->flag;
+  }
+
+  if (psys->part->type == PART_HAIR) {
+    psys->hair_curves = static_cast<Curves *>(BKE_id_new_nomain(ID_CV, "Hair Curves"));
+    blender::ed::curves::convert_from_particle_system::particles_to_curves(
+        *ctx->object, *psys, *psys->hair_curves);
+
+    psys->hair_curves->mat = static_cast<Material **>(
+        MEM_malloc_arrayN(1, sizeof(Material *), __func__));
+    psys->hair_curves->mat[0] = BKE_object_material_get(ctx->object, psys->part->omat);
+    psys->hair_curves->totcol = 1;
   }
 }
 
