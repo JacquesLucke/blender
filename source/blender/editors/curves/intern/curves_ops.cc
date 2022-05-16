@@ -422,8 +422,6 @@ void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curve
   legacy_hair_settings.radius_root = settings.rad_root * settings.rad_scale * 0.5f;
   legacy_hair_settings.radius_tip = settings.rad_tip * settings.rad_scale * 0.5f;
 
-  int vcol_num = 0;
-
   const auto copy_hair_to_curves = [&](const Span<ParticleCacheKey *> hair_cache,
                                        const Span<int> indices_to_transfer,
                                        const int curve_index_offset) {
@@ -433,17 +431,6 @@ void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curve
         const int curve_i = i + curve_index_offset;
         const IndexRange points = curves.points_for_curve(curve_i);
         const Span<ParticleCacheKey> keys{hair_cache[hair_i], points.size()};
-
-        ColorGeometry4f color;
-        rna_ParticleSystem_mcol_on_emitter(&psys,
-                                           nullptr,
-                                           &psmd,
-                                           /* Might be out of bounds, but the called function
-                                            * checks for that using the next argument. */
-                                           psys.particles + curve_i,
-                                           curve_i,
-                                           vcol_num,
-                                           color);
 
         for (const int key_i : keys.index_range()) {
           const int point_i = points[key_i];
