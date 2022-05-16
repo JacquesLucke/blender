@@ -70,7 +70,7 @@ static void freeData(ModifierData *md)
 }
 
 namespace blender::ed::curves::convert_from_particle_system {
-void particles_to_curves(Object &object, ParticleSystem &psys, Curves &r_curves_id);
+void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curves &r_curves_id);
 }
 
 static void copyData(const ModifierData *md, ModifierData *target, const int flag)
@@ -240,7 +240,7 @@ static void deformVerts(ModifierData *md,
   if (psys->part->type == PART_HAIR) {
     psys->hair_curves = static_cast<Curves *>(BKE_id_new_nomain(ID_CV, "Hair Curves"));
     blender::ed::curves::convert_from_particle_system::particles_to_curves(
-        *ctx->object, *psys, *psys->hair_curves);
+        *ctx->object, *psmd, *psys->hair_curves);
 
     psys->hair_curves->mat = static_cast<Material **>(
         MEM_malloc_arrayN(1, sizeof(Material *), __func__));

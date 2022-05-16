@@ -339,9 +339,10 @@ static float legacy_parameter_to_radius(const float shape,
   return (radius * (root - tip)) + tip;
 }
 
-void particles_to_curves(Object &object, ParticleSystem &psys, Curves &r_curves_id);
-void particles_to_curves(Object &object, ParticleSystem &psys, Curves &r_curves_id)
+void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curves &r_curves_id);
+void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curves &r_curves_id)
 {
+  ParticleSystem &psys = *psmd.psys;
   ParticleSettings &settings = *psys.part;
   if (psys.part->type != PART_HAIR) {
     return;
@@ -453,7 +454,7 @@ static int curves_convert_from_particle_system_exec(bContext *C, wmOperator *UNU
     return OPERATOR_CANCELLED;
   }
   Object *ob_from_eval = DEG_get_evaluated_object(&depsgraph, ob_from_orig);
-  ParticleSystem *psys_eval = nullptr;
+  ParticleSystemModifierData *psmd_eval = nullptr;
   LISTBASE_FOREACH (ModifierData *, md, &ob_from_eval->modifiers) {
     if (md->type != eModifierType_ParticleSystem) {
       continue;
@@ -462,14 +463,14 @@ static int curves_convert_from_particle_system_exec(bContext *C, wmOperator *UNU
     if (!STREQ(psmd->psys->name, psys_orig->name)) {
       continue;
     }
-    psys_eval = psmd->psys;
+    psmd_eval = psmd;
   }
 
-  Object *ob_new = BKE_object_add(&bmain, &view_layer, OB_CURVES, psys_eval->name);
+  Object *ob_new = BKE_object_add(&bmain, &view_layer, OB_CURVES, psmd_eval->psys->name);
   ob_new->dtx |= OB_DRAWBOUNDOX; /* TODO: Remove once there is actual drawing. */
   Curves *curves_id = static_cast<Curves *>(ob_new->data);
   BKE_object_apply_mat4(ob_new, ob_from_orig->obmat, true, false);
-  particles_to_curves(*ob_from_eval, *psys_eval, *curves_id);
+  particles_to_curves(*ob_from_eval, *psmd_eval, *curves_id);
 
   DEG_relations_tag_update(&bmain);
   WM_main_add_notifier(NC_OBJECT | ND_DRAW, nullptr);
