@@ -629,13 +629,20 @@ static int rna_ParticleSystem_tessfaceidx_on_emitter(ParticleSystem *particlesys
   return -1;
 }
 
-static void rna_ParticleSystem_uv_on_emitter(ParticleSystem *particlesystem,
-                                             ReportList *reports,
-                                             ParticleSystemModifierData *modifier,
-                                             ParticleData *particle,
-                                             int particle_no,
-                                             int uv_no,
-                                             float r_uv[2])
+void rna_ParticleSystem_uv_on_emitter(ParticleSystem *particlesystem,
+                                      ReportList *reports,
+                                      ParticleSystemModifierData *modifier,
+                                      ParticleData *particle,
+                                      int particle_no,
+                                      int uv_no,
+                                      float r_uv[2]);
+void rna_ParticleSystem_uv_on_emitter(ParticleSystem *particlesystem,
+                                      ReportList *reports,
+                                      ParticleSystemModifierData *modifier,
+                                      ParticleData *particle,
+                                      int particle_no,
+                                      int uv_no,
+                                      float r_uv[2])
 {
   if (modifier->mesh_final == NULL) {
     BKE_report(reports, RPT_ERROR, "Object was not yet evaluated");
@@ -667,14 +674,20 @@ static void rna_ParticleSystem_uv_on_emitter(ParticleSystem *particlesystem,
     }
   }
 }
-
-static void rna_ParticleSystem_mcol_on_emitter(ParticleSystem *particlesystem,
-                                               ReportList *reports,
-                                               ParticleSystemModifierData *modifier,
-                                               ParticleData *particle,
-                                               int particle_no,
-                                               int vcol_no,
-                                               float r_mcol[3])
+void rna_ParticleSystem_mcol_on_emitter(ParticleSystem *particlesystem,
+                                        ReportList *reports,
+                                        ParticleSystemModifierData *modifier,
+                                        ParticleData *particle,
+                                        int particle_no,
+                                        int vcol_no,
+                                        float r_mcol[3]);
+void rna_ParticleSystem_mcol_on_emitter(ParticleSystem *particlesystem,
+                                        ReportList *reports,
+                                        ParticleSystemModifierData *modifier,
+                                        ParticleData *particle,
+                                        int particle_no,
+                                        int vcol_no,
+                                        float r_mcol[3])
 {
   if (!CustomData_has_layer(&modifier->mesh_final->ldata, CD_PROP_BYTE_COLOR)) {
     BKE_report(reports, RPT_ERROR, "Mesh has no VCol data");

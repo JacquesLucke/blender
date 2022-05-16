@@ -48,6 +48,22 @@
  * `ha`: Local space of an individual hair in the legacy hair system.
  */
 
+extern "C" void rna_ParticleSystem_mcol_on_emitter(ParticleSystem *particlesystem,
+                                                   ReportList *reports,
+                                                   ParticleSystemModifierData *modifier,
+                                                   ParticleData *particle,
+                                                   int particle_no,
+                                                   int vcol_no,
+                                                   float r_mcol[3]);
+
+extern "C" void rna_ParticleSystem_uv_on_emitter(ParticleSystem *particlesystem,
+                                                 ReportList *reports,
+                                                 ParticleSystemModifierData *modifier,
+                                                 ParticleData *particle,
+                                                 int particle_no,
+                                                 int uv_no,
+                                                 float r_uv[2]);
+
 namespace blender::ed::curves {
 
 using bke::CurvesGeometry;
@@ -344,6 +360,7 @@ void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curve
 {
   ParticleSystem &psys = *psmd.psys;
   ParticleSettings &settings = *psys.part;
+  Mesh &mesh = *psmd.mesh_final;
   if (psys.part->type != PART_HAIR) {
     return;
   }
@@ -384,6 +401,10 @@ void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curve
   curves.resize(points_num, curves_num);
   curves.offsets_for_write().copy_from(curve_offsets);
 
+  if (curves_num == 0) {
+    return;
+  }
+
   const float4x4 object_to_world_mat = object.obmat;
   const float4x4 world_to_object_mat = object_to_world_mat.inverted();
 
@@ -401,6 +422,8 @@ void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curve
   legacy_hair_settings.radius_root = settings.rad_root * settings.rad_scale * 0.5f;
   legacy_hair_settings.radius_tip = settings.rad_tip * settings.rad_scale * 0.5f;
 
+  int vcol_num = 0;
+
   const auto copy_hair_to_curves = [&](const Span<ParticleCacheKey *> hair_cache,
                                        const Span<int> indices_to_transfer,
                                        const int curve_index_offset) {
@@ -410,6 +433,18 @@ void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curve
         const int curve_i = i + curve_index_offset;
         const IndexRange points = curves.points_for_curve(curve_i);
         const Span<ParticleCacheKey> keys{hair_cache[hair_i], points.size()};
+
+        ColorGeometry4f color;
+        rna_ParticleSystem_mcol_on_emitter(&psys,
+                                           nullptr,
+                                           &psmd,
+                                           /* Might be out of bounds, but the called function
+                                            * checks for that using the next argument. */
+                                           psys.particles + curve_i,
+                                           curve_i,
+                                           vcol_num,
+                                           color);
+
         for (const int key_i : keys.index_range()) {
           const int point_i = points[key_i];
           const ParticleCacheKey &key = keys[key_i];
@@ -434,6 +469,62 @@ void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curve
   copy_hair_to_curves(children_cache, children_to_transfer, parents_to_transfer.size());
 
   radius_attr.save();
+
+  BKE_mesh_tessface_ensure(&mesh);
+  const int color_layer_offset = mesh.fdata.typemap[CD_MCOL];
+  const int uv_layer_offset = mesh.fdata.typemap[CD_MTFACE];
+  for (const int layer_index : IndexRange(mesh.fdata.totlayer)) {
+    const CustomDataLayer &layer = mesh.fdata.layers[layer_index];
+    if (layer.type == CD_MCOL) {
+      bke::OutputAttribute_Typed<ColorGeometry4f> color_attr =
+          curves_component.attribute_try_get_for_output_only<ColorGeometry4f>(layer.name,
+                                                                              ATTR_DOMAIN_CURVE);
+      MutableSpan<ColorGeometry4f> color_attr_span = color_attr.as_span();
+      const int color_index = layer_index - color_layer_offset;
+      threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
+        for (const int curve_i : range) {
+          ColorGeometry4f &color = color_attr_span[curve_i];
+          rna_ParticleSystem_mcol_on_emitter(&psys,
+                                             nullptr,
+                                             &psmd,
+                                             /* Might be out of bounds, but the called function
+                                              * checks for that using the next argument. */
+                                             psys.particles + curve_i,
+                                             curve_i,
+                                             color_index,
+                                             color);
+        }
+      });
+      color_attr.save();
+    }
+    if (layer.type == CD_MTFACE) {
+      bke::OutputAttribute_Typed<float2> uv_attr =
+          curves_component.attribute_try_get_for_output_only<float2>(layer.name,
+                                                                     ATTR_DOMAIN_CURVE);
+      MutableSpan<float2> uv_attr_span = uv_attr.as_span();
+      const int uv_index = layer_index - uv_layer_offset;
+      threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
+        for (const int curve_i : range) {
+          float2 &uv = uv_attr_span[curve_i];
+          rna_ParticleSystem_uv_on_emitter(&psys,
+                                           nullptr,
+                                           &psmd,
+                                           /* Might be out of bounds, but the called function
+                                            * checks for that using the next argument. */
+                                           psys.particles + curve_i,
+                                           curve_i,
+                                           uv_index,
+                                           uv);
+        }
+      });
+      uv_attr.save();
+    }
+  }
+  for (const CustomDataLayer &layer : Span{mesh.fdata.layers, mesh.fdata.totlayer}) {
+    if (layer.type != CD_MCOL) {
+      continue;
+    }
+  }
 
   curves.update_curve_types();
   curves.tag_topology_changed();
