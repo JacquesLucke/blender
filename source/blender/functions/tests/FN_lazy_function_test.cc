@@ -2,6 +2,7 @@
 
 #include "testing/testing.h"
 
+#include "FN_lazy_function_execute_eager.hh"
 #include "FN_lazy_function_graph.hh"
 
 namespace blender::fn::tests {
@@ -29,7 +30,7 @@ TEST(lazy_function, Simple)
   AddLazyFunction fn;
 
   int result;
-  fn.execute_eager(std::make_tuple<int, int>(3, 6), std::make_tuple(&result));
+  execute_lazy_function_eagerly(fn, std::make_tuple<int, int>(3, 6), std::make_tuple(&result));
   std::cout << result << "\n";
 
   LazyFunctionGraph graph;

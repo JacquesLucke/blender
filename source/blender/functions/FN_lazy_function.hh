@@ -6,8 +6,6 @@
  * \ingroup fn
  */
 
-#include <tuple>
-
 #include "BLI_cpp_type.hh"
 #include "BLI_generic_pointer.hh"
 #include "BLI_vector.hh"
@@ -115,9 +113,6 @@ class LazyFunction {
   Span<LazyFunctionOutput> outputs() const;
 
   void execute(LazyFunctionParams &params) const;
-  void execute_eager(Span<GMutablePointer> inputs, Span<GMutablePointer> outputs) const;
-  template<typename... Inputs, typename... Outputs>
-  void execute_eager(std::tuple<Inputs...> inputs, std::tuple<Outputs *...> outputs) const;
 
  private:
   virtual void execute_impl(LazyFunctionParams &params) const = 0;
@@ -140,45 +135,6 @@ inline Span<LazyFunctionOutput> LazyFunction::outputs() const
 inline void LazyFunction::execute(LazyFunctionParams &params) const
 {
   this->execute_impl(params);
-}
-
-template<typename... Inputs, typename... Outputs, size_t... InIndices, size_t... OutIndices>
-inline void execute_eager_impl(const LazyFunction &fn,
-                               std::tuple<Inputs...> &inputs,
-                               std::tuple<Outputs *...> &outputs,
-                               std::index_sequence<InIndices...> /* in_indices */,
-                               std::index_sequence<OutIndices...> /* out_indices */)
-{
-  Vector<GMutablePointer, 16> input_pointers;
-  Vector<GMutablePointer, 16> output_pointers;
-  (
-      [&]() {
-        constexpr size_t I = InIndices;
-        using T = Inputs;
-        const CPPType &type = CPPType::get<T>();
-        input_pointers.append({type, &std::get<I>(inputs)});
-      }(),
-      ...);
-  (
-      [&]() {
-        constexpr size_t I = OutIndices;
-        using T = Outputs;
-        const CPPType &type = CPPType::get<T>();
-        output_pointers.append({type, std::get<I>(outputs)});
-      }(),
-      ...);
-  fn.execute_eager(input_pointers, output_pointers);
-}
-
-template<typename... Inputs, typename... Outputs>
-inline void LazyFunction::execute_eager(std::tuple<Inputs...> inputs,
-                                        std::tuple<Outputs *...> outputs) const
-{
-  execute_eager_impl(*this,
-                     inputs,
-                     outputs,
-                     std::make_index_sequence<sizeof...(Inputs)>(),
-                     std::make_index_sequence<sizeof...(Outputs)>());
 }
 
 /** \} */
