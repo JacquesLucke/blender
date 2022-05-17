@@ -13,6 +13,7 @@ set(INC_SYS
 set(SRC
   intern/cpp_types.cc
   intern/field.cc
+  intern/lazy_function.cc
   intern/lazy_function_graph.cc
   intern/multi_function.cc
   intern/multi_function_builder.cc
@@ -66,6 +67,7 @@ blender_add_lib(bf_functions "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 if(WITH_GTESTS)
   set(TEST_SRC
     tests/FN_field_test.cc
+    tests/FN_lazy_function_test.cc
     tests/FN_multi_function_procedure_test.cc
     tests/FN_multi_function_test.cc
     tests/FN_sgraph_test.cc

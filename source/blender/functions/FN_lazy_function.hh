@@ -74,22 +74,36 @@ class LazyFunctionParams {
 };
 
 struct LazyFunctionInput {
-  const CPPType *type = nullptr;
-  ValueUsage usage = ValueUsage::Used;
+  const char *static_name;
+  const CPPType *type;
+  ValueUsage usage;
+
+  LazyFunctionInput(const char *static_name,
+                    const CPPType &type,
+                    const ValueUsage usage = ValueUsage::Used)
+      : static_name(static_name), type(&type), usage(usage)
+  {
+  }
 };
 
 struct LazyFunctionOutput {
+  const char *static_name;
   const CPPType *type = nullptr;
+
+  LazyFunctionOutput(const char *static_name, const CPPType &type)
+      : static_name(static_name), type(&type)
+  {
+  }
 };
 
 class LazyFunction {
  protected:
+  const char *static_name_ = "Unnamed Function";
   Vector<LazyFunctionInput> inputs_;
   Vector<LazyFunctionOutput> outputs_;
 
  public:
   virtual ~LazyFunction() = default;
-  virtual void execute(LazyFunctionParams &params) const = 0;
 
   virtual std::string name() const;
   virtual std::string input_name(int index) const;
@@ -97,6 +111,14 @@ class LazyFunction {
 
   Span<LazyFunctionInput> inputs() const;
   Span<LazyFunctionOutput> outputs() const;
+
+  void execute(LazyFunctionParams &params) const
+  {
+    this->execute_impl(params);
+  }
+
+ private:
+  virtual void execute_impl(LazyFunctionParams &params) const = 0;
 };
 
 /* -------------------------------------------------------------------- */
@@ -119,42 +141,42 @@ inline Span<LazyFunctionOutput> LazyFunction::outputs() const
 /** \name #LazyFunction Inline Methods
  * \{ */
 
-void *LazyFunctionParams::try_get_input_data_ptr(int index, const char *name)
+inline void *LazyFunctionParams::try_get_input_data_ptr(int index, const char *name)
 {
   BLI_assert(name == nullptr || name == fn_.input_name(index));
   UNUSED_VARS_NDEBUG(name);
   return this->try_get_input_data_ptr_impl(index);
 }
 
-void *LazyFunctionParams::get_output_data_ptr(int index, const char *name)
+inline void *LazyFunctionParams::get_output_data_ptr(int index, const char *name)
 {
   BLI_assert(name == nullptr || name == fn_.output_name(index));
   UNUSED_VARS_NDEBUG(name);
   return this->get_output_data_ptr_impl(index);
 }
 
-void LazyFunctionParams::output_set(int index, const char *name)
+inline void LazyFunctionParams::output_set(int index, const char *name)
 {
   BLI_assert(name == nullptr || name == fn_.output_name(index));
   UNUSED_VARS_NDEBUG(name);
   this->output_set_impl(index);
 }
 
-ValueUsage LazyFunctionParams::get_output_usage(int index, const char *name)
+inline ValueUsage LazyFunctionParams::get_output_usage(int index, const char *name)
 {
   BLI_assert(name == nullptr || name == fn_.output_name(index));
   UNUSED_VARS_NDEBUG(name);
   return this->get_output_usage_impl(index);
 }
 
-void LazyFunctionParams::set_input_unused(int index, const char *name)
+inline void LazyFunctionParams::set_input_unused(int index, const char *name)
 {
   BLI_assert(name == nullptr || name == fn_.input_name(index));
   UNUSED_VARS_NDEBUG(name);
   this->set_input_unused_impl(index);
 }
 
-template<typename T> T LazyFunctionParams::extract_input(int index, const char *name)
+template<typename T> inline T LazyFunctionParams::extract_input(int index, const char *name)
 {
 #ifdef DEBUG
   const LazyFunctionInput &input = fn_.inputs()[index];
@@ -168,7 +190,7 @@ template<typename T> T LazyFunctionParams::extract_input(int index, const char *
   return return_value;
 }
 
-template<typename T> const T &LazyFunctionParams::get_input(int index, const char *name)
+template<typename T> inline const T &LazyFunctionParams::get_input(int index, const char *name)
 {
 #ifdef DEBUG
   const LazyFunctionInput &input = fn_.inputs()[index];
@@ -181,7 +203,8 @@ template<typename T> const T &LazyFunctionParams::get_input(int index, const cha
   return *static_cast<const T *>(data);
 }
 
-template<typename T> void LazyFunctionParams::set_output(int index, T &&value, const char *name)
+template<typename T>
+inline void LazyFunctionParams::set_output(int index, T &&value, const char *name)
 {
 #ifdef DEBUG
   const LazyFunctionOutput &output = fn_.outputs()[index];
