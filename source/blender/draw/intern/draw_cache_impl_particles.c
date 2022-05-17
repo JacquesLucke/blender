@@ -53,7 +53,6 @@ typedef struct ParticleBatchCache {
   /* Object mode strands for hair and points for particle,
    * strands for paths when in edit mode.
    */
-  ParticleHairCache hair;   /* Used for hair strands */
   ParticlePointCache point; /* Used for particle points. */
 
   /* Control points when in edit mode. */
@@ -207,7 +206,6 @@ static void particle_batch_cache_clear(ParticleSystem *psys)
   }
 
   particle_batch_cache_clear_point(&cache->point);
-  particle_batch_cache_clear_hair(&cache->hair);
 
   particle_batch_cache_clear_hair(&cache->edit_hair);
 
