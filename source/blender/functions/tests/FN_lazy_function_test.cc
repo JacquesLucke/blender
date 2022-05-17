@@ -28,6 +28,10 @@ TEST(lazy_function, Simple)
 {
   AddLazyFunction fn;
 
+  int result;
+  fn.execute_eager(std::make_tuple<int, int>(3, 6), std::make_tuple(&result));
+  std::cout << result << "\n";
+
   LazyFunctionGraph graph;
   LFNode &n1 = graph.add_node(fn);
   LFNode &n2 = graph.add_node(fn);
