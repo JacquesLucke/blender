@@ -39,9 +39,6 @@ typedef struct ParticleHairCache {
   GPUVertBuf *proc_strand_buf;
   GPUTexture *strand_tex;
 
-  int num_uv_layers;
-  int num_col_layers;
-
   int strands_len;
   int elems_len;
   int point_len;
