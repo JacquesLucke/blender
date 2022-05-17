@@ -934,9 +934,9 @@ template<typename SGraphAccessor> class SGraphEvaluator {
       }
       if (this->is_multi_input(to_socket)) {
         MultiInputValue &multi_value = *input_state.value.multi;
-        BLI_assert(link.has_value());
         int link_index = -1;
         const Link &link = *from_link;
+        BLI_assert(link.has_value());
         for (const int i : multi_value.links.index_range()) {
           const Link &link_at_index = multi_value.links[i];
           if (link_at_index == link) {

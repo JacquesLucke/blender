@@ -13,6 +13,7 @@ set(INC_SYS
 set(SRC
   intern/cpp_types.cc
   intern/field.cc
+  intern/lazy_function_graph.cc
   intern/multi_function.cc
   intern/multi_function_builder.cc
   intern/multi_function_params.cc
@@ -23,6 +24,8 @@ set(SRC
 
   FN_field.hh
   FN_field_cpp_type.hh
+  FN_lazy_function.hh
+  FN_lazy_function_graph.hh
   FN_multi_function.hh
   FN_multi_function_builder.hh
   FN_multi_function_context.hh
