@@ -22,6 +22,8 @@
 
 #include "BKE_attribute_access.hh"
 
+struct ParticleSystemModifierData;
+
 namespace blender::bke {
 
 template<typename T, BLI_ENABLE_IF(std::is_integral_v<T>)>
@@ -688,6 +690,10 @@ Curves *curves_new_nomain(CurvesGeometry curves);
 Curves *curves_new_nomain_single(int points_num, CurveType type);
 
 std::array<int, CURVE_TYPES_NUM> calculate_type_counts(const VArray<int8_t> &types);
+
+void particle_hair_to_curves(Object &object,
+                             ParticleSystemModifierData &psmd,
+                             Curves &r_curves_id);
 
 /* -------------------------------------------------------------------- */
 /** \name #CurvesGeometry Inline Methods

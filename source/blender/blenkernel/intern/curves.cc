@@ -12,6 +12,7 @@
 #include "DNA_curves_types.h"
 #include "DNA_defaults.h"
 #include "DNA_material_types.h"
+#include "DNA_mesh_types.h"
 #include "DNA_object_types.h"
 
 #include "BLI_bounds.hh"
@@ -34,8 +35,11 @@
 #include "BKE_lib_query.h"
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
+#include "BKE_mesh.h"
+#include "BKE_mesh_runtime.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
+#include "BKE_particle.h"
 
 #include "BLT_translation.h"
 
@@ -48,6 +52,22 @@ using blender::IndexRange;
 using blender::MutableSpan;
 using blender::RandomNumberGenerator;
 using blender::Span;
+
+extern "C" void rna_ParticleSystem_mcol_on_emitter(ParticleSystem *particlesystem,
+                                                   ReportList *reports,
+                                                   ParticleSystemModifierData *modifier,
+                                                   ParticleData *particle,
+                                                   int particle_no,
+                                                   int vcol_no,
+                                                   float r_mcol[3]);
+
+extern "C" void rna_ParticleSystem_uv_on_emitter(ParticleSystem *particlesystem,
+                                                 ReportList *reports,
+                                                 ParticleSystemModifierData *modifier,
+                                                 ParticleData *particle,
+                                                 int particle_no,
+                                                 int uv_no,
+                                                 float r_uv[2]);
 
 static const char *ATTR_POSITION = "position";
 
@@ -385,6 +405,199 @@ Curves *curves_new_nomain(CurvesGeometry curves)
   Curves *curves_id = static_cast<Curves *>(BKE_id_new_nomain(ID_CV, nullptr));
   bke::CurvesGeometry::wrap(curves_id->geometry) = std::move(curves);
   return curves_id;
+}
+
+static float legacy_parameter_to_radius(const float shape,
+                                        const float root,
+                                        const float tip,
+                                        const float t)
+{
+  BLI_assert(t >= 0.0f);
+  BLI_assert(t <= 1.0f);
+  float radius = 1.0f - t;
+
+  if (shape != 0.0f) {
+    if (shape < 0.0f)
+      radius = powf(radius, 1.0f + shape);
+    else
+      radius = powf(radius, 1.0f / (1.0f - shape));
+  }
+  return (radius * (root - tip)) + tip;
+}
+
+void particle_hair_to_curves(Object &object, ParticleSystemModifierData &psmd, Curves &r_curves_id)
+{
+  ParticleSystem &psys = *psmd.psys;
+  ParticleSettings &settings = *psys.part;
+  Mesh &mesh = *psmd.mesh_final;
+  if (psys.part->type != PART_HAIR) {
+    return;
+  }
+
+  const bool transfer_parents = (settings.draw & PART_DRAW_PARENT) || settings.childtype == 0;
+
+  const Span<ParticleCacheKey *> parents_cache{psys.pathcache, psys.totcached};
+  const Span<ParticleCacheKey *> children_cache{psys.childcache, psys.totchildcache};
+
+  int points_num = 0;
+  Vector<int> curve_offsets;
+  Vector<int> parents_to_transfer;
+  Vector<int> children_to_transfer;
+  if (transfer_parents) {
+    for (const int parent_i : parents_cache.index_range()) {
+      const int segments = parents_cache[parent_i]->segments;
+      if (segments <= 0) {
+        continue;
+      }
+      parents_to_transfer.append(parent_i);
+      curve_offsets.append(points_num);
+      points_num += segments + 1;
+    }
+  }
+  for (const int child_i : children_cache.index_range()) {
+    const int segments = children_cache[child_i]->segments;
+    if (segments <= 0) {
+      continue;
+    }
+    children_to_transfer.append(child_i);
+    curve_offsets.append(points_num);
+    points_num += segments + 1;
+  }
+  const int curves_num = parents_to_transfer.size() + children_to_transfer.size();
+  curve_offsets.append(points_num);
+  BLI_assert(curve_offsets.size() == curves_num + 1);
+  bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(r_curves_id.geometry);
+  curves.resize(points_num, curves_num);
+  curves.offsets_for_write().copy_from(curve_offsets);
+
+  if (curves_num == 0) {
+    return;
+  }
+
+  const float4x4 object_to_world_mat = object.obmat;
+  const float4x4 world_to_object_mat = object_to_world_mat.inverted();
+
+  MutableSpan<float3> positions = curves.positions_for_write();
+
+  CurveComponent curves_component;
+  curves_component.replace(&r_curves_id, GeometryOwnershipType::Editable);
+  bke::OutputAttribute_Typed radius_attr =
+      curves_component.attribute_try_get_for_output_only<float>("radius", ATTR_DOMAIN_POINT);
+  MutableSpan<float> radius_attr_span = radius_attr.as_span();
+
+  blender::bke::LegacyHairSettings &legacy_hair_settings = curves.runtime->legacy_hair_settings;
+  legacy_hair_settings.close_tip = (settings.shape_flag & PART_SHAPE_CLOSE_TIP) != 0;
+  legacy_hair_settings.radius_shape = settings.shape;
+  legacy_hair_settings.radius_root = settings.rad_root * settings.rad_scale * 0.5f;
+  legacy_hair_settings.radius_tip = settings.rad_tip * settings.rad_scale * 0.5f;
+
+  const auto copy_hair_to_curves = [&](const Span<ParticleCacheKey *> hair_cache,
+                                       const Span<int> indices_to_transfer,
+                                       const int curve_index_offset) {
+    threading::parallel_for(indices_to_transfer.index_range(), 256, [&](const IndexRange range) {
+      for (const int i : range) {
+        const int hair_i = indices_to_transfer[i];
+        const int curve_i = i + curve_index_offset;
+        const IndexRange points = curves.points_for_curve(curve_i);
+        const Span<ParticleCacheKey> keys{hair_cache[hair_i], points.size()};
+
+        float curve_length = 0.0f;
+        float3 prev_key_pos(0.0f);
+
+        for (const int key_i : keys.index_range()) {
+          const int point_i = points[key_i];
+          const ParticleCacheKey &key = keys[key_i];
+          const float3 key_pos = world_to_object_mat * float3(key.co);
+          positions[point_i] = key_pos;
+
+          if (key_i > 0) {
+            curve_length += math::distance(key_pos, prev_key_pos);
+          }
+          radius_attr_span[point_i] = curve_length;
+          prev_key_pos = key_pos;
+        }
+
+        /* Compute radius using normalized length. */
+        for (const int key_i : keys.index_range()) {
+          const int point_i = points[key_i];
+          const float t = (curve_length == 0.0f) ? 0.0f : radius_attr_span[point_i] / curve_length;
+          radius_attr_span[point_i] = legacy_parameter_to_radius(legacy_hair_settings.radius_shape,
+                                                                 legacy_hair_settings.radius_root,
+                                                                 legacy_hair_settings.radius_tip,
+                                                                 t);
+        }
+        if (legacy_hair_settings.close_tip) {
+          radius_attr_span[points.last()] = 0.0f;
+        }
+      }
+    });
+  };
+
+  if (transfer_parents) {
+    copy_hair_to_curves(parents_cache, parents_to_transfer, 0);
+  }
+  copy_hair_to_curves(children_cache, children_to_transfer, parents_to_transfer.size());
+
+  radius_attr.save();
+
+  BKE_mesh_tessface_ensure(&mesh);
+  const int color_layer_offset = mesh.fdata.typemap[CD_MCOL];
+  const int uv_layer_offset = mesh.fdata.typemap[CD_MTFACE];
+  for (const int layer_index : IndexRange(mesh.fdata.totlayer)) {
+    const CustomDataLayer &layer = mesh.fdata.layers[layer_index];
+    if (layer.type == CD_MCOL) {
+      bke::OutputAttribute_Typed<ColorGeometry4f> color_attr =
+          curves_component.attribute_try_get_for_output_only<ColorGeometry4f>(layer.name,
+                                                                              ATTR_DOMAIN_CURVE);
+      MutableSpan<ColorGeometry4f> color_attr_span = color_attr.as_span();
+      const int color_index = layer_index - color_layer_offset;
+      threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
+        for (const int curve_i : range) {
+          ColorGeometry4f &color = color_attr_span[curve_i];
+          rna_ParticleSystem_mcol_on_emitter(&psys,
+                                             nullptr,
+                                             &psmd,
+                                             /* Might be out of bounds, but the called function
+                                              * checks for that using the next argument. */
+                                             psys.particles + curve_i,
+                                             curve_i,
+                                             color_index,
+                                             color);
+        }
+      });
+      color_attr.save();
+    }
+    if (layer.type == CD_MTFACE) {
+      bke::OutputAttribute_Typed<float2> uv_attr =
+          curves_component.attribute_try_get_for_output_only<float2>(layer.name,
+                                                                     ATTR_DOMAIN_CURVE);
+      MutableSpan<float2> uv_attr_span = uv_attr.as_span();
+      const int uv_index = layer_index - uv_layer_offset;
+      threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
+        for (const int curve_i : range) {
+          float2 &uv = uv_attr_span[curve_i];
+          rna_ParticleSystem_uv_on_emitter(&psys,
+                                           nullptr,
+                                           &psmd,
+                                           /* Might be out of bounds, but the called function
+                                            * checks for that using the next argument. */
+                                           psys.particles + curve_i,
+                                           curve_i,
+                                           uv_index,
+                                           uv);
+        }
+      });
+      uv_attr.save();
+    }
+  }
+  for (const CustomDataLayer &layer : Span{mesh.fdata.layers, mesh.fdata.totlayer}) {
+    if (layer.type != CD_MCOL) {
+      continue;
+    }
+  }
+
+  curves.update_curve_types();
+  curves.tag_topology_changed();
 }
 
 }  // namespace blender::bke
