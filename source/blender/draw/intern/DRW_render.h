@@ -296,6 +296,8 @@ void DRW_shader_library_free(DRWShaderLibrary *lib);
  * therefore they aren't ordered as a bit mask.
  */
 typedef enum {
+  /** To be used for compute passes. */
+  DRW_STATE_NO_DRAW = 0,
   /** Write mask */
   DRW_STATE_WRITE_DEPTH = (1 << 0),
   DRW_STATE_WRITE_COLOR = (1 << 1),
@@ -621,6 +623,12 @@ void DRW_shgroup_vertex_buffer_ex(DRWShadingGroup *shgroup,
 void DRW_shgroup_vertex_buffer_ref_ex(DRWShadingGroup *shgroup,
                                       const char *name,
                                       struct GPUVertBuf **vertex_buffer DRW_DEBUG_FILE_LINE_ARGS);
+void DRW_shgroup_buffer_texture_ex(DRWShadingGroup *shgroup,
+                                   const char *name,
+                                   struct GPUVertBuf *vertex_buffer);
+void DRW_shgroup_buffer_texture_ref_ex(DRWShadingGroup *shgroup,
+                                       const char *name,
+                                       struct GPUVertBuf **vertex_buffer);
 
 #ifdef DRW_UNUSED_RESOURCE_TRACKING
 #  define DRW_shgroup_vertex_buffer(shgroup, name, vert) \
