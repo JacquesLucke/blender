@@ -52,6 +52,19 @@ struct NodeState {
   void *storage = nullptr;
 };
 
+struct LockedNode {
+  const LFNode &node;
+  NodeState &node_state;
+
+  Vector<const LFOutputSocket *> delayed_required_outputs;
+  Vector<const LFOutputSocket *> delayed_unused_outputs;
+  Vector<const LFNode *> delayed_scheduled_nodes;
+
+  LockedNode(const LFNode &node, NodeState &node_state) : node(node), node_state(node_state)
+  {
+  }
+};
+
 class Executor {
  private:
   const LazyFunctionGraph &graph_;
@@ -85,6 +98,8 @@ class Executor {
   void execute(LazyFunctionParams &params)
   {
     params_ = &params;
+    this->schedule_newly_requested_outputs();
+    BLI_task_pool_work_and_wait(task_pool_);
     params_ = nullptr;
   }
 
@@ -167,6 +182,159 @@ class Executor {
         output_state.usage = ValueUsage::Unused;
       }
     }
+  }
+
+  void schedule_newly_requested_outputs()
+  {
+    for (const int i : outputs_.index_range()) {
+      if (params_->get_output_usage(i) != ValueUsage::Used) {
+        continue;
+      }
+      const LFSocket &socket = *outputs_[i];
+      const LFNode &node = socket.node();
+      NodeState &node_state = *node_states_.lookup(&node);
+      UNUSED_VARS(node_state);
+
+      if (socket.is_input()) {
+        const LFInputSocket &input_socket = socket.as_input();
+        UNUSED_VARS(input_socket);
+        /* TODO */
+      }
+      else {
+        const LFOutputSocket &output_socket = socket.as_output();
+        UNUSED_VARS(output_socket);
+        /* TODO */
+      }
+    }
+  }
+
+  void forward_newly_provided_inputs()
+  {
+    /* TODO */
+  }
+
+  void notify_output_required(const LFOutputSocket &socket)
+  {
+    /* TODO */
+    UNUSED_VARS(socket);
+  }
+
+  void notify_output_unused(const LFOutputSocket &socket)
+  {
+    /* TODO */
+    UNUSED_VARS(socket);
+  }
+
+  void schedule_node(LockedNode &locked_node)
+  {
+    /* TODO */
+    UNUSED_VARS(locked_node);
+  }
+
+  template<typename F> void with_locked_node(const LFNode &node, NodeState &node_state, const F &f)
+  {
+    LockedNode locked_node{node, node_state};
+    {
+      std::lock_guard lock{node_state.mutex};
+      threading::isolate_task([&]() { f(locked_node); });
+    }
+
+    /* TODO: Notifications/ */
+  }
+
+  void add_node_to_task_pool(const LFNode &node)
+  {
+    /* TODO */
+    UNUSED_VARS(node);
+  }
+
+  static void run_node_from_task_pool(TaskPool *task_pool, void *task_data)
+  {
+    /* TODO */
+    UNUSED_VARS(task_pool, task_data);
+  }
+
+  void run_node_task(const LFNode &node)
+  {
+    /* TODO */
+    UNUSED_VARS(node);
+  }
+
+  void assert_expected_outputs_have_been_computed(LockedNode &locked_node)
+  {
+    /* TODO */
+    UNUSED_VARS(locked_node);
+  }
+
+  void finish_node_if_possible(LockedNode &locked_node)
+  {
+    /* TODO */
+    UNUSED_VARS(locked_node);
+  }
+
+  void destruct_input_value_if_exists(LockedNode &locked_node, const LFInputSocket &socket)
+  {
+    /* TODO */
+    UNUSED_VARS(locked_node, socket);
+  }
+
+  void execute_node(const LFNode &node, NodeState &node_state);
+
+  void set_input_unused_during_execution(const LFNode &node,
+                                         NodeState &node_state,
+                                         const int input_index)
+  {
+    /* TODO */
+    UNUSED_VARS(node, node_state, input_index);
+  }
+
+  void set_input_unused(LockedNode &locked_node, const LFInputSocket &input_socket)
+  {
+    /* TODO */
+    UNUSED_VARS(locked_node, input_socket);
+  }
+
+  void *set_input_required_during_execution(const LFNode &node,
+                                            NodeState &node_state,
+                                            const int input_index)
+  {
+    /* TODO */
+    UNUSED_VARS(node, node_state, input_index);
+    return nullptr;
+  }
+
+  void *set_input_required(LockedNode &locked_node, const LFInputSocket &input_socket)
+  {
+    /* TODO */
+    UNUSED_VARS(locked_node, input_socket);
+    return nullptr;
+  }
+
+  void forward_output_provided_by_outside(const LFOutputSocket &from_socket,
+                                          GMutablePointer value_to_forward)
+  {
+    /* TODO */
+    UNUSED_VARS(from_socket, value_to_forward);
+  }
+
+  void forward_computed_node_output(const LFOutputSocket &from_socket,
+                                    GMutablePointer value_to_forward)
+  {
+    /* TODO */
+    UNUSED_VARS(from_socket, value_to_forward);
+  }
+
+  void forward_value_to_linked_inputs(const LFOutputSocket &from_socket,
+                                      GMutablePointer value_to_forward)
+  {
+    /* TODO */
+    UNUSED_VARS(from_socket, value_to_forward);
+  }
+
+  void forward_value_to_input(const LFInputSocket &to_socket, GMutablePointer value)
+  {
+    /* TODO */
+    UNUSED_VARS(to_socket, value);
   }
 };
 
