@@ -50,6 +50,11 @@
 namespace blender::ed::sculpt_paint {
 
 class PinchOperation : public CurvesSculptStrokeOperation {
+ private:
+  Array<float> segment_lengths_cu_;
+
+  friend struct PinchOperationExecutor;
+
  public:
   void on_stroke_extended(bContext *C, const StrokeExtension &stroke_extension) override;
 };
@@ -61,11 +66,20 @@ struct PinchOperationExecutor {
   Object *object_ = nullptr;
   ARegion *region_ = nullptr;
   View3D *v3d_ = nullptr;
+  RegionView3D *rv3d_ = nullptr;
+
   Curves *curves_id_ = nullptr;
   CurvesGeometry *curves_ = nullptr;
 
   float4x4 curves_to_world_mat_;
   float4x4 world_to_curves_mat_;
+
+  CurvesSculpt *curves_sculpt_ = nullptr;
+  Brush *brush_ = nullptr;
+  float brush_radius_re_;
+  float brush_strength_;
+
+  float2 brush_pos_re_;
 
   void execute(PinchOperation &self, bContext *C, const StrokeExtension &stroke_extension)
   {
@@ -75,6 +89,12 @@ struct PinchOperationExecutor {
     object_ = CTX_data_active_object(C);
     region_ = CTX_wm_region(C);
     v3d_ = CTX_wm_view3d(C);
+    rv3d_ = CTX_wm_region_view3d(C);
+
+    curves_sculpt_ = scene_->toolsettings->curves_sculpt;
+    brush_ = BKE_paint_brush(&curves_sculpt_->paint);
+    brush_radius_re_ = BKE_brush_size_get(scene_, brush_);
+    brush_strength_ = BKE_brush_alpha_get(scene_, brush_);
 
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
@@ -83,14 +103,101 @@ struct PinchOperationExecutor {
     world_to_curves_mat_ = curves_to_world_mat_.inverted();
 
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
-    for (const int i : curves_->points_range()) {
-      positions_cu[i].x += 0.1f;
+
+    float4x4 projection;
+    ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
+
+    Array<bool> changed_curves(curves_->curves_num(), false);
+
+    const float brush_radius_sq_re = pow2f(brush_radius_re_);
+    brush_pos_re_ = stroke_extension.mouse_position;
+
+    if (stroke_extension.is_first) {
+      this->initialize_segment_lengths();
     }
 
+    threading::parallel_for(curves_->curves_range(), 256, [&](const IndexRange curves_range) {
+      for (const int curve_i : curves_range) {
+        bool &curve_changed = changed_curves[curve_i];
+        const IndexRange points = curves_->points_for_curve(curve_i);
+        for (const int point_i : points.drop_front(1)) {
+          const float3 old_pos_cu = positions_cu[point_i];
+
+          float2 old_pos_re;
+          ED_view3d_project_float_v2_m4(region_, old_pos_cu, old_pos_re, projection.values);
+
+          const float distance_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
+          if (distance_to_brush_sq_re > brush_radius_sq_re) {
+            continue;
+          }
+
+          const float distance_to_brush_re = std::sqrt(distance_to_brush_sq_re);
+          const float radius_falloff = BKE_brush_curve_strength(
+              brush_, distance_to_brush_re, brush_radius_re_);
+          const float weight = brush_strength_ * radius_falloff;
+
+          const float max_move_dist_re = 0.1f * brush_radius_re_ * weight;
+          const float2 old_diff_to_brush_re = old_pos_re - brush_pos_re_;
+          const float old_dist_re = math::length(old_diff_to_brush_re);
+          const float move_dist_re = std::min(max_move_dist_re, old_dist_re);
+          const float2 move_diff_re = move_dist_re * math::normalize(old_diff_to_brush_re);
+          const float2 new_pos_re = old_pos_re - move_diff_re;
+
+          float3 new_pos_wo;
+          ED_view3d_win_to_3d(
+              v3d_, region_, curves_to_world_mat_ * old_pos_cu, new_pos_re, new_pos_wo);
+          const float3 new_pos_cu = world_to_curves_mat_ * new_pos_wo;
+          positions_cu[point_i] = new_pos_cu;
+
+          curve_changed = true;
+        }
+      }
+    });
+
+    this->restore_segment_lengths(changed_curves);
     curves_->tag_positions_changed();
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
     WM_main_add_notifier(NC_GEOM | ND_DATA, &curves_id_->id);
     ED_region_tag_redraw(region_);
+  }
+
+  void initialize_segment_lengths()
+  {
+    const Span<float3> positions_cu = curves_->positions();
+    self_->segment_lengths_cu_.reinitialize(curves_->points_num());
+    threading::parallel_for(curves_->curves_range(), 128, [&](const IndexRange range) {
+      for (const int curve_i : range) {
+        const IndexRange points = curves_->points_for_curve(curve_i);
+        for (const int point_i : points.drop_back(1)) {
+          const float3 &p1_cu = positions_cu[point_i];
+          const float3 &p2_cu = positions_cu[point_i + 1];
+          const float length_cu = math::distance(p1_cu, p2_cu);
+          self_->segment_lengths_cu_[point_i] = length_cu;
+        }
+      }
+    });
+  }
+
+  void restore_segment_lengths(const Span<bool> changed_curves)
+  {
+    const Span<float> expected_lengths_cu = self_->segment_lengths_cu_;
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
+
+    threading::parallel_for(changed_curves.index_range(), 256, [&](const IndexRange range) {
+      for (const int curve_i : range) {
+        if (!changed_curves[curve_i]) {
+          continue;
+        }
+        const IndexRange points = curves_->points_for_curve(curve_i);
+        for (const int segment_i : IndexRange(points.size() - 1)) {
+          const float3 &p1_cu = positions_cu[points[segment_i]];
+          float3 &p2_cu = positions_cu[points[segment_i] + 1];
+          const float3 direction = math::normalize(p2_cu - p1_cu);
+          const float expected_length_cu = expected_lengths_cu[points[segment_i]];
+          p2_cu = p1_cu + direction * expected_length_cu;
+        }
+      }
+    });
   }
 };
 
