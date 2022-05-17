@@ -60,6 +60,8 @@ class Executor {
   LazyFunctionParams *params_ = nullptr;
   Map<const LFNode *, NodeState *> node_states_;
 
+  TaskPool *task_pool_ = nullptr;
+
   threading::EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
 
  public:
@@ -69,6 +71,15 @@ class Executor {
       : graph_(graph), inputs_(inputs), outputs_(outputs)
   {
     this->initialize_node_states();
+    task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
+  }
+
+  ~Executor()
+  {
+    BLI_task_pool_free(task_pool_);
+    for (NodeState *node_state : node_states_.values()) {
+      std::destroy_at(node_state);
+    }
   }
 
   void execute(LazyFunctionParams &params)
