@@ -20,10 +20,11 @@ class LazyFunctionGraph;
 
 class LFSocket : NonCopyable, NonMovable {
  protected:
-  Vector<LFSocket *> linked_sockets_;
-  int index_in_node_;
-  bool is_input_;
   LFNode *node_;
+  bool is_input_;
+  int index_in_node_;
+
+  friend LazyFunctionGraph;
 
  public:
   bool is_input() const;
@@ -38,28 +39,37 @@ class LFSocket : NonCopyable, NonMovable {
 
   const LFNode &node() const;
   LFNode &node();
-
-  Span<LFSocket *> links();
-  Span<const LFSocket *> links() const;
 };
 
 class LFInputSocket : public LFSocket {
+ private:
+  LFOutputSocket *origin_;
+
+  friend LazyFunctionGraph;
+
  public:
-  Span<LFOutputSocket *> links();
-  Span<const LFOutputSocket *> links() const;
+  LFOutputSocket *origin();
+  const LFOutputSocket *origin() const;
 };
 
 class LFOutputSocket : public LFSocket {
+ private:
+  Vector<LFInputSocket *> targets_;
+
+  friend LazyFunctionGraph;
+
  public:
-  Span<LFInputSocket *> links();
-  Span<const LFInputSocket *> links() const;
+  Span<LFInputSocket *> targets();
+  Span<const LFInputSocket *> targets() const;
 };
 
 class LFNode : NonCopyable, NonMovable {
  private:
   const LazyFunction *fn_ = nullptr;
-  Vector<LFInputSocket *> inputs_;
-  Vector<LFOutputSocket *> outputs_;
+  Span<LFInputSocket *> inputs_;
+  Span<LFOutputSocket *> outputs_;
+
+  friend LazyFunctionGraph;
 
  public:
   const LazyFunction &function() const;
@@ -137,30 +147,20 @@ inline LFNode &LFSocket::node()
   return *node_;
 }
 
-inline Span<const LFSocket *> LFSocket::links() const
-{
-  return linked_sockets_.as_span();
-}
-
-inline Span<LFSocket *> LFSocket::links()
-{
-  return linked_sockets_.as_span();
-}
-
 /** \} */
 
 /* -------------------------------------------------------------------- */
 /** \name #LFInputSocket Inline Methods
  * \{ */
 
-inline Span<const LFOutputSocket *> LFInputSocket::links() const
+inline const LFOutputSocket *LFInputSocket::origin() const
 {
-  return linked_sockets_.as_span().cast<const LFOutputSocket *>();
+  return origin_;
 }
 
-inline Span<LFOutputSocket *> LFInputSocket::links()
+inline LFOutputSocket *LFInputSocket::origin()
 {
-  return linked_sockets_.as_span().cast<LFOutputSocket *>();
+  return origin_;
 }
 
 /** \} */
@@ -169,14 +169,14 @@ inline Span<LFOutputSocket *> LFInputSocket::links()
 /** \name #LFOutputSocket Inline Methods
  * \{ */
 
-inline Span<const LFInputSocket *> LFOutputSocket::links() const
+inline Span<const LFInputSocket *> LFOutputSocket::targets() const
 {
-  return linked_sockets_.as_span().cast<const LFInputSocket *>();
+  return targets_;
 }
 
-inline Span<LFInputSocket *> LFOutputSocket::links()
+inline Span<LFInputSocket *> LFOutputSocket::targets()
 {
-  return linked_sockets_.as_span().cast<LFInputSocket *>();
+  return targets_;
 }
 
 /** \} */
