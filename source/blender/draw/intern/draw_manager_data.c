@@ -547,6 +547,29 @@ void DRW_shgroup_vertex_buffer_ref_ex(DRWShadingGroup *shgroup,
       shgroup, location, DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE_REF, vertex_buffer, 0, 0, 1);
 }
 
+void DRW_shgroup_buffer_texture_ex(DRWShadingGroup *shgroup,
+                                   const char *name,
+                                   GPUVertBuf *vertex_buffer)
+{
+  int location = GPU_shader_get_ssbo(shgroup->shader, name);
+  if (location == -1) {
+    return;
+  }
+  drw_shgroup_uniform_create_ex(
+      shgroup, location, DRW_UNIFORM_VERTEX_BUFFER_AS_TEXTURE, vertex_buffer, 0, 0, 1);
+}
+
+void DRW_shgroup_buffer_texture_ref_ex(DRWShadingGroup *shgroup,
+                                       const char *name,
+                                       GPUVertBuf **vertex_buffer)
+{
+  int location = GPU_shader_get_ssbo(shgroup->shader, name);
+  if (location == -1) {
+    return;
+  }
+  drw_shgroup_uniform_create_ex(
+      shgroup, location, DRW_UNIFORM_VERTEX_BUFFER_AS_TEXTURE_REF, vertex_buffer, 0, 0, 1);
+}
 /** \} */
 
 /* -------------------------------------------------------------------- */
