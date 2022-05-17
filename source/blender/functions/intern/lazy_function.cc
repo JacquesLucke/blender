@@ -10,6 +10,11 @@
 
 namespace blender::fn {
 
+std::string LazyFunction::name() const
+{
+  return "Unnamed Function";
+}
+
 std::string LazyFunction::input_name(int index) const
 {
   return "Input " + std::to_string(index);

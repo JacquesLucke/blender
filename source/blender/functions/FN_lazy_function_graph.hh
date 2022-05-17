@@ -39,6 +39,8 @@ class LFSocket : NonCopyable, NonMovable {
 
   const LFNode &node() const;
   LFNode &node();
+
+  std::string name() const;
 };
 
 class LFInputSocket : public LFSocket {
@@ -78,6 +80,8 @@ class LFNode : NonCopyable, NonMovable {
   Span<const LFOutputSocket *> outputs() const;
   Span<LFInputSocket *> inputs();
   Span<LFOutputSocket *> outputs();
+
+  std::string name() const;
 };
 
 class LazyFunctionGraph : NonCopyable, NonMovable {
@@ -92,6 +96,8 @@ class LazyFunctionGraph : NonCopyable, NonMovable {
 
   LFNode &add_node(const LazyFunction &fn);
   void add_link(LFOutputSocket &from, LFInputSocket &to);
+
+  std::string to_dot() const;
 };
 
 /* -------------------------------------------------------------------- */

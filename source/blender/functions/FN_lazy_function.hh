@@ -71,6 +71,7 @@ class LazyFunction {
   virtual ~LazyFunction() = default;
   virtual void execute(LazyFunctionParams &params) const = 0;
 
+  virtual std::string name() const;
   virtual std::string input_name(int index) const;
   virtual std::string output_name(int index) const;
 
