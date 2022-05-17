@@ -71,9 +71,6 @@ static GPUShader *curves_eval_shader_get(CurvesEvalShader type)
 
 void DRW_curves_init(void)
 {
-  /* Initialize legacy hair too, to avoid verbosity in callers. */
-  DRW_hair_init();
-
 #if defined(USE_TRANSFORM_FEEDBACK) || defined(USE_COMPUTE_SHADERS)
   g_tf_pass = DRW_pass_create("Update Curves Pass", (DRWState)0);
 #else
@@ -235,9 +232,6 @@ DRWShadingGroup *DRW_shgroup_curves_create_sub(Object *object,
 
 void DRW_curves_update()
 {
-  /* Update legacy hair too, to avoid verbosity in callers. */
-  DRW_hair_update();
-
 #ifndef USE_TRANSFORM_FEEDBACK
   /**
    * Workaround to transform feedback not working on mac.
@@ -318,8 +312,6 @@ void DRW_curves_update()
 
 void DRW_curves_free()
 {
-  DRW_hair_free();
-
   GPU_VERTBUF_DISCARD_SAFE(g_dummy_vbo);
   DRW_TEXTURE_FREE_SAFE(g_dummy_texture);
 }
