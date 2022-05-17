@@ -34,12 +34,14 @@ LFNode &LazyFunctionGraph::add_node(const LazyFunction &fn)
     socket.index_in_node_ = i;
     socket.is_input_ = true;
     socket.node_ = &node;
+    socket.type_ = inputs[i].type;
   }
   for (const int i : outputs.index_range()) {
     LFOutputSocket &socket = *node.outputs_[i];
     socket.index_in_node_ = i;
     socket.is_input_ = false;
     socket.node_ = &node;
+    socket.type_ = outputs[i].type;
   }
 
   nodes_.append(&node);

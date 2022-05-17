@@ -21,6 +21,7 @@ class LazyFunctionGraph;
 class LFSocket : NonCopyable, NonMovable {
  protected:
   LFNode *node_;
+  const CPPType *type_;
   bool is_input_;
   int index_in_node_;
 
@@ -39,6 +40,8 @@ class LFSocket : NonCopyable, NonMovable {
 
   const LFNode &node() const;
   LFNode &node();
+
+  const CPPType &type() const;
 
   std::string name() const;
 };
@@ -151,6 +154,11 @@ inline const LFNode &LFSocket::node() const
 inline LFNode &LFSocket::node()
 {
   return *node_;
+}
+
+inline const CPPType &LFSocket::type() const
+{
+  return *type_;
 }
 
 /** \} */
