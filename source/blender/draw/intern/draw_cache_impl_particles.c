@@ -165,10 +165,6 @@ static void particle_batch_cache_clear_point(ParticlePointCache *point_cache)
 
 static void particle_batch_cache_clear_hair(ParticleHairCache *hair_cache)
 {
-  /* TODO: more granular update tagging. */
-  GPU_VERTBUF_DISCARD_SAFE(hair_cache->proc_point_buf);
-  DRW_TEXTURE_FREE_SAFE(hair_cache->point_tex);
-
   /* "Normal" legacy hairs */
   GPU_BATCH_DISCARD_SAFE(hair_cache->hairs);
   GPU_VERTBUF_DISCARD_SAFE(hair_cache->pos);
@@ -216,8 +212,7 @@ static void ensure_seg_pt_count(PTCacheEdit *edit,
                                 ParticleSystem *psys,
                                 ParticleHairCache *hair_cache)
 {
-  if ((hair_cache->pos != NULL && hair_cache->indices != NULL) ||
-      (hair_cache->proc_point_buf != NULL)) {
+  if (hair_cache->pos != NULL && hair_cache->indices != NULL) {
     return;
   }
 

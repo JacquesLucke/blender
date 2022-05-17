@@ -31,10 +31,6 @@ typedef struct ParticleHairCache {
   GPUIndexBuf *indices;
   GPUBatch *hairs;
 
-  /* Hair Procedural display: Interpolation is done on the GPU. */
-  GPUVertBuf *proc_point_buf; /* Input control points */
-  GPUTexture *point_tex;
-
   int strands_len;
   int elems_len;
   int point_len;
