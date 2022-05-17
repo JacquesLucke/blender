@@ -65,6 +65,8 @@ struct LockedNode {
   }
 };
 
+class GraphExecutorLazyFunctionParams;
+
 class Executor {
  private:
   const LazyFunctionGraph &graph_;
@@ -76,6 +78,8 @@ class Executor {
   TaskPool *task_pool_ = nullptr;
 
   threading::EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
+
+  friend GraphExecutorLazyFunctionParams;
 
  public:
   Executor(const LazyFunctionGraph &graph,
@@ -337,6 +341,65 @@ class Executor {
     UNUSED_VARS(to_socket, value);
   }
 };
+
+class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
+ private:
+  Executor &executor_;
+  const LFNode &node_;
+  NodeState &node_state_;
+
+ public:
+  GraphExecutorLazyFunctionParams(const LazyFunction &fn,
+                                  Executor &executor,
+                                  const LFNode &node,
+                                  NodeState &node_state)
+      : LazyFunctionParams(fn, node_state.storage),
+        executor_(executor),
+        node_(node),
+        node_state_(node_state)
+  {
+  }
+
+ private:
+  void *try_get_input_data_ptr_impl(int index) override
+  {
+    /* TODO */
+    UNUSED_VARS(index);
+    return nullptr;
+  }
+
+  void *get_output_data_ptr_impl(int index) override
+  {
+    /* TODO */
+    UNUSED_VARS(index);
+    return nullptr;
+  }
+
+  void output_set_impl(int index) override
+  {
+    /* TODO */
+    UNUSED_VARS(index);
+  }
+
+  ValueUsage get_output_usage_impl(int index) override
+  {
+    /* TODO */
+    UNUSED_VARS(index);
+    return ValueUsage::Used;
+  }
+
+  void set_input_unused_impl(int index) override
+  {
+    /* TODO */
+    UNUSED_VARS(index);
+  }
+};
+
+void Executor::execute_node(const LFNode &node, NodeState &node_state)
+{
+  /* TODO */
+  UNUSED_VARS(node, node_state);
+}
 
 LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
                                                      Vector<const LFSocket *> inputs,
