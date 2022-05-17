@@ -172,15 +172,6 @@ static void particle_batch_cache_clear_hair(ParticleHairCache *hair_cache)
   GPU_VERTBUF_DISCARD_SAFE(hair_cache->proc_strand_buf);
   DRW_TEXTURE_FREE_SAFE(hair_cache->strand_tex);
 
-  for (int i = 0; i < MAX_MTFACE; i++) {
-    GPU_VERTBUF_DISCARD_SAFE(hair_cache->proc_uv_buf[i]);
-    DRW_TEXTURE_FREE_SAFE(hair_cache->uv_tex[i]);
-  }
-  for (int i = 0; i < MAX_MCOL; i++) {
-    GPU_VERTBUF_DISCARD_SAFE(hair_cache->proc_col_buf[i]);
-    DRW_TEXTURE_FREE_SAFE(hair_cache->col_tex[i]);
-  }
-
   /* "Normal" legacy hairs */
   GPU_BATCH_DISCARD_SAFE(hair_cache->hairs);
   GPU_VERTBUF_DISCARD_SAFE(hair_cache->pos);

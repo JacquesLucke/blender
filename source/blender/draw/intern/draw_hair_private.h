@@ -39,14 +39,6 @@ typedef struct ParticleHairCache {
   GPUVertBuf *proc_strand_buf;
   GPUTexture *strand_tex;
 
-  GPUVertBuf *proc_uv_buf[MAX_MTFACE];
-  GPUTexture *uv_tex[MAX_MTFACE];
-  char uv_layer_names[MAX_MTFACE][MAX_LAYER_NAME_CT][MAX_LAYER_NAME_LEN];
-
-  GPUVertBuf *proc_col_buf[MAX_MCOL];
-  GPUTexture *col_tex[MAX_MCOL];
-  char col_layer_names[MAX_MCOL][MAX_LAYER_NAME_CT][MAX_LAYER_NAME_LEN];
-
   int num_uv_layers;
   int num_col_layers;
 
