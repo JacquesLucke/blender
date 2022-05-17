@@ -81,6 +81,16 @@ struct PinchOperationExecutor {
 
     curves_to_world_mat_ = object_->obmat;
     world_to_curves_mat_ = curves_to_world_mat_.inverted();
+
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
+    for (const int i : curves_->points_range()) {
+      positions_cu[i].x += 0.1f;
+    }
+
+    curves_->tag_positions_changed();
+    DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
+    WM_main_add_notifier(NC_GEOM | ND_DATA, &curves_id_->id);
+    ED_region_tag_redraw(region_);
   }
 };
 
