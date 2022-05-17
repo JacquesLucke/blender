@@ -423,6 +423,7 @@ void particle_hair_to_curves(Object &object, ParticleSystemModifierData &psmd, C
   const Span<ParticleCacheKey *> parents_cache{psys.pathcache, psys.totcached};
   const Span<ParticleCacheKey *> children_cache{psys.childcache, psys.totchildcache};
 
+  /* Find all hair particles (parent and children) that should be converted to #Curves. */
   int points_num = 0;
   Vector<int> curve_offsets;
   Vector<int> parents_to_transfer;
@@ -572,11 +573,6 @@ void particle_hair_to_curves(Object &object, ParticleSystemModifierData &psmd, C
         }
       });
       uv_attr.save();
-    }
-  }
-  for (const CustomDataLayer &layer : Span{mesh.fdata.layers, mesh.fdata.totlayer}) {
-    if (layer.type != CD_MCOL) {
-      continue;
     }
   }
 
