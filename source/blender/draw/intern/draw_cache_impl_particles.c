@@ -167,9 +167,7 @@ static void particle_batch_cache_clear_hair(ParticleHairCache *hair_cache)
 {
   /* TODO: more granular update tagging. */
   GPU_VERTBUF_DISCARD_SAFE(hair_cache->proc_point_buf);
-  GPU_VERTBUF_DISCARD_SAFE(hair_cache->proc_length_buf);
   DRW_TEXTURE_FREE_SAFE(hair_cache->point_tex);
-  DRW_TEXTURE_FREE_SAFE(hair_cache->length_tex);
 
   GPU_VERTBUF_DISCARD_SAFE(hair_cache->proc_strand_buf);
   GPU_VERTBUF_DISCARD_SAFE(hair_cache->proc_strand_seg_buf);
