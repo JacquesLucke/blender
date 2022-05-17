@@ -432,16 +432,30 @@ void particles_to_curves(Object &object, ParticleSystemModifierData &psmd, Curve
         const IndexRange points = curves.points_for_curve(curve_i);
         const Span<ParticleCacheKey> keys{hair_cache[hair_i], points.size()};
 
+        float curve_length = 0.0f;
+        float3 prev_key_pos(0.0f);
+
         for (const int key_i : keys.index_range()) {
           const int point_i = points[key_i];
           const ParticleCacheKey &key = keys[key_i];
-          const float3 key_pos_wo = key.co;
-          const float time = key.time;
-          positions[point_i] = world_to_object_mat * key_pos_wo;
+          const float3 key_pos = world_to_object_mat * float3(key.co);
+          positions[point_i] = key_pos;
+
+          if (key_i > 0) {
+            curve_length += math::distance(key_pos, prev_key_pos);
+          }
+          radius_attr_span[point_i] = curve_length;
+          prev_key_pos = key_pos;
+        }
+
+        /* Compute radius using normalized length. */
+        for (const int key_i : keys.index_range()) {
+          const int point_i = points[key_i];
+          const float t = (curve_length == 0.0f) ? 0.0f : radius_attr_span[point_i] / curve_length;
           radius_attr_span[point_i] = legacy_parameter_to_radius(legacy_hair_settings.radius_shape,
                                                                  legacy_hair_settings.radius_root,
                                                                  legacy_hair_settings.radius_tip,
-                                                                 time);
+                                                                 t);
         }
         if (legacy_hair_settings.close_tip) {
           radius_attr_span[points.last()] = 0.0f;
