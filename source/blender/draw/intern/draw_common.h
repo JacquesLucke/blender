@@ -44,15 +44,6 @@ float *DRW_color_background_blend_get(int theme_id);
 bool DRW_object_is_flat(struct Object *ob, int *r_axis);
 bool DRW_object_axis_orthogonal_to_view(struct Object *ob, int axis);
 
-/* draw_hair.cc */
-
-/**
- * \note Only valid after #DRW_hair_update().
- */
-void DRW_hair_init(void);
-void DRW_hair_update(void);
-void DRW_hair_free(void);
-
 /* draw_curves.cc */
 
 /**
