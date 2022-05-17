@@ -162,8 +162,14 @@ class Executor {
 LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
                                                      Vector<const LFSocket *> inputs,
                                                      Vector<const LFSocket *> outputs)
-    : graph_(graph), inputs_(std::move(inputs)), outputs_(std::move(outputs))
+    : graph_(graph), input_sockets_(std::move(inputs)), output_sockets_(std::move(outputs))
 {
+  for (const LFSocket *socket : input_sockets_) {
+    inputs_.append({"In", socket->type()});
+  }
+  for (const LFSocket *socket : output_sockets_) {
+    outputs_.append({"Out", socket->type()});
+  }
 }
 
 void LazyFunctionGraphExecutor::execute_impl(LazyFunctionParams &params) const
@@ -174,7 +180,8 @@ void LazyFunctionGraphExecutor::execute_impl(LazyFunctionParams &params) const
 
 void *LazyFunctionGraphExecutor::init_storage(LinearAllocator<> &allocator) const
 {
-  Executor &executor = *allocator.construct<Executor>(graph_, inputs_, outputs_).release();
+  Executor &executor =
+      *allocator.construct<Executor>(graph_, input_sockets_, output_sockets_).release();
   return &executor;
 }
 

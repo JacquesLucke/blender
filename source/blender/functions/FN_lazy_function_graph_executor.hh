@@ -13,8 +13,8 @@ namespace blender::fn {
 class LazyFunctionGraphExecutor : public LazyFunction {
  private:
   const LazyFunctionGraph &graph_;
-  Vector<const LFSocket *> inputs_;
-  Vector<const LFSocket *> outputs_;
+  Vector<const LFSocket *> input_sockets_;
+  Vector<const LFSocket *> output_sockets_;
 
  public:
   LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
