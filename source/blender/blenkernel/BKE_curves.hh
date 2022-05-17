@@ -123,6 +123,7 @@ class CurvesGeometryRuntime {
   mutable std::mutex normal_cache_mutex;
   mutable bool normal_cache_dirty = true;
 
+  /** Settings that are needed until Eevee supports the radius point attribute. */
   LegacyHairSettings legacy_hair_settings;
 };
 

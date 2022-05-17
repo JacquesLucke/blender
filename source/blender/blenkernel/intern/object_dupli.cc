@@ -26,7 +26,6 @@
 #include "DNA_collection_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
-#include "DNA_modifier_types.h"
 #include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_vfont_types.h"
@@ -802,7 +801,6 @@ static void make_duplis_geometry_set_impl(const DupliContext *ctx,
       dupli->ob_data = (ID *)pointcloud;
     }
   }
-
   const bool creates_duplis_for_components = component_index >= 1;
 
   const InstancesComponent *component = geometry_set.get_component_for_read<InstancesComponent>();

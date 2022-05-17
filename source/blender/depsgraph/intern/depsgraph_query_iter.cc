@@ -179,6 +179,8 @@ bool deg_iterator_duplis_step(DEGObjectIterData *data)
       /* Do not modify the original boundbox. */
       temp_dupli_object->runtime.bb = nullptr;
       BKE_object_replace_data_on_shallow_copy(temp_dupli_object, dob->ob_data);
+      /* Make sure that drawing code doesn't hide this, because it thinks this object is an
+       * instancer. */
       temp_dupli_object->duplicator_visibility_flag |= OB_DUPLI_FLAG_VIEWPORT |
                                                        OB_DUPLI_FLAG_RENDER;
     }

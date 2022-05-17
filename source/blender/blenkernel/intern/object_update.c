@@ -224,6 +224,7 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
           ob->transflag |= OB_DUPLIPARTS;
         }
         if (psys->part && psys->part->type == PART_HAIR && psys->part->ren_as == PART_DRAW_PATH) {
+          /* Hair particles are drawn as curves dupli object. */
           ob->transflag |= OB_DUPLIPARTS;
         }
 

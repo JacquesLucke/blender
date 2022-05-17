@@ -5368,6 +5368,7 @@ void BKE_particle_system_blend_read_data(BlendDataReader *reader, ListBase *part
     BLI_listbase_clear(&psys->pathcachebufs);
     BLI_listbase_clear(&psys->childcachebufs);
     psys->pdd = NULL;
+    psys->hair_curves = NULL;
 
     if (psys->clmd) {
       BLO_read_data_address(reader, &psys->clmd);
