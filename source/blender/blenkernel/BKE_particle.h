@@ -42,6 +42,7 @@ struct ModifierData;
 struct Object;
 struct RNG;
 struct Scene;
+struct ReportList;
 
 #define PARTICLE_COLLISION_MAX_COLLISIONS 10
 
@@ -667,6 +668,22 @@ float psys_get_current_display_percentage(struct ParticleSystem *psys, bool use_
 /* index_dmcache */
 #define DMCACHE_NOTFOUND -1
 #define DMCACHE_ISCHILD -2
+
+void BKE_psys_uv_on_emitter(struct ParticleSystem *particlesystem,
+                            struct ReportList *reports,
+                            struct ParticleSystemModifierData *modifier,
+                            struct ParticleData *particle,
+                            int particle_no,
+                            int uv_no,
+                            float r_uv[2]);
+
+void BKE_psys_mcol_on_emitter(struct ParticleSystem *particlesystem,
+                              struct ReportList *reports,
+                              struct ParticleSystemModifierData *modifier,
+                              struct ParticleData *particle,
+                              int particle_no,
+                              int vcol_no,
+                              float r_mcol[3]);
 
 /* **** Depsgraph evaluation **** */
 

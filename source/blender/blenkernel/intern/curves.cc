@@ -53,22 +53,6 @@ using blender::MutableSpan;
 using blender::RandomNumberGenerator;
 using blender::Span;
 
-extern "C" void rna_ParticleSystem_mcol_on_emitter(ParticleSystem *particlesystem,
-                                                   ReportList *reports,
-                                                   ParticleSystemModifierData *modifier,
-                                                   ParticleData *particle,
-                                                   int particle_no,
-                                                   int vcol_no,
-                                                   float r_mcol[3]);
-
-extern "C" void rna_ParticleSystem_uv_on_emitter(ParticleSystem *particlesystem,
-                                                 ReportList *reports,
-                                                 ParticleSystemModifierData *modifier,
-                                                 ParticleData *particle,
-                                                 int particle_no,
-                                                 int uv_no,
-                                                 float r_uv[2]);
-
 static const char *ATTR_POSITION = "position";
 
 static void update_custom_data_pointers(Curves &curves);
@@ -554,15 +538,15 @@ void particle_hair_to_curves(Object &object, ParticleSystemModifierData &psmd, C
       threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
         for (const int curve_i : range) {
           ColorGeometry4f &color = color_attr_span[curve_i];
-          rna_ParticleSystem_mcol_on_emitter(&psys,
-                                             nullptr,
-                                             &psmd,
-                                             /* Might be out of bounds, but the called function
-                                              * checks for that using the next argument. */
-                                             psys.particles + curve_i,
-                                             curve_i,
-                                             color_index,
-                                             color);
+          BKE_psys_mcol_on_emitter(&psys,
+                                   nullptr,
+                                   &psmd,
+                                   /* Might be out of bounds, but the called function
+                                    * checks for that using the next argument. */
+                                   psys.particles + curve_i,
+                                   curve_i,
+                                   color_index,
+                                   color);
         }
       });
       color_attr.save();
@@ -576,15 +560,15 @@ void particle_hair_to_curves(Object &object, ParticleSystemModifierData &psmd, C
       threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
         for (const int curve_i : range) {
           float2 &uv = uv_attr_span[curve_i];
-          rna_ParticleSystem_uv_on_emitter(&psys,
-                                           nullptr,
-                                           &psmd,
-                                           /* Might be out of bounds, but the called function
-                                            * checks for that using the next argument. */
-                                           psys.particles + curve_i,
-                                           curve_i,
-                                           uv_index,
-                                           uv);
+          BKE_psys_uv_on_emitter(&psys,
+                                 nullptr,
+                                 &psmd,
+                                 /* Might be out of bounds, but the called function
+                                  * checks for that using the next argument. */
+                                 psys.particles + curve_i,
+                                 curve_i,
+                                 uv_index,
+                                 uv);
         }
       });
       uv_attr.save();

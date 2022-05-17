@@ -48,6 +48,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_lib_query.h"
 #include "BKE_particle.h"
+#include "BKE_report.h"
 
 #include "BKE_bvhutils.h"
 #include "BKE_cloth.h"
@@ -5031,6 +5032,196 @@ void BKE_particlesystem_reset_all(struct Object *object)
     ParticleSystemModifierData *psmd = (ParticleSystemModifierData *)md;
     ParticleSystem *psys = psmd->psys;
     psys->recalc |= ID_RECALC_PSYS_RESET;
+  }
+}
+
+/* return < 0 means invalid (no matching tessellated face could be found). */
+static int rna_ParticleSystem_tessfaceidx_on_emitter(ParticleSystem *particlesystem,
+                                                     ParticleSystemModifierData *modifier,
+                                                     ParticleData *particle,
+                                                     int particle_no,
+                                                     float (**r_fuv)[4])
+{
+  ParticleSettings *part = NULL;
+  int totpart;
+  int totchild = 0;
+  int totface;
+  int totvert;
+  int num = -1;
+
+  BKE_mesh_tessface_ensure(modifier->mesh_final); /* BMESH - UNTIL MODIFIER IS UPDATED FOR MPoly */
+  totface = modifier->mesh_final->totface;
+  totvert = modifier->mesh_final->totvert;
+
+  /* 1. check that everything is ok & updated */
+  if (!particlesystem || !totface) {
+    return num;
+  }
+
+  part = particlesystem->part;
+  /* NOTE: only hair, keyed and baked particles may have cached items... */
+  totpart = particlesystem->totcached != 0 ? particlesystem->totcached : particlesystem->totpart;
+  totchild = particlesystem->totchildcache != 0 ? particlesystem->totchildcache :
+                                                  particlesystem->totchild;
+
+  /* can happen for disconnected/global hair */
+  if (part->type == PART_HAIR && !particlesystem->childcache) {
+    totchild = 0;
+  }
+
+  if (particle_no >= totpart + totchild) {
+    return num;
+  }
+
+  /* 2. get matching face index. */
+  if (particle_no < totpart) {
+    num = (ELEM(particle->num_dmcache, DMCACHE_ISCHILD, DMCACHE_NOTFOUND)) ? particle->num :
+                                                                             particle->num_dmcache;
+
+    if (ELEM(part->from, PART_FROM_FACE, PART_FROM_VOLUME)) {
+      if (num != DMCACHE_NOTFOUND && num < totface) {
+        *r_fuv = &particle->fuv;
+        return num;
+      }
+    }
+    else if (part->from == PART_FROM_VERT) {
+      if (num != DMCACHE_NOTFOUND && num < totvert) {
+        MFace *mface = modifier->mesh_final->mface;
+
+        *r_fuv = &particle->fuv;
+
+        /* This finds the first face to contain the emitting vertex,
+         * this is not ideal, but is mostly fine as UV seams generally
+         * map to equal-colored parts of a texture */
+        for (int i = 0; i < totface; i++, mface++) {
+          if (ELEM(num, mface->v1, mface->v2, mface->v3, mface->v4)) {
+            return i;
+          }
+        }
+      }
+    }
+  }
+  else {
+    ChildParticle *cpa = particlesystem->child + particle_no - totpart;
+    num = cpa->num;
+
+    if (part->childtype == PART_CHILD_FACES) {
+      if (ELEM(part->from, PART_FROM_FACE, PART_FROM_VOLUME, PART_FROM_VERT)) {
+        if (num != DMCACHE_NOTFOUND && num < totface) {
+          *r_fuv = &cpa->fuv;
+          return num;
+        }
+      }
+    }
+    else {
+      ParticleData *parent = particlesystem->particles + cpa->parent;
+      num = parent->num_dmcache;
+
+      if (num == DMCACHE_NOTFOUND) {
+        num = parent->num;
+      }
+
+      if (ELEM(part->from, PART_FROM_FACE, PART_FROM_VOLUME)) {
+        if (num != DMCACHE_NOTFOUND && num < totface) {
+          *r_fuv = &parent->fuv;
+          return num;
+        }
+      }
+      else if (part->from == PART_FROM_VERT) {
+        if (num != DMCACHE_NOTFOUND && num < totvert) {
+          MFace *mface = modifier->mesh_final->mface;
+
+          *r_fuv = &parent->fuv;
+
+          /* This finds the first face to contain the emitting vertex,
+           * this is not ideal, but is mostly fine as UV seams generally
+           * map to equal-colored parts of a texture */
+          for (int i = 0; i < totface; i++, mface++) {
+            if (ELEM(num, mface->v1, mface->v2, mface->v3, mface->v4)) {
+              return i;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return -1;
+}
+
+void BKE_psys_uv_on_emitter(ParticleSystem *particlesystem,
+                            ReportList *reports,
+                            ParticleSystemModifierData *modifier,
+                            ParticleData *particle,
+                            int particle_no,
+                            int uv_no,
+                            float r_uv[2])
+{
+  if (modifier->mesh_final == NULL) {
+    BKE_report(reports, RPT_ERROR, "Object was not yet evaluated");
+    zero_v2(r_uv);
+    return;
+  }
+  if (!CustomData_has_layer(&modifier->mesh_final->ldata, CD_MLOOPUV)) {
+    BKE_report(reports, RPT_ERROR, "Mesh has no UV data");
+    zero_v2(r_uv);
+    return;
+  }
+
+  {
+    float(*fuv)[4];
+    /* Note all sanity checks are done in this helper func. */
+    const int num = rna_ParticleSystem_tessfaceidx_on_emitter(
+        particlesystem, modifier, particle, particle_no, &fuv);
+
+    if (num < 0) {
+      /* No matching face found. */
+      zero_v2(r_uv);
+    }
+    else {
+      MFace *mface = &modifier->mesh_final->mface[num];
+      const MTFace *mtface = (const MTFace *)CustomData_get_layer_n(
+          &modifier->mesh_final->fdata, CD_MTFACE, uv_no);
+
+      psys_interpolate_uvs(&mtface[num], mface->v4, *fuv, r_uv);
+    }
+  }
+}
+void BKE_psys_mcol_on_emitter(ParticleSystem *particlesystem,
+                              ReportList *reports,
+                              ParticleSystemModifierData *modifier,
+                              ParticleData *particle,
+                              int particle_no,
+                              int vcol_no,
+                              float r_mcol[3])
+{
+  if (!CustomData_has_layer(&modifier->mesh_final->ldata, CD_PROP_BYTE_COLOR)) {
+    BKE_report(reports, RPT_ERROR, "Mesh has no VCol data");
+    zero_v3(r_mcol);
+    return;
+  }
+
+  {
+    float(*fuv)[4];
+    /* Note all sanity checks are done in this helper func. */
+    const int num = rna_ParticleSystem_tessfaceidx_on_emitter(
+        particlesystem, modifier, particle, particle_no, &fuv);
+
+    if (num < 0) {
+      /* No matching face found. */
+      zero_v3(r_mcol);
+    }
+    else {
+      MFace *mface = &modifier->mesh_final->mface[num];
+      const MCol *mc = (const MCol *)CustomData_get_layer_n(
+          &modifier->mesh_final->fdata, CD_MCOL, vcol_no);
+      MCol mcol;
+
+      psys_interpolate_mcol(&mc[num * 4], mface->v4, *fuv, &mcol);
+      r_mcol[0] = (float)mcol.b / 255.0f;
+      r_mcol[1] = (float)mcol.g / 255.0f;
+      r_mcol[2] = (float)mcol.r / 255.0f;
+    }
   }
 }
 
