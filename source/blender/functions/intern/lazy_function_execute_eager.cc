@@ -18,9 +18,10 @@ class EagerLazyFunctionParams : public LazyFunctionParams {
 
  public:
   EagerLazyFunctionParams(const LazyFunction &fn,
+                          void *storage,
                           const Span<GMutablePointer> inputs,
                           const Span<GMutablePointer> outputs)
-      : LazyFunctionParams(fn), inputs_(inputs), outputs_(outputs)
+      : LazyFunctionParams(fn, storage), inputs_(inputs), outputs_(outputs)
   {
 #ifdef DEBUG
     set_outputs_.reinitialize(fn.outputs().size());
@@ -70,8 +71,11 @@ void execute_lazy_function_eagerly(const LazyFunction &fn,
                                    const Span<GMutablePointer> inputs,
                                    const Span<GMutablePointer> outputs)
 {
-  EagerLazyFunctionParams params{fn, inputs, outputs};
+  LinearAllocator<> allocator;
+  void *storage = fn.init_storage(allocator);
+  EagerLazyFunctionParams params{fn, storage, inputs, outputs};
   fn.execute(params);
+  fn.destruct_storage(storage);
 }
 
 }  // namespace blender::fn

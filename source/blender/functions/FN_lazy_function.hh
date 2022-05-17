@@ -8,6 +8,7 @@
 
 #include "BLI_cpp_type.hh"
 #include "BLI_generic_pointer.hh"
+#include "BLI_linear_allocator.hh"
 #include "BLI_vector.hh"
 
 namespace blender::fn {
@@ -23,9 +24,10 @@ class LazyFunction;
 class LazyFunctionParams {
  protected:
   const LazyFunction &fn_;
+  void *storage_;
 
  public:
-  LazyFunctionParams(const LazyFunction &fn) : fn_(fn)
+  LazyFunctionParams(const LazyFunction &fn, void *storage) : fn_(fn), storage_(storage)
   {
   }
 
@@ -64,6 +66,9 @@ class LazyFunctionParams {
   template<typename T> T extract_input(int index, const char *name = nullptr);
   template<typename T> const T &get_input(int index, const char *name = nullptr);
   template<typename T> void set_output(int index, T &&value, const char *name = nullptr);
+
+  void *storage();
+  template<typename T> T &storage();
 
  private:
   virtual void *try_get_input_data_ptr_impl(int index) = 0;
@@ -108,6 +113,9 @@ class LazyFunction {
   virtual std::string name() const;
   virtual std::string input_name(int index) const;
   virtual std::string output_name(int index) const;
+
+  virtual void *init_storage(LinearAllocator<> &allocator) const;
+  virtual void destruct_storage(void *storage) const;
 
   Span<LazyFunctionInput> inputs() const;
   Span<LazyFunctionOutput> outputs() const;
@@ -217,6 +225,16 @@ inline void LazyFunctionParams::set_output(int index, T &&value, const char *nam
   void *data = this->get_output_data_ptr(index, name);
   new (data) DecayT(std::forward<T>(value));
   this->output_set(index, name);
+}
+
+inline void *LazyFunctionParams::storage()
+{
+  return storage_;
+}
+
+template<typename T> inline T &LazyFunctionParams::storage()
+{
+  return *static_cast<T *>(storage_);
 }
 
 /** \} */

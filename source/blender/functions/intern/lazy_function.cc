@@ -25,4 +25,15 @@ std::string LazyFunction::output_name(int index) const
   return outputs_[index].static_name;
 }
 
+void *LazyFunction::init_storage(LinearAllocator<> &UNUSED(allocator)) const
+{
+  return nullptr;
+}
+
+void LazyFunction::destruct_storage(void *storage) const
+{
+  BLI_assert(storage == nullptr);
+  UNUSED_VARS_NDEBUG(storage);
+}
+
 }  // namespace blender::fn
