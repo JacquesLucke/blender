@@ -5,6 +5,7 @@
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_task.h"
 #include "BLI_task.hh"
+#include "BLI_timeit.hh"
 
 #include "FN_lazy_function_graph_executor.hh"
 

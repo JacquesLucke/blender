@@ -6,6 +6,9 @@
 #include "FN_lazy_function_graph.hh"
 #include "FN_lazy_function_graph_executor.hh"
 
+#include "BLI_task.h"
+#include "BLI_timeit.hh"
+
 namespace blender::fn::tests {
 
 class AddLazyFunction : public LazyFunction {
@@ -82,38 +85,41 @@ static void execute_lazy_function_test(const LazyFunction &fn,
   fn.destruct_storage(storage);
 }
 
+static Vector<LFNode *> build_add_node_chain(LazyFunctionGraph &graph,
+                                             const int chain_length,
+                                             const int *default_value)
+{
+  static AddLazyFunction fn;
+  Vector<LFNode *> nodes;
+  for ([[maybe_unused]] const int i : IndexRange(chain_length)) {
+    LFNode &node = graph.add_node(fn);
+    node.input(0).set_default_value(default_value);
+    node.input(1).set_default_value(default_value);
+    nodes.append(&node);
+  }
+  for (const int i : IndexRange(chain_length - 1)) {
+    LFNode &n1 = *nodes[i];
+    LFNode &n2 = *nodes[i + 1];
+    graph.add_link(n1.output(0), n2.input(0));
+  }
+  return nodes;
+}
+
 TEST(lazy_function, Simple)
 {
-  AddLazyFunction fn;
-
-  // {
-  //   int result;
-  //   execute_lazy_function_eagerly(fn, std::make_tuple<int, int>(3, 6),
-  //   std::make_tuple(&result)); std::cout << result << "\n";
-  // }
-
-  const int value_2 = 2;
-  const int value_5 = 5;
-
+  BLI_task_scheduler_init(); /* Without this, no parallelism. */
+  const int value_1 = 1;
   LazyFunctionGraph graph;
-  LFNode &n1 = graph.add_node(fn);
-  // n1.input(0).set_default_value(&value_1);
-  n1.input(1).set_default_value(&value_2);
-  LFNode &n2 = graph.add_node(fn);
-  n2.input(0).set_default_value(&value_5);
-  graph.add_link(*n1.outputs()[0], *n2.inputs()[1]);
-  std::cout << graph.to_dot() << "\n";
+  Vector<LFNode *> node_chain = build_add_node_chain(graph, 1e3, &value_1);
+  // std::cout << graph.to_dot() << "\n";
 
-  LazyFunctionGraphExecutor executor_fn{graph, {&n1.input(0)}, {&n2.output(0)}};
-  // {
-  //   int result;
-  //   execute_lazy_function_eagerly(executor_fn, std::make_tuple<>(10), std::make_tuple(&result));
-  //   std::cout << result << "\n";
-  // }
+  LazyFunctionGraphExecutor executor_fn{
+      graph, {&node_chain[0]->input(0)}, {&node_chain.last()->output(0)}};
 
   {
     int value_10 = 10;
     int result;
+
     execute_lazy_function_test(executor_fn,
                                {LazyFunctionEvent{LazyFunctionEventType::RequestOutput, 0},
                                 LazyFunctionEvent{LazyFunctionEventType::SetInput, 0, &value_10}},
