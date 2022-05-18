@@ -49,12 +49,15 @@ class LFSocket : NonCopyable, NonMovable {
 class LFInputSocket : public LFSocket {
  private:
   LFOutputSocket *origin_;
+  const void *unlinked_value_ = nullptr;
 
   friend LazyFunctionGraph;
 
  public:
   LFOutputSocket *origin();
   const LFOutputSocket *origin() const;
+
+  const void *unlinked_value() const;
 };
 
 class LFOutputSocket : public LFSocket {
@@ -175,6 +178,11 @@ inline const LFOutputSocket *LFInputSocket::origin() const
 inline LFOutputSocket *LFInputSocket::origin()
 {
   return origin_;
+}
+
+inline const void *LFInputSocket::unlinked_value() const
+{
+  return unlinked_value_;
 }
 
 /** \} */
