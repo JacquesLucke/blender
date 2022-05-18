@@ -70,6 +70,7 @@ struct LockedNode {
 };
 
 struct CurrentTask {
+  std::atomic<const LFNode *> next_node = nullptr;
 };
 
 class GraphExecutorLazyFunctionParams;
@@ -347,6 +348,12 @@ class Executor {
       this->notify_output_unused(*socket, current_task);
     }
     for (const LFNode *node_to_schedule : locked_node.delayed_scheduled_nodes) {
+      if (current_task != nullptr) {
+        const LFNode *expected = nullptr;
+        if (current_task->next_node.compare_exchange_strong(expected, node_to_schedule)) {
+          continue;
+        }
+      }
       this->add_node_to_task_pool(*node_to_schedule);
     }
   }
@@ -364,7 +371,12 @@ class Executor {
     const LFNode &node = *static_cast<const LFNode *>(task_data);
 
     CurrentTask current_task;
-    executor.run_node_task(node, current_task);
+    current_task.next_node = &node;
+    while (current_task.next_node != nullptr) {
+      const LFNode &node_to_run = *current_task.next_node;
+      current_task.next_node = nullptr;
+      executor.run_node_task(node_to_run, current_task);
+    }
   }
 
   void run_node_task(const LFNode &node, CurrentTask &current_task)
