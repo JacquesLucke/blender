@@ -701,6 +701,13 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     return nullptr;
   }
 
+  void *try_get_input_data_ptr_or_request_impl(int index) override
+  {
+    /* TODO */
+    UNUSED_VARS(index);
+    return nullptr;
+  }
+
   void *get_output_data_ptr_impl(int index) override
   {
     /* TODO */
@@ -730,8 +737,9 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
 
 void Executor::execute_node(const LFNode &node, NodeState &node_state)
 {
-  /* TODO */
-  UNUSED_VARS(node, node_state);
+  const LazyFunction &fn = node.function();
+  GraphExecutorLazyFunctionParams node_params{fn, *this, node, node_state};
+  fn.execute(node_params);
 }
 
 LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
