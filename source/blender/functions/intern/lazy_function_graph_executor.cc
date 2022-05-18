@@ -606,13 +606,22 @@ class Executor {
         if (input_state.usage == ValueUsage::Unused) {
           return;
         }
-        const CPPType &type = *value_to_forward.type();
-        void *buffer = allocator.allocate(type.size(), type.alignment());
-        type.copy_construct(value_to_forward.get(), buffer);
-        this->forward_value_to_input(input_state, {type, buffer});
+        if (target_socket == targets.last()) {
+          /* No need to make a copy if this is the last target. */
+          this->forward_value_to_input(input_state, value_to_forward);
+          value_to_forward = {};
+        }
+        else {
+          const CPPType &type = *value_to_forward.type();
+          void *buffer = allocator.allocate(type.size(), type.alignment());
+          type.copy_construct(value_to_forward.get(), buffer);
+          this->forward_value_to_input(input_state, {type, buffer});
+        }
       });
     }
-    value_to_forward.destruct();
+    if (value_to_forward.get() != nullptr) {
+      value_to_forward.destruct();
+    }
   }
 
   void forward_value_to_input(InputState &input_state, GMutablePointer value)
