@@ -36,7 +36,7 @@ class LazyFunctionParams {
    *
    * The #LazyFunction must leave returned object in an initialized state, but can move from it.
    */
-  void *try_get_input_data_ptr(int index, const char *name = nullptr);
+  void *try_get_input_data_ptr(int index, const char *name = nullptr) const;
 
   /**
    * Same as #try_get_input_data_ptr, but if the data is not yet available, request it. This makes
@@ -57,10 +57,12 @@ class LazyFunctionParams {
    */
   void output_set(int index, const char *name = nullptr);
 
+  bool output_was_set(int index, const char *name = nullptr) const;
+
   /**
    * Can be used to detect which outputs have to be computed.
    */
-  ValueUsage get_output_usage(int index, const char *name = nullptr);
+  ValueUsage get_output_usage(int index, const char *name = nullptr) const;
 
   /**
    * Tell the caller of the #LazyFunction that a specific input will definitely not be used.
@@ -76,11 +78,12 @@ class LazyFunctionParams {
   template<typename T> T &storage();
 
  private:
-  virtual void *try_get_input_data_ptr_impl(int index) = 0;
+  virtual void *try_get_input_data_ptr_impl(int index) const = 0;
   virtual void *try_get_input_data_ptr_or_request_impl(int index) = 0;
   virtual void *get_output_data_ptr_impl(int index) = 0;
   virtual void output_set_impl(int index) = 0;
-  virtual ValueUsage get_output_usage_impl(int index) = 0;
+  virtual bool output_was_set_impl(int index) const = 0;
+  virtual ValueUsage get_output_usage_impl(int index) const = 0;
   virtual void set_input_unused_impl(int index) = 0;
 };
 
@@ -128,6 +131,8 @@ class LazyFunction {
 
   void execute(LazyFunctionParams &params) const;
 
+  bool valid_params_for_execution(const LazyFunctionParams &params) const;
+
  private:
   virtual void execute_impl(LazyFunctionParams &params) const = 0;
 };
@@ -148,6 +153,7 @@ inline Span<LazyFunctionOutput> LazyFunction::outputs() const
 
 inline void LazyFunction::execute(LazyFunctionParams &params) const
 {
+  BLI_assert(this->valid_params_for_execution(params));
   this->execute_impl(params);
 }
 
@@ -157,7 +163,7 @@ inline void LazyFunction::execute(LazyFunctionParams &params) const
 /** \name #LazyFunctionParams Inline Methods
  * \{ */
 
-inline void *LazyFunctionParams::try_get_input_data_ptr(int index, const char *name)
+inline void *LazyFunctionParams::try_get_input_data_ptr(int index, const char *name) const
 {
   BLI_assert(name == nullptr || name == fn_.input_name(index));
   UNUSED_VARS_NDEBUG(name);
@@ -185,7 +191,14 @@ inline void LazyFunctionParams::output_set(int index, const char *name)
   this->output_set_impl(index);
 }
 
-inline ValueUsage LazyFunctionParams::get_output_usage(int index, const char *name)
+inline bool LazyFunctionParams::output_was_set(int index, const char *name) const
+{
+  BLI_assert(name == nullptr || name == fn_.output_name(index));
+  UNUSED_VARS_NDEBUG(name);
+  return this->output_was_set_impl(index);
+}
+
+inline ValueUsage LazyFunctionParams::get_output_usage(int index, const char *name) const
 {
   BLI_assert(name == nullptr || name == fn_.output_name(index));
   UNUSED_VARS_NDEBUG(name);

@@ -26,6 +26,66 @@ class AddLazyFunction : public LazyFunction {
   }
 };
 
+enum class LazyFunctionEventType {
+  SetInput,
+  RequestOutput,
+  SetOutputUnused,
+};
+
+struct LazyFunctionEvent {
+  LazyFunctionEventType type;
+  int index;
+  void *value;
+};
+
+static void execute_lazy_function_test(const LazyFunction &fn,
+                                       const Span<LazyFunctionEvent> events)
+{
+  const Span<LazyFunctionInput> fn_inputs = fn.inputs();
+  const Span<LazyFunctionOutput> fn_outputs = fn.outputs();
+
+  LinearAllocator<> allocator;
+  Vector<GMutablePointer> inputs(fn_inputs.size());
+  Vector<GMutablePointer> outputs(fn_outputs.size());
+  for (const int i : fn_outputs.index_range()) {
+    const CPPType &type = *fn_outputs[i].type;
+    void *buffer = allocator.allocate(type.size(), type.alignment());
+    outputs[i] = {type, buffer};
+  }
+  Array<std::optional<ValueUsage>> input_usages(fn_inputs.size());
+  Array<ValueUsage> output_usages(fn_outputs.size(), ValueUsage::Unused);
+  Array<bool> set_outputs(fn_outputs.size(), false);
+
+  void *storage = fn.init_storage(allocator);
+
+  BasicLazyFunctionParams params(
+      fn, storage, inputs, outputs, input_usages, output_usages, set_outputs);
+  if (fn.valid_params_for_execution(params)) {
+    fn.execute(params);
+  }
+  for (const LazyFunctionEvent &event : events) {
+    switch (event.type) {
+      case LazyFunctionEventType::SetInput: {
+        inputs[event.index] = GMutablePointer{fn_inputs[event.index].type, event.value};
+        break;
+      }
+      case LazyFunctionEventType::RequestOutput: {
+        output_usages[event.index] = ValueUsage::Used;
+        break;
+      }
+      case LazyFunctionEventType::SetOutputUnused: {
+        output_usages[event.index] = ValueUsage::Unused;
+        break;
+      }
+    }
+    if (fn.valid_params_for_execution(params)) {
+      fn.execute(params);
+    }
+  }
+
+  fn.destruct_storage(storage);
+}
+
 TEST(lazy_function, Simple)
 {
   AddLazyFunction fn;
@@ -36,7 +96,6 @@ TEST(lazy_function, Simple)
   //   std::make_tuple(&result)); std::cout << result << "\n";
   // }
 
-  const int value_1 = 1;
   const int value_2 = 2;
   const int value_5 = 5;
 

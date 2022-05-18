@@ -711,7 +711,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
   }
 
  private:
-  void *try_get_input_data_ptr_impl(const int index) override
+  void *try_get_input_data_ptr_impl(const int index) const override
   {
     const InputState &input_state = node_state_.inputs[index];
     if (input_state.was_ready_for_execution) {
@@ -753,7 +753,13 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     output_state.has_been_computed = true;
   }
 
-  ValueUsage get_output_usage_impl(const int index) override
+  bool output_was_set_impl(const int index) const override
+  {
+    const OutputState &output_state = node_state_.outputs[index];
+    return output_state.has_been_computed;
+  }
+
+  ValueUsage get_output_usage_impl(const int index) const override
   {
     const OutputState &output_state = node_state_.outputs[index];
     return output_state.usage_for_execution;
