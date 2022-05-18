@@ -19,9 +19,6 @@ namespace blender::modifiers::geometry_nodes {
 
 using namespace nodes::derived_node_tree_types;
 
-const CPPType *get_socket_cpp_type(const SocketRef &socket);
-void get_socket_value(const SocketRef &socket, void *r_value);
-
 struct GeometryNodesEvaluationParams {
   blender::LinearAllocator<> allocator;
 

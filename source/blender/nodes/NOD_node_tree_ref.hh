@@ -37,7 +37,6 @@
 #include "BLI_multi_value_map.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_timeit.hh"
-#include "BLI_type_traits.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
