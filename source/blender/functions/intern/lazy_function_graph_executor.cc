@@ -47,6 +47,7 @@ struct NodeState {
 
   int missing_required_inputs = 0;
   bool node_has_finished = false;
+  bool default_inputs_initialized = false;
   bool always_required_inputs_handled = false;
   bool storage_initialized = false;
   NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
@@ -376,7 +377,25 @@ class Executor {
         return;
       }
 
-      /* TODO: Load unlinked input values. */
+      if (!node_state.default_inputs_initialized) {
+        for (const int input_index : node.inputs().index_range()) {
+          const LFInputSocket &input_socket = *node.inputs()[input_index];
+          if (input_socket.origin() != nullptr) {
+            continue;
+          }
+          InputState &input_state = node_state.inputs[input_index];
+          if (input_state.io.input_index != -1) {
+            continue;
+          }
+          const CPPType &type = input_socket.type();
+          const void *default_value = input_socket.default_value();
+          BLI_assert(default_value != nullptr);
+          void *buffer = allocator.allocate(type.size(), type.alignment());
+          type.copy_construct(default_value, buffer);
+          this->forward_value_to_input(input_state, {type, buffer});
+        }
+        node_state.default_inputs_initialized = true;
+      }
 
       if (!node_state.storage_initialized) {
         node_state.storage = node.function().init_storage(allocator);
@@ -651,6 +670,7 @@ class Executor {
   {
     BLI_assert(input_state.value == nullptr);
     BLI_assert(!input_state.was_ready_for_execution);
+    BLI_assert(input_state.type == value.type());
     input_state.value = value.get();
   }
 };
