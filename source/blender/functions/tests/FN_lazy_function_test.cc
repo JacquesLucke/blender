@@ -39,19 +39,15 @@ struct LazyFunctionEvent {
 };
 
 static void execute_lazy_function_test(const LazyFunction &fn,
-                                       const Span<LazyFunctionEvent> events)
+                                       const Span<LazyFunctionEvent> events,
+                                       const Span<GMutablePointer> outputs)
 {
   const Span<LazyFunctionInput> fn_inputs = fn.inputs();
   const Span<LazyFunctionOutput> fn_outputs = fn.outputs();
+  BLI_assert(outputs.size() == fn_outputs.size());
 
   LinearAllocator<> allocator;
   Vector<GMutablePointer> inputs(fn_inputs.size());
-  Vector<GMutablePointer> outputs(fn_outputs.size());
-  for (const int i : fn_outputs.index_range()) {
-    const CPPType &type = *fn_outputs[i].type;
-    void *buffer = allocator.allocate(type.size(), type.alignment());
-    outputs[i] = {type, buffer};
-  }
   Array<std::optional<ValueUsage>> input_usages(fn_inputs.size());
   Array<ValueUsage> output_usages(fn_outputs.size(), ValueUsage::Unused);
   Array<bool> set_outputs(fn_outputs.size(), false);
@@ -108,11 +104,21 @@ TEST(lazy_function, Simple)
   graph.add_link(*n1.outputs()[0], *n2.inputs()[1]);
   std::cout << graph.to_dot() << "\n";
 
-  LazyFunctionGraphExecutor executor{graph, {&n1.input(0)}, {&n2.output(0)}};
+  LazyFunctionGraphExecutor executor_fn{graph, {&n1.input(0)}, {&n2.output(0)}};
+  // {
+  //   int result;
+  //   execute_lazy_function_eagerly(executor_fn, std::make_tuple<>(10), std::make_tuple(&result));
+  //   std::cout << result << "\n";
+  // }
+
   {
+    int value_10 = 10;
     int result;
-    execute_lazy_function_eagerly(executor, std::make_tuple<>(10), std::make_tuple(&result));
-    std::cout << result << "\n";
+    execute_lazy_function_test(executor_fn,
+                               {LazyFunctionEvent{LazyFunctionEventType::RequestOutput, 0},
+                                LazyFunctionEvent{LazyFunctionEventType::SetInput, 0, &value_10}},
+                               Span<GMutablePointer>{{&result}});
+    std::cout << "Result: " << result << "\n";
   }
 }
 

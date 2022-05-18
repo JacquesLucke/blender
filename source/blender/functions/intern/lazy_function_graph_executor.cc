@@ -784,7 +784,7 @@ LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &gr
     : graph_(graph), input_sockets_(std::move(inputs)), output_sockets_(std::move(outputs))
 {
   for (const LFSocket *socket : input_sockets_) {
-    inputs_.append({"In", socket->type()});
+    inputs_.append({"In", socket->type(), ValueUsage::Maybe});
   }
   for (const LFSocket *socket : output_sockets_) {
     outputs_.append({"Out", socket->type()});
