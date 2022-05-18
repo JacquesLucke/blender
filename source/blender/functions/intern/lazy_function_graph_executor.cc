@@ -107,6 +107,7 @@ class Executor {
   {
     params_ = &params;
     this->schedule_newly_requested_outputs();
+    this->forward_newly_provided_inputs();
     BLI_task_pool_work_and_wait(task_pool_);
     params_ = nullptr;
   }

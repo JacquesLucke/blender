@@ -42,17 +42,17 @@ TEST(lazy_function, Simple)
 
   LazyFunctionGraph graph;
   LFNode &n1 = graph.add_node(fn);
-  n1.input(0).set_default_value(&value_1);
+  // n1.input(0).set_default_value(&value_1);
   n1.input(1).set_default_value(&value_2);
   LFNode &n2 = graph.add_node(fn);
   n2.input(0).set_default_value(&value_5);
   graph.add_link(*n1.outputs()[0], *n2.inputs()[1]);
   std::cout << graph.to_dot() << "\n";
 
-  LazyFunctionGraphExecutor executor{graph, {}, {&n2.output(0)}};
+  LazyFunctionGraphExecutor executor{graph, {&n1.input(0)}, {&n2.output(0)}};
   {
     int result;
-    execute_lazy_function_eagerly(executor, std::make_tuple<>(), std::make_tuple(&result));
+    execute_lazy_function_eagerly(executor, std::make_tuple<>(10), std::make_tuple(&result));
     std::cout << result << "\n";
   }
 }
