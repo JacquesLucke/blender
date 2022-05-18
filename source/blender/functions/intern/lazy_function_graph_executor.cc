@@ -380,7 +380,7 @@ class Executor {
 
       if (!node_state.default_inputs_initialized) {
         for (const int input_index : node.inputs().index_range()) {
-          const LFInputSocket &input_socket = *node.inputs()[input_index];
+          const LFInputSocket &input_socket = node.input(input_index);
           if (input_socket.origin() != nullptr) {
             continue;
           }
@@ -409,7 +409,7 @@ class Executor {
         for (const int input_index : fn_inputs.index_range()) {
           const LazyFunctionInput &fn_input = fn_inputs[input_index];
           if (fn_input.usage == ValueUsage::Used) {
-            const LFInputSocket &input_socket = *node.inputs()[input_index];
+            const LFInputSocket &input_socket = node.input(input_index);
             this->set_input_required(locked_node, input_socket);
           }
         }
@@ -490,7 +490,7 @@ class Executor {
     node_state.node_has_finished = true;
 
     for (const int input_index : node_state.inputs.index_range()) {
-      const LFInputSocket &input_socket = *node.inputs()[input_index];
+      const LFInputSocket &input_socket = node.input(input_index);
       InputState &input_state = node_state.inputs[input_index];
       if (input_state.usage == ValueUsage::Maybe) {
         this->set_input_unused(locked_node, input_socket);
@@ -521,7 +521,7 @@ class Executor {
                                          NodeState &node_state,
                                          const int input_index)
   {
-    const LFInputSocket &input_socket = *node.inputs()[input_index];
+    const LFInputSocket &input_socket = node.input(input_index);
     this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
       this->set_input_unused(locked_node, input_socket);
     });
@@ -553,7 +553,7 @@ class Executor {
                                             NodeState &node_state,
                                             const int input_index)
   {
-    const LFInputSocket &input_socket = *node.inputs()[input_index];
+    const LFInputSocket &input_socket = node.input(input_index);
     void *result;
     this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
       result = this->set_input_required(locked_node, input_socket);
@@ -732,7 +732,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     OutputState &output_state = node_state_.outputs[index];
     BLI_assert(!output_state.has_been_computed);
     BLI_assert(output_state.value != nullptr);
-    const LFOutputSocket &output_socket = *node_.outputs()[index];
+    const LFOutputSocket &output_socket = node_.output(index);
     executor_.forward_computed_node_output(
         output_state, output_socket, {output_state.type, output_state.value});
     output_state.value = nullptr;

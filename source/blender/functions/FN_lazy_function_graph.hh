@@ -88,6 +88,11 @@ class LFNode : NonCopyable, NonMovable {
   Span<LFInputSocket *> inputs();
   Span<LFOutputSocket *> outputs();
 
+  const LFInputSocket &input(int index) const;
+  const LFOutputSocket &output(int index) const;
+  LFInputSocket &input(int index);
+  LFOutputSocket &output(int index);
+
   std::string name() const;
 };
 
@@ -236,6 +241,26 @@ inline Span<LFInputSocket *> LFNode::inputs()
 inline Span<LFOutputSocket *> LFNode::outputs()
 {
   return outputs_;
+}
+
+inline const LFInputSocket &LFNode::input(const int index) const
+{
+  return *inputs_[index];
+}
+
+inline const LFOutputSocket &LFNode::output(const int index) const
+{
+  return *outputs_[index];
+}
+
+inline LFInputSocket &LFNode::input(const int index)
+{
+  return *inputs_[index];
+}
+
+inline LFOutputSocket &LFNode::output(const int index)
+{
+  return *outputs_[index];
 }
 
 /** \} */
