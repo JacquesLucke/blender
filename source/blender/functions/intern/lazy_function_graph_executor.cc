@@ -48,6 +48,7 @@ struct NodeState {
   int missing_required_inputs = 0;
   bool node_has_finished = false;
   bool always_required_inputs_handled = false;
+  bool storage_initialized = false;
   NodeScheduleState schedule_state = NodeScheduleState::NotScheduled;
   void *storage = nullptr;
 };
@@ -95,8 +96,8 @@ class Executor {
   ~Executor()
   {
     BLI_task_pool_free(task_pool_);
-    for (NodeState *node_state : node_states_.values()) {
-      std::destroy_at(node_state);
+    for (auto item : node_states_.items()) {
+      this->destruct_node_state(*item.key, *item.value);
     }
   }
 
@@ -187,6 +188,18 @@ class Executor {
         output_state.usage = ValueUsage::Unused;
       }
     }
+  }
+
+  void destruct_node_state(const LFNode &node, NodeState &node_state)
+  {
+    const LazyFunction &fn = node.function();
+    if (node_state.storage != nullptr) {
+      fn.destruct_storage(node_state.storage);
+    }
+    for (InputState &input_state : node_state.inputs) {
+      this->destruct_input_value_if_exists(input_state);
+    }
+    std::destroy_at(&node_state);
   }
 
   void schedule_newly_requested_outputs()
@@ -341,6 +354,7 @@ class Executor {
   void run_node_task(const LFNode &node)
   {
     NodeState &node_state = *node_states_.lookup(&node);
+    LinearAllocator<> &allocator = local_allocators_.local();
 
     bool node_needs_execution = false;
     this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
@@ -362,8 +376,12 @@ class Executor {
         return;
       }
 
-      /* TODO: Initialize storage. */
       /* TODO: Load unlinked input values. */
+
+      if (!node_state.storage_initialized) {
+        node_state.storage = node.function().init_storage(allocator);
+        node_state.storage_initialized = true;
+      }
 
       if (!node_state.always_required_inputs_handled) {
         const LazyFunction &fn = node.function();
@@ -458,12 +476,17 @@ class Executor {
         this->set_input_unused(locked_node, input_socket);
       }
       else if (input_state.usage == ValueUsage::Used) {
-        this->destruct_input_value_if_exists(locked_node, input_state);
+        this->destruct_input_value_if_exists(input_state);
       }
+    }
+
+    if (node_state.storage != nullptr) {
+      node.function().destruct_storage(node_state.storage);
+      node_state.storage = nullptr;
     }
   }
 
-  void destruct_input_value_if_exists(LockedNode &UNUSED(locked_node), InputState &input_state)
+  void destruct_input_value_if_exists(InputState &input_state)
   {
     if (input_state.value != nullptr) {
       const CPPType &type = *input_state.type;
@@ -496,7 +519,7 @@ class Executor {
     }
     input_state.usage = ValueUsage::Unused;
 
-    this->destruct_input_value_if_exists(locked_node, input_state);
+    this->destruct_input_value_if_exists(input_state);
     if (input_state.was_ready_for_execution) {
       return;
     }
