@@ -249,7 +249,7 @@ const EnumPropertyItem rna_enum_brush_curves_sculpt_tool_items[] = {
     {CURVES_SCULPT_TOOL_SNAKE_HOOK, "SNAKE_HOOK", ICON_NONE, "Curves Snake Hook", ""},
     {CURVES_SCULPT_TOOL_ADD, "ADD", ICON_NONE, "Add Curves", ""},
     {CURVES_SCULPT_TOOL_GROW_SHRINK, "GROW_SHRINK", ICON_NONE, "Grow / Shrink Curves", ""},
-    {CURVES_SCULPT_TOOL_PINCH, "Pinch", ICON_NONE, "Pinch Curves", ""},
+    {CURVES_SCULPT_TOOL_PINCH, "PINCH", ICON_NONE, "Pinch Curves", ""},
     {0, NULL, 0, NULL, NULL},
 };
 

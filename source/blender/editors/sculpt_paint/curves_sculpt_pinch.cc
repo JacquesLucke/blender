@@ -117,14 +117,51 @@ struct PinchOperationExecutor {
     }
 
     threading::parallel_for(curves_->curves_range(), 256, [&](const IndexRange curves_range) {
+      Vector<float2> curve_positions_re;
+
       for (const int curve_i : curves_range) {
         bool &curve_changed = changed_curves[curve_i];
         const IndexRange points = curves_->points_for_curve(curve_i);
-        for (const int point_i : points.drop_front(1)) {
-          const float3 old_pos_cu = positions_cu[point_i];
 
-          float2 old_pos_re;
-          ED_view3d_project_float_v2_m4(region_, old_pos_cu, old_pos_re, projection.values);
+        curve_positions_re.clear();
+        for (const int point_i : points) {
+          const float3 &pos_cu = positions_cu[point_i];
+          float2 pos_re;
+          ED_view3d_project_float_v2_m4(region_, pos_cu, pos_re, projection.values);
+          curve_positions_re.append(pos_re);
+        }
+
+        float2 closest_to_brush_re;
+        float closest_dist_to_brush_sq_re = FLT_MAX;
+        // for (const float2 &pos_re : curve_positions_re) {
+        //   const float dist_sq_re = math::distance_squared(pos_re, brush_pos_re_);
+        //   if (dist_sq_re < closest_dist_to_brush_sq_re) {
+        //     closest_dist_to_brush_sq_re = dist_sq_re;
+        //     closest_to_brush_re = pos_re;
+        //   }
+        // }
+        for (const int i_next : curve_positions_re.index_range().drop_front(1)) {
+          const int i_prev = i_next - 1;
+          const float2 &pos_prev_re = curve_positions_re[i_prev];
+          const float2 &pos_next_re = curve_positions_re[i_next];
+          float2 closest_on_segment_re;
+          closest_to_line_segment_v2(
+              closest_on_segment_re, brush_pos_re_, pos_prev_re, pos_next_re);
+          const float dist_sq_re = math::distance_squared(closest_on_segment_re, brush_pos_re_);
+          if (dist_sq_re < closest_dist_to_brush_sq_re) {
+            closest_dist_to_brush_sq_re = dist_sq_re;
+            closest_to_brush_re = closest_on_segment_re;
+          }
+        }
+        if (closest_dist_to_brush_sq_re > brush_radius_sq_re) {
+          continue;
+        }
+        const float2 move_direction = math::normalize(brush_pos_re_ - closest_to_brush_re);
+
+        for (const int i : IndexRange(points.size()).drop_front(1)) {
+          const int point_i = points[i];
+          const float3 &old_pos_cu = positions_cu[point_i];
+          const float2 &old_pos_re = curve_positions_re[i];
 
           const float distance_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
           if (distance_to_brush_sq_re > brush_radius_sq_re) {
@@ -136,12 +173,11 @@ struct PinchOperationExecutor {
               brush_, distance_to_brush_re, brush_radius_re_);
           const float weight = brush_strength_ * radius_falloff;
 
-          const float max_move_dist_re = 0.1f * brush_radius_re_ * weight;
-          const float2 old_diff_to_brush_re = old_pos_re - brush_pos_re_;
-          const float old_dist_re = math::length(old_diff_to_brush_re);
-          const float move_dist_re = std::min(max_move_dist_re, old_dist_re);
-          const float2 move_diff_re = move_dist_re * math::normalize(old_diff_to_brush_re);
-          const float2 new_pos_re = old_pos_re - move_diff_re;
+          const float max_move_dist_re = math::distance(math::dot(move_direction, old_pos_re),
+                                                        math::dot(move_direction, brush_pos_re_));
+          const float move_dist_re = std::min(1.0f * weight, max_move_dist_re);
+          const float2 move_diff_re = move_dist_re * move_direction;
+          const float2 new_pos_re = old_pos_re + move_diff_re;
 
           float3 new_pos_wo;
           ED_view3d_win_to_3d(

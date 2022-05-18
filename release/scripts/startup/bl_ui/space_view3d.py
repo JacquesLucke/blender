@@ -535,6 +535,10 @@ class _draw_tool_settings_context_mode:
         if brush.curves_sculpt_tool == 'DELETE':
             layout.prop(brush, "falloff_shape", expand=True)
 
+        if brush.curves_sculpt_tool == 'PINCH':
+            layout.popover("VIEW3D_PT_tools_brush_falloff")
+
+
 
 class VIEW3D_HT_header(Header):
     bl_space_type = 'VIEW_3D'
