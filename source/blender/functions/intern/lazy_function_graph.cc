@@ -95,12 +95,19 @@ std::string LazyFunctionGraph::to_dot() const
 
   for (const LFNode *node : nodes_) {
     for (const LFInputSocket *socket : node->inputs()) {
+      const dot::NodeWithSocketsRef &to_dot_node = dot_nodes.lookup(&socket->node());
+      const dot::NodePort to_dot_port = to_dot_node.input(socket->index_in_node());
+
       if (const LFOutputSocket *origin = socket->origin()) {
         dot::NodeWithSocketsRef &from_dot_node = dot_nodes.lookup(&origin->node());
-        dot::NodeWithSocketsRef &to_dot_node = dot_nodes.lookup(&socket->node());
-
-        digraph.new_edge(from_dot_node.output(origin->index_in_node()),
-                         to_dot_node.input(socket->index_in_node()));
+        digraph.new_edge(from_dot_node.output(origin->index_in_node()), to_dot_port);
+      }
+      else if (const void *default_value = socket->default_value()) {
+        const CPPType &type = socket->type();
+        const std::string value_string = type.to_string(default_value);
+        dot::Node &default_value_dot_node = digraph.new_node(value_string);
+        default_value_dot_node.set_shape(dot::Attr_shape::Ellipse);
+        digraph.new_edge(default_value_dot_node, to_dot_port);
       }
     }
   }

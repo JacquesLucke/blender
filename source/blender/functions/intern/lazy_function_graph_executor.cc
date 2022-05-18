@@ -148,7 +148,7 @@ class Executor {
       }
     }
     for (const int io_output_index : outputs_.index_range()) {
-      const LFSocket &socket = *inputs_[io_output_index];
+      const LFSocket &socket = *outputs_[io_output_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_.lookup(&node);
       const int index_in_node = socket.index_in_node();
@@ -246,19 +246,21 @@ class Executor {
       const LFSocket &socket = *inputs_[io_input_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_.lookup(&node);
-      const int index_in_node = socket.index_in_node();
-      const CPPType &type = socket.type();
-      void *buffer = allocator.allocate(type.size(), type.alignment());
-      type.move_construct(input_data, buffer);
-      if (socket.is_input()) {
-        InputState &input_state = node_state.inputs[index_in_node];
-        this->forward_value_to_input(input_state, {type, buffer});
-      }
-      else {
-        const LFOutputSocket &output_socket = socket.as_output();
-        OutputState &output_state = node_state.outputs[index_in_node];
-        this->forward_output_provided_by_outside(output_state, output_socket, {type, buffer});
-      }
+      this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+        const int index_in_node = socket.index_in_node();
+        const CPPType &type = socket.type();
+        void *buffer = allocator.allocate(type.size(), type.alignment());
+        type.move_construct(input_data, buffer);
+        if (socket.is_input()) {
+          InputState &input_state = node_state.inputs[index_in_node];
+          this->forward_value_to_input(locked_node, input_state, {type, buffer});
+        }
+        else {
+          const LFOutputSocket &output_socket = socket.as_output();
+          OutputState &output_state = node_state.outputs[index_in_node];
+          this->forward_output_provided_by_outside(output_state, output_socket, {type, buffer});
+        }
+      });
     }
   }
 
@@ -393,7 +395,7 @@ class Executor {
           BLI_assert(default_value != nullptr);
           void *buffer = allocator.allocate(type.size(), type.alignment());
           type.copy_construct(default_value, buffer);
-          this->forward_value_to_input(input_state, {type, buffer});
+          this->forward_value_to_input(locked_node, input_state, {type, buffer});
         }
         node_state.default_inputs_initialized = true;
       }
@@ -647,20 +649,20 @@ class Executor {
       if (input_state.io.input_index != -1) {
         continue;
       }
-      this->with_locked_node(target_node, node_state, [&](LockedNode &UNUSED(locked_node)) {
+      this->with_locked_node(target_node, node_state, [&](LockedNode &locked_node) {
         if (input_state.usage == ValueUsage::Unused) {
           return;
         }
         if (target_socket == targets.last()) {
           /* No need to make a copy if this is the last target. */
-          this->forward_value_to_input(input_state, value_to_forward);
+          this->forward_value_to_input(locked_node, input_state, value_to_forward);
           value_to_forward = {};
         }
         else {
           const CPPType &type = *value_to_forward.type();
           void *buffer = allocator.allocate(type.size(), type.alignment());
           type.copy_construct(value_to_forward.get(), buffer);
-          this->forward_value_to_input(input_state, {type, buffer});
+          this->forward_value_to_input(locked_node, input_state, {type, buffer});
         }
       });
     }
@@ -669,12 +671,23 @@ class Executor {
     }
   }
 
-  void forward_value_to_input(InputState &input_state, GMutablePointer value)
+  void forward_value_to_input(LockedNode &locked_node,
+                              InputState &input_state,
+                              GMutablePointer value)
   {
+    NodeState &node_state = locked_node.node_state;
+
     BLI_assert(input_state.value == nullptr);
     BLI_assert(!input_state.was_ready_for_execution);
     BLI_assert(input_state.type == value.type());
     input_state.value = value.get();
+
+    if (input_state.usage == ValueUsage::Used) {
+      node_state.missing_required_inputs -= 1;
+      if (node_state.missing_required_inputs == 0) {
+        this->schedule_node(locked_node);
+      }
+    }
   }
 };
 
@@ -736,6 +749,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     executor_.forward_computed_node_output(
         output_state, output_socket, {output_state.type, output_state.value});
     output_state.value = nullptr;
+    output_state.has_been_computed = true;
   }
 
   ValueUsage get_output_usage_impl(const int index) override

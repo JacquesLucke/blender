@@ -4,6 +4,7 @@
 
 #include "FN_lazy_function_execute_eager.hh"
 #include "FN_lazy_function_graph.hh"
+#include "FN_lazy_function_graph_executor.hh"
 
 namespace blender::fn::tests {
 
@@ -29,15 +30,31 @@ TEST(lazy_function, Simple)
 {
   AddLazyFunction fn;
 
-  int result;
-  execute_lazy_function_eagerly(fn, std::make_tuple<int, int>(3, 6), std::make_tuple(&result));
-  std::cout << result << "\n";
+  // {
+  //   int result;
+  //   execute_lazy_function_eagerly(fn, std::make_tuple<int, int>(3, 6),
+  //   std::make_tuple(&result)); std::cout << result << "\n";
+  // }
+
+  const int value_1 = 1;
+  const int value_2 = 2;
+  const int value_5 = 5;
 
   LazyFunctionGraph graph;
   LFNode &n1 = graph.add_node(fn);
+  n1.input(0).set_default_value(&value_1);
+  n1.input(1).set_default_value(&value_2);
   LFNode &n2 = graph.add_node(fn);
+  n2.input(0).set_default_value(&value_5);
   graph.add_link(*n1.outputs()[0], *n2.inputs()[1]);
   std::cout << graph.to_dot() << "\n";
+
+  LazyFunctionGraphExecutor executor{graph, {}, {&n2.output(0)}};
+  {
+    int result;
+    execute_lazy_function_eagerly(executor, std::make_tuple<>(), std::make_tuple(&result));
+    std::cout << result << "\n";
+  }
 }
 
 }  // namespace blender::fn::tests
