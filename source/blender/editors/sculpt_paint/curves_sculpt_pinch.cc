@@ -175,7 +175,7 @@ struct PinchOperationExecutor {
 
           const float max_move_dist_re = math::distance(math::dot(move_direction, old_pos_re),
                                                         math::dot(move_direction, brush_pos_re_));
-          const float move_dist_re = std::min(1.0f * weight, max_move_dist_re);
+          const float move_dist_re = std::min(2.0f * weight, max_move_dist_re);
           const float2 move_diff_re = move_dist_re * move_direction;
           const float2 new_pos_re = old_pos_re + move_diff_re;
 
