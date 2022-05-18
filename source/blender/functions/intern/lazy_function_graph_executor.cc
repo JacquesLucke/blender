@@ -38,6 +38,7 @@ struct OutputState {
   int potential_target_sockets = 0;
   bool has_been_computed = false;
   IOIndices io;
+  void *value = nullptr;
 };
 
 struct NodeState {
@@ -569,7 +570,8 @@ class Executor {
 
     BLI_assert(input_state.usage != ValueUsage::Unused);
 
-    if (input_state.was_ready_for_execution) {
+    if (input_state.value != nullptr) {
+      input_state.was_ready_for_execution = true;
       return input_state.value;
     }
     if (input_state.usage == ValueUsage::Used) {
@@ -579,6 +581,7 @@ class Executor {
     node_state.missing_required_inputs += 1;
 
     if (input_state.io.input_index != -1) {
+      /* TODO: Can use value from here if it is available already? */
       params_->try_get_input_data_ptr_or_request(input_state.io.input_index);
       return nullptr;
     }
@@ -694,44 +697,56 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
   }
 
  private:
-  void *try_get_input_data_ptr_impl(int index) override
+  void *try_get_input_data_ptr_impl(const int index) override
   {
-    /* TODO */
-    UNUSED_VARS(index);
+    const InputState &input_state = node_state_.inputs[index];
+    if (input_state.was_ready_for_execution) {
+      return input_state.value;
+    }
     return nullptr;
   }
 
-  void *try_get_input_data_ptr_or_request_impl(int index) override
+  void *try_get_input_data_ptr_or_request_impl(const int index) override
   {
-    /* TODO */
-    UNUSED_VARS(index);
-    return nullptr;
+    const InputState &input_state = node_state_.inputs[index];
+    if (input_state.was_ready_for_execution) {
+      return input_state.value;
+    }
+    return executor_.set_input_required_during_execution(node_, node_state_, index);
   }
 
-  void *get_output_data_ptr_impl(int index) override
+  void *get_output_data_ptr_impl(const int index) override
   {
-    /* TODO */
-    UNUSED_VARS(index);
-    return nullptr;
+    OutputState &output_state = node_state_.outputs[index];
+    BLI_assert(!output_state.has_been_computed);
+    if (output_state.value == nullptr) {
+      LinearAllocator<> &allocator = executor_.local_allocators_.local();
+      const CPPType &type = *output_state.type;
+      output_state.value = allocator.allocate(type.size(), type.alignment());
+    }
+    return output_state.value;
   }
 
-  void output_set_impl(int index) override
+  void output_set_impl(const int index) override
   {
-    /* TODO */
-    UNUSED_VARS(index);
+    OutputState &output_state = node_state_.outputs[index];
+    BLI_assert(!output_state.has_been_computed);
+    BLI_assert(output_state.value != nullptr);
+    const LFOutputSocket &output_socket = *node_.outputs()[index];
+    executor_.forward_computed_node_output(
+        output_state, output_socket, {output_state.type, output_state.value});
+    output_state.value = nullptr;
   }
 
-  ValueUsage get_output_usage_impl(int index) override
+  ValueUsage get_output_usage_impl(const int index) override
   {
-    /* TODO */
-    UNUSED_VARS(index);
-    return ValueUsage::Used;
+    const OutputState &output_state = node_state_.outputs[index];
+    return output_state.usage_for_execution;
   }
 
-  void set_input_unused_impl(int index) override
+  void set_input_unused_impl(const int index) override
   {
-    /* TODO */
-    UNUSED_VARS(index);
+    executor_.set_input_unused_during_execution(node_, node_state_, index);
   }
 };
 
