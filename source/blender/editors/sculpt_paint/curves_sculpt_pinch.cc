@@ -56,7 +56,7 @@ class PinchOperation : public CurvesSculptStrokeOperation {
   friend struct PinchOperationExecutor;
 
  public:
-  void on_stroke_extended(bContext *C, const StrokeExtension &stroke_extension) override;
+  void on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension) override;
 };
 
 struct PinchOperationExecutor {
@@ -81,15 +81,15 @@ struct PinchOperationExecutor {
 
   float2 brush_pos_re_;
 
-  void execute(PinchOperation &self, bContext *C, const StrokeExtension &stroke_extension)
+  void execute(PinchOperation &self, const bContext &C, const StrokeExtension &stroke_extension)
   {
     self_ = &self;
-    depsgraph_ = CTX_data_depsgraph_pointer(C);
-    scene_ = CTX_data_scene(C);
-    object_ = CTX_data_active_object(C);
-    region_ = CTX_wm_region(C);
-    v3d_ = CTX_wm_view3d(C);
-    rv3d_ = CTX_wm_region_view3d(C);
+    depsgraph_ = CTX_data_depsgraph_pointer(&C);
+    scene_ = CTX_data_scene(&C);
+    object_ = CTX_data_active_object(&C);
+    region_ = CTX_wm_region(&C);
+    v3d_ = CTX_wm_view3d(&C);
+    rv3d_ = CTX_wm_region_view3d(&C);
 
     curves_sculpt_ = scene_->toolsettings->curves_sculpt;
     brush_ = BKE_paint_brush(&curves_sculpt_->paint);
@@ -201,7 +201,7 @@ struct PinchOperationExecutor {
   }
 };
 
-void PinchOperation::on_stroke_extended(bContext *C, const StrokeExtension &stroke_extension)
+void PinchOperation::on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension)
 {
   PinchOperationExecutor executor;
   executor.execute(*this, C, stroke_extension);
