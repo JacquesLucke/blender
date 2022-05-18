@@ -69,6 +69,9 @@ struct LockedNode {
   }
 };
 
+struct CurrentTask {
+};
+
 class GraphExecutorLazyFunctionParams;
 
 class Executor {
@@ -219,7 +222,7 @@ class Executor {
 
       if (socket.is_input()) {
         const LFInputSocket &input_socket = socket.as_input();
-        this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+        this->with_locked_node(node, node_state, nullptr, [&](LockedNode &locked_node) {
           this->set_input_required(locked_node, input_socket);
         });
       }
@@ -228,7 +231,7 @@ class Executor {
         const int index_in_node = output_socket.index_in_node();
         OutputState &output_state = node_state.outputs[index_in_node];
         if (!output_state.has_been_computed) {
-          this->notify_output_required(output_socket);
+          this->notify_output_required(output_socket, nullptr);
         }
       }
     }
@@ -248,7 +251,7 @@ class Executor {
       const LFSocket &socket = *inputs_[io_input_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_.lookup(&node);
-      this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      this->with_locked_node(node, node_state, nullptr, [&](LockedNode &locked_node) {
         const int index_in_node = socket.index_in_node();
         const CPPType &type = socket.type();
         void *buffer = allocator.allocate(type.size(), type.alignment());
@@ -260,20 +263,21 @@ class Executor {
         else {
           const LFOutputSocket &output_socket = socket.as_output();
           OutputState &output_state = node_state.outputs[index_in_node];
-          this->forward_output_provided_by_outside(output_state, output_socket, {type, buffer});
+          this->forward_output_provided_by_outside(
+              output_state, output_socket, {type, buffer}, nullptr);
         }
       });
     }
   }
 
-  void notify_output_required(const LFOutputSocket &socket)
+  void notify_output_required(const LFOutputSocket &socket, CurrentTask *current_task)
   {
     const LFNode &node = socket.node();
     const int index_in_node = socket.index_in_node();
     NodeState &node_state = *node_states_.lookup(&node);
     OutputState &output_state = node_state.outputs[index_in_node];
 
-    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       if (output_state.usage == ValueUsage::Used) {
         return;
       }
@@ -282,14 +286,14 @@ class Executor {
     });
   }
 
-  void notify_output_unused(const LFOutputSocket &socket)
+  void notify_output_unused(const LFOutputSocket &socket, CurrentTask *current_task)
   {
     const LFNode &node = socket.node();
     const int index_in_node = socket.index_in_node();
     NodeState &node_state = *node_states_.lookup(&node);
     OutputState &output_state = node_state.outputs[index_in_node];
 
-    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       output_state.potential_target_sockets -= 1;
       if (output_state.potential_target_sockets == 0) {
         BLI_assert(output_state.usage != ValueUsage::Unused);
@@ -322,7 +326,11 @@ class Executor {
     }
   }
 
-  template<typename F> void with_locked_node(const LFNode &node, NodeState &node_state, const F &f)
+  template<typename F>
+  void with_locked_node(const LFNode &node,
+                        NodeState &node_state,
+                        CurrentTask *current_task,
+                        const F &f)
   {
     BLI_assert(&node_state == node_states_.lookup(&node));
 
@@ -333,10 +341,10 @@ class Executor {
     }
 
     for (const LFOutputSocket *socket : locked_node.delayed_required_outputs) {
-      this->notify_output_required(*socket);
+      this->notify_output_required(*socket, current_task);
     }
     for (const LFOutputSocket *socket : locked_node.delayed_unused_outputs) {
-      this->notify_output_unused(*socket);
+      this->notify_output_unused(*socket, current_task);
     }
     for (const LFNode *node_to_schedule : locked_node.delayed_scheduled_nodes) {
       this->add_node_to_task_pool(*node_to_schedule);
@@ -354,16 +362,18 @@ class Executor {
     void *user_data = BLI_task_pool_user_data(task_pool);
     Executor &executor = *static_cast<Executor *>(user_data);
     const LFNode &node = *static_cast<const LFNode *>(task_data);
-    executor.run_node_task(node);
+
+    CurrentTask current_task;
+    executor.run_node_task(node, current_task);
   }
 
-  void run_node_task(const LFNode &node)
+  void run_node_task(const LFNode &node, CurrentTask &current_task)
   {
     NodeState &node_state = *node_states_.lookup(&node);
     LinearAllocator<> &allocator = local_allocators_.local();
 
     bool node_needs_execution = false;
-    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+    this->with_locked_node(node, node_state, &current_task, [&](LockedNode &locked_node) {
       BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
       node_state.schedule_state = NodeScheduleState::Running;
 
@@ -437,10 +447,10 @@ class Executor {
     });
 
     if (node_needs_execution) {
-      this->execute_node(node, node_state);
+      this->execute_node(node, node_state, &current_task);
     }
 
-    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+    this->with_locked_node(node, node_state, &current_task, [&](LockedNode &locked_node) {
       this->finish_node_if_possible(locked_node);
       const bool reschedule_requested = node_state.schedule_state ==
                                         NodeScheduleState::RunningAndRescheduled;
@@ -519,14 +529,15 @@ class Executor {
     }
   }
 
-  void execute_node(const LFNode &node, NodeState &node_state);
+  void execute_node(const LFNode &node, NodeState &node_state, CurrentTask *current_task);
 
   void set_input_unused_during_execution(const LFNode &node,
                                          NodeState &node_state,
-                                         const int input_index)
+                                         const int input_index,
+                                         CurrentTask *current_task)
   {
     const LFInputSocket &input_socket = node.input(input_index);
-    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       this->set_input_unused(locked_node, input_socket);
     });
   }
@@ -555,11 +566,12 @@ class Executor {
 
   void *set_input_required_during_execution(const LFNode &node,
                                             NodeState &node_state,
-                                            const int input_index)
+                                            const int input_index,
+                                            CurrentTask *current_task)
   {
     const LFInputSocket &input_socket = node.input(input_index);
     void *result;
-    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       result = this->set_input_required(locked_node, input_socket);
     });
     return result;
@@ -599,15 +611,17 @@ class Executor {
 
   void forward_output_provided_by_outside(OutputState &output_state,
                                           const LFOutputSocket &from_socket,
-                                          GMutablePointer value_to_forward)
+                                          GMutablePointer value_to_forward,
+                                          CurrentTask *current_task)
   {
     this->copy_value_to_graph_output_if_necessary(value_to_forward, output_state.io.output_index);
-    this->forward_value_to_linked_inputs(from_socket, value_to_forward);
+    this->forward_value_to_linked_inputs(from_socket, value_to_forward, current_task);
   }
 
   void forward_computed_node_output(OutputState &output_state,
                                     const LFOutputSocket &from_socket,
-                                    GMutablePointer value_to_forward)
+                                    GMutablePointer value_to_forward,
+                                    CurrentTask *current_task)
   {
     BLI_assert(value_to_forward.get() != nullptr);
 
@@ -617,7 +631,7 @@ class Executor {
       return;
     }
     this->copy_value_to_graph_output_if_necessary(value_to_forward, output_state.io.output_index);
-    this->forward_value_to_linked_inputs(from_socket, value_to_forward);
+    this->forward_value_to_linked_inputs(from_socket, value_to_forward, current_task);
   }
 
   void copy_value_to_graph_output_if_necessary(GMutablePointer value, const int io_output_index)
@@ -635,7 +649,8 @@ class Executor {
   }
 
   void forward_value_to_linked_inputs(const LFOutputSocket &from_socket,
-                                      GMutablePointer value_to_forward)
+                                      GMutablePointer value_to_forward,
+                                      CurrentTask *current_task)
   {
     LinearAllocator<> &allocator = local_allocators_.local();
 
@@ -651,7 +666,7 @@ class Executor {
       if (input_state.io.input_index != -1) {
         continue;
       }
-      this->with_locked_node(target_node, node_state, [&](LockedNode &locked_node) {
+      this->with_locked_node(target_node, node_state, current_task, [&](LockedNode &locked_node) {
         if (input_state.usage == ValueUsage::Unused) {
           return;
         }
@@ -698,16 +713,19 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
   Executor &executor_;
   const LFNode &node_;
   NodeState &node_state_;
+  CurrentTask *current_task_;
 
  public:
   GraphExecutorLazyFunctionParams(const LazyFunction &fn,
                                   Executor &executor,
                                   const LFNode &node,
-                                  NodeState &node_state)
+                                  NodeState &node_state,
+                                  CurrentTask *current_task)
       : LazyFunctionParams(fn, node_state.storage),
         executor_(executor),
         node_(node),
-        node_state_(node_state)
+        node_state_(node_state),
+        current_task_(current_task)
   {
   }
 
@@ -727,7 +745,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     if (input_state.was_ready_for_execution) {
       return input_state.value;
     }
-    return executor_.set_input_required_during_execution(node_, node_state_, index);
+    return executor_.set_input_required_during_execution(node_, node_state_, index, current_task_);
   }
 
   void *get_output_data_ptr_impl(const int index) override
@@ -749,7 +767,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     BLI_assert(output_state.value != nullptr);
     const LFOutputSocket &output_socket = node_.output(index);
     executor_.forward_computed_node_output(
-        output_state, output_socket, {output_state.type, output_state.value});
+        output_state, output_socket, {output_state.type, output_state.value}, current_task_);
     output_state.value = nullptr;
     output_state.has_been_computed = true;
   }
@@ -768,14 +786,14 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
 
   void set_input_unused_impl(const int index) override
   {
-    executor_.set_input_unused_during_execution(node_, node_state_, index);
+    executor_.set_input_unused_during_execution(node_, node_state_, index, current_task_);
   }
 };
 
-void Executor::execute_node(const LFNode &node, NodeState &node_state)
+void Executor::execute_node(const LFNode &node, NodeState &node_state, CurrentTask *current_task)
 {
   const LazyFunction &fn = node.function();
-  GraphExecutorLazyFunctionParams node_params{fn, *this, node, node_state};
+  GraphExecutorLazyFunctionParams node_params{fn, *this, node, node_state, current_task};
   fn.execute(node_params);
 }
 
