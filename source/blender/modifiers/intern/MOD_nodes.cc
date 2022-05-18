@@ -87,7 +87,6 @@
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
 #include "FN_multi_function.hh"
-#include "FN_sgraph_to_dot.hh"
 
 using blender::Array;
 using blender::ColorGeometry4f;
@@ -1210,12 +1209,6 @@ static void modifyGeometry(ModifierData *md,
 
   NodeTreeRefMap tree_refs;
   DerivedNodeTree tree{*nmd->node_group, tree_refs};
-
-  for (const std::unique_ptr<const NodeTreeRef> &tree_ref : tree_refs.values()) {
-    const std::string s = blender::fn::sgraph::sgraph_to_dot(
-        blender::fn::sgraph::SGraphT<blender::nodes::NodeTreeRefSGraphAccessor>(tree_ref.get()));
-    std::cout << s << "\n";
-  }
 
   if (tree.has_link_cycles()) {
     BKE_modifier_set_error(ctx->object, md, "Node group has cycles");
