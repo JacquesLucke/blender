@@ -133,13 +133,6 @@ struct PinchOperationExecutor {
 
         float2 closest_to_brush_re;
         float closest_dist_to_brush_sq_re = FLT_MAX;
-        // for (const float2 &pos_re : curve_positions_re) {
-        //   const float dist_sq_re = math::distance_squared(pos_re, brush_pos_re_);
-        //   if (dist_sq_re < closest_dist_to_brush_sq_re) {
-        //     closest_dist_to_brush_sq_re = dist_sq_re;
-        //     closest_to_brush_re = pos_re;
-        //   }
-        // }
         for (const int i_next : curve_positions_re.index_range().drop_front(1)) {
           const int i_prev = i_next - 1;
           const float2 &pos_prev_re = curve_positions_re[i_prev];
@@ -156,7 +149,10 @@ struct PinchOperationExecutor {
         if (closest_dist_to_brush_sq_re > brush_radius_sq_re) {
           continue;
         }
-        const float2 move_direction = math::normalize(brush_pos_re_ - closest_to_brush_re);
+
+        const float closest_dist_to_brush_re = std::sqrt(closest_dist_to_brush_sq_re);
+        const float2 move_direction = math::safe_divide(brush_pos_re_ - closest_to_brush_re,
+                                                        closest_dist_to_brush_re);
 
         for (const int i : IndexRange(points.size()).drop_front(1)) {
           const int point_i = points[i];
@@ -173,8 +169,10 @@ struct PinchOperationExecutor {
               brush_, distance_to_brush_re, brush_radius_re_);
           const float weight = brush_strength_ * radius_falloff;
 
-          const float max_move_dist_re = math::distance(math::dot(move_direction, old_pos_re),
-                                                        math::dot(move_direction, brush_pos_re_));
+          const float max_move_dist_re = math::min(
+              closest_dist_to_brush_re,
+              math::distance(math::dot(move_direction, old_pos_re),
+                             math::dot(move_direction, brush_pos_re_)));
           const float move_dist_re = std::min(2.0f * weight, max_move_dist_re);
           const float2 move_diff_re = move_dist_re * move_direction;
           const float2 new_pos_re = old_pos_re + move_diff_re;
