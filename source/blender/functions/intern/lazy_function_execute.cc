@@ -4,7 +4,7 @@
  * \ingroup fn
  */
 
-#include "FN_lazy_function_execute_eager.hh"
+#include "FN_lazy_function_execute.hh"
 
 namespace blender::fn {
 

@@ -14,7 +14,7 @@ set(SRC
   intern/cpp_types.cc
   intern/field.cc
   intern/lazy_function.cc
-  intern/lazy_function_execute_eager.cc
+  intern/lazy_function_execute.cc
   intern/lazy_function_graph.cc
   intern/lazy_function_graph_executor.cc
   intern/multi_function.cc
@@ -28,7 +28,7 @@ set(SRC
   FN_field.hh
   FN_field_cpp_type.hh
   FN_lazy_function.hh
-  FN_lazy_function_execute_eager.hh
+  FN_lazy_function_execute.hh
   FN_lazy_function_graph.hh
   FN_lazy_function_graph_executor.hh
   FN_multi_function.hh

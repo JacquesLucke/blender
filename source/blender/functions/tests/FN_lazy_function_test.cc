@@ -2,7 +2,7 @@
 
 #include "testing/testing.h"
 
-#include "FN_lazy_function_execute_eager.hh"
+#include "FN_lazy_function_execute.hh"
 #include "FN_lazy_function_graph.hh"
 #include "FN_lazy_function_graph_executor.hh"
 
