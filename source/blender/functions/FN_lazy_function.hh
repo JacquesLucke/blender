@@ -33,11 +33,16 @@ class LazyFunctionParams {
 
   /**
    * Get a pointer to an input value if the value is available already.
-   * If the input is not yet available, request it and return null.
    *
    * The #LazyFunction must leave returned object in an initialized state, but can move from it.
    */
   void *try_get_input_data_ptr(int index, const char *name = nullptr);
+
+  /**
+   * Same as #try_get_input_data_ptr, but if the data is not yet available, request it. This makes
+   * sure that the data will be available in a future execution of the #LazyFunction.
+   */
+  void *try_get_input_data_ptr_or_request(int index, const char *name = nullptr);
 
   /**
    * Get a pointer to where an output value should be stored.
@@ -72,6 +77,7 @@ class LazyFunctionParams {
 
  private:
   virtual void *try_get_input_data_ptr_impl(int index) = 0;
+  virtual void *try_get_input_data_ptr_or_request_impl(int index) = 0;
   virtual void *get_output_data_ptr_impl(int index) = 0;
   virtual void output_set_impl(int index) = 0;
   virtual ValueUsage get_output_usage_impl(int index) = 0;
@@ -156,6 +162,13 @@ inline void *LazyFunctionParams::try_get_input_data_ptr(int index, const char *n
   BLI_assert(name == nullptr || name == fn_.input_name(index));
   UNUSED_VARS_NDEBUG(name);
   return this->try_get_input_data_ptr_impl(index);
+}
+
+inline void *LazyFunctionParams::try_get_input_data_ptr_or_request(int index, const char *name)
+{
+  BLI_assert(name == nullptr || name == fn_.input_name(index));
+  UNUSED_VARS_NDEBUG(name);
+  return this->try_get_input_data_ptr_or_request_impl(index);
 }
 
 inline void *LazyFunctionParams::get_output_data_ptr(int index, const char *name)

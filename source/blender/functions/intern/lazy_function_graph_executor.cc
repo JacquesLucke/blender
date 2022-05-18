@@ -72,6 +72,7 @@ class Executor {
   const LazyFunctionGraph &graph_;
   Span<const LFSocket *> inputs_;
   Span<const LFSocket *> outputs_;
+  Array<bool> loaded_inputs_;
   LazyFunctionParams *params_ = nullptr;
   Map<const LFNode *, NodeState *> node_states_;
 
@@ -85,7 +86,7 @@ class Executor {
   Executor(const LazyFunctionGraph &graph,
            const Span<const LFSocket *> inputs,
            const Span<const LFSocket *> outputs)
-      : graph_(graph), inputs_(inputs), outputs_(outputs)
+      : graph_(graph), inputs_(inputs), outputs_(outputs), loaded_inputs_(inputs.size(), false)
   {
     this->initialize_node_states();
     task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
@@ -190,96 +191,285 @@ class Executor {
 
   void schedule_newly_requested_outputs()
   {
-    for (const int i : outputs_.index_range()) {
-      if (params_->get_output_usage(i) != ValueUsage::Used) {
+    for (const int io_output_index : outputs_.index_range()) {
+      if (params_->get_output_usage(io_output_index) != ValueUsage::Used) {
         continue;
       }
-      const LFSocket &socket = *outputs_[i];
+      const LFSocket &socket = *outputs_[io_output_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_.lookup(&node);
       UNUSED_VARS(node_state);
 
       if (socket.is_input()) {
         const LFInputSocket &input_socket = socket.as_input();
-        UNUSED_VARS(input_socket);
-        /* TODO */
+        this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+          this->set_input_required(locked_node, input_socket);
+        });
       }
       else {
         const LFOutputSocket &output_socket = socket.as_output();
-        UNUSED_VARS(output_socket);
-        /* TODO */
+        const int index_in_node = output_socket.index_in_node();
+        OutputState &output_state = node_state.outputs[index_in_node];
+        if (!output_state.has_been_computed) {
+          this->notify_output_required(output_socket);
+        }
       }
     }
   }
 
   void forward_newly_provided_inputs()
   {
-    /* TODO */
+    LinearAllocator<> &allocator = local_allocators_.local();
+    for (const int io_input_index : inputs_.index_range()) {
+      if (loaded_inputs_[io_input_index]) {
+        continue;
+      }
+      void *input_data = params_->try_get_input_data_ptr(io_input_index);
+      if (input_data == nullptr) {
+        continue;
+      }
+      const LFSocket &socket = *inputs_[io_input_index];
+      const LFNode &node = socket.node();
+      NodeState &node_state = *node_states_.lookup(&node);
+      const int index_in_node = socket.index_in_node();
+      const CPPType &type = socket.type();
+      void *buffer = allocator.allocate(type.size(), type.alignment());
+      type.move_construct(input_data, buffer);
+      if (socket.is_input()) {
+        InputState &input_state = node_state.inputs[index_in_node];
+        this->forward_value_to_input(input_state, {type, buffer});
+      }
+      else {
+        const LFOutputSocket &output_socket = socket.as_output();
+        OutputState &output_state = node_state.outputs[index_in_node];
+        this->forward_output_provided_by_outside(output_state, output_socket, {type, buffer});
+      }
+    }
   }
 
   void notify_output_required(const LFOutputSocket &socket)
   {
-    /* TODO */
-    UNUSED_VARS(socket);
+    const LFNode &node = socket.node();
+    const int index_in_node = socket.index_in_node();
+    NodeState &node_state = *node_states_.lookup(&node);
+    OutputState &output_state = node_state.outputs[index_in_node];
+
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      if (output_state.usage == ValueUsage::Used) {
+        return;
+      }
+      output_state.usage = ValueUsage::Used;
+      this->schedule_node(locked_node);
+    });
   }
 
   void notify_output_unused(const LFOutputSocket &socket)
   {
-    /* TODO */
-    UNUSED_VARS(socket);
+    const LFNode &node = socket.node();
+    const int index_in_node = socket.index_in_node();
+    NodeState &node_state = *node_states_.lookup(&node);
+    OutputState &output_state = node_state.outputs[index_in_node];
+
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      output_state.potential_target_sockets -= 1;
+      if (output_state.potential_target_sockets == 0) {
+        BLI_assert(output_state.usage != ValueUsage::Unused);
+        if (output_state.usage == ValueUsage::Maybe && output_state.io.output_index == -1) {
+          output_state.usage = ValueUsage::Unused;
+          this->schedule_node(locked_node);
+        }
+      }
+    });
   }
 
   void schedule_node(LockedNode &locked_node)
   {
-    /* TODO */
-    UNUSED_VARS(locked_node);
+    switch (locked_node.node_state.schedule_state) {
+      case NodeScheduleState::NotScheduled: {
+        locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
+        locked_node.delayed_scheduled_nodes.append(&locked_node.node);
+        break;
+      }
+      case NodeScheduleState::Scheduled: {
+        break;
+      }
+      case NodeScheduleState::Running: {
+        locked_node.node_state.schedule_state = NodeScheduleState::RunningAndRescheduled;
+        break;
+      }
+      case NodeScheduleState::RunningAndRescheduled: {
+        break;
+      }
+    }
   }
 
   template<typename F> void with_locked_node(const LFNode &node, NodeState &node_state, const F &f)
   {
+    BLI_assert(&node_state == node_states_.lookup(&node));
+
     LockedNode locked_node{node, node_state};
     {
       std::lock_guard lock{node_state.mutex};
       threading::isolate_task([&]() { f(locked_node); });
     }
 
-    /* TODO: Notifications/ */
+    for (const LFOutputSocket *socket : locked_node.delayed_required_outputs) {
+      this->notify_output_required(*socket);
+    }
+    for (const LFOutputSocket *socket : locked_node.delayed_unused_outputs) {
+      this->notify_output_unused(*socket);
+    }
+    for (const LFNode *node_to_schedule : locked_node.delayed_scheduled_nodes) {
+      this->add_node_to_task_pool(*node_to_schedule);
+    }
   }
 
   void add_node_to_task_pool(const LFNode &node)
   {
-    /* TODO */
-    UNUSED_VARS(node);
+    BLI_task_pool_push(
+        task_pool_, Executor::run_node_from_task_pool, (void *)&node, false, nullptr);
   }
 
   static void run_node_from_task_pool(TaskPool *task_pool, void *task_data)
   {
-    /* TODO */
-    UNUSED_VARS(task_pool, task_data);
+    void *user_data = BLI_task_pool_user_data(task_pool);
+    Executor &executor = *static_cast<Executor *>(user_data);
+    const LFNode &node = *static_cast<const LFNode *>(task_data);
+    executor.run_node_task(node);
   }
 
   void run_node_task(const LFNode &node)
   {
-    /* TODO */
-    UNUSED_VARS(node);
+    NodeState &node_state = *node_states_.lookup(&node);
+
+    bool node_needs_execution = false;
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
+      node_state.schedule_state = NodeScheduleState::Running;
+
+      if (node_state.node_has_finished) {
+        return;
+      }
+
+      bool required_uncomputed_output_exists = false;
+      for (OutputState &output_state : node_state.outputs) {
+        output_state.usage_for_execution = output_state.usage;
+        if (output_state.usage == ValueUsage::Used && !output_state.has_been_computed) {
+          required_uncomputed_output_exists = true;
+        }
+      }
+      if (!required_uncomputed_output_exists) {
+        return;
+      }
+
+      /* TODO: Initialize storage. */
+      /* TODO: Load unlinked input values. */
+
+      if (!node_state.always_required_inputs_handled) {
+        const LazyFunction &fn = node.function();
+        const Span<LazyFunctionInput> fn_inputs = fn.inputs();
+        for (const int input_index : fn_inputs.index_range()) {
+          const LazyFunctionInput &fn_input = fn_inputs[input_index];
+          if (fn_input.usage == ValueUsage::Used) {
+            const LFInputSocket &input_socket = *node.inputs()[input_index];
+            this->set_input_required(locked_node, input_socket);
+          }
+        }
+        node_state.always_required_inputs_handled = true;
+      }
+
+      for (const int input_index : node_state.inputs.index_range()) {
+        InputState &input_state = node_state.inputs[input_index];
+        if (input_state.was_ready_for_execution) {
+          continue;
+        }
+        if (input_state.value != nullptr) {
+          input_state.was_ready_for_execution = true;
+        }
+        if (input_state.usage == ValueUsage::Used && !input_state.was_ready_for_execution) {
+          return;
+        }
+      }
+
+      node_needs_execution = true;
+    });
+
+    if (node_needs_execution) {
+      this->execute_node(node, node_state);
+    }
+
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      this->finish_node_if_possible(locked_node);
+      const bool reschedule_requested = node_state.schedule_state ==
+                                        NodeScheduleState::RunningAndRescheduled;
+      node_state.schedule_state = NodeScheduleState::NotScheduled;
+      if (reschedule_requested && !node_state.node_has_finished) {
+        this->schedule_node(locked_node);
+      }
+#ifdef DEBUG
+      if (node_needs_execution) {
+        this->assert_expected_outputs_have_been_computed(locked_node);
+      }
+#endif
+    });
   }
 
   void assert_expected_outputs_have_been_computed(LockedNode &locked_node)
   {
-    /* TODO */
-    UNUSED_VARS(locked_node);
+    const NodeState &node_state = locked_node.node_state;
+    if (node_state.missing_required_inputs > 0) {
+      return;
+    }
+    if (node_state.schedule_state == NodeScheduleState::Scheduled) {
+      return;
+    }
+    for (const OutputState &output_state : node_state.outputs) {
+      if (output_state.usage_for_execution == ValueUsage::Used) {
+        BLI_assert(output_state.has_been_computed);
+      }
+    }
   }
 
   void finish_node_if_possible(LockedNode &locked_node)
   {
-    /* TODO */
-    UNUSED_VARS(locked_node);
+    const LFNode &node = locked_node.node;
+    NodeState &node_state = locked_node.node_state;
+
+    if (node_state.node_has_finished) {
+      return;
+    }
+    for (const OutputState &output_state : node_state.outputs) {
+      if (output_state.usage != ValueUsage::Unused && !output_state.has_been_computed) {
+        return;
+      }
+    }
+    for (const InputState &input_state : node_state.inputs) {
+      if (input_state.usage == ValueUsage::Used && !input_state.was_ready_for_execution) {
+        return;
+      }
+    }
+
+    node_state.node_has_finished = true;
+
+    for (const int input_index : node_state.inputs.index_range()) {
+      const LFInputSocket &input_socket = *node.inputs()[input_index];
+      InputState &input_state = node_state.inputs[input_index];
+      if (input_state.usage == ValueUsage::Maybe) {
+        this->set_input_unused(locked_node, input_socket);
+      }
+      else if (input_state.usage == ValueUsage::Used) {
+        this->destruct_input_value_if_exists(locked_node, input_state);
+      }
+    }
   }
 
-  void destruct_input_value_if_exists(LockedNode &locked_node, const LFInputSocket &socket)
+  void destruct_input_value_if_exists(LockedNode &UNUSED(locked_node), InputState &input_state)
   {
-    /* TODO */
-    UNUSED_VARS(locked_node, socket);
+    if (input_state.value != nullptr) {
+      const CPPType &type = *input_state.type;
+      type.destruct(input_state.value);
+      input_state.value = nullptr;
+    }
   }
 
   void execute_node(const LFNode &node, NodeState &node_state);
@@ -288,57 +478,148 @@ class Executor {
                                          NodeState &node_state,
                                          const int input_index)
   {
-    /* TODO */
-    UNUSED_VARS(node, node_state, input_index);
+    const LFInputSocket &input_socket = *node.inputs()[input_index];
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      this->set_input_unused(locked_node, input_socket);
+    });
   }
 
   void set_input_unused(LockedNode &locked_node, const LFInputSocket &input_socket)
   {
-    /* TODO */
-    UNUSED_VARS(locked_node, input_socket);
+    NodeState &node_state = locked_node.node_state;
+    const int input_index = input_socket.index_in_node();
+    InputState &input_state = node_state.inputs[input_index];
+
+    BLI_assert(input_state.usage != ValueUsage::Used);
+    if (input_state.usage == ValueUsage::Unused) {
+      return;
+    }
+    input_state.usage = ValueUsage::Unused;
+
+    this->destruct_input_value_if_exists(locked_node, input_state);
+    if (input_state.was_ready_for_execution) {
+      return;
+    }
+    const LFOutputSocket *origin = input_socket.origin();
+    if (origin != nullptr) {
+      locked_node.delayed_unused_outputs.append(origin);
+    }
   }
 
   void *set_input_required_during_execution(const LFNode &node,
                                             NodeState &node_state,
                                             const int input_index)
   {
-    /* TODO */
-    UNUSED_VARS(node, node_state, input_index);
-    return nullptr;
+    const LFInputSocket &input_socket = *node.inputs()[input_index];
+    void *result;
+    this->with_locked_node(node, node_state, [&](LockedNode &locked_node) {
+      result = this->set_input_required(locked_node, input_socket);
+    });
+    return result;
   }
 
   void *set_input_required(LockedNode &locked_node, const LFInputSocket &input_socket)
   {
-    /* TODO */
-    UNUSED_VARS(locked_node, input_socket);
+    BLI_assert(&locked_node.node == &input_socket.node());
+    NodeState &node_state = locked_node.node_state;
+    const int input_index = input_socket.index_in_node();
+    InputState &input_state = node_state.inputs[input_index];
+
+    BLI_assert(input_state.usage != ValueUsage::Unused);
+
+    if (input_state.was_ready_for_execution) {
+      return input_state.value;
+    }
+    if (input_state.usage == ValueUsage::Used) {
+      return nullptr;
+    }
+    input_state.usage = ValueUsage::Used;
+    node_state.missing_required_inputs += 1;
+
+    if (input_state.io.input_index != -1) {
+      params_->try_get_input_data_ptr_or_request(input_state.io.input_index);
+      return nullptr;
+    }
+
+    const LFOutputSocket *origin_socket = input_socket.origin();
+    /* Unlinked inputs are always loaded in advance. */
+    BLI_assert(origin_socket != nullptr);
+    locked_node.delayed_required_outputs.append(origin_socket);
     return nullptr;
   }
 
-  void forward_output_provided_by_outside(const LFOutputSocket &from_socket,
+  void forward_output_provided_by_outside(OutputState &output_state,
+                                          const LFOutputSocket &from_socket,
                                           GMutablePointer value_to_forward)
   {
-    /* TODO */
-    UNUSED_VARS(from_socket, value_to_forward);
+    this->copy_value_to_graph_output_if_necessary(value_to_forward, output_state.io.output_index);
+    this->forward_value_to_linked_inputs(from_socket, value_to_forward);
   }
 
-  void forward_computed_node_output(const LFOutputSocket &from_socket,
+  void forward_computed_node_output(OutputState &output_state,
+                                    const LFOutputSocket &from_socket,
                                     GMutablePointer value_to_forward)
   {
-    /* TODO */
-    UNUSED_VARS(from_socket, value_to_forward);
+    BLI_assert(value_to_forward.get() != nullptr);
+
+    if (output_state.io.input_index != -1) {
+      /* The computed value is ignored, because it is overridden from the outside. */
+      value_to_forward.destruct();
+      return;
+    }
+    this->copy_value_to_graph_output_if_necessary(value_to_forward, output_state.io.output_index);
+    this->forward_value_to_linked_inputs(from_socket, value_to_forward);
+  }
+
+  void copy_value_to_graph_output_if_necessary(GMutablePointer value, const int io_output_index)
+  {
+    if (io_output_index == -1) {
+      return;
+    }
+    if (params_->get_output_usage(io_output_index) == ValueUsage::Unused) {
+      return;
+    }
+    void *dst_buffer = params_->get_output_data_ptr(io_output_index);
+    const CPPType &type = *value.type();
+    type.copy_construct(value.get(), dst_buffer);
+    params_->output_set(io_output_index);
   }
 
   void forward_value_to_linked_inputs(const LFOutputSocket &from_socket,
                                       GMutablePointer value_to_forward)
   {
-    /* TODO */
-    UNUSED_VARS(from_socket, value_to_forward);
+    LinearAllocator<> &allocator = local_allocators_.local();
+
+    const Span<const LFInputSocket *> targets = from_socket.targets();
+    for (const LFInputSocket *target_socket : targets) {
+      const LFNode &target_node = target_socket->node();
+      NodeState &node_state = *node_states_.lookup(&target_node);
+      const int input_index = target_socket->index_in_node();
+      InputState &input_state = node_state.inputs[input_index];
+      BLI_assert(input_state.value == nullptr);
+      BLI_assert(!input_state.was_ready_for_execution);
+
+      if (input_state.io.input_index != -1) {
+        continue;
+      }
+      this->with_locked_node(target_node, node_state, [&](LockedNode &UNUSED(locked_node)) {
+        if (input_state.usage == ValueUsage::Unused) {
+          return;
+        }
+        const CPPType &type = *value_to_forward.type();
+        void *buffer = allocator.allocate(type.size(), type.alignment());
+        type.copy_construct(value_to_forward.get(), buffer);
+        this->forward_value_to_input(input_state, {type, buffer});
+      });
+    }
+    value_to_forward.destruct();
   }
 
-  void forward_value_to_input(const LFInputSocket &to_socket, GMutablePointer value)
+  void forward_value_to_input(InputState &input_state, GMutablePointer value)
   {
-    /* TODO */
-    UNUSED_VARS(to_socket, value);
+    BLI_assert(input_state.value == nullptr);
+    BLI_assert(!input_state.was_ready_for_execution);
+    input_state.value = value.get();
   }
 };
 

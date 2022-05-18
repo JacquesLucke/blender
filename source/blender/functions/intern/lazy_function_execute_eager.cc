@@ -44,6 +44,11 @@ class EagerLazyFunctionParams : public LazyFunctionParams {
     return inputs_[index].get();
   }
 
+  void *try_get_input_data_ptr_or_request_impl(int index) override
+  {
+    return inputs_[index].get();
+  }
+
   void *get_output_data_ptr_impl(int index) override
   {
     return outputs_[index].get();
