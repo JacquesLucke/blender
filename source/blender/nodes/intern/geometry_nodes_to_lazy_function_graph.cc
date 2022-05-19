@@ -108,6 +108,9 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
   Map<const InputSocketRef *, LFNode *> multi_input_socket_nodes;
 
   for (const NodeRef *node_ref : tree.nodes()) {
+    if (node_ref->is_frame()) {
+      continue;
+    }
     Vector<const InputSocketRef *> used_inputs;
     Vector<const OutputSocketRef *> used_outputs;
     auto fn = std::make_unique<GeometryNodeLazyFunction>(*node_ref, used_inputs, used_outputs);
