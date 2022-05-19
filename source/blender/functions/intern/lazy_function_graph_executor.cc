@@ -105,11 +105,13 @@ class Executor {
   ~Executor()
   {
     BLI_task_pool_free(task_pool_);
-    for (const int node_index : node_states_.index_range()) {
-      const LFNode &node = *graph_.nodes()[node_index];
-      NodeState &node_state = *node_states_[node_index];
-      this->destruct_node_state(node, node_state);
-    }
+    threading::parallel_for(node_states_.index_range(), 1024, [&](const IndexRange range) {
+      for (const int node_index : range) {
+        const LFNode &node = *graph_.nodes()[node_index];
+        NodeState &node_state = *node_states_[node_index];
+        this->destruct_node_state(node, node_state);
+      }
+    });
   }
 
   void execute(LazyFunctionParams &params)

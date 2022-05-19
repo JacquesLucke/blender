@@ -105,25 +105,54 @@ static Vector<LFNode *> build_add_node_chain(LazyFunctionGraph &graph,
   return nodes;
 }
 
+struct MultiChainResult {
+  Vector<LFNode *> first_nodes;
+  LFNode *last_node = nullptr;
+};
+
+static MultiChainResult build_multiple_chains(LazyFunctionGraph &graph,
+                                              const int chain_length,
+                                              const int chain_num,
+                                              const int *default_value)
+{
+  static AddLazyFunction fn;
+  MultiChainResult result;
+  for (const int i : IndexRange(chain_num)) {
+    Vector<LFNode *> chain = build_add_node_chain(graph, chain_length, default_value);
+    result.first_nodes.append(chain[0]);
+    if (result.last_node == nullptr) {
+      result.last_node = chain.last();
+    }
+    else {
+      LFNode &node = graph.add_node(fn);
+      node.input(0).set_default_value(default_value);
+      node.input(1).set_default_value(default_value);
+      graph.add_link(result.last_node->output(0), node.input(0));
+      graph.add_link(chain.last()->output(0), node.input(1));
+      result.last_node = &node;
+    }
+  }
+  return result;
+}
+
 TEST(lazy_function, Simple)
 {
   BLI_task_scheduler_init(); /* Without this, no parallelism. */
   const int value_1 = 1;
   LazyFunctionGraph graph;
-  Vector<LFNode *> node_chain = build_add_node_chain(graph, 1e3, &value_1);
+  MultiChainResult node_chain = build_multiple_chains(graph, 1e6, 10, &value_1);
   graph.update_node_indices();
   // std::cout << graph.to_dot() << "\n";
 
-  LazyFunctionGraphExecutor executor_fn{
-      graph, {&node_chain[0]->input(0)}, {&node_chain.last()->output(0)}};
+  LazyFunctionGraphExecutor executor_fn{graph, {}, {&node_chain.last_node->output(0)}};
 
-  {
+  for (const int i : IndexRange(1)) {
+    // SCOPED_TIMER("run");
     int value_10 = 10;
     int result;
 
     execute_lazy_function_test(executor_fn,
-                               {LazyFunctionEvent{LazyFunctionEventType::RequestOutput, 0},
-                                LazyFunctionEvent{LazyFunctionEventType::SetInput, 0, &value_10}},
+                               {LazyFunctionEvent{LazyFunctionEventType::RequestOutput, 0}},
                                Span<GMutablePointer>{{&result}});
     std::cout << "Result: " << result << "\n";
   }
