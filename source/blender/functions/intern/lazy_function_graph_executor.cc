@@ -71,6 +71,7 @@ struct LockedNode {
 
 struct CurrentTask {
   std::atomic<const LFNode *> next_node = nullptr;
+  std::atomic<bool> added_node_to_pool = false;
 };
 
 class GraphExecutorLazyFunctionParams;
@@ -114,10 +115,27 @@ class Executor {
   void execute(LazyFunctionParams &params)
   {
     params_ = &params;
-    this->schedule_newly_requested_outputs();
-    this->forward_newly_provided_inputs();
+    BLI_SCOPED_DEFER([&]() { params_ = nullptr; });
+
+    CurrentTask current_task;
+    this->schedule_newly_requested_outputs(&current_task);
+    this->forward_newly_provided_inputs(&current_task);
+
+    /* Avoid using task pool when there is no parallel work to do. */
+    while (!current_task.added_node_to_pool) {
+      if (current_task.next_node == nullptr) {
+        /* Nothing to do. */
+        return;
+      }
+      const LFNode &node = *current_task.next_node;
+      current_task.next_node = nullptr;
+      this->run_node_task(node, current_task);
+    }
+    if (current_task.next_node != nullptr) {
+      this->add_node_to_task_pool(*current_task.next_node);
+    }
+
     BLI_task_pool_work_and_wait(task_pool_);
-    params_ = nullptr;
   }
 
  private:
@@ -205,7 +223,7 @@ class Executor {
     std::destroy_at(&node_state);
   }
 
-  void schedule_newly_requested_outputs()
+  void schedule_newly_requested_outputs(CurrentTask *current_task)
   {
     for (const int io_output_index : outputs_.index_range()) {
       if (params_->get_output_usage(io_output_index) != ValueUsage::Used) {
@@ -217,7 +235,7 @@ class Executor {
 
       if (socket.is_input()) {
         const LFInputSocket &input_socket = socket.as_input();
-        this->with_locked_node(node, node_state, nullptr, [&](LockedNode &locked_node) {
+        this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
           this->set_input_required(locked_node, input_socket);
         });
       }
@@ -226,13 +244,13 @@ class Executor {
         const int index_in_node = output_socket.index_in_node();
         OutputState &output_state = node_state.outputs[index_in_node];
         if (!output_state.has_been_computed) {
-          this->notify_output_required(output_socket, nullptr);
+          this->notify_output_required(output_socket, current_task);
         }
       }
     }
   }
 
-  void forward_newly_provided_inputs()
+  void forward_newly_provided_inputs(CurrentTask *current_task)
   {
     LinearAllocator<> &allocator = local_allocators_.local();
     for (const int io_input_index : inputs_.index_range()) {
@@ -246,7 +264,7 @@ class Executor {
       const LFSocket &socket = *inputs_[io_input_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_[node.index()];
-      this->with_locked_node(node, node_state, nullptr, [&](LockedNode &locked_node) {
+      this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
         const int index_in_node = socket.index_in_node();
         const CPPType &type = socket.type();
         void *buffer = allocator.allocate(type.size(), type.alignment());
@@ -259,7 +277,7 @@ class Executor {
           const LFOutputSocket &output_socket = socket.as_output();
           OutputState &output_state = node_state.outputs[index_in_node];
           this->forward_output_provided_by_outside(
-              output_state, output_socket, {type, buffer}, nullptr);
+              output_state, output_socket, {type, buffer}, current_task);
         }
       });
     }
@@ -344,11 +362,13 @@ class Executor {
     for (const LFNode *node_to_schedule : locked_node.delayed_scheduled_nodes) {
       if (current_task != nullptr) {
         const LFNode *expected = nullptr;
-        if (current_task->next_node.compare_exchange_strong(expected, node_to_schedule)) {
+        if (current_task->next_node.compare_exchange_strong(
+                expected, node_to_schedule, std::memory_order_relaxed)) {
           continue;
         }
       }
       this->add_node_to_task_pool(*node_to_schedule);
+      current_task->added_node_to_pool.store(true, std::memory_order_relaxed);
     }
   }
 
