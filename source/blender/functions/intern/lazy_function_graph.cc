@@ -51,6 +51,7 @@ LFNode &LazyFunctionGraph::add_node(const LazyFunction &fn)
 void LazyFunctionGraph::add_link(LFOutputSocket &from, LFInputSocket &to)
 {
   BLI_assert(to.origin_ == nullptr);
+  BLI_assert(from.type_ == to.type_);
   to.origin_ = &from;
   from.targets_.append(&to);
 }

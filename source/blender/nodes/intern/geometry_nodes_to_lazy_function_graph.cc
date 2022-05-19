@@ -84,6 +84,21 @@ class MultiInputLazyFunction : public LazyFunction {
   }
 };
 
+class ConversionLazyFunction : public LazyFunction {
+ public:
+  ConversionLazyFunction(const CPPType &from, const CPPType &to)
+  {
+    static_name_ = "Convert";
+    inputs_.append({"From", from});
+    outputs_.append({"To", to});
+  }
+
+  void execute_impl(fn::LazyFunctionParams &params) const override
+  {
+    UNUSED_VARS(params);
+  }
+};
+
 void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
                                            LazyFunctionGraph &graph,
                                            GeometryNodesLazyFunctionResources &resources)
@@ -118,26 +133,73 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
       output_socket_map.add_new(used_outputs[i], &node.output(i));
     }
   }
-  for (const LinkRef *link_ref : tree.links()) {
-    const OutputSocketRef &from_ref = link_ref->from();
-    const InputSocketRef &to_ref = link_ref->to();
-    LFOutputSocket *from_socket = output_socket_map.lookup_default(&from_ref, nullptr);
-    if (from_socket == nullptr) {
-      continue;
-    }
-    if (to_ref.is_multi_input_socket()) {
-      LFNode *multi_input_node = multi_input_socket_nodes.lookup_default(&to_ref, nullptr);
-      if (multi_input_node == nullptr) {
+
+  for (const auto item : output_socket_map.items()) {
+    const OutputSocketRef &from_ref = *item.key;
+    LFOutputSocket &from = *item.value;
+    const Span<const LinkRef *> links_from_socket = from_ref.directly_linked_links();
+    const CPPType &from_type = *modifiers::geometry_nodes::get_socket_cpp_type(from_ref);
+
+    struct TypeWithLinks {
+      const CPPType *type;
+      Vector<const LinkRef *> links;
+    };
+
+    Vector<TypeWithLinks> types_with_links;
+    for (const LinkRef *link : links_from_socket) {
+      const InputSocketRef &to_socket = link->to();
+      if (!to_socket.is_available()) {
         continue;
       }
-      /* TODO: Use stored link index, but need to validate it. */
-      const int link_index = to_ref.directly_linked_links().first_index_try(link_ref);
-      graph.add_link(*from_socket, multi_input_node->input(link_index));
+      const CPPType *to_type = modifiers::geometry_nodes::get_socket_cpp_type(to_socket);
+      if (to_type == nullptr) {
+        continue;
+      }
+      bool inserted = false;
+      for (TypeWithLinks &type_with_links : types_with_links) {
+        if (type_with_links.type == to_type) {
+          type_with_links.links.append(link);
+          inserted = true;
+        }
+      }
+      if (inserted) {
+        continue;
+      }
+      types_with_links.append({to_type, {link}});
     }
-    else {
-      const Span<LFInputSocket *> to_sockets = input_socket_map.lookup(&to_ref);
-      for (LFInputSocket *to_socket : to_sockets) {
-        graph.add_link(*from_socket, *to_socket);
+
+    for (const TypeWithLinks &type_with_links : types_with_links) {
+      const CPPType &to_type = *type_with_links.type;
+      const Span<const LinkRef *> links = type_with_links.links;
+      LFOutputSocket *final_from_socket = nullptr;
+      if (from_type == to_type) {
+        final_from_socket = &from;
+      }
+      else {
+        auto fn = std::make_unique<ConversionLazyFunction>(from_type, to_type);
+        LFNode &conversion_node = graph.add_node(*fn);
+        resources.functions.append(std::move(fn));
+        graph.add_link(from, conversion_node.input(0));
+        final_from_socket = &conversion_node.output(0);
+      }
+
+      for (const LinkRef *link_ref : links) {
+        const InputSocketRef &to_socket_ref = link_ref->to();
+        if (to_socket_ref.is_multi_input_socket()) {
+          LFNode *multi_input_node = multi_input_socket_nodes.lookup_default(&to_socket_ref,
+                                                                             nullptr);
+          if (multi_input_node == nullptr) {
+            continue;
+          }
+          /* TODO: Use stored link index, but need to validate it. */
+          const int link_index = to_socket_ref.directly_linked_links().first_index_try(link_ref);
+          graph.add_link(*final_from_socket, multi_input_node->input(link_index));
+        }
+        else {
+          for (LFInputSocket *to : input_socket_map.lookup(&to_socket_ref)) {
+            graph.add_link(*final_from_socket, *to);
+          }
+        }
       }
     }
   }
