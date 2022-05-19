@@ -1748,7 +1748,6 @@ NodeParamsProvider::NodeParamsProvider(GeometryNodesEvaluator &evaluator,
 {
   this->dnode = dnode;
   this->self_object = evaluator.params_.self_object;
-  this->modifier = &evaluator.params_.modifier_->modifier;
   this->depsgraph = evaluator.params_.depsgraph;
   this->logger = evaluator.params_.geo_logger;
 }

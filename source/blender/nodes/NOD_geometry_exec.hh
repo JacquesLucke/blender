@@ -51,7 +51,6 @@ class GeoNodeExecParamsProvider {
  public:
   DNode dnode;
   const Object *self_object = nullptr;
-  const ModifierData *modifier = nullptr;
   Depsgraph *depsgraph = nullptr;
   geometry_nodes_eval_log::GeoLogger *logger = nullptr;
 
