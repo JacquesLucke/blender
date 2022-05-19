@@ -49,7 +49,7 @@ using geometry_nodes_eval_log::NodeWarningType;
  */
 class GeoNodeExecParamsProvider {
  public:
-  DNode dnode;
+  const NodeRef *node_ref = nullptr;
   const Object *self_object = nullptr;
   Depsgraph *depsgraph = nullptr;
 
@@ -277,7 +277,7 @@ class GeoNodeExecParams {
    */
   const bNode &node() const
   {
-    return *provider_->dnode->bnode();
+    return *provider_->node_ref->bnode();
   }
 
   const Object *self_object() const

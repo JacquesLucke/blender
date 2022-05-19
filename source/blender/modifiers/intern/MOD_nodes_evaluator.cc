@@ -409,6 +409,7 @@ struct NodeTaskRunState {
 /** Implements the callbacks that might be called when a node is executed. */
 class NodeParamsProvider : public nodes::GeoNodeExecParamsProvider {
  private:
+  DNode dnode_;
   GeometryNodesEvaluator &evaluator_;
   NodeState &node_state_;
   NodeTaskRunState *run_state_;
@@ -1744,16 +1745,16 @@ NodeParamsProvider::NodeParamsProvider(GeometryNodesEvaluator &evaluator,
                                        DNode dnode,
                                        NodeState &node_state,
                                        NodeTaskRunState *run_state)
-    : evaluator_(evaluator), node_state_(node_state), run_state_(run_state)
+    : dnode_(dnode), evaluator_(evaluator), node_state_(node_state), run_state_(run_state)
 {
-  this->dnode = dnode;
+  this->node_ref = dnode.node_ref();
   this->self_object = evaluator.params_.self_object;
   this->depsgraph = evaluator.params_.depsgraph;
 }
 
 bool NodeParamsProvider::can_get_input(StringRef identifier) const
 {
-  const DInputSocket socket = this->dnode.input_by_identifier(identifier);
+  const DInputSocket socket = dnode_.input_by_identifier(identifier);
   BLI_assert(socket);
 
   InputState &input_state = node_state_.inputs[socket->index()];
@@ -1771,7 +1772,7 @@ bool NodeParamsProvider::can_get_input(StringRef identifier) const
 
 bool NodeParamsProvider::can_set_output(StringRef identifier) const
 {
-  const DOutputSocket socket = this->dnode.output_by_identifier(identifier);
+  const DOutputSocket socket = dnode_.output_by_identifier(identifier);
   BLI_assert(socket);
 
   OutputState &output_state = node_state_.outputs[socket->index()];
@@ -1780,7 +1781,7 @@ bool NodeParamsProvider::can_set_output(StringRef identifier) const
 
 GMutablePointer NodeParamsProvider::extract_input(StringRef identifier)
 {
-  const DInputSocket socket = this->dnode.input_by_identifier(identifier);
+  const DInputSocket socket = dnode_.input_by_identifier(identifier);
   BLI_assert(socket);
   BLI_assert(!socket->is_multi_input_socket());
   BLI_assert(this->can_get_input(identifier));
@@ -1794,7 +1795,7 @@ GMutablePointer NodeParamsProvider::extract_input(StringRef identifier)
 
 Vector<GMutablePointer> NodeParamsProvider::extract_multi_input(StringRef identifier)
 {
-  const DInputSocket socket = this->dnode.input_by_identifier(identifier);
+  const DInputSocket socket = dnode_.input_by_identifier(identifier);
   BLI_assert(socket);
   BLI_assert(socket->is_multi_input_socket());
   BLI_assert(this->can_get_input(identifier));
@@ -1813,7 +1814,7 @@ Vector<GMutablePointer> NodeParamsProvider::extract_multi_input(StringRef identi
 
 GPointer NodeParamsProvider::get_input(StringRef identifier) const
 {
-  const DInputSocket socket = this->dnode.input_by_identifier(identifier);
+  const DInputSocket socket = dnode_.input_by_identifier(identifier);
   BLI_assert(socket);
   BLI_assert(!socket->is_multi_input_socket());
   BLI_assert(this->can_get_input(identifier));
@@ -1831,7 +1832,7 @@ GMutablePointer NodeParamsProvider::alloc_output_value(const CPPType &type)
 
 void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
 {
-  const DOutputSocket socket = this->dnode.output_by_identifier(identifier);
+  const DOutputSocket socket = dnode_.output_by_identifier(identifier);
   BLI_assert(socket);
 
   OutputState &output_state = node_state_.outputs[socket->index()];
@@ -1842,15 +1843,15 @@ void NodeParamsProvider::set_output(StringRef identifier, GMutablePointer value)
 
 bool NodeParamsProvider::lazy_require_input(StringRef identifier)
 {
-  BLI_assert(node_supports_laziness(this->dnode));
-  const DInputSocket socket = this->dnode.input_by_identifier(identifier);
+  BLI_assert(node_supports_laziness(dnode_));
+  const DInputSocket socket = dnode_.input_by_identifier(identifier);
   BLI_assert(socket);
 
   InputState &input_state = node_state_.inputs[socket->index()];
   if (input_state.was_ready_for_execution) {
     return false;
   }
-  evaluator_.with_locked_node(this->dnode, node_state_, run_state_, [&](LockedNode &locked_node) {
+  evaluator_.with_locked_node(dnode_, node_state_, run_state_, [&](LockedNode &locked_node) {
     if (!evaluator_.set_input_required(locked_node, socket)) {
       /* Schedule the currently executed node again because the value is available now but was not
        * ready for the current execution. */
@@ -1862,17 +1863,17 @@ bool NodeParamsProvider::lazy_require_input(StringRef identifier)
 
 void NodeParamsProvider::set_input_unused(StringRef identifier)
 {
-  const DInputSocket socket = this->dnode.input_by_identifier(identifier);
+  const DInputSocket socket = dnode_.input_by_identifier(identifier);
   BLI_assert(socket);
 
-  evaluator_.with_locked_node(this->dnode, node_state_, run_state_, [&](LockedNode &locked_node) {
+  evaluator_.with_locked_node(dnode_, node_state_, run_state_, [&](LockedNode &locked_node) {
     evaluator_.set_input_unused(locked_node, socket);
   });
 }
 
 bool NodeParamsProvider::output_is_required(StringRef identifier) const
 {
-  const DOutputSocket socket = this->dnode.output_by_identifier(identifier);
+  const DOutputSocket socket = dnode_.output_by_identifier(identifier);
   BLI_assert(socket);
 
   OutputState &output_state = node_state_.outputs[socket->index()];
@@ -1884,8 +1885,8 @@ bool NodeParamsProvider::output_is_required(StringRef identifier) const
 
 bool NodeParamsProvider::lazy_output_is_required(StringRef identifier) const
 {
-  BLI_assert(node_supports_laziness(this->dnode));
-  const DOutputSocket socket = this->dnode.output_by_identifier(identifier);
+  BLI_assert(node_supports_laziness(dnode_));
+  const DOutputSocket socket = dnode_.output_by_identifier(identifier);
   BLI_assert(socket);
 
   OutputState &output_state = node_state_.outputs[socket->index()];
@@ -1899,7 +1900,7 @@ void NodeParamsProvider::set_default_remaining_outputs()
 {
   LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
 
-  for (const int i : this->dnode->outputs().index_range()) {
+  for (const int i : dnode_->outputs().index_range()) {
     OutputState &output_state = node_state_.outputs[i];
     if (output_state.has_been_computed) {
       continue;
@@ -1908,7 +1909,7 @@ void NodeParamsProvider::set_default_remaining_outputs()
       continue;
     }
 
-    const DOutputSocket socket = this->dnode.output(i);
+    const DOutputSocket socket = dnode_.output(i);
     const CPPType *type = get_socket_cpp_type(socket);
     BLI_assert(type != nullptr);
     void *buffer = allocator.allocate(type->size(), type->alignment());
