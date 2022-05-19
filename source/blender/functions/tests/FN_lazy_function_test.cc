@@ -58,7 +58,7 @@ static void execute_lazy_function_test(const LazyFunction &fn,
   void *storage = fn.init_storage(allocator);
 
   BasicLazyFunctionParams params(
-      fn, storage, inputs, outputs, input_usages, output_usages, set_outputs);
+      fn, storage, nullptr, inputs, outputs, input_usages, output_usages, set_outputs);
   if (fn.valid_params_for_execution(params)) {
     fn.execute(params);
   }

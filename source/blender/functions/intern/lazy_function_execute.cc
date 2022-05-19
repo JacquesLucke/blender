@@ -11,12 +11,13 @@ namespace blender::fn {
 BasicLazyFunctionParams::BasicLazyFunctionParams(
     const LazyFunction &fn,
     void *storage,
+    LazyFunctionUserData *user_data,
     const Span<GMutablePointer> inputs,
     const Span<GMutablePointer> outputs,
     MutableSpan<std::optional<ValueUsage>> input_usages,
     Span<ValueUsage> output_usages,
     MutableSpan<bool> set_outputs)
-    : LazyFunctionParams(fn, storage),
+    : LazyFunctionParams(fn, storage, user_data),
       inputs_(inputs),
       outputs_(outputs),
       input_usages_(input_usages),

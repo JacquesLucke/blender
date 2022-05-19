@@ -23,6 +23,7 @@ class BasicLazyFunctionParams : public LazyFunctionParams {
  public:
   BasicLazyFunctionParams(const LazyFunction &fn,
                           void *storage,
+                          LazyFunctionUserData *user_data,
                           const Span<GMutablePointer> inputs,
                           const Span<GMutablePointer> outputs,
                           MutableSpan<std::optional<ValueUsage>> input_usages,

@@ -749,7 +749,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
                                   const LFNode &node,
                                   NodeState &node_state,
                                   CurrentTask *current_task)
-      : LazyFunctionParams(fn, node_state.storage),
+      : LazyFunctionParams(fn, node_state.storage, executor.params_->user_data()),
         executor_(executor),
         node_(node),
         node_state_(node_state),

@@ -21,13 +21,20 @@ enum class ValueUsage {
 
 class LazyFunction;
 
+class LazyFunctionUserData {
+ public:
+  virtual ~LazyFunctionUserData() = default;
+};
+
 class LazyFunctionParams {
  protected:
   const LazyFunction &fn_;
   void *storage_;
+  LazyFunctionUserData *user_data_;
 
  public:
-  LazyFunctionParams(const LazyFunction &fn, void *storage) : fn_(fn), storage_(storage)
+  LazyFunctionParams(const LazyFunction &fn, void *storage, LazyFunctionUserData *user_data)
+      : fn_(fn), storage_(storage), user_data_(user_data)
   {
   }
 
@@ -76,6 +83,9 @@ class LazyFunctionParams {
 
   void *storage();
   template<typename T> T &storage();
+
+  LazyFunctionUserData *user_data();
+  const LazyFunctionUserData *user_data() const;
 
  private:
   virtual void *try_get_input_data_ptr_impl(int index) const = 0;
@@ -261,6 +271,16 @@ inline void *LazyFunctionParams::storage()
 template<typename T> inline T &LazyFunctionParams::storage()
 {
   return *static_cast<T *>(storage_);
+}
+
+inline LazyFunctionUserData *LazyFunctionParams::user_data()
+{
+  return user_data_;
+}
+
+inline const LazyFunctionUserData *LazyFunctionParams::user_data() const
+{
+  return user_data_;
 }
 
 /** \} */
