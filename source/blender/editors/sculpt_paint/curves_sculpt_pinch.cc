@@ -7,6 +7,7 @@
 #include "BLI_float4x4.hh"
 #include "BLI_index_mask_ops.hh"
 #include "BLI_kdtree.h"
+#include "BLI_noise.hh"
 #include "BLI_rand.hh"
 #include "BLI_vector.hh"
 
@@ -125,9 +126,13 @@ struct PinchOperationExecutor {
       return;
     }
 
+    const float2 brush_dir_re = math::normalize(brush_pos_re_ - self_->prev_brush_pos_re_);
+    const float2 brush_dir_ortho_re{-brush_dir_re.y, brush_dir_re.x};
+
     threading::parallel_for(curves_->curves_range(), 256, [&](const IndexRange curves_range) {
       for (const int curve_i : curves_range) {
         bool &curve_changed = changed_curves[curve_i];
+        const float random_value = (noise::hash_to_float(curve_i) - 0.5f) * 2.0f;
         const IndexRange points = curves_->points_for_curve(curve_i);
 
         for (const int i : IndexRange(points.size()).drop_front(1)) {
@@ -144,15 +149,16 @@ struct PinchOperationExecutor {
           float2 target_on_line_re;
           closest_to_line_v2(
               target_on_line_re, old_pos_re, brush_pos_re_, self_->prev_brush_pos_re_);
-          const float dist_to_target = math::distance(old_pos_re, target_on_line_re);
+          target_on_line_re += clump_radius_re_ * random_value * brush_dir_ortho_re;
+          const float dist_to_target_re = math::distance(old_pos_re, target_on_line_re);
 
           const float distance_to_brush_re = std::sqrt(distance_to_brush_sq_re);
           const float radius_falloff = BKE_brush_curve_strength(
               brush_, distance_to_brush_re, brush_radius_re_);
           const float weight = brush_strength_ * radius_falloff;
 
-          const float move_dist_re = std::min(2.0f * weight, dist_to_target);
-          const float move_factor = safe_divide(move_dist_re, dist_to_target);
+          const float move_dist_re = std::min(2.0f * weight, dist_to_target_re);
+          const float move_factor = safe_divide(move_dist_re, dist_to_target_re);
           const float2 new_pos_re = math::interpolate(old_pos_re, target_on_line_re, move_factor);
 
           float3 new_pos_wo;
