@@ -111,6 +111,7 @@ TEST(lazy_function, Simple)
   const int value_1 = 1;
   LazyFunctionGraph graph;
   Vector<LFNode *> node_chain = build_add_node_chain(graph, 1e3, &value_1);
+  graph.update_node_indices();
   // std::cout << graph.to_dot() << "\n";
 
   LazyFunctionGraphExecutor executor_fn{

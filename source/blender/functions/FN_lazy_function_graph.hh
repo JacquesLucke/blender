@@ -77,11 +77,13 @@ class LFNode : NonCopyable, NonMovable {
   const LazyFunction *fn_ = nullptr;
   Span<LFInputSocket *> inputs_;
   Span<LFOutputSocket *> outputs_;
+  int index_ = -1;
 
   friend LazyFunctionGraph;
 
  public:
   const LazyFunction &function() const;
+  int index() const;
 
   Span<const LFInputSocket *> inputs() const;
   Span<const LFOutputSocket *> outputs() const;
@@ -108,6 +110,9 @@ class LazyFunctionGraph : NonCopyable, NonMovable {
 
   LFNode &add_node(const LazyFunction &fn);
   void add_link(LFOutputSocket &from, LFInputSocket &to);
+
+  void update_node_indices();
+  bool node_indices_are_valid() const;
 
   std::string to_dot() const;
 };
@@ -221,6 +226,11 @@ inline Span<LFInputSocket *> LFOutputSocket::targets()
 inline const LazyFunction &LFNode::function() const
 {
   return *fn_;
+}
+
+inline int LFNode::index() const
+{
+  return index_;
 }
 
 inline Span<const LFInputSocket *> LFNode::inputs() const

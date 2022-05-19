@@ -82,7 +82,7 @@ class Executor {
   Span<const LFSocket *> outputs_;
   Array<bool> loaded_inputs_;
   LazyFunctionParams *params_ = nullptr;
-  Map<const LFNode *, NodeState *> node_states_;
+  Array<NodeState *> node_states_;
 
   TaskPool *task_pool_ = nullptr;
 
@@ -96,6 +96,7 @@ class Executor {
            const Span<const LFSocket *> outputs)
       : graph_(graph), inputs_(inputs), outputs_(outputs), loaded_inputs_(inputs.size(), false)
   {
+    BLI_assert(graph_.node_indices_are_valid());
     this->initialize_node_states();
     task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
   }
@@ -103,8 +104,10 @@ class Executor {
   ~Executor()
   {
     BLI_task_pool_free(task_pool_);
-    for (auto item : node_states_.items()) {
-      this->destruct_node_state(*item.key, *item.value);
+    for (const int node_index : node_states_.index_range()) {
+      const LFNode &node = *graph_.nodes()[node_index];
+      NodeState &node_state = *node_states_[node_index];
+      this->destruct_node_state(node, node_state);
     }
   }
 
@@ -121,30 +124,22 @@ class Executor {
   void initialize_node_states()
   {
     Span<const LFNode *> nodes = graph_.nodes();
-    MutableSpan<NodeState> node_states_span = local_allocators_.local().allocate_array<NodeState>(
-        nodes.size());
+    node_states_.reinitialize(nodes.size());
 
-    threading::parallel_invoke(
-        [&]() {
-          for (const int i : nodes.index_range()) {
-            node_states_.add_new(nodes[i], &node_states_span[i]);
-          }
-        },
-        [&]() {
-          threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
-            LinearAllocator<> &allocator = local_allocators_.local();
-            for (const int i : range) {
-              NodeState &node_state = node_states_span[i];
-              new (&node_state) NodeState();
-              this->construct_initial_node_state(allocator, *nodes[i], node_state);
-            }
-          });
-        });
+    threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
+      LinearAllocator<> &allocator = local_allocators_.local();
+      for (const int i : range) {
+        const LFNode &node = *nodes[i];
+        NodeState &node_state = *allocator.construct<NodeState>().release();
+        node_states_[i] = &node_state;
+        this->construct_initial_node_state(allocator, node, node_state);
+      }
+    });
 
     for (const int io_input_index : inputs_.index_range()) {
       const LFSocket &socket = *inputs_[io_input_index];
       const LFNode &node = socket.node();
-      NodeState &node_state = *node_states_.lookup(&node);
+      NodeState &node_state = *node_states_[node.index()];
       const int index_in_node = socket.index_in_node();
       if (socket.is_input()) {
         node_state.inputs[index_in_node].io.input_index = io_input_index;
@@ -156,7 +151,7 @@ class Executor {
     for (const int io_output_index : outputs_.index_range()) {
       const LFSocket &socket = *outputs_[io_output_index];
       const LFNode &node = socket.node();
-      NodeState &node_state = *node_states_.lookup(&node);
+      NodeState &node_state = *node_states_[node.index()];
       const int index_in_node = socket.index_in_node();
       if (socket.is_input()) {
         node_state.inputs[index_in_node].io.output_index = io_output_index;
@@ -218,8 +213,7 @@ class Executor {
       }
       const LFSocket &socket = *outputs_[io_output_index];
       const LFNode &node = socket.node();
-      NodeState &node_state = *node_states_.lookup(&node);
-      UNUSED_VARS(node_state);
+      NodeState &node_state = *node_states_[node.index()];
 
       if (socket.is_input()) {
         const LFInputSocket &input_socket = socket.as_input();
@@ -251,7 +245,7 @@ class Executor {
       }
       const LFSocket &socket = *inputs_[io_input_index];
       const LFNode &node = socket.node();
-      NodeState &node_state = *node_states_.lookup(&node);
+      NodeState &node_state = *node_states_[node.index()];
       this->with_locked_node(node, node_state, nullptr, [&](LockedNode &locked_node) {
         const int index_in_node = socket.index_in_node();
         const CPPType &type = socket.type();
@@ -275,7 +269,7 @@ class Executor {
   {
     const LFNode &node = socket.node();
     const int index_in_node = socket.index_in_node();
-    NodeState &node_state = *node_states_.lookup(&node);
+    NodeState &node_state = *node_states_[node.index()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -291,7 +285,7 @@ class Executor {
   {
     const LFNode &node = socket.node();
     const int index_in_node = socket.index_in_node();
-    NodeState &node_state = *node_states_.lookup(&node);
+    NodeState &node_state = *node_states_[node.index()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -333,7 +327,7 @@ class Executor {
                         CurrentTask *current_task,
                         const F &f)
   {
-    BLI_assert(&node_state == node_states_.lookup(&node));
+    BLI_assert(&node_state == node_states_[node.index()]);
 
     LockedNode locked_node{node, node_state};
     {
@@ -381,7 +375,7 @@ class Executor {
 
   void run_node_task(const LFNode &node, CurrentTask &current_task)
   {
-    NodeState &node_state = *node_states_.lookup(&node);
+    NodeState &node_state = *node_states_[node.index()];
     LinearAllocator<> &allocator = local_allocators_.local();
 
     bool node_needs_execution = false;
@@ -669,7 +663,7 @@ class Executor {
     const Span<const LFInputSocket *> targets = from_socket.targets();
     for (const LFInputSocket *target_socket : targets) {
       const LFNode &target_node = target_socket->node();
-      NodeState &node_state = *node_states_.lookup(&target_node);
+      NodeState &node_state = *node_states_[target_node.index()];
       const int input_index = target_socket->index_in_node();
       InputState &input_state = node_state.inputs[input_index];
       BLI_assert(input_state.value == nullptr);

@@ -55,6 +55,23 @@ void LazyFunctionGraph::add_link(LFOutputSocket &from, LFInputSocket &to)
   from.targets_.append(&to);
 }
 
+void LazyFunctionGraph::update_node_indices()
+{
+  for (const int i : nodes_.index_range()) {
+    nodes_[i]->index_ = i;
+  }
+}
+
+bool LazyFunctionGraph::node_indices_are_valid() const
+{
+  for (const int i : nodes_.index_range()) {
+    if (nodes_[i]->index_ != i) {
+      return false;
+    }
+  }
+  return true;
+}
+
 std::string LFSocket::name() const
 {
   const LazyFunction &fn = node_->function();
