@@ -78,6 +78,7 @@ struct PinchOperationExecutor {
   Brush *brush_ = nullptr;
   float brush_radius_re_;
   float brush_strength_;
+  float clump_radius_re_;
 
   float2 brush_pos_re_;
 
@@ -95,6 +96,7 @@ struct PinchOperationExecutor {
     brush_ = BKE_paint_brush(&curves_sculpt_->paint);
     brush_radius_re_ = BKE_brush_size_get(scene_, brush_);
     brush_strength_ = BKE_brush_alpha_get(scene_, brush_);
+    clump_radius_re_ = brush_->curves_sculpt_settings->clump_radius;
 
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);

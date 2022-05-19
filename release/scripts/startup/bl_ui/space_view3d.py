@@ -536,6 +536,7 @@ class _draw_tool_settings_context_mode:
             layout.prop(brush, "falloff_shape", expand=True)
 
         if brush.curves_sculpt_tool == 'PINCH':
+            layout.prop(brush.curves_sculpt_settings, "clump_radius")
             layout.popover("VIEW3D_PT_tools_brush_falloff")
 
 
