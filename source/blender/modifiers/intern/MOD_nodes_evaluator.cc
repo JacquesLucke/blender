@@ -1749,7 +1749,6 @@ NodeParamsProvider::NodeParamsProvider(GeometryNodesEvaluator &evaluator,
   this->dnode = dnode;
   this->self_object = evaluator.params_.self_object;
   this->depsgraph = evaluator.params_.depsgraph;
-  this->logger = evaluator.params_.geo_logger;
 }
 
 bool NodeParamsProvider::can_get_input(StringRef identifier) const

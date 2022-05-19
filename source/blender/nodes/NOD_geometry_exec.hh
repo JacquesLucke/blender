@@ -52,7 +52,6 @@ class GeoNodeExecParamsProvider {
   DNode dnode;
   const Object *self_object = nullptr;
   Depsgraph *depsgraph = nullptr;
-  geometry_nodes_eval_log::GeoLogger *logger = nullptr;
 
   /**
    * Returns true when the node is allowed to get/extract the input value. The identifier is

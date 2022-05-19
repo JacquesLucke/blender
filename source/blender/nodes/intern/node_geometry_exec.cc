@@ -16,21 +16,15 @@ namespace blender::nodes {
 
 void GeoNodeExecParams::error_message_add(const NodeWarningType type, std::string message) const
 {
-  if (provider_->logger == nullptr) {
-    return;
-  }
-  LocalGeoLogger &local_logger = provider_->logger->local();
-  local_logger.log_node_warning(provider_->dnode, type, std::move(message));
+  /* TODO */
+  UNUSED_VARS(type, message);
 }
 
 void GeoNodeExecParams::used_named_attribute(std::string attribute_name,
                                              const NamedAttributeUsage usage)
 {
-  if (provider_->logger == nullptr) {
-    return;
-  }
-  LocalGeoLogger &local_logger = provider_->logger->local();
-  local_logger.log_used_named_attribute(provider_->dnode, std::move(attribute_name), usage);
+  /* TODO */
+  UNUSED_VARS(attribute_name, usage);
 }
 
 void GeoNodeExecParams::check_input_geometry_set(StringRef identifier,
