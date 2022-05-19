@@ -6,9 +6,17 @@
 
 #include "NOD_node_tree_ref.hh"
 
+struct Object;
+struct Depsgraph;
+
 namespace blender::nodes {
 
 using namespace fn::lazy_function_graph_types;
+
+struct GeoNodesLazyFunctionUserData : public fn::LazyFunctionUserData {
+  const Object *self_object;
+  Depsgraph *depsgraph;
+};
 
 struct GeometryNodesLazyFunctionResources {
   Vector<std::unique_ptr<LazyFunction>> functions;
