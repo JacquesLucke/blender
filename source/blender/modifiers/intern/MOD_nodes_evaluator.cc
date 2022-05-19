@@ -319,7 +319,8 @@ class LockedNode : NonCopyable, NonMovable {
   }
 };
 
-static const CPPType *get_socket_cpp_type(const SocketRef &socket)
+const CPPType *get_socket_cpp_type(const SocketRef &socket);
+const CPPType *get_socket_cpp_type(const SocketRef &socket)
 {
   const bNodeSocketType *typeinfo = socket.typeinfo();
   if (typeinfo->geometry_nodes_cpp_type == nullptr) {

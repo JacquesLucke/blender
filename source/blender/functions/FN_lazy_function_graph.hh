@@ -117,6 +117,15 @@ class LazyFunctionGraph : NonCopyable, NonMovable {
   std::string to_dot() const;
 };
 
+namespace lazy_function_graph_types {
+using fn::LazyFunction;
+using fn::LazyFunctionGraph;
+using fn::LFInputSocket;
+using fn::LFNode;
+using fn::LFOutputSocket;
+using fn::LFSocket;
+};  // namespace lazy_function_graph_types
+
 /* -------------------------------------------------------------------- */
 /** \name #LFSocket Inline Methods
  * \{ */

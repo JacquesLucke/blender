@@ -117,7 +117,7 @@ static MultiChainResult build_multiple_chains(LazyFunctionGraph &graph,
 {
   static AddLazyFunction fn;
   MultiChainResult result;
-  for (const int i : IndexRange(chain_num)) {
+  for ([[maybe_unused]] const int i : IndexRange(chain_num)) {
     Vector<LFNode *> chain = build_add_node_chain(graph, chain_length, default_value);
     result.first_nodes.append(chain[0]);
     if (result.last_node == nullptr) {
@@ -146,16 +146,13 @@ TEST(lazy_function, Simple)
 
   LazyFunctionGraphExecutor executor_fn{graph, {}, {&node_chain.last_node->output(0)}};
 
-  for (const int i : IndexRange(1)) {
-    // SCOPED_TIMER("run");
-    int value_10 = 10;
-    int result;
+  // SCOPED_TIMER("run");
+  int result;
 
-    execute_lazy_function_test(executor_fn,
-                               {LazyFunctionEvent{LazyFunctionEventType::RequestOutput, 0}},
-                               Span<GMutablePointer>{{&result}});
-    std::cout << "Result: " << result << "\n";
-  }
+  execute_lazy_function_test(executor_fn,
+                             {LazyFunctionEvent{LazyFunctionEventType::RequestOutput, 0}},
+                             Span<GMutablePointer>{{&result}});
+  std::cout << "Result: " << result << "\n";
 }
 
 }  // namespace blender::fn::tests

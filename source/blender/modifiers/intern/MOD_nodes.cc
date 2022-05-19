@@ -82,6 +82,7 @@
 #include "NOD_derived_node_tree.hh"
 #include "NOD_geometry.h"
 #include "NOD_geometry_nodes_eval_log.hh"
+#include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 #include "NOD_node_declaration.hh"
 
 #include "FN_field.hh"
@@ -1217,6 +1218,12 @@ static void modifyGeometry(ModifierData *md,
   }
 
   const NodeTreeRef &root_tree_ref = tree.root_context().tree();
+
+  blender::fn::LazyFunctionGraph graph;
+  blender::nodes::GeometryNodesLazyFunctionResources graph_resources;
+  blender::nodes::geometry_nodes_to_lazy_function_graph(root_tree_ref, graph, graph_resources);
+  std::cout << graph.to_dot() << "\n";
+
   Span<const NodeRef *> input_nodes = root_tree_ref.nodes_by_type("NodeGroupInput");
   Span<const NodeRef *> output_nodes = root_tree_ref.nodes_by_type("NodeGroupOutput");
   if (output_nodes.size() != 1) {

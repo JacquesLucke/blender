@@ -42,6 +42,7 @@ set(INC
 set(SRC
   intern/derived_node_tree.cc
   intern/geometry_nodes_eval_log.cc
+  intern/geometry_nodes_to_lazy_function_graph.cc
   intern/math_functions.cc
   intern/node_common.cc
   intern/node_declaration.cc
@@ -61,6 +62,7 @@ set(SRC
   NOD_geometry.h
   NOD_geometry_exec.hh
   NOD_geometry_nodes_eval_log.hh
+  NOD_geometry_nodes_to_lazy_function_graph.hh
   NOD_math_functions.hh
   NOD_multi_function.hh
   NOD_node_declaration.hh
