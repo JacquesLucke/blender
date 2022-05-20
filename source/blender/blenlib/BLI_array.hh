@@ -64,10 +64,10 @@ class Array {
   int64_t size_;
 
   /** Used for allocations when the inline buffer is too small. */
-  Allocator allocator_;
+  [[no_unique_address]] Allocator allocator_;
 
   /** A placeholder buffer that will remain uninitialized until it is used. */
-  TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
+  [[no_unique_address]] TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
 
  public:
   /**
