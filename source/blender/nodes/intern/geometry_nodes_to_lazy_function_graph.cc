@@ -6,12 +6,24 @@
 
 #include "BKE_geometry_set.hh"
 
-namespace blender::modifiers::geometry_nodes {
-using nodes::SocketRef;
-const CPPType *get_socket_cpp_type(const SocketRef &socket);
-}  // namespace blender::modifiers::geometry_nodes
-
 namespace blender::nodes {
+
+const CPPType *get_socket_cpp_type(const SocketRef &socket)
+{
+  const bNodeSocketType *typeinfo = socket.typeinfo();
+  if (typeinfo->geometry_nodes_cpp_type == nullptr) {
+    return nullptr;
+  }
+  const CPPType *type = typeinfo->geometry_nodes_cpp_type;
+  if (type == nullptr) {
+    return nullptr;
+  }
+  /* The evaluator only supports types that have special member functions. */
+  if (!type->has_special_member_functions()) {
+    return nullptr;
+  }
+  return type;
+}
 
 static const CPPType *get_vector_type(const CPPType &type)
 {
@@ -32,7 +44,7 @@ class GeometryNodeLazyFunction : public LazyFunction {
       if (!socket->is_available()) {
         continue;
       }
-      const CPPType *type = modifiers::geometry_nodes::get_socket_cpp_type(*socket);
+      const CPPType *type = get_socket_cpp_type(*socket);
       if (type == nullptr) {
         continue;
       }
@@ -47,7 +59,7 @@ class GeometryNodeLazyFunction : public LazyFunction {
       if (!socket->is_available()) {
         continue;
       }
-      const CPPType *type = modifiers::geometry_nodes::get_socket_cpp_type(*socket);
+      const CPPType *type = get_socket_cpp_type(*socket);
       if (type == nullptr) {
         continue;
       }
@@ -67,7 +79,7 @@ class MultiInputLazyFunction : public LazyFunction {
   MultiInputLazyFunction(const InputSocketRef &socket)
   {
     static_name_ = "Multi Input";
-    const CPPType *type = modifiers::geometry_nodes::get_socket_cpp_type(socket);
+    const CPPType *type = get_socket_cpp_type(socket);
     BLI_assert(type != nullptr);
     BLI_assert(socket.is_multi_input_socket());
     for ([[maybe_unused]] const int i : socket.directly_linked_links().index_range()) {
@@ -141,7 +153,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
     const OutputSocketRef &from_ref = *item.key;
     LFOutputSocket &from = *item.value;
     const Span<const LinkRef *> links_from_socket = from_ref.directly_linked_links();
-    const CPPType &from_type = *modifiers::geometry_nodes::get_socket_cpp_type(from_ref);
+    const CPPType &from_type = *get_socket_cpp_type(from_ref);
 
     struct TypeWithLinks {
       const CPPType *type;
@@ -154,7 +166,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
       if (!to_socket.is_available()) {
         continue;
       }
-      const CPPType *to_type = modifiers::geometry_nodes::get_socket_cpp_type(to_socket);
+      const CPPType *to_type = get_socket_cpp_type(to_socket);
       if (to_type == nullptr) {
         continue;
       }
