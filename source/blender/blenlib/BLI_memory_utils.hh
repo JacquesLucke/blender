@@ -313,24 +313,21 @@ template<typename T> struct DestructValueAtAddress {
  */
 template<typename T> using destruct_ptr = std::unique_ptr<T, DestructValueAtAddress<T>>;
 
-template<size_t Size, size_t Alignment> struct alignas(Alignment) AlignedBufferSizedBase {
- protected:
-  /* Don't create an empty array. This causes problems with some compilers. */
-  static_assert(Size > 0);
-  std::byte buffer_[Size];
-};
-
-struct AlignedBufferEmptyBase {
-};
-
 /**
  * An `AlignedBuffer` is a byte array with at least the given size and alignment. The buffer will
  * not be initialized by the default constructor.
  */
-template<size_t Size, size_t Alignment>
-class AlignedBuffer : public std::conditional_t<Size == 0,
-                                                AlignedBufferEmptyBase,
-                                                AlignedBufferSizedBase<Size, Alignment>> {
+template<size_t Size, size_t Alignment> class AlignedBuffer {
+  struct Empty {
+  };
+  struct alignas(Alignment) Sized {
+    /* Don't create an empty array. This causes problems with some compilers. */
+    std::byte buffer_[Size > 0 ? Size : 1];
+  };
+
+  using BufferType = std::conditional_t<Size == 0, Empty, Sized>;
+  [[no_unique_address]] BufferType buffer_;
+
  public:
   operator void *()
   {

@@ -18,7 +18,7 @@ namespace blender {
 
 template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopyable, NonMovable {
  private:
-  Allocator allocator_;
+  [[no_unique_address]] Allocator allocator_;
   Vector<void *> owned_buffers_;
   Vector<Span<char>> unused_borrowed_buffers_;
 
