@@ -301,6 +301,28 @@ class MultiFunctionNode : public LazyFunction {
   }
 };
 
+class GroupNodeFunction : public LazyFunction {
+ private:
+  const NodeRef &group_node_;
+
+ public:
+  GroupNodeFunction(const NodeRef &group_node,
+                    Vector<const InputSocketRef *> &r_used_inputs,
+                    Vector<const OutputSocketRef *> &r_used_outputs)
+      : group_node_(group_node)
+  {
+    /* Todo: No static name. */
+    static_name_ = group_node.name().c_str();
+    lazy_function_interface_from_node(
+        group_node, r_used_inputs, r_used_outputs, inputs_, outputs_);
+  }
+
+  void execute_impl(LazyFunctionParams &params) const override
+  {
+    UNUSED_VARS(params);
+  }
+};
+
 static LFOutputSocket *insert_type_conversion(LazyFunctionGraph &graph,
                                               LFOutputSocket &from_socket,
                                               const CPPType &to_type,
@@ -415,6 +437,20 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
         break;
       }
       case NODE_GROUP: {
+        Vector<const InputSocketRef *> used_inputs;
+        Vector<const OutputSocketRef *> used_outputs;
+        auto fn = std::make_unique<GroupNodeFunction>(*node_ref, used_inputs, used_outputs);
+        LFNode &node = graph.add_function(*fn);
+        resources.functions.append(std::move(fn));
+        for (const int i : used_inputs.index_range()) {
+          const InputSocketRef &socket_ref = *used_inputs[i];
+          BLI_assert(!socket_ref.is_multi_input_socket());
+          input_socket_map.add(&socket_ref, &node.input(i));
+        }
+        for (const int i : used_outputs.index_range()) {
+          const OutputSocketRef &socket_ref = *used_outputs[i];
+          output_socket_map.add_new(&socket_ref, &node.output(i));
+        }
         break;
       }
       default: {
@@ -465,7 +501,6 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
             output_socket_map.add(&socket_ref, &node.output(i));
           }
         }
-
         break;
       }
     }
