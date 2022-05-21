@@ -305,7 +305,6 @@ class Executor {
       const LFOutputSocket &output_socket = *node_outputs[i];
       output_state.potential_target_sockets = output_socket.targets().size();
       if (output_state.potential_target_sockets == 0) {
-        /* Might be changed again, if this is a graph output socket. */
         output_state.usage = ValueUsage::Unused;
       }
     }
