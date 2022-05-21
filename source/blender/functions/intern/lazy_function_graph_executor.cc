@@ -210,12 +210,23 @@ class Executor {
    * State of every node, indexed by #LFNode::index_in_graph.
    */
   Array<NodeState *> node_states_;
+  /**
+   * Parameters provided by the caller. This is always non-null, while a node is running.
+   */
   LazyFunctionParams *params_ = nullptr;
-
+  /**
+   * Used to distribute work on separate nodes to separate threads.
+   */
   TaskPool *task_pool_ = nullptr;
-
+  /**
+   * A separate linear allocator for every thread. We could potentially reuse some memory, but that
+   * doesn't seem worth it yet.
+   */
   threading::EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
-  bool is_first_run_ = true;
+  /**
+   * Set to false when the first execution ends.
+   */
+  bool is_first_execution_ = true;
 
   friend GraphExecutorLazyFunctionParams;
 
@@ -225,6 +236,7 @@ class Executor {
            const Span<const LFSocket *> outputs)
       : graph_(graph), inputs_(inputs), outputs_(outputs), loaded_inputs_(inputs.size(), false)
   {
+    /* The indices are necessary, because they are used as keys in #node_states_. */
     BLI_assert(graph_.node_indices_are_valid());
     this->initialize_node_states();
     task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
@@ -242,15 +254,20 @@ class Executor {
     });
   }
 
+  /**
+   * Main entry point to the execution of this graph.
+   */
   void execute(LazyFunctionParams &params)
   {
     params_ = &params;
     BLI_SCOPED_DEFER([&]() {
+      /* Make sure the #params_ pointer is not dangling, even when it shouldn't be accessed by
+       * anyone. */
       params_ = nullptr;
-      is_first_run_ = false;
+      is_first_execution_ = false;
     });
 
-    if (is_first_run_) {
+    if (is_first_execution_) {
       this->set_defaulted_graph_outputs();
     }
 
@@ -281,6 +298,7 @@ class Executor {
     Span<const LFNode *> nodes = graph_.nodes();
     node_states_.reinitialize(nodes.size());
 
+    /* Construct all node states in parallel. */
     threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
       LinearAllocator<> &allocator = local_allocators_.local();
       for (const int i : range) {
@@ -291,6 +309,7 @@ class Executor {
       }
     });
 
+    /* Handle graph inputs. */
     for (const int io_input_index : inputs_.index_range()) {
       const LFSocket &socket = *inputs_[io_input_index];
       const LFNode &node = socket.node();
@@ -303,6 +322,7 @@ class Executor {
         node_state.outputs[index_in_node].io.input_index = io_input_index;
       }
     }
+    /* Handle graph outputs. */
     for (const int io_output_index : outputs_.index_range()) {
       const LFSocket &socket = *outputs_[io_output_index];
       const LFNode &node = socket.node();
