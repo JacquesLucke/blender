@@ -43,10 +43,6 @@ struct GraphIOIndices {
 
 struct InputState {
   /**
-   * Data type of the socket. Access does not required holding the node lock.
-   */
-  const CPPType *type = nullptr;
-  /**
    * Value of this input socket. By default, the value is empty. When other nodes are done
    * computing their outputs, the computed values will be forwarded to linked input sockets. The
    * value will thenlive here until it is found that it is not needed anymore.
@@ -73,10 +69,6 @@ struct InputState {
 };
 
 struct OutputState {
-  /**
-   * Data type of the socket. Access does not required holding the node lock.
-   */
-  const CPPType *type = nullptr;
   /**
    * Keeps track of how the output value is used. If a connected input becomes used, this output
    * has to become used as well. The output becomes unused when it is used by no input socket
@@ -350,16 +342,9 @@ class Executor {
     node_state.inputs = allocator.construct_array<InputState>(node_inputs.size());
     node_state.outputs = allocator.construct_array<OutputState>(node_outputs.size());
 
-    for (const int i : node_inputs.index_range()) {
-      InputState &input_state = node_state.inputs[i];
-      const LFInputSocket &input_socket = *node_inputs[i];
-      input_state.type = &input_socket.type();
-    }
-
     for (const int i : node_outputs.index_range()) {
       OutputState &output_state = node_state.outputs[i];
       const LFOutputSocket &output_socket = *node_outputs[i];
-      output_state.type = &output_socket.type();
       output_state.potential_target_sockets = output_socket.targets().size();
       if (output_state.potential_target_sockets == 0) {
         /* Might be changed again, if this is a graph output socket. */
@@ -376,8 +361,10 @@ class Executor {
         fn.destruct_storage(node_state.storage);
       }
     }
-    for (InputState &input_state : node_state.inputs) {
-      this->destruct_input_value_if_exists(input_state);
+    for (const int i : node.inputs().index_range()) {
+      InputState &input_state = node_state.inputs[i];
+      const LFInputSocket &input_socket = node.input(i);
+      this->destruct_input_value_if_exists(input_state, input_socket.type());
     }
     std::destroy_at(&node_state);
   }
@@ -733,7 +720,7 @@ class Executor {
         this->set_input_unused(locked_node, input_socket);
       }
       else if (input_state.usage == ValueUsage::Used) {
-        this->destruct_input_value_if_exists(input_state);
+        this->destruct_input_value_if_exists(input_state, input_socket.type());
       }
     }
 
@@ -746,10 +733,9 @@ class Executor {
     }
   }
 
-  void destruct_input_value_if_exists(InputState &input_state)
+  void destruct_input_value_if_exists(InputState &input_state, const CPPType &type)
   {
     if (input_state.value != nullptr) {
-      const CPPType &type = *input_state.type;
       type.destruct(input_state.value);
       input_state.value = nullptr;
     }
@@ -780,7 +766,7 @@ class Executor {
     }
     input_state.usage = ValueUsage::Unused;
 
-    this->destruct_input_value_if_exists(input_state);
+    this->destruct_input_value_if_exists(input_state, input_socket.type());
     if (input_state.was_ready_for_execution) {
       return;
     }
@@ -888,6 +874,7 @@ class Executor {
       InputState &input_state = node_state.inputs[input_index];
       BLI_assert(input_state.value == nullptr);
       BLI_assert(!input_state.was_ready_for_execution);
+      BLI_assert(target_socket->type() == *value_to_forward.type());
 
       if (input_state.io.input_index != -1) {
         continue;
@@ -929,7 +916,6 @@ class Executor {
 
     BLI_assert(input_state.value == nullptr);
     BLI_assert(!input_state.was_ready_for_execution);
-    BLI_assert(input_state.type == value.type());
     input_state.value = value.get();
 
     if (input_state.usage == ValueUsage::Used) {
@@ -987,7 +973,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     BLI_assert(!output_state.has_been_computed);
     if (output_state.value == nullptr) {
       LinearAllocator<> &allocator = executor_.local_allocators_.local();
-      const CPPType &type = *output_state.type;
+      const CPPType &type = node_.input(index).type();
       output_state.value = allocator.allocate(type.size(), type.alignment());
     }
     return output_state.value;
@@ -1000,7 +986,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     BLI_assert(output_state.value != nullptr);
     const LFOutputSocket &output_socket = node_.output(index);
     executor_.forward_computed_node_output(
-        output_state, output_socket, {output_state.type, output_state.value}, current_task_);
+        output_state, output_socket, {output_socket.type(), output_state.value}, current_task_);
     output_state.value = nullptr;
     output_state.has_been_computed = true;
   }
