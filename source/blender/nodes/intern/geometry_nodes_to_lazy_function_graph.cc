@@ -408,7 +408,9 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
           const int index = group_input_indices[i];
           if (index != -1) {
             const OutputSocketRef &socket_ref = node_ref->output(i);
-            output_socket_map.add_new(&socket_ref, &group_input_node.output(i));
+            LFOutputSocket &socket = group_input_node.output(i);
+            output_socket_map.add_new(&socket_ref, &socket);
+            resources.dummy_socket_map.add_new(&socket_ref, &socket);
           }
         }
         break;
@@ -431,7 +433,9 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
           const int index = indices[i];
           if (index != -1) {
             const InputSocketRef &socket_ref = node_ref->input(i);
-            input_socket_map.add(&socket_ref, &group_output_node.input(i));
+            LFInputSocket &socket = group_output_node.input(i);
+            input_socket_map.add(&socket_ref, &socket);
+            resources.dummy_socket_map.add(&socket_ref, &socket);
           }
         }
         break;

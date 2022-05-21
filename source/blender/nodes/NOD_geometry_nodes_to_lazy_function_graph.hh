@@ -22,6 +22,7 @@ struct GeoNodesLazyFunctionUserData : public fn::LazyFunctionUserData {
 struct GeometryNodesLazyFunctionResources {
   Vector<std::unique_ptr<LazyFunction>> functions;
   std::unique_ptr<NodeMultiFunctions> node_multi_functions;
+  Map<const SocketRef *, LFSocket *> dummy_socket_map;
 };
 
 void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
