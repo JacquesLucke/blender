@@ -86,6 +86,8 @@
 
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
+#include "FN_lazy_function_execute.hh"
+#include "FN_lazy_function_graph_executor.hh"
 #include "FN_multi_function.hh"
 
 namespace geo_log = blender::nodes::geometry_nodes_eval_log;
@@ -118,6 +120,7 @@ using blender::nodes::FieldInferencingInterface;
 using blender::nodes::GeoNodeExecParams;
 using blender::nodes::InputSocketFieldType;
 using blender::threading::EnumerableThreadSpecific;
+using namespace blender::fn::lazy_function_graph_types;
 using namespace blender::fn::multi_function_types;
 using namespace blender::nodes::derived_node_tree_types;
 using geo_log::GeometryAttributeInfo;
@@ -1062,55 +1065,38 @@ static void store_output_attributes(GeometrySet &geometry,
 /**
  * Evaluate a node group to compute the output geometry.
  */
-static GeometrySet compute_geometry(const DerivedNodeTree &tree,
+static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
                                     Span<const NodeRef *> group_input_nodes,
                                     const NodeRef &output_node,
                                     GeometrySet input_geometry_set,
                                     NodesModifierData *nmd,
                                     const ModifierEvalContext *ctx)
 {
-  UNUSED_VARS(store_output_attributes, find_sockets_to_preview, logging_enabled, ctx);
+  UNUSED_VARS(store_output_attributes,
+              find_sockets_to_preview,
+              logging_enabled,
+              initialize_group_input,
+              ctx,
+              group_input_nodes,
+              output_node,
+              nmd);
 
-  blender::ResourceScope scope;
-  blender::LinearAllocator<> &allocator = scope.linear_allocator();
+  blender::fn::LazyFunctionGraph graph;
+  blender::nodes::GeometryNodesLazyFunctionResources graph_resources;
+  blender::nodes::geometry_nodes_to_lazy_function_graph(tree_ref, graph, graph_resources);
+  graph.update_node_indices();
+  std::cout << graph.to_dot() << "\n";
 
-  Map<DOutputSocket, GMutablePointer> group_inputs;
-
-  const DTreeContext *root_context = &tree.root_context();
-  for (const NodeRef *group_input_node : group_input_nodes) {
-    Span<const OutputSocketRef *> group_input_sockets = group_input_node->outputs().drop_back(1);
-    if (group_input_sockets.is_empty()) {
-      continue;
-    }
-
-    Span<const OutputSocketRef *> remaining_input_sockets = group_input_sockets;
-
-    /* If the group expects a geometry as first input, use the geometry that has been passed to
-     * modifier. */
-    const OutputSocketRef *first_input_socket = group_input_sockets[0];
-    if (first_input_socket->bsocket()->type == SOCK_GEOMETRY) {
-      GeometrySet *geometry_set_in =
-          allocator.construct<GeometrySet>(input_geometry_set).release();
-      group_inputs.add_new({root_context, first_input_socket}, geometry_set_in);
-      remaining_input_sockets = remaining_input_sockets.drop_front(1);
-    }
-
-    /* Initialize remaining group inputs. */
-    for (const OutputSocketRef *socket : remaining_input_sockets) {
-      const CPPType &cpp_type = *socket->typeinfo()->geometry_nodes_cpp_type;
-      void *value_in = allocator.allocate(cpp_type.size(), cpp_type.alignment());
-      initialize_group_input(*nmd, *socket, value_in);
-      group_inputs.add_new({root_context, socket}, {cpp_type, value_in});
-    }
-  }
-
-  Vector<DInputSocket> group_outputs;
-  for (const InputSocketRef *socket_ref : output_node.inputs().drop_back(1)) {
-    group_outputs.append({root_context, socket_ref});
-  }
+  Vector<const LFSocket *> graph_inputs = {
+      graph_resources.dummy_socket_map.lookup(&group_input_nodes[0]->output(0))};
+  Vector<const LFSocket *> graph_outputs = {
+      graph_resources.dummy_socket_map.lookup(&output_node.input(0))};
+  blender::fn::LazyFunctionGraphExecutor graph_executor{graph, graph_inputs, graph_outputs};
 
   GeometrySet output_geometry_set;
-
+  std::destroy_at(&output_geometry_set);
+  blender::fn::execute_lazy_function_eagerly(
+      graph_executor, std::make_tuple(input_geometry_set), std::make_tuple(&output_geometry_set));
   return output_geometry_set;
 }
 
@@ -1171,24 +1157,17 @@ static void modifyGeometry(ModifierData *md,
 
   check_property_socket_sync(ctx->object, md);
 
-  NodeTreeRefMap tree_refs;
-  DerivedNodeTree tree{*nmd->node_group, tree_refs};
+  const NodeTreeRef &tree_ref{nmd->node_group};
 
-  if (tree.has_link_cycles()) {
+  /* Todo: Check for link cycles recursively. */
+  if (tree_ref.has_link_cycles()) {
     BKE_modifier_set_error(ctx->object, md, "Node group has cycles");
     geometry_set.clear();
     return;
   }
 
-  const NodeTreeRef &root_tree_ref = tree.root_context().tree();
-
-  blender::fn::LazyFunctionGraph graph;
-  blender::nodes::GeometryNodesLazyFunctionResources graph_resources;
-  blender::nodes::geometry_nodes_to_lazy_function_graph(root_tree_ref, graph, graph_resources);
-  std::cout << graph.to_dot() << "\n";
-
-  Span<const NodeRef *> input_nodes = root_tree_ref.nodes_by_type("NodeGroupInput");
-  Span<const NodeRef *> output_nodes = root_tree_ref.nodes_by_type("NodeGroupOutput");
+  Span<const NodeRef *> input_nodes = tree_ref.nodes_by_type("NodeGroupInput");
+  Span<const NodeRef *> output_nodes = tree_ref.nodes_by_type("NodeGroupOutput");
   if (output_nodes.size() != 1) {
     BKE_modifier_set_error(ctx->object, md, "Node group must have a single output node");
     geometry_set.clear();
@@ -1221,7 +1200,7 @@ static void modifyGeometry(ModifierData *md,
   }
 
   geometry_set = compute_geometry(
-      tree, input_nodes, output_node, std::move(geometry_set), nmd, ctx);
+      tree_ref, input_nodes, output_node, std::move(geometry_set), nmd, ctx);
 
   if (geometry_set.has_mesh()) {
     /* Add #CD_ORIGINDEX layers if they don't exist already. This is required because the

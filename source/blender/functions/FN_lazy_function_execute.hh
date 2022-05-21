@@ -76,8 +76,14 @@ inline void execute_lazy_function_eagerly_impl(
   set_outputs.fill(false);
   LinearAllocator<> allocator;
   void *storage = fn.init_storage(allocator);
-  BasicLazyFunctionParams params{
-      fn, storage, input_pointers, output_pointers, input_usages, output_usages, set_outputs};
+  BasicLazyFunctionParams params{fn,
+                                 storage,
+                                 nullptr,
+                                 input_pointers,
+                                 output_pointers,
+                                 input_usages,
+                                 output_usages,
+                                 set_outputs};
   fn.execute(params);
   fn.destruct_storage(storage);
 }
@@ -89,6 +95,8 @@ inline void execute_lazy_function_eagerly(const LazyFunction &fn,
                                           std::tuple<Inputs...> inputs,
                                           std::tuple<Outputs *...> outputs)
 {
+  BLI_assert(fn.inputs().size() == sizeof...(Inputs));
+  BLI_assert(fn.outputs().size() == sizeof...(Outputs));
   detail::execute_lazy_function_eagerly_impl(fn,
                                              inputs,
                                              outputs,

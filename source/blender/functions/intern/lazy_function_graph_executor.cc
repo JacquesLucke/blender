@@ -294,6 +294,11 @@ class Executor {
     NodeState &node_state = *node_states_[node.index()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
+    if (output_state.io.input_index != -1) {
+      params_->try_get_input_data_ptr_or_request(output_state.io.input_index);
+      return;
+    }
+
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       if (output_state.usage == ValueUsage::Used) {
         return;
@@ -310,6 +315,11 @@ class Executor {
     NodeState &node_state = *node_states_[node.index()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
+    if (output_state.io.input_index != -1) {
+      params_->set_input_unused(output_state.io.input_index);
+      return;
+    }
+
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       output_state.potential_target_sockets -= 1;
       if (output_state.potential_target_sockets == 0) {
@@ -324,6 +334,7 @@ class Executor {
 
   void schedule_node(LockedNode &locked_node)
   {
+    BLI_assert(locked_node.node.is_function());
     switch (locked_node.node_state.schedule_state) {
       case NodeScheduleState::NotScheduled: {
         locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
@@ -700,6 +711,13 @@ class Executor {
       BLI_assert(!input_state.was_ready_for_execution);
 
       if (input_state.io.input_index != -1) {
+        continue;
+      }
+      if (input_state.io.output_index != -1) {
+        this->copy_value_to_graph_output_if_necessary(value_to_forward,
+                                                      input_state.io.output_index);
+      }
+      if (target_node.is_dummy()) {
         continue;
       }
       this->with_locked_node(target_node, node_state, current_task, [&](LockedNode &locked_node) {
