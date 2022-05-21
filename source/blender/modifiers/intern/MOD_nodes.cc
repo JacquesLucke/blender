@@ -753,17 +753,17 @@ void MOD_nodes_update_interface(Object *object, NodesModifierData *nmd)
 }
 
 static void initialize_group_input(NodesModifierData &nmd,
-                                   const OutputSocketRef &socket,
+                                   const bNodeSocket &bsocket,
+                                   const int input_index,
                                    void *r_value)
 {
-  const bNodeSocketType &socket_type = *socket.typeinfo();
-  const bNodeSocket &bsocket = *socket.bsocket();
+  const bNodeSocketType &socket_type = *bsocket.typeinfo;
   if (nmd.settings.properties == nullptr) {
     socket_type.get_geometry_nodes_cpp_value(bsocket, r_value);
     return;
   }
   const IDProperty *property = IDP_GetPropertyFromGroup(nmd.settings.properties,
-                                                        socket.identifier().c_str());
+                                                        bsocket.identifier);
   if (property == nullptr) {
     socket_type.get_geometry_nodes_cpp_value(bsocket, r_value);
     return;
@@ -773,16 +773,16 @@ static void initialize_group_input(NodesModifierData &nmd,
     return;
   }
 
-  if (!input_has_attribute_toggle(*nmd.node_group, socket.index())) {
+  if (!input_has_attribute_toggle(*nmd.node_group, input_index)) {
     init_socket_cpp_value_from_property(
         *property, static_cast<eNodeSocketDatatype>(bsocket.type), r_value);
     return;
   }
 
   const IDProperty *property_use_attribute = IDP_GetPropertyFromGroup(
-      nmd.settings.properties, (socket.identifier() + use_attribute_suffix).c_str());
+      nmd.settings.properties, (bsocket.identifier + use_attribute_suffix).c_str());
   const IDProperty *property_attribute_name = IDP_GetPropertyFromGroup(
-      nmd.settings.properties, (socket.identifier() + attribute_name_suffix).c_str());
+      nmd.settings.properties, (bsocket.identifier + attribute_name_suffix).c_str());
   if (property_use_attribute == nullptr || property_attribute_name == nullptr) {
     init_socket_cpp_value_from_property(
         *property, static_cast<eNodeSocketDatatype>(bsocket.type), r_value);
@@ -1087,22 +1087,68 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   graph.update_node_indices();
   std::cout << graph.to_dot() << "\n";
 
-  Vector<const LFSocket *> graph_inputs = {
-      graph_resources.dummy_socket_map.lookup(&group_input_nodes[0]->output(0))};
+  Vector<const LFSocket *> graph_inputs;
   Vector<const LFSocket *> graph_outputs = {
       graph_resources.dummy_socket_map.lookup(&output_node.input(0))};
+
+  for (const LFSocket *socket : graph_resources.group_input_sockets) {
+    graph_inputs.append(socket);
+  }
+
+  Array<GMutablePointer> param_inputs(graph_inputs.size());
+  Array<GMutablePointer> param_outputs(graph_outputs.size());
+  Array<std::optional<blender::fn::ValueUsage>> param_input_usages(graph_inputs.size());
+  Array<blender::fn::ValueUsage> param_output_usages(graph_outputs.size(),
+                                                     blender::fn::ValueUsage::Used);
+  Array<bool> param_set_outputs(graph_outputs.size(), false);
+
   blender::fn::LazyFunctionGraphExecutor graph_executor{graph, graph_inputs, graph_outputs};
 
   blender::nodes::GeoNodesLazyFunctionUserData user_data;
   user_data.depsgraph = ctx->depsgraph;
   user_data.self_object = ctx->object;
 
+  blender::LinearAllocator<> allocator;
+  void *storage = graph_executor.init_storage(allocator);
+
+  Vector<GMutablePointer> values_to_destruct;
+
+  int input_index;
+  LISTBASE_FOREACH_INDEX (
+      bNodeSocket *, interface_socket, &tree_ref.btree()->inputs, input_index) {
+    if (interface_socket->type == SOCK_GEOMETRY && input_index == 0) {
+      param_inputs[input_index] = &input_geometry_set;
+      continue;
+    }
+
+    const CPPType *type = interface_socket->typeinfo->geometry_nodes_cpp_type;
+    BLI_assert(type != nullptr); /* Todo */
+    void *value = allocator.allocate(type->size(), type->alignment());
+    initialize_group_input(*nmd, *interface_socket, input_index, value);
+    param_inputs[input_index] = {type, value};
+    values_to_destruct.append({type, value});
+  }
+
   GeometrySet output_geometry_set;
   std::destroy_at(&output_geometry_set);
-  blender::fn::execute_lazy_function_eagerly(graph_executor,
-                                             &user_data,
-                                             std::make_tuple(input_geometry_set),
-                                             std::make_tuple(&output_geometry_set));
+  param_outputs[0] = &output_geometry_set;
+
+  blender::fn::BasicLazyFunctionParams params{graph_executor,
+                                              storage,
+                                              &user_data,
+                                              param_inputs,
+                                              param_outputs,
+                                              param_input_usages,
+                                              param_output_usages,
+                                              param_set_outputs};
+  graph_executor.execute(params);
+
+  graph_executor.destruct_storage(storage);
+
+  for (GMutablePointer &ptr : values_to_destruct) {
+    ptr.destruct();
+  }
+
   return output_geometry_set;
 }
 
