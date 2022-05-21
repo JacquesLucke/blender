@@ -3,6 +3,7 @@
 #include <mutex>
 
 #include "BLI_enumerable_thread_specific.hh"
+#include "BLI_function_ref.hh"
 #include "BLI_task.h"
 #include "BLI_task.hh"
 #include "BLI_timeit.hh"
@@ -522,11 +523,10 @@ class Executor {
     }
   }
 
-  template<typename F>
   void with_locked_node(const LFNode &node,
                         NodeState &node_state,
                         CurrentTask *current_task,
-                        const F &f)
+                        const FunctionRef<void(LockedNode &)> f)
   {
     BLI_assert(&node_state == node_states_[node.index_in_graph()]);
 
