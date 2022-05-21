@@ -134,6 +134,8 @@ class LazyFunctionGraph : NonCopyable, NonMovable {
 namespace lazy_function_graph_types {
 using fn::LazyFunction;
 using fn::LazyFunctionGraph;
+using fn::LFDummyNode;
+using fn::LFFunctionNode;
 using fn::LFInputSocket;
 using fn::LFNode;
 using fn::LFOutputSocket;

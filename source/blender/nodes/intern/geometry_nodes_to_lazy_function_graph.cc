@@ -18,13 +18,12 @@ using fn::ValueOrField;
 using fn::ValueOrFieldCPPType;
 using namespace fn::multi_function_types;
 
-static const CPPType *get_socket_cpp_type(const SocketRef &socket)
+static const CPPType *get_socket_cpp_type(const bNodeSocketType &typeinfo)
 {
-  const bNodeSocketType *typeinfo = socket.typeinfo();
-  if (typeinfo->geometry_nodes_cpp_type == nullptr) {
+  if (typeinfo.geometry_nodes_cpp_type == nullptr) {
     return nullptr;
   }
-  const CPPType *type = typeinfo->geometry_nodes_cpp_type;
+  const CPPType *type = typeinfo.geometry_nodes_cpp_type;
   if (type == nullptr) {
     return nullptr;
   }
@@ -33,6 +32,11 @@ static const CPPType *get_socket_cpp_type(const SocketRef &socket)
     return nullptr;
   }
   return type;
+}
+
+static const CPPType *get_socket_cpp_type(const SocketRef &socket)
+{
+  return get_socket_cpp_type(*socket.bsocket()->typeinfo);
 }
 
 static const CPPType *get_vector_type(const CPPType &type)
@@ -303,6 +307,22 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
   resources.node_multi_functions = std::make_unique<NodeMultiFunctions>(tree);
   const NodeMultiFunctions &node_multi_functions = *resources.node_multi_functions;
 
+  const bNodeTree &btree = *tree.btree();
+
+  Vector<const CPPType *> group_input_types;
+  Vector<int> group_input_indices;
+  LISTBASE_FOREACH (const bNodeSocket *, socket, &btree.inputs) {
+    const CPPType *type = get_socket_cpp_type(*socket->typeinfo);
+    if (type != nullptr) {
+      const int index = group_input_types.append_and_get_index(type);
+      group_input_indices.append(index);
+    }
+    else {
+      group_input_indices.append(-1);
+    }
+  }
+  LFDummyNode &group_input_node = graph.add_dummy({}, group_input_types);
+
   for (const NodeRef *node_ref : tree.nodes()) {
     const bNode &bnode = *node_ref->bnode();
     const bNodeType *node_type = bnode.typeinfo;
@@ -318,9 +338,36 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
         break;
       }
       case NODE_GROUP_INPUT: {
+        for (const int i : group_input_indices.index_range()) {
+          const int index = group_input_indices[i];
+          if (index != -1) {
+            const OutputSocketRef &socket_ref = node_ref->output(i);
+            output_socket_map.add_new(&socket_ref, &group_input_node.output(i));
+          }
+        }
         break;
       }
       case NODE_GROUP_OUTPUT: {
+        Vector<const CPPType *> types;
+        Vector<int> indices;
+        LISTBASE_FOREACH (const bNodeSocket *, socket, &btree.outputs) {
+          const CPPType *type = get_socket_cpp_type(*socket->typeinfo);
+          if (type != nullptr) {
+            const int index = types.append_and_get_index(type);
+            indices.append(index);
+          }
+          else {
+            indices.append(-1);
+          }
+        }
+        LFDummyNode &group_output_node = graph.add_dummy(types, {});
+        for (const int i : indices.index_range()) {
+          const int index = indices[i];
+          if (index != -1) {
+            const InputSocketRef &socket_ref = node_ref->input(i);
+            input_socket_map.add(&socket_ref, &group_output_node.input(i));
+          }
+        }
         break;
       }
       case NODE_GROUP: {
