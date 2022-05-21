@@ -24,6 +24,7 @@ struct GeometryNodesLazyFunctionResources {
   Vector<std::unique_ptr<LazyFunction>> functions;
   std::unique_ptr<NodeMultiFunctions> node_multi_functions;
   Map<const SocketRef *, LFSocket *> dummy_socket_map;
+  Vector<LFOutputSocket *> group_input_sockets;
   Vector<GMutablePointer> values_to_destruct;
 
   ~GeometryNodesLazyFunctionResources()

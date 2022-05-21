@@ -21,11 +21,11 @@ class LazyFunctionGraphExecutor : public LazyFunction {
                             Vector<const LFSocket *> inputs,
                             Vector<const LFSocket *> outputs);
 
- private:
-  void execute_impl(LazyFunctionParams &params) const override;
-
   void *init_storage(LinearAllocator<> &allocator) const override;
   void destruct_storage(void *storage) const override;
+
+ private:
+  void execute_impl(LazyFunctionParams &params) const override;
 };
 
 }  // namespace blender::fn

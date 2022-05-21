@@ -10,6 +10,7 @@
 #include "BKE_type_conversions.hh"
 
 #include "FN_field_cpp_type.hh"
+#include "FN_lazy_function_graph_executor.hh"
 
 namespace blender::nodes {
 
@@ -304,6 +305,10 @@ class MultiFunctionNode : public LazyFunction {
 class GroupNodeFunction : public LazyFunction {
  private:
   const NodeRef &group_node_;
+  std::optional<NodeTreeRef> tree_ref_;
+  GeometryNodesLazyFunctionResources resources_;
+  LazyFunctionGraph graph_;
+  std::optional<fn::LazyFunctionGraphExecutor> graph_executor_;
 
  public:
   GroupNodeFunction(const NodeRef &group_node,
@@ -315,11 +320,45 @@ class GroupNodeFunction : public LazyFunction {
     static_name_ = group_node.name().c_str();
     lazy_function_interface_from_node(
         group_node, r_used_inputs, r_used_outputs, inputs_, outputs_);
+
+    bNodeTree *btree = reinterpret_cast<bNodeTree *>(group_node_.bnode()->id);
+    BLI_assert(btree != nullptr); /* Todo. */
+    tree_ref_.emplace(btree);
+    geometry_nodes_to_lazy_function_graph(*tree_ref_, graph_, resources_);
+    graph_.update_node_indices();
+
+    Vector<const LFSocket *> graph_inputs;
+    for (const LFSocket *socket : resources_.group_input_sockets) {
+      if (socket != nullptr) {
+        graph_inputs.append(socket);
+      }
+    }
+    Vector<const LFSocket *> graph_outputs;
+    for (const NodeRef *node : tree_ref_->nodes_by_type("NodeGroupOutput")) {
+      for (const InputSocketRef *socket_ref : node->inputs()) {
+        const LFSocket *socket = resources_.dummy_socket_map.lookup_default(socket_ref, nullptr);
+        if (socket != nullptr) {
+          graph_outputs.append(socket);
+        }
+      }
+      break;
+    }
+    graph_executor_.emplace(graph_, std::move(graph_inputs), std::move(graph_outputs));
   }
 
   void execute_impl(LazyFunctionParams &params) const override
   {
-    UNUSED_VARS(params);
+    graph_executor_->execute(params);
+  }
+
+  void *init_storage(LinearAllocator<> &allocator) const
+  {
+    return graph_executor_->init_storage(allocator);
+  }
+
+  void destruct_storage(void *storage) const
+  {
+    graph_executor_->destruct_storage(storage);
   }
 };
 
@@ -439,6 +478,10 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
             LFOutputSocket &socket = group_input_node.output(i);
             output_socket_map.add_new(&socket_ref, &socket);
             resources.dummy_socket_map.add_new(&socket_ref, &socket);
+            resources.group_input_sockets.append(&socket);
+          }
+          else {
+            resources.group_input_sockets.append(nullptr);
           }
         }
         break;
