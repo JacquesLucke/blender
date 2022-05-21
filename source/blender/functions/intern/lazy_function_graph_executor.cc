@@ -146,7 +146,7 @@ struct LockedNode {
    */
   Vector<const LFOutputSocket *> delayed_required_outputs;
   Vector<const LFOutputSocket *> delayed_unused_outputs;
-  Vector<const LFNode *> delayed_scheduled_nodes;
+  Vector<const LFFunctionNode *> delayed_scheduled_nodes;
 
   LockedNode(const LFNode &node, NodeState &node_state) : node(node), node_state(node_state)
   {
@@ -158,7 +158,7 @@ struct CurrentTask {
    * The node that should be run on the same thread after the current node is done. This avoids
    * some overhead by skipping a round trip through the task pool.
    */
-  std::atomic<const LFNode *> next_node = nullptr;
+  std::atomic<const LFFunctionNode *> next_node = nullptr;
   /**
    * Indicates that some node has been added to the task pool.
    */
@@ -261,7 +261,7 @@ class Executor {
         /* Nothing to do. */
         return;
       }
-      const LFNode &node = *current_task.next_node;
+      const LFFunctionNode &node = *current_task.next_node;
       current_task.next_node = nullptr;
       this->run_node_task(node, current_task);
     }
@@ -427,7 +427,6 @@ class Executor {
     NodeState &node_state = *node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
-    BLI_assert(node.is_function());
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       output_state.potential_target_sockets -= 1;
       if (output_state.potential_target_sockets == 0) {
@@ -452,7 +451,8 @@ class Executor {
     switch (locked_node.node_state.schedule_state) {
       case NodeScheduleState::NotScheduled: {
         locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
-        locked_node.delayed_scheduled_nodes.append(&locked_node.node);
+        locked_node.delayed_scheduled_nodes.append(
+            &static_cast<const LFFunctionNode &>(locked_node.node));
         break;
       }
       case NodeScheduleState::Scheduled: {
@@ -487,8 +487,8 @@ class Executor {
     for (const LFOutputSocket *socket : locked_node.delayed_unused_outputs) {
       this->notify_output_unused(*socket, current_task);
     }
-    for (const LFNode *node_to_schedule : locked_node.delayed_scheduled_nodes) {
-      const LFNode *expected = nullptr;
+    for (const LFFunctionNode *node_to_schedule : locked_node.delayed_scheduled_nodes) {
+      const LFFunctionNode *expected = nullptr;
       if (current_task.next_node.compare_exchange_strong(
               expected, node_to_schedule, std::memory_order_relaxed)) {
         continue;
@@ -508,26 +508,24 @@ class Executor {
   {
     void *user_data = BLI_task_pool_user_data(task_pool);
     Executor &executor = *static_cast<Executor *>(user_data);
-    const LFNode &node = *static_cast<const LFNode *>(task_data);
+    const LFFunctionNode &node = *static_cast<const LFFunctionNode *>(task_data);
 
     CurrentTask current_task;
     current_task.next_node = &node;
     while (current_task.next_node != nullptr) {
-      const LFNode &node_to_run = *current_task.next_node;
+      const LFFunctionNode &node_to_run = *current_task.next_node;
       current_task.next_node = nullptr;
       executor.run_node_task(node_to_run, current_task);
     }
   }
 
-  void run_node_task(const LFNode &node, CurrentTask &current_task)
+  void run_node_task(const LFFunctionNode &node, CurrentTask &current_task)
   {
     NodeState &node_state = *node_states_[node.index_in_graph()];
     LinearAllocator<> &allocator = local_allocators_.local();
+    const LazyFunction &fn = node.function();
 
     BLI_SCOPED_DEFER([&]() { node_state.is_first_run = false; });
-
-    BLI_assert(node.is_function());
-    const LFFunctionNode &fn_node = static_cast<const LFFunctionNode &>(node);
 
     bool node_needs_execution = false;
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -551,7 +549,7 @@ class Executor {
 
       if (node_state.is_first_run) {
         /* Initialize storage. */
-        node_state.storage = fn_node.function().init_storage(allocator);
+        node_state.storage = fn.init_storage(allocator);
 
         /* Load unlinked inputs. */
         for (const int input_index : node.inputs().index_range()) {
@@ -569,7 +567,6 @@ class Executor {
         }
 
         /* Request linked inputs that are always needed. */
-        const LazyFunction &fn = fn_node.function();
         const Span<LazyFunctionInput> fn_inputs = fn.inputs();
         for (const int input_index : fn_inputs.index_range()) {
           const LazyFunctionInput &fn_input = fn_inputs[input_index];
@@ -597,7 +594,7 @@ class Executor {
     });
 
     if (node_needs_execution) {
-      this->execute_node(fn_node, node_state, current_task);
+      this->execute_node(node, node_state, current_task);
     }
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
