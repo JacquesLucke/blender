@@ -88,14 +88,14 @@ void LazyFunctionGraph::add_link(LFOutputSocket &from, LFInputSocket &to)
 void LazyFunctionGraph::update_node_indices()
 {
   for (const int i : nodes_.index_range()) {
-    nodes_[i]->index_ = i;
+    nodes_[i]->index_in_graph_ = i;
   }
 }
 
 bool LazyFunctionGraph::node_indices_are_valid() const
 {
   for (const int i : nodes_.index_range()) {
-    if (nodes_[i]->index_ != i) {
+    if (nodes_[i]->index_in_graph_ != i) {
       return false;
     }
   }
