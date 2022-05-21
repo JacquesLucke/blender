@@ -335,24 +335,12 @@ class Executor {
       if (params_->output_was_set(graph_output_index)) {
         continue;
       }
-      const LFSocket &socket = *graph_outputs_[graph_output_index];
+      const LFInputSocket &socket = *graph_outputs_[graph_output_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
-
-      if (socket.is_input()) {
-        const LFInputSocket &input_socket = socket.as_input();
-        this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-          this->set_input_required(locked_node, input_socket);
-        });
-      }
-      else {
-        const LFOutputSocket &output_socket = socket.as_output();
-        const int index_in_node = output_socket.index_in_node();
-        OutputState &output_state = node_state.outputs[index_in_node];
-        if (!output_state.has_been_computed) {
-          this->notify_output_required(output_socket, current_task);
-        }
-      }
+      this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
+        this->set_input_required(locked_node, socket);
+      });
     }
   }
 
@@ -400,23 +388,11 @@ class Executor {
       if (input_data == nullptr) {
         continue;
       }
-      const LFSocket &socket = *graph_inputs_[graph_input_index];
-      const LFNode &node = socket.node();
-      NodeState &node_state = *node_states_[node.index_in_graph()];
-      this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-        const int index_in_node = socket.index_in_node();
-        const CPPType &type = socket.type();
-        void *buffer = allocator.allocate(type.size(), type.alignment());
-        type.move_construct(input_data, buffer);
-        if (socket.is_input()) {
-          InputState &input_state = node_state.inputs[index_in_node];
-          this->forward_value_to_input(locked_node, input_state, {type, buffer});
-        }
-        else {
-          const LFOutputSocket &output_socket = socket.as_output();
-          this->forward_value_to_linked_inputs(output_socket, {type, buffer}, current_task);
-        }
-      });
+      const LFOutputSocket &socket = *graph_inputs_[graph_input_index];
+      const CPPType &type = socket.type();
+      void *buffer = allocator.allocate(type.size(), type.alignment());
+      type.move_construct(input_data, buffer);
+      this->forward_value_to_linked_inputs(socket, {type, buffer}, current_task);
       loaded_inputs_[graph_input_index] = true;
     }
   }
