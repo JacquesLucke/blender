@@ -87,6 +87,11 @@ class LazyFunctionParams {
   LazyFunctionUserData *user_data();
   const LazyFunctionUserData *user_data() const;
 
+  template<typename T> T *user_data();
+  template<typename T> const T *user_data() const;
+
+  void set_default_remaining_outputs();
+
  private:
   virtual void *try_get_input_data_ptr_impl(int index) const = 0;
   virtual void *try_get_input_data_ptr_or_request_impl(int index) = 0;
@@ -281,6 +286,16 @@ inline LazyFunctionUserData *LazyFunctionParams::user_data()
 inline const LazyFunctionUserData *LazyFunctionParams::user_data() const
 {
   return user_data_;
+}
+
+template<typename T> inline T *LazyFunctionParams::user_data()
+{
+  return dynamic_cast<T *>(user_data_);
+}
+
+template<typename T> inline const T *LazyFunctionParams::user_data() const
+{
+  return dynamic_cast<const T *>(user_data_);
 }
 
 /** \} */

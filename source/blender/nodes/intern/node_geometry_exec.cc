@@ -30,8 +30,7 @@ void GeoNodeExecParams::used_named_attribute(std::string attribute_name,
 void GeoNodeExecParams::check_input_geometry_set(StringRef identifier,
                                                  const GeometrySet &geometry_set) const
 {
-  const SocketDeclaration &decl =
-      *provider_->node_ref->input_by_identifier(identifier).bsocket()->declaration;
+  const SocketDeclaration &decl = *node_.input_by_identifier(identifier).bsocket()->declaration;
   const decl::Geometry *geo_decl = dynamic_cast<const decl::Geometry *>(&decl);
   if (geo_decl == nullptr) {
     return;
@@ -95,7 +94,7 @@ void GeoNodeExecParams::check_input_geometry_set(StringRef identifier,
 
 const bNodeSocket *GeoNodeExecParams::find_available_socket(const StringRef name) const
 {
-  for (const InputSocketRef *socket : provider_->node_ref->inputs()) {
+  for (const InputSocketRef *socket : node_.inputs()) {
     if (socket->is_available() && socket->name() == name) {
       return socket->bsocket();
     }
@@ -237,19 +236,19 @@ AttributeDomain GeoNodeExecParams::get_highest_priority_input_domain(
 
 std::string GeoNodeExecParams::attribute_producer_name() const
 {
-  return provider_->node_ref->label_or_name() + TIP_(" node");
+  return node_.label_or_name() + TIP_(" node");
 }
 
 void GeoNodeExecParams::set_default_remaining_outputs()
 {
-  provider_->set_default_remaining_outputs();
+  params_.set_default_remaining_outputs();
 }
 
 void GeoNodeExecParams::check_input_access(StringRef identifier,
                                            const CPPType *requested_type) const
 {
   bNodeSocket *found_socket = nullptr;
-  for (const InputSocketRef *socket : provider_->node_ref->inputs()) {
+  for (const InputSocketRef *socket : node_.inputs()) {
     if (socket->identifier() == identifier) {
       found_socket = socket->bsocket();
       break;
@@ -259,7 +258,7 @@ void GeoNodeExecParams::check_input_access(StringRef identifier,
   if (found_socket == nullptr) {
     std::cout << "Did not find an input socket with the identifier '" << identifier << "'.\n";
     std::cout << "Possible identifiers are: ";
-    for (const InputSocketRef *socket : provider_->node_ref->inputs()) {
+    for (const InputSocketRef *socket : node_.inputs()) {
       if (socket->is_available()) {
         std::cout << "'" << socket->identifier() << "', ";
       }
@@ -270,12 +269,6 @@ void GeoNodeExecParams::check_input_access(StringRef identifier,
   else if (found_socket->flag & SOCK_UNAVAIL) {
     std::cout << "The socket corresponding to the identifier '" << identifier
               << "' is disabled.\n";
-    BLI_assert_unreachable();
-  }
-  else if (!provider_->can_get_input(identifier)) {
-    std::cout << "The identifier '" << identifier
-              << "' is valid, but there is no value for it anymore.\n";
-    std::cout << "Most likely it has been extracted before.\n";
     BLI_assert_unreachable();
   }
   else if (requested_type != nullptr) {
@@ -291,7 +284,7 @@ void GeoNodeExecParams::check_input_access(StringRef identifier,
 void GeoNodeExecParams::check_output_access(StringRef identifier, const CPPType &value_type) const
 {
   bNodeSocket *found_socket = nullptr;
-  for (const OutputSocketRef *socket : provider_->node_ref->outputs()) {
+  for (const OutputSocketRef *socket : node_.outputs()) {
     if (socket->identifier() == identifier) {
       found_socket = socket->bsocket();
       break;
@@ -301,7 +294,7 @@ void GeoNodeExecParams::check_output_access(StringRef identifier, const CPPType 
   if (found_socket == nullptr) {
     std::cout << "Did not find an output socket with the identifier '" << identifier << "'.\n";
     std::cout << "Possible identifiers are: ";
-    for (const OutputSocketRef *socket : provider_->node_ref->outputs()) {
+    for (const OutputSocketRef *socket : node_.outputs()) {
       if (socket->is_available()) {
         std::cout << "'" << socket->identifier() << "', ";
       }
@@ -314,7 +307,7 @@ void GeoNodeExecParams::check_output_access(StringRef identifier, const CPPType 
               << "' is disabled.\n";
     BLI_assert_unreachable();
   }
-  else if (!provider_->can_set_output(identifier)) {
+  else if (params_.output_was_set(this->get_output_index(identifier))) {
     std::cout << "The identifier '" << identifier << "' has been set already.\n";
     BLI_assert_unreachable();
   }

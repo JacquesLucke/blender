@@ -3,6 +3,7 @@
 #pragma once
 
 #include "FN_field.hh"
+#include "FN_lazy_function.hh"
 #include "FN_multi_function_builder.hh"
 
 #include "BKE_attribute_access.hh"
@@ -14,6 +15,7 @@
 
 #include "NOD_derived_node_tree.hh"
 #include "NOD_geometry_nodes_eval_log.hh"
+#include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 
 #include "GEO_realize_instances.hh"
 
@@ -39,94 +41,24 @@ using fn::FieldEvaluator;
 using fn::FieldInput;
 using fn::FieldOperation;
 using fn::GField;
+using fn::LazyFunctionParams;
 using fn::ValueOrField;
 using geometry_nodes_eval_log::NamedAttributeUsage;
 using geometry_nodes_eval_log::NodeWarningType;
 
-/**
- * This class exists to separate the memory management details of the geometry nodes evaluator
- * from the node execution functions and related utilities.
- */
-class GeoNodeExecParamsProvider {
- public:
-  const NodeRef *node_ref = nullptr;
-  const Object *self_object = nullptr;
-  Depsgraph *depsgraph = nullptr;
-
-  /**
-   * Returns true when the node is allowed to get/extract the input value. The identifier is
-   * expected to be valid. This may return false if the input value has been consumed already.
-   */
-  virtual bool can_get_input(StringRef identifier) const = 0;
-
-  /**
-   * Returns true when the node is allowed to set the output value. The identifier is expected to
-   * be valid. This may return false if the output value has been set already.
-   */
-  virtual bool can_set_output(StringRef identifier) const = 0;
-
-  /**
-   * Take ownership of an input value. The caller is responsible for destructing the value. It does
-   * not have to be freed, because the memory is managed by the geometry nodes evaluator.
-   */
-  virtual GMutablePointer extract_input(StringRef identifier) = 0;
-
-  /**
-   * Similar to #extract_input, but has to be used for multi-input sockets.
-   */
-  virtual Vector<GMutablePointer> extract_multi_input(StringRef identifier) = 0;
-
-  /**
-   * Get the input value for the identifier without taking ownership of it.
-   */
-  virtual GPointer get_input(StringRef identifier) const = 0;
-
-  /**
-   * Prepare a memory buffer for an output value of the node. The returned memory has to be
-   * initialized by the caller. The identifier and type are expected to be correct.
-   */
-  virtual GMutablePointer alloc_output_value(const CPPType &type) = 0;
-
-  /**
-   * The value has been allocated with #alloc_output_value.
-   */
-  virtual void set_output(StringRef identifier, GMutablePointer value) = 0;
-
-  /* A description for these methods is provided in GeoNodeExecParams. */
-  virtual void set_input_unused(StringRef identifier) = 0;
-  virtual bool output_is_required(StringRef identifier) const = 0;
-  virtual bool lazy_require_input(StringRef identifier) = 0;
-  virtual bool lazy_output_is_required(StringRef identifier) const = 0;
-
-  virtual void set_default_remaining_outputs() = 0;
-};
-
 class GeoNodeExecParams {
  private:
-  GeoNodeExecParamsProvider *provider_;
+  const NodeRef &node_;
+  LazyFunctionParams &params_;
 
  public:
-  GeoNodeExecParams(GeoNodeExecParamsProvider &provider) : provider_(&provider)
+  GeoNodeExecParams(const NodeRef &node, LazyFunctionParams &params) : node_(node), params_(params)
   {
   }
 
   template<typename T>
   static inline constexpr bool is_field_base_type_v =
       is_same_any_v<T, float, int, bool, ColorGeometry4f, float3, std::string>;
-
-  /**
-   * Get the input value for the input socket with the given identifier.
-   *
-   * The node calling becomes responsible for destructing the value before it is done
-   * executing. This method can only be called once for each identifier.
-   */
-  GMutablePointer extract_input(StringRef identifier)
-  {
-#ifdef DEBUG
-    this->check_input_access(identifier);
-#endif
-    return provider_->extract_input(identifier);
-  }
 
   /**
    * Get the input value for the input socket with the given identifier.
@@ -149,8 +81,8 @@ class GeoNodeExecParams {
 #ifdef DEBUG
       this->check_input_access(identifier, &CPPType::get<T>());
 #endif
-      GMutablePointer gvalue = this->extract_input(identifier);
-      T value = gvalue.relocate_out<T>();
+      const int index = this->get_input_index(identifier);
+      T value = params_.extract_input<T>(index);
       if constexpr (std::is_same_v<T, GeometrySet>) {
         this->check_input_geometry_set(identifier, value);
       }
@@ -159,27 +91,6 @@ class GeoNodeExecParams {
   }
 
   void check_input_geometry_set(StringRef identifier, const GeometrySet &geometry_set) const;
-
-  /**
-   * Get input as vector for multi input socket with the given identifier.
-   *
-   * This method can only be called once for each identifier.
-   */
-  template<typename T> Vector<T> extract_multi_input(StringRef identifier)
-  {
-    Vector<GMutablePointer> gvalues = provider_->extract_multi_input(identifier);
-    Vector<T> values;
-    for (GMutablePointer gvalue : gvalues) {
-      if constexpr (is_field_base_type_v<T>) {
-        const ValueOrField<T> value_or_field = gvalue.relocate_out<ValueOrField<T>>();
-        values.append(value_or_field.as_value());
-      }
-      else {
-        values.append(gvalue.relocate_out<T>());
-      }
-    }
-    return values;
-  }
 
   /**
    * Get the input value for the input socket with the given identifier.
@@ -199,9 +110,8 @@ class GeoNodeExecParams {
 #ifdef DEBUG
       this->check_input_access(identifier, &CPPType::get<T>());
 #endif
-      GPointer gvalue = provider_->get_input(identifier);
-      BLI_assert(gvalue.is_type<T>());
-      const T &value = *(const T *)gvalue.get();
+      const int index = this->get_input_index(identifier);
+      const T &value = params_.get_input<T>(index);
       if constexpr (std::is_same_v<T, GeometrySet>) {
         this->check_input_geometry_set(identifier, value);
       }
@@ -223,13 +133,12 @@ class GeoNodeExecParams {
       this->set_output(identifier, ValueOrField<BaseType>(std::forward<T>(value)));
     }
     else {
-      const CPPType &type = CPPType::get<StoredT>();
 #ifdef DEBUG
+      const CPPType &type = CPPType::get<StoredT>();
       this->check_output_access(identifier, type);
 #endif
-      GMutablePointer gvalue = provider_->alloc_output_value(type);
-      new (gvalue.get()) StoredT(std::forward<T>(value));
-      provider_->set_output(identifier, gvalue);
+      const int index = this->get_output_index(identifier);
+      params_.set_output(index, std::forward<T>(value));
     }
   }
 
@@ -238,7 +147,8 @@ class GeoNodeExecParams {
    */
   void set_input_unused(StringRef identifier)
   {
-    provider_->set_input_unused(identifier);
+    const int index = this->get_input_index(identifier);
+    params_.set_input_unused(index);
   }
 
   /**
@@ -248,7 +158,8 @@ class GeoNodeExecParams {
    */
   bool output_is_required(StringRef identifier) const
   {
-    return provider_->output_is_required(identifier);
+    const int index = this->get_output_index(identifier);
+    return params_.get_output_usage(index) != fn::ValueUsage::Unused;
   }
 
   /**
@@ -259,7 +170,8 @@ class GeoNodeExecParams {
    */
   bool lazy_require_input(StringRef identifier)
   {
-    return provider_->lazy_require_input(identifier);
+    const int index = this->get_input_index(identifier);
+    return params_.try_get_input_data_ptr_or_request(index) == nullptr;
   }
 
   /**
@@ -269,7 +181,8 @@ class GeoNodeExecParams {
    */
   bool lazy_output_is_required(StringRef identifier)
   {
-    return provider_->lazy_output_is_required(identifier);
+    const int index = this->get_output_index(identifier);
+    return params_.get_output_usage(index) == fn::ValueUsage::Used;
   }
 
   /**
@@ -277,17 +190,23 @@ class GeoNodeExecParams {
    */
   const bNode &node() const
   {
-    return *provider_->node_ref->bnode();
+    return *node_.bnode();
   }
 
   const Object *self_object() const
   {
-    return provider_->self_object;
+    if (const auto *data = params_.user_data<GeoNodesLazyFunctionUserData>()) {
+      return data->self_object;
+    }
+    return nullptr;
   }
 
   Depsgraph *depsgraph() const
   {
-    return provider_->depsgraph;
+    if (const auto *data = params_.user_data<GeoNodesLazyFunctionUserData>()) {
+      return data->depsgraph;
+    }
+    return nullptr;
   }
 
   /**
@@ -350,6 +269,38 @@ class GeoNodeExecParams {
 
   /* Find the active socket with the input name (not the identifier). */
   const bNodeSocket *find_available_socket(const StringRef name) const;
+
+  int get_input_index(const StringRef identifier) const
+  {
+    int counter = 0;
+    for (const InputSocketRef *socket : node_.inputs()) {
+      if (!socket->is_available()) {
+        continue;
+      }
+      if (socket->identifier() == identifier) {
+        return counter;
+      }
+      counter++;
+    }
+    BLI_assert_unreachable();
+    return -1;
+  }
+
+  int get_output_index(const StringRef identifier) const
+  {
+    int counter = 0;
+    for (const OutputSocketRef *socket : node_.outputs()) {
+      if (!socket->is_available()) {
+        continue;
+      }
+      if (socket->identifier() == identifier) {
+        return counter;
+      }
+      counter++;
+    }
+    BLI_assert_unreachable();
+    return -1;
+  }
 };
 
 }  // namespace blender::nodes
