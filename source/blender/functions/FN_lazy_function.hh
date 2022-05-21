@@ -231,7 +231,6 @@ template<typename T> inline T LazyFunctionParams::extract_input(int index, const
 {
 #ifdef DEBUG
   const LazyFunctionInput &input = fn_.inputs()[index];
-  BLI_assert(input.usage == ValueUsage::Used);
   BLI_assert(input.type->is<T>());
 #endif
 
@@ -245,7 +244,6 @@ template<typename T> inline const T &LazyFunctionParams::get_input(int index, co
 {
 #ifdef DEBUG
   const LazyFunctionInput &input = fn_.inputs()[index];
-  BLI_assert(input.usage == ValueUsage::Used);
   BLI_assert(input.type->is<T>());
 #endif
 

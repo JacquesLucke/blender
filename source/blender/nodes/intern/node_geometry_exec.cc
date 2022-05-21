@@ -271,7 +271,7 @@ void GeoNodeExecParams::check_input_access(StringRef identifier,
               << "' is disabled.\n";
     BLI_assert_unreachable();
   }
-  else if (requested_type != nullptr) {
+  else if (requested_type != nullptr && (found_socket->flag & SOCK_MULTI_INPUT) == 0) {
     const CPPType &expected_type = *found_socket->typeinfo->geometry_nodes_cpp_type;
     if (*requested_type != expected_type) {
       std::cout << "The requested type '" << requested_type->name() << "' is incorrect. Expected '"

@@ -51,7 +51,8 @@ static void lazy_function_interface_from_node(const NodeRef &node,
                                               Vector<fn::LazyFunctionInput> &r_inputs,
                                               Vector<fn::LazyFunctionOutput> &r_outputs)
 {
-  const bool supports_lazyness = node.bnode()->typeinfo->geometry_node_execute_supports_laziness;
+  const bool supports_lazyness = node.bnode()->typeinfo->geometry_node_execute_supports_laziness ||
+                                 node.bnode()->type == NODE_GROUP;
   const fn::ValueUsage input_usage = supports_lazyness ? fn::ValueUsage::Maybe :
                                                          fn::ValueUsage::Used;
   for (const InputSocketRef *socket : node.inputs()) {
@@ -213,9 +214,10 @@ static void execute_multi_function_on_value_or_field(
 
     for (const int i : input_types.index_range()) {
       const ValueOrFieldCPPType &type = *input_types[i];
+      const CPPType &base_type = type.base_type();
       const void *value_or_field = input_values[i];
       const void *value = type.get_value_ptr(value_or_field);
-      params.add_readonly_single_input(GVArray::ForSingleRef(type, 1, value));
+      params.add_readonly_single_input(GVArray::ForSingleRef(base_type, 1, value));
     }
     for (const int i : output_types.index_range()) {
       const ValueOrFieldCPPType &type = *output_types[i];
@@ -256,6 +258,8 @@ class MultiFunctionConversion : public LazyFunction {
 
     execute_multi_function_on_value_or_field(
         fn_, {}, {&from_type_}, {&to_type_}, {from_value}, {to_value});
+
+    params.output_set(0);
   }
 };
 
@@ -299,6 +303,9 @@ class MultiFunctionNode : public LazyFunction {
                                              output_types_,
                                              inputs_values,
                                              outputs_values);
+    for (const int i : outputs_.index_range()) {
+      params.output_set(i);
+    }
   }
 };
 

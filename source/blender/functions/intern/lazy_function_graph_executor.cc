@@ -88,6 +88,7 @@ class Executor {
   TaskPool *task_pool_ = nullptr;
 
   threading::EnumerableThreadSpecific<LinearAllocator<>> local_allocators_;
+  bool is_first_execution_ = true;
 
   friend GraphExecutorLazyFunctionParams;
 
@@ -117,7 +118,14 @@ class Executor {
   void execute(LazyFunctionParams &params)
   {
     params_ = &params;
-    BLI_SCOPED_DEFER([&]() { params_ = nullptr; });
+    BLI_SCOPED_DEFER([&]() {
+      params_ = nullptr;
+      is_first_execution_ = false;
+    });
+
+    if (is_first_execution_) {
+      this->set_defaulted_graph_outputs();
+    }
 
     CurrentTask current_task;
     this->schedule_newly_requested_outputs(&current_task);
@@ -233,6 +241,9 @@ class Executor {
       if (params_->get_output_usage(io_output_index) != ValueUsage::Used) {
         continue;
       }
+      if (params_->output_was_set(io_output_index)) {
+        continue;
+      }
       const LFSocket &socket = *outputs_[io_output_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_[node.index()];
@@ -251,6 +262,26 @@ class Executor {
           this->notify_output_required(output_socket, current_task);
         }
       }
+    }
+  }
+
+  void set_defaulted_graph_outputs()
+  {
+    for (const int io_output_index : outputs_.index_range()) {
+      const LFSocket &socket = *outputs_[io_output_index];
+      if (socket.is_output()) {
+        continue;
+      }
+      const LFInputSocket &input_socket = socket.as_input();
+      if (input_socket.origin() != nullptr) {
+        continue;
+      }
+      const CPPType &type = input_socket.type();
+      const void *default_value = input_socket.default_value();
+      BLI_assert(default_value != nullptr);
+      void *output_ptr = params_->get_output_data_ptr(io_output_index);
+      type.copy_construct(default_value, output_ptr);
+      params_->output_set(io_output_index);
     }
   }
 
@@ -284,6 +315,7 @@ class Executor {
               output_state, output_socket, {type, buffer}, current_task);
         }
       });
+      loaded_inputs_[io_input_index] = true;
     }
   }
 
