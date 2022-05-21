@@ -50,6 +50,9 @@ static void lazy_function_interface_from_node(const NodeRef &node,
                                               Vector<fn::LazyFunctionInput> &r_inputs,
                                               Vector<fn::LazyFunctionOutput> &r_outputs)
 {
+  const bool supports_lazyness = node.bnode()->typeinfo->geometry_node_execute_supports_laziness;
+  const fn::ValueUsage input_usage = supports_lazyness ? fn::ValueUsage::Maybe :
+                                                         fn::ValueUsage::Used;
   for (const InputSocketRef *socket : node.inputs()) {
     if (!socket->is_available()) {
       continue;
@@ -62,7 +65,7 @@ static void lazy_function_interface_from_node(const NodeRef &node,
       type = get_vector_type(*type);
     }
     /* TODO: Name may not be static. */
-    r_inputs.append({socket->identifier().c_str(), *type});
+    r_inputs.append({socket->identifier().c_str(), *type, input_usage});
     r_used_inputs.append(socket);
   }
   for (const OutputSocketRef *socket : node.outputs()) {
