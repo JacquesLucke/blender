@@ -71,7 +71,6 @@
 
 #include "MOD_modifiertypes.h"
 #include "MOD_nodes.h"
-#include "MOD_nodes_evaluator.hh"
 #include "MOD_ui_common.h"
 
 #include "ED_object.h"
@@ -88,6 +87,8 @@
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
 #include "FN_multi_function.hh"
+
+namespace geo_log = blender::nodes::geometry_nodes_eval_log;
 
 using blender::Array;
 using blender::ColorGeometry4f;
@@ -1068,9 +1069,10 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
                                     NodesModifierData *nmd,
                                     const ModifierEvalContext *ctx)
 {
+  UNUSED_VARS(store_output_attributes, find_sockets_to_preview, logging_enabled, ctx);
+
   blender::ResourceScope scope;
   blender::LinearAllocator<> &allocator = scope.linear_allocator();
-  blender::nodes::NodeMultiFunctions mf_by_node{tree};
 
   Map<DOutputSocket, GMutablePointer> group_inputs;
 
@@ -1107,46 +1109,7 @@ static GeometrySet compute_geometry(const DerivedNodeTree &tree,
     group_outputs.append({root_context, socket_ref});
   }
 
-  std::optional<geo_log::GeoLogger> geo_logger;
-
-  blender::modifiers::geometry_nodes::GeometryNodesEvaluationParams eval_params;
-
-  if (logging_enabled(ctx)) {
-    Set<DSocket> preview_sockets;
-    find_sockets_to_preview(nmd, ctx, tree, preview_sockets);
-    eval_params.force_compute_sockets.extend(preview_sockets.begin(), preview_sockets.end());
-    geo_logger.emplace(std::move(preview_sockets));
-
-    geo_logger->log_input_geometry(input_geometry_set);
-  }
-
-  /* Don't keep a reference to the input geometry components to avoid copies during evaluation. */
-  input_geometry_set.clear();
-
-  eval_params.input_values = group_inputs;
-  eval_params.output_sockets = group_outputs;
-  eval_params.mf_by_node = &mf_by_node;
-  eval_params.modifier_ = nmd;
-  eval_params.depsgraph = ctx->depsgraph;
-  eval_params.self_object = ctx->object;
-  eval_params.geo_logger = geo_logger.has_value() ? &*geo_logger : nullptr;
-  blender::modifiers::geometry_nodes::evaluate_geometry_nodes(eval_params);
-
-  GeometrySet output_geometry_set = std::move(*eval_params.r_output_values[0].get<GeometrySet>());
-
-  if (geo_logger.has_value()) {
-    geo_logger->log_output_geometry(output_geometry_set);
-    NodesModifierData *nmd_orig = (NodesModifierData *)BKE_modifier_get_original(ctx->object,
-                                                                                 &nmd->modifier);
-    clear_runtime_data(nmd_orig);
-    nmd_orig->runtime_eval_log = new geo_log::ModifierLog(*geo_logger);
-  }
-
-  store_output_attributes(output_geometry_set, *nmd, output_node, eval_params.r_output_values);
-
-  for (GMutablePointer value : eval_params.r_output_values) {
-    value.destruct();
-  }
+  GeometrySet output_geometry_set;
 
   return output_geometry_set;
 }
