@@ -331,6 +331,8 @@ class Executor {
       return;
     }
 
+    BLI_assert(node.is_function());
+
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       if (output_state.usage == ValueUsage::Used) {
         return;

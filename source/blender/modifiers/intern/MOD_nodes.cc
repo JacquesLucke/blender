@@ -1093,10 +1093,16 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
       graph_resources.dummy_socket_map.lookup(&output_node.input(0))};
   blender::fn::LazyFunctionGraphExecutor graph_executor{graph, graph_inputs, graph_outputs};
 
+  blender::nodes::GeoNodesLazyFunctionUserData user_data;
+  user_data.depsgraph = ctx->depsgraph;
+  user_data.self_object = ctx->object;
+
   GeometrySet output_geometry_set;
   std::destroy_at(&output_geometry_set);
-  blender::fn::execute_lazy_function_eagerly(
-      graph_executor, std::make_tuple(input_geometry_set), std::make_tuple(&output_geometry_set));
+  blender::fn::execute_lazy_function_eagerly(graph_executor,
+                                             &user_data,
+                                             std::make_tuple(input_geometry_set),
+                                             std::make_tuple(&output_geometry_set));
   return output_geometry_set;
 }
 

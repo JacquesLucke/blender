@@ -44,6 +44,7 @@ namespace detail {
 template<typename... Inputs, typename... Outputs, size_t... InIndices, size_t... OutIndices>
 inline void execute_lazy_function_eagerly_impl(
     const LazyFunction &fn,
+    LazyFunctionUserData *user_data,
     std::tuple<Inputs...> &inputs,
     std::tuple<Outputs *...> &outputs,
     std::index_sequence<InIndices...> /* in_indices */,
@@ -78,7 +79,7 @@ inline void execute_lazy_function_eagerly_impl(
   void *storage = fn.init_storage(allocator);
   BasicLazyFunctionParams params{fn,
                                  storage,
-                                 nullptr,
+                                 user_data,
                                  input_pointers,
                                  output_pointers,
                                  input_usages,
@@ -92,12 +93,14 @@ inline void execute_lazy_function_eagerly_impl(
 
 template<typename... Inputs, typename... Outputs>
 inline void execute_lazy_function_eagerly(const LazyFunction &fn,
+                                          LazyFunctionUserData *user_data,
                                           std::tuple<Inputs...> inputs,
                                           std::tuple<Outputs *...> outputs)
 {
   BLI_assert(fn.inputs().size() == sizeof...(Inputs));
   BLI_assert(fn.outputs().size() == sizeof...(Outputs));
   detail::execute_lazy_function_eagerly_impl(fn,
+                                             user_data,
                                              inputs,
                                              outputs,
                                              std::make_index_sequence<sizeof...(Inputs)>(),
