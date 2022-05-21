@@ -328,14 +328,14 @@ class Executor {
 
   void schedule_newly_requested_outputs(CurrentTask *current_task)
   {
-    for (const int io_output_index : graph_outputs_.index_range()) {
-      if (params_->get_output_usage(io_output_index) != ValueUsage::Used) {
+    for (const int graph_output_index : graph_outputs_.index_range()) {
+      if (params_->get_output_usage(graph_output_index) != ValueUsage::Used) {
         continue;
       }
-      if (params_->output_was_set(io_output_index)) {
+      if (params_->output_was_set(graph_output_index)) {
         continue;
       }
-      const LFSocket &socket = *graph_outputs_[io_output_index];
+      const LFSocket &socket = *graph_outputs_[graph_output_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
 
@@ -358,8 +358,8 @@ class Executor {
 
   void set_defaulted_graph_outputs()
   {
-    for (const int io_output_index : graph_outputs_.index_range()) {
-      const LFSocket &socket = *graph_outputs_[io_output_index];
+    for (const int graph_output_index : graph_outputs_.index_range()) {
+      const LFSocket &socket = *graph_outputs_[graph_output_index];
       if (socket.is_output()) {
         continue;
       }
@@ -370,9 +370,9 @@ class Executor {
       const CPPType &type = input_socket.type();
       const void *default_value = input_socket.default_value();
       BLI_assert(default_value != nullptr);
-      void *output_ptr = params_->get_output_data_ptr(io_output_index);
+      void *output_ptr = params_->get_output_data_ptr(graph_output_index);
       type.copy_construct(default_value, output_ptr);
-      params_->output_set(io_output_index);
+      params_->output_set(graph_output_index);
     }
   }
 
@@ -392,15 +392,15 @@ class Executor {
   void forward_newly_provided_inputs(CurrentTask *current_task)
   {
     LinearAllocator<> &allocator = local_allocators_.local();
-    for (const int io_input_index : graph_inputs_.index_range()) {
-      if (loaded_inputs_[io_input_index]) {
+    for (const int graph_input_index : graph_inputs_.index_range()) {
+      if (loaded_inputs_[graph_input_index]) {
         continue;
       }
-      void *input_data = params_->try_get_input_data_ptr(io_input_index);
+      void *input_data = params_->try_get_input_data_ptr(graph_input_index);
       if (input_data == nullptr) {
         continue;
       }
-      const LFSocket &socket = *graph_inputs_[io_input_index];
+      const LFSocket &socket = *graph_inputs_[graph_input_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
       this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -417,7 +417,7 @@ class Executor {
           this->forward_value_to_linked_inputs(output_socket, {type, buffer}, current_task);
         }
       });
-      loaded_inputs_[io_input_index] = true;
+      loaded_inputs_[graph_input_index] = true;
     }
   }
 
