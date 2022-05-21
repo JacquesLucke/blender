@@ -20,9 +20,6 @@ using namespace fn::multi_function_types;
 
 static const CPPType *get_socket_cpp_type(const bNodeSocketType &typeinfo)
 {
-  if (typeinfo.geometry_nodes_cpp_type == nullptr) {
-    return nullptr;
-  }
   const CPPType *type = typeinfo.geometry_nodes_cpp_type;
   if (type == nullptr) {
     return nullptr;
@@ -352,6 +349,33 @@ static LFOutputSocket *insert_type_conversion(LazyFunctionGraph &graph,
   return nullptr;
 }
 
+static GMutablePointer get_socket_default_value(LinearAllocator<> &allocator,
+                                                const SocketRef &socket_ref)
+{
+  const bNodeSocketType &typeinfo = *socket_ref.typeinfo();
+  const CPPType *type = get_socket_cpp_type(typeinfo);
+  if (type == nullptr) {
+    return {};
+  }
+  void *buffer = allocator.allocate(type->size(), type->alignment());
+  typeinfo.get_geometry_nodes_cpp_value(*socket_ref.bsocket(), buffer);
+  return {type, buffer};
+}
+
+static void prepare_socket_default_value(LFInputSocket &socket,
+                                         const SocketRef &socket_ref,
+                                         GeometryNodesLazyFunctionResources &resources)
+{
+  GMutablePointer value = get_socket_default_value(resources.allocator, socket_ref);
+  if (value.get() == nullptr) {
+    return;
+  }
+  socket.set_default_value(value.get());
+  if (!value.type()->is_trivially_destructible()) {
+    resources.values_to_destruct.append(value);
+  }
+}
+
 void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
                                            LazyFunctionGraph &graph,
                                            GeometryNodesLazyFunctionResources &resources)
@@ -400,6 +424,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
           resources.functions.append(std::move(fn));
           input_socket_map.add(&node_ref->input(0), &node.input(0));
           output_socket_map.add_new(&node_ref->output(0), &node.output(0));
+          prepare_socket_default_value(node.input(0), node_ref->input(0), resources);
         }
         break;
       }
@@ -436,6 +461,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
             LFInputSocket &socket = group_output_node.input(i);
             input_socket_map.add(&socket_ref, &socket);
             resources.dummy_socket_map.add(&socket_ref, &socket);
+            prepare_socket_default_value(socket, socket_ref, resources);
           }
         }
         break;
@@ -450,6 +476,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
           const InputSocketRef &socket_ref = *used_inputs[i];
           BLI_assert(!socket_ref.is_multi_input_socket());
           input_socket_map.add(&socket_ref, &node.input(i));
+          prepare_socket_default_value(node.input(i), socket_ref, resources);
         }
         for (const int i : used_outputs.index_range()) {
           const OutputSocketRef &socket_ref = *used_outputs[i];
@@ -476,9 +503,13 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
               resources.functions.append(std::move(fn));
               graph.add_link(multi_input_node.output(0), socket);
               multi_input_socket_nodes.add(&socket_ref, &multi_input_node);
+              for (LFInputSocket *multi_input : multi_input_node.inputs()) {
+                prepare_socket_default_value(*multi_input, socket_ref, resources);
+              }
             }
             else {
               input_socket_map.add(&socket_ref, &socket);
+              prepare_socket_default_value(socket, socket_ref, resources);
             }
           }
           for (const int i : used_outputs.index_range()) {
@@ -499,6 +530,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
             const InputSocketRef &socket_ref = *used_inputs[i];
             BLI_assert(!socket_ref.is_multi_input_socket());
             input_socket_map.add(&socket_ref, &node.input(i));
+            prepare_socket_default_value(node.input(i), socket_ref, resources);
           }
           for (const int i : used_outputs.index_range()) {
             const OutputSocketRef &socket_ref = *used_outputs[i];
