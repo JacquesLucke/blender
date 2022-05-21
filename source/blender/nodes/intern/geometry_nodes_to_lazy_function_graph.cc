@@ -2,6 +2,7 @@
 
 #include "NOD_geometry_exec.hh"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
+#include "NOD_multi_function.hh"
 
 #include "BLI_map.hh"
 
@@ -42,43 +43,52 @@ static const CPPType *get_vector_type(const CPPType &type)
   return nullptr;
 }
 
+static void lazy_function_interface_from_node(const NodeRef &node,
+                                              Vector<const InputSocketRef *> &r_used_inputs,
+                                              Vector<const OutputSocketRef *> &r_used_outputs,
+                                              Vector<fn::LazyFunctionInput> &r_inputs,
+                                              Vector<fn::LazyFunctionOutput> &r_outputs)
+{
+  for (const InputSocketRef *socket : node.inputs()) {
+    if (!socket->is_available()) {
+      continue;
+    }
+    const CPPType *type = get_socket_cpp_type(*socket);
+    if (type == nullptr) {
+      continue;
+    }
+    if (socket->is_multi_input_socket()) {
+      type = get_vector_type(*type);
+    }
+    /* TODO: Name may not be static. */
+    r_inputs.append({socket->identifier().c_str(), *type});
+    r_used_inputs.append(socket);
+  }
+  for (const OutputSocketRef *socket : node.outputs()) {
+    if (!socket->is_available()) {
+      continue;
+    }
+    const CPPType *type = get_socket_cpp_type(*socket);
+    if (type == nullptr) {
+      continue;
+    }
+    r_outputs.append({socket->identifier().c_str(), *type});
+    r_used_outputs.append(socket);
+  }
+}
+
 class GeometryNodeLazyFunction : public LazyFunction {
  private:
   const NodeRef &node_;
 
  public:
   GeometryNodeLazyFunction(const NodeRef &node,
-                           Vector<const InputSocketRef *> &used_inputs,
-                           Vector<const OutputSocketRef *> &used_outputs)
+                           Vector<const InputSocketRef *> &r_used_inputs,
+                           Vector<const OutputSocketRef *> &r_used_outputs)
       : node_(node)
   {
     static_name_ = node.name().c_str();
-    for (const InputSocketRef *socket : node.inputs()) {
-      if (!socket->is_available()) {
-        continue;
-      }
-      const CPPType *type = get_socket_cpp_type(*socket);
-      if (type == nullptr) {
-        continue;
-      }
-      if (socket->is_multi_input_socket()) {
-        type = get_vector_type(*type);
-      }
-      /* TODO: Name may not be static. */
-      inputs_.append({socket->identifier().c_str(), *type});
-      used_inputs.append(socket);
-    }
-    for (const OutputSocketRef *socket : node.outputs()) {
-      if (!socket->is_available()) {
-        continue;
-      }
-      const CPPType *type = get_socket_cpp_type(*socket);
-      if (type == nullptr) {
-        continue;
-      }
-      outputs_.append({socket->identifier().c_str(), *type});
-      used_outputs.append(socket);
-    }
+    lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
   }
 
   void execute_impl(LazyFunctionParams &params) const override
@@ -208,6 +218,49 @@ class MultiFunctionConversion : public LazyFunction {
   }
 };
 
+class MultiFunctionNode : public LazyFunction {
+ private:
+  const NodeMultiFunctions::Item fn_item_;
+  Vector<const ValueOrFieldCPPType *> input_types_;
+  Vector<const ValueOrFieldCPPType *> output_types_;
+
+ public:
+  MultiFunctionNode(const NodeRef &node,
+                    NodeMultiFunctions::Item fn_item,
+                    Vector<const InputSocketRef *> &r_used_inputs,
+                    Vector<const OutputSocketRef *> &r_used_outputs)
+      : fn_item_(std::move(fn_item))
+  {
+    BLI_assert(fn_item_.fn != nullptr);
+    static_name_ = node.name().c_str();
+    lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
+    for (const fn::LazyFunctionInput &fn_input : inputs_) {
+      input_types_.append(dynamic_cast<const ValueOrFieldCPPType *>(fn_input.type));
+    }
+    for (const fn::LazyFunctionOutput &fn_output : outputs_) {
+      output_types_.append(dynamic_cast<const ValueOrFieldCPPType *>(fn_output.type));
+    }
+  }
+
+  void execute_impl(LazyFunctionParams &params) const override
+  {
+    Vector<const void *> inputs_values(inputs_.size());
+    Vector<void *> outputs_values(outputs_.size());
+    for (const int i : inputs_.index_range()) {
+      inputs_values[i] = params.try_get_input_data_ptr(i);
+    }
+    for (const int i : outputs_.index_range()) {
+      outputs_values[i] = params.get_output_data_ptr(i);
+    }
+    execute_multi_function_on_value_or_field(*fn_item_.fn,
+                                             fn_item_.owned_fn,
+                                             input_types_,
+                                             output_types_,
+                                             inputs_values,
+                                             outputs_values);
+  }
+};
+
 static LFOutputSocket *insert_type_conversion(LazyFunctionGraph &graph,
                                               LFOutputSocket &from_socket,
                                               const CPPType &to_type,
@@ -246,6 +299,9 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
   Map<const InputSocketRef *, LFNode *> multi_input_socket_nodes;
 
   const bke::DataTypeConversions &conversions = bke::get_implicit_type_conversions();
+
+  resources.node_multi_functions = std::make_unique<NodeMultiFunctions>(tree);
+  const NodeMultiFunctions &node_multi_functions = *resources.node_multi_functions;
 
   for (const NodeRef *node_ref : tree.nodes()) {
     const bNode &bnode = *node_ref->bnode();
@@ -297,7 +353,28 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
           for (const int i : used_outputs.index_range()) {
             output_socket_map.add_new(used_outputs[i], &node.output(i));
           }
+          break;
         }
+        const NodeMultiFunctions::Item &fn_item = node_multi_functions.try_get(*node_ref);
+        if (fn_item.fn != nullptr) {
+          Vector<const InputSocketRef *> used_inputs;
+          Vector<const OutputSocketRef *> used_outputs;
+          auto fn = std::make_unique<MultiFunctionNode>(
+              *node_ref, fn_item, used_inputs, used_outputs);
+          LFNode &node = graph.add_function(*fn);
+          resources.functions.append(std::move(fn));
+
+          for (const int i : used_inputs.index_range()) {
+            const InputSocketRef &socket_ref = *used_inputs[i];
+            BLI_assert(!socket_ref.is_multi_input_socket());
+            input_socket_map.add(&socket_ref, &node.input(i));
+          }
+          for (const int i : used_outputs.index_range()) {
+            const OutputSocketRef &socket_ref = *used_outputs[i];
+            output_socket_map.add(&socket_ref, &node.output(i));
+          }
+        }
+
         break;
       }
     }
