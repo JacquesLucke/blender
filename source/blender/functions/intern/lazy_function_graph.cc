@@ -122,7 +122,13 @@ std::string LazyFunctionGraph::to_dot() const
       }
       else if (const void *default_value = socket->default_value()) {
         const CPPType &type = socket->type();
-        const std::string value_string = type.to_string(default_value);
+        std::string value_string;
+        if (type.is_printable()) {
+          value_string = type.to_string(default_value);
+        }
+        else {
+          value_string = "<" + type.name() + ">";
+        }
         dot::Node &default_value_dot_node = digraph.new_node(value_string);
         default_value_dot_node.set_shape(dot::Attr_shape::Ellipse);
         digraph.new_edge(default_value_dot_node, to_dot_port);
