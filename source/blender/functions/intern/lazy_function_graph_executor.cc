@@ -12,42 +12,127 @@
 namespace blender::fn {
 
 enum class NodeScheduleState {
+  /**
+   * Default state of every node.
+   */
   NotScheduled,
+  /**
+   * The node has been added to the task pool or is otherwise scheduled to be executed in the
+   * future.
+   */
   Scheduled,
+  /**
+   * The node is currently running.
+   */
   Running,
+  /**
+   * The node is running and has been rescheduled while running. In this case the node run again.
+   * This state exists, because we don't want to add the node to the task pool twice, because then
+   * the node might run twice at the same time, which is not allowed. Instead, once the node is
+   * done running, it will reschedule itself.
+   */
   RunningAndRescheduled,
 };
 
-struct IOIndices {
+/** Indices indicating if a socket is an input of output of the entire graph. */
+struct GraphIOIndices {
+  /** -1 indicates that the socket is not a graph input/output. */
   int input_index = -1;
   int output_index = -1;
 };
 
 struct InputState {
+  /**
+   * Data type of the socket. Access does not required holding the node lock.
+   */
   const CPPType *type = nullptr;
+  /**
+   * Value of this input socket. By default, the value is empty. When other nodes are done
+   * computing their outputs, the computed values will be forwarded to linked input sockets. The
+   * value will thenlive here until it is found that it is not needed anymore.
+   *
+   * If #was_ready_for_execution is true, access does not require holding the node lock.
+   */
   void *value = nullptr;
+  /**
+   * How the node intends to use this input. By default, all inputs may be used. Based on which
+   * outputs are used, a node can decide that an input will definitely be used or is never used.
+   * This allows freeing values early and avoids unnecessary computations.
+   */
   ValueUsage usage = ValueUsage::Maybe;
+  /**
+   * Set to true once #value is set and will stay true afterwards. Access during execution of a
+   * node, does not require holding the node lock.
+   */
   bool was_ready_for_execution = false;
-  bool is_destructed = false;
-  IOIndices io;
+  /**
+   * Indices indicating if this not is an input or output of the graph. Access does not require
+   * holding the node lock.
+   */
+  GraphIOIndices io;
 };
 
 struct OutputState {
+  /**
+   * Data type of the socket. Access does not required holding the node lock.
+   */
   const CPPType *type = nullptr;
+  /**
+   * Keeps track of how the output value is used. If a connected input becomes used, this output
+   * has to become used as well. The output becomes unused when it is used by no input socket
+   * anymore and it's not an output of the graph.
+   */
   ValueUsage usage = ValueUsage::Maybe;
+  /**
+   * This is a copy of #usage that is done right before node execution starts. This is done so that
+   * the node gets a consistent view of what outputs are used, even when this changes while the
+   * node is running (the node might be reevaluated in that case). Access during execution of a
+   * node, does not require holding the node lock.
+   */
   ValueUsage usage_for_execution = ValueUsage::Maybe;
+  /**
+   * Number of linked sockets that might still use the value of this output.
+   */
   int potential_target_sockets = 0;
+  /**
+   * Is set to true once the output has been computed and then stays true. Access does not require
+   * holding the node lock.
+   */
   bool has_been_computed = false;
-  IOIndices io;
+  /**
+   * Indices indicating if this not is an input or output of the graph. Access does not require
+   * holding the node lock.
+   */
+  GraphIOIndices io;
+  /**
+   * Holds the output value for a short period of time while the node is initializing it and before
+   * it's forwarded to input sockets. Access does not require holding the node lock.
+   */
   void *value = nullptr;
 };
 
 struct NodeState {
+  /**
+   * Needs to be locked when any data in this state is accessed that is not explicitly marked as
+   * not needing the lock.
+   */
   mutable std::mutex mutex;
+  /**
+   * States of the individual input and output sockets. One can index into these arrays without
+   * locking. However, to access data inside, a lock is needed unless noted otherwise.
+   */
   MutableSpan<InputState> inputs;
   MutableSpan<OutputState> outputs;
-
+  /**
+   * Counts the number of inputs that still have to be provided to this node, until it should run
+   * again. This is used as an optimization so that nodes are not scheduled unnecessarily in many
+   * cases.
+   */
   int missing_required_inputs = 0;
+  /**
+   * Is set to true once the node is done with its work, i.e. when all outputs that may be used
+   * have been computed.
+   */
   bool node_has_finished = false;
   bool default_inputs_initialized = false;
   bool always_required_inputs_handled = false;
