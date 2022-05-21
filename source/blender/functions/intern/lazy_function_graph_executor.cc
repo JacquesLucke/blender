@@ -35,13 +35,6 @@ enum class NodeScheduleState {
   RunningAndRescheduled,
 };
 
-/** Indices indicating if a socket is an input of output of the entire graph. */
-struct GraphIOIndices {
-  /** -1 indicates that the socket is not a graph input/output. */
-  int input_index = -1;
-  int output_index = -1;
-};
-
 struct InputState {
   /**
    * Value of this input socket. By default, the value is empty. When other nodes are done
@@ -62,11 +55,6 @@ struct InputState {
    * node, does not require holding the node lock.
    */
   bool was_ready_for_execution = false;
-  /**
-   * Indices indicating if this not is an input or output of the graph. Access does not require
-   * holding the node lock.
-   */
-  GraphIOIndices io;
 };
 
 struct OutputState {
@@ -92,11 +80,6 @@ struct OutputState {
    * holding the node lock.
    */
   bool has_been_computed = false;
-  /**
-   * Indices indicating if this not is an input or output of the graph. Access does not require
-   * holding the node lock.
-   */
-  GraphIOIndices io;
   /**
    * Holds the output value for a short period of time while the node is initializing it and before
    * it's forwarded to input sockets. Access does not require holding the node lock.
@@ -193,8 +176,8 @@ class Executor {
   /**
    * Input and output sockets of the entire graph.
    */
-  Span<const LFSocket *> inputs_;
-  Span<const LFSocket *> outputs_;
+  const VectorSet<const LFOutputSocket *> &graph_inputs_;
+  const VectorSet<const LFInputSocket *> &graph_outputs_;
   /**
    * Remembers which inputs have been loaded from the caller already, to void loading them twice.
    */
@@ -225,9 +208,12 @@ class Executor {
 
  public:
   Executor(const LazyFunctionGraph &graph,
-           const Span<const LFSocket *> inputs,
-           const Span<const LFSocket *> outputs)
-      : graph_(graph), inputs_(inputs), outputs_(outputs), loaded_inputs_(inputs.size(), false)
+           const VectorSet<const LFOutputSocket *> &graph_inputs,
+           const VectorSet<const LFInputSocket *> &graph_outputs)
+      : graph_(graph),
+        graph_inputs_(graph_inputs),
+        graph_outputs_(graph_outputs),
+        loaded_inputs_(graph_inputs.size(), false)
   {
     /* The indices are necessary, because they are used as keys in #node_states_. */
     BLI_assert(graph_.node_indices_are_valid());
@@ -261,6 +247,7 @@ class Executor {
     });
 
     if (is_first_execution_) {
+      this->set_always_unused_graph_inputs();
       this->set_defaulted_graph_outputs();
     }
 
@@ -301,36 +288,6 @@ class Executor {
         this->construct_initial_node_state(allocator, node, node_state);
       }
     });
-
-    /* Handle graph inputs. */
-    for (const int io_input_index : inputs_.index_range()) {
-      const LFSocket &socket = *inputs_[io_input_index];
-      const LFNode &node = socket.node();
-      NodeState &node_state = *node_states_[node.index_in_graph()];
-      const int index_in_node = socket.index_in_node();
-      if (socket.is_input()) {
-        node_state.inputs[index_in_node].io.input_index = io_input_index;
-      }
-      else {
-        node_state.outputs[index_in_node].io.input_index = io_input_index;
-      }
-    }
-    /* Handle graph outputs. */
-    for (const int io_output_index : outputs_.index_range()) {
-      const LFSocket &socket = *outputs_[io_output_index];
-      const LFNode &node = socket.node();
-      NodeState &node_state = *node_states_[node.index_in_graph()];
-      const int index_in_node = socket.index_in_node();
-      if (socket.is_input()) {
-        node_state.inputs[index_in_node].io.output_index = io_output_index;
-      }
-      else {
-        OutputState &output_state = node_state.outputs[index_in_node];
-        output_state.io.output_index = io_output_index;
-        /* Update usage, in case it has been set to Unused before. */
-        output_state.usage = ValueUsage::Maybe;
-      }
-    }
   }
 
   void construct_initial_node_state(LinearAllocator<> &allocator,
@@ -372,14 +329,14 @@ class Executor {
 
   void schedule_newly_requested_outputs(CurrentTask *current_task)
   {
-    for (const int io_output_index : outputs_.index_range()) {
+    for (const int io_output_index : graph_outputs_.index_range()) {
       if (params_->get_output_usage(io_output_index) != ValueUsage::Used) {
         continue;
       }
       if (params_->output_was_set(io_output_index)) {
         continue;
       }
-      const LFSocket &socket = *outputs_[io_output_index];
+      const LFSocket &socket = *graph_outputs_[io_output_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
 
@@ -402,8 +359,8 @@ class Executor {
 
   void set_defaulted_graph_outputs()
   {
-    for (const int io_output_index : outputs_.index_range()) {
-      const LFSocket &socket = *outputs_[io_output_index];
+    for (const int io_output_index : graph_outputs_.index_range()) {
+      const LFSocket &socket = *graph_outputs_[io_output_index];
       if (socket.is_output()) {
         continue;
       }
@@ -420,10 +377,23 @@ class Executor {
     }
   }
 
+  void set_always_unused_graph_inputs()
+  {
+    for (const int i : graph_inputs_.index_range()) {
+      const LFOutputSocket &socket = *graph_inputs_[i];
+      const LFNode &node = socket.node();
+      const NodeState &node_state = *node_states_[node.index_in_graph()];
+      const OutputState &output_state = node_state.outputs[socket.index_in_node()];
+      if (output_state.usage == ValueUsage::Unused) {
+        params_->set_input_unused(i);
+      }
+    }
+  }
+
   void forward_newly_provided_inputs(CurrentTask *current_task)
   {
     LinearAllocator<> &allocator = local_allocators_.local();
-    for (const int io_input_index : inputs_.index_range()) {
+    for (const int io_input_index : graph_inputs_.index_range()) {
       if (loaded_inputs_[io_input_index]) {
         continue;
       }
@@ -431,7 +401,7 @@ class Executor {
       if (input_data == nullptr) {
         continue;
       }
-      const LFSocket &socket = *inputs_[io_input_index];
+      const LFSocket &socket = *graph_inputs_[io_input_index];
       const LFNode &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
       this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -445,9 +415,7 @@ class Executor {
         }
         else {
           const LFOutputSocket &output_socket = socket.as_output();
-          OutputState &output_state = node_state.outputs[index_in_node];
-          this->forward_output_provided_by_outside(
-              output_state, output_socket, {type, buffer}, current_task);
+          this->forward_value_to_linked_inputs(output_socket, {type, buffer}, current_task);
         }
       });
       loaded_inputs_[io_input_index] = true;
@@ -461,13 +429,13 @@ class Executor {
     NodeState &node_state = *node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
-    if (output_state.io.input_index != -1) {
-      params_->try_get_input_data_ptr_or_request(output_state.io.input_index);
+    if (node.is_dummy()) {
+      const int graph_input_index = graph_inputs_.index_of(&socket);
+      params_->try_get_input_data_ptr_or_request(graph_input_index);
       return;
     }
 
     BLI_assert(node.is_function());
-
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       if (output_state.usage == ValueUsage::Used) {
         return;
@@ -484,18 +452,20 @@ class Executor {
     NodeState &node_state = *node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
-    if (output_state.io.input_index != -1) {
-      params_->set_input_unused(output_state.io.input_index);
-      return;
-    }
-
+    BLI_assert(node.is_function());
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       output_state.potential_target_sockets -= 1;
       if (output_state.potential_target_sockets == 0) {
         BLI_assert(output_state.usage != ValueUsage::Unused);
-        if (output_state.usage == ValueUsage::Maybe && output_state.io.output_index == -1) {
+        if (output_state.usage == ValueUsage::Maybe) {
           output_state.usage = ValueUsage::Unused;
-          this->schedule_node(locked_node);
+          if (node.is_dummy()) {
+            const int graph_input_index = graph_inputs_.index_of(&socket);
+            params_->set_input_unused(graph_input_index);
+          }
+          else {
+            this->schedule_node(locked_node);
+          }
         }
       }
     });
@@ -617,9 +587,6 @@ class Executor {
             continue;
           }
           InputState &input_state = node_state.inputs[input_index];
-          if (input_state.io.input_index != -1) {
-            continue;
-          }
           const CPPType &type = input_socket.type();
           const void *default_value = input_socket.default_value();
           BLI_assert(default_value != nullptr);
@@ -808,12 +775,6 @@ class Executor {
     input_state.usage = ValueUsage::Used;
     node_state.missing_required_inputs += 1;
 
-    if (input_state.io.input_index != -1) {
-      /* TODO: Can use value from here if it is available already? */
-      params_->try_get_input_data_ptr_or_request(input_state.io.input_index);
-      return nullptr;
-    }
-
     const LFOutputSocket *origin_socket = input_socket.origin();
     /* Unlinked inputs are always loaded in advance. */
     BLI_assert(origin_socket != nullptr);
@@ -821,50 +782,13 @@ class Executor {
     return nullptr;
   }
 
-  void forward_output_provided_by_outside(OutputState &output_state,
-                                          const LFOutputSocket &from_socket,
-                                          GMutablePointer value_to_forward,
-                                          CurrentTask *current_task)
-  {
-    this->copy_value_to_graph_output_if_necessary(value_to_forward, output_state.io.output_index);
-    this->forward_value_to_linked_inputs(from_socket, value_to_forward, current_task);
-  }
-
-  void forward_computed_node_output(OutputState &output_state,
-                                    const LFOutputSocket &from_socket,
-                                    GMutablePointer value_to_forward,
-                                    CurrentTask *current_task)
-  {
-    BLI_assert(value_to_forward.get() != nullptr);
-
-    if (output_state.io.input_index != -1) {
-      /* The computed value is ignored, because it is overridden from the outside. */
-      value_to_forward.destruct();
-      return;
-    }
-    this->copy_value_to_graph_output_if_necessary(value_to_forward, output_state.io.output_index);
-    this->forward_value_to_linked_inputs(from_socket, value_to_forward, current_task);
-  }
-
-  void copy_value_to_graph_output_if_necessary(GMutablePointer value, const int io_output_index)
-  {
-    if (io_output_index == -1) {
-      return;
-    }
-    if (params_->get_output_usage(io_output_index) == ValueUsage::Unused) {
-      return;
-    }
-    void *dst_buffer = params_->get_output_data_ptr(io_output_index);
-    const CPPType &type = *value.type();
-    type.copy_construct(value.get(), dst_buffer);
-    params_->output_set(io_output_index);
-  }
-
   void forward_value_to_linked_inputs(const LFOutputSocket &from_socket,
                                       GMutablePointer value_to_forward,
                                       CurrentTask *current_task)
   {
+    BLI_assert(value_to_forward.get() != nullptr);
     LinearAllocator<> &allocator = local_allocators_.local();
+    const CPPType &type = *value_to_forward.type();
 
     const Span<const LFInputSocket *> targets = from_socket.targets();
     for (const LFInputSocket *target_socket : targets) {
@@ -872,31 +796,35 @@ class Executor {
       NodeState &node_state = *node_states_[target_node.index_in_graph()];
       const int input_index = target_socket->index_in_node();
       InputState &input_state = node_state.inputs[input_index];
+      const bool is_last_target = target_socket == targets.last();
       BLI_assert(input_state.value == nullptr);
       BLI_assert(!input_state.was_ready_for_execution);
-      BLI_assert(target_socket->type() == *value_to_forward.type());
+      BLI_assert(target_socket->type() == type);
 
-      if (input_state.io.input_index != -1) {
-        continue;
-      }
-      if (input_state.io.output_index != -1) {
-        this->copy_value_to_graph_output_if_necessary(value_to_forward,
-                                                      input_state.io.output_index);
-      }
       if (target_node.is_dummy()) {
+        const int graph_output_index = graph_outputs_.index_of(target_socket);
+        if (params_->get_output_usage(graph_output_index) != ValueUsage::Unused) {
+          void *dst_buffer = params_->get_output_data_ptr(graph_output_index);
+          if (is_last_target) {
+            type.move_construct(value_to_forward.get(), dst_buffer);
+          }
+          else {
+            type.copy_construct(value_to_forward.get(), dst_buffer);
+          }
+          params_->output_set(graph_output_index);
+        }
         continue;
       }
       this->with_locked_node(target_node, node_state, current_task, [&](LockedNode &locked_node) {
         if (input_state.usage == ValueUsage::Unused) {
           return;
         }
-        if (target_socket == targets.last()) {
+        if (is_last_target) {
           /* No need to make a copy if this is the last target. */
           this->forward_value_to_input(locked_node, input_state, value_to_forward);
           value_to_forward = {};
         }
         else {
-          const CPPType &type = *value_to_forward.type();
           void *buffer = allocator.allocate(type.size(), type.alignment());
           type.copy_construct(value_to_forward.get(), buffer);
           this->forward_value_to_input(locked_node, input_state, {type, buffer});
@@ -973,7 +901,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     BLI_assert(!output_state.has_been_computed);
     if (output_state.value == nullptr) {
       LinearAllocator<> &allocator = executor_.local_allocators_.local();
-      const CPPType &type = node_.input(index).type();
+      const CPPType &type = node_.output(index).type();
       output_state.value = allocator.allocate(type.size(), type.alignment());
     }
     return output_state.value;
@@ -985,8 +913,8 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
     BLI_assert(!output_state.has_been_computed);
     BLI_assert(output_state.value != nullptr);
     const LFOutputSocket &output_socket = node_.output(index);
-    executor_.forward_computed_node_output(
-        output_state, output_socket, {output_socket.type(), output_state.value}, current_task_);
+    executor_.forward_value_to_linked_inputs(
+        output_socket, {output_socket.type(), output_state.value}, current_task_);
     output_state.value = nullptr;
     output_state.has_been_computed = true;
   }
@@ -1019,14 +947,16 @@ void Executor::execute_node(const LFFunctionNode &node,
 }
 
 LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
-                                                     Vector<const LFSocket *> inputs,
-                                                     Vector<const LFSocket *> outputs)
-    : graph_(graph), input_sockets_(std::move(inputs)), output_sockets_(std::move(outputs))
+                                                     Span<const LFOutputSocket *> graph_inputs,
+                                                     Span<const LFInputSocket *> graph_outputs)
+    : graph_(graph), graph_inputs_(graph_inputs), graph_outputs_(graph_outputs)
 {
-  for (const LFSocket *socket : input_sockets_) {
+  for (const LFOutputSocket *socket : graph_inputs_) {
+    BLI_assert(socket->node().is_dummy());
     inputs_.append({"In", socket->type(), ValueUsage::Maybe});
   }
-  for (const LFSocket *socket : output_sockets_) {
+  for (const LFInputSocket *socket : graph_outputs_) {
+    BLI_assert(socket->node().is_dummy());
     outputs_.append({"Out", socket->type()});
   }
 }
@@ -1040,7 +970,7 @@ void LazyFunctionGraphExecutor::execute_impl(LazyFunctionParams &params) const
 void *LazyFunctionGraphExecutor::init_storage(LinearAllocator<> &allocator) const
 {
   Executor &executor =
-      *allocator.construct<Executor>(graph_, input_sockets_, output_sockets_).release();
+      *allocator.construct<Executor>(graph_, graph_inputs_, graph_outputs_).release();
   return &executor;
 }
 

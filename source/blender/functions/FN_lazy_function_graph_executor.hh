@@ -6,6 +6,8 @@
  * \ingroup fn
  */
 
+#include "BLI_vector_set.hh"
+
 #include "FN_lazy_function_graph.hh"
 
 namespace blender::fn {
@@ -13,13 +15,13 @@ namespace blender::fn {
 class LazyFunctionGraphExecutor : public LazyFunction {
  private:
   const LazyFunctionGraph &graph_;
-  Vector<const LFSocket *> input_sockets_;
-  Vector<const LFSocket *> output_sockets_;
+  VectorSet<const LFOutputSocket *> graph_inputs_;
+  VectorSet<const LFInputSocket *> graph_outputs_;
 
  public:
   LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
-                            Vector<const LFSocket *> inputs,
-                            Vector<const LFSocket *> outputs);
+                            Span<const LFOutputSocket *> graph_inputs,
+                            Span<const LFInputSocket *> graph_outputs);
 
   void *init_storage(LinearAllocator<> &allocator) const override;
   void destruct_storage(void *storage) const override;

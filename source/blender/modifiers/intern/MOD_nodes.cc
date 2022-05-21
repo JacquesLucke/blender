@@ -1087,11 +1087,11 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   graph.update_node_indices();
   std::cout << graph.to_dot() << "\n";
 
-  Vector<const LFSocket *> graph_inputs;
-  Vector<const LFSocket *> graph_outputs = {
-      graph_resources.dummy_socket_map.lookup(&output_node.input(0))};
+  Vector<const LFOutputSocket *> graph_inputs;
+  Vector<const LFInputSocket *> graph_outputs = {
+      &graph_resources.dummy_socket_map.lookup(&output_node.input(0))->as_input()};
 
-  for (const LFSocket *socket : graph_resources.group_input_sockets) {
+  for (const LFOutputSocket *socket : graph_resources.group_input_sockets) {
     graph_inputs.append(socket);
   }
 

@@ -334,18 +334,18 @@ class GroupNodeFunction : public LazyFunction {
     geometry_nodes_to_lazy_function_graph(*tree_ref_, graph_, resources_);
     graph_.update_node_indices();
 
-    Vector<const LFSocket *> graph_inputs;
-    for (const LFSocket *socket : resources_.group_input_sockets) {
+    Vector<const LFOutputSocket *> graph_inputs;
+    for (const LFOutputSocket *socket : resources_.group_input_sockets) {
       if (socket != nullptr) {
         graph_inputs.append(socket);
       }
     }
-    Vector<const LFSocket *> graph_outputs;
+    Vector<const LFInputSocket *> graph_outputs;
     for (const NodeRef *node : tree_ref_->nodes_by_type("NodeGroupOutput")) {
       for (const InputSocketRef *socket_ref : node->inputs()) {
         const LFSocket *socket = resources_.dummy_socket_map.lookup_default(socket_ref, nullptr);
         if (socket != nullptr) {
-          graph_outputs.append(socket);
+          graph_outputs.append(&socket->as_input());
         }
       }
       break;
