@@ -6,7 +6,7 @@
 
 #include "DNA_node_types.h"
 
-#include "NOD_derived_node_tree.hh"
+#include "NOD_node_tree_ref.hh"
 
 namespace blender::nodes {
 
@@ -60,9 +60,9 @@ class NodeMultiFunctions {
   Map<const bNode *, Item> map_;
 
  public:
-  NodeMultiFunctions(const DerivedNodeTree &tree);
+  NodeMultiFunctions(const NodeTreeRef &tree);
 
-  const Item &try_get(const DNode &node) const;
+  const Item &try_get(const NodeRef &node) const;
 };
 
 /* -------------------------------------------------------------------- */
@@ -107,10 +107,10 @@ inline void NodeMultiFunctionBuilder::construct_and_set_matching_fn(Args &&...ar
 /** \name #NodeMultiFunctions Inline Methods
  * \{ */
 
-inline const NodeMultiFunctions::Item &NodeMultiFunctions::try_get(const DNode &node) const
+inline const NodeMultiFunctions::Item &NodeMultiFunctions::try_get(const NodeRef &node) const
 {
   static Item empty_item;
-  const Item *item = map_.lookup_ptr(node->bnode());
+  const Item *item = map_.lookup_ptr(node.bnode());
   if (item == nullptr) {
     return empty_item;
   }
