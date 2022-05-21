@@ -126,6 +126,27 @@ class MultiInputLazyFunction : public LazyFunction {
   }
 };
 
+class RerouteNodeFunction : public LazyFunction {
+ public:
+  RerouteNodeFunction(const CPPType &type)
+  {
+    static_name_ = "Reroute";
+    inputs_.append({"Input", type});
+    outputs_.append({"Output", type});
+  }
+
+  void execute_impl(LazyFunctionParams &params) const override
+  {
+    void *input_value = params.try_get_input_data_ptr(0);
+    void *output_value = params.get_output_data_ptr(0);
+    BLI_assert(input_value != nullptr);
+    BLI_assert(output_value != nullptr);
+    const CPPType &type = *inputs_[0].type;
+    type.move_construct(input_value, output_value);
+    params.output_set(0);
+  }
+};
+
 static void execute_multi_function_on_value_or_field(
     const MultiFunction &fn,
     const std::shared_ptr<MultiFunction> &owned_fn,
@@ -335,6 +356,14 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
         break;
       }
       case NODE_REROUTE: {
+        const CPPType *type = get_socket_cpp_type(node_ref->input(0));
+        if (type != nullptr) {
+          auto fn = std::make_unique<RerouteNodeFunction>(*type);
+          LFNode &node = graph.add_function(*fn);
+          resources.functions.append(std::move(fn));
+          input_socket_map.add(&node_ref->input(0), &node.input(0));
+          output_socket_map.add_new(&node_ref->output(0), &node.output(0));
+        }
         break;
       }
       case NODE_GROUP_INPUT: {
