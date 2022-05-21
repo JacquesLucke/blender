@@ -215,9 +215,11 @@ class Executor {
 
   void destruct_node_state(const LFNode &node, NodeState &node_state)
   {
-    const LazyFunction &fn = node.function();
-    if (node_state.storage != nullptr) {
-      fn.destruct_storage(node_state.storage);
+    if (node.is_function()) {
+      const LazyFunction &fn = static_cast<const LFFunctionNode &>(node).function();
+      if (node_state.storage != nullptr) {
+        fn.destruct_storage(node_state.storage);
+      }
     }
     for (InputState &input_state : node_state.inputs) {
       this->destruct_input_value_if_exists(input_state);
@@ -400,6 +402,9 @@ class Executor {
     NodeState &node_state = *node_states_[node.index()];
     LinearAllocator<> &allocator = local_allocators_.local();
 
+    BLI_assert(node.is_function());
+    const LFFunctionNode &fn_node = static_cast<const LFFunctionNode &>(node);
+
     bool node_needs_execution = false;
     this->with_locked_node(node, node_state, &current_task, [&](LockedNode &locked_node) {
       BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
@@ -441,12 +446,12 @@ class Executor {
       }
 
       if (!node_state.storage_initialized) {
-        node_state.storage = node.function().init_storage(allocator);
+        node_state.storage = fn_node.function().init_storage(allocator);
         node_state.storage_initialized = true;
       }
 
       if (!node_state.always_required_inputs_handled) {
-        const LazyFunction &fn = node.function();
+        const LazyFunction &fn = fn_node.function();
         const Span<LazyFunctionInput> fn_inputs = fn.inputs();
         for (const int input_index : fn_inputs.index_range()) {
           const LazyFunctionInput &fn_input = fn_inputs[input_index];
@@ -475,7 +480,7 @@ class Executor {
     });
 
     if (node_needs_execution) {
-      this->execute_node(node, node_state, &current_task);
+      this->execute_node(fn_node, node_state, &current_task);
     }
 
     this->with_locked_node(node, node_state, &current_task, [&](LockedNode &locked_node) {
@@ -543,7 +548,10 @@ class Executor {
     }
 
     if (node_state.storage != nullptr) {
-      node.function().destruct_storage(node_state.storage);
+      if (node.is_function()) {
+        const LFFunctionNode &fn_node = static_cast<const LFFunctionNode &>(node);
+        fn_node.function().destruct_storage(node_state.storage);
+      }
       node_state.storage = nullptr;
     }
   }
@@ -557,7 +565,7 @@ class Executor {
     }
   }
 
-  void execute_node(const LFNode &node, NodeState &node_state, CurrentTask *current_task);
+  void execute_node(const LFFunctionNode &node, NodeState &node_state, CurrentTask *current_task);
 
   void set_input_unused_during_execution(const LFNode &node,
                                          NodeState &node_state,
@@ -818,7 +826,9 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
   }
 };
 
-void Executor::execute_node(const LFNode &node, NodeState &node_state, CurrentTask *current_task)
+void Executor::execute_node(const LFFunctionNode &node,
+                            NodeState &node_state,
+                            CurrentTask *current_task)
 {
   const LazyFunction &fn = node.function();
   GraphExecutorLazyFunctionParams node_params{fn, *this, node, node_state, current_task};

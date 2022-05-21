@@ -73,7 +73,7 @@ class LFOutputSocket : public LFSocket {
 };
 
 class LFNode : NonCopyable, NonMovable {
- private:
+ protected:
   const LazyFunction *fn_ = nullptr;
   Span<LFInputSocket *> inputs_;
   Span<LFOutputSocket *> outputs_;
@@ -82,7 +82,8 @@ class LFNode : NonCopyable, NonMovable {
   friend LazyFunctionGraph;
 
  public:
-  const LazyFunction &function() const;
+  bool is_dummy() const;
+  bool is_function() const;
   int index() const;
 
   Span<const LFInputSocket *> inputs() const;
@@ -98,6 +99,18 @@ class LFNode : NonCopyable, NonMovable {
   std::string name() const;
 };
 
+class LFFunctionNode : public LFNode {
+ public:
+  const LazyFunction &function() const;
+};
+
+class LFDummyNode : public LFNode {
+ private:
+  std::string name_;
+
+  friend LFNode;
+};
+
 class LazyFunctionGraph : NonCopyable, NonMovable {
  private:
   LinearAllocator<> allocator_;
@@ -108,7 +121,8 @@ class LazyFunctionGraph : NonCopyable, NonMovable {
 
   Span<const LFNode *> nodes() const;
 
-  LFNode &add_node(const LazyFunction &fn);
+  LFFunctionNode &add_function(const LazyFunction &fn);
+  LFDummyNode &add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types);
   void add_link(LFOutputSocket &from, LFInputSocket &to);
 
   void update_node_indices();
@@ -232,9 +246,14 @@ inline Span<LFInputSocket *> LFOutputSocket::targets()
 /** \name #LFNode Inline Methods
  * \{ */
 
-inline const LazyFunction &LFNode::function() const
+inline bool LFNode::is_dummy() const
 {
-  return *fn_;
+  return fn_ == nullptr;
+}
+
+inline bool LFNode::is_function() const
+{
+  return fn_ != nullptr;
 }
 
 inline int LFNode::index() const
@@ -280,6 +299,18 @@ inline LFInputSocket &LFNode::input(const int index)
 inline LFOutputSocket &LFNode::output(const int index)
 {
   return *outputs_[index];
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name #LFFunctionNode Inline Methods
+ * \{ */
+
+inline const LazyFunction &LFFunctionNode::function() const
+{
+  BLI_assert(fn_ != nullptr);
+  return *fn_;
 }
 
 /** \} */

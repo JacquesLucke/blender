@@ -228,7 +228,7 @@ static LFOutputSocket *insert_type_conversion(LazyFunctionGraph &graph,
           MFDataType::ForSingle(from_base_type), MFDataType::ForSingle(to_base_type));
       auto fn = std::make_unique<MultiFunctionConversion>(
           multi_fn, *from_field_type, *to_field_type);
-      LFNode &conversion_node = graph.add_node(*fn);
+      LFNode &conversion_node = graph.add_function(*fn);
       resources.functions.append(std::move(fn));
       graph.add_link(from_socket, conversion_node.input(0));
       return &conversion_node.output(0);
@@ -254,7 +254,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
     Vector<const InputSocketRef *> used_inputs;
     Vector<const OutputSocketRef *> used_outputs;
     auto fn = std::make_unique<GeometryNodeLazyFunction>(*node_ref, used_inputs, used_outputs);
-    LFNode &node = graph.add_node(*fn);
+    LFNode &node = graph.add_function(*fn);
     resources.functions.append(std::move(fn));
 
     for (const int i : used_inputs.index_range()) {
@@ -263,7 +263,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
 
       if (socket_ref.is_multi_input_socket()) {
         auto fn = std::make_unique<MultiInputLazyFunction>(socket_ref);
-        LFNode &multi_input_node = graph.add_node(*fn);
+        LFNode &multi_input_node = graph.add_function(*fn);
         resources.functions.append(std::move(fn));
         graph.add_link(multi_input_node.output(0), socket);
         multi_input_socket_nodes.add(&socket_ref, &multi_input_node);

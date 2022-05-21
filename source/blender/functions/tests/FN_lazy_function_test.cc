@@ -92,7 +92,7 @@ static Vector<LFNode *> build_add_node_chain(LazyFunctionGraph &graph,
   static AddLazyFunction fn;
   Vector<LFNode *> nodes;
   for ([[maybe_unused]] const int i : IndexRange(chain_length)) {
-    LFNode &node = graph.add_node(fn);
+    LFNode &node = graph.add_function(fn);
     node.input(0).set_default_value(default_value);
     node.input(1).set_default_value(default_value);
     nodes.append(&node);
@@ -124,7 +124,7 @@ static MultiChainResult build_multiple_chains(LazyFunctionGraph &graph,
       result.last_node = chain.last();
     }
     else {
-      LFNode &node = graph.add_node(fn);
+      LFNode &node = graph.add_function(fn);
       node.input(0).set_default_value(default_value);
       node.input(1).set_default_value(default_value);
       graph.add_link(result.last_node->output(0), node.input(0));
