@@ -252,8 +252,8 @@ class Executor {
     }
 
     CurrentTask current_task;
-    this->schedule_newly_requested_outputs(&current_task);
-    this->forward_newly_provided_inputs(&current_task);
+    this->schedule_newly_requested_outputs(current_task);
+    this->forward_newly_provided_inputs(current_task);
 
     /* Avoid using task pool when there is no parallel work to do. */
     while (!current_task.added_node_to_pool) {
@@ -326,7 +326,7 @@ class Executor {
     std::destroy_at(&node_state);
   }
 
-  void schedule_newly_requested_outputs(CurrentTask *current_task)
+  void schedule_newly_requested_outputs(CurrentTask &current_task)
   {
     for (const int graph_output_index : graph_outputs_.index_range()) {
       if (params_->get_output_usage(graph_output_index) != ValueUsage::Used) {
@@ -377,7 +377,7 @@ class Executor {
     }
   }
 
-  void forward_newly_provided_inputs(CurrentTask *current_task)
+  void forward_newly_provided_inputs(CurrentTask &current_task)
   {
     LinearAllocator<> &allocator = local_allocators_.local();
     for (const int graph_input_index : graph_inputs_.index_range()) {
@@ -397,7 +397,7 @@ class Executor {
     }
   }
 
-  void notify_output_required(const LFOutputSocket &socket, CurrentTask *current_task)
+  void notify_output_required(const LFOutputSocket &socket, CurrentTask &current_task)
   {
     const LFNode &node = socket.node();
     const int index_in_node = socket.index_in_node();
@@ -420,7 +420,7 @@ class Executor {
     });
   }
 
-  void notify_output_unused(const LFOutputSocket &socket, CurrentTask *current_task)
+  void notify_output_unused(const LFOutputSocket &socket, CurrentTask &current_task)
   {
     const LFNode &node = socket.node();
     const int index_in_node = socket.index_in_node();
@@ -470,7 +470,7 @@ class Executor {
 
   void with_locked_node(const LFNode &node,
                         NodeState &node_state,
-                        CurrentTask *current_task,
+                        CurrentTask &current_task,
                         const FunctionRef<void(LockedNode &)> f)
   {
     BLI_assert(&node_state == node_states_[node.index_in_graph()]);
@@ -488,15 +488,13 @@ class Executor {
       this->notify_output_unused(*socket, current_task);
     }
     for (const LFNode *node_to_schedule : locked_node.delayed_scheduled_nodes) {
-      if (current_task != nullptr) {
-        const LFNode *expected = nullptr;
-        if (current_task->next_node.compare_exchange_strong(
-                expected, node_to_schedule, std::memory_order_relaxed)) {
-          continue;
-        }
+      const LFNode *expected = nullptr;
+      if (current_task.next_node.compare_exchange_strong(
+              expected, node_to_schedule, std::memory_order_relaxed)) {
+        continue;
       }
       this->add_node_to_task_pool(*node_to_schedule);
-      current_task->added_node_to_pool.store(true, std::memory_order_relaxed);
+      current_task.added_node_to_pool.store(true, std::memory_order_relaxed);
     }
   }
 
@@ -532,7 +530,7 @@ class Executor {
     const LFFunctionNode &fn_node = static_cast<const LFFunctionNode &>(node);
 
     bool node_needs_execution = false;
-    this->with_locked_node(node, node_state, &current_task, [&](LockedNode &locked_node) {
+    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
       node_state.schedule_state = NodeScheduleState::Running;
 
@@ -599,10 +597,10 @@ class Executor {
     });
 
     if (node_needs_execution) {
-      this->execute_node(fn_node, node_state, &current_task);
+      this->execute_node(fn_node, node_state, current_task);
     }
 
-    this->with_locked_node(node, node_state, &current_task, [&](LockedNode &locked_node) {
+    this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       this->finish_node_if_possible(locked_node);
       const bool reschedule_requested = node_state.schedule_state ==
                                         NodeScheduleState::RunningAndRescheduled;
@@ -683,12 +681,12 @@ class Executor {
     }
   }
 
-  void execute_node(const LFFunctionNode &node, NodeState &node_state, CurrentTask *current_task);
+  void execute_node(const LFFunctionNode &node, NodeState &node_state, CurrentTask &current_task);
 
   void set_input_unused_during_execution(const LFNode &node,
                                          NodeState &node_state,
                                          const int input_index,
-                                         CurrentTask *current_task)
+                                         CurrentTask &current_task)
   {
     const LFInputSocket &input_socket = node.input(input_index);
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -721,7 +719,7 @@ class Executor {
   void *set_input_required_during_execution(const LFNode &node,
                                             NodeState &node_state,
                                             const int input_index,
-                                            CurrentTask *current_task)
+                                            CurrentTask &current_task)
   {
     const LFInputSocket &input_socket = node.input(input_index);
     void *result;
@@ -759,7 +757,7 @@ class Executor {
 
   void forward_value_to_linked_inputs(const LFOutputSocket &from_socket,
                                       GMutablePointer value_to_forward,
-                                      CurrentTask *current_task)
+                                      CurrentTask &current_task)
   {
     BLI_assert(value_to_forward.get() != nullptr);
     LinearAllocator<> &allocator = local_allocators_.local();
@@ -835,14 +833,14 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
   Executor &executor_;
   const LFNode &node_;
   NodeState &node_state_;
-  CurrentTask *current_task_;
+  CurrentTask &current_task_;
 
  public:
   GraphExecutorLazyFunctionParams(const LazyFunction &fn,
                                   Executor &executor,
                                   const LFNode &node,
                                   NodeState &node_state,
-                                  CurrentTask *current_task)
+                                  CurrentTask &current_task)
       : LazyFunctionParams(fn, node_state.storage, executor.params_->user_data()),
         executor_(executor),
         node_(node),
@@ -914,7 +912,7 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
 
 void Executor::execute_node(const LFFunctionNode &node,
                             NodeState &node_state,
-                            CurrentTask *current_task)
+                            CurrentTask &current_task)
 {
   const LazyFunction &fn = node.function();
   GraphExecutorLazyFunctionParams node_params{fn, *this, node, node_state, current_task};
