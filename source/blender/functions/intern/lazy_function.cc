@@ -62,12 +62,12 @@ bool LazyFunction::valid_params_for_execution(const LazyFunctionParams &params) 
 
 void LazyFunctionParams::set_default_remaining_outputs()
 {
-  for (const int i : fn_.inputs().index_range()) {
+  for (const int i : fn_.outputs().index_range()) {
     if (this->output_was_set(i)) {
       continue;
     }
-    const LazyFunctionInput &fn_input = fn_.inputs()[i];
-    const CPPType &type = *fn_input.type;
+    const LazyFunctionOutput &fn_output = fn_.outputs()[i];
+    const CPPType &type = *fn_output.type;
     void *data_ptr = this->get_output_data_ptr(i);
     type.value_initialize(data_ptr);
     this->output_set(i);
