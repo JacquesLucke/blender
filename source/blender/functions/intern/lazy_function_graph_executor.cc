@@ -584,6 +584,7 @@ class Executor {
         }
         if (input_state.value != nullptr) {
           input_state.was_ready_for_execution = true;
+          continue;
         }
         if (input_state.usage == ValueUsage::Used) {
           return;
