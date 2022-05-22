@@ -51,6 +51,7 @@ static void lazy_function_interface_from_node(const NodeRef &node,
                                               Vector<fn::LazyFunctionInput> &r_inputs,
                                               Vector<fn::LazyFunctionOutput> &r_outputs)
 {
+  const bool is_muted = node.is_muted();
   const bool supports_lazyness = node.bnode()->typeinfo->geometry_node_execute_supports_laziness ||
                                  node.bnode()->type == NODE_GROUP;
   const fn::ValueUsage input_usage = supports_lazyness ? fn::ValueUsage::Maybe :
@@ -63,7 +64,7 @@ static void lazy_function_interface_from_node(const NodeRef &node,
     if (type == nullptr) {
       continue;
     }
-    if (socket->is_multi_input_socket()) {
+    if (socket->is_multi_input_socket() && !is_muted) {
       type = get_vector_type(*type);
     }
     /* TODO: Name may not be static. */
@@ -231,6 +232,83 @@ static void execute_multi_function_on_value_or_field(
     fn.call(IndexRange(1), params, context);
   }
 }
+
+class MutedNodeFunction : public LazyFunction {
+ private:
+  Array<int> input_by_output_index_;
+
+ public:
+  MutedNodeFunction(const NodeRef &node,
+                    Vector<const InputSocketRef *> &r_used_inputs,
+                    Vector<const OutputSocketRef *> &r_used_outputs)
+  {
+    static_name_ = "Muted";
+    lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
+    for (fn::LazyFunctionInput &fn_input : inputs_) {
+      fn_input.usage = fn::ValueUsage::Maybe;
+    }
+
+    for (fn::LazyFunctionInput &fn_input : inputs_) {
+      fn_input.usage = fn::ValueUsage::Unused;
+    }
+
+    input_by_output_index_.reinitialize(outputs_.size());
+    input_by_output_index_.fill(-1);
+    for (const InternalLinkRef *internal_link : node.internal_links()) {
+      const int input_i = r_used_inputs.first_index_of_try(&internal_link->from());
+      const int output_i = r_used_outputs.first_index_of_try(&internal_link->to());
+      if (ELEM(-1, input_i, output_i)) {
+        continue;
+      }
+      input_by_output_index_[output_i] = input_i;
+      inputs_[input_i].usage = fn::ValueUsage::Maybe;
+    }
+  }
+
+  void execute_impl(LazyFunctionParams &params) const override
+  {
+    for (const int output_i : outputs_.index_range()) {
+      if (params.output_was_set(output_i)) {
+        continue;
+      }
+      const CPPType &output_type = *outputs_[output_i].type;
+      void *output_value = params.get_output_data_ptr(output_i);
+      const int input_i = input_by_output_index_[output_i];
+      if (input_i == -1) {
+        output_type.value_initialize(output_value);
+        params.output_set(output_i);
+        continue;
+      }
+      const void *input_value = params.try_get_input_data_ptr_or_request(input_i);
+      if (input_value == nullptr) {
+        continue;
+      }
+      const CPPType &input_type = *inputs_[input_i].type;
+      if (input_type == output_type) {
+        input_type.copy_construct(input_value, output_value);
+        params.output_set(output_i);
+        continue;
+      }
+      const bke::DataTypeConversions &conversions = bke::get_implicit_type_conversions();
+      const auto *from_field_type = dynamic_cast<const ValueOrFieldCPPType *>(&input_type);
+      const auto *to_field_type = dynamic_cast<const ValueOrFieldCPPType *>(&output_type);
+      if (from_field_type != nullptr && to_field_type != nullptr) {
+        const CPPType &from_base_type = from_field_type->base_type();
+        const CPPType &to_base_type = to_field_type->base_type();
+        if (conversions.is_convertible(from_base_type, to_base_type)) {
+          const MultiFunction &multi_fn = *conversions.get_conversion_multi_function(
+              MFDataType::ForSingle(from_base_type), MFDataType::ForSingle(to_base_type));
+          execute_multi_function_on_value_or_field(
+              multi_fn, {}, {from_field_type}, {to_field_type}, {input_value}, {output_value});
+        }
+        params.output_set(output_i);
+        continue;
+      }
+      output_type.value_initialize(output_value);
+      params.output_set(output_i);
+    }
+  }
+};
 
 class MultiFunctionConversion : public LazyFunction {
  private:
@@ -469,6 +547,23 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
     if (node_type == nullptr) {
       continue;
     }
+    if (node_ref->is_muted()) {
+      Vector<const InputSocketRef *> used_inputs;
+      Vector<const OutputSocketRef *> used_outputs;
+      auto fn = std::make_unique<MutedNodeFunction>(*node_ref, used_inputs, used_outputs);
+      LFNode &node = graph.add_function(*fn);
+      resources.functions.append(std::move(fn));
+      for (const int i : used_inputs.index_range()) {
+        const InputSocketRef &socket_ref = *used_inputs[i];
+        input_socket_map.add(&socket_ref, &node.input(i));
+        prepare_socket_default_value(node.input(i), socket_ref, resources);
+      }
+      for (const int i : used_outputs.index_range()) {
+        const OutputSocketRef &socket_ref = *used_outputs[i];
+        output_socket_map.add_new(&socket_ref, &node.output(i));
+      }
+      continue;
+    }
     switch (node_type->type) {
       case NODE_FRAME: {
         /* Ignored. */
@@ -651,7 +746,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
 
       for (const LinkRef *link_ref : links) {
         const InputSocketRef &to_socket_ref = link_ref->to();
-        if (to_socket_ref.is_multi_input_socket()) {
+        if (to_socket_ref.is_multi_input_socket() && !to_socket_ref.node().is_muted()) {
           LFNode *multi_input_node = multi_input_socket_nodes.lookup_default(&to_socket_ref,
                                                                              nullptr);
           if (multi_input_node == nullptr) {
