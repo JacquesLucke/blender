@@ -772,8 +772,9 @@ class Executor {
       BLI_assert(target_socket->type() == type);
 
       if (target_node.is_dummy()) {
-        const int graph_output_index = graph_outputs_.index_of(target_socket);
-        if (params_->get_output_usage(graph_output_index) != ValueUsage::Unused) {
+        const int graph_output_index = graph_outputs_.index_of_try(target_socket);
+        if (graph_output_index != -1 &&
+            params_->get_output_usage(graph_output_index) != ValueUsage::Unused) {
           void *dst_buffer = params_->get_output_data_ptr(graph_output_index);
           if (is_last_target) {
             type.move_construct(value_to_forward.get(), dst_buffer);

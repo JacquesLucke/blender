@@ -746,15 +746,24 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
 
       for (const LinkRef *link_ref : links) {
         const InputSocketRef &to_socket_ref = link_ref->to();
-        if (to_socket_ref.is_multi_input_socket() && !to_socket_ref.node().is_muted()) {
-          LFNode *multi_input_node = multi_input_socket_nodes.lookup_default(&to_socket_ref,
-                                                                             nullptr);
-          if (multi_input_node == nullptr) {
-            continue;
-          }
+        if (to_socket_ref.is_multi_input_socket()) {
           /* TODO: Use stored link index, but need to validate it. */
           const int link_index = to_socket_ref.directly_linked_links().first_index_try(link_ref);
-          make_input_link_or_set_default(multi_input_node->input(link_index));
+          if (to_socket_ref.node().is_muted()) {
+            if (link_index == 0) {
+              for (LFInputSocket *to : input_socket_map.lookup(&to_socket_ref)) {
+                make_input_link_or_set_default(*to);
+              }
+            }
+          }
+          else {
+            LFNode *multi_input_node = multi_input_socket_nodes.lookup_default(&to_socket_ref,
+                                                                               nullptr);
+            if (multi_input_node == nullptr) {
+              continue;
+            }
+            make_input_link_or_set_default(multi_input_node->input(link_index));
+          }
         }
         else {
           for (LFInputSocket *to : input_socket_map.lookup(&to_socket_ref)) {
