@@ -57,6 +57,8 @@ bool LazyFunction::valid_params_for_execution(const LazyFunctionParams &params) 
       }
     }
   }
+  BLI_assert(all_required_inputs_available);
+  BLI_assert(any_remaining_output_left);
   return all_required_inputs_available && any_remaining_output_left;
 }
 

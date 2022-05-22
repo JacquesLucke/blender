@@ -42,6 +42,9 @@ static const CPPType *get_vector_type(const CPPType &type)
   if (type.is<GeometrySet>()) {
     return &CPPType::get<Vector<GeometrySet>>();
   }
+  if (type.is<ValueOrField<std::string>>()) {
+    return &CPPType::get<Vector<ValueOrField<std::string>>>();
+  }
   return nullptr;
 }
 
