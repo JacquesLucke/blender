@@ -129,7 +129,7 @@ class MultiInputLazyFunction : public LazyFunction {
   void execute_impl(LazyFunctionParams &params) const override
   {
     const CPPType &base_type = *inputs_[0].type;
-    base_type.to_static_type_tag<GeometrySet, int>([&](auto type_tag) {
+    base_type.to_static_type_tag<GeometrySet, ValueOrField<std::string>>([&](auto type_tag) {
       using T = typename decltype(type_tag)::type;
       if constexpr (std::is_void_v<T>) {
         /* This type is not support in this node for now. */
