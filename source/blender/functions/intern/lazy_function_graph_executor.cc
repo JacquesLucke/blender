@@ -525,8 +525,6 @@ class Executor {
     LinearAllocator<> &allocator = local_allocators_.local();
     const LazyFunction &fn = node.function();
 
-    BLI_SCOPED_DEFER([&]() { node_state.is_first_run = false; });
-
     bool node_needs_execution = false;
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       BLI_assert(node_state.schedule_state == NodeScheduleState::Scheduled);
@@ -600,6 +598,8 @@ class Executor {
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       this->finish_node_if_possible(locked_node);
+      /* Set this before possibly rescheduling the same node. */
+      node_state.is_first_run = false;
       const bool reschedule_requested = node_state.schedule_state ==
                                         NodeScheduleState::RunningAndRescheduled;
       node_state.schedule_state = NodeScheduleState::NotScheduled;
@@ -771,6 +771,7 @@ class Executor {
       BLI_assert(input_state.value == nullptr);
       BLI_assert(!input_state.was_ready_for_execution);
       BLI_assert(target_socket->type() == type);
+      BLI_assert(target_socket->origin() == &from_socket);
 
       if (target_node.is_dummy()) {
         const int graph_output_index = graph_outputs_.index_of_try(target_socket);
