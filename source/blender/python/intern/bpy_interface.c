@@ -238,7 +238,7 @@ void BPY_context_set(bContext *C)
 extern PyObject *Manta_initPython(void);
 #endif
 
-#ifdef WITH_AUDASPACE
+#ifdef WITH_AUDASPACE_PY
 /* defined in AUD_C-API.cpp */
 extern PyObject *AUD_initPython(void);
 #endif
@@ -272,7 +272,7 @@ static struct _inittab bpy_internal_modules[] = {
 #ifdef WITH_FLUID
     {"manta", Manta_initPython},
 #endif
-#ifdef WITH_AUDASPACE
+#ifdef WITH_AUDASPACE_PY
     {"aud", AUD_initPython},
 #endif
 #ifdef WITH_CYCLES
@@ -311,6 +311,14 @@ void BPY_python_start(bContext *C, int argc, const char **argv)
   {
     PyPreConfig preconfig;
     PyStatus status;
+
+    /* To narrow down reports where the systems Python is inexplicably used, see: T98131. */
+    CLOG_INFO(
+        BPY_LOG_INTERFACE,
+        2,
+        "Initializing %s support for the systems Python environment such as 'PYTHONPATH' and "
+        "the user-site directory.",
+        py_use_system_env ? "*with*" : "*without*");
 
     if (py_use_system_env) {
       PyPreConfig_InitPythonConfig(&preconfig);
