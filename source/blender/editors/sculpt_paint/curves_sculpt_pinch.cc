@@ -122,16 +122,33 @@ struct PinchOperationExecutor {
     threading::parallel_for(curves_->curves_range(), 256, [&](const IndexRange curves_range) {
       for (const int curve_i : curves_range) {
         const IndexRange points = curves_->points_for_curve(curve_i);
+        bool &curve_changed = changed_curves[curve_i];
         for (const int point_i : points.drop_front(1)) {
           const float3 old_pos_cu = positions_cu[point_i];
-          const float3 old_pos_wo = curves_to_world_mat_ * old_pos_cu;
+          float2 old_pos_re;
+          ED_view3d_project_float_v2_m4(region_, old_pos_cu, old_pos_re, projection.values);
+
+          const float distance_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
+          if (distance_to_brush_sq_re > brush_radius_sq_re) {
+            continue;
+          }
+
+          const float distance_to_brush_re = std::sqrt(distance_to_brush_sq_re);
+          const float t = std::max(0.0f,
+                                   safe_divide(distance_to_brush_re - clump_radius_re_,
+                                               brush_radius_re_ - clump_radius_re_));
+          const float radius_falloff = t * BKE_brush_curve_strength(brush_, t, 1.0f);
+          const float tip_falloff = (point_i - points.first()) / (float)points.size();
+          const float weight = brush_strength_ * radius_falloff * tip_falloff;
 
           float3 pinch_center_wo;
+          const float3 old_pos_wo = curves_to_world_mat_ * old_pos_cu;
           ED_view3d_win_to_3d(v3d_, region_, old_pos_wo, brush_pos_re_, pinch_center_wo);
           const float3 pinch_center_cu = world_to_curves_mat_ * pinch_center_wo;
 
-          const float3 new_pos_cu = pinch_center_cu;
+          const float3 new_pos_cu = math::interpolate(old_pos_cu, pinch_center_cu, weight);
           positions_cu[point_i] = new_pos_cu;
+          curve_changed = true;
         }
       }
     });
