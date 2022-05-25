@@ -3,6 +3,7 @@
 #include "NOD_geometry_exec.hh"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 #include "NOD_multi_function.hh"
+#include "NOD_node_declaration.hh"
 
 #include "BLI_map.hh"
 
@@ -390,6 +391,26 @@ class MultiFunctionNode : public LazyFunction {
   }
 };
 
+class ComplexInputValueFunction : public LazyFunction {
+ private:
+  std::function<void(void *)> init_fn_;
+
+ public:
+  ComplexInputValueFunction(const CPPType &type, std::function<void(void *)> init_fn)
+      : init_fn_(std::move(init_fn))
+  {
+    static_name_ = "Input";
+    outputs_.append({"Output", type});
+  }
+
+  void execute_impl(LazyFunctionParams &params) const override
+  {
+    void *value = params.get_output_data_ptr(0);
+    init_fn_(value);
+    params.output_set(0);
+  }
+};
+
 class GroupNodeFunction : public LazyFunction {
  private:
   const NodeRef &group_node_;
@@ -504,6 +525,68 @@ static void prepare_socket_default_value(LFInputSocket &socket,
   if (!value.type()->is_trivially_destructible()) {
     resources.values_to_destruct.append(value);
   }
+}
+
+static void create_init_func_if_necessary(LFInputSocket &socket,
+                                          const InputSocketRef &socket_ref,
+                                          LazyFunctionGraph &graph,
+                                          GeometryNodesLazyFunctionResources &resources)
+{
+  const NodeRef &node_ref = socket_ref.node();
+  const nodes::NodeDeclaration *node_declaration = node_ref.declaration();
+  if (node_declaration == nullptr) {
+    return;
+  }
+  const nodes::SocketDeclaration &socket_declaration =
+      *node_declaration->inputs()[socket_ref.index()];
+  const CPPType &type = socket.type();
+  std::function<void(void *)> init_fn;
+  if (socket_declaration.input_field_type() == nodes::InputSocketFieldType::Implicit) {
+    const bNode &bnode = *node_ref.bnode();
+    const bNodeSocketType &socktype = *socket_ref.typeinfo();
+    if (socktype.type == SOCK_VECTOR) {
+      if (bnode.type == GEO_NODE_SET_CURVE_HANDLES) {
+        StringRef side = ((NodeGeometrySetCurveHandlePositions *)bnode.storage)->mode ==
+                                 GEO_NODE_CURVE_HANDLE_LEFT ?
+                             "handle_left" :
+                             "handle_right";
+        init_fn = [side](void *r_value) {
+          new (r_value) ValueOrField<float3>(bke::AttributeFieldInput::Create<float3>(side));
+        };
+      }
+      else if (bnode.type == GEO_NODE_EXTRUDE_MESH) {
+        init_fn = [](void *r_value) {
+          new (r_value)
+              ValueOrField<float3>(Field<float3>(std::make_shared<bke::NormalFieldInput>()));
+        };
+      }
+      else {
+        init_fn = [](void *r_value) {
+          new (r_value) ValueOrField<float3>(bke::AttributeFieldInput::Create<float3>("position"));
+        };
+      }
+    }
+    else if (socktype.type == SOCK_INT) {
+      if (ELEM(bnode.type, FN_NODE_RANDOM_VALUE, GEO_NODE_INSTANCE_ON_POINTS)) {
+        init_fn = [](void *r_value) {
+          new (r_value)
+              ValueOrField<int>(Field<int>(std::make_shared<bke::IDAttributeFieldInput>()));
+        };
+      }
+      else {
+        init_fn = [](void *r_value) {
+          new (r_value) ValueOrField<int>(Field<int>(std::make_shared<fn::IndexFieldInput>()));
+        };
+      }
+    }
+  }
+  if (!init_fn) {
+    return;
+  }
+  auto fn = std::make_unique<ComplexInputValueFunction>(type, init_fn);
+  LFNode &node = graph.add_function(*fn);
+  resources.functions.append(std::move(fn));
+  graph.add_link(node.output(0), socket);
 }
 
 void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
@@ -666,6 +749,10 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
             else {
               input_socket_map.add(&socket_ref, &socket);
               prepare_socket_default_value(socket, socket_ref, resources);
+              const Span<const LinkRef *> links = socket_ref.directly_linked_links();
+              if (links.is_empty() || (links.size() == 1 && links[0]->is_muted())) {
+                create_init_func_if_necessary(socket, socket_ref, graph, resources);
+              }
             }
           }
           for (const int i : used_outputs.index_range()) {
@@ -683,10 +770,15 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
           resources.functions.append(std::move(fn));
 
           for (const int i : used_inputs.index_range()) {
+            LFInputSocket &socket = node.input(i);
             const InputSocketRef &socket_ref = *used_inputs[i];
             BLI_assert(!socket_ref.is_multi_input_socket());
-            input_socket_map.add(&socket_ref, &node.input(i));
-            prepare_socket_default_value(node.input(i), socket_ref, resources);
+            input_socket_map.add(&socket_ref, &socket);
+            prepare_socket_default_value(socket, socket_ref, resources);
+            const Span<const LinkRef *> links = socket_ref.directly_linked_links();
+            if (links.is_empty() || (links.size() == 1 && links[0]->is_muted())) {
+              create_init_func_if_necessary(socket, socket_ref, graph, resources);
+            }
           }
           for (const int i : used_outputs.index_range()) {
             const OutputSocketRef &socket_ref = *used_outputs[i];
