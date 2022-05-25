@@ -195,6 +195,7 @@ static const EnumPropertyItem rna_enum_time_mode_items[] = {
     {GP_TIME_MODE_NORMAL, "NORMAL", 0, "Regular", "Apply offset in usual animation direction"},
     {GP_TIME_MODE_REVERSE, "REVERSE", 0, "Reverse", "Apply offset in reverse animation direction"},
     {GP_TIME_MODE_FIX, "FIX", 0, "Fixed Frame", "Keep frame and do not change with time"},
+    {GP_TIME_MODE_PINGPONG, "PINGPONG", 0, "Ping Pong", "Loop back and forth"},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -2121,17 +2122,17 @@ static void rna_def_modifier_gpencilbuild(BlenderRNA *brna)
   static EnumPropertyItem prop_gpencil_build_mode_items[] = {
       {GP_BUILD_MODE_SEQUENTIAL,
        "SEQUENTIAL",
-       ICON_PARTICLE_POINT,
+       0,
        "Sequential",
        "Strokes appear/disappear one after the other, but only a single one changes at a time"},
       {GP_BUILD_MODE_CONCURRENT,
        "CONCURRENT",
-       ICON_PARTICLE_TIP,
+       0,
        "Concurrent",
        "Multiple strokes appear/disappear at once"},
       {GP_BUILD_MODE_ADDITIVE,
        "ADDITIVE",
-       ICON_PARTICLE_PATH,
+       0,
        "Additive",
        "Builds only new strokes (assuming 'additive' drawing)"},
       {0, NULL, 0, NULL, NULL},
