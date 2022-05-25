@@ -53,7 +53,6 @@ namespace blender::ed::sculpt_paint {
 class PinchOperation : public CurvesSculptStrokeOperation {
  private:
   Array<float> segment_lengths_cu_;
-  float2 prev_brush_pos_re_;
 
   friend struct PinchOperationExecutor;
 
@@ -116,58 +115,23 @@ struct PinchOperationExecutor {
     const float brush_radius_sq_re = pow2f(brush_radius_re_);
     brush_pos_re_ = stroke_extension.mouse_position;
 
-    BLI_SCOPED_DEFER([&]() { self_->prev_brush_pos_re_ = stroke_extension.mouse_position; });
     if (stroke_extension.is_first) {
       this->initialize_segment_lengths();
-      return;
     }
-
-    if (brush_pos_re_ == self_->prev_brush_pos_re_) {
-      return;
-    }
-
-    const float2 brush_dir_re = math::normalize(brush_pos_re_ - self_->prev_brush_pos_re_);
-    const float2 brush_dir_ortho_re{-brush_dir_re.y, brush_dir_re.x};
 
     threading::parallel_for(curves_->curves_range(), 256, [&](const IndexRange curves_range) {
       for (const int curve_i : curves_range) {
-        bool &curve_changed = changed_curves[curve_i];
-        const float random_value = (noise::hash_to_float(curve_i) - 0.5f) * 2.0f;
         const IndexRange points = curves_->points_for_curve(curve_i);
-
-        for (const int i : IndexRange(points.size()).drop_front(1)) {
-          const int point_i = points[i];
+        for (const int point_i : points.drop_front(1)) {
           const float3 old_pos_cu = positions_cu[point_i];
-          float2 old_pos_re;
-          ED_view3d_project_float_v2_m4(region_, old_pos_cu, old_pos_re, projection.values);
+          const float3 old_pos_wo = curves_to_world_mat_ * old_pos_cu;
 
-          const float distance_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
-          if (distance_to_brush_sq_re > brush_radius_sq_re) {
-            continue;
-          }
+          float3 pinch_center_wo;
+          ED_view3d_win_to_3d(v3d_, region_, old_pos_wo, brush_pos_re_, pinch_center_wo);
+          const float3 pinch_center_cu = world_to_curves_mat_ * pinch_center_wo;
 
-          float2 target_on_line_re;
-          closest_to_line_v2(
-              target_on_line_re, old_pos_re, brush_pos_re_, self_->prev_brush_pos_re_);
-          target_on_line_re += clump_radius_re_ * random_value * brush_dir_ortho_re;
-          const float dist_to_target_re = math::distance(old_pos_re, target_on_line_re);
-
-          const float distance_to_brush_re = std::sqrt(distance_to_brush_sq_re);
-          const float radius_falloff = BKE_brush_curve_strength(
-              brush_, distance_to_brush_re, brush_radius_re_);
-          const float weight = brush_strength_ * radius_falloff;
-
-          const float move_dist_re = std::min(2.0f * weight, dist_to_target_re);
-          const float move_factor = safe_divide(move_dist_re, dist_to_target_re);
-          const float2 new_pos_re = math::interpolate(old_pos_re, target_on_line_re, move_factor);
-
-          float3 new_pos_wo;
-          ED_view3d_win_to_3d(
-              v3d_, region_, curves_to_world_mat_ * old_pos_cu, new_pos_re, new_pos_wo);
-          const float3 new_pos_cu = world_to_curves_mat_ * new_pos_wo;
+          const float3 new_pos_cu = pinch_center_cu;
           positions_cu[point_i] = new_pos_cu;
-
-          curve_changed = true;
         }
       }
     });
