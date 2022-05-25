@@ -113,7 +113,7 @@ struct NodeState {
   /**
    * Set to true once the node is done running for the first time.
    */
-  bool is_first_run = true;
+  bool had_initialization = true;
   /**
    * A node is always in one specific schedule state. This helps to ensure that the same node does
    * not run twice at the same time accidentally.
@@ -545,7 +545,7 @@ class Executor {
         return;
       }
 
-      if (node_state.is_first_run) {
+      if (node_state.had_initialization) {
         /* Initialize storage. */
         node_state.storage = fn.init_storage(allocator);
 
@@ -573,6 +573,8 @@ class Executor {
             this->set_input_required(locked_node, input_socket);
           }
         }
+
+        node_state.had_initialization = false;
       }
 
       for (const int input_index : node_state.inputs.index_range()) {
@@ -598,8 +600,6 @@ class Executor {
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       this->finish_node_if_possible(locked_node);
-      /* Set this before possibly rescheduling the same node. */
-      node_state.is_first_run = false;
       const bool reschedule_requested = node_state.schedule_state ==
                                         NodeScheduleState::RunningAndRescheduled;
       node_state.schedule_state = NodeScheduleState::NotScheduled;
