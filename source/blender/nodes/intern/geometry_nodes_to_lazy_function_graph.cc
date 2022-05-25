@@ -710,6 +710,9 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
 
     Vector<TypeWithLinks> types_with_links;
     for (const LinkRef *link : links_from_socket) {
+      if (link->is_muted()) {
+        continue;
+      }
       const InputSocketRef &to_socket = link->to();
       if (!to_socket.is_available()) {
         continue;
