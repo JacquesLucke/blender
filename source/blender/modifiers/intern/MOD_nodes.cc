@@ -1066,20 +1066,12 @@ static void store_output_attributes(GeometrySet &geometry,
  * Evaluate a node group to compute the output geometry.
  */
 static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
-                                    Span<const NodeRef *> group_input_nodes,
                                     const NodeRef &output_node,
                                     GeometrySet input_geometry_set,
                                     NodesModifierData *nmd,
                                     const ModifierEvalContext *ctx)
 {
-  UNUSED_VARS(store_output_attributes,
-              find_sockets_to_preview,
-              logging_enabled,
-              initialize_group_input,
-              ctx,
-              group_input_nodes,
-              output_node,
-              nmd);
+  UNUSED_VARS(find_sockets_to_preview, logging_enabled);
 
   blender::fn::LazyFunctionGraph graph;
   blender::nodes::GeometryNodesLazyFunctionResources graph_resources;
@@ -1088,11 +1080,13 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   std::cout << graph.to_dot() << "\n";
 
   Vector<const LFOutputSocket *> graph_inputs;
-  Vector<const LFInputSocket *> graph_outputs = {
-      &graph_resources.dummy_socket_map.lookup(&output_node.input(0))->as_input()};
-
+  Vector<const LFInputSocket *> graph_outputs;
   for (const LFOutputSocket *socket : graph_resources.group_input_sockets) {
     graph_inputs.append(socket);
+  }
+  for (const InputSocketRef *socket_ref : output_node.inputs().drop_back(1)) {
+    const LFInputSocket &socket = graph_resources.dummy_socket_map.lookup(socket_ref)->as_input();
+    graph_outputs.append(&socket);
   }
 
   Array<GMutablePointer> param_inputs(graph_inputs.size());
@@ -1111,7 +1105,7 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   blender::LinearAllocator<> allocator;
   void *storage = graph_executor.init_storage(allocator);
 
-  Vector<GMutablePointer> values_to_destruct;
+  Vector<GMutablePointer> inputs_to_destruct;
 
   int input_index;
   LISTBASE_FOREACH_INDEX (
@@ -1126,12 +1120,15 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
     void *value = allocator.allocate(type->size(), type->alignment());
     initialize_group_input(*nmd, *interface_socket, input_index, value);
     param_inputs[input_index] = {type, value};
-    values_to_destruct.append({type, value});
+    inputs_to_destruct.append({type, value});
   }
 
-  GeometrySet output_geometry_set;
-  std::destroy_at(&output_geometry_set);
-  param_outputs[0] = &output_geometry_set;
+  for (const int i : graph_outputs.index_range()) {
+    const LFInputSocket &socket = *graph_outputs[i];
+    const CPPType &type = socket.type();
+    void *buffer = allocator.allocate(type.size(), type.alignment());
+    param_outputs[i] = {type, buffer};
+  }
 
   blender::fn::BasicLazyFunctionParams params{graph_executor,
                                               storage,
@@ -1145,7 +1142,14 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
 
   graph_executor.destruct_storage(storage);
 
-  for (GMutablePointer &ptr : values_to_destruct) {
+  for (GMutablePointer &ptr : inputs_to_destruct) {
+    ptr.destruct();
+  }
+
+  GeometrySet output_geometry_set = std::move(*static_cast<GeometrySet *>(param_outputs[0].get()));
+  store_output_attributes(output_geometry_set, *nmd, output_node, param_outputs);
+
+  for (GMutablePointer &ptr : param_outputs) {
     ptr.destruct();
   }
 
@@ -1218,7 +1222,6 @@ static void modifyGeometry(ModifierData *md,
     return;
   }
 
-  Span<const NodeRef *> input_nodes = tree_ref.nodes_by_type("NodeGroupInput");
   Span<const NodeRef *> output_nodes = tree_ref.nodes_by_type("NodeGroupOutput");
   if (output_nodes.size() != 1) {
     BKE_modifier_set_error(ctx->object, md, "Node group must have a single output node");
@@ -1251,8 +1254,7 @@ static void modifyGeometry(ModifierData *md,
     use_orig_index_polys = CustomData_has_layer(&mesh.pdata, CD_ORIGINDEX);
   }
 
-  geometry_set = compute_geometry(
-      tree_ref, input_nodes, output_node, std::move(geometry_set), nmd, ctx);
+  geometry_set = compute_geometry(tree_ref, output_node, std::move(geometry_set), nmd, ctx);
 
   if (geometry_set.has_mesh()) {
     /* Add #CD_ORIGINDEX layers if they don't exist already. This is required because the
