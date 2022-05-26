@@ -1077,7 +1077,7 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   blender::nodes::GeometryNodesLazyFunctionResources graph_resources;
   blender::nodes::geometry_nodes_to_lazy_function_graph(tree_ref, graph, graph_resources);
   graph.update_node_indices();
-  std::cout << graph.to_dot() << "\n";
+  // std::cout << graph.to_dot() << "\n";
 
   Vector<const LFOutputSocket *> graph_inputs;
   Vector<const LFInputSocket *> graph_outputs;
