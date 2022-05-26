@@ -29,6 +29,7 @@ struct GeometryNodesLazyFunctionResources {
   Vector<std::unique_ptr<LazyFunction>> functions;
   Vector<GMutablePointer> values_to_destruct;
   Vector<std::unique_ptr<NodeMultiFunctions>> node_multi_functions;
+  Vector<std::unique_ptr<NodeTreeRef>> sub_tree_refs;
 
   ~GeometryNodesLazyFunctionResources()
   {

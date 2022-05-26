@@ -85,6 +85,14 @@ void LazyFunctionGraph::add_link(LFOutputSocket &from, LFInputSocket &to)
   from.targets_.append(&to);
 }
 
+void LazyFunctionGraph::remove_link(LFOutputSocket &from, LFInputSocket &to)
+{
+  BLI_assert(to.origin_ == &from);
+  BLI_assert(from.targets_.contains(&to));
+  to.origin_ = nullptr;
+  from.targets_.remove_first_occurrence_and_reorder(&to);
+}
+
 void LazyFunctionGraph::update_node_indices()
 {
   for (const int i : nodes_.index_range()) {

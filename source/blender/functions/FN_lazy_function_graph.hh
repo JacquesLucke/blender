@@ -124,6 +124,7 @@ class LazyFunctionGraph : NonCopyable, NonMovable {
   LFFunctionNode &add_function(const LazyFunction &fn);
   LFDummyNode &add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types);
   void add_link(LFOutputSocket &from, LFInputSocket &to);
+  void remove_link(LFOutputSocket &from, LFInputSocket &to);
 
   void update_node_indices();
   bool node_indices_are_valid() const;
