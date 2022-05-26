@@ -19,13 +19,16 @@ struct GeoNodesLazyFunctionUserData : public fn::LazyFunctionUserData {
   Depsgraph *depsgraph;
 };
 
+struct GeometryNodeLazyFunctionMapping {
+  Map<const SocketRef *, LFSocket *> dummy_socket_map;
+  Vector<LFOutputSocket *> group_input_sockets;
+};
+
 struct GeometryNodesLazyFunctionResources {
   LinearAllocator<> allocator;
   Vector<std::unique_ptr<LazyFunction>> functions;
-  std::unique_ptr<NodeMultiFunctions> node_multi_functions;
-  Map<const SocketRef *, LFSocket *> dummy_socket_map;
-  Vector<LFOutputSocket *> group_input_sockets;
   Vector<GMutablePointer> values_to_destruct;
+  Vector<std::unique_ptr<NodeMultiFunctions>> node_multi_functions;
 
   ~GeometryNodesLazyFunctionResources()
   {
@@ -37,6 +40,7 @@ struct GeometryNodesLazyFunctionResources {
 
 void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
                                            LazyFunctionGraph &graph,
-                                           GeometryNodesLazyFunctionResources &resources);
+                                           GeometryNodesLazyFunctionResources &resources,
+                                           GeometryNodeLazyFunctionMapping &mapping);
 
 }  // namespace blender::nodes

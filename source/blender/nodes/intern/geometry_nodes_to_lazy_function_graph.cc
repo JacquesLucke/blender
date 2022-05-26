@@ -430,14 +430,16 @@ class GroupNodeFunction : public LazyFunction {
     lazy_function_interface_from_node(
         group_node, r_used_inputs, r_used_outputs, inputs_, outputs_);
 
+    GeometryNodeLazyFunctionMapping mapping;
+
     bNodeTree *btree = reinterpret_cast<bNodeTree *>(group_node_.bnode()->id);
     BLI_assert(btree != nullptr); /* Todo. */
     tree_ref_.emplace(btree);
-    geometry_nodes_to_lazy_function_graph(*tree_ref_, graph_, resources_);
+    geometry_nodes_to_lazy_function_graph(*tree_ref_, graph_, resources_, mapping);
     graph_.update_node_indices();
 
     Vector<const LFOutputSocket *> graph_inputs;
-    for (const LFOutputSocket *socket : resources_.group_input_sockets) {
+    for (const LFOutputSocket *socket : mapping.group_input_sockets) {
       if (socket != nullptr) {
         graph_inputs.append(socket);
       }
@@ -445,7 +447,7 @@ class GroupNodeFunction : public LazyFunction {
     Vector<const LFInputSocket *> graph_outputs;
     for (const NodeRef *node : tree_ref_->nodes_by_type("NodeGroupOutput")) {
       for (const InputSocketRef *socket_ref : node->inputs()) {
-        const LFSocket *socket = resources_.dummy_socket_map.lookup_default(socket_ref, nullptr);
+        const LFSocket *socket = mapping.dummy_socket_map.lookup_default(socket_ref, nullptr);
         if (socket != nullptr) {
           graph_outputs.append(&socket->as_input());
         }
@@ -591,7 +593,8 @@ static void create_init_func_if_necessary(LFInputSocket &socket,
 
 void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
                                            LazyFunctionGraph &graph,
-                                           GeometryNodesLazyFunctionResources &resources)
+                                           GeometryNodesLazyFunctionResources &resources,
+                                           GeometryNodeLazyFunctionMapping &mapping)
 {
   MultiValueMap<const InputSocketRef *, LFInputSocket *> input_socket_map;
   Map<const OutputSocketRef *, LFOutputSocket *> output_socket_map;
@@ -599,8 +602,8 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
 
   const bke::DataTypeConversions &conversions = bke::get_implicit_type_conversions();
 
-  resources.node_multi_functions = std::make_unique<NodeMultiFunctions>(tree);
-  const NodeMultiFunctions &node_multi_functions = *resources.node_multi_functions;
+  resources.node_multi_functions.append(std::make_unique<NodeMultiFunctions>(tree));
+  const NodeMultiFunctions &node_multi_functions = *resources.node_multi_functions.last();
 
   const bNodeTree &btree = *tree.btree();
 
@@ -620,10 +623,10 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
   for (const int i : group_input_indices.index_range()) {
     const int index = group_input_indices[i];
     if (index == -1) {
-      resources.group_input_sockets.append(nullptr);
+      mapping.group_input_sockets.append(nullptr);
     }
     else {
-      resources.group_input_sockets.append(&group_input_node.output(index));
+      mapping.group_input_sockets.append(&group_input_node.output(index));
     }
   }
 
@@ -674,7 +677,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
             const OutputSocketRef &socket_ref = node_ref->output(i);
             LFOutputSocket &socket = group_input_node.output(i);
             output_socket_map.add_new(&socket_ref, &socket);
-            resources.dummy_socket_map.add_new(&socket_ref, &socket);
+            mapping.dummy_socket_map.add_new(&socket_ref, &socket);
           }
         }
         break;
@@ -699,7 +702,7 @@ void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
             const InputSocketRef &socket_ref = node_ref->input(i);
             LFInputSocket &socket = group_output_node.input(i);
             input_socket_map.add(&socket_ref, &socket);
-            resources.dummy_socket_map.add(&socket_ref, &socket);
+            mapping.dummy_socket_map.add(&socket_ref, &socket);
             prepare_socket_default_value(socket, socket_ref, resources);
           }
         }

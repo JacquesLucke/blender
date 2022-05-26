@@ -1074,18 +1074,19 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   UNUSED_VARS(find_sockets_to_preview, logging_enabled);
 
   blender::fn::LazyFunctionGraph graph;
+  blender::nodes::GeometryNodeLazyFunctionMapping mapping;
   blender::nodes::GeometryNodesLazyFunctionResources graph_resources;
-  blender::nodes::geometry_nodes_to_lazy_function_graph(tree_ref, graph, graph_resources);
+  blender::nodes::geometry_nodes_to_lazy_function_graph(tree_ref, graph, graph_resources, mapping);
   graph.update_node_indices();
   // std::cout << graph.to_dot() << "\n";
 
   Vector<const LFOutputSocket *> graph_inputs;
   Vector<const LFInputSocket *> graph_outputs;
-  for (const LFOutputSocket *socket : graph_resources.group_input_sockets) {
+  for (const LFOutputSocket *socket : mapping.group_input_sockets) {
     graph_inputs.append(socket);
   }
   for (const InputSocketRef *socket_ref : output_node.inputs().drop_back(1)) {
-    const LFInputSocket &socket = graph_resources.dummy_socket_map.lookup(socket_ref)->as_input();
+    const LFInputSocket &socket = mapping.dummy_socket_map.lookup(socket_ref)->as_input();
     graph_outputs.append(&socket);
   }
 
