@@ -481,13 +481,30 @@ class Executor {
       threading::isolate_task([&]() { f(locked_node); });
     }
 
-    for (const LFOutputSocket *socket : locked_node.delayed_required_outputs) {
+    this->send_output_required_notifications(locked_node.delayed_required_outputs, current_task);
+    this->send_output_unused_notifications(locked_node.delayed_unused_outputs, current_task);
+    this->schedule_new_nodes(locked_node.delayed_scheduled_nodes, current_task);
+  }
+
+  void send_output_required_notifications(const Span<const LFOutputSocket *> sockets,
+                                          CurrentTask &current_task)
+  {
+    for (const LFOutputSocket *socket : sockets) {
       this->notify_output_required(*socket, current_task);
     }
-    for (const LFOutputSocket *socket : locked_node.delayed_unused_outputs) {
+  }
+
+  void send_output_unused_notifications(const Span<const LFOutputSocket *> sockets,
+                                        CurrentTask &current_task)
+  {
+    for (const LFOutputSocket *socket : sockets) {
       this->notify_output_unused(*socket, current_task);
     }
-    for (const LFFunctionNode *node_to_schedule : locked_node.delayed_scheduled_nodes) {
+  }
+
+  void schedule_new_nodes(const Span<const LFFunctionNode *> nodes, CurrentTask &current_task)
+  {
+    for (const LFFunctionNode *node_to_schedule : nodes) {
       const LFFunctionNode *expected = nullptr;
       if (current_task.next_node.compare_exchange_strong(
               expected, node_to_schedule, std::memory_order_relaxed)) {

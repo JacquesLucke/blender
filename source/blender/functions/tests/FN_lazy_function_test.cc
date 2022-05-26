@@ -137,23 +137,26 @@ static MultiChainResult build_multiple_chains(LazyFunctionGraph &graph,
 
 TEST(lazy_function, Simple)
 {
-  UNUSED_VARS_NDEBUG(build_multiple_chains, execute_lazy_function_test);
-  // BLI_task_scheduler_init(); /* Without this, no parallelism. */
-  // const int value_1 = 1;
-  // LazyFunctionGraph graph;
-  // MultiChainResult node_chain = build_multiple_chains(graph, 1e6, 10, &value_1);
-  // graph.update_node_indices();
-  // // std::cout << graph.to_dot() << "\n";
+  BLI_task_scheduler_init(); /* Without this, no parallelism. */
+  const int value_1 = 1;
+  LazyFunctionGraph graph;
+  MultiChainResult node_chain = build_multiple_chains(graph, 1e4, 24, &value_1);
+  LFDummyNode &output_node = graph.add_dummy({&CPPType::get<int>()}, {});
+  graph.add_link(node_chain.last_node->output(0), output_node.input(0));
+  graph.update_node_indices();
+  // std::cout << graph.to_dot() << "\n";
 
-  // LazyFunctionGraphExecutor executor_fn{graph, {}, {&node_chain.last_node->output(0)}};
+  LazyFunctionGraphExecutor executor_fn{graph, {}, {&output_node.input(0)}};
 
-  // // SCOPED_TIMER("run");
-  // int result;
+  // SCOPED_TIMER("run");
+  int result;
 
-  // execute_lazy_function_test(executor_fn,
-  //                            {LazyFunctionEvent{LazyFunctionEventType::RequestOutput, 0}},
-  //                            Span<GMutablePointer>{{&result}});
-  // std::cout << "Result: " << result << "\n";
+  for ([[maybe_unused]] const int i : IndexRange(1e2)) {
+    execute_lazy_function_test(executor_fn,
+                               {LazyFunctionEvent{LazyFunctionEventType::RequestOutput, 0}},
+                               Span<GMutablePointer>{{&result}});
+  }
+  std::cout << "Result: " << result << "\n";
 }
 
 }  // namespace blender::fn::tests
