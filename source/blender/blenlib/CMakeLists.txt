@@ -10,6 +10,7 @@ set(INC
   ../../../intern/guardedalloc
   ../../../extern/wcwidth
   ../../../extern/json/include
+  ../../../extern/xxHash
 )
 
 set(INC_SYS
@@ -49,6 +50,7 @@ set(SRC
   intern/bitmap_draw_2d.c
   intern/boxpack_2d.c
   intern/buffer.c
+  intern/context_stack.cc
   intern/convexhull_2d.c
   intern/cpp_type.cc
   intern/delaunay_2d.cc
