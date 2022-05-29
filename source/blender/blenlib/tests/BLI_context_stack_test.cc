@@ -8,7 +8,7 @@ namespace blender::tests {
 
 TEST(context_stack, Basic)
 {
-  ContextStack context_stack{nullptr};
+  // ContextStack context_stack{nullptr};
 }
 
 }  // namespace blender::tests
