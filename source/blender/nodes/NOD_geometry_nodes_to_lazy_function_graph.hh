@@ -4,6 +4,7 @@
 
 #include "FN_lazy_function_graph.hh"
 
+#include "NOD_geometry_nodes_log.hh"
 #include "NOD_multi_function.hh"
 #include "NOD_node_tree_ref.hh"
 
@@ -14,9 +15,14 @@ namespace blender::nodes {
 
 using namespace fn::lazy_function_graph_types;
 
-struct GeoNodesLazyFunctionUserData : public fn::LazyFunctionUserData {
+struct GeoNodesModifierData {
   const Object *self_object;
   Depsgraph *depsgraph;
+};
+
+struct GeoNodesLazyFunctionUserData : public fn::LazyFunctionUserData {
+  GeoNodesModifierData *modifier_data;
+  const ContextStack *context_stack;
 };
 
 struct GeometryNodeLazyFunctionMapping {
