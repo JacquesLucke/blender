@@ -8,76 +8,49 @@
 
 #include "BLI_context_stack.hh"
 #include "BLI_linear_allocator.hh"
-#include "BLI_set.hh"
+#include "BLI_map.hh"
 
 namespace blender {
 
 namespace context_stack_map_detail {
-template<typename T> struct Item {
-  Item *parent = nullptr;
-  StringRefNull type;
-  Span<std::byte> encoded;
-  T *value = nullptr;
-
-  Item(Item *parent, StringRefNull type, Span<std::byte> encoded)
-      : parent(parent), type(type), encoded(encoded)
-  {
-  }
-
-  uint64_t hash() const
-  {
-    return get_default_hash_3(parent, type, encoded);
-  }
-
-  friend bool operator==(const Item &a, const Item &b)
-  {
-    return a.parent == b.parent && a.type == b.type && a.encoded == b.encoded;
-  }
+template<typename T> struct Value {
+  T value;
+  const char *static_type;
+  std::optional<ContextStackHash> parent_hash;
 };
 }  // namespace context_stack_map_detail
 
 template<typename T> class ContextStackMap {
  private:
-  using Item = context_stack_map_detail::Item<T>;
+  using Value = context_stack_map_detail::Value<T>;
 
-  LinearAllocator<> &allocator_;
-  Set<std::reference_wrapper<Item>> set_;
+  LinearAllocator<> allocator_;
+  Map<ContextStackHash, destruct_ptr<Value>> map_;
 
  public:
-  T &lookup(const ContextStack &context_stack)
+  T &lookup_or_add(const ContextStack &context_stack)
   {
-    const ContextStack *parent = context_stack.parent();
-    if (parent == nullptr) {
-    }
+    const ContextStackHash &hash = context_stack.hash();
+    destruct_ptr<Value> &value = map_.lookup_or_add_cb(hash, [&]() {
+      destruct_ptr<Value> value = allocator_.construct<Value>();
+      value->static_type = context_stack.static_type();
+      const ContextStack *parent = context_stack.parent();
+      if (parent != nullptr) {
+        value->parent_hash = parent->hash();
+      }
+      return value;
+    });
+    return value->value;
   }
 
- private:
-  Item &lookup_item(const ContextStack &context_stack)
+  const T &lookup_or_default(const ContextStack &context_stack, const T &default_value) const
   {
-    const ContextStack *parent = context_stack.parent();
-    const Span<std::byte> encoded = context_stack.encoded();
-    const StringRefNull type = context_stack.type();
-    if (parent == nullptr) {
-      return this->lookup_or_add_item(nullptr, encoded, type);
+    const ContextStackHash &hash = context_stack.hash();
+    const destruct_ptr<Value> *value = map_.lookup_ptr(hash);
+    if (value != nullptr) {
+      return value->get()->value;
     }
-    Item &parent_item = this->lookup_item(*parent);
-    Item &item = set_.lookup_key_or_add(Item{
-        &parent_item,
-    })
-  }
-
-  Item &lookup_or_add_item(const Item *parent,
-                           const Span<std::byte> encoded,
-                           const StringRefNull type)
-  {
-    Item local_item{parent, type, encoded};
-    std::reference_wrapper<Item> &stored_item = set_.lookup_key_or_add(local_item);
-    if (&local_item == &stored_item.get()) {
-      const Span<std::byte> new_stored_encoding = allocator_.construct_array_copy(encoded);
-      Item &new_stored_item = allocator_.construct<Item>(parent, type, new_stored_encoding);
-      stored_item = std::ref(new_stored_item);
-    }
-    return item;
+    return default_value;
   }
 };
 

@@ -34,14 +34,15 @@ struct ContextStackHash {
 
 class ContextStack {
  private:
-  const char *type_;
+  const char *static_type_;
   const ContextStack *parent_ = nullptr;
 
  protected:
   ContextStackHash hash_;
 
  public:
-  ContextStack(const char *type, const ContextStack *parent) : type_(type), parent_(parent)
+  ContextStack(const char *static_type, const ContextStack *parent)
+      : static_type_(static_type), parent_(parent)
   {
     if (parent != nullptr) {
       hash_ = parent_->hash_;
@@ -53,9 +54,9 @@ class ContextStack {
     return hash_;
   }
 
-  const char *type() const
+  const char *static_type() const
   {
-    return type_;
+    return static_type_;
   }
 
   const ContextStack *parent() const
