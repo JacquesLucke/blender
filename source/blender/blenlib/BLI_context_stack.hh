@@ -16,8 +16,20 @@ struct ContextStackHash {
   uint64_t v1 = 0;
   uint64_t v2 = 0;
 
+  uint64_t hash() const
+  {
+    return v1;
+  }
+
+  friend bool operator==(const ContextStackHash &a, const ContextStackHash &b)
+  {
+    return a.v1 == b.v1 && a.v2 == b.v2;
+  }
+
   void mix_in(Span<std::byte> data);
   void mix_in(StringRef a, StringRef b);
+
+  friend std::ostream &operator<<(std::ostream &stream, const ContextStackHash &hash);
 };
 
 class ContextStack {
@@ -51,29 +63,10 @@ class ContextStack {
     return parent_;
   }
 
+  void print_stack(std::ostream &stream, StringRef name) const;
   virtual void print_current_in_line(std::ostream &stream) const = 0;
 
-  void print_stack(std::ostream &stream, StringRef name) const
-  {
-    Stack<const ContextStack *> stack;
-    for (const ContextStack *current = this; current; current = current->parent_) {
-      stack.push(current);
-    }
-    stream << "Context Stack: " << name << "\n";
-    while (!stack.is_empty()) {
-      const ContextStack *current = stack.pop();
-      stream << "-> ";
-      current->print_current_in_line(stream);
-      const ContextStackHash &current_hash = current->hash_;
-      stream << " (hash: " << std::hex << current_hash.v1 << ", " << current_hash.v2 << ")\n";
-    }
-  }
-
-  friend std::ostream &operator<<(std::ostream &stream, const ContextStack &context_stack)
-  {
-    context_stack.print_stack(stream, "");
-    return stream;
-  }
+  friend std::ostream &operator<<(std::ostream &stream, const ContextStack &context_stack);
 };
 
 }  // namespace blender
