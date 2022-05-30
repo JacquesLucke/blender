@@ -1135,14 +1135,14 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
     param_outputs[i] = {type, buffer};
   }
 
-  blender::fn::BasicLazyFunctionParams params{graph_executor,
-                                              storage,
-                                              &user_data,
-                                              param_inputs,
-                                              param_outputs,
-                                              param_input_usages,
-                                              param_output_usages,
-                                              param_set_outputs};
+  blender::fn::BasicLFParams params{graph_executor,
+                                    storage,
+                                    &user_data,
+                                    param_inputs,
+                                    param_outputs,
+                                    param_input_usages,
+                                    param_output_usages,
+                                    param_set_outputs};
   graph_executor.execute(params);
 
   graph_executor.destruct_storage(storage);

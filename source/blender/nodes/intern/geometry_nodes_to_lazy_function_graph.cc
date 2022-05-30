@@ -17,7 +17,7 @@
 
 namespace blender::nodes {
 
-using fn::LazyFunctionParams;
+using fn::LFParams;
 using fn::ValueOrField;
 using fn::ValueOrFieldCPPType;
 using namespace fn::multi_function_types;
@@ -104,7 +104,7 @@ class GeometryNodeLazyFunction : public LazyFunction {
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     GeoNodeExecParams geo_params{node_, params};
     const bNode &bnode = *node_.bnode();
@@ -142,7 +142,7 @@ class MultiInputLazyFunction : public LazyFunction {
     outputs_.append({"Output", *vector_type});
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     const CPPType &base_type = *inputs_[0].type;
     base_type.to_static_type_tag<GeometrySet, ValueOrField<std::string>>([&](auto type_tag) {
@@ -172,7 +172,7 @@ class RerouteNodeFunction : public LazyFunction {
     outputs_.append({"Output", type});
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     void *input_value = params.try_get_input_data_ptr(0);
     void *output_value = params.get_output_data_ptr(0);
@@ -284,7 +284,7 @@ class MutedNodeFunction : public LazyFunction {
     }
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     for (const int output_i : outputs_.index_range()) {
       if (params.output_was_set(output_i)) {
@@ -346,7 +346,7 @@ class MultiFunctionConversion : public LazyFunction {
     outputs_.append({"To", to});
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     const void *from_value = params.try_get_input_data_ptr(0);
     void *to_value = params.get_output_data_ptr(0);
@@ -384,7 +384,7 @@ class MultiFunctionNode : public LazyFunction {
     }
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     Vector<const void *> inputs_values(inputs_.size());
     Vector<void *> outputs_values(outputs_.size());
@@ -418,7 +418,7 @@ class ComplexInputValueFunction : public LazyFunction {
     outputs_.append({"Output", type});
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     void *value = params.get_output_data_ptr(0);
     init_fn_(value);
@@ -472,7 +472,7 @@ class GroupNodeFunction : public LazyFunction {
     graph_executor_.emplace(graph_, std::move(graph_inputs), std::move(graph_outputs));
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     // const ContextStack *parent_context_stack = nullptr;
     // if (GeoNodesLazyFunctionUserData *user_data = dynamic_cast<GeoNodesLazyFunctionUserData *>(

@@ -41,7 +41,7 @@ using fn::FieldEvaluator;
 using fn::FieldInput;
 using fn::FieldOperation;
 using fn::GField;
-using fn::LazyFunctionParams;
+using fn::LFParams;
 using fn::ValueOrField;
 using geometry_nodes_eval_log::NamedAttributeUsage;
 using geometry_nodes_eval_log::NodeWarningType;
@@ -49,10 +49,10 @@ using geometry_nodes_eval_log::NodeWarningType;
 class GeoNodeExecParams {
  private:
   const NodeRef &node_;
-  LazyFunctionParams &params_;
+  LFParams &params_;
 
  public:
-  GeoNodeExecParams(const NodeRef &node, LazyFunctionParams &params) : node_(node), params_(params)
+  GeoNodeExecParams(const NodeRef &node, LFParams &params) : node_(node), params_(params)
   {
   }
 

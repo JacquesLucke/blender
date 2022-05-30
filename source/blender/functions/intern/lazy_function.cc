@@ -36,7 +36,7 @@ void LazyFunction::destruct_storage(void *storage) const
   UNUSED_VARS_NDEBUG(storage);
 }
 
-bool LazyFunction::valid_params_for_execution(const LazyFunctionParams &params) const
+bool LazyFunction::valid_params_for_execution(const LFParams &params) const
 {
   bool all_required_inputs_available = true;
   for (const int i : inputs_.index_range()) {
@@ -62,7 +62,7 @@ bool LazyFunction::valid_params_for_execution(const LazyFunctionParams &params) 
   return all_required_inputs_available && any_remaining_output_left;
 }
 
-void LazyFunctionParams::set_default_remaining_outputs()
+void LFParams::set_default_remaining_outputs()
 {
   for (const int i : fn_.outputs().index_range()) {
     if (this->output_was_set(i)) {

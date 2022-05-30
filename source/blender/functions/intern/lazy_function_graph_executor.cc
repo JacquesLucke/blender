@@ -165,7 +165,7 @@ struct CurrentTask {
   std::atomic<bool> added_node_to_pool = false;
 };
 
-class GraphExecutorLazyFunctionParams;
+class GraphExecutorLFParams;
 
 class Executor {
  private:
@@ -189,7 +189,7 @@ class Executor {
   /**
    * Parameters provided by the caller. This is always non-null, while a node is running.
    */
-  LazyFunctionParams *params_ = nullptr;
+  LFParams *params_ = nullptr;
   /**
    * Used to distribute work on separate nodes to separate threads.
    */
@@ -204,7 +204,7 @@ class Executor {
    */
   bool is_first_execution_ = true;
 
-  friend GraphExecutorLazyFunctionParams;
+  friend GraphExecutorLFParams;
 
  public:
   Executor(const LazyFunctionGraph &graph,
@@ -236,7 +236,7 @@ class Executor {
   /**
    * Main entry point to the execution of this graph.
    */
-  void execute(LazyFunctionParams &params)
+  void execute(LFParams &params)
   {
     params_ = &params;
     BLI_SCOPED_DEFER([&]() {
@@ -845,7 +845,7 @@ class Executor {
   }
 };
 
-class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
+class GraphExecutorLFParams final : public LFParams {
  private:
   Executor &executor_;
   const LFNode &node_;
@@ -853,12 +853,12 @@ class GraphExecutorLazyFunctionParams final : public LazyFunctionParams {
   CurrentTask &current_task_;
 
  public:
-  GraphExecutorLazyFunctionParams(const LazyFunction &fn,
-                                  Executor &executor,
-                                  const LFNode &node,
-                                  NodeState &node_state,
-                                  CurrentTask &current_task)
-      : LazyFunctionParams(fn, node_state.storage, executor.params_->user_data()),
+  GraphExecutorLFParams(const LazyFunction &fn,
+                        Executor &executor,
+                        const LFNode &node,
+                        NodeState &node_state,
+                        CurrentTask &current_task)
+      : LFParams(fn, node_state.storage, executor.params_->user_data()),
         executor_(executor),
         node_(node),
         node_state_(node_state),
@@ -932,7 +932,7 @@ void Executor::execute_node(const LFFunctionNode &node,
                             CurrentTask &current_task)
 {
   const LazyFunction &fn = node.function();
-  GraphExecutorLazyFunctionParams node_params{fn, *this, node, node_state, current_task};
+  GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task};
   fn.execute(node_params);
 }
 
@@ -951,7 +951,7 @@ LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &gr
   }
 }
 
-void LazyFunctionGraphExecutor::execute_impl(LazyFunctionParams &params) const
+void LazyFunctionGraphExecutor::execute_impl(LFParams &params) const
 {
   Executor &executor = params.storage<Executor>();
   executor.execute(params);

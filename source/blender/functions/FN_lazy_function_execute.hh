@@ -12,7 +12,7 @@
 
 namespace blender::fn {
 
-class BasicLazyFunctionParams : public LazyFunctionParams {
+class BasicLFParams : public LFParams {
  private:
   const Span<GMutablePointer> inputs_;
   const Span<GMutablePointer> outputs_;
@@ -21,14 +21,14 @@ class BasicLazyFunctionParams : public LazyFunctionParams {
   MutableSpan<bool> set_outputs_;
 
  public:
-  BasicLazyFunctionParams(const LazyFunction &fn,
-                          void *storage,
-                          LazyFunctionUserData *user_data,
-                          const Span<GMutablePointer> inputs,
-                          const Span<GMutablePointer> outputs,
-                          MutableSpan<std::optional<ValueUsage>> input_usages,
-                          Span<ValueUsage> output_usages,
-                          MutableSpan<bool> set_outputs);
+  BasicLFParams(const LazyFunction &fn,
+                void *storage,
+                LazyFunctionUserData *user_data,
+                const Span<GMutablePointer> inputs,
+                const Span<GMutablePointer> outputs,
+                MutableSpan<std::optional<ValueUsage>> input_usages,
+                Span<ValueUsage> output_usages,
+                MutableSpan<bool> set_outputs);
 
   void *try_get_input_data_ptr_impl(const int index) const override;
   void *try_get_input_data_ptr_or_request_impl(const int index) override;
@@ -77,14 +77,14 @@ inline void execute_lazy_function_eagerly_impl(
   set_outputs.fill(false);
   LinearAllocator<> allocator;
   void *storage = fn.init_storage(allocator);
-  BasicLazyFunctionParams params{fn,
-                                 storage,
-                                 user_data,
-                                 input_pointers,
-                                 output_pointers,
-                                 input_usages,
-                                 output_usages,
-                                 set_outputs};
+  BasicLFParams params{fn,
+                       storage,
+                       user_data,
+                       input_pointers,
+                       output_pointers,
+                       input_usages,
+                       output_usages,
+                       set_outputs};
   fn.execute(params);
   fn.destruct_storage(storage);
 }

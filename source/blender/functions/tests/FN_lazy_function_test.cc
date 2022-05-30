@@ -21,7 +21,7 @@ class AddLazyFunction : public LazyFunction {
     outputs_.append({"Result", CPPType::get<int>()});
   }
 
-  void execute_impl(LazyFunctionParams &params) const override
+  void execute_impl(LFParams &params) const override
   {
     const int a = params.get_input<int>(0);
     const int b = params.get_input<int>(1);
@@ -57,7 +57,7 @@ static void execute_lazy_function_test(const LazyFunction &fn,
 
   void *storage = fn.init_storage(allocator);
 
-  BasicLazyFunctionParams params(
+  BasicLFParams params(
       fn, storage, nullptr, inputs, outputs, input_usages, output_usages, set_outputs);
   if (fn.valid_params_for_execution(params)) {
     fn.execute(params);
