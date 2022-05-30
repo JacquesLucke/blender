@@ -350,16 +350,12 @@ class Executor {
   void set_defaulted_graph_outputs()
   {
     for (const int graph_output_index : graph_outputs_.index_range()) {
-      const LFSocket &socket = *graph_outputs_[graph_output_index];
-      if (socket.is_output()) {
+      const LFInputSocket &socket = *graph_outputs_[graph_output_index];
+      if (socket.origin() != nullptr) {
         continue;
       }
-      const LFInputSocket &input_socket = socket.as_input();
-      if (input_socket.origin() != nullptr) {
-        continue;
-      }
-      const CPPType &type = input_socket.type();
-      const void *default_value = input_socket.default_value();
+      const CPPType &type = socket.type();
+      const void *default_value = socket.default_value();
       BLI_assert(default_value != nullptr);
       void *output_ptr = params_->get_output_data_ptr(graph_output_index);
       type.copy_construct(default_value, output_ptr);
@@ -619,6 +615,11 @@ class Executor {
     }
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
+#ifdef DEBUG
+      if (node_needs_execution) {
+        this->assert_expected_outputs_have_been_computed(locked_node);
+      }
+#endif
       this->finish_node_if_possible(locked_node);
       const bool reschedule_requested = node_state.schedule_state ==
                                         NodeScheduleState::RunningAndRescheduled;
@@ -626,11 +627,6 @@ class Executor {
       if (reschedule_requested && !node_state.node_has_finished) {
         this->schedule_node(locked_node);
       }
-#ifdef DEBUG
-      if (node_needs_execution) {
-        this->assert_expected_outputs_have_been_computed(locked_node);
-      }
-#endif
     });
   }
 
