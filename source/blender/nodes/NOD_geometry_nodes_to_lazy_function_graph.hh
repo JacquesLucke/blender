@@ -48,8 +48,8 @@ class NodeGroupContextStack : public ContextStack {
 };
 
 struct GeoNodesLFUserData : public fn::LFUserData {
-  GeoNodesModifierData *modifier_data;
-  const ContextStack *context_stack;
+  GeoNodesModifierData *modifier_data = nullptr;
+  const ContextStack *context_stack = nullptr;
 };
 
 struct GeometryNodeLazyFunctionMapping {

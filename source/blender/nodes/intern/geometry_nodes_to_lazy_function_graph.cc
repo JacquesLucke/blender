@@ -475,18 +475,17 @@ class GroupNodeFunction : public LazyFunction {
 
   void execute_impl(LFParams &params, const LFContext &context) const override
   {
-    // const ContextStack *parent_context_stack = nullptr;
-    // if (GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(
-    //         params.user_data_)) {
-    //   parent_context_stack = user_data->context_stack;
-    // }
-    // NodeGroupContextStack context_stack{
-    //     parent_context_stack, group_node_.name(), group_node_.bnode()->id->name + 2};
-    // if (GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(
-    //         params.user_data_)) {
-    //   user_data->context_stack = &context_stack;
-    // }
-    graph_executor_->execute(params, context);
+    GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+    BLI_assert(user_data != nullptr);
+    NodeGroupContextStack context_stack{
+        user_data->context_stack, group_node_.name(), group_node_.bnode()->id->name + 2};
+    GeoNodesLFUserData group_user_data = *user_data;
+    group_user_data.context_stack = &context_stack;
+
+    LFContext group_context = context;
+    group_context.user_data = &group_user_data;
+
+    graph_executor_->execute(params, group_context);
   }
 
   void *init_storage(LinearAllocator<> &allocator) const
