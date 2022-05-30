@@ -12,6 +12,10 @@
 
 namespace blender {
 
+/**
+ * A hash that unique identifies a specific context stack. The hash has to have enough bits to make
+ * collisions practically impossible.
+ */
 struct ContextStackHash {
   static constexpr int64_t HashSizeInBytes = 16;
   uint64_t v1 = 0;
@@ -28,7 +32,6 @@ struct ContextStackHash {
   }
 
   void mix_in(const void *data, int64_t len);
-  void mix_in(StringRef a, StringRef b);
 
   friend std::ostream &operator<<(std::ostream &stream, const ContextStackHash &hash);
 };

@@ -30,6 +30,9 @@ class LazyFunctionParams {
  protected:
   const LazyFunction &fn_;
   void *storage_;
+
+ public:
+  /* Todo: Move out of this class. */
   LazyFunctionUserData *user_data_;
 
  public:

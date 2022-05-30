@@ -7,6 +7,8 @@
 
 #include "BLI_map.hh"
 
+#include "DNA_ID.h"
+
 #include "BKE_geometry_set.hh"
 #include "BKE_type_conversions.hh"
 
@@ -107,6 +109,19 @@ class GeometryNodeLazyFunction : public LazyFunction {
     GeoNodeExecParams geo_params{node_, params};
     const bNode &bnode = *node_.bnode();
     BLI_assert(bnode.typeinfo->geometry_node_execute != nullptr);
+
+    // if (GeoNodesLazyFunctionUserData *user_data = dynamic_cast<GeoNodesLazyFunctionUserData *>(
+    //         params.user_data_)) {
+    //   static std::mutex m;
+    //   std::lock_guard lock{m};
+    //   if (user_data->context_stack) {
+    //     user_data->context_stack->print_stack(std::cout, bnode.name);
+    //   }
+    //   else {
+    //     std::cout << "No stack: " << bnode.name << "\n";
+    //   }
+    // }
+
     bnode.typeinfo->geometry_node_execute(geo_params);
   }
 };
@@ -459,6 +474,17 @@ class GroupNodeFunction : public LazyFunction {
 
   void execute_impl(LazyFunctionParams &params) const override
   {
+    // const ContextStack *parent_context_stack = nullptr;
+    // if (GeoNodesLazyFunctionUserData *user_data = dynamic_cast<GeoNodesLazyFunctionUserData *>(
+    //         params.user_data_)) {
+    //   parent_context_stack = user_data->context_stack;
+    // }
+    // NodeGroupContextStack context_stack{
+    //     parent_context_stack, group_node_.name(), group_node_.bnode()->id->name + 2};
+    // if (GeoNodesLazyFunctionUserData *user_data = dynamic_cast<GeoNodesLazyFunctionUserData *>(
+    //         params.user_data_)) {
+    //   user_data->context_stack = &context_stack;
+    // }
     graph_executor_->execute(params);
   }
 

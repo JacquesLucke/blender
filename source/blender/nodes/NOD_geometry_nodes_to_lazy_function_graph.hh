@@ -8,6 +8,8 @@
 #include "NOD_multi_function.hh"
 #include "NOD_node_tree_ref.hh"
 
+#include "BLI_context_stack.hh"
+
 struct Object;
 struct Depsgraph;
 
@@ -16,8 +18,33 @@ namespace blender::nodes {
 using namespace fn::lazy_function_graph_types;
 
 struct GeoNodesModifierData {
-  const Object *self_object;
-  Depsgraph *depsgraph;
+  const Object *self_object = nullptr;
+  Depsgraph *depsgraph = nullptr;
+  GeoNodesModifierEvalLog *eval_log = nullptr;
+};
+
+class NodeGroupContextStack : public ContextStack {
+ private:
+  static constexpr const char *s_static_type = "NODE_GROUP";
+
+  std::string node_name_;
+  std::string group_name_;
+
+ public:
+  NodeGroupContextStack(const ContextStack *parent, std::string node_name, std::string group_name)
+      : ContextStack(s_static_type, parent),
+        node_name_(std::move(node_name)),
+        group_name_(std::move(group_name))
+  {
+    hash_.mix_in(s_static_type, strlen(s_static_type));
+    hash_.mix_in(node_name_.data(), node_name_.size());
+  }
+
+ private:
+  void print_current_in_line(std::ostream &stream) const override
+  {
+    stream << "Node Group: " << group_name_ << " \t Node Name: " << node_name_;
+  }
 };
 
 struct GeoNodesLazyFunctionUserData : public fn::LazyFunctionUserData {
