@@ -22,8 +22,6 @@ class BasicLFParams : public LFParams {
 
  public:
   BasicLFParams(const LazyFunction &fn,
-                void *storage,
-                LFUserData *user_data,
                 const Span<GMutablePointer> inputs,
                 const Span<GMutablePointer> outputs,
                 MutableSpan<std::optional<ValueUsage>> input_usages,
@@ -76,17 +74,12 @@ inline void execute_lazy_function_eagerly_impl(
   output_usages.fill(ValueUsage::Used);
   set_outputs.fill(false);
   LinearAllocator<> allocator;
-  void *storage = fn.init_storage(allocator);
-  BasicLFParams params{fn,
-                       storage,
-                       user_data,
-                       input_pointers,
-                       output_pointers,
-                       input_usages,
-                       output_usages,
-                       set_outputs};
-  fn.execute(params);
-  fn.destruct_storage(storage);
+  LFContext context;
+  context.storage = fn.init_storage(allocator);
+  BasicLFParams params{
+      fn, input_pointers, output_pointers, input_usages, output_usages, set_outputs};
+  fn.execute(params, context);
+  fn.destruct_storage(context.storage);
 }
 
 }  // namespace detail

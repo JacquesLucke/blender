@@ -27,7 +27,7 @@ class LazyFunctionGraphExecutor : public LazyFunction {
   void destruct_storage(void *storage) const override;
 
  private:
-  void execute_impl(LFParams &params) const override;
+  void execute_impl(LFParams &params, const LFContext &context) const override;
 };
 
 }  // namespace blender::fn

@@ -1108,7 +1108,6 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   user_data.modifier_data = &geo_nodes_modifier_data;
 
   blender::LinearAllocator<> allocator;
-  void *storage = graph_executor.init_storage(allocator);
 
   Vector<GMutablePointer> inputs_to_destruct;
 
@@ -1135,17 +1134,19 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
     param_outputs[i] = {type, buffer};
   }
 
+  blender::fn::LFContext lf_context;
+  lf_context.storage = graph_executor.init_storage(allocator);
+  lf_context.user_data = &user_data;
+
   blender::fn::BasicLFParams params{graph_executor,
-                                    storage,
-                                    &user_data,
                                     param_inputs,
                                     param_outputs,
                                     param_input_usages,
                                     param_output_usages,
                                     param_set_outputs};
-  graph_executor.execute(params);
+  graph_executor.execute(params, lf_context);
 
-  graph_executor.destruct_storage(storage);
+  graph_executor.destruct_storage(lf_context.storage);
 
   for (GMutablePointer &ptr : inputs_to_destruct) {
     ptr.destruct();

@@ -50,9 +50,11 @@ class GeoNodeExecParams {
  private:
   const NodeRef &node_;
   LFParams &params_;
+  const fn::LFContext &lf_context_;
 
  public:
-  GeoNodeExecParams(const NodeRef &node, LFParams &params) : node_(node), params_(params)
+  GeoNodeExecParams(const NodeRef &node, LFParams &params, const fn::LFContext &lf_context)
+      : node_(node), params_(params), lf_context_(lf_context)
   {
   }
 
@@ -195,7 +197,7 @@ class GeoNodeExecParams {
 
   const Object *self_object() const
   {
-    if (const auto *data = params_.user_data<GeoNodesLFUserData>()) {
+    if (const auto *data = dynamic_cast<GeoNodesLFUserData *>(lf_context_.user_data)) {
       if (data->modifier_data) {
         return data->modifier_data->self_object;
       }
@@ -205,7 +207,7 @@ class GeoNodeExecParams {
 
   Depsgraph *depsgraph() const
   {
-    if (const auto *data = params_.user_data<GeoNodesLFUserData>()) {
+    if (const auto *data = dynamic_cast<GeoNodesLFUserData *>(lf_context_.user_data)) {
       if (data->modifier_data) {
         return data->modifier_data->depsgraph;
       }

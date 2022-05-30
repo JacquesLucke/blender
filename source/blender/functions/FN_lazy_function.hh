@@ -26,17 +26,17 @@ class LFUserData {
   virtual ~LFUserData() = default;
 };
 
+struct LFContext {
+  void *storage;
+  LFUserData *user_data;
+};
+
 class LFParams {
  protected:
   const LazyFunction &fn_;
-  void *storage_;
 
  public:
-  /* Todo: Move out of this class. */
-  LFUserData *user_data_;
-
- public:
-  LFParams(const LazyFunction &fn, void *storage, LFUserData *user_data);
+  LFParams(const LazyFunction &fn);
 
   /**
    * Get a pointer to an input value if the value is available already.
@@ -80,15 +80,6 @@ class LFParams {
   template<typename T> T extract_input(int index);
   template<typename T> const T &get_input(int index);
   template<typename T> void set_output(int index, T &&value);
-
-  void *storage();
-  template<typename T> T &storage();
-
-  LFUserData *user_data();
-  const LFUserData *user_data() const;
-
-  template<typename T> T *user_data();
-  template<typename T> const T *user_data() const;
 
   void set_default_remaining_outputs();
 
@@ -141,12 +132,12 @@ class LazyFunction {
   Span<LFInput> inputs() const;
   Span<LFOutput> outputs() const;
 
-  void execute(LFParams &params) const;
+  void execute(LFParams &params, const LFContext &context) const;
 
   bool valid_params_for_execution(const LFParams &params) const;
 
  private:
-  virtual void execute_impl(LFParams &params) const = 0;
+  virtual void execute_impl(LFParams &params, const LFContext &context) const = 0;
 };
 
 /* -------------------------------------------------------------------- */
@@ -163,10 +154,10 @@ inline Span<LFOutput> LazyFunction::outputs() const
   return outputs_;
 }
 
-inline void LazyFunction::execute(LFParams &params) const
+inline void LazyFunction::execute(LFParams &params, const LFContext &context) const
 {
   BLI_assert(this->valid_params_for_execution(params));
-  this->execute_impl(params);
+  this->execute_impl(params, context);
 }
 
 /** \} */
@@ -175,8 +166,7 @@ inline void LazyFunction::execute(LFParams &params) const
 /** \name #LFParams Inline Methods
  * \{ */
 
-inline LFParams::LFParams(const LazyFunction &fn, void *storage, LFUserData *user_data)
-    : fn_(fn), storage_(storage), user_data_(user_data)
+inline LFParams::LFParams(const LazyFunction &fn) : fn_(fn)
 {
 }
 
@@ -236,36 +226,6 @@ template<typename T> inline void LFParams::set_output(int index, T &&value)
   void *data = this->get_output_data_ptr(index);
   new (data) DecayT(std::forward<T>(value));
   this->output_set(index);
-}
-
-inline void *LFParams::storage()
-{
-  return storage_;
-}
-
-template<typename T> inline T &LFParams::storage()
-{
-  return *static_cast<T *>(storage_);
-}
-
-inline LFUserData *LFParams::user_data()
-{
-  return user_data_;
-}
-
-inline const LFUserData *LFParams::user_data() const
-{
-  return user_data_;
-}
-
-template<typename T> inline T *LFParams::user_data()
-{
-  return dynamic_cast<T *>(user_data_);
-}
-
-template<typename T> inline const T *LFParams::user_data() const
-{
-  return dynamic_cast<const T *>(user_data_);
 }
 
 /** \} */

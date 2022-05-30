@@ -190,6 +190,7 @@ class Executor {
    * Parameters provided by the caller. This is always non-null, while a node is running.
    */
   LFParams *params_ = nullptr;
+  const LFContext *context_ = nullptr;
   /**
    * Used to distribute work on separate nodes to separate threads.
    */
@@ -236,13 +237,15 @@ class Executor {
   /**
    * Main entry point to the execution of this graph.
    */
-  void execute(LFParams &params)
+  void execute(LFParams &params, const LFContext &context)
   {
     params_ = &params;
+    context_ = &context;
     BLI_SCOPED_DEFER([&]() {
       /* Make sure the #params_ pointer is not dangling, even when it shouldn't be accessed by
        * anyone. */
       params_ = nullptr;
+      context_ = nullptr;
       is_first_execution_ = false;
     });
 
@@ -858,7 +861,7 @@ class GraphExecutorLFParams final : public LFParams {
                         const LFNode &node,
                         NodeState &node_state,
                         CurrentTask &current_task)
-      : LFParams(fn, node_state.storage, executor.params_->user_data()),
+      : LFParams(fn),
         executor_(executor),
         node_(node),
         node_state_(node_state),
@@ -933,7 +936,8 @@ void Executor::execute_node(const LFFunctionNode &node,
 {
   const LazyFunction &fn = node.function();
   GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task};
-  fn.execute(node_params);
+  BLI_assert(context_ != nullptr);
+  fn.execute(node_params, *context_);
 }
 
 LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
@@ -951,10 +955,10 @@ LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &gr
   }
 }
 
-void LazyFunctionGraphExecutor::execute_impl(LFParams &params) const
+void LazyFunctionGraphExecutor::execute_impl(LFParams &params, const LFContext &context) const
 {
-  Executor &executor = params.storage<Executor>();
-  executor.execute(params);
+  Executor &executor = *static_cast<Executor *>(context.storage);
+  executor.execute(params, context);
 }
 
 void *LazyFunctionGraphExecutor::init_storage(LinearAllocator<> &allocator) const

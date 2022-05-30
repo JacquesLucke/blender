@@ -9,14 +9,12 @@
 namespace blender::fn {
 
 BasicLFParams::BasicLFParams(const LazyFunction &fn,
-                             void *storage,
-                             LFUserData *user_data,
                              const Span<GMutablePointer> inputs,
                              const Span<GMutablePointer> outputs,
                              MutableSpan<std::optional<ValueUsage>> input_usages,
                              Span<ValueUsage> output_usages,
                              MutableSpan<bool> set_outputs)
-    : LFParams(fn, storage, user_data),
+    : LFParams(fn),
       inputs_(inputs),
       outputs_(outputs),
       input_usages_(input_usages),
