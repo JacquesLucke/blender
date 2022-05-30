@@ -46,13 +46,13 @@ class LazyFunctionParams {
    *
    * The #LazyFunction must leave returned object in an initialized state, but can move from it.
    */
-  void *try_get_input_data_ptr(int index, const char *name = nullptr) const;
+  void *try_get_input_data_ptr(int index) const;
 
   /**
    * Same as #try_get_input_data_ptr, but if the data is not yet available, request it. This makes
    * sure that the data will be available in a future execution of the #LazyFunction.
    */
-  void *try_get_input_data_ptr_or_request(int index, const char *name = nullptr);
+  void *try_get_input_data_ptr_or_request(int index);
 
   /**
    * Get a pointer to where an output value should be stored.
@@ -60,29 +60,29 @@ class LazyFunctionParams {
    * The #LazyFunction is responsible for initializing the value.
    * After the output has been initialized to its final value, #output_set has to be called.
    */
-  void *get_output_data_ptr(int index, const char *name = nullptr);
+  void *get_output_data_ptr(int index);
 
   /**
    * Call this after the output value is initialized.
    */
-  void output_set(int index, const char *name = nullptr);
+  void output_set(int index);
 
-  bool output_was_set(int index, const char *name = nullptr) const;
+  bool output_was_set(int index) const;
 
   /**
    * Can be used to detect which outputs have to be computed.
    */
-  ValueUsage get_output_usage(int index, const char *name = nullptr) const;
+  ValueUsage get_output_usage(int index) const;
 
   /**
    * Tell the caller of the #LazyFunction that a specific input will definitely not be used.
    * Only an input that was not #ValueUsage::Used can become unused.
    */
-  void set_input_unused(int index, const char *name = nullptr);
+  void set_input_unused(int index);
 
-  template<typename T> T extract_input(int index, const char *name = nullptr);
-  template<typename T> const T &get_input(int index, const char *name = nullptr);
-  template<typename T> void set_output(int index, T &&value, const char *name = nullptr);
+  template<typename T> T extract_input(int index);
+  template<typename T> const T &get_input(int index);
+  template<typename T> void set_output(int index, T &&value);
 
   void *storage();
   template<typename T> T &storage();
@@ -181,92 +181,62 @@ inline void LazyFunction::execute(LazyFunctionParams &params) const
 /** \name #LazyFunctionParams Inline Methods
  * \{ */
 
-inline void *LazyFunctionParams::try_get_input_data_ptr(int index, const char *name) const
+inline void *LazyFunctionParams::try_get_input_data_ptr(int index) const
 {
-  BLI_assert(name == nullptr || name == fn_.input_name(index));
-  UNUSED_VARS_NDEBUG(name);
   return this->try_get_input_data_ptr_impl(index);
 }
 
-inline void *LazyFunctionParams::try_get_input_data_ptr_or_request(int index, const char *name)
+inline void *LazyFunctionParams::try_get_input_data_ptr_or_request(int index)
 {
-  BLI_assert(name == nullptr || name == fn_.input_name(index));
-  UNUSED_VARS_NDEBUG(name);
   return this->try_get_input_data_ptr_or_request_impl(index);
 }
 
-inline void *LazyFunctionParams::get_output_data_ptr(int index, const char *name)
+inline void *LazyFunctionParams::get_output_data_ptr(int index)
 {
-  BLI_assert(name == nullptr || name == fn_.output_name(index));
-  UNUSED_VARS_NDEBUG(name);
   return this->get_output_data_ptr_impl(index);
 }
 
-inline void LazyFunctionParams::output_set(int index, const char *name)
+inline void LazyFunctionParams::output_set(int index)
 {
-  BLI_assert(name == nullptr || name == fn_.output_name(index));
-  UNUSED_VARS_NDEBUG(name);
   this->output_set_impl(index);
 }
 
-inline bool LazyFunctionParams::output_was_set(int index, const char *name) const
+inline bool LazyFunctionParams::output_was_set(int index) const
 {
-  BLI_assert(name == nullptr || name == fn_.output_name(index));
-  UNUSED_VARS_NDEBUG(name);
   return this->output_was_set_impl(index);
 }
 
-inline ValueUsage LazyFunctionParams::get_output_usage(int index, const char *name) const
+inline ValueUsage LazyFunctionParams::get_output_usage(int index) const
 {
-  BLI_assert(name == nullptr || name == fn_.output_name(index));
-  UNUSED_VARS_NDEBUG(name);
   return this->get_output_usage_impl(index);
 }
 
-inline void LazyFunctionParams::set_input_unused(int index, const char *name)
+inline void LazyFunctionParams::set_input_unused(int index)
 {
-  BLI_assert(name == nullptr || name == fn_.input_name(index));
-  UNUSED_VARS_NDEBUG(name);
   this->set_input_unused_impl(index);
 }
 
-template<typename T> inline T LazyFunctionParams::extract_input(int index, const char *name)
+template<typename T> inline T LazyFunctionParams::extract_input(int index)
 {
-#ifdef DEBUG
-  const LazyFunctionInput &input = fn_.inputs()[index];
-  BLI_assert(input.type->is<T>());
-#endif
-
-  void *data = this->try_get_input_data_ptr(index, name);
+  void *data = this->try_get_input_data_ptr(index);
   BLI_assert(data != nullptr);
   T return_value = std::move(*static_cast<T *>(data));
   return return_value;
 }
 
-template<typename T> inline const T &LazyFunctionParams::get_input(int index, const char *name)
+template<typename T> inline const T &LazyFunctionParams::get_input(int index)
 {
-#ifdef DEBUG
-  const LazyFunctionInput &input = fn_.inputs()[index];
-  BLI_assert(input.type->is<T>());
-#endif
-
-  const void *data = this->try_get_input_data_ptr(index, name);
+  const void *data = this->try_get_input_data_ptr(index);
   BLI_assert(data != nullptr);
   return *static_cast<const T *>(data);
 }
 
-template<typename T>
-inline void LazyFunctionParams::set_output(int index, T &&value, const char *name)
+template<typename T> inline void LazyFunctionParams::set_output(int index, T &&value)
 {
-#ifdef DEBUG
-  const LazyFunctionOutput &output = fn_.outputs()[index];
-  BLI_assert(output.type->is<T>());
-#endif
-
   using DecayT = std::decay_t<T>;
-  void *data = this->get_output_data_ptr(index, name);
+  void *data = this->get_output_data_ptr(index);
   new (data) DecayT(std::forward<T>(value));
-  this->output_set(index, name);
+  this->output_set(index);
 }
 
 inline void *LazyFunctionParams::storage()

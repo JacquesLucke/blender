@@ -23,9 +23,9 @@ class AddLazyFunction : public LazyFunction {
 
   void execute_impl(LazyFunctionParams &params) const override
   {
-    const int a = params.get_input<int>(0, "A");
-    const int b = params.get_input<int>(1, "B");
-    params.set_output(0, a + b, "Result");
+    const int a = params.get_input<int>(0);
+    const int b = params.get_input<int>(1);
+    params.set_output(0, a + b);
   }
 };
 
