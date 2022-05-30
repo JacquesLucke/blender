@@ -30,7 +30,8 @@ void GeoNodeExecParams::used_named_attribute(std::string attribute_name,
 void GeoNodeExecParams::check_input_geometry_set(StringRef identifier,
                                                  const GeometrySet &geometry_set) const
 {
-  const SocketDeclaration &decl = *node_.input_by_identifier(identifier).bsocket()->declaration;
+  const SocketDeclaration &decl =
+      *node_.input_by_identifier(identifier).bsocket()->runtime->declaration;
   const decl::Geometry *geo_decl = dynamic_cast<const decl::Geometry *>(&decl);
   if (geo_decl == nullptr) {
     return;
