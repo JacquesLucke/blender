@@ -933,7 +933,9 @@ void Executor::execute_node(const LFFunctionNode &node,
   const LazyFunction &fn = node.function();
   GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task};
   BLI_assert(context_ != nullptr);
-  fn.execute(node_params, *context_);
+  LFContext fn_context = *context_;
+  fn_context.storage = node_state.storage;
+  fn.execute(node_params, fn_context);
 }
 
 LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
