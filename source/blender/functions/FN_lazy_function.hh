@@ -21,9 +21,9 @@ enum class ValueUsage {
 
 class LazyFunction;
 
-class LazyFunctionUserData {
+class LFUserData {
  public:
-  virtual ~LazyFunctionUserData() = default;
+  virtual ~LFUserData() = default;
 };
 
 class LFParams {
@@ -33,10 +33,10 @@ class LFParams {
 
  public:
   /* Todo: Move out of this class. */
-  LazyFunctionUserData *user_data_;
+  LFUserData *user_data_;
 
  public:
-  LFParams(const LazyFunction &fn, void *storage, LazyFunctionUserData *user_data);
+  LFParams(const LazyFunction &fn, void *storage, LFUserData *user_data);
 
   /**
    * Get a pointer to an input value if the value is available already.
@@ -84,8 +84,8 @@ class LFParams {
   void *storage();
   template<typename T> T &storage();
 
-  LazyFunctionUserData *user_data();
-  const LazyFunctionUserData *user_data() const;
+  LFUserData *user_data();
+  const LFUserData *user_data() const;
 
   template<typename T> T *user_data();
   template<typename T> const T *user_data() const;
@@ -178,7 +178,7 @@ inline void LazyFunction::execute(LFParams &params) const
 /** \name #LFParams Inline Methods
  * \{ */
 
-inline LFParams::LFParams(const LazyFunction &fn, void *storage, LazyFunctionUserData *user_data)
+inline LFParams::LFParams(const LazyFunction &fn, void *storage, LFUserData *user_data)
     : fn_(fn), storage_(storage), user_data_(user_data)
 {
 }
@@ -251,12 +251,12 @@ template<typename T> inline T &LFParams::storage()
   return *static_cast<T *>(storage_);
 }
 
-inline LazyFunctionUserData *LFParams::user_data()
+inline LFUserData *LFParams::user_data()
 {
   return user_data_;
 }
 
-inline const LazyFunctionUserData *LFParams::user_data() const
+inline const LFUserData *LFParams::user_data() const
 {
   return user_data_;
 }

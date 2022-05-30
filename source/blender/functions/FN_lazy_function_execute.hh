@@ -23,7 +23,7 @@ class BasicLFParams : public LFParams {
  public:
   BasicLFParams(const LazyFunction &fn,
                 void *storage,
-                LazyFunctionUserData *user_data,
+                LFUserData *user_data,
                 const Span<GMutablePointer> inputs,
                 const Span<GMutablePointer> outputs,
                 MutableSpan<std::optional<ValueUsage>> input_usages,
@@ -44,7 +44,7 @@ namespace detail {
 template<typename... Inputs, typename... Outputs, size_t... InIndices, size_t... OutIndices>
 inline void execute_lazy_function_eagerly_impl(
     const LazyFunction &fn,
-    LazyFunctionUserData *user_data,
+    LFUserData *user_data,
     std::tuple<Inputs...> &inputs,
     std::tuple<Outputs *...> &outputs,
     std::index_sequence<InIndices...> /* in_indices */,
@@ -93,7 +93,7 @@ inline void execute_lazy_function_eagerly_impl(
 
 template<typename... Inputs, typename... Outputs>
 inline void execute_lazy_function_eagerly(const LazyFunction &fn,
-                                          LazyFunctionUserData *user_data,
+                                          LFUserData *user_data,
                                           std::tuple<Inputs...> inputs,
                                           std::tuple<Outputs *...> outputs)
 {

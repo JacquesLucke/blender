@@ -110,7 +110,7 @@ class GeometryNodeLazyFunction : public LazyFunction {
     const bNode &bnode = *node_.bnode();
     BLI_assert(bnode.typeinfo->geometry_node_execute != nullptr);
 
-    // if (GeoNodesLazyFunctionUserData *user_data = dynamic_cast<GeoNodesLazyFunctionUserData *>(
+    // if (GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(
     //         params.user_data_)) {
     //   static std::mutex m;
     //   std::lock_guard lock{m};
@@ -475,13 +475,13 @@ class GroupNodeFunction : public LazyFunction {
   void execute_impl(LFParams &params) const override
   {
     // const ContextStack *parent_context_stack = nullptr;
-    // if (GeoNodesLazyFunctionUserData *user_data = dynamic_cast<GeoNodesLazyFunctionUserData *>(
+    // if (GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(
     //         params.user_data_)) {
     //   parent_context_stack = user_data->context_stack;
     // }
     // NodeGroupContextStack context_stack{
     //     parent_context_stack, group_node_.name(), group_node_.bnode()->id->name + 2};
-    // if (GeoNodesLazyFunctionUserData *user_data = dynamic_cast<GeoNodesLazyFunctionUserData *>(
+    // if (GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(
     //         params.user_data_)) {
     //   user_data->context_stack = &context_stack;
     // }

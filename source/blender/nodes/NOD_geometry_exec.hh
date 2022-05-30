@@ -195,7 +195,7 @@ class GeoNodeExecParams {
 
   const Object *self_object() const
   {
-    if (const auto *data = params_.user_data<GeoNodesLazyFunctionUserData>()) {
+    if (const auto *data = params_.user_data<GeoNodesLFUserData>()) {
       if (data->modifier_data) {
         return data->modifier_data->self_object;
       }
@@ -205,7 +205,7 @@ class GeoNodeExecParams {
 
   Depsgraph *depsgraph() const
   {
-    if (const auto *data = params_.user_data<GeoNodesLazyFunctionUserData>()) {
+    if (const auto *data = params_.user_data<GeoNodesLFUserData>()) {
       if (data->modifier_data) {
         return data->modifier_data->depsgraph;
       }

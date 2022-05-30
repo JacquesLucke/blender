@@ -1104,7 +1104,7 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
   geo_nodes_modifier_data.self_object = ctx->object;
-  blender::nodes::GeoNodesLazyFunctionUserData user_data;
+  blender::nodes::GeoNodesLFUserData user_data;
   user_data.modifier_data = &geo_nodes_modifier_data;
 
   blender::LinearAllocator<> allocator;

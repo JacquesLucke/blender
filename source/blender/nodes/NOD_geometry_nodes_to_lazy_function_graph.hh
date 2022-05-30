@@ -47,7 +47,7 @@ class NodeGroupContextStack : public ContextStack {
   }
 };
 
-struct GeoNodesLazyFunctionUserData : public fn::LazyFunctionUserData {
+struct GeoNodesLFUserData : public fn::LFUserData {
   GeoNodesModifierData *modifier_data;
   const ContextStack *context_stack;
 };
