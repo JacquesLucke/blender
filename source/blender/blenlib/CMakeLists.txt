@@ -10,7 +10,6 @@ set(INC
   ../../../intern/guardedalloc
   ../../../extern/wcwidth
   ../../../extern/json/include
-  ../../../extern/xxHash
 )
 
 set(INC_SYS

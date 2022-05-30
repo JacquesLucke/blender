@@ -13,6 +13,7 @@
 namespace blender {
 
 struct ContextStackHash {
+  static constexpr int64_t HashSizeInBytes = 16;
   uint64_t v1 = 0;
   uint64_t v2 = 0;
 
@@ -26,11 +27,13 @@ struct ContextStackHash {
     return a.v1 == b.v1 && a.v2 == b.v2;
   }
 
-  void mix_in(Span<std::byte> data);
+  void mix_in(const void *data, int64_t len);
   void mix_in(StringRef a, StringRef b);
 
   friend std::ostream &operator<<(std::ostream &stream, const ContextStackHash &hash);
 };
+
+static_assert(sizeof(ContextStackHash) == ContextStackHash::HashSizeInBytes);
 
 class ContextStack {
  private:

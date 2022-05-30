@@ -16,7 +16,8 @@ class NamedContext : public ContextStack {
   NamedContext(const ContextStack *parent, std::string name)
       : ContextStack(s_static_type, parent), name_(std::move(name))
   {
-    hash_.mix_in(s_static_type, name_);
+    hash_.mix_in(s_static_type, strlen(s_static_type));
+    hash_.mix_in(name_.data(), name_.size());
   }
 
  private:
@@ -35,9 +36,8 @@ class IndexContext : public ContextStack {
   IndexContext(const ContextStack *parent, const int64_t index)
       : ContextStack(s_static_type, parent), index_(index)
   {
-    hash_.mix_in(Span<std::byte>(reinterpret_cast<const std::byte *>(s_static_type),
-                                 strlen(s_static_type)));
-    hash_.mix_in(Span<std::byte>(reinterpret_cast<const std::byte *>(&index_), sizeof(index_)));
+    hash_.mix_in(s_static_type, strlen(s_static_type));
+    hash_.mix_in(&index_, sizeof(index_));
   }
 
  private:
