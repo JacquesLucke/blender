@@ -36,10 +36,7 @@ class LazyFunctionParams {
   LazyFunctionUserData *user_data_;
 
  public:
-  LazyFunctionParams(const LazyFunction &fn, void *storage, LazyFunctionUserData *user_data)
-      : fn_(fn), storage_(storage), user_data_(user_data)
-  {
-  }
+  LazyFunctionParams(const LazyFunction &fn, void *storage, LazyFunctionUserData *user_data);
 
   /**
    * Get a pointer to an input value if the value is available already.
@@ -180,6 +177,13 @@ inline void LazyFunction::execute(LazyFunctionParams &params) const
 /* -------------------------------------------------------------------- */
 /** \name #LazyFunctionParams Inline Methods
  * \{ */
+
+inline LazyFunctionParams::LazyFunctionParams(const LazyFunction &fn,
+                                              void *storage,
+                                              LazyFunctionUserData *user_data)
+    : fn_(fn), storage_(storage), user_data_(user_data)
+{
+}
 
 inline void *LazyFunctionParams::try_get_input_data_ptr(int index) const
 {
