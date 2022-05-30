@@ -582,9 +582,9 @@ class Executor {
         }
 
         /* Request linked inputs that are always needed. */
-        const Span<LazyFunctionInput> fn_inputs = fn.inputs();
+        const Span<LFInput> fn_inputs = fn.inputs();
         for (const int input_index : fn_inputs.index_range()) {
-          const LazyFunctionInput &fn_input = fn_inputs[input_index];
+          const LFInput &fn_input = fn_inputs[input_index];
           if (fn_input.usage == ValueUsage::Used) {
             const LFInputSocket &input_socket = node.input(input_index);
             this->set_input_required(locked_node, input_socket);

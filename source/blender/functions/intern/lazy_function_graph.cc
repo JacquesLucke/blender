@@ -21,8 +21,8 @@ LazyFunctionGraph::~LazyFunctionGraph()
 
 LFFunctionNode &LazyFunctionGraph::add_function(const LazyFunction &fn)
 {
-  const Span<LazyFunctionInput> inputs = fn.inputs();
-  const Span<LazyFunctionOutput> outputs = fn.outputs();
+  const Span<LFInput> inputs = fn.inputs();
+  const Span<LFOutput> outputs = fn.outputs();
 
   LFFunctionNode &node = *allocator_.construct<LFFunctionNode>().release();
   node.fn_ = &fn;

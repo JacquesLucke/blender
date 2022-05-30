@@ -102,25 +102,22 @@ class LFParams {
   virtual void set_input_unused_impl(int index) = 0;
 };
 
-struct LazyFunctionInput {
+struct LFInput {
   const char *static_name;
   const CPPType *type;
   ValueUsage usage;
 
-  LazyFunctionInput(const char *static_name,
-                    const CPPType &type,
-                    const ValueUsage usage = ValueUsage::Used)
+  LFInput(const char *static_name, const CPPType &type, const ValueUsage usage = ValueUsage::Used)
       : static_name(static_name), type(&type), usage(usage)
   {
   }
 };
 
-struct LazyFunctionOutput {
+struct LFOutput {
   const char *static_name;
   const CPPType *type = nullptr;
 
-  LazyFunctionOutput(const char *static_name, const CPPType &type)
-      : static_name(static_name), type(&type)
+  LFOutput(const char *static_name, const CPPType &type) : static_name(static_name), type(&type)
   {
   }
 };
@@ -128,8 +125,8 @@ struct LazyFunctionOutput {
 class LazyFunction {
  protected:
   const char *static_name_ = "Unnamed Function";
-  Vector<LazyFunctionInput> inputs_;
-  Vector<LazyFunctionOutput> outputs_;
+  Vector<LFInput> inputs_;
+  Vector<LFOutput> outputs_;
 
  public:
   virtual ~LazyFunction() = default;
@@ -141,8 +138,8 @@ class LazyFunction {
   virtual void *init_storage(LinearAllocator<> &allocator) const;
   virtual void destruct_storage(void *storage) const;
 
-  Span<LazyFunctionInput> inputs() const;
-  Span<LazyFunctionOutput> outputs() const;
+  Span<LFInput> inputs() const;
+  Span<LFOutput> outputs() const;
 
   void execute(LFParams &params) const;
 
@@ -156,12 +153,12 @@ class LazyFunction {
 /** \name #LazyFunction Inline Methods
  * \{ */
 
-inline Span<LazyFunctionInput> LazyFunction::inputs() const
+inline Span<LFInput> LazyFunction::inputs() const
 {
   return inputs_;
 }
 
-inline Span<LazyFunctionOutput> LazyFunction::outputs() const
+inline Span<LFOutput> LazyFunction::outputs() const
 {
   return outputs_;
 }

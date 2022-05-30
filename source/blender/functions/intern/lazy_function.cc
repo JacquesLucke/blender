@@ -40,7 +40,7 @@ bool LazyFunction::valid_params_for_execution(const LFParams &params) const
 {
   bool all_required_inputs_available = true;
   for (const int i : inputs_.index_range()) {
-    const LazyFunctionInput &fn_input = inputs_[i];
+    const LFInput &fn_input = inputs_[i];
     if (fn_input.usage == ValueUsage::Used) {
       if (params.try_get_input_data_ptr(i) == nullptr) {
         all_required_inputs_available = false;
@@ -68,7 +68,7 @@ void LFParams::set_default_remaining_outputs()
     if (this->output_was_set(i)) {
       continue;
     }
-    const LazyFunctionOutput &fn_output = fn_.outputs()[i];
+    const LFOutput &fn_output = fn_.outputs()[i];
     const CPPType &type = *fn_output.type;
     void *data_ptr = this->get_output_data_ptr(i);
     type.value_initialize(data_ptr);

@@ -54,8 +54,8 @@ static const CPPType *get_vector_type(const CPPType &type)
 static void lazy_function_interface_from_node(const NodeRef &node,
                                               Vector<const InputSocketRef *> &r_used_inputs,
                                               Vector<const OutputSocketRef *> &r_used_outputs,
-                                              Vector<fn::LazyFunctionInput> &r_inputs,
-                                              Vector<fn::LazyFunctionOutput> &r_outputs)
+                                              Vector<fn::LFInput> &r_inputs,
+                                              Vector<fn::LFOutput> &r_outputs)
 {
   const bool is_muted = node.is_muted();
   const bool supports_lazyness = node.bnode()->typeinfo->geometry_node_execute_supports_laziness ||
@@ -263,11 +263,11 @@ class MutedNodeFunction : public LazyFunction {
   {
     static_name_ = "Muted";
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
-    for (fn::LazyFunctionInput &fn_input : inputs_) {
+    for (fn::LFInput &fn_input : inputs_) {
       fn_input.usage = fn::ValueUsage::Maybe;
     }
 
-    for (fn::LazyFunctionInput &fn_input : inputs_) {
+    for (fn::LFInput &fn_input : inputs_) {
       fn_input.usage = fn::ValueUsage::Unused;
     }
 
@@ -376,10 +376,10 @@ class MultiFunctionNode : public LazyFunction {
     BLI_assert(fn_item_.fn != nullptr);
     static_name_ = node.name().c_str();
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
-    for (const fn::LazyFunctionInput &fn_input : inputs_) {
+    for (const fn::LFInput &fn_input : inputs_) {
       input_types_.append(dynamic_cast<const ValueOrFieldCPPType *>(fn_input.type));
     }
-    for (const fn::LazyFunctionOutput &fn_output : outputs_) {
+    for (const fn::LFOutput &fn_output : outputs_) {
       output_types_.append(dynamic_cast<const ValueOrFieldCPPType *>(fn_output.type));
     }
   }

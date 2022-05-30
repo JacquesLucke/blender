@@ -45,8 +45,8 @@ static void execute_lazy_function_test(const LazyFunction &fn,
                                        const Span<LazyFunctionEvent> events,
                                        const Span<GMutablePointer> outputs)
 {
-  const Span<LazyFunctionInput> fn_inputs = fn.inputs();
-  const Span<LazyFunctionOutput> fn_outputs = fn.outputs();
+  const Span<LFInput> fn_inputs = fn.inputs();
+  const Span<LFOutput> fn_outputs = fn.outputs();
   BLI_assert(outputs.size() == fn_outputs.size());
 
   LinearAllocator<> allocator;
