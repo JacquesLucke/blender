@@ -131,14 +131,26 @@ extern void *(*MEM_mallocN_aligned)(size_t len,
                                     const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT
     ATTR_ALLOC_SIZE(1) ATTR_NONNULL(3);
 
+/**
+ * Allocate an aligned block of memory. The name must have static life-time.
+ * The returned pointer must only be used with other MEM_direct_* functions.
+ */
 extern void *(*MEM_direct_mallocN)(size_t len,
                                    size_t alignment,
                                    const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
 
+/**
+ * Allocate a zero-initialized and aligned block of memory. The name must have a static life-time.
+ * The returned pointer must only be used with other MEM_direct_* functions.
+ */
 extern void *(*MEM_direct_callocN)(size_t len,
                                    size_t alignment,
                                    const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
 
+/**
+ * Reallocate a pointer that has been allocated with a MEM_direct_* function.
+ * The name must have a static life-time.
+ */
 extern void *(*MEM_direct_reallocN)(
     void *ptr,
     size_t new_len,
@@ -147,8 +159,16 @@ extern void *(*MEM_direct_reallocN)(
     size_t old_len,
     size_t old_alignment) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
 
+/**
+ * Free a pointer allocated by a MEM_direct_* function.
+ */
 extern void (*MEM_direct_freeN)(void *ptr, size_t len, size_t alignment);
 
+/**
+ * Some allocators actually allocate a bit more memory than was requested. This function returns
+ * how much memory the allocator actually allocated for a given pointer. The len and alignment
+ * arguments have to match what was passed to the allocation function.
+ */
 extern size_t (*MEM_direct_real_size)(const void *ptr, size_t len, size_t alignment);
 
 /**
