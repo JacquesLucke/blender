@@ -44,7 +44,7 @@ endif()
 if(WITH_MEM_JEMALLOC)
   add_definitions(-DWITH_MEM_JEMALLOC)
   list(APPEND SRC
-    ./intern/jemalloc_util.c
+    ./intern/jemalloc_utils.c
   )
   list(APPEND INC_SYS
     ${JEMALLOC_INCLUDE_DIR}
