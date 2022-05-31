@@ -368,12 +368,6 @@ if(WITH_MEM_JEMALLOC)
   list(APPEND SRC
     ../../../../intern/guardedalloc/intern/jemalloc_utils.c
   )
-  list(APPEND INC_SYS
-    ${JEMALLOC_INCLUDE_DIR}
-  )
-  list(APPEND LIB
-    ${JEMALLOC_LIBRARY}
-  )
 
   # Jemalloc 5.0.0+ needs extra configuration.
   if(NOT ("${JEMALLOC_VERSION}" VERSION_LESS "5.0.0"))
@@ -440,6 +434,11 @@ if(WIN32 AND NOT UNIX)
   target_link_libraries(makesrna ${PTHREADS_LIBRARIES})
   target_link_libraries(makesrna ${TBB_MALLOC_LIBRARIES})
 endif()
+if(WITH_MEM_JEMALLOC)
+  target_link_libraries(makesrna ${JEMALLOC_LIBRARY})
+  include_directories(${JEMALLOC_INCLUDE_DIR})
+endif()
+
 
 # Output rna_*_gen.c
 # note (linux only): with crashes try add this after COMMAND: valgrind --leak-check=full --track-origins=yes

@@ -51,13 +51,6 @@ if(WITH_MEM_JEMALLOC)
   list(APPEND SRC
     ../../../../intern/guardedalloc/intern/jemalloc_utils.c
   )
-  list(APPEND SRC_DNA_INC
-    ${JEMALLOC_INCLUDE_DIR}
-  )
-  # list(APPEND LIB
-  #   ${JEMALLOC_LIBRARY}
-  # )
-
   # Jemalloc 5.0.0+ needs extra configuration.
   if(NOT ("${JEMALLOC_VERSION}" VERSION_LESS "5.0.0"))
     add_definitions(-DWITH_JEMALLOC_CONF)
@@ -88,6 +81,11 @@ setup_platform_linker_flags(makesdna)
 if(WIN32 AND NOT UNIX)
   target_link_libraries(makesdna ${PTHREADS_LIBRARIES})
   target_link_libraries(makesdna ${TBB_MALLOC_LIBRARIES})
+  endif()
+
+if(WITH_MEM_JEMALLOC)
+  target_link_libraries(makesdna ${JEMALLOC_LIBRARY})
+  include_directories(${JEMALLOC_INCLUDE_DIR})
 endif()
 
 # Output dna.c
