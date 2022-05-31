@@ -64,7 +64,7 @@ template<
      * The allocator used by this stack. Should rarely be changed, except when you don't want that
      * MEM_* is used internally.
      */
-    typename Allocator = GuardedAllocator>
+    typename Allocator = GuardedDirectAllocator>
 class Stack {
  public:
   using value_type = T;
@@ -193,7 +193,8 @@ class Stack {
     Chunk *above_chunk;
     for (Chunk *chunk = inline_chunk_.above; chunk; chunk = above_chunk) {
       above_chunk = chunk->above;
-      allocator_.deallocate(chunk);
+      allocator_.direct_deallocate(
+          chunk, this->chunk_allocation_size_by_capacity(chunk->capacity()), alignof(T));
     }
   }
 
@@ -353,8 +354,10 @@ class Stack {
       const int64_t new_capacity = std::max(size_hint, top_chunk_->capacity() * 2 + 10);
 
       /* Do a single memory allocation for the Chunk and the array it references. */
-      void *buffer = allocator_.allocate(
-          sizeof(Chunk) + sizeof(T) * new_capacity + alignof(T), alignof(Chunk), AT);
+      void *buffer = allocator_.direct_allocate(
+          static_cast<size_t>(this->chunk_allocation_size_by_capacity(new_capacity)),
+          alignof(Chunk),
+          __func__);
       void *chunk_buffer = buffer;
       void *data_buffer = reinterpret_cast<void *>(
           (reinterpret_cast<uintptr_t>(buffer) + sizeof(Chunk) + alignof(T) - 1) &
@@ -369,6 +372,11 @@ class Stack {
     }
     top_chunk_ = top_chunk_->above;
     top_ = top_chunk_->begin;
+  }
+
+  int64_t chunk_allocation_size_by_capacity(const int64_t capacity)
+  {
+    return sizeof(Chunk) + sizeof(T) * capacity + alignof(T);
   }
 
   void move_top_pointer_back_to_below_chunk()

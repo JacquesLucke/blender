@@ -104,7 +104,7 @@ template<
      * The allocator used by this map. Should rarely be changed, except when you don't want that
      * MEM_* is used internally.
      */
-    typename Allocator = GuardedAllocator>
+    typename Allocator = GuardedDirectAllocator>
 class Map {
  public:
   using size_type = int64_t;

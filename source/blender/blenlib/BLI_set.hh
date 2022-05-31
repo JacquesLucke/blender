@@ -103,7 +103,7 @@ template<
      * The allocator used by this set. Should rarely be changed, except when you don't want that
      * MEM_* is used internally.
      */
-    typename Allocator = GuardedAllocator>
+    typename Allocator = GuardedDirectAllocator>
 class Set {
  public:
   class Iterator;
