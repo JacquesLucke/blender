@@ -90,7 +90,7 @@ class Array {
   Array(Span<U> values, Allocator allocator = {}) : Array(NoExceptConstructor(), allocator)
   {
     const int64_t size = values.size();
-    data_ = this->get_buffer_for_size(size);
+    data_ = this->get_buffer_for_size(size, false);
     uninitialized_convert_n<U, T>(values.data(), size, data_);
     size_ = size;
   }
@@ -119,7 +119,7 @@ class Array {
    */
   explicit Array(int64_t size, Allocator allocator = {}) : Array(NoExceptConstructor(), allocator)
   {
-    data_ = this->get_buffer_for_size(size);
+    data_ = this->get_buffer_for_size(size, false);
     default_construct_n(data_, size);
     size_ = size;
   }
@@ -132,8 +132,11 @@ class Array {
       : Array(NoExceptConstructor(), allocator)
   {
     BLI_assert(size >= 0);
-    data_ = this->get_buffer_for_size(size);
-    uninitialized_fill_n(data_, size, value);
+    const bool init_zero = can_zero_initialize_on_fill(value);
+    data_ = this->get_buffer_for_size(size, init_zero);
+    if (!init_zero) {
+      uninitialized_fill_n(data_, size, value);
+    }
     size_ = size;
   }
 
@@ -153,7 +156,7 @@ class Array {
       : Array(NoExceptConstructor(), allocator)
   {
     BLI_assert(size >= 0);
-    data_ = this->get_buffer_for_size(size);
+    data_ = this->get_buffer_for_size(size, false);
     size_ = size;
   }
 
@@ -396,7 +399,7 @@ class Array {
       default_construct_n(data_, new_size);
     }
     else {
-      T *new_data = this->get_buffer_for_size(new_size);
+      T *new_data = this->get_buffer_for_size(new_size, false);
       try {
         default_construct_n(new_data, new_size);
       }
@@ -412,18 +415,25 @@ class Array {
   }
 
  private:
-  T *get_buffer_for_size(int64_t size)
+  T *get_buffer_for_size(const int64_t size, const bool init_zero)
   {
     if (size <= InlineBufferCapacity) {
+      if (init_zero) {
+        memset(inline_buffer_, 0, sizeof(T) * static_cast<size_t>(size));
+      }
       return inline_buffer_;
     }
     else {
-      return this->allocate(size);
+      return this->allocate(size, init_zero);
     }
   }
 
-  T *allocate(int64_t size)
+  T *allocate(int64_t size, const bool init_zero)
   {
+    if (init_zero) {
+      return static_cast<T *>(allocator_.direct_allocate_zero(
+          static_cast<size_t>(size) * sizeof(T), alignof(T), __func__));
+    }
     return static_cast<T *>(
         allocator_.direct_allocate(static_cast<size_t>(size) * sizeof(T), alignof(T), __func__));
   }

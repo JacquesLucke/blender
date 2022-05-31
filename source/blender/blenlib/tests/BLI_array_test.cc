@@ -22,6 +22,13 @@ TEST(array, SizeConstructor)
   EXPECT_FALSE(array.is_empty());
 }
 
+TEST(array, InitZero)
+{
+  Array<int> array(1000, 0);
+  EXPECT_EQ(array[4], 0);
+  EXPECT_EQ(array[454], 0);
+}
+
 TEST(array, FillConstructor)
 {
   Array<int> array(5, 8);
