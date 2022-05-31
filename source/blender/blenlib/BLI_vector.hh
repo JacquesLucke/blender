@@ -974,12 +974,24 @@ class Vector {
 
     /* At least increase the last allocation by a factor that is greater than 1. Otherwise
      * consecutive calls to #reserve can cause a reallocation every time even though min_capacity
-     * only increases linearly. */
-    const size_t min_new_capacity = std::max<size_t>(old_capacity * 3 / 2, 4);
-    const size_t new_capacity = std::max(min_capacity, min_new_capacity);
+     * only increases linearly.
+     *
+     * Use a growth factor of 2 when the vector is smaller, because memory won't be reused usually
+     * anyway. For larger vectors, use a growth factor of 1.5 so that the allocator can reuse
+     * memory more easily.
+     * */
+    const size_t min_new_capacity = std::max<size_t>(
+        old_capacity <= 64 ? old_capacity * 2 : old_capacity * 3 / 2, 4);
+    size_t new_capacity = std::max(min_capacity, min_new_capacity);
+    size_t new_capacity_in_bytes = new_capacity * sizeof(T);
+
+    /* Round up the new capacity based on the allocator, to avoid wasting space after the
+     * allocated buffer. */
+    new_capacity_in_bytes = allocator_.direct_next_size(new_capacity_in_bytes, alignof(T));
+    new_capacity = new_capacity_in_bytes / sizeof(T);
+
     const size_t size = static_cast<size_t>(this->size());
     const size_t old_capacity_in_bytes = old_capacity * sizeof(T);
-    const size_t new_capacity_in_bytes = new_capacity * sizeof(T);
     const bool was_inline = this->is_inline();
     const bool was_allocated = !was_inline;
 
