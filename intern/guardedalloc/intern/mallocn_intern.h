@@ -87,6 +87,13 @@ extern "C" {
 void *aligned_malloc(size_t size, size_t alignment);
 void aligned_free(void *ptr);
 
+#ifdef WITH_MEM_JEMALLOC
+void *jemalloc_malloc(size_t size, size_t alignment);
+void *jemalloc_calloc(size_t size, size_t alignment);
+void *jemalloc_realloc(void *ptr, size_t size, size_t alignment);
+void jemalloc_free(void *ptr);
+#endif
+
 extern bool leak_detector_has_run;
 extern char free_after_leak_detection_message[];
 

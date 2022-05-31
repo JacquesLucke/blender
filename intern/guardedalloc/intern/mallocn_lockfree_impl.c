@@ -20,6 +20,10 @@
 #include "atomic_ops.h"
 #include "mallocn_intern.h"
 
+#ifdef WITH_MEM_JEMALLOC
+void *mallocx(size_t size, int flags);
+#endif
+
 typedef struct MemHead {
   /* Length of allocated memory block. */
   size_t len;
@@ -356,22 +360,30 @@ void *MEM_lockfree_direct_mallocN(const size_t len,
                                   const size_t alignment,
                                   const char *UNUSED(str))
 {
+#ifdef WITH_MEM_JEMALLOC
+  return jemalloc_malloc(len, alignment);
+#else
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     return malloc(len);
   }
   return aligned_malloc(len, alignment);
+#endif
 }
 
 void *MEM_lockfree_direct_callocN(const size_t len,
                                   const size_t alignment,
                                   const char *UNUSED(str))
 {
+#ifdef WITH_MEM_JEMALLOC
+  return jemalloc_calloc(len, alignment);
+#else
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     return calloc(1, len);
   }
   void *ptr = aligned_malloc(len, alignment);
   memset(ptr, 0, len);
   return ptr;
+#endif
 }
 
 void *MEM_lockfree_direct_reallocN(void *ptr,
@@ -381,6 +393,10 @@ void *MEM_lockfree_direct_reallocN(void *ptr,
                                    const size_t old_len,
                                    const size_t old_alignment)
 {
+#ifdef WITH_MEM_JEMALLOC
+  ((void)str, (void)old_len, (void)old_alignment);
+  return jemalloc_realloc(ptr, new_len, new_alignment);
+#else
   const bool new_alignment_is_small = new_alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT;
   const bool old_alignment_is_small = old_alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT;
   if (new_alignment_is_small && old_alignment_is_small) {
@@ -400,16 +416,22 @@ void *MEM_lockfree_direct_reallocN(void *ptr,
     aligned_free(ptr);
   }
   return new_ptr;
+#endif
 }
 
 void MEM_lockfree_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t alignment)
 {
+#ifdef WITH_MEM_JEMALLOC
+  (void)alignment;
+  jemalloc_free(ptr);
+#else
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     free(ptr);
   }
   else {
     aligned_free(ptr);
   }
+#endif
 }
 
 void MEM_lockfree_printmemlist_pydict(void)
