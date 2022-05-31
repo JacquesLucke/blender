@@ -363,6 +363,41 @@ if(WITH_GMP)
   add_definitions(-DWITH_GMP)
 endif()
 
+if(WITH_MEM_JEMALLOC)
+  add_definitions(-DWITH_MEM_JEMALLOC)
+  list(APPEND SRC
+    ../../../../intern/guardedalloc/intern/jemalloc_utils.c
+  )
+  list(APPEND INC_SYS
+    ${JEMALLOC_INCLUDE_DIR}
+  )
+  list(APPEND LIB
+    ${JEMALLOC_LIBRARY}
+  )
+
+  # Jemalloc 5.0.0+ needs extra configuration.
+  if(NOT ("${JEMALLOC_VERSION}" VERSION_LESS "5.0.0"))
+    add_definitions(-DWITH_JEMALLOC_CONF)
+  endif()
+endif()
+
+if(WIN32)
+  if(WITH_TBB)
+    if(WITH_TBB_MALLOC_PROXY)
+      add_definitions(-DWITH_TBB_MALLOC)
+      list(APPEND SRC
+        ../../../../intern/guardedalloc/intern/tbb_scalable_allocator_utils.c
+      )
+      list(APPEND INC_SYS
+        ${TBB_INCLUDE_DIR}
+      )
+      list(APPEND LIB
+        ${TBB_MALLOC_LIBRARIES}
+      )
+    endif()
+  endif()
+endif()
+
 # Build makesrna executable
 blender_include_dirs(
   .
@@ -403,6 +438,7 @@ target_link_libraries(makesrna bf_dna_blenlib)
 
 if(WIN32 AND NOT UNIX)
   target_link_libraries(makesrna ${PTHREADS_LIBRARIES})
+  target_link_libraries(makesrna ${TBB_MALLOC_LIBRARIES})
 endif()
 
 # Output rna_*_gen.c

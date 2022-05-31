@@ -356,8 +356,10 @@ void *MEM_lockfree_direct_mallocN(const size_t len,
                                   const size_t alignment,
                                   const char *UNUSED(str))
 {
-#ifdef WITH_MEM_JEMALLOC
+#if defined(WITH_MEM_JEMALLOC)
   return jemalloc_malloc(len, alignment);
+#elif defined(WITH_TBB_MALLOC)
+  return tbb_malloc(len, alignment);
 #else
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     return malloc(len);

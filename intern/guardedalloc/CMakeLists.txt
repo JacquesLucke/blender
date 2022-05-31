@@ -59,6 +59,23 @@ if(WITH_MEM_JEMALLOC)
   endif()
 endif()
 
+if(WIN32)
+  if(WITH_TBB)
+    if(WITH_TBB_MALLOC_PROXY)
+      add_definitions(-DWITH_TBB_MALLOC)
+      list(APPEND SRC
+        ./intern/tbb_scalable_allocator_utils.c
+      )
+      list(APPEND INC_SYS
+        ${TBB_INCLUDE_DIR}
+      )
+      list(APPEND LIB
+        ${TBB_MALLOC_LIBRARIES}
+      )
+    endif()
+  endif()
+endif()
+
 blender_add_lib(bf_intern_guardedalloc "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
 # Override C++ alloc, optional.

@@ -46,6 +46,38 @@ set(SRC
   ${dna_header_string_file}
 )
 
+if(WITH_MEM_JEMALLOC)
+  add_definitions(-DWITH_MEM_JEMALLOC)
+  list(APPEND SRC
+    ../../../../intern/guardedalloc/intern/jemalloc_utils.c
+  )
+  list(APPEND SRC_DNA_INC
+    ${JEMALLOC_INCLUDE_DIR}
+  )
+  # list(APPEND LIB
+  #   ${JEMALLOC_LIBRARY}
+  # )
+
+  # Jemalloc 5.0.0+ needs extra configuration.
+  if(NOT ("${JEMALLOC_VERSION}" VERSION_LESS "5.0.0"))
+    add_definitions(-DWITH_JEMALLOC_CONF)
+  endif()
+endif()
+
+if(WIN32)
+  if(WITH_TBB)
+    if(WITH_TBB_MALLOC_PROXY)
+      add_definitions(-DWITH_TBB_MALLOC)
+      list(APPEND SRC
+        ../../../../intern/guardedalloc/intern/tbb_scalable_allocator_utils.c
+      )
+      list(APPEND SRC_DNA_INC
+        ${TBB_INCLUDE_DIR}
+      )
+    endif()
+  endif()
+endif()
+
 # SRC_DNA_INC is defined in the parent dir
 
 add_cc_flags_custom_test(makesdna)
@@ -55,6 +87,7 @@ setup_platform_linker_flags(makesdna)
 
 if(WIN32 AND NOT UNIX)
   target_link_libraries(makesdna ${PTHREADS_LIBRARIES})
+  target_link_libraries(makesdna ${TBB_MALLOC_LIBRARIES})
 endif()
 
 # Output dna.c

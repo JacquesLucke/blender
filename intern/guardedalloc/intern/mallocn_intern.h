@@ -95,6 +95,10 @@ void jemalloc_free(void *ptr);
 size_t jemalloc_next_size(size_t size, size_t alignment);
 #endif
 
+#ifdef WITH_TBB_MALLOC
+extern void *tbb_malloc(size_t size, size_t alignment);
+#endif
+
 extern bool leak_detector_has_run;
 extern char free_after_leak_detection_message[];
 
