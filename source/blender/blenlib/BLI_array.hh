@@ -431,7 +431,7 @@ class Array {
   void deallocate_if_not_inline(T *ptr)
   {
     if (ptr != inline_buffer_) {
-      allocator_.direct_deallocate(ptr, static_cast<size_t>(size_), alignof(T));
+      allocator_.direct_deallocate(ptr, alignof(T));
     }
   }
 };

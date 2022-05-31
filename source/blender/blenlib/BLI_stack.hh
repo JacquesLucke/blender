@@ -193,8 +193,7 @@ class Stack {
     Chunk *above_chunk;
     for (Chunk *chunk = inline_chunk_.above; chunk; chunk = above_chunk) {
       above_chunk = chunk->above;
-      allocator_.direct_deallocate(
-          chunk, this->chunk_allocation_size_by_capacity(chunk->capacity()), alignof(T));
+      allocator_.direct_deallocate(chunk, alignof(Chunk));
     }
   }
 

@@ -268,7 +268,7 @@ class Vector {
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      allocator_.direct_deallocate(begin_, static_cast<size_t>(this->capacity()), alignof(T));
+      allocator_.direct_deallocate(begin_, alignof(T));
     }
   }
 
@@ -428,7 +428,7 @@ class Vector {
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      allocator_.direct_deallocate(begin_, static_cast<size_t>(this->capacity()), alignof(T));
+      allocator_.direct_deallocate(begin_, alignof(T));
     }
 
     begin_ = inline_buffer_;
@@ -1018,13 +1018,13 @@ class Vector {
       catch (...) {
         /* If relocation failed, the entire grow operation failed. Deallocate the newly allocated
          * array and forward the exception. */
-        allocator_.direct_deallocate(new_array, new_capacity_in_bytes, alignof(T));
+        allocator_.direct_deallocate(new_array, alignof(T));
         throw;
       }
       if (was_allocated) {
         /* Free the old array if necessary. The elements have been destructed by the relocation
          * above. */
-        allocator_.direct_deallocate(begin_, old_capacity_in_bytes, alignof(T));
+        allocator_.direct_deallocate(begin_, alignof(T));
       }
       begin_ = new_array;
     }

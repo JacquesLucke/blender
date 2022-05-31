@@ -184,7 +184,7 @@ class VectorSet {
   {
     destruct_n(keys_, this->size());
     if (keys_ != nullptr) {
-      this->deallocate_keys_array(keys_, usable_slots_);
+      this->deallocate_keys_array(keys_);
     }
   }
 
@@ -195,7 +195,7 @@ class VectorSet {
       uninitialized_copy_n(other.keys_, other.size(), keys_);
     }
     catch (...) {
-      this->deallocate_keys_array(keys_, other.usable_slots_);
+      this->deallocate_keys_array(keys_);
       throw;
     }
 
@@ -564,7 +564,7 @@ class VectorSet {
       try {
         slots_.reinitialize(total_slots);
         if (keys_ != nullptr) {
-          this->deallocate_keys_array(keys_, usable_slots_);
+          this->deallocate_keys_array(keys_);
           keys_ = nullptr;
         }
         keys_ = this->allocate_keys_array(usable_slots);
@@ -601,11 +601,11 @@ class VectorSet {
       uninitialized_relocate_n(keys_, this->size(), new_keys);
     }
     catch (...) {
-      this->deallocate_keys_array(new_keys, usable_slots);
+      this->deallocate_keys_array(new_keys);
       this->noexcept_reset();
       throw;
     }
-    this->deallocate_keys_array(keys_, usable_slots_);
+    this->deallocate_keys_array(keys_);
 
     keys_ = new_keys;
     occupied_and_removed_slots_ -= removed_slots_;
@@ -842,10 +842,9 @@ class VectorSet {
         sizeof(Key) * static_cast<size_t>(size), alignof(Key), __func__));
   }
 
-  void deallocate_keys_array(Key *keys, const int64_t size)
+  void deallocate_keys_array(Key *keys)
   {
-    slots_.allocator().direct_deallocate(
-        keys, sizeof(Key) * static_cast<size_t>(size), alignof(Key));
+    slots_.allocator().direct_deallocate(keys, alignof(Key));
   }
 };
 

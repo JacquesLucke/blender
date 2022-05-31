@@ -21,7 +21,6 @@ class LinearAllocator : NonCopyable, NonMovable {
  private:
   struct Buffer {
     void *data;
-    int64_t size;
     int64_t alignment;
   };
 
@@ -50,7 +49,7 @@ class LinearAllocator : NonCopyable, NonMovable {
   ~LinearAllocator()
   {
     for (Buffer &buffer : owned_buffers_) {
-      allocator_.direct_deallocate(buffer.data, buffer.size, buffer.alignment);
+      allocator_.direct_deallocate(buffer.data, buffer.alignment);
     }
   }
 
@@ -232,7 +231,7 @@ class LinearAllocator : NonCopyable, NonMovable {
     }
 
     void *buffer = allocator_.direct_allocate(size_in_bytes, min_alignment, __func__);
-    owned_buffers_.append({buffer, size_in_bytes, min_alignment});
+    owned_buffers_.append({buffer, min_alignment});
     current_begin_ = (uintptr_t)buffer;
     current_end_ = current_begin_ + size_in_bytes;
   }
@@ -240,7 +239,7 @@ class LinearAllocator : NonCopyable, NonMovable {
   void *allocator_large_buffer(const int64_t size, const int64_t alignment)
   {
     void *buffer = allocator_.direct_allocate(size, alignment, __func__);
-    owned_buffers_.append({buffer, size, alignment});
+    owned_buffers_.append({buffer, alignment});
     return buffer;
   }
 };

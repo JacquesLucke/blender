@@ -415,12 +415,12 @@ void *MEM_lockfree_direct_reallocN(void *ptr,
   }
   const size_t bytes_to_copy = new_len < old_len ? new_len : old_len;
   memcpy(new_ptr, ptr, bytes_to_copy);
-  MEM_lockfree_direct_freeN(ptr, old_len, old_alignment);
+  MEM_lockfree_direct_freeN(ptr, old_alignment);
   return new_ptr;
 #endif
 }
 
-void MEM_lockfree_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t alignment)
+void MEM_lockfree_direct_freeN(void *ptr, const size_t alignment)
 {
 #ifdef WITH_MEM_JEMALLOC
   (void)alignment;

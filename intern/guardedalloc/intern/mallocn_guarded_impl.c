@@ -591,6 +591,7 @@ void *MEM_guarded_direct_reallocN(void *ptr,
                                   const size_t UNUSED(old_alignment),
                                   const char *str)
 {
+  assert(MEM_guarded_allocN_len(ptr) == SIZET_ALIGN_4(old_len));
   void *new_ptr = MEM_guarded_mallocN_aligned(new_len, new_alignment, str);
   const size_t bytes_to_copy = new_len < old_len ? new_len : old_len;
   memcpy(new_ptr, ptr, bytes_to_copy);
@@ -598,15 +599,17 @@ void *MEM_guarded_direct_reallocN(void *ptr,
   return new_ptr;
 }
 
-void MEM_guarded_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t UNUSED(alignment))
+void MEM_guarded_direct_freeN(void *ptr, const size_t UNUSED(alignment))
 {
   MEM_freeN(ptr);
 }
 
-size_t MEM_guarded_direct_real_size(const void *UNUSED(ptr),
+size_t MEM_guarded_direct_real_size(const void *ptr,
                                     const size_t len,
                                     const size_t UNUSED(alignment))
 {
+  (void)ptr;
+  assert(MEM_guarded_allocN_len(ptr) == SIZET_ALIGN_4(len));
   return len;
 }
 

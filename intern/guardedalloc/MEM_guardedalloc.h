@@ -161,7 +161,7 @@ extern void *(*MEM_direct_reallocN)(void *ptr,
 /**
  * Free a pointer allocated by a MEM_direct_* function.
  */
-extern void (*MEM_direct_freeN)(void *ptr, size_t len, size_t alignment);
+extern void (*MEM_direct_freeN)(void *ptr, size_t alignment);
 
 /**
  * Some allocators actually allocate a bit more memory than was requested. This function returns

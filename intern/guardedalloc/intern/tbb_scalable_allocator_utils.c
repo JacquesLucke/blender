@@ -1,6 +1,6 @@
 #include <string.h>
 
-#include "C:/blender-git/lib/win64_vc15/tbb/include/tbb/scalable_allocator.h"
+#include <C:/blender-git/lib/win64_vc15/tbb/include/tbb/scalable_allocator.h>
 
 #include "MEM_guardedalloc.h"
 #include "mallocn_intern.h"

@@ -59,9 +59,9 @@ class GuardedDirectAllocator {
     return MEM_direct_reallocN(ptr, new_size, new_alignment, old_size, old_alignment, name);
   }
 
-  void direct_deallocate(void *ptr, const size_t size, const size_t alignment)
+  void direct_deallocate(void *ptr, const size_t alignment)
   {
-    MEM_direct_freeN(ptr, size, alignment);
+    MEM_direct_freeN(ptr, alignment);
   }
 
   size_t direct_real_size(const void *ptr, const size_t size, const size_t alignment)
@@ -103,7 +103,7 @@ template<typename Allocator> class DirectAllocatorInterfaceFromSimple {
     return new_ptr;
   }
 
-  void direct_deallocate(void *ptr, const size_t UNUSED(size), const size_t UNUSED(alignment))
+  void direct_deallocate(void *ptr, const size_t UNUSED(alignment))
   {
     static_cast<Allocator *>(this)->deallocate(ptr);
   }

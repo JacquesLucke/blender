@@ -47,7 +47,7 @@ void *(*MEM_direct_reallocN)(void *ptr,
                              size_t old_len,
                              size_t old_alignment,
                              const char *str) = MEM_lockfree_direct_reallocN;
-void (*MEM_direct_freeN)(void *ptr, size_t len, size_t alignment) = MEM_lockfree_direct_freeN;
+void (*MEM_direct_freeN)(void *ptr, size_t alignment) = MEM_lockfree_direct_freeN;
 size_t (*MEM_direct_real_size)(const void *ptr,
                                size_t len,
                                size_t alignment) = MEM_lockfree_direct_real_size;

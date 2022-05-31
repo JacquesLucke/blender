@@ -116,7 +116,7 @@ class GArray {
   {
     if (data_ != nullptr) {
       type_->destruct_n(data_, size_);
-      this->deallocate(data_, size_);
+      this->deallocate(data_);
     }
   }
 
@@ -228,10 +228,10 @@ class GArray {
         type_->default_construct_n(new_data, new_size);
       }
       catch (...) {
-        this->deallocate(new_data, new_size);
+        this->deallocate(new_data);
         throw;
       }
-      this->deallocate(data_, size_);
+      this->deallocate(data_);
       data_ = new_data;
     }
 
@@ -246,11 +246,10 @@ class GArray {
     return allocator_.direct_allocate(static_cast<size_t>(size) * item_size, alignment, __func__);
   }
 
-  void deallocate(void *ptr, int64_t size)
+  void deallocate(void *ptr)
   {
-    const size_t item_size = static_cast<size_t>(type_->size());
     const size_t alignment = static_cast<size_t>(type_->alignment());
-    allocator_.direct_deallocate(ptr, static_cast<size_t>(size) * item_size, alignment);
+    allocator_.direct_deallocate(ptr, alignment);
   }
 };
 

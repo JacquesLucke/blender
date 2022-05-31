@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "jemalloc.h"
+#include <jemalloc.h>
 
 #include "MEM_guardedalloc.h"
 #include "mallocn_intern.h"
