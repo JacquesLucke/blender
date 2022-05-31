@@ -20,10 +20,6 @@
 #include "atomic_ops.h"
 #include "mallocn_intern.h"
 
-#ifdef WITH_MEM_JEMALLOC
-void *mallocx(size_t size, int flags);
-#endif
-
 typedef struct MemHead {
   /* Length of allocated memory block. */
   size_t len;

@@ -230,7 +230,6 @@ size_t MEM_guarded_allocN_len(const void *vmemh)
 {
   if (vmemh) {
     const MemHead *memh = vmemh;
-    /* TODO: Add check that memhead is valid. */
 
     memh--;
     return memh->len;
