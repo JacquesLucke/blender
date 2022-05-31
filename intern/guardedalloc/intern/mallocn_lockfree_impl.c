@@ -381,6 +381,7 @@ void *MEM_lockfree_direct_callocN(const size_t len,
     return calloc(1, len);
   }
   void *ptr = aligned_malloc(len, alignment);
+  /* There is no fallback #aligned_calloc, so do it manually. */
   memset(ptr, 0, len);
   return ptr;
 #endif
@@ -402,9 +403,11 @@ void *MEM_lockfree_direct_reallocN(void *ptr,
 #else
   const bool new_alignment_is_small = new_alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT;
   const bool old_alignment_is_small = old_alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT;
+  /* When both alignments are small, this is just a normal #realloc. */
   if (new_alignment_is_small && old_alignment_is_small) {
     return realloc(ptr, new_len);
   }
+  /* At least the old or new alignment is large, so we have to do the reallocation manually. */
   void *new_ptr = MEM_lockfree_direct_mallocN(new_len, new_alignment, str);
   if (ptr == NULL) {
     assert(old_len == 0);
@@ -412,12 +415,7 @@ void *MEM_lockfree_direct_reallocN(void *ptr,
   }
   const size_t bytes_to_copy = new_len < old_len ? new_len : old_len;
   memcpy(new_ptr, ptr, bytes_to_copy);
-  if (old_alignment_is_small) {
-    free(ptr);
-  }
-  else {
-    aligned_free(ptr);
-  }
+  MEM_lockfree_direct_freeN(ptr, old_len, old_alignment);
   return new_ptr;
 #endif
 }

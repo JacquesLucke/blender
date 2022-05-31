@@ -182,12 +182,3 @@ void MEM_use_guarded_allocator(void)
   MEM_name_ptr = MEM_guarded_name_ptr;
 #endif
 }
-
-// void *tbb_malloc(const size_t size, const size_t alignment)
-// {
-//   return NULL;
-//   //   if (alignment <= ALIGN_THRESHOLD) {
-//   //     return scalable_malloc(size);
-//   //   }
-//   //   return scalable_aligned_malloc(size, alignment);
-// }

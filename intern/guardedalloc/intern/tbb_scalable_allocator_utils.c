@@ -39,6 +39,7 @@ void *tbb_realloc(void *ptr,
   if (!new_alignment_is_small && !old_alignment_is_small) {
     return scalable_aligned_realloc(ptr, new_size, new_alignment);
   }
+  /* Only one of the old or new alignment is large, so the reallocation has to be done manually. */
   void *new_ptr = tbb_malloc(new_size, new_alignment);
   if (ptr == NULL) {
     return new_ptr;

@@ -34,6 +34,9 @@
 
 namespace blender {
 
+/**
+ * Uses the "direct" API of Blenders guarded allocator to support "allocator-aware" containers.
+ */
 class GuardedDirectAllocator {
  public:
   void *direct_allocate(const size_t size, const size_t alignment, const char *name)
@@ -68,6 +71,10 @@ class GuardedDirectAllocator {
 };
 
 namespace allocator_detail {
+/**
+ * Utility class that extends simple allocators with direct allocation methods. There is no
+ * performance benefit to doing that, it mainly exists to avoid code duplication.
+ */
 template<typename Allocator> class DirectAllocatorInterfaceFromSimple {
  public:
   void *direct_allocate(const size_t size, const size_t alignment, const char *name)

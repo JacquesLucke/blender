@@ -495,10 +495,18 @@ inline constexpr bool is_span_convertible_pointer_v =
 template<typename T, typename... Args>
 inline constexpr bool is_same_any_v = (std::is_same_v<T, Args> || ...);
 
+/**
+ * Trivially relocatable types are types that can work with #realloc, because they can be copied
+ * and destructed trivially.
+ */
 template<typename T>
 inline constexpr bool is_trivially_relocatable_v =
     std::is_trivially_copyable_v<T> &&std::is_trivially_destructible_v<T>;
 
+/**
+ * Checks if instead of filling an array with the given value, the array can also be zero
+ * initialized.
+ */
 template<typename T> inline bool can_zero_initialize_on_fill(const T &value)
 {
   if constexpr (std::is_trivially_copyable_v<T>) {

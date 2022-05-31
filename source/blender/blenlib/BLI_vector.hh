@@ -979,7 +979,7 @@ class Vector {
      * Use a growth factor of 2 when the vector is smaller, because memory won't be reused usually
      * anyway. For larger vectors, use a growth factor of 1.5 so that the allocator can reuse
      * memory more easily.
-     * */
+     */
     const size_t min_new_capacity = std::max<size_t>(
         old_capacity <= 64 ? old_capacity * 2 : old_capacity * 3 / 2, 4);
     const size_t new_capacity = std::max(min_capacity, min_new_capacity);
@@ -992,6 +992,8 @@ class Vector {
 
     bool zero_new_capacity_manually = false;
     if (is_trivially_relocatable_v<T> && was_allocated) {
+      /* With some luck, the allocator can extend the current allocation. If that happens, the
+       * values don't have to be copied into the new array. */
       begin_ = static_cast<T *>(allocator_.direct_reallocate(
           begin_, new_capacity_in_bytes, alignof(T), __func__, old_capacity_in_bytes, alignof(T)));
       zero_new_capacity_manually = zero_new_capacity;
@@ -999,33 +1001,44 @@ class Vector {
     else {
       T *new_array;
       if (zero_new_capacity && was_inline) {
+        /* Try using #calloc internally when creating a new zero-initialized vector. */
         new_array = static_cast<T *>(
             allocator_.direct_allocate_zero(new_capacity_in_bytes, alignof(T), __func__));
       }
       else {
+        /* Just allocate a new array if none of the other optimization work. */
         new_array = static_cast<T *>(
             allocator_.direct_allocate(new_capacity_in_bytes, alignof(T), __func__));
         zero_new_capacity_manually = zero_new_capacity;
       }
       try {
+        /* Move elements from the old array into the new array, and destruct them. */
         uninitialized_relocate_n(begin_, static_cast<int64_t>(size), new_array);
       }
       catch (...) {
+        /* If relocation failed, the entire grow operation failed. Deallocate the newly allocated
+         * array and forward the exception. */
         allocator_.direct_deallocate(new_array, new_capacity_in_bytes, alignof(T));
         throw;
       }
       if (was_allocated) {
+        /* Free the old array if necessary. The elements have been destructed by the relocation
+         * above. */
         allocator_.direct_deallocate(begin_, old_capacity_in_bytes, alignof(T));
       }
       begin_ = new_array;
     }
 
     if (zero_new_capacity_manually) {
+      /* In case zero initialization is requested and didn't happen already, do it now. */
       memset(static_cast<void *>(begin_ + old_capacity),
              0,
              new_capacity_in_bytes - old_capacity_in_bytes);
     }
 
+    /* The allocator might have actually allocated more memory than was requested. If that's the
+     * case, we can just grow the vector a little more, otherwise the additional memory would be
+     * wasted. */
     const size_t real_buffer_size = allocator_.direct_real_size(
         begin_, new_capacity_in_bytes, alignof(T));
     const size_t real_new_capacity = real_buffer_size / sizeof(T);
