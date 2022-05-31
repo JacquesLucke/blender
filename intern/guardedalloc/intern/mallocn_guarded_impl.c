@@ -572,6 +572,37 @@ void *MEM_guarded_calloc_arrayN(size_t len, size_t size, const char *str)
   return MEM_guarded_callocN(total_size, str);
 }
 
+void *MEM_guarded_raw_mallocN(const size_t len, const size_t alignment, const char *str)
+{
+  return MEM_guarded_mallocN_aligned(len, alignment, str);
+}
+
+void *MEM_guarded_raw_callocN(const size_t len, const size_t alignment, const char *str)
+{
+  void *ptr = MEM_guarded_mallocN_aligned(len, alignment, str);
+  memset(ptr, 0, len);
+  return ptr;
+}
+
+void *MEM_guarded_raw_reallocN(void *ptr,
+                               const size_t new_len,
+                               const size_t new_alignment,
+                               const char *str,
+                               const size_t old_len,
+                               const size_t UNUSED(old_alignment))
+{
+  void *new_ptr = MEM_guarded_mallocN_aligned(new_len, new_alignment, str);
+  const size_t bytes_to_copy = new_len < old_len ? new_len : old_len;
+  memcpy(new_ptr, ptr, bytes_to_copy);
+  MEM_guarded_freeN(ptr);
+  return new_ptr;
+}
+
+void MEM_guarded_raw_freeN(void *ptr, const size_t UNUSED(len), const size_t UNUSED(alignment))
+{
+  MEM_freeN(ptr);
+}
+
 /* Memory statistics print */
 typedef struct MemPrintBlock {
   const char *name;

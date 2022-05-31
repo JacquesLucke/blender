@@ -118,6 +118,22 @@ void *MEM_lockfree_mallocN_aligned(size_t len,
                                    size_t alignment,
                                    const char *str) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
     ATTR_ALLOC_SIZE(1) ATTR_NONNULL(3);
+void *MEM_lockfree_raw_mallocN(size_t len,
+                               size_t alignment,
+                               const char *str) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
+    ATTR_ALLOC_SIZE(1) ATTR_NONNULL(3);
+void *MEM_lockfree_raw_callocN(size_t len,
+                               size_t alignment,
+                               const char *str) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
+    ATTR_ALLOC_SIZE(1) ATTR_NONNULL(3);
+void *MEM_lockfree_raw_reallocN(void *ptr,
+                                size_t new_len,
+                                size_t new_alignment,
+                                const char *str,
+                                size_t old_len,
+                                size_t old_alignment) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
+    ATTR_ALLOC_SIZE(2) ATTR_NONNULL(4);
+void MEM_lockfree_raw_freeN(void *ptr, size_t len, size_t alignment);
 void MEM_lockfree_printmemlist_pydict(void);
 void MEM_lockfree_printmemlist(void);
 void MEM_lockfree_callbackmemlist(void (*func)(void *));
@@ -161,6 +177,22 @@ void *MEM_guarded_mallocN_aligned(size_t len,
                                   size_t alignment,
                                   const char *str) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
     ATTR_ALLOC_SIZE(1) ATTR_NONNULL(3);
+void *MEM_guarded_raw_mallocN(size_t len,
+                              size_t alignment,
+                              const char *str) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
+    ATTR_ALLOC_SIZE(1) ATTR_NONNULL(3);
+void *MEM_guarded_raw_callocN(size_t len,
+                              size_t alignment,
+                              const char *str) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
+    ATTR_ALLOC_SIZE(1) ATTR_NONNULL(3);
+void *MEM_guarded_raw_reallocN(void *ptr,
+                               size_t new_len,
+                               size_t new_alignment,
+                               const char *str,
+                               size_t old_len,
+                               size_t old_alignment) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
+    ATTR_ALLOC_SIZE(2) ATTR_NONNULL(4);
+void MEM_guarded_raw_freeN(void *ptr, size_t len, size_t alignment);
 void MEM_guarded_printmemlist_pydict(void);
 void MEM_guarded_printmemlist(void);
 void MEM_guarded_callbackmemlist(void (*func)(void *));
