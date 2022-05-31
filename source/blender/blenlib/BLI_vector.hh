@@ -60,7 +60,7 @@ template<
      * The allocator used by this vector. Should rarely be changed, except when you don't want that
      * MEM_* is used internally.
      */
-    typename Allocator = GuardedAllocator>
+    typename Allocator = GuardedDirectAllocator>
 class Vector {
  public:
   using value_type = T;
@@ -84,7 +84,7 @@ class Vector {
   T *capacity_end_;
 
   /** Used for allocations when the inline buffer is too small. */
-  BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
+  BLI_NO_UNIQUE_ADDRESS GuardedDirectAllocator allocator_;
 
   /** A placeholder buffer that will remain uninitialized until it is used. */
   BLI_NO_UNIQUE_ADDRESS TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
@@ -244,7 +244,7 @@ class Vector {
         /* Copy from inline buffer to newly allocated buffer. */
         const int64_t capacity = size;
         begin_ = static_cast<T *>(
-            allocator_.allocate(sizeof(T) * static_cast<size_t>(capacity), alignof(T), AT));
+            allocator_.direct_allocate(sizeof(T) * static_cast<size_t>(capacity), alignof(T), AT));
         capacity_end_ = begin_ + capacity;
         uninitialized_relocate_n(other.begin_, size, begin_);
         end_ = begin_ + size;
@@ -268,7 +268,7 @@ class Vector {
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      allocator_.deallocate(begin_);
+      allocator_.direct_deallocate(begin_, this->capacity(), alignof(T));
     }
   }
 
@@ -337,10 +337,10 @@ class Vector {
    * This won't necessarily make an allocation when min_capacity is small.
    * The actual size of the vector does not change.
    */
-  void reserve(const int64_t min_capacity)
+  void reserve(const int64_t min_capacity, const bool zero_new_capacity = false)
   {
     if (min_capacity > this->capacity()) {
-      this->realloc_to_at_least(min_capacity);
+      this->realloc_to_at_least(min_capacity, zero_new_capacity);
     }
   }
 
@@ -415,7 +415,7 @@ class Vector {
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      allocator_.deallocate(begin_);
+      allocator_.direct_deallocate(begin_, this->capacity(), alignof(T));
     }
 
     begin_ = inline_buffer_;
@@ -949,38 +949,63 @@ class Vector {
   void ensure_space_for_one()
   {
     if (UNLIKELY(end_ >= capacity_end_)) {
-      this->realloc_to_at_least(this->size() + 1);
+      this->realloc_to_at_least(this->size() + 1, false);
     }
   }
 
-  BLI_NOINLINE void realloc_to_at_least(const int64_t min_capacity)
+  BLI_NOINLINE void realloc_to_at_least(const int64_t min_capacity_, const bool zero_new_capacity)
   {
-    if (this->capacity() >= min_capacity) {
-      return;
+    const size_t min_capacity = static_cast<size_t>(min_capacity_);
+    const size_t old_capacity = static_cast<size_t>(this->capacity());
+    BLI_assert(min_capacity > old_capacity);
+
+    /* At least increase the last allocation by a factor that is greater than 1. Otherwise
+     * consecutive calls to #reserve can cause a reallocation every time even though min_capacity
+     * only increases linearly. */
+    const size_t min_new_capacity = std::max<size_t>(old_capacity * 3 / 2, 4);
+    const size_t new_capacity = std::max(min_capacity, min_new_capacity);
+    const size_t size = this->size();
+    const size_t old_capacity_in_bytes = old_capacity * sizeof(T);
+    const size_t new_capacity_in_bytes = new_capacity * sizeof(T);
+    const bool was_inline = this->is_inline();
+    const bool was_allocated = !was_inline;
+
+    bool zero_new_capacity_manually = false;
+    if (is_trivially_relocatable_v<T> && was_allocated) {
+      begin_ = static_cast<T *>(allocator_.direct_reallocate(
+          begin_, new_capacity_in_bytes, alignof(T), __func__, old_capacity_in_bytes, alignof(T)));
+      zero_new_capacity_manually = zero_new_capacity;
+    }
+    else {
+      T *new_array;
+      if (zero_new_capacity && was_inline) {
+        new_array = static_cast<T *>(
+            allocator_.direct_allocate_zero(new_capacity_in_bytes, alignof(T), __func__));
+      }
+      else {
+        new_array = static_cast<T *>(
+            allocator_.direct_allocate(new_capacity_in_bytes, alignof(T), __func__));
+        zero_new_capacity_manually = zero_new_capacity;
+      }
+      try {
+        uninitialized_relocate_n(begin_, size, new_array);
+      }
+      catch (...) {
+        allocator_.direct_deallocate(new_array, new_capacity_in_bytes, alignof(T));
+        throw;
+      }
+      if (was_allocated) {
+        allocator_.direct_deallocate(begin_, old_capacity_in_bytes, alignof(T));
+      }
+      begin_ = new_array;
     }
 
-    /* At least double the size of the previous allocation. Otherwise consecutive calls to grow can
-     * cause a reallocation every time even though min_capacity only increments. */
-    const int64_t min_new_capacity = this->capacity() * 2;
-
-    const int64_t new_capacity = std::max(min_capacity, min_new_capacity);
-    const int64_t size = this->size();
-
-    T *new_array = static_cast<T *>(
-        allocator_.allocate(static_cast<size_t>(new_capacity) * sizeof(T), alignof(T), AT));
-    try {
-      uninitialized_relocate_n(begin_, size, new_array);
-    }
-    catch (...) {
-      allocator_.deallocate(new_array);
-      throw;
+    if (zero_new_capacity_manually) {
+      memset(static_cast<void *>(begin_ + old_capacity),
+             0,
+             new_capacity_in_bytes - old_capacity_in_bytes);
     }
 
-    if (!this->is_inline()) {
-      allocator_.deallocate(begin_);
-    }
-
-    begin_ = new_array;
     end_ = begin_ + size;
     capacity_end_ = begin_ + new_capacity;
   }

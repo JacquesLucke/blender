@@ -495,6 +495,21 @@ inline constexpr bool is_span_convertible_pointer_v =
 template<typename T, typename... Args>
 inline constexpr bool is_same_any_v = (std::is_same_v<T, Args> || ...);
 
+template<typename T>
+inline constexpr bool is_trivially_relocatable_v =
+    std::is_trivially_copyable_v<T> &&std::is_trivially_destructible_v<T>;
+
+template<typename T> inline bool can_zero_initialize_on_fill(const T &value)
+{
+  if constexpr (std::is_trivially_copyable_v<T>) {
+    const std::byte *value_ptr = static_cast<const std::byte *>(&value);
+    /* TODO */
+  }
+  else {
+    return false;
+  }
+}
+
 /**
  * Inline buffers for small-object-optimization should be disable by default. Otherwise we might
  * get large unexpected allocations on the stack.

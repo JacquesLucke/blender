@@ -24,6 +24,7 @@
  */
 
 #include <algorithm>
+#include <cstring>
 #include <stdlib.h>
 
 #include "MEM_guardedalloc.h"
@@ -33,11 +34,76 @@
 
 namespace blender {
 
+class GuardedDirectAllocator {
+ public:
+  void *direct_allocate(const size_t size, const size_t alignment, const char *name)
+  {
+    return MEM_direct_mallocN(size, alignment, name);
+  }
+
+  void *direct_allocate_zero(const size_t size, const size_t alignment, const char *name)
+  {
+    return MEM_direct_callocN(size, alignment, name);
+  }
+
+  void *direct_reallocate(void *ptr,
+                          const size_t new_size,
+                          const size_t new_alignment,
+                          const char *name,
+                          const size_t old_size,
+                          const size_t old_alignment)
+  {
+    return MEM_direct_reallocN(ptr, new_size, new_alignment, name, old_size, old_alignment);
+  }
+
+  void direct_deallocate(void *ptr, const size_t size, const size_t alignment)
+  {
+    MEM_direct_freeN(ptr, size, alignment);
+  }
+};
+
+namespace allocator_detail {
+template<typename Allocator> class DirectAllocatorInterfaceFromSimple {
+ public:
+  void *direct_allocate(const size_t size, const size_t alignment, const char *name)
+  {
+    return static_cast<Allocator *>(this)->allocate(size, alignment, name);
+  }
+
+  void *direct_allocate_zero(const size_t size, const size_t alignment, const char *name)
+  {
+    void *ptr = static_cast<Allocator *>(this)->allocate(size, alignment, name);
+    memset(ptr, 0, size);
+    return ptr;
+  }
+
+  void *direct_reallocate(void *ptr,
+                          const size_t new_size,
+                          const size_t new_alignment,
+                          const char *name,
+                          const size_t old_size,
+                          const size_t old_alignment)
+  {
+    void *new_ptr = static_cast<Allocator *>(this)->allocate(new_size, new_alignment, name);
+    const size_t bytes_to_copy = std::min(old_size, new_size);
+    memcpy(new_ptr, ptr, bytes_to_copy);
+    static_cast<Allocator *>(this)->deallocate(ptr);
+    return new_ptr;
+  }
+
+  void direct_deallocate(void *ptr, const size_t UNUSED(size), const size_t UNUSED(alignment))
+  {
+    static_cast<Allocator *>(this)->deallocate(ptr);
+  }
+};
+}  // namespace allocator_detail
+
 /**
  * Use Blender's guarded allocator (aka MEM_*). This should always be used except there is a
  * good reason not to use it.
  */
-class GuardedAllocator {
+class GuardedAllocator
+    : public allocator_detail::DirectAllocatorInterfaceFromSimple<GuardedAllocator> {
  public:
   void *allocate(size_t size, size_t alignment, const char *name)
   {
@@ -56,7 +122,7 @@ class GuardedAllocator {
  * used. This can be the case when the allocated memory might live longer than Blender's
  * allocator. For example, when the memory is owned by a static variable.
  */
-class RawAllocator {
+class RawAllocator : public allocator_detail::DirectAllocatorInterfaceFromSimple<RawAllocator> {
  private:
   struct MemHead {
     int offset;
