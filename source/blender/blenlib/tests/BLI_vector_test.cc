@@ -610,6 +610,27 @@ TEST(vector, Resize)
   EXPECT_EQ(vec[0], "");
 }
 
+TEST(vector, ZeroInit)
+{
+  Vector<int> vec(1000, 0);
+  EXPECT_EQ(vec.size(), 1000);
+  EXPECT_EQ(vec[543], 0);
+}
+
+TEST(vector, ZeroInitNonEmpty)
+{
+  Vector<int> vec;
+  vec.reserve(30);
+  vec.append(4);
+  vec.append(5);
+  vec.pop_last();
+  vec.resize(1000, 0);
+  EXPECT_EQ(vec[0], 4);
+  EXPECT_EQ(vec[1], 0);
+  EXPECT_EQ(vec[2], 0);
+  EXPECT_EQ(vec[453], 0);
+}
+
 TEST(vector, FirstIndexOf)
 {
   Vector<int> vec = {2, 3, 5, 7, 5, 9};
