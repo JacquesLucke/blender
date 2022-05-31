@@ -587,9 +587,9 @@ void *MEM_guarded_direct_callocN(const size_t len, const size_t alignment, const
 void *MEM_guarded_direct_reallocN(void *ptr,
                                   const size_t new_len,
                                   const size_t new_alignment,
-                                  const char *str,
                                   const size_t old_len,
-                                  const size_t UNUSED(old_alignment))
+                                  const size_t UNUSED(old_alignment),
+                                  const char *str)
 {
   void *new_ptr = MEM_guarded_mallocN_aligned(new_len, new_alignment, str);
   const size_t bytes_to_copy = new_len < old_len ? new_len : old_len;

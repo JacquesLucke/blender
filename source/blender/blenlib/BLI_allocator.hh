@@ -52,11 +52,11 @@ class GuardedDirectAllocator {
   void *direct_reallocate(void *ptr,
                           const size_t new_size,
                           const size_t new_alignment,
-                          const char *name,
                           const size_t old_size,
-                          const size_t old_alignment)
+                          const size_t old_alignment,
+                          const char *name)
   {
-    return MEM_direct_reallocN(ptr, new_size, new_alignment, name, old_size, old_alignment);
+    return MEM_direct_reallocN(ptr, new_size, new_alignment, old_size, old_alignment, name);
   }
 
   void direct_deallocate(void *ptr, const size_t size, const size_t alignment)
@@ -92,9 +92,9 @@ template<typename Allocator> class DirectAllocatorInterfaceFromSimple {
   void *direct_reallocate(void *ptr,
                           const size_t new_size,
                           const size_t new_alignment,
-                          const char *name,
                           const size_t old_size,
-                          const size_t UNUSED(old_alignment))
+                          const size_t UNUSED(old_alignment),
+                          const char *name)
   {
     void *new_ptr = static_cast<Allocator *>(this)->allocate(new_size, new_alignment, name);
     const size_t bytes_to_copy = std::min(old_size, new_size);

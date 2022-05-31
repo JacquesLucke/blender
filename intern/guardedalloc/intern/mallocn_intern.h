@@ -146,10 +146,10 @@ void *MEM_lockfree_direct_callocN(size_t len,
 void *MEM_lockfree_direct_reallocN(void *ptr,
                                    size_t new_len,
                                    size_t new_alignment,
-                                   const char *str,
                                    size_t old_len,
-                                   size_t old_alignment) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
-    ATTR_ALLOC_SIZE(2) ATTR_NONNULL(4);
+                                   size_t old_alignment,
+                                   const char *str) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
+    ATTR_ALLOC_SIZE(2) ATTR_NONNULL(6);
 void MEM_lockfree_direct_freeN(void *ptr, size_t len, size_t alignment);
 size_t MEM_lockfree_direct_real_size(const void *ptr, size_t len, size_t alignment);
 void MEM_lockfree_printmemlist_pydict(void);
@@ -206,10 +206,10 @@ void *MEM_guarded_direct_callocN(size_t len,
 void *MEM_guarded_direct_reallocN(void *ptr,
                                   size_t new_len,
                                   size_t new_alignment,
-                                  const char *str,
                                   size_t old_len,
-                                  size_t old_alignment) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
-    ATTR_ALLOC_SIZE(2) ATTR_NONNULL(4);
+                                  size_t old_alignment,
+                                  const char *str) ATTR_MALLOC ATTR_WARN_UNUSED_RESULT
+    ATTR_ALLOC_SIZE(2) ATTR_NONNULL(6);
 void MEM_guarded_direct_freeN(void *ptr, size_t len, size_t alignment);
 size_t MEM_guarded_direct_real_size(const void *ptr, size_t len, size_t alignment);
 void MEM_guarded_printmemlist_pydict(void);

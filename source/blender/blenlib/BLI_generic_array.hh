@@ -24,7 +24,7 @@ template<
      * The allocator used by this array. Should rarely be changed, except when you don't want that
      * MEM_* functions are used internally.
      */
-    typename Allocator = GuardedAllocator>
+    typename Allocator = GuardedDirectAllocator>
 class GArray {
  protected:
   /** The type of the data in the array, will be null after the array is default constructed,
@@ -116,7 +116,7 @@ class GArray {
   {
     if (data_ != nullptr) {
       type_->destruct_n(data_, size_);
-      this->deallocate(data_);
+      this->deallocate(data_, size_);
     }
   }
 
@@ -228,10 +228,10 @@ class GArray {
         type_->default_construct_n(new_data, new_size);
       }
       catch (...) {
-        this->deallocate(new_data);
+        this->deallocate(new_data, new_size);
         throw;
       }
-      this->deallocate(data_);
+      this->deallocate(data_, size_);
       data_ = new_data;
     }
 
@@ -241,14 +241,16 @@ class GArray {
  private:
   void *allocate(int64_t size)
   {
-    const int64_t item_size = type_->size();
-    const int64_t alignment = type_->alignment();
-    return allocator_.allocate(static_cast<size_t>(size) * item_size, alignment, AT);
+    const size_t item_size = static_cast<size_t>(type_->size());
+    const size_t alignment = static_cast<size_t>(type_->alignment());
+    return allocator_.direct_allocate(static_cast<size_t>(size) * item_size, alignment, __func__);
   }
 
-  void deallocate(void *ptr)
+  void deallocate(void *ptr, int64_t size)
   {
-    allocator_.deallocate(ptr);
+    const size_t item_size = static_cast<size_t>(type_->size());
+    const size_t alignment = static_cast<size_t>(type_->alignment());
+    allocator_.direct_deallocate(ptr, static_cast<size_t>(size) * item_size, alignment);
   }
 };
 

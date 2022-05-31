@@ -151,13 +151,12 @@ extern void *(*MEM_direct_callocN)(size_t len,
  * Reallocate a pointer that has been allocated with a MEM_direct_* function.
  * The name must have a static life-time.
  */
-extern void *(*MEM_direct_reallocN)(
-    void *ptr,
-    size_t new_len,
-    size_t new_alignment,
-    const char *str,
-    size_t old_len,
-    size_t old_alignment) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
+extern void *(*MEM_direct_reallocN)(void *ptr,
+                                    size_t new_len,
+                                    size_t new_alignment,
+                                    size_t old_len,
+                                    size_t old_alignment,
+                                    const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
 
 /**
  * Free a pointer allocated by a MEM_direct_* function.

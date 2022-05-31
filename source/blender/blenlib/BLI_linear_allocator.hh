@@ -16,10 +16,17 @@
 
 namespace blender {
 
-template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopyable, NonMovable {
+template<typename Allocator = GuardedDirectAllocator>
+class LinearAllocator : NonCopyable, NonMovable {
  private:
+  struct Buffer {
+    void *data;
+    int64_t size;
+    int64_t alignment;
+  };
+
   BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
-  Vector<void *> owned_buffers_;
+  Vector<Buffer, 1> owned_buffers_;
   Vector<Span<char>> unused_borrowed_buffers_;
 
   uintptr_t current_begin_;
@@ -42,8 +49,8 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
 
   ~LinearAllocator()
   {
-    for (void *ptr : owned_buffers_) {
-      allocator_.deallocate(ptr);
+    for (Buffer &buffer : owned_buffers_) {
+      allocator_.direct_deallocate(buffer.data, buffer.size, buffer.alignment);
     }
   }
 
@@ -224,16 +231,16 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
                                std::max<int64_t>(size_in_bytes, grow_size));
     }
 
-    void *buffer = allocator_.allocate(size_in_bytes, min_alignment, __func__);
-    owned_buffers_.append(buffer);
+    void *buffer = allocator_.direct_allocate(size_in_bytes, min_alignment, __func__);
+    owned_buffers_.append({buffer, size_in_bytes, min_alignment});
     current_begin_ = (uintptr_t)buffer;
     current_end_ = current_begin_ + size_in_bytes;
   }
 
   void *allocator_large_buffer(const int64_t size, const int64_t alignment)
   {
-    void *buffer = allocator_.allocate(size, alignment, __func__);
-    owned_buffers_.append(buffer);
+    void *buffer = allocator_.direct_allocate(size, alignment, __func__);
+    owned_buffers_.append({buffer, size, alignment});
     return buffer;
   }
 };

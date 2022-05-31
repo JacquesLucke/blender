@@ -390,9 +390,9 @@ void *MEM_lockfree_direct_callocN(const size_t len,
 void *MEM_lockfree_direct_reallocN(void *ptr,
                                    const size_t new_len,
                                    const size_t new_alignment,
-                                   const char *str,
                                    const size_t old_len,
-                                   const size_t old_alignment)
+                                   const size_t old_alignment,
+                                   const char *str)
 {
 #ifdef WITH_MEM_JEMALLOC
   ((void)str, (void)old_len, (void)old_alignment);

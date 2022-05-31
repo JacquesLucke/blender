@@ -995,7 +995,7 @@ class Vector {
       /* With some luck, the allocator can extend the current allocation. If that happens, the
        * values don't have to be copied into the new array. */
       begin_ = static_cast<T *>(allocator_.direct_reallocate(
-          begin_, new_capacity_in_bytes, alignof(T), __func__, old_capacity_in_bytes, alignof(T)));
+          begin_, new_capacity_in_bytes, alignof(T), old_capacity_in_bytes, alignof(T), __func__));
       zero_new_capacity_manually = zero_new_capacity;
     }
     else {
