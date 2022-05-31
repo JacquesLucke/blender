@@ -428,7 +428,7 @@ class Vector {
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      allocator_.direct_deallocate(begin_, this->capacity(), alignof(T));
+      allocator_.direct_deallocate(begin_, static_cast<size_t>(this->capacity()), alignof(T));
     }
 
     begin_ = inline_buffer_;
