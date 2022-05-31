@@ -82,7 +82,7 @@ template<typename Allocator> class DirectAllocatorInterfaceFromSimple {
                           const size_t new_alignment,
                           const char *name,
                           const size_t old_size,
-                          const size_t old_alignment)
+                          const size_t UNUSED(old_alignment))
   {
     void *new_ptr = static_cast<Allocator *>(this)->allocate(new_size, new_alignment, name);
     const size_t bytes_to_copy = std::min(old_size, new_size);

@@ -84,7 +84,7 @@ class Vector {
   T *capacity_end_;
 
   /** Used for allocations when the inline buffer is too small. */
-  BLI_NO_UNIQUE_ADDRESS GuardedDirectAllocator allocator_;
+  BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
 
   /** A placeholder buffer that will remain uninitialized until it is used. */
   BLI_NO_UNIQUE_ADDRESS TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
@@ -268,7 +268,7 @@ class Vector {
   {
     destruct_n(begin_, this->size());
     if (!this->is_inline()) {
-      allocator_.direct_deallocate(begin_, this->capacity(), alignof(T));
+      allocator_.direct_deallocate(begin_, static_cast<size_t>(this->capacity()), alignof(T));
     }
   }
 
@@ -376,8 +376,21 @@ class Vector {
     BLI_assert(new_size >= 0);
     const int64_t old_size = this->size();
     if (new_size > old_size) {
-      this->reserve(new_size);
-      uninitialized_fill_n(begin_ + old_size, new_size - old_size, value);
+      const int64_t old_capacity = this->capacity();
+      bool do_fill = true;
+      if (new_size > old_capacity) {
+        const bool zero_init = can_zero_initialize_on_fill(value);
+        this->realloc_to_at_least(new_size, zero_init);
+        if (zero_init) {
+          memset(static_cast<void *>(begin_ + old_size),
+                 0,
+                 sizeof(T) * static_cast<size_t>(old_capacity - old_size));
+          do_fill = false;
+        }
+      }
+      if (do_fill) {
+        uninitialized_fill_n(begin_ + old_size, new_size - old_size, value);
+      }
     }
     else {
       destruct_n(begin_ + new_size, old_size - new_size);
@@ -964,7 +977,7 @@ class Vector {
      * only increases linearly. */
     const size_t min_new_capacity = std::max<size_t>(old_capacity * 3 / 2, 4);
     const size_t new_capacity = std::max(min_capacity, min_new_capacity);
-    const size_t size = this->size();
+    const size_t size = static_cast<size_t>(this->size());
     const size_t old_capacity_in_bytes = old_capacity * sizeof(T);
     const size_t new_capacity_in_bytes = new_capacity * sizeof(T);
     const bool was_inline = this->is_inline();
@@ -988,7 +1001,7 @@ class Vector {
         zero_new_capacity_manually = zero_new_capacity;
       }
       try {
-        uninitialized_relocate_n(begin_, size, new_array);
+        uninitialized_relocate_n(begin_, static_cast<int64_t>(size), new_array);
       }
       catch (...) {
         allocator_.direct_deallocate(new_array, new_capacity_in_bytes, alignof(T));

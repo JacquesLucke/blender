@@ -502,8 +502,13 @@ inline constexpr bool is_trivially_relocatable_v =
 template<typename T> inline bool can_zero_initialize_on_fill(const T &value)
 {
   if constexpr (std::is_trivially_copyable_v<T>) {
-    const std::byte *value_ptr = static_cast<const std::byte *>(&value);
-    /* TODO */
+    const uint8_t *value_ptr = reinterpret_cast<const uint8_t *>(&value);
+    for (int64_t i = 0; i < sizeof(T); i++) {
+      if (value_ptr[i] != 0) {
+        return false;
+      }
+    }
+    return true;
   }
   else {
     return false;
