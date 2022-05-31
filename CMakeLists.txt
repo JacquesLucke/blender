@@ -468,6 +468,9 @@ option(WITH_CLANG                   "Use Clang" OFF)
 # disable for now, but plan to support on all platforms eventually
 option(WITH_MEM_JEMALLOC   "Enable malloc replacement (http://www.canonware.com/jemalloc)" ON)
 mark_as_advanced(WITH_MEM_JEMALLOC)
+if(WIN32)
+  set(WITH_MEM_JEMALLOC OFF CACHE BOOL "" FORCE)
+endif()
 
 # currently only used for BLI_mempool
 option(WITH_MEM_VALGRIND "Enable extended valgrind support for better reporting" OFF)
