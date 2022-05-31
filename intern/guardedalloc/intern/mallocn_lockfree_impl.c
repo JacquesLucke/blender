@@ -352,7 +352,9 @@ void *MEM_lockfree_mallocN_aligned(size_t len, size_t alignment, const char *str
   return NULL;
 }
 
-void *MEM_lockfree_raw_mallocN(const size_t len, const size_t alignment, const char *UNUSED(str))
+void *MEM_lockfree_direct_mallocN(const size_t len,
+                                  const size_t alignment,
+                                  const char *UNUSED(str))
 {
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     return malloc(len);
@@ -360,7 +362,9 @@ void *MEM_lockfree_raw_mallocN(const size_t len, const size_t alignment, const c
   return aligned_malloc(len, alignment);
 }
 
-void *MEM_lockfree_raw_callocN(const size_t len, const size_t alignment, const char *UNUSED(str))
+void *MEM_lockfree_direct_callocN(const size_t len,
+                                  const size_t alignment,
+                                  const char *UNUSED(str))
 {
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     return calloc(1, len);
@@ -370,19 +374,19 @@ void *MEM_lockfree_raw_callocN(const size_t len, const size_t alignment, const c
   return ptr;
 }
 
-void *MEM_lockfree_raw_reallocN(void *ptr,
-                                const size_t new_len,
-                                const size_t new_alignment,
-                                const char *str,
-                                const size_t old_len,
-                                const size_t old_alignment)
+void *MEM_lockfree_direct_reallocN(void *ptr,
+                                   const size_t new_len,
+                                   const size_t new_alignment,
+                                   const char *str,
+                                   const size_t old_len,
+                                   const size_t old_alignment)
 {
   const bool new_alignment_is_small = new_alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT;
   const bool old_alignment_is_small = old_alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT;
   if (new_alignment_is_small && old_alignment_is_small) {
     return realloc(ptr, new_len);
   }
-  void *new_ptr = MEM_lockfree_raw_mallocN(new_len, new_alignment, str);
+  void *new_ptr = MEM_lockfree_direct_mallocN(new_len, new_alignment, str);
   if (ptr == NULL) {
     assert(old_len == 0);
     return new_ptr;
@@ -398,7 +402,7 @@ void *MEM_lockfree_raw_reallocN(void *ptr,
   return new_ptr;
 }
 
-void MEM_lockfree_raw_freeN(void *ptr, const size_t UNUSED(len), const size_t alignment)
+void MEM_lockfree_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t alignment)
 {
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     free(ptr);

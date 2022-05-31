@@ -131,22 +131,23 @@ extern void *(*MEM_mallocN_aligned)(size_t len,
                                     const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT
     ATTR_ALLOC_SIZE(1) ATTR_NONNULL(3);
 
-extern void *(*MEM_raw_mallocN)(size_t len,
-                                size_t alignment,
-                                const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
+extern void *(*MEM_direct_mallocN)(size_t len,
+                                   size_t alignment,
+                                   const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
 
-extern void *(*MEM_raw_callocN)(size_t len,
-                                size_t alignment,
-                                const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
+extern void *(*MEM_direct_callocN)(size_t len,
+                                   size_t alignment,
+                                   const char *str) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
 
-extern void *(*MEM_raw_reallocN)(void *ptr,
-                                 size_t new_len,
-                                 size_t new_alignment,
-                                 const char *str,
-                                 size_t old_len,
-                                 size_t old_alignment) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
+extern void *(*MEM_direct_reallocN)(
+    void *ptr,
+    size_t new_len,
+    size_t new_alignment,
+    const char *str,
+    size_t old_len,
+    size_t old_alignment) /* ATTR_MALLOC */ ATTR_WARN_UNUSED_RESULT;
 
-extern void (*MEM_raw_freeN)(void *ptr, size_t len, size_t alignment);
+extern void (*MEM_direct_freeN)(void *ptr, size_t len, size_t alignment);
 
 /**
  * Print a list of the names and sizes of all allocated memory

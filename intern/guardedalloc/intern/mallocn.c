@@ -35,15 +35,19 @@ void *(*MEM_malloc_arrayN)(size_t len, size_t size, const char *str) = MEM_lockf
 void *(*MEM_mallocN_aligned)(size_t len,
                              size_t alignment,
                              const char *str) = MEM_lockfree_mallocN_aligned;
-void *(*MEM_raw_mallocN)(size_t len, size_t alignment, const char *str) = MEM_lockfree_raw_mallocN;
-void *(*MEM_raw_callocN)(size_t len, size_t alignment, const char *str) = MEM_lockfree_raw_callocN;
-void *(*MEM_raw_reallocN)(void *ptr,
-                          size_t new_len,
-                          size_t new_alignment,
-                          const char *str,
-                          size_t old_len,
-                          size_t old_alignment) = MEM_lockfree_raw_reallocN;
-void (*MEM_raw_freeN)(void *ptr, size_t len, size_t alignment) = MEM_lockfree_raw_freeN;
+void *(*MEM_direct_mallocN)(size_t len,
+                            size_t alignment,
+                            const char *str) = MEM_lockfree_direct_mallocN;
+void *(*MEM_direct_callocN)(size_t len,
+                            size_t alignment,
+                            const char *str) = MEM_lockfree_direct_callocN;
+void *(*MEM_direct_reallocN)(void *ptr,
+                             size_t new_len,
+                             size_t new_alignment,
+                             const char *str,
+                             size_t old_len,
+                             size_t old_alignment) = MEM_lockfree_direct_reallocN;
+void (*MEM_direct_freeN)(void *ptr, size_t len, size_t alignment) = MEM_lockfree_direct_freeN;
 void (*MEM_printmemlist_pydict)(void) = MEM_lockfree_printmemlist_pydict;
 void (*MEM_printmemlist)(void) = MEM_lockfree_printmemlist;
 void (*MEM_callbackmemlist)(void (*func)(void *)) = MEM_lockfree_callbackmemlist;
@@ -154,10 +158,10 @@ void MEM_use_guarded_allocator(void)
   MEM_mallocN = MEM_guarded_mallocN;
   MEM_malloc_arrayN = MEM_guarded_malloc_arrayN;
   MEM_mallocN_aligned = MEM_guarded_mallocN_aligned;
-  MEM_raw_mallocN = MEM_guarded_raw_mallocN;
-  MEM_raw_callocN = MEM_guarded_raw_callocN;
-  MEM_raw_reallocN = MEM_guarded_raw_reallocN;
-  MEM_raw_freeN = MEM_guarded_raw_freeN;
+  MEM_direct_mallocN = MEM_guarded_direct_mallocN;
+  MEM_direct_callocN = MEM_guarded_direct_callocN;
+  MEM_direct_reallocN = MEM_guarded_direct_reallocN;
+  MEM_direct_freeN = MEM_guarded_direct_freeN;
   MEM_printmemlist_pydict = MEM_guarded_printmemlist_pydict;
   MEM_printmemlist = MEM_guarded_printmemlist;
   MEM_callbackmemlist = MEM_guarded_callbackmemlist;

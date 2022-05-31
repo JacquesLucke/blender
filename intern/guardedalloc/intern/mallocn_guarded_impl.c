@@ -230,6 +230,7 @@ size_t MEM_guarded_allocN_len(const void *vmemh)
 {
   if (vmemh) {
     const MemHead *memh = vmemh;
+    /* TODO: Add check that memhead is valid. */
 
     memh--;
     return memh->len;
@@ -572,24 +573,24 @@ void *MEM_guarded_calloc_arrayN(size_t len, size_t size, const char *str)
   return MEM_guarded_callocN(total_size, str);
 }
 
-void *MEM_guarded_raw_mallocN(const size_t len, const size_t alignment, const char *str)
+void *MEM_guarded_direct_mallocN(const size_t len, const size_t alignment, const char *str)
 {
   return MEM_guarded_mallocN_aligned(len, alignment, str);
 }
 
-void *MEM_guarded_raw_callocN(const size_t len, const size_t alignment, const char *str)
+void *MEM_guarded_direct_callocN(const size_t len, const size_t alignment, const char *str)
 {
   void *ptr = MEM_guarded_mallocN_aligned(len, alignment, str);
   memset(ptr, 0, len);
   return ptr;
 }
 
-void *MEM_guarded_raw_reallocN(void *ptr,
-                               const size_t new_len,
-                               const size_t new_alignment,
-                               const char *str,
-                               const size_t old_len,
-                               const size_t UNUSED(old_alignment))
+void *MEM_guarded_direct_reallocN(void *ptr,
+                                  const size_t new_len,
+                                  const size_t new_alignment,
+                                  const char *str,
+                                  const size_t old_len,
+                                  const size_t UNUSED(old_alignment))
 {
   void *new_ptr = MEM_guarded_mallocN_aligned(new_len, new_alignment, str);
   const size_t bytes_to_copy = new_len < old_len ? new_len : old_len;
@@ -598,7 +599,7 @@ void *MEM_guarded_raw_reallocN(void *ptr,
   return new_ptr;
 }
 
-void MEM_guarded_raw_freeN(void *ptr, const size_t UNUSED(len), const size_t UNUSED(alignment))
+void MEM_guarded_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t UNUSED(alignment))
 {
   MEM_freeN(ptr);
 }
