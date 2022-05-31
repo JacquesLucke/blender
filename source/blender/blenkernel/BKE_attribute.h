@@ -30,9 +30,8 @@ typedef enum AttributeDomain {
   ATTR_DOMAIN_CORNER = 3,   /* Mesh Corner */
   ATTR_DOMAIN_CURVE = 4,    /* A single curve in a larger curve data-block */
   ATTR_DOMAIN_INSTANCE = 5, /* Instance */
-
-  ATTR_DOMAIN_NUM
 } AttributeDomain;
+#define ATTR_DOMAIN_NUM 6
 
 typedef enum AttributeDomainMask {
   ATTR_DOMAIN_MASK_POINT = (1 << 0),
@@ -50,6 +49,7 @@ typedef enum AttributeDomainMask {
 /* Attributes. */
 
 bool BKE_id_attributes_supported(struct ID *id);
+bool BKE_attribute_allow_procedural_access(const char *attribute_name);
 
 /**
  * Create a new attribute layer.

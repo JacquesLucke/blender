@@ -76,7 +76,7 @@ set(SRC
   intern/asset_catalog_path.cc
   intern/asset_library.cc
   intern/asset_library_service.cc
-  intern/attribute.c
+  intern/attribute.cc
   intern/attribute_access.cc
   intern/attribute_math.cc
   intern/autoexec.c
@@ -174,7 +174,7 @@ set(SRC
   intern/lib_id_delete.c
   intern/lib_id_eval.c
   intern/lib_id_remapper.cc
-  intern/lib_override.c
+  intern/lib_override.cc
   intern/lib_override_proxy_conversion.c
   intern/lib_query.c
   intern/lib_remap.c
@@ -611,7 +611,7 @@ if(WITH_IMAGE_HDR)
 endif()
 
 if(WITH_IMAGE_WEBP)
-	add_definitions(-DWITH_WEBP)
+  add_definitions(-DWITH_WEBP)
 endif()
 
 if(WITH_CODEC_AVI)
