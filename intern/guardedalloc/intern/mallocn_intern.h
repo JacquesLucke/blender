@@ -92,11 +92,16 @@ void *jemalloc_malloc(size_t size, size_t alignment);
 void *jemalloc_calloc(size_t size, size_t alignment);
 void *jemalloc_realloc(void *ptr, size_t size, size_t alignment);
 void jemalloc_free(void *ptr);
-size_t jemalloc_next_size(size_t size, size_t alignment);
+size_t jemalloc_real_size(size_t size, size_t alignment);
 #endif
 
 #ifdef WITH_TBB_MALLOC
 extern void *tbb_malloc(size_t size, size_t alignment);
+void *tbb_calloc(size_t size, size_t alignment);
+void *tbb_realloc(
+    void *ptr, size_t new_size, size_t new_alignment, size_t old_size, size_t old_alignment);
+void tbb_free(void *ptr, size_t alignment);
+size_t tbb_real_size(const void *ptr);
 #endif
 
 extern bool leak_detector_has_run;

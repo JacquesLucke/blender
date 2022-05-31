@@ -374,6 +374,8 @@ void *MEM_lockfree_direct_callocN(const size_t len,
 {
 #ifdef WITH_MEM_JEMALLOC
   return jemalloc_calloc(len, alignment);
+#elif defined(WITH_TBB_MALLOC)
+  return tbb_calloc(len, alignment);
 #else
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     return calloc(1, len);
@@ -394,6 +396,9 @@ void *MEM_lockfree_direct_reallocN(void *ptr,
 #ifdef WITH_MEM_JEMALLOC
   ((void)str, (void)old_len, (void)old_alignment);
   return jemalloc_realloc(ptr, new_len, new_alignment);
+#elif defined(WITH_TBB_MALLOC)
+  (void)str;
+  return tbb_realloc(ptr, new_len, new_alignment, old_len, old_alignment);
 #else
   const bool new_alignment_is_small = new_alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT;
   const bool old_alignment_is_small = old_alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT;
@@ -422,6 +427,8 @@ void MEM_lockfree_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t
 #ifdef WITH_MEM_JEMALLOC
   (void)alignment;
   jemalloc_free(ptr);
+#elif defined(WITH_TBB_MALLOC)
+  tbb_free(ptr, alignment);
 #else
   if (alignment <= ALIGNED_MALLOC_MINIMUM_ALIGNMENT) {
     free(ptr);
@@ -432,14 +439,16 @@ void MEM_lockfree_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t
 #endif
 }
 
-size_t MEM_lockfree_direct_real_size(const void *UNUSED(ptr),
-                                     const size_t len,
-                                     const size_t alignment)
+size_t MEM_lockfree_direct_real_size(const void *ptr, const size_t len, const size_t alignment)
 {
 #ifdef WITH_MEM_JEMALLOC
-  return jemalloc_next_size(len, alignment);
+  (void)ptr;
+  return jemalloc_real_size(len, alignment);
+#elif defined(WITH_TBB_MALLOC)
+  ((void)len, (void)alignment);
+  return tbb_real_size(ptr);
 #else
-  (void)alignment;
+  ((void)ptr, (void)alignment);
   return len;
 #endif
 }

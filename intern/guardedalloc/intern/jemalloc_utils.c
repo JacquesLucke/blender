@@ -36,7 +36,7 @@ void jemalloc_free(void *ptr)
   free(ptr);
 }
 
-size_t jemalloc_next_size(const size_t size, const size_t alignment)
+size_t jemalloc_real_size(const size_t size, const size_t alignment)
 {
   if (alignment <= ALIGN_THRESHOLD) {
     return nallocx(size, 0);
