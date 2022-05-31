@@ -982,13 +982,8 @@ class Vector {
      * */
     const size_t min_new_capacity = std::max<size_t>(
         old_capacity <= 64 ? old_capacity * 2 : old_capacity * 3 / 2, 4);
-    size_t new_capacity = std::max(min_capacity, min_new_capacity);
-    size_t new_capacity_in_bytes = new_capacity * sizeof(T);
-
-    /* Round up the new capacity based on the allocator, to avoid wasting space after the
-     * allocated buffer. */
-    new_capacity_in_bytes = allocator_.direct_next_size(new_capacity_in_bytes, alignof(T));
-    new_capacity = new_capacity_in_bytes / sizeof(T);
+    const size_t new_capacity = std::max(min_capacity, min_new_capacity);
+    const size_t new_capacity_in_bytes = new_capacity * sizeof(T);
 
     const size_t size = static_cast<size_t>(this->size());
     const size_t old_capacity_in_bytes = old_capacity * sizeof(T);
@@ -1031,8 +1026,12 @@ class Vector {
              new_capacity_in_bytes - old_capacity_in_bytes);
     }
 
+    const size_t real_buffer_size = allocator_.direct_real_size(
+        begin_, new_capacity_in_bytes, alignof(T));
+    const size_t real_new_capacity = real_buffer_size / sizeof(T);
+
     end_ = begin_ + size;
-    capacity_end_ = begin_ + new_capacity;
+    capacity_end_ = begin_ + real_new_capacity;
   }
 };
 

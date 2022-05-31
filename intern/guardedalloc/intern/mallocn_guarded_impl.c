@@ -604,7 +604,9 @@ void MEM_guarded_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t 
   MEM_freeN(ptr);
 }
 
-size_t MEM_guarded_direct_next_size(const size_t len, const size_t UNUSED(alignment))
+size_t MEM_guarded_direct_real_size(const void *UNUSED(ptr),
+                                    const size_t len,
+                                    const size_t UNUSED(alignment))
 {
   return len;
 }

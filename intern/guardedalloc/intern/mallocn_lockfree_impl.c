@@ -434,7 +434,9 @@ void MEM_lockfree_direct_freeN(void *ptr, const size_t UNUSED(len), const size_t
 #endif
 }
 
-size_t MEM_lockfree_direct_next_size(const size_t len, const size_t alignment)
+size_t MEM_lockfree_direct_real_size(const void *UNUSED(ptr),
+                                     const size_t len,
+                                     const size_t alignment)
 {
 #ifdef WITH_MEM_JEMALLOC
   return jemalloc_next_size(len, alignment);

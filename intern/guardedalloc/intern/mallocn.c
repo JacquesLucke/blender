@@ -48,7 +48,9 @@ void *(*MEM_direct_reallocN)(void *ptr,
                              size_t old_len,
                              size_t old_alignment) = MEM_lockfree_direct_reallocN;
 void (*MEM_direct_freeN)(void *ptr, size_t len, size_t alignment) = MEM_lockfree_direct_freeN;
-size_t (*MEM_direct_next_size)(size_t len, size_t alignment) = MEM_lockfree_direct_next_size;
+size_t (*MEM_direct_real_size)(const void *ptr,
+                               size_t len,
+                               size_t alignment) = MEM_lockfree_direct_real_size;
 void (*MEM_printmemlist_pydict)(void) = MEM_lockfree_printmemlist_pydict;
 void (*MEM_printmemlist)(void) = MEM_lockfree_printmemlist;
 void (*MEM_callbackmemlist)(void (*func)(void *)) = MEM_lockfree_callbackmemlist;
@@ -163,7 +165,7 @@ void MEM_use_guarded_allocator(void)
   MEM_direct_callocN = MEM_guarded_direct_callocN;
   MEM_direct_reallocN = MEM_guarded_direct_reallocN;
   MEM_direct_freeN = MEM_guarded_direct_freeN;
-  MEM_direct_next_size = MEM_guarded_direct_next_size;
+  MEM_direct_real_size = MEM_guarded_direct_real_size;
   MEM_printmemlist_pydict = MEM_guarded_printmemlist_pydict;
   MEM_printmemlist = MEM_guarded_printmemlist;
   MEM_callbackmemlist = MEM_guarded_callbackmemlist;

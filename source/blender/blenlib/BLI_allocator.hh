@@ -61,9 +61,9 @@ class GuardedDirectAllocator {
     MEM_direct_freeN(ptr, size, alignment);
   }
 
-  size_t direct_next_size(const size_t size, const size_t alignment)
+  size_t direct_real_size(const void *ptr, const size_t size, const size_t alignment)
   {
-    return MEM_direct_next_size(size, alignment);
+    return MEM_direct_real_size(ptr, size, alignment);
   }
 };
 
@@ -101,7 +101,9 @@ template<typename Allocator> class DirectAllocatorInterfaceFromSimple {
     static_cast<Allocator *>(this)->deallocate(ptr);
   }
 
-  size_t direct_next_size(const size_t size, const size_t UNUSED(alignment))
+  size_t direct_real_size(const void *UNUSED(ptr),
+                          const size_t size,
+                          const size_t UNUSED(alignment))
   {
     return size;
   }

@@ -149,7 +149,7 @@ extern void *(*MEM_direct_reallocN)(
 
 extern void (*MEM_direct_freeN)(void *ptr, size_t len, size_t alignment);
 
-extern size_t (*MEM_direct_next_size)(size_t len, size_t alignment);
+extern size_t (*MEM_direct_real_size)(const void *ptr, size_t len, size_t alignment);
 
 /**
  * Print a list of the names and sizes of all allocated memory
