@@ -44,7 +44,7 @@ template<
      * The allocator used by this array. Should rarely be changed, except when you don't want that
      * MEM_* functions are used internally.
      */
-    typename Allocator = GuardedAllocator>
+    typename Allocator = GuardedDirectAllocator>
 class Array {
  public:
   using value_type = T;
@@ -425,13 +425,13 @@ class Array {
   T *allocate(int64_t size)
   {
     return static_cast<T *>(
-        allocator_.allocate(static_cast<size_t>(size) * sizeof(T), alignof(T), AT));
+        allocator_.direct_allocate(static_cast<size_t>(size) * sizeof(T), alignof(T), __func__));
   }
 
   void deallocate_if_not_inline(T *ptr)
   {
     if (ptr != inline_buffer_) {
-      allocator_.deallocate(ptr);
+      allocator_.direct_deallocate(ptr, static_cast<size_t>(size_), alignof(T));
     }
   }
 };
