@@ -30,12 +30,11 @@
 #include "UI_interface.hh"
 #include "UI_resources.h"
 
-#include "NOD_geometry_nodes_eval_log.hh"
+#include "NOD_geometry_nodes_log.hh"
 
 #include "node_intern.hh"
 
-namespace geo_log = blender::nodes::geometry_nodes_eval_log;
-using geo_log::GeometryAttributeInfo;
+using blender::nodes::geo_eval_log::GeometryAttributeInfo;
 
 namespace blender::ed::space_node {
 
@@ -68,38 +67,38 @@ static Vector<const GeometryAttributeInfo *> get_attribute_info_from_context(
 
   /* For the attribute input node, collect attribute information from all nodes in the group. */
   if (node->type == GEO_NODE_INPUT_NAMED_ATTRIBUTE) {
-    const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
-        *snode);
-    if (tree_log == nullptr) {
-      return {};
-    }
+    // const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
+    //     *snode);
+    // if (tree_log == nullptr) {
+    //   return {};
+    // }
 
     Vector<const GeometryAttributeInfo *> attributes;
-    Set<StringRef> names;
-    tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
-      for (const geo_log::SocketLog &socket_log : node_log.input_logs()) {
-        const geo_log::ValueLog *value_log = socket_log.value();
-        if (const geo_log::GeometryValueLog *geo_value_log =
-                dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
-          for (const GeometryAttributeInfo &attribute : geo_value_log->attributes()) {
-            if (bke::allow_procedural_attribute_access(attribute.name)) {
-              if (names.add(attribute.name)) {
-                attributes.append(&attribute);
-              }
-            }
-          }
-        }
-      }
-    });
+    // Set<StringRef> names;
+    // tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
+    //   for (const geo_log::SocketLog &socket_log : node_log.input_logs()) {
+    //     const geo_log::ValueLog *value_log = socket_log.value();
+    //     if (const geo_log::GeometryValueLog *geo_value_log =
+    //             dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
+    //       for (const GeometryAttributeInfo &attribute : geo_value_log->attributes()) {
+    //         if (bke::allow_procedural_attribute_access(attribute.name)) {
+    //           if (names.add(attribute.name)) {
+    //             attributes.append(&attribute);
+    //           }
+    //         }
+    //       }
+    //     }
+    //   }
+    // });
     return attributes;
   }
-
-  const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
-      *snode, data.node_name);
-  if (node_log == nullptr) {
-    return {};
-  }
-  return node_log->lookup_available_attributes();
+  return {};
+  // const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
+  //     *snode, data.node_name);
+  // if (node_log == nullptr) {
+  //   return {};
+  // }
+  // return node_log->lookup_available_attributes();
 }
 
 static void attribute_search_update_fn(

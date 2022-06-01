@@ -10,8 +10,6 @@
 
 #include "node_geometry_util.hh"
 
-using blender::nodes::geometry_nodes_eval_log::LocalGeoLogger;
-
 namespace blender::nodes {
 
 void GeoNodeExecParams::error_message_add(const NodeWarningType type, std::string message) const

@@ -14,7 +14,6 @@
 #include "DNA_node_types.h"
 
 #include "NOD_derived_node_tree.hh"
-#include "NOD_geometry_nodes_eval_log.hh"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 
 #include "GEO_realize_instances.hh"
@@ -43,8 +42,8 @@ using fn::FieldOperation;
 using fn::GField;
 using fn::LFParams;
 using fn::ValueOrField;
-using geometry_nodes_eval_log::NamedAttributeUsage;
-using geometry_nodes_eval_log::NodeWarningType;
+using geo_eval_log::NamedAttributeUsage;
+using geo_eval_log::NodeWarningType;
 
 class GeoNodeExecParams {
  private:

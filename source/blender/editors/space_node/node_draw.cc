@@ -34,6 +34,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 #include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
@@ -64,7 +65,7 @@
 #include "RNA_access.h"
 #include "RNA_prototypes.h"
 
-#include "NOD_geometry_nodes_eval_log.hh"
+#include "NOD_geometry_nodes_log.hh"
 #include "NOD_node_declaration.hh"
 
 #include "FN_field.hh"
@@ -74,8 +75,9 @@
 
 using blender::GPointer;
 using blender::fn::GField;
-namespace geo_log = blender::nodes::geometry_nodes_eval_log;
-using geo_log::NamedAttributeUsage;
+using blender::nodes::geo_eval_log::NamedAttributeUsage;
+using blender::nodes::geo_eval_log::NodeWarning;
+using blender::nodes::geo_eval_log::NodeWarningType;
 
 extern "C" {
 /* XXX interface.h */
@@ -778,203 +780,204 @@ struct SocketTooltipData {
   bNodeSocket *socket;
 };
 
-static void create_inspection_string_for_generic_value(const GPointer value, std::stringstream &ss)
-{
-  auto id_to_inspection_string = [&](const ID *id, const short idcode) {
-    ss << (id ? id->name + 2 : TIP_("None")) << " (" << TIP_(BKE_idtype_idcode_to_name(idcode))
-       << ")";
-  };
+// static void create_inspection_string_for_generic_value(const GPointer value, std::stringstream
+// &ss)
+// {
+//   auto id_to_inspection_string = [&](const ID *id, const short idcode) {
+//     ss << (id ? id->name + 2 : TIP_("None")) << " (" << TIP_(BKE_idtype_idcode_to_name(idcode))
+//        << ")";
+//   };
 
-  const CPPType &type = *value.type();
-  const void *buffer = value.get();
-  if (type.is<Object *>()) {
-    id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_OB);
-  }
-  else if (type.is<Material *>()) {
-    id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_MA);
-  }
-  else if (type.is<Tex *>()) {
-    id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_TE);
-  }
-  else if (type.is<Image *>()) {
-    id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_IM);
-  }
-  else if (type.is<Collection *>()) {
-    id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_GR);
-  }
-  else if (type.is<int>()) {
-    ss << *(int *)buffer << TIP_(" (Integer)");
-  }
-  else if (type.is<float>()) {
-    ss << *(float *)buffer << TIP_(" (Float)");
-  }
-  else if (type.is<blender::float3>()) {
-    ss << *(blender::float3 *)buffer << TIP_(" (Vector)");
-  }
-  else if (type.is<bool>()) {
-    ss << ((*(bool *)buffer) ? TIP_("True") : TIP_("False")) << TIP_(" (Boolean)");
-  }
-  else if (type.is<std::string>()) {
-    ss << *(std::string *)buffer << TIP_(" (String)");
-  }
-}
+//   const CPPType &type = *value.type();
+//   const void *buffer = value.get();
+//   if (type.is<Object *>()) {
+//     id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_OB);
+//   }
+//   else if (type.is<Material *>()) {
+//     id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_MA);
+//   }
+//   else if (type.is<Tex *>()) {
+//     id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_TE);
+//   }
+//   else if (type.is<Image *>()) {
+//     id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_IM);
+//   }
+//   else if (type.is<Collection *>()) {
+//     id_to_inspection_string(*static_cast<const ID *const *>(buffer), ID_GR);
+//   }
+//   else if (type.is<int>()) {
+//     ss << *(int *)buffer << TIP_(" (Integer)");
+//   }
+//   else if (type.is<float>()) {
+//     ss << *(float *)buffer << TIP_(" (Float)");
+//   }
+//   else if (type.is<blender::float3>()) {
+//     ss << *(blender::float3 *)buffer << TIP_(" (Vector)");
+//   }
+//   else if (type.is<bool>()) {
+//     ss << ((*(bool *)buffer) ? TIP_("True") : TIP_("False")) << TIP_(" (Boolean)");
+//   }
+//   else if (type.is<std::string>()) {
+//     ss << *(std::string *)buffer << TIP_(" (String)");
+//   }
+// }
 
-static void create_inspection_string_for_gfield(const geo_log::GFieldValueLog &value_log,
-                                                std::stringstream &ss)
-{
-  const CPPType &type = value_log.type();
-  const GField &field = value_log.field();
-  const Span<std::string> input_tooltips = value_log.input_tooltips();
+// static void create_inspection_string_for_gfield(const geo_log::GFieldValueLog &value_log,
+//                                                 std::stringstream &ss)
+// {
+//   const CPPType &type = value_log.type();
+//   const GField &field = value_log.field();
+//   const Span<std::string> input_tooltips = value_log.input_tooltips();
 
-  if (input_tooltips.is_empty()) {
-    if (field) {
-      BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
-      blender::fn::evaluate_constant_field(field, buffer);
-      create_inspection_string_for_generic_value({type, buffer}, ss);
-      type.destruct(buffer);
-    }
-    else {
-      /* Constant values should always be logged. */
-      BLI_assert_unreachable();
-      ss << "Value has not been logged";
-    }
-  }
-  else {
-    if (type.is<int>()) {
-      ss << TIP_("Integer field");
-    }
-    else if (type.is<float>()) {
-      ss << TIP_("Float field");
-    }
-    else if (type.is<blender::float3>()) {
-      ss << TIP_("Vector field");
-    }
-    else if (type.is<bool>()) {
-      ss << TIP_("Boolean field");
-    }
-    else if (type.is<std::string>()) {
-      ss << TIP_("String field");
-    }
-    else if (type.is<blender::ColorGeometry4f>()) {
-      ss << TIP_("Color field");
-    }
-    ss << TIP_(" based on:\n");
+//   if (input_tooltips.is_empty()) {
+//     if (field) {
+//       BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
+//       blender::fn::evaluate_constant_field(field, buffer);
+//       create_inspection_string_for_generic_value({type, buffer}, ss);
+//       type.destruct(buffer);
+//     }
+//     else {
+//       /* Constant values should always be logged. */
+//       BLI_assert_unreachable();
+//       ss << "Value has not been logged";
+//     }
+//   }
+//   else {
+//     if (type.is<int>()) {
+//       ss << TIP_("Integer field");
+//     }
+//     else if (type.is<float>()) {
+//       ss << TIP_("Float field");
+//     }
+//     else if (type.is<blender::float3>()) {
+//       ss << TIP_("Vector field");
+//     }
+//     else if (type.is<bool>()) {
+//       ss << TIP_("Boolean field");
+//     }
+//     else if (type.is<std::string>()) {
+//       ss << TIP_("String field");
+//     }
+//     else if (type.is<blender::ColorGeometry4f>()) {
+//       ss << TIP_("Color field");
+//     }
+//     ss << TIP_(" based on:\n");
 
-    for (const int i : input_tooltips.index_range()) {
-      const blender::StringRef tooltip = input_tooltips[i];
-      ss << "\u2022 " << tooltip;
-      if (i < input_tooltips.size() - 1) {
-        ss << ".\n";
-      }
-    }
-  }
-}
+//     for (const int i : input_tooltips.index_range()) {
+//       const blender::StringRef tooltip = input_tooltips[i];
+//       ss << "\u2022 " << tooltip;
+//       if (i < input_tooltips.size() - 1) {
+//         ss << ".\n";
+//       }
+//     }
+//   }
+// }
 
-static void create_inspection_string_for_geometry(const geo_log::GeometryValueLog &value_log,
-                                                  std::stringstream &ss)
-{
-  Span<GeometryComponentType> component_types = value_log.component_types();
-  if (component_types.is_empty()) {
-    ss << TIP_("Empty Geometry");
-    return;
-  }
+// static void create_inspection_string_for_geometry(const geo_log::GeometryValueLog &value_log,
+//                                                   std::stringstream &ss)
+// {
+//   Span<GeometryComponentType> component_types = value_log.component_types();
+//   if (component_types.is_empty()) {
+//     ss << TIP_("Empty Geometry");
+//     return;
+//   }
 
-  auto to_string = [](int value) {
-    char str[16];
-    BLI_str_format_int_grouped(str, value);
-    return std::string(str);
-  };
+//   auto to_string = [](int value) {
+//     char str[16];
+//     BLI_str_format_int_grouped(str, value);
+//     return std::string(str);
+//   };
 
-  ss << TIP_("Geometry:\n");
-  for (GeometryComponentType type : component_types) {
-    const char *line_end = (type == component_types.last()) ? "" : ".\n";
-    switch (type) {
-      case GEO_COMPONENT_TYPE_MESH: {
-        const geo_log::GeometryValueLog::MeshInfo &mesh_info = *value_log.mesh_info;
-        char line[256];
-        BLI_snprintf(line,
-                     sizeof(line),
-                     TIP_("\u2022 Mesh: %s vertices, %s edges, %s faces"),
-                     to_string(mesh_info.verts_num).c_str(),
-                     to_string(mesh_info.edges_num).c_str(),
-                     to_string(mesh_info.faces_num).c_str());
-        ss << line << line_end;
-        break;
-      }
-      case GEO_COMPONENT_TYPE_POINT_CLOUD: {
-        const geo_log::GeometryValueLog::PointCloudInfo &pointcloud_info =
-            *value_log.pointcloud_info;
-        char line[256];
-        BLI_snprintf(line,
-                     sizeof(line),
-                     TIP_("\u2022 Point Cloud: %s points"),
-                     to_string(pointcloud_info.points_num).c_str());
-        ss << line << line_end;
-        break;
-      }
-      case GEO_COMPONENT_TYPE_CURVE: {
-        const geo_log::GeometryValueLog::CurveInfo &curve_info = *value_log.curve_info;
-        char line[256];
-        BLI_snprintf(line,
-                     sizeof(line),
-                     TIP_("\u2022 Curve: %s splines"),
-                     to_string(curve_info.splines_num).c_str());
-        ss << line << line_end;
-        break;
-      }
-      case GEO_COMPONENT_TYPE_INSTANCES: {
-        const geo_log::GeometryValueLog::InstancesInfo &instances_info = *value_log.instances_info;
-        char line[256];
-        BLI_snprintf(line,
-                     sizeof(line),
-                     TIP_("\u2022 Instances: %s"),
-                     to_string(instances_info.instances_num).c_str());
-        ss << line << line_end;
-        break;
-      }
-      case GEO_COMPONENT_TYPE_VOLUME: {
-        ss << TIP_("\u2022 Volume") << line_end;
-        break;
-      }
-    }
-  }
-}
+//   ss << TIP_("Geometry:\n");
+//   for (GeometryComponentType type : component_types) {
+//     const char *line_end = (type == component_types.last()) ? "" : ".\n";
+//     switch (type) {
+//       case GEO_COMPONENT_TYPE_MESH: {
+//         const geo_log::GeometryValueLog::MeshInfo &mesh_info = *value_log.mesh_info;
+//         char line[256];
+//         BLI_snprintf(line,
+//                      sizeof(line),
+//                      TIP_("\u2022 Mesh: %s vertices, %s edges, %s faces"),
+//                      to_string(mesh_info.verts_num).c_str(),
+//                      to_string(mesh_info.edges_num).c_str(),
+//                      to_string(mesh_info.faces_num).c_str());
+//         ss << line << line_end;
+//         break;
+//       }
+//       case GEO_COMPONENT_TYPE_POINT_CLOUD: {
+//         const geo_log::GeometryValueLog::PointCloudInfo &pointcloud_info =
+//             *value_log.pointcloud_info;
+//         char line[256];
+//         BLI_snprintf(line,
+//                      sizeof(line),
+//                      TIP_("\u2022 Point Cloud: %s points"),
+//                      to_string(pointcloud_info.points_num).c_str());
+//         ss << line << line_end;
+//         break;
+//       }
+//       case GEO_COMPONENT_TYPE_CURVE: {
+//         const geo_log::GeometryValueLog::CurveInfo &curve_info = *value_log.curve_info;
+//         char line[256];
+//         BLI_snprintf(line,
+//                      sizeof(line),
+//                      TIP_("\u2022 Curve: %s splines"),
+//                      to_string(curve_info.splines_num).c_str());
+//         ss << line << line_end;
+//         break;
+//       }
+//       case GEO_COMPONENT_TYPE_INSTANCES: {
+//         const geo_log::GeometryValueLog::InstancesInfo &instances_info =
+//         *value_log.instances_info; char line[256]; BLI_snprintf(line,
+//                      sizeof(line),
+//                      TIP_("\u2022 Instances: %s"),
+//                      to_string(instances_info.instances_num).c_str());
+//         ss << line << line_end;
+//         break;
+//       }
+//       case GEO_COMPONENT_TYPE_VOLUME: {
+//         ss << TIP_("\u2022 Volume") << line_end;
+//         break;
+//       }
+//     }
+//   }
+// }
 
-static std::optional<std::string> create_socket_inspection_string(bContext *C,
-                                                                  bNode &node,
-                                                                  bNodeSocket &socket)
-{
-  SpaceNode *snode = CTX_wm_space_node(C);
-  if (snode == nullptr) {
-    return {};
-  };
+// static std::optional<std::string> create_socket_inspection_string(bContext *C,
+//                                                                   bNode &node,
+//                                                                   bNodeSocket &socket)
+// {
+//   SpaceNode *snode = CTX_wm_space_node(C);
+//   if (snode == nullptr) {
+//     return {};
+//   };
 
-  const geo_log::SocketLog *socket_log = geo_log::ModifierLog::find_socket_by_node_editor_context(
-      *snode, node, socket);
-  if (socket_log == nullptr) {
-    return {};
-  }
-  const geo_log::ValueLog *value_log = socket_log->value();
-  if (value_log == nullptr) {
-    return {};
-  }
+//   const geo_log::SocketLog *socket_log =
+//   geo_log::ModifierLog::find_socket_by_node_editor_context(
+//       *snode, node, socket);
+//   if (socket_log == nullptr) {
+//     return {};
+//   }
+//   const geo_log::ValueLog *value_log = socket_log->value();
+//   if (value_log == nullptr) {
+//     return {};
+//   }
 
-  std::stringstream ss;
-  if (const geo_log::GenericValueLog *generic_value_log =
-          dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
-    create_inspection_string_for_generic_value(generic_value_log->value(), ss);
-  }
-  if (const geo_log::GFieldValueLog *gfield_value_log =
-          dynamic_cast<const geo_log::GFieldValueLog *>(value_log)) {
-    create_inspection_string_for_gfield(*gfield_value_log, ss);
-  }
-  else if (const geo_log::GeometryValueLog *geo_value_log =
-               dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
-    create_inspection_string_for_geometry(*geo_value_log, ss);
-  }
+//   std::stringstream ss;
+//   if (const geo_log::GenericValueLog *generic_value_log =
+//           dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
+//     create_inspection_string_for_generic_value(generic_value_log->value(), ss);
+//   }
+//   if (const geo_log::GFieldValueLog *gfield_value_log =
+//           dynamic_cast<const geo_log::GFieldValueLog *>(value_log)) {
+//     create_inspection_string_for_gfield(*gfield_value_log, ss);
+//   }
+//   else if (const geo_log::GeometryValueLog *geo_value_log =
+//                dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
+//     create_inspection_string_for_geometry(*geo_value_log, ss);
+//   }
 
-  return ss.str();
-}
+//   return ss.str();
+// }
 
 static bool node_socket_has_tooltip(bNodeTree *ntree, bNodeSocket *socket)
 {
@@ -995,6 +998,7 @@ static char *node_socket_get_tooltip(bContext *C,
                                      bNode *node,
                                      bNodeSocket *socket)
 {
+  UNUSED_VARS(C, node);
   std::stringstream output;
   if (socket->runtime->declaration != nullptr) {
     const blender::nodes::SocketDeclaration &socket_decl = *socket->runtime->declaration;
@@ -1009,8 +1013,7 @@ static char *node_socket_get_tooltip(bContext *C,
       output << ".\n\n";
     }
 
-    std::optional<std::string> socket_inspection_str = create_socket_inspection_string(
-        C, *node, *socket);
+    std::optional<std::string> socket_inspection_str{};
     if (socket_inspection_str.has_value()) {
       output << *socket_inspection_str;
     }
@@ -1469,14 +1472,14 @@ static void node_draw_sockets(const View2D &v2d,
   }
 }
 
-static int node_error_type_to_icon(const geo_log::NodeWarningType type)
+static int node_error_type_to_icon(const NodeWarningType type)
 {
   switch (type) {
-    case geo_log::NodeWarningType::Error:
+    case NodeWarningType::Error:
       return ICON_ERROR;
-    case geo_log::NodeWarningType::Warning:
+    case NodeWarningType::Warning:
       return ICON_ERROR;
-    case geo_log::NodeWarningType::Info:
+    case NodeWarningType::Info:
       return ICON_INFO;
   }
 
@@ -1484,14 +1487,14 @@ static int node_error_type_to_icon(const geo_log::NodeWarningType type)
   return ICON_ERROR;
 }
 
-static uint8_t node_error_type_priority(const geo_log::NodeWarningType type)
+static uint8_t node_error_type_priority(const NodeWarningType type)
 {
   switch (type) {
-    case geo_log::NodeWarningType::Error:
+    case NodeWarningType::Error:
       return 3;
-    case geo_log::NodeWarningType::Warning:
+    case NodeWarningType::Warning:
       return 2;
-    case geo_log::NodeWarningType::Info:
+    case NodeWarningType::Info:
       return 1;
   }
 
@@ -1499,11 +1502,11 @@ static uint8_t node_error_type_priority(const geo_log::NodeWarningType type)
   return 0;
 }
 
-static geo_log::NodeWarningType node_error_highest_priority(Span<geo_log::NodeWarning> warnings)
+static NodeWarningType node_error_highest_priority(Span<NodeWarning> warnings)
 {
   uint8_t highest_priority = 0;
-  geo_log::NodeWarningType highest_priority_type = geo_log::NodeWarningType::Info;
-  for (const geo_log::NodeWarning &warning : warnings) {
+  NodeWarningType highest_priority_type = NodeWarningType::Info;
+  for (const NodeWarning &warning : warnings) {
     const uint8_t priority = node_error_type_priority(warning.type);
     if (priority > highest_priority) {
       highest_priority = priority;
@@ -1514,7 +1517,7 @@ static geo_log::NodeWarningType node_error_highest_priority(Span<geo_log::NodeWa
 }
 
 struct NodeErrorsTooltipData {
-  Span<geo_log::NodeWarning> warnings;
+  Span<NodeWarning> warnings;
 };
 
 static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
@@ -1523,7 +1526,7 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
 
   std::string complete_string;
 
-  for (const geo_log::NodeWarning &warning : data.warnings.drop_back(1)) {
+  for (const NodeWarning &warning : data.warnings.drop_back(1)) {
     complete_string += warning.message;
     /* Adding the period is not ideal for multi-line messages, but it is consistent
      * with other tooltip implementations in Blender, so it is added here. */
@@ -1543,13 +1546,9 @@ static void node_add_error_message_button(
     const bContext &C, bNode &node, uiBlock &block, const rctf &rect, float &icon_offset)
 {
   SpaceNode *snode = CTX_wm_space_node(&C);
-  const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(*snode,
-                                                                                            node);
-  if (node_log == nullptr) {
-    return;
-  }
+  UNUSED_VARS(snode, node);
 
-  Span<geo_log::NodeWarning> warnings = node_log->warnings();
+  Span<NodeWarning> warnings;
 
   if (warnings.is_empty()) {
     return;
@@ -1559,7 +1558,7 @@ static void node_add_error_message_button(
       sizeof(NodeErrorsTooltipData), __func__);
   tooltip_data->warnings = warnings;
 
-  const geo_log::NodeWarningType display_type = node_error_highest_priority(warnings);
+  const NodeWarningType display_type = node_error_highest_priority(warnings);
 
   icon_offset -= NODE_HEADER_ICON_SIZE;
   UI_block_emboss_set(&block, UI_EMBOSS_NONE);
@@ -1581,80 +1580,50 @@ static void node_add_error_message_button(
   UI_block_emboss_set(&block, UI_EMBOSS);
 }
 
-static void get_exec_time_other_nodes(const bNode &node,
-                                      const SpaceNode &snode,
-                                      std::chrono::microseconds &exec_time,
-                                      int &node_count)
-{
-  if (node.type == NODE_GROUP) {
-    const geo_log::TreeLog *root_tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
-        snode);
-    if (root_tree_log == nullptr) {
-      return;
-    }
-    const geo_log::TreeLog *tree_log = root_tree_log->lookup_child_log(node.name);
-    if (tree_log == nullptr) {
-      return;
-    }
-    tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
-      exec_time += node_log.execution_time();
-      node_count++;
-    });
-  }
-  else {
-    const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
-        snode, node);
-    if (node_log) {
-      exec_time += node_log->execution_time();
-      node_count++;
-    }
-  }
-}
+// static std::chrono::microseconds node_get_execution_time(const bNodeTree &ntree,
+//                                                          const bNode &node,
+//                                                          const SpaceNode &snode,
+//                                                          int &node_count)
+// {
+//   std::chrono::microseconds exec_time = std::chrono::microseconds::zero();
+//   if (node.type == NODE_GROUP_OUTPUT) {
+//     const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
+//         snode);
 
-static std::chrono::microseconds node_get_execution_time(const bNodeTree &ntree,
-                                                         const bNode &node,
-                                                         const SpaceNode &snode,
-                                                         int &node_count)
-{
-  std::chrono::microseconds exec_time = std::chrono::microseconds::zero();
-  if (node.type == NODE_GROUP_OUTPUT) {
-    const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
-        snode);
+//     if (tree_log == nullptr) {
+//       return exec_time;
+//     }
+//     tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
+//       exec_time += node_log.execution_time();
+//       node_count++;
+//     });
+//   }
+//   else if (node.type == NODE_FRAME) {
+//     /* Could be cached in the future if this recursive code turns out to be slow. */
+//     LISTBASE_FOREACH (bNode *, tnode, &ntree.nodes) {
+//       if (tnode->parent != &node) {
+//         continue;
+//       }
 
-    if (tree_log == nullptr) {
-      return exec_time;
-    }
-    tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
-      exec_time += node_log.execution_time();
-      node_count++;
-    });
-  }
-  else if (node.type == NODE_FRAME) {
-    /* Could be cached in the future if this recursive code turns out to be slow. */
-    LISTBASE_FOREACH (bNode *, tnode, &ntree.nodes) {
-      if (tnode->parent != &node) {
-        continue;
-      }
-
-      if (tnode->type == NODE_FRAME) {
-        exec_time += node_get_execution_time(ntree, *tnode, snode, node_count);
-      }
-      else {
-        get_exec_time_other_nodes(*tnode, snode, exec_time, node_count);
-      }
-    }
-  }
-  else {
-    get_exec_time_other_nodes(node, snode, exec_time, node_count);
-  }
-  return exec_time;
-}
+//       if (tnode->type == NODE_FRAME) {
+//         exec_time += node_get_execution_time(ntree, *tnode, snode, node_count);
+//       }
+//       else {
+//         get_exec_time_other_nodes(*tnode, snode, exec_time, node_count);
+//       }
+//     }
+//   }
+//   else {
+//     get_exec_time_other_nodes(node, snode, exec_time, node_count);
+//   }
+//   return exec_time;
+// }
 
 static std::string node_get_execution_time_label(const SpaceNode &snode, const bNode &node)
 {
+  UNUSED_VARS(snode, node);
   int node_count = 0;
-  std::chrono::microseconds exec_time = node_get_execution_time(
-      *snode.nodetree, node, snode, node_count);
+  std::chrono::microseconds exec_time;
 
   if (node_count == 0) {
     return std::string("");
@@ -1766,24 +1735,27 @@ static NodeExtraInfoRow row_from_used_named_attribute(
 static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(const SpaceNode &snode,
                                                                         const bNode &node)
 {
+  UNUSED_VARS(snode);
   if (node.type == NODE_GROUP) {
-    const geo_log::TreeLog *root_tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
-        snode);
-    if (root_tree_log == nullptr) {
-      return std::nullopt;
-    }
-    const geo_log::TreeLog *tree_log = root_tree_log->lookup_child_log(node.name);
-    if (tree_log == nullptr) {
-      return std::nullopt;
-    }
+    // const geo_log::TreeLog *root_tree_log =
+    // geo_log::ModifierLog::find_tree_by_node_editor_context(
+    //     snode);
+    // if (root_tree_log == nullptr) {
+    //   return std::nullopt;
+    // }
+    // const geo_log::TreeLog *tree_log = root_tree_log->lookup_child_log(node.name);
+    // if (tree_log == nullptr) {
+    //   return std::nullopt;
+    // }
 
     Map<std::string, NamedAttributeUsage> usage_by_attribute;
-    tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
-      for (const geo_log::UsedNamedAttribute &used_attribute : node_log.used_named_attributes()) {
-        usage_by_attribute.lookup_or_add_as(used_attribute.name,
-                                            used_attribute.usage) |= used_attribute.usage;
-      }
-    });
+    // tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
+    //   for (const geo_log::UsedNamedAttribute &used_attribute : node_log.used_named_attributes())
+    //   {
+    //     usage_by_attribute.lookup_or_add_as(used_attribute.name,
+    //                                         used_attribute.usage) |= used_attribute.usage;
+    //   }
+    // });
     if (usage_by_attribute.is_empty()) {
       return std::nullopt;
     }
@@ -1802,19 +1774,20 @@ static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(const Sp
         }
       }
     }
-    const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
-        snode, node.name);
-    if (node_log == nullptr) {
-      return std::nullopt;
-    }
+    // const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
+    //     snode, node.name);
+    // if (node_log == nullptr) {
+    //   return std::nullopt;
+    // }
     Map<std::string, NamedAttributeUsage> usage_by_attribute;
-    for (const geo_log::UsedNamedAttribute &used_attribute : node_log->used_named_attributes()) {
-      usage_by_attribute.lookup_or_add_as(used_attribute.name,
-                                          used_attribute.usage) |= used_attribute.usage;
-    }
-    if (usage_by_attribute.is_empty()) {
-      return std::nullopt;
-    }
+    // for (const geo_log::UsedNamedAttribute &used_attribute : node_log->used_named_attributes())
+    // {
+    //   usage_by_attribute.lookup_or_add_as(used_attribute.name,
+    //                                       used_attribute.usage) |= used_attribute.usage;
+    // }
+    // if (usage_by_attribute.is_empty()) {
+    //   return std::nullopt;
+    // }
     return row_from_used_named_attribute(usage_by_attribute);
   }
 
@@ -1848,16 +1821,17 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(const SpaceNode &snode, cons
       rows.append(std::move(row));
     }
   }
-  const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(snode,
-                                                                                            node);
-  if (node_log != nullptr) {
-    for (const std::string &message : node_log->debug_messages()) {
-      NodeExtraInfoRow row;
-      row.text = message;
-      row.icon = ICON_INFO;
-      rows.append(std::move(row));
-    }
-  }
+  // const geo_log::NodeLog *node_log =
+  // geo_log::ModifierLog::find_node_by_node_editor_context(snode,
+  //                                                                                           node);
+  // if (node_log != nullptr) {
+  //   for (const std::string &message : node_log->debug_messages()) {
+  //     NodeExtraInfoRow row;
+  //     row.text = message;
+  //     row.icon = ICON_INFO;
+  //     rows.append(std::move(row));
+  //   }
+  // }
 
   return rows;
 }

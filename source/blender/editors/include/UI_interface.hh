@@ -13,7 +13,7 @@
 
 #include "UI_resources.h"
 
-namespace blender::nodes::geometry_nodes_eval_log {
+namespace blender::nodes::geo_eval_log {
 struct GeometryAttributeInfo;
 }
 
@@ -43,12 +43,11 @@ void context_path_add_generic(Vector<ContextPathItem> &path,
 
 void template_breadcrumbs(uiLayout &layout, Span<ContextPathItem> context_path);
 
-void attribute_search_add_items(
-    StringRefNull str,
-    bool is_output,
-    Span<const nodes::geometry_nodes_eval_log::GeometryAttributeInfo *> infos,
-    uiSearchItems *items,
-    bool is_first);
+void attribute_search_add_items(StringRefNull str,
+                                bool is_output,
+                                Span<const nodes::geo_eval_log::GeometryAttributeInfo *> infos,
+                                uiSearchItems *items,
+                                bool is_first);
 
 }  // namespace blender::ui
 

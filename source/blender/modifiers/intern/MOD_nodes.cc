@@ -81,7 +81,6 @@
 
 #include "NOD_derived_node_tree.hh"
 #include "NOD_geometry.h"
-#include "NOD_geometry_nodes_eval_log.hh"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 #include "NOD_node_declaration.hh"
 
@@ -90,8 +89,6 @@
 #include "FN_lazy_function_execute.hh"
 #include "FN_lazy_function_graph_executor.hh"
 #include "FN_multi_function.hh"
-
-namespace geo_log = blender::nodes::geometry_nodes_eval_log;
 
 using blender::Array;
 using blender::ColorGeometry4f;
@@ -124,8 +121,8 @@ using blender::threading::EnumerableThreadSpecific;
 using namespace blender::fn::lazy_function_graph_types;
 using namespace blender::fn::multi_function_types;
 using namespace blender::nodes::derived_node_tree_types;
-using geo_log::GeometryAttributeInfo;
-using geo_log::NamedAttributeUsage;
+using blender::nodes::geo_eval_log::GeometryAttributeInfo;
+using blender::nodes::geo_eval_log::NamedAttributeUsage;
 
 static void initData(ModifierData *md)
 {
@@ -914,7 +911,7 @@ static void find_sockets_to_preview(NodesModifierData *nmd,
 static void clear_runtime_data(NodesModifierData *nmd)
 {
   if (nmd->runtime_eval_log != nullptr) {
-    delete (geo_log::ModifierLog *)nmd->runtime_eval_log;
+    // delete (geo_log::ModifierLog *)nmd->runtime_eval_log;
     nmd->runtime_eval_log = nullptr;
   }
 }
@@ -1347,19 +1344,19 @@ static void attribute_search_update_fn(
   if (nmd == nullptr) {
     return;
   }
-  const geo_log::ModifierLog *modifier_log = static_cast<const geo_log::ModifierLog *>(
-      nmd->runtime_eval_log);
-  if (modifier_log == nullptr) {
-    return;
-  }
-  const geo_log::GeometryValueLog *geometry_log = data.is_output ?
-                                                      modifier_log->output_geometry_log() :
-                                                      modifier_log->input_geometry_log();
-  if (geometry_log == nullptr) {
-    return;
-  }
+  // const geo_log::ModifierLog *modifier_log = static_cast<const geo_log::ModifierLog *>(
+  //     nmd->runtime_eval_log);
+  // if (modifier_log == nullptr) {
+  //   return;
+  // }
+  // const geo_log::GeometryValueLog *geometry_log = data.is_output ?
+  //                                                     modifier_log->output_geometry_log() :
+  //                                                     modifier_log->input_geometry_log();
+  // if (geometry_log == nullptr) {
+  //   return;
+  // }
 
-  Span<GeometryAttributeInfo> infos = geometry_log->attributes();
+  Span<GeometryAttributeInfo> infos;
 
   /* The shared attribute search code expects a span of pointers, so convert to that. */
   Array<const GeometryAttributeInfo *> info_ptrs(infos.size());
@@ -1398,8 +1395,8 @@ static void add_attribute_search_button(const bContext &C,
                                         const bNodeSocket &socket,
                                         const bool is_output)
 {
-  const geo_log::ModifierLog *log = static_cast<geo_log::ModifierLog *>(nmd.runtime_eval_log);
-  if (log == nullptr) {
+  // const geo_log::ModifierLog *log = static_cast<geo_log::ModifierLog *>(nmd.runtime_eval_log);
+  if (true) {
     uiItemR(layout, md_ptr, rna_path_attribute_name.c_str(), 0, "", ICON_NONE);
     return;
   }
@@ -1624,16 +1621,16 @@ static void panel_draw(const bContext *C, Panel *panel)
   }
 
   /* Draw node warnings. */
-  if (nmd->runtime_eval_log != nullptr) {
-    const geo_log::ModifierLog &log = *static_cast<geo_log::ModifierLog *>(nmd->runtime_eval_log);
-    log.foreach_node_log([&](const geo_log::NodeLog &node_log) {
-      for (const geo_log::NodeWarning &warning : node_log.warnings()) {
-        if (warning.type != geo_log::NodeWarningType::Info) {
-          uiItemL(layout, warning.message.c_str(), ICON_ERROR);
-        }
-      }
-    });
-  }
+  // if (nmd->runtime_eval_log != nullptr) {
+  //   const geo_log::ModifierLog &log = *static_cast<geo_log::ModifierLog
+  //   *>(nmd->runtime_eval_log); log.foreach_node_log([&](const geo_log::NodeLog &node_log) {
+  //     for (const geo_log::NodeWarning &warning : node_log.warnings()) {
+  //       if (warning.type != geo_log::NodeWarningType::Info) {
+  //         uiItemL(layout, warning.message.c_str(), ICON_ERROR);
+  //       }
+  //     }
+  //   });
+  // }
 
   modifier_panel_end(layout, ptr);
 }
@@ -1672,14 +1669,14 @@ static void internal_dependencies_panel_draw(const bContext *UNUSED(C), Panel *p
   if (nmd->runtime_eval_log == nullptr) {
     return;
   }
-  const geo_log::ModifierLog &log = *static_cast<geo_log::ModifierLog *>(nmd->runtime_eval_log);
   Map<std::string, NamedAttributeUsage> usage_by_attribute;
-  log.foreach_node_log([&](const geo_log::NodeLog &node_log) {
-    for (const geo_log::UsedNamedAttribute &used_attribute : node_log.used_named_attributes()) {
-      usage_by_attribute.lookup_or_add_as(used_attribute.name,
-                                          used_attribute.usage) |= used_attribute.usage;
-    }
-  });
+  // const geo_log::ModifierLog &log = *static_cast<geo_log::ModifierLog *>(nmd->runtime_eval_log);
+  // log.foreach_node_log([&](const geo_log::NodeLog &node_log) {
+  //   for (const geo_log::UsedNamedAttribute &used_attribute : node_log.used_named_attributes()) {
+  //     usage_by_attribute.lookup_or_add_as(used_attribute.name,
+  //                                         used_attribute.usage) |= used_attribute.usage;
+  //   }
+  // });
 
   if (usage_by_attribute.is_empty()) {
     uiItemL(layout, IFACE_("No named attributes used"), ICON_INFO);

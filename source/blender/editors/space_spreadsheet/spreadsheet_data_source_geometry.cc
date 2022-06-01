@@ -22,7 +22,7 @@
 
 #include "ED_spreadsheet.h"
 
-#include "NOD_geometry_nodes_eval_log.hh"
+#include "NOD_geometry_nodes_log.hh"
 
 #include "BLT_translation.h"
 
@@ -36,7 +36,6 @@
 #include "spreadsheet_data_source_geometry.hh"
 #include "spreadsheet_intern.hh"
 
-namespace geo_log = blender::nodes::geometry_nodes_eval_log;
 using blender::fn::GField;
 
 namespace blender::ed::spreadsheet {
@@ -417,20 +416,20 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
         }
       }
       else {
-        const geo_log::NodeLog *node_log =
-            geo_log::ModifierLog::find_node_by_spreadsheet_editor_context(*sspreadsheet);
-        if (node_log != nullptr) {
-          for (const geo_log::SocketLog &input_log : node_log->input_logs()) {
-            if (const geo_log::GeometryValueLog *geo_value_log =
-                    dynamic_cast<const geo_log::GeometryValueLog *>(input_log.value())) {
-              const GeometrySet *full_geometry = geo_value_log->full_geometry();
-              if (full_geometry != nullptr) {
-                geometry_set = *full_geometry;
-                break;
-              }
-            }
-          }
-        }
+        // const geo_log::NodeLog *node_log =
+        //     geo_log::ModifierLog::find_node_by_spreadsheet_editor_context(*sspreadsheet);
+        // if (node_log != nullptr) {
+        //   for (const geo_log::SocketLog &input_log : node_log->input_logs()) {
+        //     if (const geo_log::GeometryValueLog *geo_value_log =
+        //             dynamic_cast<const geo_log::GeometryValueLog *>(input_log.value())) {
+        //       const GeometrySet *full_geometry = geo_value_log->full_geometry();
+        //       if (full_geometry != nullptr) {
+        //         geometry_set = *full_geometry;
+        //         break;
+        //       }
+        //     }
+        //   }
+        // }
       }
     }
   }
@@ -447,29 +446,30 @@ static void find_fields_to_evaluate(const SpaceSpreadsheet *sspreadsheet,
     /* No viewer is currently referenced by the context path. */
     return;
   }
-  const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_spreadsheet_editor_context(
-      *sspreadsheet);
-  if (node_log == nullptr) {
-    return;
-  }
-  for (const geo_log::SocketLog &socket_log : node_log->input_logs()) {
-    const geo_log::ValueLog *value_log = socket_log.value();
-    if (value_log == nullptr) {
-      continue;
-    }
-    if (const geo_log::GFieldValueLog *field_value_log =
-            dynamic_cast<const geo_log::GFieldValueLog *>(value_log)) {
-      const GField &field = field_value_log->field();
-      if (field) {
-        r_fields.add("Viewer", std::move(field));
-      }
-    }
-    if (const geo_log::GenericValueLog *generic_value_log =
-            dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
-      GPointer value = generic_value_log->value();
-      r_fields.add("Viewer", fn::make_constant_field(*value.type(), value.get()));
-    }
-  }
+  // const geo_log::NodeLog *node_log =
+  // geo_log::ModifierLog::find_node_by_spreadsheet_editor_context(
+  //     *sspreadsheet);
+  // if (node_log == nullptr) {
+  //   return;
+  // }
+  // for (const geo_log::SocketLog &socket_log : node_log->input_logs()) {
+  //   const geo_log::ValueLog *value_log = socket_log.value();
+  //   if (value_log == nullptr) {
+  //     continue;
+  //   }
+  //   if (const geo_log::GFieldValueLog *field_value_log =
+  //           dynamic_cast<const geo_log::GFieldValueLog *>(value_log)) {
+  //     const GField &field = field_value_log->field();
+  //     if (field) {
+  //       r_fields.add("Viewer", std::move(field));
+  //     }
+  //   }
+  //   if (const geo_log::GenericValueLog *generic_value_log =
+  //           dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
+  //     GPointer value = generic_value_log->value();
+  //     r_fields.add("Viewer", fn::make_constant_field(*value.type(), value.get()));
+  //   }
+  // }
 }
 
 static GeometryComponentType get_display_component_type(const bContext *C, Object *object_eval)

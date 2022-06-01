@@ -4,10 +4,32 @@
 
 #include "BLI_context_stack_map.hh"
 #include "BLI_enumerable_thread_specific.hh"
+#include "BLI_generic_pointer.hh"
+
+#include "BKE_attribute.h"
 
 #include "DNA_node_types.h"
 
 namespace blender::nodes::geo_eval_log {
+
+enum class NodeWarningType {
+  Error,
+  Warning,
+  Info,
+};
+
+struct NodeWarning {
+  NodeWarningType type;
+  std::string message;
+};
+
+enum class NamedAttributeUsage {
+  None = 0,
+  Read = 1 << 0,
+  Write = 1 << 1,
+  Remove = 1 << 2,
+};
+ENUM_OPERATORS(NamedAttributeUsage, NamedAttributeUsage::Remove);
 
 class ValueLog {
  public:
@@ -32,6 +54,13 @@ class GenericValueLog : public ValueLog {
   {
     return data_;
   }
+};
+
+struct GeometryAttributeInfo {
+  std::string name;
+  /** Can be empty when #name does not actually exist on a geometry yet. */
+  std::optional<AttributeDomain> domain;
+  std::optional<CustomDataType> data_type;
 };
 
 class GeoNodesTreeEvalLog {
