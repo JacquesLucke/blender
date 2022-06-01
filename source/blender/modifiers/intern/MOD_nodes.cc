@@ -1110,6 +1110,8 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   geo_nodes_modifier_data.eval_log = eval_log.get();
   blender::nodes::GeoNodesLFUserData user_data;
   user_data.modifier_data = &geo_nodes_modifier_data;
+  blender::nodes::ModifierContextStack modifier_context_stack{nullptr, nmd->modifier.name};
+  user_data.context_stack = &modifier_context_stack;
 
   blender::LinearAllocator<> allocator;
 

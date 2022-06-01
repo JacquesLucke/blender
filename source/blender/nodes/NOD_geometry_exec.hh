@@ -139,6 +139,15 @@ class GeoNodeExecParams {
       this->check_output_access(identifier, type);
 #endif
       const int index = this->get_output_index(identifier);
+      const bNodeSocket *socket = node_.output_by_identifier(identifier).bsocket();
+      GeoNodesLFUserData *user_data = this->user_data();
+      BLI_assert(user_data != nullptr);
+      const ContextStack *context_stack = user_data->context_stack;
+      BLI_assert(context_stack != nullptr);
+      geo_eval_log::GeoNodesTreeEvalLog &tree_log =
+          user_data->modifier_data->eval_log->get_local_log(*context_stack);
+      tree_log.log_socket_value({socket}, &value);
+
       params_.set_output(index, std::forward<T>(value));
     }
   }
@@ -196,7 +205,7 @@ class GeoNodeExecParams {
 
   const Object *self_object() const
   {
-    if (const auto *data = dynamic_cast<GeoNodesLFUserData *>(lf_context_.user_data)) {
+    if (const auto *data = this->user_data()) {
       if (data->modifier_data) {
         return data->modifier_data->self_object;
       }
@@ -206,12 +215,17 @@ class GeoNodeExecParams {
 
   Depsgraph *depsgraph() const
   {
-    if (const auto *data = dynamic_cast<GeoNodesLFUserData *>(lf_context_.user_data)) {
+    if (const auto *data = this->user_data()) {
       if (data->modifier_data) {
         return data->modifier_data->depsgraph;
       }
     }
     return nullptr;
+  }
+
+  GeoNodesLFUserData *user_data() const
+  {
+    return dynamic_cast<GeoNodesLFUserData *>(lf_context_.user_data);
   }
 
   /**

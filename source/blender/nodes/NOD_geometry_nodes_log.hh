@@ -80,6 +80,7 @@ class GeoNodesTreeEvalLog {
     ValueLog &logged_value_ref = *logged_value;
     for (const bNodeSocket *socket : sockets) {
       socket_values_.add_new(socket, &logged_value_ref);
+      std::cout << socket->name << ": " << type.to_string(buffer) << "\n";
     }
     logged_values_.append(std::move(logged_value));
   }

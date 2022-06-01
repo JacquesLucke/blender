@@ -47,6 +47,27 @@ class NodeGroupContextStack : public ContextStack {
   }
 };
 
+class ModifierContextStack : public ContextStack {
+ private:
+  static constexpr const char *s_static_type = "MODIFIER";
+
+  std::string modifier_name_;
+
+ public:
+  ModifierContextStack(const ContextStack *parent, std::string modifier_name)
+      : ContextStack(s_static_type, parent), modifier_name_(std::move(modifier_name))
+  {
+    hash_.mix_in(s_static_type, strlen(s_static_type));
+    hash_.mix_in(modifier_name_.data(), modifier_name_.size());
+  }
+
+ private:
+  void print_current_in_line(std::ostream &stream) const override
+  {
+    stream << "Modifier: " << modifier_name_;
+  }
+};
+
 struct GeoNodesLFUserData : public fn::LFUserData {
   GeoNodesModifierData *modifier_data = nullptr;
   const ContextStack *context_stack = nullptr;
