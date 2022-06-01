@@ -9,9 +9,56 @@
 
 namespace blender::nodes::geo_eval_log {
 
-class GeoNodesTreeEvalLog {
+class ValueLog {
  public:
-  int count = 0;
+  virtual ~ValueLog() = default;
+};
+
+class GenericValueLog : public ValueLog {
+ private:
+  GMutablePointer data_;
+
+ public:
+  GenericValueLog(const GMutablePointer data) : data_(data)
+  {
+  }
+
+  ~GenericValueLog()
+  {
+    data_.destruct();
+  }
+
+  GPointer value() const
+  {
+    return data_;
+  }
+};
+
+class GeoNodesTreeEvalLog {
+ private:
+  LinearAllocator<> allocator_;
+  Vector<destruct_ptr<ValueLog>> logged_values_;
+  Map<const bNodeSocket *, ValueLog *> socket_values_;
+
+ public:
+  void log_socket_value(const Span<const bNodeSocket *> sockets, const GPointer data)
+  {
+    const CPPType &type = *data.type();
+    void *buffer = allocator_.allocate(type.size(), type.alignment());
+    type.copy_construct(data.get(), buffer);
+    destruct_ptr<ValueLog> logged_value = allocator_.construct<GenericValueLog>(
+        GMutablePointer{type, buffer});
+    ValueLog &logged_value_ref = *logged_value;
+    for (const bNodeSocket *socket : sockets) {
+      socket_values_.add_new(socket, &logged_value_ref);
+    }
+    logged_values_.append(std::move(logged_value));
+  }
+
+  const ValueLog *try_get_logged_socket_value(const bNodeSocket &socket) const
+  {
+    return socket_values_.lookup_default(&socket, nullptr);
+  }
 };
 
 class GeoNodesModifierEvalLog {
