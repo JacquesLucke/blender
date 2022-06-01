@@ -20,7 +20,7 @@ using namespace fn::lazy_function_graph_types;
 struct GeoNodesModifierData {
   const Object *self_object = nullptr;
   Depsgraph *depsgraph = nullptr;
-  GeoNodesModifierEvalLog *eval_log = nullptr;
+  geo_eval_log::GeoNodesModifierEvalLog *eval_log = nullptr;
 };
 
 class NodeGroupContextStack : public ContextStack {

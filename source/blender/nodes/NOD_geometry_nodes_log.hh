@@ -7,7 +7,7 @@
 
 #include "DNA_node_types.h"
 
-namespace blender::nodes {
+namespace blender::nodes::geo_eval_log {
 
 class GeoNodesTreeEvalLog {
  public:
@@ -25,4 +25,4 @@ class GeoNodesModifierEvalLog {
   }
 };
 
-}  // namespace blender::nodes
+}  // namespace blender::nodes::geo_eval_log

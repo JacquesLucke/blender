@@ -1109,6 +1109,8 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
   geo_nodes_modifier_data.self_object = ctx->object;
+  auto eval_log = std::make_unique<blender::nodes::geo_eval_log::GeoNodesModifierEvalLog>();
+  geo_nodes_modifier_data.eval_log = eval_log.get();
   blender::nodes::GeoNodesLFUserData user_data;
   user_data.modifier_data = &geo_nodes_modifier_data;
 
