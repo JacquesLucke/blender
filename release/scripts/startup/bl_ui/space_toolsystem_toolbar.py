@@ -2368,6 +2368,15 @@ class _defs_curves_sculpt:
             data_block='GROW_SHRINK'
         )
 
+    @ToolDef.from_fn
+    def pinch():
+        return dict(
+            idname="builtin_brush.pinch",
+            label="Pinch",
+            icon="ops.curves.sculpt_pinch",
+            data_block='PINCH'
+        )
+
 
 class _defs_gpencil_vertex:
 
@@ -3131,6 +3140,7 @@ class VIEW3D_PT_tools_active(ToolSelectPanelHelper, Panel):
             _defs_curves_sculpt.delete,
             _defs_curves_sculpt.snake_hook,
             _defs_curves_sculpt.grow_shrink,
+            _defs_curves_sculpt.pinch,
             None,
             *_tools_annotate,
         ],

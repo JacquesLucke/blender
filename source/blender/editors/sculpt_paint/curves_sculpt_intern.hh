@@ -60,6 +60,7 @@ std::unique_ptr<CurvesSculptStrokeOperation> new_grow_shrink_operation(
     const BrushStrokeMode brush_mode, const bContext &C);
 std::unique_ptr<CurvesSculptStrokeOperation> new_selection_paint_operation(
     const BrushStrokeMode brush_mode, const bContext &C);
+std::unique_ptr<CurvesSculptStrokeOperation> new_pinch_operation();
 
 struct CurvesBrush3D {
   float3 position_cu;

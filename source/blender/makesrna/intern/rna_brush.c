@@ -250,6 +250,7 @@ const EnumPropertyItem rna_enum_brush_curves_sculpt_tool_items[] = {
     {CURVES_SCULPT_TOOL_ADD, "ADD", ICON_NONE, "Add Curves", ""},
     {CURVES_SCULPT_TOOL_GROW_SHRINK, "GROW_SHRINK", ICON_NONE, "Grow / Shrink Curves", ""},
     {CURVES_SCULPT_TOOL_SELECTION_PAINT, "SELECTION_PAINT", ICON_NONE, "Paint Selection", ""},
+    {CURVES_SCULPT_TOOL_PINCH, "PINCH", ICON_NONE, "Pinch Curves", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -1995,6 +1996,10 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
       prop,
       "Curve Length",
       "Length of newly added curves when it is not interpolated from other curves");
+
+  prop = RNA_def_property(srna, "clump_radius", PROP_INT, PROP_PIXEL);
+  RNA_def_property_range(prop, 0.0, MAX_BRUSH_PIXEL_RADIUS * 10);
+  RNA_def_property_ui_text(prop, "Clump Radius", "Width of clumps created with the pinch brush.");
 }
 
 static void rna_def_brush(BlenderRNA *brna)

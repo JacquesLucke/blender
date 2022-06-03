@@ -148,6 +148,8 @@ typedef struct BrushCurvesSculptSettings {
   float minimum_length;
   /** Length of newly added curves when it is not interpolated from other curves. */
   float curve_length;
+  /** Inner radius radius used by the pinch brush. */
+  int clump_radius;
 } BrushCurvesSculptSettings;
 
 typedef struct Brush {
