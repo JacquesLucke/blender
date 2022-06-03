@@ -447,7 +447,7 @@ Span<float2> CurvesGeometry::surface_uv_coords() const
 
 MutableSpan<float2> CurvesGeometry::surface_uv_coords_for_write()
 {
-  return get_mutable_attribute<float2>(*this, ATTR_DOMAIN_CURVE, ATTR_SURFACE_TRIANGLE_COORDINATE);
+  return get_mutable_attribute<float2>(*this, ATTR_DOMAIN_CURVE, ATTR_SURFACE_UV_COORDINATE);
 }
 
 VArray<float> CurvesGeometry::selection_point_float() const

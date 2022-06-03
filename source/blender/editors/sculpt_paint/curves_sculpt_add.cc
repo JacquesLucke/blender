@@ -117,6 +117,7 @@ struct AddOperationExecutor {
 
   /** Various matrices to convert between coordinate spaces. */
   float4x4 curves_to_world_mat_;
+  float4x4 curves_to_surface_mat_;
   float4x4 world_to_curves_mat_;
   float4x4 world_to_surface_mat_;
   float4x4 surface_to_world_mat_;
@@ -168,6 +169,7 @@ struct AddOperationExecutor {
     world_to_surface_mat_ = surface_to_world_mat_.inverted();
     surface_to_curves_mat_ = world_to_curves_mat_ * surface_to_world_mat_;
     surface_to_curves_normal_mat_ = surface_to_curves_mat_.inverted().transposed();
+    curves_to_surface_mat_ = curves_to_world_mat_ * world_to_surface_mat_;
 
     if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
       BKE_mesh_calc_normals_split(surface_);
@@ -842,8 +844,6 @@ struct AddOperationExecutor {
                                               const Span<float> new_lengths_cu)
   {
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
-    const VArray_Span<int> surface_triangle_indices{curves_->surface_triangle_indices()};
-    const Span<float2> surface_triangle_coords = curves_->surface_triangle_coords();
 
     threading::parallel_for(
         added_points.bary_coords.index_range(), 256, [&](const IndexRange range) {
@@ -868,10 +868,22 @@ struct AddOperationExecutor {
 
             for (const NeighborInfo &neighbor : neighbors) {
               const int neighbor_curve_i = neighbor.index;
-              const int neighbor_looptri_index = surface_triangle_indices[neighbor_curve_i];
+              const float3 &neighbor_first_pos_cu =
+                  positions_cu[curves_->points_for_curve(neighbor_curve_i).first()];
+              const float3 neighbor_first_pos_su = curves_to_surface_mat_ * neighbor_first_pos_cu;
 
-              float3 neighbor_bary_coord{surface_triangle_coords[neighbor_curve_i]};
-              neighbor_bary_coord.z = 1.0f - neighbor_bary_coord.x - neighbor_bary_coord.y;
+              BVHTreeNearest nearest;
+              nearest.dist_sq = FLT_MAX;
+              BLI_bvhtree_find_nearest(surface_bvh_.tree,
+                                       neighbor_first_pos_su,
+                                       &nearest,
+                                       surface_bvh_.nearest_callback,
+                                       &surface_bvh_);
+              const int neighbor_looptri_index = nearest.index;
+              const MLoopTri &neighbor_looptri = surface_looptris_[neighbor_looptri_index];
+
+              const float3 neighbor_bary_coord = this->get_bary_coords(
+                  *surface_, neighbor_looptri, nearest.co);
 
               const float3 neighbor_normal_su = this->compute_point_normal_su(
                   neighbor_looptri_index, neighbor_bary_coord);
