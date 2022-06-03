@@ -534,10 +534,18 @@ class _draw_tool_settings_context_mode:
             layout.prop(brush, "direction", expand=True, text="")
             layout.prop(brush, "falloff_shape", expand=True)
             layout.popover("VIEW3D_PT_tools_brush_falloff")
-
-        if brush.curves_sculpt_tool == 'PINCH':
+        elif curves_tool == 'PINCH':
             layout.prop(brush.curves_sculpt_settings, "clump_radius")
             layout.popover("VIEW3D_PT_tools_brush_falloff")
+        elif curves_tool == 'SMOOTH':
+            ...
+        elif curves_tool == 'PUFF':
+            ...
+        elif curves_tool == 'DENSITY':
+            ...
+        elif curves_tool == "SLIDE":
+            ...
+    
 
 
 class VIEW3D_HT_header(Header):

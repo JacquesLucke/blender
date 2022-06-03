@@ -127,6 +127,14 @@ static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bConte
       return new_selection_paint_operation(mode, C);
     case CURVES_SCULPT_TOOL_PINCH:
       return new_pinch_operation();
+    case CURVES_SCULPT_TOOL_SMOOTH:
+      return new_smooth_operation();
+    case CURVES_SCULPT_TOOL_PUFF:
+      return new_puff_operation();
+    case CURVES_SCULPT_TOOL_DENSITY:
+      return new_density_operation();
+    case CURVES_SCULPT_TOOL_SLIDE:
+      return new_slide_operation();
   }
   BLI_assert_unreachable();
   return {};

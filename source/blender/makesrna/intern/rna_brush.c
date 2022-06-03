@@ -251,6 +251,10 @@ const EnumPropertyItem rna_enum_brush_curves_sculpt_tool_items[] = {
     {CURVES_SCULPT_TOOL_GROW_SHRINK, "GROW_SHRINK", ICON_NONE, "Grow / Shrink Curves", ""},
     {CURVES_SCULPT_TOOL_SELECTION_PAINT, "SELECTION_PAINT", ICON_NONE, "Paint Selection", ""},
     {CURVES_SCULPT_TOOL_PINCH, "PINCH", ICON_NONE, "Pinch Curves", ""},
+    {CURVES_SCULPT_TOOL_SMOOTH, "SMOOTH", ICON_NONE, "Smooth Curves", ""},
+    {CURVES_SCULPT_TOOL_PUFF, "PUFF", ICON_NONE, "Puff Curves", ""},
+    {CURVES_SCULPT_TOOL_DENSITY, "DENSITY", ICON_NONE, "Density Curves", ""},
+    {CURVES_SCULPT_TOOL_SLIDE, "SLIDE", ICON_NONE, "Slide Curves", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
