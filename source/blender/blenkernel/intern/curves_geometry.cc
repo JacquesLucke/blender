@@ -39,6 +39,7 @@ static const std::string ATTR_SURFACE_TRIANGLE_INDEX = "surface_triangle_index";
 static const std::string ATTR_SURFACE_TRIANGLE_COORDINATE = "surface_triangle_coordinate";
 static const std::string ATTR_SELECTION_POINT_FLOAT = ".selection_point_float";
 static const std::string ATTR_SELECTION_CURVE_FLOAT = ".selection_curve_float";
+static const std::string ATTR_SURFACE_UV_COORDINATE = "surface_uv_coordinate";
 
 /* -------------------------------------------------------------------- */
 /** \name Constructors/Destructor
@@ -435,6 +436,16 @@ Span<float2> CurvesGeometry::surface_triangle_coords() const
 }
 
 MutableSpan<float2> CurvesGeometry::surface_triangle_coords_for_write()
+{
+  return get_mutable_attribute<float2>(*this, ATTR_DOMAIN_CURVE, ATTR_SURFACE_TRIANGLE_COORDINATE);
+}
+
+Span<float2> CurvesGeometry::surface_uv_coords() const
+{
+  return get_span_attribute<float2>(*this, ATTR_DOMAIN_CURVE, ATTR_SURFACE_UV_COORDINATE);
+}
+
+MutableSpan<float2> CurvesGeometry::surface_uv_coords_for_write()
 {
   return get_mutable_attribute<float2>(*this, ATTR_DOMAIN_CURVE, ATTR_SURFACE_TRIANGLE_COORDINATE);
 }

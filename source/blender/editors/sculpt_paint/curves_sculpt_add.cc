@@ -19,6 +19,7 @@
 #include "BKE_context.h"
 #include "BKE_curves.hh"
 #include "BKE_curves_utils.hh"
+#include "BKE_geometry_set.hh"
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_paint.h"
@@ -95,6 +96,8 @@ struct AddOperationExecutor {
   Mesh *surface_ = nullptr;
   Span<MLoopTri> surface_looptris_;
   Span<float3> corner_normals_su_;
+  std::optional<VArray_Span<float2>> surface_uv_map_owner_;
+  Span<float2> surface_uv_map_;
 
   const CurvesSculpt *curves_sculpt_ = nullptr;
   const Brush *brush_ = nullptr;
@@ -207,6 +210,19 @@ struct AddOperationExecutor {
 
     surface_looptris_ = {BKE_mesh_runtime_looptri_ensure(surface_),
                          BKE_mesh_runtime_looptri_len(surface_)};
+
+    if (curves_id_->surface_uv_map != nullptr) {
+      MeshComponent surface_component;
+      surface_component.replace(surface_, GeometryOwnershipType::ReadOnly);
+      VArray<float2> uvs = surface_component
+                               .attribute_try_get_for_read(curves_id_->surface_uv_map,
+                                                           ATTR_DOMAIN_CORNER)
+                               .typed<float2>();
+      if (uvs) {
+        surface_uv_map_owner_.emplace(std::move(uvs));
+        surface_uv_map_ = *surface_uv_map_owner_;
+      }
+    }
 
     /* Sample points on the surface using one of multiple strategies. */
     AddedPoints added_points;
@@ -652,7 +668,9 @@ struct AddOperationExecutor {
     }
 
     Array<float3> new_normals_su = this->compute_normals_for_added_curves_su(added_points);
-    this->initialize_surface_attachment(added_points);
+    if (!surface_uv_map_.is_empty()) {
+      this->initialize_surface_attachment(added_points);
+    }
 
     this->fill_new_selection();
 
@@ -775,14 +793,18 @@ struct AddOperationExecutor {
 
   void initialize_surface_attachment(const AddedPoints &added_points)
   {
-    MutableSpan<int> surface_triangle_indices = curves_->surface_triangle_indices_for_write();
-    MutableSpan<float2> surface_triangle_coords = curves_->surface_triangle_coords_for_write();
+    MutableSpan<float2> surface_uv_coords = curves_->surface_uv_coords_for_write();
     threading::parallel_for(
         added_points.bary_coords.index_range(), 1024, [&](const IndexRange range) {
           for (const int i : range) {
             const int curve_i = tot_old_curves_ + i;
-            surface_triangle_indices[curve_i] = added_points.looptri_indices[i];
-            surface_triangle_coords[curve_i] = float2(added_points.bary_coords[i]);
+            const MLoopTri &looptri = surface_looptris_[added_points.looptri_indices[i]];
+            const float2 &uv0 = surface_uv_map_[looptri.tri[0]];
+            const float2 &uv1 = surface_uv_map_[looptri.tri[1]];
+            const float2 &uv2 = surface_uv_map_[looptri.tri[2]];
+            const float3 &bary_coords = added_points.bary_coords[i];
+            const float2 uv = attribute_math::mix3(bary_coords, uv0, uv1, uv2);
+            surface_uv_coords[curve_i] = uv;
           }
         });
   }
