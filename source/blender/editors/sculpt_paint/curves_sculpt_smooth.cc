@@ -12,6 +12,8 @@
 
 #include "WM_api.h"
 
+#include "BLI_enumerable_thread_specific.hh"
+
 #include "curves_sculpt_intern.hh"
 
 namespace blender::ed::sculpt_paint {
@@ -51,6 +53,7 @@ struct SmoothOperationExecutor {
   float2 brush_pos_re_;
 
   eBrushFalloffShape falloff_shape_;
+  eBrushCurvesSculptSmoothMode smooth_mode_;
 
   float4x4 curves_to_world_mat_;
   float4x4 world_to_curves_mat_;
@@ -86,6 +89,8 @@ struct SmoothOperationExecutor {
     world_to_curves_mat_ = curves_to_world_mat_.inverted();
 
     falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
+    smooth_mode_ = static_cast<eBrushCurvesSculptSmoothMode>(
+        brush_->curves_sculpt_settings->smooth_mode);
 
     if (stroke_extension.is_first) {
       if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
@@ -126,6 +131,20 @@ struct SmoothOperationExecutor {
 
   void smooth_projected(const float4x4 &brush_transform)
   {
+    switch (smooth_mode_) {
+      case BRUSH_CURVES_SCULPT_SMOOTH_INDIVIDUAL: {
+        this->smooth_projected_individual(brush_transform);
+        break;
+      }
+      case BRUSH_CURVES_SCULPT_SMOOTH_DIRECTION: {
+        this->smooth_projected_direction(brush_transform);
+        break;
+      }
+    }
+  }
+
+  void smooth_projected_individual(const float4x4 &brush_transform)
+  {
     const float4x4 brush_transform_inv = brush_transform.inverted();
 
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
@@ -150,14 +169,14 @@ struct SmoothOperationExecutor {
         for (const int i : IndexRange(points.size()).drop_front(1).drop_back(1)) {
           const int point_i = points[i];
           const float2 &old_pos_re = old_curve_positions_re[i];
-          const float distance_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
-          if (distance_to_brush_sq_re > brush_radius_sq_re) {
+          const float dist_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
+          if (dist_to_brush_sq_re > brush_radius_sq_re) {
             continue;
           }
 
-          const float distance_to_brush_re = std::sqrt(distance_to_brush_sq_re);
+          const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
           const float radius_falloff = BKE_brush_curve_strength(
-              brush_, distance_to_brush_re, brush_radius_re);
+              brush_, dist_to_brush_re, brush_radius_re);
           const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
 
           const float2 &old_pos_prev_re = old_curve_positions_re[i - 1];
@@ -175,6 +194,52 @@ struct SmoothOperationExecutor {
         }
       }
     });
+  }
+
+  void smooth_projected_direction(const float4x4 &brush_transform)
+  {
+    const float4x4 brush_transform_inv = brush_transform.inverted();
+
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
+    const float brush_radius_re = brush_radius_base_re_ * brush_radius_factor_;
+    const float brush_radius_sq_re = pow2f(brush_radius_re);
+
+    float4x4 projection;
+    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
+
+    const float2 direction_sum_re = threading::parallel_reduce(
+        curve_selection_.index_range(),
+        256,
+        float2{0.0f, 0.0f},
+        [&](const IndexRange range, float2 direction_sum_re) {
+          for (const int curve_i : curve_selection_.slice(range)) {
+            const IndexRange points = curves_->points_for_curve(curve_i);
+            const float3 first_pos_cu = brush_transform_inv * positions_cu[points[0]];
+            float2 prev_pos_re;
+            ED_view3d_project_float_v2_m4(
+                ctx_.region, first_pos_cu, prev_pos_re, projection.values);
+
+            for (const int point_i : points.drop_front(1)) {
+              const float3 pos_cu = brush_transform_inv * positions_cu[point_i];
+              float2 pos_re;
+              ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
+              BLI_SCOPED_DEFER([&]() { prev_pos_re = pos_re; });
+
+              const float dist_to_brush_sq_re = dist_squared_to_line_segment_v2(
+                  brush_pos_re_, prev_pos_re, pos_re);
+              if (dist_to_brush_sq_re > brush_radius_sq_re) {
+                continue;
+              }
+              const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
+              const float2 direction_re = pos_re - prev_pos_re;
+              const float weight = brush_radius_re - dist_to_brush_re;
+              direction_sum_re += direction_re * weight;
+            }
+          }
+          return direction_sum_re;
+        },
+        [](const float2 &a, const float2 &b) { return a + b; });
+    const float2 direction_re = math::normalize(direction_sum_re);
   }
 
   void smooth_spherical_with_symmetry()
@@ -207,14 +272,14 @@ struct SmoothOperationExecutor {
         for (const int i : IndexRange(points.size()).drop_front(1).drop_back(1)) {
           const int point_i = points[i];
           const float3 &old_pos_cu = old_curve_positions_cu[i];
-          const float distance_to_brush_sq_cu = math::distance_squared(old_pos_cu, brush_pos_cu);
-          if (distance_to_brush_sq_cu > brush_radius_sq_cu) {
+          const float dist_to_brush_sq_cu = math::distance_squared(old_pos_cu, brush_pos_cu);
+          if (dist_to_brush_sq_cu > brush_radius_sq_cu) {
             continue;
           }
 
-          const float distance_to_brush_cu = std::sqrt(distance_to_brush_sq_cu);
+          const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
           const float radius_falloff = BKE_brush_curve_strength(
-              brush_, distance_to_brush_cu, brush_radius_cu);
+              brush_, dist_to_brush_cu, brush_radius_cu);
           const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
 
           const float3 &old_pos_prev_cu = old_curve_positions_cu[i - 1];

@@ -629,7 +629,7 @@ typedef enum eBrushCurvesSculptFlag {
 
 typedef enum eBrushCurvesSculptSmoothMode {
   BRUSH_CURVES_SCULPT_SMOOTH_INDIVIDUAL = 0,
-  BRUSH_CURVES_SCULPT_SMOOTH_DIRECTION = 0,
+  BRUSH_CURVES_SCULPT_SMOOTH_DIRECTION = 1,
 } eBrushCurvesSculptSmoothMode;
 
 #define MAX_BRUSH_PIXEL_RADIUS 500
