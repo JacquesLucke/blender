@@ -11,7 +11,7 @@ ReverseUVLookup::ReverseUVLookup(const Span<float2> uv_map, const Span<MLoopTri>
 {
 }
 
-std::optional<ReverseUVLookup::Result> ReverseUVLookup::lookup(const float2 &query_uv) const
+ReverseUVLookup::Result ReverseUVLookup::lookup(const float2 &query_uv) const
 {
   for (const MLoopTri &looptri : looptris_) {
     const float2 &uv0 = uv_map_[looptri.tri[0]];
@@ -23,10 +23,10 @@ std::optional<ReverseUVLookup::Result> ReverseUVLookup::lookup(const float2 &que
     }
     if (IN_RANGE_INCL(bary_weights.x, 0.0f, 1.0f) && IN_RANGE_INCL(bary_weights.y, 0.0f, 1.0f) &&
         IN_RANGE_INCL(bary_weights.z, 0.0f, 1.0f)) {
-      return Result{looptri, bary_weights};
+      return Result{ResultType::Ok, &looptri, bary_weights};
     }
   }
-  return std::nullopt;
+  return Result{};
 }
 
 }  // namespace blender::geometry

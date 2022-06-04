@@ -19,12 +19,19 @@ class ReverseUVLookup {
  public:
   ReverseUVLookup(const Span<float2> uv_map, const Span<MLoopTri> looptris);
 
+  enum class ResultType {
+    None,
+    Ok,
+    Multiple,
+  };
+
   struct Result {
-    const MLoopTri &looptri;
+    ResultType type = ResultType::None;
+    const MLoopTri *looptri = nullptr;
     float3 bary_weights;
   };
 
-  std::optional<Result> lookup(const float2 &query_uv) const;
+  Result lookup(const float2 &query_uv) const;
 };
 
 }  // namespace blender::geometry

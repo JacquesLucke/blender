@@ -17,6 +17,7 @@
 
 #include "WM_api.h"
 
+#include "BKE_attribute_math.hh"
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
@@ -44,6 +45,8 @@
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
 #include "RNA_prototypes.h"
+
+#include "GEO_reverse_uv_lookup.hh"
 
 /**
  * The code below uses a suffix naming convention to indicate the coordinate space:
@@ -520,7 +523,7 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
 {
   const AttachMode attach_mode = static_cast<AttachMode>(RNA_enum_get(op->ptr, "attach_mode"));
 
-  std::atomic<bool> found_invalid_looptri_index = false;
+  std::atomic<bool> found_invalid_uv = false;
 
   CTX_DATA_BEGIN (C, Object *, curves_ob, selected_objects) {
     if (curves_ob->type != OB_CURVES) {
@@ -537,9 +540,23 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
     }
     Mesh &surface_mesh = *static_cast<Mesh *>(surface_ob.data);
 
+    MeshComponent surface_mesh_component;
+    surface_mesh_component.replace(&surface_mesh, GeometryOwnershipType::ReadOnly);
+
+    bool use_uvs = false;
+    VArray_Span<float2> surface_uv_map;
+    if (curves_id.surface_uv_map != nullptr) {
+      surface_uv_map = surface_mesh_component
+                           .attribute_try_get_for_read(
+                               curves_id.surface_uv_map, ATTR_DOMAIN_CORNER, CD_PROP_FLOAT2)
+                           .typed<float2>();
+      if (!surface_uv_map.is_empty()) {
+        use_uvs = true;
+      }
+    }
+
     MutableSpan<float3> positions_cu = curves.positions_for_write();
-    MutableSpan<int> surface_triangle_indices = curves.surface_triangle_indices_for_write();
-    MutableSpan<float2> surface_triangle_coords = curves.surface_triangle_coords_for_write();
+    MutableSpan<float2> surface_uv_coords = curves.surface_uv_coords_for_write();
 
     const Span<MLoopTri> surface_looptris = {BKE_mesh_runtime_looptri_ensure(&surface_mesh),
                                              BKE_mesh_runtime_looptri_len(&surface_mesh)};
@@ -585,36 +602,50 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
               pos_cu += pos_diff_cu;
             }
 
-            surface_triangle_indices[curve_i] = looptri_index;
-
-            const MLoopTri &looptri = surface_looptris[looptri_index];
-            const float3 &p0_su = surface_mesh.mvert[surface_mesh.mloop[looptri.tri[0]].v].co;
-            const float3 &p1_su = surface_mesh.mvert[surface_mesh.mloop[looptri.tri[1]].v].co;
-            const float3 &p2_su = surface_mesh.mvert[surface_mesh.mloop[looptri.tri[2]].v].co;
-            float3 bary_coords;
-            interp_weights_tri_v3(bary_coords, p0_su, p1_su, p2_su, new_first_point_pos_su);
-            surface_triangle_coords[curve_i] = bke::curves::encode_surface_bary_coord(bary_coords);
+            if (use_uvs) {
+              const MLoopTri &looptri = surface_looptris[looptri_index];
+              const int corner0 = looptri.tri[0];
+              const int corner1 = looptri.tri[1];
+              const int corner2 = looptri.tri[2];
+              const float2 &uv0 = surface_uv_map[corner0];
+              const float2 &uv1 = surface_uv_map[corner1];
+              const float2 &uv2 = surface_uv_map[corner2];
+              const float3 &p0_su = surface_mesh.mvert[surface_mesh.mloop[corner0].v].co;
+              const float3 &p1_su = surface_mesh.mvert[surface_mesh.mloop[corner1].v].co;
+              const float3 &p2_su = surface_mesh.mvert[surface_mesh.mloop[corner2].v].co;
+              float3 bary_coords;
+              interp_weights_tri_v3(bary_coords, p0_su, p1_su, p2_su, new_first_point_pos_su);
+              const float2 uv = attribute_math::mix3(bary_coords, uv0, uv1, uv2);
+              surface_uv_coords[curve_i] = uv;
+            }
           }
         });
         break;
       }
       case AttachMode::Deform: {
+        if (!use_uvs) {
+          BKE_report(op->reports,
+                     RPT_ERROR,
+                     "Curves do not have attachment information that can be used for deformation");
+        }
+        using geometry::ReverseUVLookup;
+        ReverseUVLookup reverse_uv_lookup{surface_uv_map, surface_looptris};
+
         threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange curves_range) {
           for (const int curve_i : curves_range) {
             const IndexRange points = curves.points_for_curve(curve_i);
             const int first_point_i = points.first();
             const float3 old_first_point_pos_cu = positions_cu[first_point_i];
 
-            const int looptri_index = surface_triangle_indices[curve_i];
-            if (!surface_looptris.index_range().contains(looptri_index)) {
-              found_invalid_looptri_index = true;
+            const float2 uv = surface_uv_coords[curve_i];
+            ReverseUVLookup::Result lookup_result = reverse_uv_lookup.lookup(uv);
+            if (lookup_result.type != ReverseUVLookup::ResultType::Ok) {
+              found_invalid_uv = true;
               continue;
             }
 
-            const MLoopTri &looptri = surface_looptris[looptri_index];
-
-            const float3 bary_coords = bke::curves::decode_surface_bary_coord(
-                surface_triangle_coords[curve_i]);
+            const MLoopTri &looptri = *lookup_result.looptri;
+            const float3 &bary_coords = lookup_result.bary_weights;
 
             const float3 &p0_su = surface_mesh.mvert[surface_mesh.mloop[looptri.tri[0]].v].co;
             const float3 &p1_su = surface_mesh.mvert[surface_mesh.mloop[looptri.tri[1]].v].co;
@@ -638,7 +669,7 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
   }
   CTX_DATA_END;
 
-  if (found_invalid_looptri_index) {
+  if (found_invalid_uv) {
     BKE_report(op->reports, RPT_INFO, "Could not snap some curves to the surface");
   }
 
