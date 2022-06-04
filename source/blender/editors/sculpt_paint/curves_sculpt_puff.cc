@@ -208,15 +208,61 @@ struct PuffOperationExecutor {
           const float radius_falloff = BKE_brush_curve_strength(
               brush_, dist_to_brush_re, brush_radius_re);
           const float weight = radius_falloff;
-          r_curve_weights[curve_selection_i] = std::max(r_curve_weights[curve_selection_i],
-                                                        weight);
+          math::max_inplace(r_curve_weights[curve_selection_i], weight);
         }
       }
     });
   }
 
-  void puff_spherical_with_symmetry(const MutableSpan<float> r_curve_weights)
+  void puff_spherical_with_symmetry(MutableSpan<float> r_curve_weights)
   {
+    float4x4 projection;
+    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
+
+    float3 brush_pos_wo;
+    ED_view3d_win_to_3d(ctx_.v3d,
+                        ctx_.region,
+                        curves_to_world_mat_ * self_->brush_3d_.position_cu,
+                        brush_pos_re_,
+                        brush_pos_wo);
+    const float3 brush_pos_cu = world_to_curves_mat_ * brush_pos_wo;
+    const float brush_radius_cu = self_->brush_3d_.radius_cu * brush_radius_factor_;
+
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      this->puff_spherical(brush_transform * brush_pos_cu, brush_radius_cu, r_curve_weights);
+    }
+  }
+
+  void puff_spherical(const float3 &brush_pos_cu,
+                      const float brush_radius_cu,
+                      MutableSpan<float> r_curve_weights)
+  {
+    const Span<float3> positions_cu = curves_->positions();
+    const float brush_radius_sq_cu = pow2f(brush_radius_cu);
+
+    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
+      for (const int curve_selection_i : range) {
+        const int curve_i = curve_selection_[curve_selection_i];
+        const IndexRange points = curves_->points_for_curve(curve_i);
+        for (const int point_i : points.drop_front(1)) {
+          const float3 &prev_pos_cu = positions_cu[point_i - 1];
+          const float3 &pos_cu = positions_cu[point_i];
+          const float dist_to_brush_sq_cu = dist_squared_to_line_segment_v3(
+              brush_pos_cu, prev_pos_cu, pos_cu);
+          if (dist_to_brush_sq_cu > brush_radius_sq_cu) {
+            continue;
+          }
+
+          const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
+          const float radius_falloff = BKE_brush_curve_strength(
+              brush_, dist_to_brush_cu, brush_radius_cu);
+          const float weight = radius_falloff;
+          math::max_inplace(r_curve_weights[curve_selection_i], weight);
+        }
+      }
+    });
   }
 
   void puff(const Span<float> curve_weights)
@@ -255,7 +301,8 @@ struct PuffOperationExecutor {
           const float length_param_cu = accumulated_lengths_cu[i - 1];
           const float3 goal_pos_cu = first_pos_cu + length_param_cu * normal_cu;
 
-          const float weight = 0.01f * point_factors_[point_i] * curve_weights[curve_selection_i];
+          const float weight = 0.01f * brush_strength_ * point_factors_[point_i] *
+                               curve_weights[curve_selection_i];
           float3 new_pos_cu = math::interpolate(old_pos_cu, goal_pos_cu, weight);
           const float old_dist_to_root_cu = math::distance(old_pos_cu, first_pos_cu);
           const float new_dist_to_root_cu = math::distance(new_pos_cu, first_pos_cu);
