@@ -130,6 +130,9 @@ struct PuffOperationExecutor {
     BKE_bvhtree_from_mesh_get(&surface_bvh_, surface_, BVHTREE_FROM_LOOPTRI, 2);
     BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh_); });
 
+    surface_looptris_ = {BKE_mesh_runtime_looptri_ensure(surface_),
+                         BKE_mesh_runtime_looptri_len(surface_)};
+
     if (stroke_extension.is_first) {
       this->initialize_segment_lengths();
       if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
@@ -286,7 +289,16 @@ struct PuffOperationExecutor {
                                  &nearest,
                                  surface_bvh_.nearest_callback,
                                  &surface_bvh_);
-        const float3 normal_su = nearest.no;
+
+        const MLoopTri &looptri = surface_looptris_[nearest.index];
+        const float3 closest_pos_su = nearest.co;
+        const float3 &v0_su = surface_->mvert[surface_->mloop[looptri.tri[0]].v].co;
+        const float3 &v1_su = surface_->mvert[surface_->mloop[looptri.tri[1]].v].co;
+        const float3 &v2_su = surface_->mvert[surface_->mloop[looptri.tri[2]].v].co;
+        float3 bary_coords;
+        interp_weights_tri_v3(bary_coords, v0_su, v1_su, v2_su, closest_pos_su);
+        const float3 normal_su = compute_surface_point_normal(
+            looptri, bary_coords, corner_normals_su_);
         const float3 normal_cu = math::normalize(surface_to_curves_normal_mat_ * normal_su);
 
         accumulated_lengths_cu.clear();
