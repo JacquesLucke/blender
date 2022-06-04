@@ -296,6 +296,20 @@ struct SmoothOperationExecutor {
 
   void smooth_spherical(const float3 &brush_pos_cu, const float brush_radius_cu)
   {
+    switch (smooth_mode_) {
+      case BRUSH_CURVES_SCULPT_SMOOTH_INDIVIDUAL: {
+        this->smooth_spherical_individual(brush_pos_cu, brush_radius_cu);
+        break;
+      }
+      case BRUSH_CURVES_SCULPT_SMOOTH_DIRECTION: {
+        this->smooth_spherical_direction(brush_pos_cu, brush_radius_cu);
+        break;
+      }
+    }
+  }
+
+  void smooth_spherical_individual(const float3 &brush_pos_cu, const float brush_radius_cu)
+  {
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
     const float brush_radius_sq_cu = pow2f(brush_radius_cu);
 
@@ -326,6 +340,10 @@ struct SmoothOperationExecutor {
         }
       }
     });
+  }
+
+  void smooth_spherical_direction(const float3 &brush_pos_cu, const float brush_radius_cu)
+  {
   }
 };
 
