@@ -11,6 +11,11 @@
 
 namespace blender::geometry {
 
+/**
+ * Can find the polygon/triangle that maps to a specific uv coordinate.
+ *
+ * \note this uses a trivial implementation currently that has to be replaced.
+ */
 class ReverseUVLookup {
  private:
   const Span<float2> uv_map_;

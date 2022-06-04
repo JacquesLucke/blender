@@ -263,6 +263,9 @@ class CurvesGeometry : public ::CurvesGeometry {
   Span<float> nurbs_weights() const;
   MutableSpan<float> nurbs_weights_for_write();
 
+  /**
+   * UV coordinate for each curve that encodes where the curve is attached to the surface mesh.
+   */
   Span<float2> surface_uv_coords() const;
   MutableSpan<float2> surface_uv_coords_for_write();
 
