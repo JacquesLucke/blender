@@ -136,20 +136,20 @@ struct SmoothOperationExecutor {
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
 
     threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
-      Vector<float2> curve_positions_re;
+      Vector<float2> old_curve_positions_re;
       for (const int curve_i : curve_selection_.slice(range)) {
         const IndexRange points = curves_->points_for_curve(curve_i);
-        curve_positions_re.clear();
-        curve_positions_re.reserve(points.size());
+        old_curve_positions_re.clear();
+        old_curve_positions_re.reserve(points.size());
         for (const int point_i : points) {
           const float3 &pos_cu = brush_transform_inv * positions_cu[point_i];
           float2 pos_re;
           ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
-          curve_positions_re.append_unchecked(pos_re);
+          old_curve_positions_re.append_unchecked(pos_re);
         }
         for (const int i : IndexRange(points.size()).drop_front(1).drop_back(1)) {
           const int point_i = points[i];
-          const float2 &old_pos_re = curve_positions_re[i];
+          const float2 &old_pos_re = old_curve_positions_re[i];
           const float distance_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
           if (distance_to_brush_sq_re > brush_radius_sq_re) {
             continue;
@@ -160,8 +160,8 @@ struct SmoothOperationExecutor {
               brush_, distance_to_brush_re, brush_radius_re);
           const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
 
-          const float2 &old_pos_prev_re = curve_positions_re[i - 1];
-          const float2 &old_pos_next_re = curve_positions_re[i + 1];
+          const float2 &old_pos_prev_re = old_curve_positions_re[i - 1];
+          const float2 &old_pos_next_re = old_curve_positions_re[i + 1];
           const float2 goal_pos_re = math::interpolate(old_pos_prev_re, old_pos_next_re, 0.5f);
 
           const float2 new_pos_re = math::interpolate(old_pos_re, goal_pos_re, weight);
@@ -195,6 +195,36 @@ struct SmoothOperationExecutor {
 
   void smooth_spherical(const float3 &brush_pos_cu, const float brush_radius_cu)
   {
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
+    const float brush_radius_sq_cu = pow2f(brush_radius_cu);
+
+    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
+      Vector<float3> old_curve_positions_cu;
+      for (const int curve_i : curve_selection_.slice(range)) {
+        const IndexRange points = curves_->points_for_curve(curve_i);
+        old_curve_positions_cu.clear();
+        old_curve_positions_cu.extend(positions_cu.slice(points));
+        for (const int i : IndexRange(points.size()).drop_front(1).drop_back(1)) {
+          const int point_i = points[i];
+          const float3 &old_pos_cu = old_curve_positions_cu[i];
+          const float distance_to_brush_sq_cu = math::distance_squared(old_pos_cu, brush_pos_cu);
+          if (distance_to_brush_sq_cu > brush_radius_sq_cu) {
+            continue;
+          }
+
+          const float distance_to_brush_cu = std::sqrt(distance_to_brush_sq_cu);
+          const float radius_falloff = BKE_brush_curve_strength(
+              brush_, distance_to_brush_cu, brush_radius_cu);
+          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
+
+          const float3 &old_pos_prev_cu = old_curve_positions_cu[i - 1];
+          const float3 &old_pos_next_cu = old_curve_positions_cu[i + 1];
+          const float3 goal_pos_cu = math::interpolate(old_pos_prev_cu, old_pos_next_cu, 0.5f);
+          const float3 new_pos_cu = math::interpolate(old_pos_cu, goal_pos_cu, weight);
+          positions_cu[point_i] = new_pos_cu;
+        }
+      }
+    });
   }
 };
 
