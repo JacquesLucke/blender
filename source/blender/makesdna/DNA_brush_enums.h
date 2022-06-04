@@ -627,6 +627,11 @@ typedef enum eBrushCurvesSculptFlag {
   BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_POINT_COUNT = (1 << 4),
 } eBrushCurvesSculptFlag;
 
+typedef enum eBrushCurvesSculptSmoothMode {
+  BRUSH_CURVES_SCULPT_SMOOTH_INDIVIDUAL = 0,
+  BRUSH_CURVES_SCULPT_SMOOTH_DIRECTION = 0,
+} eBrushCurvesSculptSmoothMode;
+
 #define MAX_BRUSH_PIXEL_RADIUS 500
 #define GP_MAX_BRUSH_PIXEL_RADIUS 1000
 

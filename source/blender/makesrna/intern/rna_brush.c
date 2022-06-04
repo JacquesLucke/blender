@@ -1949,6 +1949,20 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
 
 static void rna_def_curves_sculpt_options(BlenderRNA *brna)
 {
+  static const EnumPropertyItem smooth_mode_items[] = {
+      {BRUSH_CURVES_SCULPT_SMOOTH_INDIVIDUAL,
+       "INDIVIDUAL",
+       0,
+       "Individual",
+       "Smooth each curve on its own without taking neighboring curves into account"},
+      {BRUSH_CURVES_SCULPT_SMOOTH_DIRECTION,
+       "DIRECTION",
+       0,
+       "Direction",
+       "Align curves to the general direction of neighboring curves"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   StructRNA *srna;
   PropertyRNA *prop;
 
@@ -2004,6 +2018,10 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
   prop = RNA_def_property(srna, "clump_radius", PROP_INT, PROP_PIXEL);
   RNA_def_property_range(prop, 0.0, MAX_BRUSH_PIXEL_RADIUS * 10);
   RNA_def_property_ui_text(prop, "Clump Radius", "Width of clumps created with the pinch brush.");
+
+  prop = RNA_def_property(srna, "smooth_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, smooth_mode_items);
+  RNA_def_property_ui_text(prop, "Smooth Mode", "Method used for smoothing curves");
 }
 
 static void rna_def_brush(BlenderRNA *brna)

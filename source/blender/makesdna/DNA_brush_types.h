@@ -150,6 +150,9 @@ typedef struct BrushCurvesSculptSettings {
   float curve_length;
   /** Inner radius radius used by the pinch brush. */
   int clump_radius;
+  /** #eBrushCurvesSculptSmoothMode. */
+  uint8_t smooth_mode;
+  char _pad[7];
 } BrushCurvesSculptSettings;
 
 typedef struct Brush {
