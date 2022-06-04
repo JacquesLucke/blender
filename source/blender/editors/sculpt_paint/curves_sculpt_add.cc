@@ -767,7 +767,8 @@ struct AddOperationExecutor {
       for (const int i : range) {
         const int looptri_index = added_points.looptri_indices[i];
         const float3 &bary_coord = added_points.bary_coords[i];
-        normals_su[i] = this->compute_point_normal_su(looptri_index, bary_coord);
+        normals_su[i] = compute_surface_point_normal(
+            surface_looptris_[looptri_index], bary_coord, corner_normals_su_);
       }
     });
     return normals_su;
@@ -851,8 +852,10 @@ struct AddOperationExecutor {
               float3 neighbor_bary_coord{surface_triangle_coords[neighbor_curve_i]};
               neighbor_bary_coord.z = 1.0f - neighbor_bary_coord.x - neighbor_bary_coord.y;
 
-              const float3 neighbor_normal_su = this->compute_point_normal_su(
-                  neighbor_looptri_index, neighbor_bary_coord);
+              const float3 neighbor_normal_su = compute_surface_point_normal(
+                  surface_looptris_[neighbor_looptri_index],
+                  neighbor_bary_coord,
+                  corner_normals_su_);
               const float3 neighbor_normal_cu = math::normalize(surface_to_curves_normal_mat_ *
                                                                 neighbor_normal_su);
 
