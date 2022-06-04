@@ -230,7 +230,10 @@ struct SmoothOperationExecutor {
               }
               const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
               const float2 direction_re = pos_re - prev_pos_re;
-              const float weight = brush_radius_re - dist_to_brush_re * point_factors_[point_i];
+              const float reduce_segment_length_factor = std::max<float>(
+                  1.0f, 2.0f * brush_radius_re / math::length(direction_re));
+              const float weight = reduce_segment_length_factor *
+                                   (brush_radius_re - dist_to_brush_re) * point_factors_[point_i];
               direction_sum_re += direction_re * weight;
             }
           }
@@ -240,7 +243,7 @@ struct SmoothOperationExecutor {
     const float2 direction_re = math::normalize(direction_sum_re);
 
     threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : range) {
+      for (const int curve_i : curve_selection_.slice(range)) {
         const IndexRange points = curves_->points_for_curve(curve_i);
         bool found_align_pos = false;
         float2 align_pos_re;
@@ -344,6 +347,64 @@ struct SmoothOperationExecutor {
 
   void smooth_spherical_direction(const float3 &brush_pos_cu, const float brush_radius_cu)
   {
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
+    const float brush_radius_sq_cu = pow2f(brush_radius_cu);
+
+    const float3 direction_sum_cu = threading::parallel_reduce(
+        curve_selection_.index_range(),
+        256,
+        float3{0.0f, 0.0f, 0.0f},
+        [&](const IndexRange range, float3 direction_sum_cu) {
+          for (const int curve_i : curve_selection_.slice(range)) {
+            const IndexRange points = curves_->points_for_curve(curve_i);
+            for (const int point_i : points.drop_front(1)) {
+              const float3 &pos_cu = positions_cu[point_i];
+              const float3 &prev_pos_cu = positions_cu[point_i - 1];
+              const float dist_to_brush_sq_cu = dist_squared_to_line_segment_v3(
+                  brush_pos_cu, prev_pos_cu, pos_cu);
+              const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
+              const float3 direction_cu = pos_cu - prev_pos_cu;
+              /* Make sure that very long segments don't change the results too much. */
+              const float reduce_segment_length_factor = std::max<float>(
+                  1.0f, 2.0f * brush_radius_cu / math::length(direction_cu));
+              const float weight = reduce_segment_length_factor *
+                                   (brush_radius_cu - dist_to_brush_cu) * point_factors_[point_i];
+              direction_sum_cu += weight * direction_cu;
+            }
+          }
+          return direction_sum_cu;
+        },
+        [](const float3 &a, const float3 &b) { return a + b; });
+    const float3 direction_cu = math::normalize(direction_sum_cu);
+
+    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
+      for (const int curve_i : curve_selection_.slice(range)) {
+        const IndexRange points = curves_->points_for_curve(curve_i);
+        bool found_align_pos = false;
+        float3 align_pos_cu;
+
+        for (const int point_i : points.drop_front(1)) {
+          const float3 old_pos_cu = positions_cu[point_i];
+          const float dist_to_brush_sq_re = math::distance_squared(old_pos_cu, brush_pos_cu);
+          if (dist_to_brush_sq_re > brush_radius_sq_cu) {
+            continue;
+          }
+          if (!found_align_pos) {
+            align_pos_cu = positions_cu[point_i - 1];
+            found_align_pos = true;
+          }
+          const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_re);
+          const float radius_falloff = BKE_brush_curve_strength(
+              brush_, dist_to_brush_cu, brush_radius_cu);
+          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
+
+          float3 goal_pos_cu;
+          closest_to_line_v3(goal_pos_cu, old_pos_cu, align_pos_cu, align_pos_cu + direction_cu);
+          const float3 new_pos_cu = math::interpolate(old_pos_cu, goal_pos_cu, weight);
+          positions_cu[point_i] = new_pos_cu;
+        }
+      }
+    });
   }
 };
 
