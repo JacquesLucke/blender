@@ -182,9 +182,7 @@ struct SmoothOperationExecutor {
           const float2 &old_pos_prev_re = old_curve_positions_re[i - 1];
           const float2 &old_pos_next_re = old_curve_positions_re[i + 1];
           const float2 goal_pos_re = math::interpolate(old_pos_prev_re, old_pos_next_re, 0.5f);
-
           const float2 new_pos_re = math::interpolate(old_pos_re, goal_pos_re, weight);
-
           const float3 old_pos_cu = positions_cu[point_i];
           float3 new_pos_wo;
           ED_view3d_win_to_3d(
@@ -232,7 +230,7 @@ struct SmoothOperationExecutor {
               }
               const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
               const float2 direction_re = pos_re - prev_pos_re;
-              const float weight = brush_radius_re - dist_to_brush_re;
+              const float weight = brush_radius_re - dist_to_brush_re * point_factors_[point_i];
               direction_sum_re += direction_re * weight;
             }
           }
@@ -240,6 +238,44 @@ struct SmoothOperationExecutor {
         },
         [](const float2 &a, const float2 &b) { return a + b; });
     const float2 direction_re = math::normalize(direction_sum_re);
+
+    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
+      for (const int curve_i : range) {
+        const IndexRange points = curves_->points_for_curve(curve_i);
+        bool found_align_pos = false;
+        float2 align_pos_re;
+
+        for (const int point_i : points.drop_front(1)) {
+          const float3 old_pos_cu = brush_transform_inv * positions_cu[point_i];
+          float2 old_pos_re;
+          ED_view3d_project_float_v2_m4(ctx_.region, old_pos_cu, old_pos_re, projection.values);
+
+          const float dist_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
+          if (dist_to_brush_sq_re > brush_radius_sq_re) {
+            continue;
+          }
+          if (!found_align_pos) {
+            const float3 align_pos_cu = brush_transform_inv * positions_cu[point_i - 1];
+            ED_view3d_project_float_v2_m4(
+                ctx_.region, align_pos_cu, align_pos_re, projection.values);
+            found_align_pos = true;
+          }
+          const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
+          const float radius_falloff = BKE_brush_curve_strength(
+              brush_, dist_to_brush_re, brush_radius_re);
+          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
+
+          float2 goal_pos_re;
+          closest_to_line_v2(goal_pos_re, old_pos_re, align_pos_re, align_pos_re + direction_re);
+          const float2 new_pos_re = math::interpolate(old_pos_re, goal_pos_re, weight);
+          float3 new_pos_wo;
+          ED_view3d_win_to_3d(
+              ctx_.v3d, ctx_.region, curves_to_world_mat_ * old_pos_cu, new_pos_re, new_pos_wo);
+          const float3 new_pos_cu = brush_transform * (world_to_curves_mat_ * new_pos_wo);
+          positions_cu[point_i] = new_pos_cu;
+        }
+      }
+    });
   }
 
   void smooth_spherical_with_symmetry()
