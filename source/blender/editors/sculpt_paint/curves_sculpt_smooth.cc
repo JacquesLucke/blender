@@ -183,7 +183,7 @@ struct SmoothOperationExecutor {
           const float2 &old_pos_next_re = old_curve_positions_re[i + 1];
           const float2 goal_pos_re = math::interpolate(old_pos_prev_re, old_pos_next_re, 0.5f);
           const float2 new_pos_re = math::interpolate(old_pos_re, goal_pos_re, weight);
-          const float3 old_pos_cu = positions_cu[point_i];
+          const float3 old_pos_cu = brush_transform_inv * positions_cu[point_i];
           float3 new_pos_wo;
           ED_view3d_win_to_3d(
               ctx_.v3d, ctx_.region, curves_to_world_mat_ * old_pos_cu, new_pos_re, new_pos_wo);
@@ -294,7 +294,12 @@ struct SmoothOperationExecutor {
                         brush_pos_wo);
     const float3 brush_pos_cu = world_to_curves_mat_ * brush_pos_wo;
     const float brush_radius_cu = self_->brush_3d_.radius_cu * brush_radius_factor_;
-    this->smooth_spherical(brush_pos_cu, brush_radius_cu);
+
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      this->smooth_spherical(brush_transform * brush_pos_cu, brush_radius_cu);
+    }
   }
 
   void smooth_spherical(const float3 &brush_pos_cu, const float brush_radius_cu)
