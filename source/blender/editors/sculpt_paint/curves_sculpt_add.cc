@@ -96,8 +96,7 @@ struct AddOperationExecutor {
   Mesh *surface_ = nullptr;
   Span<MLoopTri> surface_looptris_;
   Span<float3> corner_normals_su_;
-  std::optional<VArray_Span<float2>> surface_uv_map_owner_;
-  Span<float2> surface_uv_map_;
+  VArray_Span<float2> surface_uv_map_;
 
   const CurvesSculpt *curves_sculpt_ = nullptr;
   const Brush *brush_ = nullptr;
@@ -216,14 +215,10 @@ struct AddOperationExecutor {
     if (curves_id_->surface_uv_map != nullptr) {
       MeshComponent surface_component;
       surface_component.replace(surface_, GeometryOwnershipType::ReadOnly);
-      VArray<float2> uvs = surface_component
-                               .attribute_try_get_for_read(curves_id_->surface_uv_map,
-                                                           ATTR_DOMAIN_CORNER)
-                               .typed<float2>();
-      if (uvs) {
-        surface_uv_map_owner_.emplace(std::move(uvs));
-        surface_uv_map_ = *surface_uv_map_owner_;
-      }
+      surface_uv_map_ = surface_component
+                            .attribute_try_get_for_read(curves_id_->surface_uv_map,
+                                                        ATTR_DOMAIN_CORNER)
+                            .typed<float2>();
     }
 
     /* Sample points on the surface using one of multiple strategies. */

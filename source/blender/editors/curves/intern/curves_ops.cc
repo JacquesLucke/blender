@@ -187,25 +187,20 @@ static void try_convert_single_object(Object &curves_ob,
   }
   Mesh &surface_me = *static_cast<Mesh *>(surface_ob.data);
 
+  BVHTreeFromMesh surface_bvh;
+  BKE_bvhtree_from_mesh_get(&surface_bvh, &surface_me, BVHTREE_FROM_LOOPTRI, 2);
+  BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh); });
+
   const Span<float3> positions_cu = curves.positions();
-  const VArray<int> looptri_indices = curves.surface_triangle_indices();
   const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&surface_me),
                                 BKE_mesh_runtime_looptri_len(&surface_me)};
 
-  /* Find indices of curves that can be transferred to the old hair system. */
-  Vector<int> curves_indices_to_transfer;
-  for (const int curve_i : curves.curves_range()) {
-    const int looptri_i = looptri_indices[curve_i];
-    if (looptri_i >= 0 && looptri_i < looptris.size()) {
-      curves_indices_to_transfer.append(curve_i);
-    }
-    else {
-      *r_could_not_convert_some_curves = true;
-    }
+  if (looptris.is_empty()) {
+    *r_could_not_convert_some_curves = true;
   }
 
-  const int hairs_num = curves_indices_to_transfer.size();
-  if (hairs_num == 0) {
+  const int hair_num = curves.curves_num();
+  if (hair_num == 0) {
     return;
   }
 
@@ -231,8 +226,8 @@ static void try_convert_single_object(Object &curves_ob,
   psys_changed_type(&surface_ob, particle_system);
 
   MutableSpan<ParticleData> particles{
-      static_cast<ParticleData *>(MEM_calloc_arrayN(hairs_num, sizeof(ParticleData), __func__)),
-      hairs_num};
+      static_cast<ParticleData *>(MEM_calloc_arrayN(hair_num, sizeof(ParticleData), __func__)),
+      hair_num};
 
   /* The old hair system still uses #MFace, so make sure those are available on the mesh. */
   BKE_mesh_tessface_calc(&surface_me);
@@ -253,16 +248,22 @@ static void try_convert_single_object(Object &curves_ob,
   const float4x4 world_to_surface_mat = surface_to_world_mat.inverted();
   const float4x4 curves_to_surface_mat = world_to_surface_mat * curves_to_world_mat;
 
-  for (const int new_hair_i : curves_indices_to_transfer.index_range()) {
-    const int curve_i = curves_indices_to_transfer[new_hair_i];
+  for (const int new_hair_i : IndexRange(hair_num)) {
+    const int curve_i = new_hair_i;
     const IndexRange points = curves.points_for_curve(curve_i);
-
-    const int looptri_i = looptri_indices[curve_i];
-    const MLoopTri &looptri = looptris[looptri_i];
-    const int poly_i = looptri.poly;
 
     const float3 &root_pos_cu = positions_cu[points.first()];
     const float3 root_pos_su = curves_to_surface_mat * root_pos_cu;
+
+    BVHTreeNearest nearest;
+    nearest.dist_sq = FLT_MAX;
+    BLI_bvhtree_find_nearest(
+        surface_bvh.tree, root_pos_su, &nearest, surface_bvh.nearest_callback, &surface_bvh);
+    BLI_assert(nearest.index >= 0);
+
+    const int looptri_i = nearest.index;
+    const MLoopTri &looptri = looptris[looptri_i];
+    const int poly_i = looptri.poly;
 
     const int mface_i = find_mface_for_root_position(
         surface_me, poly_to_mface_map[poly_i], root_pos_su);
