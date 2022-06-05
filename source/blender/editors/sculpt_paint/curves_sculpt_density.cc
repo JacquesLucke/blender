@@ -153,6 +153,8 @@ struct DensityOperationExecutor {
         if (dist_to_brush_re > brush_radius_sq_re) {
           continue;
         }
+
+        const float distance_to_check = minimum_distance_ * brush_strength_;
       }
     });
   }

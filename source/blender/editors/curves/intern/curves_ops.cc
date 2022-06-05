@@ -1196,23 +1196,6 @@ static void SCULPT_CURVES_OT_select_end(wmOperatorType *ot)
 
 namespace select_grow {
 
-template<typename F>
-static void kdtree_range_search(const KDTree_3d &kdtree,
-                                const float3 &position,
-                                const float distance,
-                                const F &f)
-{
-  BLI_kdtree_3d_range_search_cb(
-      &kdtree,
-      position,
-      distance,
-      [](void *user_data, const int index, const float *co, const float dist_sq) {
-        const F &f = *static_cast<const F *>(user_data);
-        return f(index, co, dist_sq);
-      },
-      const_cast<F *>(&f));
-}
-
 static Array<float> grow_point_selection(const float distance,
                                          const Span<float3> positions,
                                          const Span<float> old_selection)
@@ -1245,24 +1228,24 @@ static Array<float> grow_point_selection(const float distance,
       continue;
     }
 
-    kdtree_range_search(*kdtree,
-                        positions[point_i],
-                        distance,
-                        [&](const int other_point_i, const float *UNUSED(co), float dist_sq) {
-                          if (point_i == other_point_i) {
-                            return true;
-                          }
-                          const bool other_is_similar = (dist_sq < skip_threshold_distance_sq) &&
-                                                        math::distance(
-                                                            old_selection[other_point_i],
-                                                            old_selection[point_i]) <
-                                                            skip_threshold_selection;
-                          if (other_is_similar) {
-                            point_can_be_skipped[other_point_i] = true;
-                          }
-                          math::max_inplace(new_selection[other_point_i], old_selection[point_i]);
-                          return true;
-                        });
+    BLI_kdtree_3d_range_search_cb_cpp(
+        kdtree,
+        positions[point_i],
+        distance,
+        [&](const int other_point_i, const float *UNUSED(co), float dist_sq) {
+          if (point_i == other_point_i) {
+            return true;
+          }
+          const bool other_is_similar = (dist_sq < skip_threshold_distance_sq) &&
+                                        math::distance(old_selection[other_point_i],
+                                                       old_selection[point_i]) <
+                                            skip_threshold_selection;
+          if (other_is_similar) {
+            point_can_be_skipped[other_point_i] = true;
+          }
+          math::max_inplace(new_selection[other_point_i], old_selection[point_i]);
+          return true;
+        });
   }
   return new_selection;
 }
