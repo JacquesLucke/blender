@@ -864,7 +864,7 @@ struct AddOperationExecutor {
             for (const NeighborInfo &neighbor : neighbors) {
               const int neighbor_curve_i = neighbor.index;
               const float3 &neighbor_first_pos_cu =
-                  positions_cu[curves_->points_for_curve(neighbor_curve_i).first()];
+                  positions_cu[curves_->offsets()[neighbor_curve_i]];
               const float3 neighbor_first_pos_su = curves_to_surface_mat_ * neighbor_first_pos_cu;
 
               BVHTreeNearest nearest;

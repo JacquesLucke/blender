@@ -544,16 +544,12 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
     MeshComponent surface_mesh_component;
     surface_mesh_component.replace(&surface_mesh, GeometryOwnershipType::ReadOnly);
 
-    bool use_uvs = false;
     VArray_Span<float2> surface_uv_map;
     if (curves_id.surface_uv_map != nullptr) {
       surface_uv_map = surface_mesh_component
                            .attribute_try_get_for_read(
                                curves_id.surface_uv_map, ATTR_DOMAIN_CORNER, CD_PROP_FLOAT2)
                            .typed<float2>();
-      if (!surface_uv_map.is_empty()) {
-        use_uvs = true;
-      }
     }
 
     MutableSpan<float3> positions_cu = curves.positions_for_write();
@@ -603,7 +599,7 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
               pos_cu += pos_diff_cu;
             }
 
-            if (use_uvs) {
+            if (!surface_uv_map.is_empty()) {
               const MLoopTri &looptri = surface_looptris[looptri_index];
               const int corner0 = looptri.tri[0];
               const int corner1 = looptri.tri[1];
@@ -624,7 +620,7 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
         break;
       }
       case AttachMode::Deform: {
-        if (!use_uvs) {
+        if (!surface_uv_map.is_empty()) {
           BKE_report(op->reports,
                      RPT_ERROR,
                      "Curves do not have attachment information that can be used for deformation");
