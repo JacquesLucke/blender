@@ -2021,6 +2021,7 @@ class VIEW3D_MT_select_sculpt_curves(Menu):
         layout.operator("sculpt_curves.select_all", text="Invert").action = 'INVERT'
         layout.operator("sculpt_curves.select_random", text="Random")
         layout.operator("sculpt_curves.select_end", text="Endpoints")
+        layout.operator("sculpt_curves.select_grow", text="Grow")
 
 
 class VIEW3D_MT_angle_control(Menu):

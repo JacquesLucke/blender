@@ -7,6 +7,7 @@
 #include <atomic>
 
 #include "BLI_devirtualize_parameters.hh"
+#include "BLI_kdtree.h"
 #include "BLI_rand.hh"
 #include "BLI_utildefines.h"
 #include "BLI_vector_set.hh"
@@ -1193,6 +1194,116 @@ static void SCULPT_CURVES_OT_select_end(wmOperatorType *ot)
       ot->srna, "amount", 1, 0, INT32_MAX, "Amount", "Number of points to select", 0, INT32_MAX);
 }
 
+namespace select_grow {
+
+static int select_grow_exec(bContext *C, wmOperator *op)
+{
+  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
+  const float distance = RNA_float_get(op->ptr, "distance");
+  const float skip_threshold_distance = distance * 0.3f;
+  const float skip_threshold_distance_sq = pow2f(skip_threshold_distance);
+  const float skip_threshold_selection = 0.1f;
+
+  for (Curves *curves_id : unique_curves) {
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    const Span<float3> positions = curves.positions();
+    const int points_num = curves.points_num();
+
+    KDTree_3d *kdtree = BLI_kdtree_3d_new(points_num);
+    BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
+
+    for (const int point_i : curves.points_range()) {
+      const float3 &pos = positions[point_i];
+      BLI_kdtree_3d_insert(kdtree, point_i, pos);
+    }
+    BLI_kdtree_3d_balance(kdtree);
+
+    MutableSpan<float> selection = curves.selection_point_float_for_write();
+    Array<float> new_selection(points_num, 0.0f);
+    Array<bool> point_can_be_skipped(points_num, false);
+
+    for (const int point_i : curves.points_range()) {
+      math::max_inplace(new_selection[point_i], selection[point_i]);
+      if (point_can_be_skipped[point_i]) {
+        continue;
+      }
+      if (selection[point_i] == 0.0f) {
+        continue;
+      }
+
+      struct CallbackData {
+        float skip_threshold_distance_sq;
+        float skip_threshold_selection;
+        Span<float> old_selection;
+        MutableSpan<float> new_selection;
+        MutableSpan<bool> point_can_be_skipped;
+        int point_i;
+      } callback_data = {skip_threshold_distance_sq,
+                         skip_threshold_selection,
+                         selection,
+                         new_selection,
+                         point_can_be_skipped,
+                         point_i};
+
+      BLI_kdtree_3d_range_search_cb(
+          kdtree,
+          positions[point_i],
+          distance,
+          [](void *user_data, const int other_point_i, const float *UNUSED(co), float dist_sq) {
+            CallbackData &data = *static_cast<CallbackData *>(user_data);
+            if (data.point_i == other_point_i) {
+              return true;
+            }
+            const bool other_is_similar = (dist_sq < data.skip_threshold_distance_sq) &&
+                                          math::distance(data.old_selection[other_point_i],
+                                                         data.old_selection[data.point_i]) <
+                                              data.skip_threshold_selection;
+            if (other_is_similar) {
+              data.point_can_be_skipped[other_point_i] = true;
+            }
+            math::max_inplace(data.new_selection[other_point_i], data.old_selection[data.point_i]);
+            return true;
+          },
+          &callback_data);
+    }
+
+    selection.copy_from(new_selection);
+
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+}  // namespace select_grow
+
+static void SCULPT_CURVES_OT_select_grow(wmOperatorType *ot)
+{
+  ot->name = "Select Grow";
+  ot->idname = __func__;
+  ot->description = "Select curves which are close to curves that are selected already";
+
+  ot->exec = select_grow::select_grow_exec;
+  ot->poll = selection_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  PropertyRNA *prop;
+  prop = RNA_def_float(ot->srna,
+                       "distance",
+                       0.1f,
+                       0.0f,
+                       FLT_MAX,
+                       "Distance",
+                       "By how much to grow the selection",
+                       0.0f,
+                       10.f);
+  RNA_def_property_subtype(prop, PROP_DISTANCE);
+}
+
 }  // namespace blender::ed::curves
 
 void ED_operatortypes_curves()
@@ -1205,5 +1316,6 @@ void ED_operatortypes_curves()
   WM_operatortype_append(SCULPT_CURVES_OT_select_all);
   WM_operatortype_append(SCULPT_CURVES_OT_select_random);
   WM_operatortype_append(SCULPT_CURVES_OT_select_end);
+  WM_operatortype_append(SCULPT_CURVES_OT_select_grow);
   WM_operatortype_append(CURVES_OT_disable_selection);
 }
