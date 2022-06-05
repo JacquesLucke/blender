@@ -1213,68 +1213,93 @@ static void kdtree_range_search(const KDTree_3d &kdtree,
       const_cast<F *>(&f));
 }
 
-static int select_grow_exec(bContext *C, wmOperator *op)
+static Array<float> grow_point_selection(const float distance,
+                                         const Span<float3> positions,
+                                         const Span<float> old_selection)
 {
-  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
-  const float distance = RNA_float_get(op->ptr, "distance");
+  const int points_num = positions.size();
+  BLI_assert(points_num == old_selection.size());
+  Array<bool> point_can_be_skipped(points_num, false);
+
   const float skip_threshold_distance = distance * 0.3f;
   const float skip_threshold_distance_sq = pow2f(skip_threshold_distance);
   const float skip_threshold_selection = 0.1f;
 
+  Array<float> new_selection(points_num, 0.0f);
+
+  KDTree_3d *kdtree = BLI_kdtree_3d_new(points_num);
+  BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
+
+  for (const int point_i : IndexRange(points_num)) {
+    const float3 &pos = positions[point_i];
+    BLI_kdtree_3d_insert(kdtree, point_i, pos);
+  }
+  BLI_kdtree_3d_balance(kdtree);
+
+  for (const int point_i : IndexRange(points_num)) {
+    math::max_inplace(new_selection[point_i], old_selection[point_i]);
+    if (point_can_be_skipped[point_i]) {
+      continue;
+    }
+    if (old_selection[point_i] == 0.0f) {
+      continue;
+    }
+
+    kdtree_range_search(*kdtree,
+                        positions[point_i],
+                        distance,
+                        [&](const int other_point_i, const float *UNUSED(co), float dist_sq) {
+                          if (point_i == other_point_i) {
+                            return true;
+                          }
+                          const bool other_is_similar = (dist_sq < skip_threshold_distance_sq) &&
+                                                        math::distance(
+                                                            old_selection[other_point_i],
+                                                            old_selection[point_i]) <
+                                                            skip_threshold_selection;
+                          if (other_is_similar) {
+                            point_can_be_skipped[other_point_i] = true;
+                          }
+                          math::max_inplace(new_selection[other_point_i], old_selection[point_i]);
+                          return true;
+                        });
+  }
+  return new_selection;
+}
+
+static int select_grow_exec(bContext *C, wmOperator *op)
+{
+  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
+  const float distance = RNA_float_get(op->ptr, "distance");
+
   for (Curves *curves_id : unique_curves) {
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
     const Span<float3> positions = curves.positions();
-    const int points_num = curves.points_num();
 
     switch (curves_id->selection_domain) {
       case ATTR_DOMAIN_POINT: {
-
-        KDTree_3d *kdtree = BLI_kdtree_3d_new(points_num);
-        BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
-
-        for (const int point_i : curves.points_range()) {
-          const float3 &pos = positions[point_i];
-          BLI_kdtree_3d_insert(kdtree, point_i, pos);
-        }
-        BLI_kdtree_3d_balance(kdtree);
-
         MutableSpan<float> selection = curves.selection_point_float_for_write();
-        Array<float> new_selection(points_num, 0.0f);
-        Array<bool> point_can_be_skipped(points_num, false);
-
-        for (const int point_i : curves.points_range()) {
-          math::max_inplace(new_selection[point_i], selection[point_i]);
-          if (point_can_be_skipped[point_i]) {
-            continue;
-          }
-          if (selection[point_i] == 0.0f) {
-            continue;
-          }
-
-          kdtree_range_search(
-              *kdtree,
-              positions[point_i],
-              distance,
-              [&](const int other_point_i, const float *UNUSED(co), float dist_sq) {
-                if (point_i == other_point_i) {
-                  return true;
-                }
-                const bool other_is_similar = (dist_sq < skip_threshold_distance_sq) &&
-                                              math::distance(selection[other_point_i],
-                                                             selection[point_i]) <
-                                                  skip_threshold_selection;
-                if (other_is_similar) {
-                  point_can_be_skipped[other_point_i] = true;
-                }
-                math::max_inplace(new_selection[other_point_i], selection[point_i]);
-                return true;
-              });
-        }
-
+        Array<float> new_selection = grow_point_selection(distance, positions, selection);
         selection.copy_from(new_selection);
         break;
       }
       case ATTR_DOMAIN_CURVE: {
+        MutableSpan<float> curves_selection = curves.selection_curve_float_for_write();
+        Array<float> old_points_selection(curves.points_num());
+        for (const int curve_i : curves.curves_range()) {
+          const IndexRange points = curves.points_for_curve(curve_i);
+          const float selection = curves_selection[curve_i];
+          old_points_selection.as_mutable_span().slice(points).fill(selection);
+        }
+        Array<float> new_points_selection = grow_point_selection(
+            distance, positions, old_points_selection);
+        for (const int curve_i : curves.curves_range()) {
+          const IndexRange points = curves.points_for_curve(curve_i);
+          const Span<float> points_selection = new_points_selection.as_span().slice(points);
+          const float max_selection = *std::max_element(points_selection.begin(),
+                                                        points_selection.end());
+          curves_selection[curve_i] = max_selection;
+        }
         break;
       }
     }
