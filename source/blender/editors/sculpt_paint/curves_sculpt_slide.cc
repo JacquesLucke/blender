@@ -47,11 +47,16 @@ struct SlideCurveInfo {
   float weight;
 };
 
+struct SlideInfo {
+  float4x4 brush_transform;
+  Vector<SlideCurveInfo> curves_to_slide;
+};
+
 class SlideOperation : public CurvesSculptStrokeOperation {
  private:
   /** Last mouse position. */
   float2 brush_pos_last_re_;
-  Vector<SlideCurveInfo> curves_to_slide_;
+  Vector<SlideInfo> slide_info_;
 
   friend struct SlideOperationExecutor;
 
@@ -172,12 +177,17 @@ struct SlideOperationExecutor {
         reinterpret_cast<const float3 *>(CustomData_get_layer(&surface_->ldata, CD_NORMAL)),
         surface_->totloop};
 
+    const Vector<float4x4> brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+
     if (stroke_extension.is_first) {
-      this->detect_curves_to_slide();
+      for (const float4x4 &brush_transform : brush_transforms) {
+        this->detect_curves_to_slide(brush_transform);
+      }
       return;
     }
 
-    this->slide_projected(float4x4::identity());
+    this->slide_projected();
 
     curves_->tag_positions_changed();
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
@@ -185,8 +195,10 @@ struct SlideOperationExecutor {
     ED_region_tag_redraw(ctx_.region);
   }
 
-  void detect_curves_to_slide()
+  void detect_curves_to_slide(const float4x4 &brush_transform)
   {
+    const float4x4 brush_transform_inv = brush_transform.inverted();
+
     const float brush_radius_re = brush_radius_base_re_ * brush_radius_factor_;
     const float brush_radius_sq_re = pow2f(brush_radius_re);
 
@@ -195,10 +207,11 @@ struct SlideOperationExecutor {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
 
-    Vector<SlideCurveInfo> &curves_to_slide = self_->curves_to_slide_;
+    self_->slide_info_.append({brush_transform});
+    Vector<SlideCurveInfo> &curves_to_slide = self_->slide_info_.last().curves_to_slide;
     for (const int curve_i : curve_selection_) {
       const int first_point_i = curves_->offsets()[curve_i];
-      const float3 &first_pos_cu = positions_cu[first_point_i];
+      const float3 &first_pos_cu = brush_transform_inv * positions_cu[first_point_i];
 
       float2 first_pos_re;
       ED_view3d_project_float_v2_m4(ctx_.region, first_pos_cu, first_pos_re, projection.values);
@@ -218,9 +231,8 @@ struct SlideOperationExecutor {
     }
   }
 
-  void slide_projected(const float4x4 &brush_transform)
+  void slide_projected()
   {
-    const Span<SlideCurveInfo> curves_to_slide = self_->curves_to_slide_;
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
 
     MutableSpan<float2> surface_uv_coords;
@@ -231,54 +243,61 @@ struct SlideOperationExecutor {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
 
-    threading::parallel_for(curves_to_slide.index_range(), 256, [&](const IndexRange range) {
-      for (const SlideCurveInfo &slide_info : curves_to_slide.slice(range)) {
-        const int curve_i = slide_info.curve_i;
-        const IndexRange points = curves_->points_for_curve(curve_i);
-        const int first_point_i = points.first();
-        const float3 old_first_pos_cu = positions_cu[first_point_i];
-        float2 old_first_pos_re;
-        ED_view3d_project_float_v2_m4(
-            ctx_.region, old_first_pos_cu, old_first_pos_re, projection.values);
-        const float2 new_first_pos_re = old_first_pos_re + slide_info.weight * brush_pos_diff_re_;
+    for (const SlideInfo &slide_info : self_->slide_info_) {
+      const float4x4 &brush_transform = slide_info.brush_transform;
+      const float4x4 brush_transform_inv = brush_transform.inverted();
+      const Span<SlideCurveInfo> curves_to_slide = slide_info.curves_to_slide;
 
-        float3 new_first_pos_wo;
-        ED_view3d_win_to_3d(ctx_.v3d,
-                            ctx_.region,
-                            curves_to_world_mat_ * old_first_pos_cu,
-                            new_first_pos_re,
-                            new_first_pos_wo);
-        const float3 new_first_pos_su = world_to_surface_mat_ * new_first_pos_wo;
+      threading::parallel_for(curves_to_slide.index_range(), 256, [&](const IndexRange range) {
+        for (const SlideCurveInfo &slide_info : curves_to_slide.slice(range)) {
+          const int curve_i = slide_info.curve_i;
+          const IndexRange points = curves_->points_for_curve(curve_i);
+          const int first_point_i = points.first();
+          const float3 old_first_pos_cu = brush_transform_inv * positions_cu[first_point_i];
+          float2 old_first_pos_re;
+          ED_view3d_project_float_v2_m4(
+              ctx_.region, old_first_pos_cu, old_first_pos_re, projection.values);
+          const float2 new_first_pos_re = old_first_pos_re +
+                                          slide_info.weight * brush_pos_diff_re_;
 
-        BVHTreeNearest nearest;
-        nearest.dist_sq = FLT_MAX;
-        BLI_bvhtree_find_nearest(surface_bvh_.tree,
-                                 new_first_pos_su,
-                                 &nearest,
-                                 surface_bvh_.nearest_callback,
-                                 &surface_bvh_);
-        const int looptri_index = nearest.index;
-        const float3 attached_pos_su = nearest.co;
+          float3 new_first_pos_wo;
+          ED_view3d_win_to_3d(ctx_.v3d,
+                              ctx_.region,
+                              curves_to_world_mat_ * old_first_pos_cu,
+                              new_first_pos_re,
+                              new_first_pos_wo);
+          const float3 new_first_pos_su = world_to_surface_mat_ * new_first_pos_wo;
 
-        const float3 attached_pos_cu = surface_to_curves_mat_ * attached_pos_su;
-        const float3 pos_offset_cu = attached_pos_cu - old_first_pos_cu;
+          BVHTreeNearest nearest;
+          nearest.dist_sq = FLT_MAX;
+          BLI_bvhtree_find_nearest(surface_bvh_.tree,
+                                   new_first_pos_su,
+                                   &nearest,
+                                   surface_bvh_.nearest_callback,
+                                   &surface_bvh_);
+          const int looptri_index = nearest.index;
+          const float3 attached_pos_su = nearest.co;
 
-        for (const int point_i : points) {
-          positions_cu[point_i] += pos_offset_cu;
+          const float3 attached_pos_cu = surface_to_curves_mat_ * attached_pos_su;
+          const float3 pos_offset_cu = brush_transform * (attached_pos_cu - old_first_pos_cu);
+
+          for (const int point_i : points) {
+            positions_cu[point_i] += pos_offset_cu;
+          }
+
+          if (!surface_uv_map_.is_empty()) {
+            const MLoopTri &looptri = surface_looptris_[looptri_index];
+            const float3 bary_coord = compute_bary_coord_in_triangle(
+                *surface_, looptri, attached_pos_su);
+            const float2 &uv0 = surface_uv_map_[looptri.tri[0]];
+            const float2 &uv1 = surface_uv_map_[looptri.tri[1]];
+            const float2 &uv2 = surface_uv_map_[looptri.tri[2]];
+            const float2 uv = attribute_math::mix3(bary_coord, uv0, uv1, uv2);
+            surface_uv_coords[curve_i] = uv;
+          }
         }
-
-        if (!surface_uv_map_.is_empty()) {
-          const MLoopTri &looptri = surface_looptris_[looptri_index];
-          const float3 bary_coord = compute_bary_coord_in_triangle(
-              *surface_, looptri, attached_pos_su);
-          const float2 &uv0 = surface_uv_map_[looptri.tri[0]];
-          const float2 &uv1 = surface_uv_map_[looptri.tri[1]];
-          const float2 &uv2 = surface_uv_map_[looptri.tri[2]];
-          const float2 uv = attribute_math::mix3(bary_coord, uv0, uv1, uv2);
-          surface_uv_coords[curve_i] = uv;
-        }
-      }
-    });
+      });
+    }
   }
 };
 
