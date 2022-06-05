@@ -4,7 +4,9 @@
  * \ingroup edcurves
  */
 
+#include <algorithm>
 #include <atomic>
+#include <numeric>
 
 #include "BLI_devirtualize_parameters.hh"
 #include "BLI_kdtree.h"
@@ -16,6 +18,7 @@
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
+#include "ED_view3d.h"
 
 #include "WM_api.h"
 
@@ -33,6 +36,7 @@
 #include "BKE_particle.h"
 #include "BKE_report.h"
 
+#include "DNA_brush_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
@@ -1328,6 +1332,20 @@ namespace sample_density {
 
 static bool sample_density_poll(bContext *C)
 {
+  Object *ob = CTX_data_active_object(C);
+  if (ob == nullptr) {
+    return false;
+  }
+  if (ob->type != OB_CURVES) {
+    return false;
+  }
+  Curves *curves_id = static_cast<Curves *>(ob->data);
+  if (curves_id->surface == nullptr) {
+    return false;
+  }
+  if (curves_id->surface->type != OB_MESH) {
+    return false;
+  }
   return true;
 }
 
@@ -1341,7 +1359,87 @@ static int sample_density_invoke(bContext *C, wmOperator *op, const wmEvent *UNU
 
 static int sample_density_exec(bContext *C, wmOperator *op)
 {
-  std::cout << "test\n";
+  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+  ARegion *region = CTX_wm_region(C);
+  View3D *v3d = CTX_wm_view3d(C);
+  Scene *scene = CTX_data_scene(C);
+
+  Object &curves_ob = *CTX_data_active_object(C);
+  Curves &curves_id = *static_cast<Curves *>(curves_ob.data);
+  Object &surface_ob = *curves_id.surface;
+  Mesh &surface_me = *static_cast<Mesh *>(surface_ob.data);
+  CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+
+  const int curves_num = curves.curves_num();
+  if (curves_num <= 1) {
+    return OPERATOR_CANCELLED;
+  }
+
+  BVHTreeFromMesh surface_bvh;
+  BKE_bvhtree_from_mesh_get(&surface_bvh, &surface_me, BVHTREE_FROM_LOOPTRI, 2);
+  BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh); });
+
+  int2 mouse_pos_int;
+  RNA_int_get_array(op->ptr, "location", mouse_pos_int);
+  const float2 mouse_pos{mouse_pos_int};
+
+  float3 ray_start_wo, ray_end_wo;
+  ED_view3d_win_to_segment_clipped(
+      depsgraph, region, v3d, mouse_pos, ray_start_wo, ray_end_wo, true);
+
+  const float4x4 surface_to_world_mat = surface_ob.obmat;
+  const float4x4 world_to_surface_mat = surface_to_world_mat.inverted();
+
+  const float3 ray_start_su = world_to_surface_mat * ray_start_wo;
+  const float3 ray_end_su = world_to_surface_mat * ray_end_wo;
+  const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
+
+  BVHTreeRayHit ray_hit;
+  ray_hit.dist = FLT_MAX;
+  ray_hit.index = -1;
+  BLI_bvhtree_ray_cast(surface_bvh.tree,
+                       ray_start_su,
+                       ray_direction_su,
+                       0.0f,
+                       &ray_hit,
+                       surface_bvh.raycast_callback,
+                       &surface_bvh);
+  if (ray_hit.index == -1) {
+    return OPERATOR_CANCELLED;
+  }
+
+  const float3 hit_pos_su = ray_hit.co;
+
+  const float4x4 curves_to_world_mat = curves_ob.obmat;
+  const float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
+  const float4x4 surface_to_curves_mat = world_to_curves_mat * surface_to_world_mat;
+  const float3 hit_pos_cu = surface_to_curves_mat * hit_pos_su;
+
+  const Span<float3> positions_cu = curves.positions();
+  Vector<float> distances_sq_cu(curves_num);
+  threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
+    for (const int curve_i : range) {
+      const int first_point_i = curves.offsets()[curve_i];
+      const float3 &first_pos_cu = positions_cu[first_point_i];
+      const float distance_sq_cu = math::distance_squared(first_pos_cu, hit_pos_cu);
+      distances_sq_cu[curve_i] = distance_sq_cu;
+    }
+  });
+
+  const int check_num = std::clamp(curves_num, 0, 4);
+  std::partial_sort(
+      distances_sq_cu.begin(), distances_sq_cu.begin() + check_num, distances_sq_cu.end());
+  float distance_sum_cu = 0.0f;
+  for (const int i : IndexRange(check_num)) {
+    distance_sum_cu = std::sqrt(distances_sq_cu[i]);
+  }
+  const float average_dist_cu = distance_sum_cu / check_num;
+
+  Brush *brush = BKE_paint_brush(&scene->toolsettings->curves_sculpt->paint);
+  if (brush->curves_sculpt_settings != nullptr) {
+    brush->curves_sculpt_settings->minimum_distance = average_dist_cu;
+  }
+
   return OPERATOR_FINISHED;
 }
 
