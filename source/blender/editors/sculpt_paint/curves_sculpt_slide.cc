@@ -19,6 +19,7 @@
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
+#include "BKE_geometry_set.hh"
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_paint.h"
@@ -150,6 +151,15 @@ struct SlideOperationExecutor {
     surface_looptris_ = {BKE_mesh_runtime_looptri_ensure(surface_),
                          BKE_mesh_runtime_looptri_len(surface_)};
 
+    if (curves_id_->surface_uv_map != nullptr) {
+      MeshComponent surface_component;
+      surface_component.replace(surface_, GeometryOwnershipType::ReadOnly);
+      surface_uv_map_ = surface_component
+                            .attribute_try_get_for_read(curves_id_->surface_uv_map,
+                                                        ATTR_DOMAIN_CORNER)
+                            .typed<float2>();
+    }
+
     if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
       BKE_mesh_calc_normals_split(surface_);
     }
@@ -201,6 +211,11 @@ struct SlideOperationExecutor {
     const Span<int> curves_to_slide = self_->curves_to_slide_;
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
 
+    MutableSpan<float2> surface_uv_coords;
+    if (!surface_uv_map_.is_empty()) {
+      surface_uv_coords = curves_->surface_uv_coords_for_write();
+    }
+
     float4x4 projection;
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
 
@@ -230,16 +245,24 @@ struct SlideOperationExecutor {
                                  surface_bvh_.nearest_callback,
                                  &surface_bvh_);
         const int looptri_index = nearest.index;
-        const MLoopTri &looptri = surface_looptris_[looptri_index];
         const float3 attached_pos_su = nearest.co;
-        const float3 bary_coord = compute_bary_coord_in_triangle(
-            *surface_, looptri, attached_pos_su);
 
         const float3 attached_pos_cu = surface_to_curves_mat_ * attached_pos_su;
         const float3 pos_offset_cu = attached_pos_cu - old_first_pos_cu;
 
         for (const int point_i : points) {
           positions_cu[point_i] += pos_offset_cu;
+        }
+
+        if (!surface_uv_map_.is_empty()) {
+          const MLoopTri &looptri = surface_looptris_[looptri_index];
+          const float3 bary_coord = compute_bary_coord_in_triangle(
+              *surface_, looptri, attached_pos_su);
+          const float2 &uv0 = surface_uv_map_[looptri.tri[0]];
+          const float2 &uv1 = surface_uv_map_[looptri.tri[1]];
+          const float2 &uv2 = surface_uv_map_[looptri.tri[2]];
+          const float2 uv = attribute_math::mix3(bary_coord, uv0, uv1, uv2);
+          surface_uv_coords[curve_i] = uv;
         }
       }
     });
