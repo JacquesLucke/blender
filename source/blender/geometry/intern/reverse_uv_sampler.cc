@@ -1,17 +1,17 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "GEO_reverse_uv_lookup.hh"
+#include "GEO_reverse_uv_sampler.hh"
 
 #include "BLI_math_geom.h"
 
 namespace blender::geometry {
 
-ReverseUVLookup::ReverseUVLookup(const Span<float2> uv_map, const Span<MLoopTri> looptris)
+ReverseUVSampler::ReverseUVSampler(const Span<float2> uv_map, const Span<MLoopTri> looptris)
     : uv_map_(uv_map), looptris_(looptris)
 {
 }
 
-ReverseUVLookup::Result ReverseUVLookup::lookup(const float2 &query_uv) const
+ReverseUVSampler::Result ReverseUVSampler::sample(const float2 &query_uv) const
 {
   for (const MLoopTri &looptri : looptris_) {
     const float2 &uv0 = uv_map_[looptri.tri[0]];

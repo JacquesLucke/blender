@@ -16,13 +16,13 @@ namespace blender::geometry {
  *
  * \note this uses a trivial implementation currently that has to be replaced.
  */
-class ReverseUVLookup {
+class ReverseUVSampler {
  private:
   const Span<float2> uv_map_;
   const Span<MLoopTri> looptris_;
 
  public:
-  ReverseUVLookup(const Span<float2> uv_map, const Span<MLoopTri> looptris);
+  ReverseUVSampler(const Span<float2> uv_map, const Span<MLoopTri> looptris);
 
   enum class ResultType {
     None,
@@ -36,7 +36,7 @@ class ReverseUVLookup {
     float3 bary_weights;
   };
 
-  Result lookup(const float2 &query_uv) const;
+  Result sample(const float2 &query_uv) const;
 };
 
 }  // namespace blender::geometry

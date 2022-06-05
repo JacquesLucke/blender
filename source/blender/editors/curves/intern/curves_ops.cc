@@ -46,7 +46,7 @@
 #include "RNA_enum_types.h"
 #include "RNA_prototypes.h"
 
-#include "GEO_reverse_uv_lookup.hh"
+#include "GEO_reverse_uv_sampler.hh"
 
 /**
  * The code below uses a suffix naming convention to indicate the coordinate space:
@@ -625,8 +625,8 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
                      RPT_ERROR,
                      "Curves do not have attachment information that can be used for deformation");
         }
-        using geometry::ReverseUVLookup;
-        ReverseUVLookup reverse_uv_lookup{surface_uv_map, surface_looptris};
+        using geometry::ReverseUVSampler;
+        ReverseUVSampler reverse_uv_sampler{surface_uv_map, surface_looptris};
 
         threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange curves_range) {
           for (const int curve_i : curves_range) {
@@ -635,8 +635,8 @@ static int snap_curves_to_surface_exec(bContext *C, wmOperator *op)
             const float3 old_first_point_pos_cu = positions_cu[first_point_i];
 
             const float2 uv = surface_uv_coords[curve_i];
-            ReverseUVLookup::Result lookup_result = reverse_uv_lookup.lookup(uv);
-            if (lookup_result.type != ReverseUVLookup::ResultType::Ok) {
+            ReverseUVSampler::Result lookup_result = reverse_uv_sampler.sample(uv);
+            if (lookup_result.type != ReverseUVSampler::ResultType::Ok) {
               found_invalid_uv = true;
               continue;
             }
