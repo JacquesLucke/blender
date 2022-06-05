@@ -225,10 +225,6 @@ struct SlideOperationExecutor {
       const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
       const float radius_falloff = BKE_brush_curve_strength(
           brush_, dist_to_brush_re, brush_radius_re);
-      const float weight = brush_strength_ * radius_falloff * curve_factors_[curve_i];
-      if (weight == 0.0f) {
-        continue;
-      }
       curves_to_slide.append({curve_i, radius_falloff});
     }
   }
@@ -293,8 +289,9 @@ struct SlideOperationExecutor {
           const float3 attached_pos_cu = surface_to_curves_mat_ * attached_pos_su;
           const float3 pos_offset_cu = brush_transform * (attached_pos_cu - old_first_pos_cu);
 
-          for (const int point_i : points) {
-            const float weight = first_point_weight * point_factors_[point_i];
+          positions_cu[first_point_i] += pos_offset_cu;
+          for (const int point_i : points.drop_front(1)) {
+            const float weight = point_factors_[point_i];
             positions_cu[point_i] += weight * pos_offset_cu;
           }
 
