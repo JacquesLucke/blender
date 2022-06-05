@@ -2023,6 +2023,12 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
   prop = RNA_def_property(srna, "smooth_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, smooth_mode_items);
   RNA_def_property_ui_text(prop, "Smooth Mode", "Method used for smoothing curves");
+
+  prop = RNA_def_property(srna, "minimum_distance", PROP_FLOAT, PROP_DISTANCE);
+  RNA_def_property_range(prop, 0.0f, FLT_MAX);
+  RNA_def_property_ui_range(prop, 0.0, 1000.0f, 0.001, 5);
+  RNA_def_property_ui_text(
+      prop, "Minimum Distance", "Goal distance between curve roots for the Density brush");
 }
 
 static void rna_def_brush(BlenderRNA *brna)

@@ -547,6 +547,7 @@ class _draw_tool_settings_context_mode:
         elif curves_tool == 'DENSITY':
             layout.prop(brush, "direction", expand=True, text="")
             layout.prop(brush, "falloff_shape", expand=True)
+            layout.prop(brush.curves_sculpt_settings, "minimum_distance")
             layout.popover("VIEW3D_PT_tools_brush_falloff")
         elif curves_tool == "SLIDE":
             layout.popover("VIEW3D_PT_tools_brush_falloff")

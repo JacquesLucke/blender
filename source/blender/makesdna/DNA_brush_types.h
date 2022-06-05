@@ -152,7 +152,8 @@ typedef struct BrushCurvesSculptSettings {
   int clump_radius;
   /** #eBrushCurvesSculptSmoothMode. */
   uint8_t smooth_mode;
-  char _pad[7];
+  char _pad[3];
+  float minimum_distance;
 } BrushCurvesSculptSettings;
 
 typedef struct Brush {
