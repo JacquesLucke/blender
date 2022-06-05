@@ -547,7 +547,7 @@ class _draw_tool_settings_context_mode:
         elif curves_tool == 'DENSITY':
             ...
         elif curves_tool == "SLIDE":
-            ...
+            layout.popover("VIEW3D_PT_tools_brush_falloff")
     
 
 

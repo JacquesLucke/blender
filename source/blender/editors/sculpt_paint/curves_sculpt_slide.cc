@@ -44,7 +44,7 @@ namespace blender::ed::sculpt_paint {
 
 struct SlideCurveInfo {
   int curve_i;
-  float weight;
+  float radius_falloff;
 };
 
 struct SlideInfo {
@@ -91,6 +91,7 @@ struct SlideOperationExecutor {
   VArray_Span<float2> surface_uv_map_;
 
   VArray<float> curve_factors_;
+  VArray<float> point_factors_;
   Vector<int64_t> selected_curve_indices_;
   IndexMask curve_selection_;
 
@@ -137,6 +138,7 @@ struct SlideOperationExecutor {
     }
 
     curve_factors_ = get_curves_selection(*curves_id_);
+    point_factors_ = get_point_selection(*curves_id_);
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
 
     brush_pos_prev_re_ = self_->brush_pos_last_re_;
@@ -227,7 +229,7 @@ struct SlideOperationExecutor {
       if (weight == 0.0f) {
         continue;
       }
-      curves_to_slide.append({curve_i, weight});
+      curves_to_slide.append({curve_i, radius_falloff});
     }
   }
 
@@ -249,40 +251,51 @@ struct SlideOperationExecutor {
       const Span<SlideCurveInfo> curves_to_slide = slide_info.curves_to_slide;
 
       threading::parallel_for(curves_to_slide.index_range(), 256, [&](const IndexRange range) {
-        for (const SlideCurveInfo &slide_info : curves_to_slide.slice(range)) {
-          const int curve_i = slide_info.curve_i;
+        for (const SlideCurveInfo &curve_slide_info : curves_to_slide.slice(range)) {
+          const int curve_i = curve_slide_info.curve_i;
           const IndexRange points = curves_->points_for_curve(curve_i);
           const int first_point_i = points.first();
           const float3 old_first_pos_cu = brush_transform_inv * positions_cu[first_point_i];
           float2 old_first_pos_re;
           ED_view3d_project_float_v2_m4(
               ctx_.region, old_first_pos_cu, old_first_pos_re, projection.values);
+          const float first_point_weight = brush_strength_ * curve_slide_info.radius_falloff;
           const float2 new_first_pos_re = old_first_pos_re +
-                                          slide_info.weight * brush_pos_diff_re_;
+                                          first_point_weight * brush_pos_diff_re_;
 
-          float3 new_first_pos_wo;
-          ED_view3d_win_to_3d(ctx_.v3d,
-                              ctx_.region,
-                              curves_to_world_mat_ * old_first_pos_cu,
-                              new_first_pos_re,
-                              new_first_pos_wo);
-          const float3 new_first_pos_su = world_to_surface_mat_ * new_first_pos_wo;
+          float3 ray_start_wo, ray_end_wo;
+          ED_view3d_win_to_segment_clipped(ctx_.depsgraph,
+                                           ctx_.region,
+                                           ctx_.v3d,
+                                           new_first_pos_re,
+                                           ray_start_wo,
+                                           ray_end_wo,
+                                           true);
 
-          BVHTreeNearest nearest;
-          nearest.dist_sq = FLT_MAX;
-          BLI_bvhtree_find_nearest(surface_bvh_.tree,
-                                   new_first_pos_su,
-                                   &nearest,
-                                   surface_bvh_.nearest_callback,
-                                   &surface_bvh_);
-          const int looptri_index = nearest.index;
-          const float3 attached_pos_su = nearest.co;
+          const float3 ray_direction_wo = math::normalize(ray_end_wo - ray_start_wo);
+          BVHTreeRayHit hit;
+          hit.dist = FLT_MAX;
+          hit.index = -1;
+          BLI_bvhtree_ray_cast(surface_bvh_.tree,
+                               ray_start_wo,
+                               ray_direction_wo,
+                               0.0f,
+                               &hit,
+                               surface_bvh_.raycast_callback,
+                               &surface_bvh_);
+          if (hit.index == -1) {
+            continue;
+          }
+
+          const int looptri_index = hit.index;
+          const float3 attached_pos_su = hit.co;
 
           const float3 attached_pos_cu = surface_to_curves_mat_ * attached_pos_su;
           const float3 pos_offset_cu = brush_transform * (attached_pos_cu - old_first_pos_cu);
 
           for (const int point_i : points) {
-            positions_cu[point_i] += pos_offset_cu;
+            const float weight = first_point_weight * point_factors_[point_i];
+            positions_cu[point_i] += weight * pos_offset_cu;
           }
 
           if (!surface_uv_map_.is_empty()) {
