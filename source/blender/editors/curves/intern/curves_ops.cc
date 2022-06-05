@@ -828,8 +828,6 @@ static void CURVES_OT_disable_selection(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-namespace select_all {
-
 static bool varray_contains_nonzero(const VArray<float> &data)
 {
   bool contains_nonzero = false;
@@ -842,6 +840,19 @@ static bool varray_contains_nonzero(const VArray<float> &data)
     }
   });
   return contains_nonzero;
+}
+
+static bool has_anything_selected(const Curves &curves_id)
+{
+  const CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+  switch (curves_id.selection_domain) {
+    case ATTR_DOMAIN_POINT:
+      return varray_contains_nonzero(curves.selection_point_float());
+    case ATTR_DOMAIN_CURVE:
+      return varray_contains_nonzero(curves.selection_curve_float());
+  }
+  BLI_assert_unreachable();
+  return false;
 }
 
 static bool any_point_selected(const CurvesGeometry &curves)
@@ -858,6 +869,8 @@ static bool any_point_selected(const Span<Curves *> curves_ids)
   }
   return false;
 }
+
+namespace select_all {
 
 static void invert_selection(MutableSpan<float> selection)
 {
@@ -954,12 +967,11 @@ static int select_random_exec(bContext *C, wmOperator *op)
 
   for (Curves *curves_id : unique_curves) {
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    const bool was_anything_selected = has_anything_selected(*curves_id);
     switch (curves_id->selection_domain) {
       case ATTR_DOMAIN_POINT: {
         MutableSpan<float> selection = curves.selection_point_float_for_write();
-        const bool was_any_selected = std::any_of(
-            selection.begin(), selection.end(), [](const float v) { return v > 0.0f; });
-        if (!was_any_selected) {
+        if (!was_anything_selected) {
           selection.fill(1.0f);
         }
         if (partial) {
@@ -1002,9 +1014,7 @@ static int select_random_exec(bContext *C, wmOperator *op)
       }
       case ATTR_DOMAIN_CURVE: {
         MutableSpan<float> selection = curves.selection_curve_float_for_write();
-        const bool was_any_selected = std::any_of(
-            selection.begin(), selection.end(), [](const float v) { return v > 0.0f; });
-        if (!was_any_selected) {
+        if (!was_anything_selected) {
           selection.fill(1.0f);
         }
         if (partial) {
@@ -1114,6 +1124,75 @@ static void SCULPT_CURVES_OT_select_random(wmOperatorType *ot)
                   "The generated random number is the same for every control point of a curve");
 }
 
+namespace select_end {
+static bool select_end_poll(bContext *C)
+{
+  if (!selection_poll(C)) {
+    return false;
+  }
+  const Curves *curves_id = static_cast<const Curves *>(CTX_data_active_object(C)->data);
+  if (curves_id->selection_domain != ATTR_DOMAIN_POINT) {
+    return false;
+  }
+  return true;
+}
+
+static int select_end_exec(bContext *C, wmOperator *op)
+{
+  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
+  const bool end_points = RNA_boolean_get(op->ptr, "end_points");
+  const int amount = RNA_int_get(op->ptr, "amount");
+
+  for (Curves *curves_id : unique_curves) {
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    const bool was_anything_selected = has_anything_selected(*curves_id);
+    MutableSpan<float> selection = curves.selection_point_float_for_write();
+    if (!was_anything_selected) {
+      selection.fill(1.0f);
+    }
+    threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
+      for (const int curve_i : range) {
+        const IndexRange points = curves.points_for_curve(curve_i);
+        IndexRange points_to_select;
+        if (end_points) {
+          selection.slice(points.drop_back(amount)).fill(0.0f);
+        }
+        else {
+          selection.slice(points.drop_front(amount)).fill(0.0f);
+        }
+      }
+    });
+
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+  }
+
+  return OPERATOR_FINISHED;
+}
+}  // namespace select_end
+
+static void SCULPT_CURVES_OT_select_end(wmOperatorType *ot)
+{
+  ot->name = "Select End";
+  ot->idname = __func__;
+  ot->description = "Select end points of curves";
+
+  ot->exec = select_end::select_end_exec;
+  ot->poll = select_end::select_end_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  RNA_def_boolean(ot->srna,
+                  "end_points",
+                  true,
+                  "End Points",
+                  "Select points at the end of the curve as opposed to the beginning");
+  RNA_def_int(
+      ot->srna, "amount", 1, 0, INT32_MAX, "Amount", "Number of points to select", 0, INT32_MAX);
+}
+
 }  // namespace blender::ed::curves
 
 void ED_operatortypes_curves()
@@ -1125,5 +1204,6 @@ void ED_operatortypes_curves()
   WM_operatortype_append(CURVES_OT_set_selection_domain);
   WM_operatortype_append(SCULPT_CURVES_OT_select_all);
   WM_operatortype_append(SCULPT_CURVES_OT_select_random);
+  WM_operatortype_append(SCULPT_CURVES_OT_select_end);
   WM_operatortype_append(CURVES_OT_disable_selection);
 }
