@@ -2019,6 +2019,7 @@ class VIEW3D_MT_select_sculpt_curves(Menu):
         layout.operator("sculpt_curves.select_all", text="All").action = 'SELECT'
         layout.operator("sculpt_curves.select_all", text="None").action = 'DESELECT'
         layout.operator("sculpt_curves.select_all", text="Invert").action = 'INVERT'
+        layout.operator("sculpt_curves.select_random", text="Random")
 
 
 class VIEW3D_MT_angle_control(Menu):

@@ -7,6 +7,7 @@
 #include <atomic>
 
 #include "BLI_devirtualize_parameters.hh"
+#include "BLI_rand.hh"
 #include "BLI_utildefines.h"
 #include "BLI_vector_set.hh"
 
@@ -47,6 +48,9 @@
 #include "RNA_prototypes.h"
 
 #include "GEO_reverse_uv_sampler.hh"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
 
 /**
  * The code below uses a suffix naming convention to indicate the coordinate space:
@@ -930,6 +934,186 @@ static void SCULPT_CURVES_OT_select_all(wmOperatorType *ot)
   WM_operator_properties_select_all(ot);
 }
 
+namespace select_random {
+
+static int select_random_exec(bContext *C, wmOperator *op)
+{
+  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
+
+  const int seed = RNA_int_get(op->ptr, "seed");
+  RandomNumberGenerator rng{static_cast<uint32_t>(seed)};
+
+  const bool partial = RNA_boolean_get(op->ptr, "partial");
+  const bool constant_per_curve = RNA_boolean_get(op->ptr, "constant_per_curve");
+  const float probability = RNA_float_get(op->ptr, "probability");
+  const float min_value = RNA_float_get(op->ptr, "min");
+  const auto next_partial_random_value = [&]() {
+    return rng.get_float() * (1.0f - min_value) + min_value;
+  };
+  const auto next_bool_random_value = [&]() { return rng.get_float() <= probability; };
+
+  for (Curves *curves_id : unique_curves) {
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    switch (curves_id->selection_domain) {
+      case ATTR_DOMAIN_POINT: {
+        MutableSpan<float> selection = curves.selection_point_float_for_write();
+        const bool was_any_selected = std::any_of(
+            selection.begin(), selection.end(), [](const float v) { return v > 0.0f; });
+        if (!was_any_selected) {
+          selection.fill(1.0f);
+        }
+        if (partial) {
+          if (constant_per_curve) {
+            for (const int curve_i : curves.curves_range()) {
+              const float random_value = next_partial_random_value();
+              const IndexRange points = curves.points_for_curve(curve_i);
+              for (const int point_i : points) {
+                selection[point_i] *= random_value;
+              }
+            }
+          }
+          else {
+            for (const int point_i : selection.index_range()) {
+              const float random_value = next_partial_random_value();
+              selection[point_i] *= random_value;
+            }
+          }
+        }
+        else {
+          if (constant_per_curve) {
+            for (const int curve_i : curves.curves_range()) {
+              const bool random_value = next_bool_random_value();
+              const IndexRange points = curves.points_for_curve(curve_i);
+              if (!random_value) {
+                selection.slice(points).fill(0.0f);
+              }
+            }
+          }
+          else {
+            for (const int point_i : selection.index_range()) {
+              const bool random_value = next_bool_random_value();
+              if (!random_value) {
+                selection[point_i] = 0.0f;
+              }
+            }
+          }
+        }
+        break;
+      }
+      case ATTR_DOMAIN_CURVE: {
+        MutableSpan<float> selection = curves.selection_curve_float_for_write();
+        const bool was_any_selected = std::any_of(
+            selection.begin(), selection.end(), [](const float v) { return v > 0.0f; });
+        if (!was_any_selected) {
+          selection.fill(1.0f);
+        }
+        if (partial) {
+          for (const int curve_i : curves.curves_range()) {
+            const float random_value = next_partial_random_value();
+            selection[curve_i] *= random_value;
+          }
+        }
+        else {
+          for (const int curve_i : curves.curves_range()) {
+            const bool random_value = next_bool_random_value();
+            if (!random_value) {
+              selection[curve_i] = 0.0f;
+            }
+          }
+        }
+        break;
+      }
+    }
+    MutableSpan<float> selection = curves_id->selection_domain == ATTR_DOMAIN_POINT ?
+                                       curves.selection_point_float_for_write() :
+                                       curves.selection_curve_float_for_write();
+    const bool was_any_selected = std::any_of(
+        selection.begin(), selection.end(), [](const float v) { return v > 0.0f; });
+    if (was_any_selected) {
+      for (float &v : selection) {
+        v *= rng.get_float();
+      }
+    }
+    else {
+      for (float &v : selection) {
+        v = rng.get_float();
+      }
+    }
+
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+  }
+  return OPERATOR_FINISHED;
+}
+
+static void select_random_ui(bContext *UNUSED(C), wmOperator *op)
+{
+  uiLayout *layout = op->layout;
+
+  uiItemR(layout, op->ptr, "seed", 0, nullptr, ICON_NONE);
+  uiItemR(layout, op->ptr, "constant_per_curve", 0, nullptr, ICON_NONE);
+  uiItemR(layout, op->ptr, "partial", 0, nullptr, ICON_NONE);
+
+  if (RNA_boolean_get(op->ptr, "partial")) {
+    uiItemR(layout, op->ptr, "min", UI_ITEM_R_SLIDER, "Min", ICON_NONE);
+  }
+  else {
+    uiItemR(layout, op->ptr, "probability", UI_ITEM_R_SLIDER, "Probability", ICON_NONE);
+  }
+}
+
+}  // namespace select_random
+
+static void SCULPT_CURVES_OT_select_random(wmOperatorType *ot)
+{
+  ot->name = "Select Random";
+  ot->idname = __func__;
+  ot->description = "Randomizes existing selection or create new random selection";
+
+  ot->exec = select_random::select_random_exec;
+  ot->poll = selection_poll;
+  ot->ui = select_random::select_random_ui;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  RNA_def_int(ot->srna,
+              "seed",
+              0,
+              INT32_MIN,
+              INT32_MAX,
+              "Seed",
+              "Source of randomness",
+              INT32_MIN,
+              INT32_MAX);
+  RNA_def_boolean(
+      ot->srna, "partial", false, "Partial", "Allow points or curves to be selected partially");
+  RNA_def_float(ot->srna,
+                "probability",
+                0.5f,
+                0.0f,
+                1.0f,
+                "Probability",
+                "Chance of every point or curve to be included in the selection",
+                0.0f,
+                1.0f);
+  RNA_def_float(ot->srna,
+                "min",
+                0.0f,
+                0.0f,
+                1.0f,
+                "Min",
+                "Minimum value for the random selection",
+                0.0f,
+                1.0f);
+  RNA_def_boolean(ot->srna,
+                  "constant_per_curve",
+                  true,
+                  "Constant per Curve",
+                  "The generated random number is the same for every control point of a curve");
+}
+
 }  // namespace blender::ed::curves
 
 void ED_operatortypes_curves()
@@ -940,5 +1124,6 @@ void ED_operatortypes_curves()
   WM_operatortype_append(CURVES_OT_snap_curves_to_surface);
   WM_operatortype_append(CURVES_OT_set_selection_domain);
   WM_operatortype_append(SCULPT_CURVES_OT_select_all);
+  WM_operatortype_append(SCULPT_CURVES_OT_select_random);
   WM_operatortype_append(CURVES_OT_disable_selection);
 }
