@@ -53,6 +53,8 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "BLT_translation.h"
+
 /**
  * The code below uses a suffix naming convention to indicate the coordinate space:
  * `cu`: Local space of the curves object that is being edited.
@@ -1322,6 +1324,78 @@ static void SCULPT_CURVES_OT_select_grow(wmOperatorType *ot)
   RNA_def_property_subtype(prop, PROP_DISTANCE);
 }
 
+namespace sample_density {
+
+static bool sample_density_poll(bContext *C)
+{
+  return true;
+}
+
+static int sample_density_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(e))
+{
+  ED_workspace_status_text(C, TIP_("Click on the surface to set the minimum distance"));
+  WM_cursor_modal_set(CTX_wm_window(C), WM_CURSOR_EYEDROPPER);
+  WM_event_add_modal_handler(C, op);
+  return OPERATOR_RUNNING_MODAL;
+}
+
+static int sample_density_exec(bContext *C, wmOperator *op)
+{
+  std::cout << "test\n";
+  return OPERATOR_FINISHED;
+}
+
+static int sample_density_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  switch (event->type) {
+    case LEFTMOUSE: {
+      if (event->val == KM_PRESS) {
+        RNA_int_set_array(op->ptr, "location", event->xy);
+        WM_cursor_modal_restore(CTX_wm_window(C));
+        ED_workspace_status_text(C, nullptr);
+        WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, nullptr);
+        return sample_density_exec(C, op);
+      }
+      break;
+    }
+    case EVT_ESCKEY:
+    case RIGHTMOUSE: {
+      WM_cursor_modal_restore(CTX_wm_window(C));
+      ED_workspace_status_text(C, nullptr);
+      return OPERATOR_CANCELLED;
+    }
+  }
+  return OPERATOR_RUNNING_MODAL;
+}
+
+}  // namespace sample_density
+
+static void SCULPT_CURVES_OT_sample_density(wmOperatorType *ot)
+{
+  ot->name = "Sample Density";
+  ot->idname = __func__;
+  ot->description =
+      "Find a minimum distance value for the Density brush based on existing density";
+
+  ot->poll = sample_density::sample_density_poll;
+  ot->invoke = sample_density::sample_density_invoke;
+  ot->modal = sample_density::sample_density_modal;
+  ot->exec = sample_density::sample_density_exec;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  RNA_def_int_array(ot->srna,
+                    "location",
+                    2,
+                    NULL,
+                    0,
+                    INT32_MAX,
+                    "Location",
+                    "Screen coordinates of sampling",
+                    0,
+                    INT32_MAX);
+}
+
 }  // namespace blender::ed::curves
 
 void ED_operatortypes_curves()
@@ -1336,4 +1410,5 @@ void ED_operatortypes_curves()
   WM_operatortype_append(SCULPT_CURVES_OT_select_end);
   WM_operatortype_append(SCULPT_CURVES_OT_select_grow);
   WM_operatortype_append(CURVES_OT_disable_selection);
+  WM_operatortype_append(SCULPT_CURVES_OT_sample_density);
 }
