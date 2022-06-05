@@ -42,11 +42,16 @@
 
 namespace blender::ed::sculpt_paint {
 
+struct SlideCurveInfo {
+  int curve_i;
+  float weight;
+};
+
 class SlideOperation : public CurvesSculptStrokeOperation {
  private:
   /** Last mouse position. */
   float2 brush_pos_last_re_;
-  Vector<int> curves_to_slide_;
+  Vector<SlideCurveInfo> curves_to_slide_;
 
   friend struct SlideOperationExecutor;
 
@@ -80,7 +85,7 @@ struct SlideOperationExecutor {
   Span<float3> corner_normals_su_;
   VArray_Span<float2> surface_uv_map_;
 
-  VArray<float> point_factors_;
+  VArray<float> curve_factors_;
   Vector<int64_t> selected_curve_indices_;
   IndexMask curve_selection_;
 
@@ -126,7 +131,7 @@ struct SlideOperationExecutor {
       return;
     }
 
-    point_factors_ = get_point_selection(*curves_id_);
+    curve_factors_ = get_curves_selection(*curves_id_);
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
 
     brush_pos_prev_re_ = self_->brush_pos_last_re_;
@@ -190,8 +195,8 @@ struct SlideOperationExecutor {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
 
-    Vector<int> &curves_to_slide = self_->curves_to_slide_;
-    for (const int curve_i : curves_->curves_range()) {
+    Vector<SlideCurveInfo> &curves_to_slide = self_->curves_to_slide_;
+    for (const int curve_i : curve_selection_) {
       const int first_point_i = curves_->offsets()[curve_i];
       const float3 &first_pos_cu = positions_cu[first_point_i];
 
@@ -202,13 +207,20 @@ struct SlideOperationExecutor {
       if (dist_to_brush_sq_re > brush_radius_sq_re) {
         continue;
       }
-      curves_to_slide.append(curve_i);
+      const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
+      const float radius_falloff = BKE_brush_curve_strength(
+          brush_, dist_to_brush_re, brush_radius_re);
+      const float weight = brush_strength_ * radius_falloff * curve_factors_[curve_i];
+      if (weight == 0.0f) {
+        continue;
+      }
+      curves_to_slide.append({curve_i, weight});
     }
   }
 
   void slide_projected(const float4x4 &brush_transform)
   {
-    const Span<int> curves_to_slide = self_->curves_to_slide_;
+    const Span<SlideCurveInfo> curves_to_slide = self_->curves_to_slide_;
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
 
     MutableSpan<float2> surface_uv_coords;
@@ -220,14 +232,15 @@ struct SlideOperationExecutor {
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
 
     threading::parallel_for(curves_to_slide.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : curves_to_slide.slice(range)) {
+      for (const SlideCurveInfo &slide_info : curves_to_slide.slice(range)) {
+        const int curve_i = slide_info.curve_i;
         const IndexRange points = curves_->points_for_curve(curve_i);
         const int first_point_i = points.first();
         const float3 old_first_pos_cu = positions_cu[first_point_i];
         float2 old_first_pos_re;
         ED_view3d_project_float_v2_m4(
             ctx_.region, old_first_pos_cu, old_first_pos_re, projection.values);
-        const float2 new_first_pos_re = old_first_pos_re + brush_pos_diff_re_;
+        const float2 new_first_pos_re = old_first_pos_re + slide_info.weight * brush_pos_diff_re_;
 
         float3 new_first_pos_wo;
         ED_view3d_win_to_3d(ctx_.v3d,
