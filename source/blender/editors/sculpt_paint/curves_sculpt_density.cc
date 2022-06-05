@@ -42,7 +42,6 @@ struct DensityOperationExecutor {
   Curves *curves_id_ = nullptr;
   CurvesGeometry *curves_ = nullptr;
 
-  VArray<float> point_factors_;
   Vector<int64_t> selected_curve_indices_;
   IndexMask curve_selection_;
 
@@ -88,7 +87,6 @@ struct DensityOperationExecutor {
 
     minimum_distance_ = brush_->curves_sculpt_settings->minimum_distance;
 
-    point_factors_ = get_point_selection(*curves_id_);
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
 
     curves_to_world_mat_ = object_->obmat;
@@ -98,9 +96,9 @@ struct DensityOperationExecutor {
 
     const Span<float3> positions_cu = curves_->positions();
 
-    root_points_kdtree_ = BLI_kdtree_3d_new(curves_->curves_num());
+    root_points_kdtree_ = BLI_kdtree_3d_new(curve_selection_.size());
     BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(root_points_kdtree_); });
-    for (const int curve_i : curves_->curves_range()) {
+    for (const int curve_i : curve_selection_) {
       const int first_point_i = curves_->offsets()[curve_i];
       const float3 &pos_cu = positions_cu[first_point_i];
       BLI_kdtree_3d_insert(root_points_kdtree_, curve_i, pos_cu);
@@ -142,21 +140,35 @@ struct DensityOperationExecutor {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
 
-    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
-      for (const int curve_i : curve_selection_.slice(range)) {
-        const int first_point_i = curves_->offsets()[curve_i];
-        const float3 orig_pos_cu = positions_cu[first_point_i];
-        const float3 pos_cu = brush_transform * orig_pos_cu;
-        float2 pos_re;
-        ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
-        const float dist_to_brush_re = math::distance_squared(brush_pos_re_, pos_re);
-        if (dist_to_brush_re > brush_radius_sq_re) {
-          continue;
-        }
-
-        const float distance_to_check = minimum_distance_ * brush_strength_;
+    for (const int curve_i : curve_selection_) {
+      if (curves_to_delete[curve_i]) {
+        continue;
       }
-    });
+      const int first_point_i = curves_->offsets()[curve_i];
+      const float3 orig_pos_cu = positions_cu[first_point_i];
+      const float3 pos_cu = brush_transform * orig_pos_cu;
+      float2 pos_re;
+      ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
+      const float dist_to_brush_sq_re = math::distance_squared(brush_pos_re_, pos_re);
+      if (dist_to_brush_sq_re > brush_radius_sq_re) {
+        continue;
+      }
+      const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
+      const float radius_falloff = BKE_brush_curve_strength(
+          brush_, dist_to_brush_re, brush_radius_re);
+      const float distance_to_check = radius_falloff * minimum_distance_ * brush_strength_;
+      BLI_kdtree_3d_range_search_cb_cpp(
+          root_points_kdtree_,
+          orig_pos_cu,
+          distance_to_check,
+          [&](const int other_curve_i, const float *UNUSED(co), float UNUSED(dist_sq)) {
+            if (other_curve_i == curve_i) {
+              return true;
+            }
+            curves_to_delete[other_curve_i] = true;
+            return true;
+          });
+    }
   }
 };
 
