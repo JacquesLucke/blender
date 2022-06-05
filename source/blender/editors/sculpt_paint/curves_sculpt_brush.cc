@@ -15,6 +15,9 @@
 
 #include "UI_interface.h"
 
+#include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
+
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_length_parameterize.hh"
 #include "BLI_task.hh"
@@ -336,6 +339,18 @@ float3 compute_surface_point_normal(const MLoopTri &looptri,
   const float3 normal = math::normalize(
       attribute_math::mix3(bary_coord, l0_normal, l1_normal, l2_normal));
   return normal;
+}
+
+float3 compute_bary_coord_in_triangle(const Mesh &mesh,
+                                      const MLoopTri &looptri,
+                                      const float3 &position)
+{
+  const float3 &v0 = mesh.mvert[mesh.mloop[looptri.tri[0]].v].co;
+  const float3 &v1 = mesh.mvert[mesh.mloop[looptri.tri[1]].v].co;
+  const float3 &v2 = mesh.mvert[mesh.mloop[looptri.tri[2]].v].co;
+  float3 bary_coords;
+  interp_weights_tri_v3(bary_coords, v0, v1, v2, position);
+  return bary_coords;
 }
 
 }  // namespace blender::ed::sculpt_paint

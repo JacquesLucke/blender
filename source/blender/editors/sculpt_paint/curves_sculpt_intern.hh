@@ -106,6 +106,10 @@ float3 compute_surface_point_normal(const MLoopTri &looptri,
                                     const float3 &bary_coord,
                                     const Span<float3> corner_normals);
 
+float3 compute_bary_coord_in_triangle(const Mesh &mesh,
+                                      const MLoopTri &looptri,
+                                      const float3 &position);
+
 class CurvesSculptCommonContext {
  public:
   const Depsgraph *depsgraph = nullptr;

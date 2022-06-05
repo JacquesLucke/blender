@@ -269,16 +269,6 @@ struct AddOperationExecutor {
     ED_region_tag_redraw(ctx_.region);
   }
 
-  float3 get_bary_coords(const Mesh &mesh, const MLoopTri &looptri, const float3 position) const
-  {
-    const float3 &v0 = mesh.mvert[mesh.mloop[looptri.tri[0]].v].co;
-    const float3 &v1 = mesh.mvert[mesh.mloop[looptri.tri[1]].v].co;
-    const float3 &v2 = mesh.mvert[mesh.mloop[looptri.tri[2]].v].co;
-    float3 bary_coords;
-    interp_weights_tri_v3(bary_coords, v0, v1, v2, position);
-    return bary_coords;
-  }
-
   /**
    * Sample a single point exactly at the mouse position.
    */
@@ -322,7 +312,7 @@ struct AddOperationExecutor {
 
     const int looptri_index = ray_hit.index;
     const float3 brush_pos_su = ray_hit.co;
-    const float3 bary_coords = this->get_bary_coords(
+    const float3 bary_coords = compute_bary_coord_in_triangle(
         *surface_, surface_looptris_[looptri_index], brush_pos_su);
 
     const float3 brush_pos_cu = surface_to_curves_mat_ * brush_pos_su;
@@ -392,7 +382,7 @@ struct AddOperationExecutor {
       const int looptri_index = ray_hit.index;
       const float3 pos_su = ray_hit.co;
 
-      const float3 bary_coords = this->get_bary_coords(
+      const float3 bary_coords = compute_bary_coord_in_triangle(
           *surface_, surface_looptris_[looptri_index], pos_su);
 
       const float3 pos_cu = surface_to_curves_mat_ * pos_su;
@@ -878,7 +868,7 @@ struct AddOperationExecutor {
               const int neighbor_looptri_index = nearest.index;
               const MLoopTri &neighbor_looptri = surface_looptris_[neighbor_looptri_index];
 
-              const float3 neighbor_bary_coord = this->get_bary_coords(
+              const float3 neighbor_bary_coord = compute_bary_coord_in_triangle(
                   *surface_, neighbor_looptri, nearest.co);
 
               const float3 neighbor_normal_su = compute_surface_point_normal(
