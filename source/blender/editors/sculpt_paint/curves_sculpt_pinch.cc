@@ -115,26 +115,46 @@ struct PinchOperationExecutor {
     curves_to_world_mat_ = object_->obmat;
     world_to_curves_mat_ = curves_to_world_mat_.inverted();
 
-    MutableSpan<float3> positions_cu = curves_->positions_for_write();
-
-    float4x4 projection;
-    ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
-
-    Array<bool> changed_curves(curves_->curves_num(), false);
-
-    const float brush_radius_sq_re = pow2f(brush_radius_re_);
     brush_pos_re_ = stroke_extension.mouse_position;
 
     if (stroke_extension.is_first) {
       this->initialize_segment_lengths();
     }
 
+    Array<bool> changed_curves(curves_->curves_num(), false);
+    this->pinch_projected_with_symmetry(changed_curves);
+
+    this->restore_segment_lengths(changed_curves);
+    curves_->tag_positions_changed();
+    DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
+    WM_main_add_notifier(NC_GEOM | ND_DATA, &curves_id_->id);
+    ED_region_tag_redraw(region_);
+  }
+
+  void pinch_projected_with_symmetry(MutableSpan<bool> r_changed_curves)
+  {
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      this->pinch_projected(brush_transform, r_changed_curves);
+    }
+  }
+
+  void pinch_projected(const float4x4 &brush_transform, MutableSpan<bool> r_changed_curves)
+  {
+    const float4x4 brush_transform_inv = brush_transform.inverted();
+
+    float4x4 projection;
+    ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
+    const float brush_radius_sq_re = pow2f(brush_radius_re_);
+
     threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
       for (const int curve_i : curve_selection_.slice(range)) {
         const IndexRange points = curves_->points_for_curve(curve_i);
-        bool &curve_changed = changed_curves[curve_i];
+        bool &curve_changed = r_changed_curves[curve_i];
         for (const int point_i : points.drop_front(1)) {
-          const float3 old_pos_cu = positions_cu[point_i];
+          const float3 old_pos_cu = brush_transform_inv * positions_cu[point_i];
           float2 old_pos_re;
           ED_view3d_project_float_v2_m4(region_, old_pos_cu, old_pos_re, projection.values);
 
@@ -158,17 +178,11 @@ struct PinchOperationExecutor {
           const float3 pinch_center_cu = world_to_curves_mat_ * pinch_center_wo;
 
           const float3 new_pos_cu = math::interpolate(old_pos_cu, pinch_center_cu, weight);
-          positions_cu[point_i] = new_pos_cu;
+          positions_cu[point_i] = brush_transform * new_pos_cu;
           curve_changed = true;
         }
       }
     });
-
-    this->restore_segment_lengths(changed_curves);
-    curves_->tag_positions_changed();
-    DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
-    WM_main_add_notifier(NC_GEOM | ND_DATA, &curves_id_->id);
-    ED_region_tag_redraw(region_);
   }
 
   void initialize_segment_lengths()
