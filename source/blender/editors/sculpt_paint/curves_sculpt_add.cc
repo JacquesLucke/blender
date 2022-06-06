@@ -168,7 +168,7 @@ struct AddOperationExecutor {
     world_to_surface_mat_ = surface_to_world_mat_.inverted();
     surface_to_curves_mat_ = world_to_curves_mat_ * surface_to_world_mat_;
     surface_to_curves_normal_mat_ = surface_to_curves_mat_.inverted().transposed();
-    curves_to_surface_mat_ = curves_to_world_mat_ * world_to_surface_mat_;
+    curves_to_surface_mat_ = world_to_surface_mat_ * curves_to_world_mat_;
 
     if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
       BKE_mesh_calc_normals_split(surface_);
@@ -277,15 +277,15 @@ struct AddOperationExecutor {
     float3 ray_start_wo, ray_end_wo;
     ED_view3d_win_to_segment_clipped(
         ctx_.depsgraph, ctx_.region, ctx_.v3d, brush_pos_re_, ray_start_wo, ray_end_wo, true);
-    const float3 ray_start_su = world_to_surface_mat_ * ray_start_wo;
-    const float3 ray_end_su = world_to_surface_mat_ * ray_end_wo;
+    const float3 ray_start_cu = world_to_curves_mat_ * ray_start_wo;
+    const float3 ray_end_cu = world_to_curves_mat_ * ray_end_wo;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
 
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->sample_in_center(
-          r_added_points, brush_transform * ray_start_su, brush_transform * ray_end_su);
+      const float4x4 transform = curves_to_surface_mat_ * brush_transform;
+      this->sample_in_center(r_added_points, transform * ray_start_cu, transform * ray_end_cu);
     }
   }
 
@@ -353,8 +353,11 @@ struct AddOperationExecutor {
       float3 ray_start_wo, ray_end_wo;
       ED_view3d_win_to_segment_clipped(
           ctx_.depsgraph, ctx_.region, ctx_.v3d, pos_re, ray_start_wo, ray_end_wo, true);
-      const float3 ray_start_su = brush_transform * (world_to_surface_mat_ * ray_start_wo);
-      const float3 ray_end_su = brush_transform * (world_to_surface_mat_ * ray_end_wo);
+      const float3 ray_start_cu = brush_transform * (world_to_curves_mat_ * ray_start_wo);
+      const float3 ray_end_cu = brush_transform * (world_to_curves_mat_ * ray_end_wo);
+
+      const float3 ray_start_su = curves_to_surface_mat_ * ray_start_cu;
+      const float3 ray_end_su = curves_to_surface_mat_ * ray_end_cu;
       const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
 
       BVHTreeRayHit ray_hit;
@@ -407,8 +410,8 @@ struct AddOperationExecutor {
                                      brush_ray_start_wo,
                                      brush_ray_end_wo,
                                      true);
-    const float3 brush_ray_start_su = world_to_surface_mat_ * brush_ray_start_wo;
-    const float3 brush_ray_end_su = world_to_surface_mat_ * brush_ray_end_wo;
+    const float3 brush_ray_start_cu = world_to_curves_mat_ * brush_ray_start_wo;
+    const float3 brush_ray_end_cu = world_to_curves_mat_ * brush_ray_end_wo;
 
     /* Find ray that starts on the boundary of the brush. That is used to compute the brush radius
      * in 3D. */
@@ -420,18 +423,19 @@ struct AddOperationExecutor {
                                      brush_radius_ray_start_wo,
                                      brush_radius_ray_end_wo,
                                      true);
-    const float3 brush_radius_ray_start_su = world_to_surface_mat_ * brush_radius_ray_start_wo;
-    const float3 brush_radius_ray_end_su = world_to_surface_mat_ * brush_radius_ray_end_wo;
+    const float3 brush_radius_ray_start_cu = world_to_curves_mat_ * brush_radius_ray_start_wo;
+    const float3 brush_radius_ray_end_cu = world_to_curves_mat_ * brush_radius_ray_end_wo;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      const float4x4 transform = curves_to_surface_mat_ * brush_transform;
       this->sample_spherical(rng,
                              r_added_points,
-                             brush_transform * brush_ray_start_su,
-                             brush_transform * brush_ray_end_su,
-                             brush_transform * brush_radius_ray_start_su,
-                             brush_transform * brush_radius_ray_end_su);
+                             transform * brush_ray_start_cu,
+                             transform * brush_ray_end_cu,
+                             transform * brush_radius_ray_start_cu,
+                             transform * brush_radius_ray_end_cu);
     }
   }
 

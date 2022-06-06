@@ -155,7 +155,7 @@ struct SlideOperationExecutor {
     world_to_surface_mat_ = surface_to_world_mat_.inverted();
     surface_to_curves_mat_ = world_to_curves_mat_ * surface_to_world_mat_;
     surface_to_curves_normal_mat_ = surface_to_curves_mat_.inverted().transposed();
-    curves_to_surface_mat_ = curves_to_world_mat_ * world_to_surface_mat_;
+    curves_to_surface_mat_ = world_to_surface_mat_ * curves_to_world_mat_;
 
     BKE_bvhtree_from_mesh_get(&surface_bvh_, surface_, BVHTREE_FROM_LOOPTRI, 2);
     BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh_); });
