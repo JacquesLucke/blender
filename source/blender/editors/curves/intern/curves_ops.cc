@@ -1449,7 +1449,7 @@ static int sample_density_modal(bContext *C, wmOperator *op, const wmEvent *even
   switch (event->type) {
     case LEFTMOUSE: {
       if (event->val == KM_PRESS) {
-        RNA_int_set_array(op->ptr, "location", event->xy);
+        RNA_int_set_array(op->ptr, "location", event->mval);
         WM_cursor_modal_restore(CTX_wm_window(C));
         ED_workspace_status_text(C, nullptr);
         WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, nullptr);
