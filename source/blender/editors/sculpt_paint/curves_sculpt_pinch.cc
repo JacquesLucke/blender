@@ -166,12 +166,13 @@ struct PinchOperationExecutor {
           const float radius_falloff = t * BKE_brush_curve_strength(brush_, t, 1.0f);
           const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
 
-          float3 pinch_center_wo;
-          const float3 old_pos_wo = curves_to_world_mat_ * old_pos_cu;
-          ED_view3d_win_to_3d(v3d_, region_, old_pos_wo, brush_pos_re_, pinch_center_wo);
-          const float3 pinch_center_cu = world_to_curves_mat_ * pinch_center_wo;
+          const float2 new_pos_re = math::interpolate(old_pos_re, brush_pos_re_, weight);
 
-          const float3 new_pos_cu = math::interpolate(old_pos_cu, pinch_center_cu, weight);
+          const float3 old_pos_wo = curves_to_world_mat_ * old_pos_cu;
+          float3 new_pos_wo;
+          ED_view3d_win_to_3d(v3d_, region_, old_pos_wo, new_pos_re, new_pos_wo);
+
+          const float3 new_pos_cu = world_to_curves_mat_ * new_pos_wo;
           positions_cu[point_i] = brush_transform * new_pos_cu;
           curve_changed = true;
         }
