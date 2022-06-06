@@ -54,6 +54,9 @@ class PinchOperation : public CurvesSculptStrokeOperation {
  private:
   Array<float> segment_lengths_cu_;
 
+  /** Only used when a 3D brush is used. */
+  CurvesBrush3D brush_3d_;
+
   friend struct PinchOperationExecutor;
 
  public:
@@ -62,11 +65,7 @@ class PinchOperation : public CurvesSculptStrokeOperation {
 
 struct PinchOperationExecutor {
   PinchOperation *self_ = nullptr;
-  const Depsgraph *depsgraph_ = nullptr;
-  const Scene *scene_ = nullptr;
-  ARegion *region_ = nullptr;
-  const View3D *v3d_ = nullptr;
-  const RegionView3D *rv3d_ = nullptr;
+  CurvesSculptCommonContext ctx_;
 
   Object *object_ = nullptr;
   Curves *curves_id_ = nullptr;
@@ -81,25 +80,27 @@ struct PinchOperationExecutor {
 
   const CurvesSculpt *curves_sculpt_ = nullptr;
   const Brush *brush_ = nullptr;
-  float brush_radius_re_;
+  float brush_radius_base_re_;
+  float brush_radius_factor_;
   float brush_strength_;
 
   float2 brush_pos_re_;
+  eBrushFalloffShape falloff_shape_;
+
+  PinchOperationExecutor(const bContext &C) : ctx_(C)
+  {
+  }
 
   void execute(PinchOperation &self, const bContext &C, const StrokeExtension &stroke_extension)
   {
     self_ = &self;
-    depsgraph_ = CTX_data_depsgraph_pointer(&C);
-    scene_ = CTX_data_scene(&C);
     object_ = CTX_data_active_object(&C);
-    region_ = CTX_wm_region(&C);
-    v3d_ = CTX_wm_view3d(&C);
-    rv3d_ = CTX_wm_region_view3d(&C);
 
-    curves_sculpt_ = scene_->toolsettings->curves_sculpt;
+    curves_sculpt_ = ctx_.scene->toolsettings->curves_sculpt;
     brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
-    brush_radius_re_ = BKE_brush_size_get(scene_, brush_);
-    brush_strength_ = BKE_brush_alpha_get(scene_, brush_);
+    brush_radius_base_re_ = BKE_brush_size_get(ctx_.scene, brush_);
+    brush_radius_factor_ = brush_radius_factor(*brush_, stroke_extension);
+    brush_strength_ = BKE_brush_alpha_get(ctx_.scene, brush_);
 
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
@@ -114,19 +115,38 @@ struct PinchOperationExecutor {
     world_to_curves_mat_ = curves_to_world_mat_.inverted();
 
     brush_pos_re_ = stroke_extension.mouse_position;
+    falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
 
     if (stroke_extension.is_first) {
       this->initialize_segment_lengths();
+
+      if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
+        self_->brush_3d_ = *sample_curves_3d_brush(*ctx_.depsgraph,
+                                                   *ctx_.region,
+                                                   *ctx_.v3d,
+                                                   *ctx_.rv3d,
+                                                   *object_,
+                                                   brush_pos_re_,
+                                                   brush_radius_base_re_);
+      }
     }
 
     Array<bool> changed_curves(curves_->curves_num(), false);
-    this->pinch_projected_with_symmetry(changed_curves);
+    if (falloff_shape_ == PAINT_FALLOFF_SHAPE_TUBE) {
+      this->pinch_projected_with_symmetry(changed_curves);
+    }
+    else if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
+      this->pinch_spherical_with_symmetry(changed_curves);
+    }
+    else {
+      BLI_assert_unreachable();
+    }
 
     this->restore_segment_lengths(changed_curves);
     curves_->tag_positions_changed();
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
     WM_main_add_notifier(NC_GEOM | ND_DATA, &curves_id_->id);
-    ED_region_tag_redraw(region_);
+    ED_region_tag_redraw(ctx_.region);
   }
 
   void pinch_projected_with_symmetry(MutableSpan<bool> r_changed_curves)
@@ -143,18 +163,18 @@ struct PinchOperationExecutor {
     const float4x4 brush_transform_inv = brush_transform.inverted();
 
     float4x4 projection;
-    ED_view3d_ob_project_mat_get(rv3d_, object_, projection.values);
+    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
     MutableSpan<float3> positions_cu = curves_->positions_for_write();
-    const float brush_radius_sq_re = pow2f(brush_radius_re_);
+    const float brush_radius_re = brush_radius_base_re_ * brush_radius_factor_;
+    const float brush_radius_sq_re = pow2f(brush_radius_re);
 
     threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
       for (const int curve_i : curve_selection_.slice(range)) {
         const IndexRange points = curves_->points_for_curve(curve_i);
-        bool &curve_changed = r_changed_curves[curve_i];
         for (const int point_i : points.drop_front(1)) {
           const float3 old_pos_cu = brush_transform_inv * positions_cu[point_i];
           float2 old_pos_re;
-          ED_view3d_project_float_v2_m4(region_, old_pos_cu, old_pos_re, projection.values);
+          ED_view3d_project_float_v2_m4(ctx_.region, old_pos_cu, old_pos_re, projection.values);
 
           const float dist_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
           if (dist_to_brush_sq_re > brush_radius_sq_re) {
@@ -162,7 +182,7 @@ struct PinchOperationExecutor {
           }
 
           const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
-          const float t = safe_divide(dist_to_brush_re, brush_radius_re_);
+          const float t = safe_divide(dist_to_brush_re, brush_radius_base_re_);
           const float radius_falloff = t * BKE_brush_curve_strength(brush_, t, 1.0f);
           const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
 
@@ -170,11 +190,61 @@ struct PinchOperationExecutor {
 
           const float3 old_pos_wo = curves_to_world_mat_ * old_pos_cu;
           float3 new_pos_wo;
-          ED_view3d_win_to_3d(v3d_, region_, old_pos_wo, new_pos_re, new_pos_wo);
+          ED_view3d_win_to_3d(ctx_.v3d, ctx_.region, old_pos_wo, new_pos_re, new_pos_wo);
 
           const float3 new_pos_cu = world_to_curves_mat_ * new_pos_wo;
           positions_cu[point_i] = brush_transform * new_pos_cu;
-          curve_changed = true;
+          r_changed_curves[curve_i] = true;
+        }
+      }
+    });
+  }
+
+  void pinch_spherical_with_symmetry(MutableSpan<bool> r_changed_curves)
+  {
+    float3 brush_pos_wo;
+    ED_view3d_win_to_3d(ctx_.v3d,
+                        ctx_.region,
+                        curves_to_world_mat_ * self_->brush_3d_.position_cu,
+                        brush_pos_re_,
+                        brush_pos_wo);
+    const float3 brush_pos_cu = world_to_curves_mat_ * brush_pos_wo;
+    const float brush_radius_cu = self_->brush_3d_.radius_cu * brush_radius_factor_;
+
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      this->pinch_spherical(brush_transform * brush_pos_cu, brush_radius_cu, r_changed_curves);
+    }
+  }
+
+  void pinch_spherical(const float3 &brush_pos_cu,
+                       const float brush_radius_cu,
+                       MutableSpan<bool> r_changed_curves)
+  {
+    MutableSpan<float3> positions_cu = curves_->positions_for_write();
+    const float brush_radius_sq_cu = pow2f(brush_radius_cu);
+
+    threading::parallel_for(curve_selection_.index_range(), 256, [&](const IndexRange range) {
+      for (const int curve_i : curve_selection_.slice(range)) {
+        const IndexRange points = curves_->points_for_curve(curve_i);
+        for (const int point_i : points.drop_front(1)) {
+          const float3 old_pos_cu = positions_cu[point_i];
+
+          const float dist_to_brush_sq_cu = math::distance_squared(old_pos_cu, brush_pos_cu);
+          if (dist_to_brush_sq_cu > brush_radius_sq_cu) {
+            continue;
+          }
+
+          const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
+          const float t = safe_divide(dist_to_brush_cu, brush_radius_cu);
+          const float radius_falloff = t * BKE_brush_curve_strength(brush_, t, 1.0f);
+          const float weight = 0.1f * radius_falloff * point_factors_[point_i];
+
+          const float3 new_pos_cu = math::interpolate(old_pos_cu, brush_pos_cu, weight);
+          positions_cu[point_i] = new_pos_cu;
+
+          r_changed_curves[curve_i] = true;
         }
       }
     });
@@ -222,7 +292,7 @@ struct PinchOperationExecutor {
 
 void PinchOperation::on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension)
 {
-  PinchOperationExecutor executor;
+  PinchOperationExecutor executor{C};
   executor.execute(*this, C, stroke_extension);
 }
 
