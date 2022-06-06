@@ -267,14 +267,16 @@ struct SlideOperationExecutor {
                                            ray_start_wo,
                                            ray_end_wo,
                                            true);
+          const float3 ray_start_su = world_to_surface_mat_ * ray_start_wo;
+          const float3 ray_end_su = world_to_surface_mat_ * ray_end_wo;
 
-          const float3 ray_direction_wo = math::normalize(ray_end_wo - ray_start_wo);
+          const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
           BVHTreeRayHit hit;
           hit.dist = FLT_MAX;
           hit.index = -1;
           BLI_bvhtree_ray_cast(surface_bvh_.tree,
-                               ray_start_wo,
-                               ray_direction_wo,
+                               ray_start_su,
+                               ray_direction_su,
                                0.0f,
                                &hit,
                                surface_bvh_.raycast_callback,
