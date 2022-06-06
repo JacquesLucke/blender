@@ -148,11 +148,9 @@ typedef struct BrushCurvesSculptSettings {
   float minimum_length;
   /** Length of newly added curves when it is not interpolated from other curves. */
   float curve_length;
-  /** Inner radius radius used by the pinch brush. */
-  int clump_radius;
   /** #eBrushCurvesSculptSmoothMode. */
   uint8_t smooth_mode;
-  char _pad[3];
+  char _pad[7];
   float minimum_distance;
 } BrushCurvesSculptSettings;
 

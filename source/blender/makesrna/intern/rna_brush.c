@@ -2016,10 +2016,6 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
       "Curve Length",
       "Length of newly added curves when it is not interpolated from other curves");
 
-  prop = RNA_def_property(srna, "clump_radius", PROP_INT, PROP_PIXEL);
-  RNA_def_property_range(prop, 0.0, MAX_BRUSH_PIXEL_RADIUS * 10);
-  RNA_def_property_ui_text(prop, "Clump Radius", "Width of clumps created with the pinch brush.");
-
   prop = RNA_def_property(srna, "smooth_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, smooth_mode_items);
   RNA_def_property_ui_text(prop, "Smooth Mode", "Method used for smoothing curves");

@@ -83,7 +83,6 @@ struct PinchOperationExecutor {
   const Brush *brush_ = nullptr;
   float brush_radius_re_;
   float brush_strength_;
-  float clump_radius_re_;
 
   float2 brush_pos_re_;
 
@@ -101,7 +100,6 @@ struct PinchOperationExecutor {
     brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
     brush_radius_re_ = BKE_brush_size_get(scene_, brush_);
     brush_strength_ = BKE_brush_alpha_get(scene_, brush_);
-    clump_radius_re_ = brush_->curves_sculpt_settings->clump_radius;
 
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
@@ -158,19 +156,15 @@ struct PinchOperationExecutor {
           float2 old_pos_re;
           ED_view3d_project_float_v2_m4(region_, old_pos_cu, old_pos_re, projection.values);
 
-          const float distance_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
-          if (distance_to_brush_sq_re > brush_radius_sq_re) {
+          const float dist_to_brush_sq_re = math::distance_squared(old_pos_re, brush_pos_re_);
+          if (dist_to_brush_sq_re > brush_radius_sq_re) {
             continue;
           }
 
-          const float distance_to_brush_re = std::sqrt(distance_to_brush_sq_re);
-          const float t = std::max(0.0f,
-                                   safe_divide(distance_to_brush_re - clump_radius_re_,
-                                               brush_radius_re_ - clump_radius_re_));
+          const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
+          const float t = safe_divide(dist_to_brush_re, brush_radius_re_);
           const float radius_falloff = t * BKE_brush_curve_strength(brush_, t, 1.0f);
-          const float tip_falloff = (point_i - points.first()) / (float)points.size();
-          const float weight = brush_strength_ * radius_falloff * tip_falloff *
-                               point_factors_[point_i];
+          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
 
           float3 pinch_center_wo;
           const float3 old_pos_wo = curves_to_world_mat_ * old_pos_cu;
