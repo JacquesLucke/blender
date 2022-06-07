@@ -11,6 +11,8 @@
 
 namespace blender::geometry {
 
+class ReverseUVSamplerGrid;
+
 /**
  * Can find the polygon/triangle that maps to a specific uv coordinate.
  *
@@ -20,6 +22,7 @@ class ReverseUVSampler {
  private:
   const Span<float2> uv_map_;
   const Span<MLoopTri> looptris_;
+  std::unique_ptr<ReverseUVSamplerGrid> grid_;
 
  public:
   ReverseUVSampler(const Span<float2> uv_map, const Span<MLoopTri> looptris);
