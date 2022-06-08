@@ -585,6 +585,8 @@ class MeshComponent : public GeometryComponent {
   blender::GVArray attribute_try_adapt_domain_impl(const blender::GVArray &varray,
                                                    eAttrDomain from_domain,
                                                    eAttrDomain to_domain) const final;
+
+  std::optional<blender::bke::AttributeAccessor> attributes_accessor() const final;
 };
 
 /**

@@ -1294,11 +1294,34 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
 
 }  // namespace blender::bke
 
+template<blender::bke::ComponentAttributeProviders &providers>
+static bool check_if_attribute_exists(const void *owner,
+                                      const blender::bke::AttributeIDRef &attribute_id)
+{
+  return true;
+}
+
 const blender::bke::ComponentAttributeProviders *MeshComponent::get_attribute_providers() const
 {
   static blender::bke::ComponentAttributeProviders providers =
       blender::bke::create_attribute_providers_for_mesh();
   return &providers;
+}
+
+static blender::bke::AttributeAccessor get_mesh_attributes(const Mesh &mesh)
+{
+  static blender::bke::ComponentAttributeProviders lalalal =
+      blender::bke::create_attribute_providers_for_mesh();
+  static blender::bke::AttributeAccessorFunctions fn{check_if_attribute_exists<lalalal>};
+  return blender::bke::AttributeAccessor(&mesh, fn);
+}
+
+std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes_accessor() const
+{
+  if (mesh_ == nullptr) {
+    return std::nullopt;
+  }
+  return get_mesh_attributes(*mesh_);
 }
 
 /** \} */
