@@ -101,6 +101,24 @@ class MutableAttributeAccessor : public AttributeAccessor {
     return fn_->try_get_for_write(owner_, attribute_id);
   }
 
+  template<typename T>
+  OutputAttribute_Typed<T> try_get_for_output(const AttributeIDRef &attribute_id,
+                                              const eAttrDomain domain,
+                                              T default_value)
+  {
+    /* TODO */
+    UNUSED_VARS(attribute_id, domain, default_value);
+    return {};
+  }
+
+  OutputAttribute try_get_for_init(const AttributeIDRef &attribute_id,
+                                   const eAttrDomain domain,
+                                   const eCustomDataType type)
+  {
+    UNUSED_VARS(attribute_id, domain, type);
+    return {};
+  }
+
   bool try_delete(const AttributeIDRef &attribute_id)
   {
     return fn_->try_delete(owner_, attribute_id);

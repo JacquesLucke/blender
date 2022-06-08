@@ -290,18 +290,20 @@ BLI_NOINLINE static void propagate_existing_attributes(
     const Span<int> looptri_indices)
 {
   const Mesh &mesh = *mesh_component.get_for_read();
+  const AttributeAccessor mesh_attributes = *mesh_component.attributes_accessor();
+  MutableAttributeAccessor point_attributes = *point_component.attributes_accessor();
 
   for (Map<AttributeIDRef, AttributeKind>::Item entry : attributes.items()) {
     const AttributeIDRef attribute_id = entry.key;
     const eCustomDataType output_data_type = entry.value.data_type;
 
-    ReadAttributeLookup source_attribute = mesh_component.attribute_try_get_for_read(attribute_id);
+    ReadAttributeLookup source_attribute = mesh_attributes.try_get(attribute_id);
     if (!source_attribute) {
       continue;
     }
 
     /* The output domain is always #ATTR_DOMAIN_POINT, since we are creating a point cloud. */
-    OutputAttribute attribute_out = point_component.attribute_try_get_for_output_only(
+    OutputAttribute attribute_out = point_attributes.try_get_for_init(
         attribute_id, ATTR_DOMAIN_POINT, output_data_type);
     if (!attribute_out) {
       continue;

@@ -579,14 +579,14 @@ class MeshComponent : public GeometryComponent {
 
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_MESH;
 
+  std::optional<blender::bke::AttributeAccessor> attributes_accessor() const final;
+
  private:
   const blender::bke::ComponentAttributeProviders *get_attribute_providers() const final;
 
   blender::GVArray attribute_try_adapt_domain_impl(const blender::GVArray &varray,
                                                    eAttrDomain from_domain,
                                                    eAttrDomain to_domain) const final;
-
-  std::optional<blender::bke::AttributeAccessor> attributes_accessor() const final;
 };
 
 /**

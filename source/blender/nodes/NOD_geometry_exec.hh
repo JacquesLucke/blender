@@ -23,10 +23,12 @@ struct ModifierData;
 namespace blender::nodes {
 
 using bke::AnonymousAttributeFieldInput;
+using bke::AttributeAccessor;
 using bke::AttributeFieldInput;
 using bke::AttributeIDRef;
 using bke::GeometryComponentFieldContext;
 using bke::GeometryFieldInput;
+using bke::MutableAttributeAccessor;
 using bke::OutputAttribute;
 using bke::OutputAttribute_Typed;
 using bke::ReadAttributeLookup;

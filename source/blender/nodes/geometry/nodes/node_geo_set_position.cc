@@ -28,8 +28,8 @@ static void set_computed_position_and_offset(GeometryComponent &component,
                                              const eAttrDomain domain,
                                              const IndexMask selection)
 {
-
-  OutputAttribute_Typed<float3> positions = component.attribute_try_get_for_output<float3>(
+  MutableAttributeAccessor attributes = *component.attributes_accessor();
+  OutputAttribute_Typed<float3> positions = attributes.try_get_for_output<float3>(
       "position", domain, {0, 0, 0});
 
   const int grain_size = 10000;
@@ -67,14 +67,11 @@ static void set_computed_position_and_offset(GeometryComponent &component,
       CurveComponent &curve_component = static_cast<CurveComponent &>(component);
       Curves &curves_id = *curve_component.get_for_write();
       bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
-      if (component.attribute_exists("handle_right") &&
-          component.attribute_exists("handle_left")) {
+      if (attributes.exists("handle_right") && attributes.exists("handle_left")) {
         OutputAttribute_Typed<float3> handle_right_attribute =
-            component.attribute_try_get_for_output<float3>(
-                "handle_right", ATTR_DOMAIN_POINT, {0, 0, 0});
+            attributes.try_get_for_output<float3>("handle_right", ATTR_DOMAIN_POINT, {0, 0, 0});
         OutputAttribute_Typed<float3> handle_left_attribute =
-            component.attribute_try_get_for_output<float3>(
-                "handle_left", ATTR_DOMAIN_POINT, {0, 0, 0});
+            attributes.try_get_for_output<float3>("handle_left", ATTR_DOMAIN_POINT, {0, 0, 0});
         MutableSpan<float3> handle_right = handle_right_attribute.as_span();
         MutableSpan<float3> handle_left = handle_left_attribute.as_span();
 
