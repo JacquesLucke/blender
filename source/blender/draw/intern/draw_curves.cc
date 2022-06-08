@@ -328,6 +328,8 @@ DRWShadingGroup *DRW_shgroup_curves_create_sub(Object *object,
   float hair_rad_tip = 0.0f;
   bool hair_close_tip = true;
 
+  /* Use the radius of the root and tip of the first curve for now. This is a workaround that we
+   * use for now because we can't use a per-point radius yet. */
   Curves &curves_id = *static_cast<Curves *>(object->data);
   const blender::bke::CurvesGeometry &curves = blender::bke::CurvesGeometry::wrap(
       curves_id.geometry);
