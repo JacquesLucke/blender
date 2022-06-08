@@ -96,11 +96,6 @@ class MutableAttributeAccessor : public AttributeAccessor {
   {
   }
 
-  operator AttributeAccessor() const
-  {
-    return AttributeAccessor{owner_, *fn_};
-  }
-
   WriteAttributeLookup try_get_for_write(const AttributeIDRef &attribute_id)
   {
     return fn_->try_get_for_write(owner_, attribute_id);

@@ -20,6 +20,7 @@
 
 #include "BKE_anonymous_attribute.hh"
 #include "BKE_attribute_access.hh"
+#include "BKE_attribute_api.hh"
 #include "BKE_geometry_set.h"
 
 struct Curves;
@@ -62,6 +63,15 @@ class GeometryComponent {
   GeometryComponent(GeometryComponentType type);
   virtual ~GeometryComponent() = default;
   static GeometryComponent *create(GeometryComponentType component_type);
+
+  virtual std::optional<blender::bke::AttributeAccessor> attributes_accessor() const
+  {
+    return std::nullopt;
+  };
+  virtual std::optional<blender::bke::MutableAttributeAccessor> attributes_accessor()
+  {
+    return std::nullopt;
+  }
 
   /* The returned component should be of the same type as the type this is called on. */
   virtual GeometryComponent *copy() const = 0;
