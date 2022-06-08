@@ -239,7 +239,7 @@ struct PinchOperationExecutor {
           const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
           const float t = safe_divide(dist_to_brush_cu, brush_radius_cu);
           const float radius_falloff = t * BKE_brush_curve_strength(brush_, t, 1.0f);
-          const float weight = 0.1f * radius_falloff * point_factors_[point_i];
+          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
 
           const float3 new_pos_cu = math::interpolate(old_pos_cu, brush_pos_cu, weight);
           positions_cu[point_i] = new_pos_cu;
