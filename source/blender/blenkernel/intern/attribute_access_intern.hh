@@ -17,13 +17,13 @@ namespace blender::bke {
 struct CustomDataAccessInfo {
   using CustomDataGetter = CustomData *(*)(void *owner);
   using ConstCustomDataGetter = const CustomData *(*)(const void *owner);
-  using UpdateCustomDataPointers = void (*)(void *owner);
   using GetElementNum = int (*)(const void *owner);
+  using UpdateCustomDataPointers = void (*)(void *owner);
 
   CustomDataGetter get_custom_data;
   ConstCustomDataGetter get_const_custom_data;
-  UpdateCustomDataPointers update_custom_data_pointers;
   GetElementNum get_element_num;
+  UpdateCustomDataPointers update_custom_data_pointers;
 };
 
 /**
@@ -110,6 +110,7 @@ class DynamicAttributesProvider {
                           const eCustomDataType data_type,
                           const AttributeInit &initializer) const
   {
+    UNUSED_VARS(owner, attribute_id, domain, data_type, initializer);
     /* Some providers should not create new attributes. */
     return false;
   };

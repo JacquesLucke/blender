@@ -123,23 +123,22 @@ namespace blender::bke {
  */
 static ComponentAttributeProviders create_attribute_providers_for_point_cloud()
 {
-  static auto update_custom_data_pointers = [](GeometryComponent &component) {
-    PointCloudComponent &pointcloud_component = static_cast<PointCloudComponent &>(component);
-    if (PointCloud *pointcloud = pointcloud_component.get_for_write()) {
-      BKE_pointcloud_update_customdata_pointers(pointcloud);
-    }
+  static auto update_custom_data_pointers = [](void *owner) {
+    PointCloud *pointcloud = static_cast<PointCloud *>(owner);
+    BKE_pointcloud_update_customdata_pointers(pointcloud);
   };
   static CustomDataAccessInfo point_access = {
-      [](GeometryComponent &component) -> CustomData * {
-        PointCloudComponent &pointcloud_component = static_cast<PointCloudComponent &>(component);
-        PointCloud *pointcloud = pointcloud_component.get_for_write();
-        return pointcloud ? &pointcloud->pdata : nullptr;
+      [](void *owner) -> CustomData * {
+        PointCloud *pointcloud = static_cast<PointCloud *>(owner);
+        return &pointcloud->pdata;
       },
-      [](const GeometryComponent &component) -> const CustomData * {
-        const PointCloudComponent &pointcloud_component = static_cast<const PointCloudComponent &>(
-            component);
-        const PointCloud *pointcloud = pointcloud_component.get_for_read();
-        return pointcloud ? &pointcloud->pdata : nullptr;
+      [](const void *owner) -> const CustomData * {
+        const PointCloud *pointcloud = static_cast<const PointCloud *>(owner);
+        return &pointcloud->pdata;
+      },
+      [](const void *owner) -> int {
+        const PointCloud *pointcloud = static_cast<const PointCloud *>(owner);
+        return pointcloud->totpoint;
       },
       update_custom_data_pointers};
 

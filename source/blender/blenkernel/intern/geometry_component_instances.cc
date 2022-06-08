@@ -404,17 +404,17 @@ class InstancePositionAttributeProvider final : public BuiltinAttributeProvider 
   {
   }
 
-  GVArray try_get_for_read(const GeometryComponent &component) const final
+  GVArray try_get_for_read(const void *owner) const final
   {
-    const InstancesComponent &instances_component = static_cast<const InstancesComponent &>(
-        component);
+    const InstancesComponent &instances_component = *static_cast<const InstancesComponent *>(
+        owner);
     Span<float4x4> transforms = instances_component.instance_transforms();
     return VArray<float3>::ForDerivedSpan<float4x4, get_transform_position>(transforms);
   }
 
-  WriteAttributeLookup try_get_for_write(GeometryComponent &component) const final
+  WriteAttributeLookup try_get_for_write(void *owner) const final
   {
-    InstancesComponent &instances_component = static_cast<InstancesComponent &>(component);
+    InstancesComponent &instances_component = *static_cast<InstancesComponent *>(owner);
     MutableSpan<float4x4> transforms = instances_component.instance_transforms();
     return {VMutableArray<float3>::ForDerivedSpan<float4x4,
                                                   get_transform_position,
@@ -422,18 +422,17 @@ class InstancePositionAttributeProvider final : public BuiltinAttributeProvider 
             domain_};
   }
 
-  bool try_delete(GeometryComponent &UNUSED(component)) const final
+  bool try_delete(void *UNUSED(owner)) const final
   {
     return false;
   }
 
-  bool try_create(GeometryComponent &UNUSED(component),
-                  const AttributeInit &UNUSED(initializer)) const final
+  bool try_create(void *UNUSED(owner), const AttributeInit &UNUSED(initializer)) const final
   {
     return false;
   }
 
-  bool exists(const GeometryComponent &UNUSED(component)) const final
+  bool exists(const void *UNUSED(owner)) const final
   {
     return true;
   }
@@ -443,13 +442,17 @@ static ComponentAttributeProviders create_attribute_providers_for_instances()
 {
   static InstancePositionAttributeProvider position;
   static CustomDataAccessInfo instance_custom_data_access = {
-      [](GeometryComponent &component) -> CustomData * {
-        InstancesComponent &inst = static_cast<InstancesComponent &>(component);
+      [](void *owner) -> CustomData * {
+        InstancesComponent &inst = *static_cast<InstancesComponent *>(owner);
         return &inst.attributes().data;
       },
-      [](const GeometryComponent &component) -> const CustomData * {
-        const InstancesComponent &inst = static_cast<const InstancesComponent &>(component);
+      [](const void *owner) -> const CustomData * {
+        const InstancesComponent &inst = *static_cast<const InstancesComponent *>(owner);
         return &inst.attributes().data;
+      },
+      [](const void *owner) -> int {
+        const InstancesComponent &inst = *static_cast<const InstancesComponent *>(owner);
+        return inst.instances_num();
       },
       nullptr};
 

@@ -331,51 +331,29 @@ GVArray CurveComponent::attribute_try_adapt_domain_impl(const GVArray &varray,
       .adapt_domain(varray, from_domain, to_domain);
 }
 
-static Curves *get_curves_from_component_for_write(GeometryComponent &component)
+static void tag_component_topology_changed(void *owner)
 {
-  BLI_assert(component.type() == GEO_COMPONENT_TYPE_CURVE);
-  CurveComponent &curve_component = static_cast<CurveComponent &>(component);
-  return curve_component.get_for_write();
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.tag_topology_changed();
 }
 
-static const Curves *get_curves_from_component_for_read(const GeometryComponent &component)
+static void tag_component_curve_types_changed(void *owner)
 {
-  BLI_assert(component.type() == GEO_COMPONENT_TYPE_CURVE);
-  const CurveComponent &curve_component = static_cast<const CurveComponent &>(component);
-  return curve_component.get_for_read();
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.update_curve_types();
+  curves.tag_topology_changed();
 }
 
-static void tag_component_topology_changed(GeometryComponent &component)
+static void tag_component_positions_changed(void *owner)
 {
-  Curves *curves = get_curves_from_component_for_write(component);
-  if (curves) {
-    blender::bke::CurvesGeometry::wrap(curves->geometry).tag_topology_changed();
-  }
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.tag_positions_changed();
 }
 
-static void tag_component_curve_types_changed(GeometryComponent &component)
+static void tag_component_normals_changed(void *owner)
 {
-  Curves *curves = get_curves_from_component_for_write(component);
-  if (curves) {
-    blender::bke::CurvesGeometry::wrap(curves->geometry).update_curve_types();
-    blender::bke::CurvesGeometry::wrap(curves->geometry).tag_topology_changed();
-  }
-}
-
-static void tag_component_positions_changed(GeometryComponent &component)
-{
-  Curves *curves = get_curves_from_component_for_write(component);
-  if (curves) {
-    blender::bke::CurvesGeometry::wrap(curves->geometry).tag_positions_changed();
-  }
-}
-
-static void tag_component_normals_changed(GeometryComponent &component)
-{
-  Curves *curves = get_curves_from_component_for_write(component);
-  if (curves) {
-    blender::bke::CurvesGeometry::wrap(curves->geometry).tag_normals_changed();
-  }
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.tag_normals_changed();
 }
 
 /** \} */
@@ -393,34 +371,38 @@ namespace blender::bke {
 static ComponentAttributeProviders create_attribute_providers_for_curve()
 {
   static CustomDataAccessInfo curve_access = {
-      [](GeometryComponent &component) -> CustomData * {
-        Curves *curves = get_curves_from_component_for_write(component);
-        return curves ? &curves->geometry.curve_data : nullptr;
+      [](void *owner) -> CustomData * {
+        CurvesGeometry &curves = *static_cast<CurvesGeometry *>(owner);
+        return &curves.curve_data;
       },
-      [](const GeometryComponent &component) -> const CustomData * {
-        const Curves *curves = get_curves_from_component_for_read(component);
-        return curves ? &curves->geometry.curve_data : nullptr;
+      [](const void *owner) -> const CustomData * {
+        const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+        return &curves.curve_data;
       },
-      [](GeometryComponent &component) {
-        Curves *curves = get_curves_from_component_for_write(component);
-        if (curves) {
-          blender::bke::CurvesGeometry::wrap(curves->geometry).update_customdata_pointers();
-        }
+      [](const void *owner) -> int {
+        const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+        return curves.curves_num();
+      },
+      [](void *owner) {
+        CurvesGeometry &curves = *static_cast<CurvesGeometry *>(owner);
+        curves.update_customdata_pointers();
       }};
   static CustomDataAccessInfo point_access = {
-      [](GeometryComponent &component) -> CustomData * {
-        Curves *curves = get_curves_from_component_for_write(component);
-        return curves ? &curves->geometry.point_data : nullptr;
+      [](void *owner) -> CustomData * {
+        CurvesGeometry &curves = *static_cast<CurvesGeometry *>(owner);
+        return &curves.point_data;
       },
-      [](const GeometryComponent &component) -> const CustomData * {
-        const Curves *curves = get_curves_from_component_for_read(component);
-        return curves ? &curves->geometry.point_data : nullptr;
+      [](const void *owner) -> const CustomData * {
+        const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+        return &curves.point_data;
       },
-      [](GeometryComponent &component) {
-        Curves *curves = get_curves_from_component_for_write(component);
-        if (curves) {
-          blender::bke::CurvesGeometry::wrap(curves->geometry).update_customdata_pointers();
-        }
+      [](const void *owner) -> int {
+        const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+        return curves.points_num();
+      },
+      [](void *owner) {
+        CurvesGeometry &curves = *static_cast<CurvesGeometry *>(owner);
+        curves.update_customdata_pointers();
       }};
 
   static BuiltinCustomDataLayerProvider position("position",

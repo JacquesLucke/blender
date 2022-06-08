@@ -840,6 +840,7 @@ bool GeometryComponent::attribute_is_builtin(const blender::StringRef attribute_
 
 bool GeometryComponent::attribute_is_builtin(const AttributeIDRef &attribute_id) const
 {
+  UNUSED_VARS(attribute_id);
   return false;
 }
 

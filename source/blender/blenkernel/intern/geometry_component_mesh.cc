@@ -821,20 +821,6 @@ blender::GVArray MeshComponent::attribute_try_adapt_domain_impl(const blender::G
   return {};
 }
 
-static Mesh *get_mesh_from_component_for_write(GeometryComponent &component)
-{
-  BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
-  MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
-  return mesh_component.get_for_write();
-}
-
-static const Mesh *get_mesh_from_component_for_read(const GeometryComponent &component)
-{
-  BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
-  const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-  return mesh_component.get_for_read();
-}
-
 namespace blender::bke {
 
 template<typename StructT, typename ElemT, ElemT (*GetFunc)(const StructT &)>
@@ -864,12 +850,10 @@ static void set_vertex_position(MVert &vert, float3 position)
   copy_v3_v3(vert.co, position);
 }
 
-static void tag_normals_dirty_when_writing_position(GeometryComponent &component)
+static void tag_normals_dirty_when_writing_position(void *owner)
 {
-  Mesh *mesh = get_mesh_from_component_for_write(component);
-  if (mesh != nullptr) {
-    BKE_mesh_normals_tag_dirty(mesh);
-  }
+  Mesh *mesh = static_cast<Mesh *>(owner);
+  BKE_mesh_normals_tag_dirty(mesh);
 }
 
 static int get_material_index(const MPoly &mpoly)
@@ -1001,15 +985,13 @@ class VArrayImpl_For_VertexWeights final : public VMutableArrayImpl<float> {
  */
 class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
  public:
-  ReadAttributeLookup try_get_for_read(const GeometryComponent &component,
+  ReadAttributeLookup try_get_for_read(const void *owner,
                                        const AttributeIDRef &attribute_id) const final
   {
-    BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
     if (!attribute_id.is_named()) {
       return {};
     }
-    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-    const Mesh *mesh = mesh_component.get_for_read();
+    const Mesh *mesh = static_cast<const Mesh *>(owner);
     if (mesh == nullptr) {
       return {};
     }
@@ -1028,15 +1010,13 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
             ATTR_DOMAIN_POINT};
   }
 
-  WriteAttributeLookup try_get_for_write(GeometryComponent &component,
+  WriteAttributeLookup try_get_for_write(void *owner,
                                          const AttributeIDRef &attribute_id) const final
   {
-    BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
     if (!attribute_id.is_named()) {
       return {};
     }
-    MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
-    Mesh *mesh = mesh_component.get_for_write();
+    Mesh *mesh = static_cast<Mesh *>(owner);
     if (mesh == nullptr) {
       return {};
     }
@@ -1060,14 +1040,12 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
             ATTR_DOMAIN_POINT};
   }
 
-  bool try_delete(GeometryComponent &component, const AttributeIDRef &attribute_id) const final
+  bool try_delete(void *owner, const AttributeIDRef &attribute_id) const final
   {
-    BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
     if (!attribute_id.is_named()) {
       return false;
     }
-    MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
-    Mesh *mesh = mesh_component.get_for_write();
+    Mesh *mesh = static_cast<Mesh *>(owner);
     if (mesh == nullptr) {
       return true;
     }
@@ -1096,12 +1074,9 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
     return true;
   }
 
-  bool foreach_attribute(const GeometryComponent &component,
-                         const AttributeForeachCallback callback) const final
+  bool foreach_attribute(const void *owner, const AttributeForeachCallback callback) const final
   {
-    BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
-    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-    const Mesh *mesh = mesh_component.get_for_read();
+    const Mesh *mesh = static_cast<const Mesh *>(owner);
     if (mesh == nullptr) {
       return true;
     }
@@ -1131,35 +1106,34 @@ class NormalAttributeProvider final : public BuiltinAttributeProvider {
   {
   }
 
-  GVArray try_get_for_read(const GeometryComponent &component) const final
+  GVArray try_get_for_read(const void *owner) const final
   {
-    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-    const Mesh *mesh = mesh_component.get_for_read();
+    const Mesh *mesh = static_cast<const Mesh *>(owner);
     if (mesh == nullptr || mesh->totpoly == 0) {
       return {};
     }
     return VArray<float3>::ForSpan({(float3 *)BKE_mesh_poly_normals_ensure(mesh), mesh->totpoly});
   }
 
-  WriteAttributeLookup try_get_for_write(GeometryComponent &UNUSED(component)) const final
+  WriteAttributeLookup try_get_for_write(void *UNUSED(owner)) const final
   {
     return {};
   }
 
-  bool try_delete(GeometryComponent &UNUSED(component)) const final
+  bool try_delete(void *UNUSED(owner)) const final
   {
     return false;
   }
 
-  bool try_create(GeometryComponent &UNUSED(component),
-                  const AttributeInit &UNUSED(initializer)) const final
+  bool try_create(void *UNUSED(owner), const AttributeInit &UNUSED(initializer)) const final
   {
     return false;
   }
 
-  bool exists(const GeometryComponent &component) const final
+  bool exists(const void *owner) const final
   {
-    return component.attribute_domain_num(ATTR_DOMAIN_FACE) != 0;
+    const Mesh *mesh = static_cast<const Mesh *>(owner);
+    return mesh->totpoly != 0;
   }
 };
 
@@ -1169,34 +1143,42 @@ class NormalAttributeProvider final : public BuiltinAttributeProvider {
  */
 static ComponentAttributeProviders create_attribute_providers_for_mesh()
 {
-  static auto update_custom_data_pointers = [](GeometryComponent &component) {
-    if (Mesh *mesh = get_mesh_from_component_for_write(component)) {
-      BKE_mesh_update_customdata_pointers(mesh, false);
-    }
+  static auto update_custom_data_pointers = [](void *owner) {
+    Mesh *mesh = static_cast<Mesh *>(owner);
+    BKE_mesh_update_customdata_pointers(mesh, false);
   };
 
 #define MAKE_MUTABLE_CUSTOM_DATA_GETTER(NAME) \
-  [](GeometryComponent &component) -> CustomData * { \
-    Mesh *mesh = get_mesh_from_component_for_write(component); \
-    return mesh ? &mesh->NAME : nullptr; \
+  [](void *owner) -> CustomData * { \
+    Mesh *mesh = static_cast<Mesh *>(owner); \
+    return &mesh->NAME; \
   }
 #define MAKE_CONST_CUSTOM_DATA_GETTER(NAME) \
-  [](const GeometryComponent &component) -> const CustomData * { \
-    const Mesh *mesh = get_mesh_from_component_for_read(component); \
-    return mesh ? &mesh->NAME : nullptr; \
+  [](const void *owner) -> const CustomData * { \
+    const Mesh *mesh = static_cast<const Mesh *>(owner); \
+    return &mesh->NAME; \
+  }
+#define MAKE_GET_ELEMENT_NUM_GETTER(NAME) \
+  [](const void *owner) -> int { \
+    const Mesh *mesh = static_cast<const Mesh *>(owner); \
+    return mesh->NAME; \
   }
 
   static CustomDataAccessInfo corner_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(ldata),
                                                MAKE_CONST_CUSTOM_DATA_GETTER(ldata),
+                                               MAKE_GET_ELEMENT_NUM_GETTER(totloop),
                                                update_custom_data_pointers};
   static CustomDataAccessInfo point_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(vdata),
                                               MAKE_CONST_CUSTOM_DATA_GETTER(vdata),
+                                              MAKE_GET_ELEMENT_NUM_GETTER(totvert),
                                               update_custom_data_pointers};
   static CustomDataAccessInfo edge_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(edata),
                                              MAKE_CONST_CUSTOM_DATA_GETTER(edata),
+                                             MAKE_GET_ELEMENT_NUM_GETTER(totedge),
                                              update_custom_data_pointers};
   static CustomDataAccessInfo face_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(pdata),
                                              MAKE_CONST_CUSTOM_DATA_GETTER(pdata),
+                                             MAKE_GET_ELEMENT_NUM_GETTER(totpoly),
                                              update_custom_data_pointers};
 
 #undef MAKE_CONST_CUSTOM_DATA_GETTER
@@ -1295,8 +1277,8 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
 }  // namespace blender::bke
 
 template<blender::bke::ComponentAttributeProviders &providers>
-static bool check_if_attribute_exists(const void *owner,
-                                      const blender::bke::AttributeIDRef &attribute_id)
+static bool check_if_attribute_exists(const void *UNUSED(owner),
+                                      const blender::bke::AttributeIDRef &UNUSED(attribute_id))
 {
   return true;
 }
