@@ -59,8 +59,8 @@ class GenericValueLog : public ValueLog {
 struct GeometryAttributeInfo {
   std::string name;
   /** Can be empty when #name does not actually exist on a geometry yet. */
-  std::optional<AttributeDomain> domain;
-  std::optional<CustomDataType> data_type;
+  std::optional<eAttrDomain> domain;
+  std::optional<eCustomDataType> data_type;
 };
 
 class GeoNodesTreeEvalLog {
