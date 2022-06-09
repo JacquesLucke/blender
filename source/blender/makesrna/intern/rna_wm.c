@@ -24,6 +24,7 @@
 
 #include "rna_internal.h"
 
+#include "WM_api.h"
 #include "WM_types.h"
 
 #ifdef RNA_RUNTIME
@@ -122,6 +123,23 @@ static const EnumPropertyItem event_ndof_type_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 #endif /* RNA_RUNTIME */
+
+/**
+ * Job types for use in the `bpy.app.is_job_running(job_type)` call.
+ *
+ * This is a subset of the `WM_JOB_TYPE_...` anonymous enum defined in `WM_api.h`. It is
+ * intentionally kept as a subset, such that by default how jobs are handled is kept as an
+ * "internal implementation detail" of Blender, rather than a public, reliable part of the API.
+ *
+ * This array can be expanded on a case-by-case basis, when there is a clear and testable use case.
+ */
+const EnumPropertyItem rna_enum_wm_job_type_items[] = {
+    {WM_JOB_TYPE_RENDER, "RENDER", 0, "Regular rendering", ""},
+    {WM_JOB_TYPE_RENDER_PREVIEW, "RENDER_PREVIEW", 0, "Rendering previews", ""},
+    {WM_JOB_TYPE_OBJECT_BAKE, "OBJECT_BAKE", 0, "Object Baking", ""},
+    {WM_JOB_TYPE_COMPOSITE, "COMPOSITE", 0, "Compositing", ""},
+    {0, NULL, 0, NULL, NULL},
+};
 
 const EnumPropertyItem rna_enum_event_type_items[] = {
     /* - Note we abuse 'tooltip' message here to store a 'compact' form of some (too) long names.
@@ -898,7 +916,7 @@ static void rna_wmKeyMapItem_map_type_set(PointerRNA *ptr, int value)
 
 /**
  * Assumes value to be an enum from rna_enum_event_type_items.
- * Function makes sure keymodifiers are only valid keys, ESC keeps it unaltered.
+ * Function makes sure key-modifiers are only valid keys, ESC keeps it unaltered.
  */
 static void rna_wmKeyMapItem_keymodifier_set(PointerRNA *ptr, int value)
 {

@@ -142,7 +142,7 @@ typedef struct Curves {
    */
   char symmetry;
   /**
-   * #AttributeDomain. The active selection mode domain. At most one selection mode can be active
+   * #eAttrDomain. The active selection mode domain. At most one selection mode can be active
    * at a time.
    */
   char selection_domain;
@@ -156,6 +156,13 @@ typedef struct Curves {
    * This is expected to be a mesh object.
    */
   struct Object *surface;
+
+  /**
+   * The name of the attribute on the surface #Mesh used to give meaning to the UV attachment
+   * coordinates stored on each curve. Expected to be a 2D vector attribute on the face corner
+   * domain.
+   */
+  char *surface_uv_map;
 
   /* Draw Cache. */
   void *batch_cache;

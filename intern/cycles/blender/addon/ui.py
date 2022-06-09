@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2011-2022 Blender Foundation
-
-# <pep8 compliant>
 from __future__ import annotations
 
 import bpy
@@ -755,8 +753,6 @@ class CYCLES_RENDER_PT_filter(CyclesButtonsPanel, Panel):
         layout = self.layout
         layout.use_property_split = True
         layout.use_property_decorate = False
-
-        with_freestyle = bpy.app.build_options.freestyle
 
         scene = context.scene
         rd = scene.render

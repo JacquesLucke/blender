@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 # For documentation on tool definitions: see "bl_ui.space_toolsystem_common.ToolDef"
 # where there are comments for each field and their use.
 
@@ -263,9 +261,15 @@ class _defs_annotate:
 
 class _defs_transform:
 
+    def draw_transform_sculpt_tool_settings(context, layout):
+        if context.mode != 'SCULPT':
+            return
+        layout.prop(context.tool_settings.sculpt, "transform_mode")
+
     @ToolDef.from_fn
     def translate():
         def draw_settings(context, layout, _tool):
+            _defs_transform.draw_transform_sculpt_tool_settings(context, layout)
             _template_widget.VIEW3D_GGT_xform_gizmo.draw_settings_with_index(context, layout, 1)
         return dict(
             idname="builtin.move",
@@ -281,6 +285,7 @@ class _defs_transform:
     @ToolDef.from_fn
     def rotate():
         def draw_settings(context, layout, _tool):
+            _defs_transform.draw_transform_sculpt_tool_settings(context, layout)
             _template_widget.VIEW3D_GGT_xform_gizmo.draw_settings_with_index(context, layout, 2)
         return dict(
             idname="builtin.rotate",
@@ -296,6 +301,7 @@ class _defs_transform:
     @ToolDef.from_fn
     def scale():
         def draw_settings(context, layout, _tool):
+            _defs_transform.draw_transform_sculpt_tool_settings(context, layout)
             _template_widget.VIEW3D_GGT_xform_gizmo.draw_settings_with_index(context, layout, 3)
         return dict(
             idname="builtin.scale",
@@ -351,6 +357,7 @@ class _defs_transform:
                 props = tool.gizmo_group_properties("VIEW3D_GGT_xform_gizmo")
                 layout.prop(props, "drag_action")
 
+            _defs_transform.draw_transform_sculpt_tool_settings(context, layout)
             _template_widget.VIEW3D_GGT_xform_gizmo.draw_settings_with_index(context, layout, 1)
 
         return dict(

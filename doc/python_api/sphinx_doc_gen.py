@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 """
 API dump in RST files
 ---------------------
@@ -552,7 +550,7 @@ def import_value_from_module(module_name, import_name):
 
 def execfile(filepath):
     global_namespace = {"__file__": filepath, "__name__": "__main__"}
-    with open(filepath) as file_handle:
+    with open(filepath, encoding="utf-8") as file_handle:
         exec(compile(file_handle.read(), filepath, 'exec'), global_namespace)
 
 
@@ -712,26 +710,6 @@ def write_indented_lines(ident, fn, text, strip=True):
         # Add <indent> number of blanks to the current indentation.
         for l in lines:
             fn(ident + l + "\n")
-
-
-def pymethod2sphinx(ident, fw, identifier, py_func):
-    """
-    class method to sphinx
-    """
-    arg_str = inspect.formatargspec(*inspect.getargspec(py_func))
-    if arg_str.startswith("(self, "):
-        arg_str = "(" + arg_str[7:]
-        func_type = "method"
-    elif arg_str.startswith("(cls, "):
-        arg_str = "(" + arg_str[6:]
-        func_type = "classmethod"
-    else:
-        func_type = "staticmethod"
-
-    fw(ident + ".. %s:: %s%s\n\n" % (func_type, identifier, arg_str))
-    if py_func.__doc__:
-        write_indented_lines(ident + "   ", fw, py_func.__doc__)
-        fw("\n")
 
 
 def pyfunc2sphinx(ident, fw, module_name, type_name, identifier, py_func, is_class=True):
@@ -1834,10 +1812,15 @@ def write_sphinx_conf_py(basepath):
     fw("extensions = ['sphinx.ext.intersphinx']\n\n")
     fw("intersphinx_mapping = {'blender_manual': ('https://docs.blender.org/manual/en/dev/', None)}\n\n")
     fw("project = 'Blender %s Python API'\n" % BLENDER_VERSION_STRING)
-    fw("master_doc = 'index'\n")
-    fw("copyright = u'Blender Foundation'\n")
+    fw("root_doc = 'index'\n")
+    fw("copyright = 'Blender Foundation'\n")
     fw("version = '%s'\n" % BLENDER_VERSION_DOTS)
     fw("release = '%s'\n" % BLENDER_VERSION_DOTS)
+
+    # Set this as the default is a super-set of Python3.
+    fw("highlight_language = 'python3'\n")
+    # No need to detect encoding.
+    fw("highlight_options = {'default': {'encoding': 'utf-8'}}\n\n")
 
     # Quiet file not in table-of-contents warnings.
     fw("exclude_patterns = [\n")
@@ -2177,7 +2160,7 @@ def write_rst_enum_items_and_index(basepath):
         fw("\n")
         for key, enum_items in rna_enum_dict.items():
             if not key.startswith("rna_enum_"):
-                raise Exception("Found RNA enum identifier that doesn't use the 'rna_enum_' prefix, found %r!", key)
+                raise Exception("Found RNA enum identifier that doesn't use the 'rna_enum_' prefix, found %r!" % key)
             key_no_prefix = key.removeprefix("rna_enum_")
             fw("   %s\n" % key_no_prefix)
 
@@ -2428,8 +2411,6 @@ def setup_monkey_patch():
 
 # Avoid adding too many changes here.
 def setup_blender():
-    import bpy
-
     # Remove handlers since the functions get included
     # in the doc-string and don't have meaningful names.
     lists_to_restore = []

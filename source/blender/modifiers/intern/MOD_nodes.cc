@@ -923,7 +923,7 @@ struct OutputAttributeInfo {
 
 struct OutputAttributeToStore {
   GeometryComponentType component_type;
-  AttributeDomain domain;
+  eAttrDomain domain;
   StringRefNull name;
   GMutableSpan data;
 };
@@ -932,10 +932,10 @@ struct OutputAttributeToStore {
  * The output attributes are organized based on their domain, because attributes on the same domain
  * can be evaluated together.
  */
-static MultiValueMap<AttributeDomain, OutputAttributeInfo> find_output_attributes_to_store(
+static MultiValueMap<eAttrDomain, OutputAttributeInfo> find_output_attributes_to_store(
     const NodesModifierData &nmd, const NodeRef &output_node, Span<GMutablePointer> output_values)
 {
-  MultiValueMap<AttributeDomain, OutputAttributeInfo> outputs_by_domain;
+  MultiValueMap<eAttrDomain, OutputAttributeInfo> outputs_by_domain;
   for (const InputSocketRef *socket : output_node.inputs().drop_front(1).drop_back(1)) {
     if (!socket_type_has_attribute_toggle(*socket->bsocket())) {
       continue;
@@ -962,7 +962,7 @@ static MultiValueMap<AttributeDomain, OutputAttributeInfo> find_output_attribute
 
     const bNodeSocket *interface_socket = (const bNodeSocket *)BLI_findlink(
         &nmd.node_group->outputs, socket->index());
-    const AttributeDomain domain = (AttributeDomain)interface_socket->attribute_domain;
+    const eAttrDomain domain = (eAttrDomain)interface_socket->attribute_domain;
     OutputAttributeInfo output_info;
     output_info.field = std::move(field);
     output_info.name = attribute_name;
@@ -977,7 +977,7 @@ static MultiValueMap<AttributeDomain, OutputAttributeInfo> find_output_attribute
  */
 static Vector<OutputAttributeToStore> compute_attributes_to_store(
     const GeometrySet &geometry,
-    const MultiValueMap<AttributeDomain, OutputAttributeInfo> &outputs_by_domain)
+    const MultiValueMap<eAttrDomain, OutputAttributeInfo> &outputs_by_domain)
 {
   Vector<OutputAttributeToStore> attributes_to_store;
   for (const GeometryComponentType component_type : {GEO_COMPONENT_TYPE_MESH,
@@ -989,7 +989,7 @@ static Vector<OutputAttributeToStore> compute_attributes_to_store(
     }
     const GeometryComponent &component = *geometry.get_component_for_read(component_type);
     for (const auto item : outputs_by_domain.items()) {
-      const AttributeDomain domain = item.key;
+      const eAttrDomain domain = item.key;
       const Span<OutputAttributeInfo> outputs_info = item.value;
       if (!component.attribute_domain_supported(domain)) {
         continue;
@@ -1018,7 +1018,8 @@ static void store_computed_output_attributes(
 {
   for (const OutputAttributeToStore &store : attributes_to_store) {
     GeometryComponent &component = geometry.get_component_for_write(store.component_type);
-    const CustomDataType data_type = blender::bke::cpp_type_to_custom_data_type(store.data.type());
+    const eCustomDataType data_type = blender::bke::cpp_type_to_custom_data_type(
+        store.data.type());
     const std::optional<AttributeMetaData> meta_data = component.attribute_get_meta_data(
         store.name);
 
@@ -1059,7 +1060,7 @@ static void store_output_attributes(GeometrySet &geometry,
 {
   /* All new attribute values have to be computed before the geometry is actually changed. This is
    * necessary because some fields might depend on attributes that are overwritten. */
-  MultiValueMap<AttributeDomain, OutputAttributeInfo> outputs_by_domain =
+  MultiValueMap<eAttrDomain, OutputAttributeInfo> outputs_by_domain =
       find_output_attributes_to_store(nmd, output_node, output_values);
   Vector<OutputAttributeToStore> attributes_to_store = compute_attributes_to_store(
       geometry, outputs_by_domain);

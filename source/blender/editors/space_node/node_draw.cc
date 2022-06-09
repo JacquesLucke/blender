@@ -67,6 +67,7 @@
 
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_node_declaration.hh"
+#include "NOD_socket_declarations_geometry.hh"
 
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
