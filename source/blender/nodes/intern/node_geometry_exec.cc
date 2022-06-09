@@ -19,7 +19,7 @@ void GeoNodeExecParams::error_message_add(const NodeWarningType type, std::strin
 }
 
 void GeoNodeExecParams::used_named_attribute(std::string attribute_name,
-                                             const eNamedAttrUsage usage)
+                                             const NamedAttributeUsage usage)
 {
   /* TODO */
   UNUSED_VARS(attribute_name, usage);

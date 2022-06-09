@@ -238,7 +238,7 @@ class GeoNodeExecParams {
 
   void set_default_remaining_outputs();
 
-  void used_named_attribute(std::string attribute_name, eNamedAttrUsage usage);
+  void used_named_attribute(std::string attribute_name, NamedAttributeUsage usage);
 
  private:
   /* Utilities for detecting common errors at when using this class. */
