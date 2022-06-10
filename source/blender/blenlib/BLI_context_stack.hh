@@ -54,6 +54,7 @@ class ContextStack {
       hash_ = parent_->hash_;
     }
   }
+  virtual ~ContextStack() = default;
 
   const ContextStackHash &hash() const
   {
