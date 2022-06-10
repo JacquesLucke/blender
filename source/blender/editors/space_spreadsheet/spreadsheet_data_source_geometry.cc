@@ -437,7 +437,7 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
 }
 
 static void find_fields_to_evaluate(const SpaceSpreadsheet *sspreadsheet,
-                                    Map<std::string, GField> &r_fields)
+                                    Map<std::string, GField> &UNUSED(r_fields))
 {
   if (sspreadsheet->object_eval_state != SPREADSHEET_OBJECT_EVAL_STATE_VIEWER_NODE) {
     return;
