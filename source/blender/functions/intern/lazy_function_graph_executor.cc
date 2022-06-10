@@ -4,6 +4,7 @@
 
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_function_ref.hh"
+#include "BLI_stack.hh"
 #include "BLI_task.h"
 #include "BLI_task.hh"
 #include "BLI_timeit.hh"
@@ -154,15 +155,9 @@ struct LockedNode {
 };
 
 struct CurrentTask {
-  /**
-   * The node that should be run on the same thread after the current node is done. This avoids
-   * some overhead by skipping a round trip through the task pool.
-   */
-  std::atomic<const LFFunctionNode *> next_node = nullptr;
-  /**
-   * Indicates that some node has been added to the task pool.
-   */
-  std::atomic<bool> added_node_to_pool = false;
+  std::mutex mutex;
+  Vector<const LFFunctionNode *> scheduled_nodes;
+  bool added_node_to_pool = false;
 };
 
 class GraphExecutorLFParams;
@@ -260,18 +255,15 @@ class Executor {
 
     /* Avoid using task pool when there is no parallel work to do. */
     while (!current_task.added_node_to_pool) {
-      if (current_task.next_node == nullptr) {
+      if (current_task.scheduled_nodes.is_empty()) {
         /* Nothing to do. */
         return;
       }
-      const LFFunctionNode &node = *current_task.next_node;
-      current_task.next_node = nullptr;
+      const LFFunctionNode &node = *current_task.scheduled_nodes.pop_last();
+
       this->run_node_task(node, current_task);
     }
-    if (current_task.next_node != nullptr) {
-      this->add_node_to_task_pool(*current_task.next_node);
-    }
-
+    this->add_locally_scheduled_nodes_to_pool(current_task);
     BLI_task_pool_work_and_wait(task_pool_);
   }
 
@@ -503,18 +495,25 @@ class Executor {
 
   void schedule_new_nodes(const Span<const LFFunctionNode *> nodes, CurrentTask &current_task)
   {
-    for (const LFFunctionNode *node_to_schedule : nodes) {
-      const LFFunctionNode *expected = nullptr;
-      if (current_task.next_node.compare_exchange_strong(
-              expected, node_to_schedule, std::memory_order_relaxed)) {
-        continue;
-      }
-      this->add_node_to_task_pool(*node_to_schedule);
-      current_task.added_node_to_pool.store(true, std::memory_order_relaxed);
+    if (!nodes.is_empty()) {
+      std::lock_guard lock{current_task.mutex};
+      current_task.scheduled_nodes.extend(nodes);
     }
   }
 
-  void add_node_to_task_pool(const LFNode &node)
+  void add_locally_scheduled_nodes_to_pool(CurrentTask &current_task)
+  {
+    if (current_task.scheduled_nodes.is_empty()) {
+      return;
+    }
+    std::lock_guard lock{current_task.mutex};
+    for (const LFFunctionNode *node : current_task.scheduled_nodes) {
+      this->add_node_to_task_pool(*node);
+      current_task.added_node_to_pool = true;
+    }
+  }
+
+  void add_node_to_task_pool(const LFFunctionNode &node)
   {
     BLI_task_pool_push(
         task_pool_, Executor::run_node_from_task_pool, (void *)&node, false, nullptr);
@@ -527,10 +526,9 @@ class Executor {
     const LFFunctionNode &node = *static_cast<const LFFunctionNode *>(task_data);
 
     CurrentTask current_task;
-    current_task.next_node = &node;
-    while (current_task.next_node != nullptr) {
-      const LFFunctionNode &node_to_run = *current_task.next_node;
-      current_task.next_node = nullptr;
+    current_task.scheduled_nodes.append(&node);
+    while (!current_task.scheduled_nodes.is_empty()) {
+      const LFFunctionNode &node_to_run = *current_task.scheduled_nodes.pop_last();
       executor.run_node_task(node_to_run, current_task);
     }
   }
@@ -611,6 +609,7 @@ class Executor {
     });
 
     if (node_needs_execution) {
+      this->add_locally_scheduled_nodes_to_pool(current_task);
       this->execute_node(node, node_state, current_task);
     }
 
