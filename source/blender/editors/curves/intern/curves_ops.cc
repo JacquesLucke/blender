@@ -1203,86 +1203,80 @@ static void SCULPT_CURVES_OT_select_end(wmOperatorType *ot)
 
 namespace select_grow {
 
-static Array<float> grow_point_selection(const float distance,
-                                         const Span<float3> positions,
-                                         const Span<float> old_selection)
+struct GrowOperatorDataPerCurve : NonCopyable, NonMovable {
+  Curves *curves_id;
+  Vector<int> selected_point_indices;
+  Vector<int> unselected_point_indices;
+  Array<float> distances_to_selected;
+  Array<float> distances_to_unselected;
+
+  Array<float> original_selection;
+};
+
+struct GrowOperatorData {
+  int initial_mouse_x;
+  Vector<std::unique_ptr<GrowOperatorDataPerCurve>> per_curve;
+};
+
+static void update_points_selection(GrowOperatorDataPerCurve &data,
+                                    const float distance,
+                                    MutableSpan<float> points_selection)
 {
-  const int points_num = positions.size();
-  BLI_assert(points_num == old_selection.size());
-  Array<bool> point_can_be_skipped(points_num, false);
-
-  const float skip_threshold_distance = distance * 0.3f;
-  const float skip_threshold_distance_sq = pow2f(skip_threshold_distance);
-  const float skip_threshold_selection = 0.1f;
-
-  Array<float> new_selection(points_num, 0.0f);
-
-  KDTree_3d *kdtree = BLI_kdtree_3d_new(points_num);
-  BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
-
-  for (const int point_i : IndexRange(points_num)) {
-    const float3 &pos = positions[point_i];
-    BLI_kdtree_3d_insert(kdtree, point_i, pos);
-  }
-  BLI_kdtree_3d_balance(kdtree);
-
-  for (const int point_i : IndexRange(points_num)) {
-    math::max_inplace(new_selection[point_i], old_selection[point_i]);
-    if (point_can_be_skipped[point_i]) {
-      continue;
-    }
-    if (old_selection[point_i] == 0.0f) {
-      continue;
-    }
-
-    BLI_kdtree_3d_range_search_cb_cpp(
-        kdtree,
-        positions[point_i],
-        distance,
-        [&](const int other_point_i, const float *UNUSED(co), float dist_sq) {
-          if (point_i == other_point_i) {
-            return true;
+  if (distance > 0) {
+    threading::parallel_for(
+        data.unselected_point_indices.index_range(), 256, [&](const IndexRange range) {
+          for (const int i : range) {
+            const int point_i = data.unselected_point_indices[i];
+            const float distance_to_selected = data.distances_to_selected[i];
+            const float selection = distance_to_selected <= distance ? 1.0f : 0.0f;
+            points_selection[point_i] = selection;
           }
-          const bool other_is_similar = (dist_sq < skip_threshold_distance_sq) &&
-                                        math::distance(old_selection[other_point_i],
-                                                       old_selection[point_i]) <
-                                            skip_threshold_selection;
-          if (other_is_similar) {
-            point_can_be_skipped[other_point_i] = true;
+        });
+    threading::parallel_for(
+        data.selected_point_indices.index_range(), 512, [&](const IndexRange range) {
+          for (const int point_i : data.selected_point_indices.as_span().slice(range)) {
+            points_selection[point_i] = 1.0f;
           }
-          math::max_inplace(new_selection[other_point_i], old_selection[point_i]);
-          return true;
         });
   }
-  return new_selection;
+  else {
+    threading::parallel_for(
+        data.selected_point_indices.index_range(), 256, [&](const IndexRange range) {
+          for (const int i : range) {
+            const int point_i = data.selected_point_indices[i];
+            const float distance_to_unselected = data.distances_to_unselected[i];
+            const float selection = distance_to_unselected <= -distance ? 0.0f : 1.0f;
+            points_selection[point_i] = selection;
+          }
+        });
+    threading::parallel_for(
+        data.unselected_point_indices.index_range(), 512, [&](const IndexRange range) {
+          for (const int point_i : data.unselected_point_indices.as_span().slice(range)) {
+            points_selection[point_i] = 0.0f;
+          }
+        });
+  }
 }
 
-static int select_grow_exec(bContext *C, wmOperator *op)
+static int select_grow_update(bContext *C, wmOperator *op)
 {
-  VectorSet<Curves *> unique_curves = get_unique_editable_curves(*C);
+  GrowOperatorData &op_data = *static_cast<GrowOperatorData *>(op->customdata);
   const float distance = RNA_float_get(op->ptr, "distance");
 
-  for (Curves *curves_id : unique_curves) {
-    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
-    const Span<float3> positions = curves.positions();
+  for (std::unique_ptr<GrowOperatorDataPerCurve> &curve_op_data : op_data.per_curve) {
+    Curves &curves_id = *curve_op_data->curves_id;
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
 
-    switch (curves_id->selection_domain) {
+    switch (curves_id.selection_domain) {
       case ATTR_DOMAIN_POINT: {
-        MutableSpan<float> selection = curves.selection_point_float_for_write();
-        Array<float> new_selection = grow_point_selection(distance, positions, selection);
-        selection.copy_from(new_selection);
+        MutableSpan<float> points_selection = curves.selection_point_float_for_write();
+        update_points_selection(*curve_op_data, distance, points_selection);
         break;
       }
       case ATTR_DOMAIN_CURVE: {
+        Array<float> new_points_selection(curves.points_num());
+        update_points_selection(*curve_op_data, distance, new_points_selection);
         MutableSpan<float> curves_selection = curves.selection_curve_float_for_write();
-        Array<float> old_points_selection(curves.points_num());
-        for (const int curve_i : curves.curves_range()) {
-          const IndexRange points = curves.points_for_curve(curve_i);
-          const float selection = curves_selection[curve_i];
-          old_points_selection.as_mutable_span().slice(points).fill(selection);
-        }
-        Array<float> new_points_selection = grow_point_selection(
-            distance, positions, old_points_selection);
         for (const int curve_i : curves.curves_range()) {
           const IndexRange points = curves.points_for_curve(curve_i);
           const Span<float> points_selection = new_points_selection.as_span().slice(points);
@@ -1296,11 +1290,166 @@ static int select_grow_exec(bContext *C, wmOperator *op)
 
     /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
      * attribute for now. */
-    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
-    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+    DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &curves_id);
   }
 
   return OPERATOR_FINISHED;
+}
+
+static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  GrowOperatorData *op_data = MEM_new<GrowOperatorData>(__func__);
+  op->customdata = op_data;
+
+  for (Curves *curves_id : get_unique_editable_curves(*C)) {
+    auto curve_op_data = std::make_unique<GrowOperatorDataPerCurve>();
+    curve_op_data->curves_id = curves_id;
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    const Span<float3> positions = curves.positions();
+
+    switch (curves_id->selection_domain) {
+      case ATTR_DOMAIN_POINT: {
+        const VArray<float> points_selection = curves.selection_point_float();
+        curve_op_data->original_selection.reinitialize(points_selection.size());
+        points_selection.materialize(curve_op_data->original_selection);
+        for (const int point_i : points_selection.index_range()) {
+          const float point_selection = points_selection[point_i];
+          if (point_selection > 0) {
+            curve_op_data->selected_point_indices.append(point_i);
+          }
+          else {
+            curve_op_data->unselected_point_indices.append(point_i);
+          }
+        }
+
+        break;
+      }
+      case ATTR_DOMAIN_CURVE: {
+        const VArray<float> curves_selection = curves.selection_curve_float();
+        curve_op_data->original_selection.reinitialize(curves_selection.size());
+        curves_selection.materialize(curve_op_data->original_selection);
+        for (const int curve_i : curves_selection.index_range()) {
+          const float curve_selection = curves_selection[curve_i];
+          const IndexRange points = curves.points_for_curve(curve_i);
+          if (curve_selection > 0) {
+            for (const int point_i : points) {
+              curve_op_data->selected_point_indices.append(point_i);
+            }
+          }
+          else {
+            for (const int point_i : points) {
+              curve_op_data->unselected_point_indices.append(point_i);
+            }
+          }
+        }
+        break;
+      }
+    }
+
+    threading::parallel_invoke(
+        [&]() {
+          KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data->selected_point_indices.size());
+          BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
+          for (const int point_i : curve_op_data->selected_point_indices) {
+            const float3 &position = positions[point_i];
+            BLI_kdtree_3d_insert(kdtree, point_i, position);
+          }
+          BLI_kdtree_3d_balance(kdtree);
+
+          curve_op_data->distances_to_selected.reinitialize(
+              curve_op_data->unselected_point_indices.size());
+
+          threading::parallel_for(
+              curve_op_data->unselected_point_indices.index_range(),
+              256,
+              [&](const IndexRange range) {
+                for (const int i : range) {
+                  const int point_i = curve_op_data->unselected_point_indices[i];
+                  const float3 &position = positions[point_i];
+                  KDTreeNearest_3d nearest;
+                  BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
+                  curve_op_data->distances_to_selected[i] = nearest.dist;
+                }
+              });
+        },
+        [&]() {
+          KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data->unselected_point_indices.size());
+          BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
+          for (const int point_i : curve_op_data->unselected_point_indices) {
+            const float3 &position = positions[point_i];
+            BLI_kdtree_3d_insert(kdtree, point_i, position);
+          }
+          BLI_kdtree_3d_balance(kdtree);
+
+          curve_op_data->distances_to_unselected.reinitialize(
+              curve_op_data->selected_point_indices.size());
+
+          threading::parallel_for(curve_op_data->selected_point_indices.index_range(),
+                                  256,
+                                  [&](const IndexRange range) {
+                                    for (const int i : range) {
+                                      const int point_i = curve_op_data->selected_point_indices[i];
+                                      const float3 &position = positions[point_i];
+                                      KDTreeNearest_3d nearest;
+                                      BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
+                                      curve_op_data->distances_to_unselected[i] = nearest.dist;
+                                    }
+                                  });
+        });
+
+    op_data->per_curve.append(std::move(curve_op_data));
+  }
+
+  op_data->initial_mouse_x = event->mval[0];
+
+  WM_event_add_modal_handler(C, op);
+  return OPERATOR_RUNNING_MODAL;
+}
+
+static int select_grow_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  GrowOperatorData &op_data = *static_cast<GrowOperatorData *>(op->customdata);
+  const int mouse_x = event->mval[0];
+  const int mouse_diff_x = mouse_x - op_data.initial_mouse_x;
+  RNA_float_set(op->ptr, "distance", mouse_diff_x / 1000.0f);
+  switch (event->type) {
+    case MOUSEMOVE: {
+      select_grow_update(C, op);
+      break;
+    }
+    case LEFTMOUSE: {
+      MEM_delete(&op_data);
+      return OPERATOR_FINISHED;
+    }
+    case EVT_ESCKEY:
+    case RIGHTMOUSE: {
+      for (std::unique_ptr<GrowOperatorDataPerCurve> &curve_op_data : op_data.per_curve) {
+        Curves &curves_id = *curve_op_data->curves_id;
+        CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+        switch (curves_id.selection_domain) {
+          case ATTR_DOMAIN_POINT: {
+            MutableSpan<float> points_selection = curves.selection_point_float_for_write();
+            points_selection.copy_from(curve_op_data->original_selection);
+            break;
+          }
+          case ATTR_DOMAIN_CURVE: {
+            MutableSpan<float> curves_seletion = curves.selection_curve_float_for_write();
+            curves_seletion.copy_from(curve_op_data->original_selection);
+            break;
+          }
+        }
+
+        /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+         * attribute for now. */
+        DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
+        WM_event_add_notifier(C, NC_GEOM | ND_DATA, &curves_id);
+      }
+      MEM_delete(&op_data);
+      return OPERATOR_CANCELLED;
+    }
+  }
+  return OPERATOR_RUNNING_MODAL;
 }
 
 }  // namespace select_grow
@@ -1311,7 +1460,8 @@ static void SCULPT_CURVES_OT_select_grow(wmOperatorType *ot)
   ot->idname = __func__;
   ot->description = "Select curves which are close to curves that are selected already";
 
-  ot->exec = select_grow::select_grow_exec;
+  ot->invoke = select_grow::select_grow_invoke;
+  ot->modal = select_grow::select_grow_modal;
   ot->poll = selection_poll;
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -1320,11 +1470,11 @@ static void SCULPT_CURVES_OT_select_grow(wmOperatorType *ot)
   prop = RNA_def_float(ot->srna,
                        "distance",
                        0.1f,
-                       0.0f,
+                       -FLT_MAX,
                        FLT_MAX,
                        "Distance",
                        "By how much to grow the selection",
-                       0.0f,
+                       -10.0f,
                        10.f);
   RNA_def_property_subtype(prop, PROP_DISTANCE);
 }
