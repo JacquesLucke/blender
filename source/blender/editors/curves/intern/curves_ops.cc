@@ -1309,9 +1309,6 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
     const Span<float3> positions = curves.positions();
 
-    /* TODO: Compute based on distance of closest selected point. */
-    curve_op_data->pixel_to_distance_factor = 0.001f;
-
     switch (curves_id->selection_domain) {
       case ATTR_DOMAIN_POINT: {
         const VArray<float> points_selection = curves.selection_point_float();
@@ -1401,6 +1398,46 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
                                     }
                                   });
         });
+
+    /* TODO */
+    Object *ob = CTX_data_active_object(C);
+
+    ARegion *region = CTX_wm_region(C);
+    View3D *v3d = CTX_wm_view3d(C);
+    float4x4 projection;
+    ED_view3d_ob_project_mat_get(CTX_wm_region_view3d(C), ob, projection.values);
+
+    float4x4 curves_to_world_mat = ob->obmat;
+    float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
+
+    /* TODO: Compute based on distance of closest selected point. */
+    curve_op_data->pixel_to_distance_factor = threading::parallel_reduce(
+        curve_op_data->selected_point_indices.index_range(),
+        256,
+        FLT_MAX,
+        [&](const IndexRange range, float pixel_to_distance_factor) {
+          for (const int i : range) {
+            const int point_i = curve_op_data->selected_point_indices[i];
+            const float3 &pos_cu = positions[point_i];
+            float2 pos_re;
+            ED_view3d_project_float_v2_m4(region, pos_cu, pos_re, projection.values);
+            if (pos_re.x < 0 || pos_re.y < 0 || pos_re.x > region->winx ||
+                pos_re.y > region->winy) {
+              continue;
+            }
+            const float2 pos_offset_re = pos_re + float2(1, 0);
+            float3 pos_offset_wo;
+            ED_view3d_win_to_3d(
+                v3d, region, curves_to_world_mat * pos_cu, pos_offset_re, pos_offset_wo);
+            const float3 pos_offset_cu = world_to_curves_mat * pos_offset_wo;
+            const float dist_cu = math::distance(pos_cu, pos_offset_cu);
+            const float dist_re = math::distance(pos_re, pos_offset_re);
+            const float factor = dist_cu / dist_re;
+            math::min_inplace(pixel_to_distance_factor, factor);
+          }
+          return pixel_to_distance_factor;
+        },
+        [](const float a, const float b) { return std::min(a, b); });
 
     op_data->per_curve.append(std::move(curve_op_data));
   }
