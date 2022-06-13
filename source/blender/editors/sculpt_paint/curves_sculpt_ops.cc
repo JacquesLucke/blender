@@ -127,7 +127,7 @@ static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bConte
     case CURVES_SCULPT_TOOL_SELECTION_PAINT:
       return new_selection_paint_operation(mode, C);
     case CURVES_SCULPT_TOOL_PINCH:
-      return new_pinch_operation();
+      return new_pinch_operation(mode, C);
     case CURVES_SCULPT_TOOL_SMOOTH:
       return new_smooth_operation();
     case CURVES_SCULPT_TOOL_PUFF:

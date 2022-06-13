@@ -52,6 +52,7 @@ namespace blender::ed::sculpt_paint {
 
 class PinchOperation : public CurvesSculptStrokeOperation {
  private:
+  bool invert_pinch_;
   Array<float> segment_lengths_cu_;
 
   /** Only used when a 3D brush is used. */
@@ -60,6 +61,10 @@ class PinchOperation : public CurvesSculptStrokeOperation {
   friend struct PinchOperationExecutor;
 
  public:
+  PinchOperation(const bool invert_pinch) : invert_pinch_(invert_pinch)
+  {
+  }
+
   void on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension) override;
 };
 
@@ -84,6 +89,8 @@ struct PinchOperationExecutor {
   float brush_radius_factor_;
   float brush_strength_;
 
+  float invert_factor_;
+
   float2 brush_pos_re_;
   eBrushFalloffShape falloff_shape_;
 
@@ -101,6 +108,8 @@ struct PinchOperationExecutor {
     brush_radius_base_re_ = BKE_brush_size_get(ctx_.scene, brush_);
     brush_radius_factor_ = brush_radius_factor(*brush_, stroke_extension);
     brush_strength_ = BKE_brush_alpha_get(ctx_.scene, brush_);
+
+    invert_factor_ = self_->invert_pinch_ ? -1.0f : 1.0f;
 
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
@@ -184,7 +193,8 @@ struct PinchOperationExecutor {
           const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
           const float t = safe_divide(dist_to_brush_re, brush_radius_base_re_);
           const float radius_falloff = t * BKE_brush_curve_strength(brush_, t, 1.0f);
-          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
+          const float weight = invert_factor_ * 0.1f * brush_strength_ * radius_falloff *
+                               point_factors_[point_i];
 
           const float2 new_pos_re = math::interpolate(old_pos_re, brush_pos_re_, weight);
 
@@ -239,7 +249,8 @@ struct PinchOperationExecutor {
           const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
           const float t = safe_divide(dist_to_brush_cu, brush_radius_cu);
           const float radius_falloff = t * BKE_brush_curve_strength(brush_, t, 1.0f);
-          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
+          const float weight = invert_factor_ * 0.1f * brush_strength_ * radius_falloff *
+                               point_factors_[point_i];
 
           const float3 new_pos_cu = math::interpolate(old_pos_cu, brush_pos_cu, weight);
           positions_cu[point_i] = new_pos_cu;
@@ -296,9 +307,15 @@ void PinchOperation::on_stroke_extended(const bContext &C, const StrokeExtension
   executor.execute(*this, C, stroke_extension);
 }
 
-std::unique_ptr<CurvesSculptStrokeOperation> new_pinch_operation()
+std::unique_ptr<CurvesSculptStrokeOperation> new_pinch_operation(const BrushStrokeMode brush_mode,
+                                                                 const bContext &C)
 {
-  return std::make_unique<PinchOperation>();
+  const Scene &scene = *CTX_data_scene(&C);
+  const Brush &brush = *BKE_paint_brush_for_read(&scene.toolsettings->curves_sculpt->paint);
+
+  const bool invert_pinch = (brush_mode == BRUSH_STROKE_INVERT) !=
+                            ((brush.flag & BRUSH_DIR_IN) != 0);
+  return std::make_unique<PinchOperation>(invert_pinch);
 }
 
 }  // namespace blender::ed::sculpt_paint

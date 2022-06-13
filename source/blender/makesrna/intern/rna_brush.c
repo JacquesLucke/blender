@@ -893,6 +893,7 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
         case CURVES_SCULPT_TOOL_GROW_SHRINK:
         case CURVES_SCULPT_TOOL_SELECTION_PAINT:
         case CURVES_SCULPT_TOOL_DENSITY:
+        case CURVES_SCULPT_TOOL_PINCH:
           return prop_direction_items;
         default:
           return DummyRNA_DEFAULT_items;
