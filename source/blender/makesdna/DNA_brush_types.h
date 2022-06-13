@@ -148,9 +148,6 @@ typedef struct BrushCurvesSculptSettings {
   float minimum_length;
   /** Length of newly added curves when it is not interpolated from other curves. */
   float curve_length;
-  /** #eBrushCurvesSculptSmoothMode. */
-  uint8_t smooth_mode;
-  char _pad[7];
   float minimum_distance;
 } BrushCurvesSculptSettings;
 

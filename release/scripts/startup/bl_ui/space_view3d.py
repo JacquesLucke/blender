@@ -540,7 +540,6 @@ class _draw_tool_settings_context_mode:
             layout.popover("VIEW3D_PT_tools_brush_falloff")
         elif curves_tool == 'SMOOTH':
             layout.prop(brush, "falloff_shape", expand=True)
-            layout.prop(brush.curves_sculpt_settings, "smooth_mode", text="")
             layout.popover("VIEW3D_PT_tools_brush_falloff")
         elif curves_tool == 'PUFF':
             layout.prop(brush, "falloff_shape", expand=True)
