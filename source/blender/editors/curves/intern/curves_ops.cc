@@ -1211,6 +1211,7 @@ struct GrowOperatorDataPerCurve : NonCopyable, NonMovable {
   Array<float> distances_to_unselected;
 
   Array<float> original_selection;
+  float pixel_to_distance_factor;
 };
 
 struct GrowOperatorData {
@@ -1258,14 +1259,14 @@ static void update_points_selection(GrowOperatorDataPerCurve &data,
   }
 }
 
-static int select_grow_update(bContext *C, wmOperator *op)
+static int select_grow_update(bContext *C, wmOperator *op, const float mouse_diff_x)
 {
   GrowOperatorData &op_data = *static_cast<GrowOperatorData *>(op->customdata);
-  const float distance = RNA_float_get(op->ptr, "distance");
 
   for (std::unique_ptr<GrowOperatorDataPerCurve> &curve_op_data : op_data.per_curve) {
     Curves &curves_id = *curve_op_data->curves_id;
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+    const float distance = curve_op_data->pixel_to_distance_factor * mouse_diff_x;
 
     switch (curves_id.selection_domain) {
       case ATTR_DOMAIN_POINT: {
@@ -1307,6 +1308,9 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     curve_op_data->curves_id = curves_id;
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
     const Span<float3> positions = curves.positions();
+
+    /* TODO: Compute based on distance of closest selected point. */
+    curve_op_data->pixel_to_distance_factor = 0.001f;
 
     switch (curves_id->selection_domain) {
       case ATTR_DOMAIN_POINT: {
@@ -1412,10 +1416,9 @@ static int select_grow_modal(bContext *C, wmOperator *op, const wmEvent *event)
   GrowOperatorData &op_data = *static_cast<GrowOperatorData *>(op->customdata);
   const int mouse_x = event->mval[0];
   const int mouse_diff_x = mouse_x - op_data.initial_mouse_x;
-  RNA_float_set(op->ptr, "distance", mouse_diff_x / 1000.0f);
   switch (event->type) {
     case MOUSEMOVE: {
-      select_grow_update(C, op);
+      select_grow_update(C, op, mouse_diff_x);
       break;
     }
     case LEFTMOUSE: {
