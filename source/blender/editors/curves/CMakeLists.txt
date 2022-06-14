@@ -8,6 +8,7 @@ set(INC
   ../../depsgraph
   ../../functions
   ../../geometry
+  ../../gpu
   ../../makesdna
   ../../makesrna
   ../../windowmanager

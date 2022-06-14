@@ -548,7 +548,7 @@ class _draw_tool_settings_context_mode:
             layout.prop(brush, "direction", expand=True, text="")
             row = layout.row(align=True)
             row.prop(brush.curves_sculpt_settings, "minimum_distance")
-            row.operator("sculpt_curves.sample_density", text="", icon='EYEDROPPER')
+            row.operator("sculpt_curves.min_distance_edit", text="", icon='EYEDROPPER')
             layout.popover("VIEW3D_PT_tools_brush_falloff")
         elif curves_tool == "SLIDE":
             layout.popover("VIEW3D_PT_tools_brush_falloff")

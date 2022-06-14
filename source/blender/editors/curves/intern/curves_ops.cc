@@ -18,6 +18,7 @@
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
+#include "ED_space_api.h"
 #include "ED_view3d.h"
 
 #include "WM_api.h"
@@ -58,6 +59,11 @@
 #include "UI_resources.h"
 
 #include "BLT_translation.h"
+
+#include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
+#include "GPU_matrix.h"
+#include "GPU_state.h"
 
 /**
  * The code below uses a suffix naming convention to indicate the coordinate space:
@@ -1518,9 +1524,9 @@ static void SCULPT_CURVES_OT_select_grow(wmOperatorType *ot)
   RNA_def_property_subtype(prop, PROP_DISTANCE);
 }
 
-namespace sample_density {
+namespace min_distance_edit {
 
-static bool sample_density_poll(bContext *C)
+static bool min_distance_edit_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
   if (ob == nullptr) {
@@ -1536,18 +1542,72 @@ static bool sample_density_poll(bContext *C)
   if (curves_id->surface->type != OB_MESH) {
     return false;
   }
+  Scene *scene = CTX_data_scene(C);
+  const Brush *brush = BKE_paint_brush_for_read(&scene->toolsettings->curves_sculpt->paint);
+  if (brush == nullptr) {
+    return false;
+  }
+  if (brush->curves_sculpt_tool != CURVES_SCULPT_TOOL_DENSITY) {
+    return false;
+  }
   return true;
 }
 
-static int sample_density_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(e))
+struct MinDistanceEditData {
+  Brush *brush;
+  float4x4 curves_to_world_mat;
+  float3 pos_cu;
+  float3 normal_cu;
+  int initial_mouse_x;
+  float initial_minimum_distance;
+  void *draw_handle;
+};
+
+static void min_distance_edit_draw(const bContext *UNUSED(C), ARegion *UNUSED(ar), void *arg)
 {
-  ED_workspace_status_text(C, TIP_("Click on the surface to set the minimum distance"));
-  WM_cursor_modal_set(CTX_wm_window(C), WM_CURSOR_EYEDROPPER);
-  WM_event_add_modal_handler(C, op);
-  return OPERATOR_RUNNING_MODAL;
+  MinDistanceEditData &op_data = *static_cast<MinDistanceEditData *>(arg);
+
+  const float min_distance = op_data.brush->curves_sculpt_settings->minimum_distance;
+
+  float3 tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 0, 1});
+  if (math::is_zero(tangent_x_cu)) {
+    tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 1, 0});
+  }
+  tangent_x_cu = math::normalize(tangent_x_cu);
+  const float3 tangent_y_cu = math::normalize(math::cross(op_data.normal_cu, tangent_x_cu));
+
+  const int points_per_side = 4;
+  const int points_per_axis_num = 2 * points_per_side + 1;
+
+  Vector<float3> points_wo;
+  for (const int x_i : IndexRange(points_per_axis_num)) {
+    for (const int y_i : IndexRange(points_per_axis_num)) {
+      const float x = min_distance * (x_i - (points_per_axis_num - 1) / 2.0f);
+      const float y = min_distance * (y_i - (points_per_axis_num - 1) / 2.0f);
+
+      const float3 point_pos_cu = op_data.pos_cu + op_data.normal_cu * 0.0001f + x * tangent_x_cu +
+                                  y * tangent_y_cu;
+      const float3 point_pos_wo = op_data.curves_to_world_mat * point_pos_cu;
+      points_wo.append(point_pos_wo);
+    }
+  }
+
+  const uint pos3d = GPU_vertformat_attr_add(
+      immVertexFormat(), "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+  GPU_point_size(3);
+  immUniformColor4f(0.9f, 0.9f, 0.9f, 1.0f);
+  immBegin(GPU_PRIM_POINTS, points_wo.size());
+  for (const float3 &pos_wo : points_wo) {
+    immVertex3fv(pos3d, pos_wo);
+  }
+  immEnd();
+
+  GPU_point_size(1);
 }
 
-static int sample_density_exec(bContext *C, wmOperator *op)
+static int min_distance_edit_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   ARegion *region = CTX_wm_region(C);
@@ -1558,24 +1618,17 @@ static int sample_density_exec(bContext *C, wmOperator *op)
   Curves &curves_id = *static_cast<Curves *>(curves_ob.data);
   Object &surface_ob = *curves_id.surface;
   Mesh &surface_me = *static_cast<Mesh *>(surface_ob.data);
-  CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
-
-  const int curves_num = curves.curves_num();
-  if (curves_num <= 1) {
-    return OPERATOR_CANCELLED;
-  }
 
   BVHTreeFromMesh surface_bvh;
   BKE_bvhtree_from_mesh_get(&surface_bvh, &surface_me, BVHTREE_FROM_LOOPTRI, 2);
   BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh); });
 
-  int2 mouse_pos_int;
-  RNA_int_get_array(op->ptr, "location", mouse_pos_int);
-  const float2 mouse_pos{mouse_pos_int};
+  const int2 mouse_pos_int_re{event->mval};
+  const float2 mouse_pos_re{mouse_pos_int_re};
 
   float3 ray_start_wo, ray_end_wo;
   ED_view3d_win_to_segment_clipped(
-      depsgraph, region, v3d, mouse_pos, ray_start_wo, ray_end_wo, true);
+      depsgraph, region, v3d, mouse_pos_re, ray_start_wo, ray_end_wo, true);
 
   const float4x4 surface_to_world_mat = surface_ob.obmat;
   const float4x4 world_to_surface_mat = surface_to_world_mat.inverted();
@@ -1599,89 +1652,92 @@ static int sample_density_exec(bContext *C, wmOperator *op)
   }
 
   const float3 hit_pos_su = ray_hit.co;
-
+  const float3 hit_normal_su = ray_hit.no;
   const float4x4 curves_to_world_mat = curves_ob.obmat;
   const float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
   const float4x4 surface_to_curves_mat = world_to_curves_mat * surface_to_world_mat;
+  const float4x4 surface_to_curves_normal_mat = surface_to_curves_mat.inverted().transposed();
+
   const float3 hit_pos_cu = surface_to_curves_mat * hit_pos_su;
+  const float3 hit_normal_cu = math::normalize(surface_to_curves_normal_mat * hit_normal_su);
 
-  const Span<float3> positions_cu = curves.positions();
-  Vector<float> distances_sq_cu(curves_num);
-  threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
-    for (const int curve_i : range) {
-      const int first_point_i = curves.offsets()[curve_i];
-      const float3 &first_pos_cu = positions_cu[first_point_i];
-      const float distance_sq_cu = math::distance_squared(first_pos_cu, hit_pos_cu);
-      distances_sq_cu[curve_i] = distance_sq_cu;
-    }
-  });
+  MinDistanceEditData *op_data = MEM_new<MinDistanceEditData>(__func__);
+  op_data->curves_to_world_mat = curves_to_world_mat;
+  op_data->normal_cu = hit_normal_cu;
+  op_data->pos_cu = hit_pos_cu;
+  op_data->initial_mouse_x = mouse_pos_int_re.x;
+  op_data->draw_handle = ED_region_draw_cb_activate(
+      region->type, min_distance_edit_draw, op_data, REGION_DRAW_POST_VIEW);
+  op_data->brush = BKE_paint_brush(&scene->toolsettings->curves_sculpt->paint);
+  op_data->initial_minimum_distance = op_data->brush->curves_sculpt_settings->minimum_distance;
 
-  const int check_num = std::clamp(curves_num, 0, 4);
-  std::partial_sort(
-      distances_sq_cu.begin(), distances_sq_cu.begin() + check_num, distances_sq_cu.end());
-  float distance_sum_cu = 0.0f;
-  for (const int i : IndexRange(check_num)) {
-    distance_sum_cu = std::sqrt(distances_sq_cu[i]);
-  }
-  const float average_dist_cu = distance_sum_cu / check_num;
-
-  Brush *brush = BKE_paint_brush(&scene->toolsettings->curves_sculpt->paint);
-  if (brush->curves_sculpt_settings != nullptr) {
-    brush->curves_sculpt_settings->minimum_distance = average_dist_cu;
+  if (op_data->initial_minimum_distance <= 0.0f) {
+    op_data->initial_minimum_distance = 0.01f;
   }
 
-  return OPERATOR_FINISHED;
-}
-
-static int sample_density_modal(bContext *C, wmOperator *op, const wmEvent *event)
-{
-  switch (event->type) {
-    case LEFTMOUSE: {
-      if (event->val == KM_PRESS) {
-        RNA_int_set_array(op->ptr, "location", event->mval);
-        WM_cursor_modal_restore(CTX_wm_window(C));
-        ED_workspace_status_text(C, nullptr);
-        WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, nullptr);
-        return sample_density_exec(C, op);
-      }
-      break;
-    }
-    case EVT_ESCKEY:
-    case RIGHTMOUSE: {
-      WM_cursor_modal_restore(CTX_wm_window(C));
-      ED_workspace_status_text(C, nullptr);
-      return OPERATOR_CANCELLED;
-    }
-  }
+  op->customdata = op_data;
+  WM_event_add_modal_handler(C, op);
+  ED_region_tag_redraw(region);
   return OPERATOR_RUNNING_MODAL;
 }
 
-}  // namespace sample_density
-
-static void SCULPT_CURVES_OT_sample_density(wmOperatorType *ot)
+static int min_distance_edit_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  ot->name = "Sample Density";
+  ARegion *region = CTX_wm_region(C);
+  MinDistanceEditData &op_data = *static_cast<MinDistanceEditData *>(op->customdata);
+
+  auto finish = [&]() {
+    ED_region_tag_redraw(region);
+    ED_region_draw_cb_exit(region->type, op_data.draw_handle);
+    MEM_freeN(&op_data);
+  };
+
+  switch (event->type) {
+    case MOUSEMOVE: {
+      const int2 mouse_pos_int_re{event->mval};
+      const float2 mouse_pos_re{mouse_pos_int_re};
+
+      const float mouse_diff_x = mouse_pos_int_re.x - op_data.initial_mouse_x;
+      const float factor = powf(2, mouse_diff_x / UI_UNIT_X / 10.0f);
+      op_data.brush->curves_sculpt_settings->minimum_distance = op_data.initial_minimum_distance *
+                                                                factor;
+
+      ED_region_tag_redraw(region);
+      WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, nullptr);
+      break;
+    }
+    case LEFTMOUSE: {
+      if (event->val == KM_PRESS) {
+        finish();
+        return OPERATOR_FINISHED;
+      }
+      break;
+    }
+    case RIGHTMOUSE:
+    case EVT_ESCKEY: {
+      op_data.brush->curves_sculpt_settings->minimum_distance = op_data.initial_minimum_distance;
+      finish();
+      WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, nullptr);
+      return OPERATOR_CANCELLED;
+    }
+  }
+
+  return OPERATOR_RUNNING_MODAL;
+}
+
+}  // namespace min_distance_edit
+
+static void SCULPT_CURVES_OT_min_distance_edit(wmOperatorType *ot)
+{
+  ot->name = "Edit Minimum Distance";
   ot->idname = __func__;
-  ot->description =
-      "Find a minimum distance value for the Density brush based on existing density";
+  ot->description = "Change the minimum distance used by the density brush";
 
-  ot->poll = sample_density::sample_density_poll;
-  ot->invoke = sample_density::sample_density_invoke;
-  ot->modal = sample_density::sample_density_modal;
-  ot->exec = sample_density::sample_density_exec;
+  ot->poll = min_distance_edit::min_distance_edit_poll;
+  ot->invoke = min_distance_edit::min_distance_edit_invoke;
+  ot->modal = min_distance_edit::min_distance_edit_modal;
 
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
-
-  RNA_def_int_array(ot->srna,
-                    "location",
-                    2,
-                    NULL,
-                    0,
-                    INT32_MAX,
-                    "Location",
-                    "Screen coordinates of sampling",
-                    0,
-                    INT32_MAX);
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_DEPENDS_ON_CURSOR;
 }
 
 }  // namespace blender::ed::curves
@@ -1698,5 +1754,5 @@ void ED_operatortypes_curves()
   WM_operatortype_append(SCULPT_CURVES_OT_select_end);
   WM_operatortype_append(SCULPT_CURVES_OT_select_grow);
   WM_operatortype_append(CURVES_OT_disable_selection);
-  WM_operatortype_append(SCULPT_CURVES_OT_sample_density);
+  WM_operatortype_append(SCULPT_CURVES_OT_min_distance_edit);
 }
