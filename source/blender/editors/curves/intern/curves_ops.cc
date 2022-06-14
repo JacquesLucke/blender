@@ -1410,7 +1410,6 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     float4x4 curves_to_world_mat = ob->obmat;
     float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
 
-    /* TODO: Compute based on distance of closest selected point. */
     curve_op_data->pixel_to_distance_factor = threading::parallel_reduce(
         curve_op_data->selected_point_indices.index_range(),
         256,
