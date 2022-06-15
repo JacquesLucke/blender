@@ -2409,7 +2409,7 @@ class _defs_curves_sculpt:
         return dict(
             idname="builtin_brush.density",
             label="Density",
-            icon="ops.curves.density",
+            icon="ops.curves.sculpt_density",
             data_block="DENSITY"
         )
 
@@ -2418,7 +2418,7 @@ class _defs_curves_sculpt:
         return dict(
             idname="builtin_brush.slide",
             label="Slide",
-            icon="ops.curves.slide",
+            icon="ops.curves.sculpt_slide",
             data_block="SLIDE"
         )
 
