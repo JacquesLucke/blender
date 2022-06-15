@@ -133,7 +133,7 @@ static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bConte
     case CURVES_SCULPT_TOOL_PUFF:
       return new_puff_operation();
     case CURVES_SCULPT_TOOL_DENSITY:
-      return new_density_operation();
+      return new_density_operation(mode, C);
     case CURVES_SCULPT_TOOL_SLIDE:
       return new_slide_operation();
   }

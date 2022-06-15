@@ -19,12 +19,43 @@
 
 namespace blender::ed::sculpt_paint {
 
-class DensityOperation : public CurvesSculptStrokeOperation {
+class DensityAddOperation : public CurvesSculptStrokeOperation {
+ private:
+  friend struct DensityAddOperationExecutor;
+
+ public:
+  void on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension) override;
+};
+
+struct DensityAddOperationExecutor {
+  DensityAddOperation *self_ = nullptr;
+  CurvesSculptCommonContext ctx_;
+
+  DensityAddOperationExecutor(const bContext &C) : ctx_(C)
+  {
+  }
+
+  void execute(DensityAddOperation &self,
+               const bContext &C,
+               const StrokeExtension &stroke_extension)
+  {
+    UNUSED_VARS(self, C, stroke_extension);
+  }
+};
+
+void DensityAddOperation::on_stroke_extended(const bContext &C,
+                                             const StrokeExtension &stroke_extension)
+{
+  DensityAddOperationExecutor executor{C};
+  executor.execute(*this, C, stroke_extension);
+}
+
+class DensitySubtractOperation : public CurvesSculptStrokeOperation {
  private:
   /** Only used when a 3D brush is used. */
   CurvesBrush3D brush_3d_;
 
-  friend struct DensityOperationExecutor;
+  friend struct DensitySubtractOperationExecutor;
 
  public:
   void on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension) override;
@@ -34,8 +65,8 @@ class DensityOperation : public CurvesSculptStrokeOperation {
  * Utility class that actually executes the update when the stroke is updated. That's useful
  * because it avoids passing a very large number of parameters between functions.
  */
-struct DensityOperationExecutor {
-  DensityOperation *self_ = nullptr;
+struct DensitySubtractOperationExecutor {
+  DensitySubtractOperation *self_ = nullptr;
   CurvesSculptCommonContext ctx_;
 
   Object *object_ = nullptr;
@@ -61,13 +92,14 @@ struct DensityOperationExecutor {
 
   KDTree_3d *root_points_kdtree_;
 
-  DensityOperationExecutor(const bContext &C) : ctx_(C)
+  DensitySubtractOperationExecutor(const bContext &C) : ctx_(C)
   {
   }
 
-  void execute(DensityOperation &self, const bContext &C, const StrokeExtension &stroke_extension)
+  void execute(DensitySubtractOperation &self,
+               const bContext &C,
+               const StrokeExtension &stroke_extension)
   {
-    UNUSED_VARS(C, stroke_extension);
     self_ = &self;
 
     object_ = CTX_data_active_object(&C);
@@ -172,16 +204,24 @@ struct DensityOperationExecutor {
   }
 };
 
-void DensityOperation::on_stroke_extended(const bContext &C,
-                                          const StrokeExtension &stroke_extension)
+void DensitySubtractOperation::on_stroke_extended(const bContext &C,
+                                                  const StrokeExtension &stroke_extension)
 {
-  DensityOperationExecutor executor{C};
+  DensitySubtractOperationExecutor executor{C};
   executor.execute(*this, C, stroke_extension);
 }
 
-std::unique_ptr<CurvesSculptStrokeOperation> new_density_operation()
+std::unique_ptr<CurvesSculptStrokeOperation> new_density_operation(
+    const BrushStrokeMode brush_mode, const bContext &C)
 {
-  return std::make_unique<DensityOperation>();
+  const Scene &scene = *CTX_data_scene(&C);
+  const Brush &brush = *BKE_paint_brush_for_read(&scene.toolsettings->curves_sculpt->paint);
+
+  const bool use_add = (brush_mode == BRUSH_STROKE_INVERT) == ((brush.flag & BRUSH_DIR_IN) != 0);
+  if (use_add) {
+    return std::make_unique<DensityAddOperation>();
+  }
+  return std::make_unique<DensitySubtractOperation>();
 }
 
 }  // namespace blender::ed::sculpt_paint
