@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_brush.h"
+#include "BKE_bvhutils.h"
 #include "BKE_context.h"
+#include "BKE_mesh.h"
 
 #include "ED_screen.h"
 #include "ED_view3d.h"
@@ -12,6 +14,7 @@
 #include "BLI_kdtree.h"
 
 #include "DNA_brush_types.h"
+#include "DNA_mesh_types.h"
 
 #include "WM_api.h"
 
@@ -31,6 +34,45 @@ struct DensityAddOperationExecutor {
   DensityAddOperation *self_ = nullptr;
   CurvesSculptCommonContext ctx_;
 
+  Object *object_ = nullptr;
+  Curves *curves_id_ = nullptr;
+  CurvesGeometry *curves_ = nullptr;
+
+  Object *surface_ob_ = nullptr;
+  Mesh *surface_ = nullptr;
+  Span<MLoopTri> surface_looptris_;
+  Span<float3> corner_normals_su_;
+  VArray_Span<float2> surface_uv_map_;
+
+  const CurvesSculpt *curves_sculpt_ = nullptr;
+  const Brush *brush_ = nullptr;
+  const BrushCurvesSculptSettings *brush_settings_ = nullptr;
+
+  float brush_radius_re_;
+  float2 brush_pos_re_;
+
+  bool use_front_face_;
+  bool interpolate_length_;
+  bool interpolate_shape_;
+  bool interpolate_point_count_;
+  bool use_interpolation_;
+  float new_curve_length_;
+  int constant_points_per_curve_;
+
+  /** Various matrices to convert between coordinate spaces. */
+  float4x4 curves_to_world_mat_;
+  float4x4 curves_to_surface_mat_;
+  float4x4 world_to_curves_mat_;
+  float4x4 world_to_surface_mat_;
+  float4x4 surface_to_world_mat_;
+  float4x4 surface_to_curves_mat_;
+  float4x4 surface_to_curves_normal_mat_;
+
+  BVHTreeFromMesh surface_bvh_;
+
+  int tot_old_curves_;
+  int tot_old_points_;
+
   DensityAddOperationExecutor(const bContext &C) : ctx_(C)
   {
   }
@@ -39,7 +81,52 @@ struct DensityAddOperationExecutor {
                const bContext &C,
                const StrokeExtension &stroke_extension)
   {
-    UNUSED_VARS(self, C, stroke_extension);
+    self_ = &self;
+    object_ = CTX_data_active_object(&C);
+    curves_id_ = static_cast<Curves *>(object_->data);
+    curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
+
+    if (curves_id_->surface == nullptr || curves_id_->surface->type != OB_MESH) {
+      return;
+    }
+
+    curves_to_world_mat_ = object_->obmat;
+    world_to_curves_mat_ = curves_to_world_mat_.inverted();
+
+    surface_ob_ = curves_id_->surface;
+    surface_ = static_cast<Mesh *>(surface_ob_->data);
+    surface_to_world_mat_ = surface_ob_->obmat;
+    world_to_surface_mat_ = surface_to_world_mat_.inverted();
+    surface_to_curves_mat_ = world_to_curves_mat_ * surface_to_world_mat_;
+    surface_to_curves_normal_mat_ = surface_to_curves_mat_.inverted().transposed();
+    curves_to_surface_mat_ = world_to_surface_mat_ * curves_to_world_mat_;
+
+    if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
+      BKE_mesh_calc_normals_split(surface_);
+    }
+    corner_normals_su_ = {
+        reinterpret_cast<const float3 *>(CustomData_get_layer(&surface_->ldata, CD_NORMAL)),
+        surface_->totloop};
+
+    curves_sculpt_ = ctx_.scene->toolsettings->curves_sculpt;
+    brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
+    brush_settings_ = brush_->curves_sculpt_settings;
+    brush_radius_re_ = brush_radius_get(*ctx_.scene, *brush_, stroke_extension);
+    brush_pos_re_ = stroke_extension.mouse_position;
+
+    use_front_face_ = brush_->flag & BRUSH_FRONTFACE;
+    const eBrushFalloffShape falloff_shape = static_cast<eBrushFalloffShape>(
+        brush_->falloff_shape);
+    constant_points_per_curve_ = std::max(2, brush_settings_->points_per_curve);
+    interpolate_length_ = brush_settings_->flag & BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_LENGTH;
+    interpolate_shape_ = brush_settings_->flag & BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_SHAPE;
+    interpolate_point_count_ = brush_settings_->flag &
+                               BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_POINT_COUNT;
+    use_interpolation_ = interpolate_length_ || interpolate_shape_ || interpolate_point_count_;
+    new_curve_length_ = brush_settings_->curve_length;
+
+    tot_old_curves_ = curves_->curves_num();
+    tot_old_points_ = curves_->points_num();
   }
 };
 
