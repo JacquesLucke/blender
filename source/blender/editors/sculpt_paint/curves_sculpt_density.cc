@@ -3,7 +3,10 @@
 #include "BKE_brush.h"
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
+#include "BKE_geometry_set.hh"
 #include "BKE_mesh.h"
+#include "BKE_mesh_runtime.h"
+#include "BKE_mesh_sample.hh"
 
 #include "ED_screen.h"
 #include "ED_view3d.h"
@@ -12,6 +15,9 @@
 
 #include "BLI_index_mask_ops.hh"
 #include "BLI_kdtree.h"
+#include "BLI_rand.hh"
+
+#include "GEO_add_curves_on_mesh.hh"
 
 #include "DNA_brush_types.h"
 #include "DNA_mesh_types.h"
@@ -24,9 +30,19 @@ namespace blender::ed::sculpt_paint {
 
 class DensityAddOperation : public CurvesSculptStrokeOperation {
  private:
+  /** Used when some data should be interpolated from existing curves. */
+  KDTree_3d *curve_roots_kdtree_ = nullptr;
+
   friend struct DensityAddOperationExecutor;
 
  public:
+  ~DensityAddOperation() override
+  {
+    if (curve_roots_kdtree_ != nullptr) {
+      BLI_kdtree_3d_free(curve_roots_kdtree_);
+    }
+  }
+
   void on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension) override;
 };
 
@@ -51,20 +67,9 @@ struct DensityAddOperationExecutor {
   float brush_radius_re_;
   float2 brush_pos_re_;
 
-  bool use_front_face_;
-  bool interpolate_length_;
-  bool interpolate_shape_;
-  bool interpolate_point_count_;
-  bool use_interpolation_;
-  float new_curve_length_;
-  int constant_points_per_curve_;
-
   CurvesSculptTransforms transforms_;
 
   BVHTreeFromMesh surface_bvh_;
-
-  int tot_old_curves_;
-  int tot_old_points_;
 
   DensityAddOperationExecutor(const bContext &C) : ctx_(C)
   {
@@ -86,6 +91,9 @@ struct DensityAddOperationExecutor {
     surface_ob_ = curves_id_->surface;
     surface_ = static_cast<Mesh *>(surface_ob_->data);
 
+    surface_looptris_ = {BKE_mesh_runtime_looptri_ensure(surface_),
+                         BKE_mesh_runtime_looptri_len(surface_)};
+
     transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
 
     if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
@@ -101,19 +109,104 @@ struct DensityAddOperationExecutor {
     brush_radius_re_ = brush_radius_get(*ctx_.scene, *brush_, stroke_extension);
     brush_pos_re_ = stroke_extension.mouse_position;
 
-    use_front_face_ = brush_->flag & BRUSH_FRONTFACE;
     const eBrushFalloffShape falloff_shape = static_cast<eBrushFalloffShape>(
         brush_->falloff_shape);
-    constant_points_per_curve_ = std::max(2, brush_settings_->points_per_curve);
-    interpolate_length_ = brush_settings_->flag & BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_LENGTH;
-    interpolate_shape_ = brush_settings_->flag & BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_SHAPE;
-    interpolate_point_count_ = brush_settings_->flag &
-                               BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_POINT_COUNT;
-    use_interpolation_ = interpolate_length_ || interpolate_shape_ || interpolate_point_count_;
-    new_curve_length_ = brush_settings_->curve_length;
 
-    tot_old_curves_ = curves_->curves_num();
-    tot_old_points_ = curves_->points_num();
+    BKE_bvhtree_from_mesh_get(&surface_bvh_, surface_, BVHTREE_FROM_LOOPTRI, 2);
+    BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh_); });
+
+    Vector<float3> new_bary_coords;
+    Vector<int> new_looptri_indices;
+    Vector<float3> new_positions_cu;
+    RandomNumberGenerator rng;
+    bke::mesh_surface_sample::sample_surface_points_projected(
+        rng,
+        *surface_,
+        surface_bvh_,
+        brush_pos_re_,
+        brush_radius_re_,
+        [&](const float2 &pos_re, float3 &r_start_su, float3 &r_end_su) {
+          float3 start_wo, end_wo;
+          ED_view3d_win_to_segment_clipped(
+              ctx_.depsgraph, ctx_.region, ctx_.v3d, pos_re, start_wo, end_wo, true);
+          const float3 start_cu = transforms_.world_to_curves * start_wo;
+          const float3 end_cu = transforms_.world_to_curves * end_wo;
+          r_start_su = transforms_.curves_to_surface * start_cu;
+          r_end_su = transforms_.curves_to_surface * end_cu;
+        },
+        true,
+        10,
+        10,
+        new_bary_coords,
+        new_looptri_indices,
+        new_positions_cu);
+    for (float3 &pos : new_positions_cu) {
+      pos = transforms_.surface_to_curves * pos;
+    }
+
+    /* Find UV map. */
+    VArray_Span<float2> surface_uv_map;
+    if (curves_id_->surface_uv_map != nullptr) {
+      MeshComponent surface_component;
+      surface_component.replace(surface_, GeometryOwnershipType::ReadOnly);
+      surface_uv_map = surface_component
+                           .attribute_try_get_for_read(curves_id_->surface_uv_map,
+                                                       ATTR_DOMAIN_CORNER)
+                           .typed<float2>();
+    }
+
+    /* Find normals. */
+    if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
+      BKE_mesh_calc_normals_split(surface_);
+    }
+    const Span<float3> corner_normals_su = {
+        reinterpret_cast<const float3 *>(CustomData_get_layer(&surface_->ldata, CD_NORMAL)),
+        surface_->totloop};
+
+    geometry::AddCurvesOnMeshInputs add_inputs;
+    add_inputs.root_positions_cu = new_positions_cu;
+    add_inputs.bary_coords = new_bary_coords;
+    add_inputs.looptri_indices = new_looptri_indices;
+    add_inputs.interpolate_length = brush_settings_->flag &
+                                    BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_LENGTH;
+    add_inputs.interpolate_shape = brush_settings_->flag &
+                                   BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_SHAPE;
+    add_inputs.interpolate_point_count = brush_settings_->flag &
+                                         BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_POINT_COUNT;
+    add_inputs.fallback_curve_length = brush_settings_->curve_length;
+    add_inputs.fallback_point_count = std::max(2, brush_settings_->points_per_curve);
+    add_inputs.surface = surface_;
+    add_inputs.surface_bvh = &surface_bvh_;
+    add_inputs.surface_looptris = surface_looptris_;
+    add_inputs.surface_uv_map = surface_uv_map;
+    add_inputs.corner_normals_su = corner_normals_su;
+    add_inputs.curves_to_surface_mat = transforms_.curves_to_surface;
+    add_inputs.surface_to_curves_normal_mat = transforms_.surface_to_curves_normal;
+
+    if (add_inputs.interpolate_length || add_inputs.interpolate_shape ||
+        add_inputs.interpolate_point_count) {
+      this->ensure_curve_roots_kdtree();
+      add_inputs.old_roots_kdtree = self_->curve_roots_kdtree_;
+    }
+
+    geometry::add_curves_on_mesh(*curves_, add_inputs);
+
+    DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
+    WM_main_add_notifier(NC_GEOM | ND_DATA, &curves_id_->id);
+    ED_region_tag_redraw(ctx_.region);
+  }
+
+  void ensure_curve_roots_kdtree()
+  {
+    if (self_->curve_roots_kdtree_ == nullptr) {
+      self_->curve_roots_kdtree_ = BLI_kdtree_3d_new(curves_->curves_num());
+      for (const int curve_i : curves_->curves_range()) {
+        const int root_point_i = curves_->offsets()[curve_i];
+        const float3 &root_pos_cu = curves_->positions()[root_point_i];
+        BLI_kdtree_3d_insert(self_->curve_roots_kdtree_, curve_i, root_pos_cu);
+      }
+      BLI_kdtree_3d_balance(self_->curve_roots_kdtree_);
+    }
   }
 };
 
