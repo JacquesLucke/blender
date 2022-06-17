@@ -22,6 +22,7 @@
 #include "BKE_geometry_set.hh"
 #include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
+#include "BKE_mesh_sample.hh"
 #include "BKE_paint.h"
 
 #include "DNA_brush_enums.h"
@@ -299,7 +300,7 @@ struct SlideOperationExecutor {
 
           if (!surface_uv_map_.is_empty()) {
             const MLoopTri &looptri = surface_looptris_[looptri_index];
-            const float3 bary_coord = compute_bary_coord_in_triangle(
+            const float3 bary_coord = bke::mesh_surface_sample::compute_bary_coord_in_triangle(
                 *surface_, looptri, attached_pos_su);
             const float2 &uv0 = surface_uv_map_[looptri.tri[0]];
             const float2 &uv1 = surface_uv_map_[looptri.tri[1]];

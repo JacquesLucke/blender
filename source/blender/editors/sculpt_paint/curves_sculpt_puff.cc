@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BKE_attribute_math.hh"
 #include "BKE_brush.h"
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
@@ -36,6 +37,23 @@ class PuffOperation : public CurvesSculptStrokeOperation {
  public:
   void on_stroke_extended(const bContext &C, const StrokeExtension &stroke_extension) override;
 };
+
+static float3 compute_surface_point_normal(const MLoopTri &looptri,
+                                           const float3 &bary_coord,
+                                           const Span<float3> corner_normals)
+{
+  const int l0 = looptri.tri[0];
+  const int l1 = looptri.tri[1];
+  const int l2 = looptri.tri[2];
+
+  const float3 &l0_normal = corner_normals[l0];
+  const float3 &l1_normal = corner_normals[l1];
+  const float3 &l2_normal = corner_normals[l2];
+
+  const float3 normal = math::normalize(
+      attribute_math::mix3(bary_coord, l0_normal, l1_normal, l2_normal));
+  return normal;
+}
 
 /**
  * Utility class that actually executes the update when the stroke is updated. That's useful

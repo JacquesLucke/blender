@@ -153,7 +153,7 @@ struct input_t {
    *   wl_fixed_to_int(scale * input->xy[0]),
    *   wl_fixed_to_int(scale * input->xy[1]),
    * };
-   * \endocde
+   * \endcode
    */
   wl_fixed_t xy[2] = {0, 0};
   GHOST_Buttons buttons = GHOST_Buttons();
@@ -263,17 +263,36 @@ static void display_destroy(display_t *d)
   }
 
   for (input_t *input : d->inputs) {
-    if (input->data_source) {
-      free(input->data_source->buffer_out);
-      if (input->data_source->data_source) {
-        wl_data_source_destroy(input->data_source->data_source);
+
+    /* First handle members that require locking.
+     * While highly unlikely, it's possible they are being used while this function runs. */
+    {
+      std::lock_guard lock{input->data_source_mutex};
+      if (input->data_source) {
+        free(input->data_source->buffer_out);
+        if (input->data_source->data_source) {
+          wl_data_source_destroy(input->data_source->data_source);
+        }
+        delete input->data_source;
       }
-      delete input->data_source;
     }
-    if (input->data_offer_copy_paste) {
-      wl_data_offer_destroy(input->data_offer_copy_paste->id);
-      delete input->data_offer_copy_paste;
+
+    {
+      std::lock_guard lock{input->data_offer_dnd_mutex};
+      if (input->data_offer_dnd) {
+        wl_data_offer_destroy(input->data_offer_dnd->id);
+        delete input->data_offer_dnd;
+      }
     }
+
+    {
+      std::lock_guard lock{input->data_offer_copy_paste_mutex};
+      if (input->data_offer_copy_paste) {
+        wl_data_offer_destroy(input->data_offer_copy_paste->id);
+        delete input->data_offer_copy_paste;
+      }
+    }
+
     if (input->data_device) {
       wl_data_device_release(input->data_device);
     }
@@ -1588,8 +1607,13 @@ static void keyboard_handle_keymap(
     return;
   }
 
-  input->xkb_state = xkb_state_new(keymap);
-
+  struct xkb_state *xkb_state_next = xkb_state_new(keymap);
+  if (xkb_state_next) {
+    if (input->xkb_state) {
+      xkb_state_unref(input->xkb_state);
+    }
+    input->xkb_state = xkb_state_next;
+  }
   xkb_keymap_unref(keymap);
 }
 
@@ -1836,14 +1860,12 @@ static void xdg_output_handle_logical_size(void *data,
 
   if (output->size_logical[0] != 0 && output->size_logical[1] != 0) {
     /* Original comment from SDL. */
-    /* FIXME: GNOME has a bug where the logical size does not account for
+    /* FIXME(@flibit): GNOME has a bug where the logical size does not account for
      * scale, resulting in bogus viewport sizes.
      *
      * Until this is fixed, validate that _some_ kind of scaling is being
      * done (we can't match exactly because fractional scaling can't be
-     * detected otherwise), then override if necessary.
-     * -flibit
-     */
+     * detected otherwise), then override if necessary. */
     if ((output->size_logical[0] == width) && (output->scale_fractional == wl_fixed_from_int(1))) {
       GHOST_PRINT("xdg_output scale did not match, overriding with wl_output scale");
       return;
@@ -2454,8 +2476,12 @@ static void set_cursor_buffer(input_t *input, wl_buffer *buffer)
   const int32_t hotspot_x = int32_t(c->wl_image.hotspot_x) / c->scale;
   const int32_t hotspot_y = int32_t(c->wl_image.hotspot_y) / c->scale;
 
-  wl_surface_attach(c->wl_surface, buffer, 0, 0);
-  wl_surface_damage(c->wl_surface, 0, 0, image_size_x, image_size_y);
+  if (buffer) {
+    wl_surface_set_buffer_scale(c->wl_surface, c->scale);
+    wl_surface_attach(c->wl_surface, buffer, 0, 0);
+    wl_surface_damage(c->wl_surface, 0, 0, image_size_x, image_size_y);
+    wl_surface_commit(c->wl_surface);
+  }
 
   wl_pointer_set_cursor(input->wl_pointer,
                         input->pointer_serial,
@@ -2463,25 +2489,25 @@ static void set_cursor_buffer(input_t *input, wl_buffer *buffer)
                         hotspot_x,
                         hotspot_y);
 
-  wl_surface_commit(c->wl_surface);
-
   /* Set the cursor for all tablet tools as well. */
   for (struct zwp_tablet_tool_v2 *zwp_tablet_tool_v2 : input->tablet_tools) {
     tablet_tool_input_t *tool_input = static_cast<tablet_tool_input_t *>(
         zwp_tablet_tool_v2_get_user_data(zwp_tablet_tool_v2));
-    /* FIXME: for some reason cursor scale is applied twice (when the scale isn't 1x),
-     * this happens both in gnome-shell & KDE. Setting the surface scale here doesn't help. */
-    // wl_surface_set_buffer_scale(tool_input->cursor_surface, 1);
-    wl_surface_attach(tool_input->cursor_surface, buffer, 0, 0);
-    wl_surface_damage(tool_input->cursor_surface, 0, 0, image_size_x, image_size_y);
+
+    if (buffer) {
+      /* FIXME: for some reason cursor scale is applied twice (when the scale isn't 1x),
+       * this happens both in gnome-shell & KDE. Setting the surface scale here doesn't help. */
+      wl_surface_set_buffer_scale(tool_input->cursor_surface, c->scale);
+      wl_surface_attach(tool_input->cursor_surface, buffer, 0, 0);
+      wl_surface_damage(tool_input->cursor_surface, 0, 0, image_size_x, image_size_y);
+      wl_surface_commit(tool_input->cursor_surface);
+    }
 
     zwp_tablet_tool_v2_set_cursor(zwp_tablet_tool_v2,
                                   input->tablet_serial,
                                   c->visible ? tool_input->cursor_surface : nullptr,
                                   hotspot_x,
                                   hotspot_y);
-
-    wl_surface_commit(tool_input->cursor_surface);
   }
 }
 
@@ -2658,6 +2684,14 @@ GHOST_TSuccess GHOST_SystemWayland::setCursorVisibility(bool visible)
 
 bool GHOST_SystemWayland::supportsCursorWarp()
 {
+  /* WAYLAND doesn't support setting the cursor position directly,
+   * this is an intentional choice, forcing us to use a software cursor in this case. */
+  return false;
+}
+
+bool GHOST_SystemWayland::supportsWindowPosition()
+{
+  /* WAYLAND doesn't support accessing the window position. */
   return false;
 }
 
