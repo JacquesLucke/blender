@@ -551,6 +551,7 @@ class _draw_tool_settings_context_mode:
             row.prop(brush.curves_sculpt_settings, "minimum_distance")
             row.operator("sculpt_curves.min_distance_edit", text="", icon='EYEDROPPER')
             layout.popover("VIEW3D_PT_tools_brush_falloff")
+            layout.popover("VIEW3D_PT_curves_sculpt_add_shape", text="Curve Shape")
         elif curves_tool == "SLIDE":
             layout.popover("VIEW3D_PT_tools_brush_falloff")
 
