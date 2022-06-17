@@ -100,13 +100,7 @@ struct SlideOperationExecutor {
   float2 brush_pos_re_;
   float2 brush_pos_diff_re_;
 
-  float4x4 curves_to_world_mat_;
-  float4x4 curves_to_surface_mat_;
-  float4x4 world_to_curves_mat_;
-  float4x4 world_to_surface_mat_;
-  float4x4 surface_to_world_mat_;
-  float4x4 surface_to_curves_mat_;
-  float4x4 surface_to_curves_normal_mat_;
+  CurvesSculptTransforms transforms_;
 
   BVHTreeFromMesh surface_bvh_;
 
@@ -147,16 +141,10 @@ struct SlideOperationExecutor {
     brush_pos_diff_re_ = brush_pos_re_ - brush_pos_prev_re_;
     BLI_SCOPED_DEFER([&]() { self_->brush_pos_last_re_ = brush_pos_re_; });
 
-    curves_to_world_mat_ = object_->obmat;
-    world_to_curves_mat_ = curves_to_world_mat_.inverted();
+    transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
 
     surface_ob_ = curves_id_->surface;
     surface_ = static_cast<Mesh *>(surface_ob_->data);
-    surface_to_world_mat_ = surface_ob_->obmat;
-    world_to_surface_mat_ = surface_to_world_mat_.inverted();
-    surface_to_curves_mat_ = world_to_curves_mat_ * surface_to_world_mat_;
-    surface_to_curves_normal_mat_ = surface_to_curves_mat_.inverted().transposed();
-    curves_to_surface_mat_ = world_to_surface_mat_ * curves_to_world_mat_;
 
     BKE_bvhtree_from_mesh_get(&surface_bvh_, surface_, BVHTREE_FROM_LOOPTRI, 2);
     BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh_); });
@@ -268,8 +256,8 @@ struct SlideOperationExecutor {
                                            ray_start_wo,
                                            ray_end_wo,
                                            true);
-          const float3 ray_start_su = world_to_surface_mat_ * ray_start_wo;
-          const float3 ray_end_su = world_to_surface_mat_ * ray_end_wo;
+          const float3 ray_start_su = transforms_.world_to_surface * ray_start_wo;
+          const float3 ray_end_su = transforms_.world_to_surface * ray_end_wo;
 
           const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
           BVHTreeRayHit hit;
@@ -289,7 +277,7 @@ struct SlideOperationExecutor {
           const int looptri_index = hit.index;
           const float3 attached_pos_su = hit.co;
 
-          const float3 attached_pos_cu = surface_to_curves_mat_ * attached_pos_su;
+          const float3 attached_pos_cu = transforms_.surface_to_curves * attached_pos_su;
           const float3 pos_offset_cu = brush_transform * (attached_pos_cu - old_first_pos_cu);
 
           positions_cu[first_point_i] += pos_offset_cu;

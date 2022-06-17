@@ -54,8 +54,7 @@ struct SmoothOperationExecutor {
 
   eBrushFalloffShape falloff_shape_;
 
-  float4x4 curves_to_world_mat_;
-  float4x4 world_to_curves_mat_;
+  CurvesSculptTransforms transforms_;
 
   SmoothOperationExecutor(const bContext &C) : ctx_(C)
   {
@@ -84,8 +83,7 @@ struct SmoothOperationExecutor {
     point_factors_ = get_point_selection(*curves_id_);
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
 
-    curves_to_world_mat_ = object_->obmat;
-    world_to_curves_mat_ = curves_to_world_mat_.inverted();
+    transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
 
     falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
 
@@ -168,9 +166,12 @@ struct SmoothOperationExecutor {
           const float2 new_pos_re = math::interpolate(old_pos_re, goal_pos_re, weight);
           const float3 old_pos_cu = brush_transform_inv * positions_cu[point_i];
           float3 new_pos_wo;
-          ED_view3d_win_to_3d(
-              ctx_.v3d, ctx_.region, curves_to_world_mat_ * old_pos_cu, new_pos_re, new_pos_wo);
-          const float3 new_pos_cu = brush_transform * (world_to_curves_mat_ * new_pos_wo);
+          ED_view3d_win_to_3d(ctx_.v3d,
+                              ctx_.region,
+                              transforms_.curves_to_world * old_pos_cu,
+                              new_pos_re,
+                              new_pos_wo);
+          const float3 new_pos_cu = brush_transform * (transforms_.world_to_curves * new_pos_wo);
           positions_cu[point_i] = new_pos_cu;
         }
       }
@@ -185,10 +186,10 @@ struct SmoothOperationExecutor {
     float3 brush_pos_wo;
     ED_view3d_win_to_3d(ctx_.v3d,
                         ctx_.region,
-                        curves_to_world_mat_ * self_->brush_3d_.position_cu,
+                        transforms_.curves_to_world * self_->brush_3d_.position_cu,
                         brush_pos_re_,
                         brush_pos_wo);
-    const float3 brush_pos_cu = world_to_curves_mat_ * brush_pos_wo;
+    const float3 brush_pos_cu = transforms_.world_to_curves * brush_pos_wo;
     const float brush_radius_cu = self_->brush_3d_.radius_cu * brush_radius_factor_;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(

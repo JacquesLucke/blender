@@ -80,8 +80,7 @@ struct PinchOperationExecutor {
   Vector<int64_t> selected_curve_indices_;
   IndexMask curve_selection_;
 
-  float4x4 curves_to_world_mat_;
-  float4x4 world_to_curves_mat_;
+  CurvesSculptTransforms transforms_;
 
   const CurvesSculpt *curves_sculpt_ = nullptr;
   const Brush *brush_ = nullptr;
@@ -117,11 +116,10 @@ struct PinchOperationExecutor {
       return;
     }
 
+    transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
+
     point_factors_ = get_point_selection(*curves_id_);
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
-
-    curves_to_world_mat_ = object_->obmat;
-    world_to_curves_mat_ = curves_to_world_mat_.inverted();
 
     brush_pos_re_ = stroke_extension.mouse_position;
     falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
@@ -198,11 +196,11 @@ struct PinchOperationExecutor {
 
           const float2 new_pos_re = math::interpolate(old_pos_re, brush_pos_re_, weight);
 
-          const float3 old_pos_wo = curves_to_world_mat_ * old_pos_cu;
+          const float3 old_pos_wo = transforms_.curves_to_world * old_pos_cu;
           float3 new_pos_wo;
           ED_view3d_win_to_3d(ctx_.v3d, ctx_.region, old_pos_wo, new_pos_re, new_pos_wo);
 
-          const float3 new_pos_cu = world_to_curves_mat_ * new_pos_wo;
+          const float3 new_pos_cu = transforms_.world_to_curves * new_pos_wo;
           positions_cu[point_i] = brush_transform * new_pos_cu;
           r_changed_curves[curve_i] = true;
         }
@@ -215,10 +213,10 @@ struct PinchOperationExecutor {
     float3 brush_pos_wo;
     ED_view3d_win_to_3d(ctx_.v3d,
                         ctx_.region,
-                        curves_to_world_mat_ * self_->brush_3d_.position_cu,
+                        transforms_.curves_to_world * self_->brush_3d_.position_cu,
                         brush_pos_re_,
                         brush_pos_wo);
-    const float3 brush_pos_cu = world_to_curves_mat_ * brush_pos_wo;
+    const float3 brush_pos_cu = transforms_.world_to_curves * brush_pos_wo;
     const float brush_radius_cu = self_->brush_3d_.radius_cu * brush_radius_factor_;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(

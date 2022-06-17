@@ -80,13 +80,7 @@ struct PuffOperationExecutor {
 
   eBrushFalloffShape falloff_shape_;
 
-  float4x4 curves_to_world_mat_;
-  float4x4 curves_to_surface_mat_;
-  float4x4 world_to_curves_mat_;
-  float4x4 world_to_surface_mat_;
-  float4x4 surface_to_world_mat_;
-  float4x4 surface_to_curves_mat_;
-  float4x4 surface_to_curves_normal_mat_;
+  CurvesSculptTransforms transforms_;
 
   Object *surface_ob_ = nullptr;
   Mesh *surface_ = nullptr;
@@ -130,13 +124,7 @@ struct PuffOperationExecutor {
     surface_ob_ = curves_id_->surface;
     surface_ = static_cast<Mesh *>(surface_ob_->data);
 
-    curves_to_world_mat_ = object_->obmat;
-    world_to_curves_mat_ = curves_to_world_mat_.inverted();
-    surface_to_world_mat_ = surface_ob_->obmat;
-    world_to_surface_mat_ = surface_to_world_mat_.inverted();
-    curves_to_surface_mat_ = world_to_surface_mat_ * curves_to_world_mat_;
-    surface_to_curves_mat_ = world_to_curves_mat_ * surface_to_world_mat_;
-    surface_to_curves_normal_mat_ = surface_to_curves_mat_.inverted().transposed();
+    transforms_ = CurvesSculptTransforms(*object_, surface_ob_);
 
     if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
       BKE_mesh_calc_normals_split(surface_);
@@ -243,10 +231,10 @@ struct PuffOperationExecutor {
     float3 brush_pos_wo;
     ED_view3d_win_to_3d(ctx_.v3d,
                         ctx_.region,
-                        curves_to_world_mat_ * self_->brush_3d_.position_cu,
+                        transforms_.curves_to_world * self_->brush_3d_.position_cu,
                         brush_pos_re_,
                         brush_pos_wo);
-    const float3 brush_pos_cu = world_to_curves_mat_ * brush_pos_wo;
+    const float3 brush_pos_cu = transforms_.world_to_curves * brush_pos_wo;
     const float brush_radius_cu = self_->brush_3d_.radius_cu * brush_radius_factor_;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
@@ -298,7 +286,7 @@ struct PuffOperationExecutor {
         const IndexRange points = curves_->points_for_curve(curve_i);
         const int first_point_i = points[0];
         const float3 first_pos_cu = positions_cu[first_point_i];
-        const float3 first_pos_su = curves_to_surface_mat_ * first_pos_cu;
+        const float3 first_pos_su = transforms_.curves_to_surface * first_pos_cu;
 
         BVHTreeNearest nearest;
         nearest.dist_sq = FLT_MAX;
@@ -317,7 +305,7 @@ struct PuffOperationExecutor {
         interp_weights_tri_v3(bary_coords, v0_su, v1_su, v2_su, closest_pos_su);
         const float3 normal_su = compute_surface_point_normal(
             looptri, bary_coords, corner_normals_su_);
-        const float3 normal_cu = math::normalize(surface_to_curves_normal_mat_ * normal_su);
+        const float3 normal_cu = math::normalize(transforms_.surface_to_curves_normal * normal_su);
 
         accumulated_lengths_cu.clear();
         accumulated_lengths_cu.resize(points.size() - 1);

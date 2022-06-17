@@ -59,14 +59,7 @@ struct DensityAddOperationExecutor {
   float new_curve_length_;
   int constant_points_per_curve_;
 
-  /** Various matrices to convert between coordinate spaces. */
-  float4x4 curves_to_world_mat_;
-  float4x4 curves_to_surface_mat_;
-  float4x4 world_to_curves_mat_;
-  float4x4 world_to_surface_mat_;
-  float4x4 surface_to_world_mat_;
-  float4x4 surface_to_curves_mat_;
-  float4x4 surface_to_curves_normal_mat_;
+  CurvesSculptTransforms transforms_;
 
   BVHTreeFromMesh surface_bvh_;
 
@@ -90,16 +83,10 @@ struct DensityAddOperationExecutor {
       return;
     }
 
-    curves_to_world_mat_ = object_->obmat;
-    world_to_curves_mat_ = curves_to_world_mat_.inverted();
-
     surface_ob_ = curves_id_->surface;
     surface_ = static_cast<Mesh *>(surface_ob_->data);
-    surface_to_world_mat_ = surface_ob_->obmat;
-    world_to_surface_mat_ = surface_to_world_mat_.inverted();
-    surface_to_curves_mat_ = world_to_curves_mat_ * surface_to_world_mat_;
-    surface_to_curves_normal_mat_ = surface_to_curves_mat_.inverted().transposed();
-    curves_to_surface_mat_ = world_to_surface_mat_ * curves_to_world_mat_;
+
+    transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
 
     if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
       BKE_mesh_calc_normals_split(surface_);
@@ -174,8 +161,7 @@ struct DensitySubtractOperationExecutor {
 
   eBrushFalloffShape falloff_shape_;
 
-  float4x4 curves_to_world_mat_;
-  float4x4 world_to_curves_mat_;
+  CurvesSculptTransforms transforms_;
 
   KDTree_3d *root_points_kdtree_;
 
@@ -208,8 +194,7 @@ struct DensitySubtractOperationExecutor {
 
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
 
-    curves_to_world_mat_ = object_->obmat;
-    world_to_curves_mat_ = curves_to_world_mat_.inverted();
+    transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
 
     falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
 
