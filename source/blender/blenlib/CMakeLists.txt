@@ -220,6 +220,7 @@ set(SRC
   BLI_hash_tables.hh
   BLI_heap.h
   BLI_heap_simple.h
+  BLI_impl_value.hh
   BLI_index_mask.hh
   BLI_index_mask_ops.hh
   BLI_index_range.hh

@@ -141,125 +141,163 @@ void sample_face_attribute(const Mesh &mesh,
   });
 }
 
+class MeshAttributeInterpolatorImpl {
+ private:
+  const Mesh *mesh_;
+  const IndexMask mask_;
+  const Span<float3> positions_;
+  const Span<int> looptri_indices_;
+
+  Array<float3> bary_coords_;
+  Array<float3> nearest_weights_;
+
+ public:
+  MeshAttributeInterpolatorImpl(const Mesh *mesh,
+                                const IndexMask mask,
+                                const Span<float3> positions,
+                                const Span<int> looptri_indices)
+      : mesh_(mesh), mask_(mask), positions_(positions), looptri_indices_(looptri_indices)
+  {
+    BLI_assert(positions.size() == looptri_indices.size());
+  }
+
+  Span<float3> ensure_barycentric_coords()
+  {
+    if (!bary_coords_.is_empty()) {
+      BLI_assert(bary_coords_.size() >= mask_.min_array_size());
+      return bary_coords_;
+    }
+    bary_coords_.reinitialize(mask_.min_array_size());
+
+    const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(mesh_),
+                                  BKE_mesh_runtime_looptri_len(mesh_)};
+
+    for (const int i : mask_) {
+      const int looptri_index = looptri_indices_[i];
+      const MLoopTri &looptri = looptris[looptri_index];
+
+      const int v0_index = mesh_->mloop[looptri.tri[0]].v;
+      const int v1_index = mesh_->mloop[looptri.tri[1]].v;
+      const int v2_index = mesh_->mloop[looptri.tri[2]].v;
+
+      interp_weights_tri_v3(bary_coords_[i],
+                            mesh_->mvert[v0_index].co,
+                            mesh_->mvert[v1_index].co,
+                            mesh_->mvert[v2_index].co,
+                            positions_[i]);
+    }
+    return bary_coords_;
+  }
+
+  Span<float3> ensure_nearest_weights()
+  {
+    if (!nearest_weights_.is_empty()) {
+      BLI_assert(nearest_weights_.size() >= mask_.min_array_size());
+      return nearest_weights_;
+    }
+    nearest_weights_.reinitialize(mask_.min_array_size());
+
+    const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(mesh_),
+                                  BKE_mesh_runtime_looptri_len(mesh_)};
+
+    for (const int i : mask_) {
+      const int looptri_index = looptri_indices_[i];
+      const MLoopTri &looptri = looptris[looptri_index];
+
+      const int v0_index = mesh_->mloop[looptri.tri[0]].v;
+      const int v1_index = mesh_->mloop[looptri.tri[1]].v;
+      const int v2_index = mesh_->mloop[looptri.tri[2]].v;
+
+      const float d0 = len_squared_v3v3(positions_[i], mesh_->mvert[v0_index].co);
+      const float d1 = len_squared_v3v3(positions_[i], mesh_->mvert[v1_index].co);
+      const float d2 = len_squared_v3v3(positions_[i], mesh_->mvert[v2_index].co);
+
+      nearest_weights_[i] = MIN3_PAIR(
+          d0, d1, d2, float3(1, 0, 0), float3(0, 1, 0), float3(0, 0, 1));
+    }
+    return nearest_weights_;
+  }
+
+  void sample_data(const GVArray &src,
+                   const eAttrDomain domain,
+                   const eAttributeMapMode mode,
+                   const GMutableSpan dst)
+  {
+    if (src.is_empty() || dst.is_empty()) {
+      return;
+    }
+
+    /* Compute barycentric coordinates only when they are needed. */
+    Span<float3> weights;
+    if (ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CORNER)) {
+      switch (mode) {
+        case eAttributeMapMode::INTERPOLATED:
+          weights = ensure_barycentric_coords();
+          break;
+        case eAttributeMapMode::NEAREST:
+          weights = ensure_nearest_weights();
+          break;
+      }
+    }
+
+    /* Interpolate the source attributes on the surface. */
+    switch (domain) {
+      case ATTR_DOMAIN_POINT: {
+        sample_point_attribute(*mesh_, looptri_indices_, weights, src, mask_, dst);
+        break;
+      }
+      case ATTR_DOMAIN_FACE: {
+        sample_face_attribute(*mesh_, looptri_indices_, src, mask_, dst);
+        break;
+      }
+      case ATTR_DOMAIN_CORNER: {
+        sample_corner_attribute(*mesh_, looptri_indices_, weights, src, mask_, dst);
+        break;
+      }
+      case ATTR_DOMAIN_EDGE: {
+        /* Not yet supported. */
+        break;
+      }
+      default: {
+        BLI_assert_unreachable();
+        break;
+      }
+    }
+  }
+
+  void sample_attribute(const ReadAttributeLookup &src_attribute,
+                        OutputAttribute &dst_attribute,
+                        eAttributeMapMode mode)
+  {
+    if (src_attribute && dst_attribute) {
+      this->sample_data(src_attribute.varray, src_attribute.domain, mode, dst_attribute.as_span());
+    }
+  }
+};
+
 MeshAttributeInterpolator::MeshAttributeInterpolator(const Mesh *mesh,
                                                      const IndexMask mask,
                                                      const Span<float3> positions,
                                                      const Span<int> looptri_indices)
-    : mesh_(mesh), mask_(mask), positions_(positions), looptri_indices_(looptri_indices)
+    : impl_(mesh, mask, positions, looptri_indices)
 {
-  BLI_assert(positions.size() == looptri_indices.size());
 }
 
-Span<float3> MeshAttributeInterpolator::ensure_barycentric_coords()
-{
-  if (!bary_coords_.is_empty()) {
-    BLI_assert(bary_coords_.size() >= mask_.min_array_size());
-    return bary_coords_;
-  }
-  bary_coords_.reinitialize(mask_.min_array_size());
-
-  const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(mesh_),
-                                BKE_mesh_runtime_looptri_len(mesh_)};
-
-  for (const int i : mask_) {
-    const int looptri_index = looptri_indices_[i];
-    const MLoopTri &looptri = looptris[looptri_index];
-
-    const int v0_index = mesh_->mloop[looptri.tri[0]].v;
-    const int v1_index = mesh_->mloop[looptri.tri[1]].v;
-    const int v2_index = mesh_->mloop[looptri.tri[2]].v;
-
-    interp_weights_tri_v3(bary_coords_[i],
-                          mesh_->mvert[v0_index].co,
-                          mesh_->mvert[v1_index].co,
-                          mesh_->mvert[v2_index].co,
-                          positions_[i]);
-  }
-  return bary_coords_;
-}
-
-Span<float3> MeshAttributeInterpolator::ensure_nearest_weights()
-{
-  if (!nearest_weights_.is_empty()) {
-    BLI_assert(nearest_weights_.size() >= mask_.min_array_size());
-    return nearest_weights_;
-  }
-  nearest_weights_.reinitialize(mask_.min_array_size());
-
-  const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(mesh_),
-                                BKE_mesh_runtime_looptri_len(mesh_)};
-
-  for (const int i : mask_) {
-    const int looptri_index = looptri_indices_[i];
-    const MLoopTri &looptri = looptris[looptri_index];
-
-    const int v0_index = mesh_->mloop[looptri.tri[0]].v;
-    const int v1_index = mesh_->mloop[looptri.tri[1]].v;
-    const int v2_index = mesh_->mloop[looptri.tri[2]].v;
-
-    const float d0 = len_squared_v3v3(positions_[i], mesh_->mvert[v0_index].co);
-    const float d1 = len_squared_v3v3(positions_[i], mesh_->mvert[v1_index].co);
-    const float d2 = len_squared_v3v3(positions_[i], mesh_->mvert[v2_index].co);
-
-    nearest_weights_[i] = MIN3_PAIR(d0, d1, d2, float3(1, 0, 0), float3(0, 1, 0), float3(0, 0, 1));
-  }
-  return nearest_weights_;
-}
+MeshAttributeInterpolator::~MeshAttributeInterpolator() = default;
 
 void MeshAttributeInterpolator::sample_data(const GVArray &src,
-                                            const eAttrDomain domain,
-                                            const eAttributeMapMode mode,
+                                            eAttrDomain domain,
+                                            eAttributeMapMode mode,
                                             const GMutableSpan dst)
 {
-  if (src.is_empty() || dst.is_empty()) {
-    return;
-  }
-
-  /* Compute barycentric coordinates only when they are needed. */
-  Span<float3> weights;
-  if (ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CORNER)) {
-    switch (mode) {
-      case eAttributeMapMode::INTERPOLATED:
-        weights = ensure_barycentric_coords();
-        break;
-      case eAttributeMapMode::NEAREST:
-        weights = ensure_nearest_weights();
-        break;
-    }
-  }
-
-  /* Interpolate the source attributes on the surface. */
-  switch (domain) {
-    case ATTR_DOMAIN_POINT: {
-      sample_point_attribute(*mesh_, looptri_indices_, weights, src, mask_, dst);
-      break;
-    }
-    case ATTR_DOMAIN_FACE: {
-      sample_face_attribute(*mesh_, looptri_indices_, src, mask_, dst);
-      break;
-    }
-    case ATTR_DOMAIN_CORNER: {
-      sample_corner_attribute(*mesh_, looptri_indices_, weights, src, mask_, dst);
-      break;
-    }
-    case ATTR_DOMAIN_EDGE: {
-      /* Not yet supported. */
-      break;
-    }
-    default: {
-      BLI_assert_unreachable();
-      break;
-    }
-  }
+  impl_->sample_data(src, domain, mode, dst);
 }
 
 void MeshAttributeInterpolator::sample_attribute(const ReadAttributeLookup &src_attribute,
                                                  OutputAttribute &dst_attribute,
                                                  eAttributeMapMode mode)
 {
-  if (src_attribute && dst_attribute) {
-    this->sample_data(src_attribute.varray, src_attribute.domain, mode, dst_attribute.as_span());
-  }
+  impl_->sample_attribute(src_attribute, dst_attribute, mode);
 }
 
 int sample_surface_points_spherical(RandomNumberGenerator &rng,

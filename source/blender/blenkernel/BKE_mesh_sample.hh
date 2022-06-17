@@ -8,6 +8,7 @@
 
 #include "BLI_function_ref.hh"
 #include "BLI_generic_virtual_array.hh"
+#include "BLI_impl_value.hh"
 #include "BLI_math_vec_types.hh"
 
 #include "DNA_meshdata_types.h"
@@ -53,6 +54,8 @@ enum class eAttributeMapMode {
   NEAREST,
 };
 
+class MeshAttributeInterpolatorImpl;
+
 /**
  * A utility class that performs attribute interpolation from a source mesh.
  *
@@ -60,21 +63,16 @@ enum class eAttributeMapMode {
  * Barycentric weights are needed when interpolating point or corner domain attributes,
  * these are computed lazily when needed and re-used.
  */
-class MeshAttributeInterpolator {
+class MeshAttributeInterpolator : NonCopyable, NonMovable {
  private:
-  const Mesh *mesh_;
-  const IndexMask mask_;
-  const Span<float3> positions_;
-  const Span<int> looptri_indices_;
-
-  Array<float3> bary_coords_;
-  Array<float3> nearest_weights_;
+  ImplValue<MeshAttributeInterpolatorImpl, 184, 8> impl_;
 
  public:
   MeshAttributeInterpolator(const Mesh *mesh,
                             const IndexMask mask,
                             const Span<float3> positions,
                             const Span<int> looptri_indices);
+  ~MeshAttributeInterpolator();
 
   void sample_data(const GVArray &src,
                    eAttrDomain domain,
@@ -84,10 +82,6 @@ class MeshAttributeInterpolator {
   void sample_attribute(const ReadAttributeLookup &src_attribute,
                         OutputAttribute &dst_attribute,
                         eAttributeMapMode mode);
-
- protected:
-  Span<float3> ensure_barycentric_coords();
-  Span<float3> ensure_nearest_weights();
 };
 
 /**
