@@ -213,16 +213,18 @@ def api_dump(args):
         json.dump((version, dump), file_handle, cls=JSONEncoderAPIDump)
 
     indexpath = args.indexpath
+    rootpath = os.path.dirname(indexpath)
     if os.path.exists(indexpath):
         with open(indexpath, 'r', encoding='utf-8') as file_handle:
             index = json.load(file_handle)
     else:
         index = {}
-    index[version_key] = filepath_out
+    index[version_key] = os.path.relpath(filepath_out, rootpath)
     with open(indexpath, 'w', encoding='utf-8') as file_handle:
         json.dump(index, file_handle)
 
     print("API version %s dumped into %r, and index %r has been updated" % (version_key, filepath_out, indexpath))
+    print(index)
 
 
 def compare_props(a, b, fuzz=0.75):

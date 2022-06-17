@@ -87,53 +87,25 @@ struct AddOperationExecutor {
   Object *surface_ob_ = nullptr;
   Mesh *surface_ = nullptr;
   Span<MLoopTri> surface_looptris_;
-  Span<float3> corner_normals_su_;
-  VArray_Span<float2> surface_uv_map_;
 
   const CurvesSculpt *curves_sculpt_ = nullptr;
   const Brush *brush_ = nullptr;
   const BrushCurvesSculptSettings *brush_settings_ = nullptr;
+  int add_amount_;
+  bool use_front_face_;
 
   float brush_radius_re_;
   float2 brush_pos_re_;
 
-  bool use_front_face_;
-  bool interpolate_length_;
-  bool interpolate_shape_;
-  bool interpolate_point_count_;
-  bool use_interpolation_;
-  float new_curve_length_;
-  int add_amount_;
-  int constant_points_per_curve_;
-
-  /** Various matrices to convert between coordinate spaces. */
-  float4x4 curves_to_world_mat_;
-  float4x4 curves_to_surface_mat_;
-  float4x4 world_to_curves_mat_;
-  float4x4 world_to_surface_mat_;
-  float4x4 surface_to_world_mat_;
-  float4x4 surface_to_curves_mat_;
-  float4x4 surface_to_curves_normal_mat_;
+  CurvesSculptTransforms transforms_;
 
   BVHTreeFromMesh surface_bvh_;
-
-  int tot_old_curves_;
-  int tot_old_points_;
 
   struct AddedPoints {
     Vector<float3> positions_cu;
     Vector<float3> bary_coords;
     Vector<int> looptri_indices;
   };
-
-  struct NeighborInfo {
-    /* Curve index of the neighbor. */
-    int index;
-    /* The weights of all neighbors of a new curve add up to 1. */
-    float weight;
-  };
-  static constexpr int max_neighbors = 5;
-  using NeighborsVector = Vector<NeighborInfo, max_neighbors>;
 
   AddOperationExecutor(const bContext &C) : ctx_(C)
   {
@@ -151,23 +123,10 @@ struct AddOperationExecutor {
       return;
     }
 
-    curves_to_world_mat_ = object_->obmat;
-    world_to_curves_mat_ = curves_to_world_mat_.inverted();
+    transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
 
     surface_ob_ = curves_id_->surface;
     surface_ = static_cast<Mesh *>(surface_ob_->data);
-    surface_to_world_mat_ = surface_ob_->obmat;
-    world_to_surface_mat_ = surface_to_world_mat_.inverted();
-    surface_to_curves_mat_ = world_to_curves_mat_ * surface_to_world_mat_;
-    surface_to_curves_normal_mat_ = surface_to_curves_mat_.inverted().transposed();
-    curves_to_surface_mat_ = world_to_surface_mat_ * curves_to_world_mat_;
-
-    if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
-      BKE_mesh_calc_normals_split(surface_);
-    }
-    corner_normals_su_ = {
-        reinterpret_cast<const float3 *>(CustomData_get_layer(&surface_->ldata, CD_NORMAL)),
-        surface_->totloop};
 
     curves_sculpt_ = ctx_.scene->toolsettings->curves_sculpt;
     brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
@@ -179,16 +138,6 @@ struct AddOperationExecutor {
     const eBrushFalloffShape falloff_shape = static_cast<eBrushFalloffShape>(
         brush_->falloff_shape);
     add_amount_ = std::max(0, brush_settings_->add_amount);
-    constant_points_per_curve_ = std::max(2, brush_settings_->points_per_curve);
-    interpolate_length_ = brush_settings_->flag & BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_LENGTH;
-    interpolate_shape_ = brush_settings_->flag & BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_SHAPE;
-    interpolate_point_count_ = brush_settings_->flag &
-                               BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_POINT_COUNT;
-    use_interpolation_ = interpolate_length_ || interpolate_shape_ || interpolate_point_count_;
-    new_curve_length_ = brush_settings_->curve_length;
-
-    tot_old_curves_ = curves_->curves_num();
-    tot_old_points_ = curves_->points_num();
 
     if (add_amount_ == 0) {
       return;
@@ -203,15 +152,6 @@ struct AddOperationExecutor {
 
     surface_looptris_ = {BKE_mesh_runtime_looptri_ensure(surface_),
                          BKE_mesh_runtime_looptri_len(surface_)};
-
-    if (curves_id_->surface_uv_map != nullptr) {
-      MeshComponent surface_component;
-      surface_component.replace(surface_, GeometryOwnershipType::ReadOnly);
-      surface_uv_map_ = surface_component
-                            .attribute_try_get_for_read(curves_id_->surface_uv_map,
-                                                        ATTR_DOMAIN_CORNER)
-                            .typed<float2>();
-    }
 
     /* Sample points on the surface using one of multiple strategies. */
     AddedPoints added_points;
@@ -233,27 +173,51 @@ struct AddOperationExecutor {
       return;
     }
 
-    if (use_interpolation_) {
-      this->ensure_curve_roots_kdtree();
+    /* Find UV map. */
+    VArray_Span<float2> surface_uv_map;
+    if (curves_id_->surface_uv_map != nullptr) {
+      MeshComponent surface_component;
+      surface_component.replace(surface_, GeometryOwnershipType::ReadOnly);
+      surface_uv_map = surface_component
+                           .attribute_try_get_for_read(curves_id_->surface_uv_map,
+                                                       ATTR_DOMAIN_CORNER)
+                           .typed<float2>();
     }
+
+    /* Find normals. */
+    if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
+      BKE_mesh_calc_normals_split(surface_);
+    }
+    const Span<float3> corner_normals_su = {
+        reinterpret_cast<const float3 *>(CustomData_get_layer(&surface_->ldata, CD_NORMAL)),
+        surface_->totloop};
 
     geometry::AddCurvesOnMeshInputs add_inputs;
     add_inputs.root_positions_cu = added_points.positions_cu;
     add_inputs.bary_coords = added_points.bary_coords;
     add_inputs.looptri_indices = added_points.looptri_indices;
-    add_inputs.interpolate_length = interpolate_length_;
-    add_inputs.interpolate_shape = interpolate_shape_;
-    add_inputs.interpolate_point_count = interpolate_point_count_;
-    add_inputs.fallback_curve_length = new_curve_length_;
-    add_inputs.fallback_point_count = constant_points_per_curve_;
+    add_inputs.interpolate_length = brush_settings_->flag &
+                                    BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_LENGTH;
+    add_inputs.interpolate_shape = brush_settings_->flag &
+                                   BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_SHAPE;
+    add_inputs.interpolate_point_count = brush_settings_->flag &
+                                         BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_POINT_COUNT;
+    add_inputs.fallback_curve_length = brush_settings_->curve_length;
+    add_inputs.fallback_point_count = std::max(2, brush_settings_->points_per_curve);
     add_inputs.surface = surface_;
     add_inputs.surface_bvh = &surface_bvh_;
     add_inputs.surface_looptris = surface_looptris_;
-    add_inputs.surface_uv_map = surface_uv_map_;
-    add_inputs.corner_normals_su = corner_normals_su_;
-    add_inputs.curves_to_surface_mat = curves_to_surface_mat_;
-    add_inputs.surface_to_curves_normal_mat = surface_to_curves_normal_mat_;
-    add_inputs.old_roots_kdtree = self_->curve_roots_kdtree_;
+    add_inputs.surface_uv_map = surface_uv_map;
+    add_inputs.corner_normals_su = corner_normals_su;
+    add_inputs.curves_to_surface_mat = transforms_.curves_to_surface;
+    add_inputs.surface_to_curves_normal_mat = transforms_.surface_to_curves_normal;
+
+    if (add_inputs.interpolate_length || add_inputs.interpolate_shape ||
+        add_inputs.interpolate_point_count) {
+      this->ensure_curve_roots_kdtree();
+      add_inputs.old_roots_kdtree = self_->curve_roots_kdtree_;
+    }
+
     geometry::add_curves_on_mesh(*curves_, add_inputs);
 
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
@@ -269,14 +233,14 @@ struct AddOperationExecutor {
     float3 ray_start_wo, ray_end_wo;
     ED_view3d_win_to_segment_clipped(
         ctx_.depsgraph, ctx_.region, ctx_.v3d, brush_pos_re_, ray_start_wo, ray_end_wo, true);
-    const float3 ray_start_cu = world_to_curves_mat_ * ray_start_wo;
-    const float3 ray_end_cu = world_to_curves_mat_ * ray_end_wo;
+    const float3 ray_start_cu = transforms_.world_to_curves * ray_start_wo;
+    const float3 ray_end_cu = transforms_.world_to_curves * ray_end_wo;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
 
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      const float4x4 transform = curves_to_surface_mat_ * brush_transform;
+      const float4x4 transform = transforms_.curves_to_surface * brush_transform;
       this->sample_in_center(r_added_points, transform * ray_start_cu, transform * ray_end_cu);
     }
   }
@@ -307,7 +271,7 @@ struct AddOperationExecutor {
     const float3 bary_coords = bke::mesh_surface_sample::compute_bary_coord_in_triangle(
         *surface_, surface_looptris_[looptri_index], brush_pos_su);
 
-    const float3 brush_pos_cu = surface_to_curves_mat_ * brush_pos_su;
+    const float3 brush_pos_cu = transforms_.surface_to_curves * brush_pos_su;
 
     r_added_points.positions_cu.append(brush_pos_cu);
     r_added_points.bary_coords.append(bary_coords);
@@ -348,10 +312,10 @@ struct AddOperationExecutor {
             float3 start_wo, end_wo;
             ED_view3d_win_to_segment_clipped(
                 ctx_.depsgraph, ctx_.region, ctx_.v3d, pos_re, start_wo, end_wo, true);
-            const float3 start_cu = brush_transform * (world_to_curves_mat_ * start_wo);
-            const float3 end_cu = brush_transform * (world_to_curves_mat_ * end_wo);
-            r_start_su = curves_to_surface_mat_ * start_cu;
-            r_end_su = curves_to_surface_mat_ * end_cu;
+            const float3 start_cu = brush_transform * (transforms_.world_to_curves * start_wo);
+            const float3 end_cu = brush_transform * (transforms_.world_to_curves * end_wo);
+            r_start_su = transforms_.curves_to_surface * start_cu;
+            r_end_su = transforms_.curves_to_surface * end_cu;
           },
           use_front_face_,
           add_amount_,
@@ -360,7 +324,7 @@ struct AddOperationExecutor {
           r_added_points.looptri_indices,
           r_added_points.positions_cu);
       for (float3 &pos : r_added_points.positions_cu.as_mutable_span().take_back(new_points)) {
-        pos = surface_to_curves_mat_ * pos;
+        pos = transforms_.surface_to_curves * pos;
       }
     }
   }
@@ -379,8 +343,8 @@ struct AddOperationExecutor {
                                      brush_ray_start_wo,
                                      brush_ray_end_wo,
                                      true);
-    const float3 brush_ray_start_cu = world_to_curves_mat_ * brush_ray_start_wo;
-    const float3 brush_ray_end_cu = world_to_curves_mat_ * brush_ray_end_wo;
+    const float3 brush_ray_start_cu = transforms_.world_to_curves * brush_ray_start_wo;
+    const float3 brush_ray_end_cu = transforms_.world_to_curves * brush_ray_end_wo;
 
     /* Find ray that starts on the boundary of the brush. That is used to compute the brush radius
      * in 3D. */
@@ -392,13 +356,14 @@ struct AddOperationExecutor {
                                      brush_radius_ray_start_wo,
                                      brush_radius_ray_end_wo,
                                      true);
-    const float3 brush_radius_ray_start_cu = world_to_curves_mat_ * brush_radius_ray_start_wo;
-    const float3 brush_radius_ray_end_cu = world_to_curves_mat_ * brush_radius_ray_end_wo;
+    const float3 brush_radius_ray_start_cu = transforms_.world_to_curves *
+                                             brush_radius_ray_start_wo;
+    const float3 brush_radius_ray_end_cu = transforms_.world_to_curves * brush_radius_ray_end_wo;
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      const float4x4 transform = curves_to_surface_mat_ * brush_transform;
+      const float4x4 transform = transforms_.curves_to_surface * brush_transform;
       this->sample_spherical(rng,
                              r_added_points,
                              transform * brush_ray_start_cu,
@@ -494,7 +459,7 @@ struct AddOperationExecutor {
           r_added_points.looptri_indices,
           r_added_points.positions_cu);
       for (float3 &pos : r_added_points.positions_cu.as_mutable_span().take_back(new_points)) {
-        pos = surface_to_curves_mat_ * pos;
+        pos = transforms_.surface_to_curves * pos;
       }
     }
 
