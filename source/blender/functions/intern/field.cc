@@ -8,6 +8,7 @@
 #include "BLI_vector_set.hh"
 
 #include "FN_field.hh"
+#include "FN_field_multi_function.hh"
 #include "FN_multi_function_builder.hh"
 #include "FN_multi_function_procedure.hh"
 #include "FN_multi_function_procedure_builder.hh"
@@ -82,14 +83,13 @@ static FieldTreeInfo preprocess_field_tree(Span<GFieldRef> entry_fields)
  * Retrieves the data from the context that is passed as input into the field.
  */
 static Vector<GVArray> get_field_context_inputs(
-    ResourceScope &scope,
     const IndexMask mask,
-    const FieldContext &context,
+    const FieldArrayContext &context,
     const Span<std::reference_wrapper<const FieldInput>> field_inputs)
 {
   Vector<GVArray> field_context_inputs;
   for (const FieldInput &field_input : field_inputs) {
-    GVArray varray = context.get_varray_for_input(field_input, mask, scope);
+    GVArray varray = context.get_varray_for_input(field_input, mask);
     if (!varray) {
       const CPPType &type = field_input.cpp_type();
       varray = GVArray::ForSingleDefault(type, mask.min_array_size());
@@ -184,6 +184,9 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
         }
         case FieldNodeType::Operation: {
           const FieldOperation &operation_node = static_cast<const FieldOperation &>(field.node());
+          const FieldMultiFunctionMixin *mf_operation_node =
+              dynamic_cast<const FieldMultiFunctionMixin *>(&operation_node);
+          BLI_assert(mf_operation_node != nullptr);
           const Span<GField> operation_inputs = operation_node.inputs();
 
           if (field_with_index.current_input_index < operation_inputs.size()) {
@@ -195,7 +198,7 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
           else {
             /* All inputs variables are ready, now gather all variables that are used by the
              * function and call it. */
-            const MultiFunction &multi_function = operation_node.multi_function();
+            const MultiFunction &multi_function = mf_operation_node->multi_function();
             Vector<MFVariable *> variables(multi_function.param_amount());
 
             int param_input_index = 0;
@@ -278,7 +281,7 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
 Vector<GVArray> evaluate_fields(ResourceScope &scope,
                                 Span<GFieldRef> fields_to_evaluate,
                                 IndexMask mask,
-                                const FieldContext &context,
+                                const FieldArrayContext &context,
                                 Span<GVMutableArray> dst_varrays)
 {
   Vector<GVArray> r_varrays(fields_to_evaluate.size());
@@ -311,7 +314,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
 
   /* Get inputs that will be passed into the field when evaluated. */
   Vector<GVArray> field_context_inputs = get_field_context_inputs(
-      scope, mask, context, field_tree_info.deduplicated_field_inputs);
+      mask, context, field_tree_info.deduplicated_field_inputs);
 
   /* Finish fields that don't need any processing directly. */
   for (const int out_index : fields_to_evaluate.index_range()) {
@@ -500,30 +503,32 @@ void evaluate_constant_field(const GField &field, void *r_value)
   }
 
   ResourceScope scope;
-  FieldContext context;
+  FieldArrayContext context;
   Vector<GVArray> varrays = evaluate_fields(scope, {field}, IndexRange(1), context);
   varrays[0].get_to_uninitialized(0, r_value);
 }
 
-GField make_field_constant_if_possible(GField field)
-{
-  if (field.node().depends_on_input()) {
-    return field;
+class InvertFieldOperation : public FieldOperation, public FieldMultiFunctionMixin {
+ private:
+  static const MultiFunction &get_invert_multi_function()
+  {
+    static CustomMF_SI_SO<bool, bool> not_fn{
+        "Not", [](bool a) { return !a; }, CustomMF_presets::AllSpanOrSingle()};
+    return not_fn;
   }
-  const CPPType &type = field.cpp_type();
-  BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
-  evaluate_constant_field(field, buffer);
-  GField new_field = make_constant_field(type, buffer);
-  type.destruct(buffer);
-  return new_field;
-}
+
+ public:
+  InvertFieldOperation(GField field)
+      : FieldOperation({std::move(field)}, {&CPPType::get<bool>()}),
+        FieldMultiFunctionMixin(get_invert_multi_function())
+  {
+  }
+};
 
 Field<bool> invert_boolean_field(const Field<bool> &field)
 {
-  static CustomMF_SI_SO<bool, bool> not_fn{
-      "Not", [](bool a) { return !a; }, CustomMF_presets::AllSpanOrSingle()};
-  auto not_op = std::make_shared<FieldOperation>(FieldOperation(not_fn, {field}));
-  return Field<bool>(not_op);
+  auto not_op = std::make_shared<FieldOperation>(InvertFieldOperation(field));
+  return Field<bool>(std::move(not_op));
 }
 
 GField make_constant_field(const CPPType &type, const void *value)
@@ -532,13 +537,13 @@ GField make_constant_field(const CPPType &type, const void *value)
   return GField{std::move(constant_node)};
 }
 
-GVArray FieldContext::get_varray_for_input(const FieldInput &field_input,
-                                           IndexMask mask,
-                                           ResourceScope &scope) const
+GVArray FieldArrayContext::get_varray_for_input(const FieldInput &field_input,
+                                                IndexMask mask) const
 {
-  /* By default ask the field input to create the varray. Another field context might overwrite
-   * the context here. */
-  return field_input.get_varray_for_context(*this, mask, scope);
+  if (auto *field_array_input = dynamic_cast<const FieldArrayInput *>(&field_input)) {
+    return field_array_input->get_varray_for_context(*this, mask);
+  }
+  return {};
 }
 
 IndexFieldInput::IndexFieldInput() : FieldInput(CPPType::get<int>(), "Index")
@@ -552,9 +557,8 @@ GVArray IndexFieldInput::get_index_varray(IndexMask mask)
   return VArray<int>::ForFunc(mask.min_array_size(), index_func);
 }
 
-GVArray IndexFieldInput::get_varray_for_context(const fn::FieldContext &UNUSED(context),
-                                                IndexMask mask,
-                                                ResourceScope &UNUSED(scope)) const
+GVArray IndexFieldInput::get_varray_for_context(const FieldArrayContext &UNUSED(context),
+                                                IndexMask mask) const
 {
   /* TODO: Investigate a similar method to IndexRange::as_span() */
   return get_index_varray(mask);
@@ -578,16 +582,14 @@ bool IndexFieldInput::is_equal_to(const fn::FieldNode &other) const
 /* Avoid generating the destructor in every translation unit. */
 FieldNode::~FieldNode() = default;
 
+inline const CPPType &FieldNode::output_cpp_type(const int output_index) const
+{
+  return *output_types_[output_index];
+}
+
 /* --------------------------------------------------------------------
  * FieldOperation.
  */
-
-FieldOperation::FieldOperation(std::shared_ptr<const MultiFunction> function,
-                               Vector<GField> inputs)
-    : FieldOperation(*function, std::move(inputs))
-{
-  owned_function_ = std::move(function);
-}
 
 /* Avoid generating the destructor in every translation unit. */
 FieldOperation::~FieldOperation() = default;
@@ -647,8 +649,8 @@ static std::shared_ptr<const FieldInputs> combine_field_inputs(Span<GField> fiel
   return new_field_inputs;
 }
 
-FieldOperation::FieldOperation(const MultiFunction &function, Vector<GField> inputs)
-    : FieldNode(FieldNodeType::Operation), function_(&function), inputs_(std::move(inputs))
+FieldOperation::FieldOperation(Vector<GField> inputs, Vector<const CPPType *> output_types)
+    : FieldNode(FieldNodeType::Operation, std::move(output_types)), inputs_(std::move(inputs))
 {
   field_inputs_ = combine_field_inputs(inputs_);
 }
@@ -658,7 +660,7 @@ FieldOperation::FieldOperation(const MultiFunction &function, Vector<GField> inp
  */
 
 FieldInput::FieldInput(const CPPType &type, std::string debug_name)
-    : FieldNode(FieldNodeType::Input), type_(&type), debug_name_(std::move(debug_name))
+    : FieldNode(FieldNodeType::Input, {&type}), debug_name_(std::move(debug_name))
 {
   std::shared_ptr<FieldInputs> field_inputs = std::make_shared<FieldInputs>();
   field_inputs->nodes.add_new(this);
@@ -674,7 +676,7 @@ FieldInput::~FieldInput() = default;
  */
 
 FieldConstant::FieldConstant(const CPPType &type, const void *value)
-    : FieldNode(FieldNodeType::Constant), type_(type)
+    : FieldNode(FieldNodeType::Constant, {&type})
 {
   value_ = MEM_mallocN_aligned(type.size(), type.alignment(), __func__);
   type.copy_construct(value, value_);
@@ -682,25 +684,19 @@ FieldConstant::FieldConstant(const CPPType &type, const void *value)
 
 FieldConstant::~FieldConstant()
 {
-  type_.destruct(value_);
+  const CPPType &type = this->type();
+  type.destruct(value_);
   MEM_freeN(value_);
-}
-
-const CPPType &FieldConstant::output_cpp_type(int output_index) const
-{
-  BLI_assert(output_index == 0);
-  UNUSED_VARS_NDEBUG(output_index);
-  return type_;
 }
 
 const CPPType &FieldConstant::type() const
 {
-  return type_;
+  return this->output_cpp_type(0);
 }
 
 GPointer FieldConstant::value() const
 {
-  return {type_, value_};
+  return {this->type(), value_};
 }
 
 /* --------------------------------------------------------------------
@@ -757,7 +753,7 @@ int FieldEvaluator::add(GField field)
 }
 
 static IndexMask evaluate_selection(const Field<bool> &selection_field,
-                                    const FieldContext &context,
+                                    const FieldArrayContext &context,
                                     IndexMask full_mask,
                                     ResourceScope &scope)
 {

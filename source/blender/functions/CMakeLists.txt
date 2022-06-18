@@ -23,6 +23,7 @@ set(SRC
 
   FN_field.hh
   FN_field_cpp_type.hh
+  FN_field_multi_function.hh
   FN_multi_function.hh
   FN_multi_function_builder.hh
   FN_multi_function_context.hh
