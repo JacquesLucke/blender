@@ -1048,10 +1048,12 @@ class GeometryNodesEvaluator {
 
     std::shared_ptr<fn::FieldOperation> operation;
     if (fn_item.owned_fn) {
-      operation = std::make_shared<fn::FieldOperation>(fn_item.owned_fn, std::move(input_fields));
+      operation = std::make_shared<fn::FieldMultiFunctionOperation>(fn_item.owned_fn,
+                                                                    std::move(input_fields));
     }
     else {
-      operation = std::make_shared<fn::FieldOperation>(*fn_item.fn, std::move(input_fields));
+      operation = std::make_shared<fn::FieldMultiFunctionOperation>(*fn_item.fn,
+                                                                    std::move(input_fields));
     }
 
     int output_index = 0;

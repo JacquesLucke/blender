@@ -14,13 +14,13 @@ namespace blender::fn::tests {
 TEST(field, ConstantFunction)
 {
   /* TODO: Figure out how to not use another "FieldOperation(" inside of std::make_shared. */
-  GField constant_field{std::make_shared<FieldOperation>(
-                            FieldOperation(std::make_unique<CustomMF_Constant<int>>(10), {})),
+  GField constant_field{std::make_shared<FieldMultiFunctionOperation>(
+                            std::make_unique<CustomMF_Constant<int>>(10), Vector<GField>{}),
                         0};
 
   Array<int> result(4);
 
-  FieldContext context;
+  FieldArrayContext context;
   FieldEvaluator evaluator{context, 4};
   evaluator.add_with_destination(constant_field, result.as_mutable_span());
   evaluator.evaluate();
@@ -30,15 +30,14 @@ TEST(field, ConstantFunction)
   EXPECT_EQ(result[3], 10);
 }
 
-class IndexFieldInput final : public FieldInput {
+class IndexFieldInput final : public FieldInput, public FieldArrayInputMixin {
  public:
   IndexFieldInput() : FieldInput(CPPType::get<int>(), "Index")
   {
   }
 
-  GVArray get_varray_for_context(const FieldContext &UNUSED(context),
-                                 IndexMask mask,
-                                 ResourceScope &UNUSED(scope)) const final
+  GVArray get_varray_for_context(const FieldArrayContext &UNUSED(context),
+                                 IndexMask mask) const final
   {
     auto index_func = [](int i) { return i; };
     return VArray<int>::ForFunc(mask.min_array_size(), index_func);
@@ -51,7 +50,7 @@ TEST(field, VArrayInput)
 
   Array<int> result_1(4);
 
-  FieldContext context;
+  FieldArrayContext context;
   FieldEvaluator evaluator{context, 4};
   evaluator.add_with_destination(index_field, result_1.as_mutable_span());
   evaluator.evaluate();
@@ -87,7 +86,7 @@ TEST(field, VArrayInputMultipleOutputs)
   const Array<int64_t> indices = {2, 4, 6, 8};
   const IndexMask mask{indices};
 
-  FieldContext context;
+  FieldArrayContext context;
   FieldEvaluator evaluator{context, &mask};
   evaluator.add_with_destination(field_1, result_1.as_mutable_span());
   evaluator.add_with_destination(field_2, result_2.as_mutable_span());
@@ -108,8 +107,8 @@ TEST(field, InputAndFunction)
 
   std::unique_ptr<MultiFunction> add_fn = std::make_unique<CustomMF_SI_SI_SO<int, int, int>>(
       "add", [](int a, int b) { return a + b; });
-  GField output_field{std::make_shared<FieldOperation>(
-                          FieldOperation(std::move(add_fn), {index_field, index_field})),
+  GField output_field{std::make_shared<FieldMultiFunctionOperation>(
+                          std::move(add_fn), Vector<GField>{index_field, index_field}),
                       0};
 
   Array<int> result(10);
@@ -117,7 +116,7 @@ TEST(field, InputAndFunction)
   const Array<int64_t> indices = {2, 4, 6, 8};
   const IndexMask mask{indices};
 
-  FieldContext context;
+  FieldArrayContext context;
   FieldEvaluator evaluator{context, &mask};
   evaluator.add_with_destination(output_field, result.as_mutable_span());
   evaluator.evaluate();
@@ -133,21 +132,22 @@ TEST(field, TwoFunctions)
 
   std::unique_ptr<MultiFunction> add_fn = std::make_unique<CustomMF_SI_SI_SO<int, int, int>>(
       "add", [](int a, int b) { return a + b; });
-  GField add_field{std::make_shared<FieldOperation>(
-                       FieldOperation(std::move(add_fn), {index_field, index_field})),
+  GField add_field{std::make_shared<FieldMultiFunctionOperation>(
+                       std::move(add_fn), Vector<GField>{index_field, index_field}),
                    0};
 
   std::unique_ptr<MultiFunction> add_10_fn = std::make_unique<CustomMF_SI_SO<int, int>>(
       "add_10", [](int a) { return a + 10; });
-  GField result_field{
-      std::make_shared<FieldOperation>(FieldOperation(std::move(add_10_fn), {add_field})), 0};
+  GField result_field{std::make_shared<FieldMultiFunctionOperation>(std::move(add_10_fn),
+                                                                    Vector<GField>{add_field}),
+                      0};
 
   Array<int> result(10);
 
   const Array<int64_t> indices = {2, 4, 6, 8};
   const IndexMask mask{indices};
 
-  FieldContext context;
+  FieldArrayContext context;
   FieldEvaluator evaluator{context, &mask};
   evaluator.add_with_destination(result_field, result.as_mutable_span());
   evaluator.evaluate();
@@ -192,8 +192,8 @@ TEST(field, FunctionTwoOutputs)
   GField index_field_1{std::make_shared<IndexFieldInput>()};
   GField index_field_2{std::make_shared<IndexFieldInput>()};
 
-  std::shared_ptr<FieldOperation> fn = std::make_shared<FieldOperation>(
-      FieldOperation(std::make_unique<TwoOutputFunction>(), {index_field_1, index_field_2}));
+  std::shared_ptr<FieldOperation> fn = std::make_shared<FieldMultiFunctionOperation>(
+      std::make_unique<TwoOutputFunction>(), Vector<GField>{index_field_1, index_field_2});
 
   GField result_field_1{fn, 0};
   GField result_field_2{fn, 1};
@@ -204,7 +204,7 @@ TEST(field, FunctionTwoOutputs)
   const Array<int64_t> indices = {2, 4, 6, 8};
   const IndexMask mask{indices};
 
-  FieldContext context;
+  FieldArrayContext context;
   FieldEvaluator evaluator{context, &mask};
   evaluator.add_with_destination(result_field_1, result_1.as_mutable_span());
   evaluator.add_with_destination(result_field_2, result_2.as_mutable_span());
@@ -223,8 +223,8 @@ TEST(field, TwoFunctionsTwoOutputs)
 {
   GField index_field{std::make_shared<IndexFieldInput>()};
 
-  std::shared_ptr<FieldOperation> fn = std::make_shared<FieldOperation>(
-      FieldOperation(std::make_unique<TwoOutputFunction>(), {index_field, index_field}));
+  std::shared_ptr<FieldOperation> fn = std::make_shared<FieldMultiFunctionOperation>(
+      std::make_unique<TwoOutputFunction>(), Vector<GField>{index_field, index_field});
 
   Array<int64_t> mask_indices = {2, 4, 6, 8};
   IndexMask mask = mask_indices.as_span();
@@ -234,11 +234,11 @@ TEST(field, TwoFunctionsTwoOutputs)
 
   std::unique_ptr<MultiFunction> add_10_fn = std::make_unique<CustomMF_SI_SO<int, int>>(
       "add_10", [](int a) { return a + 10; });
-  Field<int> result_field_2{
-      std::make_shared<FieldOperation>(FieldOperation(std::move(add_10_fn), {intermediate_field})),
-      0};
+  Field<int> result_field_2{std::make_shared<FieldMultiFunctionOperation>(
+                                std::move(add_10_fn), Vector<GField>{intermediate_field}),
+                            0};
 
-  FieldContext field_context;
+  FieldArrayContext field_context;
   FieldEvaluator field_evaluator{field_context, &mask};
   VArray<int> result_1;
   VArray<int> result_2;
@@ -258,10 +258,11 @@ TEST(field, TwoFunctionsTwoOutputs)
 
 TEST(field, SameFieldTwice)
 {
-  GField constant_field{
-      std::make_shared<FieldOperation>(std::make_unique<CustomMF_Constant<int>>(10)), 0};
+  GField constant_field{std::make_shared<FieldMultiFunctionOperation>(
+                            std::make_unique<CustomMF_Constant<int>>(10), Vector<GField>()),
+                        0};
 
-  FieldContext field_context;
+  FieldArrayContext field_context;
   IndexMask mask{IndexRange(2)};
   ResourceScope scope;
   Vector<GVArray> results = evaluate_fields(
@@ -279,9 +280,9 @@ TEST(field, SameFieldTwice)
 TEST(field, IgnoredOutput)
 {
   static OptionalOutputsFunction fn;
-  Field<int> field{std::make_shared<FieldOperation>(fn), 0};
+  Field<int> field{std::make_shared<FieldMultiFunctionOperation>(fn, Vector<GField>()), 0};
 
-  FieldContext field_context;
+  FieldArrayContext field_context;
   FieldEvaluator field_evaluator{field_context, 10};
   VArray<int> results;
   field_evaluator.add(field, &results);

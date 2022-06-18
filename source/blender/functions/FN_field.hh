@@ -274,6 +274,13 @@ struct FieldInputs {
  * Utility class that wraps a single value and a field, to simplify accessing both of the types.
  * \{ */
 
+GField make_constant_field(const CPPType &type, const void *value);
+
+template<typename T> Field<T> make_constant_field(T value)
+{
+  return make_constant_field(CPPType::get<T>(), &value);
+}
+
 template<typename T> struct ValueOrField {
   /** Value that is used when the field is empty. */
   T value{};
@@ -336,6 +343,11 @@ inline bool FieldNode::depends_on_input() const
 inline const std::shared_ptr<const FieldInputs> &FieldNode::field_inputs() const
 {
   return field_inputs_;
+}
+
+inline const CPPType &FieldNode::output_cpp_type(const int output_index) const
+{
+  return *output_types_[output_index];
 }
 
 inline uint64_t FieldNode::hash() const

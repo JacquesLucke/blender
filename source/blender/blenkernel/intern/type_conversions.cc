@@ -4,6 +4,7 @@
 
 #include "DNA_meshdata_types.h"
 
+#include "FN_field_multi_function.hh"
 #include "FN_multi_function_builder.hh"
 
 #include "BLI_color.hh"
@@ -498,7 +499,8 @@ fn::GField DataTypeConversions::try_convert(fn::GField field, const CPPType &to_
   const fn::MultiFunction &fn =
       *bke::get_implicit_type_conversions().get_conversion_multi_function(
           fn::MFDataType::ForSingle(from_type), fn::MFDataType::ForSingle(to_type));
-  return {std::make_shared<fn::FieldOperation>(fn, Vector<fn::GField>{std::move(field)})};
+  return {
+      std::make_shared<fn::FieldMultiFunctionOperation>(fn, Vector<fn::GField>{std::move(field)})};
 }
 
 }  // namespace blender::bke

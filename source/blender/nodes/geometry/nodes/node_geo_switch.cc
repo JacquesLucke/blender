@@ -166,9 +166,10 @@ template<typename T> void switch_fields(GeoNodeExecParams &params, const StringR
           return condition ? true_value : false_value;
         }};
 
-    auto switch_op = std::make_shared<FieldOperation>(FieldOperation(
+    auto switch_op = std::make_shared<FieldMultiFunctionOperation>(
         std::move(switch_fn),
-        {std::move(switches_field), std::move(falses_field), std::move(trues_field)}));
+        Vector<GField>{
+            std::move(switches_field), std::move(falses_field), std::move(trues_field)});
 
     params.set_output(name_output, Field<T>(switch_op, 0));
   }

@@ -1373,9 +1373,8 @@ OutputAttribute GeometryComponent::attribute_try_get_for_output_only(
 
 namespace blender::bke {
 
-GVArray GeometryFieldInput::get_varray_for_context(const fn::FieldContext &context,
-                                                   IndexMask mask,
-                                                   ResourceScope &UNUSED(scope)) const
+GVArray GeometryFieldInput::get_varray_for_context(const fn::FieldArrayContext &context,
+                                                   IndexMask mask) const
 {
   if (const GeometryComponentFieldContext *geometry_context =
           dynamic_cast<const GeometryComponentFieldContext *>(&context)) {
@@ -1390,7 +1389,7 @@ GVArray AttributeFieldInput::get_varray_for_context(const GeometryComponent &com
                                                     const eAttrDomain domain,
                                                     IndexMask UNUSED(mask)) const
 {
-  const eCustomDataType data_type = cpp_type_to_custom_data_type(*type_);
+  const eCustomDataType data_type = cpp_type_to_custom_data_type(this->cpp_type());
   return component.attribute_try_get_for_read(name_, domain, data_type);
 }
 
@@ -1403,13 +1402,13 @@ std::string AttributeFieldInput::socket_inspection_name() const
 
 uint64_t AttributeFieldInput::hash() const
 {
-  return get_default_hash_2(name_, type_);
+  return get_default_hash_2(name_, this->cpp_type());
 }
 
 bool AttributeFieldInput::is_equal_to(const fn::FieldNode &other) const
 {
   if (const AttributeFieldInput *other_typed = dynamic_cast<const AttributeFieldInput *>(&other)) {
-    return name_ == other_typed->name_ && type_ == other_typed->type_;
+    return name_ == other_typed->name_ && this->cpp_type() == other_typed->cpp_type();
   }
   return false;
 }
@@ -1462,7 +1461,7 @@ GVArray AnonymousAttributeFieldInput::get_varray_for_context(const GeometryCompo
                                                              const eAttrDomain domain,
                                                              IndexMask UNUSED(mask)) const
 {
-  const eCustomDataType data_type = cpp_type_to_custom_data_type(*type_);
+  const eCustomDataType data_type = cpp_type_to_custom_data_type(this->cpp_type());
   return component.attribute_try_get_for_read(anonymous_id_.get(), domain, data_type);
 }
 
@@ -1475,14 +1474,15 @@ std::string AnonymousAttributeFieldInput::socket_inspection_name() const
 
 uint64_t AnonymousAttributeFieldInput::hash() const
 {
-  return get_default_hash_2(anonymous_id_.get(), type_);
+  return get_default_hash_2(anonymous_id_.get(), this->cpp_type());
 }
 
 bool AnonymousAttributeFieldInput::is_equal_to(const fn::FieldNode &other) const
 {
   if (const AnonymousAttributeFieldInput *other_typed =
           dynamic_cast<const AnonymousAttributeFieldInput *>(&other)) {
-    return anonymous_id_.get() == other_typed->anonymous_id_.get() && type_ == other_typed->type_;
+    return anonymous_id_.get() == other_typed->anonymous_id_.get() &&
+           this->cpp_type() == other_typed->cpp_type();
   }
   return false;
 }

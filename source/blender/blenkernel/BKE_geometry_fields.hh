@@ -11,10 +11,11 @@
 #include "BKE_geometry_set.hh"
 
 #include "FN_field.hh"
+#include "FN_field_multi_function.hh"
 
 namespace blender::bke {
 
-class GeometryComponentFieldContext : public fn::FieldContext {
+class GeometryComponentFieldContext : public fn::FieldArrayContext {
  private:
   const GeometryComponent &component_;
   const eAttrDomain domain_;
@@ -36,13 +37,12 @@ class GeometryComponentFieldContext : public fn::FieldContext {
   }
 };
 
-class GeometryFieldInput : public fn::FieldInput {
+class GeometryFieldInput : public fn::FieldInput, public fn::FieldArrayInputMixin {
  public:
   using fn::FieldInput::FieldInput;
 
-  GVArray get_varray_for_context(const fn::FieldContext &context,
-                                 IndexMask mask,
-                                 ResourceScope &scope) const override;
+  GVArray get_varray_for_context(const fn::FieldArrayContext &context,
+                                 IndexMask mask) const override;
 
   virtual GVArray get_varray_for_context(const GeometryComponent &component,
                                          eAttrDomain domain,

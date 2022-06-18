@@ -770,8 +770,8 @@ static void node_geo_exec(GeoNodeExecParams params)
       }
       auto fn = std::make_unique<NearestInterpolatedTransferFunction>(std::move(geometry),
                                                                       std::move(field));
-      auto op = std::make_shared<FieldOperation>(
-          FieldOperation(std::move(fn), {params.extract_input<Field<float3>>("Source Position")}));
+      auto op = std::make_shared<FieldMultiFunctionOperation>(
+          std::move(fn), Vector<GField>{params.extract_input<Field<float3>>("Source Position")});
       output_field = GField(std::move(op));
       break;
     }
@@ -783,8 +783,8 @@ static void node_geo_exec(GeoNodeExecParams params)
       }
       auto fn = std::make_unique<NearestTransferFunction>(
           std::move(geometry), std::move(field), domain);
-      auto op = std::make_shared<FieldOperation>(
-          FieldOperation(std::move(fn), {params.extract_input<Field<float3>>("Source Position")}));
+      auto op = std::make_shared<FieldMultiFunctionOperation>(
+          std::move(fn), Vector<GField>{params.extract_input<Field<float3>>("Source Position")});
       output_field = GField(std::move(op));
       break;
     }
@@ -792,8 +792,8 @@ static void node_geo_exec(GeoNodeExecParams params)
       Field<int> indices = params.extract_input<Field<int>>("Index");
       auto fn = std::make_unique<IndexTransferFunction>(
           std::move(geometry), std::move(field), domain);
-      auto op = std::make_shared<FieldOperation>(
-          FieldOperation(std::move(fn), {std::move(indices)}));
+      auto op = std::make_shared<FieldMultiFunctionOperation>(std::move(fn),
+                                                              Vector<GField>{std::move(indices)});
       output_field = GField(std::move(op));
       break;
     }

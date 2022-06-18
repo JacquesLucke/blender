@@ -103,7 +103,7 @@ class FieldAtIndex final : public GeometryFieldInput {
     const VArray<int> &indices = index_evaluator.get_evaluated<int>(0);
 
     GVArray output_array;
-    attribute_math::convert_to_static_type(*type_, [&](auto dummy) {
+    attribute_math::convert_to_static_type(this->cpp_type(), [&](auto dummy) {
       using T = decltype(dummy);
       Array<T> dst_array(mask.min_array_size());
       VArray<T> src_values = values.typed<T>();

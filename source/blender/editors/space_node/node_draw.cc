@@ -70,6 +70,7 @@
 
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
+#include "FN_field_multi_function.hh"
 
 #include "node_intern.hh" /* own include */
 

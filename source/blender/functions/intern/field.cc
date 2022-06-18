@@ -508,26 +508,11 @@ void evaluate_constant_field(const GField &field, void *r_value)
   varrays[0].get_to_uninitialized(0, r_value);
 }
 
-class InvertFieldOperation : public FieldOperation, public FieldMultiFunctionMixin {
- private:
-  static const MultiFunction &get_invert_multi_function()
-  {
-    static CustomMF_SI_SO<bool, bool> not_fn{
-        "Not", [](bool a) { return !a; }, CustomMF_presets::AllSpanOrSingle()};
-    return not_fn;
-  }
-
- public:
-  InvertFieldOperation(GField field)
-      : FieldOperation({std::move(field)}, {&CPPType::get<bool>()}),
-        FieldMultiFunctionMixin(get_invert_multi_function())
-  {
-  }
-};
-
 Field<bool> invert_boolean_field(const Field<bool> &field)
 {
-  auto not_op = std::make_shared<FieldOperation>(InvertFieldOperation(field));
+  static CustomMF_SI_SO<bool, bool> not_fn{
+      "Not", [](bool a) { return !a; }, CustomMF_presets::AllSpanOrSingle()};
+  auto not_op = std::make_shared<FieldMultiFunctionOperation>(not_fn, Vector<GField>{field});
   return Field<bool>(std::move(not_op));
 }
 
@@ -540,7 +525,7 @@ GField make_constant_field(const CPPType &type, const void *value)
 GVArray FieldArrayContext::get_varray_for_input(const FieldInput &field_input,
                                                 IndexMask mask) const
 {
-  if (auto *field_array_input = dynamic_cast<const FieldArrayInput *>(&field_input)) {
+  if (auto *field_array_input = dynamic_cast<const FieldArrayInputMixin *>(&field_input)) {
     return field_array_input->get_varray_for_context(*this, mask);
   }
   return {};
@@ -581,11 +566,6 @@ bool IndexFieldInput::is_equal_to(const fn::FieldNode &other) const
 
 /* Avoid generating the destructor in every translation unit. */
 FieldNode::~FieldNode() = default;
-
-inline const CPPType &FieldNode::output_cpp_type(const int output_index) const
-{
-  return *output_types_[output_index];
-}
 
 /* --------------------------------------------------------------------
  * FieldOperation.

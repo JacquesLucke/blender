@@ -61,7 +61,7 @@ static float map(const float x,
   return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-class Grid3DFieldContext : public FieldContext {
+class Grid3DFieldContext : public fn::FieldArrayContext {
  private:
   int3 resolution_;
   float3 bounds_min_;
@@ -80,8 +80,7 @@ class Grid3DFieldContext : public FieldContext {
   }
 
   GVArray get_varray_for_input(const FieldInput &field_input,
-                               const IndexMask UNUSED(mask),
-                               ResourceScope &UNUSED(scope)) const
+                               const IndexMask UNUSED(mask)) const final
   {
     const bke::AttributeFieldInput *attribute_field_input =
         dynamic_cast<const bke::AttributeFieldInput *>(&field_input);

@@ -13,9 +13,9 @@ class FieldArrayContext {
   virtual GVArray get_varray_for_input(const FieldInput &field_input, IndexMask mask) const;
 };
 
-class FieldArrayInput {
+class FieldArrayInputMixin {
  public:
-  virtual ~FieldArrayInput() = default;
+  virtual ~FieldArrayInputMixin() = default;
 
   virtual GVArray get_varray_for_context(const FieldArrayContext &context,
                                          IndexMask mask) const = 0;
@@ -44,6 +44,33 @@ class FieldMultiFunctionMixin {
   const MultiFunction &multi_function() const
   {
     return *function_;
+  }
+};
+
+class FieldMultiFunctionOperation : public FieldOperation, public FieldMultiFunctionMixin {
+  static Vector<const CPPType *> get_output_cpp_types(const MultiFunction &fn)
+  {
+    Vector<const CPPType *> types;
+    for (const int param_index : fn.param_indices()) {
+      const MFParamType &param_type = fn.param_type(param_index);
+      if (param_type.category() == MFParamCategory::SingleOutput) {
+        types.append(&param_type.data_type().single_type());
+      }
+    }
+    return types;
+  }
+
+ public:
+  FieldMultiFunctionOperation(std::shared_ptr<const MultiFunction> function, Vector<GField> inputs)
+      : FieldOperation(std::move(inputs), get_output_cpp_types(*function)),
+        FieldMultiFunctionMixin(std::move(function))
+  {
+  }
+
+  FieldMultiFunctionOperation(const MultiFunction &function, Vector<GField> inputs)
+      : FieldOperation(std::move(inputs), get_output_cpp_types(function)),
+        FieldMultiFunctionMixin(function)
+  {
   }
 };
 
@@ -224,14 +251,7 @@ template<typename T> T evaluate_constant_field(const Field<T> &field)
 
 Field<bool> invert_boolean_field(const Field<bool> &field);
 
-GField make_constant_field(const CPPType &type, const void *value);
-
-template<typename T> Field<T> make_constant_field(T value)
-{
-  return make_constant_field(CPPType::get<T>(), &value);
-}
-
-class IndexFieldInput final : public FieldInput, public FieldArrayInput {
+class IndexFieldInput final : public FieldInput, public FieldArrayInputMixin {
  public:
   IndexFieldInput();
 

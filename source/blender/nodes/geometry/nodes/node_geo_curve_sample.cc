@@ -208,8 +208,8 @@ static Field<float> get_length_input_field(const GeoNodeExecParams &params,
           return std::clamp(length, 0.0f, curve_total_length);
         },
         fn::CustomMF_presets::AllSpanOrSingle());
-    auto clamp_op = std::make_shared<FieldOperation>(
-        FieldOperation(std::move(clamp_fn), {std::move(length_field)}));
+    auto clamp_op = std::make_shared<FieldMultiFunctionOperation>(
+        std::move(clamp_fn), Vector<GField>{std::move(length_field)});
 
     return Field<float>(std::move(clamp_op), 0);
   }
@@ -223,8 +223,8 @@ static Field<float> get_length_input_field(const GeoNodeExecParams &params,
         return std::clamp(length, 0.0f, curve_total_length);
       },
       fn::CustomMF_presets::AllSpanOrSingle());
-  auto process_op = std::make_shared<FieldOperation>(
-      FieldOperation(std::move(clamp_fn), {std::move(factor_field)}));
+  auto process_op = std::make_shared<FieldMultiFunctionOperation>(
+      std::move(clamp_fn), Vector<GField>{std::move(factor_field)});
 
   return Field<float>(std::move(process_op), 0);
 }
@@ -262,8 +262,8 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   auto sample_fn = std::make_unique<SampleCurveFunction>(std::move(geometry_set),
                                                          std::move(spline_lengths));
-  auto sample_op = std::make_shared<FieldOperation>(
-      FieldOperation(std::move(sample_fn), {length_field}));
+  auto sample_op = std::make_shared<FieldMultiFunctionOperation>(std::move(sample_fn),
+                                                                 Vector<GField>{length_field});
 
   params.set_output("Position", Field<float3>(sample_op, 0));
   params.set_output("Tangent", Field<float3>(sample_op, 1));
