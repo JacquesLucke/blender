@@ -46,6 +46,11 @@ void GVArrayImpl::get(const int64_t index, void *r_value) const
   this->get_to_uninitialized(index, r_value);
 }
 
+SpanOrSingleRefInfo GVArrayImpl::span_or_single_ref_info() const
+{
+  return {};
+}
+
 bool GVArrayImpl::is_span() const
 {
   return false;
@@ -171,6 +176,11 @@ GSpan GVArrayImpl_For_GSpan::get_internal_span() const
   return GSpan(*type_, data_, size_);
 }
 
+SpanOrSingleRefInfo GVArrayImpl_For_GSpan::span_or_single_ref_info() const
+{
+  return SpanOrSingleRefInfo{SpanOrSingleRefInfo::Type::Span, data_};
+}
+
 void GVArrayImpl_For_GSpan::materialize(const IndexMask mask, void *dst) const
 {
   type_->copy_assign_indices(data_, dst, mask);
@@ -226,6 +236,11 @@ bool GVArrayImpl_For_SingleValueRef::is_single() const
 void GVArrayImpl_For_SingleValueRef::get_internal_single(void *r_value) const
 {
   type_->copy_assign(value_, r_value);
+}
+
+SpanOrSingleRefInfo GVArrayImpl_For_SingleValueRef::span_or_single_ref_info() const
+{
+  return SpanOrSingleRefInfo{SpanOrSingleRefInfo::Type::Single, value_};
 }
 
 void GVArrayImpl_For_SingleValueRef::materialize(const IndexMask mask, void *dst) const
@@ -323,6 +338,11 @@ template<int BufferSize> class GVArrayImpl_For_SmallTrivialSingleValue : public 
   void copy_value_to(void *dst) const
   {
     memcpy(dst, &buffer_, type_->size());
+  }
+
+  SpanOrSingleRefInfo span_or_single_ref_info() const override
+  {
+    return SpanOrSingleRefInfo{SpanOrSingleRefInfo::Type::Single, &buffer_};
   }
 };
 

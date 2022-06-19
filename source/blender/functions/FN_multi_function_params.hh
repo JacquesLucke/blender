@@ -222,7 +222,7 @@ class MFParams {
   template<typename T> VArray<T> readonly_single_input(int param_index, StringRef name = "")
   {
     const GVArray &varray = this->readonly_single_input(param_index, name);
-    return varray.typed<T>();
+    return varray.typed_ref<T>();
   }
   const GVArray &readonly_single_input(int param_index, StringRef name = "")
   {

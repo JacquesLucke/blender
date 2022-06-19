@@ -25,6 +25,17 @@ class GVArrayImpl;
 class GVMutableArray;
 class GVMutableArrayImpl;
 
+struct SpanOrSingleRefInfo {
+  enum class Type {
+    None,
+    Span,
+    Single,
+  };
+
+  Type type = Type::None;
+  const void *data;
+};
+
 /* A generically typed version of #VArrayImpl. */
 class GVArrayImpl {
  protected:
@@ -41,6 +52,8 @@ class GVArrayImpl {
 
   virtual void get(int64_t index, void *r_value) const;
   virtual void get_to_uninitialized(int64_t index, void *r_value) const = 0;
+
+  virtual SpanOrSingleRefInfo span_or_single_ref_info() const;
 
   virtual bool is_span() const;
   virtual GSpan get_internal_span() const;
@@ -194,6 +207,7 @@ class GVArray : public GVArrayCommon {
 
   template<typename T> GVArray(const VArray<T> &varray);
   template<typename T> VArray<T> typed() const;
+  template<typename T> VArray<T> typed_ref() const;
 
   template<typename ImplT, typename... Args> static GVArray For(Args &&...args);
 
@@ -672,6 +686,7 @@ class GVArrayImpl_For_GSpan : public GVMutableArrayImpl {
 
   bool is_span() const override;
   GSpan get_internal_span() const override;
+  SpanOrSingleRefInfo span_or_single_ref_info() const override;
 
   virtual void materialize(const IndexMask mask, void *dst) const override;
   virtual void materialize_to_uninitialized(const IndexMask mask, void *dst) const override;
@@ -719,6 +734,7 @@ class GVArrayImpl_For_SingleValueRef : public GVArrayImpl {
   GSpan get_internal_span() const override;
   bool is_single() const override;
   void get_internal_single(void *r_value) const override;
+  SpanOrSingleRefInfo span_or_single_ref_info() const override;
   void materialize(const IndexMask mask, void *dst) const override;
   void materialize_to_uninitialized(const IndexMask mask, void *dst) const override;
   void materialize_compressed(const IndexMask mask, void *dst) const override;
@@ -975,6 +991,28 @@ template<typename T> inline VArray<T> GVArray::typed() const
     return VArray<T>::ForSpan(span);
   }
   return VArray<T>::template For<VArrayImpl_For_GVArray<T>>(*this);
+}
+
+template<typename T> inline VArray<T> GVArray::typed_ref() const
+{
+  if (!*this) {
+    return {};
+  }
+  BLI_assert(impl_->type().is<T>());
+  const SpanOrSingleRefInfo info = impl_->span_or_single_ref_info();
+  switch (info.type) {
+    case SpanOrSingleRefInfo::Type::None: {
+      return VArray<T>::template For<VArrayImpl_For_GVArray<T>>(*this);
+    }
+    case SpanOrSingleRefInfo::Type::Single: {
+      return VArray<T>::ForSingle(*static_cast<const T *>(info.data), this->size());
+    }
+    case SpanOrSingleRefInfo::Type::Span: {
+      return VArray<T>::ForSpan(Span<T>(static_cast<const T *>(info.data), this->size()));
+    }
+  }
+  BLI_assert_unreachable();
+  return {};
 }
 
 /** \} */
