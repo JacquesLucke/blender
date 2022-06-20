@@ -138,14 +138,8 @@ std::optional<CurvesBrush3D> sample_curves_surface_3d_brush(
     const float2 &brush_pos_re,
     const float brush_radius_re);
 
-inline float transform_brush_radius(const float4x4 &transform,
-                                    const float3 &brush_position,
-                                    const float old_radius)
-{
-  const float3 offset_position = brush_position + float3(old_radius, 0.0f, 0.0f);
-  const float3 new_position = transform * brush_position;
-  const float3 new_offset_position = transform * offset_position;
-  return math::distance(new_position, new_offset_position);
-}
+float transform_brush_radius(const float4x4 &transform,
+                             const float3 &brush_position,
+                             const float old_radius);
 
 }  // namespace blender::ed::sculpt_paint

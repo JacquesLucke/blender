@@ -265,7 +265,6 @@ std::optional<CurvesBrush3D> sample_curves_surface_3d_brush(
     const float2 &brush_pos_re,
     const float brush_radius_re)
 {
-  /* Find ray that starts in the center of the brush. */
   float3 brush_ray_start_wo, brush_ray_end_wo;
   ED_view3d_win_to_segment_clipped(
       &depsgraph, &region, &v3d, brush_pos_re, brush_ray_start_wo, brush_ray_end_wo, true);
@@ -332,6 +331,16 @@ Vector<float4x4> get_symmetry_brush_transforms(const eCurvesSymmetryType symmetr
   }
 
   return matrices;
+}
+
+float transform_brush_radius(const float4x4 &transform,
+                             const float3 &brush_position,
+                             const float old_radius)
+{
+  const float3 offset_position = brush_position + float3(old_radius, 0.0f, 0.0f);
+  const float3 new_position = transform * brush_position;
+  const float3 new_offset_position = transform * offset_position;
+  return math::distance(new_position, new_offset_position);
 }
 
 void move_last_point_and_resample(MutableSpan<float3> positions, const float3 &new_last_position)
