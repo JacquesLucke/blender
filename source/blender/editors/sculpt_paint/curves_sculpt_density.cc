@@ -140,8 +140,8 @@ struct DensityAddOperationExecutor {
           r_end_su = transforms_.curves_to_surface * end_cu;
         },
         true,
-        10,
-        10,
+        brush_settings_->density_add_attempts,
+        brush_settings_->density_add_attempts,
         new_bary_coords,
         new_looptri_indices,
         new_positions_cu);

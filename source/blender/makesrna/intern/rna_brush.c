@@ -2010,6 +2010,13 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
   RNA_def_property_ui_range(prop, 0.0, 1000.0f, 0.001, 5);
   RNA_def_property_ui_text(
       prop, "Minimum Distance", "Goal distance between curve roots for the Density brush");
+
+  prop = RNA_def_property(srna, "density_add_attempts", PROP_INT, PROP_NONE);
+  RNA_def_property_range(prop, 0, INT32_MAX);
+  RNA_def_property_ui_text(
+    prop,
+    "Density Add Attempts",
+    "How often the Density brush tries to add a new curve");
 }
 
 static void rna_def_brush(BlenderRNA *brna)

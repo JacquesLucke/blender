@@ -148,7 +148,10 @@ typedef struct BrushCurvesSculptSettings {
   float minimum_length;
   /** Length of newly added curves when it is not interpolated from other curves. */
   float curve_length;
+  /** Minimum distance between curve root points used by the Density brush. */
   float minimum_distance;
+  /** How often the Density brush tries to add a new curve. */
+  int density_add_attempts;
 } BrushCurvesSculptSettings;
 
 typedef struct Brush {
