@@ -153,6 +153,86 @@ struct DensityAddOperationExecutor {
       }
     }
     else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
+      /* Find ray that starts in the center of the brush. */
+      float3 brush_ray_start_wo, brush_ray_end_wo;
+      ED_view3d_win_to_segment_clipped(ctx_.depsgraph,
+                                       ctx_.region,
+                                       ctx_.v3d,
+                                       brush_pos_re_,
+                                       brush_ray_start_wo,
+                                       brush_ray_end_wo,
+                                       true);
+      const float3 brush_ray_start_cu = transforms_.world_to_curves * brush_ray_start_wo;
+      const float3 brush_ray_end_cu = transforms_.world_to_curves * brush_ray_end_wo;
+
+      /* Find ray that starts on the boundary of the brush. That is used to compute the brush
+       * radius in 3D. */
+      float3 brush_radius_ray_start_wo, brush_radius_ray_end_wo;
+      ED_view3d_win_to_segment_clipped(ctx_.depsgraph,
+                                       ctx_.region,
+                                       ctx_.v3d,
+                                       brush_pos_re_ + float2(brush_radius_re_, 0),
+                                       brush_radius_ray_start_wo,
+                                       brush_radius_ray_end_wo,
+                                       true);
+      const float3 brush_radius_ray_start_cu = transforms_.world_to_curves *
+                                               brush_radius_ray_start_wo;
+      const float3 brush_radius_ray_end_cu = transforms_.world_to_curves * brush_radius_ray_end_wo;
+
+      for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+        const float4x4 transform = transforms_.curves_to_surface * brush_transform;
+        const float3 &brush_ray_start_su = transform * brush_ray_start_cu;
+        const float3 &brush_ray_end_su = transform * brush_ray_end_cu;
+        const float3 &brush_radius_ray_start_su = transform * brush_radius_ray_start_cu;
+        const float3 brush_radius_ray_end_su = transform * brush_radius_ray_end_cu;
+
+        const float3 brush_ray_direction_su = math::normalize(brush_ray_end_su -
+                                                              brush_ray_start_su);
+
+        BVHTreeRayHit ray_hit;
+        ray_hit.dist = FLT_MAX;
+        ray_hit.index = -1;
+        BLI_bvhtree_ray_cast(surface_bvh_.tree,
+                             brush_ray_start_su,
+                             brush_ray_direction_su,
+                             0.0f,
+                             &ray_hit,
+                             surface_bvh_.raycast_callback,
+                             &surface_bvh_);
+
+        if (ray_hit.index == -1) {
+          continue;
+        }
+
+        /* Compute brush radius. */
+        const float3 brush_pos_su = ray_hit.co;
+        const float brush_radius_su = dist_to_line_v3(
+            brush_pos_su, brush_radius_ray_start_su, brush_radius_ray_end_su);
+        const float brush_radius_sq_su = pow2f(brush_radius_su);
+
+        Vector<int> looptri_indices;
+        BLI_bvhtree_range_query_cpp(
+            *surface_bvh_.tree,
+            brush_pos_su,
+            brush_radius_su,
+            [&](const int index, const float3 &UNUSED(co), const float UNUSED(dist_sq)) {
+              looptri_indices.append(index);
+            });
+
+        const float brush_plane_area_su = M_PI * brush_radius_sq_su;
+        const float approximate_density_su = brush_settings_->density_add_attempts /
+                                             brush_plane_area_su;
+
+        bke::mesh_surface_sample::sample_surface_points_spherical(rng,
+                                                                  *surface_,
+                                                                  looptri_indices,
+                                                                  brush_pos_su,
+                                                                  brush_radius_su,
+                                                                  approximate_density_su,
+                                                                  new_bary_coords,
+                                                                  new_looptri_indices,
+                                                                  new_positions_cu);
+      }
     }
     else {
       BLI_assert_unreachable();
