@@ -124,27 +124,39 @@ struct DensityAddOperationExecutor {
     const double time = PIL_check_seconds_timer() * 1000000.0;
     /* Use a pointer cast to avoid overflow warnings. */
     RandomNumberGenerator rng{*(uint32_t *)(&time)};
-    bke::mesh_surface_sample::sample_surface_points_projected(
-        rng,
-        *surface_,
-        surface_bvh_,
-        brush_pos_re_,
-        brush_radius_re_,
-        [&](const float2 &pos_re, float3 &r_start_su, float3 &r_end_su) {
-          float3 start_wo, end_wo;
-          ED_view3d_win_to_segment_clipped(
-              ctx_.depsgraph, ctx_.region, ctx_.v3d, pos_re, start_wo, end_wo, true);
-          const float3 start_cu = transforms_.world_to_curves * start_wo;
-          const float3 end_cu = transforms_.world_to_curves * end_wo;
-          r_start_su = transforms_.curves_to_surface * start_cu;
-          r_end_su = transforms_.curves_to_surface * end_cu;
-        },
-        true,
-        brush_settings_->density_add_attempts,
-        brush_settings_->density_add_attempts,
-        new_bary_coords,
-        new_looptri_indices,
-        new_positions_cu);
+
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
+      for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+        bke::mesh_surface_sample::sample_surface_points_projected(
+            rng,
+            *surface_,
+            surface_bvh_,
+            brush_pos_re_,
+            brush_radius_re_,
+            [&](const float2 &pos_re, float3 &r_start_su, float3 &r_end_su) {
+              float3 start_wo, end_wo;
+              ED_view3d_win_to_segment_clipped(
+                  ctx_.depsgraph, ctx_.region, ctx_.v3d, pos_re, start_wo, end_wo, true);
+              const float3 start_cu = brush_transform * (transforms_.world_to_curves * start_wo);
+              const float3 end_cu = brush_transform * (transforms_.world_to_curves * end_wo);
+              r_start_su = transforms_.curves_to_surface * start_cu;
+              r_end_su = transforms_.curves_to_surface * end_cu;
+            },
+            true,
+            brush_settings_->density_add_attempts,
+            brush_settings_->density_add_attempts,
+            new_bary_coords,
+            new_looptri_indices,
+            new_positions_cu);
+      }
+    }
+    else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
+    }
+    else {
+      BLI_assert_unreachable();
+    }
     for (float3 &pos : new_positions_cu) {
       pos = transforms_.surface_to_curves * pos;
     }
