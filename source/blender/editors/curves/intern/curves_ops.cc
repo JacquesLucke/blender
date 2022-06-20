@@ -1603,6 +1603,7 @@ static void min_distance_edit_draw(const bContext *UNUSED(C), ARegion *UNUSED(ar
     immVertex3fv(pos3d, pos_wo);
   }
   immEnd();
+  immUnbindProgram();
 
   GPU_point_size(1);
 }

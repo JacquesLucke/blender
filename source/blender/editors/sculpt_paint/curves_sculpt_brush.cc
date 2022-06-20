@@ -256,6 +256,56 @@ std::optional<CurvesBrush3D> sample_curves_3d_brush(const Depsgraph &depsgraph,
   return brush_3d;
 }
 
+std::optional<CurvesBrush3D> sample_curves_surface_3d_brush(
+    const Depsgraph &depsgraph,
+    const ARegion &region,
+    const View3D &v3d,
+    const CurvesSculptTransforms &transforms,
+    const BVHTreeFromMesh &surface_bvh,
+    const float2 &brush_pos_re,
+    const float brush_radius_re)
+{
+  /* Find ray that starts in the center of the brush. */
+  float3 brush_ray_start_wo, brush_ray_end_wo;
+  ED_view3d_win_to_segment_clipped(
+      &depsgraph, &region, &v3d, brush_pos_re, brush_ray_start_wo, brush_ray_end_wo, true);
+  const float3 brush_ray_start_su = transforms.world_to_surface * brush_ray_start_wo;
+  const float3 brush_ray_end_su = transforms.world_to_surface * brush_ray_end_wo;
+
+  const float3 brush_ray_direction_su = math::normalize(brush_ray_end_su - brush_ray_start_su);
+
+  BVHTreeRayHit ray_hit;
+  ray_hit.dist = FLT_MAX;
+  ray_hit.index = -1;
+  BLI_bvhtree_ray_cast(surface_bvh.tree,
+                       brush_ray_start_su,
+                       brush_ray_direction_su,
+                       0.0f,
+                       &ray_hit,
+                       surface_bvh.raycast_callback,
+                       const_cast<void *>(static_cast<const void *>(&surface_bvh)));
+  if (ray_hit.index == -1) {
+    return std::nullopt;
+  }
+
+  float3 brush_radius_ray_start_wo, brush_radius_ray_end_wo;
+  ED_view3d_win_to_segment_clipped(&depsgraph,
+                                   &region,
+                                   &v3d,
+                                   brush_pos_re + float2(brush_radius_re, 0),
+                                   brush_radius_ray_start_wo,
+                                   brush_radius_ray_end_wo,
+                                   true);
+  const float3 brush_radius_ray_start_cu = transforms.world_to_curves * brush_radius_ray_start_wo;
+  const float3 brush_radius_ray_end_cu = transforms.world_to_curves * brush_radius_ray_end_wo;
+
+  const float3 brush_pos_su = ray_hit.co;
+  const float3 brush_pos_cu = transforms.surface_to_curves * brush_pos_su;
+  const float brush_radius_cu = dist_to_line_v3(
+      brush_pos_cu, brush_radius_ray_start_cu, brush_radius_ray_end_cu);
+  return CurvesBrush3D{brush_pos_cu, brush_radius_cu};
+}
+
 Vector<float4x4> get_symmetry_brush_transforms(const eCurvesSymmetryType symmetry)
 {
   Vector<float4x4> matrices;

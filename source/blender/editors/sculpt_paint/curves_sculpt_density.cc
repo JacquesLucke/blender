@@ -87,6 +87,10 @@ struct DensityAddOperationExecutor {
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
 
+    if (stroke_extension.is_first) {
+      self_->original_curve_num_ = curves_->curves_num();
+    }
+
     if (curves_id_->surface == nullptr || curves_id_->surface->type != OB_MESH) {
       return;
     }
@@ -153,61 +157,23 @@ struct DensityAddOperationExecutor {
       }
     }
     else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
-      /* Find ray that starts in the center of the brush. */
-      float3 brush_ray_start_wo, brush_ray_end_wo;
-      ED_view3d_win_to_segment_clipped(ctx_.depsgraph,
-                                       ctx_.region,
-                                       ctx_.v3d,
-                                       brush_pos_re_,
-                                       brush_ray_start_wo,
-                                       brush_ray_end_wo,
-                                       true);
-      const float3 brush_ray_start_cu = transforms_.world_to_curves * brush_ray_start_wo;
-      const float3 brush_ray_end_cu = transforms_.world_to_curves * brush_ray_end_wo;
-
-      /* Find ray that starts on the boundary of the brush. That is used to compute the brush
-       * radius in 3D. */
-      float3 brush_radius_ray_start_wo, brush_radius_ray_end_wo;
-      ED_view3d_win_to_segment_clipped(ctx_.depsgraph,
-                                       ctx_.region,
-                                       ctx_.v3d,
-                                       brush_pos_re_ + float2(brush_radius_re_, 0),
-                                       brush_radius_ray_start_wo,
-                                       brush_radius_ray_end_wo,
-                                       true);
-      const float3 brush_radius_ray_start_cu = transforms_.world_to_curves *
-                                               brush_radius_ray_start_wo;
-      const float3 brush_radius_ray_end_cu = transforms_.world_to_curves * brush_radius_ray_end_wo;
+      const std::optional<CurvesBrush3D> brush_3d = sample_curves_surface_3d_brush(
+          *ctx_.depsgraph,
+          *ctx_.region,
+          *ctx_.v3d,
+          transforms_,
+          surface_bvh_,
+          brush_pos_re_,
+          brush_radius_re_);
+      if (!brush_3d.has_value()) {
+        return;
+      }
 
       for (const float4x4 &brush_transform : symmetry_brush_transforms) {
         const float4x4 transform = transforms_.curves_to_surface * brush_transform;
-        const float3 &brush_ray_start_su = transform * brush_ray_start_cu;
-        const float3 &brush_ray_end_su = transform * brush_ray_end_cu;
-        const float3 &brush_radius_ray_start_su = transform * brush_radius_ray_start_cu;
-        const float3 brush_radius_ray_end_su = transform * brush_radius_ray_end_cu;
-
-        const float3 brush_ray_direction_su = math::normalize(brush_ray_end_su -
-                                                              brush_ray_start_su);
-
-        BVHTreeRayHit ray_hit;
-        ray_hit.dist = FLT_MAX;
-        ray_hit.index = -1;
-        BLI_bvhtree_ray_cast(surface_bvh_.tree,
-                             brush_ray_start_su,
-                             brush_ray_direction_su,
-                             0.0f,
-                             &ray_hit,
-                             surface_bvh_.raycast_callback,
-                             &surface_bvh_);
-
-        if (ray_hit.index == -1) {
-          continue;
-        }
-
-        /* Compute brush radius. */
-        const float3 brush_pos_su = ray_hit.co;
-        const float brush_radius_su = dist_to_line_v3(
-            brush_pos_su, brush_radius_ray_start_su, brush_radius_ray_end_su);
+        const float3 brush_pos_su = transform * brush_3d->position_cu;
+        const float brush_radius_su = transform_brush_radius(
+            transform, brush_3d->position_cu, brush_3d->radius_cu);
         const float brush_radius_sq_su = pow2f(brush_radius_su);
 
         Vector<int> looptri_indices;
@@ -241,10 +207,7 @@ struct DensityAddOperationExecutor {
       pos = transforms_.surface_to_curves * pos;
     }
 
-    if (stroke_extension.is_first) {
-      this->ensure_curve_roots_kdtree();
-      self_->original_curve_num_ = curves_->curves_num();
-    }
+    this->ensure_curve_roots_kdtree();
 
     const int already_added_curves = curves_->curves_num() - self_->original_curve_num_;
     KDTree_3d *new_roots_kdtree = BLI_kdtree_3d_new(already_added_curves +
