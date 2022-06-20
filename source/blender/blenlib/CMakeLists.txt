@@ -19,6 +19,8 @@ set(INC_SYS
 )
 
 set(SRC
+  blender.natvis
+
   intern/BLI_args.c
   intern/BLI_array.c
   intern/BLI_assert.c
