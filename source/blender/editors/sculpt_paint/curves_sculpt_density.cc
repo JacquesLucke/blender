@@ -129,76 +129,13 @@ struct DensityAddOperationExecutor {
     /* Use a pointer cast to avoid overflow warnings. */
     RandomNumberGenerator rng{*(uint32_t *)(&time)};
 
-    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
-        eCurvesSymmetryType(curves_id_->symmetry));
     if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
-      for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-        bke::mesh_surface_sample::sample_surface_points_projected(
-            rng,
-            *surface_,
-            surface_bvh_,
-            brush_pos_re_,
-            brush_radius_re_,
-            [&](const float2 &pos_re, float3 &r_start_su, float3 &r_end_su) {
-              float3 start_wo, end_wo;
-              ED_view3d_win_to_segment_clipped(
-                  ctx_.depsgraph, ctx_.region, ctx_.v3d, pos_re, start_wo, end_wo, true);
-              const float3 start_cu = brush_transform * (transforms_.world_to_curves * start_wo);
-              const float3 end_cu = brush_transform * (transforms_.world_to_curves * end_wo);
-              r_start_su = transforms_.curves_to_surface * start_cu;
-              r_end_su = transforms_.curves_to_surface * end_cu;
-            },
-            true,
-            brush_settings_->density_add_attempts,
-            brush_settings_->density_add_attempts,
-            new_bary_coords,
-            new_looptri_indices,
-            new_positions_cu);
-      }
+      this->sample_projected_with_symmetry(
+          rng, new_bary_coords, new_looptri_indices, new_positions_cu);
     }
     else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
-      const std::optional<CurvesBrush3D> brush_3d = sample_curves_surface_3d_brush(
-          *ctx_.depsgraph,
-          *ctx_.region,
-          *ctx_.v3d,
-          transforms_,
-          surface_bvh_,
-          brush_pos_re_,
-          brush_radius_re_);
-      if (!brush_3d.has_value()) {
-        return;
-      }
-
-      for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-        const float4x4 transform = transforms_.curves_to_surface * brush_transform;
-        const float3 brush_pos_su = transform * brush_3d->position_cu;
-        const float brush_radius_su = transform_brush_radius(
-            transform, brush_3d->position_cu, brush_3d->radius_cu);
-        const float brush_radius_sq_su = pow2f(brush_radius_su);
-
-        Vector<int> looptri_indices;
-        BLI_bvhtree_range_query_cpp(
-            *surface_bvh_.tree,
-            brush_pos_su,
-            brush_radius_su,
-            [&](const int index, const float3 &UNUSED(co), const float UNUSED(dist_sq)) {
-              looptri_indices.append(index);
-            });
-
-        const float brush_plane_area_su = M_PI * brush_radius_sq_su;
-        const float approximate_density_su = brush_settings_->density_add_attempts /
-                                             brush_plane_area_su;
-
-        bke::mesh_surface_sample::sample_surface_points_spherical(rng,
-                                                                  *surface_,
-                                                                  looptri_indices,
-                                                                  brush_pos_su,
-                                                                  brush_radius_su,
-                                                                  approximate_density_su,
-                                                                  new_bary_coords,
-                                                                  new_looptri_indices,
-                                                                  new_positions_cu);
-      }
+      this->sample_spherical_with_symmetry(
+          rng, new_bary_coords, new_looptri_indices, new_positions_cu);
     }
     else {
       BLI_assert_unreachable();
@@ -337,6 +274,88 @@ struct DensityAddOperationExecutor {
         BLI_kdtree_3d_insert(self_->curve_roots_kdtree_, curve_i, root_pos_cu);
       }
       BLI_kdtree_3d_balance(self_->curve_roots_kdtree_);
+    }
+  }
+
+  void sample_projected_with_symmetry(RandomNumberGenerator &rng,
+                                      Vector<float3> &r_bary_coords,
+                                      Vector<int> &r_looptri_indices,
+                                      Vector<float3> &r_positions_su)
+  {
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      const float4x4 transform = transforms_.curves_to_surface * brush_transform *
+                                 transforms_.world_to_curves;
+      bke::mesh_surface_sample::sample_surface_points_projected(
+          rng,
+          *surface_,
+          surface_bvh_,
+          brush_pos_re_,
+          brush_radius_re_,
+          [&](const float2 &pos_re, float3 &r_start_su, float3 &r_end_su) {
+            float3 start_wo, end_wo;
+            ED_view3d_win_to_segment_clipped(
+                ctx_.depsgraph, ctx_.region, ctx_.v3d, pos_re, start_wo, end_wo, true);
+            r_start_su = transform * start_wo;
+            r_end_su = transform * end_wo;
+          },
+          true,
+          brush_settings_->density_add_attempts,
+          brush_settings_->density_add_attempts,
+          r_bary_coords,
+          r_looptri_indices,
+          r_positions_su);
+    }
+  }
+
+  void sample_spherical_with_symmetry(RandomNumberGenerator &rng,
+                                      Vector<float3> &r_bary_coords,
+                                      Vector<int> &r_looptri_indices,
+                                      Vector<float3> &r_positions_su)
+  {
+    const std::optional<CurvesBrush3D> brush_3d = sample_curves_surface_3d_brush(*ctx_.depsgraph,
+                                                                                 *ctx_.region,
+                                                                                 *ctx_.v3d,
+                                                                                 transforms_,
+                                                                                 surface_bvh_,
+                                                                                 brush_pos_re_,
+                                                                                 brush_radius_re_);
+    if (!brush_3d.has_value()) {
+      return;
+    }
+
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      const float4x4 transform = transforms_.curves_to_surface * brush_transform;
+      const float3 brush_pos_su = transform * brush_3d->position_cu;
+      const float brush_radius_su = transform_brush_radius(
+          transform, brush_3d->position_cu, brush_3d->radius_cu);
+      const float brush_radius_sq_su = pow2f(brush_radius_su);
+
+      Vector<int> looptri_indices;
+      BLI_bvhtree_range_query_cpp(
+          *surface_bvh_.tree,
+          brush_pos_su,
+          brush_radius_su,
+          [&](const int index, const float3 &UNUSED(co), const float UNUSED(dist_sq)) {
+            looptri_indices.append(index);
+          });
+
+      const float brush_plane_area_su = M_PI * brush_radius_sq_su;
+      const float approximate_density_su = brush_settings_->density_add_attempts /
+                                           brush_plane_area_su;
+
+      bke::mesh_surface_sample::sample_surface_points_spherical(rng,
+                                                                *surface_,
+                                                                looptri_indices,
+                                                                brush_pos_su,
+                                                                brush_radius_su,
+                                                                approximate_density_su,
+                                                                r_bary_coords,
+                                                                r_looptri_indices,
+                                                                r_positions_su);
     }
   }
 };
