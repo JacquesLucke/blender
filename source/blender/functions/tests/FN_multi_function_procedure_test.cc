@@ -408,4 +408,69 @@ TEST(multi_function_procedure, OutputBufferReplaced)
   EXPECT_EQ(output[2], output_value);
 }
 
+class IdentityMF : public MultiFunction {
+ public:
+  IdentityMF()
+  {
+    static MFSignature signature = create_signature();
+    this->set_signature(&signature);
+  }
+
+  static MFSignature create_signature()
+  {
+    MFSignatureBuilder signature{"Identity"};
+    signature.single_input<int>("In");
+    signature.single_output<int>("Out");
+    return signature.build();
+  }
+
+  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  {
+    const VArray<int> &in = params.readonly_single_input<int>(0);
+    MutableSpan<int> out = params.uninitialized_single_output<int>(1);
+
+    for (const int64_t i : mask) {
+      out[i] = in[i];
+    }
+  }
+};
+
+TEST(multi_function_procedure, Latency)
+{
+  MFProcedure procedure;
+  MFProcedureBuilder builder{procedure};
+
+  // CustomMF_SI_SO<int, int> identity_fn{
+  //     "identity", [](const int a) { return a; }, CustomMF_presets::AllSpanOrSingle()};
+  IdentityMF identity_fn;
+  const int functions_num = 1;
+
+  MFVariable *var = &builder.add_single_input_parameter<int>();
+  for ([[maybe_unused]] const int _ : IndexRange(functions_num)) {
+    MFVariable *next_var = builder.add_call<1>(identity_fn, {var})[0];
+    builder.add_destruct(*var);
+    var = next_var;
+  }
+  builder.add_output_parameter(*var);
+  builder.add_return();
+  BLI_assert(procedure.validate());
+  // std::cout << procedure.to_dot() << "\n";
+
+  MFProcedureExecutor executor{procedure};
+
+  MFParamsBuilder params{executor, 1};
+  params.add_readonly_single_input_value(42);
+  int result = 0;
+  params.add_uninitialized_single_output(&result);
+
+  MFContextBuilder context;
+  for ([[maybe_unused]] const int outer_i : IndexRange(2)) {
+    SCOPED_TIMER("run inner");
+    for ([[maybe_unused]] const int inner_i : IndexRange(1000000)) {
+      executor.call(IndexRange(1), params, context);
+    }
+  }
+  EXPECT_EQ(result, 42);
+}
+
 }  // namespace blender::fn::tests
