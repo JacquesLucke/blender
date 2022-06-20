@@ -345,8 +345,17 @@ struct AddOperationExecutor {
       return;
     }
 
-    /* TODO */
-    const float3 view_direction_su{1, 0, 0};
+    float3 view_ray_start_wo, view_ray_end_wo;
+    ED_view3d_win_to_segment_clipped(ctx_.depsgraph,
+                                     ctx_.region,
+                                     ctx_.v3d,
+                                     brush_pos_re_,
+                                     view_ray_start_wo,
+                                     view_ray_end_wo,
+                                     true);
+    const float3 view_direction_su = math::normalize(
+        transforms_.world_to_surface * view_ray_end_wo -
+        transforms_.world_to_surface * view_ray_start_wo);
 
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
