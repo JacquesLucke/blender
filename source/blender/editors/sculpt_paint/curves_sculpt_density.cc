@@ -17,6 +17,8 @@
 #include "BLI_kdtree.h"
 #include "BLI_rand.hh"
 
+#include "PIL_time.h"
+
 #include "GEO_add_curves_on_mesh.hh"
 
 #include "DNA_brush_types.h"
@@ -32,6 +34,7 @@ class DensityAddOperation : public CurvesSculptStrokeOperation {
  private:
   /** Used when some data should be interpolated from existing curves. */
   KDTree_3d *curve_roots_kdtree_ = nullptr;
+  int original_curve_num_ = 0;
 
   friend struct DensityAddOperationExecutor;
 
@@ -118,7 +121,9 @@ struct DensityAddOperationExecutor {
     Vector<float3> new_bary_coords;
     Vector<int> new_looptri_indices;
     Vector<float3> new_positions_cu;
-    RandomNumberGenerator rng;
+    const double time = PIL_check_seconds_timer() * 1000000.0;
+    /* Use a pointer cast to avoid overflow warnings. */
+    RandomNumberGenerator rng{*(uint32_t *)(&time)};
     bke::mesh_surface_sample::sample_surface_points_projected(
         rng,
         *surface_,
@@ -142,6 +147,82 @@ struct DensityAddOperationExecutor {
         new_positions_cu);
     for (float3 &pos : new_positions_cu) {
       pos = transforms_.surface_to_curves * pos;
+    }
+
+    if (stroke_extension.is_first) {
+      this->ensure_curve_roots_kdtree();
+      self_->original_curve_num_ = curves_->curves_num();
+    }
+
+    const int already_added_curves = curves_->curves_num() - self_->original_curve_num_;
+    KDTree_3d *new_roots_kdtree = BLI_kdtree_3d_new(already_added_curves +
+                                                    new_positions_cu.size());
+    BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(new_roots_kdtree); });
+
+    Array<bool> new_curve_skipped(new_positions_cu.size(), false);
+    threading::parallel_invoke(
+        /* Build kdtree from root points created by the current stroke. */
+        [&]() {
+          const Span<float3> positions_cu = curves_->positions();
+          for (const int curve_i : curves_->curves_range().take_back(already_added_curves)) {
+            const IndexRange points = curves_->points_for_curve(curve_i);
+            const float3 &root_pos_cu = positions_cu[points[0]];
+            BLI_kdtree_3d_insert(new_roots_kdtree, curve_i, root_pos_cu);
+          }
+          for (const int new_i : new_positions_cu.index_range()) {
+            const int index_in_kdtree = curves_->curves_num() + new_i;
+            const float3 &root_pos_cu = new_positions_cu[new_i];
+            BLI_kdtree_3d_insert(new_roots_kdtree, index_in_kdtree, root_pos_cu);
+          }
+          BLI_kdtree_3d_balance(new_roots_kdtree);
+        },
+        /* Check which new root points are close to roots that existed before the current stroke
+         * started. */
+        [&]() {
+          threading::parallel_for(
+              new_positions_cu.index_range(), 128, [&](const IndexRange range) {
+                for (const int new_i : range) {
+                  const float3 &new_root_pos_cu = new_positions_cu[new_i];
+                  KDTreeNearest_3d nearest;
+                  nearest.dist = FLT_MAX;
+                  BLI_kdtree_3d_find_nearest(
+                      self_->curve_roots_kdtree_, new_root_pos_cu, &nearest);
+                  if (nearest.dist < brush_settings_->minimum_distance) {
+                    new_curve_skipped[new_i] = true;
+                  }
+                }
+              });
+        });
+
+    for (const int new_i : new_positions_cu.index_range()) {
+      if (new_curve_skipped[new_i]) {
+        continue;
+      }
+      const float3 &root_pos_cu = new_positions_cu[new_i];
+      BLI_kdtree_3d_range_search_cb_cpp(
+          new_roots_kdtree,
+          root_pos_cu,
+          brush_settings_->minimum_distance,
+          [&](const int other_i, const float *UNUSED(co), float UNUSED(dist_sq)) {
+            if (other_i < curves_->curves_num()) {
+              new_curve_skipped[new_i] = true;
+              return false;
+            }
+            const int other_new_i = other_i - curves_->curves_num();
+            if (new_i == other_new_i) {
+              return true;
+            }
+            new_curve_skipped[other_new_i] = true;
+            return true;
+          });
+    }
+
+    for (int64_t i = new_positions_cu.size() - 1; i >= 0; i--) {
+      if (new_curve_skipped[i]) {
+        new_positions_cu.remove_and_reorder(i);
+        new_bary_coords.remove_and_reorder(i);
+        new_looptri_indices.remove_and_reorder(i);
+      }
     }
 
     /* Find UV map. */
@@ -182,12 +263,7 @@ struct DensityAddOperationExecutor {
     add_inputs.corner_normals_su = corner_normals_su;
     add_inputs.curves_to_surface_mat = transforms_.curves_to_surface;
     add_inputs.surface_to_curves_normal_mat = transforms_.surface_to_curves_normal;
-
-    if (add_inputs.interpolate_length || add_inputs.interpolate_shape ||
-        add_inputs.interpolate_point_count) {
-      this->ensure_curve_roots_kdtree();
-      add_inputs.old_roots_kdtree = self_->curve_roots_kdtree_;
-    }
+    add_inputs.old_roots_kdtree = self_->curve_roots_kdtree_;
 
     geometry::add_curves_on_mesh(*curves_, add_inputs);
 
