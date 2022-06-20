@@ -3,4 +3,55 @@
   <Type Name="blender::StringRef">
     <DisplayString>{data_,[size_]s} (size={size_})</DisplayString>
   </Type>
+  <Type Name="blender::CPPType">
+    <DisplayString>{debug_name_,sb} (size={size_}, alignment={alignment_})</DisplayString>
+  </Type>
+  <Type Name="GeometrySet">
+    <DisplayString>GeometrySet</DisplayString>
+    <Expand>
+      <Item Name="Mesh">(MeshComponent *)components_[0].data_</Item>
+      <Item Name="Point Cloud">(PointCloudComponent *)components_[1].data_</Item>
+      <Item Name="Instances">(InstancesComponent *)components_[2].data_</Item>
+      <Item Name="Volume">(VolumeComponent *)components_[3].data_</Item>
+      <Item Name="Curves">(CurveComponent *)components_[4].data_</Item>
+    </Expand>
+  </Type>
+  <Type Name="blender::GMutablePointer">
+    <DisplayString Condition="type_ == nullptr">Null</DisplayString>
+    <DisplayString>{data_}, {*type_}</DisplayString>
+    <Expand>
+      <!-- TODO: Make sure the function exists in the binary. -->
+      <Item Name="To String">type_-&gt;to_string(data_)</Item>
+    </Expand>
+  </Type>
+  <Type Name="blender::LinearAllocator&lt;*&gt;">
+    <DisplayString>Linear Allocator ({owned_buffers_.end_ - owned_buffers_.begin_} owned buffers)</DisplayString>
+  </Type>
+  <Type Name="blender::Vector&lt;*&gt;">
+    <DisplayString>Size={end_ - begin_}, Capacity={capacity_end_ - begin_}</DisplayString>
+    <Expand>
+      <ArrayItems>
+        <Size>end_ - begin_</Size>
+        <ValuePointer>begin_</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  <Type Name="blender::Span&lt;*&gt;">
+    <DisplayString>Data=data_, Size={size_}</DisplayString>
+  </Type>
+  <Type Name="blender::Map&lt;*&gt;">
+    <DisplayString>Size={occupied_and_removed_slots_ - removed_slots_}</DisplayString>
+  </Type>
+  <Type Name="blender::VectorSet&lt;*&gt;">
+    <DisplayString>Size={occupied_and_removed_slots_ - removed_slots_}</DisplayString>
+    <Expand>
+      <ArrayItems>
+        <Size>occupied_and_removed_slots_ - removed_slots_</Size>
+        <ValuePointer>keys_</ValuePointer>
+      </ArrayItems>
+    </Expand>
+  </Type>
+  <Type Name="ID">
+    <DisplayString>{name + 2,s}</DisplayString>
+  </Type>
 </AutoVisualizer>
