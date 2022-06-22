@@ -76,7 +76,7 @@ set(SRC
   intern/asset_catalog_path.cc
   intern/asset_library.cc
   intern/asset_library_service.cc
-  intern/attribute.c
+  intern/attribute.cc
   intern/attribute_access.cc
   intern/attribute_math.cc
   intern/autoexec.c
@@ -117,6 +117,7 @@ set(SRC
   intern/curveprofile.cc
   intern/curves.cc
   intern/curves_geometry.cc
+  intern/curves_utils.cc
   intern/customdata.cc
   intern/customdata_file.c
   intern/data_transfer.c
@@ -173,7 +174,7 @@ set(SRC
   intern/lib_id_delete.c
   intern/lib_id_eval.c
   intern/lib_id_remapper.cc
-  intern/lib_override.c
+  intern/lib_override.cc
   intern/lib_override_proxy_conversion.c
   intern/lib_query.c
   intern/lib_remap.c
@@ -356,6 +357,7 @@ set(SRC
   BKE_curveprofile.h
   BKE_curves.h
   BKE_curves.hh
+  BKE_curves_utils.hh
   BKE_customdata.h
   BKE_customdata_file.h
   BKE_data_transfer.h
@@ -429,6 +431,7 @@ set(SRC
   BKE_multires.h
   BKE_nla.h
   BKE_node.h
+  BKE_node_runtime.hh
   BKE_node_tree_update.h
   BKE_object.h
   BKE_object_deform.h
@@ -608,7 +611,7 @@ if(WITH_IMAGE_HDR)
 endif()
 
 if(WITH_IMAGE_WEBP)
-	add_definitions(-DWITH_WEBP)
+  add_definitions(-DWITH_WEBP)
 endif()
 
 if(WITH_CODEC_AVI)

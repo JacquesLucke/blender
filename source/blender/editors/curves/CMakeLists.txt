@@ -7,10 +7,14 @@ set(INC
   ../../blentranslation
   ../../depsgraph
   ../../functions
+  ../../geometry
   ../../makesdna
   ../../makesrna
   ../../windowmanager
   ../../../../intern/guardedalloc
+
+  # RNA_prototypes.h
+  ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 set(SRC
@@ -24,3 +28,4 @@ set(LIB
 )
 
 blender_add_lib(bf_editor_curves "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+add_dependencies(bf_editor_curves bf_rna)

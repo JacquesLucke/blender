@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8-80 compliant>
-
 import bpy
 from bpy.types import Panel, Header, Menu, UIList
 from bpy.app.translations import pgettext_iface as iface_
@@ -201,7 +199,8 @@ class CLIP_HT_header(Header):
                 row = layout.row(align=True)
                 row.prop(dopesheet, "sort_method", text="")
                 row.prop(dopesheet, "use_invert_sort",
-                         text="Invert", toggle=True)
+                         text="", toggle=True,
+                         icon='SORT_DESC' if dopesheet.use_invert_sort else 'SORT_ASC')
 
     def _draw_masking(self, context):
         layout = self.layout

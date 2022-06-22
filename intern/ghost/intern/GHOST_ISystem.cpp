@@ -29,7 +29,9 @@
 #  include "GHOST_SystemCocoa.h"
 #endif
 
-GHOST_ISystem *GHOST_ISystem::m_system = NULL;
+GHOST_ISystem *GHOST_ISystem::m_system = nullptr;
+
+GHOST_TBacktraceFn GHOST_ISystem::m_backtrace_fn = nullptr;
 
 GHOST_TSuccess GHOST_ISystem::createSystem()
 {
@@ -61,7 +63,7 @@ GHOST_TSuccess GHOST_ISystem::createSystem()
 #elif defined(__APPLE__)
     m_system = new GHOST_SystemCocoa();
 #endif
-    success = m_system != NULL ? GHOST_kSuccess : GHOST_kFailure;
+    success = m_system != nullptr ? GHOST_kSuccess : GHOST_kFailure;
   }
   else {
     success = GHOST_kFailure;
@@ -77,7 +79,7 @@ GHOST_TSuccess GHOST_ISystem::disposeSystem()
   GHOST_TSuccess success = GHOST_kSuccess;
   if (m_system) {
     delete m_system;
-    m_system = NULL;
+    m_system = nullptr;
   }
   else {
     success = GHOST_kFailure;
@@ -88,4 +90,14 @@ GHOST_TSuccess GHOST_ISystem::disposeSystem()
 GHOST_ISystem *GHOST_ISystem::getSystem()
 {
   return m_system;
+}
+
+GHOST_TBacktraceFn GHOST_ISystem::getBacktraceFn()
+{
+  return GHOST_ISystem::m_backtrace_fn;
+}
+
+void GHOST_ISystem::setBacktraceFn(GHOST_TBacktraceFn backtrace_fn)
+{
+  GHOST_ISystem::m_backtrace_fn = backtrace_fn;
 }

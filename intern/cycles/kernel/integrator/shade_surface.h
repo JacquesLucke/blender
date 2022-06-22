@@ -137,11 +137,11 @@ ccl_device_forceinline void integrate_surface_direct_light(KernelGlobals kg,
 
 #  ifdef __MNEE__
   int mnee_vertex_count = 0;
-  IF_KERNEL_NODES_FEATURE(RAYTRACE)
+  IF_KERNEL_FEATURE(MNEE)
   {
     if (ls.lamp != LAMP_NONE) {
       /* Is this a caustic light? */
-      const bool use_caustics = kernel_tex_fetch(__lights, ls.lamp).use_caustics;
+      const bool use_caustics = kernel_data_fetch(lights, ls.lamp).use_caustics;
       if (use_caustics) {
         /* Are we on a caustic caster? */
         if (is_transmission && (sd->object_flag & SD_OBJECT_CAUSTICS_CASTER))
@@ -253,13 +253,13 @@ ccl_device_forceinline void integrate_surface_direct_light(KernelGlobals kg,
 #  ifdef __MNEE__
   if (mnee_vertex_count > 0) {
     INTEGRATOR_STATE_WRITE(shadow_state, shadow_path, transmission_bounce) =
-        INTEGRATOR_STATE(state, path, transmission_bounce) + mnee_vertex_count;
+        INTEGRATOR_STATE(state, path, transmission_bounce) + mnee_vertex_count - 1;
     INTEGRATOR_STATE_WRITE(shadow_state,
                            shadow_path,
                            diffuse_bounce) = INTEGRATOR_STATE(state, path, diffuse_bounce) + 1;
     INTEGRATOR_STATE_WRITE(shadow_state,
                            shadow_path,
-                           bounce) = INTEGRATOR_STATE(state, path, bounce) + 1 + mnee_vertex_count;
+                           bounce) = INTEGRATOR_STATE(state, path, bounce) + mnee_vertex_count;
   }
   else
 #  endif
@@ -387,6 +387,22 @@ ccl_device_forceinline int integrate_surface_volume_only_bounce(IntegratorState 
 }
 #endif
 
+ccl_device_forceinline bool integrate_surface_terminate(IntegratorState state,
+                                                        const uint32_t path_flag)
+{
+  const float probability = (path_flag & PATH_RAY_TERMINATE_ON_NEXT_SURFACE) ?
+                                0.0f :
+                                INTEGRATOR_STATE(state, path, continuation_probability);
+  if (probability == 0.0f) {
+    return true;
+  }
+  else if (probability != 1.0f) {
+    INTEGRATOR_STATE_WRITE(state, path, throughput) /= probability;
+  }
+
+  return false;
+}
+
 #if defined(__AO__)
 ccl_device_forceinline void integrate_surface_ao(KernelGlobals kg,
                                                  IntegratorState state,
@@ -478,12 +494,12 @@ ccl_device bool integrate_surface(KernelGlobals kg,
 
   int continue_path_label = 0;
 
+  const uint32_t path_flag = INTEGRATOR_STATE(state, path, flag);
+
   /* Skip most work for volume bounding surface. */
 #ifdef __VOLUME__
   if (!(sd.flag & SD_HAS_ONLY_VOLUME)) {
 #endif
-    const uint32_t path_flag = INTEGRATOR_STATE(state, path, flag);
-
 #ifdef __SUBSURFACE__
     /* Can skip shader evaluation for BSSRDF exit point without bump mapping. */
     if (!(path_flag & PATH_RAY_SUBSURFACE) || ((sd.flag & SD_HAS_BSSRDF_BUMP)))
@@ -509,54 +525,49 @@ ccl_device bool integrate_surface(KernelGlobals kg,
       subsurface_shader_data_setup(kg, state, &sd, path_flag);
       INTEGRATOR_STATE_WRITE(state, path, flag) &= ~PATH_RAY_SUBSURFACE;
     }
+    else
 #endif
-
-    shader_prepare_surface_closures(kg, state, &sd, path_flag);
+    {
+      /* Filter closures. */
+      shader_prepare_surface_closures(kg, state, &sd, path_flag);
 
 #ifdef __HOLDOUT__
-    /* Evaluate holdout. */
-    if (!integrate_surface_holdout(kg, state, &sd, render_buffer)) {
-      return false;
-    }
+      /* Evaluate holdout. */
+      if (!integrate_surface_holdout(kg, state, &sd, render_buffer)) {
+        return false;
+      }
 #endif
 
 #ifdef __EMISSION__
-    /* Write emission. */
-    if (sd.flag & SD_EMISSION) {
-      integrate_surface_emission(kg, state, &sd, render_buffer);
-    }
+      /* Write emission. */
+      if (sd.flag & SD_EMISSION) {
+        integrate_surface_emission(kg, state, &sd, render_buffer);
+      }
 #endif
 
+      /* Perform path termination. Most paths have already been terminated in
+       * the intersect_closest kernel, this is just for emission and for dividing
+       * throughput by the probability at the right moment.
+       *
+       * Also ensure we don't do it twice for SSS at both the entry and exit point. */
+      if (integrate_surface_terminate(state, path_flag)) {
+        return false;
+      }
+
+      /* Write render passes. */
 #ifdef __PASSES__
-    /* Write render passes. */
-    PROFILING_EVENT(PROFILING_SHADE_SURFACE_PASSES);
-    kernel_write_data_passes(kg, state, &sd, render_buffer);
+      PROFILING_EVENT(PROFILING_SHADE_SURFACE_PASSES);
+      kernel_write_data_passes(kg, state, &sd, render_buffer);
 #endif
+
+#ifdef __DENOISING_FEATURES__
+      kernel_write_denoising_features_surface(kg, state, &sd, render_buffer);
+#endif
+    }
 
     /* Load random number state. */
     RNGState rng_state;
     path_state_rng_load(state, &rng_state);
-
-    /* Perform path termination. Most paths have already been terminated in
-     * the intersect_closest kernel, this is just for emission and for dividing
-     * throughput by the probability at the right moment.
-     *
-     * Also ensure we don't do it twice for SSS at both the entry and exit point. */
-    if (!(path_flag & PATH_RAY_SUBSURFACE)) {
-      const float probability = (path_flag & PATH_RAY_TERMINATE_ON_NEXT_SURFACE) ?
-                                    0.0f :
-                                    INTEGRATOR_STATE(state, path, continuation_probability);
-      if (probability == 0.0f) {
-        return false;
-      }
-      else if (probability != 1.0f) {
-        INTEGRATOR_STATE_WRITE(state, path, throughput) /= probability;
-      }
-    }
-
-#ifdef __DENOISING_FEATURES__
-    kernel_write_denoising_features_surface(kg, state, &sd, render_buffer);
-#endif
 
     /* Direct light. */
     PROFILING_EVENT(PROFILING_SHADE_SURFACE_DIRECT_LIGHT);
@@ -575,6 +586,10 @@ ccl_device bool integrate_surface(KernelGlobals kg,
 #ifdef __VOLUME__
   }
   else {
+    if (integrate_surface_terminate(state, path_flag)) {
+      return false;
+    }
+
     PROFILING_EVENT(PROFILING_SHADE_SURFACE_INDIRECT_LIGHT);
     continue_path_label = integrate_surface_volume_only_bounce(state, &sd);
   }
@@ -614,6 +629,14 @@ ccl_device_forceinline void integrator_shade_surface_raytrace(
   integrator_shade_surface<KERNEL_FEATURE_NODE_MASK_SURFACE,
                            DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE>(
       kg, state, render_buffer);
+}
+
+ccl_device_forceinline void integrator_shade_surface_mnee(
+    KernelGlobals kg, IntegratorState state, ccl_global float *ccl_restrict render_buffer)
+{
+  integrator_shade_surface<(KERNEL_FEATURE_NODE_MASK_SURFACE & ~KERNEL_FEATURE_NODE_RAYTRACE) |
+                               KERNEL_FEATURE_MNEE,
+                           DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE>(kg, state, render_buffer);
 }
 
 CCL_NAMESPACE_END

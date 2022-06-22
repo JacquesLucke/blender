@@ -39,8 +39,8 @@ static void fill_mesh_topology(const int vert_offset,
                                MutableSpan<MLoop> loops,
                                MutableSpan<MPoly> polys)
 {
-  const int main_segment_num = curves::curve_segment_size(main_point_num, main_cyclic);
-  const int profile_segment_num = curves::curve_segment_size(profile_point_num, profile_cyclic);
+  const int main_segment_num = curves::curve_segment_num(main_point_num, main_cyclic);
+  const int profile_segment_num = curves::curve_segment_num(profile_point_num, profile_cyclic);
 
   if (profile_point_num == 1) {
     for (const int i : IndexRange(main_point_num - 1)) {
@@ -134,9 +134,9 @@ static void fill_mesh_topology(const int vert_offset,
 
   const bool has_caps = fill_caps && !main_cyclic && profile_cyclic;
   if (has_caps) {
-    const int poly_size = main_segment_num * profile_segment_num;
-    const int cap_loop_offset = loop_offset + poly_size * 4;
-    const int cap_poly_offset = poly_offset + poly_size;
+    const int poly_num = main_segment_num * profile_segment_num;
+    const int cap_loop_offset = loop_offset + poly_num * 4;
+    const int cap_poly_offset = poly_offset + poly_num;
 
     MPoly &poly_start = polys[cap_poly_offset];
     poly_start.loopstart = cap_loop_offset;
@@ -273,7 +273,7 @@ static ResultOffsets calculate_result_offsets(const CurvesInfo &info, const bool
   for (const int i_main : info.main.curves_range()) {
     const bool main_cyclic = info.main_cyclic[i_main];
     const int main_point_num = info.main.evaluated_points_for_curve(i_main).size();
-    const int main_segment_num = curves::curve_segment_size(main_point_num, main_cyclic);
+    const int main_segment_num = curves::curve_segment_num(main_point_num, main_cyclic);
     for (const int i_profile : info.profile.curves_range()) {
       result.vert[mesh_index] = vert_offset;
       result.edge[mesh_index] = edge_offset;
@@ -285,8 +285,7 @@ static ResultOffsets calculate_result_offsets(const CurvesInfo &info, const bool
 
       const bool profile_cyclic = info.profile_cyclic[i_profile];
       const int profile_point_num = info.profile.evaluated_points_for_curve(i_profile).size();
-      const int profile_segment_num = curves::curve_segment_size(profile_point_num,
-                                                                 profile_cyclic);
+      const int profile_segment_num = curves::curve_segment_num(profile_point_num, profile_cyclic);
 
       const bool has_caps = fill_caps && !main_cyclic && profile_cyclic;
       const int tube_face_num = main_segment_num * profile_segment_num;
@@ -316,8 +315,8 @@ static ResultOffsets calculate_result_offsets(const CurvesInfo &info, const bool
   return result;
 }
 
-static AttributeDomain get_attribute_domain_for_mesh(const MeshComponent &mesh,
-                                                     const AttributeIDRef &attribute_id)
+static eAttrDomain get_attribute_domain_for_mesh(const MeshComponent &mesh,
+                                                 const AttributeIDRef &attribute_id)
 {
   /* Only use a different domain if it is builtin and must only exist on one domain. */
   if (!mesh.attribute_is_builtin(attribute_id)) {
@@ -408,8 +407,8 @@ static void foreach_curve_combination(const CurvesInfo &info,
                          profile_points,
                          main_cyclic,
                          profile_cyclic,
-                         curves::curve_segment_size(main_points.size(), main_cyclic),
-                         curves::curve_segment_size(profile_points.size(), profile_cyclic),
+                         curves::curve_segment_num(main_points.size(), main_cyclic),
+                         curves::curve_segment_num(profile_points.size(), profile_cyclic),
                          offsets_to_range(offsets.vert.as_span(), i),
                          offsets_to_range(offsets.edge.as_span(), i),
                          offsets_to_range(offsets.poly.as_span(), i),
@@ -457,7 +456,7 @@ static void copy_main_point_data_to_mesh_faces(const Span<T> src,
 
 static void copy_main_point_domain_attribute_to_mesh(const CurvesInfo &curves_info,
                                                      const ResultOffsets &offsets,
-                                                     const AttributeDomain dst_domain,
+                                                     const eAttrDomain dst_domain,
                                                      const GSpan src_all,
                                                      GMutableSpan dst_all)
 {
@@ -539,7 +538,7 @@ static void copy_profile_point_data_to_mesh_faces(const Span<T> src,
 
 static void copy_profile_point_domain_attribute_to_mesh(const CurvesInfo &curves_info,
                                                         const ResultOffsets &offsets,
-                                                        const AttributeDomain dst_domain,
+                                                        const eAttrDomain dst_domain,
                                                         const GSpan src_all,
                                                         GMutableSpan dst_all)
 {
@@ -598,7 +597,7 @@ static void copy_indices_to_offset_ranges(const VArray<T> &src,
 
 static void copy_curve_domain_attribute_to_mesh(const ResultOffsets &mesh_offsets,
                                                 const Span<int> curve_indices,
-                                                const AttributeDomain dst_domain,
+                                                const eAttrDomain dst_domain,
                                                 const GVArray &src,
                                                 GMutableSpan dst)
 {
@@ -729,11 +728,11 @@ Mesh *curve_to_mesh_sweep(const CurvesGeometry &main,
     }
     main_attributes.add_new(id);
 
-    const AttributeDomain src_domain = meta_data.domain;
-    const CustomDataType type = meta_data.data_type;
+    const eAttrDomain src_domain = meta_data.domain;
+    const eCustomDataType type = meta_data.data_type;
     GVArray src = main_component.attribute_try_get_for_read(id, src_domain, type);
 
-    const AttributeDomain dst_domain = get_attribute_domain_for_mesh(mesh_component, id);
+    const eAttrDomain dst_domain = get_attribute_domain_for_mesh(mesh_component, id);
     OutputAttribute dst = mesh_component.attribute_try_get_for_output_only(id, dst_domain, type);
     if (!dst) {
       return true;
@@ -764,11 +763,11 @@ Mesh *curve_to_mesh_sweep(const CurvesGeometry &main,
     if (!should_add_attribute_to_mesh(profile_component, mesh_component, id)) {
       return true;
     }
-    const AttributeDomain src_domain = meta_data.domain;
-    const CustomDataType type = meta_data.data_type;
+    const eAttrDomain src_domain = meta_data.domain;
+    const eCustomDataType type = meta_data.data_type;
     GVArray src = profile_component.attribute_try_get_for_read(id, src_domain, type);
 
-    const AttributeDomain dst_domain = get_attribute_domain_for_mesh(mesh_component, id);
+    const eAttrDomain dst_domain = get_attribute_domain_for_mesh(mesh_component, id);
     OutputAttribute dst = mesh_component.attribute_try_get_for_output_only(id, dst_domain, type);
     if (!dst) {
       return true;

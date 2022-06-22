@@ -104,8 +104,10 @@ typedef struct DRWSubdivCache {
   bool optimal_display;
   bool use_custom_loop_normals;
 
-  /* Coordinates used to evaluate patches for UVs, positions, and normals. */
+  /* Coordinates used to evaluate patches for positions and normals. */
   struct GPUVertBuf *patch_coords;
+  /* Coordinates used to evaluate patches for attributes. */
+  struct GPUVertBuf *corner_patch_coords;
   /* Coordinates used to evaluate patches for the face centers (or face dots) in edit-mode. */
   struct GPUVertBuf *fdots_patch_coords;
 
@@ -175,6 +177,10 @@ typedef struct DRWSubdivCache {
 
   /* UBO to store settings for the various compute shaders. */
   struct GPUUniformBuf *ubo;
+
+  /* Extra flags, passed to the UBO. */
+  bool is_edit_mode;
+  bool use_hide;
 } DRWSubdivCache;
 
 /* Only frees the data of the cache, caller is responsible to free the cache itself if necessary.
@@ -183,8 +189,7 @@ void draw_subdiv_cache_free(DRWSubdivCache *cache);
 
 /** \} */
 
-void DRW_create_subdivision(const struct Scene *scene,
-                            struct Object *ob,
+void DRW_create_subdivision(struct Object *ob,
                             struct Mesh *mesh,
                             struct MeshBatchCache *batch_cache,
                             struct MeshBufferCache *mbc,
@@ -194,7 +199,6 @@ void DRW_create_subdivision(const struct Scene *scene,
                             const float obmat[4][4],
                             const bool do_final,
                             const bool do_uvedit,
-                            const bool use_subsurf_fdots,
                             const ToolSettings *ts,
                             const bool use_hide);
 
@@ -236,7 +240,9 @@ void draw_subdiv_finalize_custom_normals(const DRWSubdivCache *cache,
                                          GPUVertBuf *src_custom_normals,
                                          GPUVertBuf *pos_nor);
 
-void draw_subdiv_extract_pos_nor(const DRWSubdivCache *cache, struct GPUVertBuf *pos_nor);
+void draw_subdiv_extract_pos_nor(const DRWSubdivCache *cache,
+                                 struct GPUVertBuf *pos_nor,
+                                 struct GPUVertBuf *orco);
 
 void draw_subdiv_interp_custom_data(const DRWSubdivCache *cache,
                                     struct GPUVertBuf *src_data,
@@ -264,6 +270,7 @@ void draw_subdiv_build_lines_buffer(const DRWSubdivCache *cache,
 
 void draw_subdiv_build_lines_loose_buffer(const DRWSubdivCache *cache,
                                           struct GPUIndexBuf *lines_indices,
+                                          GPUVertBuf *lines_flags,
                                           uint num_loose_edges);
 
 void draw_subdiv_build_fdots_buffers(const DRWSubdivCache *cache,

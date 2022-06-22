@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 from bpy.types import (
     Header,
     Menu,
@@ -161,6 +159,7 @@ class IMAGE_MT_select(Menu):
 
         layout.operator("uv.select_pinned")
         layout.menu("IMAGE_MT_select_linked")
+        layout.operator("uv.select_similar")
 
         layout.separator()
 

@@ -587,10 +587,11 @@ static bNode *ntree_shader_copy_branch(bNodeTree *ntree,
       }
     }
   }
-  /* Recreate links between copied nodes. */
+  /* Recreate links between copied nodes AND incoming links to the copied nodes. */
   LISTBASE_FOREACH (bNodeLink *, link, &ntree->links) {
-    if (link->fromnode->tmp_flag >= 0 && link->tonode->tmp_flag >= 0) {
-      bNode *fromnode = nodes_copy[link->fromnode->tmp_flag];
+    if (link->tonode->tmp_flag >= 0) {
+      bool from_node_copied = link->fromnode->tmp_flag >= 0;
+      bNode *fromnode = from_node_copied ? nodes_copy[link->fromnode->tmp_flag] : link->fromnode;
       bNode *tonode = nodes_copy[link->tonode->tmp_flag];
       bNodeSocket *fromsock = ntree_shader_node_find_output(fromnode, link->fromsock->identifier);
       bNodeSocket *tosock = ntree_shader_node_find_input(tonode, link->tosock->identifier);
@@ -1006,6 +1007,7 @@ static void ntree_shader_pruned_unused(bNodeTree *ntree, bNode *output_node)
 
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
     if (node->type == SH_NODE_OUTPUT_AOV) {
+      node->tmp_flag = 1;
       nodeChainIterBackwards(ntree, node, ntree_branch_node_tag, nullptr, 0);
     }
   }

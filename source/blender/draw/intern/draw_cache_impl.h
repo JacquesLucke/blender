@@ -83,6 +83,7 @@ void DRW_batch_cache_free_old(struct Object *ob, int ctime);
  * \note For now this only free the shading batches / VBO if any cd layers is not needed anymore.
  */
 void DRW_mesh_batch_cache_free_old(struct Mesh *me, int ctime);
+void DRW_curves_batch_cache_free_old(struct Curves *curves, int ctime);
 
 /** \} */
 
@@ -155,10 +156,14 @@ struct GPUBatch *DRW_lattice_batch_cache_get_edit_verts(struct Lattice *lt);
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Hair
+/** \name Curves
  * \{ */
 
 int DRW_curves_material_count_get(struct Curves *curves);
+
+struct GPUBatch *DRW_curves_batch_cache_get_edit_points(struct Curves *curves);
+
+void DRW_curves_batch_cache_create_requested(struct Object *ob);
 
 /** \} */
 
@@ -348,16 +353,6 @@ struct GPUBatch *DRW_particles_batch_cache_get_edit_inner_points(struct Object *
 struct GPUBatch *DRW_particles_batch_cache_get_edit_tip_points(struct Object *object,
                                                                struct ParticleSystem *psys,
                                                                struct PTCacheEdit *edit);
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Curves
- * \{ */
-
-struct GPUBatch *DRW_curves_batch_cache_get_edit_points(struct Curves *curves);
-
-void DRW_curves_batch_cache_create_requested(const struct Object *ob);
 
 /** \} */
 

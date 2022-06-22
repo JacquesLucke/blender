@@ -43,6 +43,7 @@
 #include "SEQ_relations.h"
 #include "SEQ_render.h"
 #include "SEQ_sequencer.h"
+#include "SEQ_time.h"
 
 #include "multiview.h"
 #include "proxy.h"
@@ -523,8 +524,8 @@ void SEQ_proxy_rebuild(SeqIndexBuildContext *context,
   SeqRenderState state;
   seq_render_state_init(&state);
 
-  for (timeline_frame = seq->startdisp + seq->startstill;
-       timeline_frame < seq->enddisp - seq->endstill;
+  for (timeline_frame = SEQ_time_left_handle_frame_get(seq);
+       timeline_frame < SEQ_time_right_handle_frame_get(seq);
        timeline_frame++) {
     if (context->size_flags & IMB_PROXY_25) {
       seq_proxy_build_frame(&render_context, &state, seq, timeline_frame, 25, overwrite);
@@ -539,8 +540,8 @@ void SEQ_proxy_rebuild(SeqIndexBuildContext *context,
       seq_proxy_build_frame(&render_context, &state, seq, timeline_frame, 100, overwrite);
     }
 
-    *progress = (float)(timeline_frame - seq->startdisp - seq->startstill) /
-                (seq->enddisp - seq->endstill - seq->startdisp - seq->startstill);
+    *progress = (float)(timeline_frame - SEQ_time_left_handle_frame_get(seq)) /
+                (SEQ_time_right_handle_frame_get(seq) - SEQ_time_left_handle_frame_get(seq));
     *do_update = true;
 
     if (*stop || G.is_break) {

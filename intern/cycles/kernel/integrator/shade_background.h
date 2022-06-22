@@ -48,7 +48,7 @@ ccl_device float3 integrator_eval_background_shader(KernelGlobals kg,
 
     PROFILING_SHADER(emission_sd->object, emission_sd->shader);
     PROFILING_EVENT(PROFILING_SHADE_LIGHT_EVAL);
-    shader_eval_surface<KERNEL_FEATURE_NODE_MASK_SURFACE_LIGHT>(
+    shader_eval_surface<KERNEL_FEATURE_NODE_MASK_SURFACE_BACKGROUND>(
         kg, state, emission_sd, render_buffer, path_flag | PATH_RAY_EMISSION);
 
     L = shader_background_eval(emission_sd);
@@ -107,7 +107,7 @@ ccl_device_inline void integrate_background(KernelGlobals kg,
       for (int lamp = 0; lamp < kernel_data.integrator.num_all_lights; lamp++) {
         /* This path should have been resolved with mnee, it will
          * generate a firefly for small lights since it is improbable. */
-        const ccl_global KernelLight *klight = &kernel_tex_fetch(__lights, lamp);
+        const ccl_global KernelLight *klight = &kernel_data_fetch(lights, lamp);
         if (klight->type == LIGHT_BACKGROUND && klight->use_caustics) {
           eval_background = false;
           break;
@@ -160,7 +160,7 @@ ccl_device_inline void integrate_distant_lights(KernelGlobals kg,
       if (INTEGRATOR_STATE(state, path, mnee) & PATH_MNEE_CULL_LIGHT_CONNECTION) {
         /* This path should have been resolved with mnee, it will
          * generate a firefly for small lights since it is improbable. */
-        const ccl_global KernelLight *klight = &kernel_tex_fetch(__lights, lamp);
+        const ccl_global KernelLight *klight = &kernel_data_fetch(lights, lamp);
         if (klight->use_caustics)
           return;
       }

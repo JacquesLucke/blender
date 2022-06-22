@@ -472,7 +472,7 @@ typedef struct Library {
   ushort tag;
   char _pad_0[6];
 
-  /* Temp data needed by read/write code, and liboverride recursive resync. */
+  /** Temp data needed by read/write code, and lib-override recursive re-synchronized. */
   int temp_index;
   /** See BLENDER_FILE_VERSION, BLENDER_FILE_SUBVERSION, needed for do_versions. */
   short versionfile, subversionfile;
@@ -596,6 +596,8 @@ typedef struct PreviewImage {
 /* Check whether data-block type requires copy-on-write from #ID_RECALC_PARAMETERS.
  * Keep in sync with #BKE_id_eval_properties_copy. */
 #define ID_TYPE_SUPPORTS_PARAMS_WITHOUT_COW(id_type) ELEM(id_type, ID_ME)
+
+#define ID_TYPE_IS_DEPRECATED(id_type) ELEM(id_type, ID_IP)
 
 #ifdef GS
 #  undef GS

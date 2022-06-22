@@ -33,41 +33,41 @@ const EnumPropertyItem rna_enum_id_type_items[] = {
     {ID_AC, "ACTION", ICON_ACTION, "Action", ""},
     {ID_AR, "ARMATURE", ICON_ARMATURE_DATA, "Armature", ""},
     {ID_BR, "BRUSH", ICON_BRUSH_DATA, "Brush", ""},
-    {ID_CA, "CAMERA", ICON_CAMERA_DATA, "Camera", ""},
     {ID_CF, "CACHEFILE", ICON_FILE, "Cache File", ""},
+    {ID_CA, "CAMERA", ICON_CAMERA_DATA, "Camera", ""},
+    {ID_GR, "COLLECTION", ICON_OUTLINER_COLLECTION, "Collection", ""},
     {ID_CU_LEGACY, "CURVE", ICON_CURVE_DATA, "Curve", ""},
+    {ID_CV, "CURVES", ICON_CURVES_DATA, "Curves", ""},
     {ID_VF, "FONT", ICON_FONT_DATA, "Font", ""},
     {ID_GD, "GREASEPENCIL", ICON_GREASEPENCIL, "Grease Pencil", ""},
-    {ID_GR, "COLLECTION", ICON_OUTLINER_COLLECTION, "Collection", ""},
     {ID_IM, "IMAGE", ICON_IMAGE_DATA, "Image", ""},
     {ID_KE, "KEY", ICON_SHAPEKEY_DATA, "Key", ""},
-    {ID_LA, "LIGHT", ICON_LIGHT_DATA, "Light", ""},
-    {ID_LI, "LIBRARY", ICON_LIBRARY_DATA_DIRECT, "Library", ""},
-    {ID_LS, "LINESTYLE", ICON_LINE_DATA, "Line Style", ""},
     {ID_LT, "LATTICE", ICON_LATTICE_DATA, "Lattice", ""},
+    {ID_LI, "LIBRARY", ICON_LIBRARY_DATA_DIRECT, "Library", ""},
+    {ID_LA, "LIGHT", ICON_LIGHT_DATA, "Light", ""},
+    {ID_LP, "LIGHT_PROBE", ICON_LIGHTPROBE_CUBEMAP, "Light Probe", ""},
+    {ID_LS, "LINESTYLE", ICON_LINE_DATA, "Line Style", ""},
     {ID_MSK, "MASK", ICON_MOD_MASK, "Mask", ""},
     {ID_MA, "MATERIAL", ICON_MATERIAL_DATA, "Material", ""},
-    {ID_MB, "META", ICON_META_DATA, "Metaball", ""},
     {ID_ME, "MESH", ICON_MESH_DATA, "Mesh", ""},
+    {ID_MB, "META", ICON_META_DATA, "Metaball", ""},
     {ID_MC, "MOVIECLIP", ICON_TRACKER, "Movie Clip", ""},
     {ID_NT, "NODETREE", ICON_NODETREE, "Node Tree", ""},
     {ID_OB, "OBJECT", ICON_OBJECT_DATA, "Object", ""},
     {ID_PC, "PAINTCURVE", ICON_CURVE_BEZCURVE, "Paint Curve", ""},
     {ID_PAL, "PALETTE", ICON_COLOR, "Palette", ""},
     {ID_PA, "PARTICLE", ICON_PARTICLE_DATA, "Particle", ""},
-    {ID_LP, "LIGHT_PROBE", ICON_LIGHTPROBE_CUBEMAP, "Light Probe", ""},
+    {ID_PT, "POINTCLOUD", ICON_POINTCLOUD_DATA, "Point Cloud", ""},
     {ID_SCE, "SCENE", ICON_SCENE_DATA, "Scene", ""},
     {ID_SIM, "SIMULATION", ICON_PHYSICS, "Simulation", ""}, /* TODO: Use correct icon. */
     {ID_SO, "SOUND", ICON_SOUND, "Sound", ""},
     {ID_SPK, "SPEAKER", ICON_SPEAKER, "Speaker", ""},
     {ID_TXT, "TEXT", ICON_TEXT, "Text", ""},
     {ID_TE, "TEXTURE", ICON_TEXTURE_DATA, "Texture", ""},
-    {ID_CV, "CURVES", ICON_CURVES_DATA, "Hair Curves", ""},
-    {ID_PT, "POINTCLOUD", ICON_POINTCLOUD_DATA, "Point Cloud", ""},
     {ID_VO, "VOLUME", ICON_VOLUME_DATA, "Volume", ""},
     {ID_WM, "WINDOWMANAGER", ICON_WINDOW, "Window Manager", ""},
-    {ID_WO, "WORLD", ICON_WORLD_DATA, "World", ""},
     {ID_WS, "WORKSPACE", ICON_WORKSPACE, "Workspace", ""},
+    {ID_WO, "WORLD", ICON_WORLD_DATA, "World", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -722,7 +722,7 @@ static ID *rna_ID_override_hierarchy_create(
 
   ID *id_root_override = NULL;
   BKE_lib_override_library_create(
-      bmain, scene, view_layer, NULL, id, id, id_instance_hint, &id_root_override);
+      bmain, scene, view_layer, NULL, id, id, id_instance_hint, &id_root_override, false);
 
   WM_main_add_notifier(NC_ID | NA_ADDED, NULL);
   WM_main_add_notifier(NC_WM | ND_LIB_OVERRIDE_CHANGED, NULL);
@@ -1131,7 +1131,7 @@ static void rna_ImagePreview_size_set(PointerRNA *ptr, const int *values, enum e
   prv_img->flag[size] |= (PRV_CHANGED | PRV_USER_EDITED);
 }
 
-static int rna_ImagePreview_pixels_get_length(PointerRNA *ptr,
+static int rna_ImagePreview_pixels_get_length(const PointerRNA *ptr,
                                               int length[RNA_MAX_ARRAY_DIMENSION],
                                               enum eIconSizes size)
 {
@@ -1176,7 +1176,7 @@ static void rna_ImagePreview_pixels_set(PointerRNA *ptr, const int *values, enum
   prv_img->flag[size] |= PRV_USER_EDITED;
 }
 
-static int rna_ImagePreview_pixels_float_get_length(PointerRNA *ptr,
+static int rna_ImagePreview_pixels_float_get_length(const PointerRNA *ptr,
                                                     int length[RNA_MAX_ARRAY_DIMENSION],
                                                     enum eIconSizes size)
 {
@@ -1256,7 +1256,7 @@ static void rna_ImagePreview_image_size_set(PointerRNA *ptr, const int *values)
   rna_ImagePreview_size_set(ptr, values, ICON_SIZE_PREVIEW);
 }
 
-static int rna_ImagePreview_image_pixels_get_length(PointerRNA *ptr,
+static int rna_ImagePreview_image_pixels_get_length(const PointerRNA *ptr,
                                                     int length[RNA_MAX_ARRAY_DIMENSION])
 {
   return rna_ImagePreview_pixels_get_length(ptr, length, ICON_SIZE_PREVIEW);
@@ -1272,7 +1272,7 @@ static void rna_ImagePreview_image_pixels_set(PointerRNA *ptr, const int *values
   rna_ImagePreview_pixels_set(ptr, values, ICON_SIZE_PREVIEW);
 }
 
-static int rna_ImagePreview_image_pixels_float_get_length(PointerRNA *ptr,
+static int rna_ImagePreview_image_pixels_float_get_length(const PointerRNA *ptr,
                                                           int length[RNA_MAX_ARRAY_DIMENSION])
 {
   return rna_ImagePreview_pixels_float_get_length(ptr, length, ICON_SIZE_PREVIEW);
@@ -1303,7 +1303,7 @@ static void rna_ImagePreview_icon_size_set(PointerRNA *ptr, const int *values)
   rna_ImagePreview_size_set(ptr, values, ICON_SIZE_ICON);
 }
 
-static int rna_ImagePreview_icon_pixels_get_length(PointerRNA *ptr,
+static int rna_ImagePreview_icon_pixels_get_length(const PointerRNA *ptr,
                                                    int length[RNA_MAX_ARRAY_DIMENSION])
 {
   return rna_ImagePreview_pixels_get_length(ptr, length, ICON_SIZE_ICON);
@@ -1319,7 +1319,7 @@ static void rna_ImagePreview_icon_pixels_set(PointerRNA *ptr, const int *values)
   rna_ImagePreview_pixels_set(ptr, values, ICON_SIZE_ICON);
 }
 
-static int rna_ImagePreview_icon_pixels_float_get_length(PointerRNA *ptr,
+static int rna_ImagePreview_icon_pixels_float_get_length(const PointerRNA *ptr,
                                                          int length[RNA_MAX_ARRAY_DIMENSION])
 {
   return rna_ImagePreview_pixels_float_get_length(ptr, length, ICON_SIZE_ICON);
@@ -1976,7 +1976,7 @@ static void rna_def_ID(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "Extra User",
-      "Indicates wether an extra user is set or not (mainly for internal/debug usages)");
+      "Indicates whether an extra user is set or not (mainly for internal/debug usages)");
   RNA_def_property_boolean_funcs(prop, NULL, "rna_ID_extra_user_set");
 
   prop = RNA_def_property(srna, "is_embedded_data", PROP_BOOLEAN, PROP_NONE);

@@ -867,7 +867,7 @@ bGPDstroke *BKE_gpencil_stroke_duplicate(bGPDstroke *gps_src,
   if (dup_points) {
     gps_dst->points = MEM_dupallocN(gps_src->points);
 
-    if ((gps_src->dvert != NULL) && (gps_src->dvert->totweight > 0)) {
+    if (gps_src->dvert != NULL) {
       gps_dst->dvert = MEM_dupallocN(gps_src->dvert);
       BKE_gpencil_stroke_weights_duplicate(gps_src, gps_dst);
     }
@@ -2803,7 +2803,7 @@ void BKE_gpencil_update_layer_transforms(const Depsgraph *depsgraph, Object *ob)
 
     /* Iterate over frame range. */
     for (bGPDframe *gpf = gpf_start; gpf != NULL && gpf != gpf_end; gpf = gpf->next) {
-      /* Skip frames without a valid onion skinning id (note: active frame has one). */
+      /* Skip frames without a valid onion skinning id (NOTE: active frame has one). */
       if (gpf->runtime.onion_id == INT_MAX) {
         continue;
       }

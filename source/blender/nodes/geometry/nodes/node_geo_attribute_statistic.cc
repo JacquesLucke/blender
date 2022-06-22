@@ -77,7 +77,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
   bNodeSocket *socket_vector_std = socket_vector_range->next;
   bNodeSocket *socket_vector_variance = socket_vector_std->next;
 
-  const CustomDataType data_type = static_cast<CustomDataType>(node->custom1);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(node->custom1);
 
   nodeSetSocketAvailability(ntree, socket_float_attr, data_type == CD_PROP_FLOAT);
   nodeSetSocketAvailability(ntree, socket_float_mean, data_type == CD_PROP_FLOAT);
@@ -100,7 +100,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
   nodeSetSocketAvailability(ntree, socket_vector_variance, data_type == CD_PROP_FLOAT3);
 }
 
-static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
+static std::optional<eCustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
 {
   switch (socket.type) {
     case SOCK_FLOAT:
@@ -121,7 +121,7 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
   const NodeDeclaration &declaration = *params.node_type().fixed_declaration;
   search_link_ops_for_declarations(params, declaration.inputs().take_front(2));
 
-  const std::optional<CustomDataType> type = node_type_from_other_socket(params.other_socket());
+  const std::optional<eCustomDataType> type = node_type_from_other_socket(params.other_socket());
   if (!type) {
     return;
   }
@@ -184,8 +184,8 @@ static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.get_input<GeometrySet>("Geometry");
   const bNode &node = params.node();
-  const CustomDataType data_type = static_cast<CustomDataType>(node.custom1);
-  const AttributeDomain domain = static_cast<AttributeDomain>(node.custom2);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(node.custom1);
+  const eAttrDomain domain = static_cast<eAttrDomain>(node.custom2);
   Vector<const GeometryComponent *> components = geometry_set.get_components_for_read();
 
   const Field<bool> selection_field = params.get_input<Field<bool>>("Selection");
@@ -197,9 +197,9 @@ static void node_geo_exec(GeoNodeExecParams params)
       for (const GeometryComponent *component : components) {
         if (component->attribute_domain_supported(domain)) {
           GeometryComponentFieldContext field_context{*component, domain};
-          const int domain_size = component->attribute_domain_size(domain);
+          const int domain_num = component->attribute_domain_num(domain);
 
-          fn::FieldEvaluator data_evaluator{field_context, domain_size};
+          fn::FieldEvaluator data_evaluator{field_context, domain_num};
           data_evaluator.add(input_field);
           data_evaluator.set_selection(selection_field);
           data_evaluator.evaluate();
@@ -275,9 +275,9 @@ static void node_geo_exec(GeoNodeExecParams params)
       for (const GeometryComponent *component : components) {
         if (component->attribute_domain_supported(domain)) {
           GeometryComponentFieldContext field_context{*component, domain};
-          const int domain_size = component->attribute_domain_size(domain);
+          const int domain_num = component->attribute_domain_num(domain);
 
-          fn::FieldEvaluator data_evaluator{field_context, domain_size};
+          fn::FieldEvaluator data_evaluator{field_context, domain_num};
           data_evaluator.add(input_field);
           data_evaluator.set_selection(selection_field);
           data_evaluator.evaluate();

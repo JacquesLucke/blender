@@ -47,8 +47,6 @@ int SEQ_time_find_next_prev_edit(struct Scene *scene,
                                  bool do_skip_mute,
                                  bool do_center,
                                  bool do_unselected);
-void SEQ_time_update_sequence(struct Scene *scene, struct ListBase *seqbase, struct Sequence *seq);
-void SEQ_time_update_recursive(struct Scene *scene, struct Sequence *changed_seq);
 /**
  * Test if strip intersects with timeline frame.
  * \note This checks if strip would be rendered at this frame. For rendering it is assumed, that
@@ -59,7 +57,15 @@ void SEQ_time_update_recursive(struct Scene *scene, struct Sequence *changed_seq
  * \return true if strip intersects with timeline frame.
  */
 bool SEQ_time_strip_intersects_frame(const struct Sequence *seq, int timeline_frame);
-void SEQ_time_update_meta_strip_range(struct Scene *scene, struct Sequence *seq_meta);
+bool SEQ_time_has_still_frames(const struct Sequence *seq);
+bool SEQ_time_has_left_still_frames(const struct Sequence *seq);
+bool SEQ_time_has_right_still_frames(const struct Sequence *seq);
+
+int SEQ_time_left_handle_frame_get(const struct Sequence *seq);
+int SEQ_time_right_handle_frame_get(const struct Sequence *seq);
+void SEQ_time_left_handle_frame_set(const struct Scene *scene, struct Sequence *seq, int val);
+void SEQ_time_right_handle_frame_set(const struct Scene *scene, struct Sequence *seq, int val);
+void SEQ_time_update_meta_strip_range(const struct Scene *scene, struct Sequence *seq_meta);
 
 #ifdef __cplusplus
 }

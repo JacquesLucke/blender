@@ -1569,8 +1569,8 @@ void do_versions_after_linking_280(Main *bmain, ReportList *UNUSED(reports))
 
   if (!MAIN_VERSION_ATLEAST(bmain, 281, 2)) {
     /* Replace Multiply and Additive blend mode by Alpha Blend
-     * now that we use dualsource blending. */
-    /* We take care of doing only nodetrees that are always part of materials
+     * now that we use dual-source blending. */
+    /* We take care of doing only node-trees that are always part of materials
      * with old blending modes. */
     for (Material *ma = bmain->materials.first; ma; ma = ma->id.next) {
       bNodeTree *ntree = ma->nodetree;
@@ -4102,7 +4102,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
     LISTBASE_FOREACH (Object *, ob, &bmain->objects) {
       LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
         if (md->type == eModifierType_DataTransfer) {
-          /* Now datatransfer's mix factor is multiplied with weights when any,
+          /* Now data-transfer's mix factor is multiplied with weights when any,
            * instead of being ignored,
            * we need to take care of that to keep 'old' files compatible. */
           DataTransferModifierData *dtmd = (DataTransferModifierData *)md;
@@ -4892,7 +4892,7 @@ void blo_do_versions_280(FileData *fd, Library *UNUSED(lib), Main *bmain)
     /* Default Face Set Color. */
     for (Mesh *me = bmain->meshes.first; me != NULL; me = me->id.next) {
       if (me->totpoly > 0) {
-        int *face_sets = CustomData_get_layer(&me->pdata, CD_SCULPT_FACE_SETS);
+        const int *face_sets = CustomData_get_layer(&me->pdata, CD_SCULPT_FACE_SETS);
         if (face_sets) {
           me->face_sets_color_default = abs(face_sets[0]);
         }

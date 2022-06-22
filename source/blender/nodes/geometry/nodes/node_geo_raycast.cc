@@ -70,7 +70,7 @@ static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 static void node_update(bNodeTree *ntree, bNode *node)
 {
   const NodeGeometryRaycast &storage = node_storage(*node);
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
 
   bNodeSocket *socket_vector = (bNodeSocket *)BLI_findlink(&node->inputs, 1);
   bNodeSocket *socket_float = socket_vector->next;
@@ -104,7 +104,7 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
   search_link_ops_for_declarations(params, declaration.inputs().take_back(3));
   search_link_ops_for_declarations(params, declaration.outputs().take_front(4));
 
-  const std::optional<CustomDataType> type = node_data_type_to_custom_data_type(
+  const std::optional<eCustomDataType> type = node_data_type_to_custom_data_type(
       (eNodeSocketDatatype)params.other_socket().type);
   if (type && *type != CD_PROP_STRING) {
     /* The input and output sockets have the same name. */
@@ -215,7 +215,7 @@ class RaycastFunction : public fn::MultiFunction {
   /* Always evaluate the target domain data on the face corner domain because it contains the most
    * information. Eventually this could be exposed as an option or determined automatically from
    * the field inputs for better performance. */
-  const AttributeDomain domain_ = ATTR_DOMAIN_CORNER;
+  const eAttrDomain domain_ = ATTR_DOMAIN_CORNER;
 
   fn::MFSignature signature_;
 
@@ -312,15 +312,15 @@ class RaycastFunction : public fn::MultiFunction {
     }
     const MeshComponent &mesh_component = *target_.get_component_for_read<MeshComponent>();
     target_context_.emplace(GeometryComponentFieldContext{mesh_component, domain_});
-    const int domain_size = mesh_component.attribute_domain_size(domain_);
-    target_evaluator_ = std::make_unique<FieldEvaluator>(*target_context_, domain_size);
+    const int domain_num = mesh_component.attribute_domain_num(domain_);
+    target_evaluator_ = std::make_unique<FieldEvaluator>(*target_context_, domain_num);
     target_evaluator_->add(std::move(src_field));
     target_evaluator_->evaluate();
     target_data_ = &target_evaluator_->get_evaluated(0);
   }
 };
 
-static GField get_input_attribute_field(GeoNodeExecParams &params, const CustomDataType data_type)
+static GField get_input_attribute_field(GeoNodeExecParams &params, const eCustomDataType data_type)
 {
   switch (data_type) {
     case CD_PROP_FLOAT:
@@ -387,7 +387,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   GeometrySet target = params.extract_input<GeometrySet>("Target Geometry");
   const NodeGeometryRaycast &storage = node_storage(params.node());
   const GeometryNodeRaycastMapMode mapping = (GeometryNodeRaycastMapMode)storage.mapping;
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
 
   if (target.is_empty()) {
     params.set_default_remaining_outputs();

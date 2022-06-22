@@ -57,8 +57,6 @@
 #include "BKE_tracking.h"
 #include "BKE_workspace.h"
 
-#include "DEG_depsgraph.h"
-
 #include "WM_api.h"
 #include "WM_toolsystem.h"
 #include "WM_types.h"
@@ -1647,7 +1645,7 @@ static int bone_select_menu_exec(bContext *C, wmOperator *op)
   const int name_index = RNA_enum_get(op->ptr, "name");
 
   const struct SelectPick_Params params = {
-      .sel_op = ED_select_op_from_operator(op),
+      .sel_op = ED_select_op_from_operator(op->ptr),
   };
 
   View3D *v3d = CTX_wm_view3d(C);
@@ -2876,8 +2874,9 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
   Object *obact = CTX_data_active_object(C);
 
   struct SelectPick_Params params = {0};
-  ED_select_pick_params_from_operator(op, &params);
+  ED_select_pick_params_from_operator(op->ptr, &params);
 
+  const bool vert_without_handles = RNA_boolean_get(op->ptr, "vert_without_handles");
   bool center = RNA_boolean_get(op->ptr, "center");
   bool enumerate = RNA_boolean_get(op->ptr, "enumerate");
   /* Only force object select for edit-mode to support vertex parenting,
@@ -2932,7 +2931,8 @@ static int view3d_select_exec(bContext *C, wmOperator *op)
       changed = ED_lattice_select_pick(C, mval, &params);
     }
     else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
-      changed = ED_curve_editnurb_select_pick(C, mval, ED_view3d_select_dist_px(), &params);
+      changed = ED_curve_editnurb_select_pick(
+          C, mval, ED_view3d_select_dist_px(), vert_without_handles, &params);
     }
     else if (obedit->type == OB_MBALL) {
       changed = ED_mball_select_pick(C, mval, &params);
@@ -2988,6 +2988,7 @@ void VIEW3D_OT_select(wmOperatorType *ot)
   ot->invoke = view3d_select_invoke;
   ot->exec = view3d_select_exec;
   ot->poll = ED_operator_view3d_active;
+  ot->get_name = ED_select_pick_get_name;
 
   /* flags */
   ot->flag = OPTYPE_UNDO;
@@ -3006,6 +3007,15 @@ void VIEW3D_OT_select(wmOperatorType *ot)
       ot->srna, "enumerate", 0, "Enumerate", "List objects under the mouse (object mode only)");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   prop = RNA_def_boolean(ot->srna, "object", 0, "Object", "Use object selection (edit mode only)");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
+  /* Needed for select-through to usefully drag handles, see: T98254.
+   * NOTE: this option may be removed and become default behavior, see design task: T98552. */
+  prop = RNA_def_boolean(ot->srna,
+                         "vert_without_handles",
+                         0,
+                         "Control Point Without Handles",
+                         "Only select the curve control point, not it's handles");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
   prop = RNA_def_int_vector(ot->srna,
@@ -4740,6 +4750,7 @@ void VIEW3D_OT_select_circle(wmOperatorType *ot)
   ot->exec = view3d_circle_select_exec;
   ot->poll = view3d_selectable_data;
   ot->cancel = view3d_circle_select_cancel;
+  ot->get_name = ED_select_circle_get_name;
 
   /* flags */
   ot->flag = OPTYPE_UNDO;

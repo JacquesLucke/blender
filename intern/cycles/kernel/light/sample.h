@@ -81,7 +81,7 @@ light_sample_shader_eval(KernelGlobals kg,
   eval *= ls->eval_fac;
 
   if (ls->lamp != LAMP_NONE) {
-    ccl_global const KernelLight *klight = &kernel_tex_fetch(__lights, ls->lamp);
+    ccl_global const KernelLight *klight = &kernel_data_fetch(lights, ls->lamp);
     eval *= make_float3(klight->strength[0], klight->strength[1], klight->strength[2]);
   }
 
@@ -143,7 +143,7 @@ ccl_device_inline float3 shadow_ray_smooth_surface_offset(
   float3 n = N[0] * u + N[1] * v + N[2] * w; /* We get away without normalization */
 
   if (!(sd->object_flag & SD_OBJECT_TRANSFORM_APPLIED)) {
-    object_normal_transform(kg, sd, &n); /* Normal x scale, world space */
+    object_dir_transform(kg, sd, &n); /* Normal x scale, to world space */
   }
 
   /* Parabolic approximation */
@@ -187,7 +187,7 @@ ccl_device_inline float3 shadow_ray_offset(KernelGlobals kg,
 
   if ((sd->type & PRIMITIVE_TRIANGLE) && (sd->shader & SHADER_SMOOTH_NORMAL)) {
     const float offset_cutoff =
-        kernel_tex_fetch(__objects, sd->object).shadow_terminator_geometry_offset;
+        kernel_data_fetch(objects, sd->object).shadow_terminator_geometry_offset;
     /* Do ray offset (heavy stuff) only for close to be terminated triangles:
      * offset_cutoff = 0.1f means that 10-20% of rays will be affected. Also
      * make a smooth transition near the threshold. */

@@ -18,6 +18,7 @@
 #include "WM_toolsystem.h"
 
 #include "ED_curves_sculpt.h"
+#include "ED_image.h"
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_view3d.h"
@@ -49,7 +50,7 @@
 
 bool CURVES_SCULPT_mode_poll(bContext *C)
 {
-  Object *ob = CTX_data_active_object(C);
+  const Object *ob = CTX_data_active_object(C);
   return ob && ob->mode & OB_MODE_SCULPT_CURVES;
 }
 
@@ -74,14 +75,44 @@ using blender::bke::CurvesGeometry;
 /** \name * SCULPT_CURVES_OT_brush_stroke
  * \{ */
 
+float brush_radius_factor(const Brush &brush, const StrokeExtension &stroke_extension)
+{
+  if (BKE_brush_use_size_pressure(&brush)) {
+    return stroke_extension.pressure;
+  }
+  return 1.0f;
+}
+
+float brush_radius_get(const Scene &scene,
+                       const Brush &brush,
+                       const StrokeExtension &stroke_extension)
+{
+  return BKE_brush_size_get(&scene, &brush) * brush_radius_factor(brush, stroke_extension);
+}
+
+float brush_strength_factor(const Brush &brush, const StrokeExtension &stroke_extension)
+{
+  if (BKE_brush_use_alpha_pressure(&brush)) {
+    return stroke_extension.pressure;
+  }
+  return 1.0f;
+}
+
+float brush_strength_get(const Scene &scene,
+                         const Brush &brush,
+                         const StrokeExtension &stroke_extension)
+{
+  return BKE_brush_alpha_get(&scene, &brush) * brush_strength_factor(brush, stroke_extension);
+}
+
 static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bContext &C,
                                                                           wmOperator &op)
 {
   const BrushStrokeMode mode = static_cast<BrushStrokeMode>(RNA_enum_get(op.ptr, "mode"));
 
-  Scene &scene = *CTX_data_scene(&C);
-  CurvesSculpt &curves_sculpt = *scene.toolsettings->curves_sculpt;
-  Brush &brush = *BKE_paint_brush(&curves_sculpt.paint);
+  const Scene &scene = *CTX_data_scene(&C);
+  const CurvesSculpt &curves_sculpt = *scene.toolsettings->curves_sculpt;
+  const Brush &brush = *BKE_paint_brush_for_read(&curves_sculpt.paint);
   switch (brush.curves_sculpt_tool) {
     case CURVES_SCULPT_TOOL_COMB:
       return new_comb_operation();
@@ -92,7 +123,9 @@ static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bConte
     case CURVES_SCULPT_TOOL_ADD:
       return new_add_operation(C, op.reports);
     case CURVES_SCULPT_TOOL_GROW_SHRINK:
-      return new_grow_shrink_operation(mode, &C);
+      return new_grow_shrink_operation(mode, C);
+    case CURVES_SCULPT_TOOL_SELECTION_PAINT:
+      return new_selection_paint_operation(mode, C);
   }
   BLI_assert_unreachable();
   return {};
@@ -128,6 +161,7 @@ static void stroke_update_step(bContext *C,
 
   StrokeExtension stroke_extension;
   RNA_float_get_array(stroke_element, "mouse", stroke_extension.mouse_position);
+  stroke_extension.pressure = RNA_float_get(stroke_element, "pressure");
 
   if (!op_data->operation) {
     stroke_extension.is_first = true;
@@ -138,7 +172,7 @@ static void stroke_update_step(bContext *C,
   }
 
   if (op_data->operation) {
-    op_data->operation->on_stroke_extended(C, stroke_extension);
+    op_data->operation->on_stroke_extended(*C, stroke_extension);
   }
 }
 
@@ -149,8 +183,8 @@ static void stroke_done(const bContext *C, PaintStroke *stroke)
 
 static int sculpt_curves_stroke_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
-  Paint *paint = BKE_paint_get_active_from_context(C);
-  Brush *brush = BKE_paint_brush(paint);
+  const Paint *paint = BKE_paint_get_active_from_context(C);
+  const Brush *brush = BKE_paint_brush_for_read(paint);
   if (brush == nullptr) {
     return OPERATOR_CANCELLED;
   }
@@ -219,7 +253,7 @@ static void SCULPT_CURVES_OT_brush_stroke(struct wmOperatorType *ot)
 
 static bool curves_sculptmode_toggle_poll(bContext *C)
 {
-  Object *ob = CTX_data_active_object(C);
+  const Object *ob = CTX_data_active_object(C);
   if (ob == nullptr) {
     return false;
   }
@@ -238,7 +272,7 @@ static void curves_sculptmode_enter(bContext *C)
 
   ob->mode = OB_MODE_SCULPT_CURVES;
 
-  paint_cursor_start(&curves_sculpt->paint, CURVES_SCULPT_mode_poll_view3d);
+  ED_paint_cursor_start(&curves_sculpt->paint, CURVES_SCULPT_mode_poll_view3d);
 
   /* Update for mode change. */
   DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);

@@ -114,7 +114,7 @@ void CurveComponentLegacy::ensure_owns_direct_data()
 /** \name Attribute Access Helper Functions
  * \{ */
 
-int CurveComponentLegacy::attribute_domain_size(const AttributeDomain domain) const
+int CurveComponentLegacy::attribute_domain_num(const eAttrDomain domain) const
 {
   if (curve_ == nullptr) {
     return 0;
@@ -251,8 +251,8 @@ template<typename T> class VArray_For_SplineToPoint final : public VArrayImpl<T>
 
   void materialize(const IndexMask mask, MutableSpan<T> r_span) const final
   {
-    const int total_size = offsets_.last();
-    if (mask.is_range() && mask.as_range() == IndexRange(total_size)) {
+    const int total_num = offsets_.last();
+    if (mask.is_range() && mask.as_range() == IndexRange(total_num)) {
       for (const int spline_index : original_data_.index_range()) {
         const int offset = offsets_[spline_index];
         const int next_offset = offsets_[spline_index + 1];
@@ -273,8 +273,8 @@ template<typename T> class VArray_For_SplineToPoint final : public VArrayImpl<T>
   void materialize_to_uninitialized(const IndexMask mask, MutableSpan<T> r_span) const final
   {
     T *dst = r_span.data();
-    const int total_size = offsets_.last();
-    if (mask.is_range() && mask.as_range() == IndexRange(total_size)) {
+    const int total_num = offsets_.last();
+    if (mask.is_range() && mask.as_range() == IndexRange(total_num)) {
       for (const int spline_index : original_data_.index_range()) {
         const int offset = offsets_[spline_index];
         const int next_offset = offsets_[spline_index + 1];
@@ -308,10 +308,9 @@ static GVArray adapt_curve_domain_spline_to_point(const CurveEval &curve, GVArra
 
 }  // namespace blender::bke
 
-GVArray CurveComponentLegacy::attribute_try_adapt_domain_impl(
-    const GVArray &varray,
-    const AttributeDomain from_domain,
-    const AttributeDomain to_domain) const
+GVArray CurveComponentLegacy::attribute_try_adapt_domain_impl(const GVArray &varray,
+                                                              const eAttrDomain from_domain,
+                                                              const eAttrDomain to_domain) const
 {
   if (!varray) {
     return {};
@@ -366,7 +365,7 @@ class BuiltinSplineAttributeProvider final : public BuiltinAttributeProvider {
 
  public:
   BuiltinSplineAttributeProvider(std::string attribute_name,
-                                 const CustomDataType attribute_type,
+                                 const eCustomDataType attribute_type,
                                  const WritableEnum writable,
                                  const AsReadAttribute as_read_attribute,
                                  const AsWriteAttribute as_write_attribute)
@@ -415,7 +414,7 @@ class BuiltinSplineAttributeProvider final : public BuiltinAttributeProvider {
 
   bool exists(const GeometryComponent &component) const final
   {
-    return component.attribute_domain_size(ATTR_DOMAIN_CURVE) != 0;
+    return component.attribute_domain_num(ATTR_DOMAIN_CURVE) != 0;
   }
 };
 
@@ -495,8 +494,8 @@ static void point_attribute_materialize(Span<Span<T>> data,
                                         const IndexMask mask,
                                         MutableSpan<T> r_span)
 {
-  const int total_size = offsets.last();
-  if (mask.is_range() && mask.as_range() == IndexRange(total_size)) {
+  const int total_num = offsets.last();
+  if (mask.is_range() && mask.as_range() == IndexRange(total_num)) {
     for (const int spline_index : data.index_range()) {
       const int offset = offsets[spline_index];
       const int next_offset = offsets[spline_index + 1];
@@ -541,8 +540,8 @@ static void point_attribute_materialize_to_uninitialized(Span<Span<T>> data,
                                                          MutableSpan<T> r_span)
 {
   T *dst = r_span.data();
-  const int total_size = offsets.last();
-  if (mask.is_range() && mask.as_range() == IndexRange(total_size)) {
+  const int total_num = offsets.last();
+  if (mask.is_range() && mask.as_range() == IndexRange(total_num)) {
     for (const int spline_index : data.index_range()) {
       const int offset = offsets[spline_index];
       const int next_offset = offsets[spline_index + 1];
@@ -577,7 +576,7 @@ static void point_attribute_materialize_to_uninitialized(Span<Span<T>> data,
 }
 
 static GVArray varray_from_initializer(const AttributeInit &initializer,
-                                       const CustomDataType data_type,
+                                       const eCustomDataType data_type,
                                        const Span<SplinePtr> splines)
 {
   switch (initializer.type) {
@@ -589,13 +588,13 @@ static GVArray varray_from_initializer(const AttributeInit &initializer,
     case AttributeInit::Type::VArray:
       return static_cast<const AttributeInitVArray &>(initializer).varray;
     case AttributeInit::Type::MoveArray:
-      int total_size = 0;
+      int total_num = 0;
       for (const SplinePtr &spline : splines) {
-        total_size += spline->size();
+        total_num += spline->size();
       }
       return GVArray::ForSpan(GSpan(*bke::custom_data_type_to_cpp_type(data_type),
                                     static_cast<const AttributeInitMove &>(initializer).data,
-                                    total_size));
+                                    total_num));
   }
   BLI_assert_unreachable();
   return {};
@@ -604,7 +603,7 @@ static GVArray varray_from_initializer(const AttributeInit &initializer,
 static bool create_point_attribute(GeometryComponent &component,
                                    const AttributeIDRef &attribute_id,
                                    const AttributeInit &initializer,
-                                   const CustomDataType data_type)
+                                   const eCustomDataType data_type)
 {
   CurveEval *curve = get_curve_from_component_for_write(component);
   if (curve == nullptr || curve->splines().size() == 0) {
@@ -1168,7 +1167,7 @@ class BezierHandleAttributeProvider : public BuiltinAttributeProvider {
     }
 
     return curve->has_spline_with_type(CURVE_TYPE_BEZIER) &&
-           component.attribute_domain_size(ATTR_DOMAIN_POINT) != 0;
+           component.attribute_domain_num(ATTR_DOMAIN_POINT) != 0;
   }
 };
 
@@ -1306,8 +1305,8 @@ class DynamicPointAttributeProvider final : public DynamicAttributesProvider {
 
   bool try_create(GeometryComponent &component,
                   const AttributeIDRef &attribute_id,
-                  const AttributeDomain domain,
-                  const CustomDataType data_type,
+                  const eAttrDomain domain,
+                  const eCustomDataType data_type,
                   const AttributeInit &initializer) const final
   {
     BLI_assert(this->type_is_supported(data_type));
@@ -1336,12 +1335,12 @@ class DynamicPointAttributeProvider final : public DynamicAttributesProvider {
     return true;
   }
 
-  void foreach_domain(const FunctionRef<void(AttributeDomain)> callback) const final
+  void foreach_domain(const FunctionRef<void(eAttrDomain)> callback) const final
   {
     callback(ATTR_DOMAIN_POINT);
   }
 
-  bool type_is_supported(CustomDataType data_type) const
+  bool type_is_supported(eCustomDataType data_type) const
   {
     return ((1ULL << data_type) & supported_types_mask) != 0;
   }

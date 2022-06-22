@@ -616,6 +616,7 @@ typedef enum eWM_EventFlag {
    */
   WM_EVENT_FORCE_DRAG_THRESHOLD = (1 << 2),
 } eWM_EventFlag;
+ENUM_OPERATORS(eWM_EventFlag, WM_EVENT_FORCE_DRAG_THRESHOLD);
 
 typedef struct wmTabletData {
   /** 0=EVT_TABLET_NONE, 1=EVT_TABLET_STYLUS, 2=EVT_TABLET_ERASER. */
@@ -812,6 +813,10 @@ typedef struct wmXrActionData {
   char action_set[64];
   /** Action name. */
   char action[64];
+  /** User path. E.g. "/user/hand/left" */
+  char user_path[64];
+  /** Other user path, for bimanual actions. E.g. "/user/hand/right" */
+  char user_path_other[64];
   /** Type. */
   eXrActionType type;
   /** State. Set appropriately based on type. */

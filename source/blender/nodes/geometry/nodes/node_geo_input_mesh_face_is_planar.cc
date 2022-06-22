@@ -34,7 +34,7 @@ class PlanarFieldInput final : public GeometryFieldInput {
   }
 
   GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
+                                 const eAttrDomain domain,
                                  [[maybe_unused]] IndexMask mask) const final
   {
     if (component.type() != GEO_COMPONENT_TYPE_MESH) {
@@ -65,7 +65,7 @@ class PlanarFieldInput final : public GeometryFieldInput {
       float3 reference_normal = poly_normals[i_poly];
 
       float min = FLT_MAX;
-      float max = FLT_MIN;
+      float max = -FLT_MAX;
 
       for (const int i_loop : poly_loops.index_range()) {
         const float3 vert = mesh->mvert[poly_loops[i_loop].v].co;

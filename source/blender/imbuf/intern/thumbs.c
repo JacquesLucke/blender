@@ -30,7 +30,6 @@
 #include "IMB_thumbs.h"
 
 #include <ctype.h>
-#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -466,27 +465,27 @@ static ImBuf *thumb_create_or_fail(const char *file_path,
   return img;
 }
 
-ImBuf *IMB_thumb_create(const char *path, ThumbSize size, ThumbSource source, ImBuf *img)
+ImBuf *IMB_thumb_create(const char *filepath, ThumbSize size, ThumbSource source, ImBuf *img)
 {
   char uri[URI_MAX] = "";
   char thumb_name[40];
 
-  if (!uri_from_filename(path, uri)) {
+  if (!uri_from_filename(filepath, uri)) {
     return NULL;
   }
   thumbname_from_uri(uri, thumb_name, sizeof(thumb_name));
 
   return thumb_create_ex(
-      path, uri, thumb_name, false, THUMB_DEFAULT_HASH, NULL, NULL, size, source, img);
+      filepath, uri, thumb_name, false, THUMB_DEFAULT_HASH, NULL, NULL, size, source, img);
 }
 
-ImBuf *IMB_thumb_read(const char *path, ThumbSize size)
+ImBuf *IMB_thumb_read(const char *filepath, ThumbSize size)
 {
   char thumb[FILE_MAX];
   char uri[URI_MAX];
   ImBuf *img = NULL;
 
-  if (!uri_from_filename(path, uri)) {
+  if (!uri_from_filename(filepath, uri)) {
     return NULL;
   }
   if (thumbpath_from_uri(uri, thumb, sizeof(thumb), size)) {
@@ -496,16 +495,16 @@ ImBuf *IMB_thumb_read(const char *path, ThumbSize size)
   return img;
 }
 
-void IMB_thumb_delete(const char *path, ThumbSize size)
+void IMB_thumb_delete(const char *filepath, ThumbSize size)
 {
   char thumb[FILE_MAX];
   char uri[URI_MAX];
 
-  if (!uri_from_filename(path, uri)) {
+  if (!uri_from_filename(filepath, uri)) {
     return;
   }
   if (thumbpath_from_uri(uri, thumb, sizeof(thumb), size)) {
-    if (BLI_path_ncmp(path, thumb, sizeof(thumb)) == 0) {
+    if (BLI_path_ncmp(filepath, thumb, sizeof(thumb)) == 0) {
       return;
     }
     if (BLI_exists(thumb)) {
@@ -514,7 +513,7 @@ void IMB_thumb_delete(const char *path, ThumbSize size)
   }
 }
 
-ImBuf *IMB_thumb_manage(const char *org_path, ThumbSize size, ThumbSource source)
+ImBuf *IMB_thumb_manage(const char *filepath, ThumbSize size, ThumbSource source)
 {
   char thumb_path[FILE_MAX];
   char thumb_name[40];
@@ -526,7 +525,7 @@ ImBuf *IMB_thumb_manage(const char *org_path, ThumbSize size, ThumbSource source
   ImBuf *img = NULL;
   char *blen_group = NULL, *blen_id = NULL;
 
-  path = file_path = org_path;
+  path = file_path = filepath;
   if (source == THB_SOURCE_BLEND) {
     if (BLO_library_path_explode(path, path_buff, &blen_group, &blen_id)) {
       if (blen_group) {

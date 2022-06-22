@@ -12,7 +12,6 @@
 #include "BKE_geometry_fields.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_lib_id.h"
-#include "BKE_spline.hh"
 
 #include "attribute_access_intern.hh"
 
@@ -135,11 +134,11 @@ const Curve *CurveComponent::get_curve_for_render() const
 
 /** \} */
 
+namespace blender::bke {
+
 /* -------------------------------------------------------------------- */
 /** \name Curve Normals Access
  * \{ */
-
-namespace blender::bke {
 
 static Array<float3> curve_normal_point_domain(const bke::CurvesGeometry &curves)
 {
@@ -208,7 +207,7 @@ static Array<float3> curve_normal_point_domain(const bke::CurvesGeometry &curves
   return results;
 }
 
-VArray<float3> curve_normals_varray(const CurveComponent &component, const AttributeDomain domain)
+VArray<float3> curve_normals_varray(const CurveComponent &component, const eAttrDomain domain)
 {
   if (!component.has_curves()) {
     return {};
@@ -244,7 +243,7 @@ VArray<float3> curve_normals_varray(const CurveComponent &component, const Attri
  * \{ */
 
 static VArray<float> construct_curve_length_gvarray(const CurveComponent &component,
-                                                    const AttributeDomain domain)
+                                                    const eAttrDomain domain)
 {
   if (!component.has_curves()) {
     return {};
@@ -279,7 +278,7 @@ CurveLengthFieldInput::CurveLengthFieldInput()
 }
 
 GVArray CurveLengthFieldInput::get_varray_for_context(const GeometryComponent &component,
-                                                      const AttributeDomain domain,
+                                                      const eAttrDomain domain,
                                                       IndexMask UNUSED(mask)) const
 {
   if (component.type() == GEO_COMPONENT_TYPE_CURVE) {
@@ -300,33 +299,33 @@ bool CurveLengthFieldInput::is_equal_to(const fn::FieldNode &other) const
   return dynamic_cast<const CurveLengthFieldInput *>(&other) != nullptr;
 }
 
-}  // namespace blender::bke
-
 /** \} */
+
+}  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */
 /** \name Attribute Access Helper Functions
  * \{ */
 
-int CurveComponent::attribute_domain_size(const AttributeDomain domain) const
+int CurveComponent::attribute_domain_num(const eAttrDomain domain) const
 {
   if (curves_ == nullptr) {
     return 0;
   }
-  const blender::bke::CurvesGeometry &geometry = blender::bke::CurvesGeometry::wrap(
+  const blender::bke::CurvesGeometry &curves = blender::bke::CurvesGeometry::wrap(
       curves_->geometry);
   if (domain == ATTR_DOMAIN_POINT) {
-    return geometry.points_num();
+    return curves.points_num();
   }
   if (domain == ATTR_DOMAIN_CURVE) {
-    return geometry.curves_num();
+    return curves.curves_num();
   }
   return 0;
 }
 
 GVArray CurveComponent::attribute_try_adapt_domain_impl(const GVArray &varray,
-                                                        const AttributeDomain from_domain,
-                                                        const AttributeDomain to_domain) const
+                                                        const eAttrDomain from_domain,
+                                                        const eAttrDomain to_domain) const
 {
   return blender::bke::CurvesGeometry::wrap(curves_->geometry)
       .adapt_domain(varray, from_domain, to_domain);

@@ -38,13 +38,13 @@ static void geometry_set_points_to_vertices(GeometrySet &geometry_set,
   }
 
   GeometryComponentFieldContext field_context{*point_component, ATTR_DOMAIN_POINT};
-  const int domain_size = point_component->attribute_domain_size(ATTR_DOMAIN_POINT);
-  if (domain_size == 0) {
+  const int domain_num = point_component->attribute_domain_num(ATTR_DOMAIN_POINT);
+  if (domain_num == 0) {
     geometry_set.keep_only({GEO_COMPONENT_TYPE_INSTANCES});
     return;
   }
 
-  fn::FieldEvaluator selection_evaluator{field_context, domain_size};
+  fn::FieldEvaluator selection_evaluator{field_context, domain_num};
   selection_evaluator.add(selection_field);
   selection_evaluator.evaluate();
   const IndexMask selection = selection_evaluator.get_evaluated_as_mask(0);
@@ -59,7 +59,7 @@ static void geometry_set_points_to_vertices(GeometrySet &geometry_set,
 
   for (Map<AttributeIDRef, AttributeKind>::Item entry : attributes.items()) {
     const AttributeIDRef attribute_id = entry.key;
-    const CustomDataType data_type = entry.value.data_type;
+    const eCustomDataType data_type = entry.value.data_type;
     GVArray src = point_component->attribute_get_for_read(
         attribute_id, ATTR_DOMAIN_POINT, data_type);
     OutputAttribute dst = mesh_component.attribute_try_get_for_output_only(

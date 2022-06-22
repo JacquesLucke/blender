@@ -10,14 +10,12 @@
 
 #include "GHOST_Window.h"
 
-#include <unordered_set>
 #include <vector>
 
 class GHOST_SystemWayland;
 
 struct output_t;
 struct window_t;
-struct wl_surface;
 
 class GHOST_WindowWayland : public GHOST_Window {
  public:
@@ -40,25 +38,8 @@ class GHOST_WindowWayland : public GHOST_Window {
 
   uint16_t getDPIHint() override;
 
-  GHOST_TSuccess close();
+  /* Ghost API */
 
-  GHOST_TSuccess activate();
-
-  GHOST_TSuccess deactivate();
-
-  GHOST_TSuccess notify_size();
-
-  wl_surface *surface() const;
-
-  const std::vector<output_t *> &outputs() const;
-
-  std::unordered_set<const output_t *> &outputs_active();
-
-  uint16_t &dpi();
-
-  int &scale();
-
- protected:
   GHOST_TSuccess setWindowCursorGrab(GHOST_TGrabCursorMode mode) override;
 
   GHOST_TSuccess setWindowCursorShape(GHOST_TStandardCursor shape) override;
@@ -70,6 +51,9 @@ class GHOST_WindowWayland : public GHOST_Window {
                                             int hotX,
                                             int hotY,
                                             bool canInvertColor) override;
+  bool getCursorGrabUseSoftwareDisplay() override;
+
+  GHOST_TSuccess getCursorBitmap(GHOST_CursorBitmapRef *bitmap) override;
 
   void setTitle(const char *title) override;
 
@@ -108,6 +92,30 @@ class GHOST_WindowWayland : public GHOST_Window {
 #ifdef GHOST_OPENGL_ALPHA
   void setOpaque() const;
 #endif
+
+  /* WAYLAND utility functions. */
+
+  GHOST_TSuccess close();
+
+  GHOST_TSuccess activate();
+
+  GHOST_TSuccess deactivate();
+
+  GHOST_TSuccess notify_size();
+
+  struct wl_surface *surface() const;
+
+  output_t *output_find_by_wl(struct wl_output *output);
+
+  const std::vector<output_t *> &outputs();
+
+  bool outputs_enter(output_t *reg_output);
+  bool outputs_leave(output_t *reg_output);
+  bool outputs_changed_update_scale();
+
+  uint16_t dpi();
+
+  int scale();
 
  private:
   GHOST_SystemWayland *m_system;

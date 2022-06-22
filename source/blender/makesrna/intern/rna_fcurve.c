@@ -786,11 +786,11 @@ static void rna_FModifier_active_update(Main *bmain, Scene *scene, PointerRNA *p
   rna_FModifier_update(bmain, scene, ptr);
 }
 
-static int rna_FModifierGenerator_coefficients_get_length(PointerRNA *ptr,
+static int rna_FModifierGenerator_coefficients_get_length(const PointerRNA *ptr,
                                                           int length[RNA_MAX_ARRAY_DIMENSION])
 {
-  FModifier *fcm = (FModifier *)ptr->data;
-  FMod_Generator *gen = fcm->data;
+  const FModifier *fcm = (FModifier *)ptr->data;
+  const FMod_Generator *gen = fcm->data;
 
   if (gen) {
     length[0] = gen->arraysize;
@@ -1776,12 +1776,12 @@ static void rna_def_drivertarget(BlenderRNA *brna)
       {DTAR_TRANSCHAN_LOCX, "LOC_X", 0, "X Location", ""},
       {DTAR_TRANSCHAN_LOCY, "LOC_Y", 0, "Y Location", ""},
       {DTAR_TRANSCHAN_LOCZ, "LOC_Z", 0, "Z Location", ""},
-      {0, "", 0, NULL, NULL},
+      RNA_ENUM_ITEM_SEPR,
       {DTAR_TRANSCHAN_ROTX, "ROT_X", 0, "X Rotation", ""},
       {DTAR_TRANSCHAN_ROTY, "ROT_Y", 0, "Y Rotation", ""},
       {DTAR_TRANSCHAN_ROTZ, "ROT_Z", 0, "Z Rotation", ""},
       {DTAR_TRANSCHAN_ROTW, "ROT_W", 0, "W Rotation", ""},
-      {0, "", 0, NULL, NULL},
+      RNA_ENUM_ITEM_SEPR,
       {DTAR_TRANSCHAN_SCALEX, "SCALE_X", 0, "X Scale", ""},
       {DTAR_TRANSCHAN_SCALEY, "SCALE_Y", 0, "Y Scale", ""},
       {DTAR_TRANSCHAN_SCALEZ, "SCALE_Z", 0, "Z Scale", ""},

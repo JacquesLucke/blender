@@ -608,7 +608,7 @@ void VIEW3D_OT_background_image_add(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 
   /* properties */
-  RNA_def_string(ot->srna, "name", "Image", MAX_ID_NAME - 2, "Name", "Image name to assign");
+  WM_operator_properties_id_lookup(ot, true);
   WM_operator_properties_filesel(ot,
                                  FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE,
                                  FILE_SPECIAL,
@@ -631,12 +631,19 @@ static int background_image_remove_exec(bContext *C, wmOperator *op)
   CameraBGImage *bgpic_rem = BLI_findlink(&cam->bg_images, index);
 
   if (bgpic_rem) {
-    if (bgpic_rem->source == CAM_BGIMG_SOURCE_IMAGE) {
-      id_us_min((ID *)bgpic_rem->ima);
+    if (ID_IS_OVERRIDE_LIBRARY(cam) &&
+        (bgpic_rem->flag & CAM_BGIMG_FLAG_OVERRIDE_LIBRARY_LOCAL) == 0) {
+      BKE_reportf(op->reports,
+                  RPT_WARNING,
+                  "Cannot remove background image %d from camera '%s', as it is from the linked "
+                  "reference data",
+                  index,
+                  cam->id.name + 2);
+      return OPERATOR_CANCELLED;
     }
-    else if (bgpic_rem->source == CAM_BGIMG_SOURCE_MOVIE) {
-      id_us_min((ID *)bgpic_rem->clip);
-    }
+
+    id_us_min((ID *)bgpic_rem->ima);
+    id_us_min((ID *)bgpic_rem->clip);
 
     BKE_camera_background_image_remove(cam, bgpic_rem);
 
@@ -657,7 +664,7 @@ void VIEW3D_OT_background_image_remove(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = background_image_remove_exec;
-  ot->poll = ED_operator_camera;
+  ot->poll = ED_operator_camera_poll;
 
   /* flags */
   ot->flag = 0;
@@ -678,10 +685,8 @@ static int drop_world_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
 
-  char name[MAX_ID_NAME - 2];
-
-  RNA_string_get(op->ptr, "name", name);
-  World *world = (World *)BKE_libblock_find_name(bmain, ID_WO, name);
+  World *world = (World *)WM_operator_properties_id_lookup_from_name_or_session_uuid(
+      bmain, op->ptr, ID_WO);
   if (world == NULL) {
     return OPERATOR_CANCELLED;
   }
@@ -718,7 +723,7 @@ void VIEW3D_OT_drop_world(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO | OPTYPE_INTERNAL;
 
   /* properties */
-  RNA_def_string(ot->srna, "name", "World", MAX_ID_NAME - 2, "Name", "World to assign");
+  WM_operator_properties_id_lookup(ot, true);
 }
 
 /** \} */
@@ -905,7 +910,7 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
                                                    v3d,
                                                    SCE_SNAP_MODE_FACE,
                                                    &(const struct SnapObjectParams){
-                                                       .snap_select = SNAP_ALL,
+                                                       .snap_target_select = SCE_SNAP_TARGET_ALL,
                                                        .edit_mode_type = SNAP_GEOM_FINAL,
                                                        .use_occlusion_test = true,
                                                    },

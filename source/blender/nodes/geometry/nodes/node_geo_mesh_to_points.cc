@@ -58,7 +58,7 @@ static void geometry_set_mesh_to_points(GeometrySet &geometry_set,
                                         Field<float3> &position_field,
                                         Field<float> &radius_field,
                                         Field<bool> &selection_field,
-                                        const AttributeDomain domain)
+                                        const eAttrDomain domain)
 {
   const MeshComponent *mesh_component = geometry_set.get_component_for_read<MeshComponent>();
   if (mesh_component == nullptr) {
@@ -66,12 +66,12 @@ static void geometry_set_mesh_to_points(GeometrySet &geometry_set,
     return;
   }
   GeometryComponentFieldContext field_context{*mesh_component, domain};
-  const int domain_size = mesh_component->attribute_domain_size(domain);
-  if (domain_size == 0) {
+  const int domain_num = mesh_component->attribute_domain_num(domain);
+  if (domain_num == 0) {
     geometry_set.keep_only({GEO_COMPONENT_TYPE_INSTANCES});
     return;
   }
-  fn::FieldEvaluator evaluator{field_context, domain_size};
+  fn::FieldEvaluator evaluator{field_context, domain_num};
   evaluator.set_selection(selection_field);
   /* Evaluating directly into the point cloud doesn't work because we are not using the full
    * "min_array_size" array but compressing the selected elements into the final array with no
@@ -105,7 +105,7 @@ static void geometry_set_mesh_to_points(GeometrySet &geometry_set,
 
   for (Map<AttributeIDRef, AttributeKind>::Item entry : attributes.items()) {
     const AttributeIDRef attribute_id = entry.key;
-    const CustomDataType data_type = entry.value.data_type;
+    const eCustomDataType data_type = entry.value.data_type;
     GVArray src = mesh_component->attribute_get_for_read(attribute_id, domain, data_type);
     OutputAttribute dst = point_component.attribute_try_get_for_output_only(
         attribute_id, ATTR_DOMAIN_POINT, data_type);

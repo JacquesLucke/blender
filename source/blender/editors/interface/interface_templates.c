@@ -742,7 +742,7 @@ static void template_id_liboverride_hierarchy_create(bContext *C,
           object_active->id.tag |= LIB_TAG_DOIT;
         }
         BKE_lib_override_library_create(
-            bmain, scene, view_layer, NULL, id, &collection_active->id, NULL, &id_override);
+            bmain, scene, view_layer, NULL, id, &collection_active->id, NULL, &id_override, false);
       }
       else if (object_active != NULL && !ID_IS_LINKED(object_active) &&
                &object_active->instance_collection->id == id) {
@@ -754,7 +754,8 @@ static void template_id_liboverride_hierarchy_create(bContext *C,
                                         id,
                                         &object_active->id,
                                         &object_active->id,
-                                        &id_override);
+                                        &id_override,
+                                        false);
       }
       break;
     case ID_OB:
@@ -765,7 +766,7 @@ static void template_id_liboverride_hierarchy_create(bContext *C,
           object_active->id.tag |= LIB_TAG_DOIT;
         }
         BKE_lib_override_library_create(
-            bmain, scene, view_layer, NULL, id, &collection_active->id, NULL, &id_override);
+            bmain, scene, view_layer, NULL, id, &collection_active->id, NULL, &id_override, false);
       }
       break;
     case ID_ME:
@@ -787,13 +788,20 @@ static void template_id_liboverride_hierarchy_create(bContext *C,
           if (object_active != NULL) {
             object_active->id.tag |= LIB_TAG_DOIT;
           }
-          BKE_lib_override_library_create(
-              bmain, scene, view_layer, NULL, id, &collection_active->id, NULL, &id_override);
+          BKE_lib_override_library_create(bmain,
+                                          scene,
+                                          view_layer,
+                                          NULL,
+                                          id,
+                                          &collection_active->id,
+                                          NULL,
+                                          &id_override,
+                                          false);
         }
         else {
           object_active->id.tag |= LIB_TAG_DOIT;
           BKE_lib_override_library_create(
-              bmain, scene, view_layer, NULL, id, &object_active->id, NULL, &id_override);
+              bmain, scene, view_layer, NULL, id, &object_active->id, NULL, &id_override, false);
         }
       }
       break;
@@ -812,8 +820,11 @@ static void template_id_liboverride_hierarchy_create(bContext *C,
     id_override->override_library->flag &= ~IDOVERRIDE_LIBRARY_FLAG_SYSTEM_DEFINED;
     *r_undo_push_label = "Make Library Override Hierarchy";
 
-    WM_event_add_notifier(C, NC_WINDOW, NULL);
-    DEG_relations_tag_update(bmain);
+    /* Given `idptr` is re-assigned to owner property by caller to ensure proper updates etc. Here
+     * we also use it to ensure remapping of the owner property from the linked data to the newly
+     * created liboverride (note that in theory this remapping has already been done by code
+     * above). */
+    RNA_id_pointer_create(id_override, idptr);
   }
 }
 
@@ -1525,8 +1536,8 @@ static void template_ID_tabs(const bContext *C,
                                                0.0f,
                                                "");
     UI_but_funcN_set(&tab->but, template_ID_set_property_exec_fn, MEM_dupallocN(template), id);
+    UI_but_drag_set_id(&tab->but, id);
     tab->but.custom_data = (void *)id;
-    tab->but.dragpoin = id;
     tab->menu = mt;
 
     UI_but_drawflag_enable(&tab->but, but_align);

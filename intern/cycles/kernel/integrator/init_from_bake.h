@@ -102,7 +102,7 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
   /* Setup render buffers. */
   const int index = INTEGRATOR_STATE(state, path, render_pixel_index);
   const int pass_stride = kernel_data.film.pass_stride;
-  ccl_global float *buffer = render_buffer + index * pass_stride;
+  ccl_global float *buffer = render_buffer + (uint64_t)index * pass_stride;
 
   ccl_global float *primitive = buffer + kernel_data.film.pass_bake_primitive;
   ccl_global float *differential = buffer + kernel_data.film.pass_bake_differential;
@@ -160,7 +160,7 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
   int shader;
   triangle_point_normal(kg, object, prim, u, v, &P, &Ng, &shader);
 
-  const int object_flag = kernel_tex_fetch(__object_flag, object);
+  const int object_flag = kernel_data_fetch(object_flag, object);
   if (!(object_flag & SD_OBJECT_TRANSFORM_APPLIED)) {
     Transform tfm = object_fetch_transform(kg, object, OBJECT_TRANSFORM);
     P = transform_point_auto(&tfm, P);
@@ -193,7 +193,7 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
     }
 
     const int shader_index = shader & SHADER_MASK;
-    const int shader_flags = kernel_tex_fetch(__shaders, shader_index).flags;
+    const int shader_flags = kernel_data_fetch(shaders, shader_index).flags;
 
     /* Fast path for position and normal passes not affected by shaders. */
     if (kernel_data.film.pass_position != PASS_UNUSED) {
@@ -243,9 +243,12 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
     /* Setup next kernel to execute. */
     const bool use_caustics = kernel_data.integrator.use_caustics &&
                               (object_flag & SD_OBJECT_CAUSTICS);
-    const bool use_raytrace_kernel = (shader_flags & SD_HAS_RAYTRACE) || use_caustics;
+    const bool use_raytrace_kernel = (shader_flags & SD_HAS_RAYTRACE);
 
-    if (use_raytrace_kernel) {
+    if (use_caustics) {
+      INTEGRATOR_PATH_INIT_SORTED(DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE, shader_index);
+    }
+    else if (use_raytrace_kernel) {
       INTEGRATOR_PATH_INIT_SORTED(DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE, shader_index);
     }
     else {

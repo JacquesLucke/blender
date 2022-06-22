@@ -43,6 +43,7 @@ set(INC
   ../../bmesh
   ../../depsgraph
   ../../editors/include
+  ../../imbuf
   ../../makesdna
   ../../makesrna
   ../../windowmanager
@@ -69,6 +70,7 @@ set(SRC
   intern/usd_writer_mesh.cc
   intern/usd_writer_metaball.cc
   intern/usd_writer_transform.cc
+  intern/usd_writer_volume.cc
 
   intern/usd_reader_camera.cc
   intern/usd_reader_curve.cc
@@ -95,6 +97,7 @@ set(SRC
   intern/usd_writer_mesh.h
   intern/usd_writer_metaball.h
   intern/usd_writer_transform.h
+  intern/usd_writer_volume.h
 
   intern/usd_reader_camera.h
   intern/usd_reader_curve.h
@@ -112,6 +115,7 @@ set(SRC
 set(LIB
   bf_blenkernel
   bf_blenlib
+  bf_imbuf
   bf_io_common
 )
 
@@ -119,8 +123,15 @@ list(APPEND LIB
   ${BOOST_LIBRARIES}
 )
 
-list(APPEND LIB
-)
+if(WITH_OPENVDB)
+  add_definitions(-DWITH_OPENVDB ${OPENVDB_DEFINITIONS})
+  list(APPEND INC_SYS
+    ${OPENVDB_INCLUDE_DIRS}
+  )
+  list(APPEND LIB
+    ${OPENVDB_LIBRARIES}
+  )
+endif()
 
 blender_add_lib(bf_usd "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 

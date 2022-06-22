@@ -18,7 +18,7 @@
 #include <string.h>
 
 struct LineartEdge;
-struct LineartRenderBuffer;
+struct LineartData;
 struct LineartStaticMemPool;
 struct LineartStaticMemPoolNode;
 
@@ -49,7 +49,6 @@ void *lineart_mem_acquire(struct LineartStaticMemPool *smp, size_t size);
 void *lineart_mem_acquire_thread(struct LineartStaticMemPool *smp, size_t size);
 void lineart_mem_destroy(struct LineartStaticMemPool *smp);
 
-void lineart_prepend_edge_direct(void **list_head, void *node);
 void lineart_prepend_pool(LinkNode **first, struct LineartStaticMemPool *smp, void *link);
 
 void lineart_matrix_ortho_44d(double (*mProjection)[4],
@@ -62,54 +61,16 @@ void lineart_matrix_ortho_44d(double (*mProjection)[4],
 void lineart_matrix_perspective_44d(
     double (*mProjection)[4], double fFov_rad, double fAspect, double zMin, double zMax);
 
-int lineart_count_intersection_segment_count(struct LineartRenderBuffer *rb);
+int lineart_count_intersection_segment_count(struct LineartData *ld);
 
-void lineart_count_and_print_render_buffer_memory(struct LineartRenderBuffer *rb);
+void lineart_count_and_print_render_buffer_memory(struct LineartData *ld);
 
 #define LRT_ITER_ALL_LINES_BEGIN \
-  LineartEdge *e, *next_e; \
-  void **current_head; \
-  e = rb->contour.first; \
-  if (!e) { \
-    e = rb->crease.first; \
-  } \
-  if (!e) { \
-    e = rb->material.first; \
-  } \
-  if (!e) { \
-    e = rb->edge_mark.first; \
-  } \
-  if (!e) { \
-    e = rb->intersection.first; \
-  } \
-  if (!e) { \
-    e = rb->floating.first; \
-  } \
-  for (current_head = &rb->contour.first; e; e = next_e) { \
-    next_e = e->next;
+  LineartEdge *e; \
+  for (int i = 0; i < ld->pending_edges.next; i++) { \
+    e = ld->pending_edges.array[i];
 
-#define LRT_ITER_ALL_LINES_NEXT \
-  while (!next_e) { \
-    if (current_head == &rb->contour.first) { \
-      current_head = &rb->crease.first; \
-    } \
-    else if (current_head == &rb->crease.first) { \
-      current_head = &rb->material.first; \
-    } \
-    else if (current_head == &rb->material.first) { \
-      current_head = &rb->edge_mark.first; \
-    } \
-    else if (current_head == &rb->edge_mark.first) { \
-      current_head = &rb->intersection.first; \
-    } \
-    else if (current_head == &rb->intersection.first) { \
-      current_head = &rb->floating.first; \
-    } \
-    else { \
-      break; \
-    } \
-    next_e = *current_head; \
-  }
+#define LRT_ITER_ALL_LINES_NEXT ; /* Doesn't do anything now with new array setup. */
 
 #define LRT_ITER_ALL_LINES_END \
   LRT_ITER_ALL_LINES_NEXT \
@@ -118,9 +79,9 @@ void lineart_count_and_print_render_buffer_memory(struct LineartRenderBuffer *rb
 #define LRT_BOUND_AREA_CROSSES(b1, b2) \
   ((b1)[0] < (b2)[1] && (b1)[1] > (b2)[0] && (b1)[3] < (b2)[2] && (b1)[2] > (b2)[3])
 
-/* Initial bounding area row/column count, setting 4 is the simplest way algorithm could function
- * efficiently. */
-#define LRT_BA_ROWS 4
+/* Initial bounding area row/column count, setting 10 is tested to be relatively optimal for the
+ * performance under current algorithm. */
+#define LRT_BA_ROWS 10
 
 #ifdef __cplusplus
 extern "C" {

@@ -165,7 +165,7 @@ typedef struct Sequence {
   /** Machine: the strip channel */
   int machine;
   int _pad3;
-  /** Starting and ending points of the strip in the sequence. */
+  /** Starting and ending points of the effect strip. Undefined for other strip types. */
   int startdisp, enddisp;
   float sat;
   float mul;

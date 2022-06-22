@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 """
 blender -b -noaudio --factory-startup --python tests/python/bl_rigging_symmetrize.py -- --testdir /path/to/lib/tests/animation
 """
@@ -134,9 +132,9 @@ def check_constraints(self, input_arm, expected_arm, bone, exp_bone):
                                  "Missmatching constraint boolean in pose.bones[%s].constraints[%s].%s" % (
                                      bone.name, const_name, var))
             else:
-                self.assertAlmostEqual(value, exp_value,
-                                       "Missmatching constraint value in pose.bones[%s].constraints[%s].%s" % (
-                                           bone.name, const_name, var))
+                msg = "Missmatching constraint value in pose.bones[%s].constraints[%s].%s" % (
+                    bone.name, const_name, var)
+                self.assertAlmostEqual(value, exp_value, places=6, msg=msg)
 
 
 class AbstractAnimationTest:

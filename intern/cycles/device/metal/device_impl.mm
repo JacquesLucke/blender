@@ -35,7 +35,7 @@ void MetalDevice::set_error(const string &error)
 }
 
 MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profiler)
-    : Device(info, stats, profiler), texture_info(this, "__texture_info", MEM_GLOBAL)
+    : Device(info, stats, profiler), texture_info(this, "texture_info", MEM_GLOBAL)
 {
   mtlDevId = info.num;
 
@@ -84,6 +84,10 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
 
   if (auto metalrt = getenv("CYCLES_METALRT")) {
     use_metalrt = (atoi(metalrt) != 0);
+  }
+
+  if (getenv("CYCLES_DEBUG_METAL_CAPTURE_KERNEL")) {
+    capture_enabled = true;
   }
 
   MTLArgumentDescriptor *arg_desc_params = [[MTLArgumentDescriptor alloc] init];
@@ -275,96 +279,44 @@ bool MetalDevice::load_kernels(const uint _kernel_features)
    * active, but may still need to be rendered without motion blur if that isn't active as well. */
   motion_blur = kernel_features & KERNEL_FEATURE_OBJECT_MOTION;
 
-  NSError *error = NULL;
+  source[PSO_GENERIC] = get_source(kernel_features);
+  mtlLibrary[PSO_GENERIC] = compile(source[PSO_GENERIC]);
 
-  for (int i = 0; i < PSO_NUM; i++) {
-    if (mtlLibrary[i]) {
-      [mtlLibrary[i] release];
-      mtlLibrary[i] = nil;
-    }
-  }
+  MD5Hash md5;
+  md5.append(source[PSO_GENERIC]);
+  source_md5[PSO_GENERIC] = md5.get_hex();
 
+  metal_printf("Front-end compilation finished (generic)\n");
+
+  bool result = MetalDeviceKernels::load(this, false);
+
+  reserve_local_memory(kernel_features);
+
+  return result;
+}
+
+id<MTLLibrary> MetalDevice::compile(string const &source)
+{
   MTLCompileOptions *options = [[MTLCompileOptions alloc] init];
 
   options.fastMathEnabled = YES;
   if (@available(macOS 12.0, *)) {
     options.languageVersion = MTLLanguageVersion2_4;
   }
-  else {
-    return false;
-  }
 
-  string metalsrc;
-
-  /* local helper: dump source to disk and return filepath */
-  auto dump_source = [&](int kernel_type) -> string {
-    string &source = source_used_for_compile[kernel_type];
-    string metalsrc = path_cache_get(path_join("kernels",
-                                               string_printf("%s.%s.metal",
-                                                             kernel_type_as_string(kernel_type),
-                                                             util_md5_string(source).c_str())));
-    path_write_text(metalsrc, source);
-    return metalsrc;
-  };
-
-  /* local helper: fetch the kernel source code, adjust it for specific PSO_.. kernel_type flavor,
-   * then compile it into a MTLLibrary */
-  auto fetch_and_compile_source = [&](int kernel_type) {
-    /* Record the source used to compile this library, for hash building later. */
-    string &source = source_used_for_compile[kernel_type];
-
-    switch (kernel_type) {
-      case PSO_GENERIC: {
-        source = get_source(kernel_features);
-        break;
-      }
-      case PSO_SPECIALISED: {
-        /* PSO_SPECIALISED derives from PSO_GENERIC */
-        string &generic_source = source_used_for_compile[PSO_GENERIC];
-        if (generic_source.empty()) {
-          generic_source = get_source(kernel_features);
-        }
-        source = "#define __KERNEL_METAL_USE_FUNCTION_SPECIALISATION__\n" + generic_source;
-        break;
-      }
-      default:
-        assert(0);
-    }
-
-    /* create MTLLibrary (front-end compilation) */
-    mtlLibrary[kernel_type] = [mtlDevice newLibraryWithSource:@(source.c_str())
+  NSError *error = NULL;
+  id<MTLLibrary> mtlLibrary = [mtlDevice newLibraryWithSource:@(source.c_str())
                                                       options:options
                                                         error:&error];
 
-    bool do_source_dump = (getenv("CYCLES_METAL_DUMP_SOURCE") != nullptr);
-
-    if (!mtlLibrary[kernel_type] || do_source_dump) {
-      string metalsrc = dump_source(kernel_type);
-
-      if (!mtlLibrary[kernel_type]) {
-        NSString *err = [error localizedDescription];
-        set_error(string_printf("Failed to compile library:\n%s", [err UTF8String]));
-
-        return false;
-      }
-    }
-    return true;
-  };
-
-  fetch_and_compile_source(PSO_GENERIC);
-
-  if (use_function_specialisation) {
-    fetch_and_compile_source(PSO_SPECIALISED);
+  if (!mtlLibrary) {
+    NSString *err = [error localizedDescription];
+    set_error(string_printf("Failed to compile library:\n%s", [err UTF8String]));
   }
 
-  metal_printf("Front-end compilation finished\n");
-
-  bool result = kernels.load(this, PSO_GENERIC);
-
   [options release];
-  reserve_local_memory(kernel_features);
 
-  return result;
+  return mtlLibrary;
 }
 
 void MetalDevice::reserve_local_memory(const uint kernel_features)
@@ -446,7 +398,7 @@ MetalDevice::MetalMem *MetalDevice::generic_alloc(device_memory &mem)
   }
 
   if (size > 0) {
-    if (mem.type == MEM_DEVICE_ONLY) {
+    if (mem.type == MEM_DEVICE_ONLY && !capture_enabled) {
       options = MTLResourceStorageModePrivate;
     }
 
@@ -459,9 +411,9 @@ MetalDevice::MetalMem *MetalDevice::generic_alloc(device_memory &mem)
   }
 
   if (mem.name) {
-    VLOG(2) << "Buffer allocate: " << mem.name << ", "
-            << string_human_readable_number(mem.memory_size()) << " bytes. ("
-            << string_human_readable_size(mem.memory_size()) << ")";
+    VLOG_WORK << "Buffer allocate: " << mem.name << ", "
+              << string_human_readable_number(mem.memory_size()) << " bytes. ("
+              << string_human_readable_size(mem.memory_size()) << ")";
   }
 
   mem.device_size = metal_buffer.allocatedSize;
@@ -673,7 +625,7 @@ device_ptr MetalDevice::mem_alloc_sub_ptr(device_memory &mem, size_t offset, siz
 
 void MetalDevice::const_copy_to(const char *name, void *host, size_t size)
 {
-  if (strcmp(name, "__data") == 0) {
+  if (strcmp(name, "data") == 0) {
     assert(size == sizeof(KernelData));
     memcpy((uint8_t *)&launch_params + offsetof(KernelParamsMetal, data), host, size);
     return;
@@ -694,19 +646,19 @@ void MetalDevice::const_copy_to(const char *name, void *host, size_t size)
       };
 
   /* Update data storage pointers in launch parameters. */
-  if (strcmp(name, "__integrator_state") == 0) {
+  if (strcmp(name, "integrator_state") == 0) {
     /* IntegratorStateGPU is contiguous pointers */
     const size_t pointer_block_size = sizeof(IntegratorStateGPU);
     update_launch_pointers(
-        offsetof(KernelParamsMetal, __integrator_state), host, size, pointer_block_size);
+        offsetof(KernelParamsMetal, integrator_state), host, size, pointer_block_size);
   }
-#  define KERNEL_TEX(data_type, tex_name) \
+#  define KERNEL_DATA_ARRAY(data_type, tex_name) \
     else if (strcmp(name, #tex_name) == 0) \
     { \
       update_launch_pointers(offsetof(KernelParamsMetal, tex_name), host, size, size); \
     }
-#  include "kernel/textures.h"
-#  undef KERNEL_TEX
+#  include "kernel/data_arrays.h"
+#  undef KERNEL_DATA_ARRAY
 }
 
 void MetalDevice::global_alloc(device_memory &mem)
@@ -749,8 +701,7 @@ void MetalDevice::tex_alloc_as_buffer(device_texture &mem)
 void MetalDevice::tex_alloc(device_texture &mem)
 {
   /* Check that dimensions fit within maximum allowable size.
-     See https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
-  */
+   * See: https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf */
   if (mem.data_width > 16384 || mem.data_height > 16384) {
     set_error(string_printf(
         "Texture exceeds maximum allowed size of 16384 x 16384 (requested: %zu x %zu)",
@@ -849,9 +800,9 @@ void MetalDevice::tex_alloc(device_texture &mem)
     desc.textureType = MTLTextureType3D;
     desc.depth = mem.data_depth;
 
-    VLOG(2) << "Texture 3D allocate: " << mem.name << ", "
-            << string_human_readable_number(mem.memory_size()) << " bytes. ("
-            << string_human_readable_size(mem.memory_size()) << ")";
+    VLOG_WORK << "Texture 3D allocate: " << mem.name << ", "
+              << string_human_readable_number(mem.memory_size()) << " bytes. ("
+              << string_human_readable_size(mem.memory_size()) << ")";
 
     mtlTexture = [mtlDevice newTextureWithDescriptor:desc];
     assert(mtlTexture);
@@ -883,9 +834,9 @@ void MetalDevice::tex_alloc(device_texture &mem)
     desc.storageMode = storage_mode;
     desc.usage = MTLTextureUsageShaderRead;
 
-    VLOG(2) << "Texture 2D allocate: " << mem.name << ", "
-            << string_human_readable_number(mem.memory_size()) << " bytes. ("
-            << string_human_readable_size(mem.memory_size()) << ")";
+    VLOG_WORK << "Texture 2D allocate: " << mem.name << ", "
+              << string_human_readable_number(mem.memory_size()) << " bytes. ("
+              << string_human_readable_size(mem.memory_size()) << ")";
 
     mtlTexture = [mtlDevice newTextureWithDescriptor:desc];
     assert(mtlTexture);

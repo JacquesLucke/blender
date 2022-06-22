@@ -543,6 +543,8 @@ void ED_markers_draw(const bContext *C, int flag)
   View2D *v2d = UI_view2d_fromcontext(C);
   int cfra = CTX_data_scene(C)->r.cfra;
 
+  GPU_line_width(1.0f);
+
   rctf markers_region_rect;
   get_marker_region_rect(v2d, &markers_region_rect);
 

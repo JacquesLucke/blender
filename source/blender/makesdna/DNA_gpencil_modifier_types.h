@@ -229,6 +229,7 @@ typedef enum eTimeGpencil_Mode {
   GP_TIME_MODE_NORMAL = 0,
   GP_TIME_MODE_REVERSE = 1,
   GP_TIME_MODE_FIX = 2,
+  GP_TIME_MODE_PINGPONG = 3,
 } eTimeGpencil_Mode;
 
 typedef enum eModifyColorGpencil_Flag {
@@ -1097,7 +1098,7 @@ typedef struct LineartGpencilModifierData {
 
   struct LineartCache *cache;
   /* Keep a pointer to the render buffer so we can call destroy from ModifierData. */
-  struct LineartRenderBuffer *render_buffer_ptr;
+  struct LineartData *la_data_ptr;
 
 } LineartGpencilModifierData;
 

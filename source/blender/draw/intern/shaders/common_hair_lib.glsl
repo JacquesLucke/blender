@@ -5,6 +5,8 @@
  * of data the CPU has to precompute and transfer for each update.
  */
 
+#define COMMON_HAIR_LIB
+
 /* TODO(fclem): Keep documentation but remove the uniform declaration. */
 #ifndef USE_GPU_SHADER_CREATE_INFO
 
@@ -212,8 +214,8 @@ void hair_get_pos_tan_binor_time(bool is_persp,
     wpos += wbinor * thick_time * scale;
   }
   else {
-    /* Note: Ensures 'hairThickTime' is initialised -
-     * avoids undefined behaviour on certain macOS configurations. */
+    /* NOTE: Ensures 'hairThickTime' is initialized -
+     * avoids undefined behavior on certain macOS configurations. */
     thick_time = 0.0;
   }
 }

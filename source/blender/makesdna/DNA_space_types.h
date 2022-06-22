@@ -173,7 +173,7 @@ typedef struct SpaceProperties {
 
 /* button defines (deprecated) */
 #ifdef DNA_DEPRECATED_ALLOW
-/* warning: the values of these defines are used in SpaceProperties.tabs[8] */
+/* WARNING: the values of these defines are used in SpaceProperties.tabs[8] */
 /* SpaceProperties.mainb new */
 #  define CONTEXT_SCENE 0
 #  define CONTEXT_OBJECT 1
@@ -732,7 +732,8 @@ typedef struct MaskSpaceInfo {
   char draw_flag;
   char draw_type;
   char overlay_mode;
-  char _pad3[5];
+  char _pad3[1];
+  float blend_factor;
 } MaskSpaceInfo;
 
 /** #SpaceSeq.gizmo_flag */
@@ -1340,7 +1341,7 @@ enum {
 
 typedef struct SpaceText_Runtime {
 
-  /** Actual line height, scaled by dpi. */
+  /** Actual line height, scaled by DPI. */
   int lheight_px;
 
   /** Runtime computed, character width. */
@@ -1936,7 +1937,7 @@ typedef struct SpaceSpreadsheet {
 
   /* #GeometryComponentType. */
   uint8_t geometry_component_type;
-  /* #AttributeDomain. */
+  /* #eAttrDomain. */
   uint8_t attribute_domain;
   /* eSpaceSpreadsheet_ObjectContext. */
   uint8_t object_eval_state;
@@ -2014,6 +2015,7 @@ typedef enum eSpreadsheetColumnValueType {
   SPREADSHEET_VALUE_TYPE_INSTANCES = 6,
   SPREADSHEET_VALUE_TYPE_STRING = 7,
   SPREADSHEET_VALUE_TYPE_BYTE_COLOR = 8,
+  SPREADSHEET_VALUE_TYPE_INT8 = 9,
 } eSpreadsheetColumnValueType;
 
 /**
