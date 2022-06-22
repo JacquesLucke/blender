@@ -57,7 +57,6 @@ set(SRC
   nodes/node_geo_curve_to_mesh.cc
   nodes/node_geo_curve_to_points.cc
   nodes/node_geo_curve_trim.cc
-  nodes/node_geo_deform_curves_with_surface.cc
   nodes/node_geo_delete_geometry.cc
   nodes/node_geo_distribute_points_on_faces.cc
   nodes/node_geo_dual_mesh.cc
@@ -120,6 +119,7 @@ set(SRC
   nodes/node_geo_realize_instances.cc
   nodes/node_geo_remove_attribute.cc
   nodes/node_geo_rotate_instances.cc
+  nodes/node_geo_sample_mesh_deformation.cc
   nodes/node_geo_scale_elements.cc
   nodes/node_geo_scale_instances.cc
   nodes/node_geo_separate_components.cc

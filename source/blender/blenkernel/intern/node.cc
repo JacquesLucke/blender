@@ -4749,7 +4749,6 @@ static void registerGeometryNodes()
   register_node_type_geo_curve_to_mesh();
   register_node_type_geo_curve_to_points();
   register_node_type_geo_curve_trim();
-  register_node_type_geo_deform_curves_with_surface();
   register_node_type_geo_delete_geometry();
   register_node_type_geo_duplicate_elements();
   register_node_type_geo_distribute_points_on_faces();
@@ -4812,6 +4811,7 @@ static void registerGeometryNodes()
   register_node_type_geo_realize_instances();
   register_node_type_geo_remove_attribute();
   register_node_type_geo_rotate_instances();
+  register_node_type_geo_sample_mesh_deformation();
   register_node_type_geo_scale_elements();
   register_node_type_geo_scale_instances();
   register_node_type_geo_separate_components();

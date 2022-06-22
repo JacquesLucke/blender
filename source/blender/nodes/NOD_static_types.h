@@ -399,7 +399,7 @@ DefNode(GeometryNode, GEO_NODE_TRIM_CURVE, def_geo_curve_trim, "TRIM_CURVE", Tri
 DefNode(GeometryNode, GEO_NODE_VIEWER, def_geo_viewer, "VIEWER", Viewer, "Viewer", "")
 DefNode(GeometryNode, GEO_NODE_VOLUME_CUBE, 0, "VOLUME_CUBE", VolumeCube, "Volume Cube", "")
 DefNode(GeometryNode, GEO_NODE_VOLUME_TO_MESH, def_geo_volume_to_mesh, "VOLUME_TO_MESH", VolumeToMesh, "Volume to Mesh", "")
-DefNode(GeometryNode, GEO_NODE_DEFORM_CURVES_WITH_SURFACE, 0, "DEFORM_CURVES_WITH_SURFACE", DeformCurvesWithSurface, "Deform Curves with Surface", "")
+DefNode(GeometryNode, GEO_NODE_SAMPLE_MESH_DEFORMATION, 0, "SAMPLE_MESH_DEFORMATION", SampleMeshDeformation, "Sample Mesh Deformation", "")
 
 /* undefine macros */
 #undef DefNode
