@@ -5,6 +5,7 @@
 #include "BKE_mesh_runtime.h"
 #include "BKE_type_conversions.hh"
 
+#include "BLI_float3x3.hh"
 #include "BLI_task.hh"
 
 #include "UI_interface.h"
@@ -136,7 +137,39 @@ class SampleMeshDeformationFunction : public fn::MultiFunction {
         r_translations[i] = translation;
       }
       if (compute_rotation) {
-        r_rotations[i] = float3(0.0f);
+        const float3 old_dir_1 = old_pos_1 - old_pos_0;
+        const float3 old_dir_2 = old_pos_2 - old_pos_0;
+        const float3 new_dir_1 = new_pos_1 - new_pos_0;
+        const float3 new_dir_2 = new_pos_2 - new_pos_0;
+        const float3 old_normal = math::normalize(math::cross(old_dir_1, old_dir_2));
+        const float3 new_normal = math::normalize(math::cross(new_dir_1, new_dir_2));
+        const float3 old_tangent_x = math::normalize(old_dir_1);
+        const float3 new_tangent_x = math::normalize(new_dir_1);
+        const float3 old_tangent_y = math::cross(old_normal, old_tangent_x);
+        const float3 new_tangent_y = math::cross(new_normal, new_tangent_x);
+
+        float3x3 old_transform;
+        copy_v3_v3(old_transform.values[0], old_tangent_x);
+        copy_v3_v3(old_transform.values[1], old_tangent_y);
+        copy_v3_v3(old_transform.values[2], old_normal);
+
+        float3x3 new_transform;
+        copy_v3_v3(new_transform.values[0], new_tangent_x);
+        copy_v3_v3(new_transform.values[1], new_tangent_y);
+        copy_v3_v3(new_transform.values[2], new_normal);
+
+        float old_quat[4];
+        mat3_normalized_to_quat(old_quat, old_transform.values);
+        float new_quat[4];
+        mat3_normalized_to_quat(new_quat, new_transform.values);
+
+        float quat[4];
+        rotation_between_quats_to_quat(quat, old_quat, new_quat);
+
+        float3 euler;
+        quat_to_eul(euler, quat);
+
+        r_rotations[i] = euler;
       }
     }
   }
@@ -153,6 +186,8 @@ static void node_geo_exec(GeoNodeExecParams params)
     params.set_default_remaining_outputs();
     return;
   }
+
+  std::cout << "test\n";
 
   geometry.ensure_owns_direct_data();
 
