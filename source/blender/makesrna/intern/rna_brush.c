@@ -1955,6 +1955,26 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
   StructRNA *srna;
   PropertyRNA *prop;
 
+  static const EnumPropertyItem density_mode_items[] = {
+      {BRUSH_CURVES_SCULPT_DENSITY_MODE_AUTO,
+       "AUTO",
+       ICON_OUTLINER_OB_POINTCLOUD,
+       "Auto",
+       "Either add or remove curves depending on the minimum distance of the curves under the "
+       "cursor"},
+      {BRUSH_CURVES_SCULPT_DENSITY_MODE_ADD,
+       "ADD",
+       ICON_ADD,
+       "Add",
+       "Add new curves between existing curves, taking the minimum distance into account"},
+      {BRUSH_CURVES_SCULPT_DENSITY_MODE_REMOVE,
+       "REMOVE",
+       ICON_REMOVE,
+       "Remove",
+       "Remove curves whoose root points are too close"},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   srna = RNA_def_struct(brna, "BrushCurvesSculptSettings", NULL);
   RNA_def_struct_sdna(srna, "BrushCurvesSculptSettings");
   RNA_def_struct_ui_text(srna, "Curves Sculpt Brush Settings", "");
@@ -2015,13 +2035,10 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop, "Density Add Attempts", "How often the Density brush tries to add a new curve");
 
-  prop = RNA_def_property(srna, "density_add", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "flag", BRUSH_CURVES_SCULPT_FLAG_DENSITY_ADD);
-  RNA_def_property_ui_text(prop, "Add Density", "Add new curves to achieve a specific density");
-
-  prop = RNA_def_property(srna, "density_subtract", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "flag", BRUSH_CURVES_SCULPT_FLAG_DENSITY_SUBTRACT);
-  RNA_def_property_ui_text(prop, "Add Density", "Remove curves to achieve a specific density");
+  prop = RNA_def_property(srna, "density_mode", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_items(prop, density_mode_items);
+  RNA_def_property_ui_text(
+      prop, "Density Mode", "Determines whether the brush adds or removes curves");
 }
 
 static void rna_def_brush(BlenderRNA *brna)

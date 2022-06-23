@@ -152,6 +152,9 @@ typedef struct BrushCurvesSculptSettings {
   float minimum_distance;
   /** How often the Density brush tries to add a new curve. */
   int density_add_attempts;
+  /** #eBrushCurvesSculptDensityMode. */
+  uint8_t density_mode;
+  char _pad[7];
 } BrushCurvesSculptSettings;
 
 typedef struct Brush {

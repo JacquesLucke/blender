@@ -548,8 +548,7 @@ class _draw_tool_settings_context_mode:
         elif curves_tool == 'DENSITY':
             layout.prop(brush, "falloff_shape", expand=True)
             row = layout.row(align=True)
-            row.prop(brush.curves_sculpt_settings, "density_add", icon='ADD', text="")
-            row.prop(brush.curves_sculpt_settings, "density_subtract", icon='REMOVE', text="")
+            row.prop(brush.curves_sculpt_settings, "density_mode", text="", expand=True)
             row = layout.row(align=True)
             row.prop(brush.curves_sculpt_settings, "minimum_distance")
             row.operator("sculpt_curves.min_distance_edit", text="", icon='EYEDROPPER')

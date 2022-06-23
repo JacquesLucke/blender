@@ -532,7 +532,8 @@ std::unique_ptr<CurvesSculptStrokeOperation> new_density_operation(
   const Scene &scene = *CTX_data_scene(&C);
   const Brush &brush = *BKE_paint_brush_for_read(&scene.toolsettings->curves_sculpt->paint);
 
-  const bool use_add = brush.curves_sculpt_settings->flag & BRUSH_CURVES_SCULPT_FLAG_DENSITY_ADD;
+  const bool use_add = brush.curves_sculpt_settings->density_mode ==
+                       BRUSH_CURVES_SCULPT_DENSITY_MODE_AUTO;
   if (use_add) {
     return std::make_unique<DensityAddOperation>();
   }
