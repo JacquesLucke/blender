@@ -526,15 +526,113 @@ void DensitySubtractOperation::on_stroke_extended(const bContext &C,
   executor.execute(*this, C, stroke_extension);
 }
 
-std::unique_ptr<CurvesSculptStrokeOperation> new_density_operation(
-    const BrushStrokeMode UNUSED(brush_mode), const bContext &C)
+static bool use_add_density_mode(const BrushStrokeMode brush_mode,
+                                 const bContext &C,
+                                 const StrokeExtension &stroke_start)
 {
   const Scene &scene = *CTX_data_scene(&C);
   const Brush &brush = *BKE_paint_brush_for_read(&scene.toolsettings->curves_sculpt->paint);
+  const eBrushCurvesSculptDensityMode density_mode = static_cast<eBrushCurvesSculptDensityMode>(
+      brush.curves_sculpt_settings->density_mode);
+  const bool use_invert = brush_mode == BRUSH_STROKE_INVERT;
 
-  const bool use_add = brush.curves_sculpt_settings->density_mode ==
-                       BRUSH_CURVES_SCULPT_DENSITY_MODE_AUTO;
-  if (use_add) {
+  if (density_mode == BRUSH_CURVES_SCULPT_DENSITY_MODE_ADD) {
+    return !use_invert;
+  }
+  if (density_mode == BRUSH_CURVES_SCULPT_DENSITY_MODE_REMOVE) {
+    return use_invert;
+  }
+
+  const Object &curves_ob = *CTX_data_active_object(&C);
+  const Curves &curves_id = *static_cast<Curves *>(curves_ob.data);
+  if (curves_id.surface == nullptr) {
+    /* The brush won't do anything in this case anyway. */
+    return true;
+  }
+  const CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+  if (curves.curves_num() <= 1) {
+    return true;
+  }
+
+  const CurvesSculptTransforms transforms(curves_ob, curves_id.surface);
+  BVHTreeFromMesh surface_bvh;
+  BKE_bvhtree_from_mesh_get(
+      &surface_bvh, static_cast<const Mesh *>(curves_id.surface->data), BVHTREE_FROM_LOOPTRI, 2);
+  BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh); });
+
+  const Depsgraph &depsgraph = *CTX_data_depsgraph_pointer(&C);
+  const ARegion &region = *CTX_wm_region(&C);
+  const View3D &v3d = *CTX_wm_view3d(&C);
+
+  const float2 brush_pos_re = stroke_start.mouse_position;
+
+  float3 ray_start_wo, ray_end_wo;
+  ED_view3d_win_to_segment_clipped(
+      &depsgraph, &region, &v3d, brush_pos_re, ray_start_wo, ray_end_wo, true);
+  const float3 ray_start_su = transforms.world_to_surface * ray_start_wo;
+  const float3 ray_end_su = transforms.world_to_surface * ray_end_wo;
+  const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
+
+  BVHTreeRayHit ray_hit;
+  ray_hit.dist = FLT_MAX;
+  ray_hit.index = -1;
+  BLI_bvhtree_ray_cast(surface_bvh.tree,
+                       ray_start_su,
+                       ray_direction_su,
+                       0.0f,
+                       &ray_hit,
+                       surface_bvh.raycast_callback,
+                       const_cast<void *>(static_cast<const void *>(&surface_bvh)));
+  if (ray_hit.index == -1) {
+    return true;
+  }
+
+  const float3 brush_pos_su = ray_hit.co;
+  const float3 brush_pos_cu = transforms.surface_to_curves * brush_pos_su;
+
+  const Span<int> offsets = curves.offsets();
+  const Span<float3> positions_cu = curves.positions();
+
+  std::cout << "brush pos cu: " << brush_pos_cu << "\n";
+
+  Array<std::pair<float, int>> distances_sq_to_brush(curves.curves_num());
+  threading::parallel_for(curves.curves_range(), 512, [&](const IndexRange range) {
+    for (const int curve_i : range) {
+      const int root_point_i = offsets[curve_i];
+      const float3 &root_pos_cu = positions_cu[root_point_i];
+      distances_sq_to_brush[curve_i] = {math::distance_squared(root_pos_cu, brush_pos_cu),
+                                        curve_i};
+    }
+  });
+
+  const int check_curve_count = std::min<int>(8, curves.curves_num());
+  std::partial_sort(distances_sq_to_brush.begin(),
+                    distances_sq_to_brush.begin() + check_curve_count,
+                    distances_sq_to_brush.end());
+
+  float min_dist_sq_cu = FLT_MAX;
+  for (const int i : IndexRange(check_curve_count)) {
+    const float3 &pos_i = positions_cu[distances_sq_to_brush[i].second];
+    for (int j = i + 1; j < check_curve_count; j++) {
+      const float3 &pos_j = positions_cu[distances_sq_to_brush[j].second];
+      const float dist_sq_cu = math::distance_squared(pos_i, pos_j);
+      math::min_inplace(min_dist_sq_cu, dist_sq_cu);
+    }
+  }
+
+  const float min_dist_cu = std::sqrt(min_dist_sq_cu);
+  std::cout << min_dist_cu << " " << brush.curves_sculpt_settings->minimum_distance << "\n";
+  if (min_dist_cu > brush.curves_sculpt_settings->minimum_distance) {
+    return true;
+  }
+
+  return false;
+}
+
+std::unique_ptr<CurvesSculptStrokeOperation> new_density_operation(
+    const BrushStrokeMode brush_mode, const bContext &C, const StrokeExtension &stroke_start)
+{
+  if (use_add_density_mode(brush_mode, C, stroke_start)) {
     return std::make_unique<DensityAddOperation>();
   }
   return std::make_unique<DensitySubtractOperation>();

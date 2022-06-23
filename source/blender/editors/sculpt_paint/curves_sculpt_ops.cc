@@ -105,8 +105,8 @@ float brush_strength_get(const Scene &scene,
   return BKE_brush_alpha_get(&scene, &brush) * brush_strength_factor(brush, stroke_extension);
 }
 
-static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bContext &C,
-                                                                          wmOperator &op)
+static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(
+    bContext &C, wmOperator &op, const StrokeExtension &stroke_start)
 {
   const BrushStrokeMode mode = static_cast<BrushStrokeMode>(RNA_enum_get(op.ptr, "mode"));
 
@@ -133,7 +133,7 @@ static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bConte
     case CURVES_SCULPT_TOOL_PUFF:
       return new_puff_operation();
     case CURVES_SCULPT_TOOL_DENSITY:
-      return new_density_operation(mode, C);
+      return new_density_operation(mode, C, stroke_start);
     case CURVES_SCULPT_TOOL_SLIDE:
       return new_slide_operation();
   }
@@ -175,7 +175,7 @@ static void stroke_update_step(bContext *C,
 
   if (!op_data->operation) {
     stroke_extension.is_first = true;
-    op_data->operation = start_brush_operation(*C, *op);
+    op_data->operation = start_brush_operation(*C, *op, stroke_extension);
   }
   else {
     stroke_extension.is_first = false;
