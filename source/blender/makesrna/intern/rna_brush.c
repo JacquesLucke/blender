@@ -894,7 +894,6 @@ static const EnumPropertyItem *rna_Brush_direction_itemf(bContext *C,
       switch (me->curves_sculpt_tool) {
         case CURVES_SCULPT_TOOL_GROW_SHRINK:
         case CURVES_SCULPT_TOOL_SELECTION_PAINT:
-        case CURVES_SCULPT_TOOL_DENSITY:
         case CURVES_SCULPT_TOOL_PINCH:
           return prop_direction_items;
         default:
@@ -2014,9 +2013,15 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
   prop = RNA_def_property(srna, "density_add_attempts", PROP_INT, PROP_NONE);
   RNA_def_property_range(prop, 0, INT32_MAX);
   RNA_def_property_ui_text(
-    prop,
-    "Density Add Attempts",
-    "How often the Density brush tries to add a new curve");
+      prop, "Density Add Attempts", "How often the Density brush tries to add a new curve");
+
+  prop = RNA_def_property(srna, "density_add", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", BRUSH_CURVES_SCULPT_FLAG_DENSITY_ADD);
+  RNA_def_property_ui_text(prop, "Add Density", "Add new curves to achieve a specific density");
+
+  prop = RNA_def_property(srna, "density_subtract", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", BRUSH_CURVES_SCULPT_FLAG_DENSITY_SUBTRACT);
+  RNA_def_property_ui_text(prop, "Add Density", "Remove curves to achieve a specific density");
 }
 
 static void rna_def_brush(BlenderRNA *brna)

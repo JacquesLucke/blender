@@ -547,7 +547,9 @@ class _draw_tool_settings_context_mode:
             layout.popover("VIEW3D_PT_tools_brush_falloff")
         elif curves_tool == 'DENSITY':
             layout.prop(brush, "falloff_shape", expand=True)
-            layout.prop(brush, "direction", expand=True, text="")
+            row = layout.row(align=True)
+            row.prop(brush.curves_sculpt_settings, "density_add", icon='ADD', text="")
+            row.prop(brush.curves_sculpt_settings, "density_subtract", icon='REMOVE', text="")
             row = layout.row(align=True)
             row.prop(brush.curves_sculpt_settings, "minimum_distance")
             row.operator("sculpt_curves.min_distance_edit", text="", icon='EYEDROPPER')

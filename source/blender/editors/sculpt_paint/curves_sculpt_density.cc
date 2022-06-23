@@ -527,12 +527,12 @@ void DensitySubtractOperation::on_stroke_extended(const bContext &C,
 }
 
 std::unique_ptr<CurvesSculptStrokeOperation> new_density_operation(
-    const BrushStrokeMode brush_mode, const bContext &C)
+    const BrushStrokeMode UNUSED(brush_mode), const bContext &C)
 {
   const Scene &scene = *CTX_data_scene(&C);
   const Brush &brush = *BKE_paint_brush_for_read(&scene.toolsettings->curves_sculpt->paint);
 
-  const bool use_add = (brush_mode == BRUSH_STROKE_INVERT) == ((brush.flag & BRUSH_DIR_IN) != 0);
+  const bool use_add = brush.curves_sculpt_settings->flag & BRUSH_CURVES_SCULPT_FLAG_DENSITY_ADD;
   if (use_add) {
     return std::make_unique<DensityAddOperation>();
   }
