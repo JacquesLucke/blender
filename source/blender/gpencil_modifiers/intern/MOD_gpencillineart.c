@@ -7,9 +7,8 @@
 
 #include <stdio.h>
 
-#include "BLI_utildefines.h"
-
 #include "BLI_math_vector.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -21,9 +20,6 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
-
-#include "MOD_gpencil_lineart.h"
-#include "lineart/MOD_lineart.h"
 
 #include "BKE_collection.h"
 #include "BKE_context.h"
@@ -43,8 +39,10 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
+#include "MOD_gpencil_lineart.h"
 #include "MOD_gpencil_modifiertypes.h"
 #include "MOD_gpencil_ui_common.h"
+#include "lineart/MOD_lineart.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -326,6 +324,10 @@ static void panel_draw(const bContext *UNUSED(C), Panel *panel)
   uiItemPointerR(
       row, ptr, "target_material", &obj_data_ptr, "materials", NULL, ICON_SHADING_TEXTURE);
 
+  uiLayout *col = uiLayoutColumn(layout, false);
+  uiItemR(col, ptr, "thickness", UI_ITEM_R_SLIDER, IFACE_("Line Thickness"), ICON_NONE);
+  uiItemR(col, ptr, "opacity", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
+
   gpencil_modifier_panel_end(layout, ptr);
 }
 
@@ -354,7 +356,7 @@ static void edge_types_panel_draw(const bContext *UNUSED(C), Panel *panel)
   uiLayout *sub = uiLayoutRowWithHeading(col, false, IFACE_("Crease"));
   uiItemR(sub, ptr, "use_crease", 0, "", ICON_NONE);
   uiLayout *entry = uiLayoutRow(sub, false);
-  uiLayoutSetEnabled(entry, RNA_boolean_get(ptr, "use_crease") || is_first);
+  uiLayoutSetActive(entry, RNA_boolean_get(ptr, "use_crease") || is_first);
   if (use_cache && !is_first) {
     uiItemL(entry, IFACE_("Angle Cached"), ICON_INFO);
   }
@@ -398,21 +400,6 @@ static void options_panel_draw(const bContext *UNUSED(C), Panel *panel)
   uiItemR(col, ptr, "use_crease_on_smooth", 0, IFACE_("Crease On Smooth"), ICON_NONE);
   uiItemR(col, ptr, "use_crease_on_sharp", 0, IFACE_("Crease On Sharp"), ICON_NONE);
   uiItemR(col, ptr, "use_back_face_culling", 0, IFACE_("Force Backface Culling"), ICON_NONE);
-}
-
-static void style_panel_draw(const bContext *UNUSED(C), Panel *panel)
-{
-  uiLayout *layout = panel->layout;
-  PointerRNA *ptr = gpencil_modifier_panel_get_property_pointers(panel, NULL);
-
-  const bool is_baked = RNA_boolean_get(ptr, "is_baked");
-
-  uiLayoutSetPropSep(layout, true);
-  uiLayoutSetEnabled(layout, !is_baked);
-
-  uiItemR(layout, ptr, "thickness", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
-
-  uiItemR(layout, ptr, "opacity", UI_ITEM_R_SLIDER, NULL, ICON_NONE);
 }
 
 static void occlusion_panel_draw(const bContext *UNUSED(C), Panel *panel)
@@ -526,6 +513,7 @@ static void intersection_panel_draw(const bContext *UNUSED(C), Panel *panel)
 
   uiItemR(layout, ptr, "use_intersection_match", 0, IFACE_("Exact Match"), ICON_NONE);
 }
+
 static void face_mark_panel_draw_header(const bContext *UNUSED(C), Panel *panel)
 {
   uiLayout *layout = panel->layout;
@@ -709,8 +697,6 @@ static void panelRegister(ARegionType *region_type)
       region_type, "edge_types", "Edge Types", NULL, edge_types_panel_draw, panel_type);
   gpencil_modifier_subpanel_register(
       region_type, "geometry", "Geometry Processing", NULL, options_panel_draw, panel_type);
-  gpencil_modifier_subpanel_register(
-      region_type, "style", "Style", NULL, style_panel_draw, panel_type);
   PanelType *occlusion_panel = gpencil_modifier_subpanel_register(
       region_type, "occlusion", "Occlusion", NULL, occlusion_panel_draw, panel_type);
   gpencil_modifier_subpanel_register(region_type,

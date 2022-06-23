@@ -23,8 +23,6 @@
 #include "GPU_context.h"
 #include "GPU_framebuffer.h"
 
-#include "GHOST_C-api.h"
-
 #include "gpu_backend.hh"
 #include "gpu_batch_private.hh"
 #include "gpu_context_private.hh"
@@ -177,7 +175,7 @@ void GPU_render_step()
 /** \name Backend selection
  * \{ */
 
-static GPUBackend *g_backend;
+static GPUBackend *g_backend = nullptr;
 
 bool GPU_backend_supported(eGPUBackendType type)
 {

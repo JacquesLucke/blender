@@ -208,6 +208,38 @@ CustomDataLayer *BKE_id_attribute_new(
   return (index == -1) ? nullptr : &(customdata->layers[index]);
 }
 
+CustomDataLayer *BKE_id_attribute_duplicate(ID *id, const char *name, ReportList *reports)
+{
+  const CustomDataLayer *src_layer = BKE_id_attribute_search(
+      id, name, CD_MASK_PROP_ALL, ATTR_DOMAIN_MASK_ALL);
+  if (src_layer == nullptr) {
+    BKE_report(reports, RPT_ERROR, "Attribute is not part of this geometry");
+    return nullptr;
+  }
+
+  const eCustomDataType type = (eCustomDataType)src_layer->type;
+  const eAttrDomain domain = BKE_id_attribute_domain(id, src_layer);
+
+  /* Make a copy of name in case CustomData API reallocates the layers. */
+  const std::string name_copy = name;
+
+  DomainInfo info[ATTR_DOMAIN_NUM];
+  get_domains(id, info);
+  CustomData *customdata = info[domain].customdata;
+
+  CustomDataLayer *new_layer = BKE_id_attribute_new(id, name_copy.c_str(), type, domain, reports);
+  if (new_layer == nullptr) {
+    return nullptr;
+  }
+
+  const int from_index = CustomData_get_named_layer_index(customdata, type, name_copy.c_str());
+  const int to_index = CustomData_get_named_layer_index(customdata, type, new_layer->name);
+  CustomData_copy_data_layer(
+      customdata, customdata, from_index, to_index, 0, 0, info[domain].length);
+
+  return new_layer;
+}
+
 bool BKE_id_attribute_remove(ID *id, const char *name, ReportList *reports)
 {
   if (BKE_id_attribute_required(id, name)) {
@@ -268,7 +300,7 @@ CustomDataLayer *BKE_id_attribute_find(const ID *id,
   return nullptr;
 }
 
-CustomDataLayer *BKE_id_attribute_search(const ID *id,
+CustomDataLayer *BKE_id_attribute_search(ID *id,
                                          const char *name,
                                          const eCustomDataMask type_mask,
                                          const eAttrDomainMask domain_mask)
@@ -283,7 +315,7 @@ CustomDataLayer *BKE_id_attribute_search(const ID *id,
     }
 
     CustomData *customdata = info[domain].customdata;
-    if (customdata == NULL) {
+    if (customdata == nullptr) {
       continue;
     }
 
@@ -295,7 +327,7 @@ CustomDataLayer *BKE_id_attribute_search(const ID *id,
     }
   }
 
-  return NULL;
+  return nullptr;
 }
 
 int BKE_id_attributes_length(const ID *id, eAttrDomainMask domain_mask, eCustomDataMask mask)

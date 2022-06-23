@@ -873,7 +873,7 @@ bool WM_operator_poll(bContext *C, wmOperatorType *ot)
 {
 
   LISTBASE_FOREACH (wmOperatorTypeMacro *, macro, &ot->macro) {
-    wmOperatorType *ot_macro = WM_operatortype_find(macro->idname, 0);
+    wmOperatorType *ot_macro = WM_operatortype_find(macro->idname, false);
 
     if (!WM_operator_poll(C, ot_macro)) {
       return false;
@@ -903,7 +903,7 @@ bool WM_operator_check_ui_empty(wmOperatorType *ot)
   if (ot->macro.first != nullptr) {
     /* For macros, check all have exec() we can call. */
     LISTBASE_FOREACH (wmOperatorTypeMacro *, macro, &ot->macro) {
-      wmOperatorType *otm = WM_operatortype_find(macro->idname, 0);
+      wmOperatorType *otm = WM_operatortype_find(macro->idname, false);
       if (otm && !WM_operator_check_ui_empty(otm)) {
         return false;
       }
@@ -1180,7 +1180,7 @@ bool WM_operator_repeat_check(const bContext *UNUSED(C), wmOperator *op)
   if (op->opm) {
     /* For macros, check all have exec() we can call. */
     LISTBASE_FOREACH (wmOperatorTypeMacro *, macro, &op->opm->type->macro) {
-      wmOperatorType *otm = WM_operatortype_find(macro->idname, 0);
+      wmOperatorType *otm = WM_operatortype_find(macro->idname, false);
       if (otm && otm->exec == nullptr) {
         return false;
       }
@@ -1260,7 +1260,7 @@ static wmOperator *wm_operator_create(wmWindowManager *wm,
 
         /* Skip invalid properties. */
         if (STREQ(RNA_property_identifier(prop), otmacro->idname)) {
-          wmOperatorType *otm = WM_operatortype_find(otmacro->idname, 0);
+          wmOperatorType *otm = WM_operatortype_find(otmacro->idname, false);
           PointerRNA someptr = RNA_property_pointer_get(properties, prop);
           wmOperator *opm = wm_operator_create(wm, otm, &someptr, nullptr);
 
@@ -1276,7 +1276,7 @@ static wmOperator *wm_operator_create(wmWindowManager *wm,
     }
     else {
       LISTBASE_FOREACH (wmOperatorTypeMacro *, macro, &ot->macro) {
-        wmOperatorType *otm = WM_operatortype_find(macro->idname, 0);
+        wmOperatorType *otm = WM_operatortype_find(macro->idname, false);
         wmOperator *opm = wm_operator_create(wm, otm, macro->ptr, nullptr);
 
         BLI_addtail(&motherop->macro, opm);
@@ -1289,7 +1289,7 @@ static wmOperator *wm_operator_create(wmWindowManager *wm,
     }
   }
 
-  WM_operator_properties_sanitize(op->ptr, 0);
+  WM_operator_properties_sanitize(op->ptr, false);
 
   return op;
 }
@@ -1379,7 +1379,7 @@ static int wm_operator_invoke(bContext *C,
 
     if (op->type->invoke && event) {
       /* Temporarily write into `mval` (not technically `const` correct) but this is restored. */
-      int mval_prev[2] = {UNPACK2(event->mval)};
+      const int mval_prev[2] = {UNPACK2(event->mval)};
       wm_region_mouse_co(C, (wmEvent *)event);
 
       if (op->type->flag & OPTYPE_UNDO) {
@@ -1649,7 +1649,7 @@ int WM_operator_name_call(bContext *C,
                           PointerRNA *properties,
                           const wmEvent *event)
 {
-  wmOperatorType *ot = WM_operatortype_find(opstring, 0);
+  wmOperatorType *ot = WM_operatortype_find(opstring, false);
   if (ot) {
     return WM_operator_name_call_ptr(C, ot, context, properties, event);
   }
@@ -1659,7 +1659,7 @@ int WM_operator_name_call(bContext *C,
 
 bool WM_operator_name_poll(bContext *C, const char *opstring)
 {
-  wmOperatorType *ot = WM_operatortype_find(opstring, 0);
+  wmOperatorType *ot = WM_operatortype_find(opstring, false);
   if (!ot) {
     return false;
   }
@@ -1827,7 +1827,7 @@ void WM_operator_name_call_ptr_with_depends_on_cursor(bContext *C,
   int flag = ot->flag;
 
   LISTBASE_FOREACH (wmOperatorTypeMacro *, macro, &ot->macro) {
-    wmOperatorType *otm = WM_operatortype_find(macro->idname, 0);
+    wmOperatorType *otm = WM_operatortype_find(macro->idname, false);
     if (otm != nullptr) {
       flag |= otm->flag;
     }
@@ -2396,11 +2396,11 @@ static int wm_handler_operator_call(bContext *C,
     }
   }
   else {
-    wmOperatorType *ot = WM_operatortype_find(kmi_idname, 0);
+    wmOperatorType *ot = WM_operatortype_find(kmi_idname, false);
 
     if (ot && wm_operator_check_locked_interface(C, ot)) {
       bool use_last_properties = true;
-      PointerRNA tool_properties = {0};
+      PointerRNA tool_properties = {nullptr};
 
       bToolRef *keymap_tool = nullptr;
       if (handler_base->type == WM_HANDLER_TYPE_KEYMAP) {
@@ -2770,7 +2770,7 @@ static const char *keymap_handler_log_kmi_op_str(bContext *C,
   /* The key-map item properties can further help distinguish this item from others. */
   char *kmi_props = nullptr;
   if (kmi->properties != nullptr) {
-    wmOperatorType *ot = WM_operatortype_find(kmi->idname, 0);
+    wmOperatorType *ot = WM_operatortype_find(kmi->idname, false);
     if (ot) {
       kmi_props = RNA_pointer_as_string_keywords(C, kmi->ptr, false, false, true, 512);
     }
@@ -3031,7 +3031,7 @@ static int wm_handlers_do_gizmo_handler(bContext *C,
             if ((kmi->flag & KMI_INACTIVE) == 0) {
               if (wm_eventmatch(&event_test_click, kmi) ||
                   wm_eventmatch(&event_test_click_drag, kmi)) {
-                wmOperatorType *ot = WM_operatortype_find(kmi->idname, 0);
+                wmOperatorType *ot = WM_operatortype_find(kmi->idname, false);
                 if (WM_operator_poll_context(C, ot, WM_OP_INVOKE_DEFAULT)) {
                   is_event_handle_all = true;
                   break;
@@ -3179,7 +3179,7 @@ static int wm_handlers_do_intern(bContext *C, wmWindow *win, wmEvent *event, Lis
 
                   /* Pass single matched #wmDrag onto the operator. */
                   BLI_remlink(lb, drag);
-                  ListBase single_lb = {0};
+                  ListBase single_lb = {nullptr};
                   BLI_addtail(&single_lb, drag);
                   event->customdata = &single_lb;
 
@@ -3376,9 +3376,8 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
         }
       }
 
-      if (event->prev_press_type == event->type) {
-
-        if (event->val == KM_RELEASE) {
+      if (event->val == KM_RELEASE) {
+        if (event->prev_press_type == event->type) {
           if (event->prev_val == KM_PRESS) {
             if (win->event_queue_check_click) {
               if (WM_event_drag_test(event, event->prev_press_xy)) {
@@ -3393,7 +3392,7 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
               else {
                 /* Position is where the actual click happens, for more
                  * accurate selecting in case the mouse drifts a little. */
-                int xy[2] = {UNPACK2(event->xy)};
+                const int xy[2] = {UNPACK2(event->xy)};
 
                 copy_v2_v2_int(event->xy, event->prev_press_xy);
                 event->val = KM_CLICK;
@@ -3408,15 +3407,15 @@ static int wm_handlers_do(bContext *C, wmEvent *event, ListBase *handlers)
             }
           }
         }
-        else if (event->val == KM_DBL_CLICK) {
-          /* The underlying event is a press, so try and handle this. */
-          event->val = KM_PRESS;
-          action |= wm_handlers_do_intern(C, win, event, handlers);
+      }
+      else if (event->val == KM_DBL_CLICK) {
+        /* The underlying event is a press, so try and handle this. */
+        event->val = KM_PRESS;
+        action |= wm_handlers_do_intern(C, win, event, handlers);
 
-          /* Revert value if not handled. */
-          if (wm_action_not_handled(action)) {
-            event->val = KM_DBL_CLICK;
-          }
+        /* Revert value if not handled. */
+        if (wm_action_not_handled(action)) {
+          event->val = KM_DBL_CLICK;
         }
       }
     }
@@ -4604,7 +4603,7 @@ wmOperator *WM_operator_find_modal_by_type(wmWindow *win, const wmOperatorType *
       return handler->op;
     }
   }
-  return NULL;
+  return nullptr;
 }
 
 #if 0
@@ -4942,7 +4941,11 @@ static void attach_ndof_data(wmEvent *event, const GHOST_TEventNDOFMotionData *g
 /* Imperfect but probably usable... draw/enable drags to other windows. */
 static wmWindow *wm_event_cursor_other_windows(wmWindowManager *wm, wmWindow *win, wmEvent *event)
 {
-  int mval[2] = {event->xy[0], event->xy[1]};
+  /* If GHOST doesn't support window positioning, don't use this feature at all. */
+  const static int8_t supports_window_position = GHOST_SupportsWindowPosition();
+  if (!supports_window_position) {
+    return nullptr;
+  }
 
   if (wm->windows.first == wm->windows.last) {
     return nullptr;
@@ -4951,8 +4954,9 @@ static wmWindow *wm_event_cursor_other_windows(wmWindowManager *wm, wmWindow *wi
   /* In order to use window size and mouse position (pixels), we have to use a WM function. */
 
   /* Check if outside, include top window bar. */
-  if (mval[0] < 0 || mval[1] < 0 || mval[0] > WM_window_pixels_x(win) ||
-      mval[1] > WM_window_pixels_y(win) + 30) {
+  int event_xy[2] = {UNPACK2(event->xy)};
+  if (event_xy[0] < 0 || event_xy[1] < 0 || event_xy[0] > WM_window_pixels_x(win) ||
+      event_xy[1] > WM_window_pixels_y(win) + 30) {
     /* Let's skip windows having modal handlers now. */
     /* Potential XXX ugly... I wouldn't have added a `modalhandlers` list
      * (introduced in rev 23331, ton). */
@@ -4962,9 +4966,9 @@ static wmWindow *wm_event_cursor_other_windows(wmWindowManager *wm, wmWindow *wi
       }
     }
 
-    wmWindow *win_other = WM_window_find_under_cursor(win, mval, mval);
+    wmWindow *win_other = WM_window_find_under_cursor(win, event_xy, event_xy);
     if (win_other && win_other != win) {
-      copy_v2_v2_int(event->xy, mval);
+      copy_v2_v2_int(event->xy, event_xy);
       return win_other;
     }
   }
@@ -5632,7 +5636,7 @@ wmKeyMapItem *WM_event_match_keymap_item(bContext *C, wmKeyMap *keymap, const wm
 {
   LISTBASE_FOREACH (wmKeyMapItem *, kmi, &keymap->items) {
     if (wm_eventmatch(event, kmi)) {
-      wmOperatorType *ot = WM_operatortype_find(kmi->idname, 0);
+      wmOperatorType *ot = WM_operatortype_find(kmi->idname, false);
       if (WM_operator_poll_context(C, ot, WM_OP_INVOKE_DEFAULT)) {
         return kmi;
       }
@@ -5882,7 +5886,7 @@ void WM_window_cursor_keymap_status_refresh(bContext *C, wmWindow *win)
       }
     }
     if (kmi) {
-      wmOperatorType *ot = WM_operatortype_find(kmi->idname, 0);
+      wmOperatorType *ot = WM_operatortype_find(kmi->idname, false);
       const char *name = (ot) ? WM_operatortype_name(ot, kmi->ptr) : kmi->idname;
       STRNCPY(cd->text[button_index][type_index], name);
     }
