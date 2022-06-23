@@ -9,6 +9,7 @@
 #  include "util/debug.h"
 #  include "util/md5.h"
 #  include "util/path.h"
+#  include "util/time.h"
 
 CCL_NAMESPACE_BEGIN
 
@@ -43,10 +44,9 @@ MetalDevice::MetalDevice(const DeviceInfo &info, Stats &stats, Profiler &profile
   auto usable_devices = MetalInfo::get_usable_devices();
   assert(mtlDevId < usable_devices.size());
   mtlDevice = usable_devices[mtlDevId];
-  device_name = [mtlDevice.name UTF8String];
-  device_vendor = MetalInfo::get_vendor_from_device_name(device_name);
+  device_vendor = MetalInfo::get_device_vendor(mtlDevice);
   assert(device_vendor != METAL_GPU_UNKNOWN);
-  metal_printf("Creating new Cycles device for Metal: %s\n", device_name.c_str());
+  metal_printf("Creating new Cycles device for Metal: %s\n", info.description.c_str());
 
   /* determine default storage mode based on whether UMA is supported */
 
@@ -280,13 +280,16 @@ bool MetalDevice::load_kernels(const uint _kernel_features)
   motion_blur = kernel_features & KERNEL_FEATURE_OBJECT_MOTION;
 
   source[PSO_GENERIC] = get_source(kernel_features);
+
+  const double starttime = time_dt();
+
   mtlLibrary[PSO_GENERIC] = compile(source[PSO_GENERIC]);
+
+  metal_printf("Front-end compilation finished in %.1f seconds (generic)\n", time_dt() - starttime);
 
   MD5Hash md5;
   md5.append(source[PSO_GENERIC]);
   source_md5[PSO_GENERIC] = md5.get_hex();
-
-  metal_printf("Front-end compilation finished (generic)\n");
 
   bool result = MetalDeviceKernels::load(this, false);
 
@@ -627,7 +630,7 @@ void MetalDevice::const_copy_to(const char *name, void *host, size_t size)
 {
   if (strcmp(name, "data") == 0) {
     assert(size == sizeof(KernelData));
-    memcpy((uint8_t *)&launch_params + offsetof(KernelParamsMetal, data), host, size);
+    memcpy((uint8_t *)&launch_params.data, host, sizeof(KernelData));
     return;
   }
 
