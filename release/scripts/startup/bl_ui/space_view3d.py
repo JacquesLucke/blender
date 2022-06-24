@@ -551,7 +551,7 @@ class _draw_tool_settings_context_mode:
             row.prop(brush.curves_sculpt_settings, "density_mode", text="", expand=True)
             row = layout.row(align=True)
             row.prop(brush.curves_sculpt_settings, "minimum_distance")
-            row.operator("sculpt_curves.min_distance_edit", text="", icon='EYEDROPPER')
+            row.operator("sculpt_curves.min_distance_edit", text="", icon='DRIVER_DISTANCE')
             if brush.direction == 'ADD':
                 layout.prop(brush.curves_sculpt_settings, "density_add_attempts", text="Max Count")
             else:
