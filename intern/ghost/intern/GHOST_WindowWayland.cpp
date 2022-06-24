@@ -6,6 +6,7 @@
 
 #include "GHOST_WindowWayland.h"
 #include "GHOST_SystemWayland.h"
+#include "GHOST_WaylandUtils.h"
 #include "GHOST_WindowManager.h"
 
 #include "GHOST_Event.h"
@@ -120,8 +121,11 @@ static int outputs_max_scale_or_default(const std::vector<output_t *> &outputs,
 /** \name Listener (XDG Top Level), #xdg_toplevel_listener
  * \{ */
 
-static void xdg_toplevel_handle_configure(
-    void *data, xdg_toplevel * /*xdg_toplevel*/, int32_t width, int32_t height, wl_array *states)
+static void xdg_toplevel_handle_configure(void *data,
+                                          xdg_toplevel * /*xdg_toplevel*/,
+                                          const int32_t width,
+                                          const int32_t height,
+                                          wl_array *states)
 {
   window_t *win = static_cast<window_t *>(data);
   win->size_pending[0] = win->scale * width;
@@ -131,12 +135,8 @@ static void xdg_toplevel_handle_configure(
   win->is_fullscreen = false;
   win->is_active = false;
 
-  /* Note that the macro 'wl_array_for_each' would typically be used to simplify this logic,
-   * however it's not compatible with C++, so perform casts instead.
-   * If this needs to be done more often we could define our own C++ compatible macro. */
-  for (enum xdg_toplevel_state *state = static_cast<xdg_toplevel_state *>(states->data);
-       reinterpret_cast<uint8_t *>(state) < (static_cast<uint8_t *>(states->data) + states->size);
-       state++) {
+  enum xdg_toplevel_state *state;
+  WL_ARRAY_FOR_EACH (state, states) {
     switch (*state) {
       case XDG_TOPLEVEL_STATE_MAXIMIZED:
         win->is_maximised = true;
@@ -172,7 +172,7 @@ static const xdg_toplevel_listener toplevel_listener = {
 static void xdg_toplevel_decoration_handle_configure(
     void *data,
     struct zxdg_toplevel_decoration_v1 * /*zxdg_toplevel_decoration_v1*/,
-    uint32_t mode)
+    const uint32_t mode)
 {
   static_cast<window_t *>(data)->decoration_mode = zxdg_toplevel_decoration_v1_mode(mode);
 }
@@ -187,7 +187,9 @@ static const zxdg_toplevel_decoration_v1_listener toplevel_decoration_v1_listene
 /** \name Listener (XDG Surface Handle Configure), #xdg_surface_listener
  * \{ */
 
-static void xdg_surface_handle_configure(void *data, xdg_surface *xdg_surface, uint32_t serial)
+static void xdg_surface_handle_configure(void *data,
+                                         xdg_surface *xdg_surface,
+                                         const uint32_t serial)
 {
   window_t *win = static_cast<window_t *>(data);
 
@@ -274,13 +276,13 @@ GHOST_TSuccess GHOST_WindowWayland::hasCursorShape(GHOST_TStandardCursor cursorS
 
 GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
                                          const char *title,
-                                         int32_t /*left*/,
-                                         int32_t /*top*/,
-                                         uint32_t width,
-                                         uint32_t height,
-                                         GHOST_TWindowState state,
+                                         const int32_t /*left*/,
+                                         const int32_t /*top*/,
+                                         const uint32_t width,
+                                         const uint32_t height,
+                                         const GHOST_TWindowState state,
                                          const GHOST_IWindow *parentWindow,
-                                         GHOST_TDrawingContextType type,
+                                         const GHOST_TDrawingContextType type,
                                          const bool is_dialog,
                                          const bool stereoVisual,
                                          const bool exclusive)
@@ -530,17 +532,17 @@ void GHOST_WindowWayland::getClientBounds(GHOST_Rect &bounds) const
   bounds.set(0, 0, w->size[0], w->size[1]);
 }
 
-GHOST_TSuccess GHOST_WindowWayland::setClientWidth(uint32_t width)
+GHOST_TSuccess GHOST_WindowWayland::setClientWidth(const uint32_t width)
 {
   return setClientSize(width, uint32_t(w->size[1]));
 }
 
-GHOST_TSuccess GHOST_WindowWayland::setClientHeight(uint32_t height)
+GHOST_TSuccess GHOST_WindowWayland::setClientHeight(const uint32_t height)
 {
   return setClientSize(uint32_t(w->size[0]), height);
 }
 
-GHOST_TSuccess GHOST_WindowWayland::setClientSize(uint32_t width, uint32_t height)
+GHOST_TSuccess GHOST_WindowWayland::setClientSize(const uint32_t width, const uint32_t height)
 {
   wl_egl_window_resize(w->egl_window, int(width), int(height), 0, 0);
 
