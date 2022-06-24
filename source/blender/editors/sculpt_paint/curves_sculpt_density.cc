@@ -70,6 +70,7 @@ struct DensityAddOperationExecutor {
   const Brush *brush_ = nullptr;
   const BrushCurvesSculptSettings *brush_settings_ = nullptr;
 
+  float brush_strength_;
   float brush_radius_re_;
   float2 brush_pos_re_;
 
@@ -116,6 +117,7 @@ struct DensityAddOperationExecutor {
     curves_sculpt_ = ctx_.scene->toolsettings->curves_sculpt;
     brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
     brush_settings_ = brush_->curves_sculpt_settings;
+    brush_strength_ = brush_strength_get(*ctx_.scene, *brush_, stroke_extension);
     brush_radius_re_ = brush_radius_get(*ctx_.scene, *brush_, stroke_extension);
     brush_pos_re_ = stroke_extension.mouse_position;
 
@@ -285,12 +287,16 @@ struct DensityAddOperationExecutor {
                                       Vector<int> &r_looptri_indices,
                                       Vector<float3> &r_positions_su)
   {
+    float4x4 projection;
+    ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
+
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      const float4x4 brush_transform_inv = brush_transform.inverted();
       const float4x4 transform = transforms_.curves_to_surface * brush_transform *
                                  transforms_.world_to_curves;
-      bke::mesh_surface_sample::sample_surface_points_projected(
+      const int new_points = bke::mesh_surface_sample::sample_surface_points_projected(
           rng,
           *surface_,
           surface_bvh_,
@@ -309,6 +315,23 @@ struct DensityAddOperationExecutor {
           r_bary_coords,
           r_looptri_indices,
           r_positions_su);
+
+      const int old_points = r_bary_coords.size() - new_points;
+      for (int i = r_bary_coords.size() - 1; i >= old_points; i--) {
+        const float3 pos_su = r_positions_su[i];
+        const float3 pos_cu = brush_transform_inv * transforms_.surface_to_curves * pos_su;
+        float2 pos_re;
+        ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
+        const float dist_to_brush_re = math::distance(brush_pos_re_, pos_re);
+        const float radius_falloff = BKE_brush_curve_strength(
+            brush_, dist_to_brush_re, brush_radius_re_);
+        const float weight = brush_strength_ * radius_falloff;
+        if (rng.get_float() > weight) {
+          r_bary_coords.remove_and_reorder(i);
+          r_looptri_indices.remove_and_reorder(i);
+          r_positions_su.remove_and_reorder(i);
+        }
+      }
     }
   }
 
@@ -331,10 +354,10 @@ struct DensityAddOperationExecutor {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      const float4x4 transform = transforms_.curves_to_surface * brush_transform;
-      const float3 brush_pos_su = transform * brush_3d->position_cu;
+      const float3 brush_pos_cu = brush_transform * brush_3d->position_cu;
+      const float3 brush_pos_su = transforms_.curves_to_surface * brush_3d->position_cu;
       const float brush_radius_su = transform_brush_radius(
-          transform, brush_3d->position_cu, brush_3d->radius_cu);
+          transforms_.curves_to_surface, brush_pos_cu, brush_3d->radius_cu);
       const float brush_radius_sq_su = pow2f(brush_radius_su);
 
       Vector<int> looptri_indices;
@@ -350,15 +373,31 @@ struct DensityAddOperationExecutor {
       const float approximate_density_su = brush_settings_->density_add_attempts /
                                            brush_plane_area_su;
 
-      bke::mesh_surface_sample::sample_surface_points_spherical(rng,
-                                                                *surface_,
-                                                                looptri_indices,
-                                                                brush_pos_su,
-                                                                brush_radius_su,
-                                                                approximate_density_su,
-                                                                r_bary_coords,
-                                                                r_looptri_indices,
-                                                                r_positions_su);
+      const int new_points = bke::mesh_surface_sample::sample_surface_points_spherical(
+          rng,
+          *surface_,
+          looptri_indices,
+          brush_pos_su,
+          brush_radius_su,
+          approximate_density_su,
+          r_bary_coords,
+          r_looptri_indices,
+          r_positions_su);
+
+      const int old_points = r_bary_coords.size() - new_points;
+      for (int i = r_bary_coords.size() - 1; i >= old_points; i--) {
+        const float3 pos_su = r_positions_su[i];
+        const float3 pos_cu = brush_transform * transforms_.surface_to_curves * pos_su;
+        const float dist_to_brush_cu = math::distance(pos_cu, brush_pos_cu);
+        const float radius_falloff = BKE_brush_curve_strength(
+            brush_, dist_to_brush_cu, brush_3d->radius_cu);
+        const float weight = brush_strength_ * radius_falloff;
+        if (rng.get_float() > weight) {
+          r_bary_coords.remove_and_reorder(i);
+          r_looptri_indices.remove_and_reorder(i);
+          r_positions_su.remove_and_reorder(i);
+        }
+      }
     }
   }
 };
