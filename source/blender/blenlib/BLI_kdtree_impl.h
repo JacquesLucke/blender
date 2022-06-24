@@ -89,21 +89,21 @@ int BLI_kdtree_nd_(range_search_with_len_squared_cb)(
 #endif
 
 #ifdef __cplusplus
-template<typename F>
+template<typename Fn>
 inline void BLI_kdtree_nd_(range_search_cb_cpp)(const KDTree *tree,
                                                 const float co[KD_DIMS],
                                                 float distance,
-                                                const F &f)
+                                                const Fn &fn)
 {
   BLI_kdtree_nd_(range_search_cb)(
       tree,
       co,
       distance,
       [](void *user_data, const int index, const float *co, const float dist_sq) {
-        const F &f = *static_cast<const F *>(user_data);
-        return f(index, co, dist_sq);
+        const Fn &fn = *static_cast<const Fn *>(user_data);
+        return fn(index, co, dist_sq);
       },
-      const_cast<F *>(&f));
+      const_cast<Fn *>(&fn));
 }
 #endif
 
