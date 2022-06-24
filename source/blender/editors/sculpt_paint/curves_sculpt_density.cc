@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include <numeric>
+
 #include "BKE_brush.h"
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
@@ -503,7 +505,7 @@ struct DensitySubtractOperationExecutor {
       const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
       const float radius_falloff = BKE_brush_curve_strength(
           brush_, dist_to_brush_re, brush_radius_re);
-      const float distance_to_check = radius_falloff * minimum_distance_ * brush_strength_;
+      const float distance_to_check = minimum_distance_;
       BLI_kdtree_3d_range_search_cb_cpp(
           root_points_kdtree_,
           orig_pos_cu,
@@ -565,63 +567,58 @@ static bool use_add_density_mode(const BrushStrokeMode brush_mode,
   const View3D &v3d = *CTX_wm_view3d(&C);
 
   const float2 brush_pos_re = stroke_start.mouse_position;
+  const float brush_radius_re = BKE_brush_size_get(&scene, &brush);
 
-  float3 ray_start_wo, ray_end_wo;
-  ED_view3d_win_to_segment_clipped(
-      &depsgraph, &region, &v3d, brush_pos_re, ray_start_wo, ray_end_wo, true);
-  const float3 ray_start_su = transforms.world_to_surface * ray_start_wo;
-  const float3 ray_end_su = transforms.world_to_surface * ray_end_wo;
-  const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
-
-  BVHTreeRayHit ray_hit;
-  ray_hit.dist = FLT_MAX;
-  ray_hit.index = -1;
-  BLI_bvhtree_ray_cast(surface_bvh.tree,
-                       ray_start_su,
-                       ray_direction_su,
-                       0.0f,
-                       &ray_hit,
-                       surface_bvh.raycast_callback,
-                       const_cast<void *>(static_cast<const void *>(&surface_bvh)));
-  if (ray_hit.index == -1) {
+  const std::optional<CurvesBrush3D> brush_3d = sample_curves_surface_3d_brush(
+      depsgraph, region, v3d, transforms, surface_bvh, brush_pos_re, brush_radius_re);
+  if (!brush_3d.has_value()) {
     return true;
   }
 
-  const float3 brush_pos_su = ray_hit.co;
-  const float3 brush_pos_cu = transforms.surface_to_curves * brush_pos_su;
+  const float3 brush_pos_cu = brush_3d->position_cu;
+  const float brush_radius_cu = brush_3d->radius_cu;
+  const float brush_radius_sq_cu = pow2f(brush_radius_cu);
 
   const Span<int> offsets = curves.offsets();
   const Span<float3> positions_cu = curves.positions();
 
-  std::cout << "brush pos cu: " << brush_pos_cu << "\n";
-
   Array<std::pair<float, int>> distances_sq_to_brush(curves.curves_num());
+  threading::EnumerableThreadSpecific<int> valid_curve_count_by_thread;
   threading::parallel_for(curves.curves_range(), 512, [&](const IndexRange range) {
+    int &valid_curve_count = valid_curve_count_by_thread.local();
     for (const int curve_i : range) {
       const int root_point_i = offsets[curve_i];
       const float3 &root_pos_cu = positions_cu[root_point_i];
-      distances_sq_to_brush[curve_i] = {math::distance_squared(root_pos_cu, brush_pos_cu),
-                                        curve_i};
+      const float dist_sq_cu = math::distance_squared(root_pos_cu, brush_pos_cu);
+      if (dist_sq_cu < brush_radius_sq_cu) {
+        distances_sq_to_brush[curve_i] = {math::distance_squared(root_pos_cu, brush_pos_cu),
+                                          curve_i};
+        valid_curve_count++;
+      }
+      else {
+        distances_sq_to_brush[curve_i] = {FLT_MAX, -1};
+      }
     }
   });
+  const int valid_curve_count = std::accumulate(
+      valid_curve_count_by_thread.begin(), valid_curve_count_by_thread.end(), 0);
 
-  const int check_curve_count = std::min<int>(8, curves.curves_num());
+  const int check_curve_count = std::min<int>(8, valid_curve_count);
   std::partial_sort(distances_sq_to_brush.begin(),
                     distances_sq_to_brush.begin() + check_curve_count,
                     distances_sq_to_brush.end());
 
   float min_dist_sq_cu = FLT_MAX;
   for (const int i : IndexRange(check_curve_count)) {
-    const float3 &pos_i = positions_cu[distances_sq_to_brush[i].second];
+    const float3 &pos_i = positions_cu[offsets[distances_sq_to_brush[i].second]];
     for (int j = i + 1; j < check_curve_count; j++) {
-      const float3 &pos_j = positions_cu[distances_sq_to_brush[j].second];
+      const float3 &pos_j = positions_cu[offsets[distances_sq_to_brush[j].second]];
       const float dist_sq_cu = math::distance_squared(pos_i, pos_j);
       math::min_inplace(min_dist_sq_cu, dist_sq_cu);
     }
   }
 
   const float min_dist_cu = std::sqrt(min_dist_sq_cu);
-  std::cout << min_dist_cu << " " << brush.curves_sculpt_settings->minimum_distance << "\n";
   if (min_dist_cu > brush.curves_sculpt_settings->minimum_distance) {
     return true;
   }
