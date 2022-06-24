@@ -435,6 +435,9 @@ struct DensitySubtractOperationExecutor {
   Vector<int64_t> selected_curve_indices_;
   IndexMask curve_selection_;
 
+  Object *surface_ob_ = nullptr;
+  Mesh *surface_ = nullptr;
+
   const CurvesSculpt *curves_sculpt_ = nullptr;
   const Brush *brush_ = nullptr;
   float brush_radius_base_re_;
@@ -444,9 +447,8 @@ struct DensitySubtractOperationExecutor {
 
   float minimum_distance_;
 
-  eBrushFalloffShape falloff_shape_;
-
   CurvesSculptTransforms transforms_;
+  BVHTreeFromMesh surface_bvh_;
 
   KDTree_3d *root_points_kdtree_;
 
@@ -468,6 +470,12 @@ struct DensitySubtractOperationExecutor {
       return;
     }
 
+    surface_ob_ = curves_id_->surface;
+    if (surface_ob_ == nullptr) {
+      return;
+    }
+    surface_ = static_cast<Mesh *>(surface_ob_->data);
+
     curves_sculpt_ = ctx_.scene->toolsettings->curves_sculpt;
     brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
     brush_radius_base_re_ = BKE_brush_size_get(ctx_.scene, brush_);
@@ -480,8 +488,10 @@ struct DensitySubtractOperationExecutor {
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
 
     transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
-
-    falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
+    const eBrushFalloffShape falloff_shape = static_cast<eBrushFalloffShape>(
+        brush_->falloff_shape);
+    BKE_bvhtree_from_mesh_get(&surface_bvh_, surface_, BVHTREE_FROM_LOOPTRI, 2);
+    BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh_); });
 
     const Span<float3> positions_cu = curves_->positions();
 
@@ -495,7 +505,15 @@ struct DensitySubtractOperationExecutor {
     BLI_kdtree_3d_balance(root_points_kdtree_);
 
     Array<bool> curves_to_delete(curves_->curves_num(), false);
-    this->reduce_density_projected_with_symmetry(curves_to_delete);
+    if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
+      this->reduce_density_projected_with_symmetry(curves_to_delete);
+    }
+    else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
+      this->reduce_density_spherical_with_symmetry(curves_to_delete);
+    }
+    else {
+      BLI_assert_unreachable();
+    }
 
     Vector<int64_t> indices;
     const IndexMask mask = index_mask_ops::find_indices_based_on_predicate(
@@ -531,8 +549,39 @@ struct DensitySubtractOperationExecutor {
 
     const Span<int> offsets = curves_->offsets();
 
+    Array<bool> allow_remove_curve(curves_->curves_num(), false);
+    threading::parallel_for(curves_->curves_range(), 512, [&](const IndexRange range) {
+      RandomNumberGenerator rng((int)(PIL_check_seconds_timer() * 1000000.0));
+
+      for (const int curve_i : range) {
+        if (curves_to_delete[curve_i]) {
+          allow_remove_curve[curve_i] = true;
+          continue;
+        }
+        const int first_point_i = offsets[curve_i];
+        const float3 pos_cu = brush_transform * positions_cu[first_point_i];
+
+        float2 pos_re;
+        ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
+        const float dist_to_brush_sq_re = math::distance_squared(brush_pos_re_, pos_re);
+        if (dist_to_brush_sq_re > brush_radius_sq_re) {
+          continue;
+        }
+        const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
+        const float radius_falloff = BKE_brush_curve_strength(
+            brush_, dist_to_brush_re, brush_radius_re);
+        const float weight = brush_strength_ * radius_falloff;
+        if (rng.get_float() < weight) {
+          allow_remove_curve[curve_i] = true;
+        }
+      }
+    });
+
     for (const int curve_i : curve_selection_) {
       if (curves_to_delete[curve_i]) {
+        continue;
+      }
+      if (!allow_remove_curve[curve_i]) {
         continue;
       }
       const int first_point_i = offsets[curve_i];
@@ -552,32 +601,98 @@ struct DensitySubtractOperationExecutor {
             if (other_curve_i == curve_i) {
               return true;
             }
-            curves_to_delete[other_curve_i] = true;
+            if (allow_remove_curve[other_curve_i]) {
+              curves_to_delete[other_curve_i] = true;
+            }
             return true;
           });
     }
+  }
 
+  void reduce_density_spherical_with_symmetry(MutableSpan<bool> curves_to_delete)
+  {
+    const float brush_radius_re = brush_radius_base_re_ * brush_radius_factor_;
+    const std::optional<CurvesBrush3D> brush_3d = sample_curves_surface_3d_brush(*ctx_.depsgraph,
+                                                                                 *ctx_.region,
+                                                                                 *ctx_.v3d,
+                                                                                 transforms_,
+                                                                                 surface_bvh_,
+                                                                                 brush_pos_re_,
+                                                                                 brush_radius_re);
+    if (!brush_3d.has_value()) {
+      return;
+    }
+
+    const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
+        eCurvesSymmetryType(curves_id_->symmetry));
+    for (const float4x4 &brush_transform : symmetry_brush_transforms) {
+      const float3 brush_pos_cu = brush_transform * brush_3d->position_cu;
+      this->reduce_density_spherical(brush_pos_cu, brush_3d->radius_cu, curves_to_delete);
+    }
+  }
+
+  void reduce_density_spherical(const float3 &brush_pos_cu,
+                                const float brush_radius_cu,
+                                MutableSpan<bool> curves_to_delete)
+  {
+    const float brush_radius_sq_cu = pow2f(brush_radius_cu);
+    const Span<float3> positions_cu = curves_->positions();
+    const Span<int> offsets = curves_->offsets();
+
+    Array<bool> allow_remove_curve(curves_->curves_num(), false);
     threading::parallel_for(curves_->curves_range(), 512, [&](const IndexRange range) {
       RandomNumberGenerator rng((int)(PIL_check_seconds_timer() * 1000000.0));
 
       for (const int curve_i : range) {
-        if (!curves_to_delete[curve_i]) {
+        if (curves_to_delete[curve_i]) {
+          allow_remove_curve[curve_i] = true;
           continue;
         }
         const int first_point_i = offsets[curve_i];
-        const float3 pos_cu = brush_transform * positions_cu[first_point_i];
+        const float3 pos_cu = positions_cu[first_point_i];
 
-        float2 pos_re;
-        ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
-        const float dist_to_brush_re = math::distance(brush_pos_re_, pos_re);
+        const float dist_to_brush_sq_cu = math::distance_squared(brush_pos_cu, pos_cu);
+        if (dist_to_brush_sq_cu > brush_radius_sq_cu) {
+          continue;
+        }
+        const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
         const float radius_falloff = BKE_brush_curve_strength(
-            brush_, dist_to_brush_re, brush_radius_re);
+            brush_, dist_to_brush_cu, brush_radius_cu);
         const float weight = brush_strength_ * radius_falloff;
-        if (rng.get_float() > weight) {
-          curves_to_delete[curve_i] = false;
+        if (rng.get_float() < weight) {
+          allow_remove_curve[curve_i] = true;
         }
       }
     });
+
+    for (const int curve_i : curve_selection_) {
+      if (curves_to_delete[curve_i]) {
+        continue;
+      }
+      if (!allow_remove_curve[curve_i]) {
+        continue;
+      }
+      const int first_point_i = offsets[curve_i];
+      const float3 &pos_cu = positions_cu[first_point_i];
+      const float dist_to_brush_sq_cu = math::distance_squared(pos_cu, brush_pos_cu);
+      if (dist_to_brush_sq_cu > brush_radius_sq_cu) {
+        continue;
+      }
+
+      BLI_kdtree_3d_range_search_cb_cpp(
+          root_points_kdtree_,
+          pos_cu,
+          minimum_distance_,
+          [&](const int other_curve_i, const float *UNUSED(co), float UNUSED(dist_sq)) {
+            if (other_curve_i == curve_i) {
+              return true;
+            }
+            if (allow_remove_curve[other_curve_i]) {
+              curves_to_delete[other_curve_i] = true;
+            }
+            return true;
+          });
+    }
   }
 };
 
