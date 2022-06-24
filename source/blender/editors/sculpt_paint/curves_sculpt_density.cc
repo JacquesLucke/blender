@@ -742,7 +742,8 @@ static bool use_add_density_mode(const BrushStrokeMode brush_mode,
   const View3D &v3d = *CTX_wm_view3d(&C);
 
   const float2 brush_pos_re = stroke_start.mouse_position;
-  const float brush_radius_re = BKE_brush_size_get(&scene, &brush);
+  /* Reduce radius so that only an inner circle is used to determine the existing density. */
+  const float brush_radius_re = BKE_brush_size_get(&scene, &brush) * 0.5f;
 
   const std::optional<CurvesBrush3D> brush_3d = sample_curves_surface_3d_brush(
       depsgraph, region, v3d, transforms, surface_bvh, brush_pos_re, brush_radius_re);
