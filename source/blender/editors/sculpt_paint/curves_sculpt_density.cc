@@ -18,6 +18,7 @@
 #include "BLI_index_mask_ops.hh"
 #include "BLI_kdtree.h"
 #include "BLI_rand.hh"
+#include "BLI_task.hh"
 
 #include "PIL_time.h"
 
@@ -489,11 +490,13 @@ struct DensitySubtractOperationExecutor {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
 
+    const Span<int> offsets = curves_->offsets();
+
     for (const int curve_i : curve_selection_) {
       if (curves_to_delete[curve_i]) {
         continue;
       }
-      const int first_point_i = curves_->offsets()[curve_i];
+      const int first_point_i = offsets[curve_i];
       const float3 orig_pos_cu = positions_cu[first_point_i];
       const float3 pos_cu = brush_transform * orig_pos_cu;
       float2 pos_re;
@@ -502,14 +505,10 @@ struct DensitySubtractOperationExecutor {
       if (dist_to_brush_sq_re > brush_radius_sq_re) {
         continue;
       }
-      const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
-      const float radius_falloff = BKE_brush_curve_strength(
-          brush_, dist_to_brush_re, brush_radius_re);
-      const float distance_to_check = minimum_distance_;
       BLI_kdtree_3d_range_search_cb_cpp(
           root_points_kdtree_,
           orig_pos_cu,
-          distance_to_check,
+          minimum_distance_,
           [&](const int other_curve_i, const float *UNUSED(co), float UNUSED(dist_sq)) {
             if (other_curve_i == curve_i) {
               return true;
@@ -518,6 +517,28 @@ struct DensitySubtractOperationExecutor {
             return true;
           });
     }
+
+    threading::parallel_for(curves_->curves_range(), 512, [&](const IndexRange range) {
+      RandomNumberGenerator rng((int)(PIL_check_seconds_timer() * 1000000.0));
+
+      for (const int curve_i : range) {
+        if (!curves_to_delete[curve_i]) {
+          continue;
+        }
+        const int first_point_i = offsets[curve_i];
+        const float3 pos_cu = brush_transform * positions_cu[first_point_i];
+
+        float2 pos_re;
+        ED_view3d_project_float_v2_m4(ctx_.region, pos_cu, pos_re, projection.values);
+        const float dist_to_brush_re = math::distance(brush_pos_re_, pos_re);
+        const float radius_falloff = BKE_brush_curve_strength(
+            brush_, dist_to_brush_re, brush_radius_re);
+        const float weight = brush_strength_ * radius_falloff;
+        if (rng.get_float() > weight) {
+          curves_to_delete[curve_i] = false;
+        }
+      }
+    });
   }
 };
 
