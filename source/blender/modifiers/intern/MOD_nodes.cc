@@ -124,6 +124,10 @@ using namespace blender::fn::multi_function_types;
 using namespace blender::nodes::derived_node_tree_types;
 using blender::nodes::geo_eval_log::GeometryAttributeInfo;
 using blender::nodes::geo_eval_log::NamedAttributeUsage;
+using blender::nodes::geo_eval_log::NodeWarning;
+using blender::nodes::geo_eval_log::NodeWarningType;
+using blender::nodes::geo_eval_log::ReducedGeoNodeEvalLog;
+using blender::nodes::geo_eval_log::ReducedGeoNodesTreeEvalLog;
 
 static void initData(ModifierData *md)
 {
@@ -1633,16 +1637,19 @@ static void panel_draw(const bContext *C, Panel *panel)
   }
 
   /* Draw node warnings. */
-  // if (nmd->runtime_eval_log != nullptr) {
-  //   const geo_log::ModifierLog &log = *static_cast<geo_log::ModifierLog
-  //   *>(nmd->runtime_eval_log); log.foreach_node_log([&](const geo_log::NodeLog &node_log) {
-  //     for (const geo_log::NodeWarning &warning : node_log.warnings()) {
-  //       if (warning.type != geo_log::NodeWarningType::Info) {
-  //         uiItemL(layout, warning.message.c_str(), ICON_ERROR);
-  //       }
-  //     }
-  //   });
-  // }
+  if (nmd->runtime_eval_log != nullptr) {
+    GeoNodesModifierEvalLog &log = *static_cast<GeoNodesModifierEvalLog *>(nmd->runtime_eval_log);
+    blender::nodes::ModifierContextStack context_stack{nullptr, nmd->modifier.name};
+    ReducedGeoNodesTreeEvalLog &reduced_tree_log = log.get_reduced_tree_log(context_stack);
+    reduced_tree_log.ensure_node_warnings();
+    for (const ReducedGeoNodeEvalLog &node : reduced_tree_log.nodes.values()) {
+      for (const NodeWarning &warning : node.warnings) {
+        if (warning.type != NodeWarningType::Info) {
+          uiItemL(layout, warning.message.c_str(), ICON_ERROR);
+        }
+      }
+    }
+  }
 
   modifier_panel_end(layout, ptr);
 }
