@@ -84,6 +84,7 @@ using blender::nodes::geo_eval_log::GeoNodesTreeEvalLog;
 using blender::nodes::geo_eval_log::NamedAttributeUsage;
 using blender::nodes::geo_eval_log::NodeWarning;
 using blender::nodes::geo_eval_log::NodeWarningType;
+using blender::nodes::geo_eval_log::ReducedGeoNodesTreeEvalLog;
 
 extern "C" {
 /* XXX interface.h */
@@ -92,7 +93,7 @@ extern void ui_draw_dropshadow(
 }
 
 struct TreeDrawContext {
-  Vector<GeoNodesTreeEvalLog *> geo_nodes_eval_logs;
+  ReducedGeoNodesTreeEvalLog *geo_nodes_eval_log = nullptr;
 };
 
 float ED_node_grid_size()
@@ -1526,7 +1527,7 @@ static NodeWarningType node_error_highest_priority(Span<NodeWarning> warnings)
 }
 
 struct NodeErrorsTooltipData {
-  Vector<NodeWarning> warnings;
+  Span<NodeWarning> warnings;
 };
 
 static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
@@ -1535,7 +1536,7 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
 
   std::string complete_string;
 
-  for (const NodeWarning &warning : data.warnings.as_span().drop_back(1)) {
+  for (const NodeWarning &warning : data.warnings.drop_back(1)) {
     complete_string += warning.message;
     /* Adding the period is not ideal for multi-line messages, but it is consistent
      * with other tooltip implementations in Blender, so it is added here. */
@@ -1549,7 +1550,7 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
   return BLI_strdupn(complete_string.c_str(), complete_string.size());
 }
 
-static Vector<GeoNodesTreeEvalLog *> find_tree_eval_logs(SpaceNode &snode)
+static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &snode)
 {
   using namespace blender;
   using namespace blender::nodes;
@@ -1559,10 +1560,10 @@ static Vector<GeoNodesTreeEvalLog *> find_tree_eval_logs(SpaceNode &snode)
   Vector<destruct_ptr<ContextStack>> contexts;
 
   if (snode.id == nullptr) {
-    return {};
+    return nullptr;
   }
   if (GS(snode.id->name) != ID_OB) {
-    return {};
+    return nullptr;
   }
   Object *object = reinterpret_cast<Object *>(snode.id);
   NodesModifierData *nmd = nullptr;
@@ -1576,17 +1577,17 @@ static Vector<GeoNodesTreeEvalLog *> find_tree_eval_logs(SpaceNode &snode)
     }
   }
   if (nmd == nullptr) {
-    return {};
+    return nullptr;
   }
   if (nmd->runtime_eval_log == nullptr) {
-    return {};
+    return nullptr;
   }
   GeoNodesModifierEvalLog &eval_log = *static_cast<GeoNodesModifierEvalLog *>(
       nmd->runtime_eval_log);
   contexts.append(allocator.construct<ModifierContextStack>(nullptr, nmd->modifier.name));
   Vector<const bNodeTreePath *> tree_path_vec{snode.treepath};
   if (tree_path_vec.is_empty()) {
-    return {};
+    return nullptr;
   }
   for (const bNodeTreePath *path : tree_path_vec.as_span().drop_front(1)) {
     contexts.append(allocator.construct<NodeGroupContextStack>(
@@ -1603,7 +1604,18 @@ static Vector<GeoNodesTreeEvalLog *> find_tree_eval_logs(SpaceNode &snode)
     }
   }
 
-  return tree_logs;
+  ReducedGeoNodesTreeEvalLog &reduced_tree_log = eval_log.reduced_log_map().lookup_or_add(
+      final_context);
+  if (!reduced_tree_log.is_initialized) {
+    for (GeoNodesTreeEvalLog *tree_log : tree_logs) {
+      for (const std::pair<std::string, NodeWarning> &warnings : tree_log->node_warnings) {
+        reduced_tree_log.node_warnings.add(warnings.first, warnings.second);
+      }
+    }
+    reduced_tree_log.is_initialized = true;
+  }
+
+  return &reduced_tree_log;
 }
 
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)
@@ -1618,18 +1630,14 @@ static void node_add_error_message_button(const bContext &C,
   SpaceNode *snode = CTX_wm_space_node(&C);
   UNUSED_VARS(snode, node);
 
-  Vector<NodeWarning> warnings;
-  for (const GeoNodesTreeEvalLog *tree_log : tree_draw_ctx.geo_nodes_eval_logs) {
-    warnings.extend(tree_log->get_node_warnings(node));
-  }
-
+  Span<NodeWarning> warnings = tree_draw_ctx.geo_nodes_eval_log->node_warnings.lookup(node.name);
   if (warnings.is_empty()) {
     return;
   }
 
   const NodeWarningType display_type = node_error_highest_priority(warnings);
   NodeErrorsTooltipData *tooltip_data = MEM_new<NodeErrorsTooltipData>(__func__);
-  tooltip_data->warnings = std::move(warnings);
+  tooltip_data->warnings = warnings;
 
   icon_offset -= NODE_HEADER_ICON_SIZE;
   UI_block_emboss_set(&block, UI_EMBOSS_NONE);
@@ -3017,7 +3025,7 @@ static void draw_nodetree(const bContext &C,
 
   TreeDrawContext tree_draw_ctx;
   if (ntree.type == NTREE_GEOMETRY) {
-    tree_draw_ctx.geo_nodes_eval_logs = find_tree_eval_logs(*snode);
+    tree_draw_ctx.geo_nodes_eval_log = get_reduced_geo_nodes_eval_log(*snode);
   }
 
   node_update_nodetree(C, ntree, nodes, blocks);

@@ -15,7 +15,7 @@ namespace blender::nodes {
 void GeoNodeExecParams::error_message_add(const NodeWarningType type, std::string message) const
 {
   geo_eval_log::GeoNodesTreeEvalLog &tree_log = this->get_local_log();
-  tree_log.log_node_warning(*node_.bnode(), type, std::move(message));
+  tree_log.node_warnings.append({node_.name(), {type, std::move(message)}});
 }
 
 void GeoNodeExecParams::used_named_attribute(std::string attribute_name,

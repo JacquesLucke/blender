@@ -69,13 +69,9 @@ class GeoNodesTreeEvalLog {
   LinearAllocator<> allocator_;
   Vector<destruct_ptr<ValueLog>> logged_values_;
   Map<const bNodeSocket *, ValueLog *> socket_values_;
-  MultiValueMap<std::string, NodeWarning> node_warnings_;
 
  public:
-  void log_node_warning(const bNode &node, const NodeWarningType type, std::string message)
-  {
-    node_warnings_.add(node.name, NodeWarning{type, message});
-  }
+  Vector<std::pair<std::string, NodeWarning>> node_warnings;
 
   void log_socket_value(const Span<const bNodeSocket *> sockets, const GPointer data)
   {
@@ -95,21 +91,17 @@ class GeoNodesTreeEvalLog {
   {
     return socket_values_.lookup_default(&socket, nullptr);
   }
-
-  Span<NodeWarning> get_node_warnings(const bNode &node) const
-  {
-    return node_warnings_.lookup(node.name);
-  }
 };
 
 struct ReducedGeoNodesTreeEvalLog {
+  bool is_initialized = false;
   MultiValueMap<std::string, NodeWarning> node_warnings;
 };
 
 class GeoNodesModifierEvalLog {
  private:
   threading::EnumerableThreadSpecific<ContextStackMap<GeoNodesTreeEvalLog>> log_map_per_thread_;
-  ContextStackMap<ReducedGeoNodesTreeEvalLog> reduced_map_;
+  ContextStackMap<ReducedGeoNodesTreeEvalLog> reduced_log_map_;
 
  public:
   GeoNodesTreeEvalLog &get_local_log(const ContextStack &context_stack)
@@ -126,9 +118,9 @@ class GeoNodesModifierEvalLog {
     return logs;
   }
 
-  ContextStackMap<ReducedGeoNodesTreeEvalLog> &reduced_map()
+  ContextStackMap<ReducedGeoNodesTreeEvalLog> &reduced_log_map()
   {
-    return reduced_map_;
+    return reduced_log_map_;
   }
 };
 
