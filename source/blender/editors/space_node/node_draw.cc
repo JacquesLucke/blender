@@ -1593,11 +1593,11 @@ static Vector<GeoNodesTreeEvalLog *> find_tree_eval_logs(SpaceNode &snode)
         &*contexts.last(), path->node_name, path->nodetree->id.name + 2));
   }
 
-  Vector<ContextStackMap<GeoNodesTreeEvalLog> *> log_per_thread = eval_log.log_per_thread();
+  Vector<ContextStackMap<GeoNodesTreeEvalLog> *> log_maps = eval_log.log_maps();
   Vector<GeoNodesTreeEvalLog *> tree_logs;
   const ContextStack &final_context = *contexts.last();
-  for (ContextStackMap<GeoNodesTreeEvalLog> *log : log_per_thread) {
-    GeoNodesTreeEvalLog *tree_log = log->lookup_ptr(final_context);
+  for (ContextStackMap<GeoNodesTreeEvalLog> *log_map : log_maps) {
+    GeoNodesTreeEvalLog *tree_log = log_map->lookup_ptr(final_context);
     if (tree_log != nullptr) {
       tree_logs.append(tree_log);
     }

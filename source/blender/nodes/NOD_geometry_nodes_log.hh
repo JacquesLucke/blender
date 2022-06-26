@@ -102,23 +102,33 @@ class GeoNodesTreeEvalLog {
   }
 };
 
+struct ReducedGeoNodesTreeEvalLog {
+  MultiValueMap<std::string, NodeWarning> node_warnings;
+};
+
 class GeoNodesModifierEvalLog {
  private:
-  threading::EnumerableThreadSpecific<ContextStackMap<GeoNodesTreeEvalLog>> logs_;
+  threading::EnumerableThreadSpecific<ContextStackMap<GeoNodesTreeEvalLog>> log_map_per_thread_;
+  ContextStackMap<ReducedGeoNodesTreeEvalLog> reduced_map_;
 
  public:
   GeoNodesTreeEvalLog &get_local_log(const ContextStack &context_stack)
   {
-    return logs_.local().lookup_or_add(context_stack);
+    return log_map_per_thread_.local().lookup_or_add(context_stack);
   }
 
-  Vector<ContextStackMap<GeoNodesTreeEvalLog> *> log_per_thread()
+  Vector<ContextStackMap<GeoNodesTreeEvalLog> *> log_maps()
   {
     Vector<ContextStackMap<GeoNodesTreeEvalLog> *> logs;
-    for (ContextStackMap<GeoNodesTreeEvalLog> &log_map : logs_) {
+    for (ContextStackMap<GeoNodesTreeEvalLog> &log_map : log_map_per_thread_) {
       logs.append(&log_map);
     }
     return logs;
+  }
+
+  ContextStackMap<ReducedGeoNodesTreeEvalLog> &reduced_map()
+  {
+    return reduced_map_;
   }
 };
 
