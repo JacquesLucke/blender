@@ -117,6 +117,7 @@ using blender::fn::ValueOrFieldCPPType;
 using blender::nodes::FieldInferencingInterface;
 using blender::nodes::GeoNodeExecParams;
 using blender::nodes::InputSocketFieldType;
+using blender::nodes::geo_eval_log::GeoNodesModifierEvalLog;
 using blender::threading::EnumerableThreadSpecific;
 using namespace blender::fn::lazy_function_graph_types;
 using namespace blender::fn::multi_function_types;
@@ -911,7 +912,7 @@ static void find_sockets_to_preview(NodesModifierData *nmd,
 static void clear_runtime_data(NodesModifierData *nmd)
 {
   if (nmd->runtime_eval_log != nullptr) {
-    // delete (geo_log::ModifierLog *)nmd->runtime_eval_log;
+    delete static_cast<GeoNodesModifierEvalLog *>(nmd->runtime_eval_log);
     nmd->runtime_eval_log = nullptr;
   }
 }
@@ -1107,7 +1108,8 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
   geo_nodes_modifier_data.self_object = ctx->object;
-  auto eval_log = std::make_unique<blender::nodes::geo_eval_log::GeoNodesModifierEvalLog>();
+  /* TODO: Only use logging when enabled. */
+  auto eval_log = std::make_unique<GeoNodesModifierEvalLog>();
   geo_nodes_modifier_data.eval_log = eval_log.get();
   blender::nodes::GeoNodesLFUserData user_data;
   user_data.modifier_data = &geo_nodes_modifier_data;
@@ -1164,6 +1166,13 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
 
   for (GMutablePointer &ptr : param_outputs) {
     ptr.destruct();
+  }
+
+  if (logging_enabled(ctx)) {
+    NodesModifierData *nmd_orig = reinterpret_cast<NodesModifierData *>(
+        BKE_modifier_get_original(ctx->object, &nmd->modifier));
+    delete static_cast<GeoNodesModifierEvalLog *>(nmd->runtime_eval_log);
+    nmd_orig->runtime_eval_log = eval_log.release();
   }
 
   return output_geometry_set;

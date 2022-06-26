@@ -13,6 +13,7 @@
 #include "DNA_light_types.h"
 #include "DNA_linestyle_types.h"
 #include "DNA_material_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_node_types.h"
 #include "DNA_screen_types.h"
 #include "DNA_space_types.h"
@@ -65,6 +66,7 @@
 #include "RNA_access.h"
 #include "RNA_prototypes.h"
 
+#include "NOD_geometry_exec.hh"
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_node_declaration.hh"
 #include "NOD_socket_declarations_geometry.hh"
@@ -75,7 +77,10 @@
 #include "node_intern.hh" /* own include */
 
 using blender::GPointer;
+using blender::Vector;
 using blender::fn::GField;
+using blender::nodes::geo_eval_log::GeoNodesModifierEvalLog;
+using blender::nodes::geo_eval_log::GeoNodesTreeEvalLog;
 using blender::nodes::geo_eval_log::NamedAttributeUsage;
 using blender::nodes::geo_eval_log::NodeWarning;
 using blender::nodes::geo_eval_log::NodeWarningType;
@@ -1517,7 +1522,7 @@ static NodeWarningType node_error_highest_priority(Span<NodeWarning> warnings)
 }
 
 struct NodeErrorsTooltipData {
-  Span<NodeWarning> warnings;
+  Vector<NodeWarning> warnings;
 };
 
 static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
@@ -1526,7 +1531,7 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
 
   std::string complete_string;
 
-  for (const NodeWarning &warning : data.warnings.drop_back(1)) {
+  for (const NodeWarning &warning : data.warnings.as_span().drop_back(1)) {
     complete_string += warning.message;
     /* Adding the period is not ideal for multi-line messages, but it is consistent
      * with other tooltip implementations in Blender, so it is added here. */
@@ -1540,6 +1545,63 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
   return BLI_strdupn(complete_string.c_str(), complete_string.size());
 }
 
+static Vector<GeoNodesTreeEvalLog *> find_tree_eval_logs(SpaceNode &snode)
+{
+  using namespace blender;
+  using namespace blender::nodes;
+  using namespace blender::nodes::geo_eval_log;
+
+  LinearAllocator<> allocator;
+  Vector<destruct_ptr<ContextStack>> contexts;
+
+  if (snode.id == nullptr) {
+    return {};
+  }
+  if (GS(snode.id->name) != ID_OB) {
+    return {};
+  }
+  Object *object = reinterpret_cast<Object *>(snode.id);
+  NodesModifierData *nmd = nullptr;
+  LISTBASE_FOREACH (ModifierData *, md_iter, &object->modifiers) {
+    if (md_iter->type == eModifierType_Nodes) {
+      NodesModifierData *nmd_iter = reinterpret_cast<NodesModifierData *>(md_iter);
+      if (nmd_iter->node_group == snode.nodetree) {
+        nmd = nmd_iter;
+        break;
+      }
+    }
+  }
+  if (nmd == nullptr) {
+    return {};
+  }
+  if (nmd->runtime_eval_log == nullptr) {
+    return {};
+  }
+  GeoNodesModifierEvalLog &eval_log = *static_cast<GeoNodesModifierEvalLog *>(
+      nmd->runtime_eval_log);
+  contexts.append(allocator.construct<ModifierContextStack>(nullptr, nmd->modifier.name));
+  Vector<const bNodeTreePath *> tree_path_vec{snode.treepath};
+  if (tree_path_vec.is_empty()) {
+    return {};
+  }
+  for (const bNodeTreePath *path : tree_path_vec.as_span().drop_front(1)) {
+    contexts.append(allocator.construct<NodeGroupContextStack>(
+        &*contexts.last(), path->node_name, path->nodetree->id.name + 2));
+  }
+
+  Vector<ContextStackMap<GeoNodesTreeEvalLog> *> log_per_thread = eval_log.log_per_thread();
+  Vector<GeoNodesTreeEvalLog *> tree_logs;
+  const ContextStack &final_context = *contexts.last();
+  for (ContextStackMap<GeoNodesTreeEvalLog> *log : log_per_thread) {
+    GeoNodesTreeEvalLog *tree_log = log->lookup_ptr(final_context);
+    if (tree_log != nullptr) {
+      tree_logs.append(tree_log);
+    }
+  }
+
+  return tree_logs;
+}
+
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)
 
 static void node_add_error_message_button(
@@ -1548,17 +1610,19 @@ static void node_add_error_message_button(
   SpaceNode *snode = CTX_wm_space_node(&C);
   UNUSED_VARS(snode, node);
 
-  Span<NodeWarning> warnings;
+  Vector<GeoNodesTreeEvalLog *> tree_logs = find_tree_eval_logs(*snode);
+  Vector<NodeWarning> warnings;
+  for (const GeoNodesTreeEvalLog *tree_log : tree_logs) {
+    warnings.extend(tree_log->get_node_warnings(node));
+  }
 
   if (warnings.is_empty()) {
     return;
   }
 
-  NodeErrorsTooltipData *tooltip_data = (NodeErrorsTooltipData *)MEM_mallocN(
-      sizeof(NodeErrorsTooltipData), __func__);
-  tooltip_data->warnings = warnings;
-
   const NodeWarningType display_type = node_error_highest_priority(warnings);
+  NodeErrorsTooltipData *tooltip_data = MEM_new<NodeErrorsTooltipData>(__func__);
+  tooltip_data->warnings = std::move(warnings);
 
   icon_offset -= NODE_HEADER_ICON_SIZE;
   UI_block_emboss_set(&block, UI_EMBOSS_NONE);
@@ -1576,7 +1640,9 @@ static void node_add_error_message_button(
                             0,
                             0,
                             nullptr);
-  UI_but_func_tooltip_set(but, node_errors_tooltip_fn, tooltip_data, MEM_freeN);
+  UI_but_func_tooltip_set(but, node_errors_tooltip_fn, tooltip_data, [](void *arg) {
+    MEM_delete(static_cast<NodeErrorsTooltipData *>(arg));
+  });
   UI_block_emboss_set(&block, UI_EMBOSS);
 }
 

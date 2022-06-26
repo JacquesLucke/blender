@@ -16,8 +16,6 @@
 #include "NOD_derived_node_tree.hh"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 
-#include "GEO_realize_instances.hh"
-
 struct Depsgraph;
 struct ModifierData;
 
@@ -140,16 +138,21 @@ class GeoNodeExecParams {
 #endif
       const int index = this->get_output_index(identifier);
       const bNodeSocket *socket = node_.output_by_identifier(identifier).bsocket();
-      GeoNodesLFUserData *user_data = this->user_data();
-      BLI_assert(user_data != nullptr);
-      const ContextStack *context_stack = user_data->context_stack;
-      BLI_assert(context_stack != nullptr);
-      geo_eval_log::GeoNodesTreeEvalLog &tree_log =
-          user_data->modifier_data->eval_log->get_local_log(*context_stack);
+
+      geo_eval_log::GeoNodesTreeEvalLog &tree_log = this->get_local_log();
       tree_log.log_socket_value({socket}, &value);
 
       params_.set_output(index, std::forward<T>(value));
     }
+  }
+
+  geo_eval_log::GeoNodesTreeEvalLog &get_local_log() const
+  {
+    GeoNodesLFUserData *user_data = this->user_data();
+    BLI_assert(user_data != nullptr);
+    const ContextStack *context_stack = user_data->context_stack;
+    BLI_assert(context_stack != nullptr);
+    return user_data->modifier_data->eval_log->get_local_log(*context_stack);
   }
 
   /**
