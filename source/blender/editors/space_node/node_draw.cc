@@ -1596,7 +1596,7 @@ static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &sno
   }
 
   const ContextStack &final_context = *contexts.last();
-  return &eval_log.get_reduced_tree_log(final_context);
+  return &eval_log.get_reduced_tree_log(final_context.hash());
 }
 
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)

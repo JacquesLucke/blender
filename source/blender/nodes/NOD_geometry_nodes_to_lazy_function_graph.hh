@@ -40,6 +40,11 @@ class NodeGroupContextStack : public ContextStack {
     hash_.mix_in(node_name_.data(), node_name_.size());
   }
 
+  StringRefNull node_name() const
+  {
+    return node_name_;
+  }
+
  private:
   void print_current_in_line(std::ostream &stream) const override
   {

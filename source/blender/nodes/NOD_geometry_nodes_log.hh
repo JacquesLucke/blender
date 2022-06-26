@@ -67,6 +67,7 @@ struct GeometryAttributeInfo {
 class GeoNodesTreeEvalLog {
  public:
   std::optional<ContextStackHash> parent_hash;
+  std::optional<std::string> group_node_name;
   Vector<ContextStackHash> children_hashes;
 
   LinearAllocator<> allocator;
@@ -91,6 +92,7 @@ class ReducedGeoNodesTreeEvalLog {
 
  public:
   Map<std::string, ReducedGeoNodeEvalLog> nodes;
+  Vector<NodeWarning> all_warnings;
 
   ReducedGeoNodesTreeEvalLog(GeoNodesModifierEvalLog *full_log,
                              Vector<GeoNodesTreeEvalLog *> tree_logs)
@@ -105,11 +107,11 @@ class GeoNodesModifierEvalLog {
  private:
   threading::EnumerableThreadSpecific<Map<ContextStackHash, std::unique_ptr<GeoNodesTreeEvalLog>>>
       log_map_per_thread_;
-  Map<ContextStackHash, ReducedGeoNodesTreeEvalLog> reduced_log_map_;
+  Map<ContextStackHash, std::unique_ptr<ReducedGeoNodesTreeEvalLog>> reduced_log_map_;
 
  public:
   GeoNodesTreeEvalLog &get_local_log(const ContextStack &context_stack);
-  ReducedGeoNodesTreeEvalLog &get_reduced_tree_log(const ContextStack &context_stack);
+  ReducedGeoNodesTreeEvalLog &get_reduced_tree_log(const ContextStackHash &context_stack);
 };
 
 }  // namespace blender::nodes::geo_eval_log

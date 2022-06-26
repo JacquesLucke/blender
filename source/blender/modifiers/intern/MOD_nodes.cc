@@ -1640,13 +1640,11 @@ static void panel_draw(const bContext *C, Panel *panel)
   if (nmd->runtime_eval_log != nullptr) {
     GeoNodesModifierEvalLog &log = *static_cast<GeoNodesModifierEvalLog *>(nmd->runtime_eval_log);
     blender::nodes::ModifierContextStack context_stack{nullptr, nmd->modifier.name};
-    ReducedGeoNodesTreeEvalLog &reduced_tree_log = log.get_reduced_tree_log(context_stack);
+    ReducedGeoNodesTreeEvalLog &reduced_tree_log = log.get_reduced_tree_log(context_stack.hash());
     reduced_tree_log.ensure_node_warnings();
-    for (const ReducedGeoNodeEvalLog &node : reduced_tree_log.nodes.values()) {
-      for (const NodeWarning &warning : node.warnings) {
-        if (warning.type != NodeWarningType::Info) {
-          uiItemL(layout, warning.message.c_str(), ICON_ERROR);
-        }
+    for (const NodeWarning &warning : reduced_tree_log.all_warnings) {
+      if (warning.type != NodeWarningType::Info) {
+        uiItemL(layout, warning.message.c_str(), ICON_ERROR);
       }
     }
   }

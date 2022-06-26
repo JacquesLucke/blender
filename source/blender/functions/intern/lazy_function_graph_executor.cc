@@ -636,7 +636,7 @@ class Executor {
     if (node_state.missing_required_inputs > 0) {
       return;
     }
-    if (node_state.schedule_state == NodeScheduleState::Scheduled) {
+    if (node_state.schedule_state == NodeScheduleState::RunningAndRescheduled) {
       return;
     }
     for (const OutputState &output_state : node_state.outputs) {
