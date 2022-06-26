@@ -78,17 +78,18 @@ class ReducedGeoNodeEvalLog {
   Vector<NodeWarning> warnings;
 };
 
-class GeoNodesModifierEvalLog;
-
 class ReducedGeoNodesTreeEvalLog {
  private:
   Vector<GeoNodesTreeEvalLog *> tree_logs_;
   bool reduced_node_warnings_ = false;
 
-  friend GeoNodesModifierEvalLog;
-
  public:
   Map<std::string, ReducedGeoNodeEvalLog> nodes;
+
+  ReducedGeoNodesTreeEvalLog(Vector<GeoNodesTreeEvalLog *> tree_logs)
+      : tree_logs_(std::move(tree_logs))
+  {
+  }
 
   void ensure_node_warnings()
   {
@@ -106,26 +107,32 @@ class ReducedGeoNodesTreeEvalLog {
 
 class GeoNodesModifierEvalLog {
  private:
-  threading::EnumerableThreadSpecific<ContextStackMap<GeoNodesTreeEvalLog>> log_map_per_thread_;
-  ContextStackMap<ReducedGeoNodesTreeEvalLog> reduced_log_map_;
+  threading::EnumerableThreadSpecific<Map<ContextStackHash, std::unique_ptr<GeoNodesTreeEvalLog>>>
+      log_map_per_thread_;
+  Map<ContextStackHash, ReducedGeoNodesTreeEvalLog> reduced_log_map_;
 
  public:
   GeoNodesTreeEvalLog &get_local_log(const ContextStack &context_stack)
   {
-    return log_map_per_thread_.local().lookup_or_add(context_stack);
+    return *log_map_per_thread_.local().lookup_or_add_cb(
+        context_stack.hash(), []() { return std::make_unique<GeoNodesTreeEvalLog>(); });
   }
 
   ReducedGeoNodesTreeEvalLog &get_reduced_tree_log(const ContextStack &context_stack)
   {
-    ReducedGeoNodesTreeEvalLog &reduced_tree_log = reduced_log_map_.lookup_or_add(context_stack);
-    if (reduced_tree_log.tree_logs_.is_empty()) {
-      for (ContextStackMap<GeoNodesTreeEvalLog> &log_map : log_map_per_thread_) {
-        GeoNodesTreeEvalLog *tree_log = log_map.lookup_ptr(context_stack);
-        if (tree_log != nullptr) {
-          reduced_tree_log.tree_logs_.append(tree_log);
-        }
-      }
-    }
+    ReducedGeoNodesTreeEvalLog &reduced_tree_log = reduced_log_map_.lookup_or_add_cb(
+        context_stack.hash(), [&]() {
+          Vector<GeoNodesTreeEvalLog *> tree_logs;
+          for (Map<ContextStackHash, std::unique_ptr<GeoNodesTreeEvalLog>> &log_map :
+               log_map_per_thread_) {
+            std::unique_ptr<GeoNodesTreeEvalLog> *tree_log = log_map.lookup_ptr(
+                context_stack.hash());
+            if (tree_log != nullptr) {
+              tree_logs.append(tree_log->get());
+            }
+          }
+          return ReducedGeoNodesTreeEvalLog{std::move(tree_logs)};
+        });
     return reduced_tree_log;
   }
 };
