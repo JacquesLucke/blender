@@ -91,6 +91,10 @@ extern void ui_draw_dropshadow(
     const rctf *rct, float radius, float aspect, float alpha, int select);
 }
 
+struct TreeDrawContext {
+  Vector<GeoNodesTreeEvalLog *> geo_nodes_eval_logs;
+};
+
 float ED_node_grid_size()
 {
   return U.widget_unit;
@@ -1604,15 +1608,18 @@ static Vector<GeoNodesTreeEvalLog *> find_tree_eval_logs(SpaceNode &snode)
 
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)
 
-static void node_add_error_message_button(
-    const bContext &C, bNode &node, uiBlock &block, const rctf &rect, float &icon_offset)
+static void node_add_error_message_button(const bContext &C,
+                                          TreeDrawContext &tree_draw_ctx,
+                                          bNode &node,
+                                          uiBlock &block,
+                                          const rctf &rect,
+                                          float &icon_offset)
 {
   SpaceNode *snode = CTX_wm_space_node(&C);
   UNUSED_VARS(snode, node);
 
-  Vector<GeoNodesTreeEvalLog *> tree_logs = find_tree_eval_logs(*snode);
   Vector<NodeWarning> warnings;
-  for (const GeoNodesTreeEvalLog *tree_log : tree_logs) {
+  for (const GeoNodesTreeEvalLog *tree_log : tree_draw_ctx.geo_nodes_eval_logs) {
     warnings.extend(tree_log->get_node_warnings(node));
   }
 
@@ -2018,6 +2025,7 @@ static void node_draw_extra_info_panel(const SpaceNode &snode, const bNode &node
 }
 
 static void node_draw_basis(const bContext &C,
+                            TreeDrawContext &tree_draw_ctx,
                             const View2D &v2d,
                             const SpaceNode &snode,
                             bNodeTree &ntree,
@@ -2137,7 +2145,7 @@ static void node_draw_basis(const bContext &C,
     UI_block_emboss_set(&block, UI_EMBOSS);
   }
 
-  node_add_error_message_button(C, node, block, rct, iconofs);
+  node_add_error_message_button(C, tree_draw_ctx, node, block, rct, iconofs);
 
   /* Title. */
   if (node.flag & SELECT) {
@@ -2866,6 +2874,7 @@ static void reroute_node_draw(
 }
 
 static void node_draw(const bContext &C,
+                      TreeDrawContext &tree_draw_ctx,
                       ARegion &region,
                       const SpaceNode &snode,
                       bNodeTree &ntree,
@@ -2885,7 +2894,7 @@ static void node_draw(const bContext &C,
       node_draw_hidden(C, v2d, snode, ntree, node, block);
     }
     else {
-      node_draw_basis(C, v2d, snode, ntree, node, block, key);
+      node_draw_basis(C, tree_draw_ctx, v2d, snode, ntree, node, block, key);
     }
   }
 }
@@ -2893,6 +2902,7 @@ static void node_draw(const bContext &C,
 #define USE_DRAW_TOT_UPDATE
 
 static void node_draw_nodetree(const bContext &C,
+                               TreeDrawContext &tree_draw_ctx,
                                ARegion &region,
                                SpaceNode &snode,
                                bNodeTree &ntree,
@@ -2917,7 +2927,7 @@ static void node_draw_nodetree(const bContext &C,
     }
 
     bNodeInstanceKey key = BKE_node_instance_key(parent_key, &ntree, nodes[i]);
-    node_draw(C, region, snode, ntree, *nodes[i], *blocks[i], key);
+    node_draw(C, tree_draw_ctx, region, snode, ntree, *nodes[i], *blocks[i], key);
   }
 
   /* Node lines. */
@@ -2947,7 +2957,7 @@ static void node_draw_nodetree(const bContext &C,
     }
 
     bNodeInstanceKey key = BKE_node_instance_key(parent_key, &ntree, nodes[i]);
-    node_draw(C, region, snode, ntree, *nodes[i], *blocks[i], key);
+    node_draw(C, tree_draw_ctx, region, snode, ntree, *nodes[i], *blocks[i], key);
   }
 }
 
@@ -3005,8 +3015,13 @@ static void draw_nodetree(const bContext &C,
 
   Array<uiBlock *> blocks = node_uiblocks_init(C, nodes);
 
+  TreeDrawContext tree_draw_ctx;
+  if (ntree.type == NTREE_GEOMETRY) {
+    tree_draw_ctx.geo_nodes_eval_logs = find_tree_eval_logs(*snode);
+  }
+
   node_update_nodetree(C, ntree, nodes, blocks);
-  node_draw_nodetree(C, region, *snode, ntree, nodes, blocks, parent_key);
+  node_draw_nodetree(C, tree_draw_ctx, region, *snode, ntree, nodes, blocks, parent_key);
 }
 
 /**
