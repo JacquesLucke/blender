@@ -81,16 +81,20 @@ class ReducedGeoNodeEvalLog {
   Vector<NodeWarning> warnings;
 };
 
+class GeoNodesModifierEvalLog;
+
 class ReducedGeoNodesTreeEvalLog {
  private:
+  GeoNodesModifierEvalLog *full_log_;
   Vector<GeoNodesTreeEvalLog *> tree_logs_;
   bool reduced_node_warnings_ = false;
 
  public:
   Map<std::string, ReducedGeoNodeEvalLog> nodes;
 
-  ReducedGeoNodesTreeEvalLog(Vector<GeoNodesTreeEvalLog *> tree_logs)
-      : tree_logs_(std::move(tree_logs))
+  ReducedGeoNodesTreeEvalLog(GeoNodesModifierEvalLog *full_log,
+                             Vector<GeoNodesTreeEvalLog *> tree_logs)
+      : full_log_(full_log), tree_logs_(std::move(tree_logs))
   {
   }
 
@@ -147,7 +151,7 @@ class GeoNodesModifierEvalLog {
               tree_logs.append(tree_log->get());
             }
           }
-          return ReducedGeoNodesTreeEvalLog{std::move(tree_logs)};
+          return ReducedGeoNodesTreeEvalLog{this, std::move(tree_logs)};
         });
     return reduced_tree_log;
   }
