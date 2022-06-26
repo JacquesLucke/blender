@@ -1594,9 +1594,15 @@ static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &sno
         &*contexts.last(), path->node_name, path->nodetree->id.name + 2));
   }
 
+  const ContextStack &final_context = *contexts.last();
+  ReducedGeoNodesTreeEvalLog &reduced_tree_log = eval_log.reduced_log_map().lookup_or_add(
+      final_context);
+  if (reduced_tree_log.is_initialized) {
+    return &reduced_tree_log;
+  }
+
   Vector<ContextStackMap<GeoNodesTreeEvalLog> *> log_maps = eval_log.log_maps();
   Vector<GeoNodesTreeEvalLog *> tree_logs;
-  const ContextStack &final_context = *contexts.last();
   for (ContextStackMap<GeoNodesTreeEvalLog> *log_map : log_maps) {
     GeoNodesTreeEvalLog *tree_log = log_map->lookup_ptr(final_context);
     if (tree_log != nullptr) {
@@ -1604,17 +1610,13 @@ static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &sno
     }
   }
 
-  ReducedGeoNodesTreeEvalLog &reduced_tree_log = eval_log.reduced_log_map().lookup_or_add(
-      final_context);
-  if (!reduced_tree_log.is_initialized) {
-    for (GeoNodesTreeEvalLog *tree_log : tree_logs) {
-      for (const std::pair<std::string, NodeWarning> &warnings : tree_log->node_warnings) {
-        reduced_tree_log.node_warnings.add(warnings.first, warnings.second);
-      }
+  for (GeoNodesTreeEvalLog *tree_log : tree_logs) {
+    for (const std::pair<std::string, NodeWarning> &warnings : tree_log->node_warnings) {
+      reduced_tree_log.node_warnings.add(warnings.first, warnings.second);
     }
-    reduced_tree_log.is_initialized = true;
   }
 
+  reduced_tree_log.is_initialized = true;
   return &reduced_tree_log;
 }
 
