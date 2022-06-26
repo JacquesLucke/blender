@@ -1596,30 +1596,7 @@ static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &sno
   }
 
   const ContextStack &final_context = *contexts.last();
-  ReducedGeoNodesTreeEvalLog &reduced_tree_log = eval_log.reduced_log_map().lookup_or_add(
-      final_context);
-  if (reduced_tree_log.is_initialized) {
-    return &reduced_tree_log;
-  }
-
-  Vector<ContextStackMap<GeoNodesTreeEvalLog> *> log_maps = eval_log.log_maps();
-  Vector<GeoNodesTreeEvalLog *> tree_logs;
-  for (ContextStackMap<GeoNodesTreeEvalLog> *log_map : log_maps) {
-    GeoNodesTreeEvalLog *tree_log = log_map->lookup_ptr(final_context);
-    if (tree_log != nullptr) {
-      tree_logs.append(tree_log);
-    }
-  }
-
-  for (GeoNodesTreeEvalLog *tree_log : tree_logs) {
-    for (const std::pair<std::string, NodeWarning> &warnings : tree_log->node_warnings) {
-      reduced_tree_log.nodes.lookup_or_add_default(warnings.first)
-          .warnings.append(warnings.second);
-    }
-  }
-
-  reduced_tree_log.is_initialized = true;
-  return &reduced_tree_log;
+  return &eval_log.get_reduced_tree_log(final_context);
 }
 
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)
@@ -3037,6 +3014,9 @@ static void draw_nodetree(const bContext &C,
   TreeDrawContext tree_draw_ctx;
   if (ntree.type == NTREE_GEOMETRY) {
     tree_draw_ctx.geo_nodes_eval_log = get_reduced_geo_nodes_eval_log(*snode);
+    if (tree_draw_ctx.geo_nodes_eval_log != nullptr) {
+      tree_draw_ctx.geo_nodes_eval_log->ensure_node_warnings();
+    }
   }
 
   node_update_nodetree(C, ntree, nodes, blocks);

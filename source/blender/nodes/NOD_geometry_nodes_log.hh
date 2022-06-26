@@ -78,10 +78,30 @@ class ReducedGeoNodeEvalLog {
   Vector<NodeWarning> warnings;
 };
 
+class GeoNodesModifierEvalLog;
+
 class ReducedGeoNodesTreeEvalLog {
+ private:
+  Vector<GeoNodesTreeEvalLog *> tree_logs_;
+  bool reduced_node_warnings_ = false;
+
+  friend GeoNodesModifierEvalLog;
+
  public:
-  bool is_initialized = false;
   Map<std::string, ReducedGeoNodeEvalLog> nodes;
+
+  void ensure_node_warnings()
+  {
+    if (reduced_node_warnings_) {
+      return;
+    }
+    for (GeoNodesTreeEvalLog *tree_log : tree_logs_) {
+      for (const std::pair<std::string, NodeWarning> &warnings : tree_log->node_warnings) {
+        this->nodes.lookup_or_add_default(warnings.first).warnings.append(warnings.second);
+      }
+    }
+    reduced_node_warnings_ = true;
+  }
 };
 
 class GeoNodesModifierEvalLog {
@@ -95,18 +115,18 @@ class GeoNodesModifierEvalLog {
     return log_map_per_thread_.local().lookup_or_add(context_stack);
   }
 
-  Vector<ContextStackMap<GeoNodesTreeEvalLog> *> log_maps()
+  ReducedGeoNodesTreeEvalLog &get_reduced_tree_log(const ContextStack &context_stack)
   {
-    Vector<ContextStackMap<GeoNodesTreeEvalLog> *> logs;
-    for (ContextStackMap<GeoNodesTreeEvalLog> &log_map : log_map_per_thread_) {
-      logs.append(&log_map);
+    ReducedGeoNodesTreeEvalLog &reduced_tree_log = reduced_log_map_.lookup_or_add(context_stack);
+    if (reduced_tree_log.tree_logs_.is_empty()) {
+      for (ContextStackMap<GeoNodesTreeEvalLog> &log_map : log_map_per_thread_) {
+        GeoNodesTreeEvalLog *tree_log = log_map.lookup_ptr(context_stack);
+        if (tree_log != nullptr) {
+          reduced_tree_log.tree_logs_.append(tree_log);
+        }
+      }
     }
-    return logs;
-  }
-
-  ContextStackMap<ReducedGeoNodesTreeEvalLog> &reduced_log_map()
-  {
-    return reduced_log_map_;
+    return reduced_tree_log;
   }
 };
 
