@@ -1630,7 +1630,10 @@ static void node_add_error_message_button(const bContext &C,
   SpaceNode *snode = CTX_wm_space_node(&C);
   UNUSED_VARS(snode, node);
 
-  Span<NodeWarning> warnings = tree_draw_ctx.geo_nodes_eval_log->node_warnings.lookup(node.name);
+  Span<NodeWarning> warnings = tree_draw_ctx.geo_nodes_eval_log ?
+                                   tree_draw_ctx.geo_nodes_eval_log->node_warnings.lookup(
+                                       node.name) :
+                                   Span<NodeWarning>{};
   if (warnings.is_empty()) {
     return;
   }

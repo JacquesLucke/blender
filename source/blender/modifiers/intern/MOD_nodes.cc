@@ -1171,7 +1171,7 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   if (logging_enabled(ctx)) {
     NodesModifierData *nmd_orig = reinterpret_cast<NodesModifierData *>(
         BKE_modifier_get_original(ctx->object, &nmd->modifier));
-    delete static_cast<GeoNodesModifierEvalLog *>(nmd->runtime_eval_log);
+    delete static_cast<GeoNodesModifierEvalLog *>(nmd_orig->runtime_eval_log);
     nmd_orig->runtime_eval_log = eval_log.release();
   }
 
