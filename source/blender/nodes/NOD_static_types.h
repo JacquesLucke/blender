@@ -308,6 +308,7 @@ DefNode(GeometryNode, GEO_NODE_ACCUMULATE_FIELD, def_geo_accumulate_field, "ACCU
 DefNode(GeometryNode, GEO_NODE_DUAL_MESH, 0, "DUAL_MESH", DualMesh, "Dual Mesh", "")
 DefNode(GeometryNode, GEO_NODE_EXTRUDE_MESH, def_geo_extrude_mesh, "EXTRUDE_MESH", ExtrudeMesh, "Extrude Mesh", "")
 DefNode(GeometryNode, GEO_NODE_FIELD_AT_INDEX, def_geo_field_at_index, "FIELD_AT_INDEX", FieldAtIndex, "Field at Index", "")
+DefNode(GeometryNode, GEO_NODE_FIELD_ON_DOMAIN, def_geo_field_on_domain, "FIELD_ON_DOMAIN", FieldOnDomain, "Field on Domain", "")
 DefNode(GeometryNode, GEO_NODE_FILL_CURVE, def_geo_curve_fill, "FILL_CURVE", FillCurve, "Fill Curve", "")
 DefNode(GeometryNode, GEO_NODE_FILLET_CURVE, def_geo_curve_fillet, "FILLET_CURVE", FilletCurve, "Fillet Curve", "")
 DefNode(GeometryNode, GEO_NODE_FLIP_FACES, 0, "FLIP_FACES", FlipFaces, "Flip Faces", "")
@@ -357,6 +358,7 @@ DefNode(GeometryNode, GEO_NODE_MESH_PRIMITIVE_UV_SPHERE, 0, "MESH_PRIMITIVE_UV_S
 DefNode(GeometryNode, GEO_NODE_MESH_TO_CURVE, 0, "MESH_TO_CURVE", MeshToCurve, "Mesh to Curve", "")
 DefNode(GeometryNode, GEO_NODE_MESH_TO_POINTS, def_geo_mesh_to_points, "MESH_TO_POINTS", MeshToPoints, "Mesh to Points", "")
 DefNode(GeometryNode, GEO_NODE_OBJECT_INFO, def_geo_object_info, "OBJECT_INFO", ObjectInfo, "Object Info", "")
+DefNode(GeometryNode, GEO_NODE_POINTS, 0, "POINTS", Points, "Points", "")
 DefNode(GeometryNode, GEO_NODE_POINTS_TO_VERTICES, 0, "POINTS_TO_VERTICES", PointsToVertices, "Points to Vertices", "")
 DefNode(GeometryNode, GEO_NODE_POINTS_TO_VOLUME, def_geo_points_to_volume, "POINTS_TO_VOLUME", PointsToVolume, "Points to Volume", "")
 DefNode(GeometryNode, GEO_NODE_PROXIMITY, def_geo_proximity, "PROXIMITY", Proximity, "Geometry Proximity", "")
@@ -397,6 +399,7 @@ DefNode(GeometryNode, GEO_NODE_TRANSLATE_INSTANCES, 0, "TRANSLATE_INSTANCES", Tr
 DefNode(GeometryNode, GEO_NODE_TRIANGULATE, def_geo_triangulate, "TRIANGULATE", Triangulate, "Triangulate", "")
 DefNode(GeometryNode, GEO_NODE_TRIM_CURVE, def_geo_curve_trim, "TRIM_CURVE", TrimCurve, "Trim Curve", "")
 DefNode(GeometryNode, GEO_NODE_VIEWER, def_geo_viewer, "VIEWER", Viewer, "Viewer", "")
+DefNode(GeometryNode, GEO_NODE_VOLUME_CUBE, 0, "VOLUME_CUBE", VolumeCube, "Volume Cube", "")
 DefNode(GeometryNode, GEO_NODE_VOLUME_TO_MESH, def_geo_volume_to_mesh, "VOLUME_TO_MESH", VolumeToMesh, "Volume to Mesh", "")
 
 /* undefine macros */

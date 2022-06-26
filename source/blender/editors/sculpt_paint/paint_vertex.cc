@@ -227,22 +227,6 @@ static MDeformVert *defweight_prev_init(MDeformVert *dvert_prev,
   return dv_prev;
 }
 
-/* check if we can do partial updates and have them draw realtime
- * (without evaluating modifiers) */
-static bool vertex_paint_use_fast_update_check(Object *ob)
-{
-  const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob);
-
-  if (me_eval != nullptr) {
-    const Mesh *me = BKE_mesh_from_object(ob);
-    if (me && me->mloopcol) {
-      return (me->mloopcol == CustomData_get_layer(&me_eval->ldata, CD_PROP_BYTE_COLOR));
-    }
-  }
-
-  return false;
-}
-
 static void paint_last_stroke_update(Scene *scene, const float location[3])
 {
   UnifiedPaintSettings *ups = &scene->toolsettings->unified_paint_settings;
@@ -1608,7 +1592,7 @@ static void smooth_brush_toggle_off(const bContext *C, Paint *paint, StrokeCache
 
 /* Initialize the stroke cache invariants from operator properties */
 static void vwpaint_update_cache_invariants(
-    bContext *C, VPaint *vp, SculptSession *ss, wmOperator *op, const float mouse[2])
+    bContext *C, VPaint *vp, SculptSession *ss, wmOperator *op, const float mval[2])
 {
   StrokeCache *cache;
   const Scene *scene = CTX_data_scene(C);
@@ -1629,8 +1613,8 @@ static void vwpaint_update_cache_invariants(
   }
 
   /* Initial mouse location */
-  if (mouse) {
-    copy_v2_v2(cache->initial_mouse, mouse);
+  if (mval) {
+    copy_v2_v2(cache->initial_mouse, mval);
   }
   else {
     zero_v2(cache->initial_mouse);
@@ -1804,7 +1788,8 @@ static bool wpaint_stroke_test_start(bContext *C, wmOperator *op, const float mo
   /* set up auto-normalize, and generate map for detecting which
    * vgroups affect deform bones */
   wpd->lock_flags = BKE_object_defgroup_lock_flags_get(ob, wpd->defbase_tot);
-  if (ts->auto_normalize || ts->multipaint || wpd->lock_flags || ts->wpaint_lock_relative) {
+  if (ts->auto_normalize || ts->multipaint || wpd->lock_flags != nullptr ||
+      ts->wpaint_lock_relative) {
     wpd->vgroup_validmap = BKE_object_defgroup_validmap_get(ob, wpd->defbase_tot);
   }
 
@@ -2593,31 +2578,14 @@ static void wpaint_stroke_done(const bContext *C, PaintStroke *stroke)
   WPaintData *wpd = (WPaintData *)paint_stroke_mode_data(stroke);
 
   if (wpd) {
-    if (wpd->defbase_sel) {
-      MEM_freeN((void *)wpd->defbase_sel);
-    }
-    if (wpd->vgroup_validmap) {
-      MEM_freeN((void *)wpd->vgroup_validmap);
-    }
-    if (wpd->vgroup_locked) {
-      MEM_freeN((void *)wpd->vgroup_locked);
-    }
-    if (wpd->vgroup_unlocked) {
-      MEM_freeN((void *)wpd->vgroup_unlocked);
-    }
-    if (wpd->lock_flags) {
-      MEM_freeN((void *)wpd->lock_flags);
-    }
-    if (wpd->active.lock) {
-      MEM_freeN((void *)wpd->active.lock);
-    }
-    if (wpd->mirror.lock) {
-      MEM_freeN((void *)wpd->mirror.lock);
-    }
-    if (wpd->precomputed_weight) {
-      MEM_freeN(wpd->precomputed_weight);
-    }
-
+    MEM_SAFE_FREE(wpd->defbase_sel);
+    MEM_SAFE_FREE(wpd->vgroup_validmap);
+    MEM_SAFE_FREE(wpd->vgroup_locked);
+    MEM_SAFE_FREE(wpd->vgroup_unlocked);
+    MEM_SAFE_FREE(wpd->lock_flags);
+    MEM_SAFE_FREE(wpd->active.lock);
+    MEM_SAFE_FREE(wpd->mirror.lock);
+    MEM_SAFE_FREE(wpd->precomputed_weight);
     MEM_freeN(wpd);
   }
 
@@ -2838,16 +2806,6 @@ struct VPaintData : public VPaintDataBase {
   struct VertProjHandle *vp_handle;
   CoNo *vertexcosnos;
 
-  /**
-   * Modify #Mesh.mloopcol directly, since the derived mesh is drawing from this
-   * array, otherwise we need to refresh the modifier stack.
-   */
-  bool use_fast_update;
-
-  /* loops tagged as having been painted, to apply shared vertex color
-   * blending only to modified loops */
-  bool *mlooptag;
-
   bool is_texbrush;
 
   /* Special storage for smear brush, avoid feedback loop - update each step. */
@@ -2892,20 +2850,6 @@ static void *vpaint_init_vpaint(bContext *C,
       scene, vp, (RNA_enum_get(op->ptr, "mode") == BRUSH_STROKE_INVERT));
 
   vpd->is_texbrush = !(brush->vertexpaint_tool == VPAINT_TOOL_BLUR) && brush->mtex.tex;
-
-  /* are we painting onto a modified mesh?,
-   * if not we can skip face map trickiness */
-  if (vertex_paint_use_fast_update_check(ob)) {
-    vpd->use_fast_update = true;
-  }
-  else {
-    vpd->use_fast_update = false;
-  }
-
-  /* to keep tracked of modified loops for shared vertex color blending */
-  if (brush->vertexpaint_tool == VPAINT_TOOL_BLUR) {
-    vpd->mlooptag = (bool *)MEM_mallocN(sizeof(bool) * elem_num, "VPaintData mlooptag");
-  }
 
   if (brush->vertexpaint_tool == VPAINT_TOOL_SMEAR) {
     CustomDataLayer *layer = BKE_id_attributes_active_color_get(&me->id);
@@ -3901,15 +3845,7 @@ static void vpaint_stroke_update_step_intern(bContext *C, PaintStroke *stroke, P
 
   ED_region_tag_redraw(vc->region);
 
-  if (vpd->use_fast_update == false) {
-    /* recalculate modifier stack to get new colors, slow,
-     * avoid this if we can! */
-    DEG_id_tag_update((ID *)ob->data, 0);
-  }
-  else {
-    /* Flush changes through DEG. */
-    DEG_id_tag_update((ID *)ob->data, ID_RECALC_COPY_ON_WRITE);
-  }
+  DEG_id_tag_update((ID *)ob->data, ID_RECALC_GEOMETRY);
 }
 
 static void vpaint_stroke_update_step(bContext *C,
@@ -3950,9 +3886,6 @@ static void vpaint_free_vpaintdata(Object *UNUSED(ob), void *_vpd)
     ED_vpaint_proj_handle_free(vpd->vp_handle);
   }
 
-  if (vpd->mlooptag) {
-    MEM_freeN(vpd->mlooptag);
-  }
   if (vpd->smear.color_prev) {
     MEM_freeN(vpd->smear.color_prev);
   }

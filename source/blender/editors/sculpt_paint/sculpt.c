@@ -1181,6 +1181,12 @@ void SCULPT_floodfill_free(SculptFloodFill *flood)
 
 /** \} */
 
+static bool sculpt_tool_has_cube_tip(const char sculpt_tool)
+{
+  return ELEM(
+      sculpt_tool, SCULPT_TOOL_CLAY_STRIPS, SCULPT_TOOL_PAINT, SCULPT_TOOL_MULTIPLANE_SCRAPE);
+}
+
 /* -------------------------------------------------------------------- */
 /** \name Tool Capabilities
  *
@@ -1623,7 +1629,7 @@ bool SCULPT_brush_test_cube(SculptBrushTest *test,
                             const float local[4][4],
                             const float roundness)
 {
-  float side = M_SQRT1_2;
+  float side = 1.0f;
   float local_co[3];
 
   if (sculpt_brush_test_clipping(test, co)) {
@@ -2375,7 +2381,7 @@ float SCULPT_brush_strength_factor(SculptSession *ss,
     /* Get strength by feeding the vertex location directly into a texture. */
     avg = BKE_brush_sample_tex_3d(scene, br, point, rgba, 0, ss->tex_pool);
   }
-  else if (ss->texcache) {
+  else {
     float symm_point[3], point_2d[2];
     /* Quite warnings. */
     float x = 0.0f, y = 0.0f;
@@ -3110,7 +3116,7 @@ void SCULPT_vertcos_to_key(Object *ob, KeyBlock *kb, const float (*vertCos)[3])
     for (a = 0; a < me->totvert; a++, mvert++) {
       copy_v3_v3(mvert->co, vertCos[a]);
     }
-    BKE_mesh_normals_tag_dirty(me);
+    BKE_mesh_tag_coords_changed(me);
   }
 
   /* Apply new coords on active key block, no need to re-allocate kb->data here! */
@@ -3253,6 +3259,11 @@ static void do_brush_action(Sculpt *sd,
     const bool use_original = sculpt_tool_needs_original(brush->sculpt_tool) ? true :
                                                                                ss->cache->original;
     float radius_scale = 1.0f;
+
+    /* Corners of square brushes can go outside the brush radius. */
+    if (sculpt_tool_has_cube_tip(brush->sculpt_tool)) {
+      radius_scale = M_SQRT2;
+    }
 
     /* With these options enabled not all required nodes are inside the original brush radius, so
      * the brush can produce artifacts in some situations. */
@@ -3926,27 +3937,6 @@ static void do_symmetrical_brush_actions(Sculpt *sd,
   }
 }
 
-static void sculpt_update_tex(const Scene *scene, Sculpt *sd, SculptSession *ss)
-{
-  Brush *brush = BKE_paint_brush(&sd->paint);
-  const int radius = BKE_brush_size_get(scene, brush);
-
-  MEM_SAFE_FREE(ss->texcache);
-
-  if (ss->tex_pool) {
-    BKE_image_pool_free(ss->tex_pool);
-    ss->tex_pool = NULL;
-  }
-
-  /* Need to allocate a bigger buffer for bigger brush size. */
-  ss->texcache_side = 2 * radius;
-  if (!ss->texcache || ss->texcache_side > ss->texcache_actual) {
-    ss->texcache = BKE_brush_gen_texture_cache(brush, radius, false);
-    ss->texcache_actual = ss->texcache_side;
-    ss->tex_pool = BKE_image_pool_new();
-  }
-}
-
 bool SCULPT_mode_poll(bContext *C)
 {
   Object *ob = CTX_data_active_object(C);
@@ -4174,7 +4164,7 @@ static void smooth_brush_toggle_off(const bContext *C, Paint *paint, StrokeCache
 
 /* Initialize the stroke cache invariants from operator properties. */
 static void sculpt_update_cache_invariants(
-    bContext *C, Sculpt *sd, SculptSession *ss, wmOperator *op, const float mouse[2])
+    bContext *C, Sculpt *sd, SculptSession *ss, wmOperator *op, const float mval[2])
 {
   StrokeCache *cache = MEM_callocN(sizeof(StrokeCache), "stroke cache");
   UnifiedPaintSettings *ups = &CTX_data_tool_settings(C)->unified_paint_settings;
@@ -4204,8 +4194,8 @@ static void sculpt_update_cache_invariants(
   sculpt_init_mirror_clipping(ob, ss);
 
   /* Initial mouse location. */
-  if (mouse) {
-    copy_v2_v2(cache->initial_mouse, mouse);
+  if (mval) {
+    copy_v2_v2(cache->initial_mouse, mval);
   }
   else {
     zero_v2(cache->initial_mouse);
@@ -4343,7 +4333,8 @@ static bool sculpt_needs_delta_from_anchored_origin(Brush *brush)
            SCULPT_TOOL_POSE,
            SCULPT_TOOL_BOUNDARY,
            SCULPT_TOOL_THUMB,
-           SCULPT_TOOL_ELASTIC_DEFORM)) {
+           SCULPT_TOOL_ELASTIC_DEFORM,
+           SCULPT_TOOL_SMEAR)) {
     return true;
   }
   if (brush->sculpt_tool == SCULPT_TOOL_CLOTH &&
@@ -4373,7 +4364,7 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
 {
   SculptSession *ss = ob->sculpt;
   StrokeCache *cache = ss->cache;
-  const float mouse[2] = {
+  const float mval[2] = {
       cache->mouse_event[0],
       cache->mouse_event[1],
   };
@@ -4392,6 +4383,7 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
             SCULPT_TOOL_SNAKE_HOOK,
             SCULPT_TOOL_POSE,
             SCULPT_TOOL_BOUNDARY,
+            SCULPT_TOOL_SMEAR,
             SCULPT_TOOL_THUMB) &&
       !sculpt_brush_use_topology_rake(ss, brush)) {
     return;
@@ -4413,9 +4405,9 @@ static void sculpt_update_brush_delta(UnifiedPaintSettings *ups, Object *ob, Bru
     add_v3_v3(cache->true_location, cache->grab_delta);
   }
 
-  /* Compute 3d coordinate at same z from original location + mouse. */
+  /* Compute 3d coordinate at same z from original location + mval. */
   mul_v3_m4v3(loc, ob->obmat, cache->orig_grab_location);
-  ED_view3d_win_to_3d(cache->vc->v3d, cache->vc->region, loc, mouse, grab_location);
+  ED_view3d_win_to_3d(cache->vc->v3d, cache->vc->region, loc, mval, grab_location);
 
   /* Compute delta to move verts by. */
   if (!SCULPT_stroke_is_first_brush_step_of_symmetry_pass(ss->cache)) {
@@ -4783,7 +4775,7 @@ static void sculpt_find_nearest_to_ray_cb(PBVHNode *node, void *data_v, float *t
 }
 
 float SCULPT_raycast_init(ViewContext *vc,
-                          const float mouse[2],
+                          const float mval[2],
                           float ray_start[3],
                           float ray_end[3],
                           float ray_normal[3],
@@ -4797,7 +4789,7 @@ float SCULPT_raycast_init(ViewContext *vc,
 
   /* TODO: what if the segment is totally clipped? (return == 0). */
   ED_view3d_win_to_segment_clipped(
-      vc->depsgraph, vc->region, vc->v3d, mouse, ray_start, ray_end, true);
+      vc->depsgraph, vc->region, vc->v3d, mval, ray_start, ray_end, true);
 
   invert_m4_m4(obimat, ob->obmat);
   mul_m4_v3(obimat, ray_start);
@@ -4821,7 +4813,7 @@ float SCULPT_raycast_init(ViewContext *vc,
 
 bool SCULPT_cursor_geometry_info_update(bContext *C,
                                         SculptCursorGeometryInfo *out,
-                                        const float mouse[2],
+                                        const float mval[2],
                                         bool use_sampled_normal)
 {
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
@@ -4850,7 +4842,7 @@ bool SCULPT_cursor_geometry_info_update(bContext *C,
   }
 
   /* PBVH raycast to get active vertex and face normal. */
-  depth = SCULPT_raycast_init(&vc, mouse, ray_start, ray_end, ray_normal, original);
+  depth = SCULPT_raycast_init(&vc, mval, ray_start, ray_end, ray_normal, original);
   SCULPT_stroke_modifiers_check(C, ob, brush);
 
   SculptRaycastData srd = {
@@ -4948,7 +4940,7 @@ bool SCULPT_cursor_geometry_info_update(bContext *C,
   return true;
 }
 
-bool SCULPT_stroke_get_location(bContext *C, float out[3], const float mouse[2])
+bool SCULPT_stroke_get_location(bContext *C, float out[3], const float mval[2])
 {
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
   Object *ob;
@@ -4970,7 +4962,7 @@ bool SCULPT_stroke_get_location(bContext *C, float out[3], const float mouse[2])
 
   SCULPT_stroke_modifiers_check(C, ob, brush);
 
-  depth = SCULPT_raycast_init(&vc, mouse, ray_start, ray_end, ray_normal, original);
+  depth = SCULPT_raycast_init(&vc, mval, ray_start, ray_end, ray_normal, original);
 
   if (BKE_pbvh_type(ss->pbvh) == PBVH_BMESH) {
     BM_mesh_elem_table_ensure(ss->bm, BM_VERT);
@@ -5027,7 +5019,7 @@ bool SCULPT_stroke_get_location(bContext *C, float out[3], const float mouse[2])
   return hit;
 }
 
-static void sculpt_brush_init_tex(const Scene *scene, Sculpt *sd, SculptSession *ss)
+static void sculpt_brush_init_tex(Sculpt *sd, SculptSession *ss)
 {
   Brush *brush = BKE_paint_brush(&sd->paint);
   MTex *mtex = &brush->mtex;
@@ -5038,14 +5030,13 @@ static void sculpt_brush_init_tex(const Scene *scene, Sculpt *sd, SculptSession 
     ntreeTexBeginExecTree(mtex->tex->nodetree);
   }
 
-  /* TODO: Shouldn't really have to do this at the start of every stroke, but sculpt would need
-   * some sort of notification when changes are made to the texture. */
-  sculpt_update_tex(scene, sd, ss);
+  if (ss->tex_pool == NULL) {
+    ss->tex_pool = BKE_image_pool_new();
+  }
 }
 
 static void sculpt_brush_stroke_init(bContext *C, wmOperator *op)
 {
-  Scene *scene = CTX_data_scene(C);
   Object *ob = CTX_data_active_object(C);
   Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
   SculptSession *ss = CTX_data_active_object(C)->sculpt;
@@ -5064,7 +5055,7 @@ static void sculpt_brush_stroke_init(bContext *C, wmOperator *op)
   }
 
   view3d_operator_needs_opengl(C);
-  sculpt_brush_init_tex(scene, sd, ss);
+  sculpt_brush_init_tex(sd, ss);
 
   need_pmap = sculpt_needs_connectivity_info(sd, brush, ss, mode);
   needs_colors = SCULPT_TOOL_NEEDS_COLOR(brush->sculpt_tool);
@@ -5275,14 +5266,10 @@ void SCULPT_flush_update_done(const bContext *C, Object *ob, SculptUpdateType up
 
 /* Returns whether the mouse/stylus is over the mesh (1)
  * or over the background (0). */
-static bool over_mesh(bContext *C, struct wmOperator *UNUSED(op), float x, float y)
+static bool over_mesh(bContext *C, struct wmOperator *UNUSED(op), const float mval[2])
 {
-  float mouse[2], co[3];
-
-  mouse[0] = x;
-  mouse[1] = y;
-
-  return SCULPT_stroke_get_location(C, co, mouse);
+  float co_dummy[3];
+  return SCULPT_stroke_get_location(C, co_dummy, mval);
 }
 
 bool SCULPT_handles_colors_report(SculptSession *ss, ReportList *reports)
@@ -5303,14 +5290,13 @@ bool SCULPT_handles_colors_report(SculptSession *ss, ReportList *reports)
   return false;
 }
 
-static bool sculpt_stroke_test_start(bContext *C, struct wmOperator *op, const float mouse[2])
+static bool sculpt_stroke_test_start(bContext *C, struct wmOperator *op, const float mval[2])
 {
-  /* Don't start the stroke until mouse goes over the mesh.
-   * NOTE: mouse will only be null when re-executing the saved stroke.
-   * We have exception for 'exec' strokes since they may not set 'mouse',
+  /* Don't start the stroke until `mval` goes over the mesh.
+   * NOTE: `mval` will only be null when re-executing the saved stroke.
+   * We have exception for 'exec' strokes since they may not set `mval`,
    * only 'location', see: T52195. */
-  if (((op->flag & OP_IS_INVOKE) == 0) || (mouse == NULL) ||
-      over_mesh(C, op, mouse[0], mouse[1])) {
+  if (((op->flag & OP_IS_INVOKE) == 0) || (mval == NULL) || over_mesh(C, op, mval)) {
     Object *ob = CTX_data_active_object(C);
     SculptSession *ss = ob->sculpt;
     Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
@@ -5328,10 +5314,10 @@ static bool sculpt_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
     ED_view3d_init_mats_rv3d(ob, CTX_wm_region_view3d(C));
 
-    sculpt_update_cache_invariants(C, sd, ss, op, mouse);
+    sculpt_update_cache_invariants(C, sd, ss, op, mval);
 
     SculptCursorGeometryInfo sgi;
-    SCULPT_cursor_geometry_info_update(C, &sgi, mouse, false);
+    SCULPT_cursor_geometry_info_update(C, &sgi, mval, false);
 
     /* Setup the correct undo system. Image painting and sculpting are mutual exclusive.
      * Color attributes are part of the sculpting undo system. */
@@ -5523,7 +5509,7 @@ static int sculpt_brush_stroke_invoke(bContext *C, wmOperator *op, const wmEvent
   /* For tablet rotation. */
   ignore_background_click = RNA_boolean_get(op->ptr, "ignore_background_click");
 
-  if (ignore_background_click && !over_mesh(C, op, event->xy[0], event->xy[1])) {
+  if (ignore_background_click && !over_mesh(C, op, (const float[2]){UNPACK2(event->mval)})) {
     paint_stroke_free(C, op, op->customdata);
     return OPERATOR_PASS_THROUGH;
   }
@@ -5783,7 +5769,8 @@ void SCULPT_connected_components_ensure(Object *ob)
 {
   SculptSession *ss = ob->sculpt;
 
-  /* Topology IDs already initialized. They only need to be recalculated when the PBVH is rebuild.
+  /* Topology IDs already initialized. They only need to be recalculated when the PBVH is
+   * rebuild.
    */
   if (ss->vertex_info.connected_component) {
     return;
@@ -5847,7 +5834,8 @@ void SCULPT_fake_neighbors_ensure(Sculpt *sd, Object *ob, const float max_dist)
   SculptSession *ss = ob->sculpt;
   const int totvert = SCULPT_vertex_count_get(ss);
 
-  /* Fake neighbors were already initialized with the same distance, so no need to be recalculated.
+  /* Fake neighbors were already initialized with the same distance, so no need to be
+   * recalculated.
    */
   if (ss->fake_neighbors.fake_neighbor_index &&
       ss->fake_neighbors.current_max_distance == max_dist) {

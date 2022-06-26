@@ -427,7 +427,7 @@ void main()
   output_nors[coarse_quad_index] = fnor;
 #  endif
 
-  if (is_face_hidden(coarse_quad_index)) {
+  if (use_hide && is_face_hidden(coarse_quad_index)) {
     output_indices[coarse_quad_index] = 0xffffffff;
   }
   else {
@@ -459,9 +459,9 @@ void main()
     vec3 nor = vec3(0.0);
 
     int origindex = input_vert_origindex[loop_index];
-    uint flag = 0;
+    float flag = 0.0;
     if (origindex == -1) {
-      flag = -1;
+      flag = -1.0;
     }
 
     PosNorLoop vertex_data;
