@@ -65,37 +65,23 @@ struct GeometryAttributeInfo {
 };
 
 class GeoNodesTreeEvalLog {
- private:
-  LinearAllocator<> allocator_;
-  Vector<destruct_ptr<ValueLog>> logged_values_;
-  Map<const bNodeSocket *, ValueLog *> socket_values_;
-
  public:
+  LinearAllocator<> allocator;
   Vector<std::pair<std::string, NodeWarning>> node_warnings;
-
-  void log_socket_value(const Span<const bNodeSocket *> sockets, const GPointer data)
-  {
-    const CPPType &type = *data.type();
-    void *buffer = allocator_.allocate(type.size(), type.alignment());
-    type.copy_construct(data.get(), buffer);
-    destruct_ptr<ValueLog> logged_value = allocator_.construct<GenericValueLog>(
-        GMutablePointer{type, buffer});
-    ValueLog &logged_value_ref = *logged_value;
-    for (const bNodeSocket *socket : sockets) {
-      socket_values_.add_new(socket, &logged_value_ref);
-    }
-    logged_values_.append(std::move(logged_value));
-  }
-
-  const ValueLog *try_get_logged_socket_value(const bNodeSocket &socket) const
-  {
-    return socket_values_.lookup_default(&socket, nullptr);
-  }
+  Vector<destruct_ptr<ValueLog>> socket_values_owner;
+  Vector<std::tuple<std::string, std::string, ValueLog *>> input_socket_values;
+  Vector<std::tuple<std::string, std::string, ValueLog *>> output_socket_values;
 };
 
-struct ReducedGeoNodesTreeEvalLog {
+class ReducedGeoNodeEvalLog {
+ public:
+  Vector<NodeWarning> warnings;
+};
+
+class ReducedGeoNodesTreeEvalLog {
+ public:
   bool is_initialized = false;
-  MultiValueMap<std::string, NodeWarning> node_warnings;
+  Map<std::string, ReducedGeoNodeEvalLog> nodes;
 };
 
 class GeoNodesModifierEvalLog {

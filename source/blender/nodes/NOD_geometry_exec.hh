@@ -140,7 +140,13 @@ class GeoNodeExecParams {
       const bNodeSocket *socket = node_.output_by_identifier(identifier).bsocket();
 
       geo_eval_log::GeoNodesTreeEvalLog &tree_log = this->get_local_log();
-      tree_log.log_socket_value({socket}, &value);
+      StoredT *logged_value = static_cast<StoredT *>(
+          tree_log.allocator.allocate(sizeof(StoredT), alignof(StoredT)));
+      new (logged_value) StoredT(value);
+      destruct_ptr<geo_eval_log::GenericValueLog> value_log =
+          tree_log.allocator.construct<geo_eval_log::GenericValueLog>(logged_value);
+      tree_log.output_socket_values.append({node_.name(), socket->identifier, value_log.get()});
+      tree_log.socket_values_owner.append(std::move(value_log));
 
       params_.set_output(index, std::forward<T>(value));
     }

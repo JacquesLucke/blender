@@ -84,6 +84,7 @@ using blender::nodes::geo_eval_log::GeoNodesTreeEvalLog;
 using blender::nodes::geo_eval_log::NamedAttributeUsage;
 using blender::nodes::geo_eval_log::NodeWarning;
 using blender::nodes::geo_eval_log::NodeWarningType;
+using blender::nodes::geo_eval_log::ReducedGeoNodeEvalLog;
 using blender::nodes::geo_eval_log::ReducedGeoNodesTreeEvalLog;
 
 extern "C" {
@@ -1612,7 +1613,8 @@ static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &sno
 
   for (GeoNodesTreeEvalLog *tree_log : tree_logs) {
     for (const std::pair<std::string, NodeWarning> &warnings : tree_log->node_warnings) {
-      reduced_tree_log.node_warnings.add(warnings.first, warnings.second);
+      reduced_tree_log.nodes.lookup_or_add_default(warnings.first)
+          .warnings.append(warnings.second);
     }
   }
 
@@ -1632,10 +1634,14 @@ static void node_add_error_message_button(const bContext &C,
   SpaceNode *snode = CTX_wm_space_node(&C);
   UNUSED_VARS(snode, node);
 
-  Span<NodeWarning> warnings = tree_draw_ctx.geo_nodes_eval_log ?
-                                   tree_draw_ctx.geo_nodes_eval_log->node_warnings.lookup(
-                                       node.name) :
-                                   Span<NodeWarning>{};
+  Span<NodeWarning> warnings;
+  if (tree_draw_ctx.geo_nodes_eval_log) {
+    ReducedGeoNodeEvalLog *node_eval_log = tree_draw_ctx.geo_nodes_eval_log->nodes.lookup_ptr(
+        node.name);
+    if (node_eval_log != nullptr) {
+      warnings = node_eval_log->warnings;
+    }
+  }
   if (warnings.is_empty()) {
     return;
   }
