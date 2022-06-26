@@ -66,6 +66,9 @@ struct GeometryAttributeInfo {
 
 class GeoNodesTreeEvalLog {
  public:
+  std::optional<ContextStackHash> parent_hash;
+  Vector<ContextStackHash> children_hashes;
+
   LinearAllocator<> allocator;
   Vector<std::pair<std::string, NodeWarning>> node_warnings;
   Vector<destruct_ptr<ValueLog>> socket_values_owner;
@@ -114,8 +117,21 @@ class GeoNodesModifierEvalLog {
  public:
   GeoNodesTreeEvalLog &get_local_log(const ContextStack &context_stack)
   {
-    return *log_map_per_thread_.local().lookup_or_add_cb(
-        context_stack.hash(), []() { return std::make_unique<GeoNodesTreeEvalLog>(); });
+    Map<ContextStackHash, std::unique_ptr<GeoNodesTreeEvalLog>> &local_log_map =
+        log_map_per_thread_.local();
+    std::unique_ptr<GeoNodesTreeEvalLog> &tree_log = local_log_map.lookup_or_add_default(
+        context_stack.hash());
+    if (tree_log) {
+      return *tree_log;
+    }
+    tree_log = std::make_unique<GeoNodesTreeEvalLog>();
+    const ContextStack *parent_context_stack = context_stack.parent();
+    if (parent_context_stack != nullptr) {
+      tree_log->parent_hash = parent_context_stack->hash();
+      GeoNodesTreeEvalLog &parent_log = this->get_local_log(*parent_context_stack);
+      parent_log.children_hashes.append(context_stack.hash());
+    }
+    return *tree_log;
   }
 
   ReducedGeoNodesTreeEvalLog &get_reduced_tree_log(const ContextStack &context_stack)
