@@ -4,13 +4,9 @@
  * \ingroup edcurves
  */
 
-#include <algorithm>
 #include <atomic>
-#include <numeric>
 
 #include "BLI_devirtualize_parameters.hh"
-#include "BLI_kdtree.h"
-#include "BLI_rand.hh"
 #include "BLI_utildefines.h"
 #include "BLI_vector_set.hh"
 
@@ -18,13 +14,10 @@
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
-#include "ED_space_api.h"
-#include "ED_view3d.h"
 
 #include "WM_api.h"
 
 #include "BKE_attribute_math.hh"
-#include "BKE_brush.h"
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
@@ -38,7 +31,6 @@
 #include "BKE_particle.h"
 #include "BKE_report.h"
 
-#include "DNA_brush_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
@@ -55,16 +47,6 @@
 #include "RNA_prototypes.h"
 
 #include "GEO_reverse_uv_sampler.hh"
-
-#include "UI_interface.h"
-#include "UI_resources.h"
-
-#include "BLT_translation.h"
-
-#include "GPU_immediate.h"
-#include "GPU_immediate_util.h"
-#include "GPU_matrix.h"
-#include "GPU_state.h"
 
 /**
  * The code below uses a suffix naming convention to indicate the coordinate space:
