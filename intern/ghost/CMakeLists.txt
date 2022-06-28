@@ -268,8 +268,19 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       ${wayland-egl_INCLUDE_DIRS}
       ${xkbcommon_INCLUDE_DIRS}
       ${wayland-cursor_INCLUDE_DIRS}
-      ${dbus_INCLUDE_DIRS}
     )
+
+    if(WITH_GHOST_WAYLAND_DBUS)
+      list(APPEND INC_SYS
+        ${dbus_INCLUDE_DIRS}
+      )
+    endif()
+
+    if(WITH_GHOST_WAYLAND_LIBDECOR)
+      list(APPEND INC_SYS
+        ${libdecor_INCLUDE_DIRS}
+      )
+    endif()
 
     include(CheckSymbolExists)
     set(CMAKE_REQUIRED_DEFINITIONS "-D_GNU_SOURCE")
@@ -332,14 +343,17 @@ elseif(WITH_GHOST_X11 OR WITH_GHOST_WAYLAND)
       ${INC_DST}
     )
 
-    # `xdg-shell`.
-    generate_protocol_bindings(
-      "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml"
-    )
-    # `xdg-decoration`.
-    generate_protocol_bindings(
-      "${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
-    )
+    if(NOT WITH_GHOST_WAYLAND_LIBDECOR)
+      # `xdg-shell`.
+      generate_protocol_bindings(
+        "${WAYLAND_PROTOCOLS_DIR}/stable/xdg-shell/xdg-shell.xml"
+      )
+      # `xdg-decoration`.
+      generate_protocol_bindings(
+        "${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-decoration/xdg-decoration-unstable-v1.xml"
+      )
+    endif()
+
     # `xdg-output`.
     generate_protocol_bindings(
       "${WAYLAND_PROTOCOLS_DIR}/unstable/xdg-output/xdg-output-unstable-v1.xml"

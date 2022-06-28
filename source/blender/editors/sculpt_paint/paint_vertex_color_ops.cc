@@ -294,7 +294,7 @@ static bool transform_active_color(Mesh &mesh, const TransformFn &transform_fn)
   attribute_math::convert_to_static_type(color_attribute.varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     threading::parallel_for(selection.index_range(), 1024, [&](IndexRange range) {
-      for (const int i : selection.slice(range)) {
+      for ([[maybe_unused]] const int i : selection.slice(range)) {
         if constexpr (std::is_same_v<T, ColorGeometry4f>) {
           ColorGeometry4f color = color_attribute.varray.get<ColorGeometry4f>(i);
           transform_fn(color);
@@ -343,7 +343,8 @@ static int vertex_color_brightness_contrast_exec(bContext *C, wmOperator *op)
   }
 
   Mesh *me;
-  if (((me = BKE_mesh_from_object(obact)) == NULL) || (ED_mesh_color_ensure(me, NULL) == false)) {
+  if (((me = BKE_mesh_from_object(obact)) == nullptr) ||
+      (ED_mesh_color_ensure(me, nullptr) == false)) {
     return OPERATOR_CANCELLED;
   }
 
@@ -390,7 +391,8 @@ static int vertex_color_hsv_exec(bContext *C, wmOperator *op)
   const float val = RNA_float_get(op->ptr, "v");
 
   Mesh *me;
-  if (((me = BKE_mesh_from_object(obact)) == NULL) || (ED_mesh_color_ensure(me, NULL) == false)) {
+  if (((me = BKE_mesh_from_object(obact)) == nullptr) ||
+      (ED_mesh_color_ensure(me, nullptr) == false)) {
     return OPERATOR_CANCELLED;
   }
 
@@ -441,7 +443,8 @@ static int vertex_color_invert_exec(bContext *C, wmOperator *UNUSED(op))
   Object *obact = CTX_data_active_object(C);
 
   Mesh *me;
-  if (((me = BKE_mesh_from_object(obact)) == NULL) || (ED_mesh_color_ensure(me, NULL) == false)) {
+  if (((me = BKE_mesh_from_object(obact)) == nullptr) ||
+      (ED_mesh_color_ensure(me, nullptr) == false)) {
     return OPERATOR_CANCELLED;
   }
 
@@ -479,7 +482,8 @@ static int vertex_color_levels_exec(bContext *C, wmOperator *op)
   const float offset = RNA_float_get(op->ptr, "offset");
 
   Mesh *me;
-  if (((me = BKE_mesh_from_object(obact)) == NULL) || (ED_mesh_color_ensure(me, NULL) == false)) {
+  if (((me = BKE_mesh_from_object(obact)) == nullptr) ||
+      (ED_mesh_color_ensure(me, nullptr) == false)) {
     return OPERATOR_CANCELLED;
   }
 
