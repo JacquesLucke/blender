@@ -163,6 +163,7 @@ struct SmoothOperationExecutor {
           const float weight = weight_factor * brush_strength_ * radius_falloff *
                                point_factors_[point_i];
 
+          /* Move points towards the middle of their neighbors. */
           const float2 &old_pos_prev_re = old_curve_positions_re[i - 1];
           const float2 &old_pos_next_re = old_curve_positions_re[i + 1];
           const float2 goal_pos_re = math::midpoint(old_pos_prev_re, old_pos_next_re);
@@ -211,6 +212,8 @@ struct SmoothOperationExecutor {
       Vector<float3> old_curve_positions_cu;
       for (const int curve_i : curve_selection_.slice(range)) {
         const IndexRange points = curves_->points_for_curve(curve_i);
+        /* Remember original positions so that we don't smooth based on already smoothed points
+         * below. */
         old_curve_positions_cu.clear();
         old_curve_positions_cu.extend(positions_cu.slice(points));
         for (const int i : IndexRange(points.size()).drop_front(1).drop_back(1)) {
@@ -230,6 +233,7 @@ struct SmoothOperationExecutor {
           const float weight = weight_factor * brush_strength_ * radius_falloff *
                                point_factors_[point_i];
 
+          /* Move points towards the middle of their neighbors. */
           const float3 &old_pos_prev_cu = old_curve_positions_cu[i - 1];
           const float3 &old_pos_next_cu = old_curve_positions_cu[i + 1];
           const float3 goal_pos_cu = math::midpoint(old_pos_prev_cu, old_pos_next_cu);
