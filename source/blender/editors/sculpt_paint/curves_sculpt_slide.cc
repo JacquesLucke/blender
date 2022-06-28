@@ -44,11 +44,14 @@
 namespace blender::ed::sculpt_paint {
 
 struct SlideCurveInfo {
+  /** Index of the curve to slide. */
   int curve_i;
+  /** A weight based on the initial distance to the brush. */
   float radius_falloff;
 };
 
 struct SlideInfo {
+  /** The transform used for the curves below (e.g. for symmetry). */
   float4x4 brush_transform;
   Vector<SlideCurveInfo> curves_to_slide;
 };
@@ -57,6 +60,7 @@ class SlideOperation : public CurvesSculptStrokeOperation {
  private:
   /** Last mouse position. */
   float2 brush_pos_last_re_;
+  /** Information about which curves to slide. This is initialized when the brush starts. */
   Vector<SlideInfo> slide_info_;
 
   friend struct SlideOperationExecutor;
@@ -79,8 +83,6 @@ struct SlideOperationExecutor {
   float brush_radius_factor_;
   float brush_strength_;
 
-  eBrushFalloffShape falloff_shape_;
-
   Object *object_ = nullptr;
   Curves *curves_id_ = nullptr;
   CurvesGeometry *curves_ = nullptr;
@@ -88,7 +90,6 @@ struct SlideOperationExecutor {
   Object *surface_ob_ = nullptr;
   Mesh *surface_ = nullptr;
   Span<MLoopTri> surface_looptris_;
-  Span<float3> corner_normals_su_;
   VArray_Span<float2> surface_uv_map_;
 
   VArray<float> curve_factors_;
@@ -120,8 +121,6 @@ struct SlideOperationExecutor {
     brush_radius_base_re_ = BKE_brush_size_get(ctx_.scene, brush_);
     brush_radius_factor_ = brush_radius_factor(*brush_, stroke_extension);
     brush_strength_ = brush_strength_get(*ctx_.scene, *brush_, stroke_extension);
-
-    falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
 
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
@@ -161,24 +160,17 @@ struct SlideOperationExecutor {
                             .typed<float2>();
     }
 
-    if (!CustomData_has_layer(&surface_->ldata, CD_NORMAL)) {
-      BKE_mesh_calc_normals_split(surface_);
-    }
-    corner_normals_su_ = {
-        reinterpret_cast<const float3 *>(CustomData_get_layer(&surface_->ldata, CD_NORMAL)),
-        surface_->totloop};
-
-    const Vector<float4x4> brush_transforms = get_symmetry_brush_transforms(
-        eCurvesSymmetryType(curves_id_->symmetry));
-
     if (stroke_extension.is_first) {
+      const Vector<float4x4> brush_transforms = get_symmetry_brush_transforms(
+          eCurvesSymmetryType(curves_id_->symmetry));
       for (const float4x4 &brush_transform : brush_transforms) {
         this->detect_curves_to_slide(brush_transform);
       }
       return;
     }
-
-    this->slide_projected();
+    else {
+      this->slide_projected();
+    }
 
     curves_->tag_positions_changed();
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
@@ -200,6 +192,8 @@ struct SlideOperationExecutor {
 
     self_->slide_info_.append({brush_transform});
     Vector<SlideCurveInfo> &curves_to_slide = self_->slide_info_.last().curves_to_slide;
+
+    /* Find curves in brush radius that should be moved. */
     for (const int curve_i : curve_selection_) {
       const int first_point_i = curves_->offsets()[curve_i];
       const float3 &first_pos_cu = brush_transform_inv * positions_cu[first_point_i];
@@ -241,10 +235,13 @@ struct SlideOperationExecutor {
           const IndexRange points = curves_->points_for_curve(curve_i);
           const int first_point_i = points.first();
           const float3 old_first_pos_cu = brush_transform_inv * positions_cu[first_point_i];
+
           float2 old_first_pos_re;
           ED_view3d_project_float_v2_m4(
               ctx_.region, old_first_pos_cu, old_first_pos_re, projection.values);
           const float first_point_weight = brush_strength_ * curve_slide_info.radius_falloff;
+
+          /* Slide root position in region space and then project it back onto the surface. */
           const float2 new_first_pos_re = old_first_pos_re +
                                           first_point_weight * brush_pos_diff_re_;
 
@@ -280,12 +277,14 @@ struct SlideOperationExecutor {
           const float3 attached_pos_cu = transforms_.surface_to_curves * attached_pos_su;
           const float3 pos_offset_cu = brush_transform * (attached_pos_cu - old_first_pos_cu);
 
+          /* Update positions. */
           positions_cu[first_point_i] += pos_offset_cu;
           for (const int point_i : points.drop_front(1)) {
             const float weight = point_factors_[point_i];
             positions_cu[point_i] += weight * pos_offset_cu;
           }
 
+          /* Update surface attachment information if necessary. */
           if (!surface_uv_map_.is_empty()) {
             const MLoopTri &looptri = surface_looptris_[looptri_index];
             const float3 bary_coord = bke::mesh_surface_sample::compute_bary_coord_in_triangle(
