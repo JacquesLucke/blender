@@ -91,7 +91,6 @@ struct PinchOperationExecutor {
   float invert_factor_;
 
   float2 brush_pos_re_;
-  eBrushFalloffShape falloff_shape_;
 
   PinchOperationExecutor(const bContext &C) : ctx_(C)
   {
@@ -100,7 +99,13 @@ struct PinchOperationExecutor {
   void execute(PinchOperation &self, const bContext &C, const StrokeExtension &stroke_extension)
   {
     self_ = &self;
+
     object_ = CTX_data_active_object(&C);
+    curves_id_ = static_cast<Curves *>(object_->data);
+    curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
+    if (curves_->curves_num() == 0) {
+      return;
+    }
 
     curves_sculpt_ = ctx_.scene->toolsettings->curves_sculpt;
     brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
@@ -110,24 +115,19 @@ struct PinchOperationExecutor {
 
     invert_factor_ = self_->invert_pinch_ ? -1.0f : 1.0f;
 
-    curves_id_ = static_cast<Curves *>(object_->data);
-    curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
-    if (curves_->curves_num() == 0) {
-      return;
-    }
-
     transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
 
     point_factors_ = get_point_selection(*curves_id_);
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
 
     brush_pos_re_ = stroke_extension.mouse_position;
-    falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
+    const eBrushFalloffShape falloff_shape = static_cast<eBrushFalloffShape>(
+        brush_->falloff_shape);
 
     if (stroke_extension.is_first) {
       this->initialize_segment_lengths();
 
-      if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
+      if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
         self_->brush_3d_ = *sample_curves_3d_brush(*ctx_.depsgraph,
                                                    *ctx_.region,
                                                    *ctx_.v3d,
@@ -139,10 +139,10 @@ struct PinchOperationExecutor {
     }
 
     Array<bool> changed_curves(curves_->curves_num(), false);
-    if (falloff_shape_ == PAINT_FALLOFF_SHAPE_TUBE) {
+    if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
       this->pinch_projected_with_symmetry(changed_curves);
     }
-    else if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
+    else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
       this->pinch_spherical_with_symmetry(changed_curves);
     }
     else {

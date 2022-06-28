@@ -98,13 +98,11 @@ struct PuffOperationExecutor {
     self_ = &self;
 
     object_ = CTX_data_active_object(&C);
-
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
     if (curves_->curves_num() == 0) {
       return;
     }
-
     if (curves_id_->surface == nullptr || curves_id_->surface->type != OB_MESH) {
       return;
     }

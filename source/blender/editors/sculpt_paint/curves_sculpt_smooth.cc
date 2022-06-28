@@ -64,7 +64,6 @@ struct SmoothOperationExecutor {
     self_ = &self;
 
     object_ = CTX_data_active_object(&C);
-
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
     if (curves_->curves_num() == 0) {

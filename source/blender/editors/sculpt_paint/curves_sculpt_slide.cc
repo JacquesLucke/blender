@@ -115,13 +115,6 @@ struct SlideOperationExecutor {
     self_ = &self;
 
     object_ = CTX_data_active_object(&C);
-
-    curves_sculpt_ = ctx_.scene->toolsettings->curves_sculpt;
-    brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
-    brush_radius_base_re_ = BKE_brush_size_get(ctx_.scene, brush_);
-    brush_radius_factor_ = brush_radius_factor(*brush_, stroke_extension);
-    brush_strength_ = brush_strength_get(*ctx_.scene, *brush_, stroke_extension);
-
     curves_id_ = static_cast<Curves *>(object_->data);
     curves_ = &CurvesGeometry::wrap(curves_id_->geometry);
     if (curves_id_->surface == nullptr || curves_id_->surface->type != OB_MESH) {
@@ -130,6 +123,12 @@ struct SlideOperationExecutor {
     if (curves_->curves_num() == 0) {
       return;
     }
+
+    curves_sculpt_ = ctx_.scene->toolsettings->curves_sculpt;
+    brush_ = BKE_paint_brush_for_read(&curves_sculpt_->paint);
+    brush_radius_base_re_ = BKE_brush_size_get(ctx_.scene, brush_);
+    brush_radius_factor_ = brush_radius_factor(*brush_, stroke_extension);
+    brush_strength_ = brush_strength_get(*ctx_.scene, *brush_, stroke_extension);
 
     curve_factors_ = get_curves_selection(*curves_id_);
     point_factors_ = get_point_selection(*curves_id_);
