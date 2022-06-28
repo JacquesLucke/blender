@@ -131,9 +131,9 @@ struct DensityAddOperationExecutor {
     Vector<int> new_looptri_indices;
     Vector<float3> new_positions_cu;
     const double time = PIL_check_seconds_timer() * 1000000.0;
-    /* Use a pointer cast to avoid overflow warnings. */
     RandomNumberGenerator rng{*(uint32_t *)(&time)};
 
+    /* Find potential new curve root points. */
     if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
       this->sample_projected_with_symmetry(
           rng, new_bary_coords, new_looptri_indices, new_positions_cu);
@@ -191,6 +191,7 @@ struct DensityAddOperationExecutor {
               });
         });
 
+    /* Find new points that are too close too other new points. */
     for (const int new_i : new_positions_cu.index_range()) {
       if (new_curve_skipped[new_i]) {
         continue;
@@ -214,6 +215,7 @@ struct DensityAddOperationExecutor {
           });
     }
 
+    /* Remove points that are too close to others. */
     for (int64_t i = new_positions_cu.size() - 1; i >= 0; i--) {
       if (new_curve_skipped[i]) {
         new_positions_cu.remove_and_reorder(i);
@@ -316,6 +318,7 @@ struct DensityAddOperationExecutor {
           r_looptri_indices,
           r_positions_su);
 
+      /* Remove some sampled points randomly based on the brush falloff and strength. */
       const int old_points = r_bary_coords.size() - new_points;
       for (int i = r_bary_coords.size() - 1; i >= old_points; i--) {
         const float3 pos_su = r_positions_su[i];
@@ -384,6 +387,7 @@ struct DensityAddOperationExecutor {
           r_looptri_indices,
           r_positions_su);
 
+      /* Remove some sampled points randomly based on the brush falloff and strength. */
       const int old_points = r_bary_coords.size() - new_points;
       for (int i = r_bary_coords.size() - 1; i >= old_points; i--) {
         const float3 pos_su = r_positions_su[i];
@@ -504,6 +508,7 @@ struct DensitySubtractOperationExecutor {
     }
     BLI_kdtree_3d_balance(root_points_kdtree_);
 
+    /* Find all curves that should be deleted. */
     Array<bool> curves_to_delete(curves_->curves_num(), false);
     if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
       this->reduce_density_projected_with_symmetry(curves_to_delete);
@@ -549,6 +554,8 @@ struct DensitySubtractOperationExecutor {
 
     const Span<int> offsets = curves_->offsets();
 
+    /* Randomly select the curves that are allowed to be removed, based on the brush radius and
+     * strength. */
     Array<bool> allow_remove_curve(curves_->curves_num(), false);
     threading::parallel_for(curves_->curves_range(), 512, [&](const IndexRange range) {
       RandomNumberGenerator rng((int)(PIL_check_seconds_timer() * 1000000.0));
@@ -577,6 +584,7 @@ struct DensitySubtractOperationExecutor {
       }
     });
 
+    /* Detect curves that are too close to other existing curves. */
     for (const int curve_i : curve_selection_) {
       if (curves_to_delete[curve_i]) {
         continue;
@@ -639,6 +647,8 @@ struct DensitySubtractOperationExecutor {
     const Span<float3> positions_cu = curves_->positions();
     const Span<int> offsets = curves_->offsets();
 
+    /* Randomly select the curves that are allowed to be removed, based on the brush radius and
+     * strength. */
     Array<bool> allow_remove_curve(curves_->curves_num(), false);
     threading::parallel_for(curves_->curves_range(), 512, [&](const IndexRange range) {
       RandomNumberGenerator rng((int)(PIL_check_seconds_timer() * 1000000.0));
@@ -665,6 +675,7 @@ struct DensitySubtractOperationExecutor {
       }
     });
 
+    /* Detect curves that are too close to other existing curves. */
     for (const int curve_i : curve_selection_) {
       if (curves_to_delete[curve_i]) {
         continue;
@@ -703,6 +714,9 @@ void DensitySubtractOperation::on_stroke_extended(const bContext &C,
   executor.execute(*this, C, stroke_extension);
 }
 
+/**
+ * Detects whether the brush should be in Add or Subtract mode.
+ */
 static bool use_add_density_mode(const BrushStrokeMode brush_mode,
                                  const bContext &C,
                                  const StrokeExtension &stroke_start)
@@ -722,11 +736,11 @@ static bool use_add_density_mode(const BrushStrokeMode brush_mode,
 
   const Object &curves_ob = *CTX_data_active_object(&C);
   const Curves &curves_id = *static_cast<Curves *>(curves_ob.data);
+  const CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
   if (curves_id.surface == nullptr) {
     /* The brush won't do anything in this case anyway. */
     return true;
   }
-  const CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
   if (curves.curves_num() <= 1) {
     return true;
   }
@@ -745,6 +759,7 @@ static bool use_add_density_mode(const BrushStrokeMode brush_mode,
   /* Reduce radius so that only an inner circle is used to determine the existing density. */
   const float brush_radius_re = BKE_brush_size_get(&scene, &brush) * 0.5f;
 
+  /* Find the surface point under the brush. */
   const std::optional<CurvesBrush3D> brush_3d = sample_curves_surface_3d_brush(
       depsgraph, region, v3d, transforms, surface_bvh, brush_pos_re, brush_radius_re);
   if (!brush_3d.has_value()) {
@@ -758,6 +773,7 @@ static bool use_add_density_mode(const BrushStrokeMode brush_mode,
   const Span<int> offsets = curves.offsets();
   const Span<float3> positions_cu = curves.positions();
 
+  /* Compute distance from brush to curve roots. */
   Array<std::pair<float, int>> distances_sq_to_brush(curves.curves_num());
   threading::EnumerableThreadSpecific<int> valid_curve_count_by_thread;
   threading::parallel_for(curves.curves_range(), 512, [&](const IndexRange range) {
@@ -779,11 +795,14 @@ static bool use_add_density_mode(const BrushStrokeMode brush_mode,
   const int valid_curve_count = std::accumulate(
       valid_curve_count_by_thread.begin(), valid_curve_count_by_thread.end(), 0);
 
+  /* Find a couple of curves that are closest to the brush center. */
   const int check_curve_count = std::min<int>(8, valid_curve_count);
   std::partial_sort(distances_sq_to_brush.begin(),
                     distances_sq_to_brush.begin() + check_curve_count,
                     distances_sq_to_brush.end());
 
+  /* Compute the minimum pair-wise distance between the curve roots that are close to the brush
+   * center. */
   float min_dist_sq_cu = FLT_MAX;
   for (const int i : IndexRange(check_curve_count)) {
     const float3 &pos_i = positions_cu[offsets[distances_sq_to_brush[i].second]];
