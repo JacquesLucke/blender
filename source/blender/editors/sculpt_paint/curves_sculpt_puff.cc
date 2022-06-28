@@ -153,10 +153,10 @@ struct PuffOperationExecutor {
     Array<float> curve_weights(curve_selection_.size(), 0.0f);
 
     if (falloff_shape_ == PAINT_FALLOFF_SHAPE_TUBE) {
-      this->puff_projected_with_symmetry(curve_weights);
+      this->find_curve_weights_projected_with_symmetry(curve_weights);
     }
     else if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
-      this->puff_spherical_with_symmetry(curve_weights);
+      this->find_curves_weights_spherical_with_symmetry(curve_weights);
     }
     else {
       BLI_assert_unreachable();
@@ -171,16 +171,17 @@ struct PuffOperationExecutor {
     ED_region_tag_redraw(ctx_.region);
   }
 
-  void puff_projected_with_symmetry(MutableSpan<float> r_curve_weights)
+  void find_curve_weights_projected_with_symmetry(MutableSpan<float> r_curve_weights)
   {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->puff_projected(brush_transform, r_curve_weights);
+      this->find_curve_weights_projected(brush_transform, r_curve_weights);
     }
   }
 
-  void puff_projected(const float4x4 &brush_transform, MutableSpan<float> r_curve_weights)
+  void find_curve_weights_projected(const float4x4 &brush_transform,
+                                    MutableSpan<float> r_curve_weights)
   {
     Span<float3> positions_cu = curves_->positions();
 
@@ -221,7 +222,7 @@ struct PuffOperationExecutor {
     });
   }
 
-  void puff_spherical_with_symmetry(MutableSpan<float> r_curve_weights)
+  void find_curves_weights_spherical_with_symmetry(MutableSpan<float> r_curve_weights)
   {
     float4x4 projection;
     ED_view3d_ob_project_mat_get(ctx_.rv3d, object_, projection.values);
@@ -238,13 +239,14 @@ struct PuffOperationExecutor {
     const Vector<float4x4> symmetry_brush_transforms = get_symmetry_brush_transforms(
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
-      this->puff_spherical(brush_transform * brush_pos_cu, brush_radius_cu, r_curve_weights);
+      this->find_curves_weights_spherical(
+          brush_transform * brush_pos_cu, brush_radius_cu, r_curve_weights);
     }
   }
 
-  void puff_spherical(const float3 &brush_pos_cu,
-                      const float brush_radius_cu,
-                      MutableSpan<float> r_curve_weights)
+  void find_curves_weights_spherical(const float3 &brush_pos_cu,
+                                     const float brush_radius_cu,
+                                     MutableSpan<float> r_curve_weights)
   {
     const Span<float3> positions_cu = curves_->positions();
     const float brush_radius_sq_cu = pow2f(brush_radius_cu);
@@ -286,6 +288,8 @@ struct PuffOperationExecutor {
         const float3 first_pos_cu = positions_cu[first_point_i];
         const float3 first_pos_su = transforms_.curves_to_surface * first_pos_cu;
 
+        /* Find the nearest position on the surface. The curve will be aligned to the normal of
+         * that point. */
         BVHTreeNearest nearest;
         nearest.dist_sq = FLT_MAX;
         BLI_bvhtree_find_nearest(surface_bvh_.tree,
@@ -305,8 +309,7 @@ struct PuffOperationExecutor {
             looptri, bary_coords, corner_normals_su_);
         const float3 normal_cu = math::normalize(transforms_.surface_to_curves_normal * normal_su);
 
-        accumulated_lengths_cu.clear();
-        accumulated_lengths_cu.resize(points.size() - 1);
+        accumulated_lengths_cu.reinitialize(points.size() - 1);
         length_parameterize::accumulate_lengths<float3>(
             positions_cu.slice(points), false, accumulated_lengths_cu);
 
@@ -314,12 +317,16 @@ struct PuffOperationExecutor {
           const int point_i = points[i];
           const float3 old_pos_cu = positions_cu[point_i];
 
+          /* Compute final position of the point. */
           const float length_param_cu = accumulated_lengths_cu[i - 1];
           const float3 goal_pos_cu = first_pos_cu + length_param_cu * normal_cu;
 
           const float weight = 0.01f * brush_strength_ * point_factors_[point_i] *
                                curve_weights[curve_selection_i];
           float3 new_pos_cu = math::interpolate(old_pos_cu, goal_pos_cu, weight);
+
+          /* Make sure the point does not move closer to the root point than it was initially. This
+           * makes the curve kind of "rotate up". */
           const float old_dist_to_root_cu = math::distance(old_pos_cu, first_pos_cu);
           const float new_dist_to_root_cu = math::distance(new_pos_cu, first_pos_cu);
           if (new_dist_to_root_cu < old_dist_to_root_cu) {
