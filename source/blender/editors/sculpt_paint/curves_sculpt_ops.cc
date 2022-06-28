@@ -645,6 +645,7 @@ static int select_grow_update(bContext *C, wmOperator *op, const float mouse_dif
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
     const float distance = curve_op_data->pixel_to_distance_factor * mouse_diff_x;
 
+    /* Grow or shrink selection based on precomputed distances. */
     switch (curves_id.selection_domain) {
       case ATTR_DOMAIN_POINT: {
         MutableSpan<float> points_selection = curves.selection_point_float_for_write();
@@ -654,6 +655,7 @@ static int select_grow_update(bContext *C, wmOperator *op, const float mouse_dif
       case ATTR_DOMAIN_CURVE: {
         Array<float> new_points_selection(curves.points_num());
         update_points_selection(*curve_op_data, distance, new_points_selection);
+        /* Propagate grown point selection to the curve selection. */
         MutableSpan<float> curves_selection = curves.selection_curve_float_for_write();
         for (const int curve_i : curves.curves_range()) {
           const IndexRange points = curves.points_for_curve(curve_i);
@@ -686,6 +688,7 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
     const Span<float3> positions = curves.positions();
 
+    /* Find indices of selected and unselected points. */
     switch (curves_id->selection_domain) {
       case ATTR_DOMAIN_POINT: {
         const VArray<float> points_selection = curves.selection_point_float();
@@ -727,6 +730,7 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 
     threading::parallel_invoke(
         [&]() {
+          /* Build kd-tree for the selected points. */
           KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data->selected_point_indices.size());
           BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
           for (const int point_i : curve_op_data->selected_point_indices) {
@@ -735,9 +739,9 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
           }
           BLI_kdtree_3d_balance(kdtree);
 
+          /* For each unselected point, compute the distance to the closest selected point. */
           curve_op_data->distances_to_selected.reinitialize(
               curve_op_data->unselected_point_indices.size());
-
           threading::parallel_for(
               curve_op_data->unselected_point_indices.index_range(),
               256,
@@ -752,6 +756,7 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
               });
         },
         [&]() {
+          /* Build kd-tree for the unselected points. */
           KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data->unselected_point_indices.size());
           BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
           for (const int point_i : curve_op_data->unselected_point_indices) {
@@ -760,9 +765,9 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
           }
           BLI_kdtree_3d_balance(kdtree);
 
+          /* For each selected point, compute the distance to the closest unselected point. */
           curve_op_data->distances_to_unselected.reinitialize(
               curve_op_data->selected_point_indices.size());
-
           threading::parallel_for(curve_op_data->selected_point_indices.index_range(),
                                   256,
                                   [&](const IndexRange range) {
@@ -776,9 +781,7 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
                                   });
         });
 
-    /* TODO */
     Object *ob = CTX_data_active_object(C);
-
     ARegion *region = CTX_wm_region(C);
     View3D *v3d = CTX_wm_view3d(C);
     float4x4 projection;
@@ -787,6 +790,8 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     float4x4 curves_to_world_mat = ob->obmat;
     float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
 
+    /* Compute how mouse movements in screen space are converted into grow/shrink distances in
+     * object space. */
     curve_op_data->pixel_to_distance_factor = threading::parallel_reduce(
         curve_op_data->selected_point_indices.index_range(),
         256,
@@ -795,12 +800,15 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
           for (const int i : range) {
             const int point_i = curve_op_data->selected_point_indices[i];
             const float3 &pos_cu = positions[point_i];
+
             float2 pos_re;
             ED_view3d_project_float_v2_m4(region, pos_cu, pos_re, projection.values);
             if (pos_re.x < 0 || pos_re.y < 0 || pos_re.x > region->winx ||
                 pos_re.y > region->winy) {
               continue;
             }
+            /* Compute how far this point moves in curve space when it moves one unit in screen
+             * space. */
             const float2 pos_offset_re = pos_re + float2(1, 0);
             float3 pos_offset_wo;
             ED_view3d_win_to_3d(
@@ -840,6 +848,7 @@ static int select_grow_modal(bContext *C, wmOperator *op, const wmEvent *event)
     }
     case EVT_ESCKEY:
     case RIGHTMOUSE: {
+      /* Undo operator by resetting the selection to the original value. */
       for (std::unique_ptr<GrowOperatorDataPerCurve> &curve_op_data : op_data.per_curve) {
         Curves &curves_id = *curve_op_data->curves_id;
         CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
@@ -925,13 +934,18 @@ static bool min_distance_edit_poll(bContext *C)
 }
 
 struct MinDistanceEditData {
+  /** Brush whose minimum distance is modified. */
   Brush *brush;
   float4x4 curves_to_world_mat;
+
+  /** Where the preview is drawn. */
   float3 pos_cu;
   float3 normal_cu;
+
   int2 initial_mouse;
   float initial_minimum_distance;
-  void *draw_handle;
+
+  /** The operator uses a new cursor, but the existing cursors should be restored afterwards. */
   ListBase orig_paintcursors;
   void *cursor;
 };
@@ -958,19 +972,19 @@ static int calculate_points_per_side(bContext *C, MinDistanceEditData &op_data)
   points_wo.append(op_data.pos_cu - min_distance * tangent_x_cu);
   points_wo.append(op_data.pos_cu - min_distance * tangent_y_cu);
 
-  Vector<float2> points_screen_space;
+  Vector<float2> points_re;
   for (const float3 &pos_wo : points_wo) {
-    float2 pos_screen_space;
-    ED_view3d_project_v2(region, pos_wo, pos_screen_space);
-    points_screen_space.append(pos_screen_space);
+    float2 pos_re;
+    ED_view3d_project_v2(region, pos_wo, pos_re);
+    points_re.append(pos_re);
   }
 
-  float2 origin_screen_space;
-  ED_view3d_project_v2(region, op_data.pos_cu, origin_screen_space);
+  float2 origin_re;
+  ED_view3d_project_v2(region, op_data.pos_cu, origin_re);
 
   int needed_points = 0;
-  for (const float2 &pos_screen_space : points_screen_space) {
-    float distance = math::length(pos_screen_space - origin_screen_space);
+  for (const float2 &pos_re : points_re) {
+    float distance = math::length(pos_re - origin_re);
     int needed_points_iter = (brush_radius * 2.0f) / distance;
 
     if (needed_points_iter > needed_points) {
@@ -1014,7 +1028,7 @@ static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), vo
 
   float4 circle_col = float4(op_data.brush->add_col);
   float circle_alpha = op_data.brush->cursor_overlay_alpha;
-  float brush_radius = BKE_brush_size_get(scene, op_data.brush);
+  float brush_radius_re = BKE_brush_size_get(scene, op_data.brush);
 
   /* Draw the grid. */
   GPU_matrix_push();
@@ -1040,20 +1054,20 @@ static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), vo
   GPU_point_size(3);
   immBegin(GPU_PRIM_POINTS, points_wo.size());
 
-  float3 brush_origin = op_data.curves_to_world_mat * op_data.pos_cu;
-  float2 brush_origin_2d;
-  ED_view3d_project_v2(region, brush_origin, brush_origin_2d);
+  float3 brush_origin_wo = op_data.curves_to_world_mat * op_data.pos_cu;
+  float2 brush_origin_re;
+  ED_view3d_project_v2(region, brush_origin_wo, brush_origin_re);
 
   /* Smooth alpha transition until the brush edge. */
-  const int alpha_border = 20;
-  const float dist_to_inner_border = brush_radius - alpha_border;
+  const int alpha_border_re = 20;
+  const float dist_to_inner_border_re = brush_radius_re - alpha_border_re;
 
   for (const float3 &pos_wo : points_wo) {
-    float2 pos_screen_space;
-    ED_view3d_project_v2(region, pos_wo, pos_screen_space);
+    float2 pos_re;
+    ED_view3d_project_v2(region, pos_wo, pos_re);
 
-    const float dist_to_point = math::length(pos_screen_space - brush_origin_2d);
-    float alpha = 1.0f - ((dist_to_point - dist_to_inner_border) / alpha_border);
+    const float dist_to_point_re = math::distance(pos_re, brush_origin_re);
+    float alpha = 1.0f - ((dist_to_point_re - dist_to_inner_border_re) / alpha_border_re);
 
     immAttr4f(col3d, 0.9f, 0.9f, 0.9f, alpha);
     immVertex3fv(pos3d, pos_wo);
@@ -1080,7 +1094,7 @@ static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), vo
   immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
 
   immUniformColor3fvAlpha(circle_col, circle_alpha);
-  imm_draw_circle_wire_2d(pos2d, 0.0f, 0.0f, brush_radius, 80);
+  imm_draw_circle_wire_2d(pos2d, 0.0f, 0.0f, brush_radius_re, 80);
 
   immUnbindProgram();
   GPU_blend(GPU_BLEND_NONE);
@@ -1174,13 +1188,12 @@ static int min_distance_edit_modal(bContext *C, wmOperator *op, const wmEvent *e
   auto finish = [&]() {
     wmWindowManager *wm = CTX_wm_manager(C);
 
+    /* Remove own cursor. */
+    WM_paint_cursor_end(static_cast<wmPaintCursor *>(op_data.cursor));
     /* Restore original paint cursors. */
     wm->paintcursors = op_data.orig_paintcursors;
-    WM_paint_cursor_end(static_cast<wmPaintCursor *>(op_data.cursor));
-    MEM_SAFE_FREE(op_data.cursor);
 
     ED_region_tag_redraw(region);
-    ED_region_draw_cb_exit(region->type, op_data.draw_handle);
     MEM_freeN(&op_data);
   };
 
