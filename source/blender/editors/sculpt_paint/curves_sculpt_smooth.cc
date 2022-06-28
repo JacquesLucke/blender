@@ -52,8 +52,6 @@ struct SmoothOperationExecutor {
   float brush_strength_;
   float2 brush_pos_re_;
 
-  eBrushFalloffShape falloff_shape_;
-
   CurvesSculptTransforms transforms_;
 
   SmoothOperationExecutor(const bContext &C) : ctx_(C)
@@ -82,13 +80,12 @@ struct SmoothOperationExecutor {
 
     point_factors_ = get_point_selection(*curves_id_);
     curve_selection_ = retrieve_selected_curves(*curves_id_, selected_curve_indices_);
-
     transforms_ = CurvesSculptTransforms(*object_, curves_id_->surface);
 
-    falloff_shape_ = static_cast<eBrushFalloffShape>(brush_->falloff_shape);
-
+    const eBrushFalloffShape falloff_shape = static_cast<eBrushFalloffShape>(
+        brush_->falloff_shape);
     if (stroke_extension.is_first) {
-      if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
+      if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
         self.brush_3d_ = *sample_curves_3d_brush(*ctx_.depsgraph,
                                                  *ctx_.region,
                                                  *ctx_.v3d,
@@ -99,10 +96,10 @@ struct SmoothOperationExecutor {
       }
     }
 
-    if (falloff_shape_ == PAINT_FALLOFF_SHAPE_TUBE) {
+    if (falloff_shape == PAINT_FALLOFF_SHAPE_TUBE) {
       this->smooth_projected_with_symmetry();
     }
-    else if (falloff_shape_ == PAINT_FALLOFF_SHAPE_SPHERE) {
+    else if (falloff_shape == PAINT_FALLOFF_SHAPE_SPHERE) {
       this->smooth_spherical_with_symmetry();
     }
     else {
@@ -139,6 +136,8 @@ struct SmoothOperationExecutor {
       Vector<float2> old_curve_positions_re;
       for (const int curve_i : curve_selection_.slice(range)) {
         const IndexRange points = curves_->points_for_curve(curve_i);
+
+        /* Find position of control points in screen space. */
         old_curve_positions_re.clear();
         old_curve_positions_re.reserve(points.size());
         for (const int point_i : points) {
@@ -158,11 +157,15 @@ struct SmoothOperationExecutor {
           const float dist_to_brush_re = std::sqrt(dist_to_brush_sq_re);
           const float radius_falloff = BKE_brush_curve_strength(
               brush_, dist_to_brush_re, brush_radius_re);
-          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
+          /* Used to make the brush easier to use. Otherwise a strength of 1 would be way too
+           * large. */
+          const float weight_factor = 0.1f;
+          const float weight = weight_factor * brush_strength_ * radius_falloff *
+                               point_factors_[point_i];
 
           const float2 &old_pos_prev_re = old_curve_positions_re[i - 1];
           const float2 &old_pos_next_re = old_curve_positions_re[i + 1];
-          const float2 goal_pos_re = math::interpolate(old_pos_prev_re, old_pos_next_re, 0.5f);
+          const float2 goal_pos_re = math::midpoint(old_pos_prev_re, old_pos_next_re);
           const float2 new_pos_re = math::interpolate(old_pos_re, goal_pos_re, weight);
           const float3 old_pos_cu = brush_transform_inv * positions_cu[point_i];
           float3 new_pos_wo;
@@ -221,11 +224,15 @@ struct SmoothOperationExecutor {
           const float dist_to_brush_cu = std::sqrt(dist_to_brush_sq_cu);
           const float radius_falloff = BKE_brush_curve_strength(
               brush_, dist_to_brush_cu, brush_radius_cu);
-          const float weight = 0.1f * brush_strength_ * radius_falloff * point_factors_[point_i];
+          /* Used to make the brush easier to use. Otherwise a strength of 1 would be way too
+           * large. */
+          const float weight_factor = 0.1f;
+          const float weight = weight_factor * brush_strength_ * radius_falloff *
+                               point_factors_[point_i];
 
           const float3 &old_pos_prev_cu = old_curve_positions_cu[i - 1];
           const float3 &old_pos_next_cu = old_curve_positions_cu[i + 1];
-          const float3 goal_pos_cu = math::interpolate(old_pos_prev_cu, old_pos_next_cu, 0.5f);
+          const float3 goal_pos_cu = math::midpoint(old_pos_prev_cu, old_pos_next_cu);
           const float3 new_pos_cu = math::interpolate(old_pos_cu, goal_pos_cu, weight);
           positions_cu[point_i] = new_pos_cu;
         }
