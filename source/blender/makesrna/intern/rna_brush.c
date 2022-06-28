@@ -1971,7 +1971,7 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
        "REMOVE",
        ICON_REMOVE,
        "Remove",
-       "Remove curves whoose root points are too close"},
+       "Remove curves whose root points are too close"},
       {0, NULL, 0, NULL, NULL},
   };
 
