@@ -1958,7 +1958,7 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
   static const EnumPropertyItem density_mode_items[] = {
       {BRUSH_CURVES_SCULPT_DENSITY_MODE_AUTO,
        "AUTO",
-       ICON_OUTLINER_OB_POINTCLOUD,
+       ICON_AUTO,
        "Auto",
        "Either add or remove curves depending on the minimum distance of the curves under the "
        "cursor"},

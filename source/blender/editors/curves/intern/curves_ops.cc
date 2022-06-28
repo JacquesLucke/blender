@@ -24,6 +24,7 @@
 #include "WM_api.h"
 
 #include "BKE_attribute_math.hh"
+#include "BKE_brush.h"
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
@@ -1447,7 +1448,7 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
     op_data->per_curve.append(std::move(curve_op_data));
   }
 
-  op_data->initial_mouse_x = event->mval[0];
+  op_data->initial_mouse_x = event->xy[0];
 
   WM_event_add_modal_handler(C, op);
   return OPERATOR_RUNNING_MODAL;
@@ -1456,7 +1457,7 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 static int select_grow_modal(bContext *C, wmOperator *op, const wmEvent *event)
 {
   GrowOperatorData &op_data = *static_cast<GrowOperatorData *>(op->customdata);
-  const int mouse_x = event->mval[0];
+  const int mouse_x = event->xy[0];
   const int mouse_diff_x = mouse_x - op_data.initial_mouse_x;
   switch (event->type) {
     case MOUSEMOVE: {
@@ -1558,14 +1559,63 @@ struct MinDistanceEditData {
   float4x4 curves_to_world_mat;
   float3 pos_cu;
   float3 normal_cu;
-  int initial_mouse_x;
+  int2 initial_mouse;
   float initial_minimum_distance;
   void *draw_handle;
+  ListBase orig_paintcursors;
+  void *cursor;
 };
 
-static void min_distance_edit_draw(const bContext *UNUSED(C), ARegion *UNUSED(ar), void *arg)
+static int calculate_points_per_side(bContext *C, MinDistanceEditData &op_data)
 {
-  MinDistanceEditData &op_data = *static_cast<MinDistanceEditData *>(arg);
+  Scene *scene = CTX_data_scene(C);
+  ARegion *region = CTX_wm_region(C);
+
+  const float min_distance = op_data.brush->curves_sculpt_settings->minimum_distance;
+  float brush_radius = BKE_brush_size_get(scene, op_data.brush);
+
+  float3 tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 0, 1});
+  if (math::is_zero(tangent_x_cu)) {
+    tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 1, 0});
+  }
+  tangent_x_cu = math::normalize(tangent_x_cu);
+  const float3 tangent_y_cu = math::normalize(math::cross(op_data.normal_cu, tangent_x_cu));
+
+  /* Sample a few points to get a good estimate of how large the grid has to be. */
+  Vector<float3> points_wo;
+  points_wo.append(op_data.pos_cu + min_distance * tangent_x_cu);
+  points_wo.append(op_data.pos_cu + min_distance * tangent_y_cu);
+  points_wo.append(op_data.pos_cu - min_distance * tangent_x_cu);
+  points_wo.append(op_data.pos_cu - min_distance * tangent_y_cu);
+
+  Vector<float2> points_screen_space;
+  for (const float3 &pos_wo : points_wo) {
+    float2 pos_screen_space;
+    ED_view3d_project_v2(region, pos_wo, pos_screen_space);
+    points_screen_space.append(pos_screen_space);
+  }
+
+  float2 origin_screen_space;
+  ED_view3d_project_v2(region, op_data.pos_cu, origin_screen_space);
+
+  int needed_points = 0;
+  for (const float2 &pos_screen_space : points_screen_space) {
+    float distance = math::length(pos_screen_space - origin_screen_space);
+    int needed_points_iter = (brush_radius * 2.0f) / distance;
+
+    if (needed_points_iter > needed_points) {
+      needed_points = needed_points_iter;
+    }
+  }
+
+  /* Limit to a harcoded number since it only adds noise at some point. */
+  return min_ff(300, needed_points);
+}
+
+static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), void *customdata)
+{
+  Scene *scene = CTX_data_scene(C);
+  MinDistanceEditData &op_data = *static_cast<MinDistanceEditData *>(customdata);
 
   const float min_distance = op_data.brush->curves_sculpt_settings->minimum_distance;
 
@@ -1576,36 +1626,94 @@ static void min_distance_edit_draw(const bContext *UNUSED(C), ARegion *UNUSED(ar
   tangent_x_cu = math::normalize(tangent_x_cu);
   const float3 tangent_y_cu = math::normalize(math::cross(op_data.normal_cu, tangent_x_cu));
 
-  const int points_per_side = 4;
+  const int points_per_side = calculate_points_per_side(C, op_data);
   const int points_per_axis_num = 2 * points_per_side + 1;
 
   Vector<float3> points_wo;
   for (const int x_i : IndexRange(points_per_axis_num)) {
     for (const int y_i : IndexRange(points_per_axis_num)) {
-      const float x = min_distance * (x_i - (points_per_axis_num - 1) / 2.0f);
-      const float y = min_distance * (y_i - (points_per_axis_num - 1) / 2.0f);
+      const float x_iter = min_distance * (x_i - (points_per_axis_num - 1) / 2.0f);
+      const float y_iter = min_distance * (y_i - (points_per_axis_num - 1) / 2.0f);
 
-      const float3 point_pos_cu = op_data.pos_cu + op_data.normal_cu * 0.0001f + x * tangent_x_cu +
-                                  y * tangent_y_cu;
+      const float3 point_pos_cu = op_data.pos_cu + op_data.normal_cu * 0.0001f +
+                                  x_iter * tangent_x_cu + y_iter * tangent_y_cu;
       const float3 point_pos_wo = op_data.curves_to_world_mat * point_pos_cu;
       points_wo.append(point_pos_wo);
     }
   }
 
-  const uint pos3d = GPU_vertformat_attr_add(
-      immVertexFormat(), "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+  float4 circle_col = float4(op_data.brush->add_col);
+  float circle_alpha = op_data.brush->cursor_overlay_alpha;
+  float brush_radius = BKE_brush_size_get(scene, op_data.brush);
 
-  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+  /* Draw the grid. */
+  GPU_matrix_push();
+  GPU_matrix_push_projection();
+  GPU_blend(GPU_BLEND_ALPHA);
+
+  RegionView3D *rv3d = CTX_wm_region_view3d(C);
+  ARegion *region = CTX_wm_region(C);
+  wmWindow *win = CTX_wm_window(C);
+
+  /* It does the same as: `view3d_operator_needs_opengl(C);`. */
+  wmViewport(&region->winrct);
+  GPU_matrix_projection_set(rv3d->winmat);
+  GPU_matrix_set(rv3d->viewmat);
+
+  GPUVertFormat *format3d = immVertexFormat();
+
+  const uint pos3d = GPU_vertformat_attr_add(format3d, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+  const uint col3d = GPU_vertformat_attr_add(format3d, "color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
+
+  immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
+
   GPU_point_size(3);
-  immUniformColor4f(0.9f, 0.9f, 0.9f, 1.0f);
   immBegin(GPU_PRIM_POINTS, points_wo.size());
+
+  float3 brush_origin = op_data.curves_to_world_mat * op_data.pos_cu;
+  float2 brush_origin_2d;
+  ED_view3d_project_v2(region, brush_origin, brush_origin_2d);
+
+  /* Smooth alpha transition until the brush edge. */
+  const int alpha_border = 20;
+  const float dist_to_inner_border = brush_radius - alpha_border;
+
   for (const float3 &pos_wo : points_wo) {
+    float2 pos_screen_space;
+    ED_view3d_project_v2(region, pos_wo, pos_screen_space);
+
+    const float dist_to_point = math::length(pos_screen_space - brush_origin_2d);
+    float alpha = 1.0f - ((dist_to_point - dist_to_inner_border) / alpha_border);
+
+    immAttr4f(col3d, 0.9f, 0.9f, 0.9f, alpha);
     immVertex3fv(pos3d, pos_wo);
   }
   immEnd();
   immUnbindProgram();
 
+  /* Reset the drawing settings. */
   GPU_point_size(1);
+  GPU_matrix_pop_projection();
+  GPU_matrix_pop();
+
+  int scissor[4] = {0};
+  GPU_scissor_get(scissor);
+  wmWindowViewport(win);
+  GPU_scissor(scissor[0], scissor[1], scissor[2], scissor[3]);
+
+  /* Draw the brush circle. */
+  GPU_matrix_translate_2f((float)op_data.initial_mouse.x, (float)op_data.initial_mouse.y);
+
+  GPUVertFormat *format = immVertexFormat();
+  uint pos2d = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+
+  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+
+  immUniformColor3fvAlpha(circle_col, circle_alpha);
+  imm_draw_circle_wire_2d(pos2d, 0.0f, 0.0f, brush_radius, 80);
+
+  immUnbindProgram();
+  GPU_blend(GPU_BLEND_NONE);
 }
 
 static int min_distance_edit_invoke(bContext *C, wmOperator *op, const wmEvent *event)
@@ -1652,23 +1760,19 @@ static int min_distance_edit_invoke(bContext *C, wmOperator *op, const wmEvent *
     return OPERATOR_CANCELLED;
   }
 
-  const float3 hit_pos_su = ray_hit.co;
   const float3 hit_normal_su = ray_hit.no;
   const float4x4 curves_to_world_mat = curves_ob.obmat;
   const float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
   const float4x4 surface_to_curves_mat = world_to_curves_mat * surface_to_world_mat;
   const float4x4 surface_to_curves_normal_mat = surface_to_curves_mat.inverted().transposed();
 
-  const float3 hit_pos_cu = surface_to_curves_mat * hit_pos_su;
   const float3 hit_normal_cu = math::normalize(surface_to_curves_normal_mat * hit_normal_su);
 
   MinDistanceEditData *op_data = MEM_new<MinDistanceEditData>(__func__);
   op_data->curves_to_world_mat = curves_to_world_mat;
   op_data->normal_cu = hit_normal_cu;
-  op_data->pos_cu = hit_pos_cu;
-  op_data->initial_mouse_x = mouse_pos_int_re.x;
-  op_data->draw_handle = ED_region_draw_cb_activate(
-      region->type, min_distance_edit_draw, op_data, REGION_DRAW_POST_VIEW);
+  op_data->pos_cu = ray_hit.co;
+  op_data->initial_mouse = event->xy;
   op_data->brush = BKE_paint_brush(&scene->toolsettings->curves_sculpt->paint);
   op_data->initial_minimum_distance = op_data->brush->curves_sculpt_settings->minimum_distance;
 
@@ -1677,6 +1781,16 @@ static int min_distance_edit_invoke(bContext *C, wmOperator *op, const wmEvent *
   }
 
   op->customdata = op_data;
+
+  /* Temporarily disable other paint cursors. */
+  wmWindowManager *wm = CTX_wm_manager(C);
+  op_data->orig_paintcursors = wm->paintcursors;
+  BLI_listbase_clear(&wm->paintcursors);
+
+  /* Add minimum distance paint cursor. */
+  op_data->cursor = WM_paint_cursor_activate(
+      SPACE_TYPE_ANY, RGN_TYPE_ANY, op->type->poll, min_distance_edit_draw, op_data);
+
   WM_event_add_modal_handler(C, op);
   ED_region_tag_redraw(region);
   return OPERATOR_RUNNING_MODAL;
@@ -1688,6 +1802,13 @@ static int min_distance_edit_modal(bContext *C, wmOperator *op, const wmEvent *e
   MinDistanceEditData &op_data = *static_cast<MinDistanceEditData *>(op->customdata);
 
   auto finish = [&]() {
+    wmWindowManager *wm = CTX_wm_manager(C);
+
+    /* Restore original paint cursors. */
+    wm->paintcursors = op_data.orig_paintcursors;
+    WM_paint_cursor_end(static_cast<wmPaintCursor *>(op_data.cursor));
+    MEM_SAFE_FREE(op_data.cursor);
+
     ED_region_tag_redraw(region);
     ED_region_draw_cb_exit(region->type, op_data.draw_handle);
     MEM_freeN(&op_data);
@@ -1695,10 +1816,10 @@ static int min_distance_edit_modal(bContext *C, wmOperator *op, const wmEvent *e
 
   switch (event->type) {
     case MOUSEMOVE: {
-      const int2 mouse_pos_int_re{event->mval};
+      const int2 mouse_pos_int_re{event->xy};
       const float2 mouse_pos_re{mouse_pos_int_re};
 
-      const float mouse_diff_x = mouse_pos_int_re.x - op_data.initial_mouse_x;
+      const float mouse_diff_x = mouse_pos_int_re.x - op_data.initial_mouse.x;
       const float factor = powf(2, mouse_diff_x / UI_UNIT_X / 10.0f);
       op_data.brush->curves_sculpt_settings->minimum_distance = op_data.initial_minimum_distance *
                                                                 factor;
