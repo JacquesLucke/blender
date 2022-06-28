@@ -276,7 +276,8 @@ struct SlideOperationExecutor {
           const float3 attached_pos_cu = transforms_.surface_to_curves * attached_pos_su;
           const float3 pos_offset_cu = brush_transform * (attached_pos_cu - old_first_pos_cu);
 
-          /* Update positions. */
+          /* Update positions. The first point doesn't have an additional weight here, because then
+           * it wouldn't be attached to the surface anymore. */
           positions_cu[first_point_i] += pos_offset_cu;
           for (const int point_i : points.drop_front(1)) {
             const float weight = point_factors_[point_i];
