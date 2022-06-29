@@ -958,12 +958,16 @@ struct MinDistanceEditData {
   /** The operator uses a new cursor, but the existing cursors should be restored afterwards. */
   ListBase orig_paintcursors;
   void *cursor;
+
+  /** Store the viewport region in case the operator was called from the header. */
+  ARegion *region;
+  RegionView3D *rv3d;
 };
 
 static int calculate_points_per_side(bContext *C, MinDistanceEditData &op_data)
 {
   Scene *scene = CTX_data_scene(C);
-  ARegion *region = CTX_wm_region(C);
+  ARegion *region = op_data.region;
 
   const float min_distance = op_data.brush->curves_sculpt_settings->minimum_distance;
   float brush_radius = BKE_brush_size_get(scene, op_data.brush);
@@ -1045,8 +1049,8 @@ static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), vo
   GPU_matrix_push_projection();
   GPU_blend(GPU_BLEND_ALPHA);
 
-  RegionView3D *rv3d = CTX_wm_region_view3d(C);
-  ARegion *region = CTX_wm_region(C);
+  ARegion *region = op_data.region;
+  RegionView3D *rv3d = op_data.rv3d;
   wmWindow *win = CTX_wm_window(C);
 
   /* It does the same as: `view3d_operator_needs_opengl(C);`. */
@@ -1154,18 +1158,20 @@ static int min_distance_edit_invoke(bContext *C, wmOperator *op, const wmEvent *
     return OPERATOR_CANCELLED;
   }
 
+  const float3 hit_pos_su = ray_hit.co;
   const float3 hit_normal_su = ray_hit.no;
   const float4x4 curves_to_world_mat = curves_ob.obmat;
   const float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
   const float4x4 surface_to_curves_mat = world_to_curves_mat * surface_to_world_mat;
   const float4x4 surface_to_curves_normal_mat = surface_to_curves_mat.inverted().transposed();
 
+  const float3 hit_pos_cu = surface_to_curves_mat * hit_pos_su;
   const float3 hit_normal_cu = math::normalize(surface_to_curves_normal_mat * hit_normal_su);
 
   MinDistanceEditData *op_data = MEM_new<MinDistanceEditData>(__func__);
   op_data->curves_to_world_mat = curves_to_world_mat;
   op_data->normal_cu = hit_normal_cu;
-  op_data->pos_cu = ray_hit.co;
+  op_data->pos_cu = hit_pos_cu;
   op_data->initial_mouse = event->xy;
   op_data->brush = BKE_paint_brush(&scene->toolsettings->curves_sculpt->paint);
   op_data->initial_minimum_distance = op_data->brush->curves_sculpt_settings->minimum_distance;
@@ -1184,6 +1190,9 @@ static int min_distance_edit_invoke(bContext *C, wmOperator *op, const wmEvent *
   /* Add minimum distance paint cursor. */
   op_data->cursor = WM_paint_cursor_activate(
       SPACE_TYPE_ANY, RGN_TYPE_ANY, op->type->poll, min_distance_edit_draw, op_data);
+
+  op_data->region = CTX_wm_region(C);
+  op_data->rv3d = CTX_wm_region_view3d(C);
 
   WM_event_add_modal_handler(C, op);
   ED_region_tag_redraw(region);
