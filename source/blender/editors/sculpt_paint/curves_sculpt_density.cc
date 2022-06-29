@@ -358,7 +358,7 @@ struct DensityAddOperationExecutor {
         eCurvesSymmetryType(curves_id_->symmetry));
     for (const float4x4 &brush_transform : symmetry_brush_transforms) {
       const float3 brush_pos_cu = brush_transform * brush_3d->position_cu;
-      const float3 brush_pos_su = transforms_.curves_to_surface * brush_3d->position_cu;
+      const float3 brush_pos_su = transforms_.curves_to_surface * brush_pos_cu;
       const float brush_radius_su = transform_brush_radius(
           transforms_.curves_to_surface, brush_pos_cu, brush_3d->radius_cu);
       const float brush_radius_sq_su = pow2f(brush_radius_su);
@@ -391,7 +391,7 @@ struct DensityAddOperationExecutor {
       const int old_points = r_bary_coords.size() - new_points;
       for (int i = r_bary_coords.size() - 1; i >= old_points; i--) {
         const float3 pos_su = r_positions_su[i];
-        const float3 pos_cu = brush_transform * transforms_.surface_to_curves * pos_su;
+        const float3 pos_cu = transforms_.surface_to_curves * pos_su;
         const float dist_to_brush_cu = math::distance(pos_cu, brush_pos_cu);
         const float radius_falloff = BKE_brush_curve_strength(
             brush_, dist_to_brush_cu, brush_3d->radius_cu);
