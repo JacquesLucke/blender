@@ -1228,7 +1228,7 @@ GVArray AttributeFieldInput::get_varray_for_context(const GeometryComponent &com
                                                     IndexMask UNUSED(mask)) const
 {
   const eCustomDataType data_type = cpp_type_to_custom_data_type(*type_);
-  if (auto attributes = component.attributes_accessor()) {
+  if (auto attributes = component.attributes()) {
     return attributes->lookup(name_, domain, data_type);
   }
   return {};
@@ -1271,7 +1271,7 @@ GVArray IDAttributeFieldInput::get_varray_for_context(const GeometryComponent &c
 {
 
   const StringRef name = get_random_id_attribute_name(domain);
-  if (auto attributes = component.attributes_accessor()) {
+  if (auto attributes = component.attributes()) {
     if (GVArray attribute = attributes->lookup(name, domain, CD_PROP_INT32)) {
       return attribute;
     }

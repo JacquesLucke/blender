@@ -26,7 +26,7 @@ static void set_radius_in_component(GeometryComponent &component,
     return;
   }
 
-  MutableAttributeAccessor attributes = *component.attributes_accessor_for_write();
+  MutableAttributeAccessor attributes = *component.attributes_for_write();
   AttributeWriter<float> radii = attributes.lookup_or_add_for_write<float>("radius",
                                                                            ATTR_DOMAIN_POINT);
 

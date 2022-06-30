@@ -65,10 +65,10 @@ std::unique_ptr<ColumnValues> ExtraColumns::get_column_values(
 void GeometryDataSource::foreach_default_column_ids(
     FunctionRef<void(const SpreadsheetColumnID &, bool is_extra)> fn) const
 {
-  if (!component_->attributes_accessor().has_value()) {
+  if (!component_->attributes().has_value()) {
     return;
   }
-  const bke::AttributeAccessor attributes = *component_->attributes_accessor();
+  const bke::AttributeAccessor attributes = *component_->attributes();
 
   if (attributes.domain_size(domain_) == 0) {
     return;
@@ -120,10 +120,10 @@ void GeometryDataSource::foreach_default_column_ids(
 std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
     const SpreadsheetColumnID &column_id) const
 {
-  if (!component_->attributes_accessor().has_value()) {
+  if (!component_->attributes().has_value()) {
     return {};
   }
-  const bke::AttributeAccessor attributes = *component_->attributes_accessor();
+  const bke::AttributeAccessor attributes = *component_->attributes();
   const int domain_num = attributes.domain_size(domain_);
   if (domain_num == 0) {
     return {};
@@ -224,10 +224,10 @@ std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
 
 int GeometryDataSource::tot_rows() const
 {
-  if (!component_->attributes_accessor().has_value()) {
+  if (!component_->attributes().has_value()) {
     return {};
   }
-  const bke::AttributeAccessor attributes = *component_->attributes_accessor();
+  const bke::AttributeAccessor attributes = *component_->attributes();
   return attributes.domain_size(domain_);
 }
 

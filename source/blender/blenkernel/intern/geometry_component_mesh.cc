@@ -1332,7 +1332,7 @@ static const blender::bke::AttributeAccessorFunctions &get_mesh_accessor_functio
   return fn;
 }
 
-std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes_accessor() const
+std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes() const
 {
   if (mesh_ == nullptr) {
     return std::nullopt;
@@ -1340,8 +1340,7 @@ std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes_accesso
   return blender::bke::AttributeAccessor(mesh_, get_mesh_accessor_functions_ref());
 }
 
-std::optional<blender::bke::MutableAttributeAccessor> MeshComponent::
-    attributes_accessor_for_write()
+std::optional<blender::bke::MutableAttributeAccessor> MeshComponent::attributes_for_write()
 {
   if (mesh_ == nullptr) {
     return std::nullopt;

@@ -64,11 +64,11 @@ class GeometryComponent {
   virtual ~GeometryComponent() = default;
   static GeometryComponent *create(GeometryComponentType component_type);
 
-  virtual std::optional<blender::bke::AttributeAccessor> attributes_accessor() const
+  virtual std::optional<blender::bke::AttributeAccessor> attributes() const
   {
     return std::nullopt;
   };
-  virtual std::optional<blender::bke::MutableAttributeAccessor> attributes_accessor_for_write()
+  virtual std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write()
   {
     return std::nullopt;
   }
@@ -584,8 +584,8 @@ class MeshComponent : public GeometryComponent {
 
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_MESH;
 
-  std::optional<blender::bke::AttributeAccessor> attributes_accessor() const final;
-  std::optional<blender::bke::MutableAttributeAccessor> attributes_accessor_for_write() final;
+  std::optional<blender::bke::AttributeAccessor> attributes() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write() final;
 
  private:
   const blender::bke::ComponentAttributeProviders *get_attribute_providers() const final;
@@ -648,8 +648,8 @@ class PointCloudComponent : public GeometryComponent {
   bool owns_direct_data() const override;
   void ensure_owns_direct_data() override;
 
-  std::optional<blender::bke::AttributeAccessor> attributes_accessor() const final;
-  std::optional<blender::bke::MutableAttributeAccessor> attributes_accessor_for_write() final;
+  std::optional<blender::bke::AttributeAccessor> attributes() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write() final;
 
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_POINT_CLOUD;
 

@@ -290,8 +290,8 @@ BLI_NOINLINE static void propagate_existing_attributes(
     const Span<int> looptri_indices)
 {
   const Mesh &mesh = *mesh_component.get_for_read();
-  const AttributeAccessor mesh_attributes = *mesh_component.attributes_accessor();
-  MutableAttributeAccessor point_attributes = *point_component.attributes_accessor_for_write();
+  const AttributeAccessor mesh_attributes = *mesh_component.attributes();
+  MutableAttributeAccessor point_attributes = *point_component.attributes_for_write();
 
   for (Map<AttributeIDRef, AttributeKind>::Item entry : attributes.items()) {
     const AttributeIDRef attribute_id = entry.key;

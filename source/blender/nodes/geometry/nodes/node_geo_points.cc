@@ -73,7 +73,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   PointCloud *new_point_cloud = BKE_pointcloud_new_nomain(count);
   GeometrySet geometry_set = GeometrySet::create_with_pointcloud(new_point_cloud);
   PointCloudComponent &points = geometry_set.get_component_for_write<PointCloudComponent>();
-  MutableAttributeAccessor attributes = *points.attributes_accessor_for_write();
+  MutableAttributeAccessor attributes = *points.attributes_for_write();
   AttributeWriter<float3> output_position = attributes.lookup_or_add_for_write<float3>(
       "position", ATTR_DOMAIN_POINT);
   AttributeWriter<float> output_radii = attributes.lookup_or_add_for_write<float>(

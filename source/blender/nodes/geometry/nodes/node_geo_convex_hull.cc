@@ -183,8 +183,8 @@ static Mesh *compute_hull(const GeometrySet &geometry_set)
 
   if (geometry_set.has_mesh()) {
     const MeshComponent *component = geometry_set.get_component_for_read<MeshComponent>();
-    const VArray<float3> varray = component->attributes_accessor()->lookup<float3>(
-        "position", ATTR_DOMAIN_POINT);
+    const VArray<float3> varray = component->attributes()->lookup<float3>("position",
+                                                                          ATTR_DOMAIN_POINT);
     varray.materialize(positions.as_mutable_span().slice(offset, varray.size()));
     offset += varray.size();
   }
@@ -192,8 +192,8 @@ static Mesh *compute_hull(const GeometrySet &geometry_set)
   if (geometry_set.has_pointcloud()) {
     const PointCloudComponent *component =
         geometry_set.get_component_for_read<PointCloudComponent>();
-    const VArray<float3> varray = component->attributes_accessor()->lookup<float3>(
-        "position", ATTR_DOMAIN_POINT);
+    const VArray<float3> varray = component->attributes()->lookup<float3>("position",
+                                                                          ATTR_DOMAIN_POINT);
     varray.materialize(positions.as_mutable_span().slice(offset, varray.size()));
     offset += varray.size();
   }

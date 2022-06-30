@@ -225,7 +225,7 @@ static const blender::bke::AttributeAccessorFunctions &get_pointcloud_accessor_f
   return fn;
 }
 
-std::optional<blender::bke::AttributeAccessor> PointCloudComponent::attributes_accessor() const
+std::optional<blender::bke::AttributeAccessor> PointCloudComponent::attributes() const
 {
   if (pointcloud_ == nullptr) {
     return std::nullopt;
@@ -233,8 +233,7 @@ std::optional<blender::bke::AttributeAccessor> PointCloudComponent::attributes_a
   return blender::bke::AttributeAccessor(pointcloud_, get_pointcloud_accessor_functions_ref());
 }
 
-std::optional<blender::bke::MutableAttributeAccessor> PointCloudComponent::
-    attributes_accessor_for_write()
+std::optional<blender::bke::MutableAttributeAccessor> PointCloudComponent::attributes_for_write()
 {
   if (pointcloud_ == nullptr) {
     return std::nullopt;
