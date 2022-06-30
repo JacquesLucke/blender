@@ -1286,7 +1286,7 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
 namespace blender::bke::attribute_accessor_functions {
 
 template<const ComponentAttributeProviders &providers>
-bool is_builtin(const void *owner, const AttributeIDRef &attribute_id)
+bool is_builtin(const void *UNUSED(owner), const AttributeIDRef &attribute_id)
 {
   if (!attribute_id.is_named()) {
     return false;
@@ -1401,9 +1401,9 @@ template<const ComponentAttributeProviders &providers>
 bool remove(void *owner, const AttributeIDRef &attribute_id)
 {
   if (attribute_id.is_named()) {
+    const StringRef name = attribute_id.name();
     if (const BuiltinAttributeProvider *provider =
-            providers.builtin_attribute_providers().lookup_default_as(attribute_id.name(),
-                                                                      nullptr)) {
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
       return provider->try_delete(owner);
     }
   }
@@ -1421,6 +1421,27 @@ bool add(void *owner,
          eCustomDataType data_type,
          const AttributeInit &initializer)
 {
+  if (contains<providers>(owner, attribute_id)) {
+    return false;
+  }
+  if (attribute_id.is_named()) {
+    const StringRef name = attribute_id.name();
+    if (const BuiltinAttributeProvider *provider =
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+      if (provider->domain() != domain) {
+        return false;
+      }
+      if (provider->data_type() != data_type) {
+        return false;
+      }
+      return provider->try_create(owner, initializer);
+    }
+  }
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    if (provider->try_create(owner, attribute_id, domain, data_type, initializer)) {
+      return true;
+    }
+  }
   return false;
 }
 
