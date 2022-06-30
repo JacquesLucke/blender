@@ -1300,18 +1300,6 @@ std::optional<AttributeMetaData> lookup_meta_data(const void *owner,
 }
 
 template<const ComponentAttributeProviders &providers>
-bool domain_supported(const void *owner, eAttrDomain domain)
-{
-  return false;
-}
-
-template<const ComponentAttributeProviders &providers>
-int domain_size(const void *owner, eAttrDomain domain)
-{
-  return 0;
-}
-
-template<const ComponentAttributeProviders &providers>
 bool is_builtin(const void *owner, const AttributeIDRef &attribute_id)
 {
   if (!attribute_id.is_named()) {
@@ -1380,20 +1368,19 @@ bool add(void *owner,
 }
 
 template<const ComponentAttributeProviders &providers>
-static const AttributeAccessorFunctions &accessor_functions_for_providers()
+static AttributeAccessorFunctions accessor_functions_for_providers()
 {
-  static AttributeAccessorFunctions functions{contains<providers>,
-                                              lookup_meta_data<providers>,
-                                              domain_supported<providers>,
-                                              domain_size<providers>,
-                                              is_builtin<providers>,
-                                              lookup<providers>,
-                                              nullptr,
-                                              foreach<providers>,
-                                              lookup_for_write<providers>,
-                                              remove<providers>,
-                                              add<providers>};
-  return functions;
+  return AttributeAccessorFunctions{contains<providers>,
+                                    lookup_meta_data<providers>,
+                                    nullptr,
+                                    nullptr,
+                                    is_builtin<providers>,
+                                    lookup<providers>,
+                                    nullptr,
+                                    foreach<providers>,
+                                    lookup_for_write<providers>,
+                                    remove<providers>,
+                                    add<providers>};
 }
 
 }  // namespace blender::bke::attribute_accessor_functions
@@ -1405,12 +1392,45 @@ const blender::bke::ComponentAttributeProviders *MeshComponent::get_attribute_pr
   return &providers;
 }
 
-static blender::bke::AttributeAccessor get_mesh_attributes(const Mesh &mesh)
+static blender::bke::AttributeAccessorFunctions get_mesh_accessor_functions()
 {
   static const blender::bke::ComponentAttributeProviders providers =
       blender::bke::create_attribute_providers_for_mesh();
-  static const blender::bke::AttributeAccessorFunctions &fn =
+  blender::bke::AttributeAccessorFunctions fn =
       blender::bke::attribute_accessor_functions::accessor_functions_for_providers<providers>();
+  fn.domain_size = [](const void *owner, const eAttrDomain domain) {
+    const Mesh &mesh = *static_cast<const Mesh *>(owner);
+    switch (domain) {
+      case ATTR_DOMAIN_POINT:
+        return mesh.totvert;
+      case ATTR_DOMAIN_EDGE:
+        return mesh.totedge;
+      case ATTR_DOMAIN_FACE:
+        return mesh.totpoly;
+      case ATTR_DOMAIN_CORNER:
+        return mesh.totloop;
+      default:
+        return 0;
+    }
+  };
+  fn.domain_supported = [](const void *UNUSED(owner), const eAttrDomain domain) {
+    return ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_EDGE, ATTR_DOMAIN_FACE, ATTR_DOMAIN_CORNER);
+  };
+  fn.adapt_domain = [](const void *owner,
+                       const blender::GVArray &varray,
+                       eAttrDomain from_domain,
+                       eAttrDomain to_domain) {
+    const Mesh &mesh = *static_cast<const Mesh *>(owner);
+    MeshComponent mesh_component;
+    mesh_component.replace(&const_cast<Mesh &>(mesh), GeometryOwnershipType::ReadOnly);
+    return mesh_component.attribute_try_adapt_domain(varray, from_domain, to_domain);
+  };
+  return fn;
+}
+
+static blender::bke::AttributeAccessor get_mesh_attributes(const Mesh &mesh)
+{
+  static const blender::bke::AttributeAccessorFunctions &fn = get_mesh_accessor_functions();
   return blender::bke::AttributeAccessor(&mesh, fn);
 }
 
