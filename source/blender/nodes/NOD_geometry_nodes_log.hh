@@ -64,7 +64,7 @@ struct GeometryAttributeInfo {
   std::optional<eCustomDataType> data_type;
 };
 
-class GeoNodesTreeEvalLog {
+class GeoTreeLogger {
  public:
   std::optional<ContextStackHash> parent_hash;
   std::optional<std::string> group_node_name;
@@ -77,41 +77,40 @@ class GeoNodesTreeEvalLog {
   Vector<std::tuple<std::string, std::string, ValueLog *>> output_socket_values;
 };
 
-class ReducedGeoNodeEvalLog {
+class GeoNodeLog {
  public:
   Vector<NodeWarning> warnings;
 };
 
-class GeoNodesModifierEvalLog;
+class GeoModifierLog;
 
-class ReducedGeoNodesTreeEvalLog {
+class GeoTreeLog {
  private:
-  GeoNodesModifierEvalLog *full_log_;
-  Vector<GeoNodesTreeEvalLog *> tree_logs_;
+  GeoModifierLog *modifier_log_;
+  Vector<GeoTreeLogger *> tree_loggers_;
   bool reduced_node_warnings_ = false;
 
  public:
-  Map<std::string, ReducedGeoNodeEvalLog> nodes;
+  Map<std::string, GeoNodeLog> nodes;
   Vector<NodeWarning> all_warnings;
 
-  ReducedGeoNodesTreeEvalLog(GeoNodesModifierEvalLog *full_log,
-                             Vector<GeoNodesTreeEvalLog *> tree_logs)
-      : full_log_(full_log), tree_logs_(std::move(tree_logs))
+  GeoTreeLog(GeoModifierLog *modifier_log, Vector<GeoTreeLogger *> tree_loggers)
+      : modifier_log_(modifier_log), tree_loggers_(std::move(tree_loggers))
   {
   }
 
   void ensure_node_warnings();
 };
 
-class GeoNodesModifierEvalLog {
+class GeoModifierLog {
  private:
-  threading::EnumerableThreadSpecific<Map<ContextStackHash, std::unique_ptr<GeoNodesTreeEvalLog>>>
-      log_map_per_thread_;
-  Map<ContextStackHash, std::unique_ptr<ReducedGeoNodesTreeEvalLog>> reduced_log_map_;
+  threading::EnumerableThreadSpecific<Map<ContextStackHash, std::unique_ptr<GeoTreeLogger>>>
+      tree_loggers_per_thread_;
+  Map<ContextStackHash, std::unique_ptr<GeoTreeLog>> tree_logs_;
 
  public:
-  GeoNodesTreeEvalLog &get_local_log(const ContextStack &context_stack);
-  ReducedGeoNodesTreeEvalLog &get_reduced_tree_log(const ContextStackHash &context_stack);
+  GeoTreeLogger &get_local_tree_logger(const ContextStack &context_stack);
+  GeoTreeLog &get_tree_log(const ContextStackHash &context_stack);
 };
 
 }  // namespace blender::nodes::geo_eval_log

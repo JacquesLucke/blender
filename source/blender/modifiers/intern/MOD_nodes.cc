@@ -117,17 +117,17 @@ using blender::fn::ValueOrFieldCPPType;
 using blender::nodes::FieldInferencingInterface;
 using blender::nodes::GeoNodeExecParams;
 using blender::nodes::InputSocketFieldType;
-using blender::nodes::geo_eval_log::GeoNodesModifierEvalLog;
+using blender::nodes::geo_eval_log::GeoModifierLog;
 using blender::threading::EnumerableThreadSpecific;
 using namespace blender::fn::lazy_function_graph_types;
 using namespace blender::fn::multi_function_types;
 using namespace blender::nodes::derived_node_tree_types;
 using blender::nodes::geo_eval_log::GeometryAttributeInfo;
+using blender::nodes::geo_eval_log::GeoNodeLog;
+using blender::nodes::geo_eval_log::GeoTreeLog;
 using blender::nodes::geo_eval_log::NamedAttributeUsage;
 using blender::nodes::geo_eval_log::NodeWarning;
 using blender::nodes::geo_eval_log::NodeWarningType;
-using blender::nodes::geo_eval_log::ReducedGeoNodeEvalLog;
-using blender::nodes::geo_eval_log::ReducedGeoNodesTreeEvalLog;
 
 static void initData(ModifierData *md)
 {
@@ -916,7 +916,7 @@ static void find_sockets_to_preview(NodesModifierData *nmd,
 static void clear_runtime_data(NodesModifierData *nmd)
 {
   if (nmd->runtime_eval_log != nullptr) {
-    delete static_cast<GeoNodesModifierEvalLog *>(nmd->runtime_eval_log);
+    delete static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
     nmd->runtime_eval_log = nullptr;
   }
 }
@@ -1113,7 +1113,7 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
   geo_nodes_modifier_data.self_object = ctx->object;
   /* TODO: Only use logging when enabled. */
-  auto eval_log = std::make_unique<GeoNodesModifierEvalLog>();
+  auto eval_log = std::make_unique<GeoModifierLog>();
   geo_nodes_modifier_data.eval_log = eval_log.get();
   blender::nodes::GeoNodesLFUserData user_data;
   user_data.modifier_data = &geo_nodes_modifier_data;
@@ -1175,7 +1175,7 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   if (logging_enabled(ctx)) {
     NodesModifierData *nmd_orig = reinterpret_cast<NodesModifierData *>(
         BKE_modifier_get_original(ctx->object, &nmd->modifier));
-    delete static_cast<GeoNodesModifierEvalLog *>(nmd_orig->runtime_eval_log);
+    delete static_cast<GeoModifierLog *>(nmd_orig->runtime_eval_log);
     nmd_orig->runtime_eval_log = eval_log.release();
   }
 
@@ -1638,11 +1638,11 @@ static void panel_draw(const bContext *C, Panel *panel)
 
   /* Draw node warnings. */
   if (nmd->runtime_eval_log != nullptr) {
-    GeoNodesModifierEvalLog &log = *static_cast<GeoNodesModifierEvalLog *>(nmd->runtime_eval_log);
+    GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
     blender::nodes::ModifierContextStack context_stack{nullptr, nmd->modifier.name};
-    ReducedGeoNodesTreeEvalLog &reduced_tree_log = log.get_reduced_tree_log(context_stack.hash());
-    reduced_tree_log.ensure_node_warnings();
-    for (const NodeWarning &warning : reduced_tree_log.all_warnings) {
+    GeoTreeLog &tree_log = modifier_log.get_tree_log(context_stack.hash());
+    tree_log.ensure_node_warnings();
+    for (const NodeWarning &warning : tree_log.all_warnings) {
       if (warning.type != NodeWarningType::Info) {
         uiItemL(layout, warning.message.c_str(), ICON_ERROR);
       }

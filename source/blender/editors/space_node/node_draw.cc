@@ -79,13 +79,13 @@
 using blender::GPointer;
 using blender::Vector;
 using blender::fn::GField;
-using blender::nodes::geo_eval_log::GeoNodesModifierEvalLog;
-using blender::nodes::geo_eval_log::GeoNodesTreeEvalLog;
+using blender::nodes::geo_eval_log::GeoModifierLog;
+using blender::nodes::geo_eval_log::GeoNodeLog;
+using blender::nodes::geo_eval_log::GeoTreeLog;
+using blender::nodes::geo_eval_log::GeoTreeLogger;
 using blender::nodes::geo_eval_log::NamedAttributeUsage;
 using blender::nodes::geo_eval_log::NodeWarning;
 using blender::nodes::geo_eval_log::NodeWarningType;
-using blender::nodes::geo_eval_log::ReducedGeoNodeEvalLog;
-using blender::nodes::geo_eval_log::ReducedGeoNodesTreeEvalLog;
 
 extern "C" {
 /* XXX interface.h */
@@ -94,7 +94,7 @@ extern void ui_draw_dropshadow(
 }
 
 struct TreeDrawContext {
-  ReducedGeoNodesTreeEvalLog *geo_nodes_eval_log = nullptr;
+  GeoTreeLog *geo_tree_log = nullptr;
 };
 
 float ED_node_grid_size()
@@ -1551,7 +1551,7 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
   return BLI_strdupn(complete_string.c_str(), complete_string.size());
 }
 
-static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &snode)
+static GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
 {
   using namespace blender;
   using namespace blender::nodes;
@@ -1583,8 +1583,7 @@ static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &sno
   if (nmd->runtime_eval_log == nullptr) {
     return nullptr;
   }
-  GeoNodesModifierEvalLog &eval_log = *static_cast<GeoNodesModifierEvalLog *>(
-      nmd->runtime_eval_log);
+  GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
   contexts.append(allocator.construct<ModifierContextStack>(nullptr, nmd->modifier.name));
   Vector<const bNodeTreePath *> tree_path_vec{snode.treepath};
   if (tree_path_vec.is_empty()) {
@@ -1596,7 +1595,7 @@ static ReducedGeoNodesTreeEvalLog *get_reduced_geo_nodes_eval_log(SpaceNode &sno
   }
 
   const ContextStack &final_context = *contexts.last();
-  return &eval_log.get_reduced_tree_log(final_context.hash());
+  return &modifier_log.get_tree_log(final_context.hash());
 }
 
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)
@@ -1612,11 +1611,10 @@ static void node_add_error_message_button(const bContext &C,
   UNUSED_VARS(snode, node);
 
   Span<NodeWarning> warnings;
-  if (tree_draw_ctx.geo_nodes_eval_log) {
-    ReducedGeoNodeEvalLog *node_eval_log = tree_draw_ctx.geo_nodes_eval_log->nodes.lookup_ptr(
-        node.name);
-    if (node_eval_log != nullptr) {
-      warnings = node_eval_log->warnings;
+  if (tree_draw_ctx.geo_tree_log) {
+    GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
+    if (node_log != nullptr) {
+      warnings = node_log->warnings;
     }
   }
   if (warnings.is_empty()) {
@@ -3013,9 +3011,9 @@ static void draw_nodetree(const bContext &C,
 
   TreeDrawContext tree_draw_ctx;
   if (ntree.type == NTREE_GEOMETRY) {
-    tree_draw_ctx.geo_nodes_eval_log = get_reduced_geo_nodes_eval_log(*snode);
-    if (tree_draw_ctx.geo_nodes_eval_log != nullptr) {
-      tree_draw_ctx.geo_nodes_eval_log->ensure_node_warnings();
+    tree_draw_ctx.geo_tree_log = get_geo_tree_log(*snode);
+    if (tree_draw_ctx.geo_tree_log != nullptr) {
+      tree_draw_ctx.geo_tree_log->ensure_node_warnings();
     }
   }
 

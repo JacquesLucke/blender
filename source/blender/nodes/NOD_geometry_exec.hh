@@ -139,7 +139,7 @@ class GeoNodeExecParams {
       const int index = this->get_output_index(identifier);
       const bNodeSocket *socket = node_.output_by_identifier(identifier).bsocket();
 
-      geo_eval_log::GeoNodesTreeEvalLog &tree_log = this->get_local_log();
+      geo_eval_log::GeoTreeLogger &tree_log = this->get_local_tree_logger();
       StoredT *logged_value = static_cast<StoredT *>(
           tree_log.allocator.allocate(sizeof(StoredT), alignof(StoredT)));
       new (logged_value) StoredT(value);
@@ -152,13 +152,13 @@ class GeoNodeExecParams {
     }
   }
 
-  geo_eval_log::GeoNodesTreeEvalLog &get_local_log() const
+  geo_eval_log::GeoTreeLogger &get_local_tree_logger() const
   {
     GeoNodesLFUserData *user_data = this->user_data();
     BLI_assert(user_data != nullptr);
     const ContextStack *context_stack = user_data->context_stack;
     BLI_assert(context_stack != nullptr);
-    return user_data->modifier_data->eval_log->get_local_log(*context_stack);
+    return user_data->modifier_data->eval_log->get_local_tree_logger(*context_stack);
   }
 
   /**
