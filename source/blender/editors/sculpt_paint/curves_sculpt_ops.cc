@@ -838,13 +838,12 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   GrowOperatorData *op_data = MEM_new<GrowOperatorData>(__func__);
   op->customdata = op_data;
 
-  for (Curves *curves_id : curves::get_unique_editable_curves(*C)) {
-    auto curve_op_data = std::make_unique<GrowOperatorDataPerCurve>();
-    select_grow_invoke_per_curve(*curves_id, *active_ob, *region, *v3d, *rv3d, *curve_op_data);
-    op_data->per_curve.append(std::move(curve_op_data));
-  }
-
   op_data->initial_mouse_x = event->xy[0];
+
+  Curves &curves_id = *static_cast<Curves *>(active_ob->data);
+  auto curve_op_data = std::make_unique<GrowOperatorDataPerCurve>();
+  select_grow_invoke_per_curve(curves_id, *active_ob, *region, *v3d, *rv3d, *curve_op_data);
+  op_data->per_curve.append(std::move(curve_op_data));
 
   WM_event_add_modal_handler(C, op);
   return OPERATOR_RUNNING_MODAL;
@@ -934,10 +933,8 @@ static bool min_distance_edit_poll(bContext *C)
     return false;
   }
   Curves *curves_id = static_cast<Curves *>(ob->data);
-  if (curves_id->surface == nullptr) {
-    return false;
-  }
-  if (curves_id->surface->type != OB_MESH) {
+  if (curves_id->surface == nullptr || curves_id->surface->type != OB_MESH) {
+    CTX_wm_operator_poll_msg_set(C, "Curves must have a mesh surface object set");
     return false;
   }
   Scene *scene = CTX_data_scene(C);
@@ -978,7 +975,7 @@ static int calculate_points_per_side(bContext *C, MinDistanceEditData &op_data)
   ARegion *region = op_data.region;
 
   const float min_distance = op_data.brush->curves_sculpt_settings->minimum_distance;
-  float brush_radius = BKE_brush_size_get(scene, op_data.brush);
+  const float brush_radius = BKE_brush_size_get(scene, op_data.brush);
 
   float3 tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 0, 1});
   if (math::is_zero(tangent_x_cu)) {
@@ -1006,8 +1003,8 @@ static int calculate_points_per_side(bContext *C, MinDistanceEditData &op_data)
 
   int needed_points = 0;
   for (const float2 &pos_re : points_re) {
-    float distance = math::length(pos_re - origin_re);
-    int needed_points_iter = (brush_radius * 2.0f) / distance;
+    const float distance = math::length(pos_re - origin_re);
+    const int needed_points_iter = (brush_radius * 2.0f) / distance;
 
     if (needed_points_iter > needed_points) {
       needed_points = needed_points_iter;
@@ -1015,7 +1012,7 @@ static int calculate_points_per_side(bContext *C, MinDistanceEditData &op_data)
   }
 
   /* Limit to a harcoded number since it only adds noise at some point. */
-  return min_ff(300, needed_points);
+  return std::min(300, needed_points);
 }
 
 static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), void *customdata)
@@ -1073,7 +1070,7 @@ static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), vo
 
   immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
 
-  GPU_point_size(3);
+  GPU_point_size(3.0f);
   immBegin(GPU_PRIM_POINTS, points_wo.size());
 
   float3 brush_origin_wo = op_data.curves_to_world_mat * op_data.pos_cu;
@@ -1089,7 +1086,7 @@ static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), vo
     ED_view3d_project_v2(region, pos_wo, pos_re);
 
     const float dist_to_point_re = math::distance(pos_re, brush_origin_re);
-    float alpha = 1.0f - ((dist_to_point_re - dist_to_inner_border_re) / alpha_border_re);
+    const float alpha = 1.0f - ((dist_to_point_re - dist_to_inner_border_re) / alpha_border_re);
 
     immAttr4f(col3d, 0.9f, 0.9f, 0.9f, alpha);
     immVertex3fv(pos3d, pos_wo);
@@ -1098,11 +1095,11 @@ static void min_distance_edit_draw(bContext *C, int UNUSED(x), int UNUSED(y), vo
   immUnbindProgram();
 
   /* Reset the drawing settings. */
-  GPU_point_size(1);
+  GPU_point_size(1.0f);
   GPU_matrix_pop_projection();
   GPU_matrix_pop();
 
-  int scissor[4] = {0};
+  int4 scissor;
   GPU_scissor_get(scissor);
   wmWindowViewport(win);
   GPU_scissor(scissor[0], scissor[1], scissor[2], scissor[3]);
@@ -1163,6 +1160,7 @@ static int min_distance_edit_invoke(bContext *C, wmOperator *op, const wmEvent *
                        surface_bvh.raycast_callback,
                        &surface_bvh);
   if (ray_hit.index == -1) {
+    WM_report(RPT_ERROR, "Cursor must be over the surface mesh");
     return OPERATOR_CANCELLED;
   }
 
