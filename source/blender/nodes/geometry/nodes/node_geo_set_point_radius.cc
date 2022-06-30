@@ -26,15 +26,16 @@ static void set_radius_in_component(GeometryComponent &component,
     return;
   }
 
-  OutputAttribute_Typed<float> radii = component.attribute_try_get_for_output_only<float>(
-      "radius", ATTR_DOMAIN_POINT);
+  MutableAttributeAccessor attributes = *component.attributes_accessor_for_write();
+  AttributeWriter<float> radii = attributes.lookup_or_add_for_write<float>("radius",
+                                                                           ATTR_DOMAIN_POINT);
 
   fn::FieldEvaluator evaluator{field_context, domain_num};
   evaluator.set_selection(selection_field);
-  evaluator.add_with_destination(radius_field, radii.varray());
+  evaluator.add_with_destination(radius_field, radii.varray);
   evaluator.evaluate();
 
-  radii.save();
+  radii.tag_modified();
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
