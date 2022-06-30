@@ -1286,20 +1286,6 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
 namespace blender::bke::attribute_accessor_functions {
 
 template<const ComponentAttributeProviders &providers>
-static bool contains(const void *UNUSED(owner),
-                     const blender::bke::AttributeIDRef &UNUSED(attribute_id))
-{
-  return true;
-}
-
-template<const ComponentAttributeProviders &providers>
-std::optional<AttributeMetaData> lookup_meta_data(const void *owner,
-                                                  const AttributeIDRef &attribute_id)
-{
-  return {};
-}
-
-template<const ComponentAttributeProviders &providers>
 bool is_builtin(const void *owner, const AttributeIDRef &attribute_id)
 {
   if (!attribute_id.is_named()) {
@@ -1312,12 +1298,25 @@ bool is_builtin(const void *owner, const AttributeIDRef &attribute_id)
 template<const ComponentAttributeProviders &providers>
 GAttributeReader lookup(const void *owner, const AttributeIDRef &attribute_id)
 {
+  if (attribute_id.is_named()) {
+    const StringRef name = attribute_id.name();
+    if (const BuiltinAttributeProvider *provider =
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+      return {provider->try_get_for_read(owner), provider->domain()};
+    }
+  }
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    ReadAttributeLookup attribute = provider->try_get_for_read(owner, attribute_id);
+    if (attribute) {
+      return GAttributeReader{attribute.varray, attribute.domain};
+    }
+  }
   return {};
 }
 
 template<const ComponentAttributeProviders &providers>
-bool foreach (const void *owner,
-              FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn)
+bool for_all(const void *owner,
+             FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn)
 {
   Set<AttributeIDRef> handled_attribute_ids;
   for (const BuiltinAttributeProvider *provider :
@@ -1343,6 +1342,39 @@ bool foreach (const void *owner,
     }
   }
   return true;
+}
+
+template<const ComponentAttributeProviders &providers>
+static bool contains(const void *owner, const blender::bke::AttributeIDRef &attribute_id)
+{
+  bool found = false;
+  for_all<providers>(
+      owner,
+      [&](const AttributeIDRef &other_attribute_id, const AttributeMetaData & /* meta_data */) {
+        if (attribute_id == other_attribute_id) {
+          found = true;
+          return false;
+        }
+        return true;
+      });
+  return found;
+}
+
+template<const ComponentAttributeProviders &providers>
+std::optional<AttributeMetaData> lookup_meta_data(const void *owner,
+                                                  const AttributeIDRef &attribute_id)
+{
+  std::optional<AttributeMetaData> meta_data;
+  for_all<providers>(
+      owner,
+      [&](const AttributeIDRef &other_attribute_id, const AttributeMetaData &other_meta_data) {
+        if (attribute_id == other_attribute_id) {
+          meta_data = other_meta_data;
+          return false;
+        }
+        return true;
+      });
+  return meta_data;
 }
 
 template<const ComponentAttributeProviders &providers>
@@ -1377,7 +1409,7 @@ static AttributeAccessorFunctions accessor_functions_for_providers()
                                     is_builtin<providers>,
                                     lookup<providers>,
                                     nullptr,
-                                    foreach<providers>,
+                                    for_all<providers>,
                                     lookup_for_write<providers>,
                                     remove<providers>,
                                     add<providers>};

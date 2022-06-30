@@ -88,7 +88,7 @@ struct AttributeAccessorFunctions {
                           const GVArray &varray,
                           eAttrDomain from_domain,
                           eAttrDomain to_domain);
-  bool (*foreach)(const void *owner,
+  bool (*for_all)(const void *owner,
                   FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn);
 
   GAttributeWriter (*lookup_for_write)(void *owner, const AttributeIDRef &attribute_id);
@@ -174,9 +174,9 @@ class AttributeAccessor {
   /**
    * Run the provided function for every attribute.
    */
-  bool foreach (const FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn)
+  bool for_all(const FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn)
   {
-    return fn_->foreach (owner_, fn);
+    return fn_->for_all(owner_, fn);
   }
 };
 
