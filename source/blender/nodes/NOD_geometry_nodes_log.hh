@@ -2,6 +2,8 @@
 
 #pragma once
 
+#include <chrono>
+
 #include "BLI_context_stack_map.hh"
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_generic_pointer.hh"
@@ -64,6 +66,9 @@ struct GeometryAttributeInfo {
   std::optional<eCustomDataType> data_type;
 };
 
+using Clock = std::chrono::steady_clock;
+using TimePoint = Clock::time_point;
+
 class GeoTreeLogger {
  public:
   std::optional<ContextStackHash> parent_hash;
@@ -75,11 +80,13 @@ class GeoTreeLogger {
   Vector<destruct_ptr<ValueLog>> socket_values_owner;
   Vector<std::tuple<std::string, std::string, ValueLog *>> input_socket_values;
   Vector<std::tuple<std::string, std::string, ValueLog *>> output_socket_values;
+  Vector<std::tuple<std::string, TimePoint, TimePoint>> node_execution_times;
 };
 
 class GeoNodeLog {
  public:
   Vector<NodeWarning> warnings;
+  std::chrono::nanoseconds run_time{0};
 };
 
 class GeoModifierLog;
@@ -89,10 +96,12 @@ class GeoTreeLog {
   GeoModifierLog *modifier_log_;
   Vector<GeoTreeLogger *> tree_loggers_;
   bool reduced_node_warnings_ = false;
+  bool reduced_node_run_times_ = false;
 
  public:
   Map<std::string, GeoNodeLog> nodes;
   Vector<NodeWarning> all_warnings;
+  std::chrono::nanoseconds run_time_sum{0};
 
   GeoTreeLog(GeoModifierLog *modifier_log, Vector<GeoTreeLogger *> tree_loggers)
       : modifier_log_(modifier_log), tree_loggers_(std::move(tree_loggers))
@@ -100,6 +109,7 @@ class GeoTreeLog {
   }
 
   void ensure_node_warnings();
+  void ensure_node_run_time();
 };
 
 class GeoModifierLog {

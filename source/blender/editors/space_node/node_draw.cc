@@ -1647,56 +1647,64 @@ static void node_add_error_message_button(const bContext &C,
   UI_block_emboss_set(&block, UI_EMBOSS);
 }
 
-// static std::chrono::microseconds node_get_execution_time(const bNodeTree &ntree,
-//                                                          const bNode &node,
-//                                                          const SpaceNode &snode,
-//                                                          int &node_count)
-// {
-//   std::chrono::microseconds exec_time = std::chrono::microseconds::zero();
-//   if (node.type == NODE_GROUP_OUTPUT) {
-//     const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
-//         snode);
-
-//     if (tree_log == nullptr) {
-//       return exec_time;
-//     }
-//     tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
-//       exec_time += node_log.execution_time();
-//       node_count++;
-//     });
-//   }
-//   else if (node.type == NODE_FRAME) {
-//     /* Could be cached in the future if this recursive code turns out to be slow. */
-//     LISTBASE_FOREACH (bNode *, tnode, &ntree.nodes) {
-//       if (tnode->parent != &node) {
-//         continue;
-//       }
-
-//       if (tnode->type == NODE_FRAME) {
-//         exec_time += node_get_execution_time(ntree, *tnode, snode, node_count);
-//       }
-//       else {
-//         get_exec_time_other_nodes(*tnode, snode, exec_time, node_count);
-//       }
-//     }
-//   }
-//   else {
-//     get_exec_time_other_nodes(node, snode, exec_time, node_count);
-//   }
-//   return exec_time;
-// }
-
-static std::string node_get_execution_time_label(const SpaceNode &snode, const bNode &node)
+static std::optional<std::chrono::nanoseconds> node_get_execution_time(
+    TreeDrawContext &tree_draw_ctx, const bNodeTree &ntree, const bNode &node)
 {
-  UNUSED_VARS(snode, node);
-  int node_count = 0;
-  std::chrono::microseconds exec_time;
+  const GeoTreeLog *tree_log = tree_draw_ctx.geo_tree_log;
+  if (tree_log == nullptr) {
+    return std::nullopt;
+  }
+  if (node.type == NODE_GROUP_OUTPUT) {
+    return tree_log->run_time_sum;
+  }
+  if (node.type == NODE_FRAME) {
+    /* Could be cached in the future if this recursive code turns out to be slow. */
+    std::chrono::nanoseconds run_time{0};
+    bool found_node = false;
+    LISTBASE_FOREACH (bNode *, tnode, &ntree.nodes) {
+      if (tnode->parent != &node) {
+        continue;
+      }
 
-  if (node_count == 0) {
+      if (tnode->type == NODE_FRAME) {
+        std::optional<std::chrono::nanoseconds> sub_frame_run_time = node_get_execution_time(
+            tree_draw_ctx, ntree, *tnode);
+        if (sub_frame_run_time.has_value()) {
+          run_time += *sub_frame_run_time;
+          found_node = true;
+        }
+      }
+      else {
+        if (const GeoNodeLog *node_log = tree_log->nodes.lookup_ptr_as(tnode->name)) {
+          found_node = true;
+          run_time = node_log->run_time;
+        }
+      }
+    }
+    if (found_node) {
+      return run_time;
+    }
+    return std::nullopt;
+  }
+  if (const GeoNodeLog *node_log = tree_log->nodes.lookup_ptr(node.name)) {
+    return node_log->run_time;
+  }
+  return std::nullopt;
+}
+
+static std::string node_get_execution_time_label(TreeDrawContext &tree_draw_ctx,
+                                                 const SpaceNode &snode,
+                                                 const bNode &node)
+{
+  const std::optional<std::chrono::nanoseconds> exec_time = node_get_execution_time(
+      tree_draw_ctx, *snode.edittree, node);
+
+  if (!exec_time.has_value()) {
     return std::string("");
   }
 
-  uint64_t exec_time_us = exec_time.count();
+  const uint64_t exec_time_us =
+      std::chrono::duration_cast<std::chrono::microseconds>(*exec_time).count();
 
   /* Don't show time if execution time is 0 microseconds. */
   if (exec_time_us == 0) {
@@ -1861,7 +1869,9 @@ static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(const Sp
   return std::nullopt;
 }
 
-static Vector<NodeExtraInfoRow> node_get_extra_info(const SpaceNode &snode, const bNode &node)
+static Vector<NodeExtraInfoRow> node_get_extra_info(TreeDrawContext &tree_draw_ctx,
+                                                    const SpaceNode &snode,
+                                                    const bNode &node)
 {
   Vector<NodeExtraInfoRow> rows;
   if (!(snode.overlay.flag & SN_OVERLAY_SHOW_OVERLAYS)) {
@@ -1879,7 +1889,7 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(const SpaceNode &snode, cons
       (ELEM(node.typeinfo->nclass, NODE_CLASS_GEOMETRY, NODE_CLASS_GROUP, NODE_CLASS_ATTRIBUTE) ||
        ELEM(node.type, NODE_FRAME, NODE_GROUP_OUTPUT))) {
     NodeExtraInfoRow row;
-    row.text = node_get_execution_time_label(snode, node);
+    row.text = node_get_execution_time_label(tree_draw_ctx, snode, node);
     if (!row.text.empty()) {
       row.tooltip = TIP_(
           "The execution time from the node tree's latest evaluation. For frame and group nodes, "
@@ -1961,9 +1971,12 @@ static void node_draw_extra_info_row(const bNode &node,
   }
 }
 
-static void node_draw_extra_info_panel(const SpaceNode &snode, const bNode &node, uiBlock &block)
+static void node_draw_extra_info_panel(TreeDrawContext &tree_draw_ctx,
+                                       const SpaceNode &snode,
+                                       const bNode &node,
+                                       uiBlock &block)
 {
-  Vector<NodeExtraInfoRow> extra_info_rows = node_get_extra_info(snode, node);
+  Vector<NodeExtraInfoRow> extra_info_rows = node_get_extra_info(tree_draw_ctx, snode, node);
 
   if (extra_info_rows.size() == 0) {
     return;
@@ -2044,7 +2057,7 @@ static void node_draw_basis(const bContext &C,
 
   GPU_line_width(1.0f);
 
-  node_draw_extra_info_panel(snode, node, block);
+  node_draw_extra_info_panel(tree_draw_ctx, snode, node, block);
 
   /* Header. */
   {
@@ -2311,6 +2324,7 @@ static void node_draw_basis(const bContext &C,
 }
 
 static void node_draw_hidden(const bContext &C,
+                             TreeDrawContext &tree_draw_ctx,
                              const View2D &v2d,
                              const SpaceNode &snode,
                              bNodeTree &ntree,
@@ -2326,7 +2340,7 @@ static void node_draw_hidden(const bContext &C,
 
   const int color_id = node_get_colorid(node);
 
-  node_draw_extra_info_panel(snode, node, block);
+  node_draw_extra_info_panel(tree_draw_ctx, snode, node, block);
 
   /* Shadow. */
   node_draw_shadow(snode, node, hiddenrad, 1.0f);
@@ -2768,6 +2782,7 @@ static void frame_node_draw_label(const bNodeTree &ntree,
 }
 
 static void frame_node_draw(const bContext &C,
+                            TreeDrawContext &tree_draw_ctx,
                             const ARegion &region,
                             const SpaceNode &snode,
                             bNodeTree &ntree,
@@ -2814,7 +2829,7 @@ static void frame_node_draw(const bContext &C,
   /* label and text */
   frame_node_draw_label(ntree, node, snode);
 
-  node_draw_extra_info_panel(snode, node, block);
+  node_draw_extra_info_panel(tree_draw_ctx, snode, node, block);
 
   UI_block_end(&C, &block);
   UI_block_draw(&C, &block);
@@ -2877,7 +2892,7 @@ static void node_draw(const bContext &C,
                       bNodeInstanceKey key)
 {
   if (node.type == NODE_FRAME) {
-    frame_node_draw(C, region, snode, ntree, node, block);
+    frame_node_draw(C, tree_draw_ctx, region, snode, ntree, node, block);
   }
   else if (node.type == NODE_REROUTE) {
     reroute_node_draw(C, region, ntree, node, block);
@@ -2885,7 +2900,7 @@ static void node_draw(const bContext &C,
   else {
     const View2D &v2d = region.v2d;
     if (node.flag & NODE_HIDDEN) {
-      node_draw_hidden(C, v2d, snode, ntree, node, block);
+      node_draw_hidden(C, tree_draw_ctx, v2d, snode, ntree, node, block);
     }
     else {
       node_draw_basis(C, tree_draw_ctx, v2d, snode, ntree, node, block, key);
@@ -3014,6 +3029,7 @@ static void draw_nodetree(const bContext &C,
     tree_draw_ctx.geo_tree_log = get_geo_tree_log(*snode);
     if (tree_draw_ctx.geo_tree_log != nullptr) {
       tree_draw_ctx.geo_tree_log->ensure_node_warnings();
+      tree_draw_ctx.geo_tree_log->ensure_node_run_time();
     }
   }
 

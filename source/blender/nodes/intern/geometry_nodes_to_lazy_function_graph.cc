@@ -111,19 +111,21 @@ class GeometryNodeLazyFunction : public LazyFunction {
     const bNode &bnode = *node_.bnode();
     BLI_assert(bnode.typeinfo->geometry_node_execute != nullptr);
 
-    // if (GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(
-    //         params.user_data_)) {
-    //   static std::mutex m;
-    //   std::lock_guard lock{m};
-    //   if (user_data->context_stack) {
-    //     user_data->context_stack->print_stack(std::cout, bnode.name);
-    //   }
-    //   else {
-    //     std::cout << "No stack: " << bnode.name << "\n";
-    //   }
-    // }
+    geo_eval_log::GeoTreeLogger *tree_logger = nullptr;
+    GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+    if (user_data != nullptr) {
+      tree_logger = &user_data->modifier_data->eval_log->get_local_tree_logger(
+          *user_data->context_stack);
+    }
 
+    geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     bnode.typeinfo->geometry_node_execute(geo_params);
+    geo_eval_log::TimePoint end_time = geo_eval_log::Clock::now();
+
+    if (tree_logger != nullptr) {
+      std::cout << (end_time - start_time).count() << "\n";
+      tree_logger->node_execution_times.append_as(node_.name(), start_time, end_time);
+    }
   }
 };
 

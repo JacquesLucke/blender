@@ -10,12 +10,12 @@ void GeoTreeLog::ensure_node_warnings()
   if (reduced_node_warnings_) {
     return;
   }
-  for (GeoTreeLogger *tree_log : tree_loggers_) {
-    for (const std::pair<std::string, NodeWarning> &warnings : tree_log->node_warnings) {
+  for (GeoTreeLogger *tree_logger : tree_loggers_) {
+    for (const std::pair<std::string, NodeWarning> &warnings : tree_logger->node_warnings) {
       this->nodes.lookup_or_add_default(warnings.first).warnings.append(warnings.second);
       this->all_warnings.append(warnings.second);
     }
-    for (const ContextStackHash &child_hash : tree_log->children_hashes) {
+    for (const ContextStackHash &child_hash : tree_logger->children_hashes) {
       GeoTreeLog &child_reduced_log = modifier_log_->get_tree_log(child_hash);
       child_reduced_log.ensure_node_warnings();
       const std::optional<std::string> &group_node_name =
@@ -28,6 +28,23 @@ void GeoTreeLog::ensure_node_warnings()
     }
   }
   reduced_node_warnings_ = true;
+}
+
+void GeoTreeLog::ensure_node_run_time()
+{
+  if (reduced_node_run_times_) {
+    return;
+  }
+  for (GeoTreeLogger *tree_logger : tree_loggers_) {
+    for (const std::tuple<std::string, TimePoint, TimePoint> &timings :
+         tree_logger->node_execution_times) {
+      const StringRefNull node_name = std::get<0>(timings);
+      const std::chrono::nanoseconds duration = std::get<2>(timings) - std::get<1>(timings);
+      this->nodes.lookup_or_add_default_as(node_name).run_time += duration;
+      this->run_time_sum += duration;
+    }
+  }
+  reduced_node_run_times_ = true;
 }
 
 GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ContextStack &context_stack)
