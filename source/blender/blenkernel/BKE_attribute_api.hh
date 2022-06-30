@@ -77,7 +77,7 @@ struct GAttributeWriter {
 };
 
 struct AttributeAccessorFunctions {
-  bool (*constains)(const void *owner, const AttributeIDRef &attribute_id);
+  bool (*contains)(const void *owner, const AttributeIDRef &attribute_id);
   std::optional<AttributeMetaData> (*lookup_meta_data)(const void *owner,
                                                        const AttributeIDRef &attribute_id);
   bool (*domain_supported)(const void *owner, eAttrDomain domain);
@@ -116,7 +116,7 @@ class AttributeAccessor {
    */
   bool contains(const AttributeIDRef &attribute_id) const
   {
-    return fn_->constains(owner_, attribute_id);
+    return fn_->contains(owner_, attribute_id);
   }
 
   /**
