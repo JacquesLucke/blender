@@ -682,7 +682,9 @@ static bool blf_glyph_render_bitmap(FontBLF *font, FT_GlyphSlot glyph)
  *
  * \param factor: -1 (min stroke width) <= 0 (normal) => 1 (max boldness).
  */
-static bool blf_glyph_transform_weight(FT_GlyphSlot glyph, float factor, bool monospaced)
+static bool UNUSED_FUNCTION(blf_glyph_transform_weight)(FT_GlyphSlot glyph,
+                                                        float factor,
+                                                        bool monospaced)
 {
   if (glyph->format == FT_GLYPH_FORMAT_OUTLINE) {
     /* Fake bold if the font does not have this variable axis. */
@@ -711,7 +713,7 @@ static bool blf_glyph_transform_weight(FT_GlyphSlot glyph, float factor, bool mo
  *
  * \note that left-leaning italics are possible in some RTL writing systems.
  */
-static bool blf_glyph_transform_slant(FT_GlyphSlot glyph, float factor)
+static bool UNUSED_FUNCTION(blf_glyph_transform_slant)(FT_GlyphSlot glyph, float factor)
 {
   if (glyph->format == FT_GLYPH_FORMAT_OUTLINE) {
     FT_Matrix transform = {to_16dot16(1), to_16dot16(factor / 2.0f), 0, to_16dot16(1)};
@@ -796,21 +798,6 @@ static FT_GlyphSlot blf_glyph_render(FontBLF *settings_font,
 
   if ((settings_font->flags & BLF_MONOSPACED) && (settings_font != glyph_font)) {
     blf_glyph_transform_monospace(glyph, BLI_wcwidth((char32_t)charcode) * fixed_width);
-  }
-
-  if ((settings_font->flags & BLF_ITALIC) != 0) {
-    /* 37.5% of maximum rightward slant results in 6 degree slope, matching italic
-     * version (`DejaVuSans-Oblique.ttf`) of our current font. But a nice median when
-     * checking others. Worth reevaluating if we change default font. We could also
-     * narrow the glyph slightly as most italics do, but this one does not. */
-    blf_glyph_transform_slant(glyph, 0.375f);
-  }
-
-  if ((settings_font->flags & BLF_BOLD) != 0) {
-    /* 70% of maximum weight results in the same amount of boldness and horizontal
-     * expansion as the bold version (`DejaVuSans-Bold.ttf`) of our default font.
-     * Worth reevaluating if we change default font. */
-    blf_glyph_transform_weight(glyph, 0.7f, glyph->face->face_flags & FT_FACE_FLAG_FIXED_WIDTH);
   }
 
   if (blf_glyph_render_bitmap(glyph_font, glyph)) {

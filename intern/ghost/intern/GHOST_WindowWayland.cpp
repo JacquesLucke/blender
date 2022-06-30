@@ -14,6 +14,7 @@
 #include "GHOST_ContextEGL.h"
 #include "GHOST_ContextNone.h"
 
+#include <wayland-client-protocol.h>
 #include <wayland-egl.h>
 
 #include <algorithm> /* For `std::find`. */
@@ -23,6 +24,8 @@
 #endif
 
 static constexpr size_t base_dpi = 96;
+
+static GHOST_WindowManager *window_manager = nullptr;
 
 struct window_t {
   GHOST_WindowWayland *w = nullptr;
@@ -232,7 +235,7 @@ static void frame_handle_close(struct libdecor_frame * /*frame*/, void *data)
 
 static void frame_handle_commit(struct libdecor_frame * /*frame*/, void *data)
 {
-  /* we have to swap twice to keep any pop-up menues alive */
+  /* We have to swap twice to keep any pop-up menus alive. */
   static_cast<window_t *>(data)->w->swapBuffers();
   static_cast<window_t *>(data)->w->swapBuffers();
 }
@@ -380,6 +383,11 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
       m_system(system),
       w(new window_t)
 {
+  /* Globally store pointer to window manager. */
+  if (!window_manager) {
+    window_manager = m_system->getWindowManager();
+  }
+
   w->w = this;
 
   w->size[0] = int32_t(width);
@@ -406,27 +414,29 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
 
   w->egl_window = wl_egl_window_create(w->wl_surface, int(w->size[0]), int(w->size[1]));
 
+  /* NOTE: The limit is in points (not pixels) so Hi-DPI will limit to larger number of pixels.
+   * This has the advantage that the size limit is the same when moving the window between monitors
+   * with different scales set. If it was important to limit in pixels it could be re-calculated
+   * when the `w->scale` changed. */
+  const int32_t size_min[2] = {320, 240};
+
 #ifdef WITH_GHOST_WAYLAND_LIBDECOR
   /* create window decorations */
   w->decor_frame = libdecor_decorate(
       m_system->decor_context(), w->wl_surface, &libdecor_frame_iface, w);
   libdecor_frame_map(w->decor_frame);
 
+  libdecor_frame_set_min_content_size(w->decor_frame, size_min[0], size_min[1]);
+
   if (parentWindow) {
     libdecor_frame_set_parent(
         w->decor_frame, dynamic_cast<const GHOST_WindowWayland *>(parentWindow)->w->decor_frame);
   }
-
 #else
-
   w->xdg_surface = xdg_wm_base_get_xdg_surface(m_system->xdg_shell(), w->wl_surface);
   w->xdg_toplevel = xdg_surface_get_toplevel(w->xdg_surface);
 
-  /* NOTE: The limit is in points (not pixels) so Hi-DPI will limit to larger number of pixels.
-   * This has the advantage that the size limit is the same when moving the window between monitors
-   * with different scales set. If it was important to limit in pixels it could be re-calculated
-   * when the `w->scale` changed. */
-  xdg_toplevel_set_min_size(w->xdg_toplevel, 320, 240);
+  xdg_toplevel_set_min_size(w->xdg_toplevel, size_min[0], size_min[1]);
 
   if (m_system->xdg_decoration_manager()) {
     w->xdg_toplevel_decoration = zxdg_decoration_manager_v1_get_toplevel_decoration(
@@ -446,6 +456,8 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
   }
 
 #endif /* !WITH_GHOST_WAYLAND_LIBDECOR */
+
+  setTitle(title);
 
   wl_surface_set_user_data(w->wl_surface, this);
 
@@ -467,18 +479,16 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
   setOpaque();
 #endif
 
-#ifndef WITH_GHOST_WAYLAND_LIBDECOR /* Causes a glicth with libdecor for some reason. */
+#ifndef WITH_GHOST_WAYLAND_LIBDECOR /* Causes a glitch with `libdecor` for some reason. */
   setState(state);
 #endif
-
-  setTitle(title);
 
   /* EGL context. */
   if (setDrawingContextType(type) == GHOST_kFailure) {
     GHOST_PRINT("Failed to create EGL context" << std::endl);
   }
 
-  /* set swap interval to 0 to prevent blocking */
+  /* Set swap interval to 0 to prevent blocking. */
   setSwapInterval(0);
 }
 
@@ -517,6 +527,40 @@ GHOST_TSuccess GHOST_WindowWayland::notify_size()
 wl_surface *GHOST_WindowWayland::surface() const
 {
   return w->wl_surface;
+}
+
+GHOST_WindowWayland *GHOST_WindowWayland::from_surface_find_mut(const wl_surface *surface)
+{
+  GHOST_ASSERT(surface, "argument must not be NULL");
+  for (GHOST_IWindow *iwin : window_manager->getWindows()) {
+    GHOST_WindowWayland *win = static_cast<GHOST_WindowWayland *>(iwin);
+    if (surface == win->surface()) {
+      return win;
+    }
+  }
+  return nullptr;
+}
+
+const GHOST_WindowWayland *GHOST_WindowWayland::from_surface_find(const wl_surface *surface)
+{
+  return GHOST_WindowWayland::from_surface_find_mut(surface);
+}
+
+GHOST_WindowWayland *GHOST_WindowWayland::from_surface_mut(wl_surface *surface)
+{
+  GHOST_WindowWayland *win = static_cast<GHOST_WindowWayland *>(wl_surface_get_user_data(surface));
+  GHOST_ASSERT(win == GHOST_WindowWayland::from_surface_find_mut(surface),
+               "Inconsistent window state, consider using \"from_surface_find_mut\"");
+  return win;
+}
+
+const GHOST_WindowWayland *GHOST_WindowWayland::from_surface(const wl_surface *surface)
+{
+  const GHOST_WindowWayland *win = static_cast<const GHOST_WindowWayland *>(
+      wl_surface_get_user_data(const_cast<wl_surface *>(surface)));
+  GHOST_ASSERT(win == GHOST_WindowWayland::from_surface_find(surface),
+               "Inconsistent window state, consider using \"from_surface_find\"");
+  return win;
 }
 
 const std::vector<output_t *> &GHOST_WindowWayland::outputs()
@@ -589,12 +633,12 @@ bool GHOST_WindowWayland::outputs_leave(output_t *reg_output)
   return true;
 }
 
-uint16_t GHOST_WindowWayland::dpi()
+uint16_t GHOST_WindowWayland::dpi() const
 {
   return w->dpi;
 }
 
-int GHOST_WindowWayland::scale()
+int GHOST_WindowWayland::scale() const
 {
   return w->scale;
 }
@@ -719,7 +763,7 @@ GHOST_WindowWayland::~GHOST_WindowWayland()
 
   /* NOTE(@campbellbarton): This is needed so the appropriate handlers event
    * (#wl_surface_listener.leave in particular) run to prevent access to the freed surfaces.
-   * Without this round-trip, calling #getCursorPosition immediately after closing a window
+   * Without flushing the display, calling #getCursorPosition immediately after closing a window
    * causes dangling #wl_surface pointers to be accessed
    * (since the window is used for scaling the cursor position).
    *
@@ -729,7 +773,7 @@ GHOST_WindowWayland::~GHOST_WindowWayland()
    * Any information requested in this state (such as the cursor position) won't be valid and
    * could cause difficult to reproduce bugs. So perform a round-trip as closing a window isn't
    * an action that runs continuously & isn't likely to cause unnecessary overhead. See: T99078. */
-  wl_display_roundtrip(m_system->display());
+  wl_display_flush(m_system->display());
 
   delete w;
 }
