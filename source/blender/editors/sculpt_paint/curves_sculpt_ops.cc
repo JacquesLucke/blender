@@ -706,7 +706,7 @@ static void select_grow_invoke_per_curve(Curves &curves_id,
       points_selection.materialize(curve_op_data.original_selection);
       for (const int point_i : points_selection.index_range()) {
         const float point_selection = points_selection[point_i];
-        if (point_selection > 0) {
+        if (point_selection > 0.0f) {
           curve_op_data.selected_point_indices.append(point_i);
         }
         else {
@@ -723,7 +723,7 @@ static void select_grow_invoke_per_curve(Curves &curves_id,
       for (const int curve_i : curves_selection.index_range()) {
         const float curve_selection = curves_selection[curve_i];
         const IndexRange points = curves.points_for_curve(curve_i);
-        if (curve_selection > 0) {
+        if (curve_selection > 0.0f) {
           for (const int point_i : points) {
             curve_op_data.selected_point_indices.append(point_i);
           }

@@ -5,9 +5,6 @@
 #include "curves_sculpt_intern.hh"
 
 #include "BLI_float4x4.hh"
-#include "BLI_index_mask_ops.hh"
-#include "BLI_kdtree.h"
-#include "BLI_rand.hh"
 #include "BLI_vector.hh"
 
 #include "PIL_time.h"
@@ -167,9 +164,7 @@ struct SlideOperationExecutor {
       }
       return;
     }
-    else {
-      this->slide_projected();
-    }
+    this->slide_projected();
 
     curves_->tag_positions_changed();
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
