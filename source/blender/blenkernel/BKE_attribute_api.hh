@@ -160,6 +160,23 @@ class AttributeAccessor {
     return fn_->lookup(owner_, attribute_id);
   }
 
+  GVArray lookup(const AttributeIDRef &attribute_id,
+                 const eAttrDomain domain,
+                 const eCustomDataType data_type) const
+  {
+    GAttributeReader attribute = this->lookup(attribute_id);
+    if (!attribute) {
+      return {};
+    }
+    if (attribute.domain != domain) {
+      return {};
+    }
+    if (attribute.varray.type() != *custom_data_type_to_cpp_type(data_type)) {
+      return {};
+    }
+    return attribute.varray;
+  }
+
   /**
    * Interpolate data from one domain to another.
    * TODO: Should this really be part of this API or a separate thing?

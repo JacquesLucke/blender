@@ -1228,7 +1228,10 @@ GVArray AttributeFieldInput::get_varray_for_context(const GeometryComponent &com
                                                     IndexMask UNUSED(mask)) const
 {
   const eCustomDataType data_type = cpp_type_to_custom_data_type(*type_);
-  return component.attribute_try_get_for_read(name_, domain, data_type);
+  if (auto attributes = component.attributes_accessor()) {
+    return attributes->lookup(name_, domain, data_type);
+  }
+  return {};
 }
 
 std::string AttributeFieldInput::socket_inspection_name() const
@@ -1268,10 +1271,10 @@ GVArray IDAttributeFieldInput::get_varray_for_context(const GeometryComponent &c
 {
 
   const StringRef name = get_random_id_attribute_name(domain);
-  GVArray attribute = component.attribute_try_get_for_read(name, domain, CD_PROP_INT32);
-  if (attribute) {
-    BLI_assert(attribute.size() == component.attribute_domain_num(domain));
-    return attribute;
+  if (auto attributes = component.attributes_accessor()) {
+    if (GVArray attribute = attributes->lookup(name, domain, CD_PROP_INT32)) {
+      return attribute;
+    }
   }
 
   /* Use the index as the fallback if no random ID attribute exists. */
