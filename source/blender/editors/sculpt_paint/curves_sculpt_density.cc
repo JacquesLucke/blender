@@ -156,14 +156,15 @@ struct DensityAddOperationExecutor {
                                                     new_positions_cu.size());
     BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(new_roots_kdtree); });
 
+    /* Used to tag all curves that are too close to existing curves or too close to other new
+     * curves. */
     Array<bool> new_curve_skipped(new_positions_cu.size(), false);
     threading::parallel_invoke(
         /* Build kdtree from root points created by the current stroke. */
         [&]() {
           const Span<float3> positions_cu = curves_->positions();
           for (const int curve_i : curves_->curves_range().take_back(already_added_curves)) {
-            const IndexRange points = curves_->points_for_curve(curve_i);
-            const float3 &root_pos_cu = positions_cu[points[0]];
+            const float3 &root_pos_cu = positions_cu[curves_->offsets()[curve_i]];
             BLI_kdtree_3d_insert(new_roots_kdtree, curve_i, root_pos_cu);
           }
           for (const int new_i : new_positions_cu.index_range()) {

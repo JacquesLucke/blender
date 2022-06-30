@@ -313,6 +313,8 @@ struct PuffOperationExecutor {
         length_parameterize::accumulate_lengths<float3>(
             positions_cu.slice(points), false, accumulated_lengths_cu);
 
+        /* Align curve to the surface normal while making sure that the curve does not fold up much
+         * in the process (e.g. when the curve was pointing in the opposite direction before). */
         for (const int i : IndexRange(points.size()).drop_front(1)) {
           const int point_i = points[i];
           const float3 old_pos_cu = positions_cu[point_i];

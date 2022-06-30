@@ -2033,7 +2033,7 @@ static void rna_def_curves_sculpt_options(BlenderRNA *brna)
   prop = RNA_def_property(srna, "density_add_attempts", PROP_INT, PROP_NONE);
   RNA_def_property_range(prop, 0, INT32_MAX);
   RNA_def_property_ui_text(
-      prop, "Density Add Attempts", "How often the Density brush tries to add a new curve");
+      prop, "Density Add Attempts", "How many times the Density brush tries to add a new curve");
 
   prop = RNA_def_property(srna, "density_mode", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_items(prop, density_mode_items);
