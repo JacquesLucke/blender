@@ -2,19 +2,13 @@
 
 #include "BLI_utildefines.h"
 
-#include "BKE_attribute_math.hh"
 #include "BKE_brush.h"
-#include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
-#include "BKE_geometry_set.hh"
-#include "BKE_lib_id.h"
-#include "BKE_mesh.h"
-#include "BKE_mesh_runtime.h"
 #include "BKE_paint.h"
-#include "BKE_spline.hh"
 
 #include "WM_api.h"
+#include "WM_message.h"
 #include "WM_toolsystem.h"
 
 #include "ED_curves_sculpt.h"
@@ -27,18 +21,9 @@
 
 #include "DNA_brush_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
 #include "DNA_screen_types.h"
 
 #include "RNA_access.h"
-
-#include "BLI_index_mask_ops.hh"
-#include "BLI_kdtree.h"
-#include "BLI_math_vector.hh"
-#include "BLI_rand.hh"
-
-#include "PIL_time.h"
 
 #include "curves_sculpt_intern.h"
 #include "curves_sculpt_intern.hh"
@@ -266,6 +251,8 @@ static bool curves_sculptmode_toggle_poll(bContext *C)
 static void curves_sculptmode_enter(bContext *C)
 {
   Scene *scene = CTX_data_scene(C);
+  wmMsgBus *mbus = CTX_wm_message_bus(C);
+
   Object *ob = CTX_data_active_object(C);
   BKE_paint_ensure(scene->toolsettings, (Paint **)&scene->toolsettings->curves_sculpt);
   CurvesSculpt *curves_sculpt = scene->toolsettings->curves_sculpt;
@@ -274,8 +261,9 @@ static void curves_sculptmode_enter(bContext *C)
 
   ED_paint_cursor_start(&curves_sculpt->paint, CURVES_SCULPT_mode_poll_view3d);
 
-  /* Update for mode change. */
+  /* Necessary to change the object mode on the evaluated object. */
   DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
+  WM_msg_publish_rna_prop(mbus, &ob->id, ob, Object, mode);
   WM_event_add_notifier(C, NC_SCENE | ND_MODE, nullptr);
 }
 
@@ -288,6 +276,8 @@ static void curves_sculptmode_exit(bContext *C)
 static int curves_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 {
   Object *ob = CTX_data_active_object(C);
+  wmMsgBus *mbus = CTX_wm_message_bus(C);
+
   const bool is_mode_set = ob->mode == OB_MODE_SCULPT_CURVES;
 
   if (is_mode_set) {
@@ -304,6 +294,10 @@ static int curves_sculptmode_toggle_exec(bContext *C, wmOperator *op)
   }
 
   WM_toolsystem_update_from_context_view3d(C);
+
+  /* Necessary to change the object mode on the evaluated object. */
+  DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
+  WM_msg_publish_rna_prop(mbus, &ob->id, ob, Object, mode);
   WM_event_add_notifier(C, NC_SCENE | ND_MODE, nullptr);
   return OPERATOR_FINISHED;
 }

@@ -1288,10 +1288,13 @@ void SCULPT_orig_vert_data_unode_init(SculptOrigVertData *data, Object *ob, Scul
   }
 }
 
-void SCULPT_orig_vert_data_init(SculptOrigVertData *data, Object *ob, PBVHNode *node)
+void SCULPT_orig_vert_data_init(SculptOrigVertData *data,
+                                Object *ob,
+                                PBVHNode *node,
+                                SculptUndoType type)
 {
   SculptUndoNode *unode;
-  unode = SCULPT_undo_push_node(ob, node, SCULPT_UNDO_COORDS);
+  unode = SCULPT_undo_push_node(ob, node, type);
   SCULPT_orig_vert_data_unode_init(data, ob, unode);
 }
 
@@ -1382,7 +1385,7 @@ static void paint_mesh_restore_co_task_cb(void *__restrict userdata,
     unode = SCULPT_undo_push_node(data->ob, data->nodes[n], type);
   }
   else {
-    unode = SCULPT_undo_get_node(data->nodes[n]);
+    unode = SCULPT_undo_get_node(data->nodes[n], type);
   }
 
   if (!unode) {
@@ -3116,7 +3119,7 @@ void SCULPT_vertcos_to_key(Object *ob, KeyBlock *kb, const float (*vertCos)[3])
     for (a = 0; a < me->totvert; a++, mvert++) {
       copy_v3_v3(mvert->co, vertCos[a]);
     }
-    BKE_mesh_normals_tag_dirty(me);
+    BKE_mesh_tag_coords_changed(me);
   }
 
   /* Apply new coords on active key block, no need to re-allocate kb->data here! */
@@ -3202,24 +3205,29 @@ static void do_brush_action_task_cb(void *__restrict userdata,
   SculptThreadedTaskData *data = userdata;
   SculptSession *ss = data->ob->sculpt;
 
+  bool need_coords = ss->cache->supports_gravity;
+
   /* Face Sets modifications do a single undo push */
   if (data->brush->sculpt_tool == SCULPT_TOOL_DRAW_FACE_SETS) {
     BKE_pbvh_node_mark_redraw(data->nodes[n]);
     /* Draw face sets in smooth mode moves the vertices. */
     if (ss->cache->alt_smooth) {
-      SCULPT_undo_push_node(data->ob, data->nodes[n], SCULPT_UNDO_COORDS);
-      BKE_pbvh_node_mark_update(data->nodes[n]);
+      need_coords = true;
     }
   }
   else if (data->brush->sculpt_tool == SCULPT_TOOL_MASK) {
     SCULPT_undo_push_node(data->ob, data->nodes[n], SCULPT_UNDO_MASK);
     BKE_pbvh_node_mark_update_mask(data->nodes[n]);
   }
-  else if (SCULPT_TOOL_NEEDS_COLOR(data->brush->sculpt_tool)) {
+  else if (SCULPT_tool_is_paint(data->brush->sculpt_tool)) {
     SCULPT_undo_push_node(data->ob, data->nodes[n], SCULPT_UNDO_COLOR);
     BKE_pbvh_node_mark_update_color(data->nodes[n]);
   }
   else {
+    need_coords = true;
+  }
+
+  if (need_coords) {
     SCULPT_undo_push_node(data->ob, data->nodes[n], SCULPT_UNDO_COORDS);
     BKE_pbvh_node_mark_update(data->nodes[n]);
   }
@@ -3238,7 +3246,7 @@ static void do_brush_action(Sculpt *sd,
   /* Check for unsupported features. */
   PBVHType type = BKE_pbvh_type(ss->pbvh);
 
-  if (SCULPT_TOOL_NEEDS_COLOR(brush->sculpt_tool) && SCULPT_has_loop_colors(ob)) {
+  if (SCULPT_tool_is_paint(brush->sculpt_tool) && SCULPT_has_loop_colors(ob)) {
     if (type != PBVH_FACES) {
       return;
     }
@@ -4328,13 +4336,16 @@ static float sculpt_brush_dynamic_size_get(Brush *brush, StrokeCache *cache, flo
  * generally used to create grab deformations. */
 static bool sculpt_needs_delta_from_anchored_origin(Brush *brush)
 {
+  if (brush->sculpt_tool == SCULPT_TOOL_SMEAR && (brush->flag & BRUSH_ANCHORED)) {
+    return true;
+  }
+
   if (ELEM(brush->sculpt_tool,
            SCULPT_TOOL_GRAB,
            SCULPT_TOOL_POSE,
            SCULPT_TOOL_BOUNDARY,
            SCULPT_TOOL_THUMB,
-           SCULPT_TOOL_ELASTIC_DEFORM,
-           SCULPT_TOOL_SMEAR)) {
+           SCULPT_TOOL_ELASTIC_DEFORM)) {
     return true;
   }
   if (brush->sculpt_tool == SCULPT_TOOL_CLOTH &&
@@ -4682,8 +4693,8 @@ static bool sculpt_needs_connectivity_info(const Sculpt *sd,
           (brush->sculpt_tool == SCULPT_TOOL_POSE) ||
           (brush->sculpt_tool == SCULPT_TOOL_BOUNDARY) ||
           (brush->sculpt_tool == SCULPT_TOOL_SLIDE_RELAX) ||
-          SCULPT_TOOL_NEEDS_COLOR(brush->sculpt_tool) ||
-          (brush->sculpt_tool == SCULPT_TOOL_CLOTH) || (brush->sculpt_tool == SCULPT_TOOL_SMEAR) ||
+          SCULPT_tool_is_paint(brush->sculpt_tool) || (brush->sculpt_tool == SCULPT_TOOL_CLOTH) ||
+          (brush->sculpt_tool == SCULPT_TOOL_SMEAR) ||
           (brush->sculpt_tool == SCULPT_TOOL_DRAW_FACE_SETS) ||
           (brush->sculpt_tool == SCULPT_TOOL_DISPLACEMENT_SMEAR) ||
           (brush->sculpt_tool == SCULPT_TOOL_PAINT));
@@ -4699,7 +4710,8 @@ void SCULPT_stroke_modifiers_check(const bContext *C, Object *ob, const Brush *b
   if (ss->shapekey_active || ss->deform_modifiers_active ||
       (!BKE_sculptsession_use_pbvh_draw(ob, v3d) && need_pmap)) {
     Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
-    BKE_sculpt_update_object_for_edit(depsgraph, ob, need_pmap, false, false);
+    BKE_sculpt_update_object_for_edit(
+        depsgraph, ob, need_pmap, false, SCULPT_tool_is_paint(brush->sculpt_tool));
   }
 }
 
@@ -4718,7 +4730,7 @@ static void sculpt_raycast_cb(PBVHNode *node, void *data_v, float *tmin)
     }
     else {
       /* Intersect with coordinates from before we started stroke. */
-      SculptUndoNode *unode = SCULPT_undo_get_node(node);
+      SculptUndoNode *unode = SCULPT_undo_get_node(node, SCULPT_UNDO_COORDS);
       origco = (unode) ? unode->co : NULL;
       use_origco = origco ? true : false;
     }
@@ -4755,7 +4767,7 @@ static void sculpt_find_nearest_to_ray_cb(PBVHNode *node, void *data_v, float *t
     }
     else {
       /* Intersect with coordinates from before we started stroke. */
-      SculptUndoNode *unode = SCULPT_undo_get_node(node);
+      SculptUndoNode *unode = SCULPT_undo_get_node(node, SCULPT_UNDO_COORDS);
       origco = (unode) ? unode->co : NULL;
       use_origco = origco ? true : false;
     }
@@ -5038,7 +5050,8 @@ static void sculpt_brush_init_tex(Sculpt *sd, SculptSession *ss)
 static void sculpt_brush_stroke_init(bContext *C, wmOperator *op)
 {
   Object *ob = CTX_data_active_object(C);
-  Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
+  ToolSettings *tool_settings = CTX_data_tool_settings(C);
+  Sculpt *sd = tool_settings->sculpt;
   SculptSession *ss = CTX_data_active_object(C)->sculpt;
   Brush *brush = BKE_paint_brush(&sd->paint);
   int mode = RNA_enum_get(op->ptr, "mode");
@@ -5058,7 +5071,8 @@ static void sculpt_brush_stroke_init(bContext *C, wmOperator *op)
   sculpt_brush_init_tex(sd, ss);
 
   need_pmap = sculpt_needs_connectivity_info(sd, brush, ss, mode);
-  needs_colors = SCULPT_TOOL_NEEDS_COLOR(brush->sculpt_tool);
+  needs_colors = SCULPT_tool_is_paint(brush->sculpt_tool) &&
+                 !SCULPT_use_image_paint_brush(&tool_settings->paint_mode, ob);
 
   if (needs_colors) {
     BKE_sculpt_color_layer_create_if_needed(ob);
@@ -5067,7 +5081,8 @@ static void sculpt_brush_stroke_init(bContext *C, wmOperator *op)
   /* CTX_data_ensure_evaluated_depsgraph should be used at the end to include the updates of
    * earlier steps modifying the data. */
   Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
-  BKE_sculpt_update_object_for_edit(depsgraph, ob, need_pmap, need_mask, needs_colors);
+  BKE_sculpt_update_object_for_edit(
+      depsgraph, ob, need_pmap, need_mask, SCULPT_tool_is_paint(brush->sculpt_tool));
 
   ED_paint_tool_update_sticky_shading_color(C, ob);
 }
@@ -5305,7 +5320,8 @@ static bool sculpt_stroke_test_start(bContext *C, struct wmOperator *op, const f
 
     /* NOTE: This should be removed when paint mode is available. Paint mode can force based on the
      * canvas it is painting on. (ref. use_sculpt_texture_paint). */
-    if (brush && SCULPT_TOOL_NEEDS_COLOR(brush->sculpt_tool)) {
+    if (brush && SCULPT_tool_is_paint(brush->sculpt_tool) &&
+        !SCULPT_use_image_paint_brush(&tool_settings->paint_mode, ob)) {
       View3D *v3d = CTX_wm_view3d(C);
       if (v3d->shading.type == OB_SOLID) {
         v3d->shading.color_type = V3D_SHADING_VERTEX_COLOR;
@@ -5397,7 +5413,7 @@ static void sculpt_stroke_update_step(bContext *C,
   if (brush->sculpt_tool == SCULPT_TOOL_MASK) {
     SCULPT_flush_update_step(C, SCULPT_UPDATE_MASK);
   }
-  else if (ELEM(brush->sculpt_tool, SCULPT_TOOL_PAINT, SCULPT_TOOL_SMEAR)) {
+  else if (SCULPT_tool_is_paint(brush->sculpt_tool)) {
     if (SCULPT_use_image_paint_brush(&tool_settings->paint_mode, ob)) {
       SCULPT_flush_update_step(C, SCULPT_UPDATE_IMAGE);
     }
@@ -5490,7 +5506,7 @@ static int sculpt_brush_stroke_invoke(bContext *C, wmOperator *op, const wmEvent
   Sculpt *sd = CTX_data_tool_settings(C)->sculpt;
   Brush *brush = BKE_paint_brush(&sd->paint);
 
-  if (SCULPT_TOOL_NEEDS_COLOR(brush->sculpt_tool) &&
+  if (SCULPT_tool_is_paint(brush->sculpt_tool) &&
       !SCULPT_handles_colors_report(ob->sculpt, op->reports)) {
     return OPERATOR_CANCELLED;
   }
