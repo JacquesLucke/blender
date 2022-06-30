@@ -10,7 +10,7 @@ namespace blender::bke {
 
 class AttributeIDRef;
 
-template<typename T> struct ReadAttribute {
+template<typename T> struct AttributeReader {
   VArray<T> varray;
   eAttrDomain domain;
 
@@ -20,7 +20,7 @@ template<typename T> struct ReadAttribute {
   }
 };
 
-template<typename T> struct WriteAttribute {
+template<typename T> struct AttributeWriter {
   VMutableArray<T> varray;
   eAttrDomain domain;
   std::function<void()> tag_modified_fn;
@@ -38,7 +38,7 @@ template<typename T> struct WriteAttribute {
   }
 };
 
-struct GReadAttribute {
+struct GAttributeReader {
   GVArray varray;
   eAttrDomain domain;
 
@@ -47,13 +47,13 @@ struct GReadAttribute {
     return this->varray;
   }
 
-  template<typename T> ReadAttribute<T> typed() const
+  template<typename T> AttributeReader<T> typed() const
   {
     return {varray.typed<T>(), domain};
   }
 };
 
-struct GWriteAttribute {
+struct GAttributeWriter {
   GVMutableArray varray;
   eAttrDomain domain;
   std::function<void()> tag_modified_fn;
@@ -70,7 +70,7 @@ struct GWriteAttribute {
     }
   }
 
-  template<typename T> WriteAttribute<T> typed() const
+  template<typename T> AttributeWriter<T> typed() const
   {
     return {varray.typed<T>(), domain, tag_modified_fn};
   }
@@ -83,7 +83,7 @@ struct AttributeAccessorFunctions {
   bool (*domain_supported)(const void *owner, eAttrDomain domain);
   int (*domain_size)(const void *owner, eAttrDomain domain);
   bool (*is_builtin)(const void *owner, const AttributeIDRef &attribute_id);
-  GReadAttribute (*lookup)(const void *owner, const AttributeIDRef &attribute_id);
+  GAttributeReader (*lookup)(const void *owner, const AttributeIDRef &attribute_id);
   GVArray (*adapt_domain)(const void *owner,
                           const GVArray &varray,
                           eAttrDomain from_domain,
@@ -91,7 +91,7 @@ struct AttributeAccessorFunctions {
   bool (*foreach)(const void *owner,
                   FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)>);
 
-  GWriteAttribute (*lookup_for_write)(void *owner, const AttributeIDRef &attribute_id);
+  GAttributeWriter (*lookup_for_write)(void *owner, const AttributeIDRef &attribute_id);
   bool (*remove)(void *owner, const AttributeIDRef &attribute_id);
   bool (*add)(void *owner,
               const AttributeIDRef &attribute_id,
@@ -155,7 +155,7 @@ class AttributeAccessor {
   /**
    * Get read-only access to an attribute.
    */
-  GReadAttribute lookup(const AttributeIDRef &attribute_id) const
+  GAttributeReader lookup(const AttributeIDRef &attribute_id) const
   {
     return fn_->lookup(owner_, attribute_id);
   }
@@ -193,14 +193,14 @@ class MutableAttributeAccessor : public AttributeAccessor {
    * Make to call #tag_modified after changes are done. This is necessary to potentially invalidate
    * caches.
    */
-  GWriteAttribute lookup_for_write(const AttributeIDRef &attribute_id)
+  GAttributeWriter lookup_for_write(const AttributeIDRef &attribute_id)
   {
     return fn_->lookup_for_write(owner_, attribute_id);
   }
 
-  template<typename T> WriteAttribute<T> lookup_for_write(const AttributeIDRef &attribute_id)
+  template<typename T> AttributeWriter<T> lookup_for_write(const AttributeIDRef &attribute_id)
   {
-    GWriteAttribute attribute = this->lookup_for_write(attribute_id);
+    GAttributeWriter attribute = this->lookup_for_write(attribute_id);
     if (!attribute) {
       return {};
     }
@@ -227,7 +227,7 @@ class MutableAttributeAccessor : public AttributeAccessor {
    * Find an attribute with the given id, domain and data type. If it does not exist, create a new
    * attribute. If there is an attribute with wrong domain or data type, none is returned.
    */
-  GWriteAttribute lookup_or_add_for_write(
+  GAttributeWriter lookup_or_add_for_write(
       const AttributeIDRef &attribute_id,
       const eAttrDomain domain,
       const eCustomDataType data_type,
@@ -247,7 +247,7 @@ class MutableAttributeAccessor : public AttributeAccessor {
   }
 
   template<typename T>
-  WriteAttribute<T> lookup_or_add_for_write(
+  AttributeWriter<T> lookup_or_add_for_write(
       const AttributeIDRef &attribute_id,
       const eAttrDomain domain,
       const AttributeInit &initializer = AttributeInitDefault())

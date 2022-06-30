@@ -28,7 +28,7 @@ static void set_computed_position_and_offset(GeometryComponent &component,
                                              const IndexMask selection)
 {
   MutableAttributeAccessor attributes = *component.attributes_accessor();
-  WriteAttribute<float3> positions = attributes.lookup_for_write<float3>("position");
+  AttributeWriter<float3> positions = attributes.lookup_for_write<float3>("position");
 
   const int grain_size = 10000;
 
@@ -66,9 +66,9 @@ static void set_computed_position_and_offset(GeometryComponent &component,
       Curves &curves_id = *curve_component.get_for_write();
       bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
       if (attributes.contains("handle_right") && attributes.contains("handle_left")) {
-        WriteAttribute<float3> handle_right_attribute = attributes.lookup_or_add_for_write<float3>(
-            "handle_right", ATTR_DOMAIN_POINT);
-        WriteAttribute<float3> handle_left_attribute = attributes.lookup_or_add_for_write<float3>(
+        AttributeWriter<float3> handle_right_attribute =
+            attributes.lookup_or_add_for_write<float3>("handle_right", ATTR_DOMAIN_POINT);
+        AttributeWriter<float3> handle_left_attribute = attributes.lookup_or_add_for_write<float3>(
             "handle_left", ATTR_DOMAIN_POINT);
 
         VMutableArray_Span<float3> handle_right = handle_right_attribute.varray;

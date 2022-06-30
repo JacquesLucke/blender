@@ -297,13 +297,13 @@ BLI_NOINLINE static void propagate_existing_attributes(
     const AttributeIDRef attribute_id = entry.key;
     const eCustomDataType output_data_type = entry.value.data_type;
 
-    GReadAttribute source_attribute = mesh_attributes.lookup(attribute_id);
+    GAttributeReader source_attribute = mesh_attributes.lookup(attribute_id);
     if (!source_attribute) {
       continue;
     }
 
     /* The output domain is always #ATTR_DOMAIN_POINT, since we are creating a point cloud. */
-    GWriteAttribute attribute_out = point_attributes.lookup_or_add_for_write(
+    GAttributeWriter attribute_out = point_attributes.lookup_or_add_for_write(
         attribute_id, ATTR_DOMAIN_POINT, output_data_type);
     if (!attribute_out) {
       continue;
