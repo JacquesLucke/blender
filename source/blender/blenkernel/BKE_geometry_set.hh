@@ -585,6 +585,7 @@ class MeshComponent : public GeometryComponent {
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_MESH;
 
   std::optional<blender::bke::AttributeAccessor> attributes_accessor() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_accessor() final;
 
  private:
   const blender::bke::ComponentAttributeProviders *get_attribute_providers() const final;

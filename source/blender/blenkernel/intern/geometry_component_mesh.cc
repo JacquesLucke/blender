@@ -1506,10 +1506,10 @@ static blender::bke::AttributeAccessorFunctions get_mesh_accessor_functions()
   return fn;
 }
 
-static blender::bke::AttributeAccessor get_mesh_attributes(const Mesh &mesh)
+static const blender::bke::AttributeAccessorFunctions &get_mesh_accessor_functions_ref()
 {
-  static const blender::bke::AttributeAccessorFunctions &fn = get_mesh_accessor_functions();
-  return blender::bke::AttributeAccessor(&mesh, fn);
+  static const blender::bke::AttributeAccessorFunctions fn = get_mesh_accessor_functions();
+  return fn;
 }
 
 std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes_accessor() const
@@ -1517,7 +1517,17 @@ std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes_accesso
   if (mesh_ == nullptr) {
     return std::nullopt;
   }
-  return get_mesh_attributes(*mesh_);
+  return blender::bke::AttributeAccessor(mesh_, get_mesh_accessor_functions_ref());
+  ;
+}
+
+std::optional<blender::bke::MutableAttributeAccessor> MeshComponent::attributes_accessor()
+{
+  if (mesh_ == nullptr) {
+    return std::nullopt;
+  }
+  return blender::bke::MutableAttributeAccessor(mesh_, get_mesh_accessor_functions_ref());
+  ;
 }
 
 /** \} */
