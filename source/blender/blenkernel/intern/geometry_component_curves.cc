@@ -616,3 +616,57 @@ const blender::bke::ComponentAttributeProviders *CurveComponent::get_attribute_p
       blender::bke::create_attribute_providers_for_curve();
   return &providers;
 }
+
+static blender::bke::AttributeAccessorFunctions get_curves_accessor_functions()
+{
+  static const blender::bke::ComponentAttributeProviders providers =
+      blender::bke::create_attribute_providers_for_curve();
+  blender::bke::AttributeAccessorFunctions fn =
+      blender::bke::attribute_accessor_functions::accessor_functions_for_providers<providers>();
+  fn.domain_size = [](const void *owner, const eAttrDomain domain) {
+    const Curves &curves = *static_cast<const Curves *>(owner);
+    switch (domain) {
+      case ATTR_DOMAIN_POINT:
+        return curves.geometry.point_num;
+      case ATTR_DOMAIN_CURVE:
+        return curves.geometry.curve_num;
+      default:
+        return 0;
+    }
+  };
+  fn.domain_supported = [](const void *UNUSED(owner), const eAttrDomain domain) {
+    return ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE);
+  };
+  fn.adapt_domain = [](const void *owner,
+                       const blender::GVArray &varray,
+                       const eAttrDomain from_domain,
+                       const eAttrDomain to_domain) {
+    const Curves &curves = *static_cast<const Curves *>(owner);
+    CurveComponent curve_component;
+    curve_component.replace(&const_cast<Curves &>(curves), GeometryOwnershipType::ReadOnly);
+    return curve_component.attribute_try_adapt_domain(varray, from_domain, to_domain);
+  };
+  return fn;
+}
+
+static const blender::bke::AttributeAccessorFunctions &get_curves_accessor_functions_ref()
+{
+  static const blender::bke::AttributeAccessorFunctions fn = get_curves_accessor_functions();
+  return fn;
+}
+
+std::optional<blender::bke::AttributeAccessor> CurveComponent::attributes() const
+{
+  if (curves_ == nullptr) {
+    return std::nullopt;
+  }
+  return blender::bke::AttributeAccessor(curves_, get_curves_accessor_functions_ref());
+}
+
+std::optional<blender::bke::MutableAttributeAccessor> CurveComponent::attributes_for_write()
+{
+  if (curves_ == nullptr) {
+    return std::nullopt;
+  }
+  return blender::bke::MutableAttributeAccessor(curves_, get_curves_accessor_functions_ref());
+}

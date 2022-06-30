@@ -750,6 +750,9 @@ class CurveComponent : public GeometryComponent {
    */
   const Curve *get_curve_for_render() const;
 
+  std::optional<blender::bke::AttributeAccessor> attributes() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write() final;
+
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_CURVE;
 
  private:
