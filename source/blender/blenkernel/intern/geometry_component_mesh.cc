@@ -1314,7 +1314,11 @@ int domain_size(const void *owner, eAttrDomain domain)
 template<const ComponentAttributeProviders &providers>
 bool is_builtin(const void *owner, const AttributeIDRef &attribute_id)
 {
-  return false;
+  if (!attribute_id.is_named()) {
+    return false;
+  }
+  const StringRef name = attribute_id.name();
+  return providers.builtin_attribute_providers().contains_as(name);
 }
 
 template<const ComponentAttributeProviders &providers>
@@ -1325,9 +1329,32 @@ GAttributeReader lookup(const void *owner, const AttributeIDRef &attribute_id)
 
 template<const ComponentAttributeProviders &providers>
 bool foreach (const void *owner,
-              FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)>)
+              FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn)
 {
-  return false;
+  Set<AttributeIDRef> handled_attribute_ids;
+  for (const BuiltinAttributeProvider *provider :
+       providers.builtin_attribute_providers().values()) {
+    if (provider->exists(owner)) {
+      AttributeMetaData meta_data{provider->domain(), provider->data_type()};
+      if (!fn(provider->name(), meta_data)) {
+        return false;
+      }
+      handled_attribute_ids.add_new(provider->name());
+    }
+  }
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    const bool continue_loop = provider->foreach_attribute(
+        owner, [&](const AttributeIDRef &attribute_id, const AttributeMetaData &meta_data) {
+          if (handled_attribute_ids.add(attribute_id)) {
+            return fn(attribute_id, meta_data);
+          }
+          return true;
+        });
+    if (!continue_loop) {
+      return false;
+    }
+  }
+  return true;
 }
 
 template<const ComponentAttributeProviders &providers>
