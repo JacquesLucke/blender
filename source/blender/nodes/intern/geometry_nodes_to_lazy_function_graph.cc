@@ -111,19 +111,16 @@ class GeometryNodeLazyFunction : public LazyFunction {
     const bNode &bnode = *node_.bnode();
     BLI_assert(bnode.typeinfo->geometry_node_execute != nullptr);
 
-    geo_eval_log::GeoTreeLogger *tree_logger = nullptr;
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
-    if (user_data != nullptr) {
-      tree_logger = &user_data->modifier_data->eval_log->get_local_tree_logger(
-          *user_data->context_stack);
-    }
+    BLI_assert(user_data != nullptr);
 
     geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     bnode.typeinfo->geometry_node_execute(geo_params);
     geo_eval_log::TimePoint end_time = geo_eval_log::Clock::now();
 
+    geo_eval_log::GeoTreeLogger *tree_logger =
+        &user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
     if (tree_logger != nullptr) {
-      std::cout << (end_time - start_time).count() << "\n";
       tree_logger->node_execution_times.append_as(node_.name(), start_time, end_time);
     }
   }
@@ -487,7 +484,15 @@ class GroupNodeFunction : public LazyFunction {
     LFContext group_context = context;
     group_context.user_data = &group_user_data;
 
+    geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     graph_executor_->execute(params, group_context);
+    geo_eval_log::TimePoint end_time = geo_eval_log::Clock::now();
+
+    geo_eval_log::GeoTreeLogger *tree_logger =
+        &user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
+    if (tree_logger != nullptr) {
+      tree_logger->node_execution_times.append_as(group_node_.name(), start_time, end_time);
+    }
   }
 
   void *init_storage(LinearAllocator<> &allocator) const

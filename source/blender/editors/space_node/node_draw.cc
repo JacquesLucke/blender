@@ -1677,7 +1677,7 @@ static std::optional<std::chrono::nanoseconds> node_get_execution_time(
       else {
         if (const GeoNodeLog *node_log = tree_log->nodes.lookup_ptr_as(tnode->name)) {
           found_node = true;
-          run_time = node_log->run_time;
+          run_time += node_log->run_time;
         }
       }
     }
