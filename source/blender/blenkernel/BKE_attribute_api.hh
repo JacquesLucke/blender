@@ -177,6 +177,14 @@ class AttributeAccessor {
     return attribute.varray;
   }
 
+  template<typename T>
+  VArray<T> lookup(const AttributeIDRef &attribute_id, const eAttrDomain domain)
+  {
+    const CPPType &cpp_type = CPPType::get<T>();
+    const eCustomDataType data_type = cpp_type_to_custom_data_type(cpp_type);
+    return this->lookup(attribute_id, domain, data_type).typed<T>();
+  }
+
   /**
    * Interpolate data from one domain to another.
    * TODO: Should this really be part of this API or a separate thing?
