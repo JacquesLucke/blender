@@ -320,4 +320,184 @@ class ComponentAttributeProviders {
   }
 };
 
+namespace attribute_accessor_functions {
+
+template<const ComponentAttributeProviders &providers>
+inline bool is_builtin(const void *UNUSED(owner), const AttributeIDRef &attribute_id)
+{
+  if (!attribute_id.is_named()) {
+    return false;
+  }
+  const StringRef name = attribute_id.name();
+  return providers.builtin_attribute_providers().contains_as(name);
+}
+
+template<const ComponentAttributeProviders &providers>
+inline GAttributeReader lookup(const void *owner, const AttributeIDRef &attribute_id)
+{
+  if (attribute_id.is_named()) {
+    const StringRef name = attribute_id.name();
+    if (const BuiltinAttributeProvider *provider =
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+      return {provider->try_get_for_read(owner), provider->domain()};
+    }
+  }
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    ReadAttributeLookup attribute = provider->try_get_for_read(owner, attribute_id);
+    if (attribute) {
+      return GAttributeReader{attribute.varray, attribute.domain};
+    }
+  }
+  return {};
+}
+
+template<const ComponentAttributeProviders &providers>
+inline bool for_all(const void *owner,
+                    FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn)
+{
+  Set<AttributeIDRef> handled_attribute_ids;
+  for (const BuiltinAttributeProvider *provider :
+       providers.builtin_attribute_providers().values()) {
+    if (provider->exists(owner)) {
+      AttributeMetaData meta_data{provider->domain(), provider->data_type()};
+      if (!fn(provider->name(), meta_data)) {
+        return false;
+      }
+      handled_attribute_ids.add_new(provider->name());
+    }
+  }
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    const bool continue_loop = provider->foreach_attribute(
+        owner, [&](const AttributeIDRef &attribute_id, const AttributeMetaData &meta_data) {
+          if (handled_attribute_ids.add(attribute_id)) {
+            return fn(attribute_id, meta_data);
+          }
+          return true;
+        });
+    if (!continue_loop) {
+      return false;
+    }
+  }
+  return true;
+}
+
+template<const ComponentAttributeProviders &providers>
+inline bool contains(const void *owner, const blender::bke::AttributeIDRef &attribute_id)
+{
+  bool found = false;
+  for_all<providers>(
+      owner,
+      [&](const AttributeIDRef &other_attribute_id, const AttributeMetaData & /* meta_data */) {
+        if (attribute_id == other_attribute_id) {
+          found = true;
+          return false;
+        }
+        return true;
+      });
+  return found;
+}
+
+template<const ComponentAttributeProviders &providers>
+inline std::optional<AttributeMetaData> lookup_meta_data(const void *owner,
+                                                         const AttributeIDRef &attribute_id)
+{
+  std::optional<AttributeMetaData> meta_data;
+  for_all<providers>(
+      owner,
+      [&](const AttributeIDRef &other_attribute_id, const AttributeMetaData &other_meta_data) {
+        if (attribute_id == other_attribute_id) {
+          meta_data = other_meta_data;
+          return false;
+        }
+        return true;
+      });
+  return meta_data;
+}
+
+template<const ComponentAttributeProviders &providers>
+inline GAttributeWriter lookup_for_write(void *owner, const AttributeIDRef &attribute_id)
+{
+  if (attribute_id.is_named()) {
+    const StringRef name = attribute_id.name();
+    if (const BuiltinAttributeProvider *provider =
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+      WriteAttributeLookup attribute = provider->try_get_for_write(owner);
+      return {attribute.varray, attribute.domain, attribute.tag_modified_fn};
+    }
+  }
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    WriteAttributeLookup attribute = provider->try_get_for_write(owner, attribute_id);
+    if (attribute) {
+      return {attribute.varray, attribute.domain, attribute.tag_modified_fn};
+    }
+  }
+  return {};
+}
+
+template<const ComponentAttributeProviders &providers>
+inline bool remove(void *owner, const AttributeIDRef &attribute_id)
+{
+  if (attribute_id.is_named()) {
+    const StringRef name = attribute_id.name();
+    if (const BuiltinAttributeProvider *provider =
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+      return provider->try_delete(owner);
+    }
+  }
+  bool success = false;
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    success = provider->try_delete(owner, attribute_id) || success;
+  }
+  return success;
+}
+
+template<const ComponentAttributeProviders &providers>
+inline bool add(void *owner,
+                const AttributeIDRef &attribute_id,
+                eAttrDomain domain,
+                eCustomDataType data_type,
+                const AttributeInit &initializer)
+{
+  if (contains<providers>(owner, attribute_id)) {
+    return false;
+  }
+  if (attribute_id.is_named()) {
+    const StringRef name = attribute_id.name();
+    if (const BuiltinAttributeProvider *provider =
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+      if (provider->domain() != domain) {
+        return false;
+      }
+      if (provider->data_type() != data_type) {
+        return false;
+      }
+      return provider->try_create(owner, initializer);
+    }
+  }
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    if (provider->try_create(owner, attribute_id, domain, data_type, initializer)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+template<const ComponentAttributeProviders &providers>
+inline AttributeAccessorFunctions accessor_functions_for_providers()
+{
+  return AttributeAccessorFunctions{contains<providers>,
+                                    lookup_meta_data<providers>,
+                                    nullptr,
+                                    nullptr,
+                                    is_builtin<providers>,
+                                    lookup<providers>,
+                                    nullptr,
+                                    for_all<providers>,
+                                    lookup_for_write<providers>,
+                                    remove<providers>,
+                                    add<providers>};
+}
+
+}  // namespace attribute_accessor_functions
+
 }  // namespace blender::bke
