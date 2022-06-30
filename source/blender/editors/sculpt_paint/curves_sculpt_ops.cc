@@ -527,6 +527,7 @@ static bool select_end_poll(bContext *C)
   }
   const Curves *curves_id = static_cast<const Curves *>(CTX_data_active_object(C)->data);
   if (curves_id->selection_domain != ATTR_DOMAIN_POINT) {
+    CTX_wm_operator_poll_msg_set(C, "Only available in point selection mode");
     return false;
   }
   return true;
@@ -548,7 +549,6 @@ static int select_end_exec(bContext *C, wmOperator *op)
     threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
       for (const int curve_i : range) {
         const IndexRange points = curves.points_for_curve(curve_i);
-        IndexRange points_to_select;
         if (end_points) {
           selection.slice(points.drop_back(amount)).fill(0.0f);
         }
@@ -606,11 +606,11 @@ struct GrowOperatorData {
   Vector<std::unique_ptr<GrowOperatorDataPerCurve>> per_curve;
 };
 
-static void update_points_selection(GrowOperatorDataPerCurve &data,
+static void update_points_selection(const GrowOperatorDataPerCurve &data,
                                     const float distance,
                                     MutableSpan<float> points_selection)
 {
-  if (distance > 0) {
+  if (distance > 0.0f) {
     threading::parallel_for(
         data.unselected_point_indices.index_range(), 256, [&](const IndexRange range) {
           for (const int i : range) {
@@ -689,6 +689,13 @@ static int select_grow_update(bContext *C, wmOperator *op, const float mouse_dif
 
 static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+  Object *active_ob = CTX_data_active_object(C);
+  ARegion *region = CTX_wm_region(C);
+  View3D *v3d = CTX_wm_view3d(C);
+
+  float4x4 projection;
+  ED_view3d_ob_project_mat_get(CTX_wm_region_view3d(C), active_ob, projection.values);
+
   GrowOperatorData *op_data = MEM_new<GrowOperatorData>(__func__);
   op->customdata = op_data;
 
@@ -790,12 +797,6 @@ static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
                                     }
                                   });
         });
-
-    Object *ob = CTX_data_active_object(C);
-    ARegion *region = CTX_wm_region(C);
-    View3D *v3d = CTX_wm_view3d(C);
-    float4x4 projection;
-    ED_view3d_ob_project_mat_get(CTX_wm_region_view3d(C), ob, projection.values);
 
     float4x4 curves_to_world_mat = ob->obmat;
     float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
