@@ -1521,7 +1521,8 @@ std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes_accesso
   ;
 }
 
-std::optional<blender::bke::MutableAttributeAccessor> MeshComponent::attributes_accessor()
+std::optional<blender::bke::MutableAttributeAccessor> MeshComponent::
+    attributes_accessor_for_write()
 {
   if (mesh_ == nullptr) {
     return std::nullopt;

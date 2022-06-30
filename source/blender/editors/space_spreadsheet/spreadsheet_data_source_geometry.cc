@@ -2,6 +2,7 @@
 
 #include "BLI_virtual_array.hh"
 
+#include "BKE_attribute_api.hh"
 #include "BKE_context.h"
 #include "BKE_editmesh.h"
 #include "BKE_geometry_fields.hh"
@@ -64,7 +65,12 @@ std::unique_ptr<ColumnValues> ExtraColumns::get_column_values(
 void GeometryDataSource::foreach_default_column_ids(
     FunctionRef<void(const SpreadsheetColumnID &, bool is_extra)> fn) const
 {
-  if (component_->attribute_domain_num(domain_) == 0) {
+  if (!component_->attributes_accessor().has_value()) {
+    return;
+  }
+  const bke::AttributeAccessor attributes = *component_->attributes_accessor();
+
+  if (attributes.domain_size(domain_) == 0) {
     return;
   }
 
@@ -73,7 +79,8 @@ void GeometryDataSource::foreach_default_column_ids(
   }
 
   extra_columns_.foreach_default_column_ids(fn);
-  component_->attribute_foreach(
+
+  attributes.for_all(
       [&](const bke::AttributeIDRef &attribute_id, const AttributeMetaData &meta_data) {
         if (meta_data.domain != domain_) {
           return true;
@@ -113,7 +120,11 @@ void GeometryDataSource::foreach_default_column_ids(
 std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
     const SpreadsheetColumnID &column_id) const
 {
-  const int domain_num = component_->attribute_domain_num(domain_);
+  if (!component_->attributes_accessor().has_value()) {
+    return {};
+  }
+  const bke::AttributeAccessor attributes = *component_->attributes_accessor();
+  const int domain_num = attributes.domain_size(domain_);
   if (domain_num == 0) {
     return {};
   }
@@ -199,7 +210,7 @@ std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
     }
   }
 
-  bke::ReadAttributeLookup attribute = component_->attribute_try_get_for_read(column_id.name);
+  bke::GAttributeReader attribute = attributes.lookup(column_id.name);
   if (!attribute) {
     return {};
   }
@@ -213,7 +224,11 @@ std::unique_ptr<ColumnValues> GeometryDataSource::get_column_values(
 
 int GeometryDataSource::tot_rows() const
 {
-  return component_->attribute_domain_num(domain_);
+  if (!component_->attributes_accessor().has_value()) {
+    return {};
+  }
+  const bke::AttributeAccessor attributes = *component_->attributes_accessor();
+  return attributes.domain_size(domain_);
 }
 
 /**

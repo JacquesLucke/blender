@@ -27,7 +27,7 @@ static void set_computed_position_and_offset(GeometryComponent &component,
                                              const VArray<float3> &in_offsets,
                                              const IndexMask selection)
 {
-  MutableAttributeAccessor attributes = *component.attributes_accessor();
+  MutableAttributeAccessor attributes = *component.attributes_accessor_for_write();
   AttributeWriter<float3> positions = attributes.lookup_for_write<float3>("position");
 
   const int grain_size = 10000;

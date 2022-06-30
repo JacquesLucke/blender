@@ -174,7 +174,7 @@ class AttributeAccessor {
   /**
    * Run the provided function for every attribute.
    */
-  bool for_all(const FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn)
+  bool for_all(const FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)> fn) const
   {
     return fn_->for_all(owner_, fn);
   }
