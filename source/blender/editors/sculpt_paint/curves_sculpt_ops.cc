@@ -687,153 +687,160 @@ static int select_grow_update(bContext *C, wmOperator *op, const float mouse_dif
   return OPERATOR_FINISHED;
 }
 
+static void select_grow_invoke_per_curve(Curves &curves_id,
+                                         Object &curves_ob,
+                                         const ARegion &region,
+                                         const View3D &v3d,
+                                         const RegionView3D &rv3d,
+                                         GrowOperatorDataPerCurve &curve_op_data)
+{
+  curve_op_data.curves_id = &curves_id;
+  CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+  const Span<float3> positions = curves.positions();
+
+  /* Find indices of selected and unselected points. */
+  switch (curves_id.selection_domain) {
+    case ATTR_DOMAIN_POINT: {
+      const VArray<float> points_selection = curves.selection_point_float();
+      curve_op_data.original_selection.reinitialize(points_selection.size());
+      points_selection.materialize(curve_op_data.original_selection);
+      for (const int point_i : points_selection.index_range()) {
+        const float point_selection = points_selection[point_i];
+        if (point_selection > 0) {
+          curve_op_data.selected_point_indices.append(point_i);
+        }
+        else {
+          curve_op_data.unselected_point_indices.append(point_i);
+        }
+      }
+
+      break;
+    }
+    case ATTR_DOMAIN_CURVE: {
+      const VArray<float> curves_selection = curves.selection_curve_float();
+      curve_op_data.original_selection.reinitialize(curves_selection.size());
+      curves_selection.materialize(curve_op_data.original_selection);
+      for (const int curve_i : curves_selection.index_range()) {
+        const float curve_selection = curves_selection[curve_i];
+        const IndexRange points = curves.points_for_curve(curve_i);
+        if (curve_selection > 0) {
+          for (const int point_i : points) {
+            curve_op_data.selected_point_indices.append(point_i);
+          }
+        }
+        else {
+          for (const int point_i : points) {
+            curve_op_data.unselected_point_indices.append(point_i);
+          }
+        }
+      }
+      break;
+    }
+  }
+
+  threading::parallel_invoke(
+      [&]() {
+        /* Build kd-tree for the selected points. */
+        KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data.selected_point_indices.size());
+        BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
+        for (const int point_i : curve_op_data.selected_point_indices) {
+          const float3 &position = positions[point_i];
+          BLI_kdtree_3d_insert(kdtree, point_i, position);
+        }
+        BLI_kdtree_3d_balance(kdtree);
+
+        /* For each unselected point, compute the distance to the closest selected point. */
+        curve_op_data.distances_to_selected.reinitialize(
+            curve_op_data.unselected_point_indices.size());
+        threading::parallel_for(curve_op_data.unselected_point_indices.index_range(),
+                                256,
+                                [&](const IndexRange range) {
+                                  for (const int i : range) {
+                                    const int point_i = curve_op_data.unselected_point_indices[i];
+                                    const float3 &position = positions[point_i];
+                                    KDTreeNearest_3d nearest;
+                                    BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
+                                    curve_op_data.distances_to_selected[i] = nearest.dist;
+                                  }
+                                });
+      },
+      [&]() {
+        /* Build kd-tree for the unselected points. */
+        KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data.unselected_point_indices.size());
+        BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
+        for (const int point_i : curve_op_data.unselected_point_indices) {
+          const float3 &position = positions[point_i];
+          BLI_kdtree_3d_insert(kdtree, point_i, position);
+        }
+        BLI_kdtree_3d_balance(kdtree);
+
+        /* For each selected point, compute the distance to the closest unselected point. */
+        curve_op_data.distances_to_unselected.reinitialize(
+            curve_op_data.selected_point_indices.size());
+        threading::parallel_for(
+            curve_op_data.selected_point_indices.index_range(), 256, [&](const IndexRange range) {
+              for (const int i : range) {
+                const int point_i = curve_op_data.selected_point_indices[i];
+                const float3 &position = positions[point_i];
+                KDTreeNearest_3d nearest;
+                BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
+                curve_op_data.distances_to_unselected[i] = nearest.dist;
+              }
+            });
+      });
+
+  float4x4 curves_to_world_mat = curves_ob.obmat;
+  float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
+
+  float4x4 projection;
+  ED_view3d_ob_project_mat_get(&rv3d, &curves_ob, projection.values);
+
+  /* Compute how mouse movements in screen space are converted into grow/shrink distances in
+   * object space. */
+  curve_op_data.pixel_to_distance_factor = threading::parallel_reduce(
+      curve_op_data.selected_point_indices.index_range(),
+      256,
+      FLT_MAX,
+      [&](const IndexRange range, float pixel_to_distance_factor) {
+        for (const int i : range) {
+          const int point_i = curve_op_data.selected_point_indices[i];
+          const float3 &pos_cu = positions[point_i];
+
+          float2 pos_re;
+          ED_view3d_project_float_v2_m4(&region, pos_cu, pos_re, projection.values);
+          if (pos_re.x < 0 || pos_re.y < 0 || pos_re.x > region.winx || pos_re.y > region.winy) {
+            continue;
+          }
+          /* Compute how far this point moves in curve space when it moves one unit in screen
+           * space. */
+          const float2 pos_offset_re = pos_re + float2(1, 0);
+          float3 pos_offset_wo;
+          ED_view3d_win_to_3d(
+              &v3d, &region, curves_to_world_mat * pos_cu, pos_offset_re, pos_offset_wo);
+          const float3 pos_offset_cu = world_to_curves_mat * pos_offset_wo;
+          const float dist_cu = math::distance(pos_cu, pos_offset_cu);
+          const float dist_re = math::distance(pos_re, pos_offset_re);
+          const float factor = dist_cu / dist_re;
+          math::min_inplace(pixel_to_distance_factor, factor);
+        }
+        return pixel_to_distance_factor;
+      },
+      [](const float a, const float b) { return std::min(a, b); });
+}
+
 static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
   Object *active_ob = CTX_data_active_object(C);
   ARegion *region = CTX_wm_region(C);
   View3D *v3d = CTX_wm_view3d(C);
-
-  float4x4 projection;
-  ED_view3d_ob_project_mat_get(CTX_wm_region_view3d(C), active_ob, projection.values);
+  RegionView3D *rv3d = CTX_wm_region_view3d(C);
 
   GrowOperatorData *op_data = MEM_new<GrowOperatorData>(__func__);
   op->customdata = op_data;
 
   for (Curves *curves_id : curves::get_unique_editable_curves(*C)) {
     auto curve_op_data = std::make_unique<GrowOperatorDataPerCurve>();
-    curve_op_data->curves_id = curves_id;
-    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
-    const Span<float3> positions = curves.positions();
-
-    /* Find indices of selected and unselected points. */
-    switch (curves_id->selection_domain) {
-      case ATTR_DOMAIN_POINT: {
-        const VArray<float> points_selection = curves.selection_point_float();
-        curve_op_data->original_selection.reinitialize(points_selection.size());
-        points_selection.materialize(curve_op_data->original_selection);
-        for (const int point_i : points_selection.index_range()) {
-          const float point_selection = points_selection[point_i];
-          if (point_selection > 0) {
-            curve_op_data->selected_point_indices.append(point_i);
-          }
-          else {
-            curve_op_data->unselected_point_indices.append(point_i);
-          }
-        }
-
-        break;
-      }
-      case ATTR_DOMAIN_CURVE: {
-        const VArray<float> curves_selection = curves.selection_curve_float();
-        curve_op_data->original_selection.reinitialize(curves_selection.size());
-        curves_selection.materialize(curve_op_data->original_selection);
-        for (const int curve_i : curves_selection.index_range()) {
-          const float curve_selection = curves_selection[curve_i];
-          const IndexRange points = curves.points_for_curve(curve_i);
-          if (curve_selection > 0) {
-            for (const int point_i : points) {
-              curve_op_data->selected_point_indices.append(point_i);
-            }
-          }
-          else {
-            for (const int point_i : points) {
-              curve_op_data->unselected_point_indices.append(point_i);
-            }
-          }
-        }
-        break;
-      }
-    }
-
-    threading::parallel_invoke(
-        [&]() {
-          /* Build kd-tree for the selected points. */
-          KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data->selected_point_indices.size());
-          BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
-          for (const int point_i : curve_op_data->selected_point_indices) {
-            const float3 &position = positions[point_i];
-            BLI_kdtree_3d_insert(kdtree, point_i, position);
-          }
-          BLI_kdtree_3d_balance(kdtree);
-
-          /* For each unselected point, compute the distance to the closest selected point. */
-          curve_op_data->distances_to_selected.reinitialize(
-              curve_op_data->unselected_point_indices.size());
-          threading::parallel_for(
-              curve_op_data->unselected_point_indices.index_range(),
-              256,
-              [&](const IndexRange range) {
-                for (const int i : range) {
-                  const int point_i = curve_op_data->unselected_point_indices[i];
-                  const float3 &position = positions[point_i];
-                  KDTreeNearest_3d nearest;
-                  BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
-                  curve_op_data->distances_to_selected[i] = nearest.dist;
-                }
-              });
-        },
-        [&]() {
-          /* Build kd-tree for the unselected points. */
-          KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data->unselected_point_indices.size());
-          BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
-          for (const int point_i : curve_op_data->unselected_point_indices) {
-            const float3 &position = positions[point_i];
-            BLI_kdtree_3d_insert(kdtree, point_i, position);
-          }
-          BLI_kdtree_3d_balance(kdtree);
-
-          /* For each selected point, compute the distance to the closest unselected point. */
-          curve_op_data->distances_to_unselected.reinitialize(
-              curve_op_data->selected_point_indices.size());
-          threading::parallel_for(curve_op_data->selected_point_indices.index_range(),
-                                  256,
-                                  [&](const IndexRange range) {
-                                    for (const int i : range) {
-                                      const int point_i = curve_op_data->selected_point_indices[i];
-                                      const float3 &position = positions[point_i];
-                                      KDTreeNearest_3d nearest;
-                                      BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
-                                      curve_op_data->distances_to_unselected[i] = nearest.dist;
-                                    }
-                                  });
-        });
-
-    float4x4 curves_to_world_mat = ob->obmat;
-    float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
-
-    /* Compute how mouse movements in screen space are converted into grow/shrink distances in
-     * object space. */
-    curve_op_data->pixel_to_distance_factor = threading::parallel_reduce(
-        curve_op_data->selected_point_indices.index_range(),
-        256,
-        FLT_MAX,
-        [&](const IndexRange range, float pixel_to_distance_factor) {
-          for (const int i : range) {
-            const int point_i = curve_op_data->selected_point_indices[i];
-            const float3 &pos_cu = positions[point_i];
-
-            float2 pos_re;
-            ED_view3d_project_float_v2_m4(region, pos_cu, pos_re, projection.values);
-            if (pos_re.x < 0 || pos_re.y < 0 || pos_re.x > region->winx ||
-                pos_re.y > region->winy) {
-              continue;
-            }
-            /* Compute how far this point moves in curve space when it moves one unit in screen
-             * space. */
-            const float2 pos_offset_re = pos_re + float2(1, 0);
-            float3 pos_offset_wo;
-            ED_view3d_win_to_3d(
-                v3d, region, curves_to_world_mat * pos_cu, pos_offset_re, pos_offset_wo);
-            const float3 pos_offset_cu = world_to_curves_mat * pos_offset_wo;
-            const float dist_cu = math::distance(pos_cu, pos_offset_cu);
-            const float dist_re = math::distance(pos_re, pos_offset_re);
-            const float factor = dist_cu / dist_re;
-            math::min_inplace(pixel_to_distance_factor, factor);
-          }
-          return pixel_to_distance_factor;
-        },
-        [](const float a, const float b) { return std::min(a, b); });
-
+    select_grow_invoke_per_curve(*curves_id, *active_ob, *region, *v3d, *rv3d, *curve_op_data);
     op_data->per_curve.append(std::move(curve_op_data));
   }
 
