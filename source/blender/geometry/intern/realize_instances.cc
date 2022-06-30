@@ -361,7 +361,7 @@ static Vector<std::pair<int, GSpan>> prepare_attribute_fallbacks(
     const OrderedAttributes &ordered_attributes)
 {
   Vector<std::pair<int, GSpan>> attributes_to_override;
-  const CustomDataAttributes &attributes = instances_component.attributes();
+  const CustomDataAttributes &attributes = instances_component.instance_attributes();
   attributes.foreach_attribute(
       [&](const AttributeIDRef &attribute_id, const AttributeMetaData &meta_data) {
         const int attribute_index = ordered_attributes.ids.index_of_try(attribute_id);
@@ -447,7 +447,7 @@ static void gather_realize_tasks_for_instances(GatherTasksInfo &gather_info,
 
   Span<int> stored_instance_ids;
   if (gather_info.create_id_attribute_on_any_component) {
-    std::optional<GSpan> ids = instances_component.attributes().get_for_read("id");
+    std::optional<GSpan> ids = instances_component.instance_attributes().get_for_read("id");
     if (ids.has_value()) {
       stored_instance_ids = ids->typed<int>();
     }
@@ -1345,7 +1345,7 @@ static void remove_id_attribute_from_instances(GeometrySet &geometry_set)
   geometry_set.modify_geometry_sets([&](GeometrySet &sub_geometry) {
     if (sub_geometry.has<InstancesComponent>()) {
       InstancesComponent &component = sub_geometry.get_component_for_write<InstancesComponent>();
-      component.attributes().remove("id");
+      component.instance_attributes().remove("id");
     }
   });
 }

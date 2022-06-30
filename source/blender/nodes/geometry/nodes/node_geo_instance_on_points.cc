@@ -154,7 +154,7 @@ static void add_instances_from_component(
     }
   }
 
-  bke::CustomDataAttributes &instance_attributes = dst_component.attributes();
+  bke::CustomDataAttributes &instance_attributes = dst_component.instance_attributes();
   for (const auto item : attributes_to_propagate.items()) {
     const AttributeIDRef &attribute_id = item.key;
     const AttributeKind attribute_kind = item.value;

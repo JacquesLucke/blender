@@ -374,12 +374,12 @@ int InstancesComponent::attribute_domain_num(const eAttrDomain domain) const
   return this->instances_num();
 }
 
-blender::bke::CustomDataAttributes &InstancesComponent::attributes()
+blender::bke::CustomDataAttributes &InstancesComponent::instance_attributes()
 {
   return this->attributes_;
 }
 
-const blender::bke::CustomDataAttributes &InstancesComponent::attributes() const
+const blender::bke::CustomDataAttributes &InstancesComponent::instance_attributes() const
 {
   return this->attributes_;
 }
@@ -444,11 +444,11 @@ static ComponentAttributeProviders create_attribute_providers_for_instances()
   static CustomDataAccessInfo instance_custom_data_access = {
       [](void *owner) -> CustomData * {
         InstancesComponent &inst = *static_cast<InstancesComponent *>(owner);
-        return &inst.attributes().data;
+        return &inst.instance_attributes().data;
       },
       [](const void *owner) -> const CustomData * {
         const InstancesComponent &inst = *static_cast<const InstancesComponent *>(owner);
-        return &inst.attributes().data;
+        return &inst.instance_attributes().data;
       },
       [](const void *owner) -> int {
         const InstancesComponent &inst = *static_cast<const InstancesComponent *>(owner);

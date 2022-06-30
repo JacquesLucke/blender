@@ -982,8 +982,8 @@ class InstancesComponent : public GeometryComponent {
 
   blender::Span<int> almost_unique_ids() const;
 
-  blender::bke::CustomDataAttributes &attributes();
-  const blender::bke::CustomDataAttributes &attributes() const;
+  blender::bke::CustomDataAttributes &instance_attributes();
+  const blender::bke::CustomDataAttributes &instance_attributes() const;
 
   int attribute_domain_num(eAttrDomain domain) const final;
 
