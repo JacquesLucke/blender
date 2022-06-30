@@ -1283,12 +1283,93 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
 
 }  // namespace blender::bke
 
-template<blender::bke::ComponentAttributeProviders &providers>
-static bool check_if_attribute_exists(const void *UNUSED(owner),
-                                      const blender::bke::AttributeIDRef &UNUSED(attribute_id))
+namespace blender::bke::attribute_accessor_functions {
+
+template<const ComponentAttributeProviders &providers>
+static bool contains(const void *UNUSED(owner),
+                     const blender::bke::AttributeIDRef &UNUSED(attribute_id))
 {
   return true;
 }
+
+template<const ComponentAttributeProviders &providers>
+std::optional<AttributeMetaData> lookup_meta_data(const void *owner,
+                                                  const AttributeIDRef &attribute_id)
+{
+  return {};
+}
+
+template<const ComponentAttributeProviders &providers>
+bool domain_supported(const void *owner, eAttrDomain domain)
+{
+  return false;
+}
+
+template<const ComponentAttributeProviders &providers>
+int domain_size(const void *owner, eAttrDomain domain)
+{
+  return 0;
+}
+
+template<const ComponentAttributeProviders &providers>
+bool is_builtin(const void *owner, const AttributeIDRef &attribute_id)
+{
+  return false;
+}
+
+template<const ComponentAttributeProviders &providers>
+GAttributeReader lookup(const void *owner, const AttributeIDRef &attribute_id)
+{
+  return {};
+}
+
+template<const ComponentAttributeProviders &providers>
+bool foreach (const void *owner,
+              FunctionRef<bool(const AttributeIDRef &, const AttributeMetaData &)>)
+{
+  return false;
+}
+
+template<const ComponentAttributeProviders &providers>
+GAttributeWriter lookup_for_write(void *owner, const AttributeIDRef &attribute_id)
+{
+  return {};
+}
+
+template<const ComponentAttributeProviders &providers>
+bool remove(void *owner, const AttributeIDRef &attribute_id)
+{
+  return false;
+}
+
+template<const ComponentAttributeProviders &providers>
+bool add(void *owner,
+         const AttributeIDRef &attribute_id,
+         eAttrDomain domain,
+         eCustomDataType data_type,
+         const AttributeInit &initializer)
+{
+  return false;
+}
+
+template<const ComponentAttributeProviders &providers>
+static const AttributeAccessorFunctions &accessor_functions_for_providers()
+{
+  static AttributeAccessorFunctions functions{contains<providers>,
+                                              lookup_meta_data<providers>,
+                                              domain_supported<providers>,
+                                              domain_size<providers>,
+                                              is_builtin<providers>,
+                                              lookup<providers>,
+                                              nullptr,
+                                              foreach<providers>,
+                                              lookup_for_write<providers>,
+                                              remove<providers>,
+                                              add<providers>};
+  return functions;
+}
+
+}  // namespace blender::bke::attribute_accessor_functions
 
 const blender::bke::ComponentAttributeProviders *MeshComponent::get_attribute_providers() const
 {
@@ -1299,9 +1380,10 @@ const blender::bke::ComponentAttributeProviders *MeshComponent::get_attribute_pr
 
 static blender::bke::AttributeAccessor get_mesh_attributes(const Mesh &mesh)
 {
-  static blender::bke::ComponentAttributeProviders lalalal =
+  static const blender::bke::ComponentAttributeProviders providers =
       blender::bke::create_attribute_providers_for_mesh();
-  static blender::bke::AttributeAccessorFunctions fn{check_if_attribute_exists<lalalal>};
+  static const blender::bke::AttributeAccessorFunctions &fn =
+      blender::bke::attribute_accessor_functions::accessor_functions_for_providers<providers>();
   return blender::bke::AttributeAccessor(&mesh, fn);
 }
 
