@@ -1380,6 +1380,20 @@ std::optional<AttributeMetaData> lookup_meta_data(const void *owner,
 template<const ComponentAttributeProviders &providers>
 GAttributeWriter lookup_for_write(void *owner, const AttributeIDRef &attribute_id)
 {
+  if (attribute_id.is_named()) {
+    const StringRef name = attribute_id.name();
+    if (const BuiltinAttributeProvider *provider =
+            providers.builtin_attribute_providers().lookup_default_as(name, nullptr)) {
+      WriteAttributeLookup attribute = provider->try_get_for_write(owner);
+      return {attribute.varray, attribute.domain, attribute.tag_modified_fn};
+    }
+  }
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    WriteAttributeLookup attribute = provider->try_get_for_write(owner, attribute_id);
+    if (attribute) {
+      return {attribute.varray, attribute.domain, attribute.tag_modified_fn};
+    }
+  }
   return {};
 }
 
