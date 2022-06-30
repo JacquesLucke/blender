@@ -209,6 +209,13 @@ struct WriteAttributeLookup {
   {
     return this->varray;
   }
+
+  void tag_modified()
+  {
+    if (this->tag_modified_fn) {
+      this->tag_modified_fn();
+    }
+  }
 };
 
 /**

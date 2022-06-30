@@ -297,26 +297,27 @@ BLI_NOINLINE static void propagate_existing_attributes(
     const AttributeIDRef attribute_id = entry.key;
     const eCustomDataType output_data_type = entry.value.data_type;
 
-    ReadAttributeLookup source_attribute = mesh_attributes.try_get(attribute_id);
+    GReadAttribute source_attribute = mesh_attributes.lookup(attribute_id);
     if (!source_attribute) {
       continue;
     }
 
     /* The output domain is always #ATTR_DOMAIN_POINT, since we are creating a point cloud. */
-    OutputAttribute attribute_out = point_attributes.try_get_for_init(
+    GWriteAttribute attribute_out = point_attributes.lookup_or_add_for_write(
         attribute_id, ATTR_DOMAIN_POINT, output_data_type);
     if (!attribute_out) {
       continue;
     }
 
-    GMutableSpan out_span = attribute_out.as_span();
+    GVMutableArray_GSpan out_span{attribute_out.varray};
     interpolate_attribute(mesh,
                           bary_coords,
                           looptri_indices,
                           source_attribute.domain,
                           source_attribute.varray,
                           out_span);
-    attribute_out.save();
+    out_span.save();
+    attribute_out.tag_modified();
   }
 }
 
