@@ -1400,7 +1400,18 @@ GAttributeWriter lookup_for_write(void *owner, const AttributeIDRef &attribute_i
 template<const ComponentAttributeProviders &providers>
 bool remove(void *owner, const AttributeIDRef &attribute_id)
 {
-  return false;
+  if (attribute_id.is_named()) {
+    if (const BuiltinAttributeProvider *provider =
+            providers.builtin_attribute_providers().lookup_default_as(attribute_id.name(),
+                                                                      nullptr)) {
+      return provider->try_delete(owner);
+    }
+  }
+  bool success = false;
+  for (const DynamicAttributesProvider *provider : providers.dynamic_attribute_providers()) {
+    success = provider->try_delete(owner, attribute_id) || success;
+  }
+  return success;
 }
 
 template<const ComponentAttributeProviders &providers>
