@@ -189,4 +189,58 @@ const blender::bke::ComponentAttributeProviders *PointCloudComponent::get_attrib
   return &providers;
 }
 
+static blender::bke::AttributeAccessorFunctions get_pointcloud_accessor_functions()
+{
+  static const blender::bke::ComponentAttributeProviders providers =
+      blender::bke::create_attribute_providers_for_point_cloud();
+  blender::bke::AttributeAccessorFunctions fn =
+      blender::bke::attribute_accessor_functions::accessor_functions_for_providers<providers>();
+  fn.domain_size = [](const void *owner, const eAttrDomain domain) {
+    const PointCloud &pointcloud = *static_cast<const PointCloud *>(owner);
+    switch (domain) {
+      case ATTR_DOMAIN_POINT:
+        return pointcloud.totpoint;
+      default:
+        return 0;
+    }
+  };
+  fn.domain_supported = [](const void *UNUSED(owner), const eAttrDomain domain) {
+    return domain == ATTR_DOMAIN_POINT;
+  };
+  fn.adapt_domain = [](const void *UNUSED(owner),
+                       const blender::GVArray &varray,
+                       const eAttrDomain from_domain,
+                       const eAttrDomain to_domain) {
+    if (from_domain == to_domain && from_domain == ATTR_DOMAIN_POINT) {
+      return varray;
+    }
+    return blender::GVArray{};
+  };
+  return fn;
+}
+
+static const blender::bke::AttributeAccessorFunctions &get_pointcloud_accessor_functions_ref()
+{
+  static const blender::bke::AttributeAccessorFunctions fn = get_pointcloud_accessor_functions();
+  return fn;
+}
+
+std::optional<blender::bke::AttributeAccessor> PointCloudComponent::attributes_accessor() const
+{
+  if (pointcloud_ == nullptr) {
+    return std::nullopt;
+  }
+  return blender::bke::AttributeAccessor(pointcloud_, get_pointcloud_accessor_functions_ref());
+}
+
+std::optional<blender::bke::MutableAttributeAccessor> PointCloudComponent::
+    attributes_accessor_for_write()
+{
+  if (pointcloud_ == nullptr) {
+    return std::nullopt;
+  }
+  return blender::bke::MutableAttributeAccessor(pointcloud_,
+                                                get_pointcloud_accessor_functions_ref());
+}
+
 /** \} */

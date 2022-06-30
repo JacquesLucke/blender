@@ -648,6 +648,9 @@ class PointCloudComponent : public GeometryComponent {
   bool owns_direct_data() const override;
   void ensure_owns_direct_data() override;
 
+  std::optional<blender::bke::AttributeAccessor> attributes_accessor() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_accessor_for_write() final;
+
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_POINT_CLOUD;
 
  private:

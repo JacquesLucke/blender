@@ -1316,8 +1316,8 @@ static blender::bke::AttributeAccessorFunctions get_mesh_accessor_functions()
   };
   fn.adapt_domain = [](const void *owner,
                        const blender::GVArray &varray,
-                       eAttrDomain from_domain,
-                       eAttrDomain to_domain) {
+                       const eAttrDomain from_domain,
+                       const eAttrDomain to_domain) {
     const Mesh &mesh = *static_cast<const Mesh *>(owner);
     MeshComponent mesh_component;
     mesh_component.replace(&const_cast<Mesh &>(mesh), GeometryOwnershipType::ReadOnly);
@@ -1338,7 +1338,6 @@ std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes_accesso
     return std::nullopt;
   }
   return blender::bke::AttributeAccessor(mesh_, get_mesh_accessor_functions_ref());
-  ;
 }
 
 std::optional<blender::bke::MutableAttributeAccessor> MeshComponent::
@@ -1348,7 +1347,6 @@ std::optional<blender::bke::MutableAttributeAccessor> MeshComponent::
     return std::nullopt;
   }
   return blender::bke::MutableAttributeAccessor(mesh_, get_mesh_accessor_functions_ref());
-  ;
 }
 
 /** \} */
