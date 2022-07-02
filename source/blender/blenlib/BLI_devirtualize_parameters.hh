@@ -161,9 +161,10 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
       if constexpr (is_VArray_v<SourceType>) {
         /* The actual virtual array, used for dynamic dispatch at run-time. */
         const SourceType &varray = *std::get<I>(sources_);
+        const CommonVArrayInfo varray_info = varray.common_info();
         /* Check if the virtual array is a single value. */
         if constexpr ((allowed_modes & DeviMode::Single) != DeviMode::None) {
-          if (varray.is_single()) {
+          if (varray_info.type == CommonVArrayInfo::Type::Single) {
             if (this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Single>(),
                                                      DeviModeSequence<AllowedModes...>())) {
               return true;
@@ -172,7 +173,7 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
         }
         /* Check if the virtual array is a span. */
         if constexpr ((allowed_modes & DeviMode::Span) != DeviMode::None) {
-          if (varray.is_span()) {
+          if (varray_info.type == CommonVArrayInfo::Type::Span) {
             if (this->try_execute_devirtualized_impl(DeviModeSequence<Mode..., DeviMode::Span>(),
                                                      DeviModeSequence<AllowedModes...>())) {
               return true;
@@ -251,13 +252,15 @@ template<typename Fn, typename... SourceTypes> class Devirtualizer {
     }
     if constexpr (is_VArray_v<SourceType>) {
       const SourceType &varray = *std::get<I>(sources_);
+      using T = typename SourceType::value_type;
+      const CommonVArrayInfo varray_info = varray.common_info();
       if constexpr (Mode == DeviMode::Single) {
         /* Devirtualize virtual array as single value. */
-        return SingleAsSpan(varray);
+        return SingleAsSpan(*static_cast<const T *>(varray_info.data), varray.size());
       }
       else if constexpr (Mode == DeviMode::Span) {
         /* Devirtualize virtual array as span. */
-        return varray.get_internal_span();
+        return Span<T>(static_cast<const T *>(varray_info.data), varray.size());
       }
     }
     else if constexpr (std::is_same_v<IndexMask, SourceType>) {

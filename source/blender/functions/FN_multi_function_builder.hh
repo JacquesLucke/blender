@@ -212,18 +212,19 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
         [[maybe_unused]] ArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
         if constexpr (ParamTag::category == MFParamCategory::SingleInput) {
           VArray<T> &varray = *args;
-          if (varray.is_single()) {
+          const CommonVArrayInfo info = varray.common_info();
+          if (info.type == CommonVArrayInfo::Type::Single) {
             /* If an input #VArray is a single value, we have to fill the buffer with that value
              * only once. The same unchanged buffer can then be reused in every chunk. */
             MutableSpan<T> in_chunk{std::get<I>(buffers_owner).ptr(), buffer_size};
-            const T in_single = varray.get_internal_single();
+            const T &in_single = *static_cast<const T *>(info.data);
             uninitialized_fill_n(in_chunk.data(), in_chunk.size(), in_single);
             std::get<I>(buffers) = in_chunk;
             arg_info.mode = ArgMode::Single;
           }
-          else if (varray.is_span()) {
+          else if (info.type == CommonVArrayInfo::Type::Span) {
             /* Remember the span so that it doesn't have to be retrieved in every iteration. */
-            arg_info.internal_span = varray.get_internal_span();
+            arg_info.internal_span = Span<T>(static_cast<const T *>(info.data), varray.size());
           }
         }
       }(),

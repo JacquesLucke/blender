@@ -587,6 +587,9 @@ template<typename T> struct VArrayAnyExtraInfo {
  *   allowed and could result in hard to find bugs.
  */
 template<typename T> class VArrayCommon {
+ public:
+  using value_type = T;
+
  protected:
   /**
    * Store the virtual array implementation in an #Any. This makes it easy to avoid a memory
