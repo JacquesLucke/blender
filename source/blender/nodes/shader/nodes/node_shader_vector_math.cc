@@ -232,9 +232,10 @@ static const fn::MultiFunction *get_multi_function(bNode &node)
   const fn::MultiFunction *multi_fn = nullptr;
 
   try_dispatch_float_math_fl3_fl3_to_fl3(
-      operation, [&](auto exec_preset, auto function, const FloatMathOperationInfo &info) {
+      operation,
+      [&](auto exec_preset, auto function, const FloatMathOperationInfo &info, auto marker_fn) {
         static fn::CustomMF_SI_SI_SO<float3, float3, float3> fn{
-            info.title_case_name.c_str(), function, exec_preset};
+            info.title_case_name.c_str(), function, exec_preset, marker_fn};
         multi_fn = &fn;
       });
   if (multi_fn != nullptr) {

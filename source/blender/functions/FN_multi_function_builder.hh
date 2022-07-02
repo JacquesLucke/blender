@@ -312,7 +312,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
 }
 }  // namespace materialize_detail
 
-struct DummyPassThrough {
+struct DummyProfileMarkerFn {
   template<typename F> void operator()(const F &f) const
   {
     f();
@@ -329,19 +329,19 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
  public:
   template<typename ElementFn,
            typename ExecPreset = CustomMF_presets::Materialized,
-           typename PassThroughFn = DummyPassThrough>
+           typename ProfileMarkerFn = DummyProfileMarkerFn>
   CustomMF(const char *name,
            ElementFn element_fn,
            ExecPreset exec_preset = CustomMF_presets::Materialized(),
-           PassThroughFn pass_through_fn = DummyPassThrough())
+           ProfileMarkerFn profile_marker_fn = DummyProfileMarkerFn())
   {
     MFSignatureBuilder signature{name};
     add_signature_parameters(signature, std::make_index_sequence<TagsSequence::size()>());
     signature_ = signature.build();
     this->set_signature(&signature_);
 
-    fn_ = [element_fn, exec_preset, pass_through_fn](IndexMask mask, MFParams params) {
-      pass_through_fn([=]() {
+    fn_ = [element_fn, exec_preset, profile_marker_fn](IndexMask mask, MFParams params) {
+      profile_marker_fn([=]() {
         execute(element_fn,
                 exec_preset,
                 mask,
@@ -443,17 +443,17 @@ class CustomMF_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInput, 
  public:
   template<typename ElementFn,
            typename ExecPreset = CustomMF_presets::Materialized,
-           typename PassThroughFn = DummyPassThrough>
+           typename ProfileMarkerFn = DummyProfileMarkerFn>
   CustomMF_SI_SO(const char *name,
                  ElementFn element_fn,
                  ExecPreset exec_preset = CustomMF_presets::Materialized(),
-                 PassThroughFn pass_through_fn = DummyPassThrough())
+                 ProfileMarkerFn profile_marker_fn = DummyProfileMarkerFn())
       : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
                  MFParamTag<MFParamCategory::SingleOutput, Out1>>(
             name,
             [element_fn](const In1 &in1, Out1 *out1) { new (out1) Out1(element_fn(in1)); },
             exec_preset,
-            pass_through_fn)
+            profile_marker_fn)
   {
   }
 };
@@ -469,10 +469,13 @@ class CustomMF_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInpu
                                           MFParamTag<MFParamCategory::SingleInput, In2>,
                                           MFParamTag<MFParamCategory::SingleOutput, Out1>> {
  public:
-  template<typename ElementFn, typename ExecPreset = CustomMF_presets::Materialized>
+  template<typename ElementFn,
+           typename ExecPreset = CustomMF_presets::Materialized,
+           typename ProfileMarkerFn = DummyProfileMarkerFn>
   CustomMF_SI_SI_SO(const char *name,
                     ElementFn element_fn,
-                    ExecPreset exec_preset = CustomMF_presets::Materialized())
+                    ExecPreset exec_preset = CustomMF_presets::Materialized(),
+                    ProfileMarkerFn profile_marker_fn = DummyProfileMarkerFn())
       : CustomMF<MFParamTag<MFParamCategory::SingleInput, In1>,
                  MFParamTag<MFParamCategory::SingleInput, In2>,
                  MFParamTag<MFParamCategory::SingleOutput, Out1>>(
@@ -480,7 +483,8 @@ class CustomMF_SI_SI_SO : public CustomMF<MFParamTag<MFParamCategory::SingleInpu
             [element_fn](const In1 &in1, const In2 &in2, Out1 *out1) {
               new (out1) Out1(element_fn(in1, in2));
             },
-            exec_preset)
+            exec_preset,
+            profile_marker_fn)
   {
   }
 };

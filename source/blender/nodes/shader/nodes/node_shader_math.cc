@@ -107,10 +107,9 @@ static const fn::MultiFunction *get_base_multi_function(bNode &node)
   const fn::MultiFunction *base_fn = nullptr;
 
   try_dispatch_float_math_fl_to_fl(
-      mode,
-      [&](auto devi_fn, auto function, const FloatMathOperationInfo &info, auto pass_through_fn) {
+      mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info, auto marker_fn) {
         static fn::CustomMF_SI_SO<float, float> fn{
-            info.title_case_name.c_str(), function, devi_fn, pass_through_fn};
+            info.title_case_name.c_str(), function, devi_fn, marker_fn};
         base_fn = &fn;
       });
   if (base_fn != nullptr) {

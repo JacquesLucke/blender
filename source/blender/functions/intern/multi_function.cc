@@ -5,6 +5,12 @@
 #include "BLI_task.hh"
 #include "BLI_threads.h"
 
+int escape();
+int escape()
+{
+  return 42;
+}
+
 namespace blender::fn {
 
 using ExecutionHints = MultiFunction::ExecutionHints;

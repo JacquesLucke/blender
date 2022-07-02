@@ -12,13 +12,18 @@
 
 #include "FN_multi_function_builder.hh"
 
+int escape();
+
 #define BLI_MAKE_PROFILE_MARKER(name) \
-  BLI_NOINLINE inline int name(const blender::FunctionRef<void()> f) \
-  { \
-    f(); \
-    /* Return a value to avoid tail call optimization. */ \
-    return 42; \
-  }
+  struct name##_struct { \
+    BLI_NOINLINE inline int operator()(const blender::FunctionRef<void()> f) const \
+    { \
+      f(); \
+      /* Return a value to avoid tail call optimization. */ \
+      return escape() + 1; \
+    } \
+  }; \
+  static inline name##_struct name
 
 namespace blender::nodes {
 
@@ -86,8 +91,8 @@ inline bool try_dispatch_float_math_fl_to_fl(const int operation, Callback &&cal
   static auto exec_preset_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just an utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto exec_preset, auto math_function, auto pass_through_fn) -> bool {
-    callback(exec_preset, math_function, *info, pass_through_fn);
+  auto dispatch = [&](auto exec_preset, auto math_function, auto profile_marker_fn) -> bool {
+    callback(exec_preset, math_function, *info, profile_marker_fn);
     return true;
   };
 
@@ -252,6 +257,18 @@ inline bool try_dispatch_float_math_fl_fl_fl_to_fl(const int operation, Callback
   return false;
 }
 
+BLI_MAKE_PROFILE_MARKER(MARK_vector_add);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_subtract);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_multiply);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_divide);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_cross_product);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_project);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_reflect);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_snap);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_modulo);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_minimum);
+BLI_MAKE_PROFILE_MARKER(MARK_vector_maximum);
+
 /**
  * This is similar to try_dispatch_float_math_fl_to_fl, just with a different callback signature.
  */
@@ -270,37 +287,53 @@ inline bool try_dispatch_float_math_fl3_fl3_to_fl3(const NodeVectorMathOperation
   static auto exec_preset_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just a utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto exec_preset, auto math_function) -> bool {
-    callback(exec_preset, math_function, *info);
+  auto dispatch = [&](auto exec_preset, auto math_function, auto profile_marker_fn) -> bool {
+    callback(exec_preset, math_function, *info, profile_marker_fn);
     return true;
   };
 
   switch (operation) {
     case NODE_VECTOR_MATH_ADD:
-      return dispatch(exec_preset_fast, [](float3 a, float3 b) { return a + b; });
+      return dispatch(
+          exec_preset_fast, [](float3 a, float3 b) { return a + b; }, MARK_vector_add);
     case NODE_VECTOR_MATH_SUBTRACT:
-      return dispatch(exec_preset_fast, [](float3 a, float3 b) { return a - b; });
+      return dispatch(
+          exec_preset_fast, [](float3 a, float3 b) { return a - b; }, MARK_vector_subtract);
     case NODE_VECTOR_MATH_MULTIPLY:
-      return dispatch(exec_preset_fast, [](float3 a, float3 b) { return a * b; });
+      return dispatch(
+          exec_preset_fast, [](float3 a, float3 b) { return a * b; }, MARK_vector_multiply);
     case NODE_VECTOR_MATH_DIVIDE:
-      return dispatch(exec_preset_fast, [](float3 a, float3 b) { return safe_divide(a, b); });
+      return dispatch(
+          exec_preset_fast,
+          [](float3 a, float3 b) { return safe_divide(a, b); },
+          MARK_vector_divide);
     case NODE_VECTOR_MATH_CROSS_PRODUCT:
-      return dispatch(exec_preset_fast,
-                      [](float3 a, float3 b) { return cross_high_precision(a, b); });
+      return dispatch(
+          exec_preset_fast,
+          [](float3 a, float3 b) { return cross_high_precision(a, b); },
+          MARK_vector_cross_product);
     case NODE_VECTOR_MATH_PROJECT:
-      return dispatch(exec_preset_fast, [](float3 a, float3 b) { return project(a, b); });
+      return dispatch(
+          exec_preset_fast, [](float3 a, float3 b) { return project(a, b); }, MARK_vector_project);
     case NODE_VECTOR_MATH_REFLECT:
-      return dispatch(exec_preset_fast,
-                      [](float3 a, float3 b) { return reflect(a, normalize(b)); });
+      return dispatch(
+          exec_preset_fast,
+          [](float3 a, float3 b) { return reflect(a, normalize(b)); },
+          MARK_vector_reflect);
     case NODE_VECTOR_MATH_SNAP:
-      return dispatch(exec_preset_fast,
-                      [](float3 a, float3 b) { return floor(safe_divide(a, b)) * b; });
+      return dispatch(
+          exec_preset_fast,
+          [](float3 a, float3 b) { return floor(safe_divide(a, b)) * b; },
+          MARK_vector_snap);
     case NODE_VECTOR_MATH_MODULO:
-      return dispatch(exec_preset_slow, [](float3 a, float3 b) { return mod(a, b); });
+      return dispatch(
+          exec_preset_slow, [](float3 a, float3 b) { return mod(a, b); }, MARK_vector_modulo);
     case NODE_VECTOR_MATH_MINIMUM:
-      return dispatch(exec_preset_fast, [](float3 a, float3 b) { return min(a, b); });
+      return dispatch(
+          exec_preset_fast, [](float3 a, float3 b) { return min(a, b); }, MARK_vector_minimum);
     case NODE_VECTOR_MATH_MAXIMUM:
-      return dispatch(exec_preset_fast, [](float3 a, float3 b) { return max(a, b); });
+      return dispatch(
+          exec_preset_fast, [](float3 a, float3 b) { return max(a, b); }, MARK_vector_maximum);
     default:
       return false;
   }
