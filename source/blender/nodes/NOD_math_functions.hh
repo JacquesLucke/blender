@@ -4,12 +4,21 @@
 
 #include "DNA_node_types.h"
 
+#include "BLI_function_ref.hh"
 #include "BLI_math_base_safe.h"
 #include "BLI_math_rotation.h"
 #include "BLI_math_vector.hh"
 #include "BLI_string_ref.hh"
 
 #include "FN_multi_function_builder.hh"
+
+#define BLI_MAKE_PROFILE_MARKER(name) \
+  BLI_NOINLINE inline int name(const blender::FunctionRef<void()> f) \
+  { \
+    f(); \
+    /* Return a value to avoid tail call optimization. */ \
+    return 42; \
+  }
 
 namespace blender::nodes {
 
@@ -27,6 +36,28 @@ struct FloatMathOperationInfo {
 const FloatMathOperationInfo *get_float_math_operation_info(int operation);
 const FloatMathOperationInfo *get_float3_math_operation_info(int operation);
 const FloatMathOperationInfo *get_float_compare_operation_info(int operation);
+
+BLI_MAKE_PROFILE_MARKER(MARK_expr);
+BLI_MAKE_PROFILE_MARKER(MARK_sqrt);
+BLI_MAKE_PROFILE_MARKER(MARK_inv_sqrt);
+BLI_MAKE_PROFILE_MARKER(MARK_absolute);
+BLI_MAKE_PROFILE_MARKER(MARK_radians);
+BLI_MAKE_PROFILE_MARKER(MARK_degrees);
+BLI_MAKE_PROFILE_MARKER(MARK_sign);
+BLI_MAKE_PROFILE_MARKER(MARK_round);
+BLI_MAKE_PROFILE_MARKER(MARK_floor);
+BLI_MAKE_PROFILE_MARKER(MARK_ceil);
+BLI_MAKE_PROFILE_MARKER(MARK_fraction);
+BLI_MAKE_PROFILE_MARKER(MARK_trunc);
+BLI_MAKE_PROFILE_MARKER(MARK_sine);
+BLI_MAKE_PROFILE_MARKER(MARK_cosine);
+BLI_MAKE_PROFILE_MARKER(MARK_tangent);
+BLI_MAKE_PROFILE_MARKER(MARK_sinh);
+BLI_MAKE_PROFILE_MARKER(MARK_cosh);
+BLI_MAKE_PROFILE_MARKER(MARK_tanh);
+BLI_MAKE_PROFILE_MARKER(MARK_arcsin);
+BLI_MAKE_PROFILE_MARKER(MARK_arccosine);
+BLI_MAKE_PROFILE_MARKER(MARK_arctangent);
 
 /**
  * This calls the `callback` with two arguments:
@@ -55,54 +86,75 @@ inline bool try_dispatch_float_math_fl_to_fl(const int operation, Callback &&cal
   static auto exec_preset_slow = fn::CustomMF_presets::Materialized();
 
   /* This is just an utility function to keep the individual cases smaller. */
-  auto dispatch = [&](auto exec_preset, auto math_function) -> bool {
-    callback(exec_preset, math_function, *info);
+  auto dispatch = [&](auto exec_preset, auto math_function, auto pass_through_fn) -> bool {
+    callback(exec_preset, math_function, *info, pass_through_fn);
     return true;
   };
 
   switch (operation) {
     case NODE_MATH_EXPONENT:
-      return dispatch(exec_preset_slow, [](float a) { return expf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return expf(a); }, MARK_expr);
     case NODE_MATH_SQRT:
-      return dispatch(exec_preset_fast, [](float a) { return safe_sqrtf(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return safe_sqrtf(a); }, MARK_sqrt);
     case NODE_MATH_INV_SQRT:
-      return dispatch(exec_preset_fast, [](float a) { return safe_inverse_sqrtf(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return safe_inverse_sqrtf(a); }, MARK_inv_sqrt);
     case NODE_MATH_ABSOLUTE:
-      return dispatch(exec_preset_fast, [](float a) { return fabs(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return fabs(a); }, MARK_absolute);
     case NODE_MATH_RADIANS:
-      return dispatch(exec_preset_fast, [](float a) { return (float)DEG2RAD(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return (float)DEG2RAD(a); }, MARK_radians);
     case NODE_MATH_DEGREES:
-      return dispatch(exec_preset_fast, [](float a) { return (float)RAD2DEG(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return (float)RAD2DEG(a); }, MARK_degrees);
     case NODE_MATH_SIGN:
-      return dispatch(exec_preset_fast, [](float a) { return compatible_signf(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return compatible_signf(a); }, MARK_sign);
     case NODE_MATH_ROUND:
-      return dispatch(exec_preset_fast, [](float a) { return floorf(a + 0.5f); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return floorf(a + 0.5f); }, MARK_round);
     case NODE_MATH_FLOOR:
-      return dispatch(exec_preset_fast, [](float a) { return floorf(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return floorf(a); }, MARK_floor);
     case NODE_MATH_CEIL:
-      return dispatch(exec_preset_fast, [](float a) { return ceilf(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return ceilf(a); }, MARK_ceil);
     case NODE_MATH_FRACTION:
-      return dispatch(exec_preset_fast, [](float a) { return a - floorf(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return a - floorf(a); }, MARK_fraction);
     case NODE_MATH_TRUNC:
-      return dispatch(exec_preset_fast, [](float a) { return a >= 0.0f ? floorf(a) : ceilf(a); });
+      return dispatch(
+          exec_preset_fast, [](float a) { return a >= 0.0f ? floorf(a) : ceilf(a); }, MARK_trunc);
     case NODE_MATH_SINE:
-      return dispatch(exec_preset_slow, [](float a) { return sinf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return sinf(a); }, MARK_sine);
     case NODE_MATH_COSINE:
-      return dispatch(exec_preset_slow, [](float a) { return cosf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return cosf(a); }, MARK_cosine);
     case NODE_MATH_TANGENT:
-      return dispatch(exec_preset_slow, [](float a) { return tanf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return tanf(a); }, MARK_tangent);
     case NODE_MATH_SINH:
-      return dispatch(exec_preset_slow, [](float a) { return sinhf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return sinhf(a); }, MARK_sinh);
     case NODE_MATH_COSH:
-      return dispatch(exec_preset_slow, [](float a) { return coshf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return coshf(a); }, MARK_cosh);
     case NODE_MATH_TANH:
-      return dispatch(exec_preset_slow, [](float a) { return tanhf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return tanhf(a); }, MARK_tanh);
     case NODE_MATH_ARCSINE:
-      return dispatch(exec_preset_slow, [](float a) { return safe_asinf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return safe_asinf(a); }, MARK_arcsin);
     case NODE_MATH_ARCCOSINE:
-      return dispatch(exec_preset_slow, [](float a) { return safe_acosf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return safe_acosf(a); }, MARK_arccosine);
     case NODE_MATH_ARCTANGENT:
-      return dispatch(exec_preset_slow, [](float a) { return atanf(a); });
+      return dispatch(
+          exec_preset_slow, [](float a) { return atanf(a); }, MARK_arctangent);
   }
   return false;
 }
