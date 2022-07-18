@@ -115,6 +115,8 @@ class bNodeRuntime : NonCopyable, NonMovable {
   Vector<bNodeSocket *> inputs;
   Vector<bNodeSocket *> outputs;
   Vector<bNodeLink *> internal_links;
+  Map<StringRefNull, bNodeSocket *> inputs_by_identifier;
+  Map<StringRefNull, bNodeSocket *> outputs_by_identifier;
 };
 
 namespace node_tree_runtime {

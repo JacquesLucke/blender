@@ -181,6 +181,23 @@ static void update_nodes_by_type(const bNodeTree &ntree)
   }
 }
 
+static void update_sockets_by_identifier(const bNodeTree &ntree)
+{
+  bNodeTreeRuntime &tree_runtime = *ntree.runtime;
+  threading::parallel_for(tree_runtime.nodes.index_range(), 128, [&](const IndexRange range) {
+    for (bNode *node : tree_runtime.nodes.as_span().slice(range)) {
+      node->runtime->inputs_by_identifier.clear();
+      node->runtime->outputs_by_identifier.clear();
+      for (bNodeSocket *socket : node->runtime->inputs) {
+        node->runtime->inputs_by_identifier.add_new(socket->identifier, socket);
+      }
+      for (bNodeSocket *socket : node->runtime->outputs) {
+        node->runtime->outputs_by_identifier.add_new(socket->identifier, socket);
+      }
+    }
+  });
+}
+
 void ensure_topology_cache(const bNodeTree &ntree)
 {
   bNodeTreeRuntime &tree_runtime = *ntree.runtime;
@@ -193,6 +210,7 @@ void ensure_topology_cache(const bNodeTree &ntree)
         update_directly_linked_links_and_sockets(ntree);
         update_logical_origins(ntree);
         update_nodes_by_type(ntree);
+        update_sockets_by_identifier(ntree);
       });
 }
 
