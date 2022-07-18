@@ -71,6 +71,10 @@ class bNodeSocketRuntime : NonCopyable, NonMovable {
   /** Only valid when #topology_cache_is_dirty is false. */
   Vector<bNodeLink *> directly_linked_links;
   Vector<bNodeSocket *> directly_linked_sockets;
+  Vector<bNodeSocket *> logically_linked_sockets;
+  Vector<bNodeSocket *> logically_linked_skipped_sockets;
+  bNode *owner_node = nullptr;
+  bNodeSocket *internal_link_input = nullptr;
 };
 
 /**
@@ -106,6 +110,7 @@ class bNodeRuntime : NonCopyable, NonMovable {
   /** Only valid if #topology_cache_is_dirty is false. */
   Vector<bNodeSocket *> inputs;
   Vector<bNodeSocket *> outputs;
+  Vector<bNodeLink *> internal_links;
 };
 
 namespace node_tree_runtime {
