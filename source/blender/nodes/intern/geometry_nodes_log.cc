@@ -43,6 +43,17 @@ void GeoTreeLog::ensure_node_run_time()
       this->nodes.lookup_or_add_default_as(node_name).run_time += duration;
       this->run_time_sum += duration;
     }
+    for (const ContextStackHash &child_hash : tree_logger->children_hashes) {
+      GeoTreeLog &child_reduced_log = modifier_log_->get_tree_log(child_hash);
+      child_reduced_log.ensure_node_run_time();
+      const std::optional<std::string> &group_node_name =
+          child_reduced_log.tree_loggers_[0]->group_node_name;
+      if (group_node_name.has_value()) {
+        this->nodes.lookup_or_add_default(*group_node_name).run_time +=
+            child_reduced_log.run_time_sum;
+      }
+      this->run_time_sum += child_reduced_log.run_time_sum;
+    }
   }
   reduced_node_run_times_ = true;
 }

@@ -484,15 +484,7 @@ class GroupNodeFunction : public LazyFunction {
     LFContext group_context = context;
     group_context.user_data = &group_user_data;
 
-    geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     graph_executor_->execute(params, group_context);
-    geo_eval_log::TimePoint end_time = geo_eval_log::Clock::now();
-
-    geo_eval_log::GeoTreeLogger *tree_logger =
-        &user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
-    if (tree_logger != nullptr) {
-      tree_logger->node_execution_times.append_as(group_node_.name(), start_time, end_time);
-    }
   }
 
   void *init_storage(LinearAllocator<> &allocator) const
