@@ -56,6 +56,9 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   Vector<bNodeSocket *> input_sockets;
   Vector<bNodeSocket *> output_sockets;
   MultiValueMap<const bNodeType *, bNode *> nodes_by_type;
+  Vector<bNode *> toposort_left_to_right;
+  Vector<bNode *> toposort_right_to_left;
+  bool has_link_cycle = false;
 };
 
 /**
@@ -122,6 +125,9 @@ class bNodeRuntime : NonCopyable, NonMovable {
   Vector<bNodeLink *> internal_links;
   Map<StringRefNull, bNodeSocket *> inputs_by_identifier;
   Map<StringRefNull, bNodeSocket *> outputs_by_identifier;
+  int index_in_tree = -1;
+  bool has_linked_inputs = false;
+  bool has_linked_outputs = false;
 };
 
 namespace node_tree_runtime {
