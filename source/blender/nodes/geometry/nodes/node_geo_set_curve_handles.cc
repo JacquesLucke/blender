@@ -75,19 +75,19 @@ static void set_position_in_component(CurveComponent &component,
                                       const Field<float3> &offset_field)
 {
   GeometryComponentFieldContext field_context{component, ATTR_DOMAIN_POINT};
-  const int domain_num = component.attribute_domain_num(ATTR_DOMAIN_POINT);
-  if (domain_num == 0) {
+  const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_POINT);
+  if (domain_size == 0) {
     return;
   }
 
-  fn::FieldEvaluator evaluator{field_context, domain_num};
+  fn::FieldEvaluator evaluator{field_context, domain_size};
   evaluator.set_selection(selection_field);
   evaluator.add(position_field);
   evaluator.add(offset_field);
   evaluator.evaluate();
   const IndexMask selection = evaluator.get_evaluated_selection_as_mask();
-  const VArray<float3> &new_positions = evaluator.get_evaluated<float3>(0);
-  const VArray<float3> &new_offsets = evaluator.get_evaluated<float3>(1);
+  const VArray<float3> new_positions = evaluator.get_evaluated<float3>(0);
+  const VArray<float3> new_offsets = evaluator.get_evaluated<float3>(1);
 
   Curves &curves_id = *component.get_for_write();
   bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
@@ -146,8 +146,8 @@ static void node_geo_exec(GeoNodeExecParams params)
     }
     has_curves = true;
     const CurveComponent &component = *geometry_set.get_component_for_read<CurveComponent>();
-    if (!component.attribute_exists("handle_left") ||
-        !component.attribute_exists("handle_right")) {
+    const AttributeAccessor attributes = *component.attributes();
+    if (!attributes.contains("handle_left") || !attributes.contains("handle_right")) {
       return;
     }
     has_bezier = true;

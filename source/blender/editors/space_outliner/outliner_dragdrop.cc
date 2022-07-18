@@ -1124,8 +1124,7 @@ static Collection *collection_parent_from_ID(ID *id)
   return nullptr;
 }
 
-static bool collection_drop_init(
-    bContext *C, wmDrag *drag, const int xy[2], const bool is_link, CollectionDrop *data)
+static bool collection_drop_init(bContext *C, wmDrag *drag, const int xy[2], CollectionDrop *data)
 {
   /* Get collection to drop into. */
   TreeElementInsertType insert_type;
@@ -1194,8 +1193,7 @@ static bool collection_drop_poll(bContext *C, wmDrag *drag, const wmEvent *event
   bool changed = outliner_flag_set(*space_outliner, TSE_HIGHLIGHTED_ANY | TSE_DRAG_ANY, false);
 
   CollectionDrop data;
-  if (((event->modifier & KM_SHIFT) == 0) &&
-      collection_drop_init(C, drag, event->xy, event->modifier & KM_CTRL, &data)) {
+  if (((event->modifier & KM_SHIFT) == 0) && collection_drop_init(C, drag, event->xy, &data)) {
     TreeElement *te = data.te;
     TreeStoreElem *tselem = TREESTORE(te);
     switch (data.insert_type) {
@@ -1233,8 +1231,7 @@ static char *collection_drop_tooltip(bContext *C,
   const wmEvent *event = win ? win->eventstate : nullptr;
 
   CollectionDrop data;
-  if (event && ((event->modifier & KM_SHIFT) == 0) &&
-      collection_drop_init(C, drag, xy, event->modifier & KM_CTRL, &data)) {
+  if (event && ((event->modifier & KM_SHIFT) == 0) && collection_drop_init(C, drag, xy, &data)) {
     const bool is_link = !data.from || (event->modifier & KM_CTRL);
 
     /* Test if we are moving within same parent collection. */
@@ -1307,7 +1304,7 @@ static int collection_drop_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
   wmDrag *drag = reinterpret_cast<wmDrag *>(lb->first);
 
   CollectionDrop data;
-  if (!collection_drop_init(C, drag, event->xy, event->modifier & KM_CTRL, &data)) {
+  if (!collection_drop_init(C, drag, event->xy, &data)) {
     return OPERATOR_CANCELLED;
   }
 
@@ -1458,7 +1455,7 @@ static int outliner_item_drag_drop_invoke(bContext *C,
                                        TSE_GPENCIL_EFFECT_BASE);
 
   const int wm_drag_type = use_datastack_drag ? WM_DRAG_DATASTACK : WM_DRAG_ID;
-  wmDrag *drag = WM_event_start_drag(C, data.icon, wm_drag_type, nullptr, 0.0, WM_DRAG_NOP);
+  wmDrag *drag = WM_drag_data_create(C, data.icon, wm_drag_type, nullptr, 0.0, WM_DRAG_NOP);
 
   if (use_datastack_drag) {
     TreeElement *te_bone = nullptr;
@@ -1547,6 +1544,8 @@ static int outliner_item_drag_drop_invoke(bContext *C,
     /* Add single ID. */
     WM_drag_add_local_ID(drag, data.drag_id, data.drag_parent);
   }
+
+  WM_event_start_prepared_drag(C, drag);
 
   ED_outliner_select_sync_from_outliner(C, space_outliner);
 

@@ -6,32 +6,35 @@
 #include "FN_lazy_function.hh"
 #include "FN_multi_function_builder.hh"
 
-#include "BKE_attribute_access.hh"
 #include "BKE_geometry_fields.hh"
 #include "BKE_geometry_set.hh"
-#include "BKE_geometry_set_instances.hh"
 
 #include "DNA_node_types.h"
 
 #include "NOD_derived_node_tree.hh"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 
-struct Depsgraph;
 struct ModifierData;
 
 namespace blender::nodes {
 
 using bke::AnonymousAttributeFieldInput;
+using bke::AttributeAccessor;
 using bke::AttributeFieldInput;
 using bke::AttributeIDRef;
+using bke::AttributeKind;
+using bke::AttributeMetaData;
+using bke::AttributeReader;
+using bke::AttributeWriter;
+using bke::GAttributeReader;
+using bke::GAttributeWriter;
 using bke::GeometryComponentFieldContext;
 using bke::GeometryFieldInput;
-using bke::OutputAttribute;
-using bke::OutputAttribute_Typed;
-using bke::ReadAttributeLookup;
+using bke::GSpanAttributeWriter;
+using bke::MutableAttributeAccessor;
+using bke::SpanAttributeWriter;
 using bke::StrongAnonymousAttributeID;
 using bke::WeakAnonymousAttributeID;
-using bke::WriteAttributeLookup;
 using fn::Field;
 using fn::FieldContext;
 using fn::FieldEvaluator;

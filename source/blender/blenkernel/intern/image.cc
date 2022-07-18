@@ -1172,22 +1172,81 @@ Image *BKE_image_add_generated(Main *bmain,
   return ima;
 }
 
+static void image_colorspace_from_imbuf(Image *image, const ImBuf *ibuf)
+{
+  const char *colorspace_name = NULL;
+
+  if (ibuf->rect_float) {
+    if (ibuf->float_colorspace) {
+      colorspace_name = IMB_colormanagement_colorspace_get_name(ibuf->float_colorspace);
+    }
+    else {
+      colorspace_name = IMB_colormanagement_role_colorspace_name_get(COLOR_ROLE_DEFAULT_FLOAT);
+    }
+  }
+
+  if (ibuf->rect && !colorspace_name) {
+    if (ibuf->rect_colorspace) {
+      colorspace_name = IMB_colormanagement_colorspace_get_name(ibuf->rect_colorspace);
+    }
+    else {
+      colorspace_name = IMB_colormanagement_role_colorspace_name_get(COLOR_ROLE_DEFAULT_BYTE);
+    }
+  }
+
+  if (colorspace_name) {
+    STRNCPY(image->colorspace_settings.name, colorspace_name);
+  }
+}
+
 Image *BKE_image_add_from_imbuf(Main *bmain, ImBuf *ibuf, const char *name)
 {
-  Image *ima;
-
   if (name == nullptr) {
     name = BLI_path_basename(ibuf->name);
   }
 
-  ima = image_alloc(bmain, name, IMA_SRC_FILE, IMA_TYPE_IMAGE);
+  /* When the image buffer has valid path create a new image with "file" source and copy the path
+   * from the image buffer.
+   * Otherwise create "generated" image, avoiding invalid configuration with an empty file path. */
+  const eImageSource source = ibuf->name[0] != '\0' ? IMA_SRC_FILE : IMA_SRC_GENERATED;
 
-  if (ima) {
-    STRNCPY(ima->filepath, ibuf->name);
-    image_assign_ibuf(ima, ibuf, IMA_NO_INDEX, 0);
+  Image *ima = image_alloc(bmain, name, source, IMA_TYPE_IMAGE);
+
+  if (!ima) {
+    return nullptr;
   }
 
+  BKE_image_replace_imbuf(ima, ibuf);
+
   return ima;
+}
+
+void BKE_image_replace_imbuf(Image *image, ImBuf *ibuf)
+{
+  BLI_assert(image->type == IMA_TYPE_IMAGE &&
+             ELEM(image->source, IMA_SRC_FILE, IMA_SRC_GENERATED));
+
+  BKE_image_free_buffers(image);
+
+  image_assign_ibuf(image, ibuf, IMA_NO_INDEX, 0);
+  image_colorspace_from_imbuf(image, ibuf);
+
+  /* Keep generated image type flags consistent with the image buffer. */
+  if (image->source == IMA_SRC_GENERATED) {
+    if (ibuf->rect_float) {
+      image->gen_flag |= IMA_GEN_FLOAT;
+    }
+    else {
+      image->gen_flag &= ~IMA_GEN_FLOAT;
+    }
+
+    image->gen_x = ibuf->x;
+    image->gen_y = ibuf->y;
+  }
+
+  /* Consider image dirty since its content can not be re-created unless the image is explicitly
+   * saved. */
+  BKE_image_mark_dirty(image, ibuf);
 }
 
 /** Pack image buffer to memory as PNG or EXR. */
@@ -2416,7 +2475,10 @@ int BKE_imbuf_write(ImBuf *ibuf, const char *name, const ImageFormatData *imf)
   return ok;
 }
 
-int BKE_imbuf_write_as(ImBuf *ibuf, const char *name, ImageFormatData *imf, const bool save_copy)
+int BKE_imbuf_write_as(ImBuf *ibuf,
+                       const char *name,
+                       const ImageFormatData *imf,
+                       const bool save_copy)
 {
   ImBuf ibuf_back = *ibuf;
   int ok;
@@ -4998,13 +5060,7 @@ void BKE_image_get_size(Image *image, ImageUser *iuser, int *r_width, int *r_hei
   }
   else if (image != nullptr && image->type == IMA_TYPE_R_RESULT && iuser != nullptr &&
            iuser->scene != nullptr) {
-    Scene *scene = iuser->scene;
-    *r_width = (scene->r.xsch * scene->r.size) / 100;
-    *r_height = (scene->r.ysch * scene->r.size) / 100;
-    if ((scene->r.mode & R_BORDER) && (scene->r.mode & R_CROP)) {
-      *r_width *= BLI_rctf_size_x(&scene->r.border);
-      *r_height *= BLI_rctf_size_y(&scene->r.border);
-    }
+    BKE_render_resolution(&iuser->scene->r, true, r_width, r_height);
   }
   else {
     *r_width = IMG_SIZE_FALLBACK;

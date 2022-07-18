@@ -91,7 +91,7 @@ class FieldAtIndex final : public GeometryFieldInput {
   {
     const GeometryComponentFieldContext value_field_context{component, value_field_domain_};
     FieldEvaluator value_evaluator{value_field_context,
-                                   component.attribute_domain_num(value_field_domain_)};
+                                   component.attribute_domain_size(value_field_domain_)};
     value_evaluator.add(value_field_);
     value_evaluator.evaluate();
     const GVArray &values = value_evaluator.get_evaluated(0);
@@ -100,7 +100,7 @@ class FieldAtIndex final : public GeometryFieldInput {
     FieldEvaluator index_evaluator{index_field_context, &mask};
     index_evaluator.add(index_field_);
     index_evaluator.evaluate();
-    const VArray<int> &indices = index_evaluator.get_evaluated<int>(0);
+    const VArray<int> indices = index_evaluator.get_evaluated<int>(0);
 
     GVArray output_array;
     attribute_math::convert_to_static_type(*type_, [&](auto dummy) {

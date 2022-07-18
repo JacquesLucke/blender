@@ -550,12 +550,12 @@ class _draw_tool_settings_context_mode:
             row = layout.row(align=True)
             row.prop(brush.curves_sculpt_settings, "density_mode", text="", expand=True)
             row = layout.row(align=True)
-            row.prop(brush.curves_sculpt_settings, "minimum_distance")
+            row.prop(brush.curves_sculpt_settings, "minimum_distance", text="Distance Min")
             row.operator_context = 'INVOKE_REGION_WIN'
             row.operator("sculpt_curves.min_distance_edit", text="", icon='DRIVER_DISTANCE')
             row = layout.row(align=True)
             row.enabled = brush.curves_sculpt_settings.density_mode != 'REMOVE'
-            row.prop(brush.curves_sculpt_settings, "density_add_attempts", text="Max Count")
+            row.prop(brush.curves_sculpt_settings, "density_add_attempts", text="Count Max")
             layout.popover("VIEW3D_PT_tools_brush_falloff")
             layout.popover("VIEW3D_PT_curves_sculpt_add_shape", text="Curve Shape")
         elif curves_tool == "SLIDE":
@@ -718,19 +718,17 @@ class VIEW3D_HT_header(Header):
 
                 row = layout.row(align=True)
 
-                experimental = context.preferences.experimental
-                if experimental.use_new_curves_tools:
-                    # Combine the "use selection" toggle with the "set domain" operators
-                    # to allow turning selection off directly.
-                    domain = curves.selection_domain
-                    if domain == 'POINT':
-                        row.prop(curves, "use_sculpt_selection", text="", icon='CURVE_BEZCIRCLE')
-                    else:
-                        row.operator("curves.set_selection_domain", text="", icon='CURVE_BEZCIRCLE').domain = 'POINT'
-                    if domain == 'CURVE':
-                        row.prop(curves, "use_sculpt_selection", text="", icon='CURVE_PATH')
-                    else:
-                        row.operator("curves.set_selection_domain", text="", icon='CURVE_PATH').domain = 'CURVE'
+                # Combine the "use selection" toggle with the "set domain" operators
+                # to allow turning selection off directly.
+                domain = curves.selection_domain
+                if domain == 'POINT':
+                    row.prop(curves, "use_sculpt_selection", text="", icon='CURVE_BEZCIRCLE')
+                else:
+                    row.operator("curves.set_selection_domain", text="", icon='CURVE_BEZCIRCLE').domain = 'POINT'
+                if domain == 'CURVE':
+                    row.prop(curves, "use_sculpt_selection", text="", icon='CURVE_PATH')
+                else:
+                    row.operator("curves.set_selection_domain", text="", icon='CURVE_PATH').domain = 'CURVE'
 
         # Grease Pencil
         if obj and obj.type == 'GPENCIL' and context.gpencil_data:
@@ -2111,14 +2109,13 @@ class VIEW3D_MT_curve_add(Menu):
         layout.operator("curve.primitive_nurbs_circle_add", text="Nurbs Circle", icon='CURVE_NCIRCLE')
         layout.operator("curve.primitive_nurbs_path_add", text="Path", icon='CURVE_PATH')
 
+        layout.separator()
+
+        layout.operator("object.curves_empty_hair_add", text="Empty Hair", icon='CURVES_DATA')
+
         experimental = context.preferences.experimental
-        if experimental.use_new_curves_type:
-            layout.separator()
-
-            layout.operator("object.curves_empty_hair_add", text="Empty Hair", icon='CURVES_DATA')
-
-            if experimental.use_new_curves_tools:
-                layout.operator("object.curves_random_add", text="Random", icon='CURVES_DATA')
+        if experimental.use_new_curves_tools:
+            layout.operator("object.curves_random_add", text="Random", icon='CURVES_DATA')
 
 
 class VIEW3D_MT_surface_add(Menu):
@@ -2354,8 +2351,6 @@ class VIEW3D_MT_object_relations(Menu):
         layout = self.layout
 
         layout.operator("object.make_override_library", text="Make Library Override...")
-        layout.operator("object.make_override_library",
-                        text="Make Library Override - Fully Editable...").do_fully_editable = True
 
         layout.operator("object.make_dupli_face")
 
@@ -6669,6 +6664,7 @@ class VIEW3D_PT_overlay_sculpt_curves(Panel):
         overlay = view.overlay
 
         row = layout.row(align=True)
+        row.active = overlay.show_overlays
         row.prop(overlay, "sculpt_mode_mask_opacity", text="Selection Opacity")
 
 
