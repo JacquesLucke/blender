@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 
+#include "BLI_multi_value_map.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
@@ -13,6 +14,7 @@
 struct bNode;
 struct bNodeSocket;
 struct bNodeTree;
+struct bNodeType;
 
 namespace blender::nodes {
 struct FieldInferencingInterface;
@@ -50,6 +52,7 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   /** Only valid when #topology_cache_is_dirty is false. */
   Vector<bNode *> nodes;
   Vector<bNodeLink *> links;
+  MultiValueMap<const bNodeType *, bNode *> nodes_by_type;
 };
 
 /**
@@ -75,6 +78,7 @@ class bNodeSocketRuntime : NonCopyable, NonMovable {
   Vector<bNodeSocket *> logically_linked_skipped_sockets;
   bNode *owner_node = nullptr;
   bNodeSocket *internal_link_input = nullptr;
+  int index_in_node = -1;
 };
 
 /**

@@ -74,11 +74,11 @@ static void update_socket_vectors_and_owner_node(const bNodeTree &ntree)
       node_runtime.inputs.clear();
       node_runtime.outputs.clear();
       LISTBASE_FOREACH (bNodeSocket *, socket, &node.inputs) {
-        node_runtime.inputs.append(socket);
+        socket->runtime->index_in_node = node_runtime.inputs.append_and_get_index(socket);
         socket->runtime->owner_node = &node;
       }
       LISTBASE_FOREACH (bNodeSocket *, socket, &node.outputs) {
-        node_runtime.outputs.append(socket);
+        socket->runtime->index_in_node = node_runtime.outputs.append_and_get_index(socket);
         socket->runtime->owner_node = &node;
       }
     }
@@ -172,6 +172,15 @@ static void update_logical_origins(const bNodeTree &ntree)
   });
 }
 
+static void update_nodes_by_type(const bNodeTree &ntree)
+{
+  bNodeTreeRuntime &tree_runtime = *ntree.runtime;
+  tree_runtime.nodes_by_type.clear();
+  for (bNode *node : tree_runtime.nodes) {
+    tree_runtime.nodes_by_type.add(node->typeinfo, node);
+  }
+}
+
 void ensure_topology_cache(const bNodeTree &ntree)
 {
   bNodeTreeRuntime &tree_runtime = *ntree.runtime;
@@ -183,6 +192,7 @@ void ensure_topology_cache(const bNodeTree &ntree)
         update_socket_vectors_and_owner_node(ntree);
         update_directly_linked_links_and_sockets(ntree);
         update_logical_origins(ntree);
+        update_nodes_by_type(ntree);
       });
 }
 
