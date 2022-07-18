@@ -59,6 +59,7 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   Vector<bNode *> toposort_left_to_right;
   Vector<bNode *> toposort_right_to_left;
   bool has_link_cycle = false;
+  bNode *group_output_node = nullptr;
 };
 
 /**

@@ -333,6 +333,27 @@ static void update_toposort(const bNodeTree &ntree,
   BLI_assert(tree_runtime.nodes.size() == r_sorted_nodes.size());
 }
 
+static void update_group_output_node(const bNodeTree &ntree)
+{
+  bNodeTreeRuntime &tree_runtime = *ntree.runtime;
+  const bNodeType *node_type = nodeTypeFind("NodeGroupOutput");
+  const Span<bNode *> group_output_nodes = tree_runtime.nodes_by_type.lookup(node_type);
+  if (group_output_nodes.is_empty()) {
+    tree_runtime.group_output_node = nullptr;
+  }
+  else if (group_output_nodes.size() == 1) {
+    tree_runtime.group_output_node = group_output_nodes[0];
+  }
+  else {
+    for (bNode *group_output : group_output_nodes) {
+      if (group_output->flag & NODE_DO_OUTPUT) {
+        tree_runtime.group_output_node = group_output;
+        break;
+      }
+    }
+  }
+}
+
 void ensure_topology_cache(const bNodeTree &ntree)
 {
   bNodeTreeRuntime &tree_runtime = *ntree.runtime;
@@ -359,6 +380,7 @@ void ensure_topology_cache(const bNodeTree &ntree)
                                                      tree_runtime.toposort_right_to_left,
                                                      dummy);
                                    });
+        update_group_output_node(ntree);
       });
 }
 
