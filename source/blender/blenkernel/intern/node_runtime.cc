@@ -35,8 +35,11 @@ static void update_node_vector(const bNodeTree &ntree)
 {
   bNodeTreeRuntime &tree_runtime = *ntree.runtime;
   tree_runtime.nodes.clear();
+  tree_runtime.has_undefined_nodes_or_sockets = false;
   LISTBASE_FOREACH (bNode *, node, &ntree.nodes) {
     node->runtime->index_in_tree = tree_runtime.nodes.append_and_get_index(node);
+    node->runtime->owner_tree = const_cast<bNodeTree *>(&ntree);
+    tree_runtime.has_undefined_nodes_or_sockets |= node->typeinfo == &NodeTypeUndefined;
   }
 }
 
@@ -79,6 +82,8 @@ static void update_socket_vectors_and_owner_node(const bNodeTree &ntree)
         socket->runtime->index_in_inout_sockets = tree_runtime.input_sockets.append_and_get_index(
             socket);
         socket->runtime->owner_node = &node;
+        tree_runtime.has_undefined_nodes_or_sockets |= socket->typeinfo ==
+                                                       &NodeSocketTypeUndefined;
       }
       LISTBASE_FOREACH (bNodeSocket *, socket, &node.outputs) {
         socket->runtime->index_in_node = node_runtime.outputs.append_and_get_index(socket);
@@ -86,6 +91,8 @@ static void update_socket_vectors_and_owner_node(const bNodeTree &ntree)
         socket->runtime->index_in_inout_sockets = tree_runtime.output_sockets.append_and_get_index(
             socket);
         socket->runtime->owner_node = &node;
+        tree_runtime.has_undefined_nodes_or_sockets |= socket->typeinfo ==
+                                                       &NodeSocketTypeUndefined;
       }
     }
   });
@@ -218,6 +225,7 @@ static void update_sockets_by_identifier(const bNodeTree &ntree)
       for (bNodeSocket *socket : node->runtime->outputs) {
         node->runtime->outputs_by_identifier.add_new(socket->identifier, socket);
       }
+      node->runtime->is_group_node = ELEM(node->type, NODE_GROUP, NODE_CUSTOM_GROUP);
     }
   });
 }

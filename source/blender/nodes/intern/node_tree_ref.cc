@@ -655,12 +655,6 @@ std::string NodeTreeRef::to_dot() const
   return digraph.to_dot_string();
 }
 
-const NodeTreeRef &get_tree_ref_from_map(NodeTreeRefMap &node_tree_refs, bNodeTree &btree)
-{
-  return *node_tree_refs.lookup_or_add_cb(&btree,
-                                          [&]() { return std::make_unique<NodeTreeRef>(&btree); });
-}
-
 PointerRNA NodeRef::rna() const
 {
   PointerRNA rna;
