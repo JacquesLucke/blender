@@ -3,9 +3,16 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 
-#include "BLI_sys_types.h"
 #include "BLI_utility_mixins.hh"
+#include "BLI_vector.hh"
+
+#include "DNA_node_types.h"
+
+struct bNode;
+struct bNodeSocket;
+struct bNodeTree;
 
 namespace blender::nodes {
 struct FieldInferencingInterface;
@@ -36,6 +43,13 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
 
   /** Information about how inputs and outputs of the node group interact with fields. */
   std::unique_ptr<nodes::FieldInferencingInterface> field_inferencing_interface;
+
+  std::mutex topology_cache_mutex;
+  bool topology_cache_is_dirty = true;
+
+  /** Only valid when #topology_cache_is_dirty is false. */
+  Vector<bNode *> nodes;
+  Vector<bNodeLink *> links;
 };
 
 /**
@@ -53,6 +67,10 @@ class bNodeSocketRuntime : NonCopyable, NonMovable {
 
   /** #eNodeTreeChangedFlag. */
   uint32_t changed_flag = 0;
+
+  /** Only valid when #topology_cache_is_dirty is false. */
+  Vector<bNodeLink *> directly_linked_links;
+  Vector<bNodeSocket *> directly_linked_sockets;
 };
 
 /**
@@ -84,6 +102,14 @@ class bNodeRuntime : NonCopyable, NonMovable {
 
   /** #eNodeTreeChangedFlag. */
   uint32_t changed_flag = 0;
+
+  /** Only valid if #topology_cache_is_dirty is false. */
+  Vector<bNodeSocket *> inputs;
+  Vector<bNodeSocket *> outputs;
 };
+
+namespace node_tree_runtime {
+void ensure_topology_cache(const bNodeTree &ntree);
+}  // namespace node_tree_runtime
 
 }  // namespace blender::bke
