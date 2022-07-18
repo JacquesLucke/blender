@@ -52,6 +52,9 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   /** Only valid when #topology_cache_is_dirty is false. */
   Vector<bNode *> nodes;
   Vector<bNodeLink *> links;
+  Vector<bNodeSocket *> sockets;
+  Vector<bNodeSocket *> input_sockets;
+  Vector<bNodeSocket *> output_sockets;
   MultiValueMap<const bNodeType *, bNode *> nodes_by_type;
 };
 
@@ -79,6 +82,8 @@ class bNodeSocketRuntime : NonCopyable, NonMovable {
   bNode *owner_node = nullptr;
   bNodeSocket *internal_link_input = nullptr;
   int index_in_node = -1;
+  int index_in_all_sockets = -1;
+  int index_in_inout_sockets = -1;
 };
 
 /**
