@@ -214,9 +214,11 @@ void ensure_topology_cache(const bNodeTree &ntree)
         update_internal_links(ntree);
         update_socket_vectors_and_owner_node(ntree);
         update_directly_linked_links_and_sockets(ntree);
-        update_logical_origins(ntree);
-        update_nodes_by_type(ntree);
-        update_sockets_by_identifier(ntree);
+        threading::parallel_invoke([&]() { update_logical_origins(ntree); },
+                                   [&]() { update_nodes_by_type(ntree); },
+                                   [&]() { update_sockets_by_identifier(ntree); }
+
+        );
       });
 }
 
