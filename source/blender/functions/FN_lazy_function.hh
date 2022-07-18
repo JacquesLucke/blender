@@ -11,7 +11,7 @@
 #include "BLI_linear_allocator.hh"
 #include "BLI_vector.hh"
 
-namespace blender::fn {
+namespace blender::fn::lazy_function {
 
 enum class ValueUsage {
   Used,
@@ -21,22 +21,22 @@ enum class ValueUsage {
 
 class LazyFunction;
 
-class LFUserData {
+class UserData {
  public:
-  virtual ~LFUserData() = default;
+  virtual ~UserData() = default;
 };
 
-struct LFContext {
+struct Context {
   void *storage;
-  LFUserData *user_data;
+  UserData *user_data;
 };
 
-class LFParams {
+class Params {
  protected:
   const LazyFunction &fn_;
 
  public:
-  LFParams(const LazyFunction &fn);
+  Params(const LazyFunction &fn);
 
   /**
    * Get a pointer to an input value if the value is available already.
@@ -93,22 +93,22 @@ class LFParams {
   virtual void set_input_unused_impl(int index) = 0;
 };
 
-struct LFInput {
+struct Input {
   const char *static_name;
   const CPPType *type;
   ValueUsage usage;
 
-  LFInput(const char *static_name, const CPPType &type, const ValueUsage usage = ValueUsage::Used)
+  Input(const char *static_name, const CPPType &type, const ValueUsage usage = ValueUsage::Used)
       : static_name(static_name), type(&type), usage(usage)
   {
   }
 };
 
-struct LFOutput {
+struct Output {
   const char *static_name;
   const CPPType *type = nullptr;
 
-  LFOutput(const char *static_name, const CPPType &type) : static_name(static_name), type(&type)
+  Output(const char *static_name, const CPPType &type) : static_name(static_name), type(&type)
   {
   }
 };
@@ -116,8 +116,8 @@ struct LFOutput {
 class LazyFunction {
  protected:
   const char *static_name_ = "Unnamed Function";
-  Vector<LFInput> inputs_;
-  Vector<LFOutput> outputs_;
+  Vector<Input> inputs_;
+  Vector<Output> outputs_;
 
  public:
   virtual ~LazyFunction() = default;
@@ -129,32 +129,32 @@ class LazyFunction {
   virtual void *init_storage(LinearAllocator<> &allocator) const;
   virtual void destruct_storage(void *storage) const;
 
-  Span<LFInput> inputs() const;
-  Span<LFOutput> outputs() const;
+  Span<Input> inputs() const;
+  Span<Output> outputs() const;
 
-  void execute(LFParams &params, const LFContext &context) const;
+  void execute(Params &params, const Context &context) const;
 
-  bool valid_params_for_execution(const LFParams &params) const;
+  bool valid_params_for_execution(const Params &params) const;
 
  private:
-  virtual void execute_impl(LFParams &params, const LFContext &context) const = 0;
+  virtual void execute_impl(Params &params, const Context &context) const = 0;
 };
 
 /* -------------------------------------------------------------------- */
 /** \name #LazyFunction Inline Methods
  * \{ */
 
-inline Span<LFInput> LazyFunction::inputs() const
+inline Span<Input> LazyFunction::inputs() const
 {
   return inputs_;
 }
 
-inline Span<LFOutput> LazyFunction::outputs() const
+inline Span<Output> LazyFunction::outputs() const
 {
   return outputs_;
 }
 
-inline void LazyFunction::execute(LFParams &params, const LFContext &context) const
+inline void LazyFunction::execute(Params &params, const Context &context) const
 {
   BLI_assert(this->valid_params_for_execution(params));
   this->execute_impl(params, context);
@@ -163,49 +163,49 @@ inline void LazyFunction::execute(LFParams &params, const LFContext &context) co
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name #LFParams Inline Methods
+/** \name #Params Inline Methods
  * \{ */
 
-inline LFParams::LFParams(const LazyFunction &fn) : fn_(fn)
+inline Params::Params(const LazyFunction &fn) : fn_(fn)
 {
 }
 
-inline void *LFParams::try_get_input_data_ptr(int index) const
+inline void *Params::try_get_input_data_ptr(int index) const
 {
   return this->try_get_input_data_ptr_impl(index);
 }
 
-inline void *LFParams::try_get_input_data_ptr_or_request(int index)
+inline void *Params::try_get_input_data_ptr_or_request(int index)
 {
   return this->try_get_input_data_ptr_or_request_impl(index);
 }
 
-inline void *LFParams::get_output_data_ptr(int index)
+inline void *Params::get_output_data_ptr(int index)
 {
   return this->get_output_data_ptr_impl(index);
 }
 
-inline void LFParams::output_set(int index)
+inline void Params::output_set(int index)
 {
   this->output_set_impl(index);
 }
 
-inline bool LFParams::output_was_set(int index) const
+inline bool Params::output_was_set(int index) const
 {
   return this->output_was_set_impl(index);
 }
 
-inline ValueUsage LFParams::get_output_usage(int index) const
+inline ValueUsage Params::get_output_usage(int index) const
 {
   return this->get_output_usage_impl(index);
 }
 
-inline void LFParams::set_input_unused(int index)
+inline void Params::set_input_unused(int index)
 {
   this->set_input_unused_impl(index);
 }
 
-template<typename T> inline T LFParams::extract_input(int index)
+template<typename T> inline T Params::extract_input(int index)
 {
   void *data = this->try_get_input_data_ptr(index);
   BLI_assert(data != nullptr);
@@ -213,14 +213,14 @@ template<typename T> inline T LFParams::extract_input(int index)
   return return_value;
 }
 
-template<typename T> inline const T &LFParams::get_input(int index)
+template<typename T> inline const T &Params::get_input(int index)
 {
   const void *data = this->try_get_input_data_ptr(index);
   BLI_assert(data != nullptr);
   return *static_cast<const T *>(data);
 }
 
-template<typename T> inline void LFParams::set_output(int index, T &&value)
+template<typename T> inline void Params::set_output(int index, T &&value)
 {
   using DecayT = std::decay_t<T>;
   void *data = this->get_output_data_ptr(index);
@@ -230,4 +230,4 @@ template<typename T> inline void LFParams::set_output(int index, T &&value)
 
 /** \} */
 
-}  // namespace blender::fn
+}  // namespace blender::fn::lazy_function

@@ -10,17 +10,17 @@
 
 #include "FN_lazy_function.hh"
 
-namespace blender::fn {
+namespace blender::fn::lazy_function {
 
-class LFSocket;
-class LFInputSocket;
-class LFOutputSocket;
-class LFNode;
+class Socket;
+class InputSocket;
+class OutputSocket;
+class Node;
 class LazyFunctionGraph;
 
-class LFSocket : NonCopyable, NonMovable {
+class Socket : NonCopyable, NonMovable {
  protected:
-  LFNode *node_;
+  Node *node_;
   const CPPType *type_;
   bool is_input_;
   int index_in_node_;
@@ -33,50 +33,50 @@ class LFSocket : NonCopyable, NonMovable {
 
   int index_in_node() const;
 
-  LFInputSocket &as_input();
-  LFOutputSocket &as_output();
-  const LFInputSocket &as_input() const;
-  const LFOutputSocket &as_output() const;
+  InputSocket &as_input();
+  OutputSocket &as_output();
+  const InputSocket &as_input() const;
+  const OutputSocket &as_output() const;
 
-  const LFNode &node() const;
-  LFNode &node();
+  const Node &node() const;
+  Node &node();
 
   const CPPType &type() const;
 
   std::string name() const;
 };
 
-class LFInputSocket : public LFSocket {
+class InputSocket : public Socket {
  private:
-  LFOutputSocket *origin_;
+  OutputSocket *origin_;
   const void *default_value_ = nullptr;
 
   friend LazyFunctionGraph;
 
  public:
-  LFOutputSocket *origin();
-  const LFOutputSocket *origin() const;
+  OutputSocket *origin();
+  const OutputSocket *origin() const;
 
   const void *default_value() const;
   void set_default_value(const void *value);
 };
 
-class LFOutputSocket : public LFSocket {
+class OutputSocket : public Socket {
  private:
-  Vector<LFInputSocket *> targets_;
+  Vector<InputSocket *> targets_;
 
   friend LazyFunctionGraph;
 
  public:
-  Span<LFInputSocket *> targets();
-  Span<const LFInputSocket *> targets() const;
+  Span<InputSocket *> targets();
+  Span<const InputSocket *> targets() const;
 };
 
-class LFNode : NonCopyable, NonMovable {
+class Node : NonCopyable, NonMovable {
  protected:
   const LazyFunction *fn_ = nullptr;
-  Span<LFInputSocket *> inputs_;
-  Span<LFOutputSocket *> outputs_;
+  Span<InputSocket *> inputs_;
+  Span<OutputSocket *> outputs_;
   int index_in_graph_ = -1;
 
   friend LazyFunctionGraph;
@@ -86,45 +86,45 @@ class LFNode : NonCopyable, NonMovable {
   bool is_function() const;
   int index_in_graph() const;
 
-  Span<const LFInputSocket *> inputs() const;
-  Span<const LFOutputSocket *> outputs() const;
-  Span<LFInputSocket *> inputs();
-  Span<LFOutputSocket *> outputs();
+  Span<const InputSocket *> inputs() const;
+  Span<const OutputSocket *> outputs() const;
+  Span<InputSocket *> inputs();
+  Span<OutputSocket *> outputs();
 
-  const LFInputSocket &input(int index) const;
-  const LFOutputSocket &output(int index) const;
-  LFInputSocket &input(int index);
-  LFOutputSocket &output(int index);
+  const InputSocket &input(int index) const;
+  const OutputSocket &output(int index) const;
+  InputSocket &input(int index);
+  OutputSocket &output(int index);
 
   std::string name() const;
 };
 
-class LFFunctionNode : public LFNode {
+class FunctionNode : public Node {
  public:
   const LazyFunction &function() const;
 };
 
-class LFDummyNode : public LFNode {
+class DummyNode : public Node {
  private:
   std::string name_;
 
-  friend LFNode;
+  friend Node;
 };
 
 class LazyFunctionGraph : NonCopyable, NonMovable {
  private:
   LinearAllocator<> allocator_;
-  Vector<LFNode *> nodes_;
+  Vector<Node *> nodes_;
 
  public:
   ~LazyFunctionGraph();
 
-  Span<const LFNode *> nodes() const;
+  Span<const Node *> nodes() const;
 
-  LFFunctionNode &add_function(const LazyFunction &fn);
-  LFDummyNode &add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types);
-  void add_link(LFOutputSocket &from, LFInputSocket &to);
-  void remove_link(LFOutputSocket &from, LFInputSocket &to);
+  FunctionNode &add_function(const LazyFunction &fn);
+  DummyNode &add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types);
+  void add_link(OutputSocket &from, InputSocket &to);
+  void remove_link(OutputSocket &from, InputSocket &to);
 
   void update_node_indices();
   bool node_indices_are_valid() const;
@@ -132,71 +132,60 @@ class LazyFunctionGraph : NonCopyable, NonMovable {
   std::string to_dot() const;
 };
 
-namespace lazy_function_graph_types {
-using fn::LazyFunction;
-using fn::LazyFunctionGraph;
-using fn::LFDummyNode;
-using fn::LFFunctionNode;
-using fn::LFInputSocket;
-using fn::LFNode;
-using fn::LFOutputSocket;
-using fn::LFSocket;
-};  // namespace lazy_function_graph_types
-
 /* -------------------------------------------------------------------- */
-/** \name #LFSocket Inline Methods
+/** \name #Socket Inline Methods
  * \{ */
 
-inline bool LFSocket::is_input() const
+inline bool Socket::is_input() const
 {
   return is_input_;
 }
 
-inline bool LFSocket::is_output() const
+inline bool Socket::is_output() const
 {
   return !is_input_;
 }
 
-inline int LFSocket::index_in_node() const
+inline int Socket::index_in_node() const
 {
   return index_in_node_;
 }
 
-inline LFInputSocket &LFSocket::as_input()
+inline InputSocket &Socket::as_input()
 {
   BLI_assert(this->is_input());
-  return *static_cast<LFInputSocket *>(this);
+  return *static_cast<InputSocket *>(this);
 }
 
-inline LFOutputSocket &LFSocket::as_output()
+inline OutputSocket &Socket::as_output()
 {
   BLI_assert(this->is_output());
-  return *static_cast<LFOutputSocket *>(this);
+  return *static_cast<OutputSocket *>(this);
 }
 
-inline const LFInputSocket &LFSocket::as_input() const
+inline const InputSocket &Socket::as_input() const
 {
   BLI_assert(this->is_input());
-  return *static_cast<const LFInputSocket *>(this);
+  return *static_cast<const InputSocket *>(this);
 }
 
-inline const LFOutputSocket &LFSocket::as_output() const
+inline const OutputSocket &Socket::as_output() const
 {
   BLI_assert(this->is_output());
-  return *static_cast<const LFOutputSocket *>(this);
+  return *static_cast<const OutputSocket *>(this);
 }
 
-inline const LFNode &LFSocket::node() const
+inline const Node &Socket::node() const
 {
   return *node_;
 }
 
-inline LFNode &LFSocket::node()
+inline Node &Socket::node()
 {
   return *node_;
 }
 
-inline const CPPType &LFSocket::type() const
+inline const CPPType &Socket::type() const
 {
   return *type_;
 }
@@ -204,25 +193,25 @@ inline const CPPType &LFSocket::type() const
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name #LFInputSocket Inline Methods
+/** \name #InputSocket Inline Methods
  * \{ */
 
-inline const LFOutputSocket *LFInputSocket::origin() const
+inline const OutputSocket *InputSocket::origin() const
 {
   return origin_;
 }
 
-inline LFOutputSocket *LFInputSocket::origin()
+inline OutputSocket *InputSocket::origin()
 {
   return origin_;
 }
 
-inline const void *LFInputSocket::default_value() const
+inline const void *InputSocket::default_value() const
 {
   return default_value_;
 }
 
-inline void LFInputSocket::set_default_value(const void *value)
+inline void InputSocket::set_default_value(const void *value)
 {
   default_value_ = value;
 }
@@ -230,15 +219,15 @@ inline void LFInputSocket::set_default_value(const void *value)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name #LFOutputSocket Inline Methods
+/** \name #OutputSocket Inline Methods
  * \{ */
 
-inline Span<const LFInputSocket *> LFOutputSocket::targets() const
+inline Span<const InputSocket *> OutputSocket::targets() const
 {
   return targets_;
 }
 
-inline Span<LFInputSocket *> LFOutputSocket::targets()
+inline Span<InputSocket *> OutputSocket::targets()
 {
   return targets_;
 }
@@ -246,60 +235,60 @@ inline Span<LFInputSocket *> LFOutputSocket::targets()
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name #LFNode Inline Methods
+/** \name #Node Inline Methods
  * \{ */
 
-inline bool LFNode::is_dummy() const
+inline bool Node::is_dummy() const
 {
   return fn_ == nullptr;
 }
 
-inline bool LFNode::is_function() const
+inline bool Node::is_function() const
 {
   return fn_ != nullptr;
 }
 
-inline int LFNode::index_in_graph() const
+inline int Node::index_in_graph() const
 {
   return index_in_graph_;
 }
 
-inline Span<const LFInputSocket *> LFNode::inputs() const
+inline Span<const InputSocket *> Node::inputs() const
 {
   return inputs_;
 }
 
-inline Span<const LFOutputSocket *> LFNode::outputs() const
+inline Span<const OutputSocket *> Node::outputs() const
 {
   return outputs_;
 }
 
-inline Span<LFInputSocket *> LFNode::inputs()
+inline Span<InputSocket *> Node::inputs()
 {
   return inputs_;
 }
 
-inline Span<LFOutputSocket *> LFNode::outputs()
+inline Span<OutputSocket *> Node::outputs()
 {
   return outputs_;
 }
 
-inline const LFInputSocket &LFNode::input(const int index) const
+inline const InputSocket &Node::input(const int index) const
 {
   return *inputs_[index];
 }
 
-inline const LFOutputSocket &LFNode::output(const int index) const
+inline const OutputSocket &Node::output(const int index) const
 {
   return *outputs_[index];
 }
 
-inline LFInputSocket &LFNode::input(const int index)
+inline InputSocket &Node::input(const int index)
 {
   return *inputs_[index];
 }
 
-inline LFOutputSocket &LFNode::output(const int index)
+inline OutputSocket &Node::output(const int index)
 {
   return *outputs_[index];
 }
@@ -307,10 +296,10 @@ inline LFOutputSocket &LFNode::output(const int index)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name #LFFunctionNode Inline Methods
+/** \name #FunctionNode Inline Methods
  * \{ */
 
-inline const LazyFunction &LFFunctionNode::function() const
+inline const LazyFunction &FunctionNode::function() const
 {
   BLI_assert(fn_ != nullptr);
   return *fn_;
@@ -322,11 +311,11 @@ inline const LazyFunction &LFFunctionNode::function() const
 /** \name #LazyFunctionGraph Inline Methods
  * \{ */
 
-inline Span<const LFNode *> LazyFunctionGraph::nodes() const
+inline Span<const Node *> LazyFunctionGraph::nodes() const
 {
   return nodes_;
 }
 
 /** \} */
 
-}  // namespace blender::fn
+}  // namespace blender::fn::lazy_function

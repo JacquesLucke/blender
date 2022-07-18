@@ -9,7 +9,7 @@
 #include "BLI_task.h"
 #include "BLI_timeit.hh"
 
-namespace blender::fn::tests {
+namespace blender::fn::lazy_function::tests {
 
 class AddLazyFunction : public LazyFunction {
  public:
@@ -21,7 +21,7 @@ class AddLazyFunction : public LazyFunction {
     outputs_.append({"Result", CPPType::get<int>()});
   }
 
-  void execute_impl(LFParams &params, const LFContext &UNUSED(context)) const override
+  void execute_impl(Params &params, const Context &UNUSED(context)) const override
   {
     const int a = params.get_input<int>(0);
     const int b = params.get_input<int>(1);
@@ -45,8 +45,8 @@ static void execute_lazy_function_test(const LazyFunction &fn,
                                        const Span<LazyFunctionEvent> events,
                                        const Span<GMutablePointer> outputs)
 {
-  const Span<LFInput> fn_inputs = fn.inputs();
-  const Span<LFOutput> fn_outputs = fn.outputs();
+  const Span<Input> fn_inputs = fn.inputs();
+  const Span<Output> fn_outputs = fn.outputs();
   BLI_assert(outputs.size() == fn_outputs.size());
 
   LinearAllocator<> allocator;
@@ -56,10 +56,10 @@ static void execute_lazy_function_test(const LazyFunction &fn,
   Array<bool> set_outputs(fn_outputs.size(), false);
 
   void *storage = fn.init_storage(allocator);
-  LFContext context;
+  Context context;
   context.storage = storage;
 
-  BasicLFParams params(fn, inputs, outputs, input_usages, output_usages, set_outputs);
+  BasicParams params(fn, inputs, outputs, input_usages, output_usages, set_outputs);
   if (fn.valid_params_for_execution(params)) {
     fn.execute(params, context);
   }
@@ -86,29 +86,29 @@ static void execute_lazy_function_test(const LazyFunction &fn,
   fn.destruct_storage(storage);
 }
 
-static Vector<LFNode *> build_add_node_chain(LazyFunctionGraph &graph,
-                                             const int chain_length,
-                                             const int *default_value)
+static Vector<Node *> build_add_node_chain(LazyFunctionGraph &graph,
+                                           const int chain_length,
+                                           const int *default_value)
 {
   static AddLazyFunction fn;
-  Vector<LFNode *> nodes;
+  Vector<Node *> nodes;
   for ([[maybe_unused]] const int i : IndexRange(chain_length)) {
-    LFNode &node = graph.add_function(fn);
+    Node &node = graph.add_function(fn);
     node.input(0).set_default_value(default_value);
     node.input(1).set_default_value(default_value);
     nodes.append(&node);
   }
   for (const int i : IndexRange(chain_length - 1)) {
-    LFNode &n1 = *nodes[i];
-    LFNode &n2 = *nodes[i + 1];
+    Node &n1 = *nodes[i];
+    Node &n2 = *nodes[i + 1];
     graph.add_link(n1.output(0), n2.input(0));
   }
   return nodes;
 }
 
 struct MultiChainResult {
-  Vector<LFNode *> first_nodes;
-  LFNode *last_node = nullptr;
+  Vector<Node *> first_nodes;
+  Node *last_node = nullptr;
 };
 
 static MultiChainResult build_multiple_chains(LazyFunctionGraph &graph,
@@ -119,13 +119,13 @@ static MultiChainResult build_multiple_chains(LazyFunctionGraph &graph,
   static AddLazyFunction fn;
   MultiChainResult result;
   for ([[maybe_unused]] const int i : IndexRange(chain_num)) {
-    Vector<LFNode *> chain = build_add_node_chain(graph, chain_length, default_value);
+    Vector<Node *> chain = build_add_node_chain(graph, chain_length, default_value);
     result.first_nodes.append(chain[0]);
     if (result.last_node == nullptr) {
       result.last_node = chain.last();
     }
     else {
-      LFNode &node = graph.add_function(fn);
+      Node &node = graph.add_function(fn);
       node.input(0).set_default_value(default_value);
       node.input(1).set_default_value(default_value);
       graph.add_link(result.last_node->output(0), node.input(0));
@@ -142,7 +142,7 @@ TEST(lazy_function, Simple)
   const int value_1 = 1;
   LazyFunctionGraph graph;
   MultiChainResult node_chain = build_multiple_chains(graph, 1e4, 24, &value_1);
-  LFDummyNode &output_node = graph.add_dummy({&CPPType::get<int>()}, {});
+  DummyNode &output_node = graph.add_dummy({&CPPType::get<int>()}, {});
   graph.add_link(node_chain.last_node->output(0), output_node.input(0));
   graph.update_node_indices();
   // std::cout << graph.to_dot() << "\n";
@@ -160,4 +160,4 @@ TEST(lazy_function, Simple)
   std::cout << "Result: " << result << "\n";
 }
 
-}  // namespace blender::fn::tests
+}  // namespace blender::fn::lazy_function::tests

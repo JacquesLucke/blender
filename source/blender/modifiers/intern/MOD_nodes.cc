@@ -91,6 +91,8 @@
 #include "FN_lazy_function_graph_executor.hh"
 #include "FN_multi_function.hh"
 
+namespace lf = blender::fn::lazy_function;
+
 using blender::Array;
 using blender::ColorGeometry4f;
 using blender::CPPType;
@@ -120,7 +122,6 @@ using blender::nodes::GeoNodeExecParams;
 using blender::nodes::InputSocketFieldType;
 using blender::nodes::geo_eval_log::GeoModifierLog;
 using blender::threading::EnumerableThreadSpecific;
-using namespace blender::fn::lazy_function_graph_types;
 using namespace blender::fn::multi_function_types;
 using namespace blender::nodes::derived_node_tree_types;
 using blender::nodes::geo_eval_log::GeometryAttributeInfo;
@@ -1101,31 +1102,30 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
 {
   UNUSED_VARS(find_sockets_to_preview, logging_enabled);
 
-  blender::fn::LazyFunctionGraph graph;
+  lf::LazyFunctionGraph graph;
   blender::nodes::GeometryNodeLazyFunctionMapping mapping;
   blender::nodes::GeometryNodesLazyFunctionResources graph_resources;
   blender::nodes::geometry_nodes_to_lazy_function_graph(tree_ref, graph, graph_resources, mapping);
   graph.update_node_indices();
   // std::cout << graph.to_dot() << "\n";
 
-  Vector<const LFOutputSocket *> graph_inputs;
-  Vector<const LFInputSocket *> graph_outputs;
-  for (const LFOutputSocket *socket : mapping.group_input_sockets) {
+  Vector<const lf::OutputSocket *> graph_inputs;
+  Vector<const lf::InputSocket *> graph_outputs;
+  for (const lf::OutputSocket *socket : mapping.group_input_sockets) {
     graph_inputs.append(socket);
   }
   for (const InputSocketRef *socket_ref : output_node.inputs().drop_back(1)) {
-    const LFInputSocket &socket = mapping.dummy_socket_map.lookup(socket_ref)->as_input();
+    const lf::InputSocket &socket = mapping.dummy_socket_map.lookup(socket_ref)->as_input();
     graph_outputs.append(&socket);
   }
 
   Array<GMutablePointer> param_inputs(graph_inputs.size());
   Array<GMutablePointer> param_outputs(graph_outputs.size());
-  Array<std::optional<blender::fn::ValueUsage>> param_input_usages(graph_inputs.size());
-  Array<blender::fn::ValueUsage> param_output_usages(graph_outputs.size(),
-                                                     blender::fn::ValueUsage::Used);
+  Array<std::optional<lf::ValueUsage>> param_input_usages(graph_inputs.size());
+  Array<lf::ValueUsage> param_output_usages(graph_outputs.size(), lf::ValueUsage::Used);
   Array<bool> param_set_outputs(graph_outputs.size(), false);
 
-  blender::fn::LazyFunctionGraphExecutor graph_executor{graph, graph_inputs, graph_outputs};
+  lf::LazyFunctionGraphExecutor graph_executor{graph, graph_inputs, graph_outputs};
 
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
@@ -1159,22 +1159,22 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   }
 
   for (const int i : graph_outputs.index_range()) {
-    const LFInputSocket &socket = *graph_outputs[i];
+    const lf::InputSocket &socket = *graph_outputs[i];
     const CPPType &type = socket.type();
     void *buffer = allocator.allocate(type.size(), type.alignment());
     param_outputs[i] = {type, buffer};
   }
 
-  blender::fn::LFContext lf_context;
+  lf::Context lf_context;
   lf_context.storage = graph_executor.init_storage(allocator);
   lf_context.user_data = &user_data;
 
-  blender::fn::BasicLFParams params{graph_executor,
-                                    param_inputs,
-                                    param_outputs,
-                                    param_input_usages,
-                                    param_output_usages,
-                                    param_set_outputs};
+  lf::BasicParams params{graph_executor,
+                         param_inputs,
+                         param_outputs,
+                         param_input_usages,
+                         param_output_usages,
+                         param_set_outputs};
   graph_executor.execute(params, lf_context);
 
   graph_executor.destruct_storage(lf_context.storage);

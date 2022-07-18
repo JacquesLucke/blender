@@ -10,9 +10,9 @@
 
 #include "FN_lazy_function.hh"
 
-namespace blender::fn {
+namespace blender::fn::lazy_function {
 
-class BasicLFParams : public LFParams {
+class BasicParams : public Params {
  private:
   const Span<GMutablePointer> inputs_;
   const Span<GMutablePointer> outputs_;
@@ -21,12 +21,12 @@ class BasicLFParams : public LFParams {
   MutableSpan<bool> set_outputs_;
 
  public:
-  BasicLFParams(const LazyFunction &fn,
-                const Span<GMutablePointer> inputs,
-                const Span<GMutablePointer> outputs,
-                MutableSpan<std::optional<ValueUsage>> input_usages,
-                Span<ValueUsage> output_usages,
-                MutableSpan<bool> set_outputs);
+  BasicParams(const LazyFunction &fn,
+              const Span<GMutablePointer> inputs,
+              const Span<GMutablePointer> outputs,
+              MutableSpan<std::optional<ValueUsage>> input_usages,
+              Span<ValueUsage> output_usages,
+              MutableSpan<bool> set_outputs);
 
   void *try_get_input_data_ptr_impl(const int index) const override;
   void *try_get_input_data_ptr_or_request_impl(const int index) override;
@@ -42,7 +42,7 @@ namespace detail {
 template<typename... Inputs, typename... Outputs, size_t... InIndices, size_t... OutIndices>
 inline void execute_lazy_function_eagerly_impl(
     const LazyFunction &fn,
-    LFUserData *user_data,
+    UserData *user_data,
     std::tuple<Inputs...> &inputs,
     std::tuple<Outputs *...> &outputs,
     std::index_sequence<InIndices...> /* in_indices */,
@@ -74,9 +74,9 @@ inline void execute_lazy_function_eagerly_impl(
   output_usages.fill(ValueUsage::Used);
   set_outputs.fill(false);
   LinearAllocator<> allocator;
-  LFContext context;
+  Context context;
   context.storage = fn.init_storage(allocator);
-  BasicLFParams params{
+  BasicParams params{
       fn, input_pointers, output_pointers, input_usages, output_usages, set_outputs};
   fn.execute(params, context);
   fn.destruct_storage(context.storage);
@@ -86,7 +86,7 @@ inline void execute_lazy_function_eagerly_impl(
 
 template<typename... Inputs, typename... Outputs>
 inline void execute_lazy_function_eagerly(const LazyFunction &fn,
-                                          LFUserData *user_data,
+                                          UserData *user_data,
                                           std::tuple<Inputs...> inputs,
                                           std::tuple<Outputs *...> outputs)
 {
@@ -100,4 +100,4 @@ inline void execute_lazy_function_eagerly(const LazyFunction &fn,
                                              std::make_index_sequence<sizeof...(Outputs)>());
 }
 
-}  // namespace blender::fn
+}  // namespace blender::fn::lazy_function

@@ -41,7 +41,6 @@ using fn::FieldEvaluator;
 using fn::FieldInput;
 using fn::FieldOperation;
 using fn::GField;
-using fn::LFParams;
 using fn::ValueOrField;
 using geo_eval_log::NamedAttributeUsage;
 using geo_eval_log::NodeWarningType;
@@ -49,11 +48,11 @@ using geo_eval_log::NodeWarningType;
 class GeoNodeExecParams {
  private:
   const NodeRef &node_;
-  LFParams &params_;
-  const fn::LFContext &lf_context_;
+  lf::Params &params_;
+  const lf::Context &lf_context_;
 
  public:
-  GeoNodeExecParams(const NodeRef &node, LFParams &params, const fn::LFContext &lf_context)
+  GeoNodeExecParams(const NodeRef &node, lf::Params &params, const lf::Context &lf_context)
       : node_(node), params_(params), lf_context_(lf_context)
   {
   }
@@ -181,7 +180,7 @@ class GeoNodeExecParams {
   bool output_is_required(StringRef identifier) const
   {
     const int index = this->get_output_index(identifier);
-    return params_.get_output_usage(index) != fn::ValueUsage::Unused;
+    return params_.get_output_usage(index) != lf::ValueUsage::Unused;
   }
 
   /**
@@ -204,7 +203,7 @@ class GeoNodeExecParams {
   bool lazy_output_is_required(StringRef identifier)
   {
     const int index = this->get_output_index(identifier);
-    return params_.get_output_usage(index) == fn::ValueUsage::Used;
+    return params_.get_output_usage(index) == lf::ValueUsage::Used;
   }
 
   /**

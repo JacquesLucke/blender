@@ -8,7 +8,7 @@
 
 #include "FN_lazy_function.hh"
 
-namespace blender::fn {
+namespace blender::fn::lazy_function {
 
 std::string LazyFunction::name() const
 {
@@ -36,11 +36,11 @@ void LazyFunction::destruct_storage(void *storage) const
   UNUSED_VARS_NDEBUG(storage);
 }
 
-bool LazyFunction::valid_params_for_execution(const LFParams &params) const
+bool LazyFunction::valid_params_for_execution(const Params &params) const
 {
   bool all_required_inputs_available = true;
   for (const int i : inputs_.index_range()) {
-    const LFInput &fn_input = inputs_[i];
+    const Input &fn_input = inputs_[i];
     if (fn_input.usage == ValueUsage::Used) {
       if (params.try_get_input_data_ptr(i) == nullptr) {
         all_required_inputs_available = false;
@@ -62,13 +62,13 @@ bool LazyFunction::valid_params_for_execution(const LFParams &params) const
   return all_required_inputs_available && any_remaining_output_left;
 }
 
-void LFParams::set_default_remaining_outputs()
+void Params::set_default_remaining_outputs()
 {
   for (const int i : fn_.outputs().index_range()) {
     if (this->output_was_set(i)) {
       continue;
     }
-    const LFOutput &fn_output = fn_.outputs()[i];
+    const Output &fn_output = fn_.outputs()[i];
     const CPPType &type = *fn_output.type;
     void *data_ptr = this->get_output_data_ptr(i);
     type.value_initialize(data_ptr);
@@ -76,4 +76,4 @@ void LFParams::set_default_remaining_outputs()
   }
 }
 
-}  // namespace blender::fn
+}  // namespace blender::fn::lazy_function

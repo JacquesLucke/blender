@@ -10,24 +10,24 @@
 
 #include "FN_lazy_function_graph.hh"
 
-namespace blender::fn {
+namespace blender::fn::lazy_function {
 
 class LazyFunctionGraphExecutor : public LazyFunction {
  private:
   const LazyFunctionGraph &graph_;
-  VectorSet<const LFOutputSocket *> graph_inputs_;
-  VectorSet<const LFInputSocket *> graph_outputs_;
+  VectorSet<const OutputSocket *> graph_inputs_;
+  VectorSet<const InputSocket *> graph_outputs_;
 
  public:
   LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
-                            Span<const LFOutputSocket *> graph_inputs,
-                            Span<const LFInputSocket *> graph_outputs);
+                            Span<const OutputSocket *> graph_inputs,
+                            Span<const InputSocket *> graph_outputs);
 
   void *init_storage(LinearAllocator<> &allocator) const override;
   void destruct_storage(void *storage) const override;
 
  private:
-  void execute_impl(LFParams &params, const LFContext &context) const override;
+  void execute_impl(Params &params, const Context &context) const override;
 };
 
-}  // namespace blender::fn
+}  // namespace blender::fn::lazy_function

@@ -15,7 +15,9 @@ struct Depsgraph;
 
 namespace blender::nodes {
 
-using namespace fn::lazy_function_graph_types;
+namespace lf = fn::lazy_function;
+using lf::LazyFunction;
+using lf::LazyFunctionGraph;
 
 struct GeoNodesModifierData {
   const Object *self_object = nullptr;
@@ -73,14 +75,14 @@ class ModifierContextStack : public ContextStack {
   }
 };
 
-struct GeoNodesLFUserData : public fn::LFUserData {
+struct GeoNodesLFUserData : public lf::UserData {
   GeoNodesModifierData *modifier_data = nullptr;
   const ContextStack *context_stack = nullptr;
 };
 
 struct GeometryNodeLazyFunctionMapping {
-  Map<const SocketRef *, LFSocket *> dummy_socket_map;
-  Vector<LFOutputSocket *> group_input_sockets;
+  Map<const SocketRef *, lf::Socket *> dummy_socket_map;
+  Vector<lf::OutputSocket *> group_input_sockets;
 };
 
 struct GeometryNodesLazyFunctionResources {
