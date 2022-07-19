@@ -57,8 +57,8 @@ void DerivedNodeTree::destruct_context_recursively(DTreeContext *context)
 
 bool DerivedNodeTree::has_link_cycles() const
 {
-  for (const bNodeTree *tree_ref : used_btrees_) {
-    if (tree_ref->runtime->has_link_cycle) {
+  for (const bNodeTree *btree : used_btrees_) {
+    if (btree->runtime->has_link_cycle) {
       return true;
     }
   }
@@ -67,8 +67,8 @@ bool DerivedNodeTree::has_link_cycles() const
 
 bool DerivedNodeTree::has_undefined_nodes_or_sockets() const
 {
-  for (const bNodeTree *tree_ref : used_btrees_) {
-    if (tree_ref->runtime->has_undefined_nodes_or_sockets) {
+  for (const bNodeTree *btree : used_btrees_) {
+    if (btree->runtime->has_undefined_nodes_or_sockets) {
       return true;
     }
   }
@@ -83,8 +83,8 @@ void DerivedNodeTree::foreach_node(FunctionRef<void(DNode)> callback) const
 void DerivedNodeTree::foreach_node_in_context_recursive(const DTreeContext &context,
                                                         FunctionRef<void(DNode)> callback) const
 {
-  for (const bNode *node_ref : context.btree_->runtime->nodes) {
-    callback(DNode(&context, node_ref));
+  for (const bNode *bnode : context.btree_->runtime->nodes) {
+    callback(DNode(&context, bnode));
   }
   for (const DTreeContext *child_context : context.children_.values()) {
     this->foreach_node_in_context_recursive(*child_context, callback);
