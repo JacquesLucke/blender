@@ -110,7 +110,7 @@ inline void NodeMultiFunctionBuilder::construct_and_set_matching_fn(Args &&...ar
 inline const NodeMultiFunctions::Item &NodeMultiFunctions::try_get(const DNode &node) const
 {
   static Item empty_item;
-  const Item *item = map_.lookup_ptr(node.node_ref());
+  const Item *item = map_.lookup_ptr(node.bnode());
   if (item == nullptr) {
     return empty_item;
   }

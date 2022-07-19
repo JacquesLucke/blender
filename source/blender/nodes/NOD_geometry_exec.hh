@@ -281,7 +281,7 @@ class GeoNodeExecParams {
    */
   const bNode &node() const
   {
-    return *provider_->dnode.node_ref();
+    return *provider_->dnode;
   }
 
   const Object *self_object() const

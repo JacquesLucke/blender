@@ -73,7 +73,7 @@ class DNode {
   DNode(const DTreeContext *context, const bNode *node);
 
   const DTreeContext *context() const;
-  const bNode *node_ref() const;
+  const bNode *bnode() const;
   const bNode *operator->() const;
   const bNode &operator*() const;
 
@@ -109,7 +109,7 @@ class DSocket {
   DSocket(const DOutputSocket &output_socket);
 
   const DTreeContext *context() const;
-  const bNodeSocket *socket_ref() const;
+  const bNodeSocket *bsocket() const;
   const bNodeSocket *operator->() const;
   const bNodeSocket &operator*() const;
 
@@ -174,7 +174,7 @@ class DerivedNodeTree {
  private:
   LinearAllocator<> allocator_;
   DTreeContext *root_context_;
-  VectorSet<const bNodeTree *> used_node_tree_refs_;
+  VectorSet<const bNodeTree *> used_btrees_;
 
  public:
   /**
@@ -187,7 +187,7 @@ class DerivedNodeTree {
   ~DerivedNodeTree();
 
   const DTreeContext &root_context() const;
-  Span<const bNodeTree *> used_node_tree_refs() const;
+  Span<const bNodeTree *> used_btrees() const;
 
   /**
    * \return True when there is a link cycle. Unavailable sockets are ignored.
@@ -259,10 +259,10 @@ inline bool DTreeContext::is_root() const
 /** \name #DNode Inline Methods
  * \{ */
 
-inline DNode::DNode(const DTreeContext *context, const bNode *node_ref)
-    : context_(context), bnode_(node_ref)
+inline DNode::DNode(const DTreeContext *context, const bNode *bnode)
+    : context_(context), bnode_(bnode)
 {
-  BLI_assert(node_ref == nullptr || node_ref->runtime->owner_tree == &context->btree());
+  BLI_assert(bnode == nullptr || bnode->runtime->owner_tree == &context->btree());
 }
 
 inline const DTreeContext *DNode::context() const
@@ -270,7 +270,7 @@ inline const DTreeContext *DNode::context() const
   return context_;
 }
 
-inline const bNode *DNode::node_ref() const
+inline const bNode *DNode::bnode() const
 {
   return bnode_;
 }
@@ -332,11 +332,11 @@ inline DOutputSocket DNode::output_by_identifier(StringRef identifier) const
 /** \name #DSocket Inline Methods
  * \{ */
 
-inline DSocket::DSocket(const DTreeContext *context, const bNodeSocket *socket_ref)
-    : context_(context), bsocket_(socket_ref)
+inline DSocket::DSocket(const DTreeContext *context, const bNodeSocket *bsocket)
+    : context_(context), bsocket_(bsocket)
 {
-  BLI_assert(socket_ref == nullptr ||
-             socket_ref->runtime->owner_node->runtime->owner_tree == &context->btree());
+  BLI_assert(bsocket == nullptr ||
+             bsocket->runtime->owner_node->runtime->owner_tree == &context->btree());
 }
 
 inline DSocket::DSocket(const DInputSocket &input_socket)
@@ -354,7 +354,7 @@ inline const DTreeContext *DSocket::context() const
   return context_;
 }
 
-inline const bNodeSocket *DSocket::socket_ref() const
+inline const bNodeSocket *DSocket::bsocket() const
 {
   return bsocket_;
 }
@@ -402,14 +402,14 @@ inline DNode DSocket::node() const
 /** \name #DInputSocket Inline Methods
  * \{ */
 
-inline DInputSocket::DInputSocket(const DTreeContext *context, const bNodeSocket *socket_ref)
-    : DSocket(context, socket_ref)
+inline DInputSocket::DInputSocket(const DTreeContext *context, const bNodeSocket *bsocket)
+    : DSocket(context, bsocket)
 {
 }
 
 inline DInputSocket::DInputSocket(const DSocket &base_socket) : DSocket(base_socket)
 {
-  BLI_assert(base_socket.socket_ref()->in_out == SOCK_IN);
+  BLI_assert(base_socket.bsocket()->in_out == SOCK_IN);
 }
 
 /** \} */
@@ -418,14 +418,14 @@ inline DInputSocket::DInputSocket(const DSocket &base_socket) : DSocket(base_soc
 /** \name #DOutputSocket Inline Methods
  * \{ */
 
-inline DOutputSocket::DOutputSocket(const DTreeContext *context, const bNodeSocket *socket_ref)
-    : DSocket(context, socket_ref)
+inline DOutputSocket::DOutputSocket(const DTreeContext *context, const bNodeSocket *bsocket)
+    : DSocket(context, bsocket)
 {
 }
 
 inline DOutputSocket::DOutputSocket(const DSocket &base_socket) : DSocket(base_socket)
 {
-  BLI_assert(base_socket.socket_ref()->in_out == SOCK_OUT);
+  BLI_assert(base_socket.bsocket()->in_out == SOCK_OUT);
 }
 
 /** \} */
@@ -439,9 +439,9 @@ inline const DTreeContext &DerivedNodeTree::root_context() const
   return *root_context_;
 }
 
-inline Span<const bNodeTree *> DerivedNodeTree::used_node_tree_refs() const
+inline Span<const bNodeTree *> DerivedNodeTree::used_btrees() const
 {
-  return used_node_tree_refs_;
+  return used_btrees_;
 }
 
 /** \} */

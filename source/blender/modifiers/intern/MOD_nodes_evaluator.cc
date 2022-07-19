@@ -340,7 +340,7 @@ static const CPPType *get_socket_cpp_type(const bNodeSocket &socket)
 
 static const CPPType *get_socket_cpp_type(const DSocket socket)
 {
-  return get_socket_cpp_type(*socket.socket_ref());
+  return get_socket_cpp_type(*socket);
 }
 
 /**
@@ -637,8 +637,8 @@ class GeometryNodesEvaluator {
       if (input_state.type == nullptr) {
         continue;
       }
-      const bNodeSocket &socket_ref = *node::node_inputs(*node)[i];
-      if (socket_ref.flag & SOCK_MULTI_INPUT) {
+      const bNodeSocket &bsocket = *node::node_inputs(*node)[i];
+      if (bsocket.flag & SOCK_MULTI_INPUT) {
         MultiInputValue &multi_value = *input_state.value.multi;
         for (void *value : multi_value.values) {
           if (value != nullptr) {
@@ -952,7 +952,7 @@ class GeometryNodesEvaluator {
    */
   void execute_node(const DNode node, NodeState &node_state, NodeTaskRunState *run_state)
   {
-    const bNode &bnode = *node.node_ref();
+    const bNode &bnode = *node;
 
     if (node_state.has_been_executed) {
       if (!node_supports_laziness(node)) {
@@ -981,7 +981,7 @@ class GeometryNodesEvaluator {
   void execute_geometry_node(const DNode node, NodeState &node_state, NodeTaskRunState *run_state)
   {
     using Clock = std::chrono::steady_clock;
-    const bNode &bnode = *node.node_ref();
+    const bNode &bnode = *node;
 
     NodeParamsProvider params_provider{*this, node, node_state, run_state};
     GeoNodeExecParams params{params_provider};
@@ -1006,11 +1006,11 @@ class GeometryNodesEvaluator {
     Vector<const void *, 16> input_values;
     Vector<const ValueOrFieldCPPType *, 16> input_types;
     for (const int i : node::node_inputs(*node).index_range()) {
-      const bNodeSocket &socket_ref = *node::node_inputs(*node)[i];
-      if (socket_ref.flag & SOCK_UNAVAIL) {
+      const bNodeSocket &bsocket = *node::node_inputs(*node)[i];
+      if (bsocket.flag & SOCK_UNAVAIL) {
         continue;
       }
-      BLI_assert(!(socket_ref.flag & SOCK_MULTI_INPUT));
+      BLI_assert(!(bsocket.flag & SOCK_MULTI_INPUT));
       InputState &input_state = node_state.inputs[i];
       BLI_assert(input_state.was_ready_for_execution);
       SingleInputValue &single_value = *input_state.value.single;
@@ -1059,14 +1059,14 @@ class GeometryNodesEvaluator {
 
     int output_index = 0;
     for (const int i : node::node_outputs(*node).index_range()) {
-      const bNodeSocket &socket_ref = *node::node_outputs(*node)[i];
-      if (socket_ref.flag & SOCK_UNAVAIL) {
+      const bNodeSocket &bsocket = *node::node_outputs(*node)[i];
+      if (bsocket.flag & SOCK_UNAVAIL) {
         continue;
       }
       OutputState &output_state = node_state.outputs[i];
-      const DOutputSocket socket{node.context(), &socket_ref};
+      const DOutputSocket socket{node.context(), &bsocket};
       const ValueOrFieldCPPType *cpp_type = static_cast<const ValueOrFieldCPPType *>(
-          get_socket_cpp_type(socket_ref));
+          get_socket_cpp_type(bsocket));
       GField new_field{operation, output_index};
       void *buffer = allocator.allocate(cpp_type->size(), cpp_type->alignment());
       cpp_type->construct_from_field(buffer, std::move(new_field));
@@ -1185,9 +1185,9 @@ class GeometryNodesEvaluator {
     const bool supports_laziness = node_supports_laziness(locked_node.node);
     /* Iterating over sockets instead of the states directly, because that makes it easier to
      * figure out which socket is missing when one of the asserts is hit. */
-    for (const bNodeSocket *socket_ref : locked_node.node::node_outputs(*node)) {
+    for (const bNodeSocket *bsocket : locked_node.node::node_outputs(*node)) {
       OutputState &output_state =
-          locked_node.node_state.outputs[node::socket_index_in_node(*socket_ref)];
+          locked_node.node_state.outputs[node::socket_index_in_node(*bsocket)];
       if (supports_laziness) {
         /* Expected that at least all required sockets have been computed. If more outputs become
          * required later, the node will be executed again. */
@@ -1610,7 +1610,7 @@ class GeometryNodesEvaluator {
 
     const CPPType &type = *get_socket_cpp_type(socket);
     void *buffer = allocator.allocate(type.size(), type.alignment());
-    get_socket_value(*socket.socket_ref(), buffer);
+    get_socket_value(*socket.bsocket(), buffer);
 
     if (type == required_type) {
       return {type, buffer};

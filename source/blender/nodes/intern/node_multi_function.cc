@@ -8,7 +8,7 @@ namespace blender::nodes {
 
 NodeMultiFunctions::NodeMultiFunctions(const DerivedNodeTree &tree)
 {
-  for (const bNodeTree *btree : tree.used_node_tree_refs()) {
+  for (const bNodeTree *btree : tree.used_btrees()) {
     for (const bNode *bnode : btree->runtime->nodes) {
       if (bnode->typeinfo->build_multi_function == nullptr) {
         continue;

@@ -26,7 +26,7 @@ DTreeContext &DerivedNodeTree::construct_context_recursively(DTreeContext *paren
   context.parent_node_ = parent_node;
   context.derived_tree_ = this;
   context.btree_ = &btree;
-  used_node_tree_refs_.add(context.btree_);
+  used_btrees_.add(context.btree_);
 
   for (const bNode *bnode : context.btree_->runtime->nodes) {
     if (bnode->runtime->is_group_node) {
@@ -57,7 +57,7 @@ void DerivedNodeTree::destruct_context_recursively(DTreeContext *context)
 
 bool DerivedNodeTree::has_link_cycles() const
 {
-  for (const bNodeTree *tree_ref : used_node_tree_refs_) {
+  for (const bNodeTree *tree_ref : used_btrees_) {
     if (tree_ref->runtime->has_link_cycle) {
       return true;
     }
@@ -67,7 +67,7 @@ bool DerivedNodeTree::has_link_cycles() const
 
 bool DerivedNodeTree::has_undefined_nodes_or_sockets() const
 {
-  for (const bNodeTree *tree_ref : used_node_tree_refs_) {
+  for (const bNodeTree *tree_ref : used_btrees_) {
     if (tree_ref->runtime->has_undefined_nodes_or_sockets) {
       return true;
     }
@@ -241,7 +241,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
     }
     else if (linked_node->flag & NODE_MUTED) {
       for (const bNodeLink *internal_link : linked_node->runtime->internal_links) {
-        if (internal_link->fromsock != linked_socket.socket_ref()) {
+        if (internal_link->fromsock != linked_socket.bsocket()) {
           continue;
         }
         /* The internal link only forwards the first incoming link. */
@@ -260,7 +260,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
       }
     }
     else if (linked_node->type == NODE_GROUP_OUTPUT) {
-      if (linked_node.node_ref() != context_->btree().runtime->group_output_node) {
+      if (linked_node.bnode() != context_->btree().runtime->group_output_node) {
         continue;
       }
       if (context_->is_root()) {
