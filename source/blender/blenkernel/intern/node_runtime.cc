@@ -115,8 +115,8 @@ static void update_directly_linked_links_and_sockets(const bNodeTree &ntree)
   }
   for (bNodeLink *link : tree_runtime.links) {
     link->fromsock->runtime->directly_linked_links.append(link);
+    link->fromsock->runtime->directly_linked_sockets.append(link->tosock);
     link->tosock->runtime->directly_linked_links.append(link);
-    link->tosock->runtime->directly_linked_sockets.append(link->fromsock);
     link->fromnode->runtime->has_linked_outputs = true;
     link->tonode->runtime->has_linked_inputs = true;
   }
@@ -132,7 +132,7 @@ static void update_directly_linked_links_and_sockets(const bNodeTree &ntree)
   for (bNodeSocket *socket : tree_runtime.input_sockets) {
     for (bNodeLink *link : socket->runtime->directly_linked_links) {
       /* Do this after sorting the input links. */
-      socket->runtime->directly_linked_sockets.append(link->tosock);
+      socket->runtime->directly_linked_sockets.append(link->fromsock);
     }
   }
 }
@@ -185,9 +185,13 @@ static void update_logical_origins_for_socket(bNodeSocket &input_socket)
     }
   }
 
-  socket_runtime.logically_linked_sockets.remove_first_occurrence_and_reorder(&input_socket);
-  socket_runtime.logically_linked_skipped_sockets.remove_first_occurrence_and_reorder(
-      &input_socket);
+  if (socket_runtime.logically_linked_sockets.contains(&input_socket)) {
+    socket_runtime.logically_linked_sockets.remove_first_occurrence_and_reorder(&input_socket);
+  }
+  if (socket_runtime.logically_linked_skipped_sockets.contains(&input_socket)) {
+    socket_runtime.logically_linked_skipped_sockets.remove_first_occurrence_and_reorder(
+        &input_socket);
+  }
 }
 
 static void update_logical_origins(const bNodeTree &ntree)
@@ -243,7 +247,7 @@ struct ToposortNodeState {
 static void toposort_from_start_node(const ToposortDirection direction,
                                      bNode &start_node,
                                      MutableSpan<ToposortNodeState> node_states,
-                                     Vector<bNode *> r_sorted_nodes,
+                                     Vector<bNode *> &r_sorted_nodes,
                                      bool &r_cycle_detected)
 {
   struct Item {
@@ -375,12 +379,12 @@ void ensure_topology_cache(const bNodeTree &ntree)
         threading::parallel_invoke([&]() { update_logical_origins(ntree); },
                                    [&]() { update_nodes_by_type(ntree); },
                                    [&]() { update_sockets_by_identifier(ntree); },
-                                   [&]() {
-                                     update_toposort(ntree,
-                                                     ToposortDirection::LeftToRight,
-                                                     tree_runtime.toposort_left_to_right,
-                                                     tree_runtime.has_link_cycle);
-                                   },
+                                   //  [&]() {
+                                   //    update_toposort(ntree,
+                                   //                    ToposortDirection::LeftToRight,
+                                   //                    tree_runtime.toposort_left_to_right,
+                                   //                    tree_runtime.has_link_cycle);
+                                   //  },
                                    [&]() {
                                      bool dummy;
                                      update_toposort(ntree,
