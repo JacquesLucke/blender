@@ -192,6 +192,12 @@ inline const bNode &socket_owner_node(const bNodeSocket &socket)
   return *socket.runtime->owner_node;
 }
 
+inline bool is_group_node(const bNode &node)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return node.runtime->is_group_node;
+}
+
 }  // namespace node
 
 }  // namespace blender::bke

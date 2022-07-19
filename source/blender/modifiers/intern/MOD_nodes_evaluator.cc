@@ -1419,7 +1419,7 @@ class GeometryNodesEvaluator {
             const bool is_last_socket = to_socket == next_socket;
             const bool do_conversion_if_necessary = is_last_socket ||
                                                     next_node->type == NODE_GROUP_OUTPUT ||
-                                                    (next_node->runtime->is_group_node &&
+                                                    (node::is_group_node(*next_node) &&
                                                      !(next_node->flag & NODE_MUTED));
             if (do_conversion_if_necessary) {
               const CPPType &next_type = *get_socket_cpp_type(next_socket);
