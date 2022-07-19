@@ -349,7 +349,7 @@ static const CPPType *get_socket_cpp_type(const DSocket socket)
  */
 static bool get_implicit_socket_input(const bNodeSocket &socket, void *r_value)
 {
-  const bNode &node = *socket.runtime->owner_node;
+  const bNode &node = node::socket_owner_node(socket);
   const nodes::NodeDeclaration *node_declaration = node.runtime->declaration;
   if (node_declaration == nullptr) {
     return false;
@@ -357,7 +357,7 @@ static bool get_implicit_socket_input(const bNodeSocket &socket, void *r_value)
   const nodes::SocketDeclaration &socket_declaration =
       *node_declaration->inputs()[node::socket_index_in_node(socket)];
   if (socket_declaration.input_field_type() == nodes::InputSocketFieldType::Implicit) {
-    const bNode &bnode = *socket.runtime->owner_node;
+    const bNode &bnode = node::socket_owner_node(socket);
     if (socket.typeinfo->type == SOCK_VECTOR) {
       if (bnode.type == GEO_NODE_SET_CURVE_HANDLES) {
         StringRef side = ((NodeGeometrySetCurveHandlePositions *)bnode.storage)->mode ==

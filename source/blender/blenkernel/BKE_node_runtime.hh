@@ -180,6 +180,18 @@ inline int socket_index_in_node(const bNodeSocket &socket)
   return socket.runtime->index_in_node;
 }
 
+inline bNode &socket_owner_node(bNodeSocket &socket)
+{
+  BLI_assert(topology_cache_is_available(socket));
+  return *socket.runtime->owner_node;
+}
+
+inline const bNode &socket_owner_node(const bNodeSocket &socket)
+{
+  BLI_assert(topology_cache_is_available(socket));
+  return *socket.runtime->owner_node;
+}
+
 }  // namespace node
 
 }  // namespace blender::bke
