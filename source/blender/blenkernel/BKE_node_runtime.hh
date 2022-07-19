@@ -138,4 +138,48 @@ namespace node_tree_runtime {
 void ensure_topology_cache(const bNodeTree &ntree);
 }  // namespace node_tree_runtime
 
+namespace node {
+
+inline bool topology_cache_is_available(const bNode &node)
+{
+  return !node.runtime->owner_tree->runtime->topology_cache_is_dirty;
+}
+
+inline bool topology_cache_is_available(const bNodeSocket &socket)
+{
+  return !socket.runtime->owner_node->runtime->owner_tree->runtime->topology_cache_is_dirty;
+}
+
+inline Span<bNodeSocket *> node_inputs(bNode &node)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return node.runtime->inputs;
+}
+
+inline Span<const bNodeSocket *> node_inputs(const bNode &node)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return node.runtime->inputs;
+}
+
+inline Span<bNodeSocket *> node_outputs(bNode &node)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return node.runtime->outputs;
+}
+
+inline Span<const bNodeSocket *> node_outputs(const bNode &node)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return node.runtime->outputs;
+}
+
+inline int socket_index_in_node(const bNodeSocket &socket)
+{
+  BLI_assert(topology_cache_is_available(socket));
+  return socket.runtime->index_in_node;
+}
+
+}  // namespace node
+
 }  // namespace blender::bke

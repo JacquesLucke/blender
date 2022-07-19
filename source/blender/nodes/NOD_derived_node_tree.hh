@@ -75,6 +75,7 @@ class DNode {
   const DTreeContext *context() const;
   const bNode *node_ref() const;
   const bNode *operator->() const;
+  const bNode &operator*() const;
 
   friend bool operator==(const DNode &a, const DNode &b);
   friend bool operator!=(const DNode &a, const DNode &b);
@@ -110,6 +111,7 @@ class DSocket {
   const DTreeContext *context() const;
   const bNodeSocket *socket_ref() const;
   const bNodeSocket *operator->() const;
+  const bNodeSocket &operator*() const;
 
   friend bool operator==(const DSocket &a, const DSocket &b);
   friend bool operator!=(const DSocket &a, const DSocket &b);
@@ -293,6 +295,12 @@ inline const bNode *DNode::operator->() const
   return node_ref_;
 }
 
+inline const bNode &DNode::operator*() const
+{
+  BLI_assert(socket_ref_ != nullptr);
+  return *node_ref_;
+}
+
 inline uint64_t DNode::hash() const
 {
   return get_default_hash_2(context_, node_ref_);
@@ -369,6 +377,12 @@ inline DSocket::operator bool() const
 inline const bNodeSocket *DSocket::operator->() const
 {
   return socket_ref_;
+}
+
+inline const bNodeSocket &DSocket::operator*() const
+{
+  BLI_assert(socket_ref_ != nullptr);
+  return *socket_ref_;
 }
 
 inline uint64_t DSocket::hash() const
