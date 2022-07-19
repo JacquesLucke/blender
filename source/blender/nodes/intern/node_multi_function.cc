@@ -2,14 +2,14 @@
 
 #include "NOD_multi_function.hh"
 
+#include "BKE_node.h"
+
 namespace blender::nodes {
 
 NodeMultiFunctions::NodeMultiFunctions(const DerivedNodeTree &tree)
 {
-  for (const NodeTreeRef *tree_ref : tree.used_node_tree_refs()) {
-    bNodeTree *btree = tree_ref->btree();
-    for (const NodeRef *node : tree_ref->nodes()) {
-      bNode *bnode = node->bnode();
+  for (const bNodeTree *btree : tree.used_node_tree_refs()) {
+    for (const bNode *bnode : btree->runtime->nodes) {
       if (bnode->typeinfo->build_multi_function == nullptr) {
         continue;
       }
