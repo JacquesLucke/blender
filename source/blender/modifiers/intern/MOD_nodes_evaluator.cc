@@ -355,7 +355,7 @@ static bool get_implicit_socket_input(const bNodeSocket &socket, void *r_value)
     return false;
   }
   const nodes::SocketDeclaration &socket_declaration =
-      *node_declaration->inputs()[socket.runtime->index_in_node];
+      *node_declaration->inputs()[node::socket_index_in_node(socket)];
   if (socket_declaration.input_field_type() == nodes::InputSocketFieldType::Implicit) {
     const bNode &bnode = *socket.runtime->owner_node;
     if (socket.typeinfo->type == SOCK_VECTOR) {
@@ -1187,7 +1187,7 @@ class GeometryNodesEvaluator {
      * figure out which socket is missing when one of the asserts is hit. */
     for (const bNodeSocket *socket_ref : locked_node.node::node_outputs(*node)) {
       OutputState &output_state =
-          locked_node.node_state.outputs[socket_ref->runtime->index_in_node];
+          locked_node.node_state.outputs[node::socket_index_in_node(*socket_ref)];
       if (supports_laziness) {
         /* Expected that at least all required sockets have been computed. If more outputs become
          * required later, the node will be executed again. */
@@ -1241,7 +1241,8 @@ class GeometryNodesEvaluator {
   bool set_input_required(LockedNode &locked_node, const DInputSocket input_socket)
   {
     BLI_assert(locked_node.node == input_socket.node());
-    InputState &input_state = locked_node.node_state.inputs[input_socket->runtime->index_in_node];
+    InputState &input_state =
+        locked_node.node_state.inputs[node::socket_index_in_node(*input_socket)];
 
     /* Value set as unused cannot become used again. */
     BLI_assert(input_state.usage != ValueUsage::Unused);
