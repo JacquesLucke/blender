@@ -66,7 +66,7 @@ class DTreeContext {
 class DNode {
  private:
   const DTreeContext *context_ = nullptr;
-  const bNode *node_ref_ = nullptr;
+  const bNode *bnode_ = nullptr;
 
  public:
   DNode() = default;
@@ -100,7 +100,7 @@ class DNode {
 class DSocket {
  protected:
   const DTreeContext *context_ = nullptr;
-  const bNodeSocket *socket_ref_ = nullptr;
+  const bNodeSocket *bsocket_ = nullptr;
 
  public:
   DSocket() = default;
@@ -260,7 +260,7 @@ inline bool DTreeContext::is_root() const
  * \{ */
 
 inline DNode::DNode(const DTreeContext *context, const bNode *node_ref)
-    : context_(context), node_ref_(node_ref)
+    : context_(context), bnode_(node_ref)
 {
   BLI_assert(node_ref == nullptr || node_ref->runtime->owner_tree == &context->btree());
 }
@@ -272,12 +272,12 @@ inline const DTreeContext *DNode::context() const
 
 inline const bNode *DNode::node_ref() const
 {
-  return node_ref_;
+  return bnode_;
 }
 
 inline bool operator==(const DNode &a, const DNode &b)
 {
-  return a.context_ == b.context_ && a.node_ref_ == b.node_ref_;
+  return a.context_ == b.context_ && a.bnode_ == b.bnode_;
 }
 
 inline bool operator!=(const DNode &a, const DNode &b)
@@ -287,43 +287,43 @@ inline bool operator!=(const DNode &a, const DNode &b)
 
 inline DNode::operator bool() const
 {
-  return node_ref_ != nullptr;
+  return bnode_ != nullptr;
 }
 
 inline const bNode *DNode::operator->() const
 {
-  return node_ref_;
+  return bnode_;
 }
 
 inline const bNode &DNode::operator*() const
 {
-  BLI_assert(node_ref_ != nullptr);
-  return *node_ref_;
+  BLI_assert(bnode_ != nullptr);
+  return *bnode_;
 }
 
 inline uint64_t DNode::hash() const
 {
-  return get_default_hash_2(context_, node_ref_);
+  return get_default_hash_2(context_, bnode_);
 }
 
 inline DInputSocket DNode::input(int index) const
 {
-  return {context_, node_ref_->runtime->inputs[index]};
+  return {context_, bnode_->runtime->inputs[index]};
 }
 
 inline DOutputSocket DNode::output(int index) const
 {
-  return {context_, node_ref_->runtime->outputs[index]};
+  return {context_, bnode_->runtime->outputs[index]};
 }
 
 inline DInputSocket DNode::input_by_identifier(StringRef identifier) const
 {
-  return {context_, node_ref_->runtime->inputs_by_identifier.lookup_as(identifier)};
+  return {context_, bnode_->runtime->inputs_by_identifier.lookup_as(identifier)};
 }
 
 inline DOutputSocket DNode::output_by_identifier(StringRef identifier) const
 {
-  return {context_, node_ref_->runtime->outputs_by_identifier.lookup_as(identifier)};
+  return {context_, bnode_->runtime->outputs_by_identifier.lookup_as(identifier)};
 }
 
 /** \} */
@@ -333,19 +333,19 @@ inline DOutputSocket DNode::output_by_identifier(StringRef identifier) const
  * \{ */
 
 inline DSocket::DSocket(const DTreeContext *context, const bNodeSocket *socket_ref)
-    : context_(context), socket_ref_(socket_ref)
+    : context_(context), bsocket_(socket_ref)
 {
   BLI_assert(socket_ref == nullptr ||
              socket_ref->runtime->owner_node->runtime->owner_tree == &context->btree());
 }
 
 inline DSocket::DSocket(const DInputSocket &input_socket)
-    : DSocket(input_socket.context_, input_socket.socket_ref_)
+    : DSocket(input_socket.context_, input_socket.bsocket_)
 {
 }
 
 inline DSocket::DSocket(const DOutputSocket &output_socket)
-    : DSocket(output_socket.context_, output_socket.socket_ref_)
+    : DSocket(output_socket.context_, output_socket.bsocket_)
 {
 }
 
@@ -356,12 +356,12 @@ inline const DTreeContext *DSocket::context() const
 
 inline const bNodeSocket *DSocket::socket_ref() const
 {
-  return socket_ref_;
+  return bsocket_;
 }
 
 inline bool operator==(const DSocket &a, const DSocket &b)
 {
-  return a.context_ == b.context_ && a.socket_ref_ == b.socket_ref_;
+  return a.context_ == b.context_ && a.bsocket_ == b.bsocket_;
 }
 
 inline bool operator!=(const DSocket &a, const DSocket &b)
@@ -371,29 +371,29 @@ inline bool operator!=(const DSocket &a, const DSocket &b)
 
 inline DSocket::operator bool() const
 {
-  return socket_ref_ != nullptr;
+  return bsocket_ != nullptr;
 }
 
 inline const bNodeSocket *DSocket::operator->() const
 {
-  return socket_ref_;
+  return bsocket_;
 }
 
 inline const bNodeSocket &DSocket::operator*() const
 {
-  BLI_assert(socket_ref_ != nullptr);
-  return *socket_ref_;
+  BLI_assert(bsocket_ != nullptr);
+  return *bsocket_;
 }
 
 inline uint64_t DSocket::hash() const
 {
-  return get_default_hash_2(context_, socket_ref_);
+  return get_default_hash_2(context_, bsocket_);
 }
 
 inline DNode DSocket::node() const
 {
-  BLI_assert(socket_ref_ != nullptr);
-  return {context_, socket_ref_->runtime->owner_node};
+  BLI_assert(bsocket_ != nullptr);
+  return {context_, bsocket_->runtime->owner_node};
 }
 
 /** \} */

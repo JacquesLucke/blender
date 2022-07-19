@@ -94,31 +94,31 @@ void DerivedNodeTree::foreach_node_in_context_recursive(const DTreeContext &cont
 DOutputSocket DInputSocket::get_corresponding_group_node_output() const
 {
   BLI_assert(*this);
-  BLI_assert(socket_ref_->runtime->owner_node->type == NODE_GROUP_OUTPUT);
-  BLI_assert(socket_ref_->runtime->index_in_node <
-             socket_ref_->runtime->owner_node->runtime->inputs.size() - 1);
+  BLI_assert(bsocket_->runtime->owner_node->type == NODE_GROUP_OUTPUT);
+  BLI_assert(bsocket_->runtime->index_in_node <
+             bsocket_->runtime->owner_node->runtime->inputs.size() - 1);
 
   const DTreeContext *parent_context = context_->parent_context();
   const bNode *parent_node = context_->parent_node();
   BLI_assert(parent_context != nullptr);
   BLI_assert(parent_node != nullptr);
 
-  const int socket_index = socket_ref_->runtime->index_in_node;
+  const int socket_index = bsocket_->runtime->index_in_node;
   return {parent_context, parent_node->runtime->outputs[socket_index]};
 }
 
 Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() const
 {
   BLI_assert(*this);
-  BLI_assert(socket_ref_->runtime->owner_node->runtime->is_group_node);
+  BLI_assert(bsocket_->runtime->owner_node->runtime->is_group_node);
 
-  const DTreeContext *child_context = context_->child_context(*socket_ref_->runtime->owner_node);
+  const DTreeContext *child_context = context_->child_context(*bsocket_->runtime->owner_node);
   BLI_assert(child_context != nullptr);
 
   const bNodeTree &child_tree = child_context->btree();
   Span<const bNode *> group_input_nodes = child_tree.runtime->nodes_by_type.lookup(
       nodeTypeFind("NodeGroupInput"));
-  const int socket_index = socket_ref_->runtime->index_in_node;
+  const int socket_index = bsocket_->runtime->index_in_node;
   Vector<DOutputSocket> sockets;
   for (const bNode *group_input_node : group_input_nodes) {
     sockets.append(DOutputSocket(child_context, group_input_node->runtime->outputs[socket_index]));
@@ -129,25 +129,25 @@ Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() cons
 DInputSocket DOutputSocket::get_corresponding_group_node_input() const
 {
   BLI_assert(*this);
-  BLI_assert(socket_ref_->runtime->owner_node->type == NODE_GROUP_INPUT);
-  BLI_assert(socket_ref_->runtime->index_in_node <
-             socket_ref_->runtime->owner_node->runtime->outputs.size() - 1);
+  BLI_assert(bsocket_->runtime->owner_node->type == NODE_GROUP_INPUT);
+  BLI_assert(bsocket_->runtime->index_in_node <
+             bsocket_->runtime->owner_node->runtime->outputs.size() - 1);
 
   const DTreeContext *parent_context = context_->parent_context();
   const bNode *parent_node = context_->parent_node();
   BLI_assert(parent_context != nullptr);
   BLI_assert(parent_node != nullptr);
 
-  const int socket_index = socket_ref_->runtime->index_in_node;
+  const int socket_index = bsocket_->runtime->index_in_node;
   return {parent_context, parent_node->runtime->inputs[socket_index]};
 }
 
 DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
 {
   BLI_assert(*this);
-  BLI_assert(socket_ref_->runtime->owner_node->runtime->is_group_node);
+  BLI_assert(bsocket_->runtime->owner_node->runtime->is_group_node);
 
-  const DTreeContext *child_context = context_->child_context(*socket_ref_->runtime->owner_node);
+  const DTreeContext *child_context = context_->child_context(*bsocket_->runtime->owner_node);
   if (child_context == nullptr) {
     /* Can happen when the group node references a non-existent group (e.g. when the group is
      * linked but the original file is not found). */
@@ -157,7 +157,7 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
   const bNodeTree &child_tree = child_context->btree();
   Span<const bNode *> group_output_nodes = child_tree.runtime->nodes_by_type.lookup(
       nodeTypeFind("NodeGroupOutput"));
-  const int socket_index = socket_ref_->runtime->index_in_node;
+  const int socket_index = bsocket_->runtime->index_in_node;
   for (const bNode *group_output_node : group_output_nodes) {
     if (group_output_node->flag & NODE_DO_OUTPUT || group_output_nodes.size() == 1) {
       return {child_context, group_output_node->runtime->inputs[socket_index]};
@@ -169,7 +169,7 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
 void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) const
 {
   BLI_assert(*this);
-  for (const bNodeSocket *linked_socket : socket_ref_->runtime->logically_linked_sockets) {
+  for (const bNodeSocket *linked_socket : bsocket_->runtime->logically_linked_sockets) {
     const bNode &linked_node = *linked_socket->runtime->owner_node;
     DOutputSocket linked_dsocket{context_, linked_socket};
 
@@ -221,7 +221,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn) const
 void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
                                           TargetSocketPathInfo &path_info) const
 {
-  for (const bNodeLink *link : socket_ref_->runtime->directly_linked_links) {
+  for (const bNodeLink *link : bsocket_->runtime->directly_linked_links) {
     if (link->flag & NODE_LINK_MUTED) {
       continue;
     }
