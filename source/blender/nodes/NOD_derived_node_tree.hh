@@ -12,6 +12,7 @@
  */
 
 #include "BLI_function_ref.hh"
+#include "BLI_linear_allocator.hh"
 #include "BLI_vector_set.hh"
 
 #include "BKE_node_runtime.hh"

@@ -138,7 +138,7 @@ DInputSocket DOutputSocket::get_corresponding_group_node_input() const
   BLI_assert(parent_node != nullptr);
 
   const int socket_index = socket_ref_->runtime->index_in_node;
-  return {parent_context, &parent_node->runtime->inputs[socket_index]};
+  return {parent_context, parent_node->runtime->inputs[socket_index]};
 }
 
 DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
@@ -168,18 +168,18 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
 void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) const
 {
   BLI_assert(*this);
-  for (const OutputSocketRef *linked_socket : socket_ref_->as_input().logically_linked_sockets()) {
-    const bNode &linked_node = linked_socket->node();
+  for (const bNodeSocket *linked_socket : socket_ref_->runtime->logically_linked_sockets) {
+    const bNode &linked_node = *linked_socket->runtime->owner_node;
     DOutputSocket linked_dsocket{context_, linked_socket};
 
-    if (linked_node.is_group_input_node()) {
+    if (linked_node.type == NODE_GROUP_INPUT) {
       if (context_->is_root()) {
         /* This is a group input in the root node group. */
         origin_fn(linked_dsocket);
       }
       else {
         DInputSocket socket_in_parent_group = linked_dsocket.get_corresponding_group_node_input();
-        if (socket_in_parent_group->is_logically_linked()) {
+        if (!socket_in_parent_group->runtime->logically_linked_sockets.is_empty()) {
           /* Follow the links coming into the corresponding socket on the parent group node. */
           socket_in_parent_group.foreach_origin_socket(origin_fn);
         }
@@ -190,10 +190,10 @@ void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) c
         }
       }
     }
-    else if (linked_node.is_group_node()) {
+    else if (linked_node.runtime->is_group_node) {
       DInputSocket socket_in_group = linked_dsocket.get_active_corresponding_group_output_socket();
       if (socket_in_group) {
-        if (socket_in_group->is_logically_linked()) {
+        if (!socket_in_group->runtime->logically_linked_sockets.is_empty()) {
           /* Follow the links coming into the group output node of the child node group. */
           socket_in_group.foreach_origin_socket(origin_fn);
         }
@@ -220,16 +220,16 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn) const
 void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
                                           TargetSocketPathInfo &path_info) const
 {
-  for (const LinkRef *link : socket_ref_->as_output().directly_linked_links()) {
-    if (link->is_muted()) {
+  for (const bNodeLink *link : socket_ref_->runtime->directly_linked_links) {
+    if (link->flag & NODE_LINK_MUTED) {
       continue;
     }
-    const DInputSocket &linked_socket{context_, &link->to()};
-    if (!linked_socket->is_available()) {
+    const DInputSocket &linked_socket{context_, link->tosock};
+    if (linked_socket->flag & SOCK_UNAVAIL) {
       continue;
     }
     const DNode linked_node = linked_socket.node();
-    if (linked_node->is_reroute_node()) {
+    if (linked_node->type == NODE_REROUTE) {
       const DInputSocket reroute_input = linked_socket;
       const DOutputSocket reroute_output = linked_node.output(0);
       path_info.sockets.append(reroute_input);
@@ -238,19 +238,19 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
       path_info.sockets.pop_last();
       path_info.sockets.pop_last();
     }
-    else if (linked_node->is_muted()) {
-      for (const InternalLinkRef *internal_link : linked_node->internal_links()) {
-        if (&internal_link->from() != linked_socket.socket_ref()) {
+    else if (linked_node->flag & NODE_MUTED) {
+      for (const bNodeLink *internal_link : linked_node->runtime->internal_links) {
+        if (internal_link->fromsock != linked_socket.socket_ref()) {
           continue;
         }
         /* The internal link only forwards the first incoming link. */
-        if (linked_socket->is_multi_input_socket()) {
-          if (linked_socket->directly_linked_links()[0] != link) {
+        if (linked_socket->flag & SOCK_MULTI_INPUT) {
+          if (linked_socket->runtime->directly_linked_links[0] != link) {
             continue;
           }
         }
         const DInputSocket mute_input = linked_socket;
-        const DOutputSocket mute_output{context_, &internal_link->to()};
+        const DOutputSocket mute_output{context_, internal_link->tosock};
         path_info.sockets.append(mute_input);
         path_info.sockets.append(mute_output);
         mute_output.foreach_target_socket(target_fn, path_info);
@@ -258,8 +258,8 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
         path_info.sockets.pop_last();
       }
     }
-    else if (linked_node->is_group_output_node()) {
-      if (linked_node.node_ref() != context_->tree().group_output_node()) {
+    else if (linked_node->type == NODE_GROUP_OUTPUT) {
+      if (linked_node.node_ref() != context_->tree().runtime->group_output_node) {
         continue;
       }
       if (context_->is_root()) {
@@ -279,7 +279,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
         path_info.sockets.pop_last();
       }
     }
-    else if (linked_node->is_group_node()) {
+    else if (linked_node->runtime->is_group_node) {
       /* Follow the links within the nested node group. */
       path_info.sockets.append(linked_socket);
       const Vector<DOutputSocket> sockets_in_group =
@@ -313,7 +313,8 @@ static dot::Cluster *get_dot_cluster_for_context(
     }
     dot::Cluster *parent_cluster = get_dot_cluster_for_context(
         digraph, parent_context, dot_clusters);
-    std::string cluster_name = context->tree().name() + " / " + context->parent_node()->name();
+    std::string cluster_name = StringRef(context->tree().id.name + 2) + " / " +
+                               context->parent_node()->name;
     dot::Cluster &cluster = digraph.new_cluster(cluster_name);
     cluster.set_parent_cluster(parent_cluster);
     return &cluster;
@@ -331,11 +332,12 @@ std::string DerivedNodeTree::to_dot() const
 
   this->foreach_node([&](DNode node) {
     /* Ignore nodes that should not show up in the final output. */
-    if (node->is_muted() || node->is_group_node() || node->is_reroute_node() || node->is_frame()) {
+    if (node->flag & NODE_MUTED || node->runtime->is_group_node || node->type == NODE_REROUTE ||
+        node->type == NODE_FRAME) {
       return;
     }
     if (!node.context()->is_root()) {
-      if (node->is_group_input_node() || node->is_group_output_node()) {
+      if (node->type == NODE_GROUP_INPUT || node->type == NODE_GROUP_OUTPUT) {
         return;
       }
     }
@@ -348,31 +350,31 @@ std::string DerivedNodeTree::to_dot() const
 
     Vector<std::string> input_names;
     Vector<std::string> output_names;
-    for (const InputSocketRef *socket : node->inputs()) {
-      if (socket->is_available()) {
-        input_names.append(socket->name());
+    for (const bNodeSocket *socket : node->runtime->inputs) {
+      if (socket->flag & SOCK_UNAVAIL == 0) {
+        input_names.append(socket->name);
       }
     }
-    for (const OutputSocketRef *socket : node->outputs()) {
-      if (socket->is_available()) {
-        output_names.append(socket->name());
+    for (const bNodeSocket *socket : node->runtime->outputs) {
+      if (socket->flag & SOCK_UNAVAIL == 0) {
+        output_names.append(socket->name);
       }
     }
 
     dot::NodeWithSocketsRef dot_node_with_sockets = dot::NodeWithSocketsRef(
-        dot_node, node->name(), input_names, output_names);
+        dot_node, node->name, input_names, output_names);
 
     int input_index = 0;
-    for (const InputSocketRef *socket : node->inputs()) {
-      if (socket->is_available()) {
+    for (const bNodeSocket *socket : node->runtime->inputs) {
+      if (socket->flag & SOCK_UNAVAIL == 0) {
         dot_input_sockets.add_new(DInputSocket{node.context(), socket},
                                   dot_node_with_sockets.input(input_index));
         input_index++;
       }
     }
     int output_index = 0;
-    for (const OutputSocketRef *socket : node->outputs()) {
-      if (socket->is_available()) {
+    for (const bNodeSocket *socket : node->runtime->outputs) {
+      if (socket->flag & SOCK_UNAVAIL == 0) {
         dot_output_sockets.add_new(DOutputSocket{node.context(), socket},
                                    dot_node_with_sockets.output(output_index));
         output_index++;
@@ -387,7 +389,7 @@ std::string DerivedNodeTree::to_dot() const
     DInputSocket to_socket = item.key;
     dot::NodePort dot_to_port = item.value;
     to_socket.foreach_origin_socket([&](DSocket from_socket) {
-      if (from_socket->is_output()) {
+      if (from_socket->in_out == SOCK_OUT) {
         dot::NodePort *dot_from_port = dot_output_sockets.lookup_ptr(DOutputSocket(from_socket));
         if (dot_from_port != nullptr) {
           digraph.new_edge(*dot_from_port, dot_to_port);
@@ -395,7 +397,7 @@ std::string DerivedNodeTree::to_dot() const
         }
       }
       dot::Node &dot_node = *dot_floating_inputs.lookup_or_add_cb(from_socket, [&]() {
-        dot::Node &dot_node = digraph.new_node(from_socket->name());
+        dot::Node &dot_node = digraph.new_node(from_socket->name);
         dot_node.set_background_color("white");
         dot_node.set_shape(dot::Attr_shape::Ellipse);
         dot_node.set_parent_cluster(
