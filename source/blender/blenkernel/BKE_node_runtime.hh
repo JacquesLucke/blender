@@ -235,7 +235,13 @@ inline bool is_group_node(const bNode &node)
   return node.runtime->is_group_node;
 }
 
-inline Span<bNode *> tree_nodes(const bNodeTree &tree)
+inline Span<const bNode *> tree_nodes(const bNodeTree &tree)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->nodes;
+}
+
+inline Span<bNode *> tree_nodes(bNodeTree &tree)
 {
   BLI_assert(topology_cache_is_available(tree));
   return tree.runtime->nodes;
@@ -272,6 +278,12 @@ inline Span<const bNodeSocket *> logically_linked_sockets(const bNodeSocket &soc
 }
 
 inline Span<const bNodeLink *> directly_linked_links(const bNodeSocket &socket)
+{
+  BLI_assert(topology_cache_is_available(socket));
+  return socket.runtime->directly_linked_links;
+}
+
+inline Span<bNodeLink *> directly_linked_links(bNodeSocket &socket)
 {
   BLI_assert(topology_cache_is_available(socket));
   return socket.runtime->directly_linked_links;
@@ -326,13 +338,31 @@ inline Span<const bNodeSocket *> all_inputs_in_tree(const bNodeTree &tree)
   return tree.runtime->input_sockets;
 }
 
+inline Span<bNodeSocket *> all_inputs_in_tree(bNodeTree &tree)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->input_sockets;
+}
+
 inline Span<const bNodeSocket *> all_outputs_in_tree(const bNodeTree &tree)
 {
   BLI_assert(topology_cache_is_available(tree));
   return tree.runtime->output_sockets;
 }
 
+inline Span<bNodeSocket *> all_outputs_in_tree(bNodeTree &tree)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->output_sockets;
+}
+
 inline Span<const bNodeSocket *> all_sockets_in_tree(const bNodeTree &tree)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->sockets;
+}
+
+inline Span<bNodeSocket *> all_sockets_in_tree(bNodeTree &tree)
 {
   BLI_assert(topology_cache_is_available(tree));
   return tree.runtime->sockets;
