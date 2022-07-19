@@ -175,22 +175,14 @@ static void update_logical_origins_for_socket(bNodeSocket &input_socket)
       }
       if (origin_node.flag & NODE_MUTED) {
         if (bNodeSocket *mute_input = origin_socket.runtime->internal_link_input) {
-          socket_runtime.logically_linked_skipped_sockets.append(&socket);
+          socket_runtime.logically_linked_skipped_sockets.append(&origin_socket);
           socket_runtime.logically_linked_skipped_sockets.append(mute_input);
           sockets_to_check.push(mute_input);
         }
         continue;
       }
-      socket_runtime.logically_linked_sockets.append(&socket);
+      socket_runtime.logically_linked_sockets.append(&origin_socket);
     }
-  }
-
-  if (socket_runtime.logically_linked_sockets.contains(&input_socket)) {
-    socket_runtime.logically_linked_sockets.remove_first_occurrence_and_reorder(&input_socket);
-  }
-  if (socket_runtime.logically_linked_skipped_sockets.contains(&input_socket)) {
-    socket_runtime.logically_linked_skipped_sockets.remove_first_occurrence_and_reorder(
-        &input_socket);
   }
 }
 
