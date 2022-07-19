@@ -181,7 +181,7 @@ class DerivedNodeTree {
    * has to make sure that the node tree refs added to #node_tree_refs live at least as long as the
    * derived node tree.
    */
-  DerivedNodeTree(bNodeTree &btree);
+  DerivedNodeTree(const bNodeTree &btree);
   ~DerivedNodeTree();
 
   const DTreeContext &root_context() const;
@@ -201,7 +201,7 @@ class DerivedNodeTree {
  private:
   DTreeContext &construct_context_recursively(DTreeContext *parent_context,
                                               const bNode *parent_node,
-                                              bNodeTree &btree);
+                                              const bNodeTree &btree);
   void destruct_context_recursively(DTreeContext *context);
 
   void foreach_node_in_context_recursive(const DTreeContext &context,

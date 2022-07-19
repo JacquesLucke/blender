@@ -8,7 +8,7 @@
 
 namespace blender::nodes {
 
-DerivedNodeTree::DerivedNodeTree(bNodeTree &btree)
+DerivedNodeTree::DerivedNodeTree(const bNodeTree &btree)
 {
   /* Construct all possible contexts immediately. This is significantly cheaper than inlining all
    * node groups. If it still becomes a performance issue in the future, contexts could be
@@ -18,8 +18,9 @@ DerivedNodeTree::DerivedNodeTree(bNodeTree &btree)
 
 DTreeContext &DerivedNodeTree::construct_context_recursively(DTreeContext *parent_context,
                                                              const bNode *parent_node,
-                                                             bNodeTree &btree)
+                                                             const bNodeTree &btree)
 {
+  bke::node_tree_runtime::ensure_topology_cache(btree);
   DTreeContext &context = *allocator_.construct<DTreeContext>().release();
   context.parent_context_ = parent_context;
   context.parent_node_ = parent_node;
@@ -351,12 +352,12 @@ std::string DerivedNodeTree::to_dot() const
     Vector<std::string> input_names;
     Vector<std::string> output_names;
     for (const bNodeSocket *socket : node->runtime->inputs) {
-      if (socket->flag & SOCK_UNAVAIL == 0) {
+      if ((socket->flag & SOCK_UNAVAIL) == 0) {
         input_names.append(socket->name);
       }
     }
     for (const bNodeSocket *socket : node->runtime->outputs) {
-      if (socket->flag & SOCK_UNAVAIL == 0) {
+      if ((socket->flag & SOCK_UNAVAIL) == 0) {
         output_names.append(socket->name);
       }
     }
@@ -366,7 +367,7 @@ std::string DerivedNodeTree::to_dot() const
 
     int input_index = 0;
     for (const bNodeSocket *socket : node->runtime->inputs) {
-      if (socket->flag & SOCK_UNAVAIL == 0) {
+      if ((socket->flag & SOCK_UNAVAIL) == 0) {
         dot_input_sockets.add_new(DInputSocket{node.context(), socket},
                                   dot_node_with_sockets.input(input_index));
         input_index++;
@@ -374,7 +375,7 @@ std::string DerivedNodeTree::to_dot() const
     }
     int output_index = 0;
     for (const bNodeSocket *socket : node->runtime->outputs) {
-      if (socket->flag & SOCK_UNAVAIL == 0) {
+      if ((socket->flag & SOCK_UNAVAIL) == 0) {
         dot_output_sockets.add_new(DOutputSocket{node.context(), socket},
                                    dot_node_with_sockets.output(output_index));
         output_index++;
