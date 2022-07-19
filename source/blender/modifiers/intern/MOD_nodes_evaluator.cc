@@ -1185,7 +1185,7 @@ class GeometryNodesEvaluator {
     const bool supports_laziness = node_supports_laziness(locked_node.node);
     /* Iterating over sockets instead of the states directly, because that makes it easier to
      * figure out which socket is missing when one of the asserts is hit. */
-    for (const bNodeSocket *bsocket : locked_node.node::node_outputs(*node)) {
+    for (const bNodeSocket *bsocket : node::node_outputs(*locked_node.node)) {
       OutputState &output_state =
           locked_node.node_state.outputs[node::socket_index_in_node(*bsocket)];
       if (supports_laziness) {

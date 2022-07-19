@@ -161,7 +161,7 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
   const int socket_index = node::socket_index_in_node(*bsocket_);
   for (const bNode *group_output_node : group_output_nodes) {
     if (group_output_node->flag & NODE_DO_OUTPUT || group_output_nodes.size() == 1) {
-      return {child_context, &node::node_output(*group_output_node, socket_index)};
+      return {child_context, &node::node_input(*group_output_node, socket_index)};
     }
   }
   return {};
