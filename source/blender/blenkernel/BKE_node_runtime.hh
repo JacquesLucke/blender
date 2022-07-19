@@ -271,6 +271,12 @@ inline Span<const bNodeLink *> directly_linked_links(const bNodeSocket &socket)
   return socket.runtime->directly_linked_links;
 }
 
+inline Span<const bNodeSocket *> directly_linked_sockets(const bNodeSocket &socket)
+{
+  BLI_assert(topology_cache_is_available(socket));
+  return socket.runtime->directly_linked_sockets;
+}
+
 inline Span<const bNodeLink *> internal_links(const bNode &node)
 {
   BLI_assert(topology_cache_is_available(node));
