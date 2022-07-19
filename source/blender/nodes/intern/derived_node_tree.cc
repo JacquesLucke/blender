@@ -25,10 +25,10 @@ DTreeContext &DerivedNodeTree::construct_context_recursively(DTreeContext *paren
   context.parent_context_ = parent_context;
   context.parent_node_ = parent_node;
   context.derived_tree_ = this;
-  context.tree_ = &btree;
-  used_node_tree_refs_.add(context.tree_);
+  context.btree_ = &btree;
+  used_node_tree_refs_.add(context.btree_);
 
-  for (const bNode *bnode : context.tree_->runtime->nodes) {
+  for (const bNode *bnode : context.btree_->runtime->nodes) {
     if (bnode->runtime->is_group_node) {
       bNodeTree *child_btree = reinterpret_cast<bNodeTree *>(bnode->id);
       if (child_btree != nullptr) {
@@ -83,7 +83,7 @@ void DerivedNodeTree::foreach_node(FunctionRef<void(DNode)> callback) const
 void DerivedNodeTree::foreach_node_in_context_recursive(const DTreeContext &context,
                                                         FunctionRef<void(DNode)> callback) const
 {
-  for (const bNode *node_ref : context.tree_->runtime->nodes) {
+  for (const bNode *node_ref : context.btree_->runtime->nodes) {
     callback(DNode(&context, node_ref));
   }
   for (const DTreeContext *child_context : context.children_.values()) {
@@ -115,7 +115,7 @@ Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() cons
   const DTreeContext *child_context = context_->child_context(*socket_ref_->runtime->owner_node);
   BLI_assert(child_context != nullptr);
 
-  const bNodeTree &child_tree = child_context->tree();
+  const bNodeTree &child_tree = child_context->btree();
   Span<const bNode *> group_input_nodes = child_tree.runtime->nodes_by_type.lookup(
       nodeTypeFind("NodeGroupInput"));
   const int socket_index = socket_ref_->runtime->index_in_node;
@@ -154,7 +154,7 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
     return {};
   }
 
-  const bNodeTree &child_tree = child_context->tree();
+  const bNodeTree &child_tree = child_context->btree();
   Span<const bNode *> group_output_nodes = child_tree.runtime->nodes_by_type.lookup(
       nodeTypeFind("NodeGroupOutput"));
   const int socket_index = socket_ref_->runtime->index_in_node;
@@ -260,7 +260,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
       }
     }
     else if (linked_node->type == NODE_GROUP_OUTPUT) {
-      if (linked_node.node_ref() != context_->tree().runtime->group_output_node) {
+      if (linked_node.node_ref() != context_->btree().runtime->group_output_node) {
         continue;
       }
       if (context_->is_root()) {
@@ -314,7 +314,7 @@ static dot::Cluster *get_dot_cluster_for_context(
     }
     dot::Cluster *parent_cluster = get_dot_cluster_for_context(
         digraph, parent_context, dot_clusters);
-    std::string cluster_name = StringRef(context->tree().id.name + 2) + " / " +
+    std::string cluster_name = StringRef(context->btree().id.name + 2) + " / " +
                                context->parent_node()->name;
     dot::Cluster &cluster = digraph.new_cluster(cluster_name);
     cluster.set_parent_cluster(parent_cluster);

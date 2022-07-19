@@ -43,7 +43,7 @@ class DTreeContext {
    * the parent node group that contains this context. */
   const bNode *parent_node_;
   /* The current node tree. */
-  const bNodeTree *tree_;
+  const bNodeTree *btree_;
   /* All the children contexts of this context. */
   Map<const bNode *, DTreeContext *> children_;
   DerivedNodeTree *derived_tree_;
@@ -51,7 +51,7 @@ class DTreeContext {
   friend DerivedNodeTree;
 
  public:
-  const bNodeTree &tree() const;
+  const bNodeTree &btree() const;
   const DTreeContext *parent_context() const;
   const bNode *parent_node() const;
   const DTreeContext *child_context(const bNode &node) const;
@@ -223,9 +223,9 @@ using nodes::DTreeContext;
 /** \name #DTreeContext Inline Methods
  * \{ */
 
-inline const bNodeTree &DTreeContext::tree() const
+inline const bNodeTree &DTreeContext::btree() const
 {
-  return *tree_;
+  return *btree_;
 }
 
 inline const DTreeContext *DTreeContext::parent_context() const
@@ -262,7 +262,7 @@ inline bool DTreeContext::is_root() const
 inline DNode::DNode(const DTreeContext *context, const bNode *node_ref)
     : context_(context), node_ref_(node_ref)
 {
-  BLI_assert(node_ref == nullptr || node_ref->runtime->owner_tree == &context->tree());
+  BLI_assert(node_ref == nullptr || node_ref->runtime->owner_tree == &context->btree());
 }
 
 inline const DTreeContext *DNode::context() const
@@ -297,7 +297,7 @@ inline const bNode *DNode::operator->() const
 
 inline const bNode &DNode::operator*() const
 {
-  BLI_assert(socket_ref_ != nullptr);
+  BLI_assert(node_ref_ != nullptr);
   return *node_ref_;
 }
 
@@ -336,7 +336,7 @@ inline DSocket::DSocket(const DTreeContext *context, const bNodeSocket *socket_r
     : context_(context), socket_ref_(socket_ref)
 {
   BLI_assert(socket_ref == nullptr ||
-             socket_ref->runtime->owner_node->runtime->owner_tree == &context->tree());
+             socket_ref->runtime->owner_node->runtime->owner_tree == &context->btree());
 }
 
 inline DSocket::DSocket(const DInputSocket &input_socket)

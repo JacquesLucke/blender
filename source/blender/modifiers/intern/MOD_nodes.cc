@@ -874,7 +874,7 @@ static void find_sockets_to_preview_for_spreadsheet(SpaceSpreadsheet *sspreadshe
 
   const DTreeContext *context = &tree.root_context();
   for (SpreadsheetContextNode *node_context : nested_group_contexts) {
-    const bNodeTree &tree_ref = context->tree();
+    const bNodeTree &tree_ref = context->btree();
     const bNode *found_node = nullptr;
     for (const bNode *node_ref : tree_ref.runtime->nodes) {
       if (STREQ(node_ref->name, node_context->node_name)) {
@@ -891,7 +891,7 @@ static void find_sockets_to_preview_for_spreadsheet(SpaceSpreadsheet *sspreadshe
     }
   }
 
-  const bNodeTree &tree_ref = context->tree();
+  const bNodeTree &tree_ref = context->btree();
   for (const bNode *node_ref :
        tree_ref.runtime->nodes_by_type.lookup(nodeTypeFind("GeometryNodeViewer"))) {
     if (STREQ(node_ref->name, last_context->node_name)) {
