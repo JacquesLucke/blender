@@ -11,6 +11,8 @@
 
 #include "DNA_node_types.h"
 
+#include "BKE_node.h"
+
 struct bNode;
 struct bNodeSocket;
 struct bNodeTree;
@@ -150,6 +152,11 @@ inline bool topology_cache_is_available(const bNodeSocket &socket)
   return !socket.runtime->owner_node->runtime->owner_tree->runtime->topology_cache_is_dirty;
 }
 
+inline bool topology_cache_is_available(const bNodeTree &tree)
+{
+  return !tree.runtime->topology_cache_is_dirty;
+}
+
 inline Span<bNodeSocket *> node_inputs(bNode &node)
 {
   BLI_assert(topology_cache_is_available(node));
@@ -162,6 +169,18 @@ inline Span<const bNodeSocket *> node_inputs(const bNode &node)
   return node.runtime->inputs;
 }
 
+inline bNodeSocket &node_input(bNode &node, const int index)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return *node.runtime->inputs[index];
+}
+
+inline const bNodeSocket &node_input(const bNode &node, const int index)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return *node.runtime->inputs[index];
+}
+
 inline Span<bNodeSocket *> node_outputs(bNode &node)
 {
   BLI_assert(topology_cache_is_available(node));
@@ -172,6 +191,18 @@ inline Span<const bNodeSocket *> node_outputs(const bNode &node)
 {
   BLI_assert(topology_cache_is_available(node));
   return node.runtime->outputs;
+}
+
+inline bNodeSocket &node_output(bNode &node, const int index)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return *node.runtime->outputs[index];
+}
+
+inline const bNodeSocket &node_output(const bNode &node, const int index)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return *node.runtime->outputs[index];
 }
 
 inline int socket_index_in_node(const bNodeSocket &socket)
@@ -196,6 +227,67 @@ inline bool is_group_node(const bNode &node)
 {
   BLI_assert(topology_cache_is_available(node));
   return node.runtime->is_group_node;
+}
+
+inline Span<bNode *> tree_nodes(const bNodeTree &tree)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->nodes;
+}
+
+inline bool tree_has_link_cycle(const bNodeTree &tree)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->has_link_cycle;
+}
+
+inline bool tree_has_undefined_nodes_or_sockets(const bNodeTree &tree)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->has_undefined_nodes_or_sockets;
+}
+
+inline Span<bNode *> nodes_by_type(bNodeTree &tree, const StringRefNull name)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->nodes_by_type.lookup(nodeTypeFind(name.c_str()));
+}
+
+inline Span<const bNode *> nodes_by_type(const bNodeTree &tree, const StringRefNull name)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->nodes_by_type.lookup(nodeTypeFind(name.c_str()));
+}
+
+inline Span<const bNodeSocket *> logically_linked_sockets(const bNodeSocket &socket)
+{
+  BLI_assert(topology_cache_is_available(socket));
+  return socket.runtime->logically_linked_sockets;
+}
+
+inline Span<const bNodeLink *> directly_linked_links(const bNodeSocket &socket)
+{
+  BLI_assert(topology_cache_is_available(socket));
+  return socket.runtime->directly_linked_links;
+}
+
+inline Span<const bNodeLink *> internal_links(const bNode &node)
+{
+  BLI_assert(topology_cache_is_available(node));
+  return node.runtime->internal_links;
+}
+
+inline const bNodeSocket *internal_link_input(const bNodeSocket &socket)
+{
+  BLI_assert(topology_cache_is_available(socket));
+  BLI_assert(socket.in_out == SOCK_OUT);
+  return socket.runtime->internal_link_input;
+}
+
+inline const bNode *group_output_node(const bNodeTree &tree)
+{
+  BLI_assert(topology_cache_is_available(tree));
+  return tree.runtime->group_output_node;
 }
 
 }  // namespace node

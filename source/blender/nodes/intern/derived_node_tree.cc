@@ -8,6 +8,8 @@
 
 namespace blender::nodes {
 
+namespace node = bke::node;
+
 DerivedNodeTree::DerivedNodeTree(const bNodeTree &btree)
 {
   /* Construct all possible contexts immediately. This is significantly cheaper than inlining all
@@ -28,8 +30,8 @@ DTreeContext &DerivedNodeTree::construct_context_recursively(DTreeContext *paren
   context.btree_ = &btree;
   used_btrees_.add(context.btree_);
 
-  for (const bNode *bnode : context.btree_->runtime->nodes) {
-    if (bnode->runtime->is_group_node) {
+  for (const bNode *bnode : node::tree_nodes(*context.btree_)) {
+    if (node::is_group_node(*bnode)) {
       bNodeTree *child_btree = reinterpret_cast<bNodeTree *>(bnode->id);
       if (child_btree != nullptr) {
         DTreeContext &child = this->construct_context_recursively(&context, bnode, *child_btree);
@@ -58,7 +60,7 @@ void DerivedNodeTree::destruct_context_recursively(DTreeContext *context)
 bool DerivedNodeTree::has_link_cycles() const
 {
   for (const bNodeTree *btree : used_btrees_) {
-    if (btree->runtime->has_link_cycle) {
+    if (node::tree_has_link_cycle(*btree)) {
       return true;
     }
   }
@@ -68,7 +70,7 @@ bool DerivedNodeTree::has_link_cycles() const
 bool DerivedNodeTree::has_undefined_nodes_or_sockets() const
 {
   for (const bNodeTree *btree : used_btrees_) {
-    if (btree->runtime->has_undefined_nodes_or_sockets) {
+    if (node::tree_has_undefined_nodes_or_sockets(*btree)) {
       return true;
     }
   }
@@ -83,7 +85,7 @@ void DerivedNodeTree::foreach_node(FunctionRef<void(DNode)> callback) const
 void DerivedNodeTree::foreach_node_in_context_recursive(const DTreeContext &context,
                                                         FunctionRef<void(DNode)> callback) const
 {
-  for (const bNode *bnode : context.btree_->runtime->nodes) {
+  for (const bNode *bnode : node::tree_nodes(*context.btree_)) {
     callback(DNode(&context, bnode));
   }
   for (const DTreeContext *child_context : context.children_.values()) {
@@ -94,34 +96,34 @@ void DerivedNodeTree::foreach_node_in_context_recursive(const DTreeContext &cont
 DOutputSocket DInputSocket::get_corresponding_group_node_output() const
 {
   BLI_assert(*this);
-  BLI_assert(bsocket_->runtime->owner_node->type == NODE_GROUP_OUTPUT);
-  BLI_assert(bsocket_->runtime->index_in_node <
-             bsocket_->runtime->owner_node->runtime->inputs.size() - 1);
+  BLI_assert(node::socket_owner_node(*bsocket_).type == NODE_GROUP_OUTPUT);
+  BLI_assert(node::socket_index_in_node(*bsocket_) <
+             node::node_inputs(node::socket_owner_node(*bsocket_)).size() - 1);
 
   const DTreeContext *parent_context = context_->parent_context();
   const bNode *parent_node = context_->parent_node();
   BLI_assert(parent_context != nullptr);
   BLI_assert(parent_node != nullptr);
 
-  const int socket_index = bsocket_->runtime->index_in_node;
-  return {parent_context, parent_node->runtime->outputs[socket_index]};
+  const int socket_index = node::socket_index_in_node(*bsocket_);
+  return {parent_context, &node::node_output(*parent_node, socket_index)};
 }
 
 Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() const
 {
   BLI_assert(*this);
-  BLI_assert(bsocket_->runtime->owner_node->runtime->is_group_node);
+  BLI_assert(node::is_group_node(node::socket_owner_node(*bsocket_)));
 
-  const DTreeContext *child_context = context_->child_context(*bsocket_->runtime->owner_node);
+  const DTreeContext *child_context = context_->child_context(node::socket_owner_node(*bsocket_));
   BLI_assert(child_context != nullptr);
 
   const bNodeTree &child_tree = child_context->btree();
-  Span<const bNode *> group_input_nodes = child_tree.runtime->nodes_by_type.lookup(
-      nodeTypeFind("NodeGroupInput"));
-  const int socket_index = bsocket_->runtime->index_in_node;
+  Span<const bNode *> group_input_nodes = node::nodes_by_type(child_tree, "NodeGroupInput");
+  const int socket_index = node::socket_index_in_node(*bsocket_);
   Vector<DOutputSocket> sockets;
   for (const bNode *group_input_node : group_input_nodes) {
-    sockets.append(DOutputSocket(child_context, group_input_node->runtime->outputs[socket_index]));
+    sockets.append(
+        DOutputSocket(child_context, &node::node_output(*group_input_node, socket_index)));
   }
   return sockets;
 }
@@ -129,25 +131,25 @@ Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() cons
 DInputSocket DOutputSocket::get_corresponding_group_node_input() const
 {
   BLI_assert(*this);
-  BLI_assert(bsocket_->runtime->owner_node->type == NODE_GROUP_INPUT);
-  BLI_assert(bsocket_->runtime->index_in_node <
-             bsocket_->runtime->owner_node->runtime->outputs.size() - 1);
+  BLI_assert(node::socket_owner_node(*bsocket_).type == NODE_GROUP_INPUT);
+  BLI_assert(node::socket_index_in_node(*bsocket_) <
+             node::node_outputs(node::socket_owner_node(*bsocket_)).size() - 1);
 
   const DTreeContext *parent_context = context_->parent_context();
   const bNode *parent_node = context_->parent_node();
   BLI_assert(parent_context != nullptr);
   BLI_assert(parent_node != nullptr);
 
-  const int socket_index = bsocket_->runtime->index_in_node;
-  return {parent_context, parent_node->runtime->inputs[socket_index]};
+  const int socket_index = node::socket_index_in_node(*bsocket_);
+  return {parent_context, &node::node_input(*parent_node, socket_index)};
 }
 
 DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
 {
   BLI_assert(*this);
-  BLI_assert(bsocket_->runtime->owner_node->runtime->is_group_node);
+  BLI_assert(node::is_group_node(node::socket_owner_node(*bsocket_)));
 
-  const DTreeContext *child_context = context_->child_context(*bsocket_->runtime->owner_node);
+  const DTreeContext *child_context = context_->child_context(node::socket_owner_node(*bsocket_));
   if (child_context == nullptr) {
     /* Can happen when the group node references a non-existent group (e.g. when the group is
      * linked but the original file is not found). */
@@ -155,12 +157,11 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
   }
 
   const bNodeTree &child_tree = child_context->btree();
-  Span<const bNode *> group_output_nodes = child_tree.runtime->nodes_by_type.lookup(
-      nodeTypeFind("NodeGroupOutput"));
-  const int socket_index = bsocket_->runtime->index_in_node;
+  Span<const bNode *> group_output_nodes = node::nodes_by_type(child_tree, "NodeGroupOutput");
+  const int socket_index = node::socket_index_in_node(*bsocket_);
   for (const bNode *group_output_node : group_output_nodes) {
     if (group_output_node->flag & NODE_DO_OUTPUT || group_output_nodes.size() == 1) {
-      return {child_context, group_output_node->runtime->inputs[socket_index]};
+      return {child_context, &node::node_output(*group_output_node, socket_index)};
     }
   }
   return {};
@@ -169,8 +170,8 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
 void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) const
 {
   BLI_assert(*this);
-  for (const bNodeSocket *linked_socket : bsocket_->runtime->logically_linked_sockets) {
-    const bNode &linked_node = *linked_socket->runtime->owner_node;
+  for (const bNodeSocket *linked_socket : node::logically_linked_sockets(*bsocket_)) {
+    const bNode &linked_node = node::socket_owner_node(*linked_socket);
     DOutputSocket linked_dsocket{context_, linked_socket};
 
     if (linked_node.type == NODE_GROUP_INPUT) {
@@ -180,7 +181,7 @@ void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) c
       }
       else {
         DInputSocket socket_in_parent_group = linked_dsocket.get_corresponding_group_node_input();
-        if (!socket_in_parent_group->runtime->logically_linked_sockets.is_empty()) {
+        if (!node::logically_linked_sockets(*socket_in_parent_group).is_empty()) {
           /* Follow the links coming into the corresponding socket on the parent group node. */
           socket_in_parent_group.foreach_origin_socket(origin_fn);
         }
@@ -191,10 +192,10 @@ void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) c
         }
       }
     }
-    else if (linked_node.runtime->is_group_node) {
+    else if (node::is_group_node(linked_node)) {
       DInputSocket socket_in_group = linked_dsocket.get_active_corresponding_group_output_socket();
       if (socket_in_group) {
-        if (!socket_in_group->runtime->logically_linked_sockets.is_empty()) {
+        if (!node::logically_linked_sockets(*socket_in_group).is_empty()) {
           /* Follow the links coming into the group output node of the child node group. */
           socket_in_group.foreach_origin_socket(origin_fn);
         }
@@ -221,7 +222,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn) const
 void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
                                           TargetSocketPathInfo &path_info) const
 {
-  for (const bNodeLink *link : bsocket_->runtime->directly_linked_links) {
+  for (const bNodeLink *link : node::directly_linked_links(*bsocket_)) {
     if (link->flag & NODE_LINK_MUTED) {
       continue;
     }
@@ -240,13 +241,13 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
       path_info.sockets.pop_last();
     }
     else if (linked_node->flag & NODE_MUTED) {
-      for (const bNodeLink *internal_link : linked_node->runtime->internal_links) {
+      for (const bNodeLink *internal_link : node::internal_links(*linked_node)) {
         if (internal_link->fromsock != linked_socket.bsocket()) {
           continue;
         }
         /* The internal link only forwards the first incoming link. */
         if (linked_socket->flag & SOCK_MULTI_INPUT) {
-          if (linked_socket->runtime->directly_linked_links[0] != link) {
+          if (node::directly_linked_links(*linked_socket)[0] != link) {
             continue;
           }
         }
@@ -260,7 +261,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
       }
     }
     else if (linked_node->type == NODE_GROUP_OUTPUT) {
-      if (linked_node.bnode() != context_->btree().runtime->group_output_node) {
+      if (linked_node.bnode() != node::group_output_node(context_->btree())) {
         continue;
       }
       if (context_->is_root()) {
@@ -280,7 +281,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
         path_info.sockets.pop_last();
       }
     }
-    else if (linked_node->runtime->is_group_node) {
+    else if (node::is_group_node(*linked_node)) {
       /* Follow the links within the nested node group. */
       path_info.sockets.append(linked_socket);
       const Vector<DOutputSocket> sockets_in_group =
@@ -333,7 +334,7 @@ std::string DerivedNodeTree::to_dot() const
 
   this->foreach_node([&](DNode node) {
     /* Ignore nodes that should not show up in the final output. */
-    if (node->flag & NODE_MUTED || node->runtime->is_group_node || node->type == NODE_REROUTE ||
+    if (node->flag & NODE_MUTED || node::is_group_node(*node) || node->type == NODE_REROUTE ||
         node->type == NODE_FRAME) {
       return;
     }
@@ -351,12 +352,12 @@ std::string DerivedNodeTree::to_dot() const
 
     Vector<std::string> input_names;
     Vector<std::string> output_names;
-    for (const bNodeSocket *socket : node->runtime->inputs) {
+    for (const bNodeSocket *socket : node::node_inputs(*node)) {
       if ((socket->flag & SOCK_UNAVAIL) == 0) {
         input_names.append(socket->name);
       }
     }
-    for (const bNodeSocket *socket : node->runtime->outputs) {
+    for (const bNodeSocket *socket : node::node_outputs(*node)) {
       if ((socket->flag & SOCK_UNAVAIL) == 0) {
         output_names.append(socket->name);
       }
@@ -366,7 +367,7 @@ std::string DerivedNodeTree::to_dot() const
         dot_node, node->name, input_names, output_names);
 
     int input_index = 0;
-    for (const bNodeSocket *socket : node->runtime->inputs) {
+    for (const bNodeSocket *socket : node::node_inputs(*node)) {
       if ((socket->flag & SOCK_UNAVAIL) == 0) {
         dot_input_sockets.add_new(DInputSocket{node.context(), socket},
                                   dot_node_with_sockets.input(input_index));
@@ -374,7 +375,7 @@ std::string DerivedNodeTree::to_dot() const
       }
     }
     int output_index = 0;
-    for (const bNodeSocket *socket : node->runtime->outputs) {
+    for (const bNodeSocket *socket : node::node_outputs(*node)) {
       if ((socket->flag & SOCK_UNAVAIL) == 0) {
         dot_output_sockets.add_new(DOutputSocket{node.context(), socket},
                                    dot_node_with_sockets.output(output_index));
