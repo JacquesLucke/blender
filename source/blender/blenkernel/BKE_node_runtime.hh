@@ -370,7 +370,7 @@ inline Span<bNodeSocket *> all_sockets_in_tree(bNodeTree &tree)
 
 template<typename T> const T *socket_default_value(const bNodeSocket &socket)
 {
-  return static_cast<const T &>(socket.default_value);
+  return static_cast<const T *>(socket.default_value);
 }
 
 }  // namespace node

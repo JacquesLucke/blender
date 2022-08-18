@@ -851,7 +851,7 @@ class RenderLayerOperation : public NodeOperation {
 
     /* Other output passes are not supported for now, so allocate them as invalid. */
     for (const bNodeSocket *output : bke::node::node_outputs(*node())) {
-      if (output->identifier != "Image" && output->identifier != "Alpha") {
+      if (!STREQ(output->identifier, "Image") && !STREQ(output->identifier, "Alpha")) {
         get_result(output->identifier).allocate_invalid();
       }
     }

@@ -35,12 +35,12 @@ GPUNodeStack *ShaderNode::get_outputs_array()
 
 GPUNodeStack &ShaderNode::get_input(StringRef identifier)
 {
-  return inputs_[node_.input_by_identifier(identifier)->index()];
+  return inputs_[bke::node::socket_index_in_node(*node_.input_by_identifier(identifier))];
 }
 
 GPUNodeStack &ShaderNode::get_output(StringRef identifier)
 {
-  return outputs_[node_.output_by_identifier(identifier)->index()];
+  return outputs_[bke::node::socket_index_in_node(*node_.output_by_identifier(identifier))];
 }
 
 GPUNodeLink *ShaderNode::get_input_link(StringRef identifier)
@@ -59,7 +59,7 @@ const DNode &ShaderNode::node() const
 
 bNode &ShaderNode::bnode() const
 {
-  return *node_->bnode();
+  return const_cast<bNode &>(*node_);
 }
 
 static eGPUType gpu_type_from_socket_type(eNodeSocketDatatype type)
@@ -77,17 +77,17 @@ static eGPUType gpu_type_from_socket_type(eNodeSocketDatatype type)
   }
 }
 
-static void gpu_stack_vector_from_socket(float *vector, const SocketRef *socket)
+static void gpu_stack_vector_from_socket(float *vector, const bNodeSocket *socket)
 {
-  switch (socket->bsocket()->type) {
+  switch (socket->type) {
     case SOCK_FLOAT:
-      vector[0] = socket->default_value<bNodeSocketValueFloat>()->value;
+      vector[0] = bke::node::socket_default_value<bNodeSocketValueFloat>(*socket)->value;
       return;
     case SOCK_VECTOR:
-      copy_v3_v3(vector, socket->default_value<bNodeSocketValueVector>()->value);
+      copy_v3_v3(vector, bke::node::socket_default_value<bNodeSocketValueVector>(*socket)->value);
       return;
     case SOCK_RGBA:
-      copy_v4_v4(vector, socket->default_value<bNodeSocketValueRGBA>()->value);
+      copy_v4_v4(vector, bke::node::socket_default_value<bNodeSocketValueRGBA>(*socket)->value);
       return;
     default:
       BLI_assert_unreachable();
@@ -101,30 +101,30 @@ static void populate_gpu_node_stack(DSocket socket, GPUNodeStack &stack)
   /* This will be initialized later by the GPU material compiler or the compile method. */
   stack.link = nullptr;
 
-  stack.sockettype = socket->bsocket()->type;
-  stack.type = gpu_type_from_socket_type((eNodeSocketDatatype)socket->bsocket()->type);
+  stack.sockettype = socket->type;
+  stack.type = gpu_type_from_socket_type((eNodeSocketDatatype)socket->type);
 
-  if (socket->is_input()) {
+  if (socket->in_out == SOCK_IN) {
     const DInputSocket input(socket);
 
     DSocket origin = get_input_origin_socket(input);
 
     /* The input is linked if the origin socket is an output socket. Had it been an input socket,
      * then it is an unlinked input of a group input node. */
-    stack.hasinput = origin->is_output();
+    stack.hasinput = origin->in_out == SOCK_OUT;
 
     /* Get the socket value from the origin if it is an input, because then it would either be an
      * unlinked input or an unlinked input of a group input node that the socket is linked to,
      * otherwise, get the value from the socket itself. */
-    if (origin->is_input()) {
-      gpu_stack_vector_from_socket(stack.vec, origin.socket_ref());
+    if (origin->in_out == SOCK_IN) {
+      gpu_stack_vector_from_socket(stack.vec, origin.bsocket());
     }
     else {
-      gpu_stack_vector_from_socket(stack.vec, socket.socket_ref());
+      gpu_stack_vector_from_socket(stack.vec, socket.bsocket());
     }
   }
   else {
-    stack.hasoutput = socket->is_logically_linked();
+    stack.hasoutput = !bke::node::logically_linked_sockets(*socket).is_empty();
   }
 }
 
@@ -132,10 +132,11 @@ void ShaderNode::populate_inputs()
 {
   /* Reserve a stack for each input in addition to an extra stack at the end to mark the end of the
    * array, as this is what the GPU module functions expect. */
-  inputs_.resize(node_->inputs().size() + 1);
+  const int num_input_sockets = bke::node::node_inputs(*node_).size();
+  inputs_.resize(num_input_sockets + 1);
   inputs_.last().end = true;
 
-  for (int i = 0; i < node_->inputs().size(); i++) {
+  for (int i = 0; i < num_input_sockets; i++) {
     populate_gpu_node_stack(node_.input(i), inputs_[i]);
   }
 }
@@ -144,10 +145,11 @@ void ShaderNode::populate_outputs()
 {
   /* Reserve a stack for each output in addition to an extra stack at the end to mark the end of
    * the array, as this is what the GPU module functions expect. */
-  outputs_.resize(node_->outputs().size() + 1);
+  const int num_output_sockets = bke::node::node_outputs(*node_).size();
+  outputs_.resize(num_output_sockets + 1);
   outputs_.last().end = true;
 
-  for (int i = 0; i < node_->outputs().size(); i++) {
+  for (int i = 0; i < num_output_sockets; i++) {
     populate_gpu_node_stack(node_.output(i), outputs_[i]);
   }
 }
