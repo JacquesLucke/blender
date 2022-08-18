@@ -26,7 +26,7 @@ using TargetSocketPathInfo = DOutputSocket::TargetSocketPathInfo;
 DSocket get_input_origin_socket(DInputSocket input)
 {
   /* The input is unlinked. Return the socket itself. */
-  if (input->logically_linked_sockets().is_empty()) {
+  if (bke::node::logically_linked_sockets(*input).is_empty()) {
     return input;
   }
 
@@ -44,7 +44,7 @@ DOutputSocket get_output_linked_to_input(DInputSocket input)
 
   /* If the origin socket is an input, that means the input is unlinked, so return a null output
    * socket. */
-  if (origin->is_input()) {
+  if (origin->in_out == SOCK_IN) {
     return DOutputSocket();
   }
 
@@ -52,9 +52,9 @@ DOutputSocket get_output_linked_to_input(DInputSocket input)
   return DOutputSocket(origin);
 }
 
-ResultType get_node_socket_result_type(const SocketRef *socket)
+ResultType get_node_socket_result_type(const bNodeSocket *socket)
 {
-  switch (socket->bsocket()->type) {
+  switch (socket->type) {
     case SOCK_FLOAT:
       return ResultType::Float;
     case SOCK_VECTOR:
@@ -95,27 +95,28 @@ int number_of_inputs_linked_to_output_conditioned(DOutputSocket output,
 
 bool is_shader_node(DNode node)
 {
-  return node->typeinfo()->get_compositor_shader_node;
+  return node->typeinfo->get_compositor_shader_node;
 }
 
 bool is_node_supported(DNode node)
 {
-  return node->typeinfo()->get_compositor_operation ||
-         node->typeinfo()->get_compositor_shader_node;
+  return node->typeinfo->get_compositor_operation || node->typeinfo->get_compositor_shader_node;
 }
 
-InputDescriptor input_descriptor_from_input_socket(const InputSocketRef *socket)
+InputDescriptor input_descriptor_from_input_socket(const bNodeSocket *socket)
 {
   using namespace nodes;
   InputDescriptor input_descriptor;
   input_descriptor.type = get_node_socket_result_type(socket);
-  const NodeDeclaration *node_declaration = socket->node().declaration();
+  const NodeDeclaration *node_declaration = bke::node::node_declaration(
+      bke::node::socket_owner_node(*socket));
   /* Not every node have a declaration, in which case, we assume the default values for the rest of
    * the properties. */
   if (!node_declaration) {
     return input_descriptor;
   }
-  const SocketDeclarationPtr &socket_declaration = node_declaration->inputs()[socket->index()];
+  const SocketDeclarationPtr &socket_declaration =
+      node_declaration->inputs()[bke::node::socket_index_in_node(*socket)];
   input_descriptor.domain_priority = socket_declaration->compositor_domain_priority();
   input_descriptor.expects_single_value = socket_declaration->compositor_expects_single_value();
   return input_descriptor;

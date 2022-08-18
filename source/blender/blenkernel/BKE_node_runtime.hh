@@ -368,6 +368,11 @@ inline Span<bNodeSocket *> all_sockets_in_tree(bNodeTree &tree)
   return tree.runtime->sockets;
 }
 
+template<typename T> const T *socket_default_value(const bNodeSocket &socket)
+{
+  return static_cast<const T &>(socket.default_value);
+}
+
 }  // namespace node
 
 }  // namespace blender::bke

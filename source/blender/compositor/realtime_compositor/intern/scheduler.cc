@@ -8,6 +8,8 @@
 
 #include "NOD_derived_node_tree.hh"
 
+#include "BKE_node_runtime.hh"
+
 #include "COM_scheduler.hh"
 #include "COM_utilities.hh"
 
@@ -21,22 +23,22 @@ using namespace nodes::derived_node_tree_types;
  * node will be returned. */
 static DNode compute_output_node(DerivedNodeTree &tree)
 {
-  const NodeTreeRef &root_tree = tree.root_context().tree();
+  const bNodeTree &root_tree = tree.root_context().btree();
 
-  for (const NodeRef *node : root_tree.nodes_by_type("CompositorNodeComposite")) {
-    if (node->bnode()->flag & NODE_DO_OUTPUT) {
+  for (const bNode *node : bke::node::nodes_by_type(root_tree, "CompositorNodeComposite")) {
+    if (node->flag & NODE_DO_OUTPUT) {
       return DNode(&tree.root_context(), node);
     }
   }
 
-  for (const NodeRef *node : root_tree.nodes_by_type("CompositorNodeViewer")) {
-    if (node->bnode()->flag & NODE_DO_OUTPUT) {
+  for (const bNode *node : bke::node::nodes_by_type(root_tree, "CompositorNodeViewer")) {
+    if (node->flag & NODE_DO_OUTPUT) {
       return DNode(&tree.root_context(), node);
     }
   }
 
-  for (const NodeRef *node : root_tree.nodes_by_type("CompositorNodeSplitViewer")) {
-    if (node->bnode()->flag & NODE_DO_OUTPUT) {
+  for (const bNode *node : bke::node::nodes_by_type(root_tree, "CompositorNodeSplitViewer")) {
+    if (node->flag & NODE_DO_OUTPUT) {
       return DNode(&tree.root_context(), node);
     }
   }
@@ -120,7 +122,7 @@ static NeededBuffers compute_number_of_needed_buffers(DNode output_node)
     /* Go over the node dependencies connected to the inputs of the node and push them to the node
      * stack if they were not computed already. */
     Set<DNode> pushed_nodes;
-    for (const InputSocketRef *input_ref : node->inputs()) {
+    for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
       const DInputSocket input{node.context(), input_ref};
 
       /* Get the output linked to the input. If it is null, that means the input is unlinked and
@@ -154,7 +156,7 @@ static NeededBuffers compute_number_of_needed_buffers(DNode output_node)
      * buffers needed to compute the most demanding of the node dependencies. */
     int number_of_input_buffers = 0;
     int buffers_needed_by_dependencies = 0;
-    for (const InputSocketRef *input_ref : node->inputs()) {
+    for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
       const DInputSocket input{node.context(), input_ref};
 
       /* Get the output linked to the input. If it is null, that means the input is unlinked.
@@ -181,11 +183,11 @@ static NeededBuffers compute_number_of_needed_buffers(DNode output_node)
 
     /* Compute the number of buffers that will be computed/output by this node. */
     int number_of_output_buffers = 0;
-    for (const OutputSocketRef *output_ref : node->outputs()) {
+    for (const bNodeSocket *output_ref : bke::node::node_outputs(*node)) {
       const DOutputSocket output{node.context(), output_ref};
 
       /* The output is not linked, it outputs no buffer. */
-      if (output->logically_linked_sockets().is_empty()) {
+      if (bke::node::logically_linked_sockets(*output_ref).is_empty()) {
         continue;
       }
 
@@ -255,7 +257,7 @@ Schedule compute_schedule(DerivedNodeTree &tree)
      * want the node with the highest number of needed buffers to be schedule first, but since
      * those are pushed to the traversal stack, we need to push them in reverse order. */
     Vector<DNode> sorted_dependency_nodes;
-    for (const InputSocketRef *input_ref : node->inputs()) {
+    for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
       const DInputSocket input{node.context(), input_ref};
 
       /* Get the output linked to the input. If it is null, that means the input is unlinked and

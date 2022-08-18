@@ -25,27 +25,27 @@ using namespace nodes::derived_node_tree_types;
 
 NodeOperation::NodeOperation(Context &context, DNode node) : Operation(context), node_(node)
 {
-  for (const OutputSocketRef *output : node->outputs()) {
+  for (const bNodeSocket *output : bke::node::node_outputs(*node)) {
     const ResultType result_type = get_node_socket_result_type(output);
     const Result result = Result(result_type, texture_pool());
-    populate_result(output->identifier(), result);
+    populate_result(output->identifier, result);
   }
 
-  for (const InputSocketRef *input : node->inputs()) {
+  for (const bNodeSocket *input : bke::node::node_inputs(*node)) {
     const InputDescriptor input_descriptor = input_descriptor_from_input_socket(input);
-    declare_input_descriptor(input->identifier(), input_descriptor);
+    declare_input_descriptor(input->identifier, input_descriptor);
   }
 }
 
 void NodeOperation::compute_results_reference_counts(const Schedule &schedule)
 {
-  for (const OutputSocketRef *output_ref : node()->outputs()) {
+  for (const bNodeSocket *output_ref : bke::node::node_outputs(*node())) {
     const DOutputSocket output{node().context(), output_ref};
 
     const int reference_count = number_of_inputs_linked_to_output_conditioned(
         output, [&](DInputSocket input) { return schedule.contains(input.node()); });
 
-    get_result(output->identifier()).set_initial_reference_count(reference_count);
+    get_result(output->identifier).set_initial_reference_count(reference_count);
   }
 }
 
@@ -56,7 +56,7 @@ const DNode &NodeOperation::node() const
 
 const bNode &NodeOperation::bnode() const
 {
-  return *node_->bnode();
+  return *node_;
 }
 
 bool NodeOperation::should_compute_output(StringRef identifier)

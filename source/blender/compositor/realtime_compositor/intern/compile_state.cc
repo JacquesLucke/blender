@@ -46,7 +46,7 @@ Result &CompileState::get_result_from_output_socket(DOutputSocket output)
    * reference to the result from that operation using the output identifier. */
   if (node_operations_.contains(output.node())) {
     NodeOperation *operation = node_operations_.lookup(output.node());
-    return operation->get_result(output->identifier());
+    return operation->get_result(output->identifier);
   }
 
   /* Otherwise, the output belongs to a node that was compiled into a shader operation, so
@@ -113,7 +113,7 @@ Domain CompileState::compute_shader_node_domain(DNode node)
 
   /* Go over the inputs and find the domain of the non single value input with the highest domain
    * priority. */
-  for (const InputSocketRef *input_ref : node->inputs()) {
+  for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
     const DInputSocket input{node.context(), input_ref};
 
     /* Get the output linked to the input. If it is null, that means the input is unlinked, so skip
