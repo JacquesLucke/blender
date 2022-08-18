@@ -193,7 +193,6 @@ void BKE_mesh_orco_ensure(struct Object *ob, struct Mesh *mesh);
 
 struct Mesh *BKE_mesh_from_object(struct Object *ob);
 void BKE_mesh_assign_object(struct Main *bmain, struct Object *ob, struct Mesh *me);
-void BKE_mesh_from_metaball(struct ListBase *lb, struct Mesh *me);
 void BKE_mesh_to_curve_nurblist(const struct Mesh *me,
                                 struct ListBase *nurblist,
                                 int edge_users_test);
@@ -330,7 +329,7 @@ void BKE_mesh_vert_coords_apply_with_mat4(struct Mesh *mesh,
                                           const float mat[4][4]);
 void BKE_mesh_vert_coords_apply(struct Mesh *mesh, const float (*vert_coords)[3]);
 
-/* *** mesh_tessellate.c *** */
+/* *** mesh_tessellate.cc *** */
 
 /**
  * Calculate tessellation into #MLoopTri which exist only for this purpose.
@@ -853,7 +852,7 @@ struct Mesh *BKE_mesh_merge_verts(struct Mesh *mesh,
                                   int merge_mode);
 
 /**
- * Account for custom-data such as UV's becoming detached because of of imprecision
+ * Account for custom-data such as UV's becoming detached because of imprecision
  * in custom-data interpolation.
  * Without running this operation subdivision surface can cause UV's to be disconnected,
  * see: T81065.
@@ -865,19 +864,7 @@ void BKE_mesh_merge_customdata_for_apply_modifier(struct Mesh *me);
 /**
  * Update the hide flag for edges and faces from the corresponding flag in verts.
  */
-void BKE_mesh_flush_hidden_from_verts_ex(const struct MVert *mvert,
-                                         const struct MLoop *mloop,
-                                         struct MEdge *medge,
-                                         int totedge,
-                                         struct MPoly *mpoly,
-                                         int totpoly);
 void BKE_mesh_flush_hidden_from_verts(struct Mesh *me);
-void BKE_mesh_flush_hidden_from_polys_ex(struct MVert *mvert,
-                                         const struct MLoop *mloop,
-                                         struct MEdge *medge,
-                                         int totedge,
-                                         const struct MPoly *mpoly,
-                                         int totpoly);
 void BKE_mesh_flush_hidden_from_polys(struct Mesh *me);
 /**
  * simple poly -> vert/edge selection.

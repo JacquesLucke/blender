@@ -187,7 +187,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 
   if (need_transform_relation) {
-    DEG_add_modifier_to_transform_relation(ctx->node, "WeightVGMix Modifier");
+    DEG_add_depends_on_transform_relation(ctx->node, "WeightVGMix Modifier");
   }
 }
 
@@ -444,7 +444,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   MEM_freeN(dw2);
   MEM_SAFE_FREE(indices);
 
-  mesh->runtime.is_original = false;
+  mesh->runtime.is_original_bmesh = false;
 
   /* Return the vgroup-modified mesh. */
   return mesh;

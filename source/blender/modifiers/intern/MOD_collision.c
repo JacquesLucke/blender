@@ -107,7 +107,7 @@ static void deformVerts(ModifierData *md,
   }
 
   if (mesh == NULL) {
-    mesh_src = MOD_deform_mesh_eval_get(ob, NULL, NULL, NULL, verts_num, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ob, NULL, NULL, NULL, verts_num, false);
   }
   else {
     /* Not possible to use get_mesh() in this case as we'll modify its vertices
@@ -236,7 +236,7 @@ static void deformVerts(ModifierData *md,
 
 static void updateDepsgraph(ModifierData *UNUSED(md), const ModifierUpdateDepsgraphContext *ctx)
 {
-  DEG_add_modifier_to_transform_relation(ctx->node, "Collision Modifier");
+  DEG_add_depends_on_transform_relation(ctx->node, "Collision Modifier");
 }
 
 static void panel_draw(const bContext *UNUSED(C), Panel *panel)

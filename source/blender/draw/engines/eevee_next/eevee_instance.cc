@@ -53,6 +53,10 @@ void Instance::init(const int2 &output_res,
   v3d = v3d_;
   rv3d = rv3d_;
 
+  if (assign_if_different(debug_mode, (eDebugMode)G.debug_value)) {
+    sampling.reset();
+  }
+
   info = "";
 
   update_eval_members();
@@ -60,6 +64,9 @@ void Instance::init(const int2 &output_res,
   sampling.init(scene);
   camera.init();
   film.init(output_res, output_rect);
+  velocity.init();
+  depth_of_field.init();
+  motion_blur.init();
   main_view.init();
 }
 
@@ -92,21 +99,23 @@ void Instance::update_eval_members()
 void Instance::begin_sync()
 {
   materials.begin_sync();
-  velocity.begin_sync();
+  velocity.begin_sync(); /* NOTE: Also syncs camera. */
+  lights.begin_sync();
 
   gpencil_engine_enabled = false;
 
-  render_buffers.sync();
+  depth_of_field.sync();
+  motion_blur.sync();
+  hiz_buffer.sync();
   pipelines.sync();
   main_view.sync();
   world.sync();
-  camera.sync();
   film.sync();
 }
 
 void Instance::object_sync(Object *ob)
 {
-  const bool is_renderable_type = ELEM(ob->type, OB_CURVES, OB_GPENCIL, OB_MESH);
+  const bool is_renderable_type = ELEM(ob->type, OB_CURVES, OB_GPENCIL, OB_MESH, OB_LAMP);
   const int ob_visibility = DRW_object_visibility_in_active_context(ob);
   const bool partsys_is_visible = (ob_visibility & OB_VISIBLE_PARTICLES) != 0 &&
                                   (ob->type == OB_MESH);
@@ -130,15 +139,11 @@ void Instance::object_sync(Object *ob)
   if (object_is_visible) {
     switch (ob->type) {
       case OB_LAMP:
+        lights.sync_light(ob, ob_handle);
         break;
       case OB_MESH:
-      case OB_CURVES_LEGACY:
-      case OB_SURF:
-      case OB_FONT:
-      case OB_MBALL: {
         sync.sync_mesh(ob, ob_handle);
         break;
-      }
       case OB_VOLUME:
         break;
       case OB_CURVES:
@@ -169,6 +174,7 @@ void Instance::object_sync_render(void *instance_,
 void Instance::end_sync()
 {
   velocity.end_sync();
+  lights.end_sync();
   sampling.end_sync();
   film.end_sync();
 }
@@ -199,7 +205,7 @@ void Instance::render_sync()
  **/
 void Instance::render_sample()
 {
-  if (sampling.finished()) {
+  if (sampling.finished_viewport()) {
     film.display();
     return;
   }
@@ -212,22 +218,12 @@ void Instance::render_sample()
   sampling.step();
 
   main_view.render();
+
+  motion_blur.step();
 }
 
-/** \} */
-
-/* -------------------------------------------------------------------- */
-/** \name Interface
- * \{ */
-
-void Instance::render_frame(RenderLayer *render_layer, const char *view_name)
+void Instance::render_read_result(RenderLayer *render_layer, const char *view_name)
 {
-  while (!sampling.finished()) {
-    this->render_sample();
-    /* TODO(fclem) print progression. */
-  }
-
-  /* Read Results. */
   eViewLayerEEVEEPassType pass_bits = film.enabled_passes_get();
   for (auto i : IndexRange(EEVEE_RENDER_PASS_MAX_BIT)) {
     eViewLayerEEVEEPassType pass_type = eViewLayerEEVEEPassType(pass_bits & (1 << i));
@@ -240,7 +236,6 @@ void Instance::render_frame(RenderLayer *render_layer, const char *view_name)
     if (rp) {
       float *result = film.read_pass(pass_type);
       if (result) {
-        std::cout << "read " << pass_name << std::endl;
         BLI_mutex_lock(&render->update_render_passes_mutex);
         /* WORKAROUND: We use texture read to avoid using a framebuffer to get the render result.
          * However, on some implementation, we need a buffer with a few extra bytes for the read to
@@ -252,6 +247,45 @@ void Instance::render_frame(RenderLayer *render_layer, const char *view_name)
       }
     }
   }
+
+  /* The vector pass is initialized to weird values. Set it to neutral value if not rendered. */
+  if ((pass_bits & EEVEE_RENDER_PASS_VECTOR) == 0) {
+    const char *vector_pass_name = Film::pass_to_render_pass_name(EEVEE_RENDER_PASS_VECTOR);
+    RenderPass *vector_rp = RE_pass_find_by_name(render_layer, vector_pass_name, view_name);
+    if (vector_rp) {
+      memset(vector_rp->rect, 0, sizeof(float) * 4 * vector_rp->rectx * vector_rp->recty);
+    }
+  }
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Interface
+ * \{ */
+
+void Instance::render_frame(RenderLayer *render_layer, const char *view_name)
+{
+  while (!sampling.finished()) {
+    this->render_sample();
+
+    /* TODO(fclem) print progression. */
+#if 0
+    /* TODO(fclem): Does not currently work. But would be better to just display to 2D view like
+     * cycles does. */
+    if (G.background == false && first_read) {
+      /* Allow to preview the first sample. */
+      /* TODO(fclem): Might want to not do this during animation render to avoid too much stall. */
+      this->render_read_result(render_layer, view_name);
+      first_read = false;
+      DRW_render_context_disable(render->re);
+      /* Allow the 2D viewport to grab the ticket mutex to display the render. */
+      DRW_render_context_enable(render->re);
+    }
+#endif
+  }
+
+  this->render_read_result(render_layer, view_name);
 }
 
 void Instance::draw_viewport(DefaultFramebufferList *dfbl)
@@ -260,7 +294,10 @@ void Instance::draw_viewport(DefaultFramebufferList *dfbl)
   render_sample();
   velocity.step_swap();
 
-  if (!sampling.finished_viewport()) {
+  /* Do not request redraw during viewport animation to lock the framerate to the animation
+   * playback rate. This is in order to preserve motion blur aspect and also to avoid TAA reset
+   * that can show flickering. */
+  if (!sampling.finished_viewport() && !DRW_state_is_playback()) {
     DRW_viewport_request_redraw();
   }
 

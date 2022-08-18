@@ -84,6 +84,8 @@ enum class OperationCode {
   /* Initialize evaluation of the geometry. Is an entry operation of geometry
    * component. */
   GEOMETRY_EVAL_INIT,
+  /* Modifier. */
+  MODIFIER,
   /* Evaluate the whole geometry, including modifiers. */
   GEOMETRY_EVAL,
   /* Evaluation of geometry is completely done. */
@@ -213,6 +215,12 @@ enum OperationFlag {
    * This is for NO-OP nodes that are purely used to indicate a relation between components/IDs,
    * and not for connecting to an operation. */
   DEPSOP_FLAG_PINNED = (1 << 3),
+
+  /* The operation directly or indirectly affects ID node visibility. */
+  DEPSOP_FLAG_AFFECTS_VISIBILITY = (1 << 4),
+
+  /* Evaluation of the node is temporarily disabled. */
+  DEPSOP_FLAG_MUTE = (1 << 5),
 
   /* Set of flags which gets flushed along the relations. */
   DEPSOP_FLAG_FLUSH = (DEPSOP_FLAG_USER_MODIFIED),

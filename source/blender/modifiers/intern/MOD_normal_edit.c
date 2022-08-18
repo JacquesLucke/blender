@@ -616,7 +616,7 @@ static Mesh *normalEditModifier_do(NormalEditModifierData *enmd,
 
   MEM_SAFE_FREE(loopnors);
 
-  result->runtime.is_original = false;
+  result->runtime.is_original_bmesh = false;
 
   return result;
 }
@@ -670,7 +670,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   NormalEditModifierData *enmd = (NormalEditModifierData *)md;
   if (enmd->target) {
     DEG_add_object_relation(ctx->node, enmd->target, DEG_OB_COMP_TRANSFORM, "NormalEdit Modifier");
-    DEG_add_modifier_to_transform_relation(ctx->node, "NormalEdit Modifier");
+    DEG_add_depends_on_transform_relation(ctx->node, "NormalEdit Modifier");
   }
 }
 

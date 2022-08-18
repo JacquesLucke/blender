@@ -55,6 +55,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_path.h"
 
 #include "GPU_material.h"
 
@@ -597,9 +598,9 @@ static int outliner_id_remap_exec(bContext *C, wmOperator *op)
   SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
 
   const short id_type = (short)RNA_enum_get(op->ptr, "id_type");
-  ID *old_id = reinterpret_cast<ID *>(
+  ID *old_id = static_cast<ID *>(
       BLI_findlink(which_libbase(CTX_data_main(C), id_type), RNA_enum_get(op->ptr, "old_id")));
-  ID *new_id = reinterpret_cast<ID *>(
+  ID *new_id = static_cast<ID *>(
       BLI_findlink(which_libbase(CTX_data_main(C), id_type), RNA_enum_get(op->ptr, "new_id")));
 
   /* check for invalid states */
@@ -693,9 +694,9 @@ static const EnumPropertyItem *outliner_id_itemf(bContext *C,
   int i = 0;
 
   short id_type = (short)RNA_enum_get(ptr, "id_type");
-  ID *id = reinterpret_cast<ID *>(which_libbase(CTX_data_main(C), id_type)->first);
+  ID *id = static_cast<ID *>(which_libbase(CTX_data_main(C), id_type)->first);
 
-  for (; id; id = reinterpret_cast<ID *>(id->next)) {
+  for (; id; id = static_cast<ID *>(id->next)) {
     item_tmp.identifier = item_tmp.name = id->name + 2;
     item_tmp.value = i++;
     RNA_enum_item_add(&item, &totitem, &item_tmp);
@@ -1409,129 +1410,6 @@ void OUTLINER_OT_scroll_page(wmOperatorType *ot)
 
 /** \} */
 
-#if 0 /* TODO: probably obsolete now with filtering? */
-
-/* -------------------------------------------------------------------- */
-/** \name Search
- * \{ */
-
-
-/* find next element that has this name */
-static TreeElement *outliner_find_name(
-    SpaceOutliner *space_outliner, ListBase *lb, char *name, int flags, TreeElement *prev, int *prevFound)
-{
-  TreeElement *te, *tes;
-
-  for (te = lb->first; te; te = te->next) {
-    int found = outliner_filter_has_name(te, name, flags);
-
-    if (found) {
-      /* name is right, but is element the previous one? */
-      if (prev) {
-        if ((te != prev) && (*prevFound)) {
-          return te;
-        }
-        if (te == prev) {
-          *prevFound = 1;
-        }
-      }
-      else {
-        return te;
-      }
-    }
-
-    tes = outliner_find_name(space_outliner, &te->subtree, name, flags, prev, prevFound);
-    if (tes) {
-      return tes;
-    }
-  }
-
-  /* nothing valid found */
-  return nullptr;
-}
-
-static void outliner_find_panel(
-    Scene *UNUSED(scene), ARegion *region, SpaceOutliner *space_outliner, int again, int flags)
-{
-  ReportList *reports = nullptr;  /* CTX_wm_reports(C); */
-  TreeElement *te = nullptr;
-  TreeElement *last_find;
-  TreeStoreElem *tselem;
-  int ytop, xdelta, prevFound = 0;
-  char name[sizeof(space_outliner->search_string)];
-
-  /* get last found tree-element based on stored search_tse */
-  last_find = outliner_find_tse(space_outliner, &space_outliner->search_tse);
-
-  /* determine which type of search to do */
-  if (again && last_find) {
-    /* no popup panel - previous + user wanted to search for next after previous */
-    BLI_strncpy(name, space_outliner->search_string, sizeof(name));
-    flags = space_outliner->search_flags;
-
-    /* try to find matching element */
-    te = outliner_find_name(space_outliner, &space_outliner->tree, name, flags, last_find, &prevFound);
-    if (te == nullptr) {
-      /* no more matches after previous, start from beginning again */
-      prevFound = 1;
-      te = outliner_find_name(space_outliner, &space_outliner->tree, name, flags, last_find, &prevFound);
-    }
-  }
-  else {
-    /* pop up panel - no previous, or user didn't want search after previous */
-    name[0] = '\0';
-    // XXX      if (sbutton(name, 0, sizeof(name) - 1, "Find: ") && name[0]) {
-    //          te = outliner_find_name(space_outliner, &space_outliner->tree, name, flags, nullptr, &prevFound);
-    //      }
-    //      else return; XXX RETURN! XXX
-  }
-
-  /* do selection and reveal */
-  if (te) {
-    tselem = TREESTORE(te);
-    if (tselem) {
-      /* expand branches so that it will be visible, we need to get correct coordinates */
-      if (outliner_open_back(space_outliner, te)) {
-        outliner_set_coordinates(region, space_outliner);
-      }
-
-      /* deselect all visible, and select found element */
-      outliner_flag_set(space_outliner, &space_outliner->tree, TSE_SELECTED, 0);
-      tselem->flag |= TSE_SELECTED;
-
-      /* Make `te->ys` center of view. */
-      ytop = (int)(te->ys + BLI_rctf_size_y(&region->v2d.mask) / 2);
-      if (ytop > 0) {
-        ytop = 0;
-      }
-      region->v2d.cur.ymax = (float)ytop;
-      region->v2d.cur.ymin = (float)(ytop - BLI_rctf_size_y(&region->v2d.mask));
-
-      /* Make `te->xs` ==> `te->xend` center of view. */
-      xdelta = (int)(te->xs - region->v2d.cur.xmin);
-      region->v2d.cur.xmin += xdelta;
-      region->v2d.cur.xmax += xdelta;
-
-      /* store selection */
-      space_outliner->search_tse = *tselem;
-
-      BLI_strncpy(space_outliner->search_string, name, sizeof(space_outliner->search_string));
-      space_outliner->search_flags = flags;
-
-      /* redraw */
-      ED_region_tag_redraw_no_rebuild(region);
-    }
-  }
-  else {
-    /* no tree-element found */
-    BKE_reportf(reports, RPT_WARNING, "Not found: %s", name);
-  }
-}
-
-/** \} */
-
-#endif /* if 0 */
-
 /* -------------------------------------------------------------------- */
 /** \name Show One Level Operator
  * \{ */
@@ -1817,7 +1695,7 @@ static void tree_element_to_path(TreeElement *te,
         /* ptr->data not ptr->owner_id seems to be the one we want,
          * since ptr->data is sometimes the owner of this ID? */
         if (RNA_struct_is_ID(ptr.type)) {
-          *id = reinterpret_cast<ID *>(ptr.data);
+          *id = static_cast<ID *>(ptr.data);
 
           /* clear path */
           if (*path) {
@@ -2052,8 +1930,7 @@ static KeyingSet *verify_active_keyingset(Scene *scene, short add)
 
   /* try to find one from scene */
   if (scene->active_keyingset > 0) {
-    ks = reinterpret_cast<KeyingSet *>(
-        BLI_findlink(&scene->keyingsets, scene->active_keyingset - 1));
+    ks = static_cast<KeyingSet *>(BLI_findlink(&scene->keyingsets, scene->active_keyingset - 1));
   }
 
   /* Add if none found */

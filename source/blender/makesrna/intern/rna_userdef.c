@@ -5565,8 +5565,8 @@ static void rna_def_userdef_system(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "VBO Time Out",
-      "Time since last access of a GL Vertex buffer object in seconds after which it is freed "
-      "(set to 0 to keep vbo allocated)");
+      "Time since last access of a GL vertex buffer object in seconds after which it is freed "
+      "(set to 0 to keep VBO allocated)");
 
   prop = RNA_def_property(srna, "vbo_collection_rate", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "vbocollectrate");
@@ -5574,7 +5574,7 @@ static void rna_def_userdef_system(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "VBO Collection Rate",
-      "Number of seconds between each run of the GL Vertex buffer object garbage collector");
+      "Number of seconds between each run of the GL vertex buffer object garbage collector");
 
   /* Select */
 
@@ -6301,15 +6301,6 @@ static void rna_def_userdef_experimental(BlenderRNA *brna)
       "Enable library overrides automatic resync detection and process on file load. Disable when "
       "dealing with older .blend files that need manual Resync (Enforce) handling");
 
-  prop = RNA_def_property(srna, "use_override_new_fully_editable", PROP_BOOLEAN, PROP_NONE);
-  RNA_def_property_boolean_sdna(prop, NULL, "use_override_new_fully_editable", 1);
-  RNA_def_property_ui_text(
-      prop,
-      "Override New Fully Editable",
-      "Make all override of a hierarchy fully user-editable by default when creating a new "
-      "override (if that option is disabled, most overrides created as part of a hierarchy will "
-      "not be editable by the user by default)");
-
   prop = RNA_def_property(srna, "use_new_point_cloud_type", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "use_new_point_cloud_type", 1);
   RNA_def_property_ui_text(
@@ -6337,6 +6328,10 @@ static void rna_def_userdef_experimental(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, NULL, "use_sculpt_tools_tilt", 1);
   RNA_def_property_ui_text(
       prop, "Sculpt Mode Tilt Support", "Support for pen tablet tilt events in Sculpt Mode");
+
+  prop = RNA_def_property(srna, "use_realtime_compositor", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "use_realtime_compositor", 1);
+  RNA_def_property_ui_text(prop, "Realtime Compositor", "Enable the new realtime compositor");
 
   prop = RNA_def_property(srna, "use_sculpt_texture_paint", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "use_sculpt_texture_paint", 1);

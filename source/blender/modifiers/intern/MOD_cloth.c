@@ -94,7 +94,7 @@ static void deformVerts(ModifierData *md,
   }
 
   if (mesh == NULL) {
-    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, NULL, NULL, verts_num, false, false);
+    mesh_src = MOD_deform_mesh_eval_get(ctx->object, NULL, NULL, NULL, verts_num, false);
   }
   else {
     /* Not possible to use get_mesh() in this case as we'll modify its vertices
@@ -144,7 +144,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
     DEG_add_forcefield_relations(
         ctx->node, ctx->object, clmd->sim_parms->effector_weights, true, 0, "Cloth Field");
   }
-  DEG_add_modifier_to_transform_relation(ctx->node, "Cloth Modifier");
+  DEG_add_depends_on_transform_relation(ctx->node, "Cloth Modifier");
 }
 
 static void requiredDataMask(Object *UNUSED(ob),

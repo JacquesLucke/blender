@@ -28,6 +28,7 @@
 #include "BLI_math.h"
 #include "BLI_math_vector.hh"
 #include "BLI_memarena.h"
+#include "BLI_span.hh"
 #include "BLI_string.h"
 #include "BLI_task.hh"
 #include "BLI_utildefines.h"
@@ -36,6 +37,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_anim_data.h"
+#include "BKE_attribute.hh"
 #include "BKE_bpath.h"
 #include "BKE_deform.h"
 #include "BKE_editmesh.h"
@@ -62,6 +64,8 @@
 #include "BLO_read_write.h"
 
 using blender::float3;
+using blender::MutableSpan;
+using blender::VArray;
 using blender::Vector;
 
 static void mesh_clear_geometry(Mesh *mesh);
@@ -109,7 +113,7 @@ static void mesh_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int 
    *
    * While this could be the callers responsibility, keep here since it's
    * highly unlikely we want to create a duplicate and not use it for drawing. */
-  mesh_dst->runtime.is_original = false;
+  mesh_dst->runtime.is_original_bmesh = false;
 
   /* Only do tessface if we have no polys. */
   const bool do_tessface = ((mesh_src->totface != 0) && (mesh_src->totpoly == 0));
@@ -241,10 +245,14 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
     memset(&mesh->pdata, 0, sizeof(mesh->pdata));
   }
   else {
-    CustomData_blend_write_prepare(mesh->vdata, vert_layers);
-    CustomData_blend_write_prepare(mesh->edata, edge_layers);
+    if (!BLO_write_is_undo(writer)) {
+      BKE_mesh_legacy_convert_hide_layers_to_flags(mesh);
+    }
+
+    CustomData_blend_write_prepare(mesh->vdata, vert_layers, {".hide_vert"});
+    CustomData_blend_write_prepare(mesh->edata, edge_layers, {".hide_edge"});
     CustomData_blend_write_prepare(mesh->ldata, loop_layers);
-    CustomData_blend_write_prepare(mesh->pdata, poly_layers);
+    CustomData_blend_write_prepare(mesh->pdata, poly_layers, {".hide_poly"});
   }
 
   BLO_write_id_struct(writer, Mesh, id_address, &mesh->id);
@@ -321,6 +329,10 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
     for (int i = 0; i < mesh->totface; i++, tf++) {
       BLI_endian_switch_uint32_array(tf->col, 4);
     }
+  }
+
+  if (!BLO_read_data_is_undo(reader)) {
+    BKE_mesh_legacy_convert_flags_to_hide_layers(mesh);
   }
 
   /* We don't expect to load normals from files, since they are derived data. */
@@ -760,10 +772,10 @@ static void mesh_ensure_tessellation_customdata(Mesh *me)
 
       /* TODO: add some `--debug-mesh` option. */
       if (G.debug & G_DEBUG) {
-        /* NOTE(campbell): this warning may be un-called for if we are initializing the mesh for
-         * the first time from #BMesh, rather than giving a warning about this we could be smarter
-         * and check if there was any data to begin with, for now just print the warning with
-         * some info to help troubleshoot what's going on. */
+        /* NOTE(@campbellbarton): this warning may be un-called for if we are initializing the mesh
+         * for the first time from #BMesh, rather than giving a warning about this we could be
+         * smarter and check if there was any data to begin with, for now just print the warning
+         * with some info to help troubleshoot what's going on. */
         printf(
             "%s: warning! Tessellation uvs or vcol data got out of sync, "
             "had to reset!\n    CD_MTFACE: %d != CD_MLOOPUV: %d || CD_MCOL: %d != "
