@@ -506,6 +506,18 @@ static short *add_struct(int namecode)
   return sp;
 }
 
+/* Copied from string.c to avoid complicating the compilation process of makesdna. */
+static bool BLI_str_startswith(const char *__restrict str, const char *__restrict start)
+{
+  for (; *str && *start; str++, start++) {
+    if (*str != *start) {
+      return false;
+    }
+  }
+
+  return (*start == '\0');
+}
+
 static int preprocess_include(char *maindata, const int maindata_len)
 {
   /* NOTE: len + 1, last character is a dummy to prevent
@@ -532,6 +544,9 @@ static int preprocess_include(char *maindata, const int maindata_len)
     }
     cp++;
   }
+
+  const char *cpp_block_start = "#ifdef __cplusplus";
+  const char *cpp_block_end = "#endif";
 
   /* data from temp copy to maindata, remove comments and double spaces */
   cp = temp;
@@ -575,6 +590,17 @@ static int preprocess_include(char *maindata, const int maindata_len)
     else if (skip_until_closing_brace) {
       if (cp[0] == ')') {
         skip_until_closing_brace = false;
+      }
+    }
+    else if (BLI_str_startswith(cp, cpp_block_start)) {
+      char *end_ptr = strstr(cp, cpp_block_end);
+      if (end_ptr == NULL) {
+        fprintf(stderr, "Error: '%s' block must end with '%s'\n", cpp_block_start, cpp_block_end);
+      }
+      else {
+        const int skip_offset = end_ptr - cp + strlen(cpp_block_end);
+        a -= skip_offset;
+        cp += skip_offset;
       }
     }
     else {

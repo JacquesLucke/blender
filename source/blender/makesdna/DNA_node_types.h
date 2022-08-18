@@ -12,6 +12,33 @@
 #include "DNA_scene_types.h" /* for #ImageFormatData */
 #include "DNA_vec_types.h"   /* for #rctf */
 
+/** Workaround to forward-declare C++ type in C header. */
+#ifdef __cplusplus
+namespace blender {
+template<typename T> class Span;
+}
+namespace blender::nodes {
+class NodeDeclaration;
+class SocketDeclaration;
+}  // namespace blender::nodes
+namespace blender::bke {
+class bNodeTreeRuntime;
+class bNodeRuntime;
+class bNodeSocketRuntime;
+}  // namespace blender::bke
+using NodeDeclarationHandle = blender::nodes::NodeDeclaration;
+using SocketDeclarationHandle = blender::nodes::SocketDeclaration;
+using bNodeTreeRuntimeHandle = blender::bke::bNodeTreeRuntime;
+using bNodeRuntimeHandle = blender::bke::bNodeRuntime;
+using bNodeSocketRuntimeHandle = blender::bke::bNodeSocketRuntime;
+#else
+typedef struct NodeDeclarationHandle NodeDeclarationHandle;
+typedef struct SocketDeclarationHandle SocketDeclarationHandle;
+typedef struct bNodeTreeRuntimeHandle bNodeTreeRuntimeHandle;
+typedef struct bNodeRuntimeHandle bNodeRuntimeHandle;
+typedef struct bNodeSocketRuntimeHandle bNodeSocketRuntimeHandle;
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -64,30 +91,6 @@ typedef struct bNodeStack {
 #define NS_CR_FIT_HEIGHT 3
 #define NS_CR_FIT 4
 #define NS_CR_STRETCH 5
-
-/** Workaround to forward-declare C++ type in C header. */
-#ifdef __cplusplus
-namespace blender::nodes {
-class NodeDeclaration;
-class SocketDeclaration;
-}  // namespace blender::nodes
-namespace blender::bke {
-class bNodeTreeRuntime;
-class bNodeRuntime;
-class bNodeSocketRuntime;
-}  // namespace blender::bke
-using NodeDeclarationHandle = blender::nodes::NodeDeclaration;
-using SocketDeclarationHandle = blender::nodes::SocketDeclaration;
-using bNodeTreeRuntimeHandle = blender::bke::bNodeTreeRuntime;
-using bNodeRuntimeHandle = blender::bke::bNodeRuntime;
-using bNodeSocketRuntimeHandle = blender::bke::bNodeSocketRuntime;
-#else
-typedef struct NodeDeclarationHandle NodeDeclarationHandle;
-typedef struct SocketDeclarationHandle SocketDeclarationHandle;
-typedef struct bNodeTreeRuntimeHandle bNodeTreeRuntimeHandle;
-typedef struct bNodeRuntimeHandle bNodeRuntimeHandle;
-typedef struct bNodeSocketRuntimeHandle bNodeSocketRuntimeHandle;
-#endif
 
 typedef struct bNodeSocket {
   struct bNodeSocket *next, *prev;
@@ -333,6 +336,13 @@ typedef struct bNode {
   char iter_flag;
 
   bNodeRuntimeHandle *runtime;
+
+#ifdef __cplusplus
+  blender::Span<bNodeSocket *> input_sockets();
+  blender::Span<bNodeSocket *> output_sockets();
+  blender::Span<const bNodeSocket *> input_sockets() const;
+  blender::Span<const bNodeSocket *> output_sockets() const;
+#endif
 } bNode;
 
 /* node->flag */

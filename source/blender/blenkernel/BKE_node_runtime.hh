@@ -376,3 +376,27 @@ template<typename T> const T *socket_default_value(const bNodeSocket &socket)
 }  // namespace node
 
 }  // namespace blender::bke
+
+inline blender::Span<bNodeSocket *> bNode::input_sockets()
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->inputs;
+}
+
+inline blender::Span<bNodeSocket *> bNode::output_sockets()
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->outputs;
+}
+
+inline blender::Span<const bNodeSocket *> bNode::input_sockets() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->inputs;
+}
+
+inline blender::Span<const bNodeSocket *> bNode::output_sockets() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->outputs;
+}

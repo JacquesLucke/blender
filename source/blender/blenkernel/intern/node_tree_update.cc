@@ -154,9 +154,9 @@ static FieldInferencingInterface get_dummy_field_inferencing_interface(const bNo
 {
   FieldInferencingInterface inferencing_interface;
   inferencing_interface.inputs.append_n_times(InputSocketFieldType::None,
-                                              node::node_inputs(node).size());
+                                              node.input_sockets().size());
   inferencing_interface.outputs.append_n_times(OutputFieldDependency::ForDataSource(),
-                                               node::node_outputs(node).size());
+                                               node.output_sockets().size());
   return inferencing_interface;
 }
 
