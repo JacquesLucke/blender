@@ -186,8 +186,10 @@ typedef struct bNodeSocket {
 #ifdef __cplusplus
   int index_in_node() const;
   int index_in_tree() const;
+  bool is_available() const;
   bNode &owner_node();
   const bNode &owner_node() const;
+  const bNodeTree &owner_tree() const;
 
   blender::Span<bNodeLink *> directly_linked_links();
   blender::Span<const bNodeLink *> directly_linked_links() const;

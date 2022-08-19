@@ -217,6 +217,11 @@ inline int bNodeSocket::index_in_tree() const
   return this->runtime->index_in_all_sockets;
 }
 
+inline bool bNodeSocket::is_available() const
+{
+  return (this->flag & SOCK_UNAVAIL) == 0;
+}
+
 inline bNode &bNodeSocket::owner_node()
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
@@ -227,6 +232,12 @@ inline const bNode &bNodeSocket::owner_node() const
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
   return *this->runtime->owner_node;
+}
+
+inline const bNodeTree &bNodeSocket::owner_tree() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->owner_node->runtime->owner_tree;
 }
 
 inline blender::Span<bNode *> bNodeTree::nodes_by_type(const blender::StringRefNull name)
