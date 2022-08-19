@@ -34,16 +34,14 @@ void InputSingleValueOperation::execute()
   /* Set the value of the result to the default value of the input socket. */
   switch (result.type()) {
     case ResultType::Float:
-      result.set_float_value(
-          bke::node::socket_default_value<bNodeSocketValueFloat>(*bsocket)->value);
+      result.set_float_value(bsocket->default_value_typed<bNodeSocketValueFloat>()->value);
       break;
     case ResultType::Vector:
       result.set_vector_value(
-          float3(bke::node::socket_default_value<bNodeSocketValueVector>(*bsocket)->value));
+          float3(bsocket->default_value_typed<bNodeSocketValueVector>()->value));
       break;
     case ResultType::Color:
-      result.set_color_value(
-          float4(bke::node::socket_default_value<bNodeSocketValueRGBA>(*bsocket)->value));
+      result.set_color_value(float4(bsocket->default_value_typed<bNodeSocketValueRGBA>()->value));
       break;
   }
 }

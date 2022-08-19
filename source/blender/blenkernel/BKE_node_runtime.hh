@@ -157,18 +157,6 @@ inline bool topology_cache_is_available(const bNodeTree &tree)
   return !tree.runtime->topology_cache_is_dirty;
 }
 
-inline const bNodeSocket *internal_link_input(const bNodeSocket &socket)
-{
-  BLI_assert(topology_cache_is_available(socket));
-  BLI_assert(socket.in_out == SOCK_OUT);
-  return socket.runtime->internal_link_input;
-}
-
-template<typename T> const T *socket_default_value(const bNodeSocket &socket)
-{
-  return static_cast<const T *>(socket.default_value);
-}
-
 }  // namespace node
 
 }  // namespace blender::bke
@@ -386,4 +374,16 @@ inline const blender::nodes::NodeDeclaration *bNode::declaration() const
 {
   BLI_assert(this->runtime->declaration != nullptr);
   return this->runtime->declaration;
+}
+
+inline const bNodeSocket *bNodeSocket::internal_link_input() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  BLI_assert(this->in_out == SOCK_OUT);
+  return this->runtime->internal_link_input;
+}
+
+template<typename T> const T *bNodeSocket::default_value_typed() const
+{
+  return static_cast<const T *>(this->default_value);
 }

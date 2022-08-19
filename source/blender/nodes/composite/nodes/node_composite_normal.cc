@@ -53,8 +53,9 @@ class NormalShaderNode : public ShaderNode {
   /* The vector value is stored in the default value of the output socket. */
   const float *get_vector_value()
   {
-    return bke::node::socket_default_value<bNodeSocketValueVector>(
-               *node().output_by_identifier("Normal"))
+    return node()
+        .output_by_identifier("Normal")
+        ->default_value_typed<bNodeSocketValueVector>()
         ->value;
   }
 };

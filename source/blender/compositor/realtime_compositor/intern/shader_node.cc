@@ -81,13 +81,13 @@ static void gpu_stack_vector_from_socket(float *vector, const bNodeSocket *socke
 {
   switch (socket->type) {
     case SOCK_FLOAT:
-      vector[0] = bke::node::socket_default_value<bNodeSocketValueFloat>(*socket)->value;
+      vector[0] = socket->default_value_typed<bNodeSocketValueFloat>()->value;
       return;
     case SOCK_VECTOR:
-      copy_v3_v3(vector, bke::node::socket_default_value<bNodeSocketValueVector>(*socket)->value);
+      copy_v3_v3(vector, socket->default_value_typed<bNodeSocketValueVector>()->value);
       return;
     case SOCK_RGBA:
-      copy_v4_v4(vector, bke::node::socket_default_value<bNodeSocketValueRGBA>(*socket)->value);
+      copy_v4_v4(vector, socket->default_value_typed<bNodeSocketValueRGBA>()->value);
       return;
     default:
       BLI_assert_unreachable();

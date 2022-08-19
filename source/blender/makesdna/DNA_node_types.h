@@ -40,10 +40,6 @@ typedef struct bNodeRuntimeHandle bNodeRuntimeHandle;
 typedef struct bNodeSocketRuntimeHandle bNodeSocketRuntimeHandle;
 #endif
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 struct AnimData;
 struct Collection;
 struct ID;
@@ -200,6 +196,10 @@ typedef struct bNodeSocket {
 
   bool is_directly_linked() const;
   bool is_logically_linked() const;
+
+  const bNodeSocket *internal_link_input() const;
+  template<typename T> const T *default_value_typed() const;
+
 #endif
 } bNodeSocket;
 
@@ -2234,7 +2234,3 @@ typedef enum NodeCombSepColorMode {
   NODE_COMBSEP_COLOR_HSV = 1,
   NODE_COMBSEP_COLOR_HSL = 2,
 } NodeCombSepColorMode;
-
-#ifdef __cplusplus
-}
-#endif
