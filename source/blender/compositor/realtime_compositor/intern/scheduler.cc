@@ -187,7 +187,7 @@ static NeededBuffers compute_number_of_needed_buffers(DNode output_node)
       const DOutputSocket output{node.context(), output_ref};
 
       /* The output is not linked, it outputs no buffer. */
-      if (bke::node::logically_linked_sockets(*output_ref).is_empty()) {
+      if (!output_ref->is_logically_linked()) {
         continue;
       }
 

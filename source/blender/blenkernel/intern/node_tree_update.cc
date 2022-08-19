@@ -264,13 +264,13 @@ static OutputFieldDependency find_group_output_dependencies(
   while (!sockets_to_check.is_empty()) {
     const bNodeSocket *input_socket = sockets_to_check.pop();
 
-    if (node::directly_linked_links(*input_socket).is_empty() &&
+    if (!input_socket->is_directly_linked() &&
         !field_state_by_socket_id[input_socket->index_in_tree()].is_single) {
       /* This socket uses a field as input by default. */
       return OutputFieldDependency::ForFieldSource();
     }
 
-    for (const bNodeSocket *origin_socket : node::directly_linked_sockets(*input_socket)) {
+    for (const bNodeSocket *origin_socket : input_socket->directly_linked_sockets()) {
       const bNode &origin_node = origin_socket->owner_node();
       const SocketFieldState &origin_state =
           field_state_by_socket_id[origin_socket->index_in_tree()];
@@ -335,7 +335,7 @@ static void propagate_data_requirements_from_right_to_left(
 
       /* The output is required to be a single value when it is connected to any input that does
        * not support fields. */
-      for (const bNodeSocket *target_socket : node::directly_linked_sockets(*output_socket)) {
+      for (const bNodeSocket *target_socket : output_socket->directly_linked_sockets()) {
         if ((target_socket->flag & SOCK_UNAVAIL) == 0) {
           state.requires_single |=
               field_state_by_socket_id[target_socket->index_in_tree()].requires_single;
@@ -352,7 +352,7 @@ static void propagate_data_requirements_from_right_to_left(
           }
           if (inferencing_interface.inputs[input_socket->index_in_node()] ==
               InputSocketFieldType::Implicit) {
-            if (node::logically_linked_sockets(*input_socket).is_empty()) {
+            if (!input_socket->is_logically_linked()) {
               any_input_is_field_implicitly = true;
               break;
             }
@@ -451,14 +451,14 @@ static void propagate_field_status_from_left_to_right(
         continue;
       }
       state.is_single = true;
-      if (node::directly_linked_sockets(*input_socket).is_empty()) {
+      if (!input_socket->is_directly_linked()) {
         if (inferencing_interface.inputs[input_socket->index_in_node()] ==
             InputSocketFieldType::Implicit) {
           state.is_single = false;
         }
       }
       else {
-        for (const bNodeSocket *origin_socket : node::directly_linked_sockets(*input_socket)) {
+        for (const bNodeSocket *origin_socket : input_socket->directly_linked_sockets()) {
           if (!field_state_by_socket_id[origin_socket->index_in_tree()].is_single) {
             state.is_single = false;
             break;

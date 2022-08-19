@@ -175,30 +175,6 @@ inline bool tree_has_undefined_nodes_or_sockets(const bNodeTree &tree)
   return tree.runtime->has_undefined_nodes_or_sockets;
 }
 
-inline Span<const bNodeSocket *> logically_linked_sockets(const bNodeSocket &socket)
-{
-  BLI_assert(topology_cache_is_available(socket));
-  return socket.runtime->logically_linked_sockets;
-}
-
-inline Span<const bNodeLink *> directly_linked_links(const bNodeSocket &socket)
-{
-  BLI_assert(topology_cache_is_available(socket));
-  return socket.runtime->directly_linked_links;
-}
-
-inline Span<bNodeLink *> directly_linked_links(bNodeSocket &socket)
-{
-  BLI_assert(topology_cache_is_available(socket));
-  return socket.runtime->directly_linked_links;
-}
-
-inline Span<const bNodeSocket *> directly_linked_sockets(const bNodeSocket &socket)
-{
-  BLI_assert(topology_cache_is_available(socket));
-  return socket.runtime->directly_linked_sockets;
-}
-
 inline Span<const bNodeLink *> internal_links(const bNode &node)
 {
   BLI_assert(topology_cache_is_available(node));
@@ -376,4 +352,38 @@ inline blender::Span<bNode *> bNodeTree::all_nodes()
 {
   BLI_assert(blender::bke::node::topology_cache_is_available(*this));
   return this->runtime->nodes;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeSocket::logically_linked_sockets() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->logically_linked_sockets;
+}
+
+inline blender::Span<const bNodeLink *> bNodeSocket::directly_linked_links() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->directly_linked_links;
+}
+
+inline blender::Span<bNodeLink *> bNodeSocket::directly_linked_links()
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->directly_linked_links;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeSocket::directly_linked_sockets() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->directly_linked_sockets;
+}
+
+inline bool bNodeSocket::is_directly_linked() const
+{
+  return !this->directly_linked_links().is_empty();
+}
+
+inline bool bNodeSocket::is_logically_linked() const
+{
+  return !this->logically_linked_sockets().is_empty();
 }

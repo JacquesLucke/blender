@@ -26,7 +26,7 @@ using TargetSocketPathInfo = DOutputSocket::TargetSocketPathInfo;
 DSocket get_input_origin_socket(DInputSocket input)
 {
   /* The input is unlinked. Return the socket itself. */
-  if (bke::node::logically_linked_sockets(*input).is_empty()) {
+  if (!input->is_logically_linked()) {
     return input;
   }
 

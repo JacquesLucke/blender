@@ -192,6 +192,14 @@ typedef struct bNodeSocket {
   int index_in_tree() const;
   bNode &owner_node();
   const bNode &owner_node() const;
+
+  blender::Span<bNodeLink *> directly_linked_links();
+  blender::Span<const bNodeLink *> directly_linked_links() const;
+  blender::Span<const bNodeSocket *> directly_linked_sockets() const;
+  blender::Span<const bNodeSocket *> logically_linked_sockets() const;
+
+  bool is_directly_linked() const;
+  bool is_logically_linked() const;
 #endif
 } bNodeSocket;
 

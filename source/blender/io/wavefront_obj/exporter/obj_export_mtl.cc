@@ -90,7 +90,7 @@ static void linked_sockets_to_dest_id(const bNode *dest_node,
     }
   }
   if (dest_socket) {
-    Span<const bNodeSocket *> linked_sockets = bke::node::directly_linked_sockets(*dest_socket);
+    Span<const bNodeSocket *> linked_sockets = dest_socket->directly_linked_sockets();
     r_linked_sockets.resize(linked_sockets.size());
     r_linked_sockets = linked_sockets;
   }
@@ -147,7 +147,7 @@ static const bNode *find_bsdf_node(const bNodeTree *nodetree)
   }
   for (const bNode *node : nodetree->nodes_by_type("ShaderNodeOutputMaterial")) {
     const bNodeSocket &node_input_socket0 = node->input_socket(0);
-    for (const bNodeSocket *out_sock : bke::node::directly_linked_sockets(node_input_socket0)) {
+    for (const bNodeSocket *out_sock : node_input_socket0.directly_linked_sockets()) {
       const bNode &in_node = out_sock->owner_node();
       if (in_node.typeinfo->type == SH_NODE_BSDF_PRINCIPLED) {
         return &in_node;

@@ -124,7 +124,7 @@ static void populate_gpu_node_stack(DSocket socket, GPUNodeStack &stack)
     }
   }
   else {
-    stack.hasoutput = !bke::node::logically_linked_sockets(*socket).is_empty();
+    stack.hasoutput = socket->is_logically_linked();
   }
 }
 

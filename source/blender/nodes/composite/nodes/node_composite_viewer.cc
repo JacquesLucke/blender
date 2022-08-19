@@ -81,8 +81,7 @@ class ViewerOperation : public NodeOperation {
     else if (ignore_alpha()) {
       execute_ignore_alpha();
     }
-    else if (bke::node::logically_linked_sockets(*node().input_by_identifier("Alpha"))
-                 .is_empty()) {
+    else if (!node().input_by_identifier("Alpha")->is_logically_linked()) {
       execute_copy();
     }
     else {
@@ -101,8 +100,7 @@ class ViewerOperation : public NodeOperation {
     if (ignore_alpha()) {
       color.w = 1.0f;
     }
-    else if (!bke::node::logically_linked_sockets(*node().input_by_identifier("Alpha"))
-                  .is_empty()) {
+    else if (node().input_by_identifier("Alpha")->is_logically_linked()) {
       color.w = alpha.get_float_value();
     }
 

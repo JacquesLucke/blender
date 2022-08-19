@@ -167,7 +167,7 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
 void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) const
 {
   BLI_assert(*this);
-  for (const bNodeSocket *linked_socket : node::logically_linked_sockets(*bsocket_)) {
+  for (const bNodeSocket *linked_socket : bsocket_->logically_linked_sockets()) {
     const bNode &linked_node = linked_socket->owner_node();
     DOutputSocket linked_dsocket{context_, linked_socket};
 
@@ -178,7 +178,7 @@ void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) c
       }
       else {
         DInputSocket socket_in_parent_group = linked_dsocket.get_corresponding_group_node_input();
-        if (!node::logically_linked_sockets(*socket_in_parent_group).is_empty()) {
+        if (socket_in_parent_group->is_logically_linked()) {
           /* Follow the links coming into the corresponding socket on the parent group node. */
           socket_in_parent_group.foreach_origin_socket(origin_fn);
         }
@@ -192,7 +192,7 @@ void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) c
     else if (node::is_group_node(linked_node)) {
       DInputSocket socket_in_group = linked_dsocket.get_active_corresponding_group_output_socket();
       if (socket_in_group) {
-        if (!node::logically_linked_sockets(*socket_in_group).is_empty()) {
+        if (socket_in_group->is_logically_linked()) {
           /* Follow the links coming into the group output node of the child node group. */
           socket_in_group.foreach_origin_socket(origin_fn);
         }
@@ -219,7 +219,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn) const
 void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
                                           TargetSocketPathInfo &path_info) const
 {
-  for (const bNodeLink *link : node::directly_linked_links(*bsocket_)) {
+  for (const bNodeLink *link : bsocket_->directly_linked_links()) {
     if (link->flag & NODE_LINK_MUTED) {
       continue;
     }
@@ -244,7 +244,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
         }
         /* The internal link only forwards the first incoming link. */
         if (linked_socket->flag & SOCK_MULTI_INPUT) {
-          if (node::directly_linked_links(*linked_socket)[0] != link) {
+          if (linked_socket->directly_linked_links()[0] != link) {
             continue;
           }
         }
