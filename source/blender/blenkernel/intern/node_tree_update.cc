@@ -543,11 +543,11 @@ static void update_socket_shapes(const bNodeTree &tree,
     return data_but_can_be_field_shape;
   };
 
-  for (const bNodeSocket *socket : node::all_inputs_in_tree(tree)) {
+  for (const bNodeSocket *socket : tree.all_input_sockets()) {
     const SocketFieldState &state = field_state_by_socket_id[socket->index_in_tree()];
     const_cast<bNodeSocket *>(socket)->display_shape = get_shape_for_state(state);
   }
-  for (const bNodeSocket *socket : node::all_outputs_in_tree(tree)) {
+  for (const bNodeSocket *socket : tree.all_sockets()) {
     const SocketFieldState &state = field_state_by_socket_id[socket->index_in_tree()];
     const_cast<bNodeSocket *>(socket)->display_shape = get_shape_for_state(state);
   }
@@ -566,7 +566,7 @@ static bool update_field_inferencing(const bNodeTree &tree)
                                             OutputFieldDependency::ForDataSource());
 
   /* Keep track of the state of all sockets. The index into this array is #SocketRef::id(). */
-  Array<SocketFieldState> field_state_by_socket_id(node::all_sockets_in_tree(tree).size());
+  Array<SocketFieldState> field_state_by_socket_id(tree.all_sockets().size());
 
   propagate_data_requirements_from_right_to_left(tree, field_state_by_socket_id);
   determine_group_input_states(tree, *new_inferencing_interface, field_state_by_socket_id);

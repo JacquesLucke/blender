@@ -182,42 +182,6 @@ inline const nodes::NodeDeclaration *node_declaration(const bNode &node)
   return node.runtime->declaration;
 }
 
-inline Span<const bNodeSocket *> all_inputs_in_tree(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->input_sockets;
-}
-
-inline Span<bNodeSocket *> all_inputs_in_tree(bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->input_sockets;
-}
-
-inline Span<const bNodeSocket *> all_outputs_in_tree(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->output_sockets;
-}
-
-inline Span<bNodeSocket *> all_outputs_in_tree(bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->output_sockets;
-}
-
-inline Span<const bNodeSocket *> all_sockets_in_tree(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->sockets;
-}
-
-inline Span<bNodeSocket *> all_sockets_in_tree(bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->sockets;
-}
-
 template<typename T> const T *socket_default_value(const bNodeSocket &socket)
 {
   return static_cast<const T *>(socket.default_value);
@@ -386,4 +350,40 @@ inline const bNode *bNodeTree::group_output_node() const
 {
   BLI_assert(blender::bke::node::topology_cache_is_available(*this));
   return this->runtime->group_output_node;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::all_input_sockets() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->input_sockets;
+}
+
+inline blender::Span<bNodeSocket *> bNodeTree::all_input_sockets()
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->input_sockets;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::all_output_sockets() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->output_sockets;
+}
+
+inline blender::Span<bNodeSocket *> bNodeTree::all_output_sockets()
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->output_sockets;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::all_sockets() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->sockets;
+}
+
+inline blender::Span<bNodeSocket *> bNodeTree::all_sockets()
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->sockets;
 }

@@ -570,6 +570,12 @@ typedef struct bNodeTree {
 #ifdef __cplusplus
   blender::Span<bNode *> all_nodes();
   blender::Span<const bNode *> all_nodes() const;
+  blender::Span<bNodeSocket *> all_input_sockets();
+  blender::Span<const bNodeSocket *> all_input_sockets() const;
+  blender::Span<bNodeSocket *> all_output_sockets();
+  blender::Span<const bNodeSocket *> all_output_sockets() const;
+  blender::Span<bNodeSocket *> all_sockets();
+  blender::Span<const bNodeSocket *> all_sockets() const;
   blender::Span<bNode *> nodes_by_type(blender::StringRefNull name);
   blender::Span<const bNode *> nodes_by_type(blender::StringRefNull name) const;
   blender::Span<const bNode *> toposort_left_to_right() const;
