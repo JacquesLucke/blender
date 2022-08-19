@@ -363,6 +363,9 @@ typedef struct bNode {
   bNodeSocket &output_socket(int index);
   const bNodeSocket &input_socket(int index) const;
   const bNodeSocket &output_socket(int index) const;
+  bool is_group_node() const;
+  blender::Span<const bNodeLink *> internal_links_span() const;
+  const blender::nodes::NodeDeclaration *declaration() const;
 #endif
 } bNode;
 

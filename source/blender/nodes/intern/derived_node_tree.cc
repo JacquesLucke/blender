@@ -31,7 +31,7 @@ DTreeContext &DerivedNodeTree::construct_context_recursively(DTreeContext *paren
   used_btrees_.add(context.btree_);
 
   for (const bNode *bnode : context.btree_->all_nodes()) {
-    if (node::is_group_node(*bnode)) {
+    if (bnode->is_group_node()) {
       bNodeTree *child_btree = reinterpret_cast<bNodeTree *>(bnode->id);
       if (child_btree != nullptr) {
         DTreeContext &child = this->construct_context_recursively(&context, bnode, *child_btree);
@@ -111,7 +111,7 @@ DOutputSocket DInputSocket::get_corresponding_group_node_output() const
 Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() const
 {
   BLI_assert(*this);
-  BLI_assert(node::is_group_node(bsocket_->owner_node()));
+  BLI_assert(bsocket_->owner_node().is_group_node());
 
   const DTreeContext *child_context = context_->child_context(bsocket_->owner_node());
   BLI_assert(child_context != nullptr);
@@ -144,7 +144,7 @@ DInputSocket DOutputSocket::get_corresponding_group_node_input() const
 DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
 {
   BLI_assert(*this);
-  BLI_assert(node::is_group_node(bsocket_->owner_node()));
+  BLI_assert(bsocket_->owner_node().is_group_node());
 
   const DTreeContext *child_context = context_->child_context(bsocket_->owner_node());
   if (child_context == nullptr) {
@@ -189,7 +189,7 @@ void DInputSocket::foreach_origin_socket(FunctionRef<void(DSocket)> origin_fn) c
         }
       }
     }
-    else if (node::is_group_node(linked_node)) {
+    else if (linked_node.is_group_node()) {
       DInputSocket socket_in_group = linked_dsocket.get_active_corresponding_group_output_socket();
       if (socket_in_group) {
         if (socket_in_group->is_logically_linked()) {
@@ -238,7 +238,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
       path_info.sockets.pop_last();
     }
     else if (linked_node->flag & NODE_MUTED) {
-      for (const bNodeLink *internal_link : node::internal_links(*linked_node)) {
+      for (const bNodeLink *internal_link : linked_node->internal_links_span()) {
         if (internal_link->fromsock != linked_socket.bsocket()) {
           continue;
         }
@@ -278,7 +278,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
         path_info.sockets.pop_last();
       }
     }
-    else if (node::is_group_node(*linked_node)) {
+    else if (linked_node->is_group_node()) {
       /* Follow the links within the nested node group. */
       path_info.sockets.append(linked_socket);
       const Vector<DOutputSocket> sockets_in_group =
@@ -331,7 +331,7 @@ std::string DerivedNodeTree::to_dot() const
 
   this->foreach_node([&](DNode node) {
     /* Ignore nodes that should not show up in the final output. */
-    if (node->flag & NODE_MUTED || node::is_group_node(*node) || node->type == NODE_REROUTE ||
+    if (node->flag & NODE_MUTED || node->is_group_node() || node->type == NODE_REROUTE ||
         node->type == NODE_FRAME) {
       return;
     }

@@ -97,7 +97,7 @@ static InputSocketFieldType get_interface_input_field_type(const bNode &node,
   }
 
   /* TODO: Ensure declaration exists. */
-  const NodeDeclaration *node_decl = node::node_declaration(node);
+  const NodeDeclaration *node_decl = node.declaration();
 
   /* Node declarations should be implemented for nodes involved here. */
   BLI_assert(node_decl != nullptr);
@@ -135,7 +135,7 @@ static OutputFieldDependency get_interface_output_field_dependency(const bNode &
   }
 
   /* TODO: Ensure declaration exists. */
-  const NodeDeclaration *node_decl = node::node_declaration(node);
+  const NodeDeclaration *node_decl = node.declaration();
 
   /* Node declarations should be implemented for nodes involved here. */
   BLI_assert(node_decl != nullptr);
@@ -168,7 +168,7 @@ static FieldInferencingInterface get_dummy_field_inferencing_interface(const bNo
 static FieldInferencingInterface get_node_field_inferencing_interface(const bNode &node)
 {
   /* Node groups already reference all required information, so just return that. */
-  if (node::is_group_node(node)) {
+  if (node.is_group_node()) {
     bNodeTree *group = (bNodeTree *)node.id;
     if (group == nullptr) {
       return FieldInferencingInterface();

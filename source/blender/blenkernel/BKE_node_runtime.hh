@@ -157,29 +157,11 @@ inline bool topology_cache_is_available(const bNodeTree &tree)
   return !tree.runtime->topology_cache_is_dirty;
 }
 
-inline bool is_group_node(const bNode &node)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return node.runtime->is_group_node;
-}
-
-inline Span<const bNodeLink *> internal_links(const bNode &node)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return node.runtime->internal_links;
-}
-
 inline const bNodeSocket *internal_link_input(const bNodeSocket &socket)
 {
   BLI_assert(topology_cache_is_available(socket));
   BLI_assert(socket.in_out == SOCK_OUT);
   return socket.runtime->internal_link_input;
-}
-
-inline const nodes::NodeDeclaration *node_declaration(const bNode &node)
-{
-  BLI_assert(node.runtime->declaration != nullptr);
-  return node.runtime->declaration;
 }
 
 template<typename T> const T *socket_default_value(const bNodeSocket &socket)
@@ -386,4 +368,22 @@ inline blender::Span<bNodeSocket *> bNodeTree::all_sockets()
 {
   BLI_assert(blender::bke::node::topology_cache_is_available(*this));
   return this->runtime->sockets;
+}
+
+inline bool bNode::is_group_node() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->is_group_node;
+}
+
+inline blender::Span<const bNodeLink *> bNode::internal_links_span() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->internal_links;
+}
+
+inline const blender::nodes::NodeDeclaration *bNode::declaration() const
+{
+  BLI_assert(this->runtime->declaration != nullptr);
+  return this->runtime->declaration;
 }
