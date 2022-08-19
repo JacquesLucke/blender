@@ -8,8 +8,6 @@
 
 namespace blender::nodes {
 
-namespace node = bke::node;
-
 DerivedNodeTree::DerivedNodeTree(const bNodeTree &btree)
 {
   /* Construct all possible contexts immediately. This is significantly cheaper than inlining all

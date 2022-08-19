@@ -33,7 +33,6 @@ using fn::ValueOrField;
 using fn::ValueOrFieldCPPType;
 using nodes::GeoNodeExecParams;
 using namespace fn::multi_function_types;
-namespace node = bke::node;
 
 enum class ValueUsage : uint8_t {
   /* The value is definitely used. */
