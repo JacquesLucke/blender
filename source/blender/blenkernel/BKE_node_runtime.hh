@@ -157,54 +157,6 @@ inline bool topology_cache_is_available(const bNodeTree &tree)
   return !tree.runtime->topology_cache_is_dirty;
 }
 
-inline Span<bNodeSocket *> node_inputs(bNode &node)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return node.runtime->inputs;
-}
-
-inline Span<const bNodeSocket *> node_inputs(const bNode &node)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return node.runtime->inputs;
-}
-
-inline bNodeSocket &node_input(bNode &node, const int index)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return *node.runtime->inputs[index];
-}
-
-inline const bNodeSocket &node_input(const bNode &node, const int index)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return *node.runtime->inputs[index];
-}
-
-inline Span<bNodeSocket *> node_outputs(bNode &node)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return node.runtime->outputs;
-}
-
-inline Span<const bNodeSocket *> node_outputs(const bNode &node)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return node.runtime->outputs;
-}
-
-inline bNodeSocket &node_output(bNode &node, const int index)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return *node.runtime->outputs[index];
-}
-
-inline const bNodeSocket &node_output(const bNode &node, const int index)
-{
-  BLI_assert(topology_cache_is_available(node));
-  return *node.runtime->outputs[index];
-}
-
 inline int socket_index_in_node(const bNodeSocket &socket)
 {
   BLI_assert(topology_cache_is_available(socket));
