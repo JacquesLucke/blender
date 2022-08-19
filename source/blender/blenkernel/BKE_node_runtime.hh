@@ -187,18 +187,6 @@ inline bool tree_has_undefined_nodes_or_sockets(const bNodeTree &tree)
   return tree.runtime->has_undefined_nodes_or_sockets;
 }
 
-inline Span<bNode *> nodes_by_type(bNodeTree &tree, const StringRefNull name)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->nodes_by_type.lookup(nodeTypeFind(name.c_str()));
-}
-
-inline Span<const bNode *> nodes_by_type(const bNodeTree &tree, const StringRefNull name)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->nodes_by_type.lookup(nodeTypeFind(name.c_str()));
-}
-
 inline Span<const bNodeSocket *> logically_linked_sockets(const bNodeSocket &socket)
 {
   BLI_assert(topology_cache_is_available(socket));
@@ -375,4 +363,17 @@ inline const bNode &bNodeSocket::owner_node() const
 {
   BLI_assert(blender::bke::node::topology_cache_is_available(*this));
   return *this->runtime->owner_node;
+}
+
+inline blender::Span<bNode *> bNodeTree::nodes_by_type(const blender::StringRefNull name)
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->nodes_by_type.lookup(nodeTypeFind(name.c_str()));
+}
+
+inline blender::Span<const bNode *> bNodeTree::nodes_by_type(
+    const blender::StringRefNull name) const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->nodes_by_type.lookup(nodeTypeFind(name.c_str()));
 }

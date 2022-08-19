@@ -400,7 +400,7 @@ static void determine_group_input_states(
   }
   /* Check if group inputs are required to be single values, because they are (indirectly)
    * connected to some socket that does not support fields. */
-  for (const bNode *node : node::nodes_by_type(tree, "NodeGroupInput")) {
+  for (const bNode *node : tree.nodes_by_type("NodeGroupInput")) {
     for (const bNodeSocket *output_socket : node->output_sockets().drop_back(1)) {
       SocketFieldState &state = field_state_by_socket_id[output_socket->index_in_tree()];
       if (state.requires_single) {
@@ -410,7 +410,7 @@ static void determine_group_input_states(
     }
   }
   /* If an input does not support fields, this should be reflected in all Group Input nodes. */
-  for (const bNode *node : node::nodes_by_type(tree, "NodeGroupInput")) {
+  for (const bNode *node : tree.nodes_by_type("NodeGroupInput")) {
     for (const bNodeSocket *output_socket : node->output_sockets().drop_back(1)) {
       SocketFieldState &state = field_state_by_socket_id[output_socket->index_in_tree()];
       const bool supports_field =
@@ -506,7 +506,7 @@ static void determine_group_output_states(const bNodeTree &tree,
                                           FieldInferencingInterface &new_inferencing_interface,
                                           const Span<SocketFieldState> field_state_by_socket_id)
 {
-  for (const bNode *group_output_node : node::nodes_by_type(tree, "NodeGroupOutput")) {
+  for (const bNode *group_output_node : tree.nodes_by_type("NodeGroupOutput")) {
     /* Ignore inactive group output nodes. */
     if (!(group_output_node->flag & NODE_DO_OUTPUT)) {
       continue;

@@ -16,7 +16,8 @@
 #ifdef __cplusplus
 namespace blender {
 template<typename T> class Span;
-}
+class StringRefNull;
+}  // namespace blender
 namespace blender::nodes {
 class NodeDeclaration;
 class SocketDeclaration;
@@ -557,6 +558,11 @@ typedef struct bNodeTree {
   struct PreviewImage *preview;
 
   bNodeTreeRuntimeHandle *runtime;
+
+#ifdef __cplusplus
+  blender::Span<bNode *> nodes_by_type(blender::StringRefNull name);
+  blender::Span<const bNode *> nodes_by_type(blender::StringRefNull name) const;
+#endif
 } bNodeTree;
 
 /** #NodeTree.type, index */

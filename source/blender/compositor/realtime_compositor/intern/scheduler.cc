@@ -25,19 +25,19 @@ static DNode compute_output_node(DerivedNodeTree &tree)
 {
   const bNodeTree &root_tree = tree.root_context().btree();
 
-  for (const bNode *node : bke::node::nodes_by_type(root_tree, "CompositorNodeComposite")) {
+  for (const bNode *node : root_tree.nodes_by_type("CompositorNodeComposite")) {
     if (node->flag & NODE_DO_OUTPUT) {
       return DNode(&tree.root_context(), node);
     }
   }
 
-  for (const bNode *node : bke::node::nodes_by_type(root_tree, "CompositorNodeViewer")) {
+  for (const bNode *node : root_tree.nodes_by_type("CompositorNodeViewer")) {
     if (node->flag & NODE_DO_OUTPUT) {
       return DNode(&tree.root_context(), node);
     }
   }
 
-  for (const bNode *node : bke::node::nodes_by_type(root_tree, "CompositorNodeSplitViewer")) {
+  for (const bNode *node : root_tree.nodes_by_type("CompositorNodeSplitViewer")) {
     if (node->flag & NODE_DO_OUTPUT) {
       return DNode(&tree.root_context(), node);
     }
