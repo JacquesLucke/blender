@@ -98,7 +98,7 @@ DOutputSocket DInputSocket::get_corresponding_group_node_output() const
   BLI_assert(*this);
   BLI_assert(node::socket_owner_node(*bsocket_).type == NODE_GROUP_OUTPUT);
   BLI_assert(node::socket_index_in_node(*bsocket_) <
-             node::node_inputs(node::socket_owner_node(*bsocket_)).size() - 1);
+             node::socket_owner_node(*bsocket_).input_sockets().size() - 1);
 
   const DTreeContext *parent_context = context_->parent_context();
   const bNode *parent_node = context_->parent_node();
@@ -133,7 +133,7 @@ DInputSocket DOutputSocket::get_corresponding_group_node_input() const
   BLI_assert(*this);
   BLI_assert(node::socket_owner_node(*bsocket_).type == NODE_GROUP_INPUT);
   BLI_assert(node::socket_index_in_node(*bsocket_) <
-             node::node_outputs(node::socket_owner_node(*bsocket_)).size() - 1);
+             node::socket_owner_node(*bsocket_).output_sockets().size() - 1);
 
   const DTreeContext *parent_context = context_->parent_context();
   const bNode *parent_node = context_->parent_node();
@@ -352,12 +352,12 @@ std::string DerivedNodeTree::to_dot() const
 
     Vector<std::string> input_names;
     Vector<std::string> output_names;
-    for (const bNodeSocket *socket : node::node_inputs(*node)) {
+    for (const bNodeSocket *socket : node->input_sockets()) {
       if ((socket->flag & SOCK_UNAVAIL) == 0) {
         input_names.append(socket->name);
       }
     }
-    for (const bNodeSocket *socket : node::node_outputs(*node)) {
+    for (const bNodeSocket *socket : node->output_sockets()) {
       if ((socket->flag & SOCK_UNAVAIL) == 0) {
         output_names.append(socket->name);
       }
@@ -367,7 +367,7 @@ std::string DerivedNodeTree::to_dot() const
         dot_node, node->name, input_names, output_names);
 
     int input_index = 0;
-    for (const bNodeSocket *socket : node::node_inputs(*node)) {
+    for (const bNodeSocket *socket : node->input_sockets()) {
       if ((socket->flag & SOCK_UNAVAIL) == 0) {
         dot_input_sockets.add_new(DInputSocket{node.context(), socket},
                                   dot_node_with_sockets.input(input_index));
@@ -375,7 +375,7 @@ std::string DerivedNodeTree::to_dot() const
       }
     }
     int output_index = 0;
-    for (const bNodeSocket *socket : node::node_outputs(*node)) {
+    for (const bNodeSocket *socket : node->output_sockets()) {
       if ((socket->flag & SOCK_UNAVAIL) == 0) {
         dot_output_sockets.add_new(DOutputSocket{node.context(), socket},
                                    dot_node_with_sockets.output(output_index));

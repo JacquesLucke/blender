@@ -400,3 +400,27 @@ inline blender::Span<const bNodeSocket *> bNode::output_sockets() const
   BLI_assert(blender::bke::node::topology_cache_is_available(*this));
   return this->runtime->outputs;
 }
+
+inline bNodeSocket &bNode::input_socket(int index)
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return *this->runtime->inputs[index];
+}
+
+inline bNodeSocket &bNode::output_socket(int index)
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return *this->runtime->outputs[index];
+}
+
+inline const bNodeSocket &bNode::input_socket(int index) const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return *this->runtime->inputs[index];
+}
+
+inline const bNodeSocket &bNode::output_socket(int index) const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return *this->runtime->outputs[index];
+}

@@ -457,7 +457,7 @@ class ImageOperation : public NodeOperation {
 
     update_image_frame_number();
 
-    for (const bNodeSocket *output : bke::node::node_outputs(*node())) {
+    for (const bNodeSocket *output : this->node()->output_sockets()) {
       compute_output(output->identifier);
     }
   }
@@ -488,7 +488,7 @@ class ImageOperation : public NodeOperation {
   /* Allocate all needed outputs as invalid. This should be called when is_valid returns false. */
   void allocate_invalid()
   {
-    for (const bNodeSocket *output : bke::node::node_outputs(*node())) {
+    for (const bNodeSocket *output : this->node()->output_sockets()) {
       if (!should_compute_output(output->identifier)) {
         continue;
       }
@@ -850,7 +850,7 @@ class RenderLayerOperation : public NodeOperation {
     alpha_result.unbind_as_image();
 
     /* Other output passes are not supported for now, so allocate them as invalid. */
-    for (const bNodeSocket *output : bke::node::node_outputs(*node())) {
+    for (const bNodeSocket *output : this->node()->output_sockets()) {
       if (!STREQ(output->identifier, "Image") && !STREQ(output->identifier, "Alpha")) {
         get_result(output->identifier).allocate_invalid();
       }

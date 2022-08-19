@@ -185,11 +185,11 @@ static FieldInferencingInterface get_node_field_inferencing_interface(const bNod
   }
 
   FieldInferencingInterface inferencing_interface;
-  for (const bNodeSocket *input_socket : node::node_inputs(node)) {
+  for (const bNodeSocket *input_socket : node.input_sockets()) {
     inferencing_interface.inputs.append(get_interface_input_field_type(node, *input_socket));
   }
 
-  for (const bNodeSocket *output_socket : node::node_outputs(node)) {
+  for (const bNodeSocket *output_socket : node.output_sockets()) {
     inferencing_interface.outputs.append(
         get_interface_output_field_dependency(node, *output_socket));
   }
@@ -225,7 +225,7 @@ static Vector<const bNodeSocket *> gather_input_socket_dependencies(
     }
     case OutputSocketFieldType::DependentField: {
       /* This output depends on all inputs. */
-      input_sockets.extend(node::node_inputs(node));
+      input_sockets.extend(node.input_sockets());
       break;
     }
     case OutputSocketFieldType::PartiallyDependent: {
@@ -319,7 +319,7 @@ static void propagate_data_requirements_from_right_to_left(
     const FieldInferencingInterface inferencing_interface = get_node_field_inferencing_interface(
         *node);
 
-    for (const bNodeSocket *output_socket : node::node_outputs(*node)) {
+    for (const bNodeSocket *output_socket : node->output_sockets()) {
       SocketFieldState &state =
           field_state_by_socket_id[node::socket_index_in_all(*output_socket)];
 
@@ -376,7 +376,7 @@ static void propagate_data_requirements_from_right_to_left(
     }
 
     /* Some inputs do not require fields independent of what the outputs are connected to. */
-    for (const bNodeSocket *input_socket : node::node_inputs(*node)) {
+    for (const bNodeSocket *input_socket : node->input_sockets()) {
       SocketFieldState &state = field_state_by_socket_id[node::socket_index_in_all(*input_socket)];
       if (inferencing_interface.inputs[node::socket_index_in_node(*input_socket)] ==
           InputSocketFieldType::None) {
@@ -404,7 +404,7 @@ static void determine_group_input_states(
   /* Check if group inputs are required to be single values, because they are (indirectly)
    * connected to some socket that does not support fields. */
   for (const bNode *node : node::nodes_by_type(tree, "NodeGroupInput")) {
-    for (const bNodeSocket *output_socket : node::node_outputs(*node).drop_back(1)) {
+    for (const bNodeSocket *output_socket : node->output_sockets().drop_back(1)) {
       SocketFieldState &state =
           field_state_by_socket_id[node::socket_index_in_all(*output_socket)];
       if (state.requires_single) {
@@ -415,7 +415,7 @@ static void determine_group_input_states(
   }
   /* If an input does not support fields, this should be reflected in all Group Input nodes. */
   for (const bNode *node : node::nodes_by_type(tree, "NodeGroupInput")) {
-    for (const bNodeSocket *output_socket : node::node_outputs(*node).drop_back(1)) {
+    for (const bNodeSocket *output_socket : node->output_sockets().drop_back(1)) {
       SocketFieldState &state =
           field_state_by_socket_id[node::socket_index_in_all(*output_socket)];
       const bool supports_field =
@@ -430,7 +430,7 @@ static void determine_group_input_states(
       }
     }
     SocketFieldState &dummy_socket_state =
-        field_state_by_socket_id[node::socket_index_in_all(*node::node_outputs(*node).last())];
+        field_state_by_socket_id[node::socket_index_in_all(*node->output_sockets().last())];
     dummy_socket_state.requires_single = true;
   }
 }
@@ -449,7 +449,7 @@ static void propagate_field_status_from_left_to_right(
         *node);
 
     /* Update field state of input sockets, also taking into account linked origin sockets. */
-    for (const bNodeSocket *input_socket : node::node_inputs(*node)) {
+    for (const bNodeSocket *input_socket : node->input_sockets()) {
       SocketFieldState &state = field_state_by_socket_id[node::socket_index_in_all(*input_socket)];
       if (state.is_always_single) {
         state.is_single = true;
@@ -473,7 +473,7 @@ static void propagate_field_status_from_left_to_right(
     }
 
     /* Update field state of output sockets, also taking into account input sockets. */
-    for (const bNodeSocket *output_socket : node::node_outputs(*node)) {
+    for (const bNodeSocket *output_socket : node->output_sockets()) {
       SocketFieldState &state =
           field_state_by_socket_id[node::socket_index_in_all(*output_socket)];
       const OutputFieldDependency &field_dependency =
@@ -519,7 +519,7 @@ static void determine_group_output_states(const bNodeTree &tree,
     }
     /* Determine dependencies of all group outputs. */
     for (const bNodeSocket *group_output_socket :
-         node::node_inputs(*group_output_node).drop_back(1)) {
+         group_output_node->input_sockets().drop_back(1)) {
       OutputFieldDependency field_dependency = find_group_output_dependencies(
           *group_output_socket, field_state_by_socket_id);
       new_inferencing_interface.outputs[node::socket_index_in_node(*group_output_socket)] =

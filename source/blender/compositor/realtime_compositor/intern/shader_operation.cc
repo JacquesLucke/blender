@@ -141,7 +141,7 @@ void ShaderOperation::construct_material(void *thunk, GPUMaterial *material)
 
 void ShaderOperation::link_node_inputs(DNode node, GPUMaterial *material)
 {
-  for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
+  for (const bNodeSocket *input_ref : node->input_sockets()) {
     const DInputSocket input{node.context(), input_ref};
 
     /* Get the output linked to the input. If it is null, that means the input is unlinked.
@@ -242,7 +242,7 @@ void ShaderOperation::declare_operation_input(DInputSocket input_socket,
 
 void ShaderOperation::populate_results_for_node(DNode node, GPUMaterial *material)
 {
-  for (const bNodeSocket *output_ref : bke::node::node_outputs(*node)) {
+  for (const bNodeSocket *output_ref : node->output_sockets()) {
     const DOutputSocket output{node.context(), output_ref};
 
     /* If any of the nodes linked to the output are not part of the shader operation, then an

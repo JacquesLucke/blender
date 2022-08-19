@@ -122,7 +122,7 @@ static NeededBuffers compute_number_of_needed_buffers(DNode output_node)
     /* Go over the node dependencies connected to the inputs of the node and push them to the node
      * stack if they were not computed already. */
     Set<DNode> pushed_nodes;
-    for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
+    for (const bNodeSocket *input_ref : node->input_sockets()) {
       const DInputSocket input{node.context(), input_ref};
 
       /* Get the output linked to the input. If it is null, that means the input is unlinked and
@@ -156,7 +156,7 @@ static NeededBuffers compute_number_of_needed_buffers(DNode output_node)
      * buffers needed to compute the most demanding of the node dependencies. */
     int number_of_input_buffers = 0;
     int buffers_needed_by_dependencies = 0;
-    for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
+    for (const bNodeSocket *input_ref : node->input_sockets()) {
       const DInputSocket input{node.context(), input_ref};
 
       /* Get the output linked to the input. If it is null, that means the input is unlinked.
@@ -183,7 +183,7 @@ static NeededBuffers compute_number_of_needed_buffers(DNode output_node)
 
     /* Compute the number of buffers that will be computed/output by this node. */
     int number_of_output_buffers = 0;
-    for (const bNodeSocket *output_ref : bke::node::node_outputs(*node)) {
+    for (const bNodeSocket *output_ref : node->output_sockets()) {
       const DOutputSocket output{node.context(), output_ref};
 
       /* The output is not linked, it outputs no buffer. */
@@ -257,7 +257,7 @@ Schedule compute_schedule(DerivedNodeTree &tree)
      * want the node with the highest number of needed buffers to be schedule first, but since
      * those are pushed to the traversal stack, we need to push them in reverse order. */
     Vector<DNode> sorted_dependency_nodes;
-    for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
+    for (const bNodeSocket *input_ref : node->input_sockets()) {
       const DInputSocket input{node.context(), input_ref};
 
       /* Get the output linked to the input. If it is null, that means the input is unlinked and

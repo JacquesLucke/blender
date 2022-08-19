@@ -132,7 +132,7 @@ void ShaderNode::populate_inputs()
 {
   /* Reserve a stack for each input in addition to an extra stack at the end to mark the end of the
    * array, as this is what the GPU module functions expect. */
-  const int num_input_sockets = bke::node::node_inputs(*node_).size();
+  const int num_input_sockets = node_->input_sockets().size();
   inputs_.resize(num_input_sockets + 1);
   inputs_.last().end = true;
 
@@ -145,7 +145,7 @@ void ShaderNode::populate_outputs()
 {
   /* Reserve a stack for each output in addition to an extra stack at the end to mark the end of
    * the array, as this is what the GPU module functions expect. */
-  const int num_output_sockets = bke::node::node_outputs(*node_).size();
+  const int num_output_sockets = node_->output_sockets().size();
   outputs_.resize(num_output_sockets + 1);
   outputs_.last().end = true;
 

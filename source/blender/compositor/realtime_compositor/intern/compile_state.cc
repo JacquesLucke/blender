@@ -113,7 +113,7 @@ Domain CompileState::compute_shader_node_domain(DNode node)
 
   /* Go over the inputs and find the domain of the non single value input with the highest domain
    * priority. */
-  for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
+  for (const bNodeSocket *input_ref : node->input_sockets()) {
     const DInputSocket input{node.context(), input_ref};
 
     /* Get the output linked to the input. If it is null, that means the input is unlinked, so skip

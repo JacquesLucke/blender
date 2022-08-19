@@ -81,7 +81,7 @@ static void linked_sockets_to_dest_id(const bNode *dest_node,
     return;
   }
   Span<const bNode *> object_dest_nodes = bke::node::nodes_by_type(node_tree, dest_node->idname);
-  Span<const bNodeSocket *> dest_inputs = bke::node::node_inputs(*object_dest_nodes.first());
+  Span<const bNodeSocket *> dest_inputs = object_dest_nodes.first()->input_sockets();
   const bNodeSocket *dest_socket = nullptr;
   for (const bNodeSocket *curr_socket : dest_inputs) {
     if (STREQ(curr_socket->identifier, dest_socket_id.c_str())) {

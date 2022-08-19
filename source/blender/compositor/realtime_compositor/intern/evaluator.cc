@@ -112,7 +112,7 @@ void Evaluator::map_node_operation_inputs_to_their_results(DNode node,
                                                            NodeOperation *operation,
                                                            CompileState &compile_state)
 {
-  for (const bNodeSocket *input_ref : bke::node::node_inputs(*node)) {
+  for (const bNodeSocket *input_ref : node->input_sockets()) {
     const DInputSocket input{node.context(), input_ref};
 
     DSocket origin = get_input_origin_socket(input);

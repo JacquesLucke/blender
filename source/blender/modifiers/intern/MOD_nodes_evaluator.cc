@@ -519,7 +519,7 @@ class GeometryNodesEvaluator {
       node_states_.add_new({node, &node_state});
 
       /* Push all linked origins on the stack. */
-      for (const bNodeSocket *input_ref : node::node_inputs(*node)) {
+      for (const bNodeSocket *input_ref : node->input_sockets()) {
         const DInputSocket input{node.context(), input_ref};
         input.foreach_origin_socket(
             [&](const DSocket origin) { nodes_to_check.push(origin.node()); });
@@ -549,11 +549,11 @@ class GeometryNodesEvaluator {
   void initialize_node_state(const DNode node, NodeState &node_state, LinearAllocator<> &allocator)
   {
     /* Construct arrays of the correct size. */
-    node_state.inputs = allocator.construct_array<InputState>(node::node_inputs(*node).size());
-    node_state.outputs = allocator.construct_array<OutputState>(node::node_outputs(*node).size());
+    node_state.inputs = allocator.construct_array<InputState>(node->input_sockets().size());
+    node_state.outputs = allocator.construct_array<OutputState>(node->output_sockets().size());
 
     /* Initialize input states. */
-    for (const int i : node::node_inputs(*node).index_range()) {
+    for (const int i : node->input_sockets().index_range()) {
       InputState &input_state = node_state.inputs[i];
       const DInputSocket socket = node.input(i);
       if (socket->flag & SOCK_UNAVAIL) {
@@ -586,7 +586,7 @@ class GeometryNodesEvaluator {
       }
     }
     /* Initialize output states. */
-    for (const int i : node::node_outputs(*node).index_range()) {
+    for (const int i : node->output_sockets().index_range()) {
       OutputState &output_state = node_state.outputs[i];
       const DOutputSocket socket = node.output(i);
       if (socket->flag & SOCK_UNAVAIL) {
@@ -632,12 +632,12 @@ class GeometryNodesEvaluator {
   void destruct_node_state(const DNode node, NodeState &node_state)
   {
     /* Need to destruct stuff manually, because it's allocated by a custom allocator. */
-    for (const int i : node::node_inputs(*node).index_range()) {
+    for (const int i : node->input_sockets().index_range()) {
       InputState &input_state = node_state.inputs[i];
       if (input_state.type == nullptr) {
         continue;
       }
-      const bNodeSocket &bsocket = *node::node_inputs(*node)[i];
+      const bNodeSocket &bsocket = *node->input_sockets()[i];
       if (bsocket.flag & SOCK_MULTI_INPUT) {
         MultiInputValue &multi_value = *input_state.value.multi;
         for (void *value : multi_value.values) {
@@ -840,7 +840,7 @@ class GeometryNodesEvaluator {
     /* If there are no remaining outputs, all the inputs can be destructed and/or can become
      * unused. This can also trigger a chain reaction where nodes to the left become finished
      * too. */
-    for (const int i : node::node_inputs(*locked_node.node).index_range()) {
+    for (const int i : locked_node.node->input_sockets().index_range()) {
       const DInputSocket socket = locked_node.node.input(i);
       InputState &input_state = locked_node.node_state.inputs[i];
       if (input_state.usage == ValueUsage::Maybe) {
@@ -886,7 +886,7 @@ class GeometryNodesEvaluator {
       return;
     }
     /* Nodes that don't support laziness require all inputs. */
-    for (const int i : node::node_inputs(*locked_node.node).index_range()) {
+    for (const int i : locked_node.node->input_sockets().index_range()) {
       InputState &input_state = locked_node.node_state.inputs[i];
       if (input_state.type == nullptr) {
         /* Ignore unavailable/non-data sockets. */
@@ -1005,8 +1005,8 @@ class GeometryNodesEvaluator {
     bool any_input_is_field = false;
     Vector<const void *, 16> input_values;
     Vector<const ValueOrFieldCPPType *, 16> input_types;
-    for (const int i : node::node_inputs(*node).index_range()) {
-      const bNodeSocket &bsocket = *node::node_inputs(*node)[i];
+    for (const int i : node->input_sockets().index_range()) {
+      const bNodeSocket &bsocket = *node->input_sockets()[i];
       if (bsocket.flag & SOCK_UNAVAIL) {
         continue;
       }
@@ -1058,8 +1058,8 @@ class GeometryNodesEvaluator {
     }
 
     int output_index = 0;
-    for (const int i : node::node_outputs(*node).index_range()) {
-      const bNodeSocket &bsocket = *node::node_outputs(*node)[i];
+    for (const int i : node->output_sockets().index_range()) {
+      const bNodeSocket &bsocket = *node->output_sockets()[i];
       if (bsocket.flag & SOCK_UNAVAIL) {
         continue;
       }
@@ -1094,7 +1094,7 @@ class GeometryNodesEvaluator {
     }
 
     Vector<GMutablePointer, 16> output_buffers;
-    for (const int i : node::node_outputs(*node).index_range()) {
+    for (const int i : node->output_sockets().index_range()) {
       const DOutputSocket socket = node.output(i);
       if (socket->flag & SOCK_UNAVAIL) {
         output_buffers.append({});
@@ -1131,7 +1131,7 @@ class GeometryNodesEvaluator {
   void execute_unknown_node(const DNode node, NodeState &node_state, NodeTaskRunState *run_state)
   {
     LinearAllocator<> &allocator = local_allocators_.local();
-    for (const bNodeSocket *socket : node::node_outputs(*node)) {
+    for (const bNodeSocket *socket : node->output_sockets()) {
       if (socket->flag & SOCK_UNAVAIL) {
         continue;
       }
@@ -1185,7 +1185,7 @@ class GeometryNodesEvaluator {
     const bool supports_laziness = node_supports_laziness(locked_node.node);
     /* Iterating over sockets instead of the states directly, because that makes it easier to
      * figure out which socket is missing when one of the asserts is hit. */
-    for (const bNodeSocket *bsocket : node::node_outputs(*locked_node.node)) {
+    for (const bNodeSocket *bsocket : locked_node.node->output_sockets()) {
       OutputState &output_state =
           locked_node.node_state.outputs[node::socket_index_in_node(*bsocket)];
       if (supports_laziness) {
@@ -1906,7 +1906,7 @@ void NodeParamsProvider::set_default_remaining_outputs()
 {
   LinearAllocator<> &allocator = evaluator_.local_allocators_.local();
 
-  for (const int i : node::node_outputs(*this->dnode).index_range()) {
+  for (const int i : this->dnode->output_sockets().index_range()) {
     OutputState &output_state = node_state_.outputs[i];
     if (output_state.has_been_computed) {
       continue;

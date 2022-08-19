@@ -342,6 +342,10 @@ typedef struct bNode {
   blender::Span<bNodeSocket *> output_sockets();
   blender::Span<const bNodeSocket *> input_sockets() const;
   blender::Span<const bNodeSocket *> output_sockets() const;
+  bNodeSocket &input_socket(int index);
+  bNodeSocket &output_socket(int index);
+  const bNodeSocket &input_socket(int index) const;
+  const bNodeSocket &output_socket(int index) const;
 #endif
 } bNode;
 

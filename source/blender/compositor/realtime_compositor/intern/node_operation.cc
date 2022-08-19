@@ -25,13 +25,13 @@ using namespace nodes::derived_node_tree_types;
 
 NodeOperation::NodeOperation(Context &context, DNode node) : Operation(context), node_(node)
 {
-  for (const bNodeSocket *output : bke::node::node_outputs(*node)) {
+  for (const bNodeSocket *output : node->output_sockets()) {
     const ResultType result_type = get_node_socket_result_type(output);
     const Result result = Result(result_type, texture_pool());
     populate_result(output->identifier, result);
   }
 
-  for (const bNodeSocket *input : bke::node::node_inputs(*node)) {
+  for (const bNodeSocket *input : node->input_sockets()) {
     const InputDescriptor input_descriptor = input_descriptor_from_input_socket(input);
     declare_input_descriptor(input->identifier, input_descriptor);
   }
@@ -39,7 +39,7 @@ NodeOperation::NodeOperation(Context &context, DNode node) : Operation(context),
 
 void NodeOperation::compute_results_reference_counts(const Schedule &schedule)
 {
-  for (const bNodeSocket *output_ref : bke::node::node_outputs(*node())) {
+  for (const bNodeSocket *output_ref : this->node()->output_sockets()) {
     const DOutputSocket output{node().context(), output_ref};
 
     const int reference_count = number_of_inputs_linked_to_output_conditioned(
