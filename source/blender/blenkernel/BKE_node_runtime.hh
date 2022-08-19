@@ -236,18 +236,6 @@ inline const nodes::NodeDeclaration *node_declaration(const bNode &node)
   return node.runtime->declaration;
 }
 
-inline Span<const bNode *> toposort_left_to_right(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->toposort_left_to_right;
-}
-
-inline Span<const bNode *> toposort_right_to_left(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->toposort_right_to_left;
-}
-
 inline Span<const bNodeSocket *> all_inputs_in_tree(const bNodeTree &tree)
 {
   BLI_assert(topology_cache_is_available(tree));
@@ -376,4 +364,16 @@ inline blender::Span<const bNode *> bNodeTree::nodes_by_type(
 {
   BLI_assert(blender::bke::node::topology_cache_is_available(*this));
   return this->runtime->nodes_by_type.lookup(nodeTypeFind(name.c_str()));
+}
+
+inline blender::Span<const bNode *> bNodeTree::toposort_left_to_right() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->toposort_left_to_right;
+}
+
+inline blender::Span<const bNode *> bNodeTree::toposort_right_to_left() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->toposort_right_to_left;
 }
