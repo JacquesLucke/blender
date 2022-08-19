@@ -30,7 +30,7 @@ DTreeContext &DerivedNodeTree::construct_context_recursively(DTreeContext *paren
   context.btree_ = &btree;
   used_btrees_.add(context.btree_);
 
-  for (const bNode *bnode : node::tree_nodes(*context.btree_)) {
+  for (const bNode *bnode : context.btree_->all_nodes()) {
     if (node::is_group_node(*bnode)) {
       bNodeTree *child_btree = reinterpret_cast<bNodeTree *>(bnode->id);
       if (child_btree != nullptr) {
@@ -85,7 +85,7 @@ void DerivedNodeTree::foreach_node(FunctionRef<void(DNode)> callback) const
 void DerivedNodeTree::foreach_node_in_context_recursive(const DTreeContext &context,
                                                         FunctionRef<void(DNode)> callback) const
 {
-  for (const bNode *bnode : node::tree_nodes(*context.btree_)) {
+  for (const bNode *bnode : context.btree_->all_nodes()) {
     callback(DNode(&context, bnode));
   }
   for (const DTreeContext *child_context : context.children_.values()) {

@@ -560,6 +560,8 @@ typedef struct bNodeTree {
   bNodeTreeRuntimeHandle *runtime;
 
 #ifdef __cplusplus
+  blender::Span<bNode *> all_nodes();
+  blender::Span<const bNode *> all_nodes() const;
   blender::Span<bNode *> nodes_by_type(blender::StringRefNull name);
   blender::Span<const bNode *> nodes_by_type(blender::StringRefNull name) const;
   blender::Span<const bNode *> toposort_left_to_right() const;

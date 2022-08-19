@@ -163,18 +163,6 @@ inline bool is_group_node(const bNode &node)
   return node.runtime->is_group_node;
 }
 
-inline Span<const bNode *> tree_nodes(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->nodes;
-}
-
-inline Span<bNode *> tree_nodes(bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->nodes;
-}
-
 inline bool tree_has_link_cycle(const bNodeTree &tree)
 {
   BLI_assert(topology_cache_is_available(tree));
@@ -376,4 +364,16 @@ inline blender::Span<const bNode *> bNodeTree::toposort_right_to_left() const
 {
   BLI_assert(blender::bke::node::topology_cache_is_available(*this));
   return this->runtime->toposort_right_to_left;
+}
+
+inline blender::Span<const bNode *> bNodeTree::all_nodes() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->nodes;
+}
+
+inline blender::Span<bNode *> bNodeTree::all_nodes()
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->nodes;
 }
