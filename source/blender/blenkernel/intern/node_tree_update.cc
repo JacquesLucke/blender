@@ -231,7 +231,7 @@ static Vector<const bNodeSocket *> gather_input_socket_dependencies(
     case OutputSocketFieldType::PartiallyDependent: {
       /* This output depends only on a few inputs. */
       for (const int i : field_dependency.linked_input_indices()) {
-        input_sockets.append(&node::node_input(node, i));
+        input_sockets.append(&node.input_socket(i));
       }
       break;
     }

@@ -106,7 +106,7 @@ DOutputSocket DInputSocket::get_corresponding_group_node_output() const
   BLI_assert(parent_node != nullptr);
 
   const int socket_index = node::socket_index_in_node(*bsocket_);
-  return {parent_context, &node::node_output(*parent_node, socket_index)};
+  return {parent_context, &parent_node->output_socket(socket_index)};
 }
 
 Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() const
@@ -122,8 +122,7 @@ Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() cons
   const int socket_index = node::socket_index_in_node(*bsocket_);
   Vector<DOutputSocket> sockets;
   for (const bNode *group_input_node : group_input_nodes) {
-    sockets.append(
-        DOutputSocket(child_context, &node::node_output(*group_input_node, socket_index)));
+    sockets.append(DOutputSocket(child_context, &group_input_node->output_socket(socket_index)));
   }
   return sockets;
 }
@@ -141,7 +140,7 @@ DInputSocket DOutputSocket::get_corresponding_group_node_input() const
   BLI_assert(parent_node != nullptr);
 
   const int socket_index = node::socket_index_in_node(*bsocket_);
-  return {parent_context, &node::node_input(*parent_node, socket_index)};
+  return {parent_context, &parent_node->input_socket(socket_index)};
 }
 
 DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
@@ -161,7 +160,7 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
   const int socket_index = node::socket_index_in_node(*bsocket_);
   for (const bNode *group_output_node : group_output_nodes) {
     if (group_output_node->flag & NODE_DO_OUTPUT || group_output_nodes.size() == 1) {
-      return {child_context, &node::node_input(*group_output_node, socket_index)};
+      return {child_context, &group_output_node->input_socket(socket_index)};
     }
   }
   return {};
