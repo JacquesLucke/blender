@@ -163,18 +163,6 @@ inline bool is_group_node(const bNode &node)
   return node.runtime->is_group_node;
 }
 
-inline bool tree_has_link_cycle(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->has_link_cycle;
-}
-
-inline bool tree_has_undefined_nodes_or_sockets(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->has_undefined_nodes_or_sockets;
-}
-
 inline Span<const bNodeLink *> internal_links(const bNode &node)
 {
   BLI_assert(topology_cache_is_available(node));
@@ -186,12 +174,6 @@ inline const bNodeSocket *internal_link_input(const bNodeSocket &socket)
   BLI_assert(topology_cache_is_available(socket));
   BLI_assert(socket.in_out == SOCK_OUT);
   return socket.runtime->internal_link_input;
-}
-
-inline const bNode *group_output_node(const bNodeTree &tree)
-{
-  BLI_assert(topology_cache_is_available(tree));
-  return tree.runtime->group_output_node;
 }
 
 inline const nodes::NodeDeclaration *node_declaration(const bNode &node)
@@ -386,4 +368,22 @@ inline bool bNodeSocket::is_directly_linked() const
 inline bool bNodeSocket::is_logically_linked() const
 {
   return !this->logically_linked_sockets().is_empty();
+}
+
+inline bool bNodeTree::has_link_cycle() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->has_link_cycle;
+}
+
+inline bool bNodeTree::has_undefined_nodes_or_sockets() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->has_undefined_nodes_or_sockets;
+}
+
+inline const bNode *bNodeTree::group_output_node() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return this->runtime->group_output_node;
 }

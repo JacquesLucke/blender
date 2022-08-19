@@ -60,7 +60,7 @@ void DerivedNodeTree::destruct_context_recursively(DTreeContext *context)
 bool DerivedNodeTree::has_link_cycles() const
 {
   for (const bNodeTree *btree : used_btrees_) {
-    if (node::tree_has_link_cycle(*btree)) {
+    if (btree->has_link_cycle()) {
       return true;
     }
   }
@@ -70,7 +70,7 @@ bool DerivedNodeTree::has_link_cycles() const
 bool DerivedNodeTree::has_undefined_nodes_or_sockets() const
 {
   for (const bNodeTree *btree : used_btrees_) {
-    if (node::tree_has_undefined_nodes_or_sockets(*btree)) {
+    if (btree->has_undefined_nodes_or_sockets()) {
       return true;
     }
   }
@@ -258,7 +258,7 @@ void DOutputSocket::foreach_target_socket(ForeachTargetSocketFn target_fn,
       }
     }
     else if (linked_node->type == NODE_GROUP_OUTPUT) {
-      if (linked_node.bnode() != node::group_output_node(context_->btree())) {
+      if (linked_node.bnode() != context_->btree().group_output_node()) {
         continue;
       }
       if (context_->is_root()) {
