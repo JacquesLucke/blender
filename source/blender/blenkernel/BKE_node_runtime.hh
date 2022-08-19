@@ -157,18 +157,6 @@ inline bool topology_cache_is_available(const bNodeTree &tree)
   return !tree.runtime->topology_cache_is_dirty;
 }
 
-inline bNode &socket_owner_node(bNodeSocket &socket)
-{
-  BLI_assert(topology_cache_is_available(socket));
-  return *socket.runtime->owner_node;
-}
-
-inline const bNode &socket_owner_node(const bNodeSocket &socket)
-{
-  BLI_assert(topology_cache_is_available(socket));
-  return *socket.runtime->owner_node;
-}
-
 inline bool is_group_node(const bNode &node)
 {
   BLI_assert(topology_cache_is_available(node));
@@ -375,4 +363,16 @@ inline int bNodeSocket::index_in_tree() const
 {
   BLI_assert(blender::bke::node::topology_cache_is_available(*this));
   return this->runtime->index_in_all_sockets;
+}
+
+inline bNode &bNodeSocket::owner_node()
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return *this->runtime->owner_node;
+}
+
+inline const bNode &bNodeSocket::owner_node() const
+{
+  BLI_assert(blender::bke::node::topology_cache_is_available(*this));
+  return *this->runtime->owner_node;
 }

@@ -57,6 +57,7 @@ struct bNodeLink;
 struct bNodePreview;
 struct bNodeTreeExec;
 struct bNodeType;
+struct bNode;
 struct uiBlock;
 
 #define NODE_MAXSTR 64
@@ -188,6 +189,8 @@ typedef struct bNodeSocket {
 #ifdef __cplusplus
   int index_in_node() const;
   int index_in_tree() const;
+  bNode &owner_node();
+  const bNode &owner_node() const;
 #endif
 } bNodeSocket;
 

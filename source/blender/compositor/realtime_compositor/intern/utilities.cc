@@ -108,8 +108,7 @@ InputDescriptor input_descriptor_from_input_socket(const bNodeSocket *socket)
   using namespace nodes;
   InputDescriptor input_descriptor;
   input_descriptor.type = get_node_socket_result_type(socket);
-  const NodeDeclaration *node_declaration = bke::node::node_declaration(
-      bke::node::socket_owner_node(*socket));
+  const NodeDeclaration *node_declaration = bke::node::node_declaration(socket->owner_node());
   /* Not every node have a declaration, in which case, we assume the default values for the rest of
    * the properties. */
   if (!node_declaration) {

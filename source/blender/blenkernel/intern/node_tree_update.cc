@@ -271,7 +271,7 @@ static OutputFieldDependency find_group_output_dependencies(
     }
 
     for (const bNodeSocket *origin_socket : node::directly_linked_sockets(*input_socket)) {
-      const bNode &origin_node = node::socket_owner_node(*origin_socket);
+      const bNode &origin_node = origin_socket->owner_node();
       const SocketFieldState &origin_state =
           field_state_by_socket_id[origin_socket->index_in_tree()];
 
