@@ -184,6 +184,11 @@ typedef struct bNodeSocket {
   bNodeStack ns DNA_DEPRECATED;
 
   bNodeSocketRuntimeHandle *runtime;
+
+#ifdef __cplusplus
+  int index_in_node() const;
+  int index_in_tree() const;
+#endif
 } bNodeSocket;
 
 /** #bNodeSocket.type & #bNodeSocketType.type */

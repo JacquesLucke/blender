@@ -103,7 +103,7 @@ static InputSocketFieldType get_interface_input_field_type(const bNode &node,
   BLI_assert(node_decl != nullptr);
 
   /* Get the field type from the declaration. */
-  const SocketDeclaration &socket_decl = *node_decl->inputs()[node::socket_index_in_node(socket)];
+  const SocketDeclaration &socket_decl = *node_decl->inputs()[socket.index_in_node()];
   const InputSocketFieldType field_type = socket_decl.input_field_type();
   if (field_type == InputSocketFieldType::Implicit) {
     return field_type;
@@ -146,7 +146,7 @@ static OutputFieldDependency get_interface_output_field_dependency(const bNode &
   }
 
   /* Use the socket declaration. */
-  const SocketDeclaration &socket_decl = *node_decl->outputs()[node::socket_index_in_node(socket)];
+  const SocketDeclaration &socket_decl = *node_decl->outputs()[socket.index_in_node()];
   return socket_decl.output_field_dependency();
 }
 
@@ -265,7 +265,7 @@ static OutputFieldDependency find_group_output_dependencies(
     const bNodeSocket *input_socket = sockets_to_check.pop();
 
     if (node::directly_linked_links(*input_socket).is_empty() &&
-        !field_state_by_socket_id[node::socket_index_in_all(*input_socket)].is_single) {
+        !field_state_by_socket_id[input_socket->index_in_tree()].is_single) {
       /* This socket uses a field as input by default. */
       return OutputFieldDependency::ForFieldSource();
     }
@@ -273,12 +273,12 @@ static OutputFieldDependency find_group_output_dependencies(
     for (const bNodeSocket *origin_socket : node::directly_linked_sockets(*input_socket)) {
       const bNode &origin_node = node::socket_owner_node(*origin_socket);
       const SocketFieldState &origin_state =
-          field_state_by_socket_id[node::socket_index_in_all(*origin_socket)];
+          field_state_by_socket_id[origin_socket->index_in_tree()];
 
       if (origin_state.is_field_source) {
         if (origin_node.type == NODE_GROUP_INPUT) {
           /* Found a group input that the group output depends on. */
-          linked_input_indices.append_non_duplicates(node::socket_index_in_node(*origin_socket));
+          linked_input_indices.append_non_duplicates(origin_socket->index_in_node());
         }
         else {
           /* Found a field source that is not the group input. So the output is always a field. */
@@ -289,7 +289,7 @@ static OutputFieldDependency find_group_output_dependencies(
         const FieldInferencingInterface inferencing_interface =
             get_node_field_inferencing_interface(origin_node);
         const OutputFieldDependency &field_dependency =
-            inferencing_interface.outputs[node::socket_index_in_node(*origin_socket)];
+            inferencing_interface.outputs[origin_socket->index_in_node()];
 
         /* Propagate search further to the left. */
         for (const bNodeSocket *origin_input_socket :
@@ -297,8 +297,7 @@ static OutputFieldDependency find_group_output_dependencies(
           if (origin_input_socket->flag & SOCK_UNAVAIL) {
             continue;
           }
-          if (!field_state_by_socket_id[node::socket_index_in_all(*origin_input_socket)]
-                   .is_single) {
+          if (!field_state_by_socket_id[origin_input_socket->index_in_tree()].is_single) {
             if (handled_sockets.add(origin_input_socket)) {
               sockets_to_check.push(origin_input_socket);
             }
@@ -320,11 +319,10 @@ static void propagate_data_requirements_from_right_to_left(
         *node);
 
     for (const bNodeSocket *output_socket : node->output_sockets()) {
-      SocketFieldState &state =
-          field_state_by_socket_id[node::socket_index_in_all(*output_socket)];
+      SocketFieldState &state = field_state_by_socket_id[output_socket->index_in_tree()];
 
       const OutputFieldDependency &field_dependency =
-          inferencing_interface.outputs[node::socket_index_in_node(*output_socket)];
+          inferencing_interface.outputs[output_socket->index_in_node()];
 
       if (field_dependency.field_type() == OutputSocketFieldType::FieldSource) {
         continue;
@@ -340,7 +338,7 @@ static void propagate_data_requirements_from_right_to_left(
       for (const bNodeSocket *target_socket : node::directly_linked_sockets(*output_socket)) {
         if ((target_socket->flag & SOCK_UNAVAIL) == 0) {
           state.requires_single |=
-              field_state_by_socket_id[node::socket_index_in_all(*target_socket)].requires_single;
+              field_state_by_socket_id[target_socket->index_in_tree()].requires_single;
         }
       }
 
@@ -352,7 +350,7 @@ static void propagate_data_requirements_from_right_to_left(
           if (input_socket->flag & SOCK_UNAVAIL) {
             continue;
           }
-          if (inferencing_interface.inputs[node::socket_index_in_node(*input_socket)] ==
+          if (inferencing_interface.inputs[input_socket->index_in_node()] ==
               InputSocketFieldType::Implicit) {
             if (node::logically_linked_sockets(*input_socket).is_empty()) {
               any_input_is_field_implicitly = true;
@@ -368,8 +366,7 @@ static void propagate_data_requirements_from_right_to_left(
           /* If the output is required to be a single value, the connected inputs in the same node
            * must not be fields as well. */
           for (const bNodeSocket *input_socket : connected_inputs) {
-            field_state_by_socket_id[node::socket_index_in_all(*input_socket)].requires_single =
-                true;
+            field_state_by_socket_id[input_socket->index_in_tree()].requires_single = true;
           }
         }
       }
@@ -377,8 +374,8 @@ static void propagate_data_requirements_from_right_to_left(
 
     /* Some inputs do not require fields independent of what the outputs are connected to. */
     for (const bNodeSocket *input_socket : node->input_sockets()) {
-      SocketFieldState &state = field_state_by_socket_id[node::socket_index_in_all(*input_socket)];
-      if (inferencing_interface.inputs[node::socket_index_in_node(*input_socket)] ==
+      SocketFieldState &state = field_state_by_socket_id[input_socket->index_in_tree()];
+      if (inferencing_interface.inputs[input_socket->index_in_node()] ==
           InputSocketFieldType::None) {
         state.requires_single = true;
         state.is_always_single = true;
@@ -405,10 +402,9 @@ static void determine_group_input_states(
    * connected to some socket that does not support fields. */
   for (const bNode *node : node::nodes_by_type(tree, "NodeGroupInput")) {
     for (const bNodeSocket *output_socket : node->output_sockets().drop_back(1)) {
-      SocketFieldState &state =
-          field_state_by_socket_id[node::socket_index_in_all(*output_socket)];
+      SocketFieldState &state = field_state_by_socket_id[output_socket->index_in_tree()];
       if (state.requires_single) {
-        new_inferencing_interface.inputs[node::socket_index_in_node(*output_socket)] =
+        new_inferencing_interface.inputs[output_socket->index_in_node()] =
             InputSocketFieldType::None;
       }
     }
@@ -416,10 +412,9 @@ static void determine_group_input_states(
   /* If an input does not support fields, this should be reflected in all Group Input nodes. */
   for (const bNode *node : node::nodes_by_type(tree, "NodeGroupInput")) {
     for (const bNodeSocket *output_socket : node->output_sockets().drop_back(1)) {
-      SocketFieldState &state =
-          field_state_by_socket_id[node::socket_index_in_all(*output_socket)];
+      SocketFieldState &state = field_state_by_socket_id[output_socket->index_in_tree()];
       const bool supports_field =
-          new_inferencing_interface.inputs[node::socket_index_in_node(*output_socket)] !=
+          new_inferencing_interface.inputs[output_socket->index_in_node()] !=
           InputSocketFieldType::None;
       if (supports_field) {
         state.is_single = false;
@@ -430,7 +425,7 @@ static void determine_group_input_states(
       }
     }
     SocketFieldState &dummy_socket_state =
-        field_state_by_socket_id[node::socket_index_in_all(*node->output_sockets().last())];
+        field_state_by_socket_id[node->output_sockets().last()->index_in_tree()];
     dummy_socket_state.requires_single = true;
   }
 }
@@ -450,21 +445,21 @@ static void propagate_field_status_from_left_to_right(
 
     /* Update field state of input sockets, also taking into account linked origin sockets. */
     for (const bNodeSocket *input_socket : node->input_sockets()) {
-      SocketFieldState &state = field_state_by_socket_id[node::socket_index_in_all(*input_socket)];
+      SocketFieldState &state = field_state_by_socket_id[input_socket->index_in_tree()];
       if (state.is_always_single) {
         state.is_single = true;
         continue;
       }
       state.is_single = true;
       if (node::directly_linked_sockets(*input_socket).is_empty()) {
-        if (inferencing_interface.inputs[node::socket_index_in_node(*input_socket)] ==
+        if (inferencing_interface.inputs[input_socket->index_in_node()] ==
             InputSocketFieldType::Implicit) {
           state.is_single = false;
         }
       }
       else {
         for (const bNodeSocket *origin_socket : node::directly_linked_sockets(*input_socket)) {
-          if (!field_state_by_socket_id[node::socket_index_in_all(*origin_socket)].is_single) {
+          if (!field_state_by_socket_id[origin_socket->index_in_tree()].is_single) {
             state.is_single = false;
             break;
           }
@@ -474,10 +469,9 @@ static void propagate_field_status_from_left_to_right(
 
     /* Update field state of output sockets, also taking into account input sockets. */
     for (const bNodeSocket *output_socket : node->output_sockets()) {
-      SocketFieldState &state =
-          field_state_by_socket_id[node::socket_index_in_all(*output_socket)];
+      SocketFieldState &state = field_state_by_socket_id[output_socket->index_in_tree()];
       const OutputFieldDependency &field_dependency =
-          inferencing_interface.outputs[node::socket_index_in_node(*output_socket)];
+          inferencing_interface.outputs[output_socket->index_in_node()];
 
       switch (field_dependency.field_type()) {
         case OutputSocketFieldType::None: {
@@ -496,7 +490,7 @@ static void propagate_field_status_from_left_to_right(
             if (input_socket->type == SOCK_UNAVAIL) {
               continue;
             }
-            if (!field_state_by_socket_id[node::socket_index_in_all(*input_socket)].is_single) {
+            if (!field_state_by_socket_id[input_socket->index_in_tree()].is_single) {
               state.is_single = false;
               break;
             }
@@ -522,8 +516,8 @@ static void determine_group_output_states(const bNodeTree &tree,
          group_output_node->input_sockets().drop_back(1)) {
       OutputFieldDependency field_dependency = find_group_output_dependencies(
           *group_output_socket, field_state_by_socket_id);
-      new_inferencing_interface.outputs[node::socket_index_in_node(*group_output_socket)] =
-          std::move(field_dependency);
+      new_inferencing_interface.outputs[group_output_socket->index_in_node()] = std::move(
+          field_dependency);
     }
     break;
   }
@@ -550,11 +544,11 @@ static void update_socket_shapes(const bNodeTree &tree,
   };
 
   for (const bNodeSocket *socket : node::all_inputs_in_tree(tree)) {
-    const SocketFieldState &state = field_state_by_socket_id[node::socket_index_in_all(*socket)];
+    const SocketFieldState &state = field_state_by_socket_id[socket->index_in_tree()];
     const_cast<bNodeSocket *>(socket)->display_shape = get_shape_for_state(state);
   }
   for (const bNodeSocket *socket : node::all_outputs_in_tree(tree)) {
-    const SocketFieldState &state = field_state_by_socket_id[node::socket_index_in_all(*socket)];
+    const SocketFieldState &state = field_state_by_socket_id[socket->index_in_tree()];
     const_cast<bNodeSocket *>(socket)->display_shape = get_shape_for_state(state);
   }
 }

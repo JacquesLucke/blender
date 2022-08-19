@@ -35,12 +35,12 @@ GPUNodeStack *ShaderNode::get_outputs_array()
 
 GPUNodeStack &ShaderNode::get_input(StringRef identifier)
 {
-  return inputs_[bke::node::socket_index_in_node(*node_.input_by_identifier(identifier))];
+  return inputs_[node_.input_by_identifier(identifier)->index_in_node()];
 }
 
 GPUNodeStack &ShaderNode::get_output(StringRef identifier)
 {
-  return outputs_[bke::node::socket_index_in_node(*node_.output_by_identifier(identifier))];
+  return outputs_[node_.output_by_identifier(identifier)->index_in_node()];
 }
 
 GPUNodeLink *ShaderNode::get_input_link(StringRef identifier)

@@ -97,7 +97,7 @@ DOutputSocket DInputSocket::get_corresponding_group_node_output() const
 {
   BLI_assert(*this);
   BLI_assert(node::socket_owner_node(*bsocket_).type == NODE_GROUP_OUTPUT);
-  BLI_assert(node::socket_index_in_node(*bsocket_) <
+  BLI_assert(bsocket_->index_in_node() <
              node::socket_owner_node(*bsocket_).input_sockets().size() - 1);
 
   const DTreeContext *parent_context = context_->parent_context();
@@ -105,7 +105,7 @@ DOutputSocket DInputSocket::get_corresponding_group_node_output() const
   BLI_assert(parent_context != nullptr);
   BLI_assert(parent_node != nullptr);
 
-  const int socket_index = node::socket_index_in_node(*bsocket_);
+  const int socket_index = bsocket_->index_in_node();
   return {parent_context, &parent_node->output_socket(socket_index)};
 }
 
@@ -119,7 +119,7 @@ Vector<DOutputSocket> DInputSocket::get_corresponding_group_input_sockets() cons
 
   const bNodeTree &child_tree = child_context->btree();
   Span<const bNode *> group_input_nodes = node::nodes_by_type(child_tree, "NodeGroupInput");
-  const int socket_index = node::socket_index_in_node(*bsocket_);
+  const int socket_index = bsocket_->index_in_node();
   Vector<DOutputSocket> sockets;
   for (const bNode *group_input_node : group_input_nodes) {
     sockets.append(DOutputSocket(child_context, &group_input_node->output_socket(socket_index)));
@@ -131,7 +131,7 @@ DInputSocket DOutputSocket::get_corresponding_group_node_input() const
 {
   BLI_assert(*this);
   BLI_assert(node::socket_owner_node(*bsocket_).type == NODE_GROUP_INPUT);
-  BLI_assert(node::socket_index_in_node(*bsocket_) <
+  BLI_assert(bsocket_->index_in_node() <
              node::socket_owner_node(*bsocket_).output_sockets().size() - 1);
 
   const DTreeContext *parent_context = context_->parent_context();
@@ -139,7 +139,7 @@ DInputSocket DOutputSocket::get_corresponding_group_node_input() const
   BLI_assert(parent_context != nullptr);
   BLI_assert(parent_node != nullptr);
 
-  const int socket_index = node::socket_index_in_node(*bsocket_);
+  const int socket_index = bsocket_->index_in_node();
   return {parent_context, &parent_node->input_socket(socket_index)};
 }
 
@@ -157,7 +157,7 @@ DInputSocket DOutputSocket::get_active_corresponding_group_output_socket() const
 
   const bNodeTree &child_tree = child_context->btree();
   Span<const bNode *> group_output_nodes = node::nodes_by_type(child_tree, "NodeGroupOutput");
-  const int socket_index = node::socket_index_in_node(*bsocket_);
+  const int socket_index = bsocket_->index_in_node();
   for (const bNode *group_output_node : group_output_nodes) {
     if (group_output_node->flag & NODE_DO_OUTPUT || group_output_nodes.size() == 1) {
       return {child_context, &group_output_node->input_socket(socket_index)};
