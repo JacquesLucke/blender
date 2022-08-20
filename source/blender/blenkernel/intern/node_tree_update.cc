@@ -988,10 +988,9 @@ class NodeTreeMainUpdater {
     this->update_socket_link_and_use(*tree_ref);
     this->update_individual_nodes(ntree, tree_ref);
     this->update_internal_links(ntree, tree_ref);
-    this->update_generic_callback(ntree, tree_ref);
+    this->update_generic_callback(ntree);
     this->remove_unused_previews_when_necessary(ntree);
 
-    this->ensure_tree_ref(ntree, tree_ref);
     this->propagate_runtime_flags(ntree);
     if (ntree.type == NTREE_GEOMETRY) {
       if (node_field_inferencing::update_field_inferencing(*tree_ref->btree())) {
@@ -1233,23 +1232,12 @@ class NodeTreeMainUpdater {
     BKE_ntree_update_tag_node_internal_link(&ntree, &node);
   }
 
-  void update_generic_callback(bNodeTree &ntree, std::unique_ptr<NodeTreeRef> &tree_ref)
+  void update_generic_callback(bNodeTree &ntree)
   {
     if (ntree.typeinfo->update == nullptr) {
       return;
     }
-
-    /* Reset the changed_flag to allow detecting when the update callback changed the node tree. */
-    const uint32_t old_changed_flag = ntree.runtime->changed_flag;
-    ntree.runtime->changed_flag = NTREE_CHANGED_NOTHING;
-
     ntree.typeinfo->update(&ntree);
-
-    if (ntree.runtime->changed_flag != NTREE_CHANGED_NOTHING) {
-      /* The tree ref is outdated and needs to be rebuilt. */
-      tree_ref.reset();
-    }
-    ntree.runtime->changed_flag |= old_changed_flag;
   }
 
   void remove_unused_previews_when_necessary(bNodeTree &ntree)
@@ -1266,6 +1254,8 @@ class NodeTreeMainUpdater {
 
   void propagate_runtime_flags(const bNodeTree &ntree)
   {
+    ntree.ensure_topology_cache();
+
     ntree.runtime->runtime_flag = 0;
     if (ntree.type != NTREE_SHADER) {
       return;
