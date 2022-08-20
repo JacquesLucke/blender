@@ -326,7 +326,7 @@ MTLMaterial mtlmaterial_for_material(const Material *material)
   std::replace(mtlmat.name.begin(), mtlmat.name.end(), ' ', '_');
   const bNodeTree *nodetree = material->nodetree;
   if (nodetree != nullptr) {
-    bke::node_tree_runtime::ensure_topology_cache(*nodetree);
+    nodetree->ensure_topology_cache();
   }
 
   const bNode *bsdf_node = find_bsdf_node(nodetree);

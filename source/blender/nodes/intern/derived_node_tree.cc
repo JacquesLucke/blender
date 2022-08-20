@@ -20,7 +20,7 @@ DTreeContext &DerivedNodeTree::construct_context_recursively(DTreeContext *paren
                                                              const bNode *parent_node,
                                                              const bNodeTree &btree)
 {
-  bke::node_tree_runtime::ensure_topology_cache(btree);
+  btree.ensure_topology_cache();
   DTreeContext &context = *allocator_.construct<DTreeContext>().release();
   context.parent_context_ = parent_context;
   context.parent_node_ = parent_node;

@@ -358,7 +358,7 @@ static void update_group_output_node(const bNodeTree &ntree)
   }
 }
 
-void ensure_topology_cache(const bNodeTree &ntree)
+static void ensure_topology_cache(const bNodeTree &ntree)
 {
   bNodeTreeRuntime &tree_runtime = *ntree.runtime;
   double_checked_lock_with_task_isolation(
@@ -389,3 +389,8 @@ void ensure_topology_cache(const bNodeTree &ntree)
 }
 
 }  // namespace blender::bke::node_tree_runtime
+
+void bNodeTree::ensure_topology_cache() const
+{
+  blender::bke::node_tree_runtime::ensure_topology_cache(*this);
+}

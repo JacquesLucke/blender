@@ -575,6 +575,7 @@ typedef struct bNodeTree {
   bNodeTreeRuntimeHandle *runtime;
 
 #ifdef __cplusplus
+  void ensure_topology_cache() const;
   blender::Span<bNode *> all_nodes();
   blender::Span<const bNode *> all_nodes() const;
   blender::Span<bNodeSocket *> all_input_sockets();

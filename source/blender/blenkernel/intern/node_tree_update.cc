@@ -555,7 +555,7 @@ static void update_socket_shapes(const bNodeTree &tree,
 
 static bool update_field_inferencing(const bNodeTree &tree)
 {
-  node_tree_runtime::ensure_topology_cache(tree);
+  tree.ensure_topology_cache();
 
   /* Create new inferencing interface for this node group. */
   std::unique_ptr<FieldInferencingInterface> new_inferencing_interface =
@@ -999,7 +999,6 @@ class NodeTreeMainUpdater {
       }
     }
 
-    bke::node_tree_runtime::ensure_topology_cache(ntree);
     result.output_changed = this->check_if_output_changed(ntree);
 
     this->update_socket_link_and_use(*tree_ref);
@@ -1328,6 +1327,8 @@ class NodeTreeMainUpdater {
 
   bool check_if_output_changed(const bNodeTree &tree)
   {
+    tree.ensure_topology_cache();
+
     /* Compute a hash that represents the node topology connected to the output. This always has to
      * be updated even if it is not used to detect changes right now. Otherwise
      * #btree.runtime.output_topology_hash will go out of date. */

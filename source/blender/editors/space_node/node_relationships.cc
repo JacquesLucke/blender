@@ -682,7 +682,7 @@ static int node_link_viewer(const bContext &C, bNode &bnode_to_view)
 {
   SpaceNode &snode = *CTX_wm_space_node(&C);
   bNodeTree *btree = snode.edittree;
-  bke::node_tree_runtime::ensure_topology_cache(*btree);
+  btree->ensure_topology_cache();
 
   bNode *active_viewer_bnode = const_cast<bNode *>(get_existing_viewer(*btree));
   bNodeSocket *bsocket_to_view = const_cast<bNodeSocket *>(

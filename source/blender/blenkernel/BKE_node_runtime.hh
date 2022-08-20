@@ -137,8 +137,6 @@ class bNodeRuntime : NonCopyable, NonMovable {
 };
 
 namespace node_tree_runtime {
-void ensure_topology_cache(const bNodeTree &ntree);
-
 inline bool topology_cache_is_available(const bNode &node)
 {
   return !node.runtime->owner_tree->runtime->topology_cache_is_dirty;
