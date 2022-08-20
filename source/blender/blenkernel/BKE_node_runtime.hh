@@ -403,6 +403,11 @@ inline bool bNode::is_group_node() const
   return this->runtime->is_group_node;
 }
 
+inline bool bNode::is_muted() const
+{
+  return this->flag & NODE_MUTED;
+}
+
 inline blender::Span<const bNodeLink *> bNode::internal_links_span() const
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
@@ -435,4 +440,9 @@ inline bool bNodeSocket::is_input() const
 inline bool bNodeSocket::is_output() const
 {
   return this->in_out == SOCK_OUT;
+}
+
+inline bool bNodeSocket::is_multi_input() const
+{
+  return this->flag & SOCK_MULTI_INPUT;
 }
