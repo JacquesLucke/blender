@@ -18,6 +18,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
 #include "BKE_screen.h"
 
@@ -46,13 +47,10 @@
 #include "BLT_translation.h"
 
 #include "NOD_node_declaration.hh"
-#include "NOD_node_tree_ref.hh"
 #include "NOD_socket_declarations.hh"
 #include "NOD_socket_declarations_geometry.hh"
 
 #include "node_intern.hh" /* own include */
-
-using namespace blender::nodes::node_tree_ref_types;
 
 struct bNodeListItem {
   struct bNodeListItem *next, *prev;
@@ -2043,7 +2041,7 @@ static bNodeSocket *get_main_socket(bNodeTree &ntree, bNode &node, eNodeSocketIn
 
   /* Try to get the main socket based on the socket declaration. */
   nodeDeclarationEnsure(&ntree, &node);
-  const nodes::NodeDeclaration *node_decl = node.runtime->declaration;
+  const nodes::NodeDeclaration *node_decl = node.declaration();
   if (node_decl != nullptr) {
     Span<nodes::SocketDeclarationPtr> socket_decls = (in_out == SOCK_IN) ? node_decl->inputs() :
                                                                            node_decl->outputs();

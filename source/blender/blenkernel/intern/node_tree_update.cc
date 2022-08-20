@@ -21,7 +21,6 @@
 #include "MOD_nodes.h"
 
 #include "NOD_node_declaration.hh"
-#include "NOD_node_tree_ref.hh"
 #include "NOD_texture.h"
 
 #include "DEG_depsgraph_query.h"
@@ -1014,13 +1013,6 @@ class NodeTreeMainUpdater {
     return result;
   }
 
-  void ensure_tree_ref(bNodeTree &ntree, std::unique_ptr<NodeTreeRef> &tree_ref)
-  {
-    if (!tree_ref) {
-      tree_ref = std::make_unique<NodeTreeRef>(&ntree);
-    }
-  }
-
   void update_socket_link_and_use(bNodeTree &tree)
   {
     tree.ensure_topology_cache();
@@ -1051,8 +1043,6 @@ class NodeTreeMainUpdater {
 
   void update_individual_nodes(bNodeTree &ntree)
   {
-    /* Iterate over nodes instead of #NodeTreeRef, because the #tree_ref might be outdated after
-     * some update functions. */
     LISTBASE_FOREACH (bNode *, node, &ntree.nodes) {
       ntree.ensure_topology_cache();
       if (this->should_update_individual_node(ntree, *node)) {

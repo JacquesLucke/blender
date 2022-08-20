@@ -6,6 +6,7 @@
 
 #include "BKE_image.h"
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 
 #include "BLI_map.hh"
 #include "BLI_math_vector.h"
@@ -14,8 +15,6 @@
 
 #include "DNA_material_types.h"
 #include "DNA_node_types.h"
-
-#include "NOD_node_tree_ref.hh"
 
 #include "obj_export_mesh.hh"
 #include "obj_export_mtl.hh"
