@@ -1044,10 +1044,14 @@ class NodeTreeMainUpdater {
   void update_individual_nodes(bNodeTree &ntree)
   {
     LISTBASE_FOREACH (bNode *, node, &ntree.nodes) {
-      ntree.ensure_topology_cache();
       if (this->should_update_individual_node(ntree, *node)) {
-        /* This may set #ntree.runtime->changed_flag which is detected below. */
-        this->update_individual_node(ntree, *node);
+        bNodeType &ntype = *node->typeinfo;
+        if (ntype.group_update_func) {
+          ntype.group_update_func(&ntree, node);
+        }
+        if (ntype.updatefunc) {
+          ntype.updatefunc(&ntree, node);
+        }
       }
     }
   }
@@ -1061,6 +1065,7 @@ class NodeTreeMainUpdater {
       return true;
     }
     if (ntree.runtime->changed_flag & NTREE_CHANGED_LINK) {
+      ntree.ensure_topology_cache();
       /* Node groups currently always rebuilt their sockets when they are updated.
        * So avoid calling the update method when no new link was added to it. */
       if (node.type == NODE_GROUP_INPUT) {
@@ -1084,17 +1089,6 @@ class NodeTreeMainUpdater {
       }
     }
     return false;
-  }
-
-  void update_individual_node(bNodeTree &ntree, bNode &node)
-  {
-    bNodeType &ntype = *node.typeinfo;
-    if (ntype.group_update_func) {
-      ntype.group_update_func(&ntree, &node);
-    }
-    if (ntype.updatefunc) {
-      ntype.updatefunc(&ntree, &node);
-    }
   }
 
   void update_internal_links(bNodeTree &ntree)

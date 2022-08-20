@@ -8,6 +8,7 @@
 #include "BLI_function_ref.hh"
 #include "BLI_stack.hh"
 #include "BLI_task.hh"
+#include "BLI_timeit.hh"
 
 namespace blender::bke::node_tree_runtime {
 
@@ -70,32 +71,27 @@ static void update_internal_links(const bNodeTree &ntree)
 static void update_socket_vectors_and_owner_node(const bNodeTree &ntree)
 {
   bNodeTreeRuntime &tree_runtime = *ntree.runtime;
-  threading::parallel_for(tree_runtime.nodes.index_range(), 128, [&](const IndexRange range) {
-    for (const int i : range) {
-      bNode &node = *tree_runtime.nodes[i];
-      bNodeRuntime &node_runtime = *node.runtime;
-      node_runtime.inputs.clear();
-      node_runtime.outputs.clear();
-      LISTBASE_FOREACH (bNodeSocket *, socket, &node.inputs) {
-        socket->runtime->index_in_node = node_runtime.inputs.append_and_get_index(socket);
-        socket->runtime->index_in_all_sockets = tree_runtime.sockets.append_and_get_index(socket);
-        socket->runtime->index_in_inout_sockets = tree_runtime.input_sockets.append_and_get_index(
-            socket);
-        socket->runtime->owner_node = &node;
-        tree_runtime.has_undefined_nodes_or_sockets |= socket->typeinfo ==
-                                                       &NodeSocketTypeUndefined;
-      }
-      LISTBASE_FOREACH (bNodeSocket *, socket, &node.outputs) {
-        socket->runtime->index_in_node = node_runtime.outputs.append_and_get_index(socket);
-        socket->runtime->index_in_all_sockets = tree_runtime.sockets.append_and_get_index(socket);
-        socket->runtime->index_in_inout_sockets = tree_runtime.output_sockets.append_and_get_index(
-            socket);
-        socket->runtime->owner_node = &node;
-        tree_runtime.has_undefined_nodes_or_sockets |= socket->typeinfo ==
-                                                       &NodeSocketTypeUndefined;
-      }
+  for (bNode *node : tree_runtime.nodes) {
+    bNodeRuntime &node_runtime = *node->runtime;
+    node_runtime.inputs.clear();
+    node_runtime.outputs.clear();
+    LISTBASE_FOREACH (bNodeSocket *, socket, &node->inputs) {
+      socket->runtime->index_in_node = node_runtime.inputs.append_and_get_index(socket);
+      socket->runtime->index_in_all_sockets = tree_runtime.sockets.append_and_get_index(socket);
+      socket->runtime->index_in_inout_sockets = tree_runtime.input_sockets.append_and_get_index(
+          socket);
+      socket->runtime->owner_node = node;
+      tree_runtime.has_undefined_nodes_or_sockets |= socket->typeinfo == &NodeSocketTypeUndefined;
     }
-  });
+    LISTBASE_FOREACH (bNodeSocket *, socket, &node->outputs) {
+      socket->runtime->index_in_node = node_runtime.outputs.append_and_get_index(socket);
+      socket->runtime->index_in_all_sockets = tree_runtime.sockets.append_and_get_index(socket);
+      socket->runtime->index_in_inout_sockets = tree_runtime.output_sockets.append_and_get_index(
+          socket);
+      socket->runtime->owner_node = node;
+      tree_runtime.has_undefined_nodes_or_sockets |= socket->typeinfo == &NodeSocketTypeUndefined;
+    }
+  }
 }
 
 static void update_directly_linked_links_and_sockets(const bNodeTree &ntree)
