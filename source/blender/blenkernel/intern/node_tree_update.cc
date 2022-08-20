@@ -999,7 +999,8 @@ class NodeTreeMainUpdater {
       }
     }
 
-    result.output_changed = this->check_if_output_changed(*tree_ref);
+    bke::node_tree_runtime::ensure_topology_cache(ntree);
+    result.output_changed = this->check_if_output_changed(ntree);
 
     this->update_socket_link_and_use(*tree_ref);
     this->update_node_levels(ntree);
@@ -1325,20 +1326,18 @@ class NodeTreeMainUpdater {
     }
   }
 
-  bool check_if_output_changed(const NodeTreeRef &tree)
+  bool check_if_output_changed(const bNodeTree &tree)
   {
-    bNodeTree &btree = *tree.btree();
-
     /* Compute a hash that represents the node topology connected to the output. This always has to
      * be updated even if it is not used to detect changes right now. Otherwise
      * #btree.runtime.output_topology_hash will go out of date. */
-    const Vector<const SocketRef *> tree_output_sockets = this->find_output_sockets(tree);
-    const uint32_t old_topology_hash = btree.runtime->output_topology_hash;
+    const Vector<const bNodeSocket *> tree_output_sockets = this->find_output_sockets(tree);
+    const uint32_t old_topology_hash = tree.runtime->output_topology_hash;
     const uint32_t new_topology_hash = this->get_combined_socket_topology_hash(
         tree, tree_output_sockets);
-    btree.runtime->output_topology_hash = new_topology_hash;
+    tree.runtime->output_topology_hash = new_topology_hash;
 
-    if (const AnimData *adt = BKE_animdata_from_id(&btree.id)) {
+    if (const AnimData *adt = BKE_animdata_from_id(&tree.id)) {
       /* Drivers may copy values in the node tree around arbitrarily and may cause the output to
        * change even if it wouldn't without drivers. Only some special drivers like `frame/5` can
        * be used without causing updates all the time currently. In the future we could try to
@@ -1360,7 +1359,7 @@ class NodeTreeMainUpdater {
       }
     }
 
-    if (btree.runtime->changed_flag & NTREE_CHANGED_ANY) {
+    if (tree.runtime->changed_flag & NTREE_CHANGED_ANY) {
       return true;
     }
 
@@ -1369,8 +1368,8 @@ class NodeTreeMainUpdater {
     }
 
     /* The topology hash can only be used when only topology-changing operations have been done. */
-    if (btree.runtime->changed_flag ==
-        (btree.runtime->changed_flag & (NTREE_CHANGED_LINK | NTREE_CHANGED_REMOVED_NODE))) {
+    if (tree.runtime->changed_flag ==
+        (tree.runtime->changed_flag & (NTREE_CHANGED_LINK | NTREE_CHANGED_REMOVED_NODE))) {
       if (old_topology_hash == new_topology_hash) {
         return false;
       }
@@ -1383,15 +1382,15 @@ class NodeTreeMainUpdater {
     return true;
   }
 
-  Vector<const SocketRef *> find_output_sockets(const NodeTreeRef &tree)
+  Vector<const bNodeSocket *> find_output_sockets(const bNodeTree &tree)
   {
-    Vector<const SocketRef *> sockets;
-    for (const NodeRef *node : tree.nodes()) {
+    Vector<const bNodeSocket *> sockets;
+    for (const bNode *node : tree.all_nodes()) {
       if (!this->is_output_node(*node)) {
         continue;
       }
-      for (const InputSocketRef *socket : node->inputs()) {
-        if (socket->idname() != "NodeSocketVirtual") {
+      for (const bNodeSocket *socket : node->input_sockets()) {
+        if (!STREQ(socket->idname, "NodeSocketVirtual")) {
           sockets.append(socket);
         }
       }
@@ -1399,18 +1398,17 @@ class NodeTreeMainUpdater {
     return sockets;
   }
 
-  bool is_output_node(const NodeRef &node) const
+  bool is_output_node(const bNode &node) const
   {
-    const bNode &bnode = *node.bnode();
-    if (bnode.typeinfo->nclass == NODE_CLASS_OUTPUT) {
+    if (node.typeinfo->nclass == NODE_CLASS_OUTPUT) {
       return true;
     }
-    if (bnode.type == NODE_GROUP_OUTPUT) {
+    if (node.type == NODE_GROUP_OUTPUT) {
       return true;
     }
     /* Assume node groups without output sockets are outputs. */
-    if (bnode.type == NODE_GROUP) {
-      const bNodeTree *node_group = reinterpret_cast<const bNodeTree *>(bnode.id);
+    if (node.type == NODE_GROUP) {
+      const bNodeTree *node_group = reinterpret_cast<const bNodeTree *>(node.id);
       if (node_group != nullptr &&
           node_group->runtime->runtime_flag & NTREE_RUNTIME_FLAG_HAS_MATERIAL_OUTPUT) {
         return true;
@@ -1423,10 +1421,10 @@ class NodeTreeMainUpdater {
    * Computes a hash that changes when the node tree topology connected to an output node changes.
    * Adding reroutes does not have an effect on the hash.
    */
-  uint32_t get_combined_socket_topology_hash(const NodeTreeRef &tree,
-                                             Span<const SocketRef *> sockets)
+  uint32_t get_combined_socket_topology_hash(const bNodeTree &tree,
+                                             Span<const bNodeSocket *> sockets)
   {
-    if (tree.has_link_cycles()) {
+    if (tree.has_link_cycle()) {
       /* Return dummy value when the link has any cycles. The algorithm below could be improved to
        * handle cycles more gracefully. */
       return 0;
@@ -1439,29 +1437,28 @@ class NodeTreeMainUpdater {
     return combined_hash;
   }
 
-  Array<uint32_t> get_socket_topology_hashes(const NodeTreeRef &tree,
-                                             Span<const SocketRef *> sockets)
+  Array<uint32_t> get_socket_topology_hashes(const bNodeTree &tree,
+                                             Span<const bNodeSocket *> sockets)
   {
-    BLI_assert(!tree.has_link_cycles());
-    Array<std::optional<uint32_t>> hash_by_socket_id(tree.sockets().size());
-    Stack<const SocketRef *> sockets_to_check = sockets;
+    BLI_assert(!tree.has_link_cycle());
+    Array<std::optional<uint32_t>> hash_by_socket_id(tree.all_sockets().size());
+    Stack<const bNodeSocket *> sockets_to_check = sockets;
 
     while (!sockets_to_check.is_empty()) {
-      const SocketRef &in_out_socket = *sockets_to_check.peek();
-      const NodeRef &node = in_out_socket.node();
+      const bNodeSocket &socket = *sockets_to_check.peek();
+      const bNode &node = socket.owner_node();
 
-      if (hash_by_socket_id[in_out_socket.id()].has_value()) {
+      if (hash_by_socket_id[socket.index_in_tree()].has_value()) {
         sockets_to_check.pop();
         /* Socket is handled already. */
         continue;
       }
 
-      if (in_out_socket.is_input()) {
+      if (socket.is_input()) {
         /* For input sockets, first compute the hashes of all linked sockets. */
-        const InputSocketRef &socket = in_out_socket.as_input();
         bool all_origins_computed = true;
-        for (const OutputSocketRef *origin_socket : socket.logically_linked_sockets()) {
-          if (!hash_by_socket_id[origin_socket->id()].has_value()) {
+        for (const bNodeSocket *origin_socket : socket.logically_linked_sockets()) {
+          if (!hash_by_socket_id[origin_socket->index_in_tree()].has_value()) {
             sockets_to_check.push(origin_socket);
             all_origins_computed = false;
           }
@@ -1471,22 +1468,21 @@ class NodeTreeMainUpdater {
         }
         /* When the hashes for the linked sockets are ready, combine them into a hash for the input
          * socket. */
-        const uint64_t socket_ptr = (uintptr_t)socket.bsocket();
+        const uint64_t socket_ptr = (uintptr_t)&socket;
         uint32_t socket_hash = noise::hash(socket_ptr, socket_ptr >> 32);
-        for (const OutputSocketRef *origin_socket : socket.logically_linked_sockets()) {
-          const uint32_t origin_socket_hash = *hash_by_socket_id[origin_socket->id()];
+        for (const bNodeSocket *origin_socket : socket.logically_linked_sockets()) {
+          const uint32_t origin_socket_hash = *hash_by_socket_id[origin_socket->index_in_tree()];
           socket_hash = noise::hash(socket_hash, origin_socket_hash);
         }
-        hash_by_socket_id[socket.id()] = socket_hash;
+        hash_by_socket_id[socket.index_in_tree()] = socket_hash;
         sockets_to_check.pop();
       }
       else {
         /* For output sockets, first compute the hashes of all available input sockets. */
-        const OutputSocketRef &socket = in_out_socket.as_output();
         bool all_available_inputs_computed = true;
-        for (const InputSocketRef *input_socket : node.inputs()) {
+        for (const bNodeSocket *input_socket : node.input_sockets()) {
           if (input_socket->is_available()) {
-            if (!hash_by_socket_id[input_socket->id()].has_value()) {
+            if (!hash_by_socket_id[input_socket->index_in_tree()].has_value()) {
               sockets_to_check.push(input_socket);
               all_available_inputs_computed = false;
             }
@@ -1497,25 +1493,25 @@ class NodeTreeMainUpdater {
         }
         /* When all input socket hashes have been computed, combine them into a hash for the output
          * socket. */
-        const uint64_t socket_ptr = (uintptr_t)socket.bsocket();
+        const uint64_t socket_ptr = (uintptr_t)&socket;
         uint32_t socket_hash = noise::hash(socket_ptr, socket_ptr >> 32);
-        for (const InputSocketRef *input_socket : node.inputs()) {
+        for (const bNodeSocket *input_socket : node.input_sockets()) {
           if (input_socket->is_available()) {
-            const uint32_t input_socket_hash = *hash_by_socket_id[input_socket->id()];
+            const uint32_t input_socket_hash = *hash_by_socket_id[input_socket->index_in_tree()];
             socket_hash = noise::hash(socket_hash, input_socket_hash);
           }
         }
         /* The Image Texture node has a special case. The behavior of the color output changes
          * depending on whether the Alpha output is linked. */
-        if (node.bnode()->type == SH_NODE_TEX_IMAGE && socket.index() == 0) {
-          BLI_assert(socket.name() == "Color");
-          const OutputSocketRef &alpha_socket = node.output(1);
-          BLI_assert(alpha_socket.name() == "Alpha");
+        if (node.type == SH_NODE_TEX_IMAGE && socket.index_in_node() == 0) {
+          BLI_assert(STREQ(socket.name, "Color"));
+          const bNodeSocket &alpha_socket = node.output_socket(1);
+          BLI_assert(STREQ(alpha_socket.name, "Alpha"));
           if (alpha_socket.is_directly_linked()) {
             socket_hash = noise::hash(socket_hash);
           }
         }
-        hash_by_socket_id[socket.id()] = socket_hash;
+        hash_by_socket_id[socket.index_in_tree()] = socket_hash;
         sockets_to_check.pop();
       }
     }
@@ -1523,7 +1519,7 @@ class NodeTreeMainUpdater {
     /* Create output array. */
     Array<uint32_t> hashes(sockets.size());
     for (const int i : sockets.index_range()) {
-      hashes[i] = *hash_by_socket_id[sockets[i]->id()];
+      hashes[i] = *hash_by_socket_id[sockets[i]->index_in_tree()];
     }
     return hashes;
   }
@@ -1532,37 +1528,34 @@ class NodeTreeMainUpdater {
    * Returns true when any of the provided sockets changed its values. A change is detected by
    * checking the #changed_flag on connected sockets and nodes.
    */
-  bool check_if_socket_outputs_changed_based_on_flags(const NodeTreeRef &tree,
-                                                      Span<const SocketRef *> sockets)
+  bool check_if_socket_outputs_changed_based_on_flags(const bNodeTree &tree,
+                                                      Span<const bNodeSocket *> sockets)
   {
     /* Avoid visiting the same socket twice when multiple links point to the same socket. */
-    Array<bool> pushed_by_socket_id(tree.sockets().size(), false);
-    Stack<const SocketRef *> sockets_to_check = sockets;
+    Array<bool> pushed_by_socket_id(tree.all_sockets().size(), false);
+    Stack<const bNodeSocket *> sockets_to_check = sockets;
 
-    for (const SocketRef *socket : sockets) {
-      pushed_by_socket_id[socket->id()] = true;
+    for (const bNodeSocket *socket : sockets) {
+      pushed_by_socket_id[socket->index_in_tree()] = true;
     }
 
     while (!sockets_to_check.is_empty()) {
-      const SocketRef &in_out_socket = *sockets_to_check.pop();
-      const NodeRef &node = in_out_socket.node();
-      const bNode &bnode = *node.bnode();
-      const bNodeSocket &bsocket = *in_out_socket.bsocket();
-      if (bsocket.runtime->changed_flag != NTREE_CHANGED_NOTHING) {
+      const bNodeSocket &socket = *sockets_to_check.pop();
+      const bNode &node = socket.owner_node();
+      if (socket.runtime->changed_flag != NTREE_CHANGED_NOTHING) {
         return true;
       }
-      if (bnode.runtime->changed_flag != NTREE_CHANGED_NOTHING) {
-        const bool only_unused_internal_link_changed = (bnode.flag & NODE_MUTED) == 0 &&
-                                                       bnode.runtime->changed_flag ==
+      if (node.runtime->changed_flag != NTREE_CHANGED_NOTHING) {
+        const bool only_unused_internal_link_changed = (node.flag & NODE_MUTED) == 0 &&
+                                                       node.runtime->changed_flag ==
                                                            NTREE_CHANGED_INTERNAL_LINK;
         if (!only_unused_internal_link_changed) {
           return true;
         }
       }
-      if (in_out_socket.is_input()) {
-        const InputSocketRef &socket = in_out_socket.as_input();
-        for (const OutputSocketRef *origin_socket : socket.logically_linked_sockets()) {
-          bool &pushed = pushed_by_socket_id[origin_socket->id()];
+      if (socket.is_input()) {
+        for (const bNodeSocket *origin_socket : socket.logically_linked_sockets()) {
+          bool &pushed = pushed_by_socket_id[origin_socket->index_in_tree()];
           if (!pushed) {
             sockets_to_check.push(origin_socket);
             pushed = true;
@@ -1570,10 +1563,9 @@ class NodeTreeMainUpdater {
         }
       }
       else {
-        const OutputSocketRef &socket = in_out_socket.as_output();
-        for (const InputSocketRef *input_socket : node.inputs()) {
+        for (const bNodeSocket *input_socket : node.input_sockets()) {
           if (input_socket->is_available()) {
-            bool &pushed = pushed_by_socket_id[input_socket->id()];
+            bool &pushed = pushed_by_socket_id[input_socket->index_in_tree()];
             if (!pushed) {
               sockets_to_check.push(input_socket);
               pushed = true;
@@ -1582,11 +1574,11 @@ class NodeTreeMainUpdater {
         }
         /* The Normal node has a special case, because the value stored in the first output socket
          * is used as input in the node. */
-        if (bnode.type == SH_NODE_NORMAL && socket.index() == 1) {
-          BLI_assert(socket.name() == "Dot");
-          const OutputSocketRef &normal_output = node.output(0);
-          BLI_assert(normal_output.name() == "Normal");
-          bool &pushed = pushed_by_socket_id[normal_output.id()];
+        if (node.type == SH_NODE_NORMAL && socket.index_in_node() == 1) {
+          BLI_assert(STREQ(socket.name, "Dot"));
+          const bNodeSocket &normal_output = node.output_socket(0);
+          BLI_assert(STREQ(normal_output.name, "Normal"));
+          bool &pushed = pushed_by_socket_id[normal_output.index_in_tree()];
           if (!pushed) {
             sockets_to_check.push(&normal_output);
             pushed = true;

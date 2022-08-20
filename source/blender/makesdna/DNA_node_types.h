@@ -202,6 +202,8 @@ typedef struct bNodeSocket {
   const bNodeSocket *internal_link_input() const;
   template<typename T> const T *default_value_typed() const;
 
+  bool is_input() const;
+  bool is_output() const;
 #endif
 } bNodeSocket;
 
