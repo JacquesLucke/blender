@@ -979,28 +979,22 @@ class NodeTreeMainUpdater {
   {
     TreeUpdateResult result;
 
-    /* Use a #NodeTreeRef to speedup certain queries. It is rebuilt whenever the node tree topology
-     * changes, which typically happens zero or one times during the entire update of the node
-     * tree. */
-    std::unique_ptr<NodeTreeRef> tree_ref;
-    this->ensure_tree_ref(ntree, tree_ref);
-
-    this->update_socket_link_and_use(*tree_ref);
-    this->update_individual_nodes(ntree, tree_ref);
-    this->update_internal_links(ntree, tree_ref);
+    this->update_socket_link_and_use(ntree);
+    this->update_individual_nodes(ntree);
+    this->update_internal_links(ntree);
     this->update_generic_callback(ntree);
     this->remove_unused_previews_when_necessary(ntree);
 
     this->propagate_runtime_flags(ntree);
     if (ntree.type == NTREE_GEOMETRY) {
-      if (node_field_inferencing::update_field_inferencing(*tree_ref->btree())) {
+      if (node_field_inferencing::update_field_inferencing(ntree)) {
         result.interface_changed = true;
       }
     }
 
     result.output_changed = this->check_if_output_changed(ntree);
 
-    this->update_socket_link_and_use(*tree_ref);
+    this->update_socket_link_and_use(ntree);
     this->update_node_levels(ntree);
     this->update_link_validation(ntree);
 
@@ -1027,79 +1021,65 @@ class NodeTreeMainUpdater {
     }
   }
 
-  void update_socket_link_and_use(const NodeTreeRef &tree)
+  void update_socket_link_and_use(bNodeTree &tree)
   {
-    for (const InputSocketRef *socket : tree.input_sockets()) {
-      bNodeSocket *bsocket = socket->bsocket();
+    tree.ensure_topology_cache();
+    for (bNodeSocket *socket : tree.all_input_sockets()) {
       if (socket->directly_linked_links().is_empty()) {
-        bsocket->link = nullptr;
+        socket->link = nullptr;
       }
       else {
-        bsocket->link = socket->directly_linked_links()[0]->blink();
+        socket->link = socket->directly_linked_links()[0];
       }
     }
 
     this->update_socket_used_tags(tree);
   }
 
-  void update_socket_used_tags(const NodeTreeRef &tree)
+  void update_socket_used_tags(bNodeTree &tree)
   {
-    for (const SocketRef *socket : tree.sockets()) {
-      bNodeSocket *bsocket = socket->bsocket();
-      bsocket->flag &= ~SOCK_IN_USE;
-      for (const LinkRef *link : socket->directly_linked_links()) {
-        if (!link->is_muted()) {
-          bsocket->flag |= SOCK_IN_USE;
+    for (bNodeSocket *socket : tree.all_sockets()) {
+      socket->flag &= ~SOCK_IN_USE;
+      for (const bNodeLink *link : socket->directly_linked_links()) {
+        if ((link->flag & NODE_LINK_MUTED) != 0) {
+          socket->flag |= SOCK_IN_USE;
           break;
         }
       }
     }
   }
 
-  void update_individual_nodes(bNodeTree &ntree, std::unique_ptr<NodeTreeRef> &tree_ref)
+  void update_individual_nodes(bNodeTree &ntree)
   {
     /* Iterate over nodes instead of #NodeTreeRef, because the #tree_ref might be outdated after
      * some update functions. */
-    LISTBASE_FOREACH (bNode *, bnode, &ntree.nodes) {
-      this->ensure_tree_ref(ntree, tree_ref);
-      const NodeRef &node = *tree_ref->find_node(*bnode);
-      if (this->should_update_individual_node(node)) {
-        const uint32_t old_changed_flag = ntree.runtime->changed_flag;
-        ntree.runtime->changed_flag = NTREE_CHANGED_NOTHING;
-
+    LISTBASE_FOREACH (bNode *, node, &ntree.nodes) {
+      ntree.ensure_topology_cache();
+      if (this->should_update_individual_node(ntree, *node)) {
         /* This may set #ntree.runtime->changed_flag which is detected below. */
-        this->update_individual_node(node);
-
-        if (ntree.runtime->changed_flag != NTREE_CHANGED_NOTHING) {
-          /* The tree ref is outdated and needs to be rebuilt. Generally, only very few update
-           * functions change the node. Typically zero or one nodes change after an update. */
-          tree_ref.reset();
-        }
-        ntree.runtime->changed_flag |= old_changed_flag;
+        this->update_individual_node(ntree, *node);
       }
     }
   }
 
-  bool should_update_individual_node(const NodeRef &node)
+  bool should_update_individual_node(const bNodeTree &ntree, const bNode &node)
   {
-    bNodeTree &ntree = *node.btree();
-    bNode &bnode = *node.bnode();
     if (ntree.runtime->changed_flag & NTREE_CHANGED_ANY) {
       return true;
     }
-    if (bnode.runtime->changed_flag & NTREE_CHANGED_NODE_PROPERTY) {
+    if (node.runtime->changed_flag & NTREE_CHANGED_NODE_PROPERTY) {
       return true;
     }
     if (ntree.runtime->changed_flag & NTREE_CHANGED_LINK) {
       /* Node groups currently always rebuilt their sockets when they are updated.
        * So avoid calling the update method when no new link was added to it. */
-      if (node.is_group_input_node()) {
-        if (node.outputs().last()->is_directly_linked()) {
+      if (node.type == NODE_GROUP_INPUT) {
+        if (node.output_sockets().last()->is_directly_linked()) {
           return true;
         }
       }
-      else if (node.is_group_output_node()) {
-        if (node.inputs().last()->is_directly_linked()) {
+      else if (node.type == NODE_GROUP_OUTPUT) {
+        if (node.input_sockets().last()->is_directly_linked()) {
           return true;
         }
       }
@@ -1109,95 +1089,86 @@ class NodeTreeMainUpdater {
       }
     }
     if (ntree.runtime->changed_flag & NTREE_CHANGED_INTERFACE) {
-      if (node.is_group_input_node() || node.is_group_output_node()) {
+      if (ELEM(node.type, NODE_GROUP_INPUT, NODE_GROUP_OUTPUT)) {
         return true;
       }
     }
     return false;
   }
 
-  void update_individual_node(const NodeRef &node)
+  void update_individual_node(bNodeTree &ntree, bNode &node)
   {
-    bNodeTree &ntree = *node.btree();
-    bNode &bnode = *node.bnode();
-    bNodeType &ntype = *bnode.typeinfo;
+    bNodeType &ntype = *node.typeinfo;
     if (ntype.group_update_func) {
-      ntype.group_update_func(&ntree, &bnode);
+      ntype.group_update_func(&ntree, &node);
     }
     if (ntype.updatefunc) {
-      ntype.updatefunc(&ntree, &bnode);
+      ntype.updatefunc(&ntree, &node);
     }
   }
 
-  void update_internal_links(bNodeTree &ntree, std::unique_ptr<NodeTreeRef> &tree_ref)
+  void update_internal_links(bNodeTree &ntree)
   {
-    bool any_internal_links_updated = false;
-    this->ensure_tree_ref(ntree, tree_ref);
-    for (const NodeRef *node : tree_ref->nodes()) {
-      if (!this->should_update_individual_node(*node)) {
+    ntree.ensure_topology_cache();
+    for (bNode *node : ntree.all_nodes()) {
+      if (!this->should_update_individual_node(ntree, *node)) {
         continue;
       }
       /* Find all expected internal links. */
       Vector<std::pair<bNodeSocket *, bNodeSocket *>> expected_internal_links;
-      for (const OutputSocketRef *output_socket : node->outputs()) {
+      for (const bNodeSocket *output_socket : node->output_sockets()) {
         if (!output_socket->is_available()) {
           continue;
         }
         if (!output_socket->is_directly_linked()) {
           continue;
         }
-        if (output_socket->bsocket()->flag & SOCK_NO_INTERNAL_LINK) {
+        if (output_socket->flag & SOCK_NO_INTERNAL_LINK) {
           continue;
         }
-        const InputSocketRef *input_socket = this->find_internally_linked_input(output_socket);
+        const bNodeSocket *input_socket = this->find_internally_linked_input(output_socket);
         if (input_socket != nullptr) {
-          expected_internal_links.append({input_socket->bsocket(), output_socket->bsocket()});
+          expected_internal_links.append(
+              {const_cast<bNodeSocket *>(input_socket), const_cast<bNodeSocket *>(output_socket)});
         }
       }
-      /* rebuilt internal links if they have changed. */
-      if (node->internal_links().size() != expected_internal_links.size()) {
-        this->update_internal_links_in_node(ntree, *node->bnode(), expected_internal_links);
-        any_internal_links_updated = true;
+      /* Rebuilt internal links if they have changed. */
+      if (node->internal_links_span().size() != expected_internal_links.size()) {
+        this->update_internal_links_in_node(ntree, *node, expected_internal_links);
       }
       else {
         for (auto &item : expected_internal_links) {
           const bNodeSocket *from_socket = item.first;
           const bNodeSocket *to_socket = item.second;
           bool found = false;
-          for (const InternalLinkRef *internal_link : node->internal_links()) {
-            if (from_socket == internal_link->from().bsocket() &&
-                to_socket == internal_link->to().bsocket()) {
+          for (const bNodeLink *internal_link : node->internal_links_span()) {
+            if (from_socket == internal_link->fromsock && to_socket == internal_link->tosock) {
               found = true;
             }
           }
           if (!found) {
-            this->update_internal_links_in_node(ntree, *node->bnode(), expected_internal_links);
-            any_internal_links_updated = true;
+            this->update_internal_links_in_node(ntree, *node, expected_internal_links);
             break;
           }
         }
       }
     }
-
-    if (any_internal_links_updated) {
-      tree_ref.reset();
-    }
   }
 
-  const InputSocketRef *find_internally_linked_input(const OutputSocketRef *output_socket)
+  const bNodeSocket *find_internally_linked_input(const bNodeSocket *output_socket)
   {
-    const InputSocketRef *selected_socket = nullptr;
+    const bNodeSocket *selected_socket = nullptr;
     int selected_priority = -1;
     bool selected_is_linked = false;
-    for (const InputSocketRef *input_socket : output_socket->node().inputs()) {
+    for (const bNodeSocket *input_socket : output_socket->owner_node().input_sockets()) {
       if (!input_socket->is_available()) {
         continue;
       }
-      if (input_socket->bsocket()->flag & SOCK_NO_INTERNAL_LINK) {
+      if (input_socket->flag & SOCK_NO_INTERNAL_LINK) {
         continue;
       }
-      const int priority = get_internal_link_type_priority(input_socket->bsocket()->typeinfo,
-                                                           output_socket->bsocket()->typeinfo);
+      const int priority = get_internal_link_type_priority(input_socket->typeinfo,
+                                                           output_socket->typeinfo);
       if (priority < 0) {
         continue;
       }
