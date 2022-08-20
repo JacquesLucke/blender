@@ -50,6 +50,8 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
 
   std::mutex topology_cache_mutex;
   bool topology_cache_is_dirty = true;
+  bool topology_cache_exists = false;
+  mutable std::atomic<int> allow_use_dirty_topology_cache = 0;
 
   /** Only valid when #topology_cache_is_dirty is false. */
   Vector<bNode *> nodes;
@@ -137,20 +139,52 @@ class bNodeRuntime : NonCopyable, NonMovable {
 };
 
 namespace node_tree_runtime {
+
+class AllowUsingOutdatedInfo : NonCopyable, NonMovable {
+ private:
+  const bNodeTree &tree_;
+
+ public:
+  AllowUsingOutdatedInfo(const bNodeTree &tree) : tree_(tree)
+  {
+    tree_.runtime->allow_use_dirty_topology_cache.fetch_add(1);
+  }
+
+  ~AllowUsingOutdatedInfo()
+  {
+    tree_.runtime->allow_use_dirty_topology_cache.fetch_sub(1);
+  }
+};
+
+inline bool topology_cache_is_available(const bNodeTree &tree)
+{
+  if (!tree.runtime->topology_cache_exists) {
+    return false;
+  }
+  if (tree.runtime->allow_use_dirty_topology_cache.load() > 0) {
+    return true;
+  }
+  return !tree.runtime->topology_cache_is_dirty;
+}
+
 inline bool topology_cache_is_available(const bNode &node)
 {
-  return !node.runtime->owner_tree->runtime->topology_cache_is_dirty;
+  const bNodeTree *ntree = node.runtime->owner_tree;
+  if (ntree == nullptr) {
+    return false;
+  }
+  return topology_cache_is_available(*ntree);
 }
 
 inline bool topology_cache_is_available(const bNodeSocket &socket)
 {
-  return !socket.runtime->owner_node->runtime->owner_tree->runtime->topology_cache_is_dirty;
+  const bNode *node = socket.runtime->owner_node;
+  if (node == nullptr) {
+    return false;
+  }
+  return topology_cache_is_available(*node);
 }
 
-inline bool topology_cache_is_available(const bNodeTree &tree)
-{
-  return !tree.runtime->topology_cache_is_dirty;
-}
 }  // namespace node_tree_runtime
 
 }  // namespace blender::bke

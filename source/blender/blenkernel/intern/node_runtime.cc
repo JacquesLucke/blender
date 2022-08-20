@@ -385,6 +385,7 @@ static void ensure_topology_cache(const bNodeTree &ntree)
                                                      dummy);
                                    });
         update_group_output_node(ntree);
+        tree_runtime.topology_cache_exists = true;
       });
 }
 

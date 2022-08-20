@@ -1099,6 +1099,7 @@ class NodeTreeMainUpdater {
 
   void update_internal_links(bNodeTree &ntree)
   {
+    bke::node_tree_runtime::AllowUsingOutdatedInfo allow_outdated_info{ntree};
     ntree.ensure_topology_cache();
     for (bNode *node : ntree.all_nodes()) {
       if (!this->should_update_individual_node(ntree, *node)) {
