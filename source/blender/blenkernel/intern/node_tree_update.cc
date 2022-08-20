@@ -5,6 +5,7 @@
 #include "BLI_noise.hh"
 #include "BLI_set.hh"
 #include "BLI_stack.hh"
+#include "BLI_timeit.hh"
 #include "BLI_vector_set.hh"
 
 #include "DNA_anim_types.h"
