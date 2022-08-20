@@ -992,7 +992,7 @@ class NodeTreeMainUpdater {
     this->remove_unused_previews_when_necessary(ntree);
 
     this->ensure_tree_ref(ntree, tree_ref);
-    this->propagate_runtime_flags(*tree_ref);
+    this->propagate_runtime_flags(ntree);
     if (ntree.type == NTREE_GEOMETRY) {
       if (node_field_inferencing::update_field_inferencing(*tree_ref->btree())) {
         result.interface_changed = true;
@@ -1264,25 +1264,24 @@ class NodeTreeMainUpdater {
     BKE_node_preview_remove_unused(&ntree);
   }
 
-  void propagate_runtime_flags(const NodeTreeRef &tree_ref)
+  void propagate_runtime_flags(const bNodeTree &ntree)
   {
-    bNodeTree &ntree = *tree_ref.btree();
     ntree.runtime->runtime_flag = 0;
     if (ntree.type != NTREE_SHADER) {
       return;
     }
 
     /* Check if a used node group has an animated image. */
-    for (const NodeRef *group_node : tree_ref.nodes_by_type("NodeGroup")) {
-      const bNodeTree *group = reinterpret_cast<bNodeTree *>(group_node->bnode()->id);
+    for (const bNode *group_node : ntree.nodes_by_type("NodeGroup")) {
+      const bNodeTree *group = reinterpret_cast<bNodeTree *>(group_node->id);
       if (group != nullptr) {
         ntree.runtime->runtime_flag |= group->runtime->runtime_flag;
       }
     }
     /* Check if the tree itself has an animated image. */
     for (const StringRefNull idname : {"ShaderNodeTexImage", "ShaderNodeTexEnvironment"}) {
-      for (const NodeRef *node : tree_ref.nodes_by_type(idname)) {
-        Image *image = reinterpret_cast<Image *>(node->bnode()->id);
+      for (const bNode *node : ntree.nodes_by_type(idname)) {
+        Image *image = reinterpret_cast<Image *>(node->id);
         if (image != nullptr && BKE_image_is_animated(image)) {
           ntree.runtime->runtime_flag |= NTREE_RUNTIME_FLAG_HAS_IMAGE_ANIMATION;
           break;
@@ -1294,7 +1293,7 @@ class NodeTreeMainUpdater {
                                        "ShaderNodeOutputLight",
                                        "ShaderNodeOutputWorld",
                                        "ShaderNodeOutputAOV"}) {
-      const Span<const NodeRef *> nodes = tree_ref.nodes_by_type(idname);
+      const Span<const bNode *> nodes = ntree.nodes_by_type(idname);
       if (!nodes.is_empty()) {
         ntree.runtime->runtime_flag |= NTREE_RUNTIME_FLAG_HAS_MATERIAL_OUTPUT;
         break;
