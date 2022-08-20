@@ -133,53 +133,55 @@ static void update_directly_linked_links_and_sockets(const bNodeTree &ntree)
   }
 }
 
-static void update_logical_origins_for_socket(bNodeSocket &input_socket)
+static void find_logical_origins_for_socket_recursive(
+    bNodeSocket &input_socket,
+    bool only_follow_first_input_link,
+    Vector<bNodeSocket *, 16> &sockets_in_current_chain,
+    Vector<bNodeSocket *> &r_logical_origins,
+    Vector<bNodeSocket *> &r_skipped_origins)
 {
-  bNodeSocketRuntime &socket_runtime = *input_socket.runtime;
-  socket_runtime.logically_linked_sockets.clear();
+  if (sockets_in_current_chain.contains(&input_socket)) {
+    /* Protect against reroute recursions. */
+    return;
+  }
+  sockets_in_current_chain.append(&input_socket);
 
-  Vector<bNodeSocket *, 16> seen_sockets;
-  Stack<bNodeSocket *, 16> sockets_to_check;
-  sockets_to_check.push(&input_socket);
-
-  while (!sockets_to_check.is_empty()) {
-    bNodeSocket &socket = *sockets_to_check.pop();
-    if (seen_sockets.contains(&socket)) {
+  Span<bNodeLink *> links_to_check = input_socket.runtime->directly_linked_links;
+  if (only_follow_first_input_link) {
+    links_to_check = links_to_check.take_front(1);
+  }
+  for (bNodeLink *link : links_to_check) {
+    if (link->flag & NODE_LINK_MUTED) {
       continue;
     }
-    seen_sockets.append(&socket);
-    Span<bNodeLink *> links = socket.runtime->directly_linked_links;
-    if (socket_runtime.owner_node->flag & NODE_MUTED) {
-      links = links.take_front(1);
+    bNodeSocket &origin_socket = *link->fromsock;
+    bNode &origin_node = *link->fromnode;
+    if (!origin_socket.is_available()) {
+      /* Non available sockets are ignored. */
+      continue;
     }
-    for (bNodeLink *link : links) {
-      if (link->flag & NODE_LINK_MUTED) {
-        continue;
-      }
-      bNodeSocket &origin_socket = *link->fromsock;
-      bNode &origin_node = *link->fromnode;
-      if (origin_socket.flag & SOCK_UNAVAIL) {
-        continue;
-      }
-      if (origin_node.type == NODE_REROUTE) {
-        bNodeSocket &reroute_output = origin_socket;
-        bNodeSocket &reroute_input = *origin_node.runtime->inputs[0];
-        socket_runtime.logically_linked_skipped_sockets.append(&reroute_input);
-        socket_runtime.logically_linked_skipped_sockets.append(&reroute_output);
-        sockets_to_check.push(&reroute_input);
-        continue;
-      }
-      if (origin_node.flag & NODE_MUTED) {
-        if (bNodeSocket *mute_input = origin_socket.runtime->internal_link_input) {
-          socket_runtime.logically_linked_skipped_sockets.append(&origin_socket);
-          socket_runtime.logically_linked_skipped_sockets.append(mute_input);
-          sockets_to_check.push(mute_input);
-        }
-        continue;
-      }
-      socket_runtime.logically_linked_sockets.append(&origin_socket);
+    if (origin_node.type == NODE_REROUTE) {
+      bNodeSocket &reroute_input = *origin_node.runtime->inputs[0];
+      bNodeSocket &reroute_output = *origin_node.runtime->outputs[0];
+      r_skipped_origins.append(&reroute_input);
+      r_skipped_origins.append(&reroute_output);
+      find_logical_origins_for_socket_recursive(
+          reroute_input, false, sockets_in_current_chain, r_logical_origins, r_skipped_origins);
+      continue;
     }
+    if (origin_node.is_muted()) {
+      if (bNodeSocket *mute_input = origin_socket.runtime->internal_link_input) {
+        r_skipped_origins.append(&origin_socket);
+        r_skipped_origins.append(mute_input);
+        find_logical_origins_for_socket_recursive(
+            *mute_input, true, sockets_in_current_chain, r_logical_origins, r_skipped_origins);
+      }
+      continue;
+    }
+    r_logical_origins.append(&origin_socket);
   }
+
+  sockets_in_current_chain.pop_last();
 }
 
 static void update_logical_origins(const bNodeTree &ntree)
@@ -189,7 +191,13 @@ static void update_logical_origins(const bNodeTree &ntree)
     for (const int i : range) {
       bNode &node = *tree_runtime.nodes[i];
       for (bNodeSocket *socket : node.runtime->inputs) {
-        update_logical_origins_for_socket(*socket);
+        Vector<bNodeSocket *, 16> sockets_in_current_chain;
+        find_logical_origins_for_socket_recursive(
+            *socket,
+            false,
+            sockets_in_current_chain,
+            socket->runtime->logically_linked_sockets,
+            socket->runtime->logically_linked_skipped_sockets);
       }
     }
   });
