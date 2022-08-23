@@ -1040,7 +1040,7 @@ static void rna_def_paint_mode(BlenderRNA *brna)
   RNA_def_property_pointer_funcs(
       prop, NULL, NULL, NULL, "rna_PaintModeSettings_canvas_image_poll");
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_CONTEXT_UPDATE);
-  RNA_def_property_ui_text(prop, "Texture", "Image used as as painting target");
+  RNA_def_property_ui_text(prop, "Texture", "Image used as painting target");
 }
 
 static void rna_def_image_paint(BlenderRNA *brna)
@@ -1303,6 +1303,7 @@ static void rna_def_particle_edit(BlenderRNA *brna)
   RNA_def_property_boolean_sdna(prop, NULL, "flag", PE_INTERPOLATE_ADDED);
   RNA_def_property_ui_text(
       prop, "Interpolate", "Interpolate new particles from the existing ones");
+  RNA_def_property_update(prop, NC_SCENE | ND_TOOLSETTINGS, NULL);
 
   prop = RNA_def_property(srna, "default_key_count", PROP_INT, PROP_NONE);
   RNA_def_property_int_sdna(prop, NULL, "totaddkey");

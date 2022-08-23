@@ -17,8 +17,6 @@
 #include "gl_index_buffer.hh"
 #include "gl_vertex_buffer.hh"
 
-#include "glew-mx.h"
-
 namespace blender {
 namespace gpu {
 
@@ -93,6 +91,7 @@ class GLBatch : public Batch {
 
  public:
   void draw(int v_first, int v_count, int i_first, int i_count) override;
+  void draw_indirect(GPUStorageBuf *indirect_buf) override;
   void bind(int i_first);
 
   /* Convenience getters. */

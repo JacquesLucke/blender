@@ -3,7 +3,6 @@
 
 blender_include_dirs(
   ../../intern/clog
-  ../../intern/glew-mx
   ../../intern/guardedalloc
   ../blender/blenkernel
   ../blender/blenlib
@@ -21,6 +20,10 @@ blender_include_dirs(
 set(LIB
   bf_windowmanager
 )
+
+if(HAVE_FEENABLEEXCEPT)
+  add_definitions(-DHAVE_FEENABLEEXCEPT)
+endif()
 
 if(WITH_TBB)
   # Force TBB libraries to be in front of MKL (part of OpenImageDenoise), so
@@ -200,8 +203,10 @@ if(WITH_BUILDINFO)
   SET_SOURCE_FILES_PROPERTIES(${buildinfo_h_fake} PROPERTIES SYMBOLIC TRUE)
 
   # a custom target that is always built
-  add_custom_target(buildinfo ALL
-    DEPENDS ${buildinfo_h_fake})
+  add_custom_target(
+    buildinfo ALL
+    DEPENDS ${buildinfo_h_fake}
+  )
 
   # creates buildinfo.h using cmake script
   add_custom_command(
@@ -272,13 +277,13 @@ if(WITH_PYTHON_MODULE)
 else()
   add_executable(blender ${EXETYPE} ${SRC})
   if(WIN32)
-      add_executable(blender-launcher WIN32
-        blender_launcher_win32.c
-        ${CMAKE_SOURCE_DIR}/release/windows/icons/winblender.rc
-        ${CMAKE_BINARY_DIR}/blender.exe.manifest
-      )
-      target_compile_definitions (blender-launcher PRIVATE -D_UNICODE -DUNICODE)
-      target_link_libraries(blender-launcher Pathcch.lib)
+    add_executable(blender-launcher WIN32
+      blender_launcher_win32.c
+      ${CMAKE_SOURCE_DIR}/release/windows/icons/winblender.rc
+      ${CMAKE_BINARY_DIR}/blender.exe.manifest
+    )
+    target_compile_definitions (blender-launcher PRIVATE -D_UNICODE -DUNICODE)
+    target_link_libraries(blender-launcher Pathcch.lib)
   endif()
 endif()
 
@@ -405,8 +410,8 @@ if(WITH_INTERNATIONAL)
   # Create a custom target which will compile all po to mo
   add_custom_target(
     locales
-    DEPENDS ${_all_mo_files})
-
+    DEPENDS ${_all_mo_files}
+  )
   add_dependencies(blender locales)
 
   # Generate INSTALL rules
@@ -464,7 +469,8 @@ if(UNIX AND NOT APPLE)
         blender_man_page ALL
         COMMAND ${CMAKE_SOURCE_DIR}/doc/manpage/blender.1.py
                 --blender ${EXECUTABLE_OUTPUT_PATH}/blender
-                --output ${CMAKE_CURRENT_BINARY_DIR}/blender.1)
+                --output ${CMAKE_CURRENT_BINARY_DIR}/blender.1
+      )
       add_dependencies(blender_man_page blender)
     endif()
   endif()
@@ -717,17 +723,22 @@ elseif(WIN32)
 
   set(BLENDER_TEXT_FILES_DESTINATION ".")
 
+  install(
+    FILES ${LIBDIR}/epoxy/bin/epoxy-0.dll
+    DESTINATION "."
+  )
+
   if(WITH_OPENMP AND MSVC_CLANG)
     install(
-          FILES ${CLANG_OPENMP_DLL}
-          DESTINATION "."
+      FILES ${CLANG_OPENMP_DLL}
+      DESTINATION "."
     )
   endif()
 
   if(WITH_FFTW3)
     install(
-          FILES ${LIBDIR}/fftw3/lib/libfftw3-3.dll
-          DESTINATION "."
+      FILES ${LIBDIR}/fftw3/lib/libfftw3-3.dll
+      DESTINATION "."
     )
   endif()
   if(MSVC_ASAN)
@@ -738,14 +749,14 @@ elseif(WIN32)
       message(FATAL_ERROR "Asan is enabled, but the ASAN runtime is not detected, this is an optional component during the MSVC install, please install it")
     endif()
     install(
-          FILES ${ASAN_DLL}
-          DESTINATION "."
-          CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+      FILES ${ASAN_DLL}
+      DESTINATION "."
+      CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
     )
     install(
-          FILES ${ASAN_DEBUG_DLL}
-          DESTINATION "."
-          CONFIGURATIONS Debug
+      FILES ${ASAN_DEBUG_DLL}
+      DESTINATION "."
+      CONFIGURATIONS Debug
     )
     unset(ASAN_DLL)
     unset(ASAN_DEBUG_DLL)
@@ -753,18 +764,18 @@ elseif(WIN32)
 
   if(WITH_GMP)
     install(
-          FILES ${LIBDIR}/gmp/lib/libgmp-10.dll
-          DESTINATION "."
+      FILES ${LIBDIR}/gmp/lib/libgmp-10.dll
+      DESTINATION "."
     )
     install(
-          FILES ${LIBDIR}/gmp/lib/libgmpxx.dll
-          DESTINATION "."
-          CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+      FILES ${LIBDIR}/gmp/lib/libgmpxx.dll
+      DESTINATION "."
+      CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
     )
     install(
-          FILES ${LIBDIR}/gmp/lib/libgmpxx_d.dll
-          DESTINATION "."
-          CONFIGURATIONS Debug
+      FILES ${LIBDIR}/gmp/lib/libgmpxx_d.dll
+      DESTINATION "."
+      CONFIGURATIONS Debug
     )
   endif()
 
@@ -780,16 +791,16 @@ elseif(WIN32)
   endif()
 
   if(WITH_OPENVDB)
-      install(
-        FILES ${LIBDIR}/openvdb/bin/openvdb.dll
-        DESTINATION "."
-        CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
-      )
-      install(
-        FILES ${LIBDIR}/openvdb/bin/openvdb_d.dll
-        DESTINATION "."
-        CONFIGURATIONS Debug
-      )
+    install(
+      FILES ${LIBDIR}/openvdb/bin/openvdb.dll
+      DESTINATION "."
+      CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+    )
+    install(
+      FILES ${LIBDIR}/openvdb/bin/openvdb_d.dll
+      DESTINATION "."
+      CONFIGURATIONS Debug
+    )
   endif()
 
   if(WITH_PYTHON)
@@ -881,18 +892,6 @@ elseif(WIN32)
     endif()
 
     unset(_PYTHON_VERSION_NO_DOTS)
-  endif()
-
-  # EGL Runtime Components
-  if(WITH_GL_EGL)
-    if(WIN32)
-      install(FILES "${OPENGLES_DLL}"     DESTINATION ".")
-      install(FILES "${OPENGLES_EGL_DLL}" DESTINATION ".")
-
-      if(WITH_GL_ANGLE)
-        install(FILES "${D3DCOMPILER_DLL}" DESTINATION ".")
-      endif()
-    endif()
   endif()
 
   if(WITH_CODEC_FFMPEG)
@@ -1054,7 +1053,8 @@ elseif(APPLE)
   set_target_properties(blender PROPERTIES
     MACOSX_BUNDLE_INFO_PLIST ${OSX_APP_SOURCEDIR}/Contents/Info.plist
     MACOSX_BUNDLE_SHORT_VERSION_STRING "${BLENDER_VERSION}.${BLENDER_VERSION_PATCH}"
-    MACOSX_BUNDLE_LONG_VERSION_STRING "${BLENDER_VERSION}.${BLENDER_VERSION_PATCH} ${BLENDER_DATE}")
+    MACOSX_BUNDLE_LONG_VERSION_STRING "${BLENDER_VERSION}.${BLENDER_VERSION_PATCH} ${BLENDER_DATE}"
+  )
 
   # Gather the date in finder-style
   execute_process(COMMAND date "+%m/%d/%Y/%H:%M"
@@ -1151,9 +1151,10 @@ endif()
 
 if(DEFINED BLENDER_TEXT_FILES_DESTINATION)
 
-  configure_file(${CMAKE_SOURCE_DIR}/release/text/readme.html
-                 ${CMAKE_BINARY_DIR}/release/text/readme.html
-                 @ONLY
+  configure_file(
+    ${CMAKE_SOURCE_DIR}/release/text/readme.html
+    ${CMAKE_BINARY_DIR}/release/text/readme.html
+    @ONLY
   )
   list(APPEND BLENDER_TEXT_FILES
     ${CMAKE_BINARY_DIR}/release/text/readme.html
@@ -1216,10 +1217,8 @@ unset(LIB)
 setup_platform_linker_flags(blender)
 setup_platform_linker_libs(blender)
 
-if(APPLE)
-  set_target_properties(blender PROPERTIES LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/osx_locals.map)
-elseif(UNIX)
-  set_target_properties(blender PROPERTIES LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/blender.map)
+if(DEFINED PLATFORM_SYMBOLS_MAP)
+  set_target_properties(blender PROPERTIES LINK_DEPENDS ${PLATFORM_SYMBOLS_MAP})
 endif()
 
 # -----------------------------------------------------------------------------
@@ -1242,17 +1241,18 @@ if(WIN32)
   set_target_properties(blender PROPERTIES VS_GLOBAL_VcpkgEnabled "false")
   set_target_properties(blender PROPERTIES
     PDB_NAME "blender_private"
-    PDB_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>")
-    if(WITH_WINDOWS_PDB AND WITH_WINDOWS_STRIPPED_PDB)
-      # This is slightly messy, but single target generators like ninja will not have the
-      # CMAKE_CFG_INTDIR variable and multitarget generators like msbuild will not have
-      # CMAKE_BUILD_TYPE. This can be simplified by target_link_options and the $<CONFIG>
-      # generator expression in newer cmake (2.13+) but until that time this fill have suffice.
-      if(CMAKE_BUILD_TYPE)
-        set_property(TARGET blender APPEND_STRING PROPERTY LINK_FLAGS  " /PDBSTRIPPED:${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/blender_public.pdb")
-      else()
-        set_property(TARGET blender APPEND_STRING PROPERTY LINK_FLAGS  " /PDBSTRIPPED:${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/blender_public.pdb")
-      endif()
+    PDB_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>"
+  )
+  if(WITH_WINDOWS_PDB AND WITH_WINDOWS_STRIPPED_PDB)
+    # This is slightly messy, but single target generators like ninja will not have the
+    # `CMAKE_CFG_INTDIR` variable and multi-target generators like `msbuild` will not have
+    # `CMAKE_BUILD_TYPE`. This can be simplified by target_link_options and the `$<CONFIG>`
+    # generator expression in newer CMAKE (2.13+) but until that time this fill have suffice.
+    if(CMAKE_BUILD_TYPE)
+      set_property(TARGET blender APPEND_STRING PROPERTY LINK_FLAGS  " /PDBSTRIPPED:${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_BUILD_TYPE}/blender_public.pdb")
+    else()
+      set_property(TARGET blender APPEND_STRING PROPERTY LINK_FLAGS  " /PDBSTRIPPED:${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/blender_public.pdb")
+    endif()
   endif()
 endif()
 

@@ -220,7 +220,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   settings.use_threading = (polys_num > 1000);
   BLI_task_parallel_range(0, polys_num, &data, uv_warp_compute, &settings);
 
-  mesh->runtime.is_original = false;
+  mesh->runtime.is_original_bmesh = false;
 
   return mesh;
 }
@@ -242,7 +242,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   MOD_depsgraph_update_object_bone_relation(
       ctx->node, umd->object_dst, umd->bone_dst, "UVWarp Modifier");
 
-  DEG_add_modifier_to_transform_relation(ctx->node, "UVWarp Modifier");
+  DEG_add_depends_on_transform_relation(ctx->node, "UVWarp Modifier");
 }
 
 static void panel_draw(const bContext *UNUSED(C), Panel *panel)

@@ -25,7 +25,6 @@
  * they take into account to create the render passes. When accurate mode is off the number of
  * levels is used as the number of cryptomatte samples to take. When accuracy mode is on the number
  * of render samples is used.
- *
  */
 
 #include "DRW_engine.h"
@@ -249,7 +248,9 @@ void EEVEE_cryptomatte_object_curves_cache_populate(EEVEE_Data *vedata,
 {
   BLI_assert(ob->type == OB_CURVES);
   Material *material = BKE_object_material_get_eval(ob, CURVES_MATERIAL_NR);
-  eevee_cryptomatte_curves_cache_populate(vedata, sldata, ob, NULL, NULL, material);
+  DRWShadingGroup *grp = eevee_cryptomatte_shading_group_create(
+      vedata, sldata, ob, material, true);
+  DRW_shgroup_curves_create_sub(ob, grp, NULL);
 }
 
 void EEVEE_cryptomatte_particle_hair_cache_populate(EEVEE_Data *vedata,

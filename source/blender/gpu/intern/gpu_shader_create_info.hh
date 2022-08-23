@@ -127,8 +127,12 @@ enum class BuiltinBits {
   VERTEX_ID = (1 << 14),
   WORK_GROUP_ID = (1 << 15),
   WORK_GROUP_SIZE = (1 << 16),
+
+  /* Not a builtin but a flag we use to tag shaders that use the debug features. */
+  USE_DEBUG_DRAW = (1 << 29),
+  USE_DEBUG_PRINT = (1 << 30),
 };
-ENUM_OPERATORS(BuiltinBits, BuiltinBits::WORK_GROUP_SIZE);
+ENUM_OPERATORS(BuiltinBits, BuiltinBits::USE_DEBUG_PRINT);
 
 /**
  * Follow convention described in:
@@ -298,6 +302,7 @@ struct ShaderCreateInfo {
   /** Manually set generated code. */
   std::string vertex_source_generated = "";
   std::string fragment_source_generated = "";
+  std::string compute_source_generated = "";
   std::string geometry_source_generated = "";
   std::string typedef_source_generated = "";
   /** Manually set generated dependencies. */
@@ -740,33 +745,16 @@ struct ShaderCreateInfo {
    * Used to share parts of the infos that are common to many shaders.
    * \{ */
 
-  Self &additional_info(StringRefNull info_name0,
-                        StringRefNull info_name1 = "",
-                        StringRefNull info_name2 = "",
-                        StringRefNull info_name3 = "",
-                        StringRefNull info_name4 = "",
-                        StringRefNull info_name5 = "",
-                        StringRefNull info_name6 = "")
+  Self &additional_info(StringRefNull info_name)
   {
-    additional_infos_.append(info_name0);
-    if (!info_name1.is_empty()) {
-      additional_infos_.append(info_name1);
-    }
-    if (!info_name2.is_empty()) {
-      additional_infos_.append(info_name2);
-    }
-    if (!info_name3.is_empty()) {
-      additional_infos_.append(info_name3);
-    }
-    if (!info_name4.is_empty()) {
-      additional_infos_.append(info_name4);
-    }
-    if (!info_name5.is_empty()) {
-      additional_infos_.append(info_name5);
-    }
-    if (!info_name6.is_empty()) {
-      additional_infos_.append(info_name6);
-    }
+    additional_infos_.append(info_name);
+    return *(Self *)this;
+  }
+
+  template<typename... Args> Self &additional_info(StringRefNull info_name, Args... args)
+  {
+    additional_info(info_name);
+    additional_info(args...);
     return *(Self *)this;
   }
 
@@ -818,6 +806,7 @@ struct ShaderCreateInfo {
     TEST_EQUAL(*this, b, builtins_);
     TEST_EQUAL(*this, b, vertex_source_generated);
     TEST_EQUAL(*this, b, fragment_source_generated);
+    TEST_EQUAL(*this, b, compute_source_generated);
     TEST_EQUAL(*this, b, typedef_source_generated);
     TEST_VECTOR_EQUAL(*this, b, vertex_inputs_);
     TEST_EQUAL(*this, b, geometry_layout_);

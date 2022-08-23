@@ -729,19 +729,26 @@ void ED_node_set_active(
           }
         }
 
-        /* Sync to Image Editor. */
+        /* Sync to Image Editor under the following conditions:
+         * - current image is not pinned
+         * - current image is not a Render Result or ViewerNode (want to keep looking at these) */
         Image *image = (Image *)node->id;
         wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
         LISTBASE_FOREACH (wmWindow *, win, &wm->windows) {
           const bScreen *screen = WM_window_get_active_screen(win);
           LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
             LISTBASE_FOREACH (SpaceLink *, sl, &area->spacedata) {
-              if (sl->spacetype == SPACE_IMAGE) {
-                SpaceImage *sima = (SpaceImage *)sl;
-                if (!sima->pin) {
-                  ED_space_image_set(bmain, sima, image, true);
-                }
+              if (sl->spacetype != SPACE_IMAGE) {
+                continue;
               }
+              SpaceImage *sima = (SpaceImage *)sl;
+              if (sima->pin) {
+                continue;
+              }
+              if (ELEM(sima->image->type, IMA_TYPE_R_RESULT, IMA_TYPE_COMPOSITE)) {
+                continue;
+              }
+              ED_space_image_set(bmain, sima, image, true);
             }
           }
         }
@@ -913,15 +920,24 @@ static void edit_node_properties_get(
 /** \name Node Generic
  * \{ */
 
-/* is rct in visible part of node? */
-static bNode *visible_node(SpaceNode &snode, const rctf &rct)
+static bool socket_is_occluded(const bNodeSocket &sock,
+                               const bNode &node_the_socket_belongs_to,
+                               const SpaceNode &snode)
 {
   LISTBASE_FOREACH_BACKWARD (bNode *, node, &snode.edittree->nodes) {
-    if (BLI_rctf_isect(&node->totr, &rct, nullptr)) {
-      return node;
+    if (node == &node_the_socket_belongs_to) {
+      /* Nodes after this one are underneath and can't occlude the socket. */
+      return false;
+    }
+
+    rctf socket_hitbox;
+    const float socket_hitbox_radius = NODE_SOCKSIZE - 0.1f * U.widget_unit;
+    BLI_rctf_init_pt_radius(&socket_hitbox, float2(sock.locx, sock.locy), socket_hitbox_radius);
+    if (BLI_rctf_inside_rctf(&node->totr, &socket_hitbox)) {
+      return true;
     }
   }
-  return nullptr;
+  return false;
 }
 
 /** \} */
@@ -1080,6 +1096,10 @@ static int node_resize_modal(bContext *C, wmOperator *op, const wmEvent *event)
       }
       break;
     }
+    case EVT_ESCKEY:
+      node_resize_exit(C, op, true);
+      ED_region_tag_redraw(region);
+      return OPERATOR_CANCELLED;
   }
 
   return OPERATOR_RUNNING_MODAL;
@@ -1212,10 +1232,8 @@ bool node_find_indicated_socket(SpaceNode &snode,
   *sockp = nullptr;
 
   /* check if we click in a socket */
-  LISTBASE_FOREACH (bNode *, node, &snode.edittree->nodes) {
+  LISTBASE_FOREACH_BACKWARD (bNode *, node, &snode.edittree->nodes) {
     BLI_rctf_init_pt_radius(&rect, cursor, size_sock_padded);
-    rctf node_visible;
-    BLI_rctf_init_pt_radius(&node_visible, cursor, size_sock_padded);
 
     if (!(node->flag & NODE_HIDDEN)) {
       /* extra padding inside and out - allow dragging on the text areas too */
@@ -1234,7 +1252,7 @@ bool node_find_indicated_socket(SpaceNode &snode,
         if (!nodeSocketIsHidden(sock)) {
           if (sock->flag & SOCK_MULTI_INPUT && !(node->flag & NODE_HIDDEN)) {
             if (cursor_isect_multi_input_socket(cursor, *sock)) {
-              if (node == visible_node(snode, node_visible)) {
+              if (!socket_is_occluded(*sock, *node, snode)) {
                 *nodep = node;
                 *sockp = sock;
                 return true;
@@ -1242,7 +1260,7 @@ bool node_find_indicated_socket(SpaceNode &snode,
             }
           }
           else if (BLI_rctf_isect_pt(&rect, sock->locx, sock->locy)) {
-            if (node == visible_node(snode, node_visible)) {
+            if (!socket_is_occluded(*sock, *node, snode)) {
               *nodep = node;
               *sockp = sock;
               return true;
@@ -1255,7 +1273,7 @@ bool node_find_indicated_socket(SpaceNode &snode,
       LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
         if (!nodeSocketIsHidden(sock)) {
           if (BLI_rctf_isect_pt(&rect, sock->locx, sock->locy)) {
-            if (node == visible_node(snode, node_visible)) {
+            if (!socket_is_occluded(*sock, *node, snode)) {
               *nodep = node;
               *sockp = sock;
               return true;

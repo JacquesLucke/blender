@@ -676,7 +676,9 @@ static void node_draw_mute_line(const bContext &C,
   GPU_blend(GPU_BLEND_ALPHA);
 
   LISTBASE_FOREACH (const bNodeLink *, link, &node.internal_links) {
-    node_draw_link_bezier(C, v2d, snode, *link, TH_WIRE_INNER, TH_WIRE_INNER, TH_WIRE, false);
+    if (!nodeLinkIsHidden(link)) {
+      node_draw_link_bezier(C, v2d, snode, *link, TH_WIRE_INNER, TH_WIRE_INNER, TH_WIRE, false);
+    }
   }
 
   GPU_blend(GPU_BLEND_NONE);
@@ -883,112 +885,46 @@ struct SocketTooltipData {
 //     }
 //   }
 // }
+}
 
-// static void create_inspection_string_for_geometry(const geo_log::GeometryValueLog &value_log,
-//                                                   std::stringstream &ss)
-// {
-//   Span<GeometryComponentType> component_types = value_log.component_types();
-//   if (component_types.is_empty()) {
-//     ss << TIP_("Empty Geometry");
-//     return;
-//   }
+static std::optional<std::string> create_socket_inspection_string(bContext *C,
+                                                                  bNode &node,
+                                                                  bNodeSocket &socket)
+{
+  SpaceNode *snode = CTX_wm_space_node(C);
+  if (snode == nullptr) {
+    return {};
+  };
 
-//   auto to_string = [](int value) {
-//     char str[16];
-//     BLI_str_format_int_grouped(str, value);
-//     return std::string(str);
-//   };
+  const geo_log::SocketLog *socket_log = geo_log::ModifierLog::find_socket_by_node_editor_context(
+      *snode, node, socket);
+  if (socket_log == nullptr) {
+    return {};
+  }
+  const geo_log::ValueLog *value_log = socket_log->value();
+  if (value_log == nullptr) {
+    return {};
+  }
 
-//   ss << TIP_("Geometry:\n");
-//   for (GeometryComponentType type : component_types) {
-//     const char *line_end = (type == component_types.last()) ? "" : ".\n";
-//     switch (type) {
-//       case GEO_COMPONENT_TYPE_MESH: {
-//         const geo_log::GeometryValueLog::MeshInfo &mesh_info = *value_log.mesh_info;
-//         char line[256];
-//         BLI_snprintf(line,
-//                      sizeof(line),
-//                      TIP_("\u2022 Mesh: %s vertices, %s edges, %s faces"),
-//                      to_string(mesh_info.verts_num).c_str(),
-//                      to_string(mesh_info.edges_num).c_str(),
-//                      to_string(mesh_info.faces_num).c_str());
-//         ss << line << line_end;
-//         break;
-//       }
-//       case GEO_COMPONENT_TYPE_POINT_CLOUD: {
-//         const geo_log::GeometryValueLog::PointCloudInfo &pointcloud_info =
-//             *value_log.pointcloud_info;
-//         char line[256];
-//         BLI_snprintf(line,
-//                      sizeof(line),
-//                      TIP_("\u2022 Point Cloud: %s points"),
-//                      to_string(pointcloud_info.points_num).c_str());
-//         ss << line << line_end;
-//         break;
-//       }
-//       case GEO_COMPONENT_TYPE_CURVE: {
-//         const geo_log::GeometryValueLog::CurveInfo &curve_info = *value_log.curve_info;
-//         char line[256];
-//         BLI_snprintf(line,
-//                      sizeof(line),
-//                      TIP_("\u2022 Curve: %s splines"),
-//                      to_string(curve_info.splines_num).c_str());
-//         ss << line << line_end;
-//         break;
-//       }
-//       case GEO_COMPONENT_TYPE_INSTANCES: {
-//         const geo_log::GeometryValueLog::InstancesInfo &instances_info =
-//         *value_log.instances_info; char line[256]; BLI_snprintf(line,
-//                      sizeof(line),
-//                      TIP_("\u2022 Instances: %s"),
-//                      to_string(instances_info.instances_num).c_str());
-//         ss << line << line_end;
-//         break;
-//       }
-//       case GEO_COMPONENT_TYPE_VOLUME: {
-//         ss << TIP_("\u2022 Volume") << line_end;
-//         break;
-//       }
-//     }
-//   }
-// }
+  std::stringstream ss;
+  if (const geo_log::GenericValueLog *generic_value_log =
+          dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
+    create_inspection_string_for_generic_value(generic_value_log->value(), ss);
+  }
+  if (const geo_log::GFieldValueLog *gfield_value_log =
+          dynamic_cast<const geo_log::GFieldValueLog *>(value_log)) {
+    create_inspection_string_for_gfield(*gfield_value_log, ss);
+  }
+  else if (const geo_log::GeometryValueLog *geo_value_log =
+               dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
+    create_inspection_string_for_geometry(
+        *geo_value_log,
+        ss,
+        dynamic_cast<const nodes::decl::Geometry *>(socket.runtime->declaration));
+  }
 
-// static std::optional<std::string> create_socket_inspection_string(bContext *C,
-//                                                                   bNode &node,
-//                                                                   bNodeSocket &socket)
-// {
-//   SpaceNode *snode = CTX_wm_space_node(C);
-//   if (snode == nullptr) {
-//     return {};
-//   };
-
-//   const geo_log::SocketLog *socket_log =
-//   geo_log::ModifierLog::find_socket_by_node_editor_context(
-//       *snode, node, socket);
-//   if (socket_log == nullptr) {
-//     return {};
-//   }
-//   const geo_log::ValueLog *value_log = socket_log->value();
-//   if (value_log == nullptr) {
-//     return {};
-//   }
-
-//   std::stringstream ss;
-//   if (const geo_log::GenericValueLog *generic_value_log =
-//           dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
-//     create_inspection_string_for_generic_value(generic_value_log->value(), ss);
-//   }
-//   if (const geo_log::GFieldValueLog *gfield_value_log =
-//           dynamic_cast<const geo_log::GFieldValueLog *>(value_log)) {
-//     create_inspection_string_for_gfield(*gfield_value_log, ss);
-//   }
-//   else if (const geo_log::GeometryValueLog *geo_value_log =
-//                dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
-//     create_inspection_string_for_geometry(*geo_value_log, ss);
-//   }
-
-//   return ss.str();
-// }
+  return ss.str();
+}
 
 static bool node_socket_has_tooltip(bNodeTree *ntree, bNodeSocket *socket)
 {

@@ -50,6 +50,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
+#include "BKE_mball.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 #include "BKE_mesh_runtime.h"
@@ -111,7 +112,7 @@ static void object_force_modifier_update_for_bind(Depsgraph *depsgraph, Object *
     BKE_lattice_modifiers_calc(depsgraph, scene_eval, ob_eval);
   }
   else if (ob->type == OB_MBALL) {
-    BKE_displist_make_mball(depsgraph, scene_eval, ob_eval);
+    BKE_mball_data_update(depsgraph, scene_eval, ob_eval);
   }
   else if (ELEM(ob->type, OB_CURVES_LEGACY, OB_SURF, OB_FONT)) {
     BKE_displist_make_curveTypes(depsgraph, scene_eval, ob_eval, false);
@@ -486,6 +487,9 @@ bool ED_object_modifier_move_to_index(ReportList *reports,
     }
   }
 
+  /* NOTE: Dependency graph only uses modifier nodes for visibility updates, and exact order of
+   * modifier nodes in the graph does not matter. */
+
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
   WM_main_add_notifier(NC_OBJECT | ND_MODIFIER, ob);
 
@@ -818,7 +822,7 @@ static bool modifier_apply_obdata(
     /* Create a temporary geometry set and component. */
     GeometrySet geometry_set;
     geometry_set.get_component_for_write<CurveComponent>().replace(
-        &curves, GeometryOwnershipType::Editable);
+        &curves, GeometryOwnershipType::ReadOnly);
 
     ModifierEvalContext mectx = {depsgraph, ob, (ModifierApplyFlag)0};
     mti->modifyGeometrySet(md_eval, &mectx, &geometry_set);
@@ -833,14 +837,11 @@ static bool modifier_apply_obdata(
         .attributes_for_write()
         .remove_anonymous();
 
-    /* If the modifier's output is a different curves data-block, copy the relevant information to
-     * the original. */
-    if (&curves_eval != &curves) {
-      blender::bke::CurvesGeometry::wrap(curves.geometry) = std::move(
-          blender::bke::CurvesGeometry::wrap(curves_eval.geometry));
-      Main *bmain = DEG_get_bmain(depsgraph);
-      BKE_object_material_from_eval_data(bmain, ob, &curves_eval.id);
-    }
+    /* Copy the relevant information to the original. */
+    blender::bke::CurvesGeometry::wrap(curves.geometry) = std::move(
+        blender::bke::CurvesGeometry::wrap(curves_eval.geometry));
+    Main *bmain = DEG_get_bmain(depsgraph);
+    BKE_object_material_from_eval_data(bmain, ob, &curves_eval.id);
   }
   else {
     /* TODO: implement for point clouds and volumes. */
@@ -1439,7 +1440,6 @@ static int modifier_apply_exec_ex(bContext *C, wmOperator *op, int apply_as, boo
   Scene *scene = CTX_data_scene(C);
   Object *ob = ED_object_active_context(C);
   ModifierData *md = edit_modifier_property_get(op, ob, 0);
-  const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md->type);
   const bool do_report = RNA_boolean_get(op->ptr, "report");
   const bool do_single_user = RNA_boolean_get(op->ptr, "single_user");
   const bool do_merge_customdata = RNA_boolean_get(op->ptr, "merge_customdata");
@@ -1447,6 +1447,8 @@ static int modifier_apply_exec_ex(bContext *C, wmOperator *op, int apply_as, boo
   if (md == nullptr) {
     return OPERATOR_CANCELLED;
   }
+
+  const ModifierTypeInfo *mti = BKE_modifier_get_info((ModifierType)md->type);
 
   if (do_single_user && ID_REAL_USERS(ob->data) > 1) {
     ED_object_single_obdata_user(bmain, scene, ob);
@@ -1670,6 +1672,7 @@ static int modifier_copy_exec(bContext *C, wmOperator *op)
   }
 
   DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+  DEG_relations_tag_update(bmain);
   WM_event_add_notifier(C, NC_OBJECT | ND_MODIFIER, ob);
 
   return OPERATOR_FINISHED;

@@ -228,9 +228,9 @@ static void mesh_render_data_polys_sorted_build(MeshRenderData *mr, MeshBufferCa
     }
   }
   else {
-    const MPoly *mp = &mr->mpoly[0];
-    for (int i = 0; i < mr->poly_len; i++, mp++) {
-      if (!(mr->use_hide && (mp->flag & ME_HIDE))) {
+    for (int i = 0; i < mr->poly_len; i++) {
+      if (!(mr->use_hide && mr->hide_poly && mr->hide_poly[i])) {
+        const MPoly *mp = &mr->mpoly[i];
         const int mat = min_ii(mp->mat_nr, mat_last);
         tri_first_index[i] = mat_tri_offs[mat];
         mat_tri_offs[mat] += mp->totloop - 2;
@@ -269,7 +269,7 @@ static void mesh_render_data_mat_tri_len_mesh_range_fn(void *__restrict userdata
   int *mat_tri_len = static_cast<int *>(tls->userdata_chunk);
 
   const MPoly *mp = &mr->mpoly[iter];
-  if (!(mr->use_hide && (mp->flag & ME_HIDE))) {
+  if (!(mr->use_hide && mr->hide_poly && mr->hide_poly[iter])) {
     int mat = min_ii(mp->mat_nr, mr->mat_len - 1);
     mat_tri_len[mat] += mp->totloop - 2;
   }
@@ -332,7 +332,7 @@ void mesh_render_data_update_looptris(MeshRenderData *mr,
   if (mr->extract_type != MR_EXTRACT_BMESH) {
     /* Mesh */
     if ((iter_type & MR_ITER_LOOPTRI) || (data_flag & MR_DATA_LOOPTRI)) {
-      /* NOTE(campbell): It's possible to skip allocating tessellation,
+      /* NOTE(@campbellbarton): It's possible to skip allocating tessellation,
        * the tessellation can be calculated as part of the iterator, see: P2188.
        * The overall advantage is small (around 1%), so keep this as-is. */
       mr->mlooptri = static_cast<MLoopTri *>(
@@ -431,6 +431,30 @@ void mesh_render_data_update_normals(MeshRenderData *mr, const eMRDataType data_
   }
 }
 
+static void retrieve_active_attribute_names(MeshRenderData &mr,
+                                            const Object &object,
+                                            const Mesh &mesh)
+{
+  const Mesh *mesh_final = editmesh_final_or_this(&object, &mesh);
+  const CustomData *cd_vdata = mesh_cd_vdata_get_from_mesh(mesh_final);
+  const CustomData *cd_ldata = mesh_cd_ldata_get_from_mesh(mesh_final);
+
+  /* Necessary because which attributes are active/default is stored in #CustomData. */
+  Mesh me_query = blender::dna::shallow_zero_initialize();
+  BKE_id_attribute_copy_domains_temp(
+      ID_ME, cd_vdata, nullptr, cd_ldata, nullptr, nullptr, &me_query.id);
+
+  mr.active_color_name = nullptr;
+  mr.default_color_name = nullptr;
+
+  if (const CustomDataLayer *active = BKE_id_attributes_active_color_get(&me_query.id)) {
+    mr.active_color_name = active->name;
+  }
+  if (const CustomDataLayer *render = BKE_id_attributes_render_color_get(&me_query.id)) {
+    mr.default_color_name = render->name;
+  }
+}
+
 MeshRenderData *mesh_render_data_create(Object *object,
                                         Mesh *me,
                                         const bool is_editmode,
@@ -470,17 +494,6 @@ MeshRenderData *mesh_render_data_create(Object *object,
       mr->bm_poly_centers = mr->edit_data->polyCos;
     }
 
-    /* A subdivision wrapper may be created in edit mode when X-ray is turned on to ensure that the
-     * topology seen by the user matches the one used for the selection routines. This wrapper
-     * seemingly takes precedence over the MDATA one, however the mesh we use for rendering is not
-     * the subdivided one, but the one where the MDATA wrapper would have been added. So consider
-     * the subdivision wrapper as well for the `has_mdata` case. */
-    bool has_mdata = is_mode_active && ELEM(mr->me->runtime.wrapper_type,
-                                            ME_WRAPPER_TYPE_MDATA,
-                                            ME_WRAPPER_TYPE_SUBD);
-    bool use_mapped = is_mode_active &&
-                      (has_mdata && !do_uvedit && mr->me && !mr->me->runtime.is_original);
-
     int bm_ensure_types = BM_VERT | BM_EDGE | BM_LOOP | BM_FACE;
 
     BM_mesh_elem_index_ensure(mr->bm, bm_ensure_types);
@@ -499,43 +512,51 @@ MeshRenderData *mesh_render_data_create(Object *object,
     mr->freestyle_face_ofs = CustomData_get_offset(&mr->bm->pdata, CD_FREESTYLE_FACE);
 #endif
 
-    if (use_mapped) {
-      mr->v_origindex = static_cast<const int *>(
-          CustomData_get_layer(&mr->me->vdata, CD_ORIGINDEX));
-      mr->e_origindex = static_cast<const int *>(
-          CustomData_get_layer(&mr->me->edata, CD_ORIGINDEX));
-      mr->p_origindex = static_cast<const int *>(
-          CustomData_get_layer(&mr->me->pdata, CD_ORIGINDEX));
-
-      use_mapped = (mr->v_origindex || mr->e_origindex || mr->p_origindex);
+    /* Use bmesh directly when the object is in edit mode unchanged by any modifiers.
+     * For non-final UVs, always use original bmesh since the UV editor does not support
+     * using the cage mesh with deformed coordinates. */
+    if ((is_mode_active && mr->me->runtime.is_original_bmesh &&
+         mr->me->runtime.wrapper_type == ME_WRAPPER_TYPE_BMESH) ||
+        (do_uvedit && !do_final)) {
+      mr->extract_type = MR_EXTRACT_BMESH;
     }
-
-    mr->extract_type = use_mapped ? MR_EXTRACT_MAPPED : MR_EXTRACT_BMESH;
-
-    /* Seems like the mesh_eval_final do not have the right origin indices.
-     * Force not mapped in this case. */
-    if (use_mapped && do_final && editmesh_eval_final != editmesh_eval_cage) {
-      // mr->edit_bmesh = nullptr;
+    else {
       mr->extract_type = MR_EXTRACT_MESH;
+
+      /* Use mapping from final to original mesh when the object is in edit mode. */
+      if (is_mode_active && do_final) {
+        mr->v_origindex = static_cast<const int *>(
+            CustomData_get_layer(&mr->me->vdata, CD_ORIGINDEX));
+        mr->e_origindex = static_cast<const int *>(
+            CustomData_get_layer(&mr->me->edata, CD_ORIGINDEX));
+        mr->p_origindex = static_cast<const int *>(
+            CustomData_get_layer(&mr->me->pdata, CD_ORIGINDEX));
+      }
+      else {
+        mr->v_origindex = nullptr;
+        mr->e_origindex = nullptr;
+        mr->p_origindex = nullptr;
+      }
     }
   }
   else {
     mr->me = me;
     mr->edit_bmesh = nullptr;
+    mr->extract_type = MR_EXTRACT_MESH;
 
-    bool use_mapped = is_paint_mode && mr->me && !mr->me->runtime.is_original;
-    if (use_mapped) {
+    if (is_paint_mode && mr->me) {
       mr->v_origindex = static_cast<const int *>(
           CustomData_get_layer(&mr->me->vdata, CD_ORIGINDEX));
       mr->e_origindex = static_cast<const int *>(
           CustomData_get_layer(&mr->me->edata, CD_ORIGINDEX));
       mr->p_origindex = static_cast<const int *>(
           CustomData_get_layer(&mr->me->pdata, CD_ORIGINDEX));
-
-      use_mapped = (mr->v_origindex || mr->e_origindex || mr->p_origindex);
     }
-
-    mr->extract_type = use_mapped ? MR_EXTRACT_MAPPED : MR_EXTRACT_MESH;
+    else {
+      mr->v_origindex = nullptr;
+      mr->e_origindex = nullptr;
+      mr->p_origindex = nullptr;
+    }
   }
 
   if (mr->extract_type != MR_EXTRACT_BMESH) {
@@ -554,6 +575,13 @@ MeshRenderData *mesh_render_data_create(Object *object,
     mr->v_origindex = static_cast<const int *>(CustomData_get_layer(&mr->me->vdata, CD_ORIGINDEX));
     mr->e_origindex = static_cast<const int *>(CustomData_get_layer(&mr->me->edata, CD_ORIGINDEX));
     mr->p_origindex = static_cast<const int *>(CustomData_get_layer(&mr->me->pdata, CD_ORIGINDEX));
+
+    mr->hide_vert = static_cast<const bool *>(
+        CustomData_get_layer_named(&me->vdata, CD_PROP_BOOL, ".hide_vert"));
+    mr->hide_edge = static_cast<const bool *>(
+        CustomData_get_layer_named(&me->edata, CD_PROP_BOOL, ".hide_edge"));
+    mr->hide_poly = static_cast<const bool *>(
+        CustomData_get_layer_named(&me->pdata, CD_PROP_BOOL, ".hide_poly"));
   }
   else {
     /* #BMesh */
@@ -565,6 +593,8 @@ MeshRenderData *mesh_render_data_create(Object *object,
     mr->poly_len = bm->totface;
     mr->tri_len = poly_to_tri_count(mr->poly_len, mr->loop_len);
   }
+
+  retrieve_active_attribute_names(*mr, *object, *me);
 
   return mr;
 }

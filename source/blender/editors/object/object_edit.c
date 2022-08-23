@@ -194,13 +194,13 @@ Object **ED_object_array_in_mode_or_selected(bContext *C,
     /* When in a mode that supports multiple active objects, use "objects in mode"
      * instead of the object's selection. */
     if (use_objects_in_mode) {
-      objects = BKE_view_layer_array_from_objects_in_mode(view_layer,
-                                                          v3d,
-                                                          r_objects_len,
-                                                          {.object_mode = ob_active->mode,
-                                                           .no_dup_data = true,
-                                                           .filter_fn = filter_fn,
-                                                           .filter_userdata = filter_user_data});
+      struct ObjectsInModeParams params = {0};
+      params.object_mode = ob_active->mode;
+      params.no_dup_data = true;
+      params.filter_fn = filter_fn;
+      params.filter_userdata = filter_user_data;
+      objects = BKE_view_layer_array_from_objects_in_mode_params(
+          view_layer, v3d, r_objects_len, &params);
     }
     else {
       objects = BKE_view_layer_array_selected_objects(
@@ -1469,8 +1469,6 @@ void OBJECT_OT_paths_clear(wmOperatorType *ot)
 static int shade_smooth_exec(bContext *C, wmOperator *op)
 {
   const bool use_smooth = STREQ(op->idname, "OBJECT_OT_shade_smooth");
-  const bool use_auto_smooth = RNA_boolean_get(op->ptr, "use_auto_smooth");
-  const float auto_smooth_angle = RNA_float_get(op->ptr, "auto_smooth_angle");
   bool changed_multi = false;
   bool has_linked_data = false;
 
@@ -1518,7 +1516,11 @@ static int shade_smooth_exec(bContext *C, wmOperator *op)
     bool changed = false;
     if (ob->type == OB_MESH) {
       BKE_mesh_smooth_flag_set(ob->data, use_smooth);
-      BKE_mesh_auto_smooth_flag_set(ob->data, use_auto_smooth, auto_smooth_angle);
+      if (use_smooth) {
+        const bool use_auto_smooth = RNA_boolean_get(op->ptr, "use_auto_smooth");
+        const float auto_smooth_angle = RNA_float_get(op->ptr, "auto_smooth_angle");
+        BKE_mesh_auto_smooth_flag_set(ob->data, use_auto_smooth, auto_smooth_angle);
+      }
       BKE_mesh_batch_cache_dirty_tag(ob->data, BKE_MESH_BATCH_DIRTY_ALL);
       changed = true;
     }

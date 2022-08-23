@@ -92,6 +92,7 @@ class GeoNodeExecParams {
   }
 
   void check_input_geometry_set(StringRef identifier, const GeometrySet &geometry_set) const;
+  void check_output_geometry_set(const GeometrySet &geometry_set) const;
 
   /**
    * Get the input value for the input socket with the given identifier.
@@ -138,6 +139,9 @@ class GeoNodeExecParams {
       const CPPType &type = CPPType::get<StoredT>();
       this->check_output_access(identifier, type);
 #endif
+      if constexpr (std::is_same_v<StoredT, GeometrySet>) {
+        this->check_output_geometry_set(value);
+      }
       const int index = this->get_output_index(identifier);
       const bNodeSocket *socket = node_.output_by_identifier(identifier).bsocket();
 

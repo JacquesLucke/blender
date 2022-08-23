@@ -71,6 +71,7 @@
 #include "BKE_lib_override.h"
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
+#include "BKE_main_namemap.h"
 #include "BKE_packedFile.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -698,6 +699,13 @@ static void wm_file_read_post(bContext *C, const struct wmFileReadPost_Params *p
     }
   }
 
+  if (is_factory_startup && BLT_translate_new_dataname()) {
+    /* Translate workspace names */
+    LISTBASE_FOREACH_MUTABLE (WorkSpace *, workspace, &bmain->workspaces) {
+      BKE_libblock_rename(bmain, &workspace->id, CTX_DATA_(BLT_I18NCONTEXT_ID_WORKSPACE, workspace->id.name + 2));
+    }
+  }
+
   if (use_data) {
     /* important to do before NULL'ing the context */
     BKE_callback_exec_null(bmain, BKE_CB_EVT_VERSION_UPDATE);
@@ -1003,6 +1011,8 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
   }
 
   WM_cursor_wait(false);
+
+  BLI_assert(BKE_main_namemap_validate(CTX_data_main(C)));
 
   return success;
 }
@@ -1765,9 +1775,11 @@ static bool wm_file_write(bContext *C,
   /* Enforce full override check/generation on file save. */
   BKE_lib_override_library_main_operations_create(bmain, true);
 
-  /* NOTE: Ideally we would call `WM_redraw_windows` here to remove any open menus. But we
-   * can crash if saving from a script, see T92704 & T97627. Just checking `!G.background
-   * && BLI_thread_is_main()` is not sufficient to fix this. */
+  /* NOTE: Ideally we would call `WM_redraw_windows` here to remove any open menus.
+   * But we can crash if saving from a script, see T92704 & T97627.
+   * Just checking `!G.background && BLI_thread_is_main()` is not sufficient to fix this.
+   * Additionally some some EGL configurations don't support reading the front-buffer
+   * immediately after drawing, see: T98462. In that case off-screen drawing is necessary. */
 
   /* don't forget not to return without! */
   WM_cursor_wait(true);
@@ -1884,9 +1896,6 @@ static void wm_autosave_location(char *filepath)
 {
   const int pid = abs(getpid());
   char path[1024];
-#ifdef WIN32
-  const char *savedir;
-#endif
 
   /* Normally there is no need to check for this to be NULL,
    * however this runs on exit when it may be cleared. */
@@ -1912,7 +1921,7 @@ static void wm_autosave_location(char *filepath)
    * through BLI_windows_get_default_root_dir().
    * If there is no C:\tmp autosave fails. */
   if (!BLI_exists(BKE_tempdir_base())) {
-    savedir = BKE_appdir_folder_id_create(BLENDER_USER_AUTOSAVE, NULL);
+    const char *savedir = BKE_appdir_folder_id_create(BLENDER_USER_AUTOSAVE, NULL);
     BLI_make_file_string("/", filepath, savedir, path);
     return;
   }

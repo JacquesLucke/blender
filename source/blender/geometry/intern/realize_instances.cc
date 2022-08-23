@@ -14,6 +14,7 @@
 
 #include "BKE_collection.h"
 #include "BKE_curves.hh"
+#include "BKE_deform.h"
 #include "BKE_geometry_set_instances.hh"
 #include "BKE_material.h"
 #include "BKE_mesh.h"
@@ -69,6 +70,7 @@ struct PointCloudRealizeInfo {
   /** Matches the order stored in #AllPointCloudsInfo.attributes. */
   Array<std::optional<GVArraySpan>> attributes;
   /** Id attribute on the point cloud. If there are no ids, this #Span is empty. */
+  Span<float3> positions;
   Span<int> stored_ids;
 };
 
@@ -203,7 +205,8 @@ struct GatherTasks {
 
   /* Volumes only have very simple support currently. Only the first found volume is put into the
    * output. */
-  UserCounter<VolumeComponent> first_volume;
+  UserCounter<const VolumeComponent> first_volume;
+  UserCounter<const GeometryComponentEditData> first_edit_data;
 };
 
 /** Current offsets while during the gather operation. */
@@ -581,7 +584,16 @@ static void gather_realize_tasks_recursive(GatherTasksInfo &gather_info,
         const VolumeComponent *volume_component = static_cast<const VolumeComponent *>(component);
         if (!gather_info.r_tasks.first_volume) {
           volume_component->user_add();
-          gather_info.r_tasks.first_volume = const_cast<VolumeComponent *>(volume_component);
+          gather_info.r_tasks.first_volume = volume_component;
+        }
+        break;
+      }
+      case GEO_COMPONENT_TYPE_EDIT: {
+        const GeometryComponentEditData *edit_component =
+            static_cast<const GeometryComponentEditData *>(component);
+        if (!gather_info.r_tasks.first_edit_data) {
+          edit_component->user_add();
+          gather_info.r_tasks.first_edit_data = edit_component;
         }
         break;
       }
@@ -665,6 +677,9 @@ static AllPointCloudsInfo preprocess_pointclouds(const GeometrySet &geometry_set
         pointcloud_info.stored_ids = ids_attribute.varray.get_internal_span().typed<int>();
       }
     }
+    const VArray<float3> position_attribute = attributes.lookup_or_default<float3>(
+        "position", ATTR_DOMAIN_POINT, float3(0));
+    pointcloud_info.positions = position_attribute.get_internal_span();
   }
   return info;
 }
@@ -673,18 +688,16 @@ static void execute_realize_pointcloud_task(
     const RealizeInstancesOptions &options,
     const RealizePointCloudTask &task,
     const OrderedAttributes &ordered_attributes,
-    PointCloud &dst_pointcloud,
     MutableSpan<GSpanAttributeWriter> dst_attribute_writers,
-    MutableSpan<int> all_dst_ids)
+    MutableSpan<int> all_dst_ids,
+    MutableSpan<float3> all_dst_positions)
 {
   const PointCloudRealizeInfo &pointcloud_info = *task.pointcloud_info;
   const PointCloud &pointcloud = *pointcloud_info.pointcloud;
-  const Span<float3> src_positions{(float3 *)pointcloud.co, pointcloud.totpoint};
   const IndexRange point_slice{task.start_index, pointcloud.totpoint};
-  MutableSpan<float3> dst_positions{(float3 *)dst_pointcloud.co + task.start_index,
-                                    pointcloud.totpoint};
 
-  copy_transformed_positions(src_positions, task.transform, dst_positions);
+  copy_transformed_positions(
+      pointcloud_info.positions, task.transform, all_dst_positions.slice(point_slice));
 
   /* Create point ids. */
   if (!all_dst_ids.is_empty()) {
@@ -726,6 +739,9 @@ static void execute_realize_pointcloud_tasks(const RealizeInstancesOptions &opti
   bke::MutableAttributeAccessor dst_attributes = bke::pointcloud_attributes_for_write(
       *dst_pointcloud);
 
+  SpanAttributeWriter<float3> positions = dst_attributes.lookup_or_add_for_write_only_span<float3>(
+      "position", ATTR_DOMAIN_POINT);
+
   /* Prepare id attribute. */
   SpanAttributeWriter<int> point_ids;
   if (all_pointclouds_info.create_id_attribute) {
@@ -748,9 +764,9 @@ static void execute_realize_pointcloud_tasks(const RealizeInstancesOptions &opti
       execute_realize_pointcloud_task(options,
                                       task,
                                       ordered_attributes,
-                                      *dst_pointcloud,
                                       dst_attribute_writers,
-                                      point_ids.span);
+                                      point_ids.span,
+                                      positions.span);
     }
   });
 
@@ -758,6 +774,7 @@ static void execute_realize_pointcloud_tasks(const RealizeInstancesOptions &opti
   for (GSpanAttributeWriter &dst_attribute : dst_attribute_writers) {
     dst_attribute.finish();
   }
+  positions.finish();
   if (point_ids) {
     point_ids.finish();
   }
@@ -981,6 +998,9 @@ static void execute_realize_mesh_tasks(const RealizeInstancesOptions &options,
   const RealizeMeshTask &first_task = tasks.first();
   const Mesh &first_mesh = *first_task.mesh_info->mesh;
   BKE_mesh_copy_parameters_for_eval(dst_mesh, &first_mesh);
+  /* The above line also copies vertex group names. We don't want that here because the new
+   * attributes are added explicitly below. */
+  BLI_freelistN(&dst_mesh->vertex_group_names);
 
   /* Add materials. */
   for (const int i : IndexRange(ordered_materials.size())) {
@@ -1238,6 +1258,11 @@ static void execute_realize_curve_tasks(const RealizeInstancesOptions &options,
   dst_component.replace(dst_curves_id);
   bke::MutableAttributeAccessor dst_attributes = dst_curves.attributes_for_write();
 
+  /* Copy settings from the first input geometry set with curves. */
+  const RealizeCurveTask &first_task = tasks.first();
+  const Curves &first_curves_id = *first_task.curve_info->curves;
+  bke::curves_copy_parameters(first_curves_id, *dst_curves_id);
+
   /* Prepare id attribute. */
   SpanAttributeWriter<int> point_ids;
   if (all_curves_info.create_id_attribute) {
@@ -1393,6 +1418,9 @@ GeometrySet realize_instances(GeometrySet geometry_set, const RealizeInstancesOp
 
   if (gather_info.r_tasks.first_volume) {
     new_geometry_set.add(*gather_info.r_tasks.first_volume);
+  }
+  if (gather_info.r_tasks.first_edit_data) {
+    new_geometry_set.add(*gather_info.r_tasks.first_edit_data);
   }
 
   return new_geometry_set;

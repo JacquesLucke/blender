@@ -161,42 +161,6 @@ static void stats_object(Object *ob,
         stats->totlampsel++;
       }
       break;
-    case OB_SURF:
-    case OB_CURVES_LEGACY:
-    case OB_FONT: {
-      const Mesh *me_eval = BKE_object_get_evaluated_mesh(ob);
-      if ((me_eval != nullptr) && !BLI_gset_add(objects_gset, (void *)me_eval)) {
-        break;
-      }
-
-      if (stats_mesheval(me_eval, is_selected, stats)) {
-        break;
-      }
-      ATTR_FALLTHROUGH; /* Fall-through to displist. */
-    }
-    case OB_MBALL: {
-      int totv = 0, totf = 0, tottri = 0;
-
-      if (ob->runtime.curve_cache && ob->runtime.curve_cache->disp.first) {
-        /* NOTE: We only get the same curve_cache for instances of the same curve/font/...
-         * For simple linked duplicated objects, each has its own dispList. */
-        if (!BLI_gset_add(objects_gset, ob->runtime.curve_cache)) {
-          break;
-        }
-
-        BKE_displist_count(&ob->runtime.curve_cache->disp, &totv, &totf, &tottri);
-      }
-
-      stats->totvert += totv;
-      stats->totface += totf;
-      stats->tottri += tottri;
-
-      if (is_selected) {
-        stats->totvertsel += totv;
-        stats->totfacesel += totf;
-      }
-      break;
-    }
     case OB_GPENCIL: {
       if (is_selected) {
         bGPdata *gpd = (bGPdata *)ob->data;
@@ -439,14 +403,7 @@ static void stats_update(Depsgraph *depsgraph,
   }
   else if (ob && (ob->mode & OB_MODE_SCULPT)) {
     /* Sculpt Mode. */
-    if (stats_is_object_dynamic_topology_sculpt(ob)) {
-      /* Dynamic topology. Do not count all vertices,
-       * dynamic topology stats are initialized later as part of sculpt stats. */
-    }
-    else {
-      /* When dynamic topology is not enabled both sculpt stats and scene stats are collected. */
-      stats_object_sculpt(ob, stats);
-    }
+    stats_object_sculpt(ob, stats);
   }
   else {
     /* Objects. */
