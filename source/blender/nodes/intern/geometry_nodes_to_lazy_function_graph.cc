@@ -369,6 +369,7 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
 
 class LazyFunctionForMultiFunctionNode : public LazyFunction {
  private:
+  const NodeRef &node_;
   const NodeMultiFunctions::Item fn_item_;
   Vector<const ValueOrFieldCPPType *> input_types_;
   Vector<const ValueOrFieldCPPType *> output_types_;
@@ -378,7 +379,7 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
                                    NodeMultiFunctions::Item fn_item,
                                    Vector<const InputSocketRef *> &r_used_inputs,
                                    Vector<const OutputSocketRef *> &r_used_outputs)
-      : fn_item_(std::move(fn_item))
+      : node_(node), fn_item_(std::move(fn_item))
   {
     BLI_assert(fn_item_.fn != nullptr);
     static_name_ = node.name().c_str();
@@ -391,8 +392,15 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     }
   }
 
-  void execute_impl(lf::Params &params, const lf::Context &UNUSED(context)) const override
+  void execute_impl(lf::Params &params, const lf::Context &context) const override
   {
+    GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+    BLI_assert(user_data != nullptr);
+    const ContextStack *context_stack = user_data->context_stack;
+    BLI_assert(context_stack != nullptr);
+    geo_eval_log::GeoTreeLogger &logger =
+        user_data->modifier_data->eval_log->get_local_tree_logger(*context_stack);
+
     Vector<const void *> inputs_values(inputs_.size());
     Vector<void *> outputs_values(outputs_.size());
     for (const int i : inputs_.index_range()) {
@@ -408,6 +416,17 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
                                              inputs_values,
                                              outputs_values);
     for (const int i : outputs_.index_range()) {
+      const CPPType &type = *this->outputs_[i].type;
+      void *buffer = logger.allocator.allocate(type.size(), type.alignment());
+      type.copy_construct(outputs_values[i], buffer);
+      destruct_ptr<geo_eval_log::GenericValueLog> value_log =
+          logger.allocator.construct<geo_eval_log::GenericValueLog>(GMutablePointer{type, buffer});
+      /* TODO: Take unavailable sockets into account. */
+      const int index = i;
+      logger.output_socket_values.append(
+          {node_.name(), node_.output(index).identifier(), value_log.get()});
+      logger.socket_values_owner.append(std::move(value_log));
+
       params.output_set(i);
     }
   }

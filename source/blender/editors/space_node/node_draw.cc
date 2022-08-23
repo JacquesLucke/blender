@@ -321,6 +321,53 @@ float2 node_from_view(const bNode &node, const float2 &co)
   return result;
 }
 
+static GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
+{
+  using namespace blender;
+  using namespace blender::nodes;
+  using namespace blender::nodes::geo_eval_log;
+
+  LinearAllocator<> allocator;
+  Vector<destruct_ptr<ContextStack>> contexts;
+
+  if (snode.id == nullptr) {
+    return nullptr;
+  }
+  if (GS(snode.id->name) != ID_OB) {
+    return nullptr;
+  }
+  Object *object = reinterpret_cast<Object *>(snode.id);
+  NodesModifierData *nmd = nullptr;
+  LISTBASE_FOREACH (ModifierData *, md_iter, &object->modifiers) {
+    if (md_iter->type == eModifierType_Nodes) {
+      NodesModifierData *nmd_iter = reinterpret_cast<NodesModifierData *>(md_iter);
+      if (nmd_iter->node_group == snode.nodetree) {
+        nmd = nmd_iter;
+        break;
+      }
+    }
+  }
+  if (nmd == nullptr) {
+    return nullptr;
+  }
+  if (nmd->runtime_eval_log == nullptr) {
+    return nullptr;
+  }
+  GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
+  contexts.append(allocator.construct<ModifierContextStack>(nullptr, nmd->modifier.name));
+  Vector<const bNodeTreePath *> tree_path_vec{snode.treepath};
+  if (tree_path_vec.is_empty()) {
+    return nullptr;
+  }
+  for (const bNodeTreePath *path : tree_path_vec.as_span().drop_front(1)) {
+    contexts.append(allocator.construct<NodeGroupContextStack>(
+        &*contexts.last(), path->node_name, path->nodetree->id.name + 2));
+  }
+
+  const ContextStack &final_context = *contexts.last();
+  return &modifier_log.get_tree_log(final_context.hash());
+}
+
 struct SocketTooltipData {
   bNodeTree *ntree;
   bNode *node;
@@ -341,8 +388,27 @@ static bool node_socket_has_tooltip(bNodeTree *ntree, bNodeSocket *socket)
   return false;
 }
 
-static std::optional<std::string> create_socket_inspection_string()
+static std::optional<std::string> create_socket_inspection_string(TreeDrawContext &tree_draw_ctx,
+                                                                  bNode &node,
+                                                                  bNodeSocket &socket)
 {
+  using namespace blender::nodes::geo_eval_log;
+  tree_draw_ctx.geo_tree_log->ensure_socket_values();
+  GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
+  if (node_log == nullptr) {
+    return std::nullopt;
+  }
+  ValueLog *value_log = socket.in_out == SOCK_IN ?
+                            node_log->input_values_.lookup_default(socket.identifier, nullptr) :
+                            node_log->output_values_.lookup_default(socket.identifier, nullptr);
+  if (value_log == nullptr) {
+    return std::nullopt;
+  }
+  if (GenericValueLog *generic_value_log = dynamic_cast<GenericValueLog *>(value_log)) {
+    const GPointer value = generic_value_log->value();
+    return value.type()->to_string(value.get());
+  }
+
   return std::nullopt;
 }
 
@@ -351,7 +417,14 @@ static char *node_socket_get_tooltip(bContext *C,
                                      bNode *node,
                                      bNodeSocket *socket)
 {
-  UNUSED_VARS(C, node);
+  SpaceNode *snode = CTX_wm_space_node(C);
+  TreeDrawContext tree_draw_ctx;
+  if (snode != nullptr) {
+    if (ntree->type == NTREE_GEOMETRY) {
+      tree_draw_ctx.geo_tree_log = get_geo_tree_log(*snode);
+    }
+  }
+
   std::stringstream output;
   if (socket->runtime->declaration != nullptr) {
     const blender::nodes::SocketDeclaration &socket_decl = *socket->runtime->declaration;
@@ -361,12 +434,13 @@ static char *node_socket_get_tooltip(bContext *C,
     }
   }
 
-  if (ntree->type == NTREE_GEOMETRY) {
+  if (ntree->type == NTREE_GEOMETRY && tree_draw_ctx.geo_tree_log != nullptr) {
     if (!output.str().empty()) {
       output << ".\n\n";
     }
 
-    std::optional<std::string> socket_inspection_str = create_socket_inspection_string();
+    std::optional<std::string> socket_inspection_str = create_socket_inspection_string(
+        tree_draw_ctx, *node, *socket);
     if (socket_inspection_str.has_value()) {
       output << *socket_inspection_str;
     }
@@ -382,7 +456,7 @@ static char *node_socket_get_tooltip(bContext *C,
   return BLI_strdup(output.str().c_str());
 }
 
-static void node_socket_add_tooltip(TreeDrawContext *tree_draw_ctx,
+static void node_socket_add_tooltip(TreeDrawContext *UNUSED(tree_draw_ctx),
                                     bNodeTree *ntree,
                                     bNode *node,
                                     bNodeSocket *sock,
@@ -1370,53 +1444,6 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
   complete_string += data.warnings.last().message;
 
   return BLI_strdupn(complete_string.c_str(), complete_string.size());
-}
-
-static GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
-{
-  using namespace blender;
-  using namespace blender::nodes;
-  using namespace blender::nodes::geo_eval_log;
-
-  LinearAllocator<> allocator;
-  Vector<destruct_ptr<ContextStack>> contexts;
-
-  if (snode.id == nullptr) {
-    return nullptr;
-  }
-  if (GS(snode.id->name) != ID_OB) {
-    return nullptr;
-  }
-  Object *object = reinterpret_cast<Object *>(snode.id);
-  NodesModifierData *nmd = nullptr;
-  LISTBASE_FOREACH (ModifierData *, md_iter, &object->modifiers) {
-    if (md_iter->type == eModifierType_Nodes) {
-      NodesModifierData *nmd_iter = reinterpret_cast<NodesModifierData *>(md_iter);
-      if (nmd_iter->node_group == snode.nodetree) {
-        nmd = nmd_iter;
-        break;
-      }
-    }
-  }
-  if (nmd == nullptr) {
-    return nullptr;
-  }
-  if (nmd->runtime_eval_log == nullptr) {
-    return nullptr;
-  }
-  GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
-  contexts.append(allocator.construct<ModifierContextStack>(nullptr, nmd->modifier.name));
-  Vector<const bNodeTreePath *> tree_path_vec{snode.treepath};
-  if (tree_path_vec.is_empty()) {
-    return nullptr;
-  }
-  for (const bNodeTreePath *path : tree_path_vec.as_span().drop_front(1)) {
-    contexts.append(allocator.construct<NodeGroupContextStack>(
-        &*contexts.last(), path->node_name, path->nodetree->id.name + 2));
-  }
-
-  const ContextStack &final_context = *contexts.last();
-  return &modifier_log.get_tree_log(final_context.hash());
 }
 
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)
