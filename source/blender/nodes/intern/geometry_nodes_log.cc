@@ -58,6 +58,26 @@ void GeoTreeLog::ensure_node_run_time()
   reduced_node_run_times_ = true;
 }
 
+void GeoTreeLog::ensure_socket_values()
+{
+  if (reduced_socket_values_) {
+    return;
+  }
+  for (GeoTreeLogger *tree_logger : tree_loggers_) {
+    for (const std::tuple<std::string, std::string, ValueLog *> &value_log_data :
+         tree_logger->input_socket_values) {
+      this->nodes.lookup_or_add_as(std::get<0>(value_log_data))
+          .input_values_.add(std::get<1>(value_log_data), std::get<2>(value_log_data));
+    }
+    for (const std::tuple<std::string, std::string, ValueLog *> &value_log_data :
+         tree_logger->output_socket_values) {
+      this->nodes.lookup_or_add_as(std::get<0>(value_log_data))
+          .output_values_.add(std::get<1>(value_log_data), std::get<2>(value_log_data));
+    }
+  }
+  reduced_socket_values_ = true;
+}
+
 GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ContextStack &context_stack)
 {
   Map<ContextStackHash, std::unique_ptr<GeoTreeLogger>> &local_tree_loggers =

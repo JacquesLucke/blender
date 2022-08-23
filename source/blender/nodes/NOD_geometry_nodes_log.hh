@@ -87,6 +87,8 @@ class GeoNodeLog {
  public:
   Vector<NodeWarning> warnings;
   std::chrono::nanoseconds run_time{0};
+  Map<std::string, ValueLog *> input_values_;
+  Map<std::string, ValueLog *> output_values_;
 };
 
 class GeoModifierLog;
@@ -97,6 +99,7 @@ class GeoTreeLog {
   Vector<GeoTreeLogger *> tree_loggers_;
   bool reduced_node_warnings_ = false;
   bool reduced_node_run_times_ = false;
+  bool reduced_socket_values_ = false;
 
  public:
   Map<std::string, GeoNodeLog> nodes;
@@ -110,6 +113,7 @@ class GeoTreeLog {
 
   void ensure_node_warnings();
   void ensure_node_run_time();
+  void ensure_socket_values();
 };
 
 class GeoModifierLog {
