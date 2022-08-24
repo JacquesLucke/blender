@@ -5,6 +5,19 @@
 
 namespace blender::nodes::geo_eval_log {
 
+void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, GPointer value)
+{
+  const CPPType &type = *value.type();
+  void *buffer = this->allocator.allocate(type.size(), type.alignment());
+  type.copy_construct(value.get(), buffer);
+  destruct_ptr<GenericValueLog> value_log = this->allocator.construct<GenericValueLog>(
+      GMutablePointer{type, buffer});
+  auto &socket_values = socket.in_out == SOCK_IN ? this->input_socket_values :
+                                                   this->output_socket_values;
+  socket_values.append({node.name, socket.identifier, value_log.get()});
+  this->socket_values_owner.append(std::move(value_log));
+}
+
 void GeoTreeLog::ensure_node_warnings()
 {
   if (reduced_node_warnings_) {

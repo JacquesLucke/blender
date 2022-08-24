@@ -81,6 +81,8 @@ class GeoTreeLogger {
   Vector<std::tuple<std::string, std::string, ValueLog *>> input_socket_values;
   Vector<std::tuple<std::string, std::string, ValueLog *>> output_socket_values;
   Vector<std::tuple<std::string, TimePoint, TimePoint>> node_execution_times;
+
+  void log_value(const bNode &node, const bNodeSocket &socket, GPointer value);
 };
 
 class GeoNodeLog {

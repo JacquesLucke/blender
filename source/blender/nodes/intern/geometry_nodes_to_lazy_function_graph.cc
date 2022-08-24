@@ -373,6 +373,7 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
   const NodeMultiFunctions::Item fn_item_;
   Vector<const ValueOrFieldCPPType *> input_types_;
   Vector<const ValueOrFieldCPPType *> output_types_;
+  Vector<const OutputSocketRef *> output_sockets_;
 
  public:
   LazyFunctionForMultiFunctionNode(const NodeRef &node,
@@ -390,6 +391,7 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     for (const lf::Output &fn_output : outputs_) {
       output_types_.append(dynamic_cast<const ValueOrFieldCPPType *>(fn_output.type));
     }
+    output_sockets_ = r_used_outputs;
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
@@ -401,32 +403,19 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     geo_eval_log::GeoTreeLogger &logger =
         user_data->modifier_data->eval_log->get_local_tree_logger(*context_stack);
 
-    Vector<const void *> inputs_values(inputs_.size());
-    Vector<void *> outputs_values(outputs_.size());
+    Vector<const void *> input_values(inputs_.size());
+    Vector<void *> output_values(outputs_.size());
     for (const int i : inputs_.index_range()) {
-      inputs_values[i] = params.try_get_input_data_ptr(i);
+      input_values[i] = params.try_get_input_data_ptr(i);
     }
     for (const int i : outputs_.index_range()) {
-      outputs_values[i] = params.get_output_data_ptr(i);
+      output_values[i] = params.get_output_data_ptr(i);
     }
-    execute_multi_function_on_value_or_field(*fn_item_.fn,
-                                             fn_item_.owned_fn,
-                                             input_types_,
-                                             output_types_,
-                                             inputs_values,
-                                             outputs_values);
+    execute_multi_function_on_value_or_field(
+        *fn_item_.fn, fn_item_.owned_fn, input_types_, output_types_, input_values, output_values);
     for (const int i : outputs_.index_range()) {
       const CPPType &type = *this->outputs_[i].type;
-      void *buffer = logger.allocator.allocate(type.size(), type.alignment());
-      type.copy_construct(outputs_values[i], buffer);
-      destruct_ptr<geo_eval_log::GenericValueLog> value_log =
-          logger.allocator.construct<geo_eval_log::GenericValueLog>(GMutablePointer{type, buffer});
-      /* TODO: Take unavailable sockets into account. */
-      const int index = i;
-      logger.output_socket_values.append(
-          {node_.name(), node_.output(index).identifier(), value_log.get()});
-      logger.socket_values_owner.append(std::move(value_log));
-
+      logger.log_value(*node_.bnode(), *output_sockets_[i]->bsocket(), {type, output_values[i]});
       params.output_set(i);
     }
   }
