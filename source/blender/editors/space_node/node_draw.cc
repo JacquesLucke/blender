@@ -445,7 +445,7 @@ static char *node_socket_get_tooltip(bContext *C,
       output << *socket_inspection_str;
     }
     else {
-      output << TIP_("The socket value has not been computed yet");
+      output << TIP_("Unknown socket value");
     }
   }
 
