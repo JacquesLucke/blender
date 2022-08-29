@@ -61,6 +61,7 @@ typedef struct OVERLAY_PassList {
   DRWPass *armature_ps[2];
   DRWPass *armature_bone_select_ps;
   DRWPass *armature_transp_ps[2];
+  DRWPass *attribute_ps;
   DRWPass *background_ps;
   DRWPass *clipping_frustum_ps;
   DRWPass *edit_curve_wire_ps[2];
@@ -231,6 +232,7 @@ typedef struct OVERLAY_ArmatureCallBuffers {
 typedef struct OVERLAY_PrivateData {
   DRWShadingGroup *armature_bone_select_act_grp;
   DRWShadingGroup *armature_bone_select_grp;
+  DRWShadingGroup *attribute_grp;
   DRWShadingGroup *edit_curve_normal_grp[2];
   DRWShadingGroup *edit_curve_wire_grp[2];
   DRWShadingGroup *edit_curve_handle_grp;
@@ -676,6 +678,10 @@ void OVERLAY_sculpt_curves_cache_init(OVERLAY_Data *vedata);
 void OVERLAY_sculpt_curves_cache_populate(OVERLAY_Data *vedata, Object *ob);
 void OVERLAY_sculpt_curves_draw(OVERLAY_Data *vedata);
 
+void OVERLAY_attribute_cache_init(OVERLAY_Data *vedata);
+void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object);
+void OVERLAY_attribute_draw(OVERLAY_Data *vedata);
+
 void OVERLAY_wireframe_init(OVERLAY_Data *vedata);
 void OVERLAY_wireframe_cache_init(OVERLAY_Data *vedata);
 void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
@@ -699,6 +705,7 @@ GPUShader *OVERLAY_shader_armature_shape_wire(void);
 GPUShader *OVERLAY_shader_armature_sphere(bool use_outline);
 GPUShader *OVERLAY_shader_armature_stick(void);
 GPUShader *OVERLAY_shader_armature_wire(void);
+GPUShader *OVERLAY_shader_attribute(void);
 GPUShader *OVERLAY_shader_background(void);
 GPUShader *OVERLAY_shader_clipbound(void);
 GPUShader *OVERLAY_shader_depth_only(void);
