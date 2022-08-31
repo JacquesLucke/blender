@@ -45,10 +45,13 @@ using geo_eval_log::NodeWarningType;
 
 class GeoNodeExecParams {
  private:
-  GeoNodeExecParamsProvider *provider_;
+  const bNode &node_;
+  lf::Params &params_;
+  const lf::Context &lf_context_;
 
  public:
-  GeoNodeExecParams(GeoNodeExecParamsProvider &provider) : provider_(&provider)
+  GeoNodeExecParams(const bNode &node, lf::Params &params, const lf::Context &lf_context)
+      : node_(node), params_(params), lf_context_(lf_context)
   {
   }
 
@@ -138,10 +141,10 @@ class GeoNodeExecParams {
         this->check_output_geometry_set(value);
       }
       const int index = this->get_output_index(identifier);
-      const bNodeSocket *socket = node_.output_by_identifier(identifier).bsocket();
+      const bNodeSocket &socket = node_.output_by_identifier(identifier);
 
       geo_eval_log::GeoTreeLogger &logger = this->get_local_tree_logger();
-      logger.log_value(*node_.bnode(), *socket, {&value});
+      logger.log_value(node_, socket, {&value});
       params_.set_output(index, std::forward<T>(value));
     }
   }
@@ -254,11 +257,11 @@ class GeoNodeExecParams {
   int get_input_index(const StringRef identifier) const
   {
     int counter = 0;
-    for (const InputSocketRef *socket : node_.inputs()) {
+    for (const bNodeSocket *socket : node_.input_sockets()) {
       if (!socket->is_available()) {
         continue;
       }
-      if (socket->identifier() == identifier) {
+      if (socket->identifier == identifier) {
         return counter;
       }
       counter++;
@@ -270,11 +273,11 @@ class GeoNodeExecParams {
   int get_output_index(const StringRef identifier) const
   {
     int counter = 0;
-    for (const OutputSocketRef *socket : node_.outputs()) {
+    for (const bNodeSocket *socket : node_.output_sockets()) {
       if (!socket->is_available()) {
         continue;
       }
-      if (socket->identifier() == identifier) {
+      if (socket->identifier == identifier) {
         return counter;
       }
       counter++;

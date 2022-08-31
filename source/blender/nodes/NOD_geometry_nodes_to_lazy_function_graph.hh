@@ -6,7 +6,6 @@
 
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_multi_function.hh"
-#include "NOD_node_tree_ref.hh"
 
 #include "BLI_context_stack.hh"
 
@@ -81,7 +80,7 @@ struct GeoNodesLFUserData : public lf::UserData {
 };
 
 struct GeometryNodeLazyFunctionMapping {
-  Map<const SocketRef *, lf::Socket *> dummy_socket_map;
+  Map<const bNodeSocket *, lf::Socket *> dummy_socket_map;
   Vector<lf::OutputSocket *> group_input_sockets;
 };
 
@@ -90,7 +89,6 @@ struct GeometryNodesLazyFunctionResources {
   Vector<std::unique_ptr<LazyFunction>> functions;
   Vector<GMutablePointer> values_to_destruct;
   Vector<std::unique_ptr<NodeMultiFunctions>> node_multi_functions;
-  Vector<std::unique_ptr<NodeTreeRef>> sub_tree_refs;
 
   ~GeometryNodesLazyFunctionResources()
   {
@@ -100,7 +98,7 @@ struct GeometryNodesLazyFunctionResources {
   }
 };
 
-void geometry_nodes_to_lazy_function_graph(const NodeTreeRef &tree,
+void geometry_nodes_to_lazy_function_graph(const bNodeTree &tree,
                                            LazyFunctionGraph &graph,
                                            GeometryNodesLazyFunctionResources &resources,
                                            GeometryNodeLazyFunctionMapping &mapping);

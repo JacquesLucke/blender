@@ -767,7 +767,7 @@ static void initialize_group_input(NodesModifierData &nmd,
                                    const bNodeSocket &socket,
                                    void *r_value)
 {
-  const bNodeSocketType &socket_type = *socket.typeinfo();
+  const bNodeSocketType &socket_type = *socket.typeinfo;
   const eNodeSocketDatatype socket_data_type = static_cast<eNodeSocketDatatype>(socket.type);
   if (nmd.settings.properties == nullptr) {
     socket_type.get_geometry_nodes_cpp_value(socket, r_value);
@@ -776,11 +776,11 @@ static void initialize_group_input(NodesModifierData &nmd,
   const IDProperty *property = IDP_GetPropertyFromGroup(nmd.settings.properties,
                                                         socket.identifier);
   if (property == nullptr) {
-    socket_type.get_geometry_nodes_cpp_value(bsocket, r_value);
+    socket_type.get_geometry_nodes_cpp_value(socket, r_value);
     return;
   }
-  if (!id_property_type_matches_socket(bsocket, *property)) {
-    socket_type.get_geometry_nodes_cpp_value(bsocket, r_value);
+  if (!id_property_type_matches_socket(socket, *property)) {
+    socket_type.get_geometry_nodes_cpp_value(socket, r_value);
     return;
   }
 
@@ -1144,7 +1144,7 @@ static GeometrySet compute_geometry(const bNodeTree &tree_ref,
     const CPPType *type = interface_socket->typeinfo->geometry_nodes_cpp_type;
     BLI_assert(type != nullptr); /* Todo */
     void *value = allocator.allocate(type->size(), type->alignment());
-    initialize_group_input(*nmd, *interface_socket, input_index, value);
+    initialize_group_input(*nmd, *interface_socket, value);
     param_inputs[input_index] = {type, value};
     inputs_to_destruct.append({type, value});
   }
@@ -1288,7 +1288,7 @@ static void modifyGeometry(ModifierData *md,
     use_orig_index_polys = CustomData_has_layer(&mesh.pdata, CD_ORIGINDEX);
   }
 
-  geometry_set = compute_geometry(tree_ref, output_node, std::move(geometry_set), nmd, ctx);
+  geometry_set = compute_geometry(tree, output_node, std::move(geometry_set), nmd, ctx);
 
   if (geometry_set.has_mesh()) {
     /* Add #CD_ORIGINDEX layers if they don't exist already. This is required because the
