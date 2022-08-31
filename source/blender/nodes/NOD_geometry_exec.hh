@@ -28,8 +28,6 @@ using bke::AttributeReader;
 using bke::AttributeWriter;
 using bke::GAttributeReader;
 using bke::GAttributeWriter;
-using bke::GeometryComponentFieldContext;
-using bke::GeometryFieldInput;
 using bke::GSpanAttributeWriter;
 using bke::MutableAttributeAccessor;
 using bke::SpanAttributeWriter;
@@ -47,13 +45,10 @@ using geo_eval_log::NodeWarningType;
 
 class GeoNodeExecParams {
  private:
-  const NodeRef &node_;
-  lf::Params &params_;
-  const lf::Context &lf_context_;
+  GeoNodeExecParamsProvider *provider_;
 
  public:
-  GeoNodeExecParams(const NodeRef &node, lf::Params &params, const lf::Context &lf_context)
-      : node_(node), params_(params), lf_context_(lf_context)
+  GeoNodeExecParams(GeoNodeExecParamsProvider &provider) : provider_(&provider)
   {
   }
 
@@ -208,7 +203,7 @@ class GeoNodeExecParams {
    */
   const bNode &node() const
   {
-    return *node_.bnode();
+    return node_;
   }
 
   const Object *self_object() const

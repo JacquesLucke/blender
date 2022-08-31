@@ -225,7 +225,6 @@ set(LIB
 )
 
 set(MSL_SRC
-
   metal/kernels/compute_texture_update.msl
   metal/kernels/compute_texture_read.msl
   metal/kernels/depth_2d_update_float_frag.glsl
@@ -395,6 +394,7 @@ set(GLSL_SRC
   shaders/material/gpu_shader_material_light_path.glsl
   shaders/material/gpu_shader_material_mapping.glsl
   shaders/material/gpu_shader_material_map_range.glsl
+  shaders/material/gpu_shader_material_mix_color.glsl
   shaders/material/gpu_shader_material_mix_shader.glsl
   shaders/material/gpu_shader_material_noise.glsl
   shaders/material/gpu_shader_material_normal.glsl

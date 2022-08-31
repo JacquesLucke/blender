@@ -305,6 +305,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
       case ID_IM:
       case ID_TE: {
         DEG_add_generic_id_relation(ctx->node, id, "Nodes Modifier");
+        break;
       }
       default: {
         /* Purposefully don't add relations for materials. While there are material sockets,
@@ -763,18 +764,17 @@ void MOD_nodes_update_interface(Object *object, NodesModifierData *nmd)
 }
 
 static void initialize_group_input(NodesModifierData &nmd,
-                                   const bNodeSocket &bsocket,
-                                   const int input_index,
+                                   const bNodeSocket &socket,
                                    void *r_value)
 {
-  const bNodeSocketType &socket_type = *bsocket.typeinfo;
-  const eNodeSocketDatatype &socket_data_type = static_cast<eNodeSocketDatatype>(bsocket.type);
+  const bNodeSocketType &socket_type = *socket.typeinfo();
+  const eNodeSocketDatatype socket_data_type = static_cast<eNodeSocketDatatype>(socket.type);
   if (nmd.settings.properties == nullptr) {
-    socket_type.get_geometry_nodes_cpp_value(bsocket, r_value);
+    socket_type.get_geometry_nodes_cpp_value(socket, r_value);
     return;
   }
   const IDProperty *property = IDP_GetPropertyFromGroup(nmd.settings.properties,
-                                                        bsocket.identifier);
+                                                        socket.identifier);
   if (property == nullptr) {
     socket_type.get_geometry_nodes_cpp_value(bsocket, r_value);
     return;
@@ -784,15 +784,15 @@ static void initialize_group_input(NodesModifierData &nmd,
     return;
   }
 
-  if (!input_has_attribute_toggle(*nmd.node_group, input_index)) {
+  if (!input_has_attribute_toggle(*nmd.node_group, socket.index())) {
     init_socket_cpp_value_from_property(*property, socket_data_type, r_value);
     return;
   }
 
   const IDProperty *property_use_attribute = IDP_GetPropertyFromGroup(
-      nmd.settings.properties, (bsocket.identifier + use_attribute_suffix).c_str());
+      nmd.settings.properties, (socket.identifier + use_attribute_suffix).c_str());
   const IDProperty *property_attribute_name = IDP_GetPropertyFromGroup(
-      nmd.settings.properties, (bsocket.identifier + attribute_name_suffix).c_str());
+      nmd.settings.properties, (socket.identifier + attribute_name_suffix).c_str());
   if (property_use_attribute == nullptr || property_attribute_name == nullptr) {
     init_socket_cpp_value_from_property(*property, socket_data_type, r_value);
     return;
@@ -874,11 +874,11 @@ static void find_sockets_to_preview_for_spreadsheet(SpaceSpreadsheet *sspreadshe
 
   const DTreeContext *context = &tree.root_context();
   for (SpreadsheetContextNode *node_context : nested_group_contexts) {
-    const NodeTreeRef &tree_ref = context->tree();
-    const NodeRef *found_node = nullptr;
-    for (const NodeRef *node_ref : tree_ref.nodes()) {
-      if (node_ref->name() == node_context->node_name) {
-        found_node = node_ref;
+    const bNodeTree &btree = context->btree();
+    const bNode *found_node = nullptr;
+    for (const bNode *bnode : btree.all_nodes()) {
+      if (STREQ(bnode->name, node_context->node_name)) {
+        found_node = bnode;
         break;
       }
     }
@@ -891,11 +891,11 @@ static void find_sockets_to_preview_for_spreadsheet(SpaceSpreadsheet *sspreadshe
     }
   }
 
-  const NodeTreeRef &tree_ref = context->tree();
-  for (const NodeRef *node_ref : tree_ref.nodes_by_type("GeometryNodeViewer")) {
-    if (node_ref->name() == last_context->node_name) {
-      const DNode viewer_node{context, node_ref};
-      for (const InputSocketRef *input_socket : node_ref->inputs()) {
+  const bNodeTree &btree = context->btree();
+  for (const bNode *bnode : btree.nodes_by_type("GeometryNodeViewer")) {
+    if (STREQ(bnode->name, last_context->node_name)) {
+      const DNode viewer_node{context, bnode};
+      for (const bNodeSocket *input_socket : bnode->input_sockets()) {
         if (input_socket->is_available() && input_socket->is_logically_linked()) {
           r_sockets_to_preview.add(DSocket{context, input_socket});
         }
@@ -944,15 +944,15 @@ struct OutputAttributeToStore {
  * can be evaluated together.
  */
 static MultiValueMap<eAttrDomain, OutputAttributeInfo> find_output_attributes_to_store(
-    const NodesModifierData &nmd, const NodeRef &output_node, Span<GMutablePointer> output_values)
+    const NodesModifierData &nmd, const bNode &output_node, Span<GMutablePointer> output_values)
 {
   MultiValueMap<eAttrDomain, OutputAttributeInfo> outputs_by_domain;
-  for (const InputSocketRef *socket : output_node.inputs().drop_front(1).drop_back(1)) {
-    if (!socket_type_has_attribute_toggle(*socket->bsocket())) {
+  for (const bNodeSocket *socket : output_node.input_sockets().drop_front(1).drop_back(1)) {
+    if (!socket_type_has_attribute_toggle(*socket)) {
       continue;
     }
 
-    const std::string prop_name = socket->identifier() + attribute_name_suffix;
+    const std::string prop_name = socket->identifier + attribute_name_suffix;
     const IDProperty *prop = IDP_GetPropertyFromGroup(nmd.settings.properties, prop_name.c_str());
     if (prop == nullptr) {
       continue;
@@ -972,7 +972,7 @@ static MultiValueMap<eAttrDomain, OutputAttributeInfo> find_output_attributes_to
     const GField field = cpp_type->as_field(value.get());
 
     const bNodeSocket *interface_socket = (const bNodeSocket *)BLI_findlink(
-        &nmd.node_group->outputs, socket->index());
+        &nmd.node_group->outputs, index);
     const eAttrDomain domain = (eAttrDomain)interface_socket->attribute_domain;
     OutputAttributeInfo output_info;
     output_info.field = std::move(field);
@@ -1010,7 +1010,7 @@ static Vector<OutputAttributeToStore> compute_attributes_to_store(
         continue;
       }
       const int domain_size = attributes.domain_size(domain);
-      blender::bke::GeometryComponentFieldContext field_context{component, domain};
+      blender::bke::GeometryFieldContext field_context{component, domain};
       blender::fn::FieldEvaluator field_evaluator{field_context, domain_size};
       for (const OutputAttributeInfo &output_info : outputs_info) {
         const CPPType &type = output_info.field.cpp_type();
@@ -1052,7 +1052,7 @@ static void store_computed_output_attributes(
     if (attributes.add(store.name,
                        store.domain,
                        blender::bke::cpp_type_to_custom_data_type(store.data.type()),
-                       blender::bke::AttributeInitMove(store.data.data()))) {
+                       blender::bke::AttributeInitMoveArray(store.data.data()))) {
       continue;
     }
 
@@ -1071,7 +1071,7 @@ static void store_computed_output_attributes(
 
 static void store_output_attributes(GeometrySet &geometry,
                                     const NodesModifierData &nmd,
-                                    const NodeRef &output_node,
+                                    const bNode &output_node,
                                     Span<GMutablePointer> output_values)
 {
   /* All new attribute values have to be computed before the geometry is actually changed. This is
@@ -1086,8 +1086,8 @@ static void store_output_attributes(GeometrySet &geometry,
 /**
  * Evaluate a node group to compute the output geometry.
  */
-static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
-                                    const NodeRef &output_node,
+static GeometrySet compute_geometry(const bNodeTree &tree_ref,
+                                    const bNode &output_node,
                                     GeometrySet input_geometry_set,
                                     NodesModifierData *nmd,
                                     const ModifierEvalContext *ctx)
@@ -1106,7 +1106,7 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   for (const lf::OutputSocket *socket : mapping.group_input_sockets) {
     graph_inputs.append(socket);
   }
-  for (const InputSocketRef *socket_ref : output_node.inputs().drop_back(1)) {
+  for (const bNodeSocket *socket_ref : output_node.input_sockets().drop_back(1)) {
     const lf::InputSocket &socket = mapping.dummy_socket_map.lookup(socket_ref)->as_input();
     graph_outputs.append(&socket);
   }
@@ -1135,8 +1135,7 @@ static GeometrySet compute_geometry(const NodeTreeRef &tree_ref,
   Vector<GMutablePointer> inputs_to_destruct;
 
   int input_index;
-  LISTBASE_FOREACH_INDEX (
-      bNodeSocket *, interface_socket, &tree_ref.btree()->inputs, input_index) {
+  LISTBASE_FOREACH_INDEX (bNodeSocket *, interface_socket, &tree_ref.inputs, input_index) {
     if (interface_socket->type == SOCK_GEOMETRY && input_index == 0) {
       param_inputs[input_index] = &input_geometry_set;
       continue;
@@ -1247,34 +1246,33 @@ static void modifyGeometry(ModifierData *md,
     return;
   }
 
+  const bNodeTree &tree = *nmd->node_group;
   check_property_socket_sync(ctx->object, md);
 
-  const NodeTreeRef &tree_ref{nmd->node_group};
-
   /* Todo: Check for link cycles recursively. */
-  if (tree_ref.has_link_cycles()) {
+  if (tree.has_link_cycle()) {
     BKE_modifier_set_error(ctx->object, md, "Node group has cycles");
     geometry_set.clear();
     return;
   }
 
-  Span<const NodeRef *> output_nodes = tree_ref.nodes_by_type("NodeGroupOutput");
+  Span<const bNode *> output_nodes = tree.nodes_by_type("NodeGroupOutput");
   if (output_nodes.size() != 1) {
     BKE_modifier_set_error(ctx->object, md, "Node group must have a single output node");
     geometry_set.clear();
     return;
   }
 
-  const NodeRef &output_node = *output_nodes[0];
-  Span<const InputSocketRef *> group_outputs = output_node.inputs().drop_back(1);
+  const bNode &output_node = *output_nodes[0];
+  Span<const bNodeSocket *> group_outputs = output_node.input_sockets().drop_back(1);
   if (group_outputs.is_empty()) {
     BKE_modifier_set_error(ctx->object, md, "Node group must have an output socket");
     geometry_set.clear();
     return;
   }
 
-  const InputSocketRef *first_output_socket = group_outputs[0];
-  if (first_output_socket->idname() != "NodeSocketGeometry") {
+  const bNodeSocket *first_output_socket = group_outputs[0];
+  if (!STREQ(first_output_socket->idname, "NodeSocketGeometry")) {
     BKE_modifier_set_error(ctx->object, md, "Node group's first output must be a geometry");
     geometry_set.clear();
     return;
@@ -1298,13 +1296,13 @@ static void modifyGeometry(ModifierData *md,
      * assumed that the output mesh does not have a mapping to the original mesh. */
     Mesh &mesh = *geometry_set.get_mesh_for_write();
     if (use_orig_index_verts) {
-      CustomData_add_layer(&mesh.vdata, CD_ORIGINDEX, CD_DEFAULT, nullptr, mesh.totvert);
+      CustomData_add_layer(&mesh.vdata, CD_ORIGINDEX, CD_SET_DEFAULT, nullptr, mesh.totvert);
     }
     if (use_orig_index_edges) {
-      CustomData_add_layer(&mesh.edata, CD_ORIGINDEX, CD_DEFAULT, nullptr, mesh.totedge);
+      CustomData_add_layer(&mesh.edata, CD_ORIGINDEX, CD_SET_DEFAULT, nullptr, mesh.totedge);
     }
     if (use_orig_index_polys) {
-      CustomData_add_layer(&mesh.pdata, CD_ORIGINDEX, CD_DEFAULT, nullptr, mesh.totpoly);
+      CustomData_add_layer(&mesh.pdata, CD_ORIGINDEX, CD_SET_DEFAULT, nullptr, mesh.totpoly);
     }
   }
 }

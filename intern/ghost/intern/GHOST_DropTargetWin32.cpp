@@ -13,9 +13,9 @@
 #include "utfconv.h"
 
 #ifdef WITH_GHOST_DEBUG
-// utility
+/* utility */
 void printLastError(void);
-#endif  // WITH_GHOST_DEBUG
+#endif /* WITH_GHOST_DEBUG */
 
 GHOST_DropTargetWin32::GHOST_DropTargetWin32(GHOST_WindowWin32 *window, GHOST_SystemWin32 *system)
     : m_window(window), m_system(system)
@@ -83,7 +83,7 @@ HRESULT __stdcall GHOST_DropTargetWin32::DragEnter(IDataObject *pDataObject,
                                                    POINTL pt,
                                                    DWORD *pdwEffect)
 {
-  // we accept all drop by default
+  /* We accept all drop by default. */
   m_window->setAcceptDragOperation(true);
   *pdwEffect = DROPEFFECT_NONE;
 
@@ -103,7 +103,7 @@ HRESULT __stdcall GHOST_DropTargetWin32::DragOver(DWORD grfKeyState, POINTL pt, 
   }
   else {
     *pdwEffect = DROPEFFECT_NONE;
-    // XXX Uncomment to test drop. Drop will not be called if pdwEffect == DROPEFFECT_NONE.
+    /* XXX Uncomment to test drop. Drop will not be called if `pdwEffect == DROPEFFECT_NONE`. */
     // *pdwEffect = DROPEFFECT_COPY;
   }
   m_system->pushDragDropEvent(
@@ -170,7 +170,7 @@ GHOST_TDragnDropTypes GHOST_DropTargetWin32::getGhostType(IDataObject *pDataObje
     return GHOST_kDragnDropTypeString;
   }
 
-  // Filesnames
+  /* Files-names. */
   fmtetc.cfFormat = CF_HDROP;
   if (pDataObject->QueryGetData(&fmtetc) == S_OK) {
     return GHOST_kDragnDropTypeFilenames;
@@ -195,7 +195,7 @@ void *GHOST_DropTargetWin32::getGhostData(IDataObject *pDataObject)
     default:
 #ifdef WITH_GHOST_DEBUG
       ::printf("\nGHOST_kDragnDropTypeUnknown");
-#endif  // WITH_GHOST_DEBUG
+#endif /* WITH_GHOST_DEBUG */
       return NULL;
       break;
   }
@@ -212,42 +212,37 @@ void *GHOST_DropTargetWin32::getDropDataAsFilenames(IDataObject *pDataObject)
   STGMEDIUM stgmed;
   HDROP hdrop;
 
-  // Check if dataobject supplies the format we want.
-  // Double checking here, first in getGhostType.
+  /* Check if data-object supplies the format we want.
+   * Double checking here, first in #getGhostType. */
   if (pDataObject->QueryGetData(&fmtetc) == S_OK) {
     if (pDataObject->GetData(&fmtetc, &stgmed) == S_OK) {
       hdrop = (HDROP)::GlobalLock(stgmed.hGlobal);
 
       totfiles = ::DragQueryFileW(hdrop, -1, NULL, 0);
-      if (!totfiles) {
-        ::GlobalUnlock(stgmed.hGlobal);
-        return NULL;
-      }
+      if (totfiles) {
+        strArray = (GHOST_TStringArray *)::malloc(sizeof(GHOST_TStringArray));
+        strArray->count = 0;
+        strArray->strings = (uint8_t **)::malloc(totfiles * sizeof(uint8_t *));
 
-      strArray = (GHOST_TStringArray *)::malloc(sizeof(GHOST_TStringArray));
-      strArray->count = 0;
-      strArray->strings = (uint8_t **)::malloc(totfiles * sizeof(uint8_t *));
+        for (UINT nfile = 0; nfile < totfiles; nfile++) {
+          if (::DragQueryFileW(hdrop, nfile, fpath, MAX_PATH) > 0) {
+            if (!(temp_path = alloc_utf_8_from_16(fpath, 0))) {
+              continue;
+            }
+            /* Just ignore paths that could not be converted verbatim. */
 
-      for (UINT nfile = 0; nfile < totfiles; nfile++) {
-        if (::DragQueryFileW(hdrop, nfile, fpath, MAX_PATH) > 0) {
-          if (!(temp_path = alloc_utf_8_from_16(fpath, 0))) {
-            continue;
+            strArray->strings[nvalid] = (uint8_t *)temp_path;
+            strArray->count = nvalid + 1;
+            nvalid++;
           }
-          // Just ignore paths that could not be converted verbatim.
-
-          strArray->strings[nvalid] = (uint8_t *)temp_path;
-          strArray->count = nvalid + 1;
-          nvalid++;
         }
       }
-      // Free up memory.
+      /* Free up memory. */
       ::GlobalUnlock(stgmed.hGlobal);
       ::ReleaseStgMedium(&stgmed);
-
-      return strArray;
     }
   }
-  return NULL;
+  return strArray;
 }
 
 void *GHOST_DropTargetWin32::getDropDataAsString(IDataObject *pDataObject)
@@ -256,22 +251,24 @@ void *GHOST_DropTargetWin32::getDropDataAsString(IDataObject *pDataObject)
   FORMATETC fmtetc = {CF_UNICODETEXT, 0, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
   STGMEDIUM stgmed;
 
-  // Try unicode first.
-  // Check if dataobject supplies the format we want.
+  /* Try unicode first.
+   * Check if data-object supplies the format we want. */
   if (pDataObject->QueryGetData(&fmtetc) == S_OK) {
     if (pDataObject->GetData(&fmtetc, &stgmed) == S_OK) {
       LPCWSTR wstr = (LPCWSTR)::GlobalLock(stgmed.hGlobal);
-      if (!(tmp_string = alloc_utf_8_from_16((wchar_t *)wstr, 0))) {
-        ::GlobalUnlock(stgmed.hGlobal);
-        return NULL;
-      }
-      // Free memory
+
+      tmp_string = alloc_utf_8_from_16((wchar_t *)wstr, 0);
+
+      /* Free memory. */
       ::GlobalUnlock(stgmed.hGlobal);
       ::ReleaseStgMedium(&stgmed);
+
 #ifdef WITH_GHOST_DEBUG
-      ::printf("\n<converted droped unicode string>\n%s\n</droped converted unicode string>\n",
-               tmp_string);
-#endif  // WITH_GHOST_DEBUG
+      if (tmp_string) {
+        ::printf("\n<converted droped unicode string>\n%s\n</droped converted unicode string>\n",
+                 tmp_string);
+      }
+#endif /* WITH_GHOST_DEBUG */
       return tmp_string;
     }
   }
@@ -283,17 +280,10 @@ void *GHOST_DropTargetWin32::getDropDataAsString(IDataObject *pDataObject)
       char *str = (char *)::GlobalLock(stgmed.hGlobal);
 
       tmp_string = (char *)::malloc(::strlen(str) + 1);
-      if (!tmp_string) {
-        ::GlobalUnlock(stgmed.hGlobal);
-        return NULL;
+      if (tmp_string) {
+        ::strcpy(tmp_string, str);
       }
-
-      if (!::strcpy(tmp_string, str)) {
-        ::free(tmp_string);
-        ::GlobalUnlock(stgmed.hGlobal);
-        return NULL;
-      }
-      // Free memory
+      /* Free memory. */
       ::GlobalUnlock(stgmed.hGlobal);
       ::ReleaseStgMedium(&stgmed);
 
@@ -307,13 +297,13 @@ void *GHOST_DropTargetWin32::getDropDataAsString(IDataObject *pDataObject)
 int GHOST_DropTargetWin32::WideCharToANSI(LPCWSTR in, char *&out)
 {
   int size;
-  out = NULL;  // caller should free if != NULL
+  out = NULL; /* caller should free if != NULL */
 
-  // Get the required size.
-  size = ::WideCharToMultiByte(CP_ACP,      // System Default Codepage
-                               0x00000400,  // WC_NO_BEST_FIT_CHARS
+  /* Get the required size. */
+  size = ::WideCharToMultiByte(CP_ACP,     /* System Default Codepage */
+                               0x00000400, /* WC_NO_BEST_FIT_CHARS */
                                in,
-                               -1,  //-1 null terminated, makes output null terminated too.
+                               -1, /* -1 null terminated, makes output null terminated too. */
                                NULL,
                                0,
                                NULL,
@@ -322,7 +312,7 @@ int GHOST_DropTargetWin32::WideCharToANSI(LPCWSTR in, char *&out)
   if (!size) {
 #ifdef WITH_GHOST_DEBUG
     ::printLastError();
-#endif  // WITH_GHOST_DEBUG
+#endif /* WITH_GHOST_DEBUG */
     return 0;
   }
 
@@ -337,7 +327,7 @@ int GHOST_DropTargetWin32::WideCharToANSI(LPCWSTR in, char *&out)
   if (!size) {
 #ifdef WITH_GHOST_DEBUG
     ::printLastError();
-#endif  // WITH_GHOST_DEBUG
+#endif /* WITH_GHOST_DEBUG */
     ::free(out);
     out = NULL;
   }
@@ -362,4 +352,4 @@ void printLastError(void)
     LocalFree(s);
   }
 }
-#endif  // WITH_GHOST_DEBUG
+#endif /* WITH_GHOST_DEBUG */

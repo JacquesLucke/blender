@@ -2,11 +2,13 @@
 
 #include "NOD_multi_function.hh"
 
+#include "BKE_node.h"
+
 namespace blender::nodes {
 
-NodeMultiFunctions::NodeMultiFunctions(const NodeTreeRef &tree)
+NodeMultiFunctions::NodeMultiFunctions(const bNodeTree &tree)
 {
-  bNodeTree *btree = tree.btree();
+  tree.ensure_topology_cache();
   for (const NodeRef *node : tree.nodes()) {
     bNode *bnode = node->bnode();
     if (bnode->typeinfo->build_multi_function == nullptr) {

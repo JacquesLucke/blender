@@ -1100,7 +1100,7 @@ static bool rna_RegionView3D_is_orthographic_side_view_get(PointerRNA *ptr)
   return RV3D_VIEW_IS_AXIS(rv3d->view);
 }
 
-static void rna_RegionView3D_is_orthographic_side_view_set(PointerRNA *ptr, int value)
+static void rna_RegionView3D_is_orthographic_side_view_set(PointerRNA *ptr, bool value)
 {
   RegionView3D *rv3d = (RegionView3D *)(ptr->data);
   const bool was_axis_view = RV3D_VIEW_IS_AXIS(rv3d->view);
@@ -1609,7 +1609,7 @@ static void rna_SpaceImageEditor_mode_update(Main *bmain, Scene *scene, PointerR
   }
 }
 
-static void rna_SpaceImageEditor_show_stereo_set(PointerRNA *ptr, int value)
+static void rna_SpaceImageEditor_show_stereo_set(PointerRNA *ptr, bool value)
 {
   SpaceImage *sima = (SpaceImage *)(ptr->data);
 
@@ -3546,6 +3546,7 @@ static void rna_def_space_image_uv(BlenderRNA *brna)
   RNA_def_property_enum_sdna(prop, NULL, "dt_uvstretch");
   RNA_def_property_enum_items(prop, dt_uvstretch_items);
   RNA_def_property_ui_text(prop, "Display Stretch Type", "Type of stretch to display");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_MESH);
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_IMAGE, NULL);
 
   prop = RNA_def_property(srna, "show_modified_edges", PROP_BOOLEAN, PROP_NONE);

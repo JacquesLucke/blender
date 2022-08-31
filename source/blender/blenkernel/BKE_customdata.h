@@ -55,14 +55,17 @@ extern const CustomData_MeshMasks CD_MASK_EVERYTHING;
 typedef enum eCDAllocType {
   /** Use the data pointer. */
   CD_ASSIGN = 0,
-  /** Allocate blank memory. */
-  CD_CALLOC = 1,
-  /** Allocate and set to default. */
-  CD_DEFAULT = 2,
+  /** Allocate and set to default, which is usually just zeroed memory. */
+  CD_SET_DEFAULT = 2,
   /** Use data pointers, set layer flag NOFREE. */
   CD_REFERENCE = 3,
   /** Do a full copy of all layers, only allowed if source has same number of elements. */
   CD_DUPLICATE = 4,
+  /**
+   * Default construct new layer values. Does nothing for trivial types. This should be used
+   * if all layer values will be set by the caller after creating the layer.
+   */
+  CD_CONSTRUCT = 5,
 } eCDAllocType;
 
 #define CD_TYPE_AS_MASK(_type) (eCustomDataMask)((eCustomDataMask)1 << (eCustomDataMask)(_type))
@@ -417,7 +420,7 @@ void *CustomData_bmesh_get_n(const struct CustomData *data, void *block, int typ
  */
 void *CustomData_bmesh_get_layer_n(const struct CustomData *data, void *block, int n);
 
-bool CustomData_set_layer_name(const struct CustomData *data, int type, int n, const char *name);
+bool CustomData_set_layer_name(struct CustomData *data, int type, int n, const char *name);
 const char *CustomData_get_layer_name(const struct CustomData *data, int type, int n);
 
 /**
@@ -449,6 +452,12 @@ int CustomData_get_stencil_layer(const struct CustomData *data, int type);
  * if no such active layer is defined.
  */
 const char *CustomData_get_active_layer_name(const struct CustomData *data, int type);
+
+/**
+ * Returns name of the default layer of the given type or NULL
+ * if no such active layer is defined.
+ */
+const char *CustomData_get_render_layer_name(const struct CustomData *data, int type);
 
 /**
  * Copies the data from source to the data element at index in the first layer of type
