@@ -764,35 +764,37 @@ void MOD_nodes_update_interface(Object *object, NodesModifierData *nmd)
 }
 
 static void initialize_group_input(NodesModifierData &nmd,
-                                   const bNodeSocket &socket,
+                                   const bNodeSocket &interface_socket,
+                                   const int input_index,
                                    void *r_value)
 {
-  const bNodeSocketType &socket_type = *socket.typeinfo;
-  const eNodeSocketDatatype socket_data_type = static_cast<eNodeSocketDatatype>(socket.type);
+  const bNodeSocketType &socket_type = *interface_socket.typeinfo;
+  const eNodeSocketDatatype socket_data_type = static_cast<eNodeSocketDatatype>(
+      interface_socket.type);
   if (nmd.settings.properties == nullptr) {
-    socket_type.get_geometry_nodes_cpp_value(socket, r_value);
+    socket_type.get_geometry_nodes_cpp_value(interface_socket, r_value);
     return;
   }
   const IDProperty *property = IDP_GetPropertyFromGroup(nmd.settings.properties,
-                                                        socket.identifier);
+                                                        interface_socket.identifier);
   if (property == nullptr) {
-    socket_type.get_geometry_nodes_cpp_value(socket, r_value);
+    socket_type.get_geometry_nodes_cpp_value(interface_socket, r_value);
     return;
   }
-  if (!id_property_type_matches_socket(socket, *property)) {
-    socket_type.get_geometry_nodes_cpp_value(socket, r_value);
+  if (!id_property_type_matches_socket(interface_socket, *property)) {
+    socket_type.get_geometry_nodes_cpp_value(interface_socket, r_value);
     return;
   }
 
-  if (!input_has_attribute_toggle(*nmd.node_group, socket.index())) {
+  if (!input_has_attribute_toggle(*nmd.node_group, input_index)) {
     init_socket_cpp_value_from_property(*property, socket_data_type, r_value);
     return;
   }
 
   const IDProperty *property_use_attribute = IDP_GetPropertyFromGroup(
-      nmd.settings.properties, (socket.identifier + use_attribute_suffix).c_str());
+      nmd.settings.properties, (interface_socket.identifier + use_attribute_suffix).c_str());
   const IDProperty *property_attribute_name = IDP_GetPropertyFromGroup(
-      nmd.settings.properties, (socket.identifier + attribute_name_suffix).c_str());
+      nmd.settings.properties, (interface_socket.identifier + attribute_name_suffix).c_str());
   if (property_use_attribute == nullptr || property_attribute_name == nullptr) {
     init_socket_cpp_value_from_property(*property, socket_data_type, r_value);
     return;
@@ -1144,7 +1146,7 @@ static GeometrySet compute_geometry(const bNodeTree &tree_ref,
     const CPPType *type = interface_socket->typeinfo->geometry_nodes_cpp_type;
     BLI_assert(type != nullptr); /* Todo */
     void *value = allocator.allocate(type->size(), type->alignment());
-    initialize_group_input(*nmd, *interface_socket, value);
+    initialize_group_input(*nmd, *interface_socket, input_index, value);
     param_inputs[input_index] = {type, value};
     inputs_to_destruct.append({type, value});
   }
@@ -1247,6 +1249,7 @@ static void modifyGeometry(ModifierData *md,
   }
 
   const bNodeTree &tree = *nmd->node_group;
+  tree.ensure_topology_cache();
   check_property_socket_sync(ctx->object, md);
 
   /* Todo: Check for link cycles recursively. */
