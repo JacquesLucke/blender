@@ -14,6 +14,8 @@
 #include "DNA_texture_types.h"
 #include "DNA_workspace_types.h"
 
+#include "BKE_layer.h"
+
 #include "BLI_math.h"
 
 #include "BLT_translation.h"
@@ -971,7 +973,7 @@ static void rna_BrushGpencilSettings_default_eraser_update(Main *bmain,
 static void rna_BrushGpencilSettings_use_material_pin_update(bContext *C, PointerRNA *ptr)
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   Brush *brush = (Brush *)ptr->owner_id;
 
   if (brush->gpencil_settings->flag & GP_BRUSH_MATERIAL_PINNED) {
@@ -1653,6 +1655,15 @@ static void rna_def_gpencil_options(BlenderRNA *brna)
       prop, "Dilate/Contract", "Number of pixels to expand or contract fill area");
   RNA_def_property_clear_flag(prop, PROP_ANIMATABLE);
   RNA_def_property_update(prop, NC_GPENCIL | ND_DATA, NULL);
+
+  /* Factor to determine outline external perimeter thickness. */
+  prop = RNA_def_property(srna, "outline_thickness_factor", PROP_FLOAT, PROP_FACTOR);
+  RNA_def_property_float_sdna(prop, NULL, "outline_fac");
+  RNA_def_property_range(prop, 0.0f, 1.0f);
+  RNA_def_property_float_default(prop, 0.0f);
+  RNA_def_property_ui_text(
+      prop, "Thickness", "Thickness of the outline stroke relative to current brush thickness");
+  RNA_def_parameter_clear_flags(prop, PROP_ANIMATABLE, 0);
 
   /* Flags */
   prop = RNA_def_property(srna, "use_pressure", PROP_BOOLEAN, PROP_NONE);
