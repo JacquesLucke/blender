@@ -153,6 +153,8 @@ class bNodeRuntime : NonCopyable, NonMovable {
 
 namespace node_tree_runtime {
 
+void handle_node_tree_output_changed(bNodeTree &tree_cow);
+
 class AllowUsingOutdatedInfo : NonCopyable, NonMovable {
  private:
   const bNodeTree &tree_;
