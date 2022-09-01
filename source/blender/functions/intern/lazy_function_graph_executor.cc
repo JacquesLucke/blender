@@ -387,13 +387,22 @@ class Executor {
       if (input_data == nullptr) {
         continue;
       }
-      const OutputSocket &socket = *graph_inputs_[graph_input_index];
-      const CPPType &type = socket.type();
-      void *buffer = allocator.allocate(type.size(), type.alignment());
-      type.move_construct(input_data, buffer);
-      this->forward_value_to_linked_inputs(socket, {type, buffer}, current_task);
-      loaded_inputs_[graph_input_index] = true;
+      this->forward_newly_provided_input(current_task, allocator, graph_input_index, input_data);
     }
+  }
+
+  void forward_newly_provided_input(CurrentTask &current_task,
+                                    LinearAllocator<> &allocator,
+                                    const int graph_input_index,
+                                    void *input_data)
+  {
+    BLI_assert(!loaded_inputs_[graph_input_index]);
+    const OutputSocket &socket = *graph_inputs_[graph_input_index];
+    const CPPType &type = socket.type();
+    void *buffer = allocator.allocate(type.size(), type.alignment());
+    type.move_construct(input_data, buffer);
+    this->forward_value_to_linked_inputs(socket, {type, buffer}, current_task);
+    loaded_inputs_[graph_input_index] = true;
   }
 
   void notify_output_required(const OutputSocket &socket, CurrentTask &current_task)
@@ -405,7 +414,12 @@ class Executor {
 
     if (node.is_dummy()) {
       const int graph_input_index = graph_inputs_.index_of(&socket);
-      params_->try_get_input_data_ptr_or_request(graph_input_index);
+      void *input_data = params_->try_get_input_data_ptr_or_request(graph_input_index);
+      if (input_data == nullptr) {
+        return;
+      }
+      this->forward_newly_provided_input(
+          current_task, local_allocators_.local(), graph_input_index, input_data);
       return;
     }
 

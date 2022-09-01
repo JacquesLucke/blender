@@ -1088,7 +1088,7 @@ static void store_output_attributes(GeometrySet &geometry,
 /**
  * Evaluate a node group to compute the output geometry.
  */
-static GeometrySet compute_geometry(const bNodeTree &tree_ref,
+static GeometrySet compute_geometry(const bNodeTree &btree,
                                     const bNode &output_node,
                                     GeometrySet input_geometry_set,
                                     NodesModifierData *nmd,
@@ -1096,20 +1096,19 @@ static GeometrySet compute_geometry(const bNodeTree &tree_ref,
 {
   UNUSED_VARS(find_sockets_to_preview, logging_enabled);
 
-  lf::LazyFunctionGraph graph;
-  blender::nodes::GeometryNodeLazyFunctionMapping mapping;
-  blender::nodes::GeometryNodesLazyFunctionResources graph_resources;
-  blender::nodes::geometry_nodes_to_lazy_function_graph(tree_ref, graph, graph_resources, mapping);
-  graph.update_node_indices();
+  const blender::nodes::GeometryNodesLazyFunctionGraphInfo &lf_graph_info =
+      blender::nodes::ensure_geometry_nodes_lazy_function_graph(btree);
   // std::cout << graph.to_dot() << "\n";
+
+  const blender::nodes::GeometryNodeLazyFunctionMapping &mapping = lf_graph_info.mapping;
 
   Vector<const lf::OutputSocket *> graph_inputs;
   Vector<const lf::InputSocket *> graph_outputs;
   for (const lf::OutputSocket *socket : mapping.group_input_sockets) {
     graph_inputs.append(socket);
   }
-  for (const bNodeSocket *socket_ref : output_node.input_sockets().drop_back(1)) {
-    const lf::InputSocket &socket = mapping.dummy_socket_map.lookup(socket_ref)->as_input();
+  for (const bNodeSocket *bsocket : output_node.input_sockets().drop_back(1)) {
+    const lf::InputSocket &socket = mapping.dummy_socket_map.lookup(bsocket)->as_input();
     graph_outputs.append(&socket);
   }
 
@@ -1119,7 +1118,7 @@ static GeometrySet compute_geometry(const bNodeTree &tree_ref,
   Array<lf::ValueUsage> param_output_usages(graph_outputs.size(), lf::ValueUsage::Used);
   Array<bool> param_set_outputs(graph_outputs.size(), false);
 
-  lf::LazyFunctionGraphExecutor graph_executor{graph, graph_inputs, graph_outputs};
+  lf::LazyFunctionGraphExecutor graph_executor{lf_graph_info.graph, graph_inputs, graph_outputs};
 
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
@@ -1137,7 +1136,7 @@ static GeometrySet compute_geometry(const bNodeTree &tree_ref,
   Vector<GMutablePointer> inputs_to_destruct;
 
   int input_index;
-  LISTBASE_FOREACH_INDEX (bNodeSocket *, interface_socket, &tree_ref.inputs, input_index) {
+  LISTBASE_FOREACH_INDEX (bNodeSocket *, interface_socket, &btree.inputs, input_index) {
     if (interface_socket->type == SOCK_GEOMETRY && input_index == 0) {
       param_inputs[input_index] = &input_geometry_set;
       continue;
@@ -1259,15 +1258,14 @@ static void modifyGeometry(ModifierData *md,
     return;
   }
 
-  Span<const bNode *> output_nodes = tree.nodes_by_type("NodeGroupOutput");
-  if (output_nodes.size() != 1) {
-    BKE_modifier_set_error(ctx->object, md, "Node group must have a single output node");
+  const bNode *output_node = tree.group_output_node();
+  if (output_node == nullptr) {
+    BKE_modifier_set_error(ctx->object, md, "Node group must have a group output node");
     geometry_set.clear();
     return;
   }
 
-  const bNode &output_node = *output_nodes[0];
-  Span<const bNodeSocket *> group_outputs = output_node.input_sockets().drop_back(1);
+  Span<const bNodeSocket *> group_outputs = output_node->input_sockets().drop_back(1);
   if (group_outputs.is_empty()) {
     BKE_modifier_set_error(ctx->object, md, "Node group must have an output socket");
     geometry_set.clear();
@@ -1291,7 +1289,7 @@ static void modifyGeometry(ModifierData *md,
     use_orig_index_polys = CustomData_has_layer(&mesh.pdata, CD_ORIGINDEX);
   }
 
-  geometry_set = compute_geometry(tree, output_node, std::move(geometry_set), nmd, ctx);
+  geometry_set = compute_geometry(tree, *output_node, std::move(geometry_set), nmd, ctx);
 
   if (geometry_set.has_mesh()) {
     /* Add #CD_ORIGINDEX layers if they don't exist already. This is required because the

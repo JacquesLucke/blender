@@ -84,13 +84,15 @@ struct GeometryNodeLazyFunctionMapping {
   Vector<lf::OutputSocket *> group_input_sockets;
 };
 
-struct GeometryNodesLazyFunctionResources {
+struct GeometryNodesLazyFunctionGraphInfo {
   LinearAllocator<> allocator;
+  std::unique_ptr<NodeMultiFunctions> node_multi_functions;
   Vector<std::unique_ptr<LazyFunction>> functions;
   Vector<GMutablePointer> values_to_destruct;
-  Vector<std::unique_ptr<NodeMultiFunctions>> node_multi_functions;
+  GeometryNodeLazyFunctionMapping mapping;
+  LazyFunctionGraph graph;
 
-  ~GeometryNodesLazyFunctionResources()
+  ~GeometryNodesLazyFunctionGraphInfo()
   {
     for (GMutablePointer &p : this->values_to_destruct) {
       p.destruct();
@@ -98,9 +100,7 @@ struct GeometryNodesLazyFunctionResources {
   }
 };
 
-void geometry_nodes_to_lazy_function_graph(const bNodeTree &tree,
-                                           LazyFunctionGraph &graph,
-                                           GeometryNodesLazyFunctionResources &resources,
-                                           GeometryNodeLazyFunctionMapping &mapping);
+const GeometryNodesLazyFunctionGraphInfo &ensure_geometry_nodes_lazy_function_graph(
+    const bNodeTree &btree);
 
 }  // namespace blender::nodes

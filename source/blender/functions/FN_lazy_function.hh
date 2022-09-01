@@ -32,7 +32,7 @@ struct Context {
 };
 
 class Params {
- protected:
+ public:
   const LazyFunction &fn_;
 
  public:

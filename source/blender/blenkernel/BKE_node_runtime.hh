@@ -21,6 +21,7 @@ struct bNodeType;
 namespace blender::nodes {
 struct FieldInferencingInterface;
 class NodeDeclaration;
+struct GeometryNodesLazyFunctionGraphInfo;
 }  // namespace blender::nodes
 
 namespace blender::bke {
@@ -47,6 +48,10 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
 
   /** Information about how inputs and outputs of the node group interact with fields. */
   std::unique_ptr<nodes::FieldInferencingInterface> field_inferencing_interface;
+
+  std::mutex geometry_nodes_lazy_function_graph_info_mutex;
+  std::unique_ptr<nodes::GeometryNodesLazyFunctionGraphInfo>
+      geometry_nodes_lazy_function_graph_info;
 
   /**
    * Protects access to all topology cache variables below. This is necessary so that the cache can
@@ -407,7 +412,6 @@ inline blender::Span<const bNodeLink *> bNode::internal_links_span() const
 
 inline const blender::nodes::NodeDeclaration *bNode::declaration() const
 {
-  BLI_assert(this->runtime->declaration != nullptr);
   return this->runtime->declaration;
 }
 
