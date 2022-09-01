@@ -130,25 +130,29 @@ class LazyFunctionForGeometryNode : public LazyFunction {
  * Used to gather all inputs of a multi-input socket.
  */
 class LazyFunctionForMultiInput : public LazyFunction {
+ private:
+  const CPPType *base_type_;
+
  public:
   LazyFunctionForMultiInput(const bNodeSocket &socket)
   {
     static_name_ = "Multi Input";
-    const CPPType *type = get_socket_cpp_type(socket);
-    BLI_assert(type != nullptr);
+    base_type_ = get_socket_cpp_type(socket);
+    BLI_assert(base_type_ != nullptr);
     BLI_assert(socket.is_multi_input());
-    for ([[maybe_unused]] const int i : socket.directly_linked_links().index_range()) {
-      inputs_.append({"Input", *type});
+    for (const bNodeLink *link : socket.directly_linked_links()) {
+      if (!link->is_muted()) {
+        inputs_.append({"Input", *base_type_});
+      }
     }
-    const CPPType *vector_type = get_vector_type(*type);
+    const CPPType *vector_type = get_vector_type(*base_type_);
     BLI_assert(vector_type != nullptr);
     outputs_.append({"Output", *vector_type});
   }
 
   void execute_impl(lf::Params &params, const lf::Context &UNUSED(context)) const override
   {
-    const CPPType &base_type = *inputs_[0].type;
-    base_type.to_static_type_tag<GeometrySet, ValueOrField<std::string>>([&](auto type_tag) {
+    base_type_->to_static_type_tag<GeometrySet, ValueOrField<std::string>>([&](auto type_tag) {
       using T = typename decltype(type_tag)::type;
       if constexpr (std::is_void_v<T>) {
         /* This type is not support in this node for now. */
@@ -865,7 +869,16 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         for (const bNodeLink *link : links) {
           const bNodeSocket &to_bsocket = *link->tosock;
           if (to_bsocket.is_multi_input()) {
-            const int link_index = to_bsocket.directly_linked_links().first_index(link);
+            /* TODO: Cache this index on the link. */
+            int link_index = 0;
+            for (const bNodeLink *multi_input_link : to_bsocket.directly_linked_links()) {
+              if (multi_input_link == link) {
+                break;
+              }
+              if (!multi_input_link->is_muted()) {
+                link_index++;
+              }
+            }
             if (to_bsocket.owner_node().is_muted()) {
               if (link_index == 0) {
                 for (lf::InputSocket *to_lf_socket : input_socket_map_.lookup(&to_bsocket)) {
