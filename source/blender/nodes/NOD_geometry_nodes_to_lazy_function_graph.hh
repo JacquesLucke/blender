@@ -3,6 +3,7 @@
 #pragma once
 
 #include "FN_lazy_function_graph.hh"
+#include "FN_lazy_function_graph_executor.hh"
 
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_multi_function.hh"
@@ -82,6 +83,7 @@ struct GeoNodesLFUserData : public lf::UserData {
 struct GeometryNodeLazyFunctionMapping {
   Map<const bNodeSocket *, lf::Socket *> dummy_socket_map;
   Vector<lf::OutputSocket *> group_input_sockets;
+  MultiValueMap<const lf::Socket *, const bNodeSocket *> bsockets_by_lf_socket_map;
 };
 
 struct GeometryNodesLazyFunctionGraphInfo {
@@ -98,6 +100,22 @@ struct GeometryNodesLazyFunctionGraphInfo {
       p.destruct();
     }
   }
+};
+
+class GeometryNodesLazyFunctionLogger
+    : public fn::lazy_function::LazyFunctionGraphExecutionLogger {
+ private:
+  const GeometryNodesLazyFunctionGraphInfo &lf_graph_info_;
+
+ public:
+  GeometryNodesLazyFunctionLogger(const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
+      : lf_graph_info_(lf_graph_info)
+  {
+  }
+
+  void log_socket_value(const fn::lazy_function::Context &context,
+                        const fn::lazy_function::Socket &lf_socket,
+                        GPointer value) const override;
 };
 
 const GeometryNodesLazyFunctionGraphInfo &ensure_geometry_nodes_lazy_function_graph(

@@ -358,13 +358,8 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
     outputs_.append({"To", to});
   }
 
-  void execute_impl(lf::Params &params, const lf::Context &context) const override
+  void execute_impl(lf::Params &params, const lf::Context &UNUSED(context)) const override
   {
-    GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
-    BLI_assert(user_data != nullptr);
-    geo_eval_log::GeoTreeLogger &tree_logger =
-        user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
-
     const void *from_value = params.try_get_input_data_ptr(0);
     void *to_value = params.get_output_data_ptr(0);
     BLI_assert(from_value != nullptr);
@@ -372,10 +367,6 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
 
     execute_multi_function_on_value_or_field(
         fn_, {}, {&from_type_}, {&to_type_}, {from_value}, {to_value});
-
-    for (const bNodeSocket *target_socket : target_sockets_) {
-      tree_logger.log_value(target_socket->owner_node(), *target_socket, {to_type_, to_value});
-    }
 
     params.output_set(0);
   }
@@ -408,13 +399,8 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     output_sockets_ = r_used_outputs;
   }
 
-  void execute_impl(lf::Params &params, const lf::Context &context) const override
+  void execute_impl(lf::Params &params, const lf::Context &UNUSED(context)) const override
   {
-    GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
-    BLI_assert(user_data != nullptr);
-    geo_eval_log::GeoTreeLogger &tree_logger =
-        user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
-
     Vector<const void *> input_values(inputs_.size());
     Vector<void *> output_values(outputs_.size());
     for (const int i : inputs_.index_range()) {
@@ -426,8 +412,6 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     execute_multi_function_on_value_or_field(
         *fn_item_.fn, fn_item_.owned_fn, input_types_, output_types_, input_values, output_values);
     for (const int i : outputs_.index_range()) {
-      const CPPType &type = *this->outputs_[i].type;
-      tree_logger.log_value(node_, *output_sockets_[i], {type, output_values[i]});
       params.output_set(i);
     }
   }
@@ -456,6 +440,7 @@ class LazyFunctionForComplexInput : public LazyFunction {
 class LazyFunctionForGroupNode : public LazyFunction {
  private:
   const bNode &group_node_;
+  std::optional<GeometryNodesLazyFunctionLogger> lf_logger_;
   std::optional<lf::LazyFunctionGraphExecutor> graph_executor_;
 
  public:
@@ -493,8 +478,9 @@ class LazyFunctionForGroupNode : public LazyFunction {
 
     // std::cout << lf_graph_info.graph.to_dot() << "\n";
 
+    lf_logger_.emplace(lf_graph_info);
     graph_executor_.emplace(
-        lf_graph_info.graph, std::move(graph_inputs), std::move(graph_outputs));
+        lf_graph_info.graph, std::move(graph_inputs), std::move(graph_outputs), &*lf_logger_);
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
@@ -690,11 +676,13 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       const bNodeSocket &bsocket = *used_inputs[i];
       lf::InputSocket &lf_socket = lf_node.input(i);
       input_socket_map_.add(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
     for (const int i : used_outputs.index_range()) {
       const bNodeSocket &bsocket = *used_outputs[i];
       lf::OutputSocket &lf_socket = lf_node.output(i);
       output_socket_map_.add_new(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
   }
 
@@ -715,6 +703,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     lf::OutputSocket &lf_output = lf_node.output(0);
     input_socket_map_.add(&input_bsocket, &lf_input);
     output_socket_map_.add_new(&output_bsocket, &lf_output);
+    mapping_->bsockets_by_lf_socket_map.add(&lf_input, &input_bsocket);
+    mapping_->bsockets_by_lf_socket_map.add(&lf_output, &output_bsocket);
   }
 
   void handle_group_input_node(const bNode &bnode)
@@ -728,6 +718,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       lf::OutputSocket &lf_socket = group_input_lf_node_->output(lf_index);
       output_socket_map_.add_new(&bsocket, &lf_socket);
       mapping_->dummy_socket_map.add_new(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
   }
 
@@ -743,6 +734,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       lf::InputSocket &lf_socket = group_output_lf_node.input(lf_index);
       input_socket_map_.add(&bsocket, &lf_socket);
       mapping_->dummy_socket_map.add(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
   }
 
@@ -759,11 +751,13 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       BLI_assert(!bsocket.is_multi_input());
       lf::InputSocket &lf_socket = lf_node.input(i);
       input_socket_map_.add(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
     for (const int i : used_outputs.index_range()) {
       const bNodeSocket &bsocket = *used_outputs[i];
       lf::OutputSocket &lf_socket = lf_node.output(i);
       output_socket_map_.add_new(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
   }
 
@@ -786,9 +780,13 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         lf_graph_info_->functions.append(std::move(multi_input_lazy_function));
         lf_graph_->add_link(lf_multi_input_node.output(0), lf_socket);
         multi_input_socket_nodes_.add_new(&bsocket, &lf_multi_input_node);
+        for (lf::InputSocket *lf_multi_input_socket : lf_multi_input_node.inputs()) {
+          mapping_->bsockets_by_lf_socket_map.add(lf_multi_input_socket, &bsocket);
+        }
       }
       else {
         input_socket_map_.add(&bsocket, &lf_socket);
+        mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
       }
     }
     for (const int i : used_outputs.index_range()) {
@@ -812,11 +810,13 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       BLI_assert(!bsocket.is_multi_input());
       lf::InputSocket &lf_socket = lf_node.input(i);
       input_socket_map_.add(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
     for (const int i : used_outputs.index_range()) {
       const bNodeSocket &bsocket = *used_outputs[i];
       lf::OutputSocket &lf_socket = lf_node.output(i);
       output_socket_map_.add(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
   }
 
@@ -1068,6 +1068,25 @@ const GeometryNodesLazyFunctionGraphInfo &ensure_geometry_nodes_lazy_function_gr
 
   lf_graph_info_ptr = std::move(lf_graph_info);
   return *lf_graph_info_ptr;
+}
+
+void GeometryNodesLazyFunctionLogger::log_socket_value(const fn::lazy_function::Context &context,
+                                                       const fn::lazy_function::Socket &lf_socket,
+                                                       GPointer value) const
+{
+  const Span<const bNodeSocket *> bsockets =
+      lf_graph_info_.mapping.bsockets_by_lf_socket_map.lookup(&lf_socket);
+  if (bsockets.is_empty()) {
+    return;
+  }
+
+  GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+  BLI_assert(user_data != nullptr);
+  geo_eval_log::GeoTreeLogger &tree_logger =
+      user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
+  for (const bNodeSocket *bsocket : bsockets) {
+    tree_logger.log_value(bsocket->owner_node(), *bsocket, value);
+  }
 }
 
 }  // namespace blender::nodes

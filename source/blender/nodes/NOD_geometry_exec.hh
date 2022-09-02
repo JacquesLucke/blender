@@ -141,10 +141,6 @@ class GeoNodeExecParams {
         this->check_output_geometry_set(value);
       }
       const int index = this->get_output_index(identifier);
-      const bNodeSocket &socket = node_.output_by_identifier(identifier);
-
-      geo_eval_log::GeoTreeLogger &logger = this->get_local_tree_logger();
-      logger.log_value(node_, socket, {&value});
       params_.set_output(index, std::forward<T>(value));
     }
   }
