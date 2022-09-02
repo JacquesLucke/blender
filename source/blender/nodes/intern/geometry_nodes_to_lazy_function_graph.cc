@@ -344,20 +344,27 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
   const MultiFunction &fn_;
   const ValueOrFieldCPPType &from_type_;
   const ValueOrFieldCPPType &to_type_;
+  const Vector<const bNodeSocket *> target_sockets_;
 
  public:
   LazyFunctionForMultiFunctionConversion(const MultiFunction &fn,
                                          const ValueOrFieldCPPType &from,
-                                         const ValueOrFieldCPPType &to)
-      : fn_(fn), from_type_(from), to_type_(to)
+                                         const ValueOrFieldCPPType &to,
+                                         Vector<const bNodeSocket *> &&target_sockets)
+      : fn_(fn), from_type_(from), to_type_(to), target_sockets_(std::move(target_sockets))
   {
     static_name_ = "Convert";
     inputs_.append({"From", from});
     outputs_.append({"To", to});
   }
 
-  void execute_impl(lf::Params &params, const lf::Context &UNUSED(context)) const override
+  void execute_impl(lf::Params &params, const lf::Context &context) const override
   {
+    GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+    BLI_assert(user_data != nullptr);
+    geo_eval_log::GeoTreeLogger &tree_logger =
+        user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
+
     const void *from_value = params.try_get_input_data_ptr(0);
     void *to_value = params.get_output_data_ptr(0);
     BLI_assert(from_value != nullptr);
@@ -365,6 +372,10 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
 
     execute_multi_function_on_value_or_field(
         fn_, {}, {&from_type_}, {&to_type_}, {from_value}, {to_value});
+
+    for (const bNodeSocket *target_socket : target_sockets_) {
+      tree_logger.log_value(target_socket->owner_node(), *target_socket, {to_type_, to_value});
+    }
 
     params.output_set(0);
   }
@@ -401,10 +412,8 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
   {
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
-    const ContextStack *context_stack = user_data->context_stack;
-    BLI_assert(context_stack != nullptr);
-    geo_eval_log::GeoTreeLogger &logger =
-        user_data->modifier_data->eval_log->get_local_tree_logger(*context_stack);
+    geo_eval_log::GeoTreeLogger &tree_logger =
+        user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
 
     Vector<const void *> input_values(inputs_.size());
     Vector<void *> output_values(outputs_.size());
@@ -418,7 +427,7 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
         *fn_item_.fn, fn_item_.owned_fn, input_types_, output_types_, input_values, output_values);
     for (const int i : outputs_.index_range()) {
       const CPPType &type = *this->outputs_[i].type;
-      logger.log_value(node_, *output_sockets_[i], {type, output_values[i]});
+      tree_logger.log_value(node_, *output_sockets_[i], {type, output_values[i]});
       params.output_set(i);
     }
   }
@@ -853,8 +862,14 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       for (const TypeWithLinks &type_with_links : types_with_links) {
         const CPPType &to_type = *type_with_links.type;
         const Span<const bNodeLink *> links = type_with_links.links;
+
+        Vector<const bNodeSocket *> target_bsockets;
+        for (const bNodeLink *link : links) {
+          target_bsockets.append(link->tosock);
+        }
+
         lf::OutputSocket *converted_from_lf_socket = this->insert_type_conversion_if_necessary(
-            from_lf_socket, to_type);
+            from_lf_socket, to_type, std::move(target_bsockets));
 
         auto make_input_link_or_set_default = [&](lf::InputSocket &to_lf_socket) {
           if (converted_from_lf_socket == nullptr) {
@@ -905,8 +920,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     }
   }
 
-  lf::OutputSocket *insert_type_conversion_if_necessary(lf::OutputSocket &from_socket,
-                                                        const CPPType &to_type)
+  lf::OutputSocket *insert_type_conversion_if_necessary(
+      lf::OutputSocket &from_socket,
+      const CPPType &to_type,
+      Vector<const bNodeSocket *> &&target_sockets)
   {
     const CPPType &from_type = from_socket.type();
     if (from_type == to_type) {
@@ -921,7 +938,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         const MultiFunction &multi_fn = *conversions_->get_conversion_multi_function(
             MFDataType::ForSingle(from_base_type), MFDataType::ForSingle(to_base_type));
         auto fn = std::make_unique<LazyFunctionForMultiFunctionConversion>(
-            multi_fn, *from_field_type, *to_field_type);
+            multi_fn, *from_field_type, *to_field_type, std::move(target_sockets));
         lf::Node &conversion_node = lf_graph_->add_function(*fn);
         lf_graph_info_->functions.append(std::move(fn));
         lf_graph_->add_link(from_socket, conversion_node.input(0));
