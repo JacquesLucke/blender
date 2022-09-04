@@ -1113,7 +1113,6 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
                                     NodesModifierData *nmd,
                                     const ModifierEvalContext *ctx)
 {
-  UNUSED_VARS(logging_enabled);
 
   const blender::nodes::GeometryNodesLazyFunctionGraphInfo &lf_graph_info =
       blender::nodes::ensure_geometry_nodes_lazy_function_graph(btree);
@@ -1145,9 +1144,10 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
   geo_nodes_modifier_data.self_object = ctx->object;
-  /* TODO: Only use logging when enabled. */
   auto eval_log = std::make_unique<GeoModifierLog>();
-  geo_nodes_modifier_data.eval_log = eval_log.get();
+  if (logging_enabled(ctx)) {
+    geo_nodes_modifier_data.eval_log = eval_log.get();
+  }
   blender::nodes::GeoNodesLFUserData user_data;
   user_data.modifier_data = &geo_nodes_modifier_data;
   blender::nodes::ModifierContextStack modifier_context_stack{nullptr, nmd->modifier.name};

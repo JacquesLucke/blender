@@ -145,13 +145,16 @@ class GeoNodeExecParams {
     }
   }
 
-  geo_eval_log::GeoTreeLogger &get_local_tree_logger() const
+  geo_eval_log::GeoTreeLogger *get_local_tree_logger() const
   {
     GeoNodesLFUserData *user_data = this->user_data();
     BLI_assert(user_data != nullptr);
     const ContextStack *context_stack = user_data->context_stack;
     BLI_assert(context_stack != nullptr);
-    return user_data->modifier_data->eval_log->get_local_tree_logger(*context_stack);
+    if (user_data->modifier_data->eval_log == nullptr) {
+      return nullptr;
+    }
+    return &user_data->modifier_data->eval_log->get_local_tree_logger(*context_stack);
   }
 
   /**

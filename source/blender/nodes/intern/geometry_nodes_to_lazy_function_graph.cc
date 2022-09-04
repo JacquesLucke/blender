@@ -118,10 +118,10 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     node_.typeinfo->geometry_node_execute(geo_params);
     geo_eval_log::TimePoint end_time = geo_eval_log::Clock::now();
 
-    geo_eval_log::GeoTreeLogger *tree_logger =
-        &user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
-    if (tree_logger != nullptr) {
-      tree_logger->node_execution_times.append_as(node_.name, start_time, end_time);
+    if (geo_eval_log::GeoModifierLog *modifier_log = user_data->modifier_data->eval_log) {
+      geo_eval_log::GeoTreeLogger &tree_logger = modifier_log->get_local_tree_logger(
+          *user_data->context_stack);
+      tree_logger.node_execution_times.append_as(node_.name, start_time, end_time);
     }
   }
 };
@@ -1083,6 +1083,9 @@ void GeometryNodesLazyFunctionLogger::log_socket_value(const fn::lazy_function::
 
   GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
   BLI_assert(user_data != nullptr);
+  if (user_data->modifier_data->eval_log == nullptr) {
+    return;
+  }
   geo_eval_log::GeoTreeLogger &tree_logger =
       user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
   for (const bNodeSocket *bsocket : bsockets) {
