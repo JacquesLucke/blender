@@ -144,7 +144,13 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
     const void *value_or_field = value.get();
     if (value_or_field_type->is_field(value_or_field)) {
       const GField *field = value_or_field_type->get_field_ptr(value_or_field);
-      store_logged_value(this->allocator.construct<GFieldValueLog>(*field, false));
+      bool log_full_field = false;
+      if (!field->node().depends_on_input()) {
+        /* Always log constant fields so that their value can be shown in socket inspection.
+         * In the future we can also evaluate the field here and only store the value. */
+        log_full_field = true;
+      }
+      store_logged_value(this->allocator.construct<GFieldValueLog>(*field, log_full_field));
     }
     else {
       const CPPType &base_type = value_or_field_type->base_type();
