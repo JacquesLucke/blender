@@ -469,7 +469,7 @@ static std::optional<std::string> create_socket_inspection_string(TreeDrawContex
     return std::nullopt;
   }
   if (GenericValueLog *generic_value_log = dynamic_cast<GenericValueLog *>(value_log)) {
-    const GPointer value = generic_value_log->value();
+    const GPointer value = generic_value_log->value;
     return value.type()->to_string(value.get());
   }
 

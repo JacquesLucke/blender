@@ -10,10 +10,15 @@
 #include "BLI_multi_value_map.hh"
 
 #include "BKE_attribute.h"
+#include "BKE_geometry_set.hh"
+
+#include "FN_field.hh"
 
 #include "DNA_node_types.h"
 
 namespace blender::nodes::geo_eval_log {
+
+using fn::GField;
 
 enum class NodeWarningType {
   Error,
@@ -40,23 +45,26 @@ class ValueLog {
 };
 
 class GenericValueLog : public ValueLog {
- private:
-  GMutablePointer data_;
-
  public:
-  GenericValueLog(const GMutablePointer data) : data_(data)
+  GMutablePointer value;
+
+  GenericValueLog(const GMutablePointer value) : value(value)
   {
   }
 
   ~GenericValueLog()
   {
-    data_.destruct();
+    this->value.destruct();
   }
+};
 
-  GPointer value() const
-  {
-    return data_;
-  }
+class GFieldValueLog : public ValueLog {
+ public:
+  GField field;
+  const CPPType &type;
+  Vector<std::string> input_tooltips;
+
+  GFieldValueLog(const GField &field, bool log_full_field);
 };
 
 struct GeometryAttributeInfo {
@@ -64,6 +72,38 @@ struct GeometryAttributeInfo {
   /** Can be empty when #name does not actually exist on a geometry yet. */
   std::optional<eAttrDomain> domain;
   std::optional<eCustomDataType> data_type;
+};
+
+class GeometryValueLog : public ValueLog {
+ public:
+  Vector<GeometryAttributeInfo> attributes;
+  Vector<GeometryComponentType> component_types;
+  std::unique_ptr<GeometrySet> full_geometry;
+
+  struct MeshInfo {
+    int verts_num, edges_num, faces_num;
+  };
+  struct CurveInfo {
+    int splines_num;
+  };
+  struct PointCloudInfo {
+    int points_num;
+  };
+  struct InstancesInfo {
+    int instances_num;
+  };
+  struct EditDataInfo {
+    bool has_deformed_positions;
+    bool has_deform_matrices;
+  };
+
+  std::optional<MeshInfo> mesh_info;
+  std::optional<CurveInfo> curve_info;
+  std::optional<PointCloudInfo> pointcloud_info;
+  std::optional<InstancesInfo> instances_info;
+  std::optional<EditDataInfo> edit_data_info;
+
+  GeometryValueLog(const GeometrySet &geometry_set, bool log_full_geometry);
 };
 
 using Clock = std::chrono::steady_clock;
