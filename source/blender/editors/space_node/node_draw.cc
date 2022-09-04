@@ -329,8 +329,7 @@ static GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
   using namespace blender::nodes;
   using namespace blender::nodes::geo_eval_log;
 
-  LinearAllocator<> allocator;
-  Vector<destruct_ptr<ContextStack>> contexts;
+  ContextStackBuilder context_stack_builder;
 
   if (snode.id == nullptr) {
     return nullptr;
@@ -356,18 +355,17 @@ static GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
     return nullptr;
   }
   GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
-  contexts.append(allocator.construct<ModifierContextStack>(nullptr, nmd->modifier.name));
+  context_stack_builder.push<ModifierContextStack>(nmd->modifier.name);
   Vector<const bNodeTreePath *> tree_path_vec{snode.treepath};
   if (tree_path_vec.is_empty()) {
     return nullptr;
   }
   for (const bNodeTreePath *path : tree_path_vec.as_span().drop_front(1)) {
-    contexts.append(allocator.construct<NodeGroupContextStack>(
-        &*contexts.last(), path->node_name, path->nodetree->id.name + 2));
+    context_stack_builder.push<NodeGroupContextStack>(path->node_name,
+                                                      path->nodetree->id.name + 2);
   }
 
-  const ContextStack &final_context = *contexts.last();
-  return &modifier_log.get_tree_log(final_context.hash());
+  return &modifier_log.get_tree_log(context_stack_builder.hash());
 }
 
 struct SocketTooltipData {

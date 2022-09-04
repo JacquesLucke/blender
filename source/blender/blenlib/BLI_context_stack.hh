@@ -7,6 +7,7 @@
  */
 
 #include "BLI_array.hh"
+#include "BLI_linear_allocator.hh"
 #include "BLI_stack.hh"
 #include "BLI_string_ref.hh"
 
@@ -75,6 +76,34 @@ class ContextStack {
   virtual void print_current_in_line(std::ostream &stream) const = 0;
 
   friend std::ostream &operator<<(std::ostream &stream, const ContextStack &context_stack);
+};
+
+class ContextStackBuilder {
+ private:
+  LinearAllocator<> allocator_;
+  Vector<destruct_ptr<ContextStack>> contexts_;
+
+ public:
+  const ContextStack *current() const
+  {
+    if (contexts_.is_empty()) {
+      return nullptr;
+    }
+    return contexts_.last().get();
+  }
+
+  const ContextStackHash hash() const
+  {
+    BLI_assert(!contexts_.is_empty());
+    return this->current()->hash();
+  }
+
+  template<typename T, typename... Args> void push(Args &&...args)
+  {
+    const ContextStack *current = this->current();
+    destruct_ptr<T> context = allocator_.construct<T>(current, std::forward<Args>(args)...);
+    contexts_.append(std::move(context));
+  }
 };
 
 }  // namespace blender
