@@ -793,6 +793,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       const bNodeSocket &bsocket = *used_outputs[i];
       lf::OutputSocket &lf_socket = lf_node.output(i);
       output_socket_map_.add_new(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
   }
 
@@ -1085,6 +1086,13 @@ void GeometryNodesLazyFunctionLogger::log_socket_value(const fn::lazy_function::
   geo_eval_log::GeoTreeLogger &tree_logger =
       user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
   for (const bNodeSocket *bsocket : bsockets) {
+    if (bsocket->is_input() && !bsocket->directly_linked_sockets().is_empty()) {
+      continue;
+    }
+    const bNode &bnode = bsocket->owner_node();
+    if (bnode.is_reroute()) {
+      continue;
+    }
     tree_logger.log_value(bsocket->owner_node(), *bsocket, value);
   }
 }
