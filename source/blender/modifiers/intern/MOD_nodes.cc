@@ -80,7 +80,6 @@
 #include "ED_spreadsheet.h"
 #include "ED_undo.h"
 
-#include "NOD_derived_node_tree.hh"
 #include "NOD_geometry.h"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 #include "NOD_node_declaration.hh"
@@ -123,7 +122,6 @@ using blender::nodes::InputSocketFieldType;
 using blender::nodes::geo_eval_log::GeoModifierLog;
 using blender::threading::EnumerableThreadSpecific;
 using namespace blender::fn::multi_function_types;
-using namespace blender::nodes::derived_node_tree_types;
 using blender::nodes::geo_eval_log::GeometryAttributeInfo;
 using blender::nodes::geo_eval_log::GeoNodeLog;
 using blender::nodes::geo_eval_log::GeoTreeLog;
