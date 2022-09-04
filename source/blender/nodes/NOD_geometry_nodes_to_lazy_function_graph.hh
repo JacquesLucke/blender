@@ -30,13 +30,15 @@ class NodeGroupContextStack : public ContextStack {
   static constexpr const char *s_static_type = "NODE_GROUP";
 
   std::string node_name_;
-  std::string group_name_;
+  std::string debug_group_name_;
 
  public:
-  NodeGroupContextStack(const ContextStack *parent, std::string node_name, std::string group_name)
+  NodeGroupContextStack(const ContextStack *parent,
+                        std::string node_name,
+                        std::string debug_group_name)
       : ContextStack(s_static_type, parent),
         node_name_(std::move(node_name)),
-        group_name_(std::move(group_name))
+        debug_group_name_(std::move(debug_group_name))
   {
     hash_.mix_in(s_static_type, strlen(s_static_type));
     hash_.mix_in(node_name_.data(), node_name_.size());
@@ -50,7 +52,7 @@ class NodeGroupContextStack : public ContextStack {
  private:
   void print_current_in_line(std::ostream &stream) const override
   {
-    stream << "Node Group: " << group_name_ << " \t Node Name: " << node_name_;
+    stream << "Node Group: " << debug_group_name_ << " \t Node Name: " << node_name_;
   }
 };
 
