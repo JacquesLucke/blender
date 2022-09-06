@@ -16,7 +16,7 @@ class Socket;
 class InputSocket;
 class OutputSocket;
 class Node;
-class LazyFunctionGraph;
+class Graph;
 
 class Socket : NonCopyable, NonMovable {
  protected:
@@ -25,7 +25,7 @@ class Socket : NonCopyable, NonMovable {
   bool is_input_;
   int index_in_node_;
 
-  friend LazyFunctionGraph;
+  friend Graph;
 
  public:
   bool is_input() const;
@@ -51,7 +51,7 @@ class InputSocket : public Socket {
   OutputSocket *origin_;
   const void *default_value_ = nullptr;
 
-  friend LazyFunctionGraph;
+  friend Graph;
 
  public:
   OutputSocket *origin();
@@ -65,7 +65,7 @@ class OutputSocket : public Socket {
  private:
   Vector<InputSocket *> targets_;
 
-  friend LazyFunctionGraph;
+  friend Graph;
 
  public:
   Span<InputSocket *> targets();
@@ -79,7 +79,7 @@ class Node : NonCopyable, NonMovable {
   Span<OutputSocket *> outputs_;
   int index_in_graph_ = -1;
 
-  friend LazyFunctionGraph;
+  friend Graph;
 
  public:
   bool is_dummy() const;
@@ -111,13 +111,13 @@ class DummyNode : public Node {
   friend Node;
 };
 
-class LazyFunctionGraph : NonCopyable, NonMovable {
+class Graph : NonCopyable, NonMovable {
  private:
   LinearAllocator<> allocator_;
   Vector<Node *> nodes_;
 
  public:
-  ~LazyFunctionGraph();
+  ~Graph();
 
   Span<const Node *> nodes() const;
 
@@ -308,10 +308,10 @@ inline const LazyFunction &FunctionNode::function() const
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name #LazyFunctionGraph Inline Methods
+/** \name #Graph Inline Methods
  * \{ */
 
-inline Span<const Node *> LazyFunctionGraph::nodes() const
+inline Span<const Node *> Graph::nodes() const
 {
   return nodes_;
 }

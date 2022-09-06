@@ -6,7 +6,7 @@
 
 namespace blender::fn::lazy_function {
 
-LazyFunctionGraph::~LazyFunctionGraph()
+Graph::~Graph()
 {
   for (Node *node : nodes_) {
     for (InputSocket *socket : node->inputs_) {
@@ -19,7 +19,7 @@ LazyFunctionGraph::~LazyFunctionGraph()
   }
 }
 
-FunctionNode &LazyFunctionGraph::add_function(const LazyFunction &fn)
+FunctionNode &Graph::add_function(const LazyFunction &fn)
 {
   const Span<Input> inputs = fn.inputs();
   const Span<Output> outputs = fn.outputs();
@@ -48,8 +48,7 @@ FunctionNode &LazyFunctionGraph::add_function(const LazyFunction &fn)
   return node;
 }
 
-DummyNode &LazyFunctionGraph::add_dummy(Span<const CPPType *> input_types,
-                                        Span<const CPPType *> output_types)
+DummyNode &Graph::add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types)
 {
   DummyNode &node = *allocator_.construct<DummyNode>().release();
   node.fn_ = nullptr;
@@ -76,7 +75,7 @@ DummyNode &LazyFunctionGraph::add_dummy(Span<const CPPType *> input_types,
   return node;
 }
 
-void LazyFunctionGraph::add_link(OutputSocket &from, InputSocket &to)
+void Graph::add_link(OutputSocket &from, InputSocket &to)
 {
   BLI_assert(to.origin_ == nullptr);
   BLI_assert(from.type_ == to.type_);
@@ -84,7 +83,7 @@ void LazyFunctionGraph::add_link(OutputSocket &from, InputSocket &to)
   from.targets_.append(&to);
 }
 
-void LazyFunctionGraph::remove_link(OutputSocket &from, InputSocket &to)
+void Graph::remove_link(OutputSocket &from, InputSocket &to)
 {
   BLI_assert(to.origin_ == &from);
   BLI_assert(from.targets_.contains(&to));
@@ -92,14 +91,14 @@ void LazyFunctionGraph::remove_link(OutputSocket &from, InputSocket &to)
   from.targets_.remove_first_occurrence_and_reorder(&to);
 }
 
-void LazyFunctionGraph::update_node_indices()
+void Graph::update_node_indices()
 {
   for (const int i : nodes_.index_range()) {
     nodes_[i]->index_in_graph_ = i;
   }
 }
 
-bool LazyFunctionGraph::node_indices_are_valid() const
+bool Graph::node_indices_are_valid() const
 {
   for (const int i : nodes_.index_range()) {
     if (nodes_[i]->index_in_graph_ != i) {
@@ -130,7 +129,7 @@ std::string Node::name() const
   return fn_->name();
 }
 
-std::string LazyFunctionGraph::to_dot() const
+std::string Graph::to_dot() const
 {
   dot::DirectedGraph digraph;
   digraph.set_rankdir(dot::Attr_rankdir::LeftToRight);

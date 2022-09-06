@@ -1138,7 +1138,7 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
 
   blender::nodes::GeometryNodesLazyFunctionLogger lf_logger(lf_graph_info);
 
-  lf::LazyFunctionGraphExecutor graph_executor{
+  lf::GraphExecutor graph_executor{
       lf_graph_info.graph, graph_inputs, graph_outputs, &lf_logger, nullptr};
 
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;

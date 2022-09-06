@@ -441,7 +441,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
  private:
   const bNode &group_node_;
   std::optional<GeometryNodesLazyFunctionLogger> lf_logger_;
-  std::optional<lf::LazyFunctionGraphExecutor> graph_executor_;
+  std::optional<lf::GraphExecutor> graph_executor_;
 
  public:
   LazyFunctionForGroupNode(const bNode &group_node,
@@ -529,7 +529,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
  private:
   const bNodeTree &btree_;
   GeometryNodesLazyFunctionGraphInfo *lf_graph_info_;
-  LazyFunctionGraph *lf_graph_;
+  lf::Graph *lf_graph_;
   GeometryNodeLazyFunctionMapping *mapping_;
   MultiValueMap<const bNodeSocket *, lf::InputSocket *> input_socket_map_;
   Map<const bNodeSocket *, lf::OutputSocket *> output_socket_map_;

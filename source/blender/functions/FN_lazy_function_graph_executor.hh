@@ -13,31 +13,31 @@
 
 namespace blender::fn::lazy_function {
 
-class LazyFunctionGraphExecutionLogger {
+class GraphExecutorLogger {
  public:
-  virtual ~LazyFunctionGraphExecutionLogger() = default;
+  virtual ~GraphExecutorLogger() = default;
 
   virtual void log_socket_value(const Context &context,
                                 const Socket &socket,
                                 GPointer value) const;
 };
 
-class LazyFunctionGraphExecutionSideEffectProvider {
+class GraphExecutorSideEffectProvider {
  public:
-  virtual ~LazyFunctionGraphExecutionSideEffectProvider() = default;
+  virtual ~GraphExecutorSideEffectProvider() = default;
   virtual Vector<const FunctionNode *> get_nodes_with_side_effects(const Context &context) const;
 };
 
-class LazyFunctionGraphExecutor : public LazyFunction {
+class GraphExecutor : public LazyFunction {
  public:
-  using Logger = LazyFunctionGraphExecutionLogger;
-  using SideEffectProvider = LazyFunctionGraphExecutionSideEffectProvider;
+  using Logger = GraphExecutorLogger;
+  using SideEffectProvider = GraphExecutorSideEffectProvider;
 
  private:
   /**
    * The graph that is evaluated.
    */
-  const LazyFunctionGraph &graph_;
+  const Graph &graph_;
   /**
    * Input and output sockets of the entire graph.
    */
@@ -56,11 +56,11 @@ class LazyFunctionGraphExecutor : public LazyFunction {
   friend class Executor;
 
  public:
-  LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
-                            Span<const OutputSocket *> graph_inputs,
-                            Span<const InputSocket *> graph_outputs,
-                            const Logger *logger,
-                            const SideEffectProvider *side_effect_provider);
+  GraphExecutor(const Graph &graph,
+                Span<const OutputSocket *> graph_inputs,
+                Span<const InputSocket *> graph_outputs,
+                const Logger *logger,
+                const SideEffectProvider *side_effect_provider);
 
   void *init_storage(LinearAllocator<> &allocator) const override;
   void destruct_storage(void *storage) const override;

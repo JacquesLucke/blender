@@ -17,7 +17,6 @@ namespace blender::nodes {
 
 namespace lf = fn::lazy_function;
 using lf::LazyFunction;
-using lf::LazyFunctionGraph;
 
 struct GeoNodesModifierData {
   const Object *self_object = nullptr;
@@ -94,7 +93,7 @@ struct GeometryNodesLazyFunctionGraphInfo {
   Vector<std::unique_ptr<LazyFunction>> functions;
   Vector<GMutablePointer> values_to_destruct;
   GeometryNodeLazyFunctionMapping mapping;
-  LazyFunctionGraph graph;
+  lf::Graph graph;
 
   ~GeometryNodesLazyFunctionGraphInfo()
   {
@@ -104,8 +103,7 @@ struct GeometryNodesLazyFunctionGraphInfo {
   }
 };
 
-class GeometryNodesLazyFunctionLogger
-    : public fn::lazy_function::LazyFunctionGraphExecutor::Logger {
+class GeometryNodesLazyFunctionLogger : public fn::lazy_function::GraphExecutor::Logger {
  private:
   const GeometryNodesLazyFunctionGraphInfo &lf_graph_info_;
 

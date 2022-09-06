@@ -51,7 +51,7 @@ class StoreValueFunction : public LazyFunction {
   }
 };
 
-class SimpleSideEffectProvider : public LazyFunctionGraphExecutor::SideEffectProvider {
+class SimpleSideEffectProvider : public GraphExecutor::SideEffectProvider {
  private:
   Vector<const FunctionNode *> side_effect_nodes_;
 
@@ -77,7 +77,7 @@ TEST(lazy_function, SideEffects)
   const AddLazyFunction add_fn;
   const StoreValueFunction store_fn{&dst1, &dst2};
 
-  LazyFunctionGraph graph;
+  Graph graph;
   FunctionNode &add_node_1 = graph.add_function(add_fn);
   FunctionNode &add_node_2 = graph.add_function(add_fn);
   FunctionNode &store_node = graph.add_function(store_fn);
@@ -97,8 +97,7 @@ TEST(lazy_function, SideEffects)
 
   SimpleSideEffectProvider side_effect_provider{{&store_node}};
 
-  LazyFunctionGraphExecutor executor_fn{
-      graph, {&input_node.output(0)}, {}, nullptr, &side_effect_provider};
+  GraphExecutor executor_fn{graph, {&input_node.output(0)}, {}, nullptr, &side_effect_provider};
   execute_lazy_function_eagerly(executor_fn, nullptr, std::make_tuple(5), std::make_tuple());
 
   EXPECT_EQ(dst1, 15);
@@ -162,7 +161,7 @@ static void execute_lazy_function_test(const LazyFunction &fn,
   fn.destruct_storage(storage);
 }
 
-static Vector<Node *> build_add_node_chain(LazyFunctionGraph &graph,
+static Vector<Node *> build_add_node_chain(Graph &graph,
                                            const int chain_length,
                                            const int *default_value)
 {
@@ -187,7 +186,7 @@ struct MultiChainResult {
   Node *last_node = nullptr;
 };
 
-static MultiChainResult build_multiple_chains(LazyFunctionGraph &graph,
+static MultiChainResult build_multiple_chains(Graph &graph,
                                               const int chain_length,
                                               const int chain_num,
                                               const int *default_value)
@@ -216,14 +215,14 @@ TEST(lazy_function, Simple)
 {
   BLI_task_scheduler_init(); /* Without this, no parallelism. */
   const int value_1 = 1;
-  LazyFunctionGraph graph;
+  Graph graph;
   MultiChainResult node_chain = build_multiple_chains(graph, 1e4, 24, &value_1);
   DummyNode &output_node = graph.add_dummy({&CPPType::get<int>()}, {});
   graph.add_link(node_chain.last_node->output(0), output_node.input(0));
   graph.update_node_indices();
   // std::cout << graph.to_dot() << "\n";
 
-  LazyFunctionGraphExecutor executor_fn{graph, {}, {&output_node.input(0)}, nullptr, nullptr};
+  GraphExecutor executor_fn{graph, {}, {&output_node.input(0)}, nullptr, nullptr};
 
   // SCOPED_TIMER("run");
   int result;

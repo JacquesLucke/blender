@@ -174,7 +174,7 @@ class GraphExecutorLFParams;
 
 class Executor {
  private:
-  const LazyFunctionGraphExecutor &self_;
+  const GraphExecutor &self_;
   /**
    * Remembers which inputs have been loaded from the caller already, to avoid loading them twice.
    * Atomics are used to make sure that every input is only retrieved once.
@@ -206,8 +206,7 @@ class Executor {
   friend GraphExecutorLFParams;
 
  public:
-  Executor(const LazyFunctionGraphExecutor &self)
-      : self_(self), loaded_inputs_(self.graph_inputs_.size())
+  Executor(const GraphExecutor &self) : self_(self), loaded_inputs_(self.graph_inputs_.size())
   {
     /* The indices are necessary, because they are used as keys in #node_states_. */
     BLI_assert(self_.graph_.node_indices_are_valid());
@@ -994,12 +993,11 @@ void Executor::execute_node(const FunctionNode &node,
   fn.execute(node_params, fn_context);
 }
 
-LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(
-    const LazyFunctionGraph &graph,
-    const Span<const OutputSocket *> graph_inputs,
-    const Span<const InputSocket *> graph_outputs,
-    const Logger *logger,
-    const SideEffectProvider *side_effect_provider)
+GraphExecutor::GraphExecutor(const Graph &graph,
+                             const Span<const OutputSocket *> graph_inputs,
+                             const Span<const InputSocket *> graph_outputs,
+                             const Logger *logger,
+                             const SideEffectProvider *side_effect_provider)
     : graph_(graph),
       graph_inputs_(graph_inputs),
       graph_outputs_(graph_outputs),
@@ -1016,32 +1014,32 @@ LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(
   }
 }
 
-void LazyFunctionGraphExecutor::execute_impl(Params &params, const Context &context) const
+void GraphExecutor::execute_impl(Params &params, const Context &context) const
 {
   Executor &executor = *static_cast<Executor *>(context.storage);
   executor.execute(params, context);
 }
 
-void *LazyFunctionGraphExecutor::init_storage(LinearAllocator<> &allocator) const
+void *GraphExecutor::init_storage(LinearAllocator<> &allocator) const
 {
   Executor &executor = *allocator.construct<Executor>(*this).release();
   return &executor;
 }
 
-void LazyFunctionGraphExecutor::destruct_storage(void *storage) const
+void GraphExecutor::destruct_storage(void *storage) const
 {
   std::destroy_at(static_cast<Executor *>(storage));
 }
 
-void LazyFunctionGraphExecutionLogger::log_socket_value(const Context &context,
-                                                        const Socket &socket,
-                                                        GPointer value) const
+void GraphExecutorLogger::log_socket_value(const Context &context,
+                                           const Socket &socket,
+                                           GPointer value) const
 {
   UNUSED_VARS(context, socket, value);
 }
 
-Vector<const FunctionNode *> LazyFunctionGraphExecutionSideEffectProvider::
-    get_nodes_with_side_effects(const Context &context) const
+Vector<const FunctionNode *> GraphExecutorSideEffectProvider::get_nodes_with_side_effects(
+    const Context &context) const
 {
   UNUSED_VARS(context);
   return {};
