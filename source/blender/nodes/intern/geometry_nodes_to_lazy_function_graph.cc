@@ -457,6 +457,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
  private:
   const bNode &group_node_;
   std::optional<GeometryNodesLazyFunctionLogger> lf_logger_;
+  std::optional<GeometryNodesLazyFunctionSideEffectProvider> lf_side_effect_provider_;
   std::optional<lf::GraphExecutor> graph_executor_;
 
  public:
@@ -495,11 +496,12 @@ class LazyFunctionForGroupNode : public LazyFunction {
     // std::cout << lf_graph_info.graph.to_dot() << "\n";
 
     lf_logger_.emplace(lf_graph_info);
+    lf_side_effect_provider_.emplace(lf_graph_info);
     graph_executor_.emplace(lf_graph_info.graph,
                             std::move(graph_inputs),
                             std::move(graph_outputs),
                             &*lf_logger_,
-                            nullptr);
+                            &*lf_side_effect_provider_);
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
@@ -1133,6 +1135,28 @@ void GeometryNodesLazyFunctionLogger::log_socket_value(const fn::lazy_function::
     }
     tree_logger.log_value(bsocket->owner_node(), *bsocket, value);
   }
+}
+
+Vector<const lf::FunctionNode *> GeometryNodesLazyFunctionSideEffectProvider::
+    get_nodes_with_side_effects(const lf::Context &context) const
+{
+  GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+  BLI_assert(user_data != nullptr);
+  const GeoNodesModifierData &modifier_data = *user_data->modifier_data;
+
+  Vector<const lf::FunctionNode *> side_effect_nodes;
+
+  /* TODO: Get nodes from context. */
+  for (const lf::Node *node : lf_graph_info_.graph.nodes()) {
+    if (node->is_function()) {
+      const lf::FunctionNode &function_node = *static_cast<const lf::FunctionNode *>(node);
+      if (dynamic_cast<const LazyFunctionForViewerNode *>(&function_node.function())) {
+        side_effect_nodes.append(&function_node);
+      }
+    }
+  }
+
+  return side_effect_nodes;
 }
 
 }  // namespace blender::nodes

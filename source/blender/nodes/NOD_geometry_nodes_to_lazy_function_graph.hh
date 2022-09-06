@@ -118,6 +118,22 @@ class GeometryNodesLazyFunctionLogger : public fn::lazy_function::GraphExecutor:
                         GPointer value) const override;
 };
 
+class GeometryNodesLazyFunctionSideEffectProvider
+    : public fn::lazy_function::GraphExecutor::SideEffectProvider {
+ private:
+  const GeometryNodesLazyFunctionGraphInfo &lf_graph_info_;
+
+ public:
+  GeometryNodesLazyFunctionSideEffectProvider(
+      const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
+      : lf_graph_info_(lf_graph_info)
+  {
+  }
+
+  Vector<const lf::FunctionNode *> get_nodes_with_side_effects(
+      const lf::Context &context) const override;
+};
+
 const GeometryNodesLazyFunctionGraphInfo &ensure_geometry_nodes_lazy_function_graph(
     const bNodeTree &btree);
 
