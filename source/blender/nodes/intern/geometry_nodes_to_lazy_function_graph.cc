@@ -437,6 +437,22 @@ class LazyFunctionForComplexInput : public LazyFunction {
   }
 };
 
+class LazyFunctionForViewerNode : public LazyFunction {
+ public:
+  LazyFunctionForViewerNode()
+  {
+    static_name_ = "Viewer";
+    inputs_.append({"Geometry", CPPType::get<GeometrySet>()});
+  }
+
+  void execute_impl(lf::Params &params, const lf::Context &context) const override
+  {
+    UNUSED_VARS(context);
+    GeometrySet geometry = params.extract_input<GeometrySet>(0);
+    std::cout << "View Geometry: " << geometry << "\n";
+  }
+};
+
 class LazyFunctionForGroupNode : public LazyFunction {
  private:
   const bNode &group_node_;
@@ -651,6 +667,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           this->handle_group_node(*bnode);
           break;
         }
+        case GEO_NODE_VIEWER: {
+          this->handle_viewer_node(*bnode);
+          break;
+        }
         default: {
           if (node_type->geometry_node_execute) {
             this->handle_geometry_node(*bnode);
@@ -822,6 +842,18 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       output_socket_map_.add(&bsocket, &lf_socket);
       mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
+  }
+
+  void handle_viewer_node(const bNode &bnode)
+  {
+    auto lazy_function = std::make_unique<LazyFunctionForViewerNode>();
+    lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+    lf_graph_info_->functions.append(std::move(lazy_function));
+
+    const bNodeSocket &geometry_bsocket = bnode.input_socket(0);
+    lf::InputSocket &lf_geometry_input = lf_node.input(0);
+    input_socket_map_.add(&geometry_bsocket, &lf_geometry_input);
+    mapping_->bsockets_by_lf_socket_map.add(&lf_geometry_input, &geometry_bsocket);
   }
 
   void handle_links()
