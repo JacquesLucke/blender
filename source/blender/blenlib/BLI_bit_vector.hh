@@ -38,6 +38,15 @@
  * - Reading individual elements is more expensive when the array is in cache already. That is
  *   because additional bit-wise operations have to be applied after the corresponding byte is
  *   read.
+ *
+ * Comparison to `std::vector<bool>`:
+ * - `blender::BitVector` has an interface that is more optimized for dealing with bits.
+ * - `blender::BitVector` has an inline buffer that is used to avoid allocations when the vector is
+ *   small.
+ *
+ * Comparison to `BLI_bitmap`:
+ * - `blender::BitVector` offers a more C++ friendly interface.
+ * - `BLI_bitmap` should only be used in C code, that can not use `blender::BitVector`.
  */
 
 #include <cstring>
