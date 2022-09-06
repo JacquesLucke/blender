@@ -175,7 +175,7 @@ class Executor {
    * Sometimes we want to execute nodes for their side effects though. So this is a list of all the
    * nodes that should be executed even when their outputs are not required.
    */
-  const Vector<const Node *> side_effect_nodes_;
+  Vector<const Node *> side_effect_nodes_;
   /**
    * Remembers which inputs have been loaded from the caller already, to avoid loading them twice.
    * Atomics are used to make sure that every input is only retrieved once.
@@ -212,11 +212,6 @@ class Executor {
   {
     /* The indices are necessary, because they are used as keys in #node_states_. */
     BLI_assert(self_.graph_.node_indices_are_valid());
-    this->initialize_node_states();
-    task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
-
-    /* Initialize atomics to zero. */
-    memset(static_cast<void *>(loaded_inputs_.data()), 0, loaded_inputs_.size() * sizeof(bool));
   }
 
   ~Executor()
@@ -247,6 +242,15 @@ class Executor {
     });
 
     if (is_first_execution_) {
+      if (self_.side_effect_provider_ != nullptr) {
+        side_effect_nodes_ = self_.side_effect_provider_->get_nodes_with_side_effects(context);
+      }
+      this->initialize_node_states();
+      task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
+
+      /* Initialize atomics to zero. */
+      memset(static_cast<void *>(loaded_inputs_.data()), 0, loaded_inputs_.size() * sizeof(bool));
+
       this->set_always_unused_graph_inputs();
       this->set_defaulted_graph_outputs();
     }
