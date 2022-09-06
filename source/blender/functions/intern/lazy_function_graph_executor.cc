@@ -115,6 +115,11 @@ struct NodeState {
    */
   bool had_initialization = true;
   /**
+   * Nodes with side effects should always be executed when their required inputs have been
+   * computed.
+   */
+  bool has_side_effects = false;
+  /**
    * A node is always in one specific schedule state. This helps to ensure that the same node does
    * not run twice at the same time accidentally.
    */
@@ -170,12 +175,6 @@ class GraphExecutorLFParams;
 class Executor {
  private:
   const LazyFunctionGraphExecutor &self_;
-  /**
-   * Usually nodes are only executed when at least one of their outputs are required.
-   * Sometimes we want to execute nodes for their side effects though. So this is a list of all the
-   * nodes that should be executed even when their outputs are not required.
-   */
-  Vector<const Node *> side_effect_nodes_;
   /**
    * Remembers which inputs have been loaded from the caller already, to avoid loading them twice.
    * Atomics are used to make sure that every input is only retrieved once.
@@ -241,10 +240,8 @@ class Executor {
       is_first_execution_ = false;
     });
 
+    CurrentTask current_task;
     if (is_first_execution_) {
-      if (self_.side_effect_provider_ != nullptr) {
-        side_effect_nodes_ = self_.side_effect_provider_->get_nodes_with_side_effects(context);
-      }
       this->initialize_node_states();
       task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
 
@@ -253,9 +250,9 @@ class Executor {
 
       this->set_always_unused_graph_inputs();
       this->set_defaulted_graph_outputs();
+      this->schedule_side_effect_nodes(current_task);
     }
 
-    CurrentTask current_task;
     this->schedule_newly_requested_outputs(current_task);
     this->forward_newly_provided_inputs(current_task);
 
@@ -378,6 +375,21 @@ class Executor {
       const OutputState &output_state = node_state.outputs[socket.index_in_node()];
       if (output_state.usage == ValueUsage::Unused) {
         params_->set_input_unused(i);
+      }
+    }
+  }
+
+  void schedule_side_effect_nodes(CurrentTask &current_task)
+  {
+    if (self_.side_effect_provider_ != nullptr) {
+      const Vector<const FunctionNode *> side_effect_nodes =
+          self_.side_effect_provider_->get_nodes_with_side_effects(*context_);
+      for (const FunctionNode *node : side_effect_nodes) {
+        NodeState &node_state = *node_states_[node->index_in_graph()];
+        node_state.has_side_effects = true;
+        this->with_locked_node(*node, node_state, current_task, [&](LockedNode &locked_node) {
+          this->schedule_node(locked_node);
+        });
       }
     }
   }
@@ -588,7 +600,7 @@ class Executor {
           required_uncomputed_output_exists = true;
         }
       }
-      if (!required_uncomputed_output_exists) {
+      if (!required_uncomputed_output_exists && !node_state.has_side_effects) {
         return;
       }
 
@@ -686,13 +698,16 @@ class Executor {
     NodeState &node_state = locked_node.node_state;
 
     if (node_state.node_has_finished) {
+      /* Was finished already. */
       return;
     }
+    /* If there are outputs that may still be used, the node is not done yet. */
     for (const OutputState &output_state : node_state.outputs) {
       if (output_state.usage != ValueUsage::Unused && !output_state.has_been_computed) {
         return;
       }
     }
+    /* If the node is still waiting for inputs, it is not done yet. */
     for (const InputState &input_state : node_state.inputs) {
       if (input_state.usage == ValueUsage::Used && !input_state.was_ready_for_execution) {
         return;
@@ -1023,6 +1038,13 @@ void LazyFunctionGraphExecutionLogger::log_socket_value(const Context &context,
                                                         GPointer value) const
 {
   UNUSED_VARS(context, socket, value);
+}
+
+Vector<const FunctionNode *> LazyFunctionGraphExecutionSideEffectProvider::
+    get_nodes_with_side_effects(const Context &context) const
+{
+  UNUSED_VARS(context);
+  return {};
 }
 
 }  // namespace blender::fn::lazy_function

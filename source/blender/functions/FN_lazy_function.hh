@@ -79,6 +79,7 @@ class Params {
 
   template<typename T> T extract_input(int index);
   template<typename T> const T &get_input(int index);
+  template<typename T> T *try_get_input_data_ptr_or_request(int index);
   template<typename T> void set_output(int index, T &&value);
 
   void set_default_remaining_outputs();
@@ -134,7 +135,7 @@ class LazyFunction {
 
   void execute(Params &params, const Context &context) const;
 
-  bool valid_params_for_execution(const Params &params) const;
+  bool always_used_inputs_available(const Params &params) const;
 
  private:
   virtual void execute_impl(Params &params, const Context &context) const = 0;
@@ -156,7 +157,7 @@ inline Span<Output> LazyFunction::outputs() const
 
 inline void LazyFunction::execute(Params &params, const Context &context) const
 {
-  BLI_assert(this->valid_params_for_execution(params));
+  BLI_assert(this->always_used_inputs_available(params));
   this->execute_impl(params, context);
 }
 
@@ -170,42 +171,42 @@ inline Params::Params(const LazyFunction &fn) : fn_(fn)
 {
 }
 
-inline void *Params::try_get_input_data_ptr(int index) const
+inline void *Params::try_get_input_data_ptr(const int index) const
 {
   return this->try_get_input_data_ptr_impl(index);
 }
 
-inline void *Params::try_get_input_data_ptr_or_request(int index)
+inline void *Params::try_get_input_data_ptr_or_request(const int index)
 {
   return this->try_get_input_data_ptr_or_request_impl(index);
 }
 
-inline void *Params::get_output_data_ptr(int index)
+inline void *Params::get_output_data_ptr(const int index)
 {
   return this->get_output_data_ptr_impl(index);
 }
 
-inline void Params::output_set(int index)
+inline void Params::output_set(const int index)
 {
   this->output_set_impl(index);
 }
 
-inline bool Params::output_was_set(int index) const
+inline bool Params::output_was_set(const int index) const
 {
   return this->output_was_set_impl(index);
 }
 
-inline ValueUsage Params::get_output_usage(int index) const
+inline ValueUsage Params::get_output_usage(const int index) const
 {
   return this->get_output_usage_impl(index);
 }
 
-inline void Params::set_input_unused(int index)
+inline void Params::set_input_unused(const int index)
 {
   this->set_input_unused_impl(index);
 }
 
-template<typename T> inline T Params::extract_input(int index)
+template<typename T> inline T Params::extract_input(const int index)
 {
   void *data = this->try_get_input_data_ptr(index);
   BLI_assert(data != nullptr);
@@ -213,14 +214,19 @@ template<typename T> inline T Params::extract_input(int index)
   return return_value;
 }
 
-template<typename T> inline const T &Params::get_input(int index)
+template<typename T> inline const T &Params::get_input(const int index)
 {
   const void *data = this->try_get_input_data_ptr(index);
   BLI_assert(data != nullptr);
   return *static_cast<const T *>(data);
 }
 
-template<typename T> inline void Params::set_output(int index, T &&value)
+template<typename T> inline T *Params::try_get_input_data_ptr_or_request(const int index)
+{
+  return static_cast<T *>(this->try_get_input_data_ptr_or_request(index));
+}
+
+template<typename T> inline void Params::set_output(const int index, T &&value)
 {
   using DecayT = std::decay_t<T>;
   void *data = this->get_output_data_ptr(index);

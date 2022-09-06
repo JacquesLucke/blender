@@ -29,6 +29,82 @@ class AddLazyFunction : public LazyFunction {
   }
 };
 
+class StoreValueFunction : public LazyFunction {
+ private:
+  int *dst1_;
+  int *dst2_;
+
+ public:
+  StoreValueFunction(int *dst1, int *dst2) : dst1_(dst1), dst2_(dst2)
+  {
+    static_name_ = "Store Value";
+    inputs_.append({"A", CPPType::get<int>()});
+    inputs_.append({"B", CPPType::get<int>(), ValueUsage::Maybe});
+  }
+
+  void execute_impl(Params &params, const Context &UNUSED(context)) const override
+  {
+    *dst1_ = params.get_input<int>(0);
+    if (int *value = params.try_get_input_data_ptr_or_request<int>(1)) {
+      *dst2_ = *value;
+    }
+  }
+};
+
+class SimpleSideEffectProvider : public LazyFunctionGraphExecutor::SideEffectProvider {
+ private:
+  Vector<const FunctionNode *> side_effect_nodes_;
+
+ public:
+  SimpleSideEffectProvider(Span<const FunctionNode *> side_effect_nodes)
+      : side_effect_nodes_(side_effect_nodes)
+  {
+  }
+
+  Vector<const FunctionNode *> get_nodes_with_side_effects(
+      const Context &UNUSED(context)) const override
+  {
+    return side_effect_nodes_;
+  }
+};
+
+TEST(lazy_function, SideEffects)
+{
+  BLI_task_scheduler_init();
+  int dst1 = 0;
+  int dst2 = 0;
+
+  const AddLazyFunction add_fn;
+  const StoreValueFunction store_fn{&dst1, &dst2};
+
+  LazyFunctionGraph graph;
+  FunctionNode &add_node_1 = graph.add_function(add_fn);
+  FunctionNode &add_node_2 = graph.add_function(add_fn);
+  FunctionNode &store_node = graph.add_function(store_fn);
+  DummyNode &input_node = graph.add_dummy({}, {&CPPType::get<int>()});
+
+  graph.add_link(input_node.output(0), add_node_1.input(0));
+  graph.add_link(input_node.output(0), add_node_2.input(0));
+  graph.add_link(add_node_1.output(0), store_node.input(0));
+  graph.add_link(add_node_2.output(0), store_node.input(1));
+
+  const int value_10 = 10;
+  const int value_100 = 100;
+  add_node_1.input(1).set_default_value(&value_10);
+  add_node_2.input(1).set_default_value(&value_100);
+
+  graph.update_node_indices();
+
+  SimpleSideEffectProvider side_effect_provider{{&store_node}};
+
+  LazyFunctionGraphExecutor executor_fn{
+      graph, {&input_node.output(0)}, {}, nullptr, &side_effect_provider};
+  execute_lazy_function_eagerly(executor_fn, nullptr, std::make_tuple(5), std::make_tuple());
+
+  EXPECT_EQ(dst1, 15);
+  EXPECT_EQ(dst2, 105);
+}
+
 enum class LazyFunctionEventType {
   SetInput,
   RequestOutput,
@@ -60,7 +136,7 @@ static void execute_lazy_function_test(const LazyFunction &fn,
   context.storage = storage;
 
   BasicParams params(fn, inputs, outputs, input_usages, output_usages, set_outputs);
-  if (fn.valid_params_for_execution(params)) {
+  if (fn.always_used_inputs_available(params)) {
     fn.execute(params, context);
   }
   for (const LazyFunctionEvent &event : events) {
@@ -78,7 +154,7 @@ static void execute_lazy_function_test(const LazyFunction &fn,
         break;
       }
     }
-    if (fn.valid_params_for_execution(params)) {
+    if (fn.always_used_inputs_available(params)) {
       fn.execute(params, context);
     }
   }

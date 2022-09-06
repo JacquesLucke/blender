@@ -15,6 +15,8 @@ namespace blender::fn::lazy_function {
 
 class LazyFunctionGraphExecutionLogger {
  public:
+  virtual ~LazyFunctionGraphExecutionLogger() = default;
+
   virtual void log_socket_value(const Context &context,
                                 const Socket &socket,
                                 GPointer value) const;
@@ -22,7 +24,8 @@ class LazyFunctionGraphExecutionLogger {
 
 class LazyFunctionGraphExecutionSideEffectProvider {
  public:
-  virtual Vector<const Node *> get_nodes_with_side_effects(const Context &context) const;
+  virtual ~LazyFunctionGraphExecutionSideEffectProvider() = default;
+  virtual Vector<const FunctionNode *> get_nodes_with_side_effects(const Context &context) const;
 };
 
 class LazyFunctionGraphExecutor : public LazyFunction {

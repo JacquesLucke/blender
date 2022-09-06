@@ -75,6 +75,7 @@ inline void execute_lazy_function_eagerly_impl(
   set_outputs.fill(false);
   LinearAllocator<> allocator;
   Context context;
+  context.user_data = user_data;
   context.storage = fn.init_storage(allocator);
   BasicParams params{
       fn, input_pointers, output_pointers, input_usages, output_usages, set_outputs};
