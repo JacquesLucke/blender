@@ -181,7 +181,7 @@ class Executor {
   /**
    * Optional logger for events that happen during execution.
    */
-  const LazyFunctionGraphExecutionLogger *logger_;
+  const LazyFunctionGraphExecutor::Logger *logger_;
   /**
    * Remembers which inputs have been loaded from the caller already, to avoid loading them twice.
    * Atomics are used to make sure that every input is only retrieved once.
@@ -216,7 +216,7 @@ class Executor {
   Executor(const LazyFunctionGraph &graph,
            const VectorSet<const OutputSocket *> &graph_inputs,
            const VectorSet<const InputSocket *> &graph_outputs,
-           const LazyFunctionGraphExecutionLogger *logger)
+           const LazyFunctionGraphExecutor::Logger *logger)
       : graph_(graph),
         graph_inputs_(graph_inputs),
         graph_outputs_(graph_outputs),
@@ -988,11 +988,10 @@ void Executor::execute_node(const FunctionNode &node,
   fn.execute(node_params, fn_context);
 }
 
-LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(
-    const LazyFunctionGraph &graph,
-    Span<const OutputSocket *> graph_inputs,
-    Span<const InputSocket *> graph_outputs,
-    const LazyFunctionGraphExecutionLogger *logger)
+LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
+                                                     Span<const OutputSocket *> graph_inputs,
+                                                     Span<const InputSocket *> graph_outputs,
+                                                     const Logger *logger)
     : graph_(graph), graph_inputs_(graph_inputs), graph_outputs_(graph_outputs), logger_(logger)
 {
   for (const OutputSocket *socket : graph_inputs_) {

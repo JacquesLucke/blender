@@ -105,7 +105,7 @@ struct GeometryNodesLazyFunctionGraphInfo {
 };
 
 class GeometryNodesLazyFunctionLogger
-    : public fn::lazy_function::LazyFunctionGraphExecutionLogger {
+    : public fn::lazy_function::LazyFunctionGraphExecutor::Logger {
  private:
   const GeometryNodesLazyFunctionGraphInfo &lf_graph_info_;
 

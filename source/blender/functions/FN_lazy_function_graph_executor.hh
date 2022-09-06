@@ -20,17 +20,20 @@ class LazyFunctionGraphExecutionLogger {
 };
 
 class LazyFunctionGraphExecutor : public LazyFunction {
+ public:
+  using Logger = LazyFunctionGraphExecutionLogger;
+
  private:
   const LazyFunctionGraph &graph_;
   VectorSet<const OutputSocket *> graph_inputs_;
   VectorSet<const InputSocket *> graph_outputs_;
-  const LazyFunctionGraphExecutionLogger *logger_;
+  const Logger *logger_;
 
  public:
   LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
                             Span<const OutputSocket *> graph_inputs,
                             Span<const InputSocket *> graph_outputs,
-                            const LazyFunctionGraphExecutionLogger *logger);
+                            const Logger *logger);
 
   void *init_storage(LinearAllocator<> &allocator) const override;
   void destruct_storage(void *storage) const override;
