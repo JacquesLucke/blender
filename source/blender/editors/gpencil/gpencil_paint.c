@@ -945,7 +945,7 @@ static bGPDstroke *gpencil_stroke_to_outline(tGPsdata *p, bGPDstroke *gps)
   unit_m4(diff_mat);
   const float outline_thickness = (float)brush->size * gpencil_settings->outline_fac * 0.5f;
   bGPDstroke *gps_perimeter = BKE_gpencil_stroke_perimeter_from_view(
-      rv3d, p->gpd, gpl, gps_duplicate, 3, diff_mat, outline_thickness);
+      rv3d->viewmat, p->gpd, gpl, gps_duplicate, 3, diff_mat, outline_thickness);
   /* Assign material. */
   if (gpencil_settings->material_alt == NULL) {
     gps_perimeter->mat_nr = gps->mat_nr;
@@ -2410,7 +2410,7 @@ static void gpencil_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_ptr)
   if (p->paintmode == GP_PAINTMODE_ERASER) {
     GPUVertFormat *format = immVertexFormat();
     const uint shdr_pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
     GPU_line_smooth(true);
     GPU_blend(GPU_BLEND_ALPHA);
@@ -2420,7 +2420,7 @@ static void gpencil_draw_eraser(bContext *UNUSED(C), int x, int y, void *p_ptr)
 
     immUnbindProgram();
 
-    immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
     float viewport_size[4];
     GPU_viewport_size_get_f(viewport_size);

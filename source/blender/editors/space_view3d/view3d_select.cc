@@ -334,7 +334,8 @@ static bool edbm_backbuf_check_and_select_verts_obmode(Mesh *me,
                                                        EditSelectBuf_Cache *esel,
                                                        const eSelectOp sel_op)
 {
-  MVert *mv = me->mvert;
+  MVert *verts = BKE_mesh_vertices_for_write(me);
+  MVert *mv = verts;
   bool changed = false;
 
   const BLI_bitmap *select_bitmap = esel->select_bitmap;
@@ -363,22 +364,22 @@ static bool edbm_backbuf_check_and_select_faces_obmode(Mesh *me,
                                                        EditSelectBuf_Cache *esel,
                                                        const eSelectOp sel_op)
 {
-  MPoly *mpoly = me->mpoly;
+  MPoly *polygons = BKE_mesh_polygons_for_write(me);
   bool changed = false;
 
   const BLI_bitmap *select_bitmap = esel->select_bitmap;
 
-  if (mpoly) {
+  if (polygons) {
     const bool *hide_poly = (const bool *)CustomData_get_layer_named(
-        &me->pdata, CD_PROP_BOOL, ".hide_poly");
+        &me->vdata, CD_PROP_BOOL, ".hide_poly");
 
-    for (int index = 0; index < me->totpoly; index++, mpoly++) {
+    for (int index = 0; index < me->totpoly; index++) {
       if (!(hide_poly && hide_poly[index])) {
-        const bool is_select = mpoly->flag & ME_FACE_SEL;
+        const bool is_select = polygons[index].flag & ME_FACE_SEL;
         const bool is_inside = BLI_BITMAP_TEST_BOOL(select_bitmap, index);
         const int sel_op_result = ED_select_op_action_deselected(sel_op, is_select, is_inside);
         if (sel_op_result != -1) {
-          SET_FLAG_FROM_TEST(mpoly->flag, sel_op_result, ME_FACE_SEL);
+          SET_FLAG_FROM_TEST(polygons[index].flag, sel_op_result, ME_FACE_SEL);
           changed = true;
         }
       }
@@ -439,24 +440,24 @@ static bool view3d_selectable_data(bContext *C)
   Object *ob = CTX_data_active_object(C);
 
   if (!ED_operator_region_view3d_active(C)) {
-    return 0;
+    return false;
   }
 
   if (ob) {
     if (ob->mode & OB_MODE_EDIT) {
       if (ob->type == OB_FONT) {
-        return 0;
+        return false;
       }
     }
     else {
       if ((ob->mode & (OB_MODE_VERTEX_PAINT | OB_MODE_WEIGHT_PAINT | OB_MODE_TEXTURE_PAINT)) &&
           !BKE_paint_select_elem_test(ob)) {
-        return 0;
+        return false;
       }
     }
   }
 
-  return 1;
+  return true;
 }
 
 /* helper also for box_select */
@@ -471,21 +472,21 @@ static bool edge_inside_rect(const rctf *rect, const float v1[2], const float v2
 
   /* check points in rect */
   if (edge_fully_inside_rect(rect, v1, v2)) {
-    return 1;
+    return true;
   }
 
   /* check points completely out rect */
   if (v1[0] < rect->xmin && v2[0] < rect->xmin) {
-    return 0;
+    return false;
   }
   if (v1[0] > rect->xmax && v2[0] > rect->xmax) {
-    return 0;
+    return false;
   }
   if (v1[1] < rect->ymin && v2[1] < rect->ymin) {
-    return 0;
+    return false;
   }
   if (v1[1] > rect->ymax && v2[1] > rect->ymax) {
-    return 0;
+    return false;
   }
 
   /* simple check lines intersecting. */
@@ -495,13 +496,13 @@ static bool edge_inside_rect(const rctf *rect, const float v1[2], const float v2
   d4 = (v1[1] - v2[1]) * (v1[0] - rect->xmax) + (v2[0] - v1[0]) * (v1[1] - rect->ymin);
 
   if (d1 < 0 && d2 < 0 && d3 < 0 && d4 < 0) {
-    return 0;
+    return false;
   }
   if (d1 > 0 && d2 > 0 && d3 > 0 && d4 > 0) {
-    return 0;
+    return false;
   }
 
-  return 1;
+  return true;
 }
 
 static void do_lasso_select_pose__do_tag(void *userData,
@@ -1277,7 +1278,7 @@ static bool view3d_lasso_select(bContext *C,
   Object *ob = CTX_data_active_object(C);
   bool changed_multi = false;
 
-  wmGenericUserData wm_userdata_buf = {0};
+  wmGenericUserData wm_userdata_buf = {nullptr, nullptr, false};
   wmGenericUserData *wm_userdata = &wm_userdata_buf;
 
   if (vc->obedit == nullptr) { /* Object Mode */
@@ -1544,11 +1545,11 @@ void VIEW3D_OT_select_menu(wmOperatorType *ot)
   RNA_def_property_flag(prop, (PropertyFlag)(PROP_HIDDEN | PROP_ENUM_NO_TRANSLATE));
   ot->prop = prop;
 
-  prop = RNA_def_boolean(ot->srna, "extend", 0, "Extend", "");
+  prop = RNA_def_boolean(ot->srna, "extend", false, "Extend", "");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-  prop = RNA_def_boolean(ot->srna, "deselect", 0, "Deselect", "");
+  prop = RNA_def_boolean(ot->srna, "deselect", false, "Deselect", "");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-  prop = RNA_def_boolean(ot->srna, "toggle", 0, "Toggle", "");
+  prop = RNA_def_boolean(ot->srna, "toggle", false, "Toggle", "");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
@@ -1734,11 +1735,11 @@ void VIEW3D_OT_bone_select_menu(wmOperatorType *ot)
   RNA_def_property_flag(prop, (PropertyFlag)(PROP_HIDDEN | PROP_ENUM_NO_TRANSLATE));
   ot->prop = prop;
 
-  prop = RNA_def_boolean(ot->srna, "extend", 0, "Extend", "");
+  prop = RNA_def_boolean(ot->srna, "extend", false, "Extend", "");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-  prop = RNA_def_boolean(ot->srna, "deselect", 0, "Deselect", "");
+  prop = RNA_def_boolean(ot->srna, "deselect", false, "Deselect", "");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-  prop = RNA_def_boolean(ot->srna, "toggle", 0, "Toggle", "");
+  prop = RNA_def_boolean(ot->srna, "toggle", false, "Toggle", "");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
@@ -2813,13 +2814,15 @@ static bool ed_wpaint_vertex_select_pick(bContext *C,
 
   Mesh *me = static_cast<Mesh *>(obact->data); /* already checked for nullptr */
   uint index = 0;
+  MVert *verts = BKE_mesh_vertices_for_write(me);
+
   MVert *mv;
   bool changed = false;
 
   bool found = ED_mesh_pick_vert(C, obact, mval, ED_MESH_PICK_DEFAULT_VERT_DIST, use_zbuf, &index);
 
   if (params->sel_op == SEL_OP_SET) {
-    if ((found && params->select_passthrough) && (me->mvert[index].flag & SELECT)) {
+    if ((found && params->select_passthrough) && (verts[index].flag & SELECT)) {
       found = false;
     }
     else if (found || params->deselect_all) {
@@ -2829,7 +2832,7 @@ static bool ed_wpaint_vertex_select_pick(bContext *C,
   }
 
   if (found) {
-    mv = &me->mvert[index];
+    mv = &verts[index];
     switch (params->sel_op) {
       case SEL_OP_ADD: {
         mv->flag |= SELECT;
@@ -3014,21 +3017,25 @@ void VIEW3D_OT_select(wmOperatorType *ot)
   prop = RNA_def_boolean(
       ot->srna,
       "center",
-      0,
+      false,
       "Center",
       "Use the object center when selecting, in edit mode used to extend object selection");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-  prop = RNA_def_boolean(
-      ot->srna, "enumerate", 0, "Enumerate", "List objects under the mouse (object mode only)");
+  prop = RNA_def_boolean(ot->srna,
+                         "enumerate",
+                         false,
+                         "Enumerate",
+                         "List objects under the mouse (object mode only)");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
-  prop = RNA_def_boolean(ot->srna, "object", 0, "Object", "Use object selection (edit mode only)");
+  prop = RNA_def_boolean(
+      ot->srna, "object", false, "Object", "Use object selection (edit mode only)");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 
   /* Needed for select-through to usefully drag handles, see: T98254.
    * NOTE: this option may be removed and become default behavior, see design task: T98552. */
   prop = RNA_def_boolean(ot->srna,
                          "vert_without_handles",
-                         0,
+                         false,
                          "Control Point Without Handles",
                          "Only select the curve control point, not it's handles");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
@@ -3775,7 +3782,7 @@ static int view3d_box_select_exec(bContext *C, wmOperator *op)
   rcti rect;
   bool changed_multi = false;
 
-  wmGenericUserData wm_userdata_buf = {0};
+  wmGenericUserData wm_userdata_buf = {nullptr, nullptr, false};
   wmGenericUserData *wm_userdata = &wm_userdata_buf;
 
   view3d_operator_needs_opengl(C);
@@ -4276,9 +4283,9 @@ static bool pchan_circle_doSelectJoint(void *userData,
     else {
       pchan->bone->flag &= ~BONE_SELECTED;
     }
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 static void do_circle_select_pose__doSelectBone(void *userData,
                                                 bPoseChannel *pchan,
@@ -4386,9 +4393,9 @@ static bool armature_circle_doSelectJoint(void *userData,
         ebone->flag &= ~BONE_TIPSEL;
       }
     }
-    return 1;
+    return true;
   }
-  return 0;
+  return false;
 }
 static void do_circle_select_armature__doSelectBone(void *userData,
                                                     EditBone *ebone,
@@ -4674,7 +4681,7 @@ static int view3d_circle_select_exec(bContext *C, wmOperator *op)
 
   /* Allow each selection type to allocate their own data that's used between executions. */
   wmGesture *gesture = static_cast<wmGesture *>(op->customdata); /* nullptr when non-modal. */
-  wmGenericUserData wm_userdata_buf = {0};
+  wmGenericUserData wm_userdata_buf = {nullptr, nullptr, false};
   wmGenericUserData *wm_userdata = gesture ? &gesture->user_data : &wm_userdata_buf;
 
   const eSelectOp sel_op = ED_select_op_modal(

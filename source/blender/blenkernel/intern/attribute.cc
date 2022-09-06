@@ -475,7 +475,10 @@ CustomDataLayer *BKE_id_attributes_active_get(ID *id)
         CustomDataLayer *layer = &customdata->layers[i];
         if (CD_MASK_PROP_ALL & CD_TYPE_AS_MASK(layer->type)) {
           if (index == active_index) {
-            return layer;
+            if (BKE_attribute_allow_procedural_access(layer->name)) {
+              return layer;
+            }
+            return nullptr;
           }
           index++;
         }

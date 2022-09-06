@@ -535,6 +535,9 @@ typedef struct bNodeTree {
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt;
 
+  /** The ID owning this node tree, in case it is an embedded one. */
+  ID *owner_id;
+
   /** Runtime type information. */
   struct bNodeTreeType *typeinfo;
   /** Runtime type identifier. */
@@ -765,12 +768,12 @@ typedef enum CMPNodeMaskType {
   CMP_NODE_MASKTYPE_NOT = 3,
 } CMPNodeMaskType;
 
-enum {
-  CMP_NODE_DILATEERODE_STEP = 0,
-  CMP_NODE_DILATEERODE_DISTANCE_THRESH = 1,
-  CMP_NODE_DILATEERODE_DISTANCE = 2,
-  CMP_NODE_DILATEERODE_DISTANCE_FEATHER = 3,
-};
+typedef enum CMPNodeDilateErodeMethod {
+  CMP_NODE_DILATE_ERODE_STEP = 0,
+  CMP_NODE_DILATE_ERODE_DISTANCE_THRESHOLD = 1,
+  CMP_NODE_DILATE_ERODE_DISTANCE = 2,
+  CMP_NODE_DILATE_ERODE_DISTANCE_FEATHER = 3,
+} CMPNodeDilateErodeMethod;
 
 enum {
   CMP_NODE_INPAINT_SIMPLE = 0,

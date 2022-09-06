@@ -5153,6 +5153,7 @@ class VIEW3D_MT_edit_gpencil_stroke(Menu):
         layout.operator("gpencil.stroke_subdivide", text="Subdivide").only_selected = False
         layout.menu("VIEW3D_MT_gpencil_simplify")
         layout.operator("gpencil.stroke_trim", text="Trim")
+        layout.operator("gpencil.stroke_outline", text="Outline")
 
         layout.separator()
 
@@ -5174,17 +5175,14 @@ class VIEW3D_MT_edit_gpencil_stroke(Menu):
         layout.operator("gpencil.stroke_cyclical_set", text="Toggle Cyclic").type = 'TOGGLE'
         layout.operator_menu_enum("gpencil.stroke_caps_set", text="Toggle Caps", property="type")
         layout.operator("gpencil.stroke_flip", text="Switch Direction")
-        layout.prop(settings, "use_scale_thickness", text="Scale Thickness")
 
         layout.separator()
         layout.operator("gpencil.stroke_normalize", text="Normalize Thickness").mode = 'THICKNESS'
         layout.operator("gpencil.stroke_normalize", text="Normalize Opacity").mode = 'OPACITY'
+        layout.prop(settings, "use_scale_thickness", text="Scale Thickness")
 
         layout.separator()
         layout.operator("gpencil.reset_transform_fill", text="Reset Fill Transform")
-
-        layout.separator()
-        layout.operator("gpencil.stroke_outline", text="Outline")
 
 
 class VIEW3D_MT_edit_gpencil_point(Menu):
@@ -7809,6 +7807,25 @@ class VIEW3D_PT_curves_sculpt_grow_shrink_scaling(Panel):
         layout.prop(brush.curves_sculpt_settings, "minimum_length")
 
 
+class VIEW3D_PT_viewport_debug(Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'HEADER'
+    bl_parent_id = 'VIEW3D_PT_overlay'
+    bl_label = "Viewport Debug"
+
+    @classmethod
+    def poll(cls, context):
+        prefs = context.preferences
+        return prefs.experimental.use_viewport_debug
+
+    def draw(self, context):
+        layout = self.layout
+        view = context.space_data
+        overlay = view.overlay
+
+        layout.prop(overlay, "use_debug_freeze_view_culling")
+
+
 classes = (
     VIEW3D_HT_header,
     VIEW3D_HT_tool_header,
@@ -8046,6 +8063,7 @@ classes = (
     TOPBAR_PT_annotation_layers,
     VIEW3D_PT_curves_sculpt_add_shape,
     VIEW3D_PT_curves_sculpt_grow_shrink_scaling,
+    VIEW3D_PT_viewport_debug,
 )
 
 

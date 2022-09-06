@@ -455,14 +455,14 @@ static void outliner_do_libdata_operation(bContext *C,
   });
 }
 
-typedef enum eOutlinerLibOpSelectionSet {
+enum eOutlinerLibOpSelectionSet {
   /* Only selected items. */
   OUTLINER_LIB_SELECTIONSET_SELECTED,
   /* Only content 'inside' selected items (their sub-tree). */
   OUTLINER_LIB_LIB_SELECTIONSET_CONTENT,
   /* Combining both options above. */
   OUTLINER_LIB_LIB_SELECTIONSET_SELECTED_AND_CONTENT,
-} eOutlinerLibOpSelectionSet;
+};
 
 static const EnumPropertyItem prop_lib_op_selection_set[] = {
     {OUTLINER_LIB_SELECTIONSET_SELECTED,
@@ -919,7 +919,7 @@ struct OutlinerLibOverrideData {
    * override), or an actual already existing override. */
   Map<ID *, Vector<OutlinerLiboverrideDataIDRoot>> id_hierarchy_roots;
 
-  /** All 'session_uuid' of all hierarchy root IDs used or created by the operation.  */
+  /** All 'session_uuid' of all hierarchy root IDs used or created by the operation. */
   Set<uint> id_hierarchy_roots_uid;
 
   void id_root_add(ID *id_hierarchy_root_reference,

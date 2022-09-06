@@ -208,9 +208,10 @@ static std::ostream &operator<<(std::ostream &stream, const GPUConstant *input)
   stream << input->type << "(";
   for (int i = 0; i < input->type; i++) {
     char formated_float[32];
-    /* Print with the maximum precision for single precision float using scientific notation.
-     * See https://stackoverflow.com/questions/16839658/#answer-21162120 */
-    SNPRINTF(formated_float, "%.9g", input->vec[i]);
+    /* Use uint representation to allow exact same bit pattern even if NaN. This is because we can
+     * pass UINTs as floats for constants. */
+    const uint32_t *uint_vec = reinterpret_cast<const uint32_t *>(input->vec);
+    SNPRINTF(formated_float, "uintBitsToFloat(%uu)", uint_vec[i]);
     stream << formated_float;
     if (i < input->type - 1) {
       stream << ", ";
@@ -352,6 +353,24 @@ void GPUCodegen::generate_attribs()
 void GPUCodegen::generate_resources()
 {
   GPUCodegenCreateInfo &info = *create_info;
+
+  /* Ref. T98190: Defines are optimizations for old compilers.
+   * Might become unnecessary with EEVEE-Next. */
+  if (GPU_material_flag_get(&mat, GPU_MATFLAG_PRINCIPLED_CLEARCOAT)) {
+    info.define("PRINCIPLED_CLEARCOAT");
+  }
+  if (GPU_material_flag_get(&mat, GPU_MATFLAG_PRINCIPLED_METALLIC)) {
+    info.define("PRINCIPLED_METALLIC");
+  }
+  if (GPU_material_flag_get(&mat, GPU_MATFLAG_PRINCIPLED_DIELECTRIC)) {
+    info.define("PRINCIPLED_DIELECTRIC");
+  }
+  if (GPU_material_flag_get(&mat, GPU_MATFLAG_PRINCIPLED_GLASS)) {
+    info.define("PRINCIPLED_GLASS");
+  }
+  if (GPU_material_flag_get(&mat, GPU_MATFLAG_PRINCIPLED_ANY)) {
+    info.define("PRINCIPLED_ANY");
+  }
 
   std::stringstream ss;
 
