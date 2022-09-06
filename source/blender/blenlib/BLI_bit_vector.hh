@@ -23,14 +23,16 @@
  * to provide a compact way to map indices to bools. It requires 8 times less memory compared to a
  * `blender::Vector<bool>`.
  *
- * By default all bits are zero-initialized. This is necessary avoid warnings caused by using
- * uninitialized memory. This happens when e.g. setting or clearing a bit in an uninitialized byte.
+ * Advantages of using a bit- instead of byte-vector are:
+ * - Uses less memory.
+ * - Allows checking the state of many elements at the same time (before 8 times more bits than
+ *   bytes fit into a CPU register). This can improve performance.
  *
  * The compact nature of storing bools in individual bits has some downsides that have to be kept
  * in mind:
  * - Writing to separate bits in the same byte is not thread-safe. Therefore, an existing vector of
  *   bool can't easily be replaced with a bit vector, if it is written to from multiple threads.
- *   Reading-only access from multiple threads is fine though.
+ *   Read-only access from multiple threads is fine though.
  * - Writing individual elements is more expensive when the array is in cache already. That is
  *   because changing a bit is always a read-modify-write operation on the byte the bit resides in.
  * - Reading individual elements is more expensive when the array is in cache already. That is
@@ -214,7 +216,7 @@ class BitVector {
     data_ = inline_buffer_;
     size_in_bits_ = 0;
     capacity_in_bits_ = BitsInInlineBuffer;
-    memset(data_, 0, BytesInInlineBuffer);
+    uninitialized_fill_n(data_, BytesInInlineBuffer, static_cast<uint8_t>(0));
   }
 
   BitVector(NoExceptConstructor, Allocator allocator = {}) noexcept : BitVector(allocator)
@@ -225,7 +227,7 @@ class BitVector {
   {
     const int64_t bytes_to_copy = other.used_bytes_amount();
     if (other.size_in_bits_ <= BitsInInlineBuffer) {
-      /* The data is copied into the own inline buffer. */
+      /* The data is copied into the owned inline buffer. */
       data_ = inline_buffer_;
       capacity_in_bits_ = BitsInInlineBuffer;
     }
@@ -503,6 +505,9 @@ class BitVector {
     uint8_t *new_data = static_cast<uint8_t *>(
         allocator_.allocate(new_capacity_in_bytes, AllocationAlignment, __func__));
     uninitialized_copy_n(data_, bytes_to_copy, new_data);
+    /* Always initialize new capacity even if it isn't used yet. That's necessary to avoid warnings
+     * caused by using uninitialized memory. This happens when e.g. setting a clearing a bit in an
+     * uninitialized byte. */
     uninitialized_fill_n(new_data + bytes_to_copy,
                          new_capacity_in_bytes - bytes_to_copy,
                          (uint8_t)initial_value_for_new_bytes);
