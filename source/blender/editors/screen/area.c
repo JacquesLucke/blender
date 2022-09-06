@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edscr
@@ -99,7 +83,7 @@ static void region_draw_emboss(const ARegion *region, const rcti *scirct, int si
 
   GPUVertFormat *format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4fv(color);
 
   immBeginAtMost(GPU_PRIM_LINES, 8);
@@ -143,7 +127,7 @@ void ED_region_pixelspace(const ARegion *region)
 void ED_region_do_listen(wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *notifier = params->notifier;
+  const wmNotifier *notifier = params->notifier;
 
   /* generic notes first */
   switch (notifier->category) {
@@ -159,6 +143,10 @@ void ED_region_do_listen(wmRegionListenerParams *params)
 
   if (region->type && region->type->listener) {
     region->type->listener(params);
+  }
+
+  LISTBASE_FOREACH (uiBlock *, block, &region->uiblocks) {
+    UI_block_views_listen(block, params);
   }
 
   LISTBASE_FOREACH (uiList *, list, &region->ui_lists) {
@@ -250,8 +238,6 @@ static void draw_azone_arrow(float x1, float y1, float x2, float y2, AZEdge edge
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
   GPU_blend(GPU_BLEND_ALPHA);
-  /* NOTE(fclem): There is something strange going on with Mesa and GPU_SHADER_2D_UNIFORM_COLOR
-   * that causes a crash on some GPUs (see T76113). Using 3D variant avoid the issue. */
   immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4f(0.8f, 0.8f, 0.8f, 0.4f);
 
@@ -575,7 +561,7 @@ void ED_region_do_draw(bContext *C, ARegion *region)
     GPU_blend(GPU_BLEND_ALPHA);
     GPUVertFormat *format = immVertexFormat();
     uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
     immUniformColor4f(BLI_thread_frand(0), BLI_thread_frand(0), BLI_thread_frand(0), 0.1f);
     immRectf(pos,
              region->drawrct.xmin - region->winrct.xmin,
@@ -605,7 +591,7 @@ void ED_region_do_draw(bContext *C, ARegion *region)
       UI_GetThemeColor3fv(TH_EDITOR_OUTLINE, color);
       GPUVertFormat *format = immVertexFormat();
       uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-      immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+      immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
       immUniformColor4fv(color);
       GPU_line_width(1.0f);
       imm_draw_box_wire_2d(pos,
@@ -1087,6 +1073,7 @@ static void region_azone_scrollbar_init(ScrArea *area,
 {
   rcti scroller_vert = (direction == AZ_SCROLL_VERT) ? region->v2d.vert : region->v2d.hor;
   AZone *az = MEM_callocN(sizeof(*az), __func__);
+  float hide_width;
 
   BLI_addtail(&area->actionzones, az);
   az->type = AZONE_REGION_SCROLL;
@@ -1095,16 +1082,18 @@ static void region_azone_scrollbar_init(ScrArea *area,
 
   if (direction == AZ_SCROLL_VERT) {
     az->region->v2d.alpha_vert = 0;
+    hide_width = V2D_SCROLL_HIDE_HEIGHT;
   }
   else if (direction == AZ_SCROLL_HOR) {
     az->region->v2d.alpha_hor = 0;
+    hide_width = V2D_SCROLL_HIDE_WIDTH;
   }
 
   BLI_rcti_translate(&scroller_vert, region->winrct.xmin, region->winrct.ymin);
-  az->x1 = scroller_vert.xmin - AZONEFADEIN;
-  az->y1 = scroller_vert.ymin - AZONEFADEIN;
-  az->x2 = scroller_vert.xmax + AZONEFADEIN;
-  az->y2 = scroller_vert.ymax + AZONEFADEIN;
+  az->x1 = scroller_vert.xmin - ((direction == AZ_SCROLL_VERT) ? hide_width : 0);
+  az->y1 = scroller_vert.ymin - ((direction == AZ_SCROLL_HOR) ? hide_width : 0);
+  az->x2 = scroller_vert.xmax + ((direction == AZ_SCROLL_VERT) ? hide_width : 0);
+  az->y2 = scroller_vert.ymax + ((direction == AZ_SCROLL_HOR) ? hide_width : 0);
 
   BLI_rcti_init(&az->rect, az->x1, az->x2, az->y1, az->y2);
 }
@@ -1988,6 +1977,7 @@ void ED_area_init(wmWindowManager *wm, wmWindow *win, ScrArea *area)
 
 static void area_offscreen_init(ScrArea *area)
 {
+  area->flag |= AREA_FLAG_OFFSCREEN;
   area->type = BKE_spacetype_from_id(area->spacetype);
 
   if (area->type == NULL) {
@@ -2191,12 +2181,12 @@ struct RegionTypeAlignInfo {
      * Needed for detecting which header displays the space-type switcher.
      */
     bool hidden;
-  } by_type[RGN_TYPE_LEN];
+  } by_type[RGN_TYPE_NUM];
 };
 
 static void region_align_info_from_area(ScrArea *area, struct RegionTypeAlignInfo *r_align_info)
 {
-  for (int index = 0; index < RGN_TYPE_LEN; index++) {
+  for (int index = 0; index < RGN_TYPE_NUM; index++) {
     r_align_info->by_type[index].alignment = -1;
     /* Default to true, when it doesn't exist - it's effectively hidden. */
     r_align_info->by_type[index].hidden = true;
@@ -2204,7 +2194,7 @@ static void region_align_info_from_area(ScrArea *area, struct RegionTypeAlignInf
 
   LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
     const int index = region->regiontype;
-    if ((uint)index < RGN_TYPE_LEN) {
+    if ((uint)index < RGN_TYPE_NUM) {
       r_align_info->by_type[index].alignment = RGN_ALIGN_ENUM_FROM_MASK(region->alignment);
       r_align_info->by_type[index].hidden = (region->flag & RGN_FLAG_HIDDEN) != 0;
     }
@@ -2267,7 +2257,7 @@ static short region_alignment_from_header_and_tool_header_state(
 static void region_align_info_to_area_for_headers(
     const struct RegionTypeAlignInfo *region_align_info_src,
     const struct RegionTypeAlignInfo *region_align_info_dst,
-    ARegion *region_by_type[RGN_TYPE_LEN])
+    ARegion *region_by_type[RGN_TYPE_NUM])
 {
   /* Abbreviate access. */
   const short header_alignment_src = region_align_info_src->by_type[RGN_TYPE_HEADER].alignment;
@@ -2380,12 +2370,12 @@ static void region_align_info_to_area_for_headers(
 }
 
 static void region_align_info_to_area(
-    ScrArea *area, const struct RegionTypeAlignInfo region_align_info_src[RGN_TYPE_LEN])
+    ScrArea *area, const struct RegionTypeAlignInfo region_align_info_src[RGN_TYPE_NUM])
 {
-  ARegion *region_by_type[RGN_TYPE_LEN] = {NULL};
+  ARegion *region_by_type[RGN_TYPE_NUM] = {NULL};
   LISTBASE_FOREACH (ARegion *, region, &area->regionbase) {
     const int index = region->regiontype;
-    if ((uint)index < RGN_TYPE_LEN) {
+    if ((uint)index < RGN_TYPE_NUM) {
       region_by_type[index] = region;
     }
   }
@@ -2452,7 +2442,7 @@ void ED_area_newspace(bContext *C, ScrArea *area, int type, const bool skip_regi
      */
 
     bool sync_header_alignment = false;
-    struct RegionTypeAlignInfo region_align_info[RGN_TYPE_LEN];
+    struct RegionTypeAlignInfo region_align_info[RGN_TYPE_NUM];
     if ((slold != NULL) && (slold->link_flag & SPACE_FLAG_TYPE_TEMPORARY) == 0) {
       region_align_info_from_area(area, region_align_info);
       sync_header_alignment = true;
@@ -3136,7 +3126,12 @@ void ED_region_panels_draw(const bContext *C, ARegion *region)
     UI_view2d_mask_from_win(v2d, &mask);
     mask.xmax -= UI_PANEL_CATEGORY_MARGIN_WIDTH;
   }
-  UI_view2d_scrollers_draw(v2d, use_mask ? &mask : NULL);
+  bool use_full_hide = false;
+  if (region->overlap) {
+    /* Don't always show scrollbars for transparent regions as it's distracting. */
+    use_full_hide = true;
+  }
+  UI_view2d_scrollers_draw_ex(v2d, use_mask ? &mask : NULL, use_full_hide);
 }
 
 void ED_region_panels_ex(const bContext *C, ARegion *region, const char *contexts[])
@@ -3454,6 +3449,37 @@ bool ED_area_is_global(const ScrArea *area)
   return area->global != NULL;
 }
 
+ScrArea *ED_area_find_under_cursor(const bContext *C, int spacetype, const int xy[2])
+{
+  bScreen *screen = CTX_wm_screen(C);
+  wmWindow *win = CTX_wm_window(C);
+
+  ScrArea *area = NULL;
+
+  if (win->parent) {
+    /* If active window is a child, check itself first. */
+    area = BKE_screen_find_area_xy(screen, spacetype, xy);
+  }
+
+  if (!area) {
+    /* Check all windows except the active one. */
+    int scr_pos[2];
+    wmWindow *win_other = WM_window_find_under_cursor(win, xy, scr_pos);
+    if (win_other && win_other != win) {
+      win = win_other;
+      screen = WM_window_get_active_screen(win);
+      area = BKE_screen_find_area_xy(screen, spacetype, scr_pos);
+    }
+  }
+
+  if (!area && !win->parent) {
+    /* If active window is a parent window, check itself last. */
+    area = BKE_screen_find_area_xy(screen, spacetype, xy);
+  }
+
+  return area;
+}
+
 ScrArea *ED_screen_areas_iter_first(const wmWindow *win, const bScreen *screen)
 {
   ScrArea *global_area = win->global_areas.areabase.first;
@@ -3530,7 +3556,7 @@ void ED_region_info_draw_multiline(ARegion *region,
   GPU_blend(GPU_BLEND_ALPHA);
   GPUVertFormat *format = immVertexFormat();
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4fv(fill_color);
   immRecti(pos, rect.xmin, rect.ymin, rect.xmax + 1, rect.ymax + 1);
   immUnbindProgram();
@@ -3601,7 +3627,7 @@ void ED_region_grid_draw(ARegion *region, float zoomx, float zoomy, float x0, fl
   float gridcolor[4];
   UI_GetThemeColor4fv(TH_GRID, gridcolor);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   /* To fake alpha-blending, color shading is reduced when alpha is nearing 0. */
   immUniformThemeColorBlendShade(TH_BACK, TH_GRID, gridcolor[3], 20 * gridcolor[3]);
   immRectf(pos, x1, y1, x2, y2);
@@ -3638,7 +3664,7 @@ void ED_region_grid_draw(ARegion *region, float zoomx, float zoomy, float x0, fl
     pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
     uint color = GPU_vertformat_attr_add(format, "color", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
 
-    immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
     immBegin(GPU_PRIM_LINES, 4 * count_fine + 4 * count_large);
 
     float theme_color[3];
@@ -3751,7 +3777,7 @@ void ED_region_cache_draw_background(ARegion *region)
 
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4ub(128, 128, 255, 64);
   immRecti(pos, 0, region_bottom, region->winx, region_bottom + 8 * UI_DPI_FAC);
   immUnbindProgram();
@@ -3772,7 +3798,7 @@ void ED_region_cache_draw_curfra_label(const int framenr, const float x, const f
 
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformThemeColor(TH_CFRAME);
   immRecti(pos, x, y, x + font_dims[0] + 6.0f, y + font_dims[1] + 4.0f);
   immUnbindProgram();
@@ -3792,7 +3818,7 @@ void ED_region_cache_draw_cached_segments(
 
     uint pos = GPU_vertformat_attr_add(
         immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
     immUniformColor4ub(128, 128, 255, 128);
 
     for (int a = 0; a < num_segments; a++) {

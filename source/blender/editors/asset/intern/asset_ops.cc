@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -43,6 +29,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 
@@ -308,7 +295,7 @@ void AssetClearHelper::reportResults(const bContext *C, ReportList &reports) con
   else if (stats.tot_cleared == 1) {
     /* If only one data-block: Give more useful message by printing asset name. */
     BKE_reportf(
-        &reports, RPT_INFO, "Data-block '%s' is no asset anymore", stats.last_id->name + 2);
+        &reports, RPT_INFO, "Data-block '%s' is not an asset anymore", stats.last_id->name + 2);
   }
   else {
     BKE_reportf(&reports, RPT_INFO, "%i data-blocks are no assets anymore", stats.tot_cleared);
@@ -768,7 +755,7 @@ static int asset_bundle_install_exec(bContext *C, wmOperator *op)
   cat_service->prepare_to_merge_on_write();
 
   const int operator_result = WM_operator_name_call(
-      C, "WM_OT_save_mainfile", WM_OP_EXEC_DEFAULT, op->ptr);
+      C, "WM_OT_save_mainfile", WM_OP_EXEC_DEFAULT, op->ptr, nullptr);
   WM_cursor_wait(false);
 
   if (operator_result != OPERATOR_FINISHED) {

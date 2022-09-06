@@ -1,18 +1,6 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+#include "DNA_mesh_types.h"
 
 #include "node_geometry_util.hh"
 
@@ -26,25 +14,25 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Geometry"));
 }
 
-static void set_smooth_in_component(GeometryComponent &component,
-                                    const Field<bool> &selection_field,
-                                    const Field<bool> &shade_field)
+static void set_smooth(Mesh &mesh,
+                       const Field<bool> &selection_field,
+                       const Field<bool> &shade_field)
 {
-  GeometryComponentFieldContext field_context{component, ATTR_DOMAIN_FACE};
-  const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_FACE);
-  if (domain_size == 0) {
+  if (mesh.totpoly == 0) {
     return;
   }
 
-  OutputAttribute_Typed<bool> shades = component.attribute_try_get_for_output_only<bool>(
-      "shade_smooth", ATTR_DOMAIN_FACE);
+  MutableAttributeAccessor attributes = bke::mesh_attributes_for_write(mesh);
+  AttributeWriter<bool> smooth = attributes.lookup_or_add_for_write<bool>("shade_smooth",
+                                                                          ATTR_DOMAIN_FACE);
 
-  fn::FieldEvaluator evaluator{field_context, domain_size};
+  bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_FACE};
+  fn::FieldEvaluator evaluator{field_context, mesh.totpoly};
   evaluator.set_selection(selection_field);
-  evaluator.add_with_destination(shade_field, shades.varray());
+  evaluator.add_with_destination(shade_field, smooth.varray);
   evaluator.evaluate();
 
-  shades.save();
+  smooth.finish();
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -54,9 +42,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   Field<bool> shade_field = params.extract_input<Field<bool>>("Shade Smooth");
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    if (geometry_set.has_mesh()) {
-      set_smooth_in_component(
-          geometry_set.get_component_for_write<MeshComponent>(), selection_field, shade_field);
+    if (Mesh *mesh = geometry_set.get_mesh_for_write()) {
+      set_smooth(*mesh, selection_field, shade_field);
     }
   });
   params.set_output("Geometry", std::move(geometry_set));

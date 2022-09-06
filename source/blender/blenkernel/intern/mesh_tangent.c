@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -53,13 +37,13 @@
 
 /* User data. */
 typedef struct {
-  const MPoly *mpolys;  /* faces */
-  const MLoop *mloops;  /* faces's vertices */
-  const MVert *mverts;  /* vertices */
-  const MLoopUV *luvs;  /* texture coordinates */
-  float (*lnors)[3];    /* loops' normals */
-  float (*tangents)[4]; /* output tangents */
-  int num_polys;        /* number of polygons */
+  const MPoly *mpolys;     /* faces */
+  const MLoop *mloops;     /* faces's vertices */
+  const MVert *mverts;     /* vertices */
+  const MLoopUV *luvs;     /* texture coordinates */
+  const float (*lnors)[3]; /* loops' normals */
+  float (*tangents)[4];    /* output tangents */
+  int num_polys;           /* number of polygons */
 } BKEMeshToTangent;
 
 /* Mikktspace's API */
@@ -119,7 +103,7 @@ void BKE_mesh_calc_loop_tangent_single_ex(const MVert *mverts,
                                           const int UNUSED(numVerts),
                                           const MLoop *mloops,
                                           float (*r_looptangent)[4],
-                                          float (*loopnors)[3],
+                                          const float (*loopnors)[3],
                                           const MLoopUV *loopuvs,
                                           const int UNUSED(numLoops),
                                           const MPoly *mpolys,
@@ -171,8 +155,7 @@ void BKE_mesh_calc_loop_tangent_single(Mesh *mesh,
                                        float (*r_looptangents)[4],
                                        ReportList *reports)
 {
-  MLoopUV *loopuvs;
-  float(*loopnors)[3];
+  const MLoopUV *loopuvs;
 
   /* Check we have valid texture coordinates first! */
   if (uvmap) {
@@ -184,26 +167,26 @@ void BKE_mesh_calc_loop_tangent_single(Mesh *mesh,
   if (!loopuvs) {
     BKE_reportf(reports,
                 RPT_ERROR,
-                "Tangent space computation needs an UVMap, \"%s\" not found, aborting",
+                "Tangent space computation needs a UV Map, \"%s\" not found, aborting",
                 uvmap);
     return;
   }
 
-  loopnors = CustomData_get_layer(&mesh->ldata, CD_NORMAL);
+  const float(*loopnors)[3] = CustomData_get_layer(&mesh->ldata, CD_NORMAL);
   if (!loopnors) {
     BKE_report(
         reports, RPT_ERROR, "Tangent space computation needs loop normals, none found, aborting");
     return;
   }
 
-  BKE_mesh_calc_loop_tangent_single_ex(mesh->mvert,
+  BKE_mesh_calc_loop_tangent_single_ex(BKE_mesh_vertices(mesh),
                                        mesh->totvert,
-                                       mesh->mloop,
+                                       BKE_mesh_loops(mesh),
                                        r_looptangents,
                                        loopnors,
                                        loopuvs,
                                        mesh->totloop,
-                                       mesh->mpoly,
+                                       BKE_mesh_polygons(mesh),
                                        mesh->totpoly,
                                        reports);
 }
@@ -221,10 +204,10 @@ typedef struct {
   const float (*precomputedFaceNormals)[3];
   const float (*precomputedLoopNormals)[3];
   const MLoopTri *looptri;
-  MLoopUV *mloopuv;   /* texture coordinates */
-  const MPoly *mpoly; /* indices */
-  const MLoop *mloop; /* indices */
-  const MVert *mvert; /* vertex coordinates */
+  const MLoopUV *mloopuv; /* texture coordinates */
+  const MPoly *mpoly;     /* indices */
+  const MLoop *mloop;     /* indices */
+  const MVert *mvert;     /* vertex coordinates */
   const float (*vert_normals)[3];
   const float (*orco)[3];
   float (*tangent)[4]; /* destination */
@@ -469,7 +452,8 @@ void BKE_mesh_add_loop_tangent_named_layer_for_uv(CustomData *uv_data,
 {
   if (CustomData_get_named_layer_index(tan_data, CD_TANGENT, layer_name) == -1 &&
       CustomData_get_named_layer_index(uv_data, CD_MLOOPUV, layer_name) != -1) {
-    CustomData_add_layer_named(tan_data, CD_TANGENT, CD_CALLOC, NULL, numLoopData, layer_name);
+    CustomData_add_layer_named(
+        tan_data, CD_TANGENT, CD_SET_DEFAULT, NULL, numLoopData, layer_name);
   }
 }
 
@@ -598,7 +582,7 @@ void BKE_mesh_calc_loop_tangent_ex(const MVert *mvert,
     if ((tangent_mask & DM_TANGENT_MASK_ORCO) &&
         CustomData_get_named_layer_index(loopdata, CD_TANGENT, "") == -1) {
       CustomData_add_layer_named(
-          loopdata_out, CD_TANGENT, CD_CALLOC, NULL, (int)loopdata_out_len, "");
+          loopdata_out, CD_TANGENT, CD_SET_DEFAULT, NULL, (int)loopdata_out_len, "");
     }
     if (calc_act && act_uv_name[0]) {
       BKE_mesh_add_loop_tangent_named_layer_for_uv(
@@ -636,7 +620,7 @@ void BKE_mesh_calc_loop_tangent_ex(const MVert *mvert,
 
     /* Calculation */
     if (looptri_len != 0) {
-      TaskPool *task_pool = BLI_task_pool_create(NULL, TASK_PRIORITY_LOW);
+      TaskPool *task_pool = BLI_task_pool_create(NULL, TASK_PRIORITY_HIGH);
 
       tangent_mask_curr = 0;
       /* Calculate tangent layers */
@@ -733,12 +717,12 @@ void BKE_mesh_calc_loop_tangents(Mesh *me_eval,
 {
   BKE_mesh_runtime_looptri_ensure(me_eval);
 
-  /* TODO(campbell): store in Mesh.runtime to avoid recalculation. */
+  /* TODO(@campbellbarton): store in Mesh.runtime to avoid recalculation. */
   short tangent_mask = 0;
-  BKE_mesh_calc_loop_tangent_ex(me_eval->mvert,
-                                me_eval->mpoly,
+  BKE_mesh_calc_loop_tangent_ex(BKE_mesh_vertices(me_eval),
+                                BKE_mesh_polygons(me_eval),
                                 (uint)me_eval->totpoly,
-                                me_eval->mloop,
+                                BKE_mesh_loops(me_eval),
                                 me_eval->runtime.looptris.array,
                                 (uint)me_eval->runtime.looptris.len,
                                 &me_eval->ldata,

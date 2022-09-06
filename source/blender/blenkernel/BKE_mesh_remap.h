@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -56,7 +42,7 @@ void BKE_mesh_remap_free(MeshPairRemap *map);
 void BKE_mesh_remap_item_define_invalid(MeshPairRemap *map, int index);
 
 /* TODO:
- * Add other 'from/to' mapping sources, like e.g. using an UVMap, etc.
+ * Add other 'from/to' mapping sources, like e.g. using a UVMap, etc.
  * https://blenderartists.org/t/619105
  *
  * We could also use similar topology mappings inside a same mesh
@@ -192,6 +178,7 @@ void BKE_mesh_remap_calc_verts_from_mesh(int mode,
                                          int numverts_dst,
                                          bool dirty_nors_dst,
                                          struct Mesh *me_src,
+                                         struct Mesh *me_dst,
                                          MeshPairRemap *r_map);
 
 void BKE_mesh_remap_calc_edges_from_mesh(int mode,
@@ -204,6 +191,7 @@ void BKE_mesh_remap_calc_edges_from_mesh(int mode,
                                          int numedges_dst,
                                          bool dirty_nors_dst,
                                          struct Mesh *me_src,
+                                         struct Mesh *me_dst,
                                          MeshPairRemap *r_map);
 
 void BKE_mesh_remap_calc_loops_from_mesh(int mode,
@@ -211,13 +199,13 @@ void BKE_mesh_remap_calc_loops_from_mesh(int mode,
                                          float max_dist,
                                          float ray_radius,
                                          struct Mesh *mesh_dst,
-                                         struct MVert *verts_dst,
+                                         const struct MVert *verts_dst,
                                          int numverts_dst,
-                                         struct MEdge *edges_dst,
+                                         const struct MEdge *edges_dst,
                                          int numedges_dst,
-                                         struct MLoop *loops_dst,
+                                         const struct MLoop *loops_dst,
                                          int numloops_dst,
-                                         struct MPoly *polys_dst,
+                                         const struct MPoly *polys_dst,
                                          int numpolys_dst,
                                          struct CustomData *ldata_dst,
                                          bool use_split_nors_dst,
@@ -232,10 +220,10 @@ void BKE_mesh_remap_calc_polys_from_mesh(int mode,
                                          const struct SpaceTransform *space_transform,
                                          float max_dist,
                                          float ray_radius,
-                                         struct Mesh *mesh_dst,
-                                         struct MVert *verts_dst,
-                                         struct MLoop *loops_dst,
-                                         struct MPoly *polys_dst,
+                                         const struct Mesh *mesh_dst,
+                                         const struct MVert *verts_dst,
+                                         const struct MLoop *loops_dst,
+                                         const struct MPoly *polys_dst,
                                          int numpolys_dst,
                                          struct Mesh *me_src,
                                          struct MeshPairRemap *r_map);

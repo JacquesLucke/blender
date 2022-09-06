@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2015 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2015 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -86,7 +70,7 @@ static void splineik_init_tree_from_pchan(Scene *UNUSED(scene),
       ik_data = con->data;
 
       /* Target can only be a curve. */
-      if ((ik_data->tar == NULL) || (ik_data->tar->type != OB_CURVE)) {
+      if ((ik_data->tar == NULL) || (ik_data->tar->type != OB_CURVES_LEGACY)) {
         continue;
       }
       /* Skip if disabled. */
@@ -304,7 +288,7 @@ static int position_tail_on_spline(bSplineIKConstraint *ik_data,
   int max_seg_idx = BKE_anim_path_get_array_size(cache) - 1;
 
   /* Make an initial guess of where our intersection point will be.
-   * If the curve was a straight line, then the faction passed in r_new_curve_pos
+   * If the curve was a straight line, then the fraction passed in r_new_curve_pos
    * would be the correct location.
    * So make it our first initial guess.
    */
@@ -421,8 +405,8 @@ static void splineik_evaluate_bone(
 
   if (pchan->bone->length < FLT_EPSILON) {
     /* Only move the bone position with zero length bones. */
-    float bone_pos[4], dir[3], rad;
-    BKE_where_on_path(ik_data->tar, state->curve_position, bone_pos, dir, NULL, &rad, NULL);
+    float bone_pos[4], rad;
+    BKE_where_on_path(ik_data->tar, state->curve_position, bone_pos, NULL, NULL, &rad, NULL);
 
     apply_curve_transform(ik_data, ob, rad, bone_pos, &rad);
 
@@ -461,13 +445,13 @@ static void splineik_evaluate_bone(
 
   /* Step 1: determine the positions for the endpoints of the bone. */
   if (point_start < 1.0f) {
-    float vec[4], dir[3], rad;
+    float vec[4], rad;
     radius = 0.0f;
 
     /* Calculate head position. */
     if (point_start == 0.0f) {
       /* Start of the path. We have no previous tail position to copy. */
-      BKE_where_on_path(ik_data->tar, point_start, vec, dir, NULL, &rad, NULL);
+      BKE_where_on_path(ik_data->tar, point_start, vec, NULL, NULL, &rad, NULL);
     }
     else {
       copy_v3_v3(vec, state->prev_tail_loc);
@@ -502,7 +486,7 @@ static void splineik_evaluate_bone(
     }
     else {
       /* Scale to fit curve end position. */
-      if (BKE_where_on_path(ik_data->tar, point_end, vec, dir, NULL, &rad, NULL)) {
+      if (BKE_where_on_path(ik_data->tar, point_end, vec, NULL, NULL, &rad, NULL)) {
         state->prev_tail_radius = rad;
         copy_v3_v3(state->prev_tail_loc, vec);
         copy_v3_v3(pose_tail, vec);

@@ -1,22 +1,7 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2021, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. */
 /**
- * \file image_gpu_partial_update.cc
+ * \file
  * \ingroup bke
  *
  * To reduce the overhead of image processing this file contains a mechanism to detect areas of the
@@ -105,8 +90,8 @@ static int chunk_number_for_pixel(int pixel_offset)
   return chunk_offset;
 }
 
-struct PartialUpdateUserImpl;
 struct PartialUpdateRegisterImpl;
+struct PartialUpdateUserImpl;
 
 /**
  * Wrap PartialUpdateUserImpl to its C-struct (PartialUpdateUser).
@@ -213,8 +198,8 @@ struct TileChangeset {
     tile_width = image_buffer->x;
     tile_height = image_buffer->y;
 
-    int chunk_x_len = tile_width / CHUNK_SIZE;
-    int chunk_y_len = tile_height / CHUNK_SIZE;
+    int chunk_x_len = (tile_width + CHUNK_SIZE - 1) / CHUNK_SIZE;
+    int chunk_y_len = (tile_height + CHUNK_SIZE - 1) / CHUNK_SIZE;
     init_chunks(chunk_x_len, chunk_y_len);
     return true;
   }

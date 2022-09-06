@@ -1,30 +1,17 @@
-/*
- * Copyright 2019 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2019-2022 Blender Foundation */
 
 #pragma once
 
-#include "kernel/film/write_passes.h"
+#include "kernel/film/write.h"
 
 CCL_NAMESPACE_BEGIN
 
 /* Check whether the pixel has converged and should not be sampled anymore. */
 
-ccl_device_forceinline bool kernel_need_sample_pixel(KernelGlobals kg,
-                                                     ConstIntegratorState state,
-                                                     ccl_global float *render_buffer)
+ccl_device_forceinline bool film_need_sample_pixel(KernelGlobals kg,
+                                                   ConstIntegratorState state,
+                                                   ccl_global float *render_buffer)
 {
   if (kernel_data.film.pass_adaptive_aux_buffer == PASS_UNUSED) {
     return true;
@@ -41,14 +28,14 @@ ccl_device_forceinline bool kernel_need_sample_pixel(KernelGlobals kg,
 
 /* Determines whether to continue sampling a given pixel or if it has sufficiently converged. */
 
-ccl_device bool kernel_adaptive_sampling_convergence_check(KernelGlobals kg,
-                                                           ccl_global float *render_buffer,
-                                                           int x,
-                                                           int y,
-                                                           float threshold,
-                                                           bool reset,
-                                                           int offset,
-                                                           int stride)
+ccl_device bool film_adaptive_sampling_convergence_check(KernelGlobals kg,
+                                                         ccl_global float *render_buffer,
+                                                         int x,
+                                                         int y,
+                                                         float threshold,
+                                                         bool reset,
+                                                         int offset,
+                                                         int stride)
 {
   kernel_assert(kernel_data.film.pass_adaptive_aux_buffer != PASS_UNUSED);
   kernel_assert(kernel_data.film.pass_sample_count != PASS_UNUSED);
@@ -91,26 +78,26 @@ ccl_device bool kernel_adaptive_sampling_convergence_check(KernelGlobals kg,
 /* This is a simple box filter in two passes.
  * When a pixel demands more adaptive samples, let its neighboring pixels draw more samples too. */
 
-ccl_device void kernel_adaptive_sampling_filter_x(KernelGlobals kg,
-                                                  ccl_global float *render_buffer,
-                                                  int y,
-                                                  int start_x,
-                                                  int width,
-                                                  int offset,
-                                                  int stride)
+ccl_device void film_adaptive_sampling_filter_x(KernelGlobals kg,
+                                                ccl_global float *render_buffer,
+                                                int y,
+                                                int start_x,
+                                                int width,
+                                                int offset,
+                                                int stride)
 {
   kernel_assert(kernel_data.film.pass_adaptive_aux_buffer != PASS_UNUSED);
 
   bool prev = false;
   for (int x = start_x; x < start_x + width; ++x) {
     int index = offset + x + y * stride;
-    ccl_global float *buffer = render_buffer + index * kernel_data.film.pass_stride;
+    ccl_global float *buffer = render_buffer + (uint64_t)index * kernel_data.film.pass_stride;
     const uint aux_w_offset = kernel_data.film.pass_adaptive_aux_buffer + 3;
 
     if (buffer[aux_w_offset] == 0.0f) {
       if (x > start_x && !prev) {
         index = index - 1;
-        buffer = render_buffer + index * kernel_data.film.pass_stride;
+        buffer = render_buffer + (uint64_t)index * kernel_data.film.pass_stride;
         buffer[aux_w_offset] = 0.0f;
       }
       prev = true;
@@ -124,26 +111,26 @@ ccl_device void kernel_adaptive_sampling_filter_x(KernelGlobals kg,
   }
 }
 
-ccl_device void kernel_adaptive_sampling_filter_y(KernelGlobals kg,
-                                                  ccl_global float *render_buffer,
-                                                  int x,
-                                                  int start_y,
-                                                  int height,
-                                                  int offset,
-                                                  int stride)
+ccl_device void film_adaptive_sampling_filter_y(KernelGlobals kg,
+                                                ccl_global float *render_buffer,
+                                                int x,
+                                                int start_y,
+                                                int height,
+                                                int offset,
+                                                int stride)
 {
   kernel_assert(kernel_data.film.pass_adaptive_aux_buffer != PASS_UNUSED);
 
   bool prev = false;
   for (int y = start_y; y < start_y + height; ++y) {
     int index = offset + x + y * stride;
-    ccl_global float *buffer = render_buffer + index * kernel_data.film.pass_stride;
+    ccl_global float *buffer = render_buffer + (uint64_t)index * kernel_data.film.pass_stride;
     const uint aux_w_offset = kernel_data.film.pass_adaptive_aux_buffer + 3;
 
     if (buffer[aux_w_offset] == 0.0f) {
       if (y > start_y && !prev) {
         index = index - stride;
-        buffer = render_buffer + index * kernel_data.film.pass_stride;
+        buffer = render_buffer + (uint64_t)index * kernel_data.film.pass_stride;
         buffer[aux_w_offset] = 0.0f;
       }
       prev = true;

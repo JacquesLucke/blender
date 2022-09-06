@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 by Nicholas Bishop
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 by Nicholas Bishop. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -199,6 +183,7 @@ static BLI_bitmap *multires_mdisps_downsample_hidden(const BLI_bitmap *old_hidde
 
 static void multires_output_hidden_to_ccgdm(CCGDerivedMesh *ccgdm, Mesh *me, int level)
 {
+  const MPoly *polys = BKE_mesh_polygons(me);
   const MDisps *mdisps = CustomData_get_layer(&me->ldata, CD_MDISPS);
   BLI_bitmap **grid_hidden = ccgdm->gridHidden;
   int *gridOffset;
@@ -207,7 +192,7 @@ static void multires_output_hidden_to_ccgdm(CCGDerivedMesh *ccgdm, Mesh *me, int
   gridOffset = ccgdm->dm.getGridOffset(&ccgdm->dm);
 
   for (i = 0; i < me->totpoly; i++) {
-    for (j = 0; j < me->mpoly[i].totloop; j++) {
+    for (j = 0; j < polys[i].totloop; j++) {
       int g = gridOffset[i] + j;
       const MDisps *md = &mdisps[g];
       BLI_bitmap *gh = md->hidden;
@@ -482,15 +467,16 @@ void multires_force_external_reload(Object *object)
 static int get_levels_from_disps(Object *ob)
 {
   Mesh *me = ob->data;
+  const MPoly *polys = BKE_mesh_polygons(me);
   MDisps *mdisp, *md;
   int i, j, totlvl = 0;
 
   mdisp = CustomData_get_layer(&me->ldata, CD_MDISPS);
 
   for (i = 0; i < me->totpoly; i++) {
-    md = mdisp + me->mpoly[i].loopstart;
+    md = mdisp + polys[i].loopstart;
 
-    for (j = 0; j < me->mpoly[i].totloop; j++, md++) {
+    for (j = 0; j < polys[i].totloop; j++, md++) {
       if (md->totdisp == 0) {
         continue;
       }
@@ -649,6 +635,7 @@ static void multires_grid_paint_mask_downsample(GridPaintMask *gpm, int level)
 static void multires_del_higher(MultiresModifierData *mmd, Object *ob, int lvl)
 {
   Mesh *me = (Mesh *)ob->data;
+  const MPoly *polys = BKE_mesh_polygons(me);
   int levels = mmd->totlvl - lvl;
   MDisps *mdisps;
   GridPaintMask *gpm;
@@ -668,8 +655,8 @@ static void multires_del_higher(MultiresModifierData *mmd, Object *ob, int lvl)
       int i, j;
 
       for (i = 0; i < me->totpoly; i++) {
-        for (j = 0; j < me->mpoly[i].totloop; j++) {
-          int g = me->mpoly[i].loopstart + j;
+        for (j = 0; j < polys[i].totloop; j++) {
+          int g = polys[i].loopstart + j;
           MDisps *mdisp = &mdisps[g];
           float(*disps)[3], (*ndisps)[3], (*hdisps)[3];
           int totdisp = multires_grid_tot[lvl];
@@ -844,7 +831,7 @@ typedef struct MultiresThreadedData {
   CCGElem **gridData, **subGridData;
   CCGKey *key;
   CCGKey *sub_key;
-  MPoly *mpoly;
+  const MPoly *mpoly;
   MDisps *mdisps;
   GridPaintMask *grid_paint_mask;
   int *gridOffset;
@@ -862,7 +849,7 @@ static void multires_disp_run_cb(void *__restrict userdata,
   CCGElem **gridData = tdata->gridData;
   CCGElem **subGridData = tdata->subGridData;
   CCGKey *key = tdata->key;
-  MPoly *mpoly = tdata->mpoly;
+  const MPoly *mpoly = tdata->mpoly;
   MDisps *mdisps = tdata->mdisps;
   GridPaintMask *grid_paint_mask = tdata->grid_paint_mask;
   int *gridOffset = tdata->gridOffset;
@@ -955,7 +942,7 @@ static void multiresModifier_disp_run(
   CCGDerivedMesh *ccgdm = (CCGDerivedMesh *)dm;
   CCGElem **gridData, **subGridData;
   CCGKey key;
-  MPoly *mpoly = me->mpoly;
+  const MPoly *mpoly = BKE_mesh_polygons(me);
   MDisps *mdisps = CustomData_get_layer(&me->ldata, CD_MDISPS);
   GridPaintMask *grid_paint_mask = NULL;
   int *gridOffset;
@@ -976,7 +963,7 @@ static void multiresModifier_disp_run(
 
   if (!mdisps) {
     if (op == CALC_DISPLACEMENTS) {
-      mdisps = CustomData_add_layer(&me->ldata, CD_MDISPS, CD_DEFAULT, NULL, me->totloop);
+      mdisps = CustomData_add_layer(&me->ldata, CD_MDISPS, CD_SET_DEFAULT, NULL, me->totloop);
     }
     else {
       return;
@@ -1037,7 +1024,7 @@ void multires_modifier_update_mdisps(struct DerivedMesh *dm, Scene *scene)
   CCGDerivedMesh *ccgdm = (CCGDerivedMesh *)dm;
   Object *ob;
   Mesh *me;
-  MDisps *mdisps;
+  const MDisps *mdisps;
   MultiresModifierData *mmd;
 
   ob = ccgdm->multires.ob;
@@ -1419,7 +1406,7 @@ static void multires_apply_smat(struct Depsgraph *UNUSED(depsgraph),
   }
 }
 
-int multires_mdisp_corners(MDisps *s)
+int multires_mdisp_corners(const MDisps *s)
 {
   int lvl = 13;
 
@@ -1503,7 +1490,7 @@ void multires_ensure_external_read(struct Mesh *mesh, int top_level)
 
   MDisps *mdisps = CustomData_get_layer(&mesh->ldata, CD_MDISPS);
   if (mdisps == NULL) {
-    mdisps = CustomData_add_layer(&mesh->ldata, CD_MDISPS, CD_DEFAULT, NULL, mesh->totloop);
+    mdisps = CustomData_add_layer(&mesh->ldata, CD_MDISPS, CD_SET_DEFAULT, NULL, mesh->totloop);
   }
 
   const int totloop = mesh->totloop;

@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #include <limits.h>
 #include <string.h>
@@ -49,12 +36,9 @@ Session::Session(const SessionParams &params_, const SceneParams &scene_params)
 {
   TaskScheduler::init(params.threads);
 
-  session_thread_ = nullptr;
-
   delayed_reset_.do_reset = false;
 
   pause_ = false;
-  cancel_ = false;
   new_work_added_ = false;
 
   device = Device::create(params.device, stats, profiler);
@@ -73,48 +57,78 @@ Session::Session(const SessionParams &params_, const SceneParams &scene_params)
     }
     full_buffer_written_cb(filename);
   };
+
+  /* Create session thread. */
+  session_thread_ = new thread(function_bind(&Session::thread_run, this));
 }
 
 Session::~Session()
 {
+  /* Cancel any ongoing render operation. */
   cancel();
 
-  /* Make sure path tracer is destroyed before the device. This is needed because destruction might
-   * need to access device for device memory free. */
-  /* TODO(sergey): Convert device to be unique_ptr, and rely on C++ to destruct objects in the
+  /* Signal session thread to end. */
+  {
+    thread_scoped_lock session_thread_lock(session_thread_mutex_);
+    session_thread_state_ = SESSION_THREAD_END;
+  }
+  session_thread_cond_.notify_all();
+
+  /* Destroy session thread. */
+  session_thread_->join();
+  delete session_thread_;
+
+  /* Destroy path tracer, before the device. This is needed because destruction might need to
+   * access device for device memory free.
+   * TODO(sergey): Convert device to be unique_ptr, and rely on C++ to destruct objects in the
    * pre-defined order. */
   path_trace_.reset();
 
+  /* Destroy scene and device. */
   delete scene;
   delete device;
 
+  /* Stop task scheduler. */
   TaskScheduler::exit();
 }
 
 void Session::start()
 {
-  if (!session_thread_) {
-    session_thread_ = new thread(function_bind(&Session::run, this));
+  {
+    /* Signal session thread to start rendering. */
+    thread_scoped_lock session_thread_lock(session_thread_mutex_);
+    if (session_thread_state_ == SESSION_THREAD_RENDER) {
+      /* Already rendering, nothing to do. */
+      return;
+    }
+    session_thread_state_ = SESSION_THREAD_RENDER;
   }
+
+  session_thread_cond_.notify_all();
 }
 
 void Session::cancel(bool quick)
 {
-  if (quick && path_trace_) {
-    path_trace_->cancel();
-  }
+  /* Check if session thread is rendering. */
+  const bool rendering = is_session_thread_rendering();
 
-  if (session_thread_) {
-    /* wait for session thread to end */
+  if (rendering) {
+    /* Cancel path trace operations. */
+    if (quick && path_trace_) {
+      path_trace_->cancel();
+    }
+
+    /* Cancel other operations. */
     progress.set_cancel("Exiting");
 
+    /* Signal unpause in case the render was paused. */
     {
       thread_scoped_lock pause_lock(pause_mutex_);
       pause_ = false;
-      cancel_ = true;
     }
     pause_cond_.notify_all();
 
+    /* Wait for render thread to be cancelled or finished. */
     wait();
   }
 }
@@ -132,11 +146,11 @@ void Session::run_main_render_loop()
     RenderWork render_work = run_update_for_next_iteration();
 
     if (!render_work) {
-      if (VLOG_IS_ON(2)) {
+      if (VLOG_INFO_IS_ON) {
         double total_time, render_time;
         progress.get_time(total_time, render_time);
-        VLOG(2) << "Rendering in main loop is done in " << render_time << " seconds.";
-        VLOG(2) << path_trace_->full_report();
+        VLOG_INFO << "Rendering in main loop is done in " << render_time << " seconds.";
+        VLOG_INFO << path_trace_->full_report();
       }
 
       if (params.background) {
@@ -192,11 +206,46 @@ void Session::run_main_render_loop()
       break;
     }
   }
-
-  path_trace_->flush_display();
 }
 
-void Session::run()
+void Session::thread_run()
+{
+  while (true) {
+    {
+      thread_scoped_lock session_thread_lock(session_thread_mutex_);
+
+      if (session_thread_state_ == SESSION_THREAD_WAIT) {
+        /* Continue waiting for any signal from the main thread. */
+        session_thread_cond_.wait(session_thread_lock);
+        continue;
+      }
+      else if (session_thread_state_ == SESSION_THREAD_END) {
+        /* End thread immediately. */
+        break;
+      }
+    }
+
+    /* Execute a render. */
+    thread_render();
+
+    /* Go back from rendering to waiting. */
+    {
+      thread_scoped_lock session_thread_lock(session_thread_mutex_);
+      if (session_thread_state_ == SESSION_THREAD_RENDER) {
+        session_thread_state_ = SESSION_THREAD_WAIT;
+      }
+    }
+    session_thread_cond_.notify_all();
+  }
+
+  /* Flush any remaining operations and destroy display driver here. This ensure
+   * graphics API resources are created and destroyed all in the session thread,
+   * which can avoid problems contexts and multiple threads. */
+  path_trace_->flush_display();
+  path_trace_->set_display_driver(nullptr);
+}
+
+void Session::thread_render()
 {
   if (params.use_profiling && (params.device.type == DEVICE_CPU)) {
     profiler.start();
@@ -220,6 +269,12 @@ void Session::run()
     progress.set_status(progress.get_cancel_message());
   else
     progress.set_update();
+}
+
+bool Session::is_session_thread_rendering()
+{
+  thread_scoped_lock session_thread_lock(session_thread_mutex_);
+  return (session_thread_state_ == SESSION_THREAD_RENDER);
 }
 
 RenderWork Session::run_update_for_next_iteration()
@@ -315,6 +370,14 @@ RenderWork Session::run_update_for_next_iteration()
     if (update_scene(width, height)) {
       profiler.reset(scene->shaders.size(), scene->objects.size());
     }
+
+    /* Unlock scene mutex before loading denoiser kernels, since that may attempt to activate
+     * graphics interop, which can deadlock when the scene mutex is still being held. */
+    scene_lock.unlock();
+
+    path_trace_->load_kernels();
+    path_trace_->alloc_work_memory();
+
     progress.add_skip_time(update_timer, params.background);
   }
 
@@ -338,9 +401,9 @@ bool Session::run_wait_for_work(const RenderWork &render_work)
   const bool no_work = !render_work;
   update_status_time(pause_, no_work);
 
-  /* Only leave the loop when rendering is not paused. But even if the current render is un-paused
-   * but there is nothing to render keep waiting until new work is added. */
-  while (!cancel_) {
+  /* Only leave the loop when rendering is not paused. But even if the current render is
+   * un-paused but there is nothing to render keep waiting until new work is added. */
+  while (!progress.get_cancel()) {
     scoped_timer pause_timer;
 
     if (!pause_ && (render_work || new_work_added_ || delayed_reset_.do_reset)) {
@@ -373,8 +436,7 @@ int2 Session::get_effective_tile_size() const
   const int image_width = buffer_params_.width;
   const int image_height = buffer_params_.height;
 
-  /* No support yet for baking with tiles. */
-  if (!params.use_auto_tile || scene->bake_manager->get_baking()) {
+  if (!params.use_auto_tile) {
     return make_int2(image_width, image_height);
   }
 
@@ -427,7 +489,8 @@ void Session::do_delayed_reset()
   tile_manager_.update(buffer_params_, scene);
 
   /* Update temp directory on reset.
-   * This potentially allows to finish the existing rendering with a previously configure temporary
+   * This potentially allows to finish the existing rendering with a previously configure
+   * temporary
    * directory in the host software and switch to a new temp directory when new render starts. */
   tile_manager_.set_temp_dir(params.temp_dir);
 
@@ -439,7 +502,9 @@ void Session::do_delayed_reset()
   if (!params.background) {
     progress.set_start_time();
   }
+  const double time_limit = params.time_limit * ((double)tile_manager_.get_num_tiles());
   progress.set_render_start_time();
+  progress.set_time_limit(time_limit);
 }
 
 void Session::reset(const SessionParams &session_params, const BufferParams &buffer_params)
@@ -503,7 +568,7 @@ void Session::set_pause(bool pause)
     }
   }
 
-  if (session_thread_) {
+  if (is_session_thread_rendering()) {
     if (notify) {
       pause_cond_.notify_all();
     }
@@ -534,7 +599,8 @@ double Session::get_estimated_remaining_time() const
   progress.get_time(total_time, render_time);
   double remaining = (1.0 - (double)completed) * (render_time / (double)completed);
 
-  const double time_limit = render_scheduler_.get_time_limit();
+  const double time_limit = render_scheduler_.get_time_limit() *
+                            ((double)tile_manager_.get_num_tiles());
   if (time_limit != 0.0) {
     remaining = min(remaining, max(time_limit - render_time, 0.0));
   }
@@ -544,12 +610,14 @@ double Session::get_estimated_remaining_time() const
 
 void Session::wait()
 {
-  if (session_thread_) {
-    session_thread_->join();
-    delete session_thread_;
+  /* Wait until session thread either is waiting or ending. */
+  while (true) {
+    thread_scoped_lock session_thread_lock(session_thread_mutex_);
+    if (session_thread_state_ != SESSION_THREAD_RENDER) {
+      break;
+    }
+    session_thread_cond_.wait(session_thread_lock);
   }
-
-  session_thread_ = nullptr;
 }
 
 bool Session::update_scene(int width, int height)
@@ -560,12 +628,7 @@ bool Session::update_scene(int width, int height)
   Camera *cam = scene->camera;
   cam->set_screen_size(width, height);
 
-  const bool scene_update_result = scene->update(progress);
-
-  path_trace_->load_kernels();
-  path_trace_->alloc_work_memory();
-
-  return scene_update_result;
+  return scene->update(progress);
 }
 
 static string status_append(const string &status, const string &suffix)

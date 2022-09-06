@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -40,8 +24,6 @@ enum {
   DL_SURF = 2,
   /** Triangles. */
   DL_INDEX3 = 4,
-  /** Quads, with support for triangles (when values of the 3rd and 4th indices match). */
-  DL_INDEX4 = 5,
   // DL_VERTCOL = 6, /* UNUSED */
   /** Isolated points. */
   DL_VERTS = 7,
@@ -77,17 +59,13 @@ typedef struct DispList {
   int totindex; /* indexed array drawing surfaces */
 } DispList;
 
-void BKE_displist_copy(struct ListBase *lbn, const struct ListBase *lb);
 DispList *BKE_displist_find(struct ListBase *lb, int type);
-void BKE_displist_normals_add(struct ListBase *lb);
-void BKE_displist_count(const struct ListBase *lb, int *totvert, int *totface, int *tottri);
 void BKE_displist_free(struct ListBase *lb);
 
 void BKE_displist_make_curveTypes(struct Depsgraph *depsgraph,
                                   const struct Scene *scene,
                                   struct Object *ob,
                                   bool for_render);
-void BKE_displist_make_mball(struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob);
 
 void BKE_curve_calc_modifiers_pre(struct Depsgraph *depsgraph,
                                   const struct Scene *scene,

@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2012, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2012 Blender Foundation. */
 
 #include "COM_MaskNode.h"
 #include "COM_MaskOperation.h"
@@ -34,8 +19,8 @@ void MaskNode::convert_to_operations(NodeConverter &converter,
 
   NodeOutput *output_mask = this->get_output_socket(0);
 
-  bNode *editor_node = this->get_bnode();
-  NodeMask *data = (NodeMask *)editor_node->storage;
+  const bNode *editor_node = this->get_bnode();
+  const NodeMask *data = (const NodeMask *)editor_node->storage;
   Mask *mask = (Mask *)editor_node->id;
 
   /* Always connect the output image. */

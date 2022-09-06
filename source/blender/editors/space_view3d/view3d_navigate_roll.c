@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -29,6 +15,8 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
+#include "DEG_depsgraph_query.h"
+
 #include "ED_screen.h"
 
 #include "view3d_intern.h"
@@ -38,8 +26,17 @@
 /** \name View Roll Operator
  * \{ */
 
-static void view_roll_angle(
-    ARegion *region, float quat[4], const float orig_quat[4], const float dvec[3], float angle)
+/**
+ * \param use_axis_view: When true, keep axis-aligned orthographic views
+ * (when rotating in 90 degree increments). While this may seem obscure some NDOF
+ * devices have key shortcuts to do this (see #NDOF_BUTTON_ROLL_CW & #NDOF_BUTTON_ROLL_CCW).
+ */
+static void view_roll_angle(ARegion *region,
+                            float quat[4],
+                            const float orig_quat[4],
+                            const float dvec[3],
+                            float angle,
+                            bool use_axis_view)
 {
   RegionView3D *rv3d = region->regiondata;
   float quat_mul[4];
@@ -52,7 +49,12 @@ static void view_roll_angle(
   /* avoid precision loss over time */
   normalize_qt(quat);
 
-  rv3d->view = RV3D_VIEW_USER;
+  if (use_axis_view && RV3D_VIEW_IS_AXIS(rv3d->view) && (fabsf(angle) == (float)M_PI_2)) {
+    ED_view3d_quat_to_axis_view_and_reset_quat(quat, 0.01f, &rv3d->view, &rv3d->view_axis_roll);
+  }
+  else {
+    rv3d->view = RV3D_VIEW_USER;
+  }
 }
 
 static void viewroll_apply(ViewOpsData *vod, int x, int y)
@@ -60,7 +62,8 @@ static void viewroll_apply(ViewOpsData *vod, int x, int y)
   float angle = BLI_dial_angle(vod->init.dial, (const float[2]){x, y});
 
   if (angle != 0.0f) {
-    view_roll_angle(vod->region, vod->rv3d->viewquat, vod->init.quat, vod->init.mousevec, angle);
+    view_roll_angle(
+        vod->region, vod->rv3d->viewquat, vod->init.quat, vod->init.mousevec, angle, false);
   }
 
   if (vod->use_dyn_ofs) {
@@ -94,11 +97,11 @@ static int viewroll_modal(bContext *C, wmOperator *op, const wmEvent *event)
         event_code = VIEW_CONFIRM;
         break;
       case VIEWROT_MODAL_SWITCH_MOVE:
-        WM_operator_name_call(C, "VIEW3D_OT_move", WM_OP_INVOKE_DEFAULT, NULL);
+        WM_operator_name_call(C, "VIEW3D_OT_move", WM_OP_INVOKE_DEFAULT, NULL, event);
         event_code = VIEW_CONFIRM;
         break;
       case VIEWROT_MODAL_SWITCH_ROTATE:
-        WM_operator_name_call(C, "VIEW3D_OT_rotate", WM_OP_INVOKE_DEFAULT, NULL);
+        WM_operator_name_call(C, "VIEW3D_OT_rotate", WM_OP_INVOKE_DEFAULT, NULL, event);
         event_code = VIEW_CONFIRM;
         break;
     }
@@ -166,7 +169,13 @@ static int viewroll_exec(bContext *C, wmOperator *op)
   }
 
   rv3d = region->regiondata;
-  if ((rv3d->persp != RV3D_CAMOB) || ED_view3d_camera_lock_check(v3d, rv3d)) {
+
+  const bool is_camera_lock = ED_view3d_camera_lock_check(v3d, rv3d);
+  if ((rv3d->persp != RV3D_CAMOB) || is_camera_lock) {
+    if (is_camera_lock) {
+      const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+      ED_view3d_camera_lock_init(depsgraph, v3d, rv3d);
+    }
 
     ED_view3d_smooth_view_force_finish(C, v3d, region);
 
@@ -183,7 +192,7 @@ static int viewroll_exec(bContext *C, wmOperator *op)
 
     normalize_v3_v3(mousevec, rv3d->viewinv[2]);
     negate_v3(mousevec);
-    view_roll_angle(region, quat_new, rv3d->viewquat, mousevec, angle);
+    view_roll_angle(region, quat_new, rv3d->viewquat, mousevec, angle, true);
 
     const float *dyn_ofs_pt = NULL;
     float dyn_ofs[3];
@@ -201,6 +210,9 @@ static int viewroll_exec(bContext *C, wmOperator *op)
                           &(const V3D_SmoothParams){
                               .quat = quat_new,
                               .dyn_ofs = dyn_ofs_pt,
+                              /* Group as successive roll may run by holding a key. */
+                              .undo_str = op->type->name,
+                              .undo_grouped = true,
                           });
 
     viewops_data_free(C, op->customdata);

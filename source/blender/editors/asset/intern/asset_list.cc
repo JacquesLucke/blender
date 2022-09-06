@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edasset
@@ -55,7 +41,7 @@ namespace blender::ed::asset {
 /* -------------------------------------------------------------------- */
 /** \name Asset list API
  *
- *  Internally re-uses #FileList from the File Browser. It does all the heavy lifting already.
+ * Internally re-uses #FileList from the File Browser. It does all the heavy lifting already.
  * \{ */
 
 /**
@@ -124,7 +110,7 @@ class AssetList : NonCopyable {
 
   void setup();
   void fetch(const bContext &C);
-  void ensurePreviewsJob(bContext *C);
+  void ensurePreviewsJob(const bContext *C);
   void clear(bContext *C);
 
   bool needsRefetch() const;
@@ -226,7 +212,7 @@ void AssetList::iterate(AssetListIterFn fn) const
   }
 }
 
-void AssetList::ensurePreviewsJob(bContext *C)
+void AssetList::ensurePreviewsJob(const bContext *C)
 {
   FileList *files = filelist_;
   int numfiles = filelist_files_ensure(files);
@@ -436,7 +422,8 @@ void ED_assetlist_storage_fetch(const AssetLibraryReference *library_reference, 
   AssetListStorage::fetch_library(*library_reference, *C);
 }
 
-void ED_assetlist_ensure_previews_job(const AssetLibraryReference *library_reference, bContext *C)
+void ED_assetlist_ensure_previews_job(const AssetLibraryReference *library_reference,
+                                      const bContext *C)
 {
 
   AssetList *list = AssetListStorage::lookup_list(*library_reference);

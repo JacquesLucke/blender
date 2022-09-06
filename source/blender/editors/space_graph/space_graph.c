@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spgraph
@@ -106,7 +90,6 @@ static SpaceLink *graph_create(const ScrArea *UNUSED(area), const Scene *scene)
   BLI_addtail(&sipo->regionbase, region);
   region->regiontype = RGN_TYPE_UI;
   region->alignment = RGN_ALIGN_RIGHT;
-  region->flag = RGN_FLAG_HIDDEN;
 
   /* main region */
   region = MEM_callocN(sizeof(ARegion), "main region for graphedit");
@@ -241,7 +224,7 @@ static void graph_main_region_draw(const bContext *C, ARegion *region)
   if (((sipo->flag & SIPO_NODRAWCURSOR) == 0)) {
     uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
     /* horizontal component of value-cursor (value line before the current frame line) */
     float y = sipo->cursorVal;
@@ -258,7 +241,7 @@ static void graph_main_region_draw(const bContext *C, ARegion *region)
 
     GPU_blend(GPU_BLEND_NONE);
 
-    /* Vertical component of of the cursor. */
+    /* Vertical component of the cursor. */
     if (sipo->mode == SIPO_MODE_DRIVERS) {
       /* cursor x-value */
       float x = sipo->cursorTime;
@@ -311,16 +294,14 @@ static void graph_main_region_draw_overlay(const bContext *C, ARegion *region)
   /* draw entirely, view changes should be handled here */
   const SpaceGraph *sipo = CTX_wm_space_graph(C);
 
-  /* Driver Editor's X axis is not time. */
-  if (sipo->mode == SIPO_MODE_DRIVERS) {
-    return;
-  }
-
   const Scene *scene = CTX_data_scene(C);
   View2D *v2d = &region->v2d;
 
-  /* scrubbing region */
-  ED_time_scrub_draw_current_frame(region, scene, sipo->flag & SIPO_DRAWTIME);
+  /* Driver Editor's X axis is not time. */
+  if (sipo->mode != SIPO_MODE_DRIVERS) {
+    /* scrubbing region */
+    ED_time_scrub_draw_current_frame(region, scene, sipo->flag & SIPO_DRAWTIME);
+  }
 
   /* scrollers */
   /* FIXME: args for scrollers depend on the type of data being shown. */
@@ -412,7 +393,7 @@ static void graph_buttons_region_draw(const bContext *C, ARegion *region)
 static void graph_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -495,12 +476,6 @@ static void graph_region_message_subscribe(const wmRegionMessageSubscribeParams 
   /* Timeline depends on scene properties. */
   {
     bool use_preview = (scene->r.flag & SCER_PRV_RANGE);
-    extern PropertyRNA rna_Scene_frame_start;
-    extern PropertyRNA rna_Scene_frame_end;
-    extern PropertyRNA rna_Scene_frame_preview_start;
-    extern PropertyRNA rna_Scene_frame_preview_end;
-    extern PropertyRNA rna_Scene_use_preview_range;
-    extern PropertyRNA rna_Scene_frame_current;
     const PropertyRNA *props[] = {
         use_preview ? &rna_Scene_frame_preview_start : &rna_Scene_frame_start,
         use_preview ? &rna_Scene_frame_preview_end : &rna_Scene_frame_end,
@@ -554,7 +529,7 @@ static void graph_region_message_subscribe(const wmRegionMessageSubscribeParams 
 static void graph_listener(const wmSpaceTypeListenerParams *params)
 {
   ScrArea *area = params->area;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
   SpaceGraph *sipo = (SpaceGraph *)area->spacedata.first;
 
   /* context changes */
@@ -650,7 +625,7 @@ static void graph_refresh_fcurve_colors(const bContext *C)
    * - we don't include ANIMFILTER_CURVEVISIBLE filter, as that will result in a
    *   mismatch between channel-colors and the drawn curves
    */
-  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_NODUPLIS);
+  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_NODUPLIS | ANIMFILTER_FCURVESONLY);
   items = ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
 
   /* loop over F-Curves, assigning colors */

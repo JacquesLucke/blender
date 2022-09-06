@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2018, Blender Foundation
- * This is a new part of Blender
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2018 Blender Foundation. */
 
 /** \file
  * \ingroup bke
@@ -86,7 +70,8 @@ ShaderFxData *BKE_shaderfx_new(int type)
   fx->type = type;
   fx->mode = eShaderFxMode_Realtime | eShaderFxMode_Render;
   fx->flag = eShaderFxFlag_OverrideLibrary_Local;
-  fx->ui_expand_flag = 1; /* Expand only the parent panel by default. */
+  /* Expand only the parent panel by default. */
+  fx->ui_expand_flag = UI_PANEL_DATA_EXPAND_ROOT;
 
   if (fxi->flags & eShaderFxTypeFlag_EnableInEditmode) {
     fx->mode |= eShaderFxMode_Editmode;

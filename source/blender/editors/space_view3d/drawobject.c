@@ -1,35 +1,22 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup spview3d
  */
 
 #include "DNA_mesh_types.h"
+#include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
-#include "BLI_math.h"
+#include "BLI_math_vector.h"
 
 #include "BKE_DerivedMesh.h"
+#include "BKE_customdata.h"
 #include "BKE_editmesh.h"
 #include "BKE_global.h"
+#include "BKE_mesh.h"
 #include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
@@ -81,9 +68,9 @@ void ED_draw_object_facemap(Depsgraph *depsgraph,
   if (facemap_data) {
     GPU_blend(GPU_BLEND_ALPHA);
 
-    const MVert *mvert = me->mvert;
-    const MPoly *mpoly = me->mpoly;
-    const MLoop *mloop = me->mloop;
+    const MVert *verts = BKE_mesh_vertices(me);
+    const MPoly *polys = BKE_mesh_polygons(me);
+    const MLoop *loops = BKE_mesh_loops(me);
 
     int mpoly_len = me->totpoly;
     int mloop_len = me->totloop;
@@ -109,12 +96,12 @@ void ED_draw_object_facemap(Depsgraph *depsgraph,
     int i;
     if (me->runtime.looptris.array) {
       const MLoopTri *mlt = me->runtime.looptris.array;
-      for (mp = mpoly, i = 0; i < mpoly_len; i++, mp++) {
+      for (mp = polys, i = 0; i < mpoly_len; i++, mp++) {
         if (facemap_data[i] == facemap) {
           for (int j = 2; j < mp->totloop; j++) {
-            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mvert[mloop[mlt->tri[0]].v].co);
-            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mvert[mloop[mlt->tri[1]].v].co);
-            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mvert[mloop[mlt->tri[2]].v].co);
+            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), verts[loops[mlt->tri[0]].v].co);
+            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), verts[loops[mlt->tri[1]].v].co);
+            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), verts[loops[mlt->tri[2]].v].co);
             vbo_len_used += 3;
             mlt++;
           }
@@ -126,15 +113,15 @@ void ED_draw_object_facemap(Depsgraph *depsgraph,
     }
     else {
       /* No tessellation data, fan-fill. */
-      for (mp = mpoly, i = 0; i < mpoly_len; i++, mp++) {
+      for (mp = polys, i = 0; i < mpoly_len; i++, mp++) {
         if (facemap_data[i] == facemap) {
-          const MLoop *ml_start = &mloop[mp->loopstart];
+          const MLoop *ml_start = &loops[mp->loopstart];
           const MLoop *ml_a = ml_start + 1;
           const MLoop *ml_b = ml_start + 2;
           for (int j = 2; j < mp->totloop; j++) {
-            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mvert[ml_start->v].co);
-            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mvert[ml_a->v].co);
-            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), mvert[ml_b->v].co);
+            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), verts[ml_start->v].co);
+            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), verts[ml_a->v].co);
+            copy_v3_v3(GPU_vertbuf_raw_step(&pos_step), verts[ml_b->v].co);
             vbo_len_used += 3;
 
             ml_a++;

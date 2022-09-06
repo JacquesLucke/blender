@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2017 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2017 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spoutliner
@@ -34,7 +18,7 @@
 #include "BKE_context.h"
 #include "BKE_layer.h"
 #include "BKE_object.h"
-#include "BKE_outliner_treehash.h"
+#include "BKE_outliner_treehash.hh"
 
 #include "ED_outliner.h"
 #include "ED_screen.h"
@@ -43,6 +27,10 @@
 #include "UI_view2d.h"
 
 #include "outliner_intern.hh"
+#include "tree/tree_display.hh"
+#include "tree/tree_iterator.hh"
+
+namespace blender::ed::outliner {
 
 /* -------------------------------------------------------------------- */
 /** \name Tree View Context
@@ -57,7 +45,7 @@ void outliner_viewcontext_init(const bContext *C, TreeViewContext *tvc)
   tvc->view_layer = CTX_data_view_layer(C);
 
   /* Objects. */
-  tvc->obact = OBACT(tvc->view_layer);
+  tvc->obact = BKE_view_layer_active_object_get(tvc->view_layer);
   if (tvc->obact != nullptr) {
     tvc->ob_edit = OBEDIT_FROM_OBACT(tvc->obact);
 
@@ -111,7 +99,7 @@ static TreeElement *outliner_find_item_at_x_in_row_recursive(const TreeElement *
                                                              float view_co_x,
                                                              bool *r_is_merged_icon)
 {
-  TreeElement *child_te = reinterpret_cast<TreeElement *>(parent_te->subtree.first);
+  TreeElement *child_te = static_cast<TreeElement *>(parent_te->subtree.first);
 
   while (child_te) {
     const bool over_element = (view_co_x > child_te->xs) && (view_co_x < child_te->xend);
@@ -185,24 +173,6 @@ TreeElement *outliner_find_parent_element(ListBase *lb,
       return find_te;
     }
   }
-  return nullptr;
-}
-
-TreeElement *outliner_find_tse(SpaceOutliner *space_outliner, const TreeStoreElem *tse)
-{
-  TreeStoreElem *tselem;
-
-  if (tse->id == nullptr) {
-    return nullptr;
-  }
-
-  /* Check if 'tse' is in tree-store. */
-  tselem = BKE_outliner_treehash_lookup_any(
-      space_outliner->runtime->treehash, tse->type, tse->nr, tse->id);
-  if (tselem) {
-    return outliner_find_tree_element(&space_outliner->tree, tselem);
-  }
-
   return nullptr;
 }
 
@@ -295,8 +265,7 @@ bool outliner_tree_traverse(const SpaceOutliner *space_outliner,
                             TreeTraversalFunc func,
                             void *customdata)
 {
-  for (TreeElement *te = reinterpret_cast<TreeElement *>(tree->first), *te_next; te;
-       te = te_next) {
+  for (TreeElement *te = static_cast<TreeElement *>(tree->first), *te_next; te; te = te_next) {
     TreeTraversalAction func_retval = TRAVERSE_CONTINUE;
     /* in case te is freed in callback */
     TreeStoreElem *tselem = TREESTORE(te);
@@ -330,7 +299,7 @@ bool outliner_tree_traverse(const SpaceOutliner *space_outliner,
   return true;
 }
 
-float outliner_restrict_columns_width(const SpaceOutliner *space_outliner)
+float outliner_right_columns_width(const SpaceOutliner *space_outliner)
 {
   int num_columns = 0;
 
@@ -338,8 +307,17 @@ float outliner_restrict_columns_width(const SpaceOutliner *space_outliner)
     case SO_DATA_API:
     case SO_SEQUENCE:
     case SO_LIBRARIES:
-    case SO_OVERRIDES_LIBRARY:
       return 0.0f;
+    case SO_OVERRIDES_LIBRARY:
+      switch ((eSpaceOutliner_LibOverrideViewMode)space_outliner->lib_override_view_mode) {
+        case SO_LIB_OVERRIDE_VIEW_PROPERTIES:
+          num_columns = OL_RNA_COL_SIZEX / UI_UNIT_X;
+          break;
+        case SO_LIB_OVERRIDE_VIEW_HIERARCHIES:
+          num_columns = 1;
+          break;
+      }
+      break;
     case SO_ID_ORPHANS:
       num_columns = 3;
       break;
@@ -402,6 +380,11 @@ bool outliner_is_element_visible(const TreeElement *te)
   return true;
 }
 
+bool outliner_is_element_in_view(const TreeElement *te, const View2D *v2d)
+{
+  return ((te->ys + UI_UNIT_Y) >= v2d->cur.ymin) && (te->ys <= v2d->cur.ymax);
+}
+
 bool outliner_item_is_co_over_name_icons(const TreeElement *te, float view_co_x)
 {
   /* Special case: count area left of Scene Collection as empty space */
@@ -454,13 +437,17 @@ void outliner_tag_redraw_avoid_rebuild_on_open_change(const SpaceOutliner *space
                                                       ARegion *region)
 {
   /* Avoid rebuild if possible. */
-  if (outliner_requires_rebuild_on_open_change(space_outliner)) {
+  if (space_outliner->runtime->tree_display->is_lazy_built()) {
     ED_region_tag_redraw(region);
   }
   else {
     ED_region_tag_redraw_no_rebuild(region);
   }
 }
+
+}  // namespace blender::ed::outliner
+
+using namespace blender::ed::outliner;
 
 Base *ED_outliner_give_base_under_cursor(bContext *C, const int mval[2])
 {

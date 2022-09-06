@@ -1,23 +1,10 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #pragma once
 
 #include "kernel/integrator/path_state.h"
-#include "kernel/integrator/shader_eval.h"
+#include "kernel/integrator/surface_shader.h"
 
 #include "kernel/light/light.h"
 
@@ -27,7 +14,7 @@
 CCL_NAMESPACE_BEGIN
 
 /* Evaluate shader on light. */
-ccl_device_noinline_cpu float3
+ccl_device_noinline_cpu Spectrum
 light_sample_shader_eval(KernelGlobals kg,
                          IntegratorState state,
                          ccl_private ShaderData *ccl_restrict emission_sd,
@@ -35,24 +22,21 @@ light_sample_shader_eval(KernelGlobals kg,
                          float time)
 {
   /* setup shading at emitter */
-  float3 eval = zero_float3();
+  Spectrum eval = zero_spectrum();
 
-  if (shader_constant_emission_eval(kg, ls->shader, &eval)) {
+  if (surface_shader_constant_emission(kg, ls->shader, &eval)) {
     if ((ls->prim != PRIM_NONE) && dot(ls->Ng, ls->D) > 0.0f) {
       ls->Ng = -ls->Ng;
     }
   }
   else {
-    /* Setup shader data and call shader_eval_surface once, better
+    /* Setup shader data and call surface_shader_eval once, better
      * for GPU coherence and compile times. */
     PROFILING_INIT_FOR_SHADER(kg, PROFILING_SHADE_LIGHT_SETUP);
-#ifdef __BACKGROUND_MIS__
     if (ls->type == LIGHT_BACKGROUND) {
       shader_setup_from_background(kg, emission_sd, ls->P, ls->D, time);
     }
-    else
-#endif
-    {
+    else {
       shader_setup_from_sample(kg,
                                emission_sd,
                                ls->P,
@@ -76,26 +60,24 @@ light_sample_shader_eval(KernelGlobals kg,
 
     /* No proper path flag, we're evaluating this for all closures. that's
      * weak but we'd have to do multiple evaluations otherwise. */
-    shader_eval_surface<KERNEL_FEATURE_NODE_MASK_SURFACE_LIGHT>(
+    surface_shader_eval<KERNEL_FEATURE_NODE_MASK_SURFACE_LIGHT>(
         kg, state, emission_sd, NULL, PATH_RAY_EMISSION);
 
     /* Evaluate closures. */
-#ifdef __BACKGROUND_MIS__
     if (ls->type == LIGHT_BACKGROUND) {
-      eval = shader_background_eval(emission_sd);
+      eval = surface_shader_background(emission_sd);
     }
-    else
-#endif
-    {
-      eval = shader_emissive_eval(emission_sd);
+    else {
+      eval = surface_shader_emission(emission_sd);
     }
   }
 
   eval *= ls->eval_fac;
 
   if (ls->lamp != LAMP_NONE) {
-    ccl_global const KernelLight *klight = &kernel_tex_fetch(__lights, ls->lamp);
-    eval *= make_float3(klight->strength[0], klight->strength[1], klight->strength[2]);
+    ccl_global const KernelLight *klight = &kernel_data_fetch(lights, ls->lamp);
+    eval *= rgb_to_spectrum(
+        make_float3(klight->strength[0], klight->strength[1], klight->strength[2]));
   }
 
   return eval;
@@ -119,7 +101,7 @@ ccl_device_inline bool light_sample_terminate(KernelGlobals kg,
   }
 
   if (kernel_data.integrator.light_inv_rr_threshold > 0.0f) {
-    float probability = max3(fabs(bsdf_eval_sum(eval))) *
+    float probability = reduce_max(fabs(bsdf_eval_sum(eval))) *
                         kernel_data.integrator.light_inv_rr_threshold;
     if (probability < 1.0f) {
       if (rand_terminate >= probability) {
@@ -150,13 +132,14 @@ ccl_device_inline float3 shadow_ray_smooth_surface_offset(
     triangle_vertices_and_normals(kg, sd->prim, V, N);
   }
 
-  const float u = sd->u, v = sd->v;
-  const float w = 1 - u - v;
+  const float u = 1.0f - sd->u - sd->v;
+  const float v = sd->u;
+  const float w = sd->v;
   float3 P = V[0] * u + V[1] * v + V[2] * w; /* Local space */
   float3 n = N[0] * u + N[1] * v + N[2] * w; /* We get away without normalization */
 
   if (!(sd->object_flag & SD_OBJECT_TRANSFORM_APPLIED)) {
-    object_normal_transform(kg, sd, &n); /* Normal x scale, world space */
+    object_dir_transform(kg, sd, &n); /* Normal x scale, to world space */
   }
 
   /* Parabolic approximation */
@@ -193,33 +176,37 @@ ccl_device_inline float3 shadow_ray_smooth_surface_offset(
 
 ccl_device_inline float3 shadow_ray_offset(KernelGlobals kg,
                                            ccl_private const ShaderData *ccl_restrict sd,
-                                           float3 L)
+                                           float3 L,
+                                           ccl_private bool *r_skip_self)
 {
-  float NL = dot(sd->N, L);
-  bool transmit = (NL < 0.0f);
-  float3 Ng = (transmit ? -sd->Ng : sd->Ng);
   float3 P = sd->P;
 
   if ((sd->type & PRIMITIVE_TRIANGLE) && (sd->shader & SHADER_SMOOTH_NORMAL)) {
     const float offset_cutoff =
-        kernel_tex_fetch(__objects, sd->object).shadow_terminator_geometry_offset;
+        kernel_data_fetch(objects, sd->object).shadow_terminator_geometry_offset;
     /* Do ray offset (heavy stuff) only for close to be terminated triangles:
      * offset_cutoff = 0.1f means that 10-20% of rays will be affected. Also
      * make a smooth transition near the threshold. */
     if (offset_cutoff > 0.0f) {
-      float NgL = dot(Ng, L);
-      float offset_amount = 0.0f;
+      float NL = dot(sd->N, L);
+      const bool transmit = (NL < 0.0f);
       if (NL < 0) {
         NL = -NL;
       }
-      if (NL < offset_cutoff) {
-        offset_amount = clamp(2.0f - (NgL + NL) / offset_cutoff, 0.0f, 1.0f);
-      }
-      else {
-        offset_amount = clamp(1.0f - NgL / offset_cutoff, 0.0f, 1.0f);
-      }
+
+      const float3 Ng = (transmit ? -sd->Ng : sd->Ng);
+      const float NgL = dot(Ng, L);
+
+      const float offset_amount = (NL < offset_cutoff) ?
+                                      clamp(2.0f - (NgL + NL) / offset_cutoff, 0.0f, 1.0f) :
+                                      clamp(1.0f - NgL / offset_cutoff, 0.0f, 1.0f);
+
       if (offset_amount > 0.0f) {
         P += shadow_ray_smooth_surface_offset(kg, sd, Ng) * offset_amount;
+
+        /* Only skip self intersections if light direction and geometric normal point in the same
+         * direction, otherwise we're meant to hit this surface. */
+        *r_skip_self = (NgL > 0.0f);
       }
     }
   }
@@ -230,28 +217,30 @@ ccl_device_inline float3 shadow_ray_offset(KernelGlobals kg,
 ccl_device_inline void shadow_ray_setup(ccl_private const ShaderData *ccl_restrict sd,
                                         ccl_private const LightSample *ccl_restrict ls,
                                         const float3 P,
-                                        ccl_private Ray *ray)
+                                        ccl_private Ray *ray,
+                                        const bool skip_self)
 {
   if (ls->shader & SHADER_CAST_SHADOW) {
     /* setup ray */
     ray->P = P;
+    ray->tmin = 0.0f;
 
     if (ls->t == FLT_MAX) {
       /* distant light */
       ray->D = ls->D;
-      ray->t = ls->t;
+      ray->tmax = ls->t;
     }
     else {
       /* other lights, avoid self-intersection */
       ray->D = ls->P - P;
-      ray->D = normalize_len(ray->D, &ray->t);
+      ray->D = normalize_len(ray->D, &ray->tmax);
     }
   }
   else {
     /* signal to not cast shadow ray */
     ray->P = zero_float3();
     ray->D = zero_float3();
-    ray->t = 0.0f;
+    ray->tmax = 0.0f;
   }
 
   ray->dP = differential_make_compact(sd->dP);
@@ -259,10 +248,10 @@ ccl_device_inline void shadow_ray_setup(ccl_private const ShaderData *ccl_restri
   ray->time = sd->time;
 
   /* Fill in intersection surface and light details. */
-  ray->self.prim = sd->prim;
-  ray->self.object = sd->object;
-  ray->self.light_prim = ls->prim;
+  ray->self.object = (skip_self) ? sd->object : OBJECT_NONE;
+  ray->self.prim = (skip_self) ? sd->prim : PRIM_NONE;
   ray->self.light_object = ls->object;
+  ray->self.light_prim = ls->prim;
 }
 
 /* Create shadow ray towards light sample. */
@@ -272,8 +261,9 @@ ccl_device_inline void light_sample_to_surface_shadow_ray(
     ccl_private const LightSample *ccl_restrict ls,
     ccl_private Ray *ray)
 {
-  const float3 P = shadow_ray_offset(kg, sd, ls->D);
-  shadow_ray_setup(sd, ls, P, ray);
+  bool skip_self = true;
+  const float3 P = shadow_ray_offset(kg, sd, ls->D, &skip_self);
+  shadow_ray_setup(sd, ls, P, ray, skip_self);
 }
 
 /* Create shadow ray towards light sample. */
@@ -284,7 +274,7 @@ ccl_device_inline void light_sample_to_volume_shadow_ray(
     const float3 P,
     ccl_private Ray *ray)
 {
-  shadow_ray_setup(sd, ls, P, ray);
+  shadow_ray_setup(sd, ls, P, ray, false);
 }
 
 ccl_device_inline float light_sample_mis_weight_forward(KernelGlobals kg,

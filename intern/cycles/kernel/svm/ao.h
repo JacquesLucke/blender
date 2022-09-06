@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2018 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #pragma once
 
@@ -44,7 +31,7 @@ ccl_device float svm_ao(
     return 1.0f;
   }
 
-  /* Can't raytrace from shaders like displacement, before BVH exists. */
+  /* Can't ray-trace from shaders like displacement, before BVH exists. */
   if (kernel_data.bvh.bvh_layout == BVH_LAYOUT_NONE) {
     return 1.0f;
   }
@@ -62,17 +49,18 @@ ccl_device float svm_ao(
 
   int unoccluded = 0;
   for (int sample = 0; sample < num_samples; sample++) {
-    float disk_u, disk_v;
-    path_branched_rng_2D(kg, &rng_state, sample, num_samples, PRNG_BEVEL_U, &disk_u, &disk_v);
+    const float2 rand_disk = path_branched_rng_2D(
+        kg, &rng_state, sample, num_samples, PRNG_SURFACE_AO);
 
-    float2 d = concentric_sample_disk(disk_u, disk_v);
+    float2 d = concentric_sample_disk(rand_disk.x, rand_disk.y);
     float3 D = make_float3(d.x, d.y, safe_sqrtf(1.0f - dot(d, d)));
 
     /* Create ray. */
     Ray ray;
     ray.P = sd->P;
     ray.D = D.x * T + D.y * B + D.z * N;
-    ray.t = max_dist;
+    ray.tmin = 0.0f;
+    ray.tmax = max_dist;
     ray.time = sd->time;
     ray.self.object = sd->object;
     ray.self.prim = sd->prim;

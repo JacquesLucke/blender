@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -25,7 +9,7 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "glew-mx.h"
+#include <epoxy/gl.h>
 
 #include "gpu_shader_create_info.hh"
 #include "gpu_shader_private.hh"
@@ -83,10 +67,13 @@ class GLShader : public Shader {
   void uniform_float(int location, int comp_len, int array_size, const float *data) override;
   void uniform_int(int location, int comp_len, int array_size, const int *data) override;
 
-  void vertformat_from_shader(GPUVertFormat *format) const override;
-
   /** DEPRECATED: Kept only because of BGL API. */
   int program_handle_get() const override;
+
+  bool is_compute() const
+  {
+    return compute_shader_ != 0;
+  }
 
  private:
   char *glsl_patch_get(GLenum gl_stage);

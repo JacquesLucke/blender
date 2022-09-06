@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup obj
@@ -82,6 +68,17 @@ static void print_exception_error(const std::system_error &ex)
             << std::endl;
 }
 
+static bool is_curve_nurbs_compatible(const Nurb *nurb)
+{
+  while (nurb) {
+    if (nurb->type == CU_BEZIER || nurb->pntsv != 1) {
+      return false;
+    }
+    nurb = nurb->next;
+  }
+  return true;
+}
+
 /**
  * Filter supported objects from the Scene.
  *
@@ -102,12 +99,12 @@ filter_supported_objects(Depsgraph *depsgraph, const OBJExportParams &export_par
     }
     switch (object->type) {
       case OB_SURF:
-        /* Export in mesh form: vertices and polygons. */
-        ATTR_FALLTHROUGH;
+        /* Evaluated surface objects appear as mesh objects from the iterator. */
+        break;
       case OB_MESH:
         r_exportable_meshes.append(std::make_unique<OBJMesh>(depsgraph, export_params, object));
         break;
-      case OB_CURVE: {
+      case OB_CURVES_LEGACY: {
         Curve *curve = static_cast<Curve *>(object->data);
         Nurb *nurb{static_cast<Nurb *>(curve->nurb.first)};
         if (!nurb) {
@@ -118,27 +115,13 @@ filter_supported_objects(Depsgraph *depsgraph, const OBJExportParams &export_par
           }
           break;
         }
-        switch (nurb->type) {
-          case CU_NURBS:
-            if (export_params.export_curves_as_nurbs) {
-              /* Export in parameter form: control points. */
-              r_exportable_nurbs.append(
-                  std::make_unique<OBJCurve>(depsgraph, export_params, object));
-            }
-            else {
-              /* Export in mesh form: edges and vertices. */
-              r_exportable_meshes.append(
-                  std::make_unique<OBJMesh>(depsgraph, export_params, object));
-            }
-            break;
-          case CU_BEZIER:
-            /* Always export in mesh form: edges and vertices. */
-            r_exportable_meshes.append(
-                std::make_unique<OBJMesh>(depsgraph, export_params, object));
-            break;
-          default:
-            /* Other curve types are not supported. */
-            break;
+        if (export_params.export_curves_as_nurbs && is_curve_nurbs_compatible(nurb)) {
+          /* Export in parameter form: control points. */
+          r_exportable_nurbs.append(std::make_unique<OBJCurve>(depsgraph, export_params, object));
+        }
+        else {
+          /* Export in mesh form: edges and vertices. */
+          r_exportable_meshes.append(std::make_unique<OBJMesh>(depsgraph, export_params, object));
         }
         break;
       }
@@ -160,7 +143,7 @@ static void write_mesh_objects(Vector<std::unique_ptr<OBJMesh>> exportable_as_me
    * we have to have the output text buffer for each object,
    * and write them all into the file at the end. */
   size_t count = exportable_as_mesh.size();
-  std::vector<FormatHandler<eFileType::OBJ>> buffers(count);
+  std::vector<FormatHandler> buffers(count);
 
   /* Serial: gather material indices, ensure normals & edges. */
   Vector<Vector<int>> mtlindices;
@@ -212,11 +195,14 @@ static void write_mesh_objects(Vector<std::unique_ptr<OBJMesh>> exportable_as_me
       auto &fh = buffers[i];
 
       obj_writer.write_object_name(fh, obj);
-      obj_writer.write_vertex_coords(fh, obj);
+      obj_writer.write_vertex_coords(fh, obj, export_params.export_colors);
 
       if (obj.tot_polygons() > 0) {
         if (export_params.export_smooth_groups) {
           obj.calc_smooth_groups(export_params.smooth_groups_bitflags);
+        }
+        if (export_params.export_materials) {
+          obj.calc_poly_order();
         }
         if (export_params.export_normals) {
           obj_writer.write_poly_normals(fh, obj);
@@ -256,7 +242,7 @@ static void write_mesh_objects(Vector<std::unique_ptr<OBJMesh>> exportable_as_me
 static void write_nurbs_curve_objects(const Vector<std::unique_ptr<OBJCurve>> &exportable_as_nurbs,
                                       const OBJWriter &obj_writer)
 {
-  FormatHandler<eFileType::OBJ> fh;
+  FormatHandler fh;
   /* #OBJCurve doesn't have any dynamically allocated memory, so it's fine
    * to wait for #blender::Vector to clean the objects up. */
   for (const std::unique_ptr<OBJCurve> &obj_curve : exportable_as_nurbs) {
@@ -298,7 +284,16 @@ void export_frame(Depsgraph *depsgraph, const OBJExportParams &export_params, co
       std::move(exportable_as_mesh), *frame_writer, mtl_writer.get(), export_params);
   if (mtl_writer) {
     mtl_writer->write_header(export_params.blen_filepath);
-    mtl_writer->write_materials();
+    char dest_dir[PATH_MAX];
+    if (export_params.file_base_for_tests[0] == '\0') {
+      BLI_split_dir_part(export_params.filepath, dest_dir, PATH_MAX);
+    }
+    else {
+      BLI_strncpy(dest_dir, export_params.file_base_for_tests, PATH_MAX);
+    }
+    BLI_path_slash_native(dest_dir);
+    BLI_path_normalize(nullptr, dest_dir);
+    mtl_writer->write_materials(export_params.blen_filepath, export_params.path_mode, dest_dir);
   }
   write_nurbs_curve_objects(std::move(exportable_as_nurbs), *frame_writer);
 }
@@ -328,7 +323,7 @@ void exporter_main(bContext *C, const OBJExportParams &export_params)
 
   char filepath_with_frames[FILE_MAX];
   /* Used to reset the Scene to its original state. */
-  const int original_frame = CFRA;
+  const int original_frame = scene->r.cfra;
 
   for (int frame = export_params.start_frame; frame <= export_params.end_frame; frame++) {
     const bool filepath_ok = append_frame_to_filename(filepath, frame, filepath_with_frames);
@@ -337,11 +332,11 @@ void exporter_main(bContext *C, const OBJExportParams &export_params)
       return;
     }
 
-    CFRA = frame;
+    scene->r.cfra = frame;
     obj_depsgraph.update_for_newframe();
     fprintf(stderr, "Writing to %s\n", filepath_with_frames);
     export_frame(obj_depsgraph.get(), export_params, filepath_with_frames);
   }
-  CFRA = original_frame;
+  scene->r.cfra = original_frame;
 }
 }  // namespace blender::io::obj

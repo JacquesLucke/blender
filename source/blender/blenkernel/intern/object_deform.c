@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -128,9 +114,7 @@ bDeformGroup *BKE_object_defgroup_add(Object *ob)
 MDeformVert *BKE_object_defgroup_data_create(ID *id)
 {
   if (GS(id->name) == ID_ME) {
-    Mesh *me = (Mesh *)id;
-    me->dvert = CustomData_add_layer(&me->vdata, CD_MDEFORMVERT, CD_CALLOC, NULL, me->totvert);
-    return me->dvert;
+    return BKE_mesh_deform_verts_for_write((Mesh *)id);
   }
   if (GS(id->name) == ID_LT) {
     Lattice *lt = (Lattice *)id;
@@ -178,12 +162,12 @@ bool BKE_object_defgroup_clear(Object *ob, bDeformGroup *dg, const bool use_sele
       }
     }
     else {
-      if (me->dvert) {
-        MVert *mv;
+      if (BKE_mesh_deform_verts(me)) {
+        const MVert *mv;
         int i;
 
-        mv = me->mvert;
-        dv = me->dvert;
+        mv = BKE_mesh_vertices(me);
+        dv = BKE_mesh_deform_verts_for_write(me);
 
         for (i = 0; i < me->totvert; i++, mv++, dv++) {
           if (dv->dw && (!use_selection || (mv->flag & SELECT))) {
@@ -278,7 +262,6 @@ static void object_defgroup_remove_common(Object *ob, bDeformGroup *dg, const in
     if (ob->type == OB_MESH) {
       Mesh *me = ob->data;
       CustomData_free_layer_active(&me->vdata, CD_MDEFORMVERT, me->totvert);
-      me->dvert = NULL;
     }
     else if (ob->type == OB_LATTICE) {
       Lattice *lt = object_defgroup_lattice_get((ID *)(ob->data));
@@ -426,7 +409,6 @@ void BKE_object_defgroup_remove_all_ex(struct Object *ob, bool only_unlocked)
     if (ob->type == OB_MESH) {
       Mesh *me = ob->data;
       CustomData_free_layer_active(&me->vdata, CD_MDEFORMVERT, me->totvert);
-      me->dvert = NULL;
     }
     else if (ob->type == OB_LATTICE) {
       Lattice *lt = object_defgroup_lattice_get((ID *)(ob->data));
@@ -515,7 +497,7 @@ bool BKE_object_defgroup_array_get(ID *id, MDeformVert **dvert_arr, int *dvert_t
     switch (GS(id->name)) {
       case ID_ME: {
         Mesh *me = (Mesh *)id;
-        *dvert_arr = me->dvert;
+        *dvert_arr = BKE_mesh_deform_verts_for_write(me);
         *dvert_tot = me->totvert;
         return true;
       }

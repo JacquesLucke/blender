@@ -8,7 +8,7 @@ in vec4 uvcoordsvar;
 
 out vec4 FragColor;
 
-uniform sampler2D depthBuffer;
+uniform depth2D depthBuffer;
 uniform sampler1D sssTexProfile;
 uniform sampler2D sssRadius;
 uniform sampler2DArray sssShadowCubes;
@@ -21,14 +21,15 @@ uniform sampler2DArray sssShadowCascades;
 
 layout(std140) uniform sssProfile
 {
-  vec4 kernel[MAX_SSS_SAMPLES];
+  vec4 sss_kernel[MAX_SSS_SAMPLES];
   vec4 radii_max_radius;
+  float avg_inv_radius;
   int sss_samples;
 };
 
 vec3 sss_profile(float s)
 {
-  s /= radii_max_radius.w;
+  s /= radii_max_radius.w * avg_inv_radius;
   return texture(sssTexProfile, saturate(s) * SSS_LUT_SCALE + SSS_LUT_BIAS).rgb;
 }
 
@@ -40,7 +41,7 @@ float light_translucent_power_with_falloff(LightData ld, vec3 N, vec4 l_vector)
   if (ld.l_type >= AREA_RECT) {
     power = (ld.l_sizex * ld.l_sizey * 4.0 * M_PI) * (1.0 / 80.0);
     if (ld.l_type == AREA_ELLIPSE) {
-      power *= M_PI * 0.25;
+      power *= M_PI_4;
     }
     power *= 0.3 * 20.0 *
              max(0.0, dot(-ld.l_forward, l_vector.xyz / l_vector.w)); /* XXX ad hoc, empirical */

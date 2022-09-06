@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spgraph
@@ -57,6 +41,8 @@
 #include "WM_types.h"
 
 #include "RNA_access.h"
+#include "RNA_path.h"
+#include "RNA_prototypes.h"
 
 #include "ED_anim_api.h"
 #include "ED_keyframing.h"
@@ -240,15 +226,15 @@ static void graph_panel_properties(const bContext *C, Panel *panel)
 
   /* color settings */
   col = uiLayoutColumn(layout, true);
-  uiItemR(col, &fcu_ptr, "color_mode", 0, "Display Color", ICON_NONE);
+  uiItemR(col, &fcu_ptr, "color_mode", 0, IFACE_("Display Color"), ICON_NONE);
 
   if (fcu->color_mode == FCURVE_COLOR_CUSTOM) {
-    uiItemR(col, &fcu_ptr, "color", 0, "Color", ICON_NONE);
+    uiItemR(col, &fcu_ptr, "color", 0, IFACE_("Color"), ICON_NONE);
   }
 
   /* smoothing setting */
   col = uiLayoutColumn(layout, true);
-  uiItemR(col, &fcu_ptr, "auto_smoothing", 0, "Handle Smoothing", ICON_NONE);
+  uiItemR(col, &fcu_ptr, "auto_smoothing", 0, IFACE_("Handle Smoothing"), ICON_NONE);
 
   MEM_freeN(ale);
 }
@@ -292,7 +278,7 @@ static void graphedit_activekey_update_cb(bContext *UNUSED(C),
 
   /* make sure F-Curve and its handles are still valid after this editing */
   sort_time_fcurve(fcu);
-  calchandles_fcurve(fcu);
+  BKE_fcurve_handles_recalc(fcu);
 }
 
 /* update callback for active keyframe properties - handle-editing wrapper */

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2018 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2018 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -33,6 +17,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_customdata.h"
+#include "BKE_mesh.h"
 #include "BKE_subdiv.h"
 
 #include "MEM_guardedalloc.h"
@@ -118,7 +103,7 @@ static void free_mask_data(SubdivCCGMaskEvaluator *mask_evaluator)
 static int count_num_ptex_faces(const Mesh *mesh)
 {
   int num_ptex_faces = 0;
-  const MPoly *mpoly = mesh->mpoly;
+  const MPoly *mpoly = BKE_mesh_polygons(mesh);
   for (int poly_index = 0; poly_index < mesh->totpoly; poly_index++) {
     const MPoly *poly = &mpoly[poly_index];
     num_ptex_faces += (poly->totloop == 4) ? 1 : poly->totloop;
@@ -129,7 +114,7 @@ static int count_num_ptex_faces(const Mesh *mesh)
 static void mask_data_init_mapping(SubdivCCGMaskEvaluator *mask_evaluator, const Mesh *mesh)
 {
   GridPaintMaskData *data = mask_evaluator->user_data;
-  const MPoly *mpoly = mesh->mpoly;
+  const MPoly *mpoly = BKE_mesh_polygons(mesh);
   const int num_ptex_faces = count_num_ptex_faces(mesh);
   /* Allocate memory. */
   data->ptex_poly_corner = MEM_malloc_arrayN(
@@ -157,7 +142,7 @@ static void mask_data_init_mapping(SubdivCCGMaskEvaluator *mask_evaluator, const
 static void mask_init_data(SubdivCCGMaskEvaluator *mask_evaluator, const Mesh *mesh)
 {
   GridPaintMaskData *data = mask_evaluator->user_data;
-  data->mpoly = mesh->mpoly;
+  data->mpoly = BKE_mesh_polygons(mesh);
   data->grid_paint_mask = CustomData_get_layer(&mesh->ldata, CD_GRID_PAINT_MASK);
   mask_data_init_mapping(mask_evaluator, mesh);
 }
@@ -171,8 +156,7 @@ static void mask_init_functions(SubdivCCGMaskEvaluator *mask_evaluator)
 bool BKE_subdiv_ccg_mask_init_from_paint(SubdivCCGMaskEvaluator *mask_evaluator,
                                          const struct Mesh *mesh)
 {
-  GridPaintMask *grid_paint_mask = CustomData_get_layer(&mesh->ldata, CD_GRID_PAINT_MASK);
-  if (grid_paint_mask == NULL) {
+  if (!CustomData_get_layer(&mesh->ldata, CD_GRID_PAINT_MASK)) {
     return false;
   }
   /* Allocate all required memory. */

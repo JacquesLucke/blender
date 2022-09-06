@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 #pragma once
 
@@ -115,19 +99,25 @@ typedef struct bNodeSocketTemplate {
  * However, achieving this requires quite a few changes currently. */
 #ifdef __cplusplus
 namespace blender {
+class CPPType;
 namespace nodes {
+class DNode;
 class NodeMultiFunctionBuilder;
 class GeoNodeExecParams;
 class NodeDeclarationBuilder;
 class GatherLinkSearchOpParams;
 }  // namespace nodes
 namespace fn {
-class CPPType;
 class MFDataType;
 }  // namespace fn
+namespace realtime_compositor {
+class Context;
+class NodeOperation;
+class ShaderNode;
+}  // namespace realtime_compositor
 }  // namespace blender
 
-using CPPTypeHandle = blender::fn::CPPType;
+using CPPTypeHandle = blender::CPPType;
 using NodeMultiFunctionBuildFunction = void (*)(blender::nodes::NodeMultiFunctionBuilder &builder);
 using NodeGeometryExecFunction = void (*)(blender::nodes::GeoNodeExecParams params);
 using NodeDeclareFunction = void (*)(blender::nodes::NodeDeclarationBuilder &builder);
@@ -139,7 +129,14 @@ using SocketGetGeometryNodesCPPValueFunction = void (*)(const struct bNodeSocket
 using NodeGatherSocketLinkOperationsFunction =
     void (*)(blender::nodes::GatherLinkSearchOpParams &params);
 
+using NodeGetCompositorOperationFunction = blender::realtime_compositor::NodeOperation
+    *(*)(blender::realtime_compositor::Context &context, blender::nodes::DNode node);
+using NodeGetCompositorShaderNodeFunction =
+    blender::realtime_compositor::ShaderNode *(*)(blender::nodes::DNode node);
+
 #else
+typedef void *NodeGetCompositorOperationFunction;
+typedef void *NodeGetCompositorShaderNodeFunction;
 typedef void *NodeMultiFunctionBuildFunction;
 typedef void *NodeGeometryExecFunction;
 typedef void *NodeDeclareFunction;
@@ -325,11 +322,23 @@ typedef struct bNodeType {
   /* gpu */
   NodeGPUExecFunction gpu_fn;
 
+  /* Get an instance of this node's compositor operation. Freeing the instance is the
+   * responsibility of the caller. */
+  NodeGetCompositorOperationFunction get_compositor_operation;
+
+  /* Get an instance of this node's compositor shader node. Freeing the instance is the
+   * responsibility of the caller. */
+  NodeGetCompositorShaderNodeFunction get_compositor_shader_node;
+
   /* Build a multi-function for this node. */
   NodeMultiFunctionBuildFunction build_multi_function;
 
   /* Execute a geometry node. */
   NodeGeometryExecFunction geometry_node_execute;
+  /**
+   * If true, the geometry nodes evaluator can call the execute function multiple times to improve
+   * performance by specifying required data in one call and using it for calculations in another.
+   */
   bool geometry_node_execute_supports_laziness;
 
   /* Declares which sockets the node has. */
@@ -385,6 +394,9 @@ typedef void (*bNodeClassCallback)(void *calldata, int nclass, const char *name)
 typedef struct bNodeTreeType {
   int type;        /* type identifier */
   char idname[64]; /* identifier name */
+
+  /* The ID name of group nodes for this type. */
+  char group_idname[64];
 
   char ui_name[64];
   char ui_description[256];
@@ -460,6 +472,11 @@ void ntreeSetTypes(const struct bContext *C, struct bNodeTree *ntree);
 
 struct bNodeTree *ntreeAddTree(struct Main *bmain, const char *name, const char *idname);
 
+struct bNodeTree *ntreeAddTreeEmbedded(struct Main *bmain,
+                                       struct ID *owner_id,
+                                       const char *name,
+                                       const char *idname);
+
 /* copy/free funcs, need to manage ID users */
 
 /**
@@ -528,7 +545,9 @@ void ntreeBlendWrite(struct BlendWriter *writer, struct bNodeTree *ntree);
 /**
  * \note `ntree` itself has been read!
  */
-void ntreeBlendReadData(struct BlendDataReader *reader, struct bNodeTree *ntree);
+void ntreeBlendReadData(struct BlendDataReader *reader,
+                        struct ID *owner_id,
+                        struct bNodeTree *ntree);
 void ntreeBlendReadLib(struct BlendLibReader *reader, struct bNodeTree *ntree);
 void ntreeBlendReadExpand(struct BlendExpander *expander, struct bNodeTree *ntree);
 
@@ -695,8 +714,12 @@ struct bNodeLink *nodeAddLink(struct bNodeTree *ntree,
                               struct bNodeSocket *tosock);
 void nodeRemLink(struct bNodeTree *ntree, struct bNodeLink *link);
 void nodeRemSocketLinks(struct bNodeTree *ntree, struct bNodeSocket *sock);
-void nodeMuteLinkToggle(struct bNodeTree *ntree, struct bNodeLink *link);
+/**
+ * Set the mute status of a single link.
+ */
+void nodeLinkSetMute(struct bNodeTree *ntree, struct bNodeLink *link, const bool muted);
 bool nodeLinkIsHidden(const struct bNodeLink *link);
+bool nodeLinkIsSelected(const struct bNodeLink *link);
 void nodeInternalRelink(struct bNodeTree *ntree, struct bNode *node);
 
 void nodeToView(const struct bNode *node, float x, float y, float *rx, float *ry);
@@ -785,6 +808,14 @@ void nodeClearActive(struct bNodeTree *ntree);
  * Two active flags, ID nodes have special flag for buttons display.
  */
 struct bNode *nodeGetActiveTexture(struct bNodeTree *ntree);
+struct bNode *nodeGetActivePaintCanvas(struct bNodeTree *ntree);
+
+/**
+ * \brief Does the given node supports the sub active flag.
+ *
+ * \param sub_active: The active flag to check. #NODE_ACTIVE_TEXTURE / #NODE_ACTIVE_PAINT_CANVAS.
+ */
+bool nodeSupportsActiveFlag(const struct bNode *node, int sub_active);
 
 int nodeSocketIsHidden(const struct bNodeSocket *sock);
 void nodeSetSocketAvailability(struct bNodeTree *ntree,
@@ -1081,7 +1112,7 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 //#define SH_NODE_MATERIAL  100
 #define SH_NODE_RGB 101
 #define SH_NODE_VALUE 102
-#define SH_NODE_MIX_RGB 103
+#define SH_NODE_MIX_RGB_LEGACY 103
 #define SH_NODE_VALTORGB 104
 #define SH_NODE_RGBTOBW 105
 #define SH_NODE_SHADERTORGB 106
@@ -1097,8 +1128,8 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 #define SH_NODE_SQUEEZE 117
 //#define SH_NODE_MATERIAL_EXT  118
 #define SH_NODE_INVERT 119
-#define SH_NODE_SEPRGB 120
-#define SH_NODE_COMBRGB 121
+#define SH_NODE_SEPRGB_LEGACY 120
+#define SH_NODE_COMBRGB_LEGACY 121
 #define SH_NODE_HUE_SAT 122
 
 #define SH_NODE_OUTPUT_MATERIAL 124
@@ -1154,8 +1185,8 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 #define SH_NODE_WAVELENGTH 180
 #define SH_NODE_BLACKBODY 181
 #define SH_NODE_VECT_TRANSFORM 182
-#define SH_NODE_SEPHSV 183
-#define SH_NODE_COMBHSV 184
+#define SH_NODE_SEPHSV_LEGACY 183
+#define SH_NODE_COMBHSV_LEGACY 184
 #define SH_NODE_BSDF_HAIR 185
 // #define SH_NODE_LAMP 186
 #define SH_NODE_UVMAP 187
@@ -1182,6 +1213,9 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 #define SH_NODE_VECTOR_ROTATE 708
 #define SH_NODE_CURVE_FLOAT 709
 #define SH_NODE_POINT_INFO 710
+#define SH_NODE_COMBINE_COLOR 711
+#define SH_NODE_SEPARATE_COLOR 712
+#define SH_NODE_MIX 713
 
 /** \} */
 
@@ -1209,8 +1243,8 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 #define CMP_NODE_MAP_VALUE 213
 #define CMP_NODE_TIME 214
 #define CMP_NODE_VECBLUR 215
-#define CMP_NODE_SEPRGBA 216
-#define CMP_NODE_SEPHSVA 217
+#define CMP_NODE_SEPRGBA_LEGACY 216
+#define CMP_NODE_SEPHSVA_LEGACY 217
 #define CMP_NODE_SETALPHA 218
 #define CMP_NODE_HUE_SAT 219
 #define CMP_NODE_IMAGE 220
@@ -1220,14 +1254,14 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 #define CMP_NODE_TEXTURE 224
 #define CMP_NODE_TRANSLATE 225
 #define CMP_NODE_ZCOMBINE 226
-#define CMP_NODE_COMBRGBA 227
+#define CMP_NODE_COMBRGBA_LEGACY 227
 #define CMP_NODE_DILATEERODE 228
 #define CMP_NODE_ROTATE 229
 #define CMP_NODE_SCALE 230
-#define CMP_NODE_SEPYCCA 231
-#define CMP_NODE_COMBYCCA 232
-#define CMP_NODE_SEPYUVA 233
-#define CMP_NODE_COMBYUVA 234
+#define CMP_NODE_SEPYCCA_LEGACY 231
+#define CMP_NODE_COMBYCCA_LEGACY 232
+#define CMP_NODE_SEPYUVA_LEGACY 233
+#define CMP_NODE_COMBYUVA_LEGACY 234
 #define CMP_NODE_DIFF_MATTE 235
 #define CMP_NODE_COLOR_SPILL 236
 #define CMP_NODE_CHROMA_MATTE 237
@@ -1239,7 +1273,7 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 #define CMP_NODE_ID_MASK 243
 #define CMP_NODE_DEFOCUS 244
 #define CMP_NODE_DISPLACE 245
-#define CMP_NODE_COMBHSVA 246
+#define CMP_NODE_COMBHSVA_LEGACY 246
 #define CMP_NODE_MATH 247
 #define CMP_NODE_LUMA_MATTE 248
 #define CMP_NODE_BRIGHTCONTRAST 249
@@ -1296,20 +1330,12 @@ void BKE_nodetree_remove_layer_n(struct bNodeTree *ntree, struct Scene *scene, i
 #define CMP_NODE_SCENE_TIME 329
 #define CMP_NODE_SEPARATE_XYZ 330
 #define CMP_NODE_COMBINE_XYZ 331
+#define CMP_NODE_COMBINE_COLOR 332
+#define CMP_NODE_SEPARATE_COLOR 333
 
 /* channel toggles */
 #define CMP_CHAN_RGB 1
 #define CMP_CHAN_A 2
-
-/* filter types */
-#define CMP_FILT_SOFT 0
-#define CMP_FILT_SHARP_BOX 1
-#define CMP_FILT_LAPLACE 2
-#define CMP_FILT_SOBEL 3
-#define CMP_FILT_PREWITT 4
-#define CMP_FILT_KIRSCH 5
-#define CMP_FILT_SHADOW 6
-#define CMP_FILT_SHARP_DIAMOND 7
 
 /* scale node type, in custom1 */
 #define CMP_SCALE_RELATIVE 0
@@ -1361,11 +1387,13 @@ struct TexResult;
 #define TEX_NODE_TRANSLATE 416
 #define TEX_NODE_COORD 417
 #define TEX_NODE_DISTANCE 418
-#define TEX_NODE_COMPOSE 419
-#define TEX_NODE_DECOMPOSE 420
+#define TEX_NODE_COMPOSE_LEGACY 419
+#define TEX_NODE_DECOMPOSE_LEGACY 420
 #define TEX_NODE_VALTONOR 421
 #define TEX_NODE_SCALE 422
 #define TEX_NODE_AT 423
+#define TEX_NODE_COMBINE_COLOR 424
+#define TEX_NODE_SEPARATE_COLOR 425
 
 /* 501-599 reserved. Use like this: TEX_NODE_PROC + TEX_CLOUDS, etc */
 #define TEX_NODE_PROC 500
@@ -1378,37 +1406,13 @@ struct TexResult;
  * \{ */
 
 #define GEO_NODE_TRIANGULATE 1000
-#define GEO_NODE_LEGACY_EDGE_SPLIT 1001
 #define GEO_NODE_TRANSFORM 1002
 #define GEO_NODE_MESH_BOOLEAN 1003
-#define GEO_NODE_LEGACY_POINT_DISTRIBUTE 1004
-#define GEO_NODE_LEGACY_POINT_INSTANCE 1005
-#define GEO_NODE_LEGACY_SUBDIVISION_SURFACE 1006
 #define GEO_NODE_OBJECT_INFO 1007
-#define GEO_NODE_LEGACY_ATTRIBUTE_RANDOMIZE 1008
-#define GEO_NODE_LEGACY_ATTRIBUTE_MATH 1009
 #define GEO_NODE_JOIN_GEOMETRY 1010
-#define GEO_NODE_LEGACY_ATTRIBUTE_FILL 1011
-#define GEO_NODE_LEGACY_ATTRIBUTE_MIX 1012
-#define GEO_NODE_LEGACY_ATTRIBUTE_COLOR_RAMP 1013
-#define GEO_NODE_LEGACY_POINT_SEPARATE 1014
-#define GEO_NODE_LEGACY_ATTRIBUTE_COMPARE 1015
-#define GEO_NODE_LEGACY_POINT_ROTATE 1016
-#define GEO_NODE_LEGACY_ATTRIBUTE_VECTOR_MATH 1017
-#define GEO_NODE_LEGACY_ALIGN_ROTATION_TO_VECTOR 1018
-#define GEO_NODE_LEGACY_POINT_TRANSLATE 1019
-#define GEO_NODE_LEGACY_POINT_SCALE 1020
-#define GEO_NODE_LEGACY_ATTRIBUTE_SAMPLE_TEXTURE 1021
-#define GEO_NODE_LEGACY_POINTS_TO_VOLUME 1022
 #define GEO_NODE_COLLECTION_INFO 1023
 #define GEO_NODE_IS_VIEWPORT 1024
-#define GEO_NODE_LEGACY_ATTRIBUTE_PROXIMITY 1025
-#define GEO_NODE_LEGACY_VOLUME_TO_MESH 1026
-#define GEO_NODE_LEGACY_ATTRIBUTE_COMBINE_XYZ 1027
-#define GEO_NODE_LEGACY_ATTRIBUTE_SEPARATE_XYZ 1028
 #define GEO_NODE_SUBDIVIDE_MESH 1029
-#define GEO_NODE_ATTRIBUTE_REMOVE 1030
-#define GEO_NODE_LEGACY_ATTRIBUTE_CONVERT 1031
 #define GEO_NODE_MESH_PRIMITIVE_CUBE 1032
 #define GEO_NODE_MESH_PRIMITIVE_CIRCLE 1033
 #define GEO_NODE_MESH_PRIMITIVE_UV_SPHERE 1034
@@ -1417,28 +1421,15 @@ struct TexResult;
 #define GEO_NODE_MESH_PRIMITIVE_CONE 1037
 #define GEO_NODE_MESH_PRIMITIVE_LINE 1038
 #define GEO_NODE_MESH_PRIMITIVE_GRID 1039
-#define GEO_NODE_LEGACY_ATTRIBUTE_MAP_RANGE 1040
-#define GEO_NODE_LEGACY_ATTRIBUTE_CLAMP 1041
 #define GEO_NODE_BOUNDING_BOX 1042
 #define GEO_NODE_SWITCH 1043
-#define GEO_NODE_LEGACY_ATTRIBUTE_TRANSFER 1044
 #define GEO_NODE_CURVE_TO_MESH 1045
-#define GEO_NODE_LEGACY_ATTRIBUTE_CURVE_MAP 1046
 #define GEO_NODE_RESAMPLE_CURVE 1047
-#define GEO_NODE_LEGACY_ATTRIBUTE_VECTOR_ROTATE 1048
-#define GEO_NODE_LEGACY_MATERIAL_ASSIGN 1049
 #define GEO_NODE_INPUT_MATERIAL 1050
 #define GEO_NODE_REPLACE_MATERIAL 1051
-#define GEO_NODE_LEGACY_MESH_TO_CURVE 1052
-#define GEO_NODE_LEGACY_DELETE_GEOMETRY 1053
 #define GEO_NODE_CURVE_LENGTH 1054
-#define GEO_NODE_LEGACY_SELECT_BY_MATERIAL 1055
 #define GEO_NODE_CONVEX_HULL 1056
-#define GEO_NODE_LEGACY_CURVE_TO_POINTS 1057
-#define GEO_NODE_LEGACY_CURVE_REVERSE 1058
 #define GEO_NODE_SEPARATE_COMPONENTS 1059
-#define GEO_NODE_LEGACY_CURVE_SUBDIVIDE 1060
-#define GEO_NODE_LEGACY_RAYCAST 1061
 #define GEO_NODE_CURVE_PRIMITIVE_STAR 1062
 #define GEO_NODE_CURVE_PRIMITIVE_SPIRAL 1063
 #define GEO_NODE_CURVE_PRIMITIVE_QUADRATIC_BEZIER 1064
@@ -1446,12 +1437,8 @@ struct TexResult;
 #define GEO_NODE_CURVE_PRIMITIVE_CIRCLE 1066
 #define GEO_NODE_VIEWER 1067
 #define GEO_NODE_CURVE_PRIMITIVE_LINE 1068
-#define GEO_NODE_LEGACY_CURVE_ENDPOINTS 1069
 #define GEO_NODE_CURVE_PRIMITIVE_QUADRILATERAL 1070
 #define GEO_NODE_TRIM_CURVE 1071
-#define GEO_NODE_LEGACY_CURVE_SET_HANDLES 1072
-#define GEO_NODE_LEGACY_CURVE_SPLINE_TYPE 1073
-#define GEO_NODE_LEGACY_CURVE_SELECT_HANDLES 1074
 #define GEO_NODE_FILL_CURVE 1075
 #define GEO_NODE_INPUT_POSITION 1076
 #define GEO_NODE_SET_POSITION 1077
@@ -1477,7 +1464,7 @@ struct TexResult;
 #define GEO_NODE_SUBDIVIDE_CURVE 1097
 #define GEO_NODE_INPUT_SPLINE_LENGTH 1098
 #define GEO_NODE_CURVE_SPLINE_TYPE 1099
-#define GEO_NODE_CURVE_SET_HANDLES 1100
+#define GEO_NODE_CURVE_SET_HANDLE_TYPE 1100
 #define GEO_NODE_POINTS_TO_VOLUME 1101
 #define GEO_NODE_CURVE_HANDLE_TYPE_SELECTION 1102
 #define GEO_NODE_DELETE_GEOMETRY 1103
@@ -1530,6 +1517,23 @@ struct TexResult;
 #define GEO_NODE_SCALE_ELEMENTS 1151
 #define GEO_NODE_EXTRUDE_MESH 1152
 #define GEO_NODE_MERGE_BY_DISTANCE 1153
+#define GEO_NODE_DUPLICATE_ELEMENTS 1154
+#define GEO_NODE_INPUT_MESH_FACE_IS_PLANAR 1155
+#define GEO_NODE_STORE_NAMED_ATTRIBUTE 1156
+#define GEO_NODE_INPUT_NAMED_ATTRIBUTE 1157
+#define GEO_NODE_REMOVE_ATTRIBUTE 1158
+#define GEO_NODE_INPUT_INSTANCE_ROTATION 1159
+#define GEO_NODE_INPUT_INSTANCE_SCALE 1160
+#define GEO_NODE_VOLUME_CUBE 1161
+#define GEO_NODE_POINTS 1162
+#define GEO_NODE_INTERPOLATE_DOMAIN 1163
+#define GEO_NODE_MESH_TO_VOLUME 1164
+#define GEO_NODE_UV_UNWRAP 1165
+#define GEO_NODE_UV_PACK_ISLANDS 1166
+#define GEO_NODE_DEFORM_CURVES_ON_SURFACE 1167
+#define GEO_NODE_INPUT_SHORTEST_EDGE_PATHS 1168
+#define GEO_NODE_EDGE_PATHS_TO_CURVES 1169
+#define GEO_NODE_EDGE_PATHS_TO_SELECTION 1170
 
 /** \} */
 
@@ -1554,6 +1558,8 @@ struct TexResult;
 #define FN_NODE_REPLACE_STRING 1218
 #define FN_NODE_INPUT_BOOL 1219
 #define FN_NODE_INPUT_INT 1220
+#define FN_NODE_SEPARATE_COLOR 1221
+#define FN_NODE_COMBINE_COLOR 1222
 
 /** \} */
 

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -182,10 +168,16 @@ static void rna_Action_fcurve_remove(bAction *act, ReportList *reports, PointerR
   WM_main_add_notifier(NC_ANIMATION | ND_KEYFRAME | NA_EDITED, NULL);
 }
 
+static void rna_Action_fcurve_clear(bAction *act)
+{
+  BKE_action_fcurves_clear(act);
+  WM_main_add_notifier(NC_ANIMATION | ND_KEYFRAME | NA_EDITED, NULL);
+}
+
 static TimeMarker *rna_Action_pose_markers_new(bAction *act, const char name[])
 {
   TimeMarker *marker = MEM_callocN(sizeof(TimeMarker), "TimeMarker");
-  marker->flag = 1;
+  marker->flag = SELECT;
   marker->frame = 1;
   BLI_strncpy_utf8(marker->name, name, sizeof(marker->name));
   BLI_addtail(&act->markers, marker);
@@ -354,7 +346,7 @@ bool rna_Action_actedit_assign_poll(PointerRNA *ptr, PointerRNA value)
   return 0;
 }
 
-static char *rna_DopeSheet_path(PointerRNA *UNUSED(ptr))
+static char *rna_DopeSheet_path(const PointerRNA *UNUSED(ptr))
 {
   return BLI_strdup("dopesheet");
 }
@@ -704,6 +696,11 @@ static void rna_def_action_group(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Lock", "Action group is locked");
   RNA_def_property_update(prop, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, NULL);
 
+  prop = RNA_def_property(srna, "mute", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_sdna(prop, NULL, "flag", AGRP_MUTED);
+  RNA_def_property_ui_text(prop, "Mute", "Action group is muted");
+  RNA_def_property_update(prop, NC_ANIMATION | ND_ANIMCHAN | NA_EDITED, NULL);
+
   prop = RNA_def_property(srna, "show_expanded", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_flag(prop, PROP_NO_DEG_UPDATE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", AGRP_EXPANDED);
@@ -797,11 +794,15 @@ static void rna_def_action_fcurves(BlenderRNA *brna, PropertyRNA *cprop)
 
   /* Action.fcurves.remove(...) */
   func = RNA_def_function(srna, "remove", "rna_Action_fcurve_remove");
-  RNA_def_function_ui_description(func, "Remove action group");
+  RNA_def_function_ui_description(func, "Remove F-Curve");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_pointer(func, "fcurve", "FCurve", "", "F-Curve to remove");
   RNA_def_parameter_flags(parm, PROP_NEVER_NULL, PARM_REQUIRED | PARM_RNAPTR);
   RNA_def_parameter_clear_flags(parm, PROP_THICK_WRAP, 0);
+
+  /* Action.fcurves.clear() */
+  func = RNA_def_function(srna, "clear", "rna_Action_fcurve_clear");
+  RNA_def_function_ui_description(func, "Remove all F-Curves");
 }
 
 static void rna_def_action_pose_markers(BlenderRNA *brna, PropertyRNA *cprop)

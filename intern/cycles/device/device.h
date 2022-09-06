@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #ifndef __DEVICE_H__
 #define __DEVICE_H__
@@ -42,6 +29,7 @@ class DeviceQueue;
 class Progress;
 class CPUKernels;
 class CPUKernelThreadGlobals;
+class Scene;
 
 /* Device Types */
 
@@ -53,6 +41,7 @@ enum DeviceType {
   DEVICE_OPTIX,
   DEVICE_HIP,
   DEVICE_METAL,
+  DEVICE_ONEAPI,
   DEVICE_DUMMY,
 };
 
@@ -62,6 +51,7 @@ enum DeviceTypeMask {
   DEVICE_MASK_OPTIX = (1 << DEVICE_OPTIX),
   DEVICE_MASK_HIP = (1 << DEVICE_HIP),
   DEVICE_MASK_METAL = (1 << DEVICE_METAL),
+  DEVICE_MASK_ONEAPI = (1 << DEVICE_ONEAPI),
   DEVICE_MASK_ALL = ~0
 };
 
@@ -79,6 +69,7 @@ class DeviceInfo {
   bool has_profiling;         /* Supports runtime collection of profiling info. */
   bool has_peer_memory;       /* GPU has P2P access to memory of another GPU. */
   bool has_gpu_queue;         /* Device supports GPU queue. */
+  bool use_metalrt;           /* Use MetalRT to accelerate ray queries (Metal only). */
   DenoiserTypeMask denoisers; /* Supported denoiser types. */
   int cpu_threads;
   vector<DeviceInfo> multi_devices;
@@ -96,6 +87,7 @@ class DeviceInfo {
     has_profiling = false;
     has_peer_memory = false;
     has_gpu_queue = false;
+    use_metalrt = false;
     denoisers = DENOISER_NONE;
   }
 
@@ -195,6 +187,11 @@ class Device {
     return 0;
   }
 
+  /* Called after kernel texture setup, and prior to integrator state setup. */
+  virtual void optimize_for_scene(Scene * /*scene*/)
+  {
+  }
+
   virtual bool is_resident(device_ptr /*key*/, Device *sub_device)
   {
     /* Memory is always resident if this is not a multi device, regardless of whether the pointer
@@ -284,6 +281,7 @@ class Device {
   static vector<DeviceInfo> cpu_devices;
   static vector<DeviceInfo> hip_devices;
   static vector<DeviceInfo> metal_devices;
+  static vector<DeviceInfo> oneapi_devices;
   static uint devices_initialized_mask;
 };
 

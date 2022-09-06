@@ -1,31 +1,14 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
+/* SPDX-License-Identifier: GPL-2.0-or-later
  * Adapted from the Blender Alembic importer implementation.
- *
- * Modifications Copyright (C) 2021 Tangent Animation and
- * NVIDIA Corporation.  All rights reserved.
- */
+ * Modifications Copyright 2021 Tangent Animation and. NVIDIA Corporation. All rights reserved. */
 #pragma once
+
+#include "BLI_span.hh"
 
 #include "usd.h"
 #include "usd_reader_geom.h"
 
 #include "pxr/usd/usdGeom/mesh.h"
-
-struct MPoly;
 
 namespace blender::io::usd {
 
@@ -70,7 +53,7 @@ class USDMeshReader : public USDGeomReader {
                          int read_flag,
                          const char **err_str) override;
 
-  bool topology_changed(Mesh *existing_mesh, double motionSampleTime) override;
+  bool topology_changed(const Mesh *existing_mesh, double motionSampleTime) override;
 
  private:
   void process_normals_vertex_varying(Mesh *mesh);
@@ -78,10 +61,9 @@ class USDMeshReader : public USDGeomReader {
   /** Set USD uniform (per-face) normals as Blender loop normals. */
   void process_normals_uniform(Mesh *mesh);
   void readFaceSetsSample(Main *bmain, Mesh *mesh, double motionSampleTime);
-  void assign_facesets_to_mpoly(double motionSampleTime,
-                                struct MPoly *mpoly,
-                                int totpoly,
-                                std::map<pxr::SdfPath, int> *r_mat_map);
+  void assign_facesets_to_material_indices(double motionSampleTime,
+                                           MutableSpan<int> material_indices,
+                                           std::map<pxr::SdfPath, int> *r_mat_map);
 
   void read_mpolys(Mesh *mesh);
   void read_uvs(Mesh *mesh, double motionSampleTime, bool load_uvs = false);

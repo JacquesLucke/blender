@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bmesh
@@ -862,7 +846,7 @@ void BM_data_layer_add(BMesh *bm, CustomData *data, int type)
   /* the pool is now owned by olddata and must not be shared */
   data->pool = NULL;
 
-  CustomData_add_layer(data, type, CD_DEFAULT, NULL, 0);
+  CustomData_add_layer(data, type, CD_SET_DEFAULT, NULL, 0);
 
   update_data_blocks(bm, &olddata, data);
   if (olddata.layers) {
@@ -880,7 +864,7 @@ void BM_data_layer_add_named(BMesh *bm, CustomData *data, int type, const char *
   /* the pool is now owned by olddata and must not be shared */
   data->pool = NULL;
 
-  CustomData_add_layer_named(data, type, CD_DEFAULT, NULL, 0, name);
+  CustomData_add_layer_named(data, type, CD_SET_DEFAULT, NULL, 0, name);
 
   update_data_blocks(bm, &olddata, data);
   if (olddata.layers) {
@@ -908,6 +892,27 @@ void BM_data_layer_free(BMesh *bm, CustomData *data, int type)
   if (olddata.layers) {
     MEM_freeN(olddata.layers);
   }
+}
+
+bool BM_data_layer_free_named(BMesh *bm, CustomData *data, const char *name)
+{
+  CustomData olddata = *data;
+  olddata.layers = (olddata.layers) ? MEM_dupallocN(olddata.layers) : NULL;
+
+  /* the pool is now owned by olddata and must not be shared */
+  data->pool = NULL;
+
+  const bool has_layer = CustomData_free_layer_named(data, name, 0);
+
+  if (has_layer) {
+    update_data_blocks(bm, &olddata, data);
+  }
+
+  if (olddata.layers) {
+    MEM_freeN(olddata.layers);
+  }
+
+  return has_layer;
 }
 
 void BM_data_layer_free_n(BMesh *bm, CustomData *data, int type, int n)

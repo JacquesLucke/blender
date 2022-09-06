@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2013 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2013 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup depsgraph
@@ -44,6 +28,8 @@
 #include "BKE_action.h"
 #include "BKE_armature.h"
 #include "BKE_constraint.h"
+
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -336,7 +322,11 @@ void DepsgraphRelationBuilder::build_rig(Object *object)
   RootPChanMap root_map;
   bool pose_depends_on_local_transform = false;
   LISTBASE_FOREACH (bPoseChannel *, pchan, &object->pose->chanbase) {
+    const BuilderStack::ScopedEntry stack_entry = stack_.trace(*pchan);
+
     LISTBASE_FOREACH (bConstraint *, con, &pchan->constraints) {
+      const BuilderStack::ScopedEntry stack_entry = stack_.trace(*con);
+
       switch (con->type) {
         case CONSTRAINT_TYPE_KINEMATIC:
           build_ik_pose(object, pchan, con, &root_map);
@@ -370,6 +360,8 @@ void DepsgraphRelationBuilder::build_rig(Object *object)
   }
   /* Links between operations for each bone. */
   LISTBASE_FOREACH (bPoseChannel *, pchan, &object->pose->chanbase) {
+    const BuilderStack::ScopedEntry stack_entry = stack_.trace(*pchan);
+
     build_idproperties(pchan->prop);
     OperationKey bone_local_key(
         &object->id, NodeType::BONE, pchan->name, OperationCode::BONE_LOCAL);

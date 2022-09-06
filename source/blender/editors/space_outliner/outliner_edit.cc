@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2004 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2004 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spoutliner
@@ -45,7 +29,9 @@
 #include "BKE_blender_copybuffer.h"
 #include "BKE_context.h"
 #include "BKE_idtype.h"
+#include "BKE_layer.h"
 #include "BKE_lib_id.h"
+#include "BKE_lib_override.h"
 #include "BKE_lib_query.h"
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
@@ -70,13 +56,17 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_path.h"
 
 #include "GPU_material.h"
 
 #include "outliner_intern.hh"
 #include "tree/tree_element_rna.hh"
+#include "tree/tree_iterator.hh"
 
 using namespace blender::ed::outliner;
+
+namespace blender::ed::outliner {
 
 static void outliner_show_active(SpaceOutliner *space_outliner,
                                  ARegion *region,
@@ -122,7 +112,7 @@ static int outliner_highlight_update(bContext *C, wmOperator *UNUSED(op), const 
   if (!hovered_te || !is_over_icon || !(hovered_te->store_elem->flag & TSE_HIGHLIGHTED) ||
       !(icon_te->store_elem->flag & TSE_HIGHLIGHTED_ICON)) {
     /* Clear highlights when nothing is hovered or when a new item is hovered. */
-    changed = outliner_flag_set(&space_outliner->tree, TSE_HIGHLIGHTED_ANY | TSE_DRAG_ANY, false);
+    changed = outliner_flag_set(*space_outliner, TSE_HIGHLIGHTED_ANY | TSE_DRAG_ANY, false);
     if (hovered_te) {
       hovered_te->store_elem->flag |= TSE_HIGHLIGHTED;
       changed = true;
@@ -157,14 +147,10 @@ void OUTLINER_OT_highlight_update(wmOperatorType *ot)
 /** \name Toggle Open/Closed Operator
  * \{ */
 
-void outliner_item_openclose(SpaceOutliner *space_outliner,
-                             TreeElement *te,
-                             bool open,
-                             bool toggle_all)
+void outliner_item_openclose(TreeElement *te, bool open, bool toggle_all)
 {
-  /* Prevent opening leaf elements in the tree unless in the Data API display mode because in that
-   * mode subtrees are empty unless expanded. */
-  if (space_outliner->outlinevis != SO_DATA_API && BLI_listbase_is_empty(&te->subtree)) {
+  /* Only allow opening elements with children. */
+  if (!(te->flag & TE_PRETEND_HAS_CHILDREN) && BLI_listbase_is_empty(&te->subtree)) {
     return;
   }
 
@@ -182,7 +168,7 @@ void outliner_item_openclose(SpaceOutliner *space_outliner,
   }
 
   if (toggle_all) {
-    outliner_flag_set(&te->subtree, TSE_CLOSED, !open);
+    outliner_flag_set(te->subtree, TSE_CLOSED, !open);
   }
 }
 
@@ -211,7 +197,7 @@ static int outliner_item_openclose_modal(bContext *C, wmOperator *op, const wmEv
 
       /* Only toggle openclose on the same level as the first clicked element */
       if (te->xs == data->x_location) {
-        outliner_item_openclose(space_outliner, te, data->open, false);
+        outliner_item_openclose(te, data->open, false);
 
         outliner_tag_redraw_avoid_rebuild_on_open_change(space_outliner, region);
       }
@@ -241,8 +227,11 @@ static int outliner_item_openclose_invoke(bContext *C, wmOperator *op, const wmE
   const bool toggle_all = RNA_boolean_get(op->ptr, "all");
 
   float view_mval[2];
-  UI_view2d_region_to_view(
-      &region->v2d, event->mval[0], event->mval[1], &view_mval[0], &view_mval[1]);
+
+  int mval[2];
+  WM_event_drag_start_mval(event, region, mval);
+
+  UI_view2d_region_to_view(&region->v2d, mval[0], mval[1], &view_mval[0], &view_mval[1]);
 
   TreeElement *te = outliner_find_item_at_y(space_outliner, &space_outliner->tree, view_mval[1]);
 
@@ -252,11 +241,11 @@ static int outliner_item_openclose_invoke(bContext *C, wmOperator *op, const wmE
     const bool open = (tselem->flag & TSE_CLOSED) ||
                       (toggle_all && (outliner_flag_is_any_test(&te->subtree, TSE_CLOSED, 1)));
 
-    outliner_item_openclose(space_outliner, te, open, toggle_all);
+    outliner_item_openclose(te, open, toggle_all);
     outliner_tag_redraw_avoid_rebuild_on_open_change(space_outliner, region);
 
     /* Only toggle once for single click toggling */
-    if (event->type == LEFTMOUSE) {
+    if ((event->type == LEFTMOUSE) && (event->val != KM_CLICK_DRAG)) {
       return OPERATOR_FINISHED;
     }
 
@@ -346,8 +335,16 @@ static void do_item_rename(ARegion *region,
       add_textbut = true;
     }
   }
-  else if (te->idcode == ID_LI && ((Library *)tselem->id)->parent) {
-    BKE_report(reports, RPT_WARNING, "Cannot edit the path of an indirectly linked library");
+  else if (te->idcode == ID_LI) {
+    if (reinterpret_cast<Library *>(tselem->id)->parent) {
+      BKE_report(reports, RPT_WARNING, "Cannot edit the path of an indirectly linked library");
+    }
+    else {
+      BKE_report(
+          reports,
+          RPT_WARNING,
+          "Library path is not editable from here anymore, please use Relocate operation instead");
+    }
   }
   else {
     add_textbut = true;
@@ -450,7 +447,7 @@ void OUTLINER_OT_item_rename(wmOperatorType *ot)
 /** \name ID Delete Operator
  * \{ */
 
-static void id_delete(bContext *C, ReportList *reports, TreeElement *te, TreeStoreElem *tselem)
+static void id_delete_tag(bContext *C, ReportList *reports, TreeElement *te, TreeStoreElem *tselem)
 {
   Main *bmain = CTX_data_main(C);
   ID *id = tselem->id;
@@ -459,6 +456,17 @@ static void id_delete(bContext *C, ReportList *reports, TreeElement *te, TreeSto
   BLI_assert(((tselem->type == TSE_SOME_ID) && (te->idcode != 0)) ||
              (tselem->type == TSE_LAYER_COLLECTION));
   UNUSED_VARS_NDEBUG(te);
+
+  if (ID_IS_OVERRIDE_LIBRARY(id)) {
+    if (!ID_IS_OVERRIDE_LIBRARY_REAL(id) ||
+        (id->override_library->flag & IDOVERRIDE_LIBRARY_FLAG_NO_HIERARCHY) == 0) {
+      BKE_reportf(reports,
+                  RPT_WARNING,
+                  "Cannot delete library override id '%s', it is part of an override hierarchy",
+                  id->name);
+      return;
+    }
+  }
 
   if (te->idcode == ID_LI && ((Library *)id)->parent != nullptr) {
     BKE_reportf(reports, RPT_WARNING, "Cannot delete indirectly linked library '%s'", id->name);
@@ -476,35 +484,39 @@ static void id_delete(bContext *C, ReportList *reports, TreeElement *te, TreeSto
     return;
   }
   if (te->idcode == ID_WS) {
-    BKE_workspace_id_tag_all_visible(bmain, LIB_TAG_DOIT);
-    if (id->tag & LIB_TAG_DOIT) {
+    BKE_workspace_id_tag_all_visible(bmain, LIB_TAG_PRE_EXISTING);
+    if (id->tag & LIB_TAG_PRE_EXISTING) {
       BKE_reportf(
           reports, RPT_WARNING, "Cannot delete currently visible workspace id '%s'", id->name);
+      BKE_main_id_tag_idcode(bmain, ID_WS, LIB_TAG_PRE_EXISTING, false);
       return;
     }
+    BKE_main_id_tag_idcode(bmain, ID_WS, LIB_TAG_PRE_EXISTING, false);
   }
 
-  BKE_id_delete(bmain, id);
+  id->tag |= LIB_TAG_DOIT;
 
   WM_event_add_notifier(C, NC_WINDOW, nullptr);
 }
 
-void id_delete_fn(bContext *C,
-                  ReportList *reports,
-                  Scene *UNUSED(scene),
-                  TreeElement *te,
-                  TreeStoreElem *UNUSED(tsep),
-                  TreeStoreElem *tselem,
-                  void *UNUSED(user_data))
+void id_delete_tag_fn(bContext *C,
+                      ReportList *reports,
+                      Scene *UNUSED(scene),
+                      TreeElement *te,
+                      TreeStoreElem *UNUSED(tsep),
+                      TreeStoreElem *tselem,
+                      void *UNUSED(user_data))
 {
-  id_delete(C, reports, te, tselem);
+  id_delete_tag(C, reports, te, tselem);
 }
 
-static int outliner_id_delete_invoke_do(bContext *C,
-                                        ReportList *reports,
-                                        TreeElement *te,
-                                        const float mval[2])
+static int outliner_id_delete_tag(bContext *C,
+                                  ReportList *reports,
+                                  TreeElement *te,
+                                  const float mval[2])
 {
+  int id_tagged_num = 0;
+
   if (mval[1] > te->ys && mval[1] < te->ys + UI_UNIT_Y) {
     TreeStoreElem *tselem = TREESTORE(te);
 
@@ -514,26 +526,27 @@ static int outliner_id_delete_invoke_do(bContext *C,
                     RPT_ERROR_INVALID_INPUT,
                     "Cannot delete indirectly linked library '%s'",
                     ((Library *)tselem->id)->filepath_abs);
-        return OPERATOR_CANCELLED;
       }
-      id_delete(C, reports, te, tselem);
-      return OPERATOR_FINISHED;
+      else {
+        id_delete_tag(C, reports, te, tselem);
+        id_tagged_num++;
+      }
     }
   }
   else {
     LISTBASE_FOREACH (TreeElement *, te_sub, &te->subtree) {
-      int ret;
-      if ((ret = outliner_id_delete_invoke_do(C, reports, te_sub, mval))) {
-        return ret;
+      if ((id_tagged_num += outliner_id_delete_tag(C, reports, te_sub, mval)) != 0) {
+        break;
       }
     }
   }
 
-  return 0;
+  return id_tagged_num;
 }
 
 static int outliner_id_delete_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+  Main *bmain = CTX_data_main(C);
   ARegion *region = CTX_wm_region(C);
   SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
   float fmval[2];
@@ -542,15 +555,21 @@ static int outliner_id_delete_invoke(bContext *C, wmOperator *op, const wmEvent 
 
   UI_view2d_region_to_view(&region->v2d, event->mval[0], event->mval[1], &fmval[0], &fmval[1]);
 
+  int id_tagged_num = 0;
+  BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
   LISTBASE_FOREACH (TreeElement *, te, &space_outliner->tree) {
-    int ret;
-
-    if ((ret = outliner_id_delete_invoke_do(C, op->reports, te, fmval))) {
-      return ret;
+    if ((id_tagged_num += outliner_id_delete_tag(C, op->reports, te, fmval)) != 0) {
+      break;
     }
   }
+  if (id_tagged_num == 0) {
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+    return OPERATOR_CANCELLED;
+  }
 
-  return OPERATOR_CANCELLED;
+  BKE_id_multi_tagged_delete(bmain);
+  BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+  return OPERATOR_FINISHED;
 }
 
 void OUTLINER_OT_id_delete(wmOperatorType *ot)
@@ -578,9 +597,9 @@ static int outliner_id_remap_exec(bContext *C, wmOperator *op)
   SpaceOutliner *space_outliner = CTX_wm_space_outliner(C);
 
   const short id_type = (short)RNA_enum_get(op->ptr, "id_type");
-  ID *old_id = reinterpret_cast<ID *>(
+  ID *old_id = static_cast<ID *>(
       BLI_findlink(which_libbase(CTX_data_main(C), id_type), RNA_enum_get(op->ptr, "old_id")));
-  ID *new_id = reinterpret_cast<ID *>(
+  ID *new_id = static_cast<ID *>(
       BLI_findlink(which_libbase(CTX_data_main(C), id_type), RNA_enum_get(op->ptr, "new_id")));
 
   /* check for invalid states */
@@ -674,9 +693,9 @@ static const EnumPropertyItem *outliner_id_itemf(bContext *C,
   int i = 0;
 
   short id_type = (short)RNA_enum_get(ptr, "id_type");
-  ID *id = reinterpret_cast<ID *>(which_libbase(CTX_data_main(C), id_type)->first);
+  ID *id = static_cast<ID *>(which_libbase(CTX_data_main(C), id_type)->first);
 
-  for (; id; id = reinterpret_cast<ID *>(id->next)) {
+  for (; id; id = static_cast<ID *>(id->next)) {
     item_tmp.identifier = item_tmp.name = id->name + 2;
     item_tmp.value = i++;
     RNA_enum_item_add(&item, &totitem, &item_tmp);
@@ -742,7 +761,7 @@ void id_remap_fn(bContext *C,
   RNA_enum_set(&op_props, "id_type", GS(tselem->id->name));
   RNA_enum_set_identifier(C, &op_props, "old_id", tselem->id->name + 2);
 
-  WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_props);
+  WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_props, nullptr);
 
   WM_operator_properties_free(&op_props);
 }
@@ -888,10 +907,10 @@ static int lib_relocate(
     RNA_string_set(&op_props, "directory", dir);
     RNA_string_set(&op_props, "filename", filename);
 
-    ret = WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, &op_props);
+    ret = WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, &op_props, nullptr);
   }
   else {
-    ret = WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_props);
+    ret = WM_operator_name_call_ptr(C, ot, WM_OP_INVOKE_DEFAULT, &op_props, nullptr);
   }
 
   WM_operator_properties_free(&op_props);
@@ -1070,11 +1089,16 @@ int outliner_flag_is_any_test(ListBase *lb, short flag, const int curlevel)
   return 0;
 }
 
-bool outliner_flag_set(ListBase *lb, short flag, short set)
+bool outliner_flag_set(const SpaceOutliner &space_outliner, const short flag, const short set)
+{
+  return outliner_flag_set(space_outliner.tree, flag, set);
+}
+
+bool outliner_flag_set(const ListBase &lb, const short flag, const short set)
 {
   bool changed = false;
 
-  LISTBASE_FOREACH (TreeElement *, te, lb) {
+  tree_iterator::all(lb, [&](TreeElement *te) {
     TreeStoreElem *tselem = TREESTORE(te);
     bool has_flag = (tselem->flag & flag);
     if (set == 0) {
@@ -1087,21 +1111,24 @@ bool outliner_flag_set(ListBase *lb, short flag, short set)
       tselem->flag |= flag;
       changed = true;
     }
-    changed |= outliner_flag_set(&te->subtree, flag, set);
-  }
+  });
 
   return changed;
 }
 
-bool outliner_flag_flip(ListBase *lb, short flag)
+bool outliner_flag_flip(const SpaceOutliner &space_outliner, const short flag)
+{
+  return outliner_flag_flip(space_outliner.tree, flag);
+}
+
+bool outliner_flag_flip(const ListBase &lb, const short flag)
 {
   bool changed = false;
 
-  LISTBASE_FOREACH (TreeElement *, te, lb) {
+  tree_iterator::all(lb, [&](TreeElement *te) {
     TreeStoreElem *tselem = TREESTORE(te);
     tselem->flag ^= flag;
-    changed |= outliner_flag_flip(&te->subtree, flag);
-  }
+  });
 
   return changed;
 }
@@ -1118,10 +1145,10 @@ static int outliner_toggle_expanded_exec(bContext *C, wmOperator *UNUSED(op))
   ARegion *region = CTX_wm_region(C);
 
   if (outliner_flag_is_any_test(&space_outliner->tree, TSE_CLOSED, 1)) {
-    outliner_flag_set(&space_outliner->tree, TSE_CLOSED, 0);
+    outliner_flag_set(*space_outliner, TSE_CLOSED, 0);
   }
   else {
-    outliner_flag_set(&space_outliner->tree, TSE_CLOSED, 1);
+    outliner_flag_set(*space_outliner, TSE_CLOSED, 1);
   }
 
   ED_region_tag_redraw(region);
@@ -1162,13 +1189,13 @@ static int outliner_select_all_exec(bContext *C, wmOperator *op)
 
   switch (action) {
     case SEL_SELECT:
-      outliner_flag_set(&space_outliner->tree, TSE_SELECTED, 1);
+      outliner_flag_set(*space_outliner, TSE_SELECTED, 1);
       break;
     case SEL_DESELECT:
-      outliner_flag_set(&space_outliner->tree, TSE_SELECTED, 0);
+      outliner_flag_set(*space_outliner, TSE_SELECTED, 0);
       break;
     case SEL_INVERT:
-      outliner_flag_flip(&space_outliner->tree, TSE_SELECTED);
+      outliner_flag_flip(*space_outliner, TSE_SELECTED);
       break;
   }
 
@@ -1204,32 +1231,16 @@ void OUTLINER_OT_select_all(wmOperatorType *ot)
 /** \name View Show Active (Outliner) Operator
  * \{ */
 
-static void outliner_set_coordinates_element_recursive(SpaceOutliner *space_outliner,
-                                                       TreeElement *te,
-                                                       int startx,
-                                                       int *starty)
-{
-  TreeStoreElem *tselem = TREESTORE(te);
-
-  /* store coord and continue, we need coordinates for elements outside view too */
-  te->xs = (float)startx;
-  te->ys = (float)(*starty);
-  *starty -= UI_UNIT_Y;
-
-  if (TSELEM_OPEN(tselem, space_outliner)) {
-    LISTBASE_FOREACH (TreeElement *, ten, &te->subtree) {
-      outliner_set_coordinates_element_recursive(space_outliner, ten, startx + UI_UNIT_X, starty);
-    }
-  }
-}
-
-void outliner_set_coordinates(ARegion *region, SpaceOutliner *space_outliner)
+void outliner_set_coordinates(const ARegion *region, const SpaceOutliner *space_outliner)
 {
   int starty = (int)(region->v2d.tot.ymax) - UI_UNIT_Y;
 
-  LISTBASE_FOREACH (TreeElement *, te, &space_outliner->tree) {
-    outliner_set_coordinates_element_recursive(space_outliner, te, 0, &starty);
-  }
+  tree_iterator::all_open(*space_outliner, [&](TreeElement *te) {
+    /* store coord and continue, we need coordinates for elements outside view too */
+    te->xs = 0;
+    te->ys = (float)starty;
+    starty -= UI_UNIT_Y;
+  });
 }
 
 /* return 1 when levels were opened */
@@ -1255,7 +1266,7 @@ static TreeElement *outliner_show_active_get_element(bContext *C,
 {
   TreeElement *te;
 
-  Object *obact = OBACT(view_layer);
+  Object *obact = BKE_view_layer_active_object_get(view_layer);
 
   if (!obact) {
     return nullptr;
@@ -1398,129 +1409,6 @@ void OUTLINER_OT_scroll_page(wmOperatorType *ot)
 
 /** \} */
 
-#if 0 /* TODO: probably obsolete now with filtering? */
-
-/* -------------------------------------------------------------------- */
-/** \name Search
- * \{ */
-
-
-/* find next element that has this name */
-static TreeElement *outliner_find_name(
-    SpaceOutliner *space_outliner, ListBase *lb, char *name, int flags, TreeElement *prev, int *prevFound)
-{
-  TreeElement *te, *tes;
-
-  for (te = lb->first; te; te = te->next) {
-    int found = outliner_filter_has_name(te, name, flags);
-
-    if (found) {
-      /* name is right, but is element the previous one? */
-      if (prev) {
-        if ((te != prev) && (*prevFound)) {
-          return te;
-        }
-        if (te == prev) {
-          *prevFound = 1;
-        }
-      }
-      else {
-        return te;
-      }
-    }
-
-    tes = outliner_find_name(space_outliner, &te->subtree, name, flags, prev, prevFound);
-    if (tes) {
-      return tes;
-    }
-  }
-
-  /* nothing valid found */
-  return nullptr;
-}
-
-static void outliner_find_panel(
-    Scene *UNUSED(scene), ARegion *region, SpaceOutliner *space_outliner, int again, int flags)
-{
-  ReportList *reports = nullptr;  /* CTX_wm_reports(C); */
-  TreeElement *te = nullptr;
-  TreeElement *last_find;
-  TreeStoreElem *tselem;
-  int ytop, xdelta, prevFound = 0;
-  char name[sizeof(space_outliner->search_string)];
-
-  /* get last found tree-element based on stored search_tse */
-  last_find = outliner_find_tse(space_outliner, &space_outliner->search_tse);
-
-  /* determine which type of search to do */
-  if (again && last_find) {
-    /* no popup panel - previous + user wanted to search for next after previous */
-    BLI_strncpy(name, space_outliner->search_string, sizeof(name));
-    flags = space_outliner->search_flags;
-
-    /* try to find matching element */
-    te = outliner_find_name(space_outliner, &space_outliner->tree, name, flags, last_find, &prevFound);
-    if (te == nullptr) {
-      /* no more matches after previous, start from beginning again */
-      prevFound = 1;
-      te = outliner_find_name(space_outliner, &space_outliner->tree, name, flags, last_find, &prevFound);
-    }
-  }
-  else {
-    /* pop up panel - no previous, or user didn't want search after previous */
-    name[0] = '\0';
-    // XXX      if (sbutton(name, 0, sizeof(name) - 1, "Find: ") && name[0]) {
-    //          te = outliner_find_name(space_outliner, &space_outliner->tree, name, flags, nullptr, &prevFound);
-    //      }
-    //      else return; XXX RETURN! XXX
-  }
-
-  /* do selection and reveal */
-  if (te) {
-    tselem = TREESTORE(te);
-    if (tselem) {
-      /* expand branches so that it will be visible, we need to get correct coordinates */
-      if (outliner_open_back(space_outliner, te)) {
-        outliner_set_coordinates(region, space_outliner);
-      }
-
-      /* deselect all visible, and select found element */
-      outliner_flag_set(space_outliner, &space_outliner->tree, TSE_SELECTED, 0);
-      tselem->flag |= TSE_SELECTED;
-
-      /* Make `te->ys` center of view. */
-      ytop = (int)(te->ys + BLI_rctf_size_y(&region->v2d.mask) / 2);
-      if (ytop > 0) {
-        ytop = 0;
-      }
-      region->v2d.cur.ymax = (float)ytop;
-      region->v2d.cur.ymin = (float)(ytop - BLI_rctf_size_y(&region->v2d.mask));
-
-      /* Make `te->xs` ==> `te->xend` center of view. */
-      xdelta = (int)(te->xs - region->v2d.cur.xmin);
-      region->v2d.cur.xmin += xdelta;
-      region->v2d.cur.xmax += xdelta;
-
-      /* store selection */
-      space_outliner->search_tse = *tselem;
-
-      BLI_strncpy(space_outliner->search_string, name, sizeof(space_outliner->search_string));
-      space_outliner->search_flags = flags;
-
-      /* redraw */
-      ED_region_tag_redraw_no_rebuild(region);
-    }
-  }
-  else {
-    /* no tree-element found */
-    BKE_reportf(reports, RPT_WARNING, "Not found: %s", name);
-  }
-}
-
-/** \} */
-
-#endif /* if 0 */
-
 /* -------------------------------------------------------------------- */
 /** \name Show One Level Operator
  * \{ */
@@ -1617,11 +1505,11 @@ static int subtree_has_objects(ListBase *lb)
   return 0;
 }
 
-/* recursive helper function for Show Hierarchy operator */
-static void tree_element_show_hierarchy(Scene *scene, SpaceOutliner *space_outliner, ListBase *lb)
+/* Helper function for Show Hierarchy operator */
+static void tree_element_show_hierarchy(Scene *scene, SpaceOutliner *space_outliner)
 {
   /* open all object elems, close others */
-  LISTBASE_FOREACH (TreeElement *, te, lb) {
+  tree_iterator::all_open(*space_outliner, [&](TreeElement *te) {
     TreeStoreElem *tselem = TREESTORE(te);
 
     if (ELEM(tselem->type,
@@ -1649,11 +1537,7 @@ static void tree_element_show_hierarchy(Scene *scene, SpaceOutliner *space_outli
     else {
       tselem->flag |= TSE_CLOSED;
     }
-
-    if (TSELEM_OPEN(tselem, space_outliner)) {
-      tree_element_show_hierarchy(scene, space_outliner, &te->subtree);
-    }
-  }
+  });
 }
 
 /* show entire object level hierarchy */
@@ -1664,7 +1548,7 @@ static int outliner_show_hierarchy_exec(bContext *C, wmOperator *UNUSED(op))
   Scene *scene = CTX_data_scene(C);
 
   /* recursively open/close levels */
-  tree_element_show_hierarchy(scene, space_outliner, &space_outliner->tree);
+  tree_element_show_hierarchy(scene, space_outliner);
 
   ED_region_tag_redraw(region);
 
@@ -1810,7 +1694,7 @@ static void tree_element_to_path(TreeElement *te,
         /* ptr->data not ptr->owner_id seems to be the one we want,
          * since ptr->data is sometimes the owner of this ID? */
         if (RNA_struct_is_ID(ptr.type)) {
-          *id = reinterpret_cast<ID *>(ptr.data);
+          *id = static_cast<ID *>(ptr.data);
 
           /* clear path */
           if (*path) {
@@ -1866,79 +1750,75 @@ enum {
   DRIVERS_EDITMODE_REMOVE,
 } /*eDrivers_EditModes*/;
 
-/* Recursively iterate over tree, finding and working on selected items */
+/* Iterate over tree, finding and working on selected items */
 static void do_outliner_drivers_editop(SpaceOutliner *space_outliner,
-                                       ListBase *tree,
                                        ReportList *reports,
                                        short mode)
 {
-  LISTBASE_FOREACH (TreeElement *, te, tree) {
+  tree_iterator::all_open(*space_outliner, [&](TreeElement *te) {
     TreeStoreElem *tselem = TREESTORE(te);
 
     /* if item is selected, perform operation */
-    if (tselem->flag & TSE_SELECTED) {
-      ID *id = nullptr;
-      char *path = nullptr;
-      int array_index = 0;
-      short flag = 0;
-      short groupmode = KSP_GROUP_KSNAME;
+    if (!(tselem->flag & TSE_SELECTED)) {
+      return;
+    }
 
-      TreeElementRNACommon *te_rna = tree_element_cast<TreeElementRNACommon>(te);
-      PointerRNA ptr = te_rna ? te_rna->getPointerRNA() : PointerRNA_NULL;
-      PropertyRNA *prop = te_rna ? te_rna->getPropertyRNA() : nullptr;
+    ID *id = nullptr;
+    char *path = nullptr;
+    int array_index = 0;
+    short flag = 0;
+    short groupmode = KSP_GROUP_KSNAME;
 
-      /* check if RNA-property described by this selected element is an animatable prop */
-      if (prop && RNA_property_animateable(&ptr, prop)) {
-        /* get id + path + index info from the selected element */
-        tree_element_to_path(te, tselem, &id, &path, &array_index, &flag, &groupmode);
+    TreeElementRNACommon *te_rna = tree_element_cast<TreeElementRNACommon>(te);
+    PointerRNA ptr = te_rna ? te_rna->getPointerRNA() : PointerRNA_NULL;
+    PropertyRNA *prop = te_rna ? te_rna->getPropertyRNA() : nullptr;
+
+    /* check if RNA-property described by this selected element is an animatable prop */
+    if (prop && RNA_property_animateable(&ptr, prop)) {
+      /* get id + path + index info from the selected element */
+      tree_element_to_path(te, tselem, &id, &path, &array_index, &flag, &groupmode);
+    }
+
+    /* only if ID and path were set, should we perform any actions */
+    if (id && path) {
+      short dflags = CREATEDRIVER_WITH_DEFAULT_DVAR;
+      int arraylen = 1;
+
+      /* array checks */
+      if (flag & KSP_FLAG_WHOLE_ARRAY) {
+        /* entire array was selected, so add drivers for all */
+        arraylen = RNA_property_array_length(&ptr, prop);
+      }
+      else {
+        arraylen = array_index;
       }
 
-      /* only if ID and path were set, should we perform any actions */
-      if (id && path) {
-        short dflags = CREATEDRIVER_WITH_DEFAULT_DVAR;
-        int arraylen = 1;
+      /* we should do at least one step */
+      if (arraylen == array_index) {
+        arraylen++;
+      }
 
-        /* array checks */
-        if (flag & KSP_FLAG_WHOLE_ARRAY) {
-          /* entire array was selected, so add drivers for all */
-          arraylen = RNA_property_array_length(&ptr, prop);
-        }
-        else {
-          arraylen = array_index;
-        }
-
-        /* we should do at least one step */
-        if (arraylen == array_index) {
-          arraylen++;
-        }
-
-        /* for each array element we should affect, add driver */
-        for (; array_index < arraylen; array_index++) {
-          /* action depends on mode */
-          switch (mode) {
-            case DRIVERS_EDITMODE_ADD: {
-              /* add a new driver with the information obtained (only if valid) */
-              ANIM_add_driver(reports, id, path, array_index, dflags, DRIVER_TYPE_PYTHON);
-              break;
-            }
-            case DRIVERS_EDITMODE_REMOVE: {
-              /* remove driver matching the information obtained (only if valid) */
-              ANIM_remove_driver(reports, id, path, array_index, dflags);
-              break;
-            }
+      /* for each array element we should affect, add driver */
+      for (; array_index < arraylen; array_index++) {
+        /* action depends on mode */
+        switch (mode) {
+          case DRIVERS_EDITMODE_ADD: {
+            /* add a new driver with the information obtained (only if valid) */
+            ANIM_add_driver(reports, id, path, array_index, dflags, DRIVER_TYPE_PYTHON);
+            break;
+          }
+          case DRIVERS_EDITMODE_REMOVE: {
+            /* remove driver matching the information obtained (only if valid) */
+            ANIM_remove_driver(reports, id, path, array_index, dflags);
+            break;
           }
         }
-
-        /* free path, since it had to be generated */
-        MEM_freeN(path);
       }
-    }
 
-    /* go over sub-tree */
-    if (TSELEM_OPEN(tselem, space_outliner)) {
-      do_outliner_drivers_editop(space_outliner, &te->subtree, reports, mode);
+      /* free path, since it had to be generated */
+      MEM_freeN(path);
     }
-  }
+  });
 }
 
 /** \} */
@@ -1957,8 +1837,7 @@ static int outliner_drivers_addsel_exec(bContext *C, wmOperator *op)
   }
 
   /* recursively go into tree, adding selected items */
-  do_outliner_drivers_editop(
-      space_outliner, &space_outliner->tree, op->reports, DRIVERS_EDITMODE_ADD);
+  do_outliner_drivers_editop(space_outliner, op->reports, DRIVERS_EDITMODE_ADD);
 
   /* send notifiers */
   WM_event_add_notifier(C, NC_ANIMATION | ND_FCURVES_ORDER, nullptr); /* XXX */
@@ -1997,8 +1876,7 @@ static int outliner_drivers_deletesel_exec(bContext *C, wmOperator *op)
   }
 
   /* recursively go into tree, adding selected items */
-  do_outliner_drivers_editop(
-      space_outliner, &space_outliner->tree, op->reports, DRIVERS_EDITMODE_REMOVE);
+  do_outliner_drivers_editop(space_outliner, op->reports, DRIVERS_EDITMODE_REMOVE);
 
   /* send notifiers */
   WM_event_add_notifier(C, ND_KEYS, nullptr); /* XXX */
@@ -2051,8 +1929,7 @@ static KeyingSet *verify_active_keyingset(Scene *scene, short add)
 
   /* try to find one from scene */
   if (scene->active_keyingset > 0) {
-    ks = reinterpret_cast<KeyingSet *>(
-        BLI_findlink(&scene->keyingsets, scene->active_keyingset - 1));
+    ks = static_cast<KeyingSet *>(BLI_findlink(&scene->keyingsets, scene->active_keyingset - 1));
   }
 
   /* Add if none found */
@@ -2065,68 +1942,64 @@ static KeyingSet *verify_active_keyingset(Scene *scene, short add)
   return ks;
 }
 
-/* Recursively iterate over tree, finding and working on selected items */
+/* Iterate over tree, finding and working on selected items */
 static void do_outliner_keyingset_editop(SpaceOutliner *space_outliner,
                                          KeyingSet *ks,
-                                         ListBase *tree,
-                                         short mode)
+                                         const short mode)
 {
-  LISTBASE_FOREACH (TreeElement *, te, tree) {
+  tree_iterator::all_open(*space_outliner, [&](TreeElement *te) {
     TreeStoreElem *tselem = TREESTORE(te);
 
     /* if item is selected, perform operation */
-    if (tselem->flag & TSE_SELECTED) {
-      ID *id = nullptr;
-      char *path = nullptr;
-      int array_index = 0;
-      short flag = 0;
-      short groupmode = KSP_GROUP_KSNAME;
+    if (!(tselem->flag & TSE_SELECTED)) {
+      return;
+    }
 
-      /* check if RNA-property described by this selected element is an animatable prop */
-      const TreeElementRNACommon *te_rna = tree_element_cast<TreeElementRNACommon>(te);
-      PointerRNA ptr = te_rna->getPointerRNA();
-      if (te_rna && te_rna->getPropertyRNA() &&
-          RNA_property_animateable(&ptr, te_rna->getPropertyRNA())) {
-        /* get id + path + index info from the selected element */
-        tree_element_to_path(te, tselem, &id, &path, &array_index, &flag, &groupmode);
-      }
+    ID *id = nullptr;
+    char *path = nullptr;
+    int array_index = 0;
+    short flag = 0;
+    short groupmode = KSP_GROUP_KSNAME;
 
-      /* only if ID and path were set, should we perform any actions */
-      if (id && path) {
-        /* action depends on mode */
-        switch (mode) {
-          case KEYINGSET_EDITMODE_ADD: {
-            /* add a new path with the information obtained (only if valid) */
-            /* TODO: what do we do with group name?
-             * for now, we don't supply one, and just let this use the KeyingSet name */
-            BKE_keyingset_add_path(ks, id, nullptr, path, array_index, flag, groupmode);
-            ks->active_path = BLI_listbase_count(&ks->paths);
-            break;
-          }
-          case KEYINGSET_EDITMODE_REMOVE: {
-            /* find the relevant path, then remove it from the KeyingSet */
-            KS_Path *ksp = BKE_keyingset_find_path(ks, id, nullptr, path, array_index, groupmode);
+    /* check if RNA-property described by this selected element is an animatable prop */
+    const TreeElementRNACommon *te_rna = tree_element_cast<TreeElementRNACommon>(te);
+    PointerRNA ptr = te_rna->getPointerRNA();
+    if (te_rna && te_rna->getPropertyRNA() &&
+        RNA_property_animateable(&ptr, te_rna->getPropertyRNA())) {
+      /* get id + path + index info from the selected element */
+      tree_element_to_path(te, tselem, &id, &path, &array_index, &flag, &groupmode);
+    }
 
-            if (ksp) {
-              /* free path's data */
-              BKE_keyingset_free_path(ks, ksp);
-
-              ks->active_path = 0;
-            }
-            break;
-          }
+    /* only if ID and path were set, should we perform any actions */
+    if (id && path) {
+      /* action depends on mode */
+      switch (mode) {
+        case KEYINGSET_EDITMODE_ADD: {
+          /* add a new path with the information obtained (only if valid) */
+          /* TODO: what do we do with group name?
+           * for now, we don't supply one, and just let this use the KeyingSet name */
+          BKE_keyingset_add_path(ks, id, nullptr, path, array_index, flag, groupmode);
+          ks->active_path = BLI_listbase_count(&ks->paths);
+          break;
         }
+        case KEYINGSET_EDITMODE_REMOVE: {
+          /* find the relevant path, then remove it from the KeyingSet */
+          KS_Path *ksp = BKE_keyingset_find_path(ks, id, nullptr, path, array_index, groupmode);
 
-        /* free path, since it had to be generated */
-        MEM_freeN(path);
+          if (ksp) {
+            /* free path's data */
+            BKE_keyingset_free_path(ks, ksp);
+
+            ks->active_path = 0;
+          }
+          break;
+        }
       }
-    }
 
-    /* go over sub-tree */
-    if (TSELEM_OPEN(tselem, space_outliner)) {
-      do_outliner_keyingset_editop(space_outliner, ks, &te->subtree, mode);
+      /* free path, since it had to be generated */
+      MEM_freeN(path);
     }
-  }
+  });
 }
 
 /** \} */
@@ -2151,7 +2024,7 @@ static int outliner_keyingset_additems_exec(bContext *C, wmOperator *op)
   }
 
   /* recursively go into tree, adding selected items */
-  do_outliner_keyingset_editop(space_outliner, ks, &space_outliner->tree, KEYINGSET_EDITMODE_ADD);
+  do_outliner_keyingset_editop(space_outliner, ks, KEYINGSET_EDITMODE_ADD);
 
   /* send notifiers */
   WM_event_add_notifier(C, NC_SCENE | ND_KEYINGSET, nullptr);
@@ -2192,8 +2065,7 @@ static int outliner_keyingset_removeitems_exec(bContext *C, wmOperator *UNUSED(o
   }
 
   /* recursively go into tree, adding selected items */
-  do_outliner_keyingset_editop(
-      space_outliner, ks, &space_outliner->tree, KEYINGSET_EDITMODE_REMOVE);
+  do_outliner_keyingset_editop(space_outliner, ks, KEYINGSET_EDITMODE_REMOVE);
 
   /* send notifiers */
   WM_event_add_notifier(C, NC_SCENE | ND_KEYINGSET, nullptr);
@@ -2361,3 +2233,5 @@ void OUTLINER_OT_orphans_purge(wmOperatorType *ot)
 }
 
 /** \} */
+
+}  // namespace blender::ed::outliner

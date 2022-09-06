@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -46,17 +30,15 @@
 
 #include "BKE_anim_path.h"
 #include "BKE_curve.h"
+#include "BKE_curve_legacy_convert.hh"
 #include "BKE_displist.h"
 #include "BKE_geometry_set.hh"
 #include "BKE_key.h"
-#include "BKE_lattice.h"
 #include "BKE_lib_id.h"
 #include "BKE_mball.h"
-#include "BKE_mball_tessellate.h"
 #include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
-#include "BKE_spline.hh"
 #include "BKE_vfont.h"
 
 #include "BLI_sys_types.h" /* For #intptr_t support. */
@@ -102,133 +84,6 @@ DispList *BKE_displist_find(ListBase *lb, int type)
   return nullptr;
 }
 
-void BKE_displist_copy(ListBase *lbn, const ListBase *lb)
-{
-  BKE_displist_free(lbn);
-
-  LISTBASE_FOREACH (const DispList *, dl, lb) {
-    DispList *dln = (DispList *)MEM_dupallocN(dl);
-    BLI_addtail(lbn, dln);
-    dln->verts = (float *)MEM_dupallocN(dl->verts);
-    dln->nors = (float *)MEM_dupallocN(dl->nors);
-    dln->index = (int *)MEM_dupallocN(dl->index);
-  }
-}
-
-void BKE_displist_normals_add(ListBase *lb)
-{
-  float *vdata, *ndata, nor[3];
-  float *v1, *v2, *v3, *v4;
-  float *n1, *n2, *n3, *n4;
-  int a, b, p1, p2, p3, p4;
-
-  LISTBASE_FOREACH (DispList *, dl, lb) {
-    if (dl->type == DL_INDEX3) {
-      if (dl->nors == nullptr) {
-        dl->nors = (float *)MEM_callocN(sizeof(float[3]), __func__);
-
-        if (dl->flag & DL_BACK_CURVE) {
-          dl->nors[2] = -1.0f;
-        }
-        else {
-          dl->nors[2] = 1.0f;
-        }
-      }
-    }
-    else if (dl->type == DL_SURF) {
-      if (dl->nors == nullptr) {
-        dl->nors = (float *)MEM_callocN(sizeof(float[3]) * dl->nr * dl->parts, __func__);
-
-        vdata = dl->verts;
-        ndata = dl->nors;
-
-        for (a = 0; a < dl->parts; a++) {
-
-          if (BKE_displist_surfindex_get(dl, a, &b, &p1, &p2, &p3, &p4) == 0) {
-            break;
-          }
-
-          v1 = vdata + 3 * p1;
-          n1 = ndata + 3 * p1;
-          v2 = vdata + 3 * p2;
-          n2 = ndata + 3 * p2;
-          v3 = vdata + 3 * p3;
-          n3 = ndata + 3 * p3;
-          v4 = vdata + 3 * p4;
-          n4 = ndata + 3 * p4;
-
-          for (; b < dl->nr; b++) {
-            normal_quad_v3(nor, v1, v3, v4, v2);
-
-            add_v3_v3(n1, nor);
-            add_v3_v3(n2, nor);
-            add_v3_v3(n3, nor);
-            add_v3_v3(n4, nor);
-
-            v2 = v1;
-            v1 += 3;
-            v4 = v3;
-            v3 += 3;
-            n2 = n1;
-            n1 += 3;
-            n4 = n3;
-            n3 += 3;
-          }
-        }
-        a = dl->parts * dl->nr;
-        v1 = ndata;
-        while (a--) {
-          normalize_v3(v1);
-          v1 += 3;
-        }
-      }
-    }
-  }
-}
-
-void BKE_displist_count(const ListBase *lb, int *totvert, int *totface, int *tottri)
-{
-  LISTBASE_FOREACH (const DispList *, dl, lb) {
-    int vert_tot = 0;
-    int face_tot = 0;
-    int tri_tot = 0;
-    bool cyclic_u = dl->flag & DL_CYCL_U;
-    bool cyclic_v = dl->flag & DL_CYCL_V;
-
-    switch (dl->type) {
-      case DL_SURF: {
-        int segments_u = dl->nr - (cyclic_u == false);
-        int segments_v = dl->parts - (cyclic_v == false);
-        vert_tot = dl->nr * dl->parts;
-        face_tot = segments_u * segments_v;
-        tri_tot = face_tot * 2;
-        break;
-      }
-      case DL_INDEX3: {
-        vert_tot = dl->nr;
-        face_tot = dl->parts;
-        tri_tot = face_tot;
-        break;
-      }
-      case DL_INDEX4: {
-        vert_tot = dl->nr;
-        face_tot = dl->parts;
-        tri_tot = face_tot * 2;
-        break;
-      }
-      case DL_POLY:
-      case DL_SEGM: {
-        vert_tot = dl->nr * dl->parts;
-        break;
-      }
-    }
-
-    *totvert += vert_tot;
-    *totface += face_tot;
-    *tottri += tri_tot;
-  }
-}
-
 bool BKE_displist_surfindex_get(
     const DispList *dl, int a, int *b, int *p1, int *p2, int *p3, int *p4)
 {
@@ -259,7 +114,6 @@ bool BKE_displist_surfindex_get(
   return true;
 }
 
-/* ****************** Make #DispList ********************* */
 #ifdef __INTEL_COMPILER
 /* ICC with the optimization -02 causes crashes. */
 #  pragma intel optimization_level 1
@@ -606,7 +460,7 @@ static float displist_calc_taper(Depsgraph *depsgraph,
                                  Object *taperobj,
                                  float fac)
 {
-  if (taperobj == nullptr || taperobj->type != OB_CURVE) {
+  if (taperobj == nullptr || taperobj->type != OB_CURVES_LEGACY) {
     return 1.0;
   }
 
@@ -652,27 +506,6 @@ float BKE_displist_calc_taper(
   const float fac = ((float)cur) / (float)(tot - 1);
 
   return displist_calc_taper(depsgraph, scene, taperobj, fac);
-}
-
-void BKE_displist_make_mball(Depsgraph *depsgraph, Scene *scene, Object *ob)
-{
-  if (!ob || ob->type != OB_MBALL) {
-    return;
-  }
-
-  if (ob == BKE_mball_basis_find(scene, ob)) {
-    if (ob->runtime.curve_cache) {
-      BKE_displist_free(&(ob->runtime.curve_cache->disp));
-    }
-    else {
-      ob->runtime.curve_cache = MEM_cnew<CurveCache>(__func__);
-    }
-
-    BKE_mball_polygonize(depsgraph, scene, ob, &ob->runtime.curve_cache->disp);
-    BKE_mball_texspace_calc(ob);
-
-    object_deform_mball(ob, &ob->runtime.curve_cache->disp);
-  }
 }
 
 static ModifierData *curve_get_tessellate_point(const Scene *scene,
@@ -879,9 +712,8 @@ static GeometrySet curve_calc_modifiers_post(Depsgraph *depsgraph,
     geometry_set.replace_mesh(mesh);
   }
   else {
-    std::unique_ptr<CurveEval> curve_eval = curve_eval_from_dna_curve(
-        *cu, ob->runtime.curve_cache->deformed_nurbs);
-    geometry_set.replace_curve(curve_eval.release());
+    geometry_set.replace_curves(
+        blender::bke::curve_legacy_to_curves(*cu, ob->runtime.curve_cache->deformed_nurbs));
   }
 
   for (; md; md = md->next) {
@@ -903,17 +735,11 @@ static GeometrySet curve_calc_modifiers_post(Depsgraph *depsgraph,
     if (mti->type == eModifierTypeType_OnlyDeform) {
       int totvert;
       float(*vertex_coords)[3] = BKE_mesh_vert_coords_alloc(mesh, &totvert);
-      if (mti->dependsOnNormals != nullptr && mti->dependsOnNormals(md)) {
-        BKE_mesh_vertex_normals_ensure(mesh);
-      }
       mti->deformVerts(md, &mectx_deform, mesh, vertex_coords, totvert);
       BKE_mesh_vert_coords_apply(mesh, vertex_coords);
       MEM_freeN(vertex_coords);
     }
     else {
-      if (mti->dependsOnNormals != nullptr && mti->dependsOnNormals(md)) {
-        BKE_mesh_vertex_normals_ensure(mesh);
-      }
       Mesh *output_mesh = mti->modifyMesh(md, &mectx_apply, mesh);
       if (mesh != output_mesh) {
         geometry_set.replace_mesh(output_mesh);
@@ -964,12 +790,11 @@ static void displist_surf_indices(DispList *dl)
   }
 }
 
-static void evaluate_surface_object(Depsgraph *depsgraph,
-                                    const Scene *scene,
-                                    Object *ob,
-                                    const bool for_render,
-                                    ListBase *r_dispbase,
-                                    Mesh **r_final)
+static GeometrySet evaluate_surface_object(Depsgraph *depsgraph,
+                                           const Scene *scene,
+                                           Object *ob,
+                                           const bool for_render,
+                                           ListBase *r_dispbase)
 {
   BLI_assert(ob->type == OB_SURF);
   const Curve *cu = (const Curve *)ob->data;
@@ -1052,8 +877,7 @@ static void evaluate_surface_object(Depsgraph *depsgraph,
   if (!geometry_set.has_mesh()) {
     geometry_set.replace_mesh(BKE_mesh_new_nomain(0, 0, 0, 0, 0));
   }
-  MeshComponent &mesh_component = geometry_set.get_component_for_write<MeshComponent>();
-  *r_final = mesh_component.release();
+  return geometry_set;
 }
 
 static void rotateBevelPiece(const Curve *cu,
@@ -1279,7 +1103,7 @@ static GeometrySet evaluate_curve_type_object(Depsgraph *depsgraph,
                                               const bool for_render,
                                               ListBase *r_dispbase)
 {
-  BLI_assert(ELEM(ob->type, OB_CURVE, OB_FONT));
+  BLI_assert(ELEM(ob->type, OB_CURVES_LEGACY, OB_FONT));
   const Curve *cu = (const Curve *)ob->data;
 
   ListBase *deformed_nurbs = &ob->runtime.curve_cache->deformed_nurbs;
@@ -1489,32 +1313,46 @@ void BKE_displist_make_curveTypes(Depsgraph *depsgraph,
                                   Object *ob,
                                   const bool for_render)
 {
-  BLI_assert(ELEM(ob->type, OB_SURF, OB_CURVE, OB_FONT));
-  Curve &cow_curve = *(Curve *)ob->data;
+  BLI_assert(ELEM(ob->type, OB_SURF, OB_CURVES_LEGACY, OB_FONT));
 
   BKE_object_free_derived_caches(ob);
-  cow_curve.curve_eval = nullptr;
+
+  /* It's important to retrieve this after calling #BKE_object_free_derived_caches,
+   * which may reset the object data pointer in some cases. */
+  const Curve &original_curve = *static_cast<const Curve *>(ob->data);
 
   ob->runtime.curve_cache = MEM_cnew<CurveCache>(__func__);
   ListBase *dispbase = &ob->runtime.curve_cache->disp;
 
   if (ob->type == OB_SURF) {
-    Mesh *mesh_eval;
-    evaluate_surface_object(depsgraph, scene, ob, for_render, dispbase, &mesh_eval);
-    BKE_object_eval_assign_data(ob, &mesh_eval->id, true);
+    GeometrySet geometry = evaluate_surface_object(depsgraph, scene, ob, for_render, dispbase);
+    ob->runtime.geometry_set_eval = new GeometrySet(std::move(geometry));
   }
   else {
     GeometrySet geometry = evaluate_curve_type_object(depsgraph, scene, ob, for_render, dispbase);
 
-    if (geometry.has_curve()) {
-      /* Assign the evaluated curve to the object's "data_eval". In addition to the curve_eval
-       * added to the curve here, it will also contain a copy of the original curve's data. This is
-       * essential, because it maintains the expected behavior for evaluated curve data from before
-       * the CurveEval data type was introduced, when an evaluated object's curve data was just a
-       * copy of the original curve and everything else ended up in #CurveCache. */
-      CurveComponent &curve_component = geometry.get_component_for_write<CurveComponent>();
-      cow_curve.curve_eval = curve_component.get_for_write();
-      BKE_object_eval_assign_data(ob, &cow_curve.id, false);
+    if (geometry.has_curves()) {
+      /* Create a copy of the original curve and add necessary pointers to evaluated and edit mode
+       * data. This is needed for a few reasons:
+       * - Existing code from before curve evaluation was changed to use #GeometrySet expected to
+       *   have a copy of the original curve data. (Any evaluated data was placed in
+       *   #Object.runtime.curve_cache).
+       * - The result of modifier evaluation is not a #Curve data-block but a #Curves data-block,
+       *   which can support constructive modifiers and geometry nodes.
+       * - The dependency graph has handling of edit mode pointers (see #update_edit_mode_pointers)
+       *   but it doesn't seem to work in this case.
+       *
+       * Since the plan is to replace this legacy curve object with the curves data-block
+       * (see T95355), this somewhat hacky inefficient solution is relatively temporary.
+       */
+      Curve &cow_curve = *reinterpret_cast<Curve *>(
+          BKE_id_copy_ex(nullptr, &original_curve.id, nullptr, LIB_ID_COPY_LOCALIZE));
+      cow_curve.curve_eval = geometry.get_curves_for_read();
+      /* Copy edit mode pointers necessary for drawing to the duplicated curve. */
+      cow_curve.editnurb = original_curve.editnurb;
+      cow_curve.editfont = original_curve.editfont;
+      cow_curve.edit_data_from_original = true;
+      BKE_object_eval_assign_data(ob, &cow_curve.id, true);
     }
 
     ob->runtime.geometry_set_eval = new GeometrySet(std::move(geometry));
@@ -1525,20 +1363,19 @@ void BKE_displist_make_curveTypes(Depsgraph *depsgraph,
 
 void BKE_displist_minmax(const ListBase *dispbase, float min[3], float max[3])
 {
-  bool doit = false;
+  bool empty = true;
 
   LISTBASE_FOREACH (const DispList *, dl, dispbase) {
-    const int tot = (ELEM(dl->type, DL_INDEX3, DL_INDEX4)) ? dl->nr : dl->nr * dl->parts;
+    const int tot = dl->type == DL_INDEX3 ? dl->nr : dl->nr * dl->parts;
     for (const int i : IndexRange(tot)) {
       minmax_v3v3_v3(min, max, &dl->verts[i * 3]);
     }
     if (tot != 0) {
-      doit = true;
+      empty = false;
     }
   }
 
-  if (!doit) {
-    /* there's no geometry in displist, use zero-sized boundbox */
+  if (empty) {
     zero_v3(min);
     zero_v3(max);
   }

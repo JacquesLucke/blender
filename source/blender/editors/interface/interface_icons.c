@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edinterface
@@ -52,6 +36,7 @@
 #include "DNA_space_types.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "BKE_appdir.h"
 #include "BKE_context.h"
@@ -375,7 +360,7 @@ static void vicon_colorset_draw(int index, int x, int y, int w, int h, float UNU
 
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   /* XXX: Include alpha into this... */
   /* normal */
@@ -480,6 +465,32 @@ DEF_ICON_STRIP_COLOR_DRAW(09, SEQUENCE_COLOR_09);
 
 #  undef DEF_ICON_STRIP_COLOR_DRAW
 
+#  define ICON_INDIRECT_DATA_ALPHA 0.6f
+
+static void vicon_strip_color_draw_library_data_indirect(
+    int x, int y, int w, int UNUSED(h), float alpha)
+{
+  const float aspect = (float)ICON_DEFAULT_WIDTH / (float)w;
+
+  UI_icon_draw_ex(
+      x, y, ICON_LIBRARY_DATA_DIRECT, aspect, ICON_INDIRECT_DATA_ALPHA * alpha, 0.0f, NULL, false);
+}
+
+static void vicon_strip_color_draw_library_data_override_noneditable(
+    int x, int y, int w, int UNUSED(h), float alpha)
+{
+  const float aspect = (float)ICON_DEFAULT_WIDTH / (float)w;
+
+  UI_icon_draw_ex(x,
+                  y,
+                  ICON_LIBRARY_DATA_OVERRIDE,
+                  aspect,
+                  ICON_INDIRECT_DATA_ALPHA * alpha * 0.75f,
+                  0.0f,
+                  NULL,
+                  false);
+}
+
 /* Dynamically render icon instead of rendering a plain color to a texture/buffer
  * This is not strictly a "vicon", as it needs access to icon->obj to get the color info,
  * but it works in a very similar way.
@@ -494,7 +505,7 @@ static void vicon_gplayer_color_draw(Icon *icon, int x, int y, int w, int h)
    */
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   immUniformColor3fv(gpl->color);
   immRecti(pos, x, y, x + w - 1, y + h - 1);
@@ -535,6 +546,7 @@ static void init_brush_icons(void)
   INIT_BRUSH_ICON(ICON_BRUSH_MASK, mask);
   INIT_BRUSH_ICON(ICON_BRUSH_MIX, mix);
   INIT_BRUSH_ICON(ICON_BRUSH_NUDGE, nudge);
+  INIT_BRUSH_ICON(ICON_BRUSH_PAINT_SELECT, paint_select);
   INIT_BRUSH_ICON(ICON_BRUSH_PINCH, pinch);
   INIT_BRUSH_ICON(ICON_BRUSH_SCRAPE, scrape);
   INIT_BRUSH_ICON(ICON_BRUSH_SMEAR, smear);
@@ -573,6 +585,19 @@ static void init_brush_icons(void)
   INIT_BRUSH_ICON(ICON_GPBRUSH_ERASE_HARD, gp_brush_erase_hard);
   INIT_BRUSH_ICON(ICON_GPBRUSH_ERASE_STROKE, gp_brush_erase_stroke);
 
+  /* Curves sculpt. */
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_ADD, curves_sculpt_add);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_COMB, curves_sculpt_comb);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_CUT, curves_sculpt_cut);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_DELETE, curves_sculpt_delete);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_DENSITY, curves_sculpt_density);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_GROW_SHRINK, curves_sculpt_grow_shrink);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_PINCH, curves_sculpt_pinch);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_PUFF, curves_sculpt_puff);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_SLIDE, curves_sculpt_slide);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_SMOOTH, curves_sculpt_smooth);
+  INIT_BRUSH_ICON(ICON_BRUSH_CURVES_SNAKE_HOOK, curves_sculpt_snake_hook);
+
 #  undef INIT_BRUSH_ICON
 }
 
@@ -588,18 +613,6 @@ int UI_icon_from_event_type(short event_type, short event_value)
   }
   else if (event_type == EVT_RIGHTALTKEY) {
     event_type = EVT_LEFTALTKEY;
-  }
-  else if (event_type == EVT_TWEAK_L) {
-    event_type = LEFTMOUSE;
-    event_value = KM_CLICK_DRAG;
-  }
-  else if (event_type == EVT_TWEAK_M) {
-    event_type = MIDDLEMOUSE;
-    event_value = KM_CLICK_DRAG;
-  }
-  else if (event_type == EVT_TWEAK_R) {
-    event_type = RIGHTMOUSE;
-    event_value = KM_CLICK_DRAG;
   }
 
   DrawInfo *di = g_di_event_list;
@@ -1001,6 +1014,10 @@ static void init_internal_icons(void)
   def_internal_vicon(ICON_SEQUENCE_COLOR_07, vicon_strip_color_draw_07);
   def_internal_vicon(ICON_SEQUENCE_COLOR_08, vicon_strip_color_draw_08);
   def_internal_vicon(ICON_SEQUENCE_COLOR_09, vicon_strip_color_draw_09);
+
+  def_internal_vicon(ICON_LIBRARY_DATA_INDIRECT, vicon_strip_color_draw_library_data_indirect);
+  def_internal_vicon(ICON_LIBRARY_DATA_OVERRIDE_NONEDITABLE,
+                     vicon_strip_color_draw_library_data_override_noneditable);
 }
 
 static void init_iconfile_list(struct ListBase *list)
@@ -1415,19 +1432,17 @@ static void icon_set_image(const bContext *C,
 
   const bool delay = prv_img->rect[size] != NULL;
   icon_create_rect(prv_img, size);
-  prv_img->flag[size] |= PRV_RENDERING;
 
   if (use_job && (!id || BKE_previewimg_id_supports_jobs(id))) {
     /* Job (background) version */
-    ED_preview_icon_job(
-        C, prv_img, id, prv_img->rect[size], prv_img->w[size], prv_img->h[size], delay);
+    ED_preview_icon_job(C, prv_img, id, size, delay);
   }
   else {
     if (!scene) {
       scene = CTX_data_scene(C);
     }
     /* Immediate version */
-    ED_preview_icon_render(C, scene, id, prv_img->rect[size], prv_img->w[size], prv_img->h[size]);
+    ED_preview_icon_render(C, scene, prv_img, id, size);
   }
 }
 
@@ -1531,7 +1546,7 @@ static void icon_draw_rect(float x,
     shader = GPU_SHADER_2D_IMAGE_DESATURATE_COLOR;
   }
   else {
-    shader = GPU_SHADER_2D_IMAGE_COLOR;
+    shader = GPU_SHADER_3D_IMAGE_COLOR;
   }
   IMMDrawPixelsTexState state = immDrawPixelsTexSetup(shader);
 
@@ -1583,10 +1598,10 @@ static void icon_draw_cache_texture_flush_ex(GPUTexture *texture,
   GPUShader *shader = GPU_shader_get_builtin_shader(GPU_SHADER_2D_IMAGE_MULTI_RECT_COLOR);
   GPU_shader_bind(shader);
 
-  const int data_loc = GPU_shader_get_uniform_block(shader, "multi_rect_data");
+  const int data_binding = GPU_shader_get_uniform_block_binding(shader, "multi_rect_data");
   GPUUniformBuf *ubo = GPU_uniformbuf_create_ex(
       sizeof(struct MultiRectCallData), texture_draw_calls->drawcall_cache, __func__);
-  GPU_uniformbuf_bind(ubo, data_loc);
+  GPU_uniformbuf_bind(ubo, data_binding);
 
   const int img_binding = GPU_shader_get_texture_binding(shader, "image");
   GPU_texture_bind_ex(texture, GPU_SAMPLER_ICON, img_binding, false);
@@ -1809,7 +1824,7 @@ static void icon_draw_size(float x,
   }
   else if (di->type == ICON_TYPE_GEOM) {
 #ifdef USE_UI_TOOLBAR_HACK
-    /* TODO(campbell): scale icons up for toolbar,
+    /* TODO(@campbellbarton): scale icons up for toolbar,
      * we need a way to detect larger buttons and do this automatic. */
     {
       float scale = (float)ICON_DEFAULT_HEIGHT_TOOLBAR / (float)ICON_DEFAULT_HEIGHT;
@@ -1824,7 +1839,7 @@ static void icon_draw_size(float x,
     const bool geom_inverted = di->data.geom.inverted;
 
     /* This could re-generate often if rendered at different sizes in the one interface.
-     * TODO(campbell): support caching multiple sizes. */
+     * TODO(@campbellbarton): support caching multiple sizes. */
     ImBuf *ibuf = di->data.geom.image_cache;
     if ((ibuf == NULL) || (ibuf->x != w) || (ibuf->y != h) || (invert != geom_inverted)) {
       if (ibuf) {
@@ -2033,6 +2048,9 @@ static int ui_id_brush_get_icon(const bContext *C, ID *id)
       else if (ob->mode & OB_MODE_TEXTURE_PAINT) {
         paint_mode = PAINT_MODE_TEXTURE_3D;
       }
+      else if (ob->mode & OB_MODE_SCULPT_CURVES) {
+        paint_mode = PAINT_MODE_SCULPT_CURVES;
+      }
     }
     else if (space_type == SPACE_IMAGE) {
       if (area->spacetype == space_type) {
@@ -2208,6 +2226,10 @@ int UI_icon_from_library(const ID *id)
     return ICON_LIBRARY_DATA_DIRECT;
   }
   if (ID_IS_OVERRIDE_LIBRARY(id)) {
+    if (!ID_IS_OVERRIDE_LIBRARY_REAL(id) ||
+        (id->override_library->flag & IDOVERRIDE_LIBRARY_FLAG_SYSTEM_DEFINED) != 0) {
+      return ICON_LIBRARY_DATA_OVERRIDE_NONEDITABLE;
+    }
     return ICON_LIBRARY_DATA_OVERRIDE;
   }
   if (ID_IS_ASSET(id)) {
@@ -2287,7 +2309,7 @@ int UI_icon_from_idcode(const int idcode)
       return ICON_CAMERA_DATA;
     case ID_CF:
       return ICON_FILE;
-    case ID_CU:
+    case ID_CU_LEGACY:
       return ICON_CURVE_DATA;
     case ID_GD:
       return ICON_OUTLINER_DATA_GREASEPENCIL;
@@ -2370,6 +2392,7 @@ int UI_icon_from_object_mode(const int mode)
       return ICON_EDITMODE_HLT;
     case OB_MODE_SCULPT:
     case OB_MODE_SCULPT_GPENCIL:
+    case OB_MODE_SCULPT_CURVES:
       return ICON_SCULPTMODE_HLT;
     case OB_MODE_VERTEX_PAINT:
     case OB_MODE_VERTEX_GPENCIL:

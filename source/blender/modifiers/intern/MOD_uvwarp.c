@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup modifiers
@@ -37,6 +23,7 @@
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_lib_query.h"
+#include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_screen.h"
 
@@ -44,6 +31,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "DEG_depsgraph_query.h"
 
@@ -94,11 +82,11 @@ static void matrix_from_obj_pchan(float mat[4][4], Object *ob, const char *bonen
 }
 
 typedef struct UVWarpData {
-  MPoly *mpoly;
-  MLoop *mloop;
+  const MPoly *mpoly;
+  const MLoop *mloop;
   MLoopUV *mloopuv;
 
-  MDeformVert *dvert;
+  const MDeformVert *dvert;
   int defgrp_index;
 
   float (*warp_mat)[4];
@@ -143,11 +131,9 @@ static void uv_warp_compute(void *__restrict userdata,
 static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh)
 {
   UVWarpModifierData *umd = (UVWarpModifierData *)md;
-  int numPolys, numLoops;
-  MPoly *mpoly;
-  MLoop *mloop;
+  int polys_num, loops_num;
   MLoopUV *mloopuv;
-  MDeformVert *dvert;
+  const MDeformVert *dvert;
   int defgrp_index;
   char uvname[MAX_CUSTOMDATA_LAYER_NAME];
   float warp_mat[4][4];
@@ -209,19 +195,19 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   /* make sure we're using an existing layer */
   CustomData_validate_layer_name(&mesh->ldata, CD_MLOOPUV, umd->uvlayer_name, uvname);
 
-  numPolys = mesh->totpoly;
-  numLoops = mesh->totloop;
+  const MPoly *polys = BKE_mesh_polygons(mesh);
+  const MLoop *loops = BKE_mesh_loops(mesh);
+  polys_num = mesh->totpoly;
+  loops_num = mesh->totloop;
 
-  mpoly = mesh->mpoly;
-  mloop = mesh->mloop;
   /* make sure we are not modifying the original UV map */
   mloopuv = CustomData_duplicate_referenced_layer_named(
-      &mesh->ldata, CD_MLOOPUV, uvname, numLoops);
+      &mesh->ldata, CD_MLOOPUV, uvname, loops_num);
   MOD_get_vgroup(ctx->object, mesh, umd->vgroup_name, &dvert, &defgrp_index);
 
   UVWarpData data = {
-      .mpoly = mpoly,
-      .mloop = mloop,
+      .mpoly = polys,
+      .mloop = loops,
       .mloopuv = mloopuv,
       .dvert = dvert,
       .defgrp_index = defgrp_index,
@@ -230,10 +216,10 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   };
   TaskParallelSettings settings;
   BLI_parallel_range_settings_defaults(&settings);
-  settings.use_threading = (numPolys > 1000);
-  BLI_task_parallel_range(0, numPolys, &data, uv_warp_compute, &settings);
+  settings.use_threading = (polys_num > 1000);
+  BLI_task_parallel_range(0, polys_num, &data, uv_warp_compute, &settings);
 
-  mesh->runtime.is_original = false;
+  mesh->runtime.is_original_bmesh = false;
 
   return mesh;
 }
@@ -255,7 +241,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   MOD_depsgraph_update_object_bone_relation(
       ctx->node, umd->object_dst, umd->bone_dst, "UVWarp Modifier");
 
-  DEG_add_modifier_to_transform_relation(ctx->node, "UVWarp Modifier");
+  DEG_add_depends_on_transform_relation(ctx->node, "UVWarp Modifier");
 }
 
 static void panel_draw(const bContext *UNUSED(C), Panel *panel)
@@ -321,7 +307,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_UVWarp = {
-    /* name */ "UVWarp",
+    /* name */ N_("UVWarp"),
     /* structName */ "UVWarpModifierData",
     /* structSize */ sizeof(UVWarpModifierData),
     /* srna */ &RNA_UVWarpModifier,

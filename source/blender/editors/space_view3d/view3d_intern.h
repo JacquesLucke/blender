@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spview3d
@@ -24,6 +8,10 @@
 #pragma once
 
 #include "ED_view3d.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 /* internal exports only */
 
@@ -43,12 +31,15 @@ struct wmOperatorType;
 struct wmWindowManager;
 
 /* view3d_header.c */
+
 void VIEW3D_OT_toggle_matcap_flip(struct wmOperatorType *ot);
 
 /* view3d_ops.c */
+
 void view3d_operatortypes(void);
 
 /* view3d_edit.c */
+
 void VIEW3D_OT_zoom_camera_1_to_1(struct wmOperatorType *ot);
 void VIEW3D_OT_view_lock_clear(struct wmOperatorType *ot);
 void VIEW3D_OT_view_lock_to_active(struct wmOperatorType *ot);
@@ -67,6 +58,7 @@ void VIEW3D_OT_toggle_shading(struct wmOperatorType *ot);
 void VIEW3D_OT_toggle_xray(struct wmOperatorType *ot);
 
 /* view3d_draw.c */
+
 void view3d_main_region_draw(const struct bContext *C, struct ARegion *region);
 /**
  * Information drawn on top of the solid plates and composed data.
@@ -95,7 +87,8 @@ void view3d_depths_rect_create(struct ARegion *region, struct rcti *rect, struct
  */
 float view3d_depth_near(struct ViewDepths *d);
 
-/* view3d_select.c */
+/* view3d_select.cc */
+
 void VIEW3D_OT_select(struct wmOperatorType *ot);
 void VIEW3D_OT_select_circle(struct wmOperatorType *ot);
 void VIEW3D_OT_select_box(struct wmOperatorType *ot);
@@ -104,6 +97,7 @@ void VIEW3D_OT_select_menu(struct wmOperatorType *ot);
 void VIEW3D_OT_bone_select_menu(struct wmOperatorType *ot);
 
 /* view3d_utils.c */
+
 /**
  * For home, center etc.
  */
@@ -119,6 +113,7 @@ bool ED_view3d_boundbox_clip_ex(const RegionView3D *rv3d,
 bool ED_view3d_boundbox_clip(RegionView3D *rv3d, const struct BoundBox *bb);
 
 /* view3d_view.c */
+
 void VIEW3D_OT_camera_to_view(struct wmOperatorType *ot);
 void VIEW3D_OT_camera_to_view_selected(struct wmOperatorType *ot);
 void VIEW3D_OT_object_as_camera(struct wmOperatorType *ot);
@@ -153,6 +148,7 @@ void view3d_viewmatrix_set(struct Depsgraph *depsgraph,
 /* Called in transform_ops.c, on each regeneration of key-maps. */
 
 /* view3d_placement.c */
+
 void viewplace_modal_keymap(struct wmKeyConfig *keyconf);
 
 /* view3d_buttons.c */
@@ -207,12 +203,15 @@ void VIEW3D_OT_snap_cursor_to_selected(struct wmOperatorType *ot);
 void VIEW3D_OT_snap_cursor_to_active(struct wmOperatorType *ot);
 
 /* view3d_placement.c */
+
 void VIEW3D_OT_interactive_add(struct wmOperatorType *ot);
 
 /* space_view3d.c */
+
 extern const char *view3d_context_dir[]; /* doc access */
 
 /* view3d_widgets.c */
+
 void VIEW3D_GGT_light_spot(struct wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_light_area(struct wmGizmoGroupType *gzgt);
 void VIEW3D_GGT_light_target(struct wmGizmoGroupType *gzgt);
@@ -245,4 +244,8 @@ void VIEW3D_GGT_placement(struct wmGizmoGroupType *gzgt);
 #ifdef VIEW3D_CAMERA_BORDER_HACK
 extern uchar view3d_camera_border_hack_col[3];
 extern bool view3d_camera_border_hack_test;
+#endif
+
+#ifdef __cplusplus
+}
 #endif

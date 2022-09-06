@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edobj
@@ -136,7 +120,7 @@ void ED_object_base_activate_with_mode_exit_if_needed(bContext *C, Base *base)
   ViewLayer *view_layer = CTX_data_view_layer(C);
 
   /* Currently we only need to be concerned with edit-mode. */
-  Object *obedit = OBEDIT_FROM_VIEW_LAYER(view_layer);
+  Object *obedit = BKE_view_layer_edit_object_get(view_layer);
   if (obedit) {
     Object *ob = base->object;
     if (((ob->mode & OB_MODE_EDIT) == 0) || (obedit->type != ob->type)) {
@@ -642,7 +626,7 @@ static int object_select_linked_exec(bContext *C, wmOperator *op)
     ED_object_base_deselect_all(view_layer, v3d, SEL_DESELECT);
   }
 
-  ob = OBACT(view_layer);
+  ob = BKE_view_layer_active_object_get(view_layer);
   if (ob == NULL) {
     BKE_report(op->reports, RPT_ERROR, "No active object");
     return OPERATOR_CANCELLED;
@@ -793,7 +777,8 @@ static bool select_grouped_children(bContext *C, Object *ob, const bool recursiv
   return changed;
 }
 
-static bool select_grouped_parent(bContext *C) /* Makes parent active and de-selected OBACT */
+/* Makes parent active and de-selected BKE_view_layer_active_object_get. */
+static bool select_grouped_parent(bContext *C)
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
   View3D *v3d = CTX_wm_view3d(C);
@@ -801,7 +786,8 @@ static bool select_grouped_parent(bContext *C) /* Makes parent active and de-sel
   bool changed = false;
 
   if (!basact || !(basact->object->parent)) {
-    return 0; /* we know OBACT is valid */
+    /* We know BKE_view_layer_active_object_get is valid. */
+    return 0;
   }
 
   baspar = BKE_view_layer_base_find(view_layer, basact->object->parent);
@@ -1037,7 +1023,7 @@ static int object_select_grouped_exec(bContext *C, wmOperator *op)
     changed = ED_object_base_deselect_all(view_layer, v3d, SEL_DESELECT);
   }
 
-  ob = OBACT(view_layer);
+  ob = BKE_view_layer_active_object_get(view_layer);
   if (ob == NULL) {
     BKE_report(op->reports, RPT_ERROR, "No active object");
     return OPERATOR_CANCELLED;
@@ -1144,7 +1130,7 @@ static int object_select_all_exec(bContext *C, wmOperator *op)
     return OPERATOR_FINISHED;
   }
   if (any_visible == false) {
-    /* TODO(campbell): Looks like we could remove this,
+    /* TODO(@campbellbarton): Looks like we could remove this,
      * if not comment should say why its needed. */
     return OPERATOR_PASS_THROUGH;
   }
@@ -1465,7 +1451,7 @@ void OBJECT_OT_select_random(wmOperatorType *ot)
   ot->idname = "OBJECT_OT_select_random";
 
   /* api callbacks */
-  /*ot->invoke = object_select_random_invoke XXX: need a number popup ;*/
+  // ot->invoke = object_select_random_invoke; /* TODO: need a number popup. */
   ot->exec = object_select_random_exec;
   ot->poll = objects_selectable_poll;
 

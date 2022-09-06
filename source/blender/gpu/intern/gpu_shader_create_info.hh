@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -38,7 +22,7 @@
 namespace blender::gpu::shader {
 
 #ifndef GPU_SHADER_CREATE_INFO
-/* Helps intelisense / auto-completion. */
+/* Helps intellisense / auto-completion. */
 #  define GPU_SHADER_INTERFACE_INFO(_interface, _inst_name) \
     StageInterfaceInfo _interface(#_interface, _inst_name); \
     _interface
@@ -48,6 +32,7 @@ namespace blender::gpu::shader {
 #endif
 
 enum class Type {
+  /* Types supported natively across all GPU back-ends. */
   FLOAT = 0,
   VEC2,
   VEC3,
@@ -63,6 +48,21 @@ enum class Type {
   IVEC3,
   IVEC4,
   BOOL,
+  /* Additionally supported types to enable data optimization and native
+   * support in some GPU back-ends.
+   * NOTE: These types must be representable in all APIs. E.g. `VEC3_101010I2` is aliased as vec3
+   * in the GL back-end, as implicit type conversions from packed normal attribute data to vec3 is
+   * supported. UCHAR/CHAR types are natively supported in Metal and can be used to avoid
+   * additional data conversions for `GPU_COMP_U8` vertex attributes. */
+  VEC3_101010I2,
+  UCHAR,
+  UCHAR2,
+  UCHAR3,
+  UCHAR4,
+  CHAR,
+  CHAR2,
+  CHAR3,
+  CHAR4
 };
 
 /* All of these functions is a bit out of place */
@@ -102,6 +102,40 @@ static inline std::ostream &operator<<(std::ostream &stream, const Type type)
       return stream << "mat3";
     case Type::MAT4:
       return stream << "mat4";
+    case Type::VEC3_101010I2:
+      return stream << "vec3_1010102_Inorm";
+    case Type::UCHAR:
+      return stream << "uchar";
+    case Type::UCHAR2:
+      return stream << "uchar2";
+    case Type::UCHAR3:
+      return stream << "uchar3";
+    case Type::UCHAR4:
+      return stream << "uchar4";
+    case Type::CHAR:
+      return stream << "char";
+    case Type::CHAR2:
+      return stream << "char2";
+    case Type::CHAR3:
+      return stream << "char3";
+    case Type::CHAR4:
+      return stream << "char4";
+    case Type::INT:
+      return stream << "int";
+    case Type::IVEC2:
+      return stream << "ivec2";
+    case Type::IVEC3:
+      return stream << "ivec3";
+    case Type::IVEC4:
+      return stream << "ivec4";
+    case Type::UINT:
+      return stream << "uint";
+    case Type::UVEC2:
+      return stream << "uvec2";
+    case Type::UVEC3:
+      return stream << "uvec3";
+    case Type::UVEC4:
+      return stream << "uvec4";
     default:
       BLI_assert(0);
       return stream;
@@ -143,8 +177,23 @@ enum class BuiltinBits {
   VERTEX_ID = (1 << 14),
   WORK_GROUP_ID = (1 << 15),
   WORK_GROUP_SIZE = (1 << 16),
+
+  /* Not a builtin but a flag we use to tag shaders that use the debug features. */
+  USE_DEBUG_DRAW = (1 << 29),
+  USE_DEBUG_PRINT = (1 << 30),
 };
-ENUM_OPERATORS(BuiltinBits, BuiltinBits::WORK_GROUP_SIZE);
+ENUM_OPERATORS(BuiltinBits, BuiltinBits::USE_DEBUG_PRINT);
+
+/**
+ * Follow convention described in:
+ * https://www.khronos.org/registry/OpenGL/extensions/ARB/ARB_conservative_depth.txt
+ */
+enum class DepthWrite {
+  ANY = 0,
+  GREATER,
+  LESS,
+  UNCHANGED,
+};
 
 /* Samplers & images. */
 enum class ImageType {
@@ -229,6 +278,8 @@ enum class PrimitiveOut {
   POINTS = 0,
   LINE_STRIP,
   TRIANGLE_STRIP,
+  LINES,
+  TRIANGLES,
 };
 
 struct StageInterfaceInfo {
@@ -271,12 +322,12 @@ struct StageInterfaceInfo {
 };
 
 /**
- * @brief Describe inputs & outputs, stage interfaces, resources and sources of a shader.
+ * \brief Describe inputs & outputs, stage interfaces, resources and sources of a shader.
  *        If all data is correctly provided, this is all that is needed to create and compile
- *        a GPUShader.
+ *        a #GPUShader.
  *
  * IMPORTANT: All strings are references only. Make sure all the strings used by a
- *            ShaderCreateInfo are not freed until it is consumed or deleted.
+ *            #ShaderCreateInfo are not freed until it is consumed or deleted.
  */
 struct ShaderCreateInfo {
   /** Shader name for debugging. */
@@ -287,9 +338,15 @@ struct ShaderCreateInfo {
   bool finalized_ = false;
   /** If true, all resources will have an automatic location assigned. */
   bool auto_resource_location_ = false;
+  /** If true, force depth and stencil tests to always happen before fragment shader invocation. */
+  bool early_fragment_test_ = false;
+  /** If true, force the use of the GL shader introspection for resource location. */
+  bool legacy_resource_location_ = false;
+  /** Allow optimization when fragment shader writes to `gl_FragDepth`. */
+  DepthWrite depth_write_ = DepthWrite::ANY;
   /**
    * Maximum length of all the resource names including each null terminator.
-   * Only for names used by gpu::ShaderInterface.
+   * Only for names used by #gpu::ShaderInterface.
    */
   size_t interface_names_size_ = 0;
   /** Manually set builtins. */
@@ -297,6 +354,8 @@ struct ShaderCreateInfo {
   /** Manually set generated code. */
   std::string vertex_source_generated = "";
   std::string fragment_source_generated = "";
+  std::string compute_source_generated = "";
+  std::string geometry_source_generated = "";
   std::string typedef_source_generated = "";
   /** Manually set generated dependencies. */
   Vector<const char *, 0> dependencies_generated;
@@ -513,9 +572,9 @@ struct ShaderCreateInfo {
 
   /**
    * IMPORTANT: invocations count is only used if GL_ARB_gpu_shader5 is supported. On
-   * implementations that do not supports it, the max_vertices will be be multiplied by
-   * invocations. Your shader needs to account for this fact. Use `#ifdef GPU_ARB_gpu_shader5`
-   * and make a code path that does not rely on gl_InvocationID.
+   * implementations that do not supports it, the max_vertices will be multiplied by invocations.
+   * Your shader needs to account for this fact. Use `#ifdef GPU_ARB_gpu_shader5` and make a code
+   * path that does not rely on #gl_InvocationID.
    */
   Self &geometry_layout(PrimitiveIn prim_in,
                         PrimitiveOut prim_out,
@@ -534,6 +593,16 @@ struct ShaderCreateInfo {
     compute_layout_.local_size_x = local_size_x;
     compute_layout_.local_size_y = local_size_y;
     compute_layout_.local_size_z = local_size_z;
+    return *(Self *)this;
+  }
+
+  /**
+   * Force fragment tests before fragment shader invocation.
+   * IMPORTANT: This is incompatible with using the gl_FragDepth output.
+   */
+  Self &early_fragment_test(bool enable)
+  {
+    early_fragment_test_ = enable;
     return *(Self *)this;
   }
 
@@ -615,7 +684,9 @@ struct ShaderCreateInfo {
     Resource res(Resource::BindType::SAMPLER, slot);
     res.sampler.type = type;
     res.sampler.name = name;
-    res.sampler.sampler = sampler;
+    /* Produces ASAN errors for the moment. */
+    // res.sampler.sampler = sampler;
+    UNUSED_VARS(sampler);
     ((freq == Frequency::PASS) ? pass_resources_ : batch_resources_).append(res);
     interface_names_size_ += name.size() + 1;
     return *(Self *)this;
@@ -699,9 +770,22 @@ struct ShaderCreateInfo {
     return *(Self *)this;
   }
 
+  /* Defines how the fragment shader will write to gl_FragDepth. */
+  Self &depth_write(DepthWrite value)
+  {
+    depth_write_ = value;
+    return *(Self *)this;
+  }
+
   Self &auto_resource_location(bool value)
   {
     auto_resource_location_ = value;
+    return *(Self *)this;
+  }
+
+  Self &legacy_resource_location(bool value)
+  {
+    legacy_resource_location_ = value;
     return *(Self *)this;
   }
 
@@ -713,33 +797,16 @@ struct ShaderCreateInfo {
    * Used to share parts of the infos that are common to many shaders.
    * \{ */
 
-  Self &additional_info(StringRefNull info_name0,
-                        StringRefNull info_name1 = "",
-                        StringRefNull info_name2 = "",
-                        StringRefNull info_name3 = "",
-                        StringRefNull info_name4 = "",
-                        StringRefNull info_name5 = "",
-                        StringRefNull info_name6 = "")
+  Self &additional_info(StringRefNull info_name)
   {
-    additional_infos_.append(info_name0);
-    if (!info_name1.is_empty()) {
-      additional_infos_.append(info_name1);
-    }
-    if (!info_name2.is_empty()) {
-      additional_infos_.append(info_name2);
-    }
-    if (!info_name3.is_empty()) {
-      additional_infos_.append(info_name3);
-    }
-    if (!info_name4.is_empty()) {
-      additional_infos_.append(info_name4);
-    }
-    if (!info_name5.is_empty()) {
-      additional_infos_.append(info_name5);
-    }
-    if (!info_name6.is_empty()) {
-      additional_infos_.append(info_name6);
-    }
+    additional_infos_.append(info_name);
+    return *(Self *)this;
+  }
+
+  template<typename... Args> Self &additional_info(StringRefNull info_name, Args... args)
+  {
+    additional_info(info_name);
+    additional_info(args...);
     return *(Self *)this;
   }
 
@@ -771,8 +838,11 @@ struct ShaderCreateInfo {
   /* WARNING: Recursive. */
   void finalize();
 
+  std::string check_error() const;
+
   /** Error detection that some backend compilers do not complain about. */
-  void validate(const ShaderCreateInfo &other_info);
+  void validate_merge(const ShaderCreateInfo &other_info);
+  void validate_vertex_attributes(const ShaderCreateInfo *other_info = nullptr);
 
   /** \} */
 
@@ -788,6 +858,7 @@ struct ShaderCreateInfo {
     TEST_EQUAL(*this, b, builtins_);
     TEST_EQUAL(*this, b, vertex_source_generated);
     TEST_EQUAL(*this, b, fragment_source_generated);
+    TEST_EQUAL(*this, b, compute_source_generated);
     TEST_EQUAL(*this, b, typedef_source_generated);
     TEST_VECTOR_EQUAL(*this, b, vertex_inputs_);
     TEST_EQUAL(*this, b, geometry_layout_);
@@ -840,6 +911,31 @@ struct ShaderCreateInfo {
       print_resource(res);
     }
     return stream;
+  }
+
+  bool has_resource_type(Resource::BindType bind_type) const
+  {
+    for (auto &res : batch_resources_) {
+      if (res.bind_type == bind_type) {
+        return true;
+      }
+    }
+    for (auto &res : pass_resources_) {
+      if (res.bind_type == bind_type) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool has_resource_image() const
+  {
+    return has_resource_type(Resource::BindType::IMAGE);
+  }
+
+  bool has_resource_storage() const
+  {
+    return has_resource_type(Resource::BindType::STORAGE_BUFFER);
   }
 
   /** \} */

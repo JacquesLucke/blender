@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) Blender Foundation
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -113,7 +97,7 @@ static BVHTree *bvhtree_build_from_cloth(ClothModifierData *clmd, float epsilon)
     }
   }
   else {
-    MEdge *edges = cloth->edges;
+    const MEdge *edges = cloth->edges;
 
     for (int i = 0; i < cloth->primitive_num; i++) {
       float co[2][3];
@@ -193,7 +177,7 @@ void bvhtree_update_from_cloth(ClothModifierData *clmd, bool moving, bool self)
   }
   else {
     if (verts) {
-      MEdge *edges = cloth->edges;
+      const MEdge *edges = cloth->edges;
 
       for (i = 0; i < cloth->primitive_num; i++) {
         float co[2][3];
@@ -274,7 +258,7 @@ static int do_step_cloth(
 
   cloth = clmd->clothObject;
   verts = cloth->verts;
-  mvert = result->mvert;
+  mvert = BKE_mesh_vertices_for_write(result);
   vert_mass_changed = verts->mass != clmd->sim_parms->mass;
 
   /* force any pinned verts to their constrained location. */
@@ -648,7 +632,7 @@ static void cloth_apply_vgroup(ClothModifierData *clmd, Mesh *mesh)
       verts->flags &= ~(CLOTH_VERT_FLAG_PINNED | CLOTH_VERT_FLAG_NOSELFCOLL |
                         CLOTH_VERT_FLAG_NOOBJCOLL);
 
-      MDeformVert *dvert = CustomData_get(&mesh->vdata, i, CD_MDEFORMVERT);
+      const MDeformVert *dvert = CustomData_get(&mesh->vdata, i, CD_MDEFORMVERT);
       if (dvert) {
         for (int j = 0; j < dvert->totweight; j++) {
           if (dvert->dw[j].def_nr == (clmd->sim_parms->vgroup_mass - 1)) {
@@ -729,9 +713,8 @@ static bool cloth_from_object(
     Object *ob, ClothModifierData *clmd, Mesh *mesh, float UNUSED(framenr), int first)
 {
   int i = 0;
-  MVert *mvert = NULL;
   ClothVertex *verts = NULL;
-  float(*shapekey_rest)[3] = NULL;
+  const float(*shapekey_rest)[3] = NULL;
   const float tnull[3] = {0, 0, 0};
 
   /* If we have a clothObject, free it. */
@@ -771,7 +754,7 @@ static bool cloth_from_object(
     shapekey_rest = CustomData_get_layer(&mesh->vdata, CD_CLOTH_ORCO);
   }
 
-  mvert = mesh->mvert;
+  MVert *mvert = BKE_mesh_vertices_for_write(mesh);
 
   verts = clmd->clothObject->verts;
 
@@ -840,7 +823,7 @@ static bool cloth_from_object(
 
 static void cloth_from_mesh(ClothModifierData *clmd, const Object *ob, Mesh *mesh)
 {
-  const MLoop *mloop = mesh->mloop;
+  const MLoop *mloop = BKE_mesh_loops(mesh);
   const MLoopTri *looptri = BKE_mesh_runtime_looptri_ensure(mesh);
   const unsigned int mvert_num = mesh->totvert;
   const unsigned int looptri_num = mesh->runtime.looptris.len;
@@ -875,7 +858,7 @@ static void cloth_from_mesh(ClothModifierData *clmd, const Object *ob, Mesh *mes
   }
   BKE_mesh_runtime_verttri_from_looptri(clmd->clothObject->tri, mloop, looptri, looptri_num);
 
-  clmd->clothObject->edges = mesh->medge;
+  clmd->clothObject->edges = BKE_mesh_edges(mesh);
 
   /* Free the springs since they can't be correct if the vertices
    * changed.
@@ -1143,7 +1126,7 @@ static void cloth_update_springs(ClothModifierData *clmd)
       spring->lin_stiffness = (v1->bend_stiff + v2->bend_stiff) / 2.0f;
     }
     else if (spring->type == CLOTH_SPRING_TYPE_GOAL) {
-      /* Warning: Appending NEW goal springs does not work
+      /* WARNING: Appending NEW goal springs does not work
        * because implicit solver would need reset! */
 
       /* Activate / Deactivate existing springs */
@@ -1166,7 +1149,7 @@ static void cloth_update_springs(ClothModifierData *clmd)
 static void cloth_update_verts(Object *ob, ClothModifierData *clmd, Mesh *mesh)
 {
   unsigned int i = 0;
-  MVert *mvert = mesh->mvert;
+  const MVert *mvert = BKE_mesh_vertices(mesh);
   ClothVertex *verts = clmd->clothObject->verts;
 
   /* vertex count is already ensured to match */
@@ -1181,12 +1164,13 @@ static Mesh *cloth_make_rest_mesh(ClothModifierData *clmd, Mesh *mesh)
 {
   Mesh *new_mesh = BKE_mesh_copy_for_eval(mesh, false);
   ClothVertex *verts = clmd->clothObject->verts;
-  MVert *mvert = new_mesh->mvert;
+  MVert *mvert = BKE_mesh_vertices_for_write(mesh);
 
   /* vertex count is already ensured to match */
   for (unsigned i = 0; i < mesh->totvert; i++, verts++) {
     copy_v3_v3(mvert[i].co, verts->xrest);
   }
+  BKE_mesh_tag_coords_changed(new_mesh);
 
   return new_mesh;
 }
@@ -1474,9 +1458,9 @@ static bool cloth_build_springs(ClothModifierData *clmd, Mesh *mesh)
   unsigned int numedges = (unsigned int)mesh->totedge;
   unsigned int numpolys = (unsigned int)mesh->totpoly;
   float shrink_factor;
-  const MEdge *medge = mesh->medge;
-  const MPoly *mpoly = mesh->mpoly;
-  const MLoop *mloop = mesh->mloop;
+  const MEdge *medge = BKE_mesh_edges(mesh);
+  const MPoly *mpoly = BKE_mesh_polygons(mesh);
+  const MLoop *mloop = BKE_mesh_loops(mesh);
   int index2 = 0; /* our second vertex index */
   LinkNodePair *edgelist = NULL;
   EdgeSet *edgeset = NULL;
@@ -1523,7 +1507,6 @@ static bool cloth_build_springs(ClothModifierData *clmd, Mesh *mesh)
     if (clmd->sim_parms->shapekey_rest &&
         !(clmd->sim_parms->flags & CLOTH_SIMSETTINGS_FLAG_DYNAMIC_BASEMESH)) {
       tmp_mesh = cloth_make_rest_mesh(clmd, mesh);
-      BKE_mesh_calc_normals(tmp_mesh);
     }
 
     EdgeSet *existing_vert_pairs = BLI_edgeset_new("cloth_sewing_edges_graph");
@@ -1841,7 +1824,7 @@ static bool cloth_build_springs(ClothModifierData *clmd, Mesh *mesh)
     else {
       /* bending springs for hair strands
        * The current algorithm only goes through the edges in order of the mesh edges list
-       * and makes springs between the outer vert of edges sharing a vertice. This works just
+       * and makes springs between the outer vert of edges sharing a vertex. This works just
        * fine for hair, but not for user generated string meshes. This could/should be later
        * extended to work with non-ordered edges so that it can be used for general "rope
        * dynamics" without the need for the vertices or edges to be ordered through the length

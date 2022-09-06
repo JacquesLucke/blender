@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2016, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 Blender Foundation. */
 
 /** \file
  * \ingroup draw_engine
@@ -77,7 +62,7 @@ static float circle_to_polygon_radius(float sides_count, float theta)
          cosf(theta - side_angle * floorf((sides_count * theta + M_PI) / (2.0f * M_PI)));
 }
 
-/* Remap input angle to have homogenous spacing of points along a polygon edge.
+/* Remap input angle to have homogeneous spacing of points along a polygon edge.
  * Expect theta to be in [0..2pi] range. */
 static float circle_to_polygon_angle(float sides_count, float theta)
 {
@@ -641,11 +626,6 @@ static void dof_reduce_pass_init(EEVEE_FramebufferList *fbl,
         "dof_reduced_color", UNPACK2(res), mip_count, GPU_RGBA16F, NULL);
     txl->dof_reduced_coc = GPU_texture_create_2d(
         "dof_reduced_coc", UNPACK2(res), mip_count, GPU_R16F, NULL);
-
-    /* TODO(@fclem): Remove once we have immutable storage or when mips are generated on creation.
-     */
-    GPU_texture_generate_mipmap(txl->dof_reduced_color);
-    GPU_texture_generate_mipmap(txl->dof_reduced_coc);
   }
 
   GPU_framebuffer_ensure_config(&fbl->dof_reduce_fb,

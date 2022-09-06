@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2016 by Mike Erwin.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 by Mike Erwin. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -30,6 +14,7 @@
 
 #include "GPU_index_buffer.h"
 #include "GPU_shader.h"
+#include "GPU_storage_buffer.h"
 #include "GPU_uniform_buffer.h"
 #include "GPU_vertex_buffer.h"
 
@@ -85,6 +70,8 @@ typedef struct GPUBatch {
   GPUVertBuf *inst[GPU_BATCH_INST_VBO_MAX_LEN];
   /** NULL if element list not needed */
   GPUIndexBuf *elem;
+  /** Resource ID attribute workaround. */
+  GPUStorageBuf *resource_id_buf;
   /** Bookkeeping. */
   eGPUBatchFlag flag;
   /** Type of geometry to draw. */
@@ -108,8 +95,10 @@ void GPU_batch_init_ex(GPUBatch *batch,
  */
 void GPU_batch_copy(GPUBatch *batch_dst, GPUBatch *batch_src);
 
-#define GPU_batch_create(prim, verts, elem) GPU_batch_create_ex(prim, verts, elem, 0)
-#define GPU_batch_init(batch, prim, verts, elem) GPU_batch_init_ex(batch, prim, verts, elem, 0)
+#define GPU_batch_create(prim, verts, elem) \
+  GPU_batch_create_ex(prim, verts, elem, (eGPUBatchFlag)0)
+#define GPU_batch_init(batch, prim, verts, elem) \
+  GPU_batch_init_ex(batch, prim, verts, elem, (eGPUBatchFlag)0)
 
 /**
  * Same as discard but does not free. (does not call free callback).
@@ -135,8 +124,14 @@ int GPU_batch_instbuf_add_ex(GPUBatch *, GPUVertBuf *, bool own_vbo);
  * Returns the index of verts in the batch.
  */
 int GPU_batch_vertbuf_add_ex(GPUBatch *, GPUVertBuf *, bool own_vbo);
+bool GPU_batch_vertbuf_has(GPUBatch *, GPUVertBuf *);
 
 #define GPU_batch_vertbuf_add(batch, verts) GPU_batch_vertbuf_add_ex(batch, verts, false)
+
+/**
+ * Set resource id buffer to bind as instance attribute to workaround the lack of gl_BaseInstance.
+ */
+void GPU_batch_resource_id_buf_set(GPUBatch *batch, GPUStorageBuf *resource_id_buf);
 
 void GPU_batch_set_shader(GPUBatch *batch, GPUShader *shader);
 /**
@@ -176,6 +171,13 @@ void GPU_batch_program_set_builtin_with_config(GPUBatch *batch,
 #define GPU_batch_texture_bind(batch, name, tex) \
   GPU_texture_bind(tex, GPU_shader_get_texture_binding((batch)->shader, name));
 
+/**
+ * Return indirect draw call parameters for this batch.
+ * NOTE: r_base_index is set to -1 if not using an index buffer.
+ */
+void GPU_batch_draw_parameter_get(
+    GPUBatch *batch, int *r_v_count, int *r_v_first, int *r_base_index, int *r_i_count);
+
 void GPU_batch_draw(GPUBatch *batch);
 void GPU_batch_draw_range(GPUBatch *batch, int v_first, int v_count);
 /**
@@ -186,7 +188,15 @@ void GPU_batch_draw_instanced(GPUBatch *batch, int i_count);
 /**
  * This does not bind/unbind shader and does not call GPU_matrix_bind().
  */
-void GPU_batch_draw_advanced(GPUBatch *, int v_first, int v_count, int i_first, int i_count);
+void GPU_batch_draw_advanced(GPUBatch *batch, int v_first, int v_count, int i_first, int i_count);
+
+/**
+ * Issue a draw call using GPU computed arguments. The argument are expected to be valid for the
+ * type of geometry drawn (index or non-indexed).
+ */
+void GPU_batch_draw_indirect(GPUBatch *batch, GPUStorageBuf *indirect_buf, intptr_t offset);
+void GPU_batch_multi_draw_indirect(
+    GPUBatch *batch, GPUStorageBuf *indirect_buf, int count, intptr_t offset, intptr_t stride);
 
 #if 0 /* future plans */
 

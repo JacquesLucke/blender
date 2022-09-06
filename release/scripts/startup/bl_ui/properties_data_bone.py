@@ -1,26 +1,10 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# <pep8 compliant>
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 import bpy
 from bpy.types import Panel
 from rna_prop_ui import PropertyPanel
+
+from bpy.app.translations import contexts as i18n_contexts
 
 
 class BoneButtonsPanel:
@@ -174,8 +158,8 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
         col.prop(bbone, "bbone_scaleout", text="Scale Out")
 
         col = topcol.column(align=True)
-        col.prop(bbone, "bbone_easein", text="Ease In")
-        col.prop(bbone, "bbone_easeout", text="Out")
+        col.prop(bbone, "bbone_easein", text="Ease In", text_ctxt=i18n_contexts.id_armature)
+        col.prop(bbone, "bbone_easeout", text="Out", text_ctxt=i18n_contexts.id_armature)
         col.prop(bone, "use_scale_easing")
 
         col = topcol.column(align=True)
@@ -195,7 +179,7 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
         row2.prop(bone, "bbone_handle_use_scale_start", index=0, text="X", toggle=True)
         row2.prop(bone, "bbone_handle_use_scale_start", index=1, text="Y", toggle=True)
         row2.prop(bone, "bbone_handle_use_scale_start", index=2, text="Z", toggle=True)
-        split2.prop(bone, "bbone_handle_use_ease_start", text="Ease", toggle=True)
+        split2.prop(bone, "bbone_handle_use_ease_start", text="Ease", text_ctxt=i18n_contexts.id_armature, toggle=True)
         row.label(icon='BLANK1')
 
         col = topcol.column(align=True)
@@ -215,7 +199,7 @@ class BONE_PT_curved(BoneButtonsPanel, Panel):
         row2.prop(bone, "bbone_handle_use_scale_end", index=0, text="X", toggle=True)
         row2.prop(bone, "bbone_handle_use_scale_end", index=1, text="Y", toggle=True)
         row2.prop(bone, "bbone_handle_use_scale_end", index=2, text="Z", toggle=True)
-        split2.prop(bone, "bbone_handle_use_ease_end", text="Ease", toggle=True)
+        split2.prop(bone, "bbone_handle_use_ease_end", text="Ease", text_ctxt=i18n_contexts.id_armature, toggle=True)
         row.label(icon='BLANK1')
 
 
@@ -460,7 +444,7 @@ class BONE_PT_deform(BoneButtonsPanel, Panel):
 
 
 class BONE_PT_custom_props(BoneButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
     _property_type = bpy.types.Bone, bpy.types.EditBone, bpy.types.PoseBone
 
     @property

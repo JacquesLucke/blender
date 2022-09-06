@@ -1,22 +1,5 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# The Original Code is Copyright (C) 2016, Blender Foundation
-# All rights reserved.
-# ***** END GPL LICENSE BLOCK *****
+# SPDX-License-Identifier: GPL-2.0-or-later
+# Copyright 2016 Blender Foundation. All rights reserved.
 
 # Libraries configuration for Apple.
 
@@ -37,6 +20,18 @@ function(print_found_status
     endif()
   endif()
 endfunction()
+
+# Utility to install precompiled shared libraries.
+macro(add_bundled_libraries library)
+  if(EXISTS ${LIBDIR})
+    set(_library_dir ${LIBDIR}/${library}/lib)
+    file(GLOB _all_library_versions ${_library_dir}/*\.dylib*)
+    list(APPEND PLATFORM_BUNDLED_LIBRARIES ${_all_library_versions})
+    list(APPEND PLATFORM_BUNDLED_LIBRARY_DIRS ${_library_dir})
+    unset(_all_library_versions)
+    unset(_library_dir)
+ endif()
+endmacro()
 
 # ------------------------------------------------------------------------
 # Find system provided libraries.
@@ -88,6 +83,7 @@ set(CMAKE_PREFIX_PATH ${LIB_SUBDIRS})
 # Find precompiled libraries, and avoid system or user-installed ones.
 
 if(EXISTS ${LIBDIR})
+  include(platform_old_libs_update)
   without_system_libs_begin()
 endif()
 
@@ -178,6 +174,9 @@ if(WITH_CODEC_FFMPEG)
     mp3lame ogg opus swresample swscale
     theora theoradec theoraenc vorbis vorbisenc
     vorbisfile vpx x264 xvidcore)
+  if(EXISTS ${LIBDIR}/ffmpeg/lib/libaom.a)
+    list(APPEND FFMPEG_FIND_COMPONENTS aom)
+  endif()
   find_package(FFmpeg)
 endif()
 
@@ -231,8 +230,16 @@ if(WITH_SDL)
   find_package(SDL2)
   set(SDL_INCLUDE_DIR ${SDL2_INCLUDE_DIRS})
   set(SDL_LIBRARY ${SDL2_LIBRARIES})
-  string(APPEND PLATFORM_LINKFLAGS " -framework ForceFeedback")
+  string(APPEND PLATFORM_LINKFLAGS " -framework ForceFeedback -framework GameController")
+  if("${CMAKE_OSX_ARCHITECTURES}" STREQUAL "arm64")
+    # The minimum macOS version of the libraries makes it so this is included in SDL on arm64
+    # but not x86_64.
+    string(APPEND PLATFORM_LINKFLAGS " -framework CoreHaptics")
+  endif()
 endif()
+
+set(EPOXY_ROOT_DIR ${LIBDIR}/epoxy)
+find_package(Epoxy REQUIRED)
 
 set(PNG_ROOT ${LIBDIR}/png)
 find_package(PNG REQUIRED)
@@ -246,6 +253,15 @@ if(WITH_IMAGE_TIFF)
   if(NOT TIFF_FOUND)
     message(WARNING "TIFF not found, disabling WITH_IMAGE_TIFF")
     set(WITH_IMAGE_TIFF OFF)
+  endif()
+endif()
+
+if(WITH_IMAGE_WEBP)
+  set(WEBP_ROOT_DIR ${LIBDIR}/webp)
+  find_package(WebP)
+  if(NOT WEBP_FOUND)
+    message(WARNING "WebP not found, disabling WITH_IMAGE_WEBP")
+    set(WITH_IMAGE_WEBP OFF)
   endif()
 endif()
 
@@ -411,6 +427,7 @@ if(WITH_OPENMP)
     set(OpenMP_LIBRARY_DIR "${LIBDIR}/openmp/lib/")
     set(OpenMP_LINKER_FLAGS "-L'${OpenMP_LIBRARY_DIR}' -lomp")
     set(OpenMP_LIBRARY "${OpenMP_LIBRARY_DIR}/libomp.dylib")
+    add_bundled_libraries(openmp)
   endif()
 endif()
 
@@ -469,8 +486,9 @@ string(APPEND CMAKE_CXX_FLAGS " -ftemplate-depth=1024")
 
 # Avoid conflicts with Luxrender, and other plug-ins that may use the same
 # libraries as Blender with a different version or build options.
+set(PLATFORM_SYMBOLS_MAP ${CMAKE_SOURCE_DIR}/source/creator/symbols_apple.map)
 string(APPEND PLATFORM_LINKFLAGS
-  " -Wl,-unexported_symbols_list,'${CMAKE_SOURCE_DIR}/source/creator/osx_locals.map'"
+  " -Wl,-unexported_symbols_list,'${PLATFORM_SYMBOLS_MAP}'"
 )
 
 string(APPEND CMAKE_CXX_FLAGS " -stdlib=libc++")
@@ -499,17 +517,27 @@ if(WITH_COMPILER_CCACHE)
   endif()
 endif()
 
-# For binaries that are built but not installed (also not distributed) (datatoc,
-# makesdna, tests, etc.), we add an rpath to the OpenMP library dir through
-# CMAKE_BUILD_RPATH. This avoids having to make many copies of the dylib next to each binary.
-#
-# For the installed Python module and installed Blender executable, CMAKE_INSTALL_RPATH
-# is modified to find the dylib in an adjacent folder. Install step puts the libraries there.
-set(CMAKE_SKIP_BUILD_RPATH FALSE)
-list(APPEND CMAKE_BUILD_RPATH "${OpenMP_LIBRARY_DIR}")
+if(WITH_COMPILER_ASAN)
+  list(APPEND PLATFORM_BUNDLED_LIBRARIES ${COMPILER_ASAN_LIBRARY})
+endif()
 
-set(CMAKE_SKIP_INSTALL_RPATH FALSE)
-list(APPEND CMAKE_INSTALL_RPATH "@loader_path/../Resources/${BLENDER_VERSION}/lib")
+if(PLATFORM_BUNDLED_LIBRARIES)
+  # For the installed Python module and installed Blender executable, we set the
+  # rpath to the location where install step will copy the shared libraries.
+  set(CMAKE_SKIP_INSTALL_RPATH FALSE)
+  if(WITH_PYTHON_MODULE)
+    list(APPEND CMAKE_INSTALL_RPATH "@loader_path/lib")
+  else()
+    list(APPEND CMAKE_INSTALL_RPATH "@loader_path/../Resources/lib")
+  endif()
+
+  # For binaries that are built but not installed (like makesdan or tests), we add
+  # the original directory of all shared libraries to the rpath. This is needed because
+  # these can be in different folders, and because the build and install folder may be
+  # different.
+  set(CMAKE_SKIP_BUILD_RPATH FALSE)
+  list(APPEND CMAKE_BUILD_RPATH ${PLATFORM_BUNDLED_LIBRARY_DIRS})
+endif()
 
 # Same as `CFBundleIdentifier` in Info.plist.
 set(CMAKE_XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER "org.blenderfoundation.blender")

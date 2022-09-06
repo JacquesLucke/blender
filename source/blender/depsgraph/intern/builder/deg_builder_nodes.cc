@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2013 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2013 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup depsgraph
@@ -42,6 +26,7 @@
 #include "DNA_collection_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_curve_types.h"
+#include "DNA_curves_types.h"
 #include "DNA_effect_types.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_key_types.h"
@@ -94,6 +79,7 @@
 #include "BKE_modifier.h"
 #include "BKE_movieclip.h"
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_pointcache.h"
@@ -107,6 +93,8 @@
 #include "BKE_world.h"
 
 #include "RNA_access.h"
+#include "RNA_path.h"
+#include "RNA_prototypes.h"
 #include "RNA_types.h"
 
 #include "DEG_depsgraph.h"
@@ -121,6 +109,7 @@
 #include "intern/depsgraph_tag.h"
 #include "intern/depsgraph_type.h"
 #include "intern/eval/deg_eval_copy_on_write.h"
+#include "intern/eval/deg_eval_visibility.h"
 #include "intern/node/deg_node.h"
 #include "intern/node/deg_node_component.h"
 #include "intern/node/deg_node_id.h"
@@ -188,18 +177,32 @@ IDNode *DepsgraphNodeBuilder::add_id_node(ID *id)
       ComponentNode *comp_cow = id_node->add_component(NodeType::COPY_ON_WRITE);
       OperationNode *op_cow = comp_cow->add_operation(
           [id_node](::Depsgraph *depsgraph) { deg_evaluate_copy_on_write(depsgraph, id_node); },
-          OperationCode::COPY_ON_WRITE,
-          "",
-          -1);
+          OperationCode::COPY_ON_WRITE);
       graph_->operations.append(op_cow);
     }
 
     ComponentNode *visibility_component = id_node->add_component(NodeType::VISIBILITY);
-    OperationNode *visibility_operation = visibility_component->add_operation(
-        nullptr, OperationCode::OPERATION, "", -1);
+    OperationNode *visibility_operation;
+
+    /* Optimization: currently only objects need a special visibility evaluation. For the rest ID
+     * types keep the node as a NO-OP so that relations can still be routed, but without penalty
+     * during the graph evaluation. */
+    if (id_type == ID_OB) {
+      visibility_operation = visibility_component->add_operation(
+          [id_node](::Depsgraph *depsgraph) {
+            deg_evaluate_object_node_visibility(depsgraph, id_node);
+          },
+          OperationCode::VISIBILITY);
+    }
+    else {
+      visibility_operation = visibility_component->add_operation(nullptr,
+                                                                 OperationCode::VISIBILITY);
+    }
+
     /* Pin the node so that it and its relations are preserved by the unused nodes/relations
      * deletion. This is mainly to make it easier to debug visibility. */
-    visibility_operation->flag |= OperationFlag::DEPSOP_FLAG_PINNED;
+    visibility_operation->flag |= (OperationFlag::DEPSOP_FLAG_PINNED |
+                                   OperationFlag::DEPSOP_FLAG_AFFECTS_VISIBILITY);
     graph_->operations.append(visibility_operation);
   }
   return id_node;
@@ -351,16 +354,10 @@ void DepsgraphNodeBuilder::begin_build()
      * same as id_orig. Additionally, such ID might have been removed, which makes the check
      * for whether id_cow is expanded to access freed memory. In order to deal with this we
      * check whether CoW is needed based on a scalar value which does not lead to access of
-     * possibly deleted memory.
-     * Additionally, this saves some space in the map by skipping mapping for datablocks which
-     * do not need CoW, */
-    if (!deg_copy_on_write_is_needed(id_node->id_type)) {
-      id_node->id_cow = nullptr;
-      continue;
-    }
-
+     * possibly deleted memory. */
     IDInfo *id_info = (IDInfo *)MEM_mallocN(sizeof(IDInfo), "depsgraph id info");
-    if (deg_copy_on_write_is_expanded(id_node->id_cow) && id_node->id_orig != id_node->id_cow) {
+    if (deg_copy_on_write_is_needed(id_node->id_type) &&
+        deg_copy_on_write_is_expanded(id_node->id_cow) && id_node->id_orig != id_node->id_cow) {
       id_info->id_cow = id_node->id_cow;
     }
     else {
@@ -596,7 +593,7 @@ void DepsgraphNodeBuilder::build_id(ID *id)
       break;
     case ID_ME:
     case ID_MB:
-    case ID_CU:
+    case ID_CU_LEGACY:
     case ID_LT:
     case ID_GD:
     case ID_CV:
@@ -674,7 +671,7 @@ void DepsgraphNodeBuilder::build_collection(LayerCollection *from_layer_collecti
   IDNode *id_node;
   if (built_map_.checkIsBuiltAndTag(collection)) {
     id_node = find_id_node(&collection->id);
-    if (is_collection_visible && id_node->is_directly_visible == false &&
+    if (is_collection_visible && id_node->is_visible_on_build == false &&
         id_node->is_collection_fully_expanded == true) {
       /* Collection became visible, make sure nested collections and
        * objects are poked with the new visibility flag, since they
@@ -691,7 +688,7 @@ void DepsgraphNodeBuilder::build_collection(LayerCollection *from_layer_collecti
   else {
     /* Collection itself. */
     id_node = add_id_node(&collection->id);
-    id_node->is_directly_visible = is_collection_visible;
+    id_node->is_visible_on_build = is_collection_visible;
 
     build_idproperties(collection->id.properties);
     add_operation_node(&collection->id, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL_DONE);
@@ -738,7 +735,7 @@ void DepsgraphNodeBuilder::build_object(int base_index,
       build_object_flags(base_index, object, linked_state);
     }
     id_node->linked_state = max(id_node->linked_state, linked_state);
-    id_node->is_directly_visible |= is_visible;
+    id_node->is_visible_on_build |= is_visible;
     id_node->has_base |= (base_index != -1);
 
     /* There is no relation path which will connect current object with all the ones which come
@@ -757,10 +754,10 @@ void DepsgraphNodeBuilder::build_object(int base_index,
    * Probably need to assign that to something non-nullptr, but then the logic here will still be
    * somewhat weird. */
   if (scene_ != nullptr && object == scene_->camera) {
-    id_node->is_directly_visible = true;
+    id_node->is_visible_on_build = true;
   }
   else {
-    id_node->is_directly_visible = is_visible;
+    id_node->is_visible_on_build = is_visible;
   }
   id_node->has_base |= (base_index != -1);
   /* Various flags, flushing from bases/collections. */
@@ -772,11 +769,7 @@ void DepsgraphNodeBuilder::build_object(int base_index,
     build_object(-1, object->parent, DEG_ID_LINKED_INDIRECTLY, is_visible);
   }
   /* Modifiers. */
-  if (object->modifiers.first != nullptr) {
-    BuilderWalkUserData data;
-    data.builder = this;
-    BKE_modifiers_foreach_ID_link(object, modifier_walk, &data);
-  }
+  build_object_modifiers(object);
   /* Grease Pencil Modifiers. */
   if (object->greasepencil_modifiers.first != nullptr) {
     BuilderWalkUserData data;
@@ -880,6 +873,44 @@ void DepsgraphNodeBuilder::build_object_instance_collection(Object *object, bool
   is_parent_collection_visible_ = is_current_parent_collection_visible;
 }
 
+void DepsgraphNodeBuilder::build_object_modifiers(Object *object)
+{
+  if (BLI_listbase_is_empty(&object->modifiers)) {
+    return;
+  }
+
+  const ModifierMode modifier_mode = (graph_->mode == DAG_EVAL_VIEWPORT) ? eModifierMode_Realtime :
+                                                                           eModifierMode_Render;
+
+  IDNode *id_node = find_id_node(&object->id);
+
+  add_operation_node(&object->id,
+                     NodeType::GEOMETRY,
+                     OperationCode::VISIBILITY,
+                     [id_node](::Depsgraph *depsgraph) {
+                       deg_evaluate_object_modifiers_mode_node_visibility(depsgraph, id_node);
+                     });
+
+  LISTBASE_FOREACH (ModifierData *, modifier, &object->modifiers) {
+    OperationNode *modifier_node = add_operation_node(
+        &object->id, NodeType::GEOMETRY, OperationCode::MODIFIER, nullptr, modifier->name);
+
+    /* Mute modifier mode if the modifier is not enabled for the dependency graph mode.
+     * This handles static (non-animated) mode of the modifier. */
+    if ((modifier->mode & modifier_mode) == 0) {
+      modifier_node->flag |= DEPSOP_FLAG_MUTE;
+    }
+
+    if (is_modifier_visibility_animated(object, modifier)) {
+      graph_->has_animated_visibility = true;
+    }
+  }
+
+  BuilderWalkUserData data;
+  data.builder = this;
+  BKE_modifiers_foreach_ID_link(object, modifier_walk, &data);
+}
+
 void DepsgraphNodeBuilder::build_object_data(Object *object)
 {
   if (object->data == nullptr) {
@@ -888,7 +919,7 @@ void DepsgraphNodeBuilder::build_object_data(Object *object)
   /* type-specific data. */
   switch (object->type) {
     case OB_MESH:
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
     case OB_FONT:
     case OB_SURF:
     case OB_MBALL:
@@ -1099,14 +1130,18 @@ void DepsgraphNodeBuilder::build_animdata_nlastrip_targets(ListBase *strips)
 
 void DepsgraphNodeBuilder::build_animation_images(ID *id)
 {
-  /* GPU materials might use an animated image. However, these materials have no been built yet. We
-   * could scan the entire node tree recursively to check if any texture node has a video. That is
-   * quite expensive. For now just always add this operation node, because it is very fast. */
-  /* TODO: Add a more precise check when it is cheaper to iterate over all image nodes in a node
-   * tree. */
-  const bool can_have_gpu_material = ELEM(GS(id->name), ID_MA, ID_WO);
+  /* GPU materials might use an animated image. However, these materials have no been built yet so
+   * we have to check if they might be created during evaluation. */
+  bool has_image_animation = false;
+  if (ELEM(GS(id->name), ID_MA, ID_WO)) {
+    bNodeTree *ntree = *BKE_ntree_ptr_from_id(id);
+    if (ntree != nullptr &&
+        ntree->runtime->runtime_flag & NTREE_RUNTIME_FLAG_HAS_IMAGE_ANIMATION) {
+      has_image_animation = true;
+    }
+  }
 
-  if (BKE_image_user_id_has_animation(id) || can_have_gpu_material) {
+  if (has_image_animation || BKE_image_user_id_has_animation(id)) {
     ID *id_cow = get_cow_id(id);
     add_operation_node(
         id,
@@ -1183,12 +1218,16 @@ void DepsgraphNodeBuilder::build_driver_id_property(ID *id, const char *rna_path
   /* Custom properties of bones are placed in their components to improve granularity. */
   if (RNA_struct_is_a(ptr.type, &RNA_PoseBone)) {
     const bPoseChannel *pchan = static_cast<const bPoseChannel *>(ptr.data);
-    ensure_operation_node(
-        id, NodeType::BONE, pchan->name, OperationCode::ID_PROPERTY, nullptr, prop_identifier);
+    ensure_operation_node(ptr.owner_id,
+                          NodeType::BONE,
+                          pchan->name,
+                          OperationCode::ID_PROPERTY,
+                          nullptr,
+                          prop_identifier);
   }
   else {
     ensure_operation_node(
-        id, NodeType::PARAMETERS, OperationCode::ID_PROPERTY, nullptr, prop_identifier);
+        ptr.owner_id, NodeType::PARAMETERS, OperationCode::ID_PROPERTY, nullptr, prop_identifier);
   }
 }
 
@@ -1430,7 +1469,7 @@ void DepsgraphNodeBuilder::build_particle_settings(ParticleSettings *particle_se
   }
 }
 
-/* Shapekeys */
+/* Shape-keys. */
 void DepsgraphNodeBuilder::build_shapekeys(Key *key)
 {
   if (built_map_.checkIsBuiltAndTag(key)) {
@@ -1520,7 +1559,7 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
       op_node->set_as_entry();
       break;
     }
-    case ID_CU: {
+    case ID_CU_LEGACY: {
       op_node = add_operation_node(obdata,
                                    NodeType::GEOMETRY,
                                    OperationCode::GEOMETRY_EVAL,
@@ -1564,8 +1603,14 @@ void DepsgraphNodeBuilder::build_object_data_geometry_datablock(ID *obdata)
       break;
     }
     case ID_CV: {
+      Curves *curves_id = reinterpret_cast<Curves *>(obdata);
+
       op_node = add_operation_node(obdata, NodeType::GEOMETRY, OperationCode::GEOMETRY_EVAL);
       op_node->set_as_entry();
+
+      if (curves_id->surface != nullptr) {
+        build_object(-1, curves_id->surface, DEG_ID_LINKED_INDIRECTLY, false);
+      }
       break;
     }
     case ID_PT: {

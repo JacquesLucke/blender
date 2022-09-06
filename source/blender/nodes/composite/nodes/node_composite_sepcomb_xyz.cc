@@ -1,30 +1,19 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup cmpnodes
  */
 
+#include "GPU_material.h"
+
+#include "COM_shader_node.hh"
+
 #include "node_composite_util.hh"
 
 /* **************** SEPARATE XYZ ******************** */
-namespace blender::nodes {
+
+namespace blender::nodes::node_composite_separate_xyz_cc {
 
 static void cmp_node_separate_xyz_declare(NodeDeclarationBuilder &b)
 {
@@ -34,21 +23,44 @@ static void cmp_node_separate_xyz_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>("Z");
 }
 
-}  // namespace blender::nodes
+using namespace blender::realtime_compositor;
+
+class SeparateXYZShaderNode : public ShaderNode {
+ public:
+  using ShaderNode::ShaderNode;
+
+  void compile(GPUMaterial *material) override
+  {
+    GPUNodeStack *inputs = get_inputs_array();
+    GPUNodeStack *outputs = get_outputs_array();
+
+    GPU_stack_link(material, &bnode(), "node_composite_separate_xyz", inputs, outputs);
+  }
+};
+
+static ShaderNode *get_compositor_shader_node(DNode node)
+{
+  return new SeparateXYZShaderNode(node);
+}
+
+}  // namespace blender::nodes::node_composite_separate_xyz_cc
 
 void register_node_type_cmp_separate_xyz()
 {
+  namespace file_ns = blender::nodes::node_composite_separate_xyz_cc;
+
   static bNodeType ntype;
 
   cmp_node_type_base(&ntype, CMP_NODE_SEPARATE_XYZ, "Separate XYZ", NODE_CLASS_CONVERTER);
-  ntype.declare = blender::nodes::cmp_node_separate_xyz_declare;
+  ntype.declare = file_ns::cmp_node_separate_xyz_declare;
+  ntype.get_compositor_shader_node = file_ns::get_compositor_shader_node;
 
   nodeRegisterType(&ntype);
 }
 
 /* **************** COMBINE XYZ ******************** */
 
-namespace blender::nodes {
+namespace blender::nodes::node_composite_combine_xyz_cc {
 
 static void cmp_node_combine_xyz_declare(NodeDeclarationBuilder &b)
 {
@@ -58,14 +70,37 @@ static void cmp_node_combine_xyz_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Vector>("Vector");
 }
 
-}  // namespace blender::nodes
+using namespace blender::realtime_compositor;
+
+class CombineXYZShaderNode : public ShaderNode {
+ public:
+  using ShaderNode::ShaderNode;
+
+  void compile(GPUMaterial *material) override
+  {
+    GPUNodeStack *inputs = get_inputs_array();
+    GPUNodeStack *outputs = get_outputs_array();
+
+    GPU_stack_link(material, &bnode(), "node_composite_combine_xyz", inputs, outputs);
+  }
+};
+
+static ShaderNode *get_compositor_shader_node(DNode node)
+{
+  return new CombineXYZShaderNode(node);
+}
+
+}  // namespace blender::nodes::node_composite_combine_xyz_cc
 
 void register_node_type_cmp_combine_xyz()
 {
+  namespace file_ns = blender::nodes::node_composite_combine_xyz_cc;
+
   static bNodeType ntype;
 
   cmp_node_type_base(&ntype, CMP_NODE_COMBINE_XYZ, "Combine XYZ", NODE_CLASS_CONVERTER);
-  ntype.declare = blender::nodes::cmp_node_combine_xyz_declare;
+  ntype.declare = file_ns::cmp_node_combine_xyz_declare;
+  ntype.get_compositor_shader_node = file_ns::get_compositor_shader_node;
 
   nodeRegisterType(&ntype);
 }

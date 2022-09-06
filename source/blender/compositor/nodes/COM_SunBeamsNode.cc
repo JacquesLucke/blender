@@ -1,19 +1,5 @@
-/* This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2014, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2014 Blender Foundation. */
 
 #include "COM_SunBeamsNode.h"
 #include "COM_SunBeamsOperation.h"
@@ -30,7 +16,7 @@ void SunBeamsNode::convert_to_operations(NodeConverter &converter,
 {
   NodeInput *input_socket = this->get_input_socket(0);
   NodeOutput *output_socket = this->get_output_socket(0);
-  NodeSunBeams *data = (NodeSunBeams *)get_bnode()->storage;
+  const NodeSunBeams *data = (const NodeSunBeams *)get_bnode()->storage;
 
   SunBeamsOperation *operation = new SunBeamsOperation();
   operation->set_data(*data);

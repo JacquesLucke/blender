@@ -1,46 +1,36 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 /* clang-format off */
 
 ccl_inline_constant float blackbody_table_r[][3] = {
-  {2.52432244e+03f, -1.06185848e-03f, 3.11067539e+00f},
-  {3.37763626e+03f, -4.34581697e-04f, 1.64843306e+00f},
-  {4.10671449e+03f, -8.61949938e-05f, 6.41423749e-01f},
-  {4.66849800e+03f, 2.85655028e-05f, 1.29075375e-01f},
-  {4.60124770e+03f, 2.89727618e-05f, 1.48001316e-01f},
-  {3.78765709e+03f, 9.36026367e-06f, 3.98995841e-01f}
+ {1.61919106e+03f, -2.05010916e-03f, 5.02995757e+00f},
+ {2.48845471e+03f, -1.11330907e-03f, 3.22621544e+00f},
+ {3.34143193e+03f, -4.86551192e-04f, 1.76486769e+00f},
+ {4.09461742e+03f, -1.27446582e-04f, 7.25731635e-01f},
+ {4.67028036e+03f, 2.91258199e-05f, 1.26703442e-01f},
+ {4.59509185e+03f, 2.87495649e-05f, 1.50345020e-01f},
+ {3.78717450e+03f, 9.35907826e-06f, 3.99075871e-01f}
 };
 
 ccl_inline_constant float blackbody_table_g[][3] = {
-  {-7.50343014e+02f, 3.15679613e-04f, 4.73464526e-01f},
-  {-1.00402363e+03f, 1.29189794e-04f, 9.08181524e-01f},
-  {-1.22075471e+03f, 2.56245413e-05f, 1.20753416e+00f},
-  {-1.42546105e+03f, -4.01730887e-05f, 1.44002695e+00f},
-  {-1.18134453e+03f, -2.18913373e-05f, 1.30656109e+00f},
-  {-5.00279505e+02f, -4.59745390e-06f, 1.09090465e+00f}
+ {-4.88999748e+02f, 6.04330754e-04f, -7.55807526e-02f},
+ {-7.55994277e+02f, 3.16730098e-04f, 4.78306139e-01f},
+ {-1.02363977e+03f, 1.20223470e-04f, 9.36662319e-01f},
+ {-1.26571316e+03f, 4.87340896e-06f, 1.27054498e+00f},
+ {-1.42529332e+03f, -4.01150431e-05f, 1.43972784e+00f},
+ {-1.17554822e+03f, -2.16378048e-05f, 1.30408023e+00f},
+ {-5.00799571e+02f, -4.59832026e-06f, 1.09098763e+00f}
 };
 
 ccl_inline_constant float blackbody_table_b[][4] = {
-  {0.0f, 0.0f, 0.0f, 0.0f}, /* zeros should be optimized by compiler */
-  {0.0f, 0.0f, 0.0f, 0.0f},
-  {0.0f, 0.0f, 0.0f, 0.0f},
-  {-2.02524603e-11f, 1.79435860e-07f, -2.60561875e-04f, -1.41761141e-02f},
-  {-2.22463426e-13f, -1.55078698e-08f, 3.81675160e-04f, -7.30646033e-01f},
-  {6.72595954e-13f, -2.73059993e-08f, 4.24068546e-04f, -7.52204323e-01f}
+ {5.96945309e-11f, -4.85742887e-08f, -9.70622247e-05f, -4.07936148e-03f},
+ {2.40430366e-11f, 5.55021075e-08f, -1.98503712e-04f, 2.89312858e-02f},
+ {-1.40949732e-11f, 1.89878968e-07f, -3.56632824e-04f, 9.10767778e-02f},
+ {-3.61460868e-11f, 2.84822009e-07f, -4.93211319e-04f, 1.56723440e-01f},
+ {-1.97075738e-11f, 1.75359352e-07f, -2.50542825e-04f, -2.22783266e-02f},
+ {-1.61997957e-13f, -1.64216008e-08f, 3.86216271e-04f, -7.38077418e-01f},
+ {6.72650283e-13f, -2.73078809e-08f, 4.24098264e-04f, -7.52335691e-01f}
 };
 
 ccl_inline_constant float cie_colour_match[][3] = {
@@ -71,6 +61,59 @@ ccl_inline_constant float cie_colour_match[][3] = {
   {0.0007f, 0.0002f, 0.0000f}, {0.0005f, 0.0002f, 0.0000f}, {0.0003f, 0.0001f, 0.0000f},
   {0.0002f, 0.0001f, 0.0000f}, {0.0002f, 0.0001f, 0.0000f}, {0.0001f, 0.0000f, 0.0000f},
   {0.0001f, 0.0000f, 0.0000f}, {0.0001f, 0.0000f, 0.0000f}, {0.0000f, 0.0000f, 0.0000f}
+};
+
+/*
+ * The direction vectors for the first four dimensions of the Sobol
+ * sequence, stored with reversed-order bits.
+ *
+ * This is used in the Sobol-Burley sampler implementation.  We don't
+ * need more than four dimensions because we achieve higher dimensions
+ * with padding.  They're stored with reversed bits because we need
+ * them reversed for the fast hash-based Owen scrambling anyway, and
+ * this avoids doing that at run time.
+ */
+ccl_inline_constant unsigned int sobol_burley_table[4][32] = {
+  {
+    0x00000001, 0x00000002, 0x00000004, 0x00000008,
+    0x00000010, 0x00000020, 0x00000040, 0x00000080,
+    0x00000100, 0x00000200, 0x00000400, 0x00000800,
+    0x00001000, 0x00002000, 0x00004000, 0x00008000,
+    0x00010000, 0x00020000, 0x00040000, 0x00080000,
+    0x00100000, 0x00200000, 0x00400000, 0x00800000,
+    0x01000000, 0x02000000, 0x04000000, 0x08000000,
+    0x10000000, 0x20000000, 0x40000000, 0x80000000,
+  },
+  {
+    0x00000001, 0x00000003, 0x00000005, 0x0000000f,
+    0x00000011, 0x00000033, 0x00000055, 0x000000ff,
+    0x00000101, 0x00000303, 0x00000505, 0x00000f0f,
+    0x00001111, 0x00003333, 0x00005555, 0x0000ffff,
+    0x00010001, 0x00030003, 0x00050005, 0x000f000f,
+    0x00110011, 0x00330033, 0x00550055, 0x00ff00ff,
+    0x01010101, 0x03030303, 0x05050505, 0x0f0f0f0f,
+    0x11111111, 0x33333333, 0x55555555, 0xffffffff,
+  },
+  {
+    0x00000001, 0x00000003, 0x00000006, 0x00000009,
+    0x00000017, 0x0000003a, 0x00000071, 0x000000a3,
+    0x00000116, 0x00000339, 0x00000677, 0x000009aa,
+    0x00001601, 0x00003903, 0x00007706, 0x0000aa09,
+    0x00010117, 0x0003033a, 0x00060671, 0x000909a3,
+    0x00171616, 0x003a3939, 0x00717777, 0x00a3aaaa,
+    0x01170001, 0x033a0003, 0x06710006, 0x09a30009,
+    0x16160017, 0x3939003a, 0x77770071, 0xaaaa00a3,
+  },
+  {
+    0x00000001, 0x00000003, 0x00000004, 0x0000000a,
+    0x0000001f, 0x0000002e, 0x00000045, 0x000000c9,
+    0x0000011b, 0x000002a4, 0x0000079a, 0x00000b67,
+    0x0000101e, 0x0000302d, 0x00004041, 0x0000a0c3,
+    0x0001f104, 0x0002e28a, 0x000457df, 0x000c9bae,
+    0x0011a105, 0x002a7289, 0x0079e7db, 0x00b6dba4,
+    0x0100011a, 0x030002a7, 0x0400079e, 0x0a000b6d,
+    0x1f001001, 0x2e003003, 0x45004004, 0xc900a00a,
+  },
 };
 
 /* clang-format on */

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2016 by Mike Erwin.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 by Mike Erwin. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -56,11 +40,19 @@ extern "C" {
 
 typedef enum {
   /* can be extended to support more types */
-  GPU_USAGE_STREAM,
-  GPU_USAGE_STATIC, /* do not keep data in memory */
-  GPU_USAGE_DYNAMIC,
-  GPU_USAGE_DEVICE_ONLY, /* Do not do host->device data transfers. */
+  GPU_USAGE_STREAM = 0,
+  GPU_USAGE_STATIC = 1, /* do not keep data in memory */
+  GPU_USAGE_DYNAMIC = 2,
+  GPU_USAGE_DEVICE_ONLY = 3, /* Do not do host->device data transfers. */
+
+  /** Extended usage flags. */
+  /* Flag for vertex buffers used for textures. Skips additional padding/compaction to ensure
+   * format matches the texture exactly. Can be masked with other properties, and is stripped
+   * during VertBuf::init. */
+  GPU_USAGE_FLAG_BUFFER_TEXTURE_ONLY = 1 << 3,
 } GPUUsageType;
+
+ENUM_OPERATORS(GPUUsageType, GPU_USAGE_FLAG_BUFFER_TEXTURE_ONLY);
 
 /** Opaque type hiding blender::gpu::VertBuf. */
 typedef struct GPUVertBuf GPUVertBuf;
@@ -181,6 +173,7 @@ void GPU_vertbuf_tag_dirty(GPUVertBuf *verts);
  */
 void GPU_vertbuf_use(GPUVertBuf *);
 void GPU_vertbuf_bind_as_ssbo(struct GPUVertBuf *verts, int binding);
+void GPU_vertbuf_bind_as_texture(struct GPUVertBuf *verts, int binding);
 
 void GPU_vertbuf_wrap_handle(GPUVertBuf *verts, uint64_t handle);
 

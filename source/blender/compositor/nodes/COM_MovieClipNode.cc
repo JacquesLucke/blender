@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2011, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. */
 
 #include "COM_MovieClipNode.h"
 
@@ -44,7 +29,7 @@ void MovieClipNode::convert_to_operations(NodeConverter &converter,
   NodeOutput *scale_movie_clip = this->get_output_socket(4);
   NodeOutput *angle_movie_clip = this->get_output_socket(5);
 
-  bNode *editor_node = this->get_bnode();
+  const bNode *editor_node = this->get_bnode();
   MovieClip *movie_clip = (MovieClip *)editor_node->id;
   MovieClipUser *movie_clip_user = (MovieClipUser *)editor_node->storage;
   bool cache_frame = !context.is_rendering();

@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. */
 
 #include <type_traits>
 
@@ -59,6 +44,14 @@ std::unique_ptr<IDProperty, IDPropertyDeleter> create(const StringRefNull prop_n
   return std::unique_ptr<IDProperty, IDPropertyDeleter>(property);
 }
 
+std::unique_ptr<IDProperty, IDPropertyDeleter> create(const StringRefNull prop_name, ID *value)
+{
+  IDPropertyTemplate prop_template{0};
+  prop_template.id = value;
+  IDProperty *property = IDP_New(IDP_ID, &prop_template, prop_name.c_str());
+  return std::unique_ptr<IDProperty, IDPropertyDeleter>(property);
+}
+
 static std::unique_ptr<IDProperty, IDPropertyDeleter> array_create(const StringRefNull prop_name,
                                                                    eIDPropertyType subtype,
                                                                    size_t array_len)
@@ -91,7 +84,7 @@ template<
 std::unique_ptr<IDProperty, IDPropertyDeleter> create_array(StringRefNull prop_name,
                                                             Span<PrimitiveType> values)
 {
-  static_assert(std::is_same_v<PrimitiveType, int32_t> || std::is_same_v<PrimitiveType, float_t> ||
+  static_assert(std::is_same_v<PrimitiveType, int32_t> || std::is_same_v<PrimitiveType, float> ||
                     std::is_same_v<PrimitiveType, double>,
                 "Allowed values for PrimitiveType are int32_t, float and double.");
   static_assert(!std::is_same_v<PrimitiveType, int32_t> || id_property_subtype == IDP_INT,

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spnode
@@ -23,7 +7,8 @@
 
 #pragma once
 
-#include "BLI_math_vec_types.hh"
+#include "BLI_math_vector.h"
+#include "BLI_math_vector.hh"
 #include "BLI_vector.hh"
 
 #include "BKE_node.h"
@@ -46,7 +31,9 @@ struct wmKeyConfig;
 struct wmWindow;
 
 /* Outside of blender namespace to avoid Python documentation build error with `ctypes`. */
+extern "C" {
 extern const char *node_context_dir[];
+};
 
 namespace blender::ed::space_node {
 
@@ -89,8 +76,18 @@ struct SpaceNode_Runtime {
   /** Mouse position for drawing socket-less links and adding nodes. */
   float2 cursor;
 
-  /** For auto compositing. */
-  bool recalc;
+  /**
+   * Indicates that the compositing tree in the space needs to be re-evaluated using the
+   * auto-compositing pipeline.
+   * Takes priority over the regular compositing.
+   */
+  bool recalc_auto_compositing;
+
+  /**
+   * Indicates that the compositing int the space  tree needs to be re-evaluated using
+   * regular compositing pipeline.
+   */
+  bool recalc_regular_compositing;
 
   /** Temporary data for modal linking operator. */
   std::unique_ptr<bNodeLinkDrag> linkdrag;
@@ -109,7 +106,7 @@ enum NodeResizeDirection {
 };
 ENUM_OPERATORS(NodeResizeDirection, NODE_RESIZE_LEFT);
 
-/* Nodes draw without dpi - the view zoom is flexible. */
+/* Nodes draw without DPI - the view zoom is flexible. */
 #define HIDDEN_RAD (0.75f * U.widget_unit)
 #define BASIS_RAD (0.2f * U.widget_unit)
 #define NODE_DYS (U.widget_unit / 2)
@@ -119,6 +116,8 @@ ENUM_OPERATORS(NodeResizeDirection, NODE_RESIZE_LEFT);
 #define NODE_HEIGHT(node) (node.height * UI_DPI_FAC)
 #define NODE_MARGIN_X (1.2f * U.widget_unit)
 #define NODE_SOCKSIZE (0.25f * U.widget_unit)
+#define NODE_SOCKSIZE_DRAW_MULIPLIER 2.25f
+#define NODE_SOCK_OUTLINE_SCALE 1.0f
 #define NODE_MULTI_INPUT_LINK_GAP (0.25f * U.widget_unit)
 #define NODE_RESIZE_MARGIN (0.20f * U.widget_unit)
 #define NODE_LINK_RESOL 12
@@ -129,8 +128,6 @@ ENUM_OPERATORS(NodeResizeDirection, NODE_RESIZE_LEFT);
  * Transform between View2Ds in the tree path.
  */
 float2 space_node_group_offset(const SpaceNode &snode);
-
-rctf node_frame_rect_inside(const bNode &node);
 
 int node_get_resize_cursor(NodeResizeDirection directions);
 /**
@@ -146,6 +143,11 @@ void node_socket_color_get(const bContext &C,
 /* node_draw.cc */
 
 void node_draw_space(const bContext &C, ARegion &region);
+
+void node_socket_add_tooltip(const bNodeTree &ntree,
+                             const bNode &node,
+                             const bNodeSocket &sock,
+                             uiLayout &layout);
 
 /**
  * Sort nodes by selection: unselected nodes first, then selected,
@@ -165,6 +167,9 @@ void node_operatortypes();
 void node_keymap(wmKeyConfig *keyconf);
 
 /* node_select.cc */
+
+rctf node_frame_rect_inside(const bNode &node);
+bool node_or_socket_isect_event(const bContext &C, const wmEvent &event);
 
 void node_deselect_all(SpaceNode &snode);
 void node_socket_select(bNode *node, bNodeSocket &sock);
@@ -191,7 +196,6 @@ bool space_node_view_flag(
 
 void NODE_OT_view_all(wmOperatorType *ot);
 void NODE_OT_view_selected(wmOperatorType *ot);
-void NODE_OT_geometry_node_view_legacy(wmOperatorType *ot);
 
 void NODE_OT_backimage_move(wmOperatorType *ot);
 void NODE_OT_backimage_zoom(wmOperatorType *ot);
@@ -211,7 +215,12 @@ void nodelink_batch_end(SpaceNode &snode);
 void node_draw_link(const bContext &C,
                     const View2D &v2d,
                     const SpaceNode &snode,
-                    const bNodeLink &link);
+                    const bNodeLink &link,
+                    bool selected);
+void node_draw_link_dragged(const bContext &C,
+                            const View2D &v2d,
+                            const SpaceNode &snode,
+                            const bNodeLink &link);
 /**
  * Don't do shadows if th_col3 is -1.
  */
@@ -221,20 +230,14 @@ void node_draw_link_bezier(const bContext &C,
                            const bNodeLink &link,
                            int th_col1,
                            int th_col2,
-                           int th_col3);
-/** If v2d not nullptr, it clips and returns 0 if not visible. */
-bool node_link_bezier_points(const View2D *v2d,
-                             const SpaceNode *snode,
-                             const bNodeLink &link,
-                             float coord_array[][2],
-                             int resol);
-/**
- * Return quadratic beziers points for a given nodelink and clip if v2d is not nullptr.
- */
-bool node_link_bezier_handles(const View2D *v2d,
-                              const SpaceNode *snode,
-                              const bNodeLink &ink,
-                              float vec[4][2]);
+                           int th_col3,
+                           bool selected);
+
+void node_link_bezier_points_evaluated(const bNodeLink &link,
+                                       std::array<float2, NODE_LINK_RESOL + 1> &coords);
+
+std::optional<float2> link_path_intersection(const bNodeLink &link, Span<float2> path);
+
 void draw_nodespace_back_pix(const bContext &C,
                              ARegion &region,
                              SpaceNode &snode,
@@ -242,17 +245,13 @@ void draw_nodespace_back_pix(const bContext &C,
 
 /* node_add.cc */
 
-/**
- * XXX Does some additional initialization on top of #nodeAddNode
- * Can be used with both custom and static nodes,
- * if `idname == nullptr` the static int type will be used instead.
- */
-bNode *node_add_node(const bContext &C, const char *idname, int type, float locx, float locy);
+bNode *add_node(const bContext &C, StringRef idname, const float2 &location);
+bNode *add_static_node(const bContext &C, int type, const float2 &location);
+
 void NODE_OT_add_reroute(wmOperatorType *ot);
 void NODE_OT_add_group(wmOperatorType *ot);
 void NODE_OT_add_object(wmOperatorType *ot);
 void NODE_OT_add_collection(wmOperatorType *ot);
-void NODE_OT_add_texture(wmOperatorType *ot);
 void NODE_OT_add_file(wmOperatorType *ot);
 void NODE_OT_add_mask(wmOperatorType *ot);
 void NODE_OT_new_node_tree(wmOperatorType *ot);
@@ -267,11 +266,6 @@ void NODE_OT_group_separate(wmOperatorType *ot);
 void NODE_OT_group_edit(wmOperatorType *ot);
 
 /* node_relationships.cc */
-
-void sort_multi_input_socket_links(SpaceNode &snode,
-                                   bNode &node,
-                                   bNodeLink *drag_link,
-                                   const float2 *cursor);
 
 void NODE_OT_link(wmOperatorType *ot);
 void NODE_OT_link_make(wmOperatorType *ot);
@@ -366,7 +360,6 @@ void NODE_GGT_backdrop_corner_pin(wmGizmoGroupType *gzgt);
 /* node_geometry_attribute_search.cc */
 
 void node_geometry_add_attribute_search_button(const bContext &C,
-                                               const bNodeTree &node_tree,
                                                const bNode &node,
                                                PointerRNA &socket_ptr,
                                                uiLayout &layout);

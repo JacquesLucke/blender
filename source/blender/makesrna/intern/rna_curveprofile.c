@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -26,6 +12,8 @@
 
 #include "RNA_define.h"
 #include "rna_internal.h"
+
+#include "BLT_translation.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -234,6 +222,7 @@ static void rna_def_curveprofile(BlenderRNA *brna)
   prop = RNA_def_property(srna, "preset", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "preset");
   RNA_def_property_enum_items(prop, rna_enum_curveprofile_preset_items);
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_MESH);
   RNA_def_property_ui_text(prop, "Preset", "");
 
   prop = RNA_def_property(srna, "use_clip", PROP_BOOLEAN, PROP_NONE);

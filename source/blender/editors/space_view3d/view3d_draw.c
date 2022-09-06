@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spview3d
@@ -583,7 +567,7 @@ static void drawviewborder(Scene *scene, Depsgraph *depsgraph, ARegion *region, 
 
   /* First, solid lines. */
   {
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
     /* passepartout, specified in camera edit buttons */
     if (ca && (ca->flag & CAM_SHOWPASSEPARTOUT) && ca->passepartalpha > 0.000001f) {
@@ -634,7 +618,7 @@ static void drawviewborder(Scene *scene, Depsgraph *depsgraph, ARegion *region, 
   }
 
   /* And now, the dashed lines! */
-  immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
   {
     float viewport_size[4];
@@ -816,7 +800,7 @@ static void drawrenderborder(ARegion *region, View3D *v3d)
 
   GPU_line_width(1.0f);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
   float viewport_size[4];
   GPU_viewport_size_get_f(viewport_size);
@@ -998,7 +982,7 @@ static void draw_view_axis(RegionView3D *rv3d, const rcti *rect)
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
   uint col = GPU_vertformat_attr_add(format, "color", GPU_COMP_U8, 4, GPU_FETCH_INT_TO_FLOAT_UNIT);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
   immBegin(GPU_PRIM_LINES, 6);
 
   for (int axis_i = 0; axis_i < 3; axis_i++) {
@@ -1310,7 +1294,7 @@ static void draw_viewport_name(ARegion *region, View3D *v3d, int xoffset, int *y
 static void draw_selected_name(
     Scene *scene, ViewLayer *view_layer, Object *ob, int xoffset, int *yoffset)
 {
-  const int cfra = CFRA;
+  const int cfra = scene->r.cfra;
   const char *msg_pin = " (Pinned)";
   const char *msg_sep = " : ";
 
@@ -1367,7 +1351,7 @@ static void draw_selected_name(
         }
       }
     }
-    else if (ELEM(ob->type, OB_MESH, OB_LATTICE, OB_CURVE)) {
+    else if (ELEM(ob->type, OB_MESH, OB_LATTICE, OB_CURVES_LEGACY)) {
       /* try to display active bone and active shapekey too (if they exist) */
 
       if (ob->type == OB_MESH && ob->mode & OB_MODE_WEIGHT_PAINT) {
@@ -1513,7 +1497,7 @@ void view3d_draw_region_info(const bContext *C, ARegion *region)
     }
 
     if (U.uiflag & USER_DRAWVIEWINFO) {
-      Object *ob = OBACT(view_layer);
+      Object *ob = BKE_view_layer_active_object_get(view_layer);
       draw_selected_name(scene, view_layer, ob, xoffset, &yoffset);
     }
 
@@ -1739,6 +1723,8 @@ void ED_view3d_draw_offscreen_simple(Depsgraph *depsgraph,
                                      Scene *scene,
                                      View3DShading *shading_override,
                                      eDrawType drawtype,
+                                     int object_type_exclude_viewport_override,
+                                     int object_type_exclude_select_override,
                                      int winx,
                                      int winy,
                                      uint draw_flags,
@@ -1800,14 +1786,22 @@ void ED_view3d_draw_offscreen_simple(Depsgraph *depsgraph,
     }
     /* Disable other overlays (set all available _HIDE_ flags). */
     v3d.overlay.flag |= V3D_OVERLAY_HIDE_CURSOR | V3D_OVERLAY_HIDE_TEXT |
-                        V3D_OVERLAY_HIDE_MOTION_PATHS | V3D_OVERLAY_HIDE_BONES |
-                        V3D_OVERLAY_HIDE_OBJECT_XTRAS | V3D_OVERLAY_HIDE_OBJECT_ORIGINS;
+                        V3D_OVERLAY_HIDE_MOTION_PATHS | V3D_OVERLAY_HIDE_OBJECT_ORIGINS;
+    if ((draw_flags & V3D_OFSDRAW_SHOW_OBJECT_EXTRAS) == 0) {
+      v3d.overlay.flag |= V3D_OVERLAY_HIDE_OBJECT_XTRAS;
+    }
+    if ((object_type_exclude_viewport_override & (1 << OB_ARMATURE)) != 0) {
+      v3d.overlay.flag |= V3D_OVERLAY_HIDE_BONES;
+    }
     v3d.flag |= V3D_HIDE_HELPLINES;
   }
 
   if (is_xr_surface) {
     v3d.flag |= V3D_XR_SESSION_SURFACE;
   }
+
+  v3d.object_type_exclude_viewport = object_type_exclude_viewport_override;
+  v3d.object_type_exclude_select = object_type_exclude_select_override;
 
   rv3d.persp = RV3D_PERSP;
   v3d.clip_start = clip_start;
@@ -2253,16 +2247,16 @@ void view3d_depths_rect_create(ARegion *region, rcti *rect, ViewDepths *r_d)
 static ViewDepths *view3d_depths_create(ARegion *region)
 {
   ViewDepths *d = MEM_callocN(sizeof(ViewDepths), "ViewDepths");
-  d->w = region->winx;
-  d->h = region->winy;
 
   {
     GPUViewport *viewport = WM_draw_region_get_viewport(region);
     GPUTexture *depth_tx = GPU_viewport_depth_texture(viewport);
     uint32_t *int_depths = GPU_texture_read(depth_tx, GPU_DATA_UINT_24_8, 0);
+    d->w = GPU_texture_width(depth_tx);
+    d->h = GPU_texture_height(depth_tx);
     d->depths = (float *)int_depths;
     /* Convert in-place. */
-    int pixel_count = GPU_texture_width(depth_tx) * GPU_texture_height(depth_tx);
+    int pixel_count = d->w * d->h;
     for (int i = 0; i < pixel_count; i++) {
       d->depths[i] = (int_depths[i] >> 8u) / (float)0xFFFFFF;
     }
@@ -2387,7 +2381,7 @@ void ED_view3d_datamask(const bContext *C,
                         CustomData_MeshMasks *r_cddata_masks)
 {
   if (ELEM(v3d->shading.type, OB_TEXTURE, OB_MATERIAL, OB_RENDER)) {
-    r_cddata_masks->lmask |= CD_MASK_MLOOPUV | CD_MASK_MLOOPCOL;
+    r_cddata_masks->lmask |= CD_MASK_MLOOPUV | CD_MASK_PROP_BYTE_COLOR;
     r_cddata_masks->vmask |= CD_MASK_ORCO | CD_MASK_PROP_COLOR;
   }
   else if (v3d->shading.type == OB_SOLID) {
@@ -2395,7 +2389,7 @@ void ED_view3d_datamask(const bContext *C,
       r_cddata_masks->lmask |= CD_MASK_MLOOPUV;
     }
     if (v3d->shading.color_type == V3D_SHADING_VERTEX_COLOR) {
-      r_cddata_masks->lmask |= CD_MASK_MLOOPCOL;
+      r_cddata_masks->lmask |= CD_MASK_PROP_BYTE_COLOR;
       r_cddata_masks->vmask |= CD_MASK_ORCO | CD_MASK_PROP_COLOR;
     }
   }

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -40,6 +26,7 @@ struct BlendExpander;
 struct BlendLibReader;
 struct BlendWriter;
 struct Collection;
+struct ID;
 struct Library;
 struct Main;
 struct Object;
@@ -108,7 +95,7 @@ struct Collection *BKE_collection_duplicate(struct Main *bmain,
 /* Master Collection for Scene */
 
 #define BKE_SCENE_COLLECTION_NAME "Scene Collection"
-struct Collection *BKE_collection_master_add(void);
+struct Collection *BKE_collection_master_add(struct Scene *scene);
 
 /* Collection Objects */
 
@@ -129,6 +116,18 @@ bool BKE_collection_is_empty(const struct Collection *collection);
 bool BKE_collection_object_add(struct Main *bmain,
                                struct Collection *collection,
                                struct Object *ob);
+
+/**
+ * Add object to given collection, similar to #BKE_collection_object_add.
+ *
+ * However, it additionally ensures that the selected collection is also part of the given
+ * `view_layer`, if non-NULL. Otherwise, the object is not added to any collection.
+ */
+bool BKE_collection_viewlayer_object_add(struct Main *bmain,
+                                         const struct ViewLayer *view_layer,
+                                         struct Collection *collection,
+                                         struct Object *ob);
+
 /**
  * Same as #BKE_collection_object_add, but unconditionally adds the object to the given collection.
  *
@@ -298,7 +297,9 @@ void BKE_main_collections_parent_relations_rebuild(struct Main *bmain);
 /* .blend file I/O */
 
 void BKE_collection_blend_write_nolib(struct BlendWriter *writer, struct Collection *collection);
-void BKE_collection_blend_read_data(struct BlendDataReader *reader, struct Collection *collection);
+void BKE_collection_blend_read_data(struct BlendDataReader *reader,
+                                    struct Collection *collection,
+                                    struct ID *owner_id);
 void BKE_collection_blend_read_lib(struct BlendLibReader *reader, struct Collection *collection);
 void BKE_collection_blend_read_expand(struct BlendExpander *expander,
                                       struct Collection *collection);
@@ -359,6 +360,20 @@ void BKE_scene_collections_iterator_end(struct BLI_Iterator *iter);
 void BKE_scene_objects_iterator_begin(struct BLI_Iterator *iter, void *data_in);
 void BKE_scene_objects_iterator_next(struct BLI_Iterator *iter);
 void BKE_scene_objects_iterator_end(struct BLI_Iterator *iter);
+
+/** Iterate over objects in the scene based on a flag.
+ *
+ * \note The object->flag is tested against flag.
+ * */
+typedef struct SceneObjectsIteratorExData {
+  struct Scene *scene;
+  int flag;
+  void *iter_data;
+} SceneObjectsIteratorExData;
+
+void BKE_scene_objects_iterator_begin_ex(struct BLI_Iterator *iter, void *data_in);
+void BKE_scene_objects_iterator_next_ex(struct BLI_Iterator *iter);
+void BKE_scene_objects_iterator_end_ex(struct BLI_Iterator *iter);
 
 /**
  * Generate a new #GSet (or extend given `objects_gset` if not NULL) with all objects referenced by

@@ -1,20 +1,6 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BKE_spline.hh"
+#include "BKE_curves.hh"
 
 #include "node_geometry_util.hh"
 
@@ -28,54 +14,38 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Geometry"));
 }
 
-static void set_resolution_in_component(GeometryComponent &component,
-                                        const Field<bool> &selection_field,
-                                        const Field<int> &resolution_field)
+static void set_resolution(bke::CurvesGeometry &curves,
+                           const Field<bool> &selection_field,
+                           const Field<int> &resolution_field)
 {
-  GeometryComponentFieldContext field_context{component, ATTR_DOMAIN_CURVE};
-  const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_CURVE);
-  if (domain_size == 0) {
+  if (curves.curves_num() == 0) {
     return;
   }
+  MutableAttributeAccessor attributes = curves.attributes_for_write();
+  AttributeWriter<int> resolutions = attributes.lookup_or_add_for_write<int>("resolution",
+                                                                             ATTR_DOMAIN_CURVE);
 
-  OutputAttribute_Typed<int> resolutions = component.attribute_try_get_for_output_only<int>(
-      "resolution", ATTR_DOMAIN_CURVE);
-
-  fn::FieldEvaluator evaluator{field_context, domain_size};
+  bke::CurvesFieldContext field_context{curves, ATTR_DOMAIN_CURVE};
+  fn::FieldEvaluator evaluator{field_context, curves.curves_num()};
   evaluator.set_selection(selection_field);
-  evaluator.add_with_destination(resolution_field, resolutions.varray());
+  evaluator.add_with_destination(resolution_field, resolutions.varray);
   evaluator.evaluate();
 
-  resolutions.save();
+  resolutions.finish();
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
-  Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
-  Field<int> resolution_field = params.extract_input<Field<int>>("Resolution");
+  Field<bool> selection = params.extract_input<Field<bool>>("Selection");
+  Field<int> resolution = params.extract_input<Field<int>>("Resolution");
 
-  bool only_poly = true;
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    if (geometry_set.has_curve()) {
-      if (only_poly) {
-        for (const SplinePtr &spline : geometry_set.get_curve_for_read()->splines()) {
-          if (ELEM(spline->type(), Spline::Type::Bezier, Spline::Type::NURBS)) {
-            only_poly = false;
-            break;
-          }
-        }
-      }
-      set_resolution_in_component(geometry_set.get_component_for_write<CurveComponent>(),
-                                  selection_field,
-                                  resolution_field);
+    if (Curves *curves_id = geometry_set.get_curves_for_write()) {
+      set_resolution(bke::CurvesGeometry::wrap(curves_id->geometry), selection, resolution);
     }
   });
 
-  if (only_poly) {
-    params.error_message_add(NodeWarningType::Warning,
-                             TIP_("Input geometry does not contain a Bezier or NURB spline"));
-  }
   params.set_output("Geometry", std::move(geometry_set));
 }
 

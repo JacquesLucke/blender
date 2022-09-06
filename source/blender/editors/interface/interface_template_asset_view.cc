@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edinterface
@@ -35,6 +21,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "UI_interface.h"
 
@@ -79,7 +66,7 @@ static void asset_view_item_but_drag_set(uiBut *but,
 }
 
 static void asset_view_draw_item(uiList *ui_list,
-                                 bContext *UNUSED(C),
+                                 const bContext *UNUSED(C),
                                  uiLayout *layout,
                                  PointerRNA *UNUSED(dataptr),
                                  PointerRNA *itemptr,
@@ -196,7 +183,7 @@ static void asset_view_template_refresh_asset_collection(
 }
 
 void uiTemplateAssetView(uiLayout *layout,
-                         bContext *C,
+                         const bContext *C,
                          const char *list_id,
                          PointerRNA *asset_library_dataptr,
                          const char *asset_library_propname,

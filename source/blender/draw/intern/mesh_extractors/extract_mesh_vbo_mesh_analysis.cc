@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
@@ -30,7 +14,7 @@
 #include "BKE_editmesh_bvh.h"
 #include "BKE_editmesh_cache.h"
 
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 namespace blender::draw {
 
@@ -39,7 +23,7 @@ namespace blender::draw {
  * \{ */
 
 static void extract_mesh_analysis_init(const MeshRenderData *mr,
-                                       struct MeshBatchCache *UNUSED(cache),
+                                       MeshBatchCache *UNUSED(cache),
                                        void *buf,
                                        void *UNUSED(tls_data))
 {
@@ -275,7 +259,8 @@ static void statvis_calc_thickness(const MeshRenderData *mr, float *r_thickness)
 }
 
 struct BVHTree_OverlapData {
-  const Mesh *me;
+  const MVert *verts;
+  const MLoop *loops;
   const MLoopTri *mlooptri;
   float epsilon;
 };
@@ -283,7 +268,6 @@ struct BVHTree_OverlapData {
 static bool bvh_overlap_cb(void *userdata, int index_a, int index_b, int UNUSED(thread))
 {
   struct BVHTree_OverlapData *data = static_cast<struct BVHTree_OverlapData *>(userdata);
-  const Mesh *me = data->me;
 
   const MLoopTri *tri_a = &data->mlooptri[index_a];
   const MLoopTri *tri_b = &data->mlooptri[index_b];
@@ -292,12 +276,12 @@ static bool bvh_overlap_cb(void *userdata, int index_a, int index_b, int UNUSED(
     return false;
   }
 
-  const float *tri_a_co[3] = {me->mvert[me->mloop[tri_a->tri[0]].v].co,
-                              me->mvert[me->mloop[tri_a->tri[1]].v].co,
-                              me->mvert[me->mloop[tri_a->tri[2]].v].co};
-  const float *tri_b_co[3] = {me->mvert[me->mloop[tri_b->tri[0]].v].co,
-                              me->mvert[me->mloop[tri_b->tri[1]].v].co,
-                              me->mvert[me->mloop[tri_b->tri[2]].v].co};
+  const float *tri_a_co[3] = {data->verts[data->loops[tri_a->tri[0]].v].co,
+                              data->verts[data->loops[tri_a->tri[1]].v].co,
+                              data->verts[data->loops[tri_a->tri[2]].v].co};
+  const float *tri_b_co[3] = {data->verts[data->loops[tri_b->tri[0]].v].co,
+                              data->verts[data->loops[tri_b->tri[1]].v].co,
+                              data->verts[data->loops[tri_b->tri[2]].v].co};
   float ix_pair[2][3];
   int verts_shared = 0;
 
@@ -358,7 +342,8 @@ static void statvis_calc_intersect(const MeshRenderData *mr, float *r_intersect)
     BVHTree *tree = BKE_bvhtree_from_mesh_get(&treeData, mr->me, BVHTREE_FROM_LOOPTRI, 4);
 
     struct BVHTree_OverlapData data = {nullptr};
-    data.me = mr->me;
+    data.verts = mr->mvert;
+    data.loops = mr->mloop;
     data.mlooptri = mr->mlooptri;
     data.epsilon = BLI_bvhtree_get_epsilon(tree);
 
@@ -603,7 +588,7 @@ static void statvis_calc_sharp(const MeshRenderData *mr, float *r_sharp)
 }
 
 static void extract_analysis_iter_finish_mesh(const MeshRenderData *mr,
-                                              struct MeshBatchCache *UNUSED(cache),
+                                              MeshBatchCache *UNUSED(cache),
                                               void *buf,
                                               void *UNUSED(data))
 {
@@ -649,6 +634,4 @@ constexpr MeshExtract create_extractor_mesh_analysis()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_mesh_analysis = blender::draw::create_extractor_mesh_analysis();
-}

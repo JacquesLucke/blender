@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup DNA
@@ -46,13 +30,14 @@ typedef struct MVert {
 } MVert;
 
 /** #MVert.flag */
+
+#ifdef DNA_DEPRECATED_ALLOW
 enum {
   /*  SELECT = (1 << 0), */
+  /** Deprecated hide status. Now stored in ".hide_vert" attribute. */
   ME_HIDE = (1 << 4),
-  ME_VERT_FACEDOT = (1 << 5),
-  /*  ME_VERT_MERGED = (1 << 6), */
-  ME_VERT_PBVH_UPDATE = (1 << 7),
 };
+#endif
 
 /**
  * Mesh Edges.
@@ -71,10 +56,10 @@ enum {
   /*  SELECT = (1 << 0), */
   ME_EDGEDRAW = (1 << 1),
   ME_SEAM = (1 << 2),
+  /** Deprecated hide status. Now stored in ".hide_edge" attribute. */
   /*  ME_HIDE = (1 << 4), */
   ME_EDGERENDER = (1 << 5),
   ME_LOOSEEDGE = (1 << 7),
-  ME_EDGE_TMP_TAG = (1 << 8),
   ME_SHARP = (1 << 9), /* only reason this flag remains a 'short' */
 };
 
@@ -89,7 +74,8 @@ typedef struct MPoly {
   int loopstart;
   /** Keep signed since we need to subtract when getting the previous loop. */
   int totloop;
-  short mat_nr;
+  /** Deprecated material index. Now stored in the "material_index" attribute, but kept for IO. */
+  short mat_nr DNA_DEPRECATED;
   char flag, _pad;
 } MPoly;
 
@@ -97,6 +83,7 @@ typedef struct MPoly {
 enum {
   ME_SMOOTH = (1 << 0),
   ME_FACE_SEL = (1 << 1),
+  /** Deprecated hide status. Now stored in ".hide_poly" attribute. */
   /* ME_HIDE = (1 << 4), */
 };
 
@@ -170,8 +157,8 @@ enum {
  *
  * Usage examples:
  * \code{.c}
- * // access original material.
- * short mat_nr = mpoly[lt->poly].mat_nr;
+ * // access polygon attribute value.
+ * T value = polygon_attribute[lt->poly];
  *
  * // access vertex locations.
  * float *vtri_co[3] = {
@@ -345,7 +332,7 @@ typedef struct MLoopUV {
 
 /** #MLoopUV.flag */
 enum {
-  /* MLOOPUV_DEPRECATED = (1 << 0), MLOOPUV_EDGESEL removed */
+  MLOOPUV_EDGESEL = (1 << 0),
   MLOOPUV_VERTSEL = (1 << 1),
   MLOOPUV_PINNED = (1 << 2),
 };
@@ -371,7 +358,7 @@ typedef struct MDisps {
 
   /**
    * Used for hiding parts of a multires mesh.
-   * Essentially the multires equivalent of #MVert.flag's ME_HIDE bit.
+   * Essentially the multires equivalent of the mesh ".hide_vert" boolean layer.
    *
    * \note This is a bitmap, keep in sync with type used in BLI_bitmap.h
    */

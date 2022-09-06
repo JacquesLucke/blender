@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup modifiers
@@ -28,6 +12,8 @@
 #include "BLI_ghash.h"
 #include "BLI_math_vector.h"
 #include "BLI_rand.h"
+
+#include "BLT_translation.h"
 
 #include "DNA_defaults.h"
 #include "DNA_mesh_types.h"
@@ -48,6 +34,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
@@ -61,9 +48,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(bmd, DNA_struct_default_get(BuildModifierData), modifier);
 }
 
-static bool dependsOnTime(struct Scene *UNUSED(scene),
-                          ModifierData *UNUSED(md),
-                          const int UNUSED(dag_eval_mode))
+static bool dependsOnTime(struct Scene *UNUSED(scene), ModifierData *UNUSED(md))
 {
   return true;
 }
@@ -73,11 +58,12 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
   Mesh *result;
   BuildModifierData *bmd = (BuildModifierData *)md;
   int i, j, k;
-  int numFaces_dst, numEdges_dst, numLoops_dst = 0;
+  int faces_dst_num, edges_dst_num, loops_dst_num = 0;
   int *vertMap, *edgeMap, *faceMap;
   float frac;
   MPoly *mpoly_dst;
-  MLoop *ml_dst, *ml_src /*, *mloop_dst */;
+  MLoop *ml_dst;
+  const MLoop *ml_src;
   GHashIterator gh_iter;
   /* maps vert indices in old mesh to indices in new mesh */
   GHash *vertHash = BLI_ghash_int_new("build ve apply gh");
@@ -86,21 +72,21 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
   /* maps edge indices in old mesh to indices in new mesh */
   GHash *edgeHash2 = BLI_ghash_int_new("build ed apply gh");
 
-  const int numVert_src = mesh->totvert;
-  const int numEdge_src = mesh->totedge;
-  const int numPoly_src = mesh->totpoly;
-  MPoly *mpoly_src = mesh->mpoly;
-  MLoop *mloop_src = mesh->mloop;
-  MEdge *medge_src = mesh->medge;
-  MVert *mvert_src = mesh->mvert;
+  const int vert_src_num = mesh->totvert;
+  const int edge_src_num = mesh->totedge;
+  const int poly_src_num = mesh->totpoly;
+  const MVert *mvert_src = BKE_mesh_vertices(mesh);
+  const MEdge *medge_src = BKE_mesh_edges(mesh);
+  const MPoly *mpoly_src = BKE_mesh_polygons(mesh);
+  const MLoop *mloop_src = BKE_mesh_loops(mesh);
 
-  vertMap = MEM_malloc_arrayN(numVert_src, sizeof(*vertMap), "build modifier vertMap");
-  edgeMap = MEM_malloc_arrayN(numEdge_src, sizeof(*edgeMap), "build modifier edgeMap");
-  faceMap = MEM_malloc_arrayN(numPoly_src, sizeof(*faceMap), "build modifier faceMap");
+  vertMap = MEM_malloc_arrayN(vert_src_num, sizeof(*vertMap), "build modifier vertMap");
+  edgeMap = MEM_malloc_arrayN(edge_src_num, sizeof(*edgeMap), "build modifier edgeMap");
+  faceMap = MEM_malloc_arrayN(poly_src_num, sizeof(*faceMap), "build modifier faceMap");
 
-  range_vn_i(vertMap, numVert_src, 0);
-  range_vn_i(edgeMap, numEdge_src, 0);
-  range_vn_i(faceMap, numPoly_src, 0);
+  range_vn_i(vertMap, vert_src_num, 0);
+  range_vn_i(edgeMap, edge_src_num, 0);
+  range_vn_i(faceMap, poly_src_num, 0);
 
   struct Scene *scene = DEG_get_input_scene(ctx->depsgraph);
   frac = (BKE_scene_ctime_get(scene) - bmd->start) / bmd->length;
@@ -109,17 +95,17 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     frac = 1.0f - frac;
   }
 
-  numFaces_dst = numPoly_src * frac;
-  numEdges_dst = numEdge_src * frac;
+  faces_dst_num = poly_src_num * frac;
+  edges_dst_num = edge_src_num * frac;
 
   /* if there's at least one face, build based on faces */
-  if (numFaces_dst) {
-    MPoly *mpoly, *mp;
-    MLoop *ml, *mloop;
+  if (faces_dst_num) {
+    const MPoly *mpoly, *mp;
+    const MLoop *ml, *mloop;
     uintptr_t hash_num, hash_num_alt;
 
     if (bmd->flag & MOD_BUILD_FLAG_RANDOMIZE) {
-      BLI_array_randomize(faceMap, sizeof(*faceMap), numPoly_src, bmd->seed);
+      BLI_array_randomize(faceMap, sizeof(*faceMap), poly_src_num, bmd->seed);
     }
 
     /* get the set of all vert indices that will be in the final mesh,
@@ -128,7 +114,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     mpoly = mpoly_src;
     mloop = mloop_src;
     hash_num = 0;
-    for (i = 0; i < numFaces_dst; i++) {
+    for (i = 0; i < faces_dst_num; i++) {
       mp = mpoly + faceMap[i];
       ml = mloop + mp->loopstart;
 
@@ -140,7 +126,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
         }
       }
 
-      numLoops_dst += mp->totloop;
+      loops_dst_num += mp->totloop;
     }
     BLI_assert(hash_num == BLI_ghash_len(vertHash));
 
@@ -149,8 +135,8 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
      */
     hash_num = 0;
     hash_num_alt = 0;
-    for (i = 0; i < numEdge_src; i++, hash_num_alt++) {
-      MEdge *me = medge_src + i;
+    for (i = 0; i < edge_src_num; i++, hash_num_alt++) {
+      const MEdge *me = medge_src + i;
 
       if (BLI_ghash_haskey(vertHash, POINTER_FROM_INT(me->v1)) &&
           BLI_ghash_haskey(vertHash, POINTER_FROM_INT(me->v2))) {
@@ -161,12 +147,12 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     }
     BLI_assert(hash_num == BLI_ghash_len(edgeHash));
   }
-  else if (numEdges_dst) {
-    MEdge *medge, *me;
+  else if (edges_dst_num) {
+    const MEdge *medge, *me;
     uintptr_t hash_num;
 
     if (bmd->flag & MOD_BUILD_FLAG_RANDOMIZE) {
-      BLI_array_randomize(edgeMap, sizeof(*edgeMap), numEdge_src, bmd->seed);
+      BLI_array_randomize(edgeMap, sizeof(*edgeMap), edge_src_num, bmd->seed);
     }
 
     /* get the set of all vert indices that will be in the final mesh,
@@ -175,7 +161,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     medge = medge_src;
     hash_num = 0;
     BLI_assert(hash_num == BLI_ghash_len(vertHash));
-    for (i = 0; i < numEdges_dst; i++) {
+    for (i = 0; i < edges_dst_num; i++) {
       void **val_p;
       me = medge + edgeMap[i];
 
@@ -191,7 +177,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     BLI_assert(hash_num == BLI_ghash_len(vertHash));
 
     /* get the set of edges that will be in the new mesh */
-    for (i = 0; i < numEdges_dst; i++) {
+    for (i = 0; i < edges_dst_num; i++) {
       j = BLI_ghash_len(edgeHash);
 
       BLI_ghash_insert(edgeHash, POINTER_FROM_INT(j), POINTER_FROM_INT(edgeMap[i]));
@@ -199,23 +185,27 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     }
   }
   else {
-    int numVerts = numVert_src * frac;
+    int verts_num = vert_src_num * frac;
 
     if (bmd->flag & MOD_BUILD_FLAG_RANDOMIZE) {
-      BLI_array_randomize(vertMap, sizeof(*vertMap), numVert_src, bmd->seed);
+      BLI_array_randomize(vertMap, sizeof(*vertMap), vert_src_num, bmd->seed);
     }
 
     /* get the set of all vert indices that will be in the final mesh,
      * mapped to the new indices
      */
-    for (i = 0; i < numVerts; i++) {
+    for (i = 0; i < verts_num; i++) {
       BLI_ghash_insert(vertHash, POINTER_FROM_INT(vertMap[i]), POINTER_FROM_INT(i));
     }
   }
 
   /* now we know the number of verts, edges and faces, we can create the mesh. */
   result = BKE_mesh_new_nomain_from_template(
-      mesh, BLI_ghash_len(vertHash), BLI_ghash_len(edgeHash), 0, numLoops_dst, numFaces_dst);
+      mesh, BLI_ghash_len(vertHash), BLI_ghash_len(edgeHash), 0, loops_dst_num, faces_dst_num);
+  MVert *result_verts = BKE_mesh_vertices_for_write(result);
+  MEdge *result_edges = BKE_mesh_edges_for_write(result);
+  MPoly *result_polys = BKE_mesh_polygons_for_write(result);
+  MLoop *result_loops = BKE_mesh_loops_for_write(result);
 
   /* copy the vertices across */
   GHASH_ITER (gh_iter, vertHash) {
@@ -225,7 +215,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     int newIndex = POINTER_AS_INT(BLI_ghashIterator_getValue(&gh_iter));
 
     source = mvert_src[oldIndex];
-    dest = &result->mvert[newIndex];
+    dest = &result_verts[newIndex];
 
     CustomData_copy_data(&mesh->vdata, &result->vdata, oldIndex, newIndex, 1);
     *dest = source;
@@ -238,7 +228,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     int oldIndex = POINTER_AS_INT(BLI_ghash_lookup(edgeHash, POINTER_FROM_INT(i)));
 
     source = medge_src[oldIndex];
-    dest = &result->medge[i];
+    dest = &result_edges[i];
 
     source.v1 = POINTER_AS_INT(BLI_ghash_lookup(vertHash, POINTER_FROM_INT(source.v1)));
     source.v2 = POINTER_AS_INT(BLI_ghash_lookup(vertHash, POINTER_FROM_INT(source.v2)));
@@ -247,13 +237,13 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
     *dest = source;
   }
 
-  mpoly_dst = result->mpoly;
-  ml_dst = result->mloop;
+  mpoly_dst = result_polys;
+  ml_dst = result_loops;
 
   /* copy the faces across, remapping indices */
   k = 0;
-  for (i = 0; i < numFaces_dst; i++) {
-    MPoly *source;
+  for (i = 0; i < faces_dst_num; i++) {
+    const MPoly *source;
     MPoly *dest;
 
     source = mpoly_src + faceMap[i];
@@ -279,8 +269,6 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, struct
   MEM_freeN(vertMap);
   MEM_freeN(edgeMap);
   MEM_freeN(faceMap);
-
-  BKE_mesh_normals_tag_dirty(result);
 
   /* TODO(sybren): also copy flags & tags? */
   return result;
@@ -330,7 +318,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Build = {
-    /* name */ "Build",
+    /* name */ N_("Build"),
     /* structName */ "BuildModifierData",
     /* structSize */ sizeof(BuildModifierData),
     /* srna */ &RNA_BuildModifier,

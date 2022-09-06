@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -79,7 +65,7 @@ void BKE_mesh_foreach_mapped_vert(
     }
   }
   else {
-    const MVert *mv = mesh->mvert;
+    const MVert *mv = BKE_mesh_vertices(mesh);
     const int *index = CustomData_get_layer(&mesh->vdata, CD_ORIGINDEX);
     const float(*vert_normals)[3] = (flag & MESH_FOREACH_USE_NORMAL) ?
                                         BKE_mesh_vertex_normals_ensure(mesh) :
@@ -134,8 +120,8 @@ void BKE_mesh_foreach_mapped_edge(
     }
   }
   else {
-    const MVert *mv = mesh->mvert;
-    const MEdge *med = mesh->medge;
+    const MVert *mv = BKE_mesh_vertices(mesh);
+    const MEdge *med = BKE_mesh_edges(mesh);
     const int *index = CustomData_get_layer(&mesh->edata, CD_ORIGINDEX);
 
     if (index) {
@@ -202,9 +188,9 @@ void BKE_mesh_foreach_mapped_loop(Mesh *mesh,
                                  CustomData_get_layer(&mesh->ldata, CD_NORMAL) :
                                  NULL;
 
-    const MVert *mv = mesh->mvert;
-    const MLoop *ml = mesh->mloop;
-    const MPoly *mp = mesh->mpoly;
+    const MVert *mv = BKE_mesh_vertices(mesh);
+    const MLoop *ml = BKE_mesh_loops(mesh);
+    const MPoly *mp = BKE_mesh_polygons(mesh);
     const int *v_index = CustomData_get_layer(&mesh->vdata, CD_ORIGINDEX);
     const int *f_index = CustomData_get_layer(&mesh->pdata, CD_ORIGINDEX);
     int p_idx, i;
@@ -275,8 +261,9 @@ void BKE_mesh_foreach_mapped_face_center(
     }
   }
   else {
-    const MVert *mvert = mesh->mvert;
-    const MPoly *mp = mesh->mpoly;
+    const MVert *mvert = BKE_mesh_vertices(mesh);
+    const MPoly *mp = BKE_mesh_polygons(mesh);
+    const MLoop *loops = BKE_mesh_loops(mesh);
     const MLoop *ml;
     float _no_buf[3];
     float *no = (flag & MESH_FOREACH_USE_NORMAL) ? _no_buf : NULL;
@@ -289,7 +276,7 @@ void BKE_mesh_foreach_mapped_face_center(
           continue;
         }
         float cent[3];
-        ml = &mesh->mloop[mp->loopstart];
+        ml = &loops[mp->loopstart];
         BKE_mesh_calc_poly_center(mp, ml, mvert, cent);
         if (flag & MESH_FOREACH_USE_NORMAL) {
           BKE_mesh_calc_poly_normal(mp, ml, mvert, no);
@@ -300,7 +287,7 @@ void BKE_mesh_foreach_mapped_face_center(
     else {
       for (int i = 0; i < mesh->totpoly; i++, mp++) {
         float cent[3];
-        ml = &mesh->mloop[mp->loopstart];
+        ml = &loops[mp->loopstart];
         BKE_mesh_calc_poly_center(mp, ml, mvert, cent);
         if (flag & MESH_FOREACH_USE_NORMAL) {
           BKE_mesh_calc_poly_normal(mp, ml, mvert, no);
@@ -317,13 +304,17 @@ void BKE_mesh_foreach_mapped_subdiv_face_center(
     void *userData,
     MeshForeachFlag flag)
 {
-  const MPoly *mp = mesh->mpoly;
+  const MVert *verts = BKE_mesh_vertices(mesh);
+  const MPoly *mp = BKE_mesh_polygons(mesh);
+  const MLoop *loops = BKE_mesh_loops(mesh);
   const MLoop *ml;
   const MVert *mv;
   const float(*vert_normals)[3] = (flag & MESH_FOREACH_USE_NORMAL) ?
                                       BKE_mesh_vertex_normals_ensure(mesh) :
                                       NULL;
   const int *index = CustomData_get_layer(&mesh->pdata, CD_ORIGINDEX);
+  const BLI_bitmap *facedot_tags = mesh->runtime.subsurf_face_dot_tags;
+  BLI_assert(facedot_tags != NULL);
 
   if (index) {
     for (int i = 0; i < mesh->totpoly; i++, mp++) {
@@ -331,11 +322,10 @@ void BKE_mesh_foreach_mapped_subdiv_face_center(
       if (orig == ORIGINDEX_NONE) {
         continue;
       }
-      ml = &mesh->mloop[mp->loopstart];
+      ml = &loops[mp->loopstart];
       for (int j = 0; j < mp->totloop; j++, ml++) {
-        mv = &mesh->mvert[ml->v];
-        if (mv->flag & ME_VERT_FACEDOT) {
-
+        mv = &verts[ml->v];
+        if (BLI_BITMAP_TEST(facedot_tags, ml->v)) {
           func(userData,
                orig,
                mv->co,
@@ -346,10 +336,10 @@ void BKE_mesh_foreach_mapped_subdiv_face_center(
   }
   else {
     for (int i = 0; i < mesh->totpoly; i++, mp++) {
-      ml = &mesh->mloop[mp->loopstart];
+      ml = &loops[mp->loopstart];
       for (int j = 0; j < mp->totloop; j++, ml++) {
-        mv = &mesh->mvert[ml->v];
-        if (mv->flag & ME_VERT_FACEDOT) {
+        mv = &verts[ml->v];
+        if (BLI_BITMAP_TEST(facedot_tags, ml->v)) {
           func(userData, i, mv->co, (flag & MESH_FOREACH_USE_NORMAL) ? vert_normals[ml->v] : NULL);
         }
       }

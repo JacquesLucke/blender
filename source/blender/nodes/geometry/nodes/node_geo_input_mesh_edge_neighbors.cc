@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
@@ -30,34 +16,26 @@ static void node_declare(NodeDeclarationBuilder &b)
       .description(N_("The number of faces that use each edge as one of their sides"));
 }
 
-class EdgeNeighborCountFieldInput final : public GeometryFieldInput {
+class EdgeNeighborCountFieldInput final : public bke::MeshFieldInput {
  public:
   EdgeNeighborCountFieldInput()
-      : GeometryFieldInput(CPPType::get<int>(), "Edge Neighbor Count Field")
+      : bke::MeshFieldInput(CPPType::get<int>(), "Edge Neighbor Count Field")
   {
     category_ = Category::Generated;
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
+  GVArray get_varray_for_context(const Mesh &mesh,
+                                 const eAttrDomain domain,
                                  IndexMask UNUSED(mask)) const final
   {
-    if (component.type() == GEO_COMPONENT_TYPE_MESH) {
-      const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-      const Mesh *mesh = mesh_component.get_for_read();
-      if (mesh == nullptr) {
-        return {};
-      }
-
-      Array<int> face_count(mesh->totedge, 0);
-      for (const int i : IndexRange(mesh->totloop)) {
-        face_count[mesh->mloop[i].e]++;
-      }
-
-      return mesh_component.attribute_try_adapt_domain<int>(
-          VArray<int>::ForContainer(std::move(face_count)), ATTR_DOMAIN_EDGE, domain);
+    const Span<MLoop> loops = mesh.loops();
+    Array<int> face_count(mesh.totedge, 0);
+    for (const MLoop &loop : loops) {
+      face_count[loop.e]++;
     }
-    return {};
+
+    return bke::mesh_attributes(mesh).adapt_domain<int>(
+        VArray<int>::ForContainer(std::move(face_count)), ATTR_DOMAIN_EDGE, domain);
   }
 
   uint64_t hash() const override

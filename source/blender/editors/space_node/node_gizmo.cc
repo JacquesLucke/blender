@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spnode
@@ -37,6 +23,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -62,14 +49,14 @@ static void node_gizmo_calc_matrix_space(const SpaceNode *snode,
 
 static void node_gizmo_calc_matrix_space_with_image_dims(const SpaceNode *snode,
                                                          const ARegion *region,
-                                                         const float image_dims[2],
+                                                         const float2 &image_dims,
                                                          float matrix_space[4][4])
 {
   unit_m4(matrix_space);
-  mul_v3_fl(matrix_space[0], snode->zoom * image_dims[0]);
-  mul_v3_fl(matrix_space[1], snode->zoom * image_dims[1]);
-  matrix_space[3][0] = ((region->winx / 2) + snode->xof) - ((image_dims[0] / 2.0f) * snode->zoom);
-  matrix_space[3][1] = ((region->winy / 2) + snode->yof) - ((image_dims[1] / 2.0f) * snode->zoom);
+  mul_v3_fl(matrix_space[0], snode->zoom * image_dims.x);
+  mul_v3_fl(matrix_space[1], snode->zoom * image_dims.y);
+  matrix_space[3][0] = ((region->winx / 2) + snode->xof) - ((image_dims.x / 2.0f) * snode->zoom);
+  matrix_space[3][1] = ((region->winy / 2) + snode->yof) - ((image_dims.y / 2.0f) * snode->zoom);
 }
 
 /** \} */
@@ -148,7 +135,7 @@ static void WIDGETGROUP_node_transform_refresh(const bContext *C, wmGizmoGroup *
   ImBuf *ibuf = BKE_image_acquire_ibuf(ima, nullptr, &lock);
 
   if (ibuf) {
-    const float dims[2] = {
+    const float2 dims = {
         (ibuf->x > 0) ? ibuf->x : 64.0f,
         (ibuf->y > 0) ? ibuf->y : 64.0f,
     };
@@ -203,7 +190,7 @@ struct NodeCropWidgetGroup {
   wmGizmo *border;
 
   struct {
-    float dims[2];
+    float2 dims;
   } state;
 
   struct {
@@ -219,10 +206,7 @@ static void gizmo_node_crop_update(struct NodeCropWidgetGroup *crop_group)
       crop_group->update_data.context, &crop_group->update_data.ptr, crop_group->update_data.prop);
 }
 
-static void two_xy_to_rect(const NodeTwoXYs *nxy,
-                           rctf *rect,
-                           const float dims[2],
-                           bool is_relative)
+static void two_xy_to_rect(const NodeTwoXYs *nxy, rctf *rect, const float2 &dims, bool is_relative)
 {
   if (is_relative) {
     rect->xmin = nxy->fac_x1;
@@ -231,16 +215,16 @@ static void two_xy_to_rect(const NodeTwoXYs *nxy,
     rect->ymax = nxy->fac_y2;
   }
   else {
-    rect->xmin = nxy->x1 / dims[0];
-    rect->xmax = nxy->x2 / dims[0];
-    rect->ymin = nxy->y1 / dims[1];
-    rect->ymax = nxy->y2 / dims[1];
+    rect->xmin = nxy->x1 / dims.x;
+    rect->xmax = nxy->x2 / dims.x;
+    rect->ymin = nxy->y1 / dims.y;
+    rect->ymax = nxy->y2 / dims.y;
   }
 }
 
 static void two_xy_from_rect(NodeTwoXYs *nxy,
                              const rctf *rect,
-                             const float dims[2],
+                             const float2 &dims,
                              bool is_relative)
 {
   if (is_relative) {
@@ -250,10 +234,10 @@ static void two_xy_from_rect(NodeTwoXYs *nxy,
     nxy->fac_y2 = rect->ymax;
   }
   else {
-    nxy->x1 = rect->xmin * dims[0];
-    nxy->x2 = rect->xmax * dims[0];
-    nxy->y1 = rect->ymin * dims[1];
-    nxy->y2 = rect->ymax * dims[1];
+    nxy->x1 = rect->xmin * dims.x;
+    nxy->x2 = rect->xmax * dims.x;
+    nxy->y1 = rect->ymin * dims.y;
+    nxy->y2 = rect->ymax * dims.y;
   }
 }
 
@@ -334,9 +318,7 @@ static bool WIDGETGROUP_node_crop_poll(const bContext *C, wmGizmoGroupType *UNUS
 
 static void WIDGETGROUP_node_crop_setup(const bContext *UNUSED(C), wmGizmoGroup *gzgroup)
 {
-  struct NodeCropWidgetGroup *crop_group = (NodeCropWidgetGroup *)MEM_mallocN(
-      sizeof(struct NodeCropWidgetGroup), __func__);
-
+  NodeCropWidgetGroup *crop_group = MEM_new<NodeCropWidgetGroup>(__func__);
   crop_group->border = WM_gizmo_new("GIZMO_GT_cage_2d", gzgroup, nullptr);
 
   RNA_enum_set(crop_group->border->ptr,
@@ -420,7 +402,7 @@ struct NodeSunBeamsWidgetGroup {
   wmGizmo *gizmo;
 
   struct {
-    float dims[2];
+    float2 dims;
   } state;
 };
 
@@ -525,7 +507,7 @@ struct NodeCornerPinWidgetGroup {
   wmGizmo *gizmos[4];
 
   struct {
-    float dims[2];
+    float2 dims;
   } state;
 };
 

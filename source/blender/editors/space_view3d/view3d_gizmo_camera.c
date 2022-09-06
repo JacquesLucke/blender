@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -25,6 +11,7 @@
 #include "BKE_camera.h"
 #include "BKE_context.h"
 #include "BKE_layer.h"
+#include "BKE_lib_id.h"
 
 #include "DNA_camera_types.h"
 #include "DNA_object_types.h"
@@ -69,13 +56,13 @@ static bool WIDGETGROUP_camera_poll(const bContext *C, wmGizmoGroupType *UNUSED(
   }
 
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Base *base = BASACT(view_layer);
+  Base *base = view_layer->basact;
   if (base && BASE_SELECTABLE(v3d, base)) {
     Object *ob = base->object;
     if (ob->type == OB_CAMERA) {
       Camera *camera = ob->data;
       /* TODO: support overrides. */
-      if (!ID_IS_LINKED(camera)) {
+      if (BKE_id_is_editable(CTX_data_main(C), &camera->id)) {
         return true;
       }
     }
@@ -86,7 +73,7 @@ static bool WIDGETGROUP_camera_poll(const bContext *C, wmGizmoGroupType *UNUSED(
 static void WIDGETGROUP_camera_setup(const bContext *C, wmGizmoGroup *gzgroup)
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   float dir[3];
 
   const wmGizmoType *gzt_arrow = WM_gizmotype_find("GIZMO_GT_arrow_3d", true);
@@ -138,7 +125,7 @@ static void WIDGETGROUP_camera_refresh(const bContext *C, wmGizmoGroup *gzgroup)
   struct CameraWidgetGroup *cagzgroup = gzgroup->customdata;
   View3D *v3d = CTX_wm_view3d(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   Camera *ca = ob->data;
   PointerRNA camera_ptr;
   float dir[3];
@@ -255,7 +242,7 @@ static void WIDGETGROUP_camera_message_subscribe(const bContext *C,
 {
   ARegion *region = CTX_wm_region(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   Camera *ca = ob->data;
 
   wmMsgSubscribeValue msg_sub_value_gz_tag_refresh = {
@@ -265,16 +252,6 @@ static void WIDGETGROUP_camera_message_subscribe(const bContext *C,
   };
 
   {
-    extern PropertyRNA rna_CameraDOFSettings_focus_distance;
-    extern PropertyRNA rna_Camera_display_size;
-    extern PropertyRNA rna_Camera_ortho_scale;
-    extern PropertyRNA rna_Camera_sensor_fit;
-    extern PropertyRNA rna_Camera_sensor_width;
-    extern PropertyRNA rna_Camera_sensor_height;
-    extern PropertyRNA rna_Camera_shift_x;
-    extern PropertyRNA rna_Camera_shift_y;
-    extern PropertyRNA rna_Camera_type;
-    extern PropertyRNA rna_Camera_lens;
     const PropertyRNA *props[] = {
         &rna_CameraDOFSettings_focus_distance,
         &rna_Camera_display_size,
@@ -393,7 +370,7 @@ static bool WIDGETGROUP_camera_view_poll(const bContext *C, wmGizmoGroupType *UN
    * We could change the rules for when to show. */
   {
     ViewLayer *view_layer = CTX_data_view_layer(C);
-    if (scene->camera != OBACT(view_layer)) {
+    if (scene->camera != BKE_view_layer_active_object_get(view_layer)) {
       return false;
     }
   }
@@ -408,7 +385,7 @@ static bool WIDGETGROUP_camera_view_poll(const bContext *C, wmGizmoGroupType *UN
   if (rv3d->persp == RV3D_CAMOB) {
     if (scene->r.mode & R_BORDER) {
       /* TODO: support overrides. */
-      if (!ID_IS_LINKED(scene)) {
+      if (BKE_id_is_editable(CTX_data_main(C), &scene->id)) {
         return true;
       }
     }

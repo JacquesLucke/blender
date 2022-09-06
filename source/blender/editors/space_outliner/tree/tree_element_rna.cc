@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spoutliner
@@ -66,7 +52,7 @@ bool TreeElementRNACommon::isRNAValid() const
   return rna_ptr_.data != nullptr;
 }
 
-bool TreeElementRNACommon::expandPoll(const SpaceOutliner &) const
+bool TreeElementRNACommon::expandPoll(const SpaceOutliner &UNUSED(space_outliner)) const
 {
   return isRNAValid();
 }
@@ -131,14 +117,14 @@ void TreeElementRNAStruct::expand(SpaceOutliner &space_outliner) const
     for (int index = 0; index < tot; index++) {
       PointerRNA propptr;
       RNA_property_collection_lookup_int(&ptr, iterprop, index, &propptr);
-      if (!(RNA_property_flag(reinterpret_cast<PropertyRNA *>(propptr.data)) & PROP_HIDDEN)) {
+      if (!(RNA_property_flag(static_cast<PropertyRNA *>(propptr.data)) & PROP_HIDDEN)) {
         outliner_add_element(
             &space_outliner, &legacy_te_.subtree, &ptr, &legacy_te_, TSE_RNA_PROPERTY, index);
       }
     }
   }
   else if (tot) {
-    legacy_te_.flag |= TE_LAZY_CLOSED;
+    legacy_te_.flag |= TE_PRETEND_HAS_CHILDREN;
   }
 }
 
@@ -160,7 +146,7 @@ TreeElementRNAProperty::TreeElementRNAProperty(TreeElement &legacy_te,
   PropertyRNA *iterprop = RNA_struct_iterator_property(rna_ptr.type);
   RNA_property_collection_lookup_int(&rna_ptr, iterprop, index, &propptr);
 
-  PropertyRNA *prop = reinterpret_cast<PropertyRNA *>(propptr.data);
+  PropertyRNA *prop = static_cast<PropertyRNA *>(propptr.data);
 
   legacy_te_.name = RNA_property_ui_name(prop);
   rna_prop_ = prop;
@@ -186,7 +172,7 @@ void TreeElementRNAProperty::expand(SpaceOutliner &space_outliner) const
             &space_outliner, &legacy_te_.subtree, &pptr, &legacy_te_, TSE_RNA_STRUCT, -1);
       }
       else {
-        legacy_te_.flag |= TE_LAZY_CLOSED;
+        legacy_te_.flag |= TE_PRETEND_HAS_CHILDREN;
       }
     }
   }
@@ -203,7 +189,7 @@ void TreeElementRNAProperty::expand(SpaceOutliner &space_outliner) const
       }
     }
     else if (tot) {
-      legacy_te_.flag |= TE_LAZY_CLOSED;
+      legacy_te_.flag |= TE_PRETEND_HAS_CHILDREN;
     }
   }
   else if (ELEM(proptype, PROP_BOOLEAN, PROP_INT, PROP_FLOAT)) {
@@ -221,7 +207,7 @@ void TreeElementRNAProperty::expand(SpaceOutliner &space_outliner) const
       }
     }
     else if (tot) {
-      legacy_te_.flag |= TE_LAZY_CLOSED;
+      legacy_te_.flag |= TE_PRETEND_HAS_CHILDREN;
     }
   }
 }
@@ -246,8 +232,7 @@ TreeElementRNAArrayElement::TreeElementRNAArrayElement(TreeElement &legacy_te,
 
   char c = RNA_property_array_item_char(TreeElementRNAArrayElement::getPropertyRNA(), index);
 
-  legacy_te_.name = reinterpret_cast<char *>(
-      MEM_callocN(sizeof(char[20]), "OutlinerRNAArrayName"));
+  legacy_te_.name = static_cast<char *>(MEM_callocN(sizeof(char[20]), "OutlinerRNAArrayName"));
   if (c) {
     sprintf((char *)legacy_te_.name, "  %c", c);
   }

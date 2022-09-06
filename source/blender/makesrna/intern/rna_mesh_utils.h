@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -95,7 +81,7 @@
            layer++, a++) { \
         if (value.data == layer) { \
           CustomData_set_layer_##active_type(data, layer_type, a); \
-          BKE_mesh_update_customdata_pointers(me, true); \
+          BKE_mesh_tessface_clear(me); \
           return; \
         } \
       } \
@@ -119,6 +105,6 @@
     CustomData *data = rna_mesh_##customdata_type(ptr); \
     if (data) { \
       CustomData_set_layer_##active_type(data, layer_type, value); \
-      BKE_mesh_update_customdata_pointers(me, true); \
+      BKE_mesh_tessface_clear(me); \
     } \
   }

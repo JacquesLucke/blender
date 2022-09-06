@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -132,7 +118,7 @@ static int engine_get_preview_pixel_size(RenderEngine *UNUSED(engine), Scene *sc
 
 static void engine_bind_display_space_shader(RenderEngine *UNUSED(engine), Scene *UNUSED(scene))
 {
-  GPUShader *shader = GPU_shader_get_builtin_shader(GPU_SHADER_2D_IMAGE);
+  GPUShader *shader = GPU_shader_get_builtin_shader(GPU_SHADER_3D_IMAGE);
   GPU_shader_bind(shader);
 
   int img_loc = GPU_shader_get_uniform(shader, "image");
@@ -497,9 +483,10 @@ static void rna_RenderLayer_passes_begin(CollectionPropertyIterator *iter, Point
   rna_iterator_listbase_begin(iter, &rl->passes, NULL);
 }
 
-static int rna_RenderPass_rect_get_length(PointerRNA *ptr, int length[RNA_MAX_ARRAY_DIMENSION])
+static int rna_RenderPass_rect_get_length(const PointerRNA *ptr,
+                                          int length[RNA_MAX_ARRAY_DIMENSION])
 {
-  RenderPass *rpass = (RenderPass *)ptr->data;
+  const RenderPass *rpass = (RenderPass *)ptr->data;
 
   length[0] = rpass->rectx * rpass->recty;
   length[1] = rpass->channels;

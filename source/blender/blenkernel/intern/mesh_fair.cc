@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -41,6 +27,8 @@
 #include "eigen_capi.h"
 
 using blender::Map;
+using blender::MutableSpan;
+using blender::Span;
 using blender::Vector;
 using std::array;
 
@@ -207,13 +195,14 @@ class MeshFairingContext : public FairingContext {
     totvert_ = mesh->totvert;
     totloop_ = mesh->totloop;
 
-    medge_ = mesh->medge;
-    mpoly_ = mesh->mpoly;
-    mloop_ = mesh->mloop;
+    MutableSpan<MVert> verts = mesh->vertices_for_write();
+    medge_ = mesh->edges();
+    mpoly_ = mesh->polygons();
+    mloop_ = mesh->loops();
     BKE_mesh_vert_loop_map_create(&vlmap_,
                                   &vlmap_mem_,
-                                  mesh->mpoly,
-                                  mesh->mloop,
+                                  mpoly_.data(),
+                                  mloop_.data(),
                                   mesh->totvert,
                                   mesh->totpoly,
                                   mesh->totloop);
@@ -227,14 +216,14 @@ class MeshFairingContext : public FairingContext {
     }
     else {
       for (int i = 0; i < mesh->totvert; i++) {
-        co_[i] = mesh->mvert[i].co;
+        co_[i] = verts[i].co;
       }
     }
 
     loop_to_poly_map_.reserve(mesh->totloop);
     for (int i = 0; i < mesh->totpoly; i++) {
-      for (int l = 0; l < mesh->mpoly[i].totloop; l++) {
-        loop_to_poly_map_[l + mesh->mpoly[i].loopstart] = i;
+      for (int l = 0; l < mpoly_[i].totloop; l++) {
+        loop_to_poly_map_[l + mpoly_[i].loopstart] = i;
       }
     }
   }
@@ -258,7 +247,7 @@ class MeshFairingContext : public FairingContext {
 
   int other_vertex_index_from_loop(const int loop, const uint v) override
   {
-    MEdge *e = &medge_[mloop_[loop].e];
+    const MEdge *e = &medge_[mloop_[loop].e];
     if (e->v1 == v) {
       return e->v2;
     }
@@ -267,9 +256,9 @@ class MeshFairingContext : public FairingContext {
 
  protected:
   Mesh *mesh_;
-  MLoop *mloop_;
-  MPoly *mpoly_;
-  MEdge *medge_;
+  Span<MLoop> mloop_;
+  Span<MPoly> mpoly_;
+  Span<MEdge> medge_;
   Vector<int> loop_to_poly_map_;
 };
 

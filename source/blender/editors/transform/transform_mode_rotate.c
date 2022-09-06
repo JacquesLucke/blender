@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edtransform
@@ -27,6 +11,7 @@
 #include "BLI_task.h"
 
 #include "BKE_context.h"
+#include "BKE_report.h"
 #include "BKE_unit.h"
 
 #include "ED_screen.h"
@@ -301,9 +286,72 @@ static void applyRotationValue(TransInfo *t,
   }
 }
 
+static bool uv_rotation_in_clip_bounds_test(const TransInfo *t, const float angle)
+{
+  const float cos_angle = cosf(angle);
+  const float sin_angle = sinf(angle);
+  const float *center = t->center_global;
+  FOREACH_TRANS_DATA_CONTAINER (t, tc) {
+    TransData *td = tc->data;
+    for (int i = 0; i < tc->data_len; i++, td++) {
+      if (td->flag & TD_SKIP) {
+        continue;
+      }
+      if (td->factor < 1.0f) {
+        continue; /* Proportional edit, will get picked up in next phase. */
+      }
+
+      float uv[2];
+      sub_v2_v2v2(uv, td->iloc, center);
+      float pr[2];
+      pr[0] = cos_angle * uv[0] + sin_angle * uv[1];
+      pr[1] = -sin_angle * uv[0] + cos_angle * uv[1];
+      add_v2_v2(pr, center);
+      /* TODO: UDIM support. */
+      if (pr[0] < 0.0f || 1.0f < pr[0]) {
+        return false;
+      }
+      if (pr[1] < 0.0f || 1.0f < pr[1]) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+static bool clip_uv_transform_rotate(const TransInfo *t, float *vec, float *vec_inside_bounds)
+{
+  float angle = vec[0];
+  if (uv_rotation_in_clip_bounds_test(t, angle)) {
+    vec_inside_bounds[0] = angle; /* Store for next iteration. */
+    return false;                 /* Nothing to do. */
+  }
+  float angle_inside_bounds = vec_inside_bounds[0];
+  if (!uv_rotation_in_clip_bounds_test(t, angle_inside_bounds)) {
+    return false; /* No known way to fix, may as well rotate anyway. */
+  }
+  const int max_i = 32; /* Limit iteration, mainly for debugging. */
+  for (int i = 0; i < max_i; i++) {
+    /* Binary search. */
+    const float angle_mid = (angle_inside_bounds + angle) / 2.0f;
+    if (angle_mid == angle_inside_bounds || angle_mid == angle) {
+      break; /* float precision reached. */
+    }
+    if (uv_rotation_in_clip_bounds_test(t, angle_mid)) {
+      angle_inside_bounds = angle_mid;
+    }
+    else {
+      angle = angle_mid;
+    }
+  }
+
+  vec_inside_bounds[0] = angle_inside_bounds; /* Store for next iteration. */
+  vec[0] = angle_inside_bounds;               /* Update rotation angle. */
+  return true;
+}
+
 static void applyRotation(TransInfo *t, const int UNUSED(mval[2]))
 {
-  char str[UI_MAX_DRAW_STR];
   float axis_final[3];
   float final = t->values[0] + t->values_modal_offset[0];
 
@@ -320,7 +368,7 @@ static void applyRotation(TransInfo *t, const int UNUSED(mval[2]))
     final = large_rotation_limit(final);
   }
   else {
-    applySnapping(t, &final);
+    applySnappingAsGroup(t, &final);
     if (!(activeSnap(t) && validSnap(t))) {
       transform_snap_increment(t, &final);
     }
@@ -328,20 +376,59 @@ static void applyRotation(TransInfo *t, const int UNUSED(mval[2]))
 
   t->values_final[0] = final;
 
-  headerRotation(t, str, sizeof(str), final);
-
   const bool is_large_rotation = hasNumInput(&t->num);
   applyRotationValue(t, final, axis_final, is_large_rotation);
 
+  if (t->flag & T_CLIP_UV) {
+    if (clip_uv_transform_rotate(t, t->values_final, t->values_inside_constraints)) {
+      applyRotationValue(t, t->values_final[0], axis_final, is_large_rotation);
+    }
+
+    /* In proportional edit it can happen that */
+    /* vertices in the radius of the brush end */
+    /* outside the clipping area               */
+    /* XXX HACK - dg */
+    if (t->flag & T_PROP_EDIT) {
+      clipUVData(t);
+    }
+  }
+
   recalcData(t);
 
+  char str[UI_MAX_DRAW_STR];
+  headerRotation(t, str, sizeof(str), t->values_final[0]);
   ED_area_status_text(t->area, str);
+}
+
+static void applyRotationMatrix(TransInfo *t, float mat_xform[4][4])
+{
+  float axis_final[3];
+  const float angle_final = t->values_final[0];
+  if ((t->con.mode & CON_APPLY) && t->con.applyRot) {
+    t->con.applyRot(t, NULL, NULL, axis_final, NULL);
+  }
+  else {
+    negate_v3_v3(axis_final, t->spacemtx[t->orient_axis]);
+  }
+
+  float mat3[3][3];
+  float mat4[4][4];
+  axis_angle_normalized_to_mat3(mat3, axis_final, angle_final);
+  copy_m4_m3(mat4, mat3);
+  transform_pivot_set_m4(mat4, t->center_global);
+  mul_m4_m4m4(mat_xform, mat4, mat_xform);
 }
 
 void initRotation(TransInfo *t)
 {
+  if (t->spacetype == SPACE_ACTION) {
+    BKE_report(t->reports, RPT_ERROR, "Rotation is not supported in the Dope Sheet Editor");
+    t->state = TRANS_CANCEL;
+  }
+
   t->mode = TFM_ROTATION;
   t->transform = applyRotation;
+  t->transform_matrix = applyRotationMatrix;
   t->tsnap.applySnap = ApplySnapRotation;
   t->tsnap.distance = RotationBetween;
 

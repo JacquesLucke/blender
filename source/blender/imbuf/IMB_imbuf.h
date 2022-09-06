@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup imbuf
@@ -57,6 +41,7 @@
 
 /* for bool */
 #include "../blenlib/BLI_sys_types.h"
+#include "../gpu/GPU_texture.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -65,7 +50,6 @@ extern "C" {
 #define IM_MAX_SPACE 64
 
 /**
- *
  * \attention defined in ???
  */
 struct ImBuf;
@@ -73,7 +57,6 @@ struct rctf;
 struct rcti;
 
 /**
- *
  * \attention defined in ???
  */
 struct anim;
@@ -82,27 +65,18 @@ struct ColorManagedDisplay;
 
 struct GSet;
 /**
- *
  * \attention defined in DNA_scene_types.h
  */
 struct ImageFormatData;
 struct Stereo3dFormat;
 
 /**
- *
- * \attention defined in GPU_texture.h
- */
-struct GPUTexture;
-
-/**
- *
  * \attention Defined in allocimbuf.c
  */
 void IMB_init(void);
 void IMB_exit(void);
 
 /**
- *
  * \attention Defined in readimage.c
  */
 struct ImBuf *IMB_ibImageFromMemory(const unsigned char *mem,
@@ -112,25 +86,28 @@ struct ImBuf *IMB_ibImageFromMemory(const unsigned char *mem,
                                     const char *descr);
 
 /**
- *
  * \attention Defined in readimage.c
  */
 struct ImBuf *IMB_testiffname(const char *filepath, int flags);
 
 /**
- *
  * \attention Defined in readimage.c
  */
 struct ImBuf *IMB_loadiffname(const char *filepath, int flags, char colorspace[IM_MAX_SPACE]);
 
 /**
- *
+ * \attention Defined in readimage.c
+ */
+struct ImBuf *IMB_thumb_load_image(const char *filepath,
+                                   const size_t max_thumb_size,
+                                   char colorspace[IM_MAX_SPACE]);
+
+/**
  * \attention Defined in allocimbuf.c
  */
 void IMB_freeImBuf(struct ImBuf *ibuf);
 
 /**
- *
  * \attention Defined in allocimbuf.c
  */
 struct ImBuf *IMB_allocImBuf(unsigned int x,
@@ -167,7 +144,6 @@ struct ImBuf *IMB_allocFromBuffer(const unsigned int *rect,
                                   unsigned int channels);
 
 /**
- *
  * Increase reference count to imbuf
  * (to delete an imbuf you have to call freeImBuf as many times as it
  * is referenced)
@@ -179,13 +155,11 @@ void IMB_refImBuf(struct ImBuf *ibuf);
 struct ImBuf *IMB_makeSingleUser(struct ImBuf *ibuf);
 
 /**
- *
  * \attention Defined in allocimbuf.c
  */
 struct ImBuf *IMB_dupImBuf(const struct ImBuf *ibuf1);
 
 /**
- *
  * \attention Defined in allocimbuf.c
  */
 bool addzbufImBuf(struct ImBuf *ibuf);
@@ -210,7 +184,6 @@ size_t IMB_get_size_in_memory(struct ImBuf *ibuf);
 size_t IMB_get_rect_len(const struct ImBuf *ibuf);
 
 /**
- *
  * \attention Defined in rectop.c
  */
 
@@ -317,7 +290,6 @@ void IMB_rectblend_threaded(struct ImBuf *dbuf,
                             bool accumulate);
 
 /**
- *
  * \attention Defined in indexer.c
  */
 
@@ -412,7 +384,6 @@ double IMD_anim_get_offset(struct anim *anim);
 bool IMB_anim_get_fps(struct anim *anim, short *frs_sec, float *frs_sec_base, bool no_av_base);
 
 /**
- *
  * \attention Defined in anim_movie.c
  */
 struct anim *IMB_open_anim(const char *name,
@@ -425,7 +396,6 @@ void IMB_close_anim_proxies(struct anim *anim);
 bool IMB_anim_can_produce_frames(const struct anim *anim);
 
 /**
- *
  * \attention Defined in anim_movie.c
  */
 
@@ -435,7 +405,6 @@ int IMB_anim_get_image_height(struct anim *anim);
 bool IMB_get_gop_decode_time(struct anim *anim);
 
 /**
- *
  * \attention Defined in anim_movie.c
  */
 
@@ -445,20 +414,17 @@ struct ImBuf *IMB_anim_absolute(struct anim *anim,
                                 IMB_Proxy_Size preview_size /* = 0 = IMB_PROXY_NONE */);
 
 /**
- *
  * \attention Defined in anim_movie.c
  * fetches a define preview-frame, usually half way into the movie.
  */
 struct ImBuf *IMB_anim_previewframe(struct anim *anim);
 
 /**
- *
  * \attention Defined in anim_movie.c
  */
 void IMB_free_anim(struct anim *anim);
 
 /**
- *
  * \attention Defined in filter.c
  */
 
@@ -487,7 +453,6 @@ void IMB_remakemipmap(struct ImBuf *ibuf, int use_filter);
 struct ImBuf *IMB_getmipmap(struct ImBuf *ibuf, int level);
 
 /**
- *
  * \attention Defined in cache.c
  */
 
@@ -499,19 +464,16 @@ unsigned int *IMB_gettile(struct ImBuf *ibuf, int tx, int ty, int thread);
 void IMB_tiles_to_rect(struct ImBuf *ibuf);
 
 /**
- *
  * \attention Defined in filter.c
  */
 void IMB_filtery(struct ImBuf *ibuf);
 
 /**
- *
  * \attention Defined in scaling.c
  */
 struct ImBuf *IMB_onehalf(struct ImBuf *ibuf1);
 
 /**
- *
  * \attention Defined in scaling.c
  *
  * Return true if \a ibuf is modified.
@@ -519,7 +481,6 @@ struct ImBuf *IMB_onehalf(struct ImBuf *ibuf1);
 bool IMB_scaleImBuf(struct ImBuf *ibuf, unsigned int newx, unsigned int newy);
 
 /**
- *
  * \attention Defined in scaling.c
  */
 /**
@@ -528,20 +489,16 @@ bool IMB_scaleImBuf(struct ImBuf *ibuf, unsigned int newx, unsigned int newy);
 bool IMB_scalefastImBuf(struct ImBuf *ibuf, unsigned int newx, unsigned int newy);
 
 /**
- *
  * \attention Defined in scaling.c
  */
 void IMB_scaleImBuf_threaded(struct ImBuf *ibuf, unsigned int newx, unsigned int newy);
 
 /**
- *
  * \attention Defined in writeimage.c
  */
 bool IMB_saveiff(struct ImBuf *ibuf, const char *filepath, int flags);
-bool IMB_prepare_write_ImBuf(bool isfloat, struct ImBuf *ibuf);
 
 /**
- *
  * \attention Defined in util.c
  */
 bool IMB_ispic(const char *filepath);
@@ -550,22 +507,14 @@ int IMB_ispic_type_from_memory(const unsigned char *buf, size_t buf_size);
 int IMB_ispic_type(const char *filepath);
 
 /**
- *
  * \attention Defined in util.c
  */
 bool IMB_isanim(const char *filepath);
 
 /**
- *
  * \attention Defined in util.c
  */
 int imb_get_anim_type(const char *filepath);
-
-/**
- *
- * \attention Defined in util.c
- */
-bool IMB_isfloat(const struct ImBuf *ibuf);
 
 /**
  * Test if color-space conversions of pixels in buffer need to take into account alpha.
@@ -576,6 +525,9 @@ bool IMB_alpha_affects_rgb(const struct ImBuf *ibuf);
  * Create char buffer, color corrected if necessary, for ImBufs that lack one.
  */
 void IMB_rect_from_float(struct ImBuf *ibuf);
+void IMB_float_from_rect_ex(struct ImBuf *dst,
+                            const struct ImBuf *src,
+                            const struct rcti *region_to_update);
 void IMB_float_from_rect(struct ImBuf *ibuf);
 /**
  * No profile conversion.
@@ -684,7 +636,6 @@ void IMB_buffer_float_premultiply(float *buf, int width, int height);
 void IMB_convert_rgba_to_abgr(struct ImBuf *ibuf);
 
 /**
- *
  * \attention defined in imageprocess.c
  */
 
@@ -735,50 +686,42 @@ void IMB_sampleImageAtLocation(
     struct ImBuf *ibuf, float x, float y, bool make_linear_rgb, float color[4]);
 
 /**
- *
  * \attention defined in readimage.c
  */
 struct ImBuf *IMB_loadifffile(
     int file, const char *filepath, int flags, char colorspace[IM_MAX_SPACE], const char *descr);
 
 /**
- *
  * \attention defined in scaling.c
  */
 struct ImBuf *IMB_half_x(struct ImBuf *ibuf1);
 
 /**
- *
  * \attention defined in scaling.c
  */
 struct ImBuf *IMB_double_fast_x(struct ImBuf *ibuf1);
 
 /**
- *
  * \attention defined in scaling.c
  */
 struct ImBuf *IMB_double_x(struct ImBuf *ibuf1);
 
 /**
- *
  * \attention defined in scaling.c
  */
 struct ImBuf *IMB_half_y(struct ImBuf *ibuf1);
 
 /**
- *
  * \attention defined in scaling.c
  */
 struct ImBuf *IMB_double_fast_y(struct ImBuf *ibuf1);
 
 /**
- *
  * \attention defined in scaling.c
  */
 struct ImBuf *IMB_double_y(struct ImBuf *ibuf1);
 
 /**
- *
  * \attention Defined in rotate.c
  */
 void IMB_flipx(struct ImBuf *ibuf);
@@ -790,14 +733,12 @@ void IMB_premultiply_alpha(struct ImBuf *ibuf);
 void IMB_unpremultiply_alpha(struct ImBuf *ibuf);
 
 /**
- *
  * \attention Defined in allocimbuf.c
  */
 void IMB_freezbufImBuf(struct ImBuf *ibuf);
 void IMB_freezbuffloatImBuf(struct ImBuf *ibuf);
 
 /**
- *
  * \attention Defined in rectop.c
  */
 /**
@@ -913,16 +854,16 @@ typedef enum eIMBTransformMode {
 /**
  * \brief Transform source image buffer onto destination image buffer using a transform matrix.
  *
- * \param src Image buffer to read from.
- * \param dst Image buffer to write to. rect or rect_float must already be initialized.
+ * \param src: Image buffer to read from.
+ * \param dst: Image buffer to write to. rect or rect_float must already be initialized.
  * - dst buffer must be a 4 channel buffers.
  * - Only one data type buffer will be used (rect_float has priority over rect)
- * \param mode Cropping/Wrap repeat effect to apply during transformation.
- * \param filter Interpolation to use during sampling.
- * \param transform_matrix Transformation matrix to use.
+ * \param mode: Cropping/Wrap repeat effect to apply during transformation.
+ * \param filter: Interpolation to use during sampling.
+ * \param transform_matrix: Transformation matrix to use.
  * The given matrix should transform between dst pixel space to src pixel space.
  * One unit is one pixel.
- * \param src_crop cropping region how to crop the source buffer. Should only be passed when mode
+ * \param src_crop: Cropping region how to crop the source buffer. Should only be passed when mode
  * is set to #IMB_TRANSFORM_MODE_CROP_SRC. For any other mode this should be empty.
  *
  * During transformation no data/color conversion will happens.
@@ -942,26 +883,35 @@ void IMB_ffmpeg_init(void);
 const char *IMB_ffmpeg_last_error(void);
 
 /**
- *
  * \attention defined in util_gpu.c
  */
-struct GPUTexture *IMB_create_gpu_texture(const char *name,
-                                          struct ImBuf *ibuf,
-                                          bool use_high_bitdepth,
-                                          bool use_premult,
-                                          bool limit_gl_texture_size);
+GPUTexture *IMB_create_gpu_texture(const char *name,
+                                   struct ImBuf *ibuf,
+                                   bool use_high_bitdepth,
+                                   bool use_premult);
+
+eGPUTextureFormat IMB_gpu_get_texture_format(const struct ImBuf *ibuf,
+                                             bool high_bitdepth,
+                                             bool use_grayscale);
+
 /**
  * The `ibuf` is only here to detect the storage type. The produced texture will have undefined
  * content. It will need to be populated by using #IMB_update_gpu_texture_sub().
  */
-struct GPUTexture *IMB_touch_gpu_texture(
-    const char *name, struct ImBuf *ibuf, int w, int h, int layers, bool use_high_bitdepth);
+GPUTexture *IMB_touch_gpu_texture(const char *name,
+                                  struct ImBuf *ibuf,
+                                  int w,
+                                  int h,
+                                  int layers,
+                                  bool use_high_bitdepth,
+                                  bool use_grayscale);
+
 /**
  * Will update a #GPUTexture using the content of the #ImBuf. Only one layer will be updated.
  * Will resize the ibuf if needed.
  * Z is the layer to update. Unused if the texture is 2D.
  */
-void IMB_update_gpu_texture_sub(struct GPUTexture *tex,
+void IMB_update_gpu_texture_sub(GPUTexture *tex,
                                 struct ImBuf *ibuf,
                                 int x,
                                 int y,
@@ -969,6 +919,7 @@ void IMB_update_gpu_texture_sub(struct GPUTexture *tex,
                                 int w,
                                 int h,
                                 bool use_high_bitdepth,
+                                bool use_grayscale,
                                 bool use_premult);
 
 /**
@@ -978,13 +929,13 @@ void IMB_stereo3d_write_dimensions(
     char mode, bool is_squeezed, size_t width, size_t height, size_t *r_width, size_t *r_height);
 void IMB_stereo3d_read_dimensions(
     char mode, bool is_squeezed, size_t width, size_t height, size_t *r_width, size_t *r_height);
-int *IMB_stereo3d_from_rect(struct ImageFormatData *im_format,
+int *IMB_stereo3d_from_rect(const struct ImageFormatData *im_format,
                             size_t x,
                             size_t y,
                             size_t channels,
                             int *rect_left,
                             int *rect_right);
-float *IMB_stereo3d_from_rectf(struct ImageFormatData *im_format,
+float *IMB_stereo3d_from_rectf(const struct ImageFormatData *im_format,
                                size_t x,
                                size_t y,
                                size_t channels,
@@ -993,13 +944,13 @@ float *IMB_stereo3d_from_rectf(struct ImageFormatData *im_format,
 /**
  * Left/right are always float.
  */
-struct ImBuf *IMB_stereo3d_ImBuf(struct ImageFormatData *im_format,
+struct ImBuf *IMB_stereo3d_ImBuf(const struct ImageFormatData *im_format,
                                  struct ImBuf *ibuf_left,
                                  struct ImBuf *ibuf_right);
 /**
  * Reading a stereo encoded ibuf (*left) and generating two ibufs from it (*left and *right).
  */
-void IMB_ImBufFromStereo3d(struct Stereo3dFormat *s3d,
+void IMB_ImBufFromStereo3d(const struct Stereo3dFormat *s3d,
                            struct ImBuf *ibuf_stereo,
                            struct ImBuf **r_ibuf_left,
                            struct ImBuf **r_ibuf_right);

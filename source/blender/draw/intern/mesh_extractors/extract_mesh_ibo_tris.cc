@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
@@ -23,7 +7,7 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 #include "draw_subdivision.h"
 
@@ -41,7 +25,7 @@ static void extract_tris_mat_task_reduce(void *_userdata_to, void *_userdata_fro
  * \{ */
 
 static void extract_tris_init(const MeshRenderData *mr,
-                              struct MeshBatchCache *UNUSED(cache),
+                              MeshBatchCache *UNUSED(cache),
                               void *UNUSED(ibo),
                               void *tls_data)
 {
@@ -97,7 +81,7 @@ static void extract_tris_iter_poly_mesh(const MeshRenderData *mr,
 }
 
 static void extract_tris_finish(const MeshRenderData *mr,
-                                struct MeshBatchCache *cache,
+                                MeshBatchCache *cache,
                                 void *buf,
                                 void *_data)
 {
@@ -127,7 +111,7 @@ static void extract_tris_finish(const MeshRenderData *mr,
 
 static void extract_tris_init_subdiv(const DRWSubdivCache *subdiv_cache,
                                      const MeshRenderData *UNUSED(mr),
-                                     struct MeshBatchCache *cache,
+                                     MeshBatchCache *cache,
                                      void *buffer,
                                      void *UNUSED(data))
 {
@@ -173,7 +157,7 @@ constexpr MeshExtract create_extractor_tris()
  * \{ */
 
 static void extract_tris_single_mat_init(const MeshRenderData *mr,
-                                         struct MeshBatchCache *UNUSED(cache),
+                                         MeshBatchCache *UNUSED(cache),
                                          void *UNUSED(ibo),
                                          void *tls_data)
 {
@@ -205,17 +189,17 @@ static void extract_tris_single_mat_iter_looptri_mesh(const MeshRenderData *mr,
                                                       void *_data)
 {
   GPUIndexBufBuilder *elb = static_cast<GPUIndexBufBuilder *>(_data);
-  const MPoly *mp = &mr->mpoly[mlt->poly];
-  if (!(mr->use_hide && (mp->flag & ME_HIDE))) {
-    GPU_indexbuf_set_tri_verts(elb, mlt_index, mlt->tri[0], mlt->tri[1], mlt->tri[2]);
+  const bool hidden = mr->use_hide && mr->hide_poly && mr->hide_poly[mlt->poly];
+  if (hidden) {
+    GPU_indexbuf_set_tri_restart(elb, mlt_index);
   }
   else {
-    GPU_indexbuf_set_tri_restart(elb, mlt_index);
+    GPU_indexbuf_set_tri_verts(elb, mlt_index, mlt->tri[0], mlt->tri[1], mlt->tri[2]);
   }
 }
 
 static void extract_tris_single_mat_finish(const MeshRenderData *mr,
-                                           struct MeshBatchCache *cache,
+                                           MeshBatchCache *cache,
                                            void *buf,
                                            void *_data)
 {
@@ -259,7 +243,5 @@ constexpr MeshExtract create_extractor_tris_single_mat()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_tris = blender::draw::create_extractor_tris();
 const MeshExtract extract_tris_single_mat = blender::draw::create_extractor_tris_single_mat();
-}

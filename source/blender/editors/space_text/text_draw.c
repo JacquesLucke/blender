@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup sptext
@@ -51,7 +36,9 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
-/******************** text font drawing ******************/
+/* -------------------------------------------------------------------- */
+/** \name Text Font Drawing
+ * \{ */
 
 typedef struct TextDrawContext {
   int font_id;
@@ -156,11 +143,14 @@ static void format_draw_color(const TextDrawContext *tdc, char formatchar)
   }
 }
 
-/************************** draw text *****************************/
+/** \} */
 
-/**
- * Notes on word-wrap
- * --
+/* -------------------------------------------------------------------- */
+/** \name Draw Text
+ *
+ * Notes on Word-Wrap
+ * ==================
+ *
  * All word-wrap functions follow the algorithm below to maintain consistency:
  * - line:
  *   The line to wrap (tabs converted to spaces)
@@ -185,7 +175,8 @@ static void format_draw_color(const TextDrawContext *tdc, char formatchar)
  *         pos += 1
  *     print line[draw_start:]
  * \encode
- */
+ *
+ * \{ */
 
 int wrap_width(const SpaceText *st, ARegion *region)
 {
@@ -571,7 +562,11 @@ static void text_draw(const SpaceText *st,
   flatten_string_free(&fs);
 }
 
-/************************ cache utilities *****************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Cache Utilities
+ * \{ */
 
 typedef struct DrawCache {
   int *line_height;
@@ -781,7 +776,11 @@ void text_free_caches(SpaceText *st)
   }
 }
 
-/************************ word-wrap utilities *****************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Word-Wrap Utilities
+ * \{ */
 
 /* cache should be updated in caller */
 static int text_get_visible_lines_no(const SpaceText *st, int lineno)
@@ -860,7 +859,11 @@ int text_get_total_lines(SpaceText *st, ARegion *region)
   return drawcache->total_lines;
 }
 
-/************************ draw scrollbar *****************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Draw Scroll-Bar
+ * \{ */
 
 static void calc_text_rcts(SpaceText *st, ARegion *region, rcti *scroll, rcti *back)
 {
@@ -994,7 +997,7 @@ static void draw_textscroll(const SpaceText *st, rcti *scroll, rcti *back)
   /* background so highlights don't go behind the scrollbar */
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformThemeColor(TH_BACK);
   immRecti(pos, back->xmin, back->ymin, back->xmax, back->ymax);
   immUnbindProgram();
@@ -1021,9 +1024,14 @@ static void draw_textscroll(const SpaceText *st, rcti *scroll, rcti *back)
       col);
 }
 
-/*********************** draw documentation *******************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Draw Documentation
+ * \{ */
 
 #if 0
+
 static void draw_documentation(const SpaceText *st, ARegion *region)
 {
   TextDrawContext tdc = {0};
@@ -1068,7 +1076,7 @@ static void draw_documentation(const SpaceText *st, ARegion *region)
   /* Draw panel */
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   immUniformThemeColor(TH_BACK);
   immRecti(pos, x, y, x + boxw, y - boxh);
@@ -1101,7 +1109,7 @@ static void draw_documentation(const SpaceText *st, ARegion *region)
     if (*p == '\r' && *(++p) != '\n') {
       *(--p) = '\n'; /* Fix line endings */
     }
-    if (*p == ' ' || *p == '\t') {
+    if (ELEM(*p, ' ', '\t')) {
       br = i;
     }
     else if (*p == '\n') {
@@ -1131,9 +1139,14 @@ static void draw_documentation(const SpaceText *st, ARegion *region)
     }
   }
 }
+
 #endif
 
-/*********************** draw suggestion list *******************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Draw Suggestion List
+ * \{ */
 
 static void draw_suggestion_list(const SpaceText *st, const TextDrawContext *tdc, ARegion *region)
 {
@@ -1193,7 +1206,7 @@ static void draw_suggestion_list(const SpaceText *st, const TextDrawContext *tdc
 
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   immUniformThemeColor(TH_SHADE1);
   immRecti(pos, x - 1, y + 1, x + boxw + 1, y - boxh - 1);
@@ -1219,7 +1232,7 @@ static void draw_suggestion_list(const SpaceText *st, const TextDrawContext *tdc
     if (item == sel) {
       uint posi = GPU_vertformat_attr_add(
           immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-      immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+      immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
       immUniformThemeColor(TH_SHADE2);
       immRecti(posi, x + margin_x, y - 3, x + margin_x + w, y + lheight - 3);
@@ -1236,7 +1249,11 @@ static void draw_suggestion_list(const SpaceText *st, const TextDrawContext *tdc
   }
 }
 
-/*********************** draw cursor ************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Draw Cursor
+ * \{ */
 
 static void draw_text_decoration(SpaceText *st, ARegion *region)
 {
@@ -1263,7 +1280,7 @@ static void draw_text_decoration(SpaceText *st, ARegion *region)
 
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   /* Draw the selection */
   if (text->curl != text->sell || text->curc != text->selc) {
@@ -1398,7 +1415,11 @@ static void draw_text_decoration(SpaceText *st, ARegion *region)
   immUnbindProgram();
 }
 
-/******************* draw matching brackets *********************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Draw Matching Brackets
+ * \{ */
 
 static void draw_brackets(const SpaceText *st, const TextDrawContext *tdc, ARegion *region)
 {
@@ -1559,7 +1580,11 @@ static void draw_brackets(const SpaceText *st, const TextDrawContext *tdc, ARegi
   }
 }
 
-/*********************** main region drawing *************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Main Region Drawing
+ * \{ */
 
 void draw_text_main(SpaceText *st, ARegion *region)
 {
@@ -1578,7 +1603,7 @@ void draw_text_main(SpaceText *st, ARegion *region)
     return;
   }
 
-  /* dpi controlled line height and font size */
+  /* DPI controlled line height and font size. */
   st->runtime.lheight_px = (U.widget_unit * st->lheight) / 20;
 
   /* don't draw lines below this */
@@ -1638,7 +1663,7 @@ void draw_text_main(SpaceText *st, ARegion *region)
   if (st->showlinenrs) {
     uint pos = GPU_vertformat_attr_add(
         immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
     immUniformThemeColor(TH_GRID);
     immRecti(pos, 0, 0, TXT_NUMCOL_WIDTH(st), region->winy);
     immUnbindProgram();
@@ -1701,7 +1726,7 @@ void draw_text_main(SpaceText *st, ARegion *region)
     if (margin_column_x >= x) {
       uint pos = GPU_vertformat_attr_add(
           immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-      immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+      immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
       float margin_color[4];
       UI_GetThemeColor4fv(TH_TEXT, margin_color);
       margin_color[3] = 0.2f;
@@ -1722,7 +1747,11 @@ void draw_text_main(SpaceText *st, ARegion *region)
   text_font_end(&tdc);
 }
 
-/************************** update ***************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Update & Coordinate Conversion
+ * \{ */
 
 void text_update_character_width(SpaceText *st)
 {
@@ -1876,3 +1905,5 @@ error:
   r_pixel_co[0] = r_pixel_co[1] = -1;
   return false;
 }
+
+/** \} */

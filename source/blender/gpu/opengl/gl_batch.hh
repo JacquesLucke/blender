@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2020, Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -33,8 +17,6 @@
 #include "gl_index_buffer.hh"
 #include "gl_vertex_buffer.hh"
 
-#include "glew-mx.h"
-
 namespace blender {
 namespace gpu {
 
@@ -51,9 +33,9 @@ class GLShaderInterface;
 class GLVaoCache {
  private:
   /** Context for which the vao_cache_ was generated. */
-  GLContext *context_ = NULL;
+  GLContext *context_ = nullptr;
   /** Last interface this batch was drawn with. */
-  GLShaderInterface *interface_ = NULL;
+  GLShaderInterface *interface_ = nullptr;
   /** Cached VAO for the last interface. */
   GLuint vao_id_ = 0;
   /** Used when arb_base_instance is not supported. */
@@ -109,6 +91,11 @@ class GLBatch : public Batch {
 
  public:
   void draw(int v_first, int v_count, int i_first, int i_count) override;
+  void draw_indirect(GPUStorageBuf *indirect_buf, intptr_t offset) override;
+  void multi_draw_indirect(GPUStorageBuf *indirect_buf,
+                           int count,
+                           intptr_t offset,
+                           intptr_t stride) override;
   void bind(int i_first);
 
   /* Convenience getters. */

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) Blender Foundation
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -158,9 +142,6 @@ static void do_kink_spiral(ParticleThreadContext *ctx,
   float kink_freq = part->kink_freq;
   float kink_shape = part->kink_shape;
   float kink_axis_random = part->kink_axis_random;
-  float rough1 = part->rough1;
-  float rough2 = part->rough2;
-  float rough_end = part->rough_end;
 
   ParticlePathIterator iter;
   ParticleCacheKey *key;
@@ -177,13 +158,8 @@ static void do_kink_spiral(ParticleThreadContext *ctx,
   int start_index = 0, end_index = 0;
   float kink_base[3];
 
-  if (ptex) {
-    kink_amp *= ptex->kink_amp;
-    kink_freq *= ptex->kink_freq;
-    rough1 *= ptex->rough1;
-    rough2 *= ptex->rough2;
-    rough_end *= ptex->roughe;
-  }
+  kink_amp *= ptex->kink_amp;
+  kink_freq *= ptex->kink_freq;
 
   cut_time = (totkeys - 1) * ptex->length;
   zero_v3(spiral_start);
@@ -427,7 +403,7 @@ void do_kink(ParticleKey *state,
              float obmat[4][4],
              int smooth_start)
 {
-  float kink[3] = {1.0f, 0.0f, 0.0f}, par_vec[3], q1[4] = {1.0f, 0.0f, 0.0f, 0.0f};
+  float kink[3] = {1.0f, 0.0f, 0.0f}, par_vec[3];
   float t, dt = 1.0f, result[3];
 
   if (ELEM(type, PART_KINK_NO, PART_KINK_SPIRAL)) {
@@ -477,6 +453,7 @@ void do_kink(ParticleKey *state,
   switch (type) {
     case PART_KINK_CURL: {
       float curl_offset[3];
+      float q1[4] = {1.0f, 0.0f, 0.0f, 0.0f};
 
       /* rotate kink vector around strand tangent */
       mul_v3_v3fl(curl_offset, kink, amplitude);

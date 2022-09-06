@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -45,6 +29,7 @@
 #include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_vfont_types.h"
+#include "DNA_volume_types.h"
 
 #include "BKE_collection.h"
 #include "BKE_duplilist.h"
@@ -180,10 +165,8 @@ static bool copy_dupli_context(
  *
  * \param mat: is transform of the object relative to current context (including #Object.obmat).
  */
-static DupliObject *make_dupli(const DupliContext *ctx,
-                               Object *ob,
-                               const float mat[4][4],
-                               int index)
+static DupliObject *make_dupli(
+    const DupliContext *ctx, Object *ob, const ID *object_data, const float mat[4][4], int index)
 {
   DupliObject *dob;
   int i;
@@ -198,7 +181,7 @@ static DupliObject *make_dupli(const DupliContext *ctx,
   }
 
   dob->ob = ob;
-  dob->ob_data = (ID *)ob->data;
+  dob->ob_data = const_cast<ID *>(object_data);
   mul_m4_m4m4(dob->mat, (float(*)[4])ctx->space_mat, mat);
   dob->type = ctx->gen->type;
 
@@ -218,7 +201,7 @@ static DupliObject *make_dupli(const DupliContext *ctx,
   /* Meta-balls never draw in duplis, they are instead merged into one by the basis
    * meta-ball outside of the group. this does mean that if that meta-ball is not in the
    * scene, they will not show up at all, limitation that should be solved once. */
-  if (ob->type == OB_MBALL) {
+  if (object_data && GS(object_data->name) == ID_MB) {
     dob->no_draw = true;
   }
 
@@ -240,6 +223,14 @@ static DupliObject *make_dupli(const DupliContext *ctx,
   }
 
   return dob;
+}
+
+static DupliObject *make_dupli(const DupliContext *ctx,
+                               Object *ob,
+                               const float mat[4][4],
+                               int index)
+{
+  return make_dupli(ctx, ob, static_cast<ID *>(ob->data), mat, index);
 }
 
 /**
@@ -637,7 +628,7 @@ static void make_duplis_verts(const DupliContext *ctx)
     VertexDupliData_Mesh vdd{};
     vdd.params = vdd_params;
     vdd.totvert = me_eval->totvert;
-    vdd.mvert = me_eval->mvert;
+    vdd.mvert = me_eval->vertices().data();
     vdd.vert_normals = BKE_mesh_vertex_normals_ensure(me_eval);
     vdd.orco = (const float(*)[3])CustomData_get_layer(&me_eval->vdata, CD_ORCO);
 
@@ -782,68 +773,6 @@ static const DupliGenerator gen_dupli_verts_font = {
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Dupli-Vertices Implementation (#OB_DUPLIVERTS for #PointCloud)
- * \{ */
-
-static void make_child_duplis_pointcloud(const DupliContext *ctx,
-                                         void *UNUSED(userdata),
-                                         Object *child)
-{
-  const Object *parent = ctx->object;
-  const PointCloud *pointcloud = (PointCloud *)parent->data;
-  const float(*co)[3] = pointcloud->co;
-  const float *radius = pointcloud->radius;
-  const float(*rotation)[4] = nullptr; /* TODO: add optional rotation attribute. */
-  const float(*orco)[3] = nullptr;     /* TODO: add optional texture coordinate attribute. */
-
-  /* Relative transform from parent to child space. */
-  float child_imat[4][4];
-  mul_m4_m4m4(child_imat, child->imat, parent->obmat);
-
-  for (int i = 0; i < pointcloud->totpoint; i++) {
-    /* Transform matrix from point position, radius and rotation. */
-    float quat[4] = {1.0f, 0.0f, 0.0f, 0.0f};
-    float size[3] = {1.0f, 1.0f, 1.0f};
-    if (radius) {
-      copy_v3_fl(size, radius[i]);
-    }
-    if (rotation) {
-      copy_v4_v4(quat, rotation[i]);
-    }
-
-    float space_mat[4][4];
-    loc_quat_size_to_mat4(space_mat, co[i], quat, size);
-
-    /* Make offset relative to child object using relative child transform,
-     * and apply object matrix after local vertex transform. */
-    mul_mat3_m4_v3(child_imat, space_mat[3]);
-
-    /* Create dupli object. */
-    float obmat[4][4];
-    mul_m4_m4m4(obmat, child->obmat, space_mat);
-    DupliObject *dob = make_dupli(ctx, child, obmat, i);
-    if (orco) {
-      copy_v3_v3(dob->orco, orco[i]);
-    }
-
-    /* Recursion. */
-    make_recursive_duplis(ctx, child, space_mat, i);
-  }
-}
-
-static void make_duplis_pointcloud(const DupliContext *ctx)
-{
-  make_child_duplis(ctx, nullptr, make_child_duplis_pointcloud);
-}
-
-static const DupliGenerator gen_dupli_verts_pointcloud = {
-    OB_DUPLIVERTS,         /* type */
-    make_duplis_pointcloud /* make_duplis */
-};
-
-/** \} */
-
-/* -------------------------------------------------------------------- */
 /** \name Instances Geometry Component Implementation
  * \{ */
 
@@ -854,34 +783,25 @@ static void make_duplis_geometry_set_impl(const DupliContext *ctx,
 {
   int component_index = 0;
   if (ctx->object->type != OB_MESH || geometry_set_is_instance) {
-    const Mesh *mesh = geometry_set.get_mesh_for_read();
-    if (mesh != nullptr) {
-      DupliObject *dupli = make_dupli(ctx, ctx->object, parent_transform, component_index++);
-      dupli->ob_data = (ID *)mesh;
+    if (const Mesh *mesh = geometry_set.get_mesh_for_read()) {
+      make_dupli(ctx, ctx->object, &mesh->id, parent_transform, component_index++);
     }
   }
   if (ctx->object->type != OB_VOLUME || geometry_set_is_instance) {
-    const Volume *volume = geometry_set.get_volume_for_read();
-    if (volume != nullptr) {
-      DupliObject *dupli = make_dupli(ctx, ctx->object, parent_transform, component_index++);
-      dupli->ob_data = (ID *)volume;
+    if (const Volume *volume = geometry_set.get_volume_for_read()) {
+      make_dupli(ctx, ctx->object, &volume->id, parent_transform, component_index++);
     }
   }
-  if (!ELEM(ctx->object->type, OB_CURVE, OB_FONT) || geometry_set_is_instance) {
-    const CurveComponent *curve_component = geometry_set.get_component_for_read<CurveComponent>();
-    if (curve_component != nullptr) {
-      const Curve *curve = curve_component->get_curve_for_render();
-      if (curve != nullptr) {
-        DupliObject *dupli = make_dupli(ctx, ctx->object, parent_transform, component_index++);
-        dupli->ob_data = (ID *)curve;
+  if (!ELEM(ctx->object->type, OB_CURVES_LEGACY, OB_FONT, OB_CURVES) || geometry_set_is_instance) {
+    if (const CurveComponent *component = geometry_set.get_component_for_read<CurveComponent>()) {
+      if (const Curve *curve = component->get_curve_for_render()) {
+        make_dupli(ctx, ctx->object, &curve->id, parent_transform, component_index++);
       }
     }
   }
   if (ctx->object->type != OB_POINTCLOUD || geometry_set_is_instance) {
-    const PointCloud *pointcloud = geometry_set.get_pointcloud_for_read();
-    if (pointcloud != nullptr) {
-      DupliObject *dupli = make_dupli(ctx, ctx->object, parent_transform, component_index++);
-      dupli->ob_data = (ID *)pointcloud;
+    if (const PointCloud *pointcloud = geometry_set.get_pointcloud_for_read()) {
+      make_dupli(ctx, ctx->object, &pointcloud->id, parent_transform, component_index++);
     }
   }
   const bool creates_duplis_for_components = component_index >= 1;
@@ -1258,9 +1178,9 @@ static void make_duplis_faces(const DupliContext *ctx)
     FaceDupliData_Mesh fdd{};
     fdd.params = fdd_params;
     fdd.totface = me_eval->totpoly;
-    fdd.mpoly = me_eval->mpoly;
-    fdd.mloop = me_eval->mloop;
-    fdd.mvert = me_eval->mvert;
+    fdd.mpoly = me_eval->polygons().data();
+    fdd.mloop = me_eval->loops().data();
+    fdd.mvert = me_eval->vertices().data();
     fdd.mloopuv = (uv_idx != -1) ? (const MLoopUV *)CustomData_get_layer_n(
                                        &me_eval->ldata, CD_MLOOPUV, uv_idx) :
                                    nullptr;
@@ -1643,6 +1563,13 @@ static const DupliGenerator *get_dupli_generator(const DupliContext *ctx)
     return nullptr;
   }
 
+  /* Metaball objects can't create instances, but the dupli system is used to "instance" their
+   * evaluated mesh to render engines. We need to exit early to avoid recursively instancing the
+   * evaluated metaball mesh on metaball instances that already contribute to the basis. */
+  if (ctx->object->type == OB_MBALL && ctx->level > 0) {
+    return nullptr;
+  }
+
   /* Should the dupli's be generated for this object? - Respect restrict flags. */
   if (DEG_get_mode(ctx->depsgraph) == DAG_EVAL_RENDER ? (visibility_flag & OB_HIDE_RENDER) :
                                                         (visibility_flag & OB_HIDE_VIEWPORT)) {
@@ -1669,9 +1596,6 @@ static const DupliGenerator *get_dupli_generator(const DupliContext *ctx)
   if (transflag & OB_DUPLIVERTS) {
     if (ctx->object->type == OB_MESH) {
       return &gen_dupli_verts;
-    }
-    if (ctx->object->type == OB_POINTCLOUD) {
-      return &gen_dupli_verts_pointcloud;
     }
   }
   else if (transflag & OB_DUPLIFACES) {

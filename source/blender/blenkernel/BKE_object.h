@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -83,9 +69,6 @@ void BKE_object_free_caches(struct Object *object);
 void BKE_object_modifier_hook_reset(struct Object *ob, struct HookModifierData *hmd);
 void BKE_object_modifier_gpencil_hook_reset(struct Object *ob,
                                             struct HookGpencilModifierData *hmd);
-bool BKE_object_modifier_gpencil_use_time(struct Object *ob, struct GpencilModifierData *md);
-
-bool BKE_object_shaderfx_use_time(struct Object *ob, struct ShaderFxData *fx);
 
 /**
  * \return True if the object's type supports regular modifiers (not grease pencil modifiers).
@@ -154,7 +137,7 @@ bool BKE_object_is_in_wpaint_select_vert(const struct Object *ob);
 bool BKE_object_has_mode_data(const struct Object *ob, eObjectMode object_mode);
 bool BKE_object_is_mode_compat(const struct Object *ob, eObjectMode object_mode);
 
-bool BKE_object_data_is_in_editmode(const struct ID *id);
+bool BKE_object_data_is_in_editmode(const struct Object *ob, const struct ID *id);
 
 char *BKE_object_data_editmode_flush_ptr_get(struct ID *id);
 
@@ -177,9 +160,12 @@ int BKE_object_visibility(const struct Object *ob, int dag_eval_mode);
 
 /**
  * More general add: creates minimum required data, but without vertices etc.
+ *
+ * \param bmain: The main to add the object to. May be null for #LIB_ID_CREATE_NO_MAIN behavior.
  */
-struct Object *BKE_object_add_only_object(struct Main *bmain, int type, const char *name)
-    ATTR_NONNULL(1) ATTR_RETURNS_NONNULL;
+struct Object *BKE_object_add_only_object(struct Main *bmain,
+                                          int type,
+                                          const char *name) ATTR_RETURNS_NONNULL;
 /**
  * General add: to scene, with layer from area and default name.
  *
@@ -281,6 +267,17 @@ void BKE_object_apply_mat4(struct Object *ob,
                            const float mat[4][4],
                            bool use_compat,
                            bool use_parent);
+
+/**
+ * Use parent's world location and rotation as the child's origin. The parent inverse will
+ * become identity when the parent has no shearing. Otherwise, it is non-identity and contains the
+ * object's local matrix data that cannot be decomposed into location, rotation and scale.
+ *
+ * Assumes the object's world matrix has no shear.
+ * Assumes parent exists.
+ */
+void BKE_object_apply_parent_inverse(struct Object *ob);
+
 void BKE_object_matrix_local_get(struct Object *ob, float r_mat[4][4]);
 
 bool BKE_object_pose_context_check(const struct Object *ob);
@@ -348,7 +345,7 @@ void BKE_boundbox_minmax(const struct BoundBox *bb,
                          float r_min[3],
                          float r_max[3]);
 
-struct BoundBox *BKE_object_boundbox_get(struct Object *ob);
+const struct BoundBox *BKE_object_boundbox_get(struct Object *ob);
 void BKE_object_dimensions_get(struct Object *ob, float r_vec[3]);
 /**
  * The original scale and object matrix can be passed in so any difference
@@ -366,10 +363,7 @@ void BKE_object_dimensions_set_ex(struct Object *ob,
 void BKE_object_dimensions_set(struct Object *ob, const float value[3], int axis_mask);
 
 void BKE_object_empty_draw_type_set(struct Object *ob, int value);
-/**
- * Use this to temporally disable/enable bound-box.
- */
-void BKE_object_boundbox_flag(struct Object *ob, int flag, bool set);
+
 void BKE_object_boundbox_calc_from_mesh(struct Object *ob, const struct Mesh *me_eval);
 bool BKE_object_boundbox_calc_from_evaluated_geometry(struct Object *ob);
 void BKE_object_minmax(struct Object *ob, float r_min[3], float r_max[3], bool use_hidden);
@@ -379,6 +373,13 @@ bool BKE_object_minmax_dupli(struct Depsgraph *depsgraph,
                              float r_min[3],
                              float r_max[3],
                              bool use_hidden);
+/**
+ * Calculate visual bounds from an empty objects draw-type.
+ *
+ * \note This is not part of the calculation used by #BKE_object_boundbox_get
+ * as these bounds represent the extents of visual guides (use for viewport culling for e.g.)
+ */
+bool BKE_object_minmax_empty_drawtype(const struct Object *ob, float r_min[3], float r_max[3]);
 
 /**
  * Sometimes min-max isn't enough, we need to loop over each point.
@@ -432,7 +433,7 @@ void BKE_object_eval_constraints(struct Depsgraph *depsgraph,
                                  struct Object *ob);
 void BKE_object_eval_transform_final(struct Depsgraph *depsgraph, struct Object *ob);
 
-void BKE_object_eval_uber_transform(struct Depsgraph *depsgraph, struct Object *ob);
+void BKE_object_eval_uber_transform(struct Depsgraph *depsgraph, struct Object *object);
 void BKE_object_eval_uber_data(struct Depsgraph *depsgraph,
                                struct Scene *scene,
                                struct Object *ob);
@@ -473,8 +474,8 @@ void BKE_object_handle_data_update(struct Depsgraph *depsgraph,
  */
 void BKE_object_handle_update(struct Depsgraph *depsgraph, struct Scene *scene, struct Object *ob);
 /**
- * The main object update call, for object matrix, constraints, keys and #DispList (modifiers)
- * requires flags to be set!
+ * The main object update call, for object matrix, constraints, keys and modifiers.
+ * Requires flags to be set!
  *
  * Ideally we shouldn't have to pass the rigid body world,
  * but need bigger restructuring to avoid id.
@@ -585,7 +586,6 @@ void BKE_object_runtime_reset_on_copy(struct Object *object, int flag);
 void BKE_object_runtime_free_data(struct Object *object);
 
 void BKE_object_batch_cache_dirty_tag(struct Object *ob);
-void BKE_object_data_batch_cache_dirty_tag(struct ID *object_data);
 
 /* this function returns a superset of the scenes selection based on relationships */
 
@@ -631,11 +631,6 @@ void BKE_object_groups_clear(struct Main *bmain, struct Scene *scene, struct Obj
  * \return The KD-tree or nullptr if it can't be created.
  */
 struct KDTree_3d *BKE_object_as_kdtree(struct Object *ob, int *r_tot);
-
-bool BKE_object_modifier_use_time(struct Scene *scene,
-                                  struct Object *ob,
-                                  struct ModifierData *md,
-                                  int dag_eval_mode);
 
 /**
  * \note this function should eventually be replaced by depsgraph functionality.

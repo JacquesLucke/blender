@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup imbuf
@@ -86,7 +70,7 @@ static bool checkbmp(const uchar *mem, const size_t size)
   BMPINFOHEADER bmi;
   uint u;
 
-  /* skip fileheader */
+  /* Skip file-header. */
   mem += BMP_FILEHEADER_SIZE;
 
   /* for systems where an int needs to be 4 bytes aligned */
@@ -194,7 +178,6 @@ ImBuf *imb_bmp_decode(const uchar *mem, size_t size, int flags, char colorspace[
       const char(*palette)[4] = (const char(*)[4])(mem + palette_offset);
       const int startmask = ((1 << depth) - 1) << 8;
       for (size_t i = y; i > 0; i--) {
-        int index;
         int bitoffs = 8;
         int bitmask = startmask;
         int nbytes = 0;
@@ -205,7 +188,7 @@ ImBuf *imb_bmp_decode(const uchar *mem, size_t size, int flags, char colorspace[
         for (size_t j = x; j > 0; j--) {
           bitoffs -= depth;
           bitmask >>= depth;
-          index = (bmp[0] & bitmask) >> bitoffs;
+          const int index = (bmp[0] & bitmask) >> bitoffs;
           pcol = palette[index];
           /* intentionally BGR -> RGB */
           rect[0] = pcol[2];

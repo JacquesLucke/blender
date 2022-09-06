@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2014 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2014 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -126,7 +110,6 @@ void BKE_object_eval_constraints(Depsgraph *depsgraph, Scene *scene, Object *ob)
    * - post (i.e. BKE_constraints_clear_evalob)
    *
    * Not sure why, this is from Joshua - sergey
-   *
    */
   cob = BKE_constraints_make_evalob(depsgraph, scene, ob, NULL, CONSTRAINT_OBTYPE_OBJECT);
   BKE_constraints_solve(depsgraph, &ob->constraints, cob, ctime);
@@ -145,11 +128,6 @@ void BKE_object_eval_transform_final(Depsgraph *depsgraph, Object *ob)
   }
   else {
     ob->transflag &= ~OB_NEG_SCALE;
-  }
-
-  /* Assign evaluated version. */
-  if ((ob->type == OB_GPENCIL) && (ob->runtime.gpd_eval != NULL)) {
-    ob->data = ob->runtime.gpd_eval;
   }
 }
 
@@ -170,10 +148,6 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
       cddata_masks.pmask |= CD_MASK_PROP_ALL;
       cddata_masks.lmask |= CD_MASK_PROP_ALL;
 
-      /* Also copy over normal layers to avoid recomputation. */
-      cddata_masks.pmask |= CD_MASK_NORMAL;
-      cddata_masks.vmask |= CD_MASK_NORMAL;
-
       /* Make sure Freestyle edge/face marks appear in DM for render (see T40315).
        * Due to Line Art implementation, edge marks should also be shown in viewport. */
 #ifdef WITH_FREESTYLE
@@ -183,7 +157,7 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
 #endif
       if (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER) {
         /* Always compute UVs, vertex colors as orcos for render. */
-        cddata_masks.lmask |= CD_MASK_MLOOPUV | CD_MASK_MLOOPCOL;
+        cddata_masks.lmask |= CD_MASK_MLOOPUV | CD_MASK_PROP_BYTE_COLOR;
         cddata_masks.vmask |= CD_MASK_ORCO | CD_MASK_PROP_COLOR;
       }
       makeDerivedMesh(depsgraph, scene, ob, &cddata_masks); /* was CD_MASK_BAREMESH */
@@ -194,10 +168,10 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
       break;
 
     case OB_MBALL:
-      BKE_displist_make_mball(depsgraph, scene, ob);
+      BKE_mball_data_update(depsgraph, scene, ob);
       break;
 
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
     case OB_SURF:
     case OB_FONT: {
       bool for_render = (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER);
@@ -259,7 +233,7 @@ void BKE_object_handle_data_update(Depsgraph *depsgraph, Scene *scene, Object *o
 /** Bounding box from evaluated geometry. */
 static void object_sync_boundbox_to_original(Object *object_orig, Object *object_eval)
 {
-  BoundBox *bb = object_eval->runtime.bb;
+  const BoundBox *bb = object_eval->runtime.bb;
   if (!bb || (bb->flag & BOUNDBOX_DIRTY)) {
     BKE_object_boundbox_calc_from_evaluated_geometry(object_eval);
   }
@@ -304,46 +278,45 @@ void BKE_object_sync_to_original(Depsgraph *depsgraph, Object *object)
 
 void BKE_object_eval_uber_transform(Depsgraph *UNUSED(depsgraph), Object *UNUSED(object))
 {
-  return;
-}
-
-void BKE_object_data_batch_cache_dirty_tag(ID *object_data)
-{
-  switch (GS(object_data->name)) {
-    case ID_ME:
-      BKE_mesh_batch_cache_dirty_tag((struct Mesh *)object_data, BKE_MESH_BATCH_DIRTY_ALL);
-      break;
-    case ID_LT:
-      BKE_lattice_batch_cache_dirty_tag((struct Lattice *)object_data,
-                                        BKE_LATTICE_BATCH_DIRTY_ALL);
-      break;
-    case ID_CU:
-      BKE_curve_batch_cache_dirty_tag((struct Curve *)object_data, BKE_CURVE_BATCH_DIRTY_ALL);
-      break;
-    case ID_MB:
-      BKE_mball_batch_cache_dirty_tag((struct MetaBall *)object_data, BKE_MBALL_BATCH_DIRTY_ALL);
-      break;
-    case ID_GD:
-      BKE_gpencil_batch_cache_dirty_tag((struct bGPdata *)object_data);
-      break;
-    case ID_CV:
-      BKE_curves_batch_cache_dirty_tag((struct Curves *)object_data, BKE_CURVES_BATCH_DIRTY_ALL);
-      break;
-    case ID_PT:
-      BKE_pointcloud_batch_cache_dirty_tag((struct PointCloud *)object_data,
-                                           BKE_POINTCLOUD_BATCH_DIRTY_ALL);
-      break;
-    case ID_VO:
-      BKE_volume_batch_cache_dirty_tag((struct Volume *)object_data, BKE_VOLUME_BATCH_DIRTY_ALL);
-      break;
-    default:
-      break;
-  }
 }
 
 void BKE_object_batch_cache_dirty_tag(Object *ob)
 {
-  BKE_object_data_batch_cache_dirty_tag(ob->data);
+  switch (ob->type) {
+    case OB_MESH:
+      BKE_mesh_batch_cache_dirty_tag((struct Mesh *)ob->data, BKE_MESH_BATCH_DIRTY_ALL);
+      break;
+    case OB_LATTICE:
+      BKE_lattice_batch_cache_dirty_tag((struct Lattice *)ob->data, BKE_LATTICE_BATCH_DIRTY_ALL);
+      break;
+    case OB_CURVES_LEGACY:
+      BKE_curve_batch_cache_dirty_tag((struct Curve *)ob->data, BKE_CURVE_BATCH_DIRTY_ALL);
+      break;
+    case OB_MBALL: {
+      /* This function is currently called on original objects, so to properly
+       * clear the actual displayed geometry, we have to tag the evaluated mesh. */
+      Mesh *mesh = BKE_object_get_evaluated_mesh_no_subsurf(ob);
+      if (mesh) {
+        BKE_mesh_batch_cache_dirty_tag(mesh, BKE_MESH_BATCH_DIRTY_ALL);
+      }
+      break;
+    }
+    case OB_GPENCIL:
+      BKE_gpencil_batch_cache_dirty_tag((struct bGPdata *)ob->data);
+      break;
+    case OB_CURVES:
+      BKE_curves_batch_cache_dirty_tag((struct Curves *)ob->data, BKE_CURVES_BATCH_DIRTY_ALL);
+      break;
+    case OB_POINTCLOUD:
+      BKE_pointcloud_batch_cache_dirty_tag((struct PointCloud *)ob->data,
+                                           BKE_POINTCLOUD_BATCH_DIRTY_ALL);
+      break;
+    case OB_VOLUME:
+      BKE_volume_batch_cache_dirty_tag((struct Volume *)ob->data, BKE_VOLUME_BATCH_DIRTY_ALL);
+      break;
+    default:
+      break;
+  }
 }
 
 void BKE_object_eval_uber_data(Depsgraph *depsgraph, Scene *scene, Object *ob)
@@ -381,7 +354,7 @@ void BKE_object_data_select_update(Depsgraph *depsgraph, ID *object_data)
     case ID_ME:
       BKE_mesh_batch_cache_dirty_tag((Mesh *)object_data, BKE_MESH_BATCH_DIRTY_SELECT);
       break;
-    case ID_CU:
+    case ID_CU_LEGACY:
       BKE_curve_batch_cache_dirty_tag((Curve *)object_data, BKE_CURVE_BATCH_DIRTY_SELECT);
       break;
     case ID_LT:

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edarmature
@@ -84,14 +68,11 @@ static void joined_armature_fix_links_constraints(Main *bmain,
   bool changed = false;
 
   for (con = lb->first; con; con = con->next) {
-    const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
     ListBase targets = {NULL, NULL};
     bConstraintTarget *ct;
 
     /* constraint targets */
-    if (cti && cti->get_constraint_targets) {
-      cti->get_constraint_targets(con, &targets);
-
+    if (BKE_constraint_targets_get(con, &targets)) {
       for (ct = targets.first; ct; ct = ct->next) {
         if (ct->tar == srcArm) {
           if (ct->subtarget[0] == '\0') {
@@ -106,9 +87,7 @@ static void joined_armature_fix_links_constraints(Main *bmain,
         }
       }
 
-      if (cti->flush_constraint_targets) {
-        cti->flush_constraint_targets(con, &targets, 0);
-      }
+      BKE_constraint_targets_flush(con, &targets, 0);
     }
 
     /* action constraint? (pose constraints only) */
@@ -179,6 +158,11 @@ static void joined_armature_fix_animdata_cb(ID *id, FCurve *fcu, void *user_data
   if (fcu->driver) {
     ChannelDriver *driver = fcu->driver;
     DriverVar *dvar;
+
+    /* Ensure that invalid drivers gets re-evaluated in case they become valid once the join
+     * operation is finished. */
+    fcu->flag &= ~FCURVE_DISABLED;
+    driver->flag &= ~DRIVER_FLAG_INVALID;
 
     /* Fix driver references to invalid ID's */
     for (dvar = driver->variables.first; dvar; dvar = dvar->next) {
@@ -393,6 +377,15 @@ int ED_armature_join_objects_exec(bContext *C, wmOperator *op)
         BKE_pose_channels_hash_free(pose);
       }
 
+      /* Armature ID itself is not freed below, however it has been modified (and is now completely
+       * empty). This needs to be told to the depsgraph, it will also ensure that the global
+       * memfile undo system properly detects the change.
+       *
+       * FIXME: Modifying an existing obdata because we are joining an object using it into another
+       * object is a very questionable behavior, which also does not match with other object types
+       * joining. */
+      DEG_id_tag_update_ex(bmain, &curarm->id, ID_RECALC_GEOMETRY);
+
       /* Fix all the drivers (and animation data) */
       BKE_fcurves_main_cb(bmain, joined_armature_fix_animdata_cb, &afd);
       BLI_ghash_free(afd.names_map, MEM_freeN, NULL);
@@ -466,14 +459,11 @@ static void separated_armature_fix_links(Main *bmain, Object *origArm, Object *n
     if (ob->type == OB_ARMATURE) {
       for (pchan = ob->pose->chanbase.first; pchan; pchan = pchan->next) {
         for (con = pchan->constraints.first; con; con = con->next) {
-          const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
           ListBase targets = {NULL, NULL};
           bConstraintTarget *ct;
 
           /* constraint targets */
-          if (cti && cti->get_constraint_targets) {
-            cti->get_constraint_targets(con, &targets);
-
+          if (BKE_constraint_targets_get(con, &targets)) {
             for (ct = targets.first; ct; ct = ct->next) {
               /* Any targets which point to original armature
                * are redirected to the new one only if:
@@ -494,9 +484,7 @@ static void separated_armature_fix_links(Main *bmain, Object *origArm, Object *n
               }
             }
 
-            if (cti->flush_constraint_targets) {
-              cti->flush_constraint_targets(con, &targets, 0);
-            }
+            BKE_constraint_targets_flush(con, &targets, 0);
           }
         }
       }
@@ -505,14 +493,11 @@ static void separated_armature_fix_links(Main *bmain, Object *origArm, Object *n
     /* fix object-level constraints */
     if (ob != origArm) {
       for (con = ob->constraints.first; con; con = con->next) {
-        const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
         ListBase targets = {NULL, NULL};
         bConstraintTarget *ct;
 
         /* constraint targets */
-        if (cti && cti->get_constraint_targets) {
-          cti->get_constraint_targets(con, &targets);
-
+        if (BKE_constraint_targets_get(con, &targets)) {
           for (ct = targets.first; ct; ct = ct->next) {
             /* any targets which point to original armature are redirected to the new one only if:
              * - the target isn't origArm/newArm itself
@@ -532,9 +517,7 @@ static void separated_armature_fix_links(Main *bmain, Object *origArm, Object *n
             }
           }
 
-          if (cti->flush_constraint_targets) {
-            cti->flush_constraint_targets(con, &targets, 0);
-          }
+          BKE_constraint_targets_flush(con, &targets, 0);
         }
       }
     }

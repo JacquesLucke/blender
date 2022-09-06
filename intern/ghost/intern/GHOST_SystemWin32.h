@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup GHOST
@@ -26,10 +10,10 @@
 
 #ifndef WIN32
 #  error WIN32 only!
-#endif  // WIN32
+#endif /* WIN32 */
 
 #define WIN32_LEAN_AND_MEAN
-#include <ole2.h>  // for drag-n-drop
+#include <ole2.h> /* For drag-n-drop. */
 #include <windows.h>
 
 #include "GHOST_System.h"
@@ -275,6 +259,16 @@ class GHOST_SystemWin32 : public GHOST_System {
    */
   void setTabletAPI(GHOST_TTabletAPI api) override;
 
+  /***************************************************************************************
+   ** Debug Info
+   ***************************************************************************************/
+
+  /**
+   * Specify which debug messages are to be shown.
+   * \param debug: Flag for systems to debug.
+   */
+  void initDebug(GHOST_Debug debug) override;
+
  protected:
   /**
    * Initializes the system.
@@ -301,11 +295,10 @@ class GHOST_SystemWin32 : public GHOST_System {
   /**
    * Catches raw WIN32 key codes from WM_INPUT in the wndproc.
    * \param raw: RawInput structure with detailed info about the key event.
-   * \param keyDown: Pointer flag that specify if a key is down.
-   * \param vk: Pointer to virtual key.
+   * \param r_key_down: Set true when the key is pressed, otherwise false.
    * \return The GHOST key (GHOST_kKeyUnknown if no match).
    */
-  GHOST_TKey hardKey(RAWINPUT const &raw, bool *r_keyDown, bool *r_is_repeated_modifier);
+  GHOST_TKey hardKey(RAWINPUT const &raw, bool *r_key_down);
 
   /**
    * Creates mouse button event.
@@ -316,7 +309,7 @@ class GHOST_SystemWin32 : public GHOST_System {
    */
   static GHOST_EventButton *processButtonEvent(GHOST_TEventType type,
                                                GHOST_WindowWin32 *window,
-                                               GHOST_TButtonMask mask);
+                                               GHOST_TButton mask);
 
   /**
    * Creates tablet events from Wintab events.
@@ -393,7 +386,7 @@ class GHOST_SystemWin32 : public GHOST_System {
   static GHOST_Event *processImeEvent(GHOST_TEventType type,
                                       GHOST_WindowWin32 *window,
                                       GHOST_TEventImeData *data);
-#endif  // WITH_INPUT_IME
+#endif /* WITH_INPUT_IME */
 
   /**
    * Handles minimum window size.
@@ -413,17 +406,14 @@ class GHOST_SystemWin32 : public GHOST_System {
 #endif
 
   /**
-   * Returns the local state of the modifier keys (from the message queue).
-   * \param keys: The state of the keys.
+   * Drives Direct Manipulation update.
    */
-  inline void retrieveModifierKeys(GHOST_ModifierKeys &keys) const;
+  void driveTrackpad();
 
   /**
-   * Stores the state of the modifier keys locally.
-   * For internal use only!
-   * param keys The new state of the modifier keys.
+   * Creates trackpad events for the active window.
    */
-  inline void storeModifierKeys(const GHOST_ModifierKeys &keys);
+  void processTrackpad();
 
   /**
    * Check current key layout for AltGr
@@ -440,10 +430,8 @@ class GHOST_SystemWin32 : public GHOST_System {
    * \param action: console state
    * \return current status (1 -visible, 0 - hidden)
    */
-  int setConsoleWindowState(GHOST_TConsoleWindowState action);
+  bool setConsoleWindowState(GHOST_TConsoleWindowState action);
 
-  /** The current state of the modifier keys. */
-  GHOST_ModifierKeys m_modifierKeys;
   /** The virtual-key code (VKey) of the last press event. Used to detect repeat events. */
   unsigned short m_keycode_last_repeat_key;
   /** State variable set at initialization. */
@@ -462,36 +450,26 @@ class GHOST_SystemWin32 : public GHOST_System {
   HKL m_keylayout;
 
   /** Console status. */
-  int m_consoleStatus;
+  bool m_consoleStatus;
 
   /** Wheel delta accumulator. */
   int m_wheelDeltaAccum;
 };
 
-inline void GHOST_SystemWin32::retrieveModifierKeys(GHOST_ModifierKeys &keys) const
-{
-  keys = m_modifierKeys;
-}
-
-inline void GHOST_SystemWin32::storeModifierKeys(const GHOST_ModifierKeys &keys)
-{
-  m_modifierKeys = keys;
-}
-
 inline void GHOST_SystemWin32::handleKeyboardChange(void)
 {
-  m_keylayout = GetKeyboardLayout(0);  // get keylayout for current thread
+  m_keylayout = GetKeyboardLayout(0); /* Get keylayout for current thread. */
   int i;
   SHORT s;
 
-  // save the language identifier.
+  /* Save the language identifier. */
   m_langId = LOWORD(m_keylayout);
 
   for (m_hasAltGr = false, i = 32; i < 256; ++i) {
     s = VkKeyScanEx((char)i, m_keylayout);
-    // s == -1 means no key that translates passed char code
-    // high byte contains shift state. bit 2 ctrl pressed, bit 4 alt pressed
-    // if both are pressed, we have AltGr keycombo on keylayout
+    /* `s == -1` means no key that translates passed char code high byte contains shift state.
+     * bit 2 Control pressed, bit 4 `Alt` pressed if both are pressed,
+     * we have `AltGr` key-combination on key-layout. */
     if (s != -1 && (s & 0x600) == 0x600) {
       m_hasAltGr = true;
       break;

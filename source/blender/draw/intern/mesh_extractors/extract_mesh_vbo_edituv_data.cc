@@ -1,27 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
  */
 
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 #include "draw_cache_impl.h"
 
@@ -59,7 +43,7 @@ static void extract_edituv_data_init_common(const MeshRenderData *mr,
 }
 
 static void extract_edituv_data_init(const MeshRenderData *mr,
-                                     struct MeshBatchCache *UNUSED(cache),
+                                     MeshBatchCache *UNUSED(cache),
                                      void *buf,
                                      void *tls_data)
 {
@@ -153,18 +137,34 @@ static void extract_edituv_data_iter_subdiv_bm(const DRWSubdivCache *subdiv_cach
   uint end_loop_idx = (subdiv_quad_index + 1) * 4;
   for (uint i = start_loop_idx; i < end_loop_idx; i++) {
     const int vert_origindex = subdiv_loop_vert_index[i];
-    const int edge_origindex = subdiv_loop_edge_index[i];
+    int edge_origindex = subdiv_loop_edge_index[i];
 
     EditLoopData *edit_loop_data = &data->vbo_data[i];
     memset(edit_loop_data, 0, sizeof(EditLoopData));
 
     if (vert_origindex != -1 && edge_origindex != -1) {
-      BMEdge *eed = bm_original_edge_get(mr, edge_origindex);
+      BMEdge *eed = BM_edge_at_index(mr->bm, edge_origindex);
       /* Loop on an edge endpoint. */
       BMLoop *l = BM_face_edge_share_loop(const_cast<BMFace *>(coarse_quad), eed);
       mesh_render_data_loop_flag(mr, l, data->cd_ofs, edit_loop_data);
       mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, edit_loop_data);
     }
+    else {
+      if (edge_origindex == -1) {
+        /* Find if the loop's vert is not part of an edit edge.
+         * For this, we check if the previous loop was on an edge. */
+        const uint loop_index_last = (i == start_loop_idx) ? end_loop_idx - 1 : i - 1;
+        edge_origindex = subdiv_loop_edge_index[loop_index_last];
+      }
+      if (edge_origindex != -1) {
+        /* Mapped points on an edge between two edit verts. */
+        BMEdge *eed = BM_edge_at_index(mr->bm, edge_origindex);
+        BMLoop *l = BM_face_edge_share_loop(const_cast<BMFace *>(coarse_quad), eed);
+        mesh_render_data_loop_edge_flag(mr, l, data->cd_ofs, edit_loop_data);
+      }
+    }
+
+    mesh_render_data_face_flag(mr, coarse_quad, data->cd_ofs, edit_loop_data);
   }
 }
 
@@ -199,6 +199,4 @@ constexpr MeshExtract create_extractor_edituv_data()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_edituv_data = blender::draw::create_extractor_edituv_data();
-}

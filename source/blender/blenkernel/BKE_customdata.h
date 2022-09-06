@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -26,6 +10,12 @@
 
 #include "BLI_sys_types.h"
 #include "BLI_utildefines.h"
+#ifdef __cplusplus
+#  include "BLI_set.hh"
+#  include "BLI_span.hh"
+#  include "BLI_string_ref.hh"
+#  include "BLI_vector.hh"
+#endif
 
 #include "DNA_customdata_types.h"
 
@@ -40,7 +30,7 @@ struct BlendWriter;
 struct CustomData;
 struct CustomData_MeshMasks;
 struct ID;
-typedef uint64_t CustomDataMask;
+typedef uint64_t eCustomDataMask;
 
 /* A data type large enough to hold 1 element from any custom-data layer type. */
 typedef struct {
@@ -50,10 +40,8 @@ typedef struct {
 extern const CustomData_MeshMasks CD_MASK_BAREMESH;
 extern const CustomData_MeshMasks CD_MASK_BAREMESH_ORIGINDEX;
 extern const CustomData_MeshMasks CD_MASK_MESH;
-extern const CustomData_MeshMasks CD_MASK_EDITMESH;
 extern const CustomData_MeshMasks CD_MASK_DERIVEDMESH;
 extern const CustomData_MeshMasks CD_MASK_BMESH;
-extern const CustomData_MeshMasks CD_MASK_FACECORNERS;
 extern const CustomData_MeshMasks CD_MASK_EVERYTHING;
 
 /* for ORIGINDEX layer type, indicates no original index for this element */
@@ -67,17 +55,20 @@ extern const CustomData_MeshMasks CD_MASK_EVERYTHING;
 typedef enum eCDAllocType {
   /** Use the data pointer. */
   CD_ASSIGN = 0,
-  /** Allocate blank memory. */
-  CD_CALLOC = 1,
-  /** Allocate and set to default. */
-  CD_DEFAULT = 2,
+  /** Allocate and set to default, which is usually just zeroed memory. */
+  CD_SET_DEFAULT = 2,
   /** Use data pointers, set layer flag NOFREE. */
   CD_REFERENCE = 3,
   /** Do a full copy of all layers, only allowed if source has same number of elements. */
   CD_DUPLICATE = 4,
+  /**
+   * Default construct new layer values. Does nothing for trivial types. This should be used
+   * if all layer values will be set by the caller after creating the layer.
+   */
+  CD_CONSTRUCT = 5,
 } eCDAllocType;
 
-#define CD_TYPE_AS_MASK(_type) (CustomDataMask)((CustomDataMask)1 << (CustomDataMask)(_type))
+#define CD_TYPE_AS_MASK(_type) (eCustomDataMask)((eCustomDataMask)1 << (eCustomDataMask)(_type))
 
 void customData_mask_layers__print(const struct CustomData_MeshMasks *mask);
 
@@ -151,9 +142,18 @@ void CustomData_data_add(int type, void *data1, const void *data2);
  */
 void CustomData_copy(const struct CustomData *source,
                      struct CustomData *dest,
-                     CustomDataMask mask,
+                     eCustomDataMask mask,
                      eCDAllocType alloctype,
                      int totelem);
+
+/**
+ * Like #CustomData_copy but skips copying layers that are stored as flags on #BMesh.
+ */
+void CustomData_copy_mesh_to_bmesh(const struct CustomData *source,
+                                   struct CustomData *dest,
+                                   eCustomDataMask mask,
+                                   eCDAllocType alloctype,
+                                   int totelem);
 
 /* BMESH_TODO, not really a public function but readfile.c needs it */
 void CustomData_update_typemap(struct CustomData *data);
@@ -164,9 +164,18 @@ void CustomData_update_typemap(struct CustomData *data);
  */
 bool CustomData_merge(const struct CustomData *source,
                       struct CustomData *dest,
-                      CustomDataMask mask,
+                      eCustomDataMask mask,
                       eCDAllocType alloctype,
                       int totelem);
+
+/**
+ * Like #CustomData_copy but skips copying layers that are stored as flags on #BMesh.
+ */
+bool CustomData_merge_mesh_to_bmesh(const struct CustomData *source,
+                                    struct CustomData *dest,
+                                    eCustomDataMask mask,
+                                    eCDAllocType alloctype,
+                                    int totelem);
 
 /**
  * Reallocate custom data to a new element count.
@@ -184,7 +193,7 @@ void CustomData_realloc(struct CustomData *data, int totelem);
  */
 bool CustomData_bmesh_merge(const struct CustomData *source,
                             struct CustomData *dest,
-                            CustomDataMask mask,
+                            eCustomDataMask mask,
                             eCDAllocType alloctype,
                             struct BMesh *bm,
                             char htype);
@@ -202,7 +211,7 @@ void CustomData_free(struct CustomData *data, int totelem);
 /**
  * Same as above, but only frees layers which matches the given mask.
  */
-void CustomData_free_typemask(struct CustomData *data, int totelem, CustomDataMask mask);
+void CustomData_free_typemask(struct CustomData *data, int totelem, eCustomDataMask mask);
 
 /**
  * Frees all layers with #CD_FLAG_TEMPORARY.
@@ -239,6 +248,7 @@ void *CustomData_add_layer_anonymous(struct CustomData *data,
  * In edit-mode, use #EDBM_data_layer_free instead of this function.
  */
 bool CustomData_free_layer(struct CustomData *data, int type, int totelem, int index);
+bool CustomData_free_layer_named(struct CustomData *data, const char *name, const int totelem);
 
 /**
  * Frees the layer index with the give type.
@@ -254,11 +264,6 @@ bool CustomData_free_layer_active(struct CustomData *data, int type, int totelem
 void CustomData_free_layers(struct CustomData *data, int type, int totelem);
 
 /**
- * Free all anonymous attributes.
- */
-void CustomData_free_layers_anonymous(struct CustomData *data, int totelem);
-
-/**
  * Returns true if a layer with the specified type exists.
  */
 bool CustomData_has_layer(const struct CustomData *data, int type);
@@ -267,7 +272,7 @@ bool CustomData_has_layer(const struct CustomData *data, int type);
  * Returns the number of layers with this type.
  */
 int CustomData_number_of_layers(const struct CustomData *data, int type);
-int CustomData_number_of_layers_typemask(const struct CustomData *data, CustomDataMask mask);
+int CustomData_number_of_layers_typemask(const struct CustomData *data, eCustomDataMask mask);
 
 /**
  * Duplicate data of a layer with flag NOFREE, and remove that flag.
@@ -295,7 +300,7 @@ void CustomData_duplicate_referenced_layers(CustomData *data, int totelem);
  * Set the #CD_FLAG_NOCOPY flag in custom data layers where the mask is
  * zero for the layer type, so only layer types specified by the mask will be copied
  */
-void CustomData_set_only_copy(const struct CustomData *data, CustomDataMask mask);
+void CustomData_set_only_copy(const struct CustomData *data, eCustomDataMask mask);
 
 /**
  * Copies data from one CustomData object to another
@@ -328,7 +333,7 @@ void CustomData_bmesh_copy_data_exclude_by_type(const struct CustomData *source,
                                                 struct CustomData *dest,
                                                 void *src_block,
                                                 void **dest_block,
-                                                CustomDataMask mask_exclude);
+                                                eCustomDataMask mask_exclude);
 
 /**
  * Copies data of a single layer of a given type.
@@ -415,7 +420,7 @@ void *CustomData_bmesh_get_n(const struct CustomData *data, void *block, int typ
  */
 void *CustomData_bmesh_get_layer_n(const struct CustomData *data, void *block, int n);
 
-bool CustomData_set_layer_name(const struct CustomData *data, int type, int n, const char *name);
+bool CustomData_set_layer_name(struct CustomData *data, int type, int n, const char *name);
 const char *CustomData_get_layer_name(const struct CustomData *data, int type, int n);
 
 /**
@@ -426,6 +431,7 @@ void *CustomData_get_layer(const struct CustomData *data, int type);
 void *CustomData_get_layer_n(const struct CustomData *data, int type, int n);
 void *CustomData_get_layer_named(const struct CustomData *data, int type, const char *name);
 int CustomData_get_offset(const struct CustomData *data, int type);
+int CustomData_get_offset_named(const CustomData *data, int type, const char *name);
 int CustomData_get_n_offset(const struct CustomData *data, int type, int n);
 
 int CustomData_get_layer_index(const struct CustomData *data, int type);
@@ -446,6 +452,12 @@ int CustomData_get_stencil_layer(const struct CustomData *data, int type);
  * if no such active layer is defined.
  */
 const char *CustomData_get_active_layer_name(const struct CustomData *data, int type);
+
+/**
+ * Returns name of the default layer of the given type or NULL
+ * if no such active layer is defined.
+ */
+const char *CustomData_get_render_layer_name(const struct CustomData *data, int type);
 
 /**
  * Copies the data from source to the data element at index in the first layer of type
@@ -507,7 +519,7 @@ void CustomData_bmesh_free_block_data(struct CustomData *data, void *block);
  */
 void CustomData_bmesh_free_block_data_exclude_by_type(struct CustomData *data,
                                                       void *block,
-                                                      CustomDataMask mask_exclude);
+                                                      eCustomDataMask mask_exclude);
 
 /**
  * Copy custom data to/from layers as in mesh/derived-mesh, to edit-mesh
@@ -568,32 +580,10 @@ void CustomData_validate_layer_name(const struct CustomData *data,
  */
 bool CustomData_verify_versions(struct CustomData *data, int index);
 
-/* BMesh specific custom-data stuff.
- *
- * Needed to convert to/from different face representation (for versioning). */
+/* BMesh specific custom-data stuff. */
 
-void CustomData_to_bmeshpoly(struct CustomData *fdata, struct CustomData *ldata, int totloop);
-void CustomData_from_bmeshpoly(struct CustomData *fdata, struct CustomData *ldata, int total);
 void CustomData_bmesh_update_active_layers(struct CustomData *fdata, struct CustomData *ldata);
-/**
- * Update active indices for active/render/clone/stencil custom data layers
- * based on indices from fdata layers
- * used by do_versions in `readfile.c` when creating pdata and ldata for pre-bmesh
- * meshes and needed to preserve active/render/clone/stencil flags set in pre-bmesh files.
- */
-void CustomData_bmesh_do_versions_update_active_layers(struct CustomData *fdata,
-                                                       struct CustomData *ldata);
 void CustomData_bmesh_init_pool(struct CustomData *data, int totelem, char htype);
-
-#ifndef NDEBUG
-/**
- * Debug check, used to assert when we expect layers to be in/out of sync.
- *
- * \param fallback: Use when there are no layers to handle,
- * since callers may expect success or failure.
- */
-bool CustomData_from_bmeshpoly_test(CustomData *fdata, CustomData *ldata, bool fallback);
-#endif
 
 /**
  * Validate and fix data of \a layer,
@@ -607,19 +597,19 @@ void CustomData_layers__print(struct CustomData *data);
 /* External file storage */
 
 void CustomData_external_add(
-    struct CustomData *data, struct ID *id, int type, int totelem, const char *filename);
+    struct CustomData *data, struct ID *id, int type, int totelem, const char *filepath);
 void CustomData_external_remove(struct CustomData *data, struct ID *id, int type, int totelem);
 bool CustomData_external_test(struct CustomData *data, int type);
 
 void CustomData_external_write(
-    struct CustomData *data, struct ID *id, CustomDataMask mask, int totelem, int free);
+    struct CustomData *data, struct ID *id, eCustomDataMask mask, int totelem, int free);
 void CustomData_external_read(struct CustomData *data,
                               struct ID *id,
-                              CustomDataMask mask,
+                              eCustomDataMask mask,
                               int totelem);
 void CustomData_external_reload(struct CustomData *data,
                                 struct ID *id,
-                                CustomDataMask mask,
+                                eCustomDataMask mask,
                                 int totelem);
 
 /* Mesh-to-mesh transfer data. */
@@ -706,7 +696,7 @@ typedef struct CustomDataTransferLayerMap {
   size_t data_size;
   /** Offset of actual data we transfer (in element contained in data_src/dst). */
   size_t data_offset;
-  /** For bitflag transfer, flag(s) to affect in transferred data. */
+  /** For bit-flag transfer, flag(s) to affect in transferred data. */
   uint64_t data_flag;
 
   /** Opaque pointer, to be used by specific interp callback (e.g. transformspace for normals). */
@@ -723,39 +713,34 @@ void CustomData_data_transfer(const struct MeshPairRemap *me_remap,
 
 /* .blend file I/O */
 
+#ifdef __cplusplus
+
 /**
  * Prepare given custom data for file writing.
  *
- * \param data: the custom-data to tweak for .blend file writing (modified in place).
- * \param r_write_layers: contains a reduced set of layers to be written to file,
- * use it with #writestruct_at_address()
- * (caller must free it if != \a write_layers_buff).
+ * \param data: The custom-data to tweak for .blend file writing (modified in place).
+ * \param layers_to_write: A reduced set of layers to be written to file.
  *
- * \param write_layers_buff: An optional buffer for r_write_layers (to avoid allocating it).
- * \param write_layers_size: The size of pre-allocated \a write_layer_buff.
- *
- * \warning After this funcion has ran, given custom data is no more valid from Blender POV
- * (its `totlayer` is invalid). This function shall always be called with localized data
- * (as it is in write_meshes()).
- *
- * \note `data->typemap` is not updated here, since it is always rebuilt on file read anyway.
- * This means written `typemap` does not match written layers (as returned by \a r_write_layers).
- * Trivial to fix is ever needed.
+ * \warning This function invalidates the custom data struct by changing the layer counts and the
+ * #layers pointer, and by invalidating the type map. It expects to work on a shallow copy of
+ * the struct.
  */
-void CustomData_blend_write_prepare(struct CustomData *data,
-                                    struct CustomDataLayer **r_write_layers,
-                                    struct CustomDataLayer *write_layers_buff,
-                                    size_t write_layers_size);
+void CustomData_blend_write_prepare(CustomData &data,
+                                    blender::Vector<CustomDataLayer, 16> &layers_to_write,
+                                    const blender::Set<std::string> &skip_names = {});
 
 /**
- * \param layers: The layers argument assigned by #CustomData_blend_write_prepare.
+ * \param layers_to_write: Layers created by #CustomData_blend_write_prepare.
  */
-void CustomData_blend_write(struct BlendWriter *writer,
-                            struct CustomData *data,
-                            CustomDataLayer *layers,
+void CustomData_blend_write(BlendWriter *writer,
+                            CustomData *data,
+                            blender::Span<CustomDataLayer> layers_to_write,
                             int count,
-                            CustomDataMask cddata_mask,
-                            struct ID *id);
+                            eCustomDataMask cddata_mask,
+                            ID *id);
+
+#endif
+
 void CustomData_blend_read(struct BlendDataReader *reader, struct CustomData *data, int count);
 
 #ifndef NDEBUG
@@ -768,4 +753,13 @@ void CustomData_debug_info_from_layers(const struct CustomData *data,
 
 #ifdef __cplusplus
 }
+#endif
+
+#ifdef __cplusplus
+#  include "BLI_cpp_type.hh"
+
+namespace blender::bke {
+const CPPType *custom_data_type_to_cpp_type(eCustomDataType type);
+eCustomDataType cpp_type_to_custom_data_type(const CPPType &type);
+}  // namespace blender::bke
 #endif

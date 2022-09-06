@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edphys
@@ -35,6 +21,7 @@
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
 
+#include "BKE_attribute.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_dynamicpaint.h"
@@ -247,7 +234,7 @@ static int output_toggle_exec(bContext *C, wmOperator *op)
         ED_mesh_color_add(ob->data, name, true, true, op->reports);
       }
       else {
-        ED_mesh_color_remove_named(ob->data, name);
+        BKE_id_attribute_remove(ob->data, name, NULL);
       }
     }
     /* Vertex Weight Layer */
@@ -413,27 +400,27 @@ static void dynamicPaint_bakeImageSequence(DynamicPaintBakeJob *job)
      * Save output images
      */
     {
-      char filename[FILE_MAX];
+      char filepath[FILE_MAX];
 
       /* primary output layer */
       if (surface->flags & MOD_DPAINT_OUT1) {
         /* set filepath */
         BLI_join_dirfile(
-            filename, sizeof(filename), surface->image_output_path, surface->output_name);
-        BLI_path_frame(filename, frame, 4);
+            filepath, sizeof(filepath), surface->image_output_path, surface->output_name);
+        BLI_path_frame(filepath, frame, 4);
 
         /* save image */
-        dynamicPaint_outputSurfaceImage(surface, filename, 0);
+        dynamicPaint_outputSurfaceImage(surface, filepath, 0);
       }
       /* secondary output */
       if (surface->flags & MOD_DPAINT_OUT2 && surface->type == MOD_DPAINT_SURFACE_T_PAINT) {
         /* set filepath */
         BLI_join_dirfile(
-            filename, sizeof(filename), surface->image_output_path, surface->output_name2);
-        BLI_path_frame(filename, frame, 4);
+            filepath, sizeof(filepath), surface->image_output_path, surface->output_name2);
+        BLI_path_frame(filepath, frame, 4);
 
         /* save image */
-        dynamicPaint_outputSurfaceImage(surface, filename, 1);
+        dynamicPaint_outputSurfaceImage(surface, filepath, 1);
       }
     }
   }

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -62,14 +46,9 @@
  *       as it is and stick with using BMesh and CDDM.
  */
 
-#include "DNA_customdata_types.h"
-#include "DNA_defs.h"
-#include "DNA_meshdata_types.h"
-
 #include "BLI_compiler_attrs.h"
 
-#include "BKE_bvhutils.h"
-#include "BKE_customdata.h"
+#include "DNA_customdata_types.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -89,8 +68,8 @@ struct Object;
 struct Scene;
 
 /*
- * NOTE: all mface interfaces now officially operate on tessellated data.
- *       Also, the mface origindex layer indexes mpolys, not mfaces.
+ * NOTE: all #MFace interfaces now officially operate on tessellated data.
+ *       Also, the #MFace orig-index layer indexes #MPoly, not #MFace.
  */
 
 /* keep in sync with MFace/MPoly types */
@@ -141,7 +120,6 @@ struct DerivedMesh {
   /* Also called in Editmode */
   int (*getNumVerts)(DerivedMesh *dm);
   int (*getNumEdges)(DerivedMesh *dm);
-  int (*getNumTessFaces)(DerivedMesh *dm);
   int (*getNumLoops)(DerivedMesh *dm);
   int (*getNumPolys)(DerivedMesh *dm);
 
@@ -249,15 +227,6 @@ bool DM_release(DerivedMesh *dm);
  */
 void DM_set_only_copy(DerivedMesh *dm, const struct CustomData_MeshMasks *mask);
 
-/* Adds a vertex/edge/face custom data layer to a DerivedMesh, optionally
- * backed by an external data array
- * alloctype defines how the layer is allocated or copied, and how it is
- * freed, see BKE_customdata.h for the different options. */
-
-void DM_add_vert_layer(struct DerivedMesh *dm, int type, eCDAllocType alloctype, void *layer);
-void DM_add_edge_layer(struct DerivedMesh *dm, int type, eCDAllocType alloctype, void *layer);
-void DM_add_poly_layer(struct DerivedMesh *dm, int type, eCDAllocType alloctype, void *layer);
-
 /* -------------------------------------------------------------------- */
 /** \name Custom Data Layer Access Functions
  *
@@ -315,22 +284,22 @@ void mesh_get_mapped_verts_coords(struct Mesh *me_eval, float (*r_cos)[3], int t
  * Same as above but won't use render settings.
  */
 struct Mesh *editbmesh_get_eval_cage(struct Depsgraph *depsgraph,
-                                     struct Scene *scene,
-                                     struct Object *,
+                                     const struct Scene *scene,
+                                     struct Object *obedit,
                                      struct BMEditMesh *em,
                                      const struct CustomData_MeshMasks *dataMask);
 struct Mesh *editbmesh_get_eval_cage_from_orig(struct Depsgraph *depsgraph,
-                                               struct Scene *scene,
+                                               const struct Scene *scene,
                                                struct Object *obedit,
                                                const struct CustomData_MeshMasks *dataMask);
 
 float (*editbmesh_vert_coords_alloc(struct BMEditMesh *em, int *r_vert_len))[3];
-bool editbmesh_modifier_is_enabled(struct Scene *scene,
+bool editbmesh_modifier_is_enabled(const struct Scene *scene,
                                    const struct Object *ob,
                                    struct ModifierData *md,
                                    bool has_prev_mesh);
 void makeDerivedMesh(struct Depsgraph *depsgraph,
-                     struct Scene *scene,
+                     const struct Scene *scene,
                      struct Object *ob,
                      const struct CustomData_MeshMasks *dataMask);
 

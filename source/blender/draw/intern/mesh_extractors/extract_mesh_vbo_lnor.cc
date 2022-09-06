@@ -1,27 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup draw
  */
 
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 #include "draw_subdivision.h"
 
@@ -32,7 +16,7 @@ namespace blender::draw {
  * \{ */
 
 static void extract_lnor_init(const MeshRenderData *mr,
-                              struct MeshBatchCache *UNUSED(cache),
+                              MeshBatchCache *UNUSED(cache),
                               void *buf,
                               void *tls_data)
 {
@@ -78,6 +62,8 @@ static void extract_lnor_iter_poly_mesh(const MeshRenderData *mr,
                                         const int mp_index,
                                         void *data)
 {
+  const bool hidden = mr->hide_poly && mr->hide_poly[mp_index];
+
   const MLoop *mloop = mr->mloop;
   const int ml_index_end = mp->loopstart + mp->totloop;
   for (int ml_index = mp->loopstart; ml_index < ml_index_end; ml_index += 1) {
@@ -94,10 +80,10 @@ static void extract_lnor_iter_poly_mesh(const MeshRenderData *mr,
     }
 
     /* Flag for paint mode overlay.
-     * Only use MR_EXTRACT_MAPPED in edit mode where it is used to display the edge-normals.
+     * Only use origindex in edit mode where it is used to display the edge-normals.
      * In paint mode it will use the un-mapped data to draw the wire-frame. */
-    if (mp->flag & ME_HIDE || (mr->edit_bmesh && mr->extract_type == MR_EXTRACT_MAPPED &&
-                               (mr->v_origindex) && mr->v_origindex[ml->v] == ORIGINDEX_NONE)) {
+    if (hidden ||
+        (mr->edit_bmesh && (mr->v_origindex) && mr->v_origindex[ml->v] == ORIGINDEX_NONE)) {
       lnor_data->w = -1;
     }
     else if (mp->flag & ME_FACE_SEL) {
@@ -121,7 +107,7 @@ static GPUVertFormat *get_subdiv_lnor_format()
 
 static void extract_lnor_init_subdiv(const DRWSubdivCache *subdiv_cache,
                                      const MeshRenderData *UNUSED(mr),
-                                     struct MeshBatchCache *cache,
+                                     MeshBatchCache *cache,
                                      void *buffer,
                                      void *UNUSED(data))
 {
@@ -157,7 +143,7 @@ struct gpuHQNor {
 };
 
 static void extract_lnor_hq_init(const MeshRenderData *mr,
-                                 struct MeshBatchCache *UNUSED(cache),
+                                 MeshBatchCache *UNUSED(cache),
                                  void *buf,
                                  void *tls_data)
 {
@@ -201,6 +187,8 @@ static void extract_lnor_hq_iter_poly_mesh(const MeshRenderData *mr,
                                            const int mp_index,
                                            void *data)
 {
+  const bool hidden = mr->hide_poly && mr->hide_poly[mp_index];
+
   const MLoop *mloop = mr->mloop;
   const int ml_index_end = mp->loopstart + mp->totloop;
   for (int ml_index = mp->loopstart; ml_index < ml_index_end; ml_index += 1) {
@@ -217,10 +205,10 @@ static void extract_lnor_hq_iter_poly_mesh(const MeshRenderData *mr,
     }
 
     /* Flag for paint mode overlay.
-     * Only use #MR_EXTRACT_MAPPED in edit mode where it is used to display the edge-normals.
+     * Only use origindex in edit mode where it is used to display the edge-normals.
      * In paint mode it will use the un-mapped data to draw the wire-frame. */
-    if (mp->flag & ME_HIDE || (mr->edit_bmesh && mr->extract_type == MR_EXTRACT_MAPPED &&
-                               (mr->v_origindex) && mr->v_origindex[ml->v] == ORIGINDEX_NONE)) {
+    if (hidden ||
+        (mr->edit_bmesh && (mr->v_origindex) && mr->v_origindex[ml->v] == ORIGINDEX_NONE)) {
       lnor_data->w = -1;
     }
     else if (mp->flag & ME_FACE_SEL) {
@@ -250,7 +238,5 @@ constexpr MeshExtract create_extractor_lnor_hq()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_lnor = blender::draw::create_extractor_lnor();
 const MeshExtract extract_lnor_hq = blender::draw::create_extractor_lnor_hq();
-}

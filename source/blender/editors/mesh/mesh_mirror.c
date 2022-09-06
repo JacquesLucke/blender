@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edmesh
@@ -69,11 +55,9 @@ void ED_mesh_mirror_spatial_table_begin(Object *ob, BMEditMesh *em, Mesh *me_eva
     }
   }
   else {
-    MVert *mvert = me_eval ? me_eval->mvert : me->mvert;
-    int i;
-
-    for (i = 0; i < totvert; i++, mvert++) {
-      BLI_kdtree_3d_insert(MirrKdStore.tree, i, mvert->co);
+    const MVert *verts = BKE_mesh_vertices(me_eval ? me_eval : me);
+    for (int i = 0; i < totvert; i++) {
+      BLI_kdtree_3d_insert(MirrKdStore.tree, i, verts[i].co);
     }
   }
 
@@ -178,9 +162,9 @@ void ED_mesh_mirrtopo_init(BMEditMesh *em,
     BLI_assert(me == NULL);
   }
   const bool is_editmode = (em != NULL);
-  MEdge *medge = NULL, *med;
+  const MEdge *medge = NULL, *med;
 
-  /* editmode*/
+  /* Edit-mode variables. */
   BMEdge *eed;
   BMIter iter;
 
@@ -224,8 +208,7 @@ void ED_mesh_mirrtopo_init(BMEditMesh *em,
   }
   else {
     totedge = me->totedge;
-    medge = me->medge;
-
+    medge = BKE_mesh_edges(me);
     for (a = 0, med = medge; a < totedge; a++, med++) {
       const uint i1 = med->v1, i2 = med->v2;
       topo_hash[i1]++;

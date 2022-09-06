@@ -1,18 +1,6 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
+#include "DNA_pointcloud_types.h"
 
 #include "node_geometry_util.hh"
 
@@ -30,25 +18,24 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Points"));
 }
 
-static void set_radius_in_component(GeometryComponent &component,
+static void set_radius_in_component(PointCloud &pointcloud,
                                     const Field<bool> &selection_field,
                                     const Field<float> &radius_field)
 {
-  GeometryComponentFieldContext field_context{component, ATTR_DOMAIN_POINT};
-  const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_POINT);
-  if (domain_size == 0) {
+  if (pointcloud.totpoint == 0) {
     return;
   }
+  MutableAttributeAccessor attributes = bke::pointcloud_attributes_for_write(pointcloud);
+  AttributeWriter<float> radii = attributes.lookup_or_add_for_write<float>("radius",
+                                                                           ATTR_DOMAIN_POINT);
 
-  OutputAttribute_Typed<float> radii = component.attribute_try_get_for_output_only<float>(
-      "radius", ATTR_DOMAIN_POINT);
-
-  fn::FieldEvaluator evaluator{field_context, domain_size};
+  bke::PointCloudFieldContext field_context{pointcloud};
+  fn::FieldEvaluator evaluator{field_context, pointcloud.totpoint};
   evaluator.set_selection(selection_field);
-  evaluator.add_with_destination(radius_field, radii.varray());
+  evaluator.add_with_destination(radius_field, radii.varray);
   evaluator.evaluate();
 
-  radii.save();
+  radii.finish();
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -58,10 +45,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   Field<float> radii_field = params.extract_input<Field<float>>("Radius");
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    if (geometry_set.has_pointcloud()) {
-      set_radius_in_component(geometry_set.get_component_for_write<PointCloudComponent>(),
-                              selection_field,
-                              radii_field);
+    if (PointCloud *pointcloud = geometry_set.get_pointcloud_for_write()) {
+      set_radius_in_component(*pointcloud, selection_field, radii_field);
     }
   });
 

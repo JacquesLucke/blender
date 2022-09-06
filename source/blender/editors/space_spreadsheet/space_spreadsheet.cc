@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <cstring>
 
@@ -45,8 +31,6 @@
 #include "BLT_translation.h"
 
 #include "BLF_api.h"
-
-#include "spreadsheet_intern.hh"
 
 #include "spreadsheet_context.hh"
 #include "spreadsheet_data_source_geometry.hh"
@@ -278,7 +262,13 @@ Object *spreadsheet_get_object_eval(const SpaceSpreadsheet *sspreadsheet,
     return nullptr;
   }
   Object *object_orig = (Object *)used_id;
-  if (!ELEM(object_orig->type, OB_MESH, OB_POINTCLOUD, OB_VOLUME, OB_CURVE, OB_FONT)) {
+  if (!ELEM(object_orig->type,
+            OB_MESH,
+            OB_POINTCLOUD,
+            OB_VOLUME,
+            OB_CURVES_LEGACY,
+            OB_FONT,
+            OB_CURVES)) {
     return nullptr;
   }
 
@@ -311,6 +301,7 @@ static float get_default_column_width(const ColumnValues &values)
   switch (values.type()) {
     case SPREADSHEET_VALUE_TYPE_BOOL:
       return 2.0f;
+    case SPREADSHEET_VALUE_TYPE_INT8:
     case SPREADSHEET_VALUE_TYPE_INT32:
       return float_width;
     case SPREADSHEET_VALUE_TYPE_FLOAT:
@@ -320,6 +311,7 @@ static float get_default_column_width(const ColumnValues &values)
     case SPREADSHEET_VALUE_TYPE_FLOAT3:
       return 3.0f * float_width;
     case SPREADSHEET_VALUE_TYPE_COLOR:
+    case SPREADSHEET_VALUE_TYPE_BYTE_COLOR:
       return 4.0f * float_width;
     case SPREADSHEET_VALUE_TYPE_INSTANCES:
       return 8.0f;
@@ -444,7 +436,7 @@ static void spreadsheet_main_region_draw(const bContext *C, ARegion *region)
 static void spreadsheet_main_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   switch (wmn->category) {
     case NC_SCENE: {
@@ -494,7 +486,7 @@ static void spreadsheet_header_region_free(ARegion *UNUSED(region))
 static void spreadsheet_header_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   switch (wmn->category) {
     case NC_SCENE: {
@@ -578,7 +570,7 @@ static void spreadsheet_footer_region_listener(const wmRegionListenerParams *UNU
 static void spreadsheet_dataset_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   switch (wmn->category) {
     case NC_SCENE: {

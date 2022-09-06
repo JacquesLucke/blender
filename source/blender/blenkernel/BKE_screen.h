@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 #pragma once
 
 /** \file
@@ -71,7 +55,7 @@ struct wmWindowManager;
 typedef struct wmSpaceTypeListenerParams {
   struct wmWindow *window;
   struct ScrArea *area;
-  struct wmNotifier *notifier;
+  const struct wmNotifier *notifier;
   const struct Scene *scene;
 } wmSpaceTypeListenerParams;
 
@@ -140,7 +124,7 @@ typedef struct wmRegionListenerParams {
   struct wmWindow *window;
   struct ScrArea *area; /* Can be NULL when the region is not part of an area. */
   struct ARegion *region;
-  struct wmNotifier *notifier;
+  const struct wmNotifier *notifier;
   const struct Scene *scene;
 } wmRegionListenerParams;
 
@@ -307,7 +291,7 @@ enum {
 
 /* Draw an item in the uiList */
 typedef void (*uiListDrawItemFunc)(struct uiList *ui_list,
-                                   struct bContext *C,
+                                   const struct bContext *C,
                                    struct uiLayout *layout,
                                    struct PointerRNA *dataptr,
                                    struct PointerRNA *itemptr,
@@ -319,12 +303,12 @@ typedef void (*uiListDrawItemFunc)(struct uiList *ui_list,
 
 /* Draw the filtering part of an uiList */
 typedef void (*uiListDrawFilterFunc)(struct uiList *ui_list,
-                                     struct bContext *C,
+                                     const struct bContext *C,
                                      struct uiLayout *layout);
 
 /* Filter items of an uiList */
 typedef void (*uiListFilterItemsFunc)(struct uiList *ui_list,
-                                      struct bContext *C,
+                                      const struct bContext *C,
                                       struct PointerRNA *,
                                       const char *propname);
 
@@ -455,6 +439,14 @@ void BKE_screen_area_free(struct ScrArea *area);
 void BKE_region_callback_free_gizmomap_set(void (*callback)(struct wmGizmoMap *));
 void BKE_region_callback_refresh_tag_gizmomap_set(void (*callback)(struct wmGizmoMap *));
 
+/**
+ * Find a region of type \a region_type in provided \a regionbase.
+ *
+ * \note this is useful for versioning where either the #Area or #SpaceLink regionbase are typical
+ * inputs
+ */
+struct ARegion *BKE_region_find_in_listbase_by_type(const struct ListBase *regionbase,
+                                                    const int region_type);
 /**
  * Find a region of type \a region_type in the currently active space of \a area.
  *

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include <cstring>
 
@@ -21,6 +7,7 @@
 #include "NOD_geometry.h"
 
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_node.h"
 #include "BKE_object.h"
 
@@ -31,6 +18,7 @@
 #include "DNA_space_types.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "UI_resources.h"
 
@@ -45,7 +33,7 @@ static void geometry_node_tree_get_from_context(const bContext *C,
                                                 ID **r_from)
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
 
   if (ob == nullptr) {
     return;
@@ -122,8 +110,9 @@ void register_node_tree_type_geo()
       MEM_callocN(sizeof(bNodeTreeType), "geometry node tree type"));
   tt->type = NTREE_GEOMETRY;
   strcpy(tt->idname, "GeometryNodeTree");
+  strcpy(tt->group_idname, "GeometryNodeGroup");
   strcpy(tt->ui_name, N_("Geometry Node Editor"));
-  tt->ui_icon = ICON_NODETREE;
+  tt->ui_icon = ICON_GEOMETRY_NODES;
   strcpy(tt->ui_description, N_("Geometry nodes"));
   tt->rna_ext.srna = &RNA_GeometryNodeTree;
   tt->update = geometry_node_tree_update;

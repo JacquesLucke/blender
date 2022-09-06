@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2020, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. */
 
 /** \file
  * \ingroup draw
@@ -184,7 +169,7 @@ void DRW_transform_none(GPUTexture *tex)
 
   /* Draw as texture for final render (without immediate mode). */
   GPUBatch *geom = DRW_cache_fullscreen_quad_get();
-  GPU_batch_program_set_builtin(geom, GPU_SHADER_2D_IMAGE_COLOR);
+  GPU_batch_program_set_builtin(geom, GPU_SHADER_3D_IMAGE_COLOR);
   GPU_batch_uniform_4f(geom, "color", 1.0f, 1.0f, 1.0f, 1.0f);
   GPU_batch_texture_bind(geom, "image", tex);
 

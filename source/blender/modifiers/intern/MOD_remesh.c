@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2011 by Nicholas Bishop.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 by Nicholas Bishop. */
 
 /** \file
  * \ingroup modifiers
@@ -46,6 +31,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
@@ -74,11 +60,11 @@ static void init_dualcon_mesh(DualConInput *input, Mesh *mesh)
 {
   memset(input, 0, sizeof(DualConInput));
 
-  input->co = (void *)mesh->mvert;
+  input->co = (void *)BKE_mesh_vertices(mesh);
   input->co_stride = sizeof(MVert);
   input->totco = mesh->totvert;
 
-  input->mloop = (void *)mesh->mloop;
+  input->mloop = (void *)BKE_mesh_loops(mesh);
   input->loop_stride = sizeof(MLoop);
 
   BKE_mesh_runtime_looptri_ensure(mesh);
@@ -94,6 +80,9 @@ static void init_dualcon_mesh(DualConInput *input, Mesh *mesh)
  * keep track of the current elements */
 typedef struct {
   Mesh *mesh;
+  MVert *verts;
+  MPoly *polys;
+  MLoop *loops;
   int curvert, curface;
 } DualConOutput;
 
@@ -107,17 +96,20 @@ static void *dualcon_alloc_output(int totvert, int totquad)
   }
 
   output->mesh = BKE_mesh_new_nomain(totvert, 0, 0, 4 * totquad, totquad);
+  output->verts = BKE_mesh_vertices_for_write(output->mesh);
+  output->polys = BKE_mesh_polygons_for_write(output->mesh);
+  output->loops = BKE_mesh_loops_for_write(output->mesh);
+
   return output;
 }
 
 static void dualcon_add_vert(void *output_v, const float co[3])
 {
   DualConOutput *output = output_v;
-  Mesh *mesh = output->mesh;
 
-  BLI_assert(output->curvert < mesh->totvert);
+  BLI_assert(output->curvert < output->mesh->totvert);
 
-  copy_v3_v3(mesh->mvert[output->curvert].co, co);
+  copy_v3_v3(output->verts[output->curvert].co, co);
   output->curvert++;
 }
 
@@ -125,14 +117,13 @@ static void dualcon_add_quad(void *output_v, const int vert_indices[4])
 {
   DualConOutput *output = output_v;
   Mesh *mesh = output->mesh;
-  MLoop *mloop;
-  MPoly *cur_poly;
   int i;
 
   BLI_assert(output->curface < mesh->totpoly);
+  UNUSED_VARS_NDEBUG(mesh);
 
-  mloop = mesh->mloop;
-  cur_poly = &mesh->mpoly[output->curface];
+  MLoop *mloop = output->loops;
+  MPoly *cur_poly = &output->polys[output->curface];
 
   cur_poly->loopstart = output->curface * 4;
   cur_poly->totloop = 4;
@@ -209,7 +200,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *UNUSED(ctx)
   }
 
   if (rmd->flag & MOD_REMESH_SMOOTH_SHADING) {
-    MPoly *mpoly = result->mpoly;
+    MPoly *mpoly = BKE_mesh_polygons_for_write(result);
     int i, totpoly = result->totpoly;
 
     /* Apply smooth shading to output faces */
@@ -220,7 +211,6 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *UNUSED(ctx)
 
   BKE_mesh_copy_parameters_for_eval(result, mesh);
   BKE_mesh_calc_edges(result, true, false);
-  BKE_mesh_normals_tag_dirty(result);
   return result;
 }
 
@@ -283,7 +273,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Remesh = {
-    /* name */ "Remesh",
+    /* name */ N_("Remesh"),
     /* structName */ "RemeshModifierData",
     /* structSize */ sizeof(RemeshModifierData),
     /* srna */ &RNA_RemeshModifier,

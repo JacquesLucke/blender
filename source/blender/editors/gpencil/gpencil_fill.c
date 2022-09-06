@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2017, Blender Foundation
- * This is a new part of Blender
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2017 Blender Foundation. */
 
 /** \file
  * \ingroup edgpencil
@@ -1020,7 +1004,6 @@ static void gpencil_invert_image(tGPDfill *tgpf)
   ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
 
   const int maxpixel = (ibuf->x * ibuf->y) - 1;
-  const int center = ibuf->x / 2;
 
   for (int v = maxpixel; v != 0; v--) {
     float color[4];
@@ -1032,15 +1015,6 @@ static void gpencil_invert_image(tGPDfill *tgpf)
     /* Red->Green */
     else if (color[0] == 1.0f) {
       set_pixel(ibuf, v, fill_col[1]);
-      /* Add thickness of 2 pixels to avoid too thin lines, but avoid extremes of the pixel line.
-       */
-      int row = v / ibuf->x;
-      int lowpix = row * ibuf->x;
-      int highpix = lowpix + ibuf->x - 1;
-      if ((v > lowpix) && (v < highpix)) {
-        int offset = (v % ibuf->x < center) ? 1 : -1;
-        set_pixel(ibuf, v + offset, fill_col[1]);
-      }
     }
     else {
       /* Set to Transparent. */
@@ -1123,7 +1097,7 @@ static void gpencil_erase_processed_area(tGPDfill *tgpf)
 /**
  * Naive dilate
  *
- * Expand green areas into enclosing red areas.
+ * Expand green areas into enclosing red or transparent areas.
  * Using stack prevents creep when replacing colors directly.
  * <pre>
  * -----------
@@ -1136,11 +1110,14 @@ static void gpencil_erase_processed_area(tGPDfill *tgpf)
  */
 static bool dilate_shape(ImBuf *ibuf)
 {
+#define IS_GREEN (color[1] == 1.0f)
+#define IS_NOT_GREEN (color[1] != 1.0f)
+
   bool done = false;
 
   BLI_Stack *stack = BLI_stack_new(sizeof(int), __func__);
   const float green[4] = {0.0f, 1.0f, 0.0f, 1.0f};
-  // const int maxpixel = (ibuf->x * ibuf->y) - 1;
+  const int max_size = (ibuf->x * ibuf->y) - 1;
   /* detect pixels and expand into red areas */
   for (int row = 0; row < ibuf->y; row++) {
     if (!is_row_filled(ibuf, row)) {
@@ -1153,7 +1130,7 @@ static bool dilate_shape(ImBuf *ibuf)
       float color[4];
       int index;
       get_pixel(ibuf, v, color);
-      if (color[1] == 1.0f) {
+      if (IS_GREEN) {
         int tp = 0;
         int bm = 0;
         int lt = 0;
@@ -1163,7 +1140,7 @@ static bool dilate_shape(ImBuf *ibuf)
         if (v - 1 >= 0) {
           index = v - 1;
           get_pixel(ibuf, index, color);
-          if (color[0] == 1.0f) {
+          if (IS_NOT_GREEN) {
             BLI_stack_push(stack, &index);
             lt = index;
           }
@@ -1172,25 +1149,25 @@ static bool dilate_shape(ImBuf *ibuf)
         if (v + 1 <= maxpixel) {
           index = v + 1;
           get_pixel(ibuf, index, color);
-          if (color[0] == 1.0f) {
+          if (IS_NOT_GREEN) {
             BLI_stack_push(stack, &index);
             rt = index;
           }
         }
         /* pixel top */
-        if (v + (ibuf->x * 1) <= maxpixel) {
-          index = v + (ibuf->x * 1);
+        if (v + ibuf->x <= max_size) {
+          index = v + ibuf->x;
           get_pixel(ibuf, index, color);
-          if (color[0] == 1.0f) {
+          if (IS_NOT_GREEN) {
             BLI_stack_push(stack, &index);
             tp = index;
           }
         }
         /* pixel bottom */
-        if (v - (ibuf->x * 1) >= 0) {
-          index = v - (ibuf->x * 1);
+        if (v - ibuf->x >= 0) {
+          index = v - ibuf->x;
           get_pixel(ibuf, index, color);
-          if (color[0] == 1.0f) {
+          if (IS_NOT_GREEN) {
             BLI_stack_push(stack, &index);
             bm = index;
           }
@@ -1199,7 +1176,7 @@ static bool dilate_shape(ImBuf *ibuf)
         if (tp && lt) {
           index = tp - 1;
           get_pixel(ibuf, index, color);
-          if (color[0] == 1.0f) {
+          if (IS_NOT_GREEN) {
             BLI_stack_push(stack, &index);
           }
         }
@@ -1207,7 +1184,7 @@ static bool dilate_shape(ImBuf *ibuf)
         if (tp && rt) {
           index = tp + 1;
           get_pixel(ibuf, index, color);
-          if (color[0] == 1.0f) {
+          if (IS_NOT_GREEN) {
             BLI_stack_push(stack, &index);
           }
         }
@@ -1215,7 +1192,7 @@ static bool dilate_shape(ImBuf *ibuf)
         if (bm && lt) {
           index = bm - 1;
           get_pixel(ibuf, index, color);
-          if (color[0] == 1.0f) {
+          if (IS_NOT_GREEN) {
             BLI_stack_push(stack, &index);
           }
         }
@@ -1223,7 +1200,7 @@ static bool dilate_shape(ImBuf *ibuf)
         if (bm && rt) {
           index = bm + 1;
           get_pixel(ibuf, index, color);
-          if (color[0] == 1.0f) {
+          if (IS_NOT_GREEN) {
             BLI_stack_push(stack, &index);
           }
         }
@@ -1240,6 +1217,88 @@ static bool dilate_shape(ImBuf *ibuf)
   BLI_stack_free(stack);
 
   return done;
+
+#undef IS_GREEN
+#undef IS_NOT_GREEN
+}
+
+/**
+ * Contract
+ *
+ * Contract green areas to scale down the size.
+ * Using stack prevents creep when replacing colors directly.
+ */
+static bool contract_shape(ImBuf *ibuf)
+{
+#define IS_GREEN (color[1] == 1.0f)
+#define IS_NOT_GREEN (color[1] != 1.0f)
+
+  bool done = false;
+
+  BLI_Stack *stack = BLI_stack_new(sizeof(int), __func__);
+  const float clear[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+  const int max_size = (ibuf->x * ibuf->y) - 1;
+
+  /* Detect if pixel is near of no green pixels and mark green pixel to be cleared. */
+  for (int row = 0; row < ibuf->y; row++) {
+    if (!is_row_filled(ibuf, row)) {
+      continue;
+    }
+    int maxpixel = (ibuf->x * (row + 1)) - 1;
+    int minpixel = ibuf->x * row;
+
+    for (int v = maxpixel; v != minpixel; v--) {
+      float color[4];
+      get_pixel(ibuf, v, color);
+      if (IS_GREEN) {
+        /* pixel left */
+        if (v - 1 >= 0) {
+          get_pixel(ibuf, v - 1, color);
+          if (IS_NOT_GREEN) {
+            BLI_stack_push(stack, &v);
+            continue;
+          }
+        }
+        /* pixel right */
+        if (v + 1 <= maxpixel) {
+          get_pixel(ibuf, v + 1, color);
+          if (IS_NOT_GREEN) {
+            BLI_stack_push(stack, &v);
+            continue;
+          }
+        }
+        /* pixel top */
+        if (v + ibuf->x <= max_size) {
+          get_pixel(ibuf, v + ibuf->x, color);
+          if (IS_NOT_GREEN) {
+            BLI_stack_push(stack, &v);
+            continue;
+          }
+        }
+        /* pixel bottom */
+        if (v - ibuf->x >= 0) {
+          get_pixel(ibuf, v - ibuf->x, color);
+          if (IS_NOT_GREEN) {
+            BLI_stack_push(stack, &v);
+            continue;
+          }
+        }
+      }
+    }
+  }
+  /* Clear pixels. */
+  while (!BLI_stack_is_empty(stack)) {
+    int v;
+    BLI_stack_pop(stack, &v);
+    set_pixel(ibuf, v, clear);
+    done = true;
+  }
+  BLI_stack_free(stack);
+
+  return done;
+
+#undef IS_GREEN
+#undef IS_NOT_GREEN
 }
 
 /* Get the outline points of a shape using Moore Neighborhood algorithm
@@ -1281,10 +1340,15 @@ static void gpencil_get_outline_points(tGPDfill *tgpf, const bool dilate)
   ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
   int imagesize = ibuf->x * ibuf->y;
 
-  /* Dilate. */
+  /* Dilate or contract. */
   if (dilate) {
-    for (int i = 0; i < brush->gpencil_settings->dilate_pixels; i++) {
-      dilate_shape(ibuf);
+    for (int i = 0; i < abs(brush->gpencil_settings->dilate_pixels); i++) {
+      if (brush->gpencil_settings->dilate_pixels > 0) {
+        dilate_shape(ibuf);
+      }
+      else {
+        contract_shape(ibuf);
+      }
     }
   }
 
@@ -1323,6 +1387,15 @@ static void gpencil_get_outline_points(tGPDfill *tgpf, const bool dilate)
       current_check_co[1] = boundary_co[1] + offset[offset_idx][1];
 
       int image_idx = ibuf->x * current_check_co[1] + current_check_co[0];
+      /* Check if the index is inside the image. If the index is outside is
+       * because the algorithm is unable to find the outline of the figure. This is
+       * possible for negative filling when click inside a figure instead of
+       * clicking outside.
+       * If the index is out of range, finish the filling. */
+      if (image_idx > imagesize - 1) {
+        start_found = false;
+        break;
+      }
       get_pixel(ibuf, image_idx, rgba);
 
       /* find next boundary pixel */
@@ -1565,14 +1638,9 @@ static void gpencil_stroke_from_buffer(tGPDfill *tgpf)
     }
   }
 
-  /* smooth stroke */
-  float reduce = 0.0f;
-  float smoothfac = 1.0f;
-  for (int r = 0; r < 1; r++) {
-    for (int i = 0; i < gps->totpoints; i++) {
-      BKE_gpencil_stroke_smooth_point(gps, i, smoothfac - reduce, false);
-    }
-    reduce += 0.25f; /* reduce the factor */
+  /* Smooth stroke. No copy of the stroke since there only a minor improvement here. */
+  for (int i = 0; i < gps->totpoints; i++) {
+    BKE_gpencil_stroke_smooth_point(gps, i, 1.0f, 2, false, true, gps);
   }
 
   /* if axis locked, reproject to plane locked */
@@ -1680,7 +1748,7 @@ static tGPDfill *gpencil_session_init_fill(bContext *C, wmOperator *op)
   tgpf->v3d = tgpf->area->spacedata.first;
   tgpf->depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
   tgpf->win = CTX_wm_window(C);
-  tgpf->active_cfra = CFRA;
+  tgpf->active_cfra = scene->r.cfra;
   tgpf->reports = op->reports;
 
   /* Setup space conversions. */
@@ -1991,6 +2059,24 @@ static void gpencil_zoom_level_set(tGPDfill *tgpf)
   }
 }
 
+static bool gpencil_find_and_mark_empty_areas(tGPDfill *tgpf)
+{
+  ImBuf *ibuf;
+  void *lock;
+  const float blue_col[4] = {0.0f, 0.0f, 1.0f, 1.0f};
+  ibuf = BKE_image_acquire_ibuf(tgpf->ima, NULL, &lock);
+  const int maxpixel = (ibuf->x * ibuf->y) - 1;
+  float rgba[4];
+  for (int i = 0; i < maxpixel; i++) {
+    get_pixel(ibuf, i, rgba);
+    if (rgba[3] == 0.0f) {
+      set_pixel(ibuf, i, blue_col);
+      return true;
+    }
+  }
+  return false;
+}
+
 static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
 {
   wmWindow *win = CTX_wm_window(tgpf->C);
@@ -2011,6 +2097,9 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
       /* Invert direction if press Ctrl. */
       if (is_inverted) {
         gpencil_invert_image(tgpf);
+        while (gpencil_find_and_mark_empty_areas(tgpf)) {
+          gpencil_boundaryfill_area(tgpf);
+        }
       }
 
       /* Clean borders to avoid infinite loops. */
@@ -2019,18 +2108,18 @@ static bool gpencil_do_frame_fill(tGPDfill *tgpf, const bool is_inverted)
       int totpoints_prv = 0;
       int loop_limit = 0;
       while (totpoints > 0) {
-        /* analyze outline */
+        /* Analyze outline. */
         gpencil_get_outline_points(tgpf, (totpoints == 1) ? true : false);
 
-        /* create array of points from stack */
+        /* Create array of points from stack. */
         totpoints = gpencil_points_from_stack(tgpf);
+        if (totpoints > 0) {
+          /* Create z-depth array for reproject. */
+          gpencil_get_depth_array(tgpf);
 
-        /* create z-depth array for reproject */
-        gpencil_get_depth_array(tgpf);
-
-        /* create stroke and reproject */
-        gpencil_stroke_from_buffer(tgpf);
-
+          /* Create stroke and reproject. */
+          gpencil_stroke_from_buffer(tgpf);
+        }
         if (is_inverted) {
           gpencil_erase_processed_area(tgpf);
         }
@@ -2087,7 +2176,8 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
   tgpf->on_back = RNA_boolean_get(op->ptr, "on_back");
 
   const bool is_brush_inv = brush_settings->fill_direction == BRUSH_DIR_IN;
-  const bool is_inverted = (is_brush_inv && !event->ctrl) || (!is_brush_inv && event->ctrl);
+  const bool is_inverted = (is_brush_inv && (event->modifier & KM_CTRL) == 0) ||
+                           (!is_brush_inv && (event->modifier & KM_CTRL) != 0);
   const bool is_multiedit = (bool)GPENCIL_MULTIEDIT_SESSIONS_ON(tgpf->gpd);
   const bool do_extend = (tgpf->fill_extend_fac > 0.0f);
   const bool help_lines = ((tgpf->flag & GP_BRUSH_FILL_SHOW_HELPLINES) ||
@@ -2132,8 +2222,8 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
             /* Hash of selected frames. */
             GHash *frame_list = BLI_ghash_int_new_ex(__func__, 64);
 
-            /* If not multiframe and there is no frame in CFRA for the active layer, create
-             * a new frame. */
+            /* If not multi-frame and there is no frame in scene->r.cfra for the active layer,
+             * create a new frame. */
             if (!is_multiedit) {
               tgpf->gpf = BKE_gpencil_layer_frame_get(
                   tgpf->gpl,
@@ -2228,7 +2318,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEUPKEY:
     case WHEELUPMOUSE:
       if (tgpf->oldkey == 1) {
-        tgpf->fill_extend_fac -= (event->shift) ? 0.01f : 0.1f;
+        tgpf->fill_extend_fac -= (event->modifier & KM_SHIFT) ? 0.01f : 0.1f;
         CLAMP_MIN(tgpf->fill_extend_fac, 0.0f);
         gpencil_update_extend(tgpf);
       }
@@ -2236,7 +2326,7 @@ static int gpencil_fill_modal(bContext *C, wmOperator *op, const wmEvent *event)
     case EVT_PAGEDOWNKEY:
     case WHEELDOWNMOUSE:
       if (tgpf->oldkey == 1) {
-        tgpf->fill_extend_fac += (event->shift) ? 0.01f : 0.1f;
+        tgpf->fill_extend_fac += (event->modifier & KM_SHIFT) ? 0.01f : 0.1f;
         CLAMP_MAX(tgpf->fill_extend_fac, 100.0f);
         gpencil_update_extend(tgpf);
       }

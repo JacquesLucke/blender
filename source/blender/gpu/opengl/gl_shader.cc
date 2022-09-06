@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -29,7 +13,6 @@
 #include "GPU_capabilities.h"
 #include "GPU_platform.h"
 
-#include "gl_backend.hh"
 #include "gl_debug.hh"
 #include "gl_vertex_buffer.hh"
 
@@ -39,6 +22,8 @@
 using namespace blender;
 using namespace blender::gpu;
 using namespace blender::gpu::shader;
+
+extern "C" char datatoc_glsl_shader_defines_glsl[];
 
 /* -------------------------------------------------------------------- */
 /** \name Creation / Destruction
@@ -190,8 +175,12 @@ static const char *to_string(const eGPUTextureFormat &type)
       return "r16f";
     case GPU_R16:
       return "r16";
+    case GPU_R11F_G11F_B10F:
+      return "r11f_g11f_b10f";
+    case GPU_RGB10_A2:
+      return "rgb10_a2";
     default:
-      return "unkown";
+      return "unknown";
   }
 }
 
@@ -224,6 +213,20 @@ static const char *to_string(const PrimitiveOut &layout)
       return "triangle_strip";
     default:
       return "unknown";
+  }
+}
+
+static const char *to_string(const DepthWrite &value)
+{
+  switch (value) {
+    case DepthWrite::ANY:
+      return "depth_any";
+    case DepthWrite::GREATER:
+      return "depth_greater";
+    case DepthWrite::LESS:
+      return "depth_less";
+    default:
+      return "depth_unchanged";
   }
 }
 
@@ -515,7 +518,7 @@ static std::string main_function_wrapper(std::string &pre_main, std::string &pos
 std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) const
 {
   std::stringstream ss;
-  std::string post_main = "";
+  std::string post_main;
 
   ss << "\n/* Inputs. */\n";
   for (const ShaderCreateInfo::VertIn &attr : info.vertex_inputs_) {
@@ -525,6 +528,11 @@ std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) con
       ss << "layout(location = " << attr.index << ") ";
     }
     ss << "in " << to_string(attr.type) << " " << attr.name << ";\n";
+  }
+  /* NOTE(D4490): Fix a bug where shader without any vertex attributes do not behave correctly. */
+  if (GPU_type_matches_ex(GPU_DEVICE_APPLE, GPU_OS_MAC, GPU_DRIVER_ANY, GPU_BACKEND_OPENGL) &&
+      info.vertex_inputs_.is_empty()) {
+    ss << "in float gpu_dummy_workaround;\n";
   }
   ss << "\n/* Interfaces. */\n";
   for (const StageInterfaceInfo *iface : info.vertex_out_interfaces_) {
@@ -537,7 +545,7 @@ std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) con
     if (!GLContext::native_barycentric_support) {
       /* Disabled or unsupported. */
     }
-    else if (GLEW_AMD_shader_explicit_vertex_parameter) {
+    else if (epoxy_has_gl_extension("GL_AMD_shader_explicit_vertex_parameter")) {
       /* Need this for stable barycentric. */
       ss << "flat out vec4 gpu_pos_flat;\n";
       ss << "out vec4 gpu_pos;\n";
@@ -548,7 +556,7 @@ std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) con
   ss << "\n";
 
   if (post_main.empty() == false) {
-    std::string pre_main = "";
+    std::string pre_main;
     ss << main_function_wrapper(pre_main, post_main);
   }
   return ss.str();
@@ -557,7 +565,7 @@ std::string GLShader::vertex_interface_declare(const ShaderCreateInfo &info) con
 std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) const
 {
   std::stringstream ss;
-  std::string pre_main = "";
+  std::string pre_main;
 
   ss << "\n/* Interfaces. */\n";
   const Vector<StageInterfaceInfo *> &in_interfaces = (info.geometry_source_.is_empty()) ?
@@ -568,10 +576,13 @@ std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) c
   }
   if (bool(info.builtins_ & BuiltinBits::BARYCENTRIC_COORD)) {
     if (!GLContext::native_barycentric_support) {
+      ss << "flat in vec4 gpu_pos[3];\n";
       ss << "smooth in vec3 gpu_BaryCoord;\n";
       ss << "noperspective in vec3 gpu_BaryCoordNoPersp;\n";
+      ss << "#define gpu_position_at_vertex(v) gpu_pos[v]\n";
     }
-    else if (GLEW_AMD_shader_explicit_vertex_parameter) {
+    else if (epoxy_has_gl_extension("GL_AMD_shader_explicit_vertex_parameter")) {
+      std::cout << "native" << std::endl;
       /* NOTE(fclem): This won't work with geometry shader. Hopefully, we don't need geometry
        * shader workaround if this extension/feature is detected. */
       ss << "\n/* Stable Barycentric Coordinates. */\n";
@@ -587,10 +598,22 @@ std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) c
       ss << "  if (interpolateAtVertexAMD(gpu_pos, 2) == gpu_pos_flat) { return bary.yzx; }\n";
       ss << "  return bary.xyz;\n";
       ss << "}\n";
+      ss << "\n";
+      ss << "vec4 gpu_position_at_vertex(int v) {\n";
+      ss << "  if (interpolateAtVertexAMD(gpu_pos, 0) == gpu_pos_flat) { v = (v + 2) % 3; }\n";
+      ss << "  if (interpolateAtVertexAMD(gpu_pos, 2) == gpu_pos_flat) { v = (v + 1) % 3; }\n";
+      ss << "  return interpolateAtVertexAMD(gpu_pos, v);\n";
+      ss << "}\n";
 
       pre_main += "  gpu_BaryCoord = stable_bary_(gl_BaryCoordSmoothAMD);\n";
       pre_main += "  gpu_BaryCoordNoPersp = stable_bary_(gl_BaryCoordNoPerspAMD);\n";
     }
+  }
+  if (info.early_fragment_test_) {
+    ss << "layout(early_fragment_tests) in;\n";
+  }
+  if (epoxy_has_gl_extension("GL_ARB_conservative_depth")) {
+    ss << "layout(" << to_string(info.depth_write_) << ") out float gl_FragDepth;\n";
   }
   ss << "\n/* Outputs. */\n";
   for (const ShaderCreateInfo::FragOut &output : info.fragment_outputs_) {
@@ -611,7 +634,7 @@ std::string GLShader::fragment_interface_declare(const ShaderCreateInfo &info) c
   ss << "\n";
 
   if (pre_main.empty() == false) {
-    std::string post_main = "";
+    std::string post_main;
     ss << main_function_wrapper(pre_main, post_main);
   }
   return ss.str();
@@ -683,7 +706,7 @@ std::string GLShader::compute_layout_declare(const ShaderCreateInfo &info) const
     ss << ", local_size_y = " << info.compute_layout_.local_size_y;
   }
   if (info.compute_layout_.local_size_z != -1) {
-    ss << ", local_size_y = " << info.compute_layout_.local_size_z;
+    ss << ", local_size_z = " << info.compute_layout_.local_size_z;
   }
   ss << ") in;\n";
   ss << "\n";
@@ -720,6 +743,7 @@ std::string GLShader::workaround_geometry_shader_source_create(
     ss << "in int gpu_Layer[];\n";
   }
   if (do_barycentric_workaround) {
+    ss << "flat out vec4 gpu_pos[3];\n";
     ss << "smooth out vec3 gpu_BaryCoord;\n";
     ss << "noperspective out vec3 gpu_BaryCoordNoPersp;\n";
   }
@@ -730,8 +754,13 @@ std::string GLShader::workaround_geometry_shader_source_create(
   if (do_layer_workaround) {
     ss << "  gl_Layer = gpu_Layer[0];\n";
   }
+  if (do_barycentric_workaround) {
+    ss << "  gpu_pos[0] = gl_in[0].gl_Position;\n";
+    ss << "  gpu_pos[1] = gl_in[1].gl_Position;\n";
+    ss << "  gpu_pos[2] = gl_in[2].gl_Position;\n";
+  }
   for (auto i : IndexRange(3)) {
-    for (auto iface : info_modified.vertex_out_interfaces_) {
+    for (StageInterfaceInfo *iface : info_modified.vertex_out_interfaces_) {
       for (auto &inout : iface->inouts) {
         ss << "  " << iface->instance_name << "_out." << inout.name;
         ss << " = " << iface->instance_name << "_in[" << i << "]." << inout.name << ";\n";
@@ -769,14 +798,14 @@ bool GLShader::do_geometry_shader_injection(const shader::ShaderCreateInfo *info
 static char *glsl_patch_default_get()
 {
   /** Used for shader patching. Init once. */
-  static char patch[1024] = "\0";
+  static char patch[2048] = "\0";
   if (patch[0] != '\0') {
     return patch;
   }
 
   size_t slen = 0;
   /* Version need to go first. */
-  if (GLEW_VERSION_4_3) {
+  if (epoxy_gl_version() >= 43) {
     STR_CONCAT(patch, slen, "#version 430\n");
   }
   else {
@@ -787,8 +816,8 @@ static char *glsl_patch_default_get()
    * don't use an extension for something already available! */
   if (GLContext::texture_gather_support) {
     STR_CONCAT(patch, slen, "#extension GL_ARB_texture_gather: enable\n");
-    /* Some drivers don't agree on GLEW_ARB_texture_gather and the actual support in the
-     * shader so double check the preprocessor define (see T56544). */
+    /* Some drivers don't agree on epoxy_has_gl_extension("GL_ARB_texture_gather") and the actual
+     * support in the shader so double check the preprocessor define (see T56544). */
     STR_CONCAT(patch, slen, "#ifdef GL_ARB_texture_gather\n");
     STR_CONCAT(patch, slen, "#  define GPU_ARB_texture_gather\n");
     STR_CONCAT(patch, slen, "#endif\n");
@@ -806,7 +835,7 @@ static char *glsl_patch_default_get()
     STR_CONCAT(patch, slen, "#extension GL_ARB_texture_cube_map_array : enable\n");
     STR_CONCAT(patch, slen, "#define GPU_ARB_texture_cube_map_array\n");
   }
-  if (!GLEW_VERSION_4_2 && GLEW_ARB_conservative_depth) {
+  if (epoxy_has_gl_extension("GL_ARB_conservative_depth")) {
     STR_CONCAT(patch, slen, "#extension GL_ARB_conservative_depth : enable\n");
   }
   if (GPU_shader_image_load_store_support()) {
@@ -830,11 +859,14 @@ static char *glsl_patch_default_get()
   STR_CONCAT(patch, slen, "#define gpu_InstanceIndex (gl_InstanceID + gpu_BaseInstance)\n");
 
   /* Array compat. */
-  STR_CONCAT(patch, slen, "#define array(_type) _type[]\n");
+  STR_CONCAT(patch, slen, "#define gpu_Array(_type) _type[]\n");
 
   /* Derivative sign can change depending on implementation. */
   STR_CONCATF(patch, slen, "#define DFDX_SIGN %1.1f\n", GLContext::derivative_signs[0]);
   STR_CONCATF(patch, slen, "#define DFDY_SIGN %1.1f\n", GLContext::derivative_signs[1]);
+
+  /* GLSL Backend Lib. */
+  STR_CONCAT(patch, slen, datatoc_glsl_shader_defines_glsl);
 
   BLI_assert(slen < sizeof(patch));
   return patch;
@@ -843,7 +875,7 @@ static char *glsl_patch_default_get()
 static char *glsl_patch_compute_get()
 {
   /** Used for shader patching. Init once. */
-  static char patch[512] = "\0";
+  static char patch[2048] = "\0";
   if (patch[0] != '\0') {
     return patch;
   }
@@ -852,6 +884,12 @@ static char *glsl_patch_compute_get()
   /* Version need to go first. */
   STR_CONCAT(patch, slen, "#version 430\n");
   STR_CONCAT(patch, slen, "#extension GL_ARB_compute_shader :enable\n");
+
+  /* Array compat. */
+  STR_CONCAT(patch, slen, "#define gpu_Array(_type) _type[]\n");
+
+  STR_CONCAT(patch, slen, datatoc_glsl_shader_defines_glsl);
+
   BLI_assert(slen < sizeof(patch));
   return patch;
 }
@@ -868,7 +906,7 @@ GLuint GLShader::create_shader_stage(GLenum gl_stage, MutableSpan<const char *> 
 {
   GLuint shader = glCreateShader(gl_stage);
   if (shader == 0) {
-    fprintf(stderr, "GLShader: Error: Could not create shader object.");
+    fprintf(stderr, "GLShader: Error: Could not create shader object.\n");
     return 0;
   }
 
@@ -960,7 +998,7 @@ bool GLShader::finalize(const shader::ShaderCreateInfo *info)
     return false;
   }
 
-  if (info != nullptr) {
+  if (info != nullptr && info->legacy_resource_location_ == false) {
     interface = new GLShaderInterface(shader_program_, *info);
   }
   else {
@@ -1097,108 +1135,6 @@ void GLShader::uniform_int(int location, int comp_len, int array_size, const int
 /* -------------------------------------------------------------------- */
 /** \name GPUVertFormat from Shader
  * \{ */
-
-static uint calc_component_size(const GLenum gl_type)
-{
-  switch (gl_type) {
-    case GL_FLOAT_VEC2:
-    case GL_INT_VEC2:
-    case GL_UNSIGNED_INT_VEC2:
-      return 2;
-    case GL_FLOAT_VEC3:
-    case GL_INT_VEC3:
-    case GL_UNSIGNED_INT_VEC3:
-      return 3;
-    case GL_FLOAT_VEC4:
-    case GL_FLOAT_MAT2:
-    case GL_INT_VEC4:
-    case GL_UNSIGNED_INT_VEC4:
-      return 4;
-    case GL_FLOAT_MAT3:
-      return 9;
-    case GL_FLOAT_MAT4:
-      return 16;
-    case GL_FLOAT_MAT2x3:
-    case GL_FLOAT_MAT3x2:
-      return 6;
-    case GL_FLOAT_MAT2x4:
-    case GL_FLOAT_MAT4x2:
-      return 8;
-    case GL_FLOAT_MAT3x4:
-    case GL_FLOAT_MAT4x3:
-      return 12;
-    default:
-      return 1;
-  }
-}
-
-static void get_fetch_mode_and_comp_type(int gl_type,
-                                         GPUVertCompType *r_comp_type,
-                                         GPUVertFetchMode *r_fetch_mode)
-{
-  switch (gl_type) {
-    case GL_FLOAT:
-    case GL_FLOAT_VEC2:
-    case GL_FLOAT_VEC3:
-    case GL_FLOAT_VEC4:
-    case GL_FLOAT_MAT2:
-    case GL_FLOAT_MAT3:
-    case GL_FLOAT_MAT4:
-    case GL_FLOAT_MAT2x3:
-    case GL_FLOAT_MAT2x4:
-    case GL_FLOAT_MAT3x2:
-    case GL_FLOAT_MAT3x4:
-    case GL_FLOAT_MAT4x2:
-    case GL_FLOAT_MAT4x3:
-      *r_comp_type = GPU_COMP_F32;
-      *r_fetch_mode = GPU_FETCH_FLOAT;
-      break;
-    case GL_INT:
-    case GL_INT_VEC2:
-    case GL_INT_VEC3:
-    case GL_INT_VEC4:
-      *r_comp_type = GPU_COMP_I32;
-      *r_fetch_mode = GPU_FETCH_INT;
-      break;
-    case GL_UNSIGNED_INT:
-    case GL_UNSIGNED_INT_VEC2:
-    case GL_UNSIGNED_INT_VEC3:
-    case GL_UNSIGNED_INT_VEC4:
-      *r_comp_type = GPU_COMP_U32;
-      *r_fetch_mode = GPU_FETCH_INT;
-      break;
-    default:
-      BLI_assert(0);
-  }
-}
-
-void GLShader::vertformat_from_shader(GPUVertFormat *format) const
-{
-  GPU_vertformat_clear(format);
-
-  GLint attr_len;
-  glGetProgramiv(shader_program_, GL_ACTIVE_ATTRIBUTES, &attr_len);
-
-  for (int i = 0; i < attr_len; i++) {
-    char name[256];
-    GLenum gl_type;
-    GLint size;
-    glGetActiveAttrib(shader_program_, i, sizeof(name), nullptr, &size, &gl_type, name);
-
-    /* Ignore OpenGL names like `gl_BaseInstanceARB`, `gl_InstanceID` and `gl_VertexID`. */
-    if (glGetAttribLocation(shader_program_, name) == -1) {
-      continue;
-    }
-
-    GPUVertCompType comp_type;
-    GPUVertFetchMode fetch_mode;
-    get_fetch_mode_and_comp_type(gl_type, &comp_type, &fetch_mode);
-
-    int comp_len = calc_component_size(gl_type) * size;
-
-    GPU_vertformat_attr_add(format, name, comp_type, comp_len, fetch_mode);
-  }
-}
 
 int GLShader::program_handle_get() const
 {

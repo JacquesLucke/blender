@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spbuttons
@@ -56,6 +40,7 @@
 #endif
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -296,7 +281,7 @@ static void buttons_texture_users_from_context(ListBase *users,
 
     brush = BKE_paint_brush(BKE_paint_get_active_from_context(C));
     linestyle = BKE_linestyle_active_from_view_layer(view_layer);
-    ob = OBACT(view_layer);
+    ob = BKE_view_layer_active_object_get(view_layer);
   }
 
   /* fill users */

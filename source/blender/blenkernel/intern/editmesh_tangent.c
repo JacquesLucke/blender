@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -318,7 +304,7 @@ void BKE_editmesh_loop_tangent_calc(BMEditMesh *em,
     if ((tangent_mask & DM_TANGENT_MASK_ORCO) &&
         CustomData_get_named_layer_index(loopdata_out, CD_TANGENT, "") == -1) {
       CustomData_add_layer_named(
-          loopdata_out, CD_TANGENT, CD_CALLOC, NULL, (int)loopdata_out_len, "");
+          loopdata_out, CD_TANGENT, CD_SET_DEFAULT, NULL, (int)loopdata_out_len, "");
     }
     if (calc_act && act_uv_name[0]) {
       BKE_mesh_add_loop_tangent_named_layer_for_uv(
@@ -356,7 +342,7 @@ void BKE_editmesh_loop_tangent_calc(BMEditMesh *em,
     /* Calculation */
     if (em->tottri != 0) {
       TaskPool *task_pool;
-      task_pool = BLI_task_pool_create(NULL, TASK_PRIORITY_LOW);
+      task_pool = BLI_task_pool_create(NULL, TASK_PRIORITY_HIGH);
 
       tangent_mask_curr = 0;
       /* Calculate tangent layers */

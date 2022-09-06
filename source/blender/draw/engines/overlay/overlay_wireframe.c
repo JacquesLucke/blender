@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2019, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2019 Blender Foundation. */
 
 /** \file
  * \ingroup draw_engine
@@ -163,7 +148,7 @@ static void wireframe_hair_cache_populate(OVERLAY_Data *vedata, Object *ob, Part
 
   const bool use_coloring = true;
   DRWShadingGroup *shgrp = DRW_shgroup_create_sub(pd->wires_hair_grp[is_xray][use_coloring]);
-  DRW_shgroup_uniform_vec4_array_copy(shgrp, "hairDupliMatrix", dupli_mat, 4);
+  DRW_shgroup_uniform_mat4_copy(shgrp, "hairDupliMatrix", dupli_mat);
   DRW_shgroup_call_no_cull(shgrp, hairs, ob);
 }
 
@@ -211,14 +196,14 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
     }
   }
 
-  if (ELEM(ob->type, OB_CURVE, OB_FONT, OB_SURF)) {
+  if (ELEM(ob->type, OB_CURVES_LEGACY, OB_FONT, OB_SURF)) {
     OVERLAY_ExtraCallBuffers *cb = OVERLAY_extra_call_buffer_get(vedata, ob);
     float *color;
     DRW_object_wire_theme_get(ob, draw_ctx->view_layer, &color);
 
     struct GPUBatch *geom = NULL;
     switch (ob->type) {
-      case OB_CURVE:
+      case OB_CURVES_LEGACY:
         geom = DRW_cache_curve_edge_wire_get(ob);
         break;
       case OB_FONT:
@@ -291,8 +276,12 @@ void OVERLAY_wireframe_cache_populate(OVERLAY_Data *vedata,
     const bool is_sculpt_mode = ((ob->mode & OB_MODE_SCULPT) != 0) && (ob->sculpt != NULL);
     const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->v3d) &&
                                  !DRW_state_is_image_render();
+    const bool is_instance = (ob->base_flag & BASE_FROM_DUPLI);
+    const bool instance_parent_in_edit_mode = is_instance ? DRW_object_is_in_edit_mode(
+                                                                DRW_object_get_dupli_parent(ob)) :
+                                                            false;
     const bool use_coloring = (use_wire && !is_edit_mode && !is_sculpt_mode &&
-                               !has_edit_mesh_cage);
+                               !has_edit_mesh_cage && !instance_parent_in_edit_mode);
     geom = DRW_cache_object_face_wireframe_get(ob);
 
     if (geom || use_sculpt_pbvh) {

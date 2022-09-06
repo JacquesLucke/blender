@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup pygen
@@ -770,7 +756,16 @@ static int BPy_IDGroup_Map_SetItem(BPy_IDProperty *self, PyObject *key, PyObject
 
 static PyObject *BPy_IDGroup_iter(BPy_IDProperty *self)
 {
-  return BPy_IDGroup_ViewKeys_CreatePyObject(self);
+  PyObject *iterable = BPy_IDGroup_ViewKeys_CreatePyObject(self);
+  PyObject *ret;
+  if (iterable) {
+    ret = PyObject_GetIter(iterable);
+    Py_DECREF(iterable);
+  }
+  else {
+    ret = NULL;
+  }
+  return ret;
 }
 
 PyObject *BPy_IDGroup_MapDataToPy(IDProperty *prop)
@@ -1284,9 +1279,8 @@ static PyObject *BPy_IDGroup_pop(BPy_IDProperty *self, PyObject *args)
 
   pyform = BPy_IDGroup_MapDataToPy(idprop);
   if (pyform == NULL) {
-    /* ok something bad happened with the #PyObject,
-     * so don't remove the prop from the group.  if `pyform is
-     * NULL, then it already should have raised an exception. */
+    /* Ok something bad happened with the #PyObject, so don't remove the prop from the group.
+     * if `pyform` is NULL, then it already should have raised an exception. */
     return NULL;
   }
 

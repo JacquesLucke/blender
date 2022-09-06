@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spbuttons
@@ -54,6 +38,7 @@
 #include "BKE_screen.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "ED_buttons.h"
 #include "ED_physics.h"
@@ -246,7 +231,7 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
     return true;
   }
   if (RNA_struct_is_a(ptr->type, &RNA_Curve) &&
-      (type == -1 || ELEM(type, OB_CURVE, OB_SURF, OB_FONT))) {
+      (type == -1 || ELEM(type, OB_CURVES_LEGACY, OB_SURF, OB_FONT))) {
     return true;
   }
   if (RNA_struct_is_a(ptr->type, &RNA_Armature) && (ELEM(type, -1, OB_ARMATURE))) {
@@ -273,11 +258,9 @@ static bool buttons_context_path_data(ButsContextPath *path, int type)
   if (RNA_struct_is_a(ptr->type, &RNA_GreasePencil) && (ELEM(type, -1, OB_GPENCIL))) {
     return true;
   }
-#ifdef WITH_NEW_CURVES_TYPE
   if (RNA_struct_is_a(ptr->type, &RNA_Curves) && (ELEM(type, -1, OB_CURVES))) {
     return true;
   }
-#endif
 #ifdef WITH_POINT_CLOUD
   if (RNA_struct_is_a(ptr->type, &RNA_PointCloud) && (ELEM(type, -1, OB_POINTCLOUD))) {
     return true;
@@ -309,7 +292,7 @@ static bool buttons_context_path_modifier(ButsContextPath *path)
 
     if (ELEM(ob->type,
              OB_MESH,
-             OB_CURVE,
+             OB_CURVES_LEGACY,
              OB_FONT,
              OB_SURF,
              OB_LATTICE,
@@ -660,7 +643,7 @@ static bool buttons_shading_context(const bContext *C, int mainb)
 {
   wmWindow *window = CTX_wm_window(C);
   ViewLayer *view_layer = WM_window_get_active_view_layer(window);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
 
   if (ELEM(mainb, BCONTEXT_MATERIAL, BCONTEXT_WORLD, BCONTEXT_TEXTURE)) {
     return true;
@@ -676,7 +659,7 @@ static int buttons_shading_new_context(const bContext *C, int flag)
 {
   wmWindow *window = CTX_wm_window(C);
   ViewLayer *view_layer = WM_window_get_active_view_layer(window);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
 
   if (flag & (1 << BCONTEXT_MATERIAL)) {
     return BCONTEXT_MATERIAL;
@@ -845,9 +828,7 @@ const char *buttons_context_dir[] = {
     "line_style",
     "collection",
     "gpencil",
-#ifdef WITH_NEW_CURVES_TYPE
     "curves",
-#endif
 #ifdef WITH_POINT_CLOUD
     "pointcloud",
 #endif
@@ -941,12 +922,10 @@ int /*eContextResult*/ buttons_context(const bContext *C,
     set_pointer_type(path, result, &RNA_LightProbe);
     return CTX_RESULT_OK;
   }
-#ifdef WITH_NEW_CURVES_TYPE
   if (CTX_data_equals(member, "curves")) {
     set_pointer_type(path, result, &RNA_Curves);
     return CTX_RESULT_OK;
   }
-#endif
 #ifdef WITH_POINT_CLOUD
   if (CTX_data_equals(member, "pointcloud")) {
     set_pointer_type(path, result, &RNA_PointCloud);

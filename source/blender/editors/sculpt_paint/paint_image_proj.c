@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edsculpt
@@ -22,6 +7,7 @@
  */
 
 #include <float.h>
+#include <limits.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -50,12 +36,17 @@
 #include "IMB_imbuf_types.h"
 
 #include "DNA_brush_types.h"
+#include "DNA_customdata_types.h"
+#include "DNA_defs.h"
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_node_types.h"
+#include "DNA_object_enums.h"
 #include "DNA_object_types.h"
+#include "DNA_scene_types.h"
 
+#include "BKE_attribute.h"
 #include "BKE_brush.h"
 #include "BKE_camera.h"
 #include "BKE_colorband.h"
@@ -65,6 +56,7 @@
 #include "BKE_global.h"
 #include "BKE_idprop.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_material.h"
@@ -76,6 +68,8 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
+#include "DNA_screen_types.h"
+#include "DNA_space_types.h"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
@@ -91,12 +85,18 @@
 #include "GPU_capabilities.h"
 #include "GPU_init_exit.h"
 
+#include "NOD_shader.h"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_types.h"
 
 #include "IMB_colormanagement.h"
 
@@ -415,6 +415,7 @@ typedef struct ProjPaintState {
   const float (*vert_normals)[3];
   const MEdge *medge_eval;
   const MPoly *mpoly_eval;
+  const int *material_indices;
   const MLoop *mloop_eval;
   const MLoopTri *mlooptri_eval;
 
@@ -543,8 +544,8 @@ static int project_paint_face_paint_tile(Image *ima, const float *uv)
 
 static TexPaintSlot *project_paint_face_paint_slot(const ProjPaintState *ps, int tri_index)
 {
-  const MPoly *mp = ps_tri_index_to_mpoly(ps, tri_index);
-  Material *ma = ps->mat_array[mp->mat_nr];
+  const int poly_i = ps->mlooptri_eval[tri_index].poly;
+  Material *ma = ps->mat_array[ps->material_indices == NULL ? 0 : ps->material_indices[poly_i]];
   return ma ? ma->texpaintslot + ma->paint_active_slot : NULL;
 }
 
@@ -554,23 +555,23 @@ static Image *project_paint_face_paint_image(const ProjPaintState *ps, int tri_i
     return ps->stencil_ima;
   }
 
-  const MPoly *mp = ps_tri_index_to_mpoly(ps, tri_index);
-  Material *ma = ps->mat_array[mp->mat_nr];
+  const int poly_i = ps->mlooptri_eval[tri_index].poly;
+  Material *ma = ps->mat_array[ps->material_indices == NULL ? 0 : ps->material_indices[poly_i]];
   TexPaintSlot *slot = ma ? ma->texpaintslot + ma->paint_active_slot : NULL;
   return slot ? slot->ima : ps->canvas_ima;
 }
 
 static TexPaintSlot *project_paint_face_clone_slot(const ProjPaintState *ps, int tri_index)
 {
-  const MPoly *mp = ps_tri_index_to_mpoly(ps, tri_index);
-  Material *ma = ps->mat_array[mp->mat_nr];
+  const int poly_i = ps->mlooptri_eval[tri_index].poly;
+  Material *ma = ps->mat_array[ps->material_indices == NULL ? 0 : ps->material_indices[poly_i]];
   return ma ? ma->texpaintslot + ma->paint_clone_slot : NULL;
 }
 
 static Image *project_paint_face_clone_image(const ProjPaintState *ps, int tri_index)
 {
-  const MPoly *mp = ps_tri_index_to_mpoly(ps, tri_index);
-  Material *ma = ps->mat_array[mp->mat_nr];
+  const int poly_i = ps->mlooptri_eval[tri_index].poly;
+  Material *ma = ps->mat_array[ps->material_indices == NULL ? 0 : ps->material_indices[poly_i]];
   TexPaintSlot *slot = ma ? ma->texpaintslot + ma->paint_clone_slot : NULL;
   return slot ? slot->ima : ps->clone_ima;
 }
@@ -1224,12 +1225,12 @@ static VertSeam *find_adjacent_seam(const ProjPaintState *ps,
   /* Circulate through the (sorted) vert seam array, in the direction of the seam normal,
    * until we find the first opposing seam, matching in UV space. */
   if (seam->normal_cw) {
-    LISTBASE_CIRCULAR_BACKWARD_BEGIN (vert_seams, adjacent, seam) {
+    LISTBASE_CIRCULAR_BACKWARD_BEGIN (VertSeam *, vert_seams, adjacent, seam) {
       if ((adjacent->normal_cw != seam->normal_cw) && cmp_uv(adjacent->uv, seam->uv)) {
         break;
       }
     }
-    LISTBASE_CIRCULAR_BACKWARD_END(vert_seams, adjacent, seam);
+    LISTBASE_CIRCULAR_BACKWARD_END(VertSeam *, vert_seams, adjacent, seam);
   }
   else {
     LISTBASE_CIRCULAR_FORWARD_BEGIN (vert_seams, adjacent, seam) {
@@ -1814,7 +1815,7 @@ static int project_paint_undo_subtiles(const TileInfo *tinf, int tx, int ty)
   }
 
   if (generate_tile) {
-    ListBase *undo_tiles = ED_image_paint_tile_list_get();
+    struct PaintTileMap *undo_tiles = ED_image_paint_tile_map_get();
     volatile void *undorect;
     if (tinf->masked) {
       undorect = ED_image_paint_tile_push(undo_tiles,
@@ -3133,7 +3134,7 @@ static void project_paint_face_init(const ProjPaintState *ps,
               }
             }
 
-            /* Is this UV visible from the view? - raytrace */
+            /* Is this UV visible from the view? - ray-trace */
             /* project_paint_PickFace is less complex, use for testing */
             // if (project_paint_PickFace(ps, pixelScreenCo, w, &side) == tri_index) {
             if ((ps->do_occlude == false) ||
@@ -3223,7 +3224,7 @@ static void project_paint_face_init(const ProjPaintState *ps,
       float seam_subsection[4][2];
       float fac1, fac2;
 
-      /* Pixelspace UVs. */
+      /* Pixel-space UV's. */
       float lt_puv[3][2];
 
       lt_puv[0][0] = lt_uv_pxoffset[0][0] * ibuf->x;
@@ -4054,13 +4055,15 @@ static bool proj_paint_state_mesh_eval_init(const bContext *C, ProjPaintState *p
   }
   ps->mat_array[totmat - 1] = NULL;
 
-  ps->mvert_eval = ps->me_eval->mvert;
+  ps->mvert_eval = BKE_mesh_vertices(ps->me_eval);
   ps->vert_normals = BKE_mesh_vertex_normals_ensure(ps->me_eval);
   if (ps->do_mask_cavity) {
-    ps->medge_eval = ps->me_eval->medge;
+    ps->medge_eval = BKE_mesh_edges(ps->me_eval);
   }
-  ps->mloop_eval = ps->me_eval->mloop;
-  ps->mpoly_eval = ps->me_eval->mpoly;
+  ps->mloop_eval = BKE_mesh_loops(ps->me_eval);
+  ps->mpoly_eval = BKE_mesh_polygons(ps->me_eval);
+  ps->material_indices = (const int *)CustomData_get_layer_named(
+      &ps->me_eval->pdata, CD_PROP_INT32, "material_index");
 
   ps->totvert_eval = ps->me_eval->totvert;
   ps->totedge_eval = ps->me_eval->totedge;
@@ -4083,7 +4086,7 @@ typedef struct {
 
 static void proj_paint_layer_clone_init(ProjPaintState *ps, ProjPaintLayerClone *layer_clone)
 {
-  MLoopUV *mloopuv_clone_base = NULL;
+  const MLoopUV *mloopuv_clone_base = NULL;
 
   /* use clone mtface? */
   if (ps->do_layer_clone) {
@@ -4152,7 +4155,7 @@ static void proj_paint_face_lookup_init(const ProjPaintState *ps, ProjPaintFaceL
   memset(face_lookup, 0, sizeof(*face_lookup));
   if (ps->do_face_sel) {
     face_lookup->index_mp_to_orig = CustomData_get_layer(&ps->me_eval->pdata, CD_ORIGINDEX);
-    face_lookup->mpoly_orig = ((Mesh *)ps->ob->data)->mpoly;
+    face_lookup->mpoly_orig = BKE_mesh_polygons((Mesh *)ps->ob->data);
   }
 }
 
@@ -4493,7 +4496,8 @@ static void project_paint_begin(const bContext *C,
     }
   }
 
-  /* when using subsurf or multires, mface arrays are thrown away, we need to keep a copy */
+  /* when using sub-surface or multi-resolution,
+   * mesh-data arrays are thrown away, we need to keep a copy. */
   if (ps->is_shared_user == false) {
     proj_paint_state_cavity_init(ps);
   }
@@ -6038,7 +6042,7 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
   int orig_brush_size;
   IDProperty *idgroup;
   IDProperty *view_data = NULL;
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   bool uvs, mat, tex;
 
   if (ob == NULL || ob->type != OB_MESH) {
@@ -6074,7 +6078,8 @@ static int texture_paint_camera_project_exec(bContext *C, wmOperator *op)
     view_data = IDP_GetPropertyTypeFromGroup(idgroup, PROJ_VIEW_DATA_ID, IDP_ARRAY);
 
     /* type check to make sure its ok */
-    if (view_data->len != PROJ_VIEW_DATA_SIZE || view_data->subtype != IDP_FLOAT) {
+    if (view_data != NULL &&
+        (view_data->len != PROJ_VIEW_DATA_SIZE || view_data->subtype != IDP_FLOAT)) {
       BKE_report(op->reports, RPT_ERROR, "Image project data invalid");
       return OPERATOR_CANCELLED;
     }
@@ -6346,15 +6351,16 @@ bool ED_paint_proj_mesh_data_check(
       for (int i = 1; i < ob->totcol + 1; i++) {
         Material *ma = BKE_object_material_get(ob, i);
 
-        if (ma && !ID_IS_LINKED(ma)) {
+        if (ma && !ID_IS_LINKED(ma) && !ID_IS_OVERRIDE_LIBRARY(ma)) {
           hasmat = true;
           if (ma->texpaintslot == NULL) {
             /* refresh here just in case */
-            BKE_texpaint_slot_refresh_cache(scene, ma);
+            BKE_texpaint_slot_refresh_cache(scene, ma, ob);
           }
           if (ma->texpaintslot != NULL &&
               (ma->texpaintslot[ma->paint_active_slot].ima == NULL ||
-               !ID_IS_LINKED(ma->texpaintslot[ma->paint_active_slot].ima))) {
+               !ID_IS_LINKED(ma->texpaintslot[ma->paint_active_slot].ima) ||
+               !ID_IS_OVERRIDE_LIBRARY(ma->texpaintslot[ma->paint_active_slot].ima))) {
             hastex = true;
             break;
           }
@@ -6435,6 +6441,17 @@ static const EnumPropertyItem layer_type_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
+static Material *get_or_create_current_material(bContext *C, Object *ob)
+{
+  Material *ma = BKE_object_material_get(ob, ob->actcol);
+  if (!ma) {
+    Main *bmain = CTX_data_main(C);
+    ma = BKE_material_add(bmain, "Material");
+    BKE_object_material_assign(bmain, ob, ma, ob->actcol, BKE_MAT_ASSIGN_USERPREF);
+  }
+  return ma;
+}
+
 static Image *proj_paint_image_create(wmOperator *op, Main *bmain, bool is_data)
 {
   Image *ima;
@@ -6472,55 +6489,97 @@ static Image *proj_paint_image_create(wmOperator *op, Main *bmain, bool is_data)
   return ima;
 }
 
-static void proj_paint_default_color(wmOperator *op, int type, Material *ma)
+static CustomDataLayer *proj_paint_color_attribute_create(wmOperator *op, Object *ob)
 {
-  if (RNA_struct_property_is_set(op->ptr, "color")) {
-    return;
+  char name[MAX_NAME] = "";
+  float color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+  eAttrDomain domain = ATTR_DOMAIN_POINT;
+  eCustomDataType type = CD_PROP_COLOR;
+
+  if (op) {
+    RNA_string_get(op->ptr, "name", name);
+    RNA_float_get_array(op->ptr, "color", color);
+    domain = (eAttrDomain)RNA_enum_get(op->ptr, "domain");
+    type = (eCustomDataType)RNA_enum_get(op->ptr, "data_type");
   }
 
-  bNode *in_node = ntreeFindType(ma->nodetree, SH_NODE_BSDF_PRINCIPLED);
-  if (in_node == NULL) {
-    return;
+  ID *id = (ID *)ob->data;
+  CustomDataLayer *layer = BKE_id_attribute_new(id, name, type, domain, op->reports);
+
+  if (!layer) {
+    return NULL;
   }
 
-  float color[4];
+  BKE_id_attributes_active_color_set(id, layer);
 
-  if (type >= LAYER_BASE_COLOR && type < LAYER_NORMAL) {
-    /* Copy color from node, so result is unchanged after assigning textures. */
-    bNodeSocket *in_sock = nodeFindSocket(in_node, SOCK_IN, layer_type_items[type].name);
+  if (!BKE_id_attributes_render_color_get(id)) {
+    BKE_id_attributes_render_color_set(id, layer);
+  }
 
-    switch (in_sock->type) {
-      case SOCK_FLOAT: {
-        bNodeSocketValueFloat *socket_data = in_sock->default_value;
-        copy_v3_fl(color, socket_data->value);
-        color[3] = 1.0f;
-        break;
+  BKE_object_attributes_active_color_fill(ob, color, false);
+
+  return layer;
+}
+
+/**
+ * Get a default color for the paint slot layer from a material's Principled BSDF.
+ *
+ * \param layer_type: The layer type of the paint slot
+ * \param ma: The material to attempt using as the default color source.
+ *            If this fails or \p ma is null, a default Principled BSDF is used instead.
+ */
+static void default_paint_slot_color_get(int layer_type, Material *ma, float color[4])
+{
+  switch (layer_type) {
+    case LAYER_BASE_COLOR:
+    case LAYER_SPECULAR:
+    case LAYER_ROUGHNESS:
+    case LAYER_METALLIC: {
+      bNodeTree *ntree = NULL;
+      bNode *in_node = ma ? ntreeFindType(ma->nodetree, SH_NODE_BSDF_PRINCIPLED) : NULL;
+      if (!in_node) {
+        /* An existing material or Principled BSDF node could not be found.
+         * Copy default color values from a default Principled BSDF instead. */
+        ntree = ntreeAddTree(NULL, "Temporary Shader Nodetree", ntreeType_Shader->idname);
+        in_node = nodeAddStaticNode(NULL, ntree, SH_NODE_BSDF_PRINCIPLED);
       }
-      case SOCK_VECTOR:
-      case SOCK_RGBA: {
-        bNodeSocketValueRGBA *socket_data = in_sock->default_value;
-        copy_v3_v3(color, socket_data->value);
-        color[3] = 1.0f;
-        break;
+      bNodeSocket *in_sock = nodeFindSocket(in_node, SOCK_IN, layer_type_items[layer_type].name);
+      switch (in_sock->type) {
+        case SOCK_FLOAT: {
+          bNodeSocketValueFloat *socket_data = in_sock->default_value;
+          copy_v3_fl(color, socket_data->value);
+          color[3] = 1.0f;
+          break;
+        }
+        case SOCK_VECTOR:
+        case SOCK_RGBA: {
+          bNodeSocketValueRGBA *socket_data = in_sock->default_value;
+          copy_v3_v3(color, socket_data->value);
+          color[3] = 1.0f;
+          break;
+        }
+        default:
+          BLI_assert_unreachable();
+          rgba_float_args_set(color, 0.0f, 0.0f, 0.0f, 1.0f);
+          break;
       }
-      default: {
-        return;
+      /* Cleanup */
+      if (ntree) {
+        ntreeFreeTree(ntree);
+        MEM_freeN(ntree);
       }
+      return;
     }
+    case LAYER_NORMAL:
+      /* Neutral tangent space normal map. */
+      rgba_float_args_set(color, 0.5f, 0.5f, 1.0f, 1.0f);
+      break;
+    case LAYER_BUMP:
+    case LAYER_DISPLACEMENT:
+      /* Neutral displacement and bump map. */
+      rgba_float_args_set(color, 0.5f, 0.5f, 0.5f, 1.0f);
+      break;
   }
-  else if (type == LAYER_NORMAL) {
-    /* Neutral tangent space normal map. */
-    rgba_float_args_set(color, 0.5f, 0.5f, 1.0f, 1.0f);
-  }
-  else if (ELEM(type, LAYER_BUMP, LAYER_DISPLACEMENT)) {
-    /* Neutral displacement and bump map. */
-    rgba_float_args_set(color, 0.5f, 0.5f, 0.5f, 1.0f);
-  }
-  else {
-    return;
-  }
-
-  RNA_float_set_array(op->ptr, "color", color);
 }
 
 static bool proj_paint_add_slot(bContext *C, wmOperator *op)
@@ -6529,19 +6588,20 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
   Scene *scene = CTX_data_scene(C);
   Material *ma;
   Image *ima = NULL;
+  CustomDataLayer *layer = NULL;
 
   if (!ob) {
     return false;
   }
 
-  ma = BKE_object_material_get(ob, ob->actcol);
+  ma = get_or_create_current_material(C, ob);
 
   if (ma) {
     Main *bmain = CTX_data_main(C);
     int type = RNA_enum_get(op->ptr, "type");
     bool is_data = (type > LAYER_BASE_COLOR);
 
-    bNode *imanode;
+    bNode *new_node;
     bNodeTree *ntree = ma->nodetree;
 
     if (!ntree) {
@@ -6551,17 +6611,36 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
 
     ma->use_nodes = true;
 
-    /* try to add an image node */
-    imanode = nodeAddStaticNode(C, ntree, SH_NODE_TEX_IMAGE);
+    const ePaintCanvasSource slot_type = ob->mode == OB_MODE_SCULPT ?
+                                             (ePaintCanvasSource)RNA_enum_get(op->ptr,
+                                                                              "slot_type") :
+                                             PAINT_CANVAS_SOURCE_IMAGE;
 
-    ima = proj_paint_image_create(op, bmain, is_data);
-    imanode->id = &ima->id;
-
-    nodeSetActive(ntree, imanode);
+    /* Create a new node. */
+    switch (slot_type) {
+      case PAINT_CANVAS_SOURCE_IMAGE: {
+        new_node = nodeAddStaticNode(C, ntree, SH_NODE_TEX_IMAGE);
+        ima = proj_paint_image_create(op, bmain, is_data);
+        new_node->id = &ima->id;
+        break;
+      }
+      case PAINT_CANVAS_SOURCE_COLOR_ATTRIBUTE: {
+        new_node = nodeAddStaticNode(C, ntree, SH_NODE_ATTRIBUTE);
+        if ((layer = proj_paint_color_attribute_create(op, ob))) {
+          BLI_strncpy_utf8(
+              ((NodeShaderAttribute *)new_node->storage)->name, layer->name, MAX_NAME);
+        }
+        break;
+      }
+      case PAINT_CANVAS_SOURCE_MATERIAL:
+        BLI_assert_unreachable();
+        return false;
+    }
+    nodeSetActive(ntree, new_node);
 
     /* Connect to first available principled BSDF node. */
     bNode *in_node = ntreeFindType(ntree, SH_NODE_BSDF_PRINCIPLED);
-    bNode *out_node = imanode;
+    bNode *out_node = new_node;
 
     if (in_node != NULL) {
       bNodeSocket *out_sock = nodeFindSocket(out_node, SOCK_OUT, "Color");
@@ -6620,9 +6699,14 @@ static bool proj_paint_add_slot(bContext *C, wmOperator *op)
     nodePositionPropagate(out_node);
 
     if (ima) {
-      BKE_texpaint_slot_refresh_cache(scene, ma);
+      BKE_texpaint_slot_refresh_cache(scene, ma, ob);
       BKE_image_signal(bmain, ima, NULL, IMA_SIGNAL_USER_NEW_IMAGE);
       WM_event_add_notifier(C, NC_IMAGE | NA_ADDED, ima);
+    }
+    if (layer) {
+      BKE_texpaint_slot_refresh_cache(scene, ma, ob);
+      DEG_id_tag_update(ob->data, ID_RECALC_GEOMETRY);
+      WM_main_add_notifier(NC_GEOM | ND_DATA, ob->data);
     }
 
     DEG_id_tag_update(&ntree->id, 0);
@@ -6645,25 +6729,8 @@ static int get_texture_layer_type(wmOperator *op, const char *prop_name)
   return type;
 }
 
-static Material *get_or_create_current_material(bContext *C, Object *ob)
-{
-  Material *ma = BKE_object_material_get(ob, ob->actcol);
-  if (!ma) {
-    Main *bmain = CTX_data_main(C);
-    ma = BKE_material_add(bmain, "Material");
-    BKE_object_material_assign(bmain, ob, ma, ob->actcol, BKE_MAT_ASSIGN_USERPREF);
-  }
-  return ma;
-}
-
 static int texture_paint_add_texture_paint_slot_exec(bContext *C, wmOperator *op)
 {
-  Object *ob = ED_object_active_context(C);
-  Material *ma = get_or_create_current_material(C, ob);
-
-  int type = get_texture_layer_type(op, "type");
-  proj_paint_default_color(op, type, ma);
-
   if (proj_paint_add_slot(C, op)) {
     return OPERATOR_FINISHED;
   }
@@ -6684,18 +6751,60 @@ static int texture_paint_add_texture_paint_slot_invoke(bContext *C,
                                                        wmOperator *op,
                                                        const wmEvent *UNUSED(event))
 {
-  /* Get material and default color to display in the popup. */
   Object *ob = ED_object_active_context(C);
-  Material *ma = get_or_create_current_material(C, ob);
+  Material *ma = BKE_object_material_get(ob, ob->actcol);
 
   int type = get_texture_layer_type(op, "type");
-  proj_paint_default_color(op, type, ma);
 
+  /* Set default name. */
   char imagename[MAX_ID_NAME - 2];
   get_default_texture_layer_name_for_object(ob, type, (char *)&imagename, sizeof(imagename));
   RNA_string_set(op->ptr, "name", imagename);
 
+  /* Set default color. Copy the color from nodes, so it matches the existing material. */
+  float color[4];
+  default_paint_slot_color_get(type, ma, color);
+  RNA_float_set_array(op->ptr, "color", color);
+
   return WM_operator_props_dialog_popup(C, op, 300);
+}
+
+static void texture_paint_add_texture_paint_slot_ui(bContext *C, wmOperator *op)
+{
+  uiLayout *layout = op->layout;
+  uiLayoutSetPropSep(layout, true);
+  uiLayoutSetPropDecorate(layout, false);
+  Object *ob = ED_object_active_context(C);
+  ePaintCanvasSource slot_type = PAINT_CANVAS_SOURCE_IMAGE;
+
+  if (ob->mode == OB_MODE_SCULPT) {
+    slot_type = (ePaintCanvasSource)RNA_enum_get(op->ptr, "slot_type");
+    uiItemR(layout, op->ptr, "slot_type", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
+  }
+
+  uiItemR(layout, op->ptr, "name", 0, NULL, ICON_NONE);
+
+  switch (slot_type) {
+    case PAINT_CANVAS_SOURCE_IMAGE: {
+      uiLayout *col = uiLayoutColumn(layout, true);
+      uiItemR(col, op->ptr, "width", 0, NULL, ICON_NONE);
+      uiItemR(col, op->ptr, "height", 0, NULL, ICON_NONE);
+
+      uiItemR(layout, op->ptr, "alpha", 0, NULL, ICON_NONE);
+      uiItemR(layout, op->ptr, "generated_type", 0, NULL, ICON_NONE);
+      uiItemR(layout, op->ptr, "float", 0, NULL, ICON_NONE);
+      break;
+    }
+    case PAINT_CANVAS_SOURCE_COLOR_ATTRIBUTE:
+      uiItemR(layout, op->ptr, "domain", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
+      uiItemR(layout, op->ptr, "data_type", UI_ITEM_R_EXPAND, NULL, ICON_NONE);
+      break;
+    case PAINT_CANVAS_SOURCE_MATERIAL:
+      BLI_assert_unreachable();
+      break;
+  }
+
+  uiItemR(layout, op->ptr, "color", 0, NULL, ICON_NONE);
 }
 
 #define IMA_DEF_NAME N_("Untitled")
@@ -6705,40 +6814,92 @@ void PAINT_OT_add_texture_paint_slot(wmOperatorType *ot)
   PropertyRNA *prop;
   static float default_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
 
+  static const EnumPropertyItem slot_type_items[3] = {
+      {PAINT_CANVAS_SOURCE_IMAGE, "IMAGE", 0, "Image", ""},
+      {PAINT_CANVAS_SOURCE_COLOR_ATTRIBUTE, "COLOR_ATTRIBUTE", 0, "Color Attribute", ""},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  static const EnumPropertyItem domain_items[3] = {
+      {ATTR_DOMAIN_POINT, "POINT", 0, "Vertex", ""},
+      {ATTR_DOMAIN_CORNER, "CORNER", 0, "Face Corner", ""},
+      {0, NULL, 0, NULL, NULL},
+  };
+
+  static const EnumPropertyItem attribute_type_items[3] = {
+      {CD_PROP_COLOR, "COLOR", 0, "Color", ""},
+      {CD_PROP_BYTE_COLOR, "BYTE_COLOR", 0, "Byte Color", ""},
+      {0, NULL, 0, NULL, NULL},
+  };
+
   /* identifiers */
-  ot->name = "Add Texture Paint Slot";
-  ot->description = "Add a texture paint slot";
+  ot->name = "Add Paint Slot";
+  ot->description = "Add a paint slot";
   ot->idname = "PAINT_OT_add_texture_paint_slot";
 
   /* api callbacks */
   ot->invoke = texture_paint_add_texture_paint_slot_invoke;
   ot->exec = texture_paint_add_texture_paint_slot_exec;
   ot->poll = ED_operator_object_active_editable_mesh;
+  ot->ui = texture_paint_add_texture_paint_slot_ui;
 
   /* flags */
   ot->flag = OPTYPE_UNDO;
 
-  /* properties */
-  prop = RNA_def_enum(ot->srna, "type", layer_type_items, 0, "Type", "Merge method to use");
+  /* Shared Properties */
+  prop = RNA_def_enum(ot->srna,
+                      "type",
+                      layer_type_items,
+                      0,
+                      "Material Layer Type",
+                      "Material layer type of new paint slot");
   RNA_def_property_flag(prop, PROP_HIDDEN);
-  RNA_def_string(ot->srna, "name", IMA_DEF_NAME, MAX_ID_NAME - 2, "Name", "Image data-block name");
-  prop = RNA_def_int(ot->srna, "width", 1024, 1, INT_MAX, "Width", "Image width", 1, 16384);
-  RNA_def_property_subtype(prop, PROP_PIXEL);
-  prop = RNA_def_int(ot->srna, "height", 1024, 1, INT_MAX, "Height", "Image height", 1, 16384);
-  RNA_def_property_subtype(prop, PROP_PIXEL);
+
+  prop = RNA_def_enum(
+      ot->srna, "slot_type", slot_type_items, 0, "Slot Type", "Type of new paint slot");
+
+  prop = RNA_def_string(
+      ot->srna, "name", IMA_DEF_NAME, MAX_NAME, "Name", "Name for new paint slot source");
+  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+
   prop = RNA_def_float_color(
       ot->srna, "color", 4, NULL, 0.0f, FLT_MAX, "Color", "Default fill color", 0.0f, 1.0f);
   RNA_def_property_subtype(prop, PROP_COLOR_GAMMA);
   RNA_def_property_float_array_default(prop, default_color);
+
+  /* Image Properties */
+  prop = RNA_def_int(ot->srna, "width", 1024, 1, INT_MAX, "Width", "Image width", 1, 16384);
+  RNA_def_property_subtype(prop, PROP_PIXEL);
+
+  prop = RNA_def_int(ot->srna, "height", 1024, 1, INT_MAX, "Height", "Image height", 1, 16384);
+  RNA_def_property_subtype(prop, PROP_PIXEL);
+
   RNA_def_boolean(ot->srna, "alpha", true, "Alpha", "Create an image with an alpha channel");
+
   RNA_def_enum(ot->srna,
                "generated_type",
                rna_enum_image_generated_type_items,
                IMA_GENTYPE_BLANK,
                "Generated Type",
                "Fill the image with a grid for UV map testing");
+
   RNA_def_boolean(
       ot->srna, "float", 0, "32-bit Float", "Create image with 32-bit floating-point bit depth");
+
+  /* Color Attribute Properties */
+  RNA_def_enum(ot->srna,
+               "domain",
+               domain_items,
+               ATTR_DOMAIN_POINT,
+               "Domain",
+               "Type of element that attribute is stored on");
+
+  RNA_def_enum(ot->srna,
+               "data_type",
+               attribute_type_items,
+               CD_PROP_COLOR,
+               "Data Type",
+               "Type of data stored in attribute");
 }
 
 static int add_simple_uvs_exec(bContext *C, wmOperator *UNUSED(op))

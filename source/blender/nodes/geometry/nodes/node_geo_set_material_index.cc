@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "node_geometry_util.hh"
 
@@ -28,22 +14,23 @@ static void node_declare(NodeDeclarationBuilder &b)
 
 static void set_material_index_in_component(GeometryComponent &component,
                                             const Field<bool> &selection_field,
-                                            const Field<int> &index_field)
+                                            const Field<int> &index_field,
+                                            const eAttrDomain domain)
 {
-  GeometryComponentFieldContext field_context{component, ATTR_DOMAIN_FACE};
-  const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_FACE);
+  const int domain_size = component.attribute_domain_size(domain);
   if (domain_size == 0) {
     return;
   }
+  MutableAttributeAccessor attributes = *component.attributes_for_write();
+  bke::GeometryFieldContext field_context{component, domain};
 
-  OutputAttribute_Typed<int> indices = component.attribute_try_get_for_output_only<int>(
-      "material_index", ATTR_DOMAIN_FACE);
+  AttributeWriter<int> indices = attributes.lookup_or_add_for_write<int>("material_index", domain);
 
   fn::FieldEvaluator evaluator{field_context, domain_size};
   evaluator.set_selection(selection_field);
-  evaluator.add_with_destination(index_field, indices.varray());
+  evaluator.add_with_destination(index_field, indices.varray);
   evaluator.evaluate();
-  indices.save();
+  indices.finish();
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -54,8 +41,10 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     if (geometry_set.has_mesh()) {
-      set_material_index_in_component(
-          geometry_set.get_component_for_write<MeshComponent>(), selection_field, index_field);
+      set_material_index_in_component(geometry_set.get_component_for_write<MeshComponent>(),
+                                      selection_field,
+                                      index_field,
+                                      ATTR_DOMAIN_FACE);
     }
   });
   params.set_output("Geometry", std::move(geometry_set));

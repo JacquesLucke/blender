@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -171,8 +157,8 @@ size_t BLI_strnlen_utf8(const char *strc, size_t maxlen) ATTR_NONNULL(1) ATTR_WA
 size_t BLI_strncpy_wchar_as_utf8(char *__restrict dst,
                                  const wchar_t *__restrict src,
                                  size_t maxncpy) ATTR_NONNULL(1, 2);
-size_t BLI_strncpy_wchar_from_utf8(wchar_t *__restrict dst,
-                                   const char *__restrict src,
+size_t BLI_strncpy_wchar_from_utf8(wchar_t *__restrict dst_w,
+                                   const char *__restrict src_c,
                                    size_t maxncpy) ATTR_NONNULL(1, 2);
 
 /**
@@ -188,17 +174,17 @@ int BLI_str_utf8_char_width_safe(const char *p) ATTR_WARN_UNUSED_RESULT ATTR_NON
 
 size_t BLI_str_partition_utf8(const char *str,
                               const unsigned int delim[],
-                              const char **sep,
-                              const char **suf) ATTR_NONNULL(1, 2, 3, 4);
+                              const char **r_sep,
+                              const char **r_suf) ATTR_NONNULL(1, 2, 3, 4);
 size_t BLI_str_rpartition_utf8(const char *str,
                                const unsigned int delim[],
-                               const char **sep,
-                               const char **suf) ATTR_NONNULL(1, 2, 3, 4);
+                               const char **r_sep,
+                               const char **r_suf) ATTR_NONNULL(1, 2, 3, 4);
 size_t BLI_str_partition_ex_utf8(const char *str,
                                  const char *end,
                                  const unsigned int delim[],
-                                 const char **sep,
-                                 const char **suf,
+                                 const char **r_sep,
+                                 const char **r_suf,
                                  bool from_right) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL(1, 3, 4, 5);
 
 int BLI_str_utf8_offset_to_index(const char *str, int offset) ATTR_WARN_UNUSED_RESULT

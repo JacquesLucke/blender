@@ -1,22 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# <pep8 compliant>
+# SPDX-License-Identifier: GPL-2.0-or-later
 import bpy
 from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
@@ -36,7 +18,7 @@ class DataButtonsPanel:
 class DATA_PT_context_curves(DataButtonsPanel, Panel):
     bl_label = ""
     bl_options = {'HIDE_HEADER'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
         layout = self.layout
@@ -49,6 +31,20 @@ class DATA_PT_context_curves(DataButtonsPanel, Panel):
             layout.template_ID(ob, "data")
         elif curves:
             layout.template_ID(space, "pin_id")
+
+
+class DATA_PT_curves_surface(DataButtonsPanel, Panel):
+    bl_label = "Surface"
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
+
+    def draw(self, context):
+        layout = self.layout
+        ob = context.object
+
+        layout.use_property_split = True
+
+        layout.prop(ob.data, "surface")
+        layout.prop(ob.data, "surface_uv_map", text="UV Map")
 
 
 class CURVES_MT_add_attribute(Menu):
@@ -81,6 +77,16 @@ class CURVES_MT_add_attribute(Menu):
 
 
 class CURVES_UL_attributes(UIList):
+    def filter_items(self, _context, data, property):
+        attributes = getattr(data, property)
+        flags = []
+        indices = [i for i in range(len(attributes))]
+
+        for item in attributes:
+            flags.append(self.bitflag_filter_item if item.is_internal else 0)
+
+        return flags, indices
+
     def draw_item(self, _context, layout, _data, attribute, _icon, _active_data, _active_propname, _index):
         data_type = attribute.bl_rna.properties['data_type'].enum_items[attribute.data_type]
         domain = attribute.bl_rna.properties['domain'].enum_items[attribute.domain]
@@ -98,7 +104,7 @@ class CURVES_UL_attributes(UIList):
 
 class DATA_PT_CURVES_attributes(DataButtonsPanel, Panel):
     bl_label = "Attributes"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
         curves = context.curves
@@ -123,7 +129,7 @@ class DATA_PT_CURVES_attributes(DataButtonsPanel, Panel):
 
 
 class DATA_PT_custom_props_curves(DataButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
     _context_path = "object.data"
     _property_type = bpy.types.Curves if hasattr(bpy.types, "Curves") else None
 
@@ -131,6 +137,7 @@ class DATA_PT_custom_props_curves(DataButtonsPanel, PropertyPanel, Panel):
 classes = (
     DATA_PT_context_curves,
     DATA_PT_CURVES_attributes,
+    DATA_PT_curves_surface,
     DATA_PT_custom_props_curves,
     CURVES_MT_add_attribute,
     CURVES_UL_attributes,

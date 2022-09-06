@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2021, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. */
 
 /** \file
  * \ingroup bke
@@ -36,8 +21,8 @@
 #include "DNA_image_types.h"
 
 extern "C" {
-struct PartialUpdateUser;
 struct PartialUpdateRegister;
+struct PartialUpdateUser;
 }
 
 namespace blender::bke::image {
@@ -180,11 +165,17 @@ class ImageTileData : AbstractTileData {
    * Can be nullptr when the file doesn't exist or when the tile hasn't been initialized.
    */
   ImBuf *tile_buffer = nullptr;
+  void *tile_buffer_lock = nullptr;
 
   ImageTileData(Image *image, ImageUser *image_user) : image(image)
   {
     if (image_user != nullptr) {
       this->image_user = *image_user;
+    }
+    else {
+      /* When no image user is given the lastframe of the image should be used. This reflect the
+       * same logic when using a stencil image in the clone tool. */
+      this->image_user.framenr = image->lastframe;
     }
   }
 
@@ -192,14 +183,15 @@ class ImageTileData : AbstractTileData {
   {
     image_user.tile = new_tile_number;
     tile = BKE_image_get_tile(image, new_tile_number);
-    tile_buffer = BKE_image_acquire_ibuf(image, &image_user, NULL);
+    tile_buffer = BKE_image_acquire_ibuf(image, &image_user, &tile_buffer_lock);
   }
 
   void free_data() override
   {
-    BKE_image_release_ibuf(image, tile_buffer, nullptr);
+    BKE_image_release_ibuf(image, tile_buffer, tile_buffer_lock);
     tile = nullptr;
     tile_buffer = nullptr;
+    tile_buffer_lock = nullptr;
   }
 };
 
@@ -227,7 +219,7 @@ template<typename TileData = NoTileData> struct PartialUpdateChecker {
     ePartialUpdateCollectResult result_code;
 
    private:
-    TileNumber last_tile_number;
+    TileNumber last_tile_number = 0;
 
    public:
     CollectResult(PartialUpdateChecker<TileData> *checker, ePartialUpdateCollectResult result_code)

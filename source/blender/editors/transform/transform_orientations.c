@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edtransform
@@ -364,7 +350,7 @@ bool BIF_createTransformOrientation(bContext *C,
       else if (obedit->type == OB_ARMATURE) {
         ts = createBoneSpace(C, reports, name, overwrite);
       }
-      else if (obedit->type == OB_CURVE) {
+      else if (obedit->type == OB_CURVES_LEGACY) {
         ts = createCurveSpace(C, reports, name, overwrite);
       }
     }
@@ -490,7 +476,7 @@ void ED_transform_calc_orientation_from_type(const bContext *C, float r_mat[3][3
   Object *obedit = CTX_data_edit_object(C);
   View3D *v3d = CTX_wm_view3d(C);
   RegionView3D *rv3d = region->regiondata;
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   const short orient_index = BKE_scene_orientation_get_index(scene, SCE_ORIENT_DEFAULT);
   const int pivot_point = scene->toolsettings->transform_pivot_point;
 
@@ -998,7 +984,7 @@ int getTransformOrientation_ex(ViewLayer *view_layer,
       negate_v3(plane);
 
     } /* end editmesh */
-    else if (ELEM(obedit->type, OB_CURVE, OB_SURF)) {
+    else if (ELEM(obedit->type, OB_CURVES_LEGACY, OB_SURF)) {
       Curve *cu = obedit->data;
       Nurb *nu = NULL;
       int a;

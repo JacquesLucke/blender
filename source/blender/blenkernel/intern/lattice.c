@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -412,21 +396,6 @@ Lattice *BKE_lattice_add(Main *bmain, const char *name)
   lt = BKE_id_new(bmain, ID_LT, name);
 
   return lt;
-}
-
-bool object_deform_mball(Object *ob, ListBase *dispbase)
-{
-  if (ob->parent && ob->parent->type == OB_LATTICE && ob->partype == PARSKEL) {
-    DispList *dl;
-
-    for (dl = dispbase->first; dl; dl = dl->next) {
-      BKE_lattice_deform_coords(ob->parent, ob, (float(*)[3])dl->verts, dl->nr, 0, NULL, 1.0f);
-    }
-
-    return true;
-  }
-
-  return false;
 }
 
 static BPoint *latt_bp(Lattice *lt, int u, int v, int w)

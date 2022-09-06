@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup RNA
@@ -108,6 +92,7 @@
 #  include "DNA_volume_types.h"
 #  include "DNA_world_types.h"
 
+#  include "ED_node.h"
 #  include "ED_screen.h"
 
 #  include "BLT_translation.h"
@@ -307,6 +292,7 @@ static struct bNodeTree *rna_Main_nodetree_new(Main *bmain, const char *name, in
   bNodeTreeType *typeinfo = rna_node_tree_type_from_enum(type);
   if (typeinfo) {
     bNodeTree *ntree = ntreeAddTree(bmain, safe_name, typeinfo->idname);
+    ED_node_tree_propagate_change(NULL, bmain, ntree);
 
     id_us_min(&ntree->id);
     return ntree;
@@ -338,7 +324,7 @@ static Mesh *rna_Main_meshes_new_from_object(Main *bmain,
 {
   switch (object->type) {
     case OB_FONT:
-    case OB_CURVE:
+    case OB_CURVES_LEGACY:
     case OB_SURF:
     case OB_MBALL:
     case OB_MESH:
@@ -763,7 +749,6 @@ static bGPdata *rna_Main_gpencils_new(Main *bmain, const char *name)
   return gpd;
 }
 
-#  ifdef WITH_NEW_CURVES_TYPE
 static Curves *rna_Main_hair_curves_new(Main *bmain, const char *name)
 {
   char safe_name[MAX_ID_NAME - 2];
@@ -776,7 +761,6 @@ static Curves *rna_Main_hair_curves_new(Main *bmain, const char *name)
 
   return curves;
 }
-#  endif
 
 static PointCloud *rna_Main_pointclouds_new(Main *bmain, const char *name)
 {
@@ -838,7 +822,7 @@ RNA_MAIN_ID_TAG_FUNCS_DEF(screens, screens, ID_SCR)
 RNA_MAIN_ID_TAG_FUNCS_DEF(window_managers, wm, ID_WM)
 RNA_MAIN_ID_TAG_FUNCS_DEF(images, images, ID_IM)
 RNA_MAIN_ID_TAG_FUNCS_DEF(lattices, lattices, ID_LT)
-RNA_MAIN_ID_TAG_FUNCS_DEF(curves, curves, ID_CU)
+RNA_MAIN_ID_TAG_FUNCS_DEF(curves, curves, ID_CU_LEGACY)
 RNA_MAIN_ID_TAG_FUNCS_DEF(metaballs, metaballs, ID_MB)
 RNA_MAIN_ID_TAG_FUNCS_DEF(fonts, fonts, ID_VF)
 RNA_MAIN_ID_TAG_FUNCS_DEF(textures, textures, ID_TE)
@@ -861,9 +845,7 @@ RNA_MAIN_ID_TAG_FUNCS_DEF(cachefiles, cachefiles, ID_CF)
 RNA_MAIN_ID_TAG_FUNCS_DEF(paintcurves, paintcurves, ID_PC)
 RNA_MAIN_ID_TAG_FUNCS_DEF(workspaces, workspaces, ID_WS)
 RNA_MAIN_ID_TAG_FUNCS_DEF(lightprobes, lightprobes, ID_LP)
-#  ifdef WITH_NEW_CURVES_TYPE
 RNA_MAIN_ID_TAG_FUNCS_DEF(hair_curves, hair_curves, ID_CV)
-#  endif
 RNA_MAIN_ID_TAG_FUNCS_DEF(pointclouds, pointclouds, ID_PT)
 RNA_MAIN_ID_TAG_FUNCS_DEF(volumes, volumes, ID_VO)
 #  ifdef WITH_SIMULATION_DATABLOCK
@@ -2269,7 +2251,6 @@ void RNA_def_main_lightprobes(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
 
-#  ifdef WITH_NEW_CURVES_TYPE
 void RNA_def_main_hair_curves(BlenderRNA *brna, PropertyRNA *cprop)
 {
   StructRNA *srna;
@@ -2313,7 +2294,6 @@ void RNA_def_main_hair_curves(BlenderRNA *brna, PropertyRNA *cprop)
   parm = RNA_def_boolean(func, "value", 0, "Value", "");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
 }
-#  endif
 
 void RNA_def_main_pointclouds(BlenderRNA *brna, PropertyRNA *cprop)
 {

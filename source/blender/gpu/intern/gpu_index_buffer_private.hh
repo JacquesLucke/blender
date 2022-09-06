@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -61,6 +45,8 @@ class IndexBuf {
   bool is_init_ = false;
   /** Is this object only a reference to a subrange of another IndexBuf. */
   bool is_subrange_ = false;
+  /** True if buffer only contains restart indices. */
+  bool is_empty_ = false;
 
   union {
     /** Mapped buffer data. non-NULL indicates not yet sent to VRAM. */
@@ -73,13 +59,29 @@ class IndexBuf {
   IndexBuf(){};
   virtual ~IndexBuf();
 
-  void init(uint indices_len, uint32_t *indices, uint min_index, uint max_index);
+  void init(uint indices_len,
+            uint32_t *indices,
+            uint min_index,
+            uint max_index,
+            GPUPrimType prim_type,
+            bool uses_restart_indices);
   void init_subrange(IndexBuf *elem_src, uint start, uint length);
   void init_build_on_device(uint index_len);
 
+  /* Returns render index count (not precise). */
   uint32_t index_len_get() const
   {
-    return index_len_;
+    /* Return 0 to bypass drawing for index buffers full of restart indices.
+     * They can lead to graphical glitches on some systems. (See T96892) */
+    return is_empty_ ? 0 : index_len_;
+  }
+  uint32_t index_start_get() const
+  {
+    return index_start_;
+  }
+  uint32_t index_base_get() const
+  {
+    return index_base_;
   }
   /* Return size in byte of the drawable data buffer range. Actual buffer size might be bigger. */
   size_t size_get() const
@@ -102,8 +104,12 @@ class IndexBuf {
   virtual void update_sub(uint start, uint len, const void *data) = 0;
 
  private:
-  inline void squeeze_indices_short(uint min_idx, uint max_idx);
+  inline void squeeze_indices_short(uint min_idx,
+                                    uint max_idx,
+                                    GPUPrimType prim_type,
+                                    bool clamp_indices_in_range);
   inline uint index_range(uint *r_min, uint *r_max);
+  virtual void strip_restart_indices() = 0;
 };
 
 /* Syntactic sugar. */

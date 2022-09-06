@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup blenloader
@@ -344,7 +330,7 @@ static void image_node_colorspace(bNode *node)
     return;
   }
 
-  const int SHD_COLORSPACE_NONE = 0;
+  enum { SHD_COLORSPACE_NONE = 0 };
   Image *image = (Image *)node->id;
   if (color_space == SHD_COLORSPACE_NONE) {
     STRNCPY(image->colorspace_settings.name,
@@ -703,7 +689,6 @@ static void update_vector_math_node_normalize_operator(bNodeTree *ntree)
  * a value of -1 just to be identified later in the versioning code:
  *
  * Average Operator : 2 -> -1
- *
  */
 static void update_vector_math_node_operators_enum_mapping(bNodeTree *ntree)
 {
@@ -881,7 +866,6 @@ static void update_mapping_node_fcurve_rna_path_callback(ID *UNUSED(id),
  * and check if they control a property of the node, if they do, we update
  * the path to be that of the corresponding socket in the node or the added
  * minimum/maximum node.
- *
  */
 static void update_mapping_node_inputs_and_properties(bNodeTree *ntree)
 {
@@ -1071,7 +1055,6 @@ static void update_voronoi_node_fac_output(bNodeTree *ntree)
  *    the inputs of the subtract node.
  * 6. The output of the subtract node is connected to the
  *    appropriate sockets.
- *
  */
 static void update_voronoi_node_crackle(bNodeTree *ntree)
 {
@@ -1376,10 +1359,12 @@ void blo_do_versions_cycles(FileData *UNUSED(fd), Library *UNUSED(lib), Main *bm
 
 void do_versions_after_linking_cycles(Main *bmain)
 {
-  const int DENOISER_AUTO = 0;
-  const int DENOISER_NLM = 1;
-  const int DENOISER_OPTIX = 2;
-  const int DENOISER_OPENIMAGEDENOISE = 4;
+  enum {
+    DENOISER_AUTO = 0,
+    DENOISER_NLM = 1,
+    DENOISER_OPTIX = 2,
+    DENOISER_OPENIMAGEDENOISE = 4,
+  };
 
   if (!MAIN_VERSION_ATLEAST(bmain, 280, 66)) {
     /* Shader node tree changes. After lib linking so we have all the typeinfo

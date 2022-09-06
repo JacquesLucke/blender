@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup blf
@@ -30,6 +14,19 @@ struct ResultBLF;
 struct rctf;
 struct rcti;
 
+/* Max number of FontBLFs in memory. Take care that every font has a glyph cache per size/dpi,
+ * so we don't need load the same font with different size, just load one and call BLF_size. */
+#define BLF_MAX_FONT 64
+
+/* Maximum number of opened FT_Face objects managed by cache. 0 is default of 2. */
+#define BLF_CACHE_MAX_FACES 4
+/* Maximum number of opened FT_Size objects managed by cache. 0 is default of 4 */
+#define BLF_CACHE_MAX_SIZES 8
+/* Maximum number of bytes to use for cached data nodes. 0 is default of 200,000. */
+#define BLF_CACHE_BYTES 400000
+
+extern struct FontBLF *global_font[BLF_MAX_FONT];
+
 void blf_batch_draw_begin(struct FontBLF *font);
 void blf_batch_draw(void);
 
@@ -41,7 +38,7 @@ char *blf_dir_search(const char *file);
  * Some font have additional file with metrics information,
  * in general, the extension of the file is: `.afm` or `.pfm`
  */
-char *blf_dir_metrics_search(const char *filename);
+char *blf_dir_metrics_search(const char *filepath);
 /* int blf_dir_split(const char *str, char *file, int *size); */ /* UNUSED */
 
 int blf_font_init(void);
@@ -49,12 +46,26 @@ void blf_font_exit(void);
 
 bool blf_font_id_is_valid(int fontid);
 
+/**
+ * Return glyph id from char-code.
+ */
+uint blf_get_char_index(struct FontBLF *font, uint charcode);
+
+bool blf_ensure_face(struct FontBLF *font);
+void blf_ensure_size(struct FontBLF *font);
+
 void blf_draw_buffer__start(struct FontBLF *font);
 void blf_draw_buffer__end(void);
 
-struct FontBLF *blf_font_new(const char *name, const char *filename);
-struct FontBLF *blf_font_new_from_mem(const char *name, const unsigned char *mem, int mem_size);
-void blf_font_attach_from_mem(struct FontBLF *font, const unsigned char *mem, int mem_size);
+struct FontBLF *blf_font_new_ex(const char *name,
+                                const char *filepath,
+                                const unsigned char *mem,
+                                size_t mem_size,
+                                void *ft_library);
+
+struct FontBLF *blf_font_new(const char *name, const char *filepath);
+struct FontBLF *blf_font_new_from_mem(const char *name, const unsigned char *mem, size_t mem_size);
+void blf_font_attach_from_mem(struct FontBLF *font, const unsigned char *mem, size_t mem_size);
 
 /**
  * Change font's output size. Returns true if successful in changing the size.
@@ -83,18 +94,18 @@ void blf_font_draw_buffer__wrap(struct FontBLF *font,
                                 size_t str_len,
                                 struct ResultBLF *r_info);
 size_t blf_font_width_to_strlen(
-    struct FontBLF *font, const char *str, size_t str_len, float width, float *r_width);
+    struct FontBLF *font, const char *str, size_t str_len, int width, int *r_width);
 size_t blf_font_width_to_rstrlen(
-    struct FontBLF *font, const char *str, size_t str_len, float width, float *r_width);
+    struct FontBLF *font, const char *str, size_t str_len, int width, int *r_width);
 void blf_font_boundbox(struct FontBLF *font,
                        const char *str,
                        size_t str_len,
-                       struct rctf *r_box,
+                       struct rcti *r_box,
                        struct ResultBLF *r_info);
 void blf_font_boundbox__wrap(struct FontBLF *font,
                              const char *str,
                              size_t str_len,
-                             struct rctf *r_box,
+                             struct rcti *r_box,
                              struct ResultBLF *r_info);
 void blf_font_width_and_height(struct FontBLF *font,
                                const char *str,
@@ -113,8 +124,8 @@ float blf_font_height(struct FontBLF *font,
 float blf_font_fixed_width(struct FontBLF *font);
 int blf_font_height_max(struct FontBLF *font);
 int blf_font_width_max(struct FontBLF *font);
-float blf_font_descender(struct FontBLF *font);
-float blf_font_ascender(struct FontBLF *font);
+int blf_font_descender(struct FontBLF *font);
+int blf_font_ascender(struct FontBLF *font);
 
 char *blf_display_name(struct FontBLF *font);
 
@@ -125,7 +136,7 @@ void blf_font_boundbox_foreach_glyph(struct FontBLF *font,
                                                      size_t str_step_ofs,
                                                      const struct rcti *glyph_step_bounds,
                                                      int glyph_advance_x,
-                                                     const struct rctf *glyph_bounds,
+                                                     const struct rcti *glyph_bounds,
                                                      const int glyph_bearing[2],
                                                      void *user_data),
                                      void *user_data,
@@ -149,10 +160,11 @@ struct GlyphBLF *blf_glyph_ensure(struct FontBLF *font, struct GlyphCacheBLF *gc
 
 void blf_glyph_free(struct GlyphBLF *g);
 void blf_glyph_draw(
-    struct FontBLF *font, struct GlyphCacheBLF *gc, struct GlyphBLF *g, float x, float y);
+    struct FontBLF *font, struct GlyphCacheBLF *gc, struct GlyphBLF *g, int x, int y);
 
 #ifdef WIN32
 /* blf_font_win32_compat.c */
+
 #  ifdef FT_FREETYPE_H
 extern FT_Error FT_New_Face__win32_compat(FT_Library library,
                                           const char *pathname,

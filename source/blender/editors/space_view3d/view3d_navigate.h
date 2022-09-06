@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spview3d
@@ -30,15 +14,15 @@
 #define V3D_OP_TRACKBALLSIZE (1.1f)
 
 struct ARegion;
-struct bContext;
 struct Depsgraph;
 struct Dial;
 struct Main;
-struct rcti;
 struct RegionView3D;
 struct Scene;
 struct ScrArea;
 struct View3D;
+struct bContext;
+struct rcti;
 struct wmEvent;
 struct wmOperator;
 
@@ -149,6 +133,7 @@ typedef struct ViewOpsData {
 } ViewOpsData;
 
 /* view3d_navigate.c */
+
 bool view3d_location_poll(struct bContext *C);
 bool view3d_rotation_poll(struct bContext *C);
 bool view3d_zoom_or_dolly_poll(struct bContext *C);
@@ -188,19 +173,23 @@ void VIEW3D_OT_view_orbit(struct wmOperatorType *ot);
 void VIEW3D_OT_view_pan(struct wmOperatorType *ot);
 
 /* view3d_navigate_dolly.c */
+
 void viewdolly_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_dolly(struct wmOperatorType *ot);
 
 /* view3d_navigate_fly.c */
+
 void fly_modal_keymap(struct wmKeyConfig *keyconf);
 void view3d_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_fly(struct wmOperatorType *ot);
 
 /* view3d_navigate_move.c */
+
 void viewmove_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_move(struct wmOperatorType *ot);
 
 /* view3d_navigate_ndof.c */
+
 #ifdef WITH_INPUT_NDOF
 struct wmNDOFMotionData;
 
@@ -221,9 +210,11 @@ void VIEW3D_OT_ndof_all(struct wmOperatorType *ot);
 #endif /* WITH_INPUT_NDOF */
 
 /* view3d_navigate_roll.c */
+
 void VIEW3D_OT_view_roll(struct wmOperatorType *ot);
 
 /* view3d_navigate_rotate.c */
+
 void viewrotate_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_rotate(struct wmOperatorType *ot);
 
@@ -240,6 +231,14 @@ typedef struct V3D_SmoothParams {
 
   /** Alternate rotation center, when set `ofs` must be NULL. */
   const float *dyn_ofs;
+
+  /** When non-NULL, perform undo pushes when transforming the camera. */
+  const char *undo_str;
+  /**
+   * When true use grouped undo pushes, use for incremental viewport manipulation
+   * which are likely to be activated by holding a key or from the mouse-wheel.
+   */
+  bool undo_grouped;
 } V3D_SmoothParams;
 
 /**
@@ -261,6 +260,22 @@ void ED_view3d_smooth_view(struct bContext *C,
                            const V3D_SmoothParams *sview);
 
 /**
+ * Call before multiple smooth-view operations begin to properly handle undo.
+ *
+ * \note Only use explicit undo calls when multiple calls to smooth-view are necessary
+ * or when calling #ED_view3d_smooth_view_ex.
+ * Otherwise pass in #V3D_SmoothParams.undo_str so an undo step is pushed as needed.
+ */
+void ED_view3d_smooth_view_undo_begin(struct bContext *C, const struct ScrArea *area);
+/**
+ * Run after multiple smooth-view operations have run to push undo as needed.
+ */
+void ED_view3d_smooth_view_undo_end(struct bContext *C,
+                                    const struct ScrArea *area,
+                                    const char *undo_str,
+                                    bool undo_grouped);
+
+/**
  * Apply the smooth-view immediately, use when we need to start a new view operation.
  * (so we don't end up half-applying a view operation when pressing keys quickly).
  */
@@ -271,12 +286,15 @@ void ED_view3d_smooth_view_force_finish(struct bContext *C,
 void VIEW3D_OT_smoothview(struct wmOperatorType *ot);
 
 /* view3d_navigate_walk.c */
+
 void walk_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_walk(struct wmOperatorType *ot);
 
 /* view3d_navigate_zoom.c */
+
 void viewzoom_modal_keymap(struct wmKeyConfig *keyconf);
 void VIEW3D_OT_zoom(struct wmOperatorType *ot);
 
 /* view3d_navigate_zoom_border.c */
+
 void VIEW3D_OT_zoom_border(struct wmOperatorType *ot);

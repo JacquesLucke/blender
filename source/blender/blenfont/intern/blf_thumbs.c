@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup blf
@@ -43,29 +29,37 @@
 
 #include "BLI_strict_flags.h"
 
-void BLF_thumb_preview(const char *filename,
+void BLF_thumb_preview(const char *filepath,
                        const char **draw_str,
                        const char **i18n_draw_str,
-                       const unsigned char draw_str_lines,
+                       const uchar draw_str_lines,
                        const float font_color[4],
                        const int font_size,
-                       unsigned char *buf,
-                       int w,
-                       int h,
-                       int channels)
+                       uchar *buf,
+                       const int w,
+                       const int h,
+                       const int channels)
 {
-  const unsigned int dpi = 72;
+  const uint dpi = 72;
   const int font_size_min = 6;
   int font_size_curr;
   /* shrink 1/th each line */
   int font_shrink = 4;
 
-  FontBLF *font;
+  /* While viewing thumbnails in font directories this function can be called simultaneously from a
+   * greater number of threads than we want the FreeType cache to keep open at a time. Therefore
+   * pass own FT_Library to font creation so that it is not managed by the FreeType cache system.
+   */
 
-  /* Create a new blender font obj and fill it with default values */
-  font = blf_font_new("thumb_font", filename);
+  FT_Library ft_library = NULL;
+  if (FT_Init_FreeType(&ft_library) != FT_Err_Ok) {
+    return;
+  }
+
+  FontBLF *font = blf_font_new_ex("thumb_font", filepath, NULL, 0, ft_library);
   if (!font) {
-    printf("Info: Can't load font '%s', no preview possible\n", filename);
+    printf("Info: Can't load font '%s', no preview possible\n", filepath);
+    FT_Done_FreeType(ft_library);
     return;
   }
 
@@ -78,7 +72,7 @@ void BLF_thumb_preview(const char *filename,
   /* Always create the image with a white font,
    * the caller can theme how it likes */
   memcpy(font->buf_info.col_init, font_color, sizeof(font->buf_info.col_init));
-  font->pos[1] = (float)h;
+  font->pos[1] = h;
 
   font_size_curr = font_size;
 
@@ -87,7 +81,7 @@ void BLF_thumb_preview(const char *filename,
   for (int i = 0; i < draw_str_lines; i++) {
     const char *draw_str_i18n = i18n_draw_str[i] != NULL ? i18n_draw_str[i] : draw_str[i];
     const size_t draw_str_i18n_len = strlen(draw_str_i18n);
-    int draw_str_i18n_nbr = 0;
+    int draw_str_i18_count = 0;
 
     CLAMP_MIN(font_size_curr, font_size_min);
     if (!blf_font_size(font, (float)font_size_curr, dpi)) {
@@ -98,15 +92,15 @@ void BLF_thumb_preview(const char *filename,
     font_size_curr -= (font_size_curr / font_shrink);
     font_shrink += 1;
 
-    font->pos[1] -= blf_font_ascender(font) * 1.1f;
+    font->pos[1] -= (int)((float)blf_font_ascender(font) * 1.1f);
 
     /* We fallback to default english strings in case not enough chars are available in current
-     * font for given translated string (useful in non-latin i18n context, like Chinese,
+     * font for given translated string (useful in non-Latin i18n context, like Chinese,
      * since many fonts will then show nothing but ugly 'missing char' in their preview).
      * Does not handle all cases, but much better than nothing.
      */
-    if (blf_font_count_missing_chars(font, draw_str_i18n, draw_str_i18n_len, &draw_str_i18n_nbr) >
-        (draw_str_i18n_nbr / 2)) {
+    if (blf_font_count_missing_chars(font, draw_str_i18n, draw_str_i18n_len, &draw_str_i18_count) >
+        (draw_str_i18_count / 2)) {
       blf_font_draw_buffer(font, draw_str[i], strlen(draw_str[i]), NULL);
     }
     else {
@@ -116,4 +110,5 @@ void BLF_thumb_preview(const char *filename,
 
   blf_draw_buffer__end();
   blf_font_free(font);
+  FT_Done_FreeType(ft_library);
 }

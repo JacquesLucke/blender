@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup nodes
@@ -34,6 +18,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_linestyle.h"
 #include "BKE_node.h"
 #include "BKE_paint.h"
@@ -47,6 +32,7 @@
 #include "DEG_depsgraph.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "RE_texture.h"
 
@@ -61,7 +47,7 @@ static void texture_get_from_context(const bContext *C,
   SpaceNode *snode = CTX_wm_space_node(C);
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   Tex *tx = NULL;
 
   if (snode->texfrom == SNODE_TEX_BRUSH) {
@@ -155,6 +141,7 @@ void register_node_tree_type_tex(void)
 
   tt->type = NTREE_TEXTURE;
   strcpy(tt->idname, "TextureNodeTree");
+  strcpy(tt->group_idname, "TextureNodeGroup");
   strcpy(tt->ui_name, N_("Texture Node Editor"));
   tt->ui_icon = ICON_NODE_TEXTURE; /* Defined in `drawnode.c`. */
   strcpy(tt->ui_description, N_("Texture nodes"));
@@ -339,7 +326,6 @@ int ntreeTexExecTree(bNodeTree *ntree,
                      MTex *mtex)
 {
   TexCallData data;
-  float *nor = target->nor;
   int retval = TEX_INT;
   bNodeThreadStack *nts = NULL;
   bNodeTreeExec *exec = ntree->execdata;
@@ -371,14 +357,7 @@ int ntreeTexExecTree(bNodeTree *ntree,
   ntreeExecThreadNodes(exec, nts, &data, thread);
   ntreeReleaseThreadStack(nts);
 
-  if (target->nor) {
-    retval |= TEX_NOR;
-  }
   retval |= TEX_RGB;
-  /* confusing stuff; the texture output node sets this to NULL to indicate no normal socket was
-   * set however, the texture code checks this for other reasons
-   * (namely, a normal is required for material). */
-  target->nor = nor;
 
   return retval;
 }

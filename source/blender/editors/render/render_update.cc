@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edrend
@@ -110,20 +95,20 @@ void ED_render_view3d_update(Depsgraph *depsgraph,
 
       CTX_free(C);
     }
-    else {
-      RenderEngineType *engine_type = ED_view3d_engine_type(scene, v3d->shading.type);
-      if (updated) {
-        DRWUpdateContext drw_context = {nullptr};
-        drw_context.bmain = bmain;
-        drw_context.depsgraph = depsgraph;
-        drw_context.scene = scene;
-        drw_context.view_layer = view_layer;
-        drw_context.region = region;
-        drw_context.v3d = v3d;
-        drw_context.engine_type = engine_type;
-        DRW_notify_view_update(&drw_context);
-      }
+
+    if (!updated) {
+      continue;
     }
+
+    DRWUpdateContext drw_context = {nullptr};
+    drw_context.bmain = bmain;
+    drw_context.depsgraph = depsgraph;
+    drw_context.scene = scene;
+    drw_context.view_layer = view_layer;
+    drw_context.region = region;
+    drw_context.v3d = v3d;
+    drw_context.engine_type = ED_view3d_engine_type(scene, v3d->shading.type);
+    DRW_notify_view_update(&drw_context);
   }
 }
 

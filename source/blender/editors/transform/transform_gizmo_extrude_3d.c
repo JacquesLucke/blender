@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edmesh
@@ -167,7 +153,7 @@ static void gizmo_mesh_extrude_setup(const bContext *C, wmGizmoGroup *gzgroup)
       op_idname = "ARMATURE_OT_extrude_move";
       ggd->normal_axis = 1;
     }
-    else if (obact->type == OB_CURVE) {
+    else if (obact->type == OB_CURVES_LEGACY) {
       op_idname = "CURVE_OT_extrude_move";
       ggd->normal_axis = 2;
     }
@@ -275,7 +261,7 @@ static void gizmo_mesh_extrude_refresh(const bContext *C, wmGizmoGroup *gzgroup)
     copy_m3_m3(ggd->data.normal_mat3, tbounds_normal.axis);
   }
 
-  /* TODO(campbell): run second since this modifies the 3D view, it should not. */
+  /* TODO(@campbellbarton): run second since this modifies the 3D view, it should not. */
   if (!ED_transform_calc_gizmo_stats(C,
                                      &(struct TransformCalcParams){
                                          .orientation_index = ggd->data.orientation_index + 1,
@@ -499,7 +485,6 @@ static void gizmo_mesh_extrude_message_subscribe(const bContext *C,
     Scene *scene = CTX_data_scene(C);
     PointerRNA toolsettings_ptr;
     RNA_pointer_create(&scene->id, &RNA_ToolSettings, scene->toolsettings, &toolsettings_ptr);
-    extern PropertyRNA rna_ToolSettings_workspace_tool_type;
     const PropertyRNA *props[] = {
         &rna_ToolSettings_workspace_tool_type,
     };

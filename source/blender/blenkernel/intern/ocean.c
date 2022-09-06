@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -41,6 +25,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_image.h"
+#include "BKE_image_format.h"
 #include "BKE_ocean.h"
 #include "ocean_intern.h"
 
@@ -63,7 +48,7 @@ static float nextfr(RNG *rng, float min, float max)
 static float gaussRand(RNG *rng)
 {
   /* NOTE: to avoid numerical problems with very small numbers, we make these variables
-   * singe-precision floats, but later we call the double-precision log() and sqrt() functions
+   * single-precision floats, but later we call the double-precision log() and sqrt() functions
    * instead of logf() and sqrtf(). */
   float x;
   float y;
@@ -1400,9 +1385,8 @@ void BKE_ocean_bake(struct Ocean *o,
                     void (*update_cb)(void *, float progress, int *cancel),
                     void *update_cb_data)
 {
-  /* NOTE(campbell): some of these values remain uninitialized unless certain options
-   * are enabled, take care that BKE_ocean_eval_ij() initializes a member
-   * before use. */
+  /* NOTE(@campbellbarton): some of these values remain uninitialized unless certain options
+   * are enabled, take care that #BKE_ocean_eval_ij() initializes a member before use. */
   OceanResult ocr;
 
   ImageFormatData imf = {0};
@@ -1456,7 +1440,7 @@ void BKE_ocean_bake(struct Ocean *o,
         rgb_to_rgba_unit_alpha(&ibuf_disp->rect_float[4 * (res_x * y + x)], ocr.disp);
 
         if (o->_do_jacobian) {
-          /* TODO(campbell): cleanup unused code. */
+          /* TODO(@campbellbarton): cleanup unused code. */
 
           float /* r, */ /* UNUSED */ pr = 0.0f, foam_result;
           float neg_disp, neg_eplus;

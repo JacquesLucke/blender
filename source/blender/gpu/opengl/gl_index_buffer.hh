@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -27,7 +11,7 @@
 
 #include "gpu_index_buffer_private.hh"
 
-#include "glew-mx.h"
+#include <epoxy/gl.h>
 
 namespace blender::gpu {
 
@@ -51,9 +35,11 @@ class GLIndexBuf : public IndexBuf {
   {
     additional_vertex_offset += index_start_;
     if (index_type_ == GPU_INDEX_U32) {
-      return (GLuint *)0 + additional_vertex_offset;
+      return reinterpret_cast<void *>(static_cast<intptr_t>(additional_vertex_offset) *
+                                      sizeof(GLuint));
     }
-    return (GLushort *)0 + additional_vertex_offset;
+    return reinterpret_cast<void *>(static_cast<intptr_t>(additional_vertex_offset) *
+                                    sizeof(GLushort));
   }
 
   GLuint restart_index() const
@@ -67,6 +53,10 @@ class GLIndexBuf : public IndexBuf {
 
  private:
   bool is_active() const;
+  void strip_restart_indices() override
+  {
+    /* No-op. */
+  }
 
   MEM_CXX_CLASS_ALLOC_FUNCS("GLIndexBuf")
 };

@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #ifndef __UTIL_MATH_H__
 #define __UTIL_MATH_H__
@@ -80,6 +67,9 @@ CCL_NAMESPACE_BEGIN
 #ifndef M_SQRT2_F
 #  define M_SQRT2_F (1.4142135623730950f) /* sqrt(2) */
 #endif
+#ifndef M_SQRT3_F
+#  define M_SQRT3_F (1.7320508075688772f) /* sqrt(3) */
+#endif
 #ifndef M_LN2_F
 #  define M_LN2_F (0.6931471805599453f) /* ln(2) */
 #endif
@@ -89,7 +79,7 @@ CCL_NAMESPACE_BEGIN
 
 /* Scalar */
 
-#ifndef __HIP__
+#if !defined(__HIP__) && !defined(__KERNEL_ONEAPI__)
 #  ifdef _WIN32
 ccl_device_inline float fmaxf(float a, float b)
 {
@@ -102,12 +92,18 @@ ccl_device_inline float fminf(float a, float b)
 }
 
 #  endif /* _WIN32 */
-#endif   /* __HIP__ */
+#endif   /* __HIP__, __KERNEL_ONEAPI__ */
 
-#ifndef __KERNEL_GPU__
+#if !defined(__KERNEL_GPU__) || defined(__KERNEL_ONEAPI__)
+#  ifndef __KERNEL_ONEAPI__
 using std::isfinite;
 using std::isnan;
 using std::sqrt;
+#  else
+using sycl::sqrt;
+#    define isfinite(x) sycl::isfinite((x))
+#    define isnan(x) sycl::isnan((x))
+#  endif
 
 ccl_device_inline int abs(int x)
 {
@@ -124,12 +120,41 @@ ccl_device_inline int min(int a, int b)
   return (a < b) ? a : b;
 }
 
+ccl_device_inline uint32_t max(uint32_t a, uint32_t b)
+{
+  return (a > b) ? a : b;
+}
+
 ccl_device_inline uint32_t min(uint32_t a, uint32_t b)
 {
   return (a < b) ? a : b;
 }
 
+ccl_device_inline uint64_t max(uint64_t a, uint64_t b)
+{
+  return (a > b) ? a : b;
+}
+
 ccl_device_inline uint64_t min(uint64_t a, uint64_t b)
+{
+  return (a < b) ? a : b;
+}
+
+/* NOTE: On 64bit Darwin the `size_t` is defined as `unsigned long int` and `uint64_t` is defined
+ * as `unsigned long long`. Both of the definitions are 64 bit unsigned integer, but the automatic
+ * substitution does not allow to automatically pick function defined for `uint64_t` as it is not
+ * exactly the same type definition.
+ * Work this around by adding a templated function enabled for `size_t` type which will be used
+ * when there is no explicit specialization of `min()`/`max()` above. */
+
+template<class T>
+ccl_device_inline typename std::enable_if_t<std::is_same_v<T, size_t>, T> max(T a, T b)
+{
+  return (a > b) ? a : b;
+}
+
+template<class T>
+ccl_device_inline typename std::enable_if_t<std::is_same_v<T, size_t>, T> min(T a, T b)
 {
   return (a < b) ? a : b;
 }
@@ -278,8 +303,15 @@ ccl_device_inline float4 __int4_as_float4(int4 i)
 #endif /* !defined(__KERNEL_METAL__) */
 
 #if defined(__KERNEL_METAL__)
-#  define isnan_safe(v) isnan(v)
-#  define isfinite_safe(v) isfinite(v)
+ccl_device_forceinline bool isnan_safe(float f)
+{
+  return isnan(f);
+}
+
+ccl_device_forceinline bool isfinite_safe(float f)
+{
+  return isfinite(f);
+}
 #else
 template<typename T> ccl_device_inline uint pointer_pack_to_uint_0(T *ptr)
 {
@@ -479,6 +511,11 @@ ccl_device_inline float4 float3_to_float4(const float3 a)
   return make_float4(a.x, a.y, a.z, 1.0f);
 }
 
+ccl_device_inline float4 float3_to_float4(const float3 a, const float w)
+{
+  return make_float4(a.x, a.y, a.z, w);
+}
+
 ccl_device_inline float inverse_lerp(float a, float b, float x)
 {
   return (x - a) / (b - a);
@@ -503,6 +540,7 @@ CCL_NAMESPACE_END
 #include "util/math_float2.h"
 #include "util/math_float3.h"
 #include "util/math_float4.h"
+#include "util/math_float8.h"
 
 #include "util/rect.h"
 
@@ -557,26 +595,26 @@ ccl_device_inline void make_orthonormals(const float3 N,
 
 /* Color division */
 
-ccl_device_inline float3 safe_invert_color(float3 a)
+ccl_device_inline Spectrum safe_invert_color(Spectrum a)
 {
-  float x, y, z;
+  FOREACH_SPECTRUM_CHANNEL (i) {
+    GET_SPECTRUM_CHANNEL(a, i) = (GET_SPECTRUM_CHANNEL(a, i) != 0.0f) ?
+                                     1.0f / GET_SPECTRUM_CHANNEL(a, i) :
+                                     0.0f;
+  }
 
-  x = (a.x != 0.0f) ? 1.0f / a.x : 0.0f;
-  y = (a.y != 0.0f) ? 1.0f / a.y : 0.0f;
-  z = (a.z != 0.0f) ? 1.0f / a.z : 0.0f;
-
-  return make_float3(x, y, z);
+  return a;
 }
 
-ccl_device_inline float3 safe_divide_color(float3 a, float3 b)
+ccl_device_inline Spectrum safe_divide_color(Spectrum a, Spectrum b)
 {
-  float x, y, z;
+  FOREACH_SPECTRUM_CHANNEL (i) {
+    GET_SPECTRUM_CHANNEL(a, i) = (GET_SPECTRUM_CHANNEL(b, i) != 0.0f) ?
+                                     GET_SPECTRUM_CHANNEL(a, i) / GET_SPECTRUM_CHANNEL(b, i) :
+                                     0.0f;
+  }
 
-  x = (b.x != 0.0f) ? a.x / b.x : 0.0f;
-  y = (b.y != 0.0f) ? a.y / b.y : 0.0f;
-  z = (b.z != 0.0f) ? a.z / b.z : 0.0f;
-
-  return make_float3(x, y, z);
+  return a;
 }
 
 ccl_device_inline float3 safe_divide_even_color(float3 a, float3 b)
@@ -767,6 +805,11 @@ ccl_device_inline uint popcount(uint x)
   return i & 1;
 }
 #  endif
+#elif defined(__KERNEL_ONEAPI__)
+#  define popcount(x) sycl::popcount(x)
+#elif defined(__KERNEL_HIP__)
+/* Use popcll to support 64-bit wave for pre-RDNA AMD GPUs */
+#  define popcount(x) __popcll(x)
 #elif !defined(__KERNEL_METAL__)
 #  define popcount(x) __popc(x)
 #endif
@@ -777,6 +820,8 @@ ccl_device_inline uint count_leading_zeros(uint x)
   return __clz(x);
 #elif defined(__KERNEL_METAL__)
   return clz(x);
+#elif defined(__KERNEL_ONEAPI__)
+  return sycl::clz(x);
 #else
   assert(x != 0);
 #  ifdef _MSC_VER
@@ -795,6 +840,8 @@ ccl_device_inline uint count_trailing_zeros(uint x)
   return (__ffs(x) - 1);
 #elif defined(__KERNEL_METAL__)
   return ctz(x);
+#elif defined(__KERNEL_ONEAPI__)
+  return sycl::ctz(x);
 #else
   assert(x != 0);
 #  ifdef _MSC_VER
@@ -906,13 +953,19 @@ ccl_device_inline uint prev_power_of_two(uint x)
 ccl_device_inline uint32_t reverse_integer_bits(uint32_t x)
 {
   /* Use a native instruction if it exists. */
-#if defined(__arm__) || defined(__aarch64__)
-  __asm__("rbit %w0, %w1" : "=r"(x) : "r"(x));
-  return x;
-#elif defined(__KERNEL_CUDA__)
+#if defined(__KERNEL_CUDA__)
   return __brev(x);
 #elif defined(__KERNEL_METAL__)
   return reverse_bits(x);
+#elif defined(__aarch64__) || defined(_M_ARM64)
+  /* Assume the rbit is always available on 64bit ARM architecture. */
+  __asm__("rbit %w0, %w1" : "=r"(x) : "r"(x));
+  return x;
+#elif defined(__arm__) && ((__ARM_ARCH > 7) || __ARM_ARCH == 6 && __ARM_ARCH_ISA_THUMB >= 2)
+  /* This ARM instruction is available in ARMv6T2 and above.
+   * This 32-bit Thumb instruction is available in ARMv6T2 and above. */
+  __asm__("rbit %0, %1" : "=r"(x) : "r"(x));
+  return x;
 #elif __has_builtin(__builtin_bitreverse32)
   return __builtin_bitreverse32(x);
 #else

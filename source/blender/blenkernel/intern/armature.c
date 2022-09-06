@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -277,12 +261,12 @@ static void armature_blend_read_data(BlendDataReader *reader, ID *id)
   BKE_armature_bone_hash_make(arm);
 }
 
-static void lib_link_bones(BlendLibReader *reader, Bone *bone)
+static void lib_link_bones(BlendLibReader *reader, Library *lib, Bone *bone)
 {
-  IDP_BlendReadLib(reader, bone->prop);
+  IDP_BlendReadLib(reader, lib, bone->prop);
 
   LISTBASE_FOREACH (Bone *, curbone, &bone->childbase) {
-    lib_link_bones(reader, curbone);
+    lib_link_bones(reader, lib, curbone);
   }
 }
 
@@ -290,7 +274,7 @@ static void armature_blend_read_lib(BlendLibReader *reader, ID *id)
 {
   bArmature *arm = (bArmature *)id;
   LISTBASE_FOREACH (Bone *, curbone, &arm->bonebase) {
-    lib_link_bones(reader, curbone);
+    lib_link_bones(reader, id->lib, curbone);
   }
 }
 
@@ -829,11 +813,9 @@ bool bone_autoside_name(
       }
     }
 
-    if ((MAXBONENAME - len) < strlen(extension) + 1) { /* add 1 for the '.' */
-      strncpy(name, basename, len - strlen(extension));
-    }
-
-    BLI_snprintf(name, MAXBONENAME, "%s.%s", basename, extension);
+    /* Subtract 1 from #MAXBONENAME for the null byte. Add 1 to the extension for the '.' */
+    const int basename_maxlen = (MAXBONENAME - 1) - (1 + strlen(extension));
+    BLI_snprintf(name, MAXBONENAME, "%.*s.%s", basename_maxlen, basename, extension);
 
     return true;
   }
@@ -2180,8 +2162,8 @@ void vec_roll_to_mat3_normalized(const float nor[3], const float roll, float r_m
   const float y = nor[1];
   const float z = nor[2];
 
-  float theta = 1.0f + y;                /* remapping Y from [-1,+1] to [0,2]. */
-  const float theta_alt = x * x + z * z; /* squared distance from origin in x,z plane. */
+  float theta = 1.0f + y;                /* Remapping Y from [-1,+1] to [0,2]. */
+  const float theta_alt = x * x + z * z; /* Squared distance from origin in x,z plane. */
   float rMatrix[3][3], bMatrix[3][3];
 
   BLI_ASSERT_UNIT_V3(nor);
@@ -2496,7 +2478,7 @@ void BKE_pose_where_is_bone(struct Depsgraph *depsgraph,
                             float ctime,
                             bool do_extra)
 {
-  /* This gives a chan_mat with actions (F-curve) results. */
+  /* This gives a chan_mat with actions (F-Curve) results. */
   if (do_extra) {
     BKE_pchan_calc_mat(pchan);
   }
@@ -2679,13 +2661,31 @@ BoundBox *BKE_armature_boundbox_get(Object *ob)
   return ob->runtime.bb;
 }
 
-void BKE_pchan_minmax(const Object *ob, const bPoseChannel *pchan, float r_min[3], float r_max[3])
+void BKE_pchan_minmax(const Object *ob,
+                      const bPoseChannel *pchan,
+                      const bool use_empty_drawtype,
+                      float r_min[3],
+                      float r_max[3])
 {
   const bArmature *arm = ob->data;
-  const bPoseChannel *pchan_tx = (pchan->custom && pchan->custom_tx) ? pchan->custom_tx : pchan;
-  const BoundBox *bb_custom = ((pchan->custom) && !(arm->flag & ARM_NO_CUSTOM)) ?
-                                  BKE_object_boundbox_get(pchan->custom) :
-                                  NULL;
+  Object *ob_custom = (arm->flag & ARM_NO_CUSTOM) ? NULL : pchan->custom;
+  const bPoseChannel *pchan_tx = (ob_custom && pchan->custom_tx) ? pchan->custom_tx : pchan;
+  const BoundBox *bb_custom = NULL;
+  BoundBox bb_custom_buf;
+
+  if (ob_custom) {
+    float min[3], max[3];
+    if (use_empty_drawtype && (ob_custom->type == OB_EMPTY) &&
+        BKE_object_minmax_empty_drawtype(ob_custom, min, max)) {
+      memset(&bb_custom_buf, 0x0, sizeof(bb_custom_buf));
+      BKE_boundbox_init_from_minmax(&bb_custom_buf, min, max);
+      bb_custom = &bb_custom_buf;
+    }
+    else {
+      bb_custom = BKE_object_boundbox_get(ob_custom);
+    }
+  }
+
   if (bb_custom) {
     float mat[4][4], smat[4][4], rmat[4][4], tmp[4][4];
     scale_m4_fl(smat, PCHAN_CUSTOM_BONE_LENGTH(pchan));
@@ -2722,7 +2722,7 @@ bool BKE_pose_minmax(Object *ob, float r_min[3], float r_max[3], bool use_hidden
       if (pchan->bone && (!((use_hidden == false) && (PBONE_VISIBLE(arm, pchan->bone) == false)) &&
                           !((use_select == true) && ((pchan->bone->flag & BONE_SELECTED) == 0)))) {
 
-        BKE_pchan_minmax(ob, pchan, r_min, r_max);
+        BKE_pchan_minmax(ob, pchan, false, r_min, r_max);
         changed = true;
       }
     }

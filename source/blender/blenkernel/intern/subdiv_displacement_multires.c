@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2018 by Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2018 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -34,6 +18,7 @@
 #include "BLI_utildefines.h"
 
 #include "BKE_customdata.h"
+#include "BKE_mesh.h"
 #include "BKE_multires.h"
 #include "BKE_subdiv_eval.h"
 
@@ -376,7 +361,7 @@ static void free_displacement(SubdivDisplacement *displacement)
 static int count_num_ptex_faces(const Mesh *mesh)
 {
   int num_ptex_faces = 0;
-  const MPoly *mpoly = mesh->mpoly;
+  const MPoly *mpoly = BKE_mesh_polygons(mesh);
   for (int poly_index = 0; poly_index < mesh->totpoly; poly_index++) {
     const MPoly *poly = &mpoly[poly_index];
     num_ptex_faces += (poly->totloop == 4) ? 1 : poly->totloop;
@@ -387,7 +372,7 @@ static int count_num_ptex_faces(const Mesh *mesh)
 static void displacement_data_init_mapping(SubdivDisplacement *displacement, const Mesh *mesh)
 {
   MultiresDisplacementData *data = displacement->user_data;
-  const MPoly *mpoly = mesh->mpoly;
+  const MPoly *mpoly = BKE_mesh_polygons(mesh);
   const int num_ptex_faces = count_num_ptex_faces(mesh);
   /* Allocate memory. */
   data->ptex_poly_corner = MEM_malloc_arrayN(
@@ -422,7 +407,7 @@ static void displacement_init_data(SubdivDisplacement *displacement,
   data->grid_size = BKE_subdiv_grid_size_from_level(mmd->totlvl);
   data->mesh = mesh;
   data->mmd = mmd;
-  data->mpoly = mesh->mpoly;
+  data->mpoly = BKE_mesh_polygons(mesh);
   data->mdisps = CustomData_get_layer(&mesh->ldata, CD_MDISPS);
   data->face_ptex_offset = BKE_subdiv_face_ptex_offset_get(subdiv);
   data->is_initialized = false;

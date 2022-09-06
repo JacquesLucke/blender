@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -43,6 +29,7 @@
 
 /* ngon version wip, based on BM_uv_vert_map_create */
 UvVertMap *BKE_mesh_uv_vert_map_create(const MPoly *mpoly,
+                                       const bool *hide_poly,
                                        const MLoop *mloop,
                                        const MLoopUV *mloopuv,
                                        uint totpoly,
@@ -65,7 +52,7 @@ UvVertMap *BKE_mesh_uv_vert_map_create(const MPoly *mpoly,
   /* generate UvMapVert array */
   mp = mpoly;
   for (a = 0; a < totpoly; a++, mp++) {
-    if (!selected || (!(mp->flag & ME_HIDE) && (mp->flag & ME_FACE_SEL))) {
+    if (!selected || (!(hide_poly && hide_poly[a]) && (mp->flag & ME_FACE_SEL))) {
       totuv += mp->totloop;
     }
   }
@@ -88,7 +75,7 @@ UvVertMap *BKE_mesh_uv_vert_map_create(const MPoly *mpoly,
 
   mp = mpoly;
   for (a = 0; a < totpoly; a++, mp++) {
-    if (!selected || (!(mp->flag & ME_HIDE) && (mp->flag & ME_FACE_SEL))) {
+    if (!selected || (!(hide_poly && hide_poly[a]) && (mp->flag & ME_FACE_SEL))) {
       float(*tf_uv)[2] = NULL;
 
       if (use_winding) {
@@ -575,7 +562,7 @@ void BKE_mesh_origindex_map_create_looptri(MeshElemMap **r_map,
 typedef bool (*MeshRemap_CheckIslandBoundary)(const struct MPoly *mpoly,
                                               const struct MLoop *mloop,
                                               const struct MEdge *medge,
-                                              const int nbr_edge_users,
+                                              const int edge_user_count,
                                               const struct MPoly *mpoly_array,
                                               const struct MeshElemMap *edge_poly_map,
                                               void *user_data);
@@ -778,14 +765,14 @@ static void poly_edge_loop_islands_calc(const MEdge *medge,
 static bool poly_is_island_boundary_smooth_cb(const MPoly *mp,
                                               const MLoop *UNUSED(ml),
                                               const MEdge *me,
-                                              const int nbr_edge_users,
+                                              const int edge_user_count,
                                               const MPoly *mpoly_array,
                                               const MeshElemMap *edge_poly_map,
                                               void *UNUSED(user_data))
 {
   /* Edge is sharp if one of its polys is flat, or edge itself is sharp,
    * or edge is not used by exactly two polygons. */
-  if ((mp->flag & ME_SMOOTH) && !(me->flag & ME_SHARP) && (nbr_edge_users == 2)) {
+  if ((mp->flag & ME_SMOOTH) && !(me->flag & ME_SHARP) && (edge_user_count == 2)) {
     /* In that case, edge appears to be smooth, but we need to check its other poly too. */
     const MPoly *mp_other = (mp == &mpoly_array[edge_poly_map->indices[0]]) ?
                                 &mpoly_array[edge_poly_map->indices[1]] :
@@ -949,7 +936,7 @@ typedef struct MeshCheckIslandBoundaryUv {
 static bool mesh_check_island_boundary_uv(const MPoly *UNUSED(mp),
                                           const MLoop *ml,
                                           const MEdge *me,
-                                          const int UNUSED(nbr_edge_users),
+                                          const int UNUSED(edge_user_count),
                                           const MPoly *UNUSED(mpoly_array),
                                           const MeshElemMap *UNUSED(edge_poly_map),
                                           void *user_data)
@@ -989,13 +976,13 @@ static bool mesh_check_island_boundary_uv(const MPoly *UNUSED(mp),
   return (me->flag & ME_SEAM) != 0;
 }
 
-static bool mesh_calc_islands_loop_poly_uv(MVert *UNUSED(verts),
+static bool mesh_calc_islands_loop_poly_uv(const MVert *UNUSED(verts),
                                            const int UNUSED(totvert),
-                                           MEdge *edges,
+                                           const MEdge *edges,
                                            const int totedge,
-                                           MPoly *polys,
+                                           const MPoly *polys,
                                            const int totpoly,
-                                           MLoop *loops,
+                                           const MLoop *loops,
                                            const int totloop,
                                            const MLoopUV *luvs,
                                            MeshIslandStore *r_island_store)
@@ -1086,16 +1073,13 @@ static bool mesh_calc_islands_loop_poly_uv(MVert *UNUSED(verts),
     }
 
     for (p_idx = 0; p_idx < totpoly; p_idx++) {
-      MPoly *mp;
-
       if (poly_groups[p_idx] != grp_idx) {
         continue;
       }
-
-      mp = &polys[p_idx];
+      const MPoly *mp = &polys[p_idx];
       poly_indices[num_pidx++] = p_idx;
       for (l_idx = mp->loopstart, pl_idx = 0; pl_idx < mp->totloop; l_idx++, pl_idx++) {
-        MLoop *ml = &loops[l_idx];
+        const MLoop *ml = &loops[l_idx];
         loop_indices[num_lidx++] = l_idx;
         if (num_edge_borders && BLI_BITMAP_TEST(edge_borders, ml->e) &&
             (edge_border_count[ml->e] < 2)) {
@@ -1139,13 +1123,13 @@ static bool mesh_calc_islands_loop_poly_uv(MVert *UNUSED(verts),
   return true;
 }
 
-bool BKE_mesh_calc_islands_loop_poly_edgeseam(MVert *verts,
+bool BKE_mesh_calc_islands_loop_poly_edgeseam(const MVert *verts,
                                               const int totvert,
-                                              MEdge *edges,
+                                              const MEdge *edges,
                                               const int totedge,
-                                              MPoly *polys,
+                                              const MPoly *polys,
                                               const int totpoly,
-                                              MLoop *loops,
+                                              const MLoop *loops,
                                               const int totloop,
                                               MeshIslandStore *r_island_store)
 {

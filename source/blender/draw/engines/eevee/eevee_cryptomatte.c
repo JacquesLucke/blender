@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2020, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. */
 
 /** \file
  * \ingroup EEVEE
@@ -40,7 +25,6 @@
  * they take into account to create the render passes. When accurate mode is off the number of
  * levels is used as the number of cryptomatte samples to take. When accuracy mode is on the number
  * of render samples is used.
- *
  */
 
 #include "DRW_engine.h"
@@ -83,7 +67,7 @@ BLI_INLINE int eevee_cryptomatte_layers_count(const ViewLayer *view_layer)
 }
 
 /* The number of render result passes are needed to store a single cryptomatte layer. Per
- * renderpass 2 cryptomatte samples can be stored. */
+ * render-pass 2 cryptomatte samples can be stored. */
 BLI_INLINE int eevee_cryptomatte_passes_per_layer(const ViewLayer *view_layer)
 {
   const int num_cryptomatte_levels = view_layer->cryptomatte_levels;
@@ -109,7 +93,7 @@ BLI_INLINE int eevee_cryptomatte_pixel_stride(const ViewLayer *view_layer)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name Init Renderpasses
+/** \name Init Render-Passes
  * \{ */
 
 void EEVEE_cryptomatte_renderpasses_init(EEVEE_Data *vedata)
@@ -204,11 +188,8 @@ void EEVEE_cryptomatte_cache_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Dat
   }
 }
 
-static DRWShadingGroup *eevee_cryptomatte_shading_group_create(EEVEE_Data *vedata,
-                                                               EEVEE_ViewLayerData *UNUSED(sldata),
-                                                               Object *ob,
-                                                               Material *material,
-                                                               bool is_hair)
+static DRWShadingGroup *eevee_cryptomatte_shading_group_create(
+    EEVEE_Data *vedata, EEVEE_ViewLayerData *sldata, Object *ob, Material *material, bool is_hair)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
   const ViewLayer *view_layer = draw_ctx->view_layer;
@@ -244,6 +225,7 @@ static DRWShadingGroup *eevee_cryptomatte_shading_group_create(EEVEE_Data *vedat
   DRWShadingGroup *grp = DRW_shgroup_create(EEVEE_shaders_cryptomatte_sh_get(is_hair),
                                             psl->cryptomatte_ps);
   DRW_shgroup_uniform_vec4_copy(grp, "cryptohash", cryptohash);
+  DRW_shgroup_uniform_block(grp, "shadow_block", sldata->shadow_ubo);
 
   return grp;
 }
@@ -266,7 +248,9 @@ void EEVEE_cryptomatte_object_curves_cache_populate(EEVEE_Data *vedata,
 {
   BLI_assert(ob->type == OB_CURVES);
   Material *material = BKE_object_material_get_eval(ob, CURVES_MATERIAL_NR);
-  eevee_cryptomatte_curves_cache_populate(vedata, sldata, ob, NULL, NULL, material);
+  DRWShadingGroup *grp = eevee_cryptomatte_shading_group_create(
+      vedata, sldata, ob, material, true);
+  DRW_shgroup_curves_create_sub(ob, grp, NULL);
 }
 
 void EEVEE_cryptomatte_particle_hair_cache_populate(EEVEE_Data *vedata,
@@ -437,27 +421,31 @@ void EEVEE_cryptomatte_output_accumulate(EEVEE_ViewLayerData *UNUSED(sldata), EE
 
 void EEVEE_cryptomatte_update_passes(RenderEngine *engine, Scene *scene, ViewLayer *view_layer)
 {
+  /* NOTE: Name channels lowercase rgba so that compression rules check in OpenEXR DWA code uses
+   * lossless compression. Reportedly this naming is the only one which works good from the
+   * interoperability point of view. Using XYZW naming is not portable. */
+
   char cryptomatte_pass_name[MAX_NAME];
   const short num_passes = eevee_cryptomatte_passes_per_layer(view_layer);
   if ((view_layer->cryptomatte_flag & VIEW_LAYER_CRYPTOMATTE_OBJECT) != 0) {
     for (short pass = 0; pass < num_passes; pass++) {
       BLI_snprintf_rlen(cryptomatte_pass_name, MAX_NAME, "CryptoObject%02d", pass);
       RE_engine_register_pass(
-          engine, scene, view_layer, cryptomatte_pass_name, 4, "RGBA", SOCK_RGBA);
+          engine, scene, view_layer, cryptomatte_pass_name, 4, "rgba", SOCK_RGBA);
     }
   }
   if ((view_layer->cryptomatte_flag & VIEW_LAYER_CRYPTOMATTE_MATERIAL) != 0) {
     for (short pass = 0; pass < num_passes; pass++) {
       BLI_snprintf_rlen(cryptomatte_pass_name, MAX_NAME, "CryptoMaterial%02d", pass);
       RE_engine_register_pass(
-          engine, scene, view_layer, cryptomatte_pass_name, 4, "RGBA", SOCK_RGBA);
+          engine, scene, view_layer, cryptomatte_pass_name, 4, "rgba", SOCK_RGBA);
     }
   }
   if ((view_layer->cryptomatte_flag & VIEW_LAYER_CRYPTOMATTE_ASSET) != 0) {
     for (short pass = 0; pass < num_passes; pass++) {
       BLI_snprintf_rlen(cryptomatte_pass_name, MAX_NAME, "CryptoAsset%02d", pass);
       RE_engine_register_pass(
-          engine, scene, view_layer, cryptomatte_pass_name, 4, "RGBA", SOCK_RGBA);
+          engine, scene, view_layer, cryptomatte_pass_name, 4, "rgba", SOCK_RGBA);
     }
   }
 }

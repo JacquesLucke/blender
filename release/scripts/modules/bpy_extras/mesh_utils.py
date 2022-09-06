@@ -1,22 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# <pep8-80 compliant>
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 __all__ = (
     "mesh_linked_uv_islands",
@@ -31,14 +13,22 @@ __all__ = (
 
 def mesh_linked_uv_islands(mesh):
     """
-    Splits the mesh into connected polygons, use this for separating cubes from
-    other mesh elements within 1 mesh datablock.
+    Returns lists of polygon indices connected by UV islands.
 
     :arg mesh: the mesh used to group with.
     :type mesh: :class:`bpy.types.Mesh`
-    :return: lists of lists containing polygon indices
+    :return: list of lists containing polygon indices
     :rtype: list
     """
+
+    if mesh.polygons and not mesh.uv_layers.active.data:
+        # Currently, when in edit mode, UV Layer data will always be empty
+        # when accessed though RNA. This may change in the future.
+        raise ValueError(
+            "UV Layers are not currently available from python in Edit Mode. "
+            "Use bmesh and bpy_extras.bmesh_utils.bmesh_linked_uv_islands instead."
+        )
+
     uv_loops = [luv.uv[:] for luv in mesh.uv_layers.active.data]
     poly_loops = [poly.loop_indices for poly in mesh.polygons]
     luv_hash = {}

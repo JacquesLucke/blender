@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2004 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2004 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edmesh
@@ -27,6 +11,8 @@
 #include "BLI_kdtree.h"
 #include "BLI_listbase.h"
 #include "BLI_math.h"
+
+#include "BLT_translation.h"
 
 #include "BKE_context.h"
 #include "BKE_customdata.h"
@@ -1386,8 +1372,14 @@ static bool edbm_select_similar_poll_property(const bContext *UNUSED(C),
   const char *prop_id = RNA_property_identifier(prop);
   const int type = RNA_enum_get(op->ptr, "type");
 
+  /* Only show compare when it is used. */
+  if (STREQ(prop_id, "compare")) {
+    if (type == SIMVERT_VGROUP) {
+      return false;
+    }
+  }
   /* Only show threshold when it is used. */
-  if (STREQ(prop_id, "threshold")) {
+  else if (STREQ(prop_id, "threshold")) {
     if (!ELEM(type,
               SIMVERT_NORMAL,
               SIMEDGE_BEVEL,
@@ -1426,6 +1418,7 @@ void MESH_OT_select_similar(wmOperatorType *ot)
 
   /* properties */
   prop = ot->prop = RNA_def_enum(ot->srna, "type", prop_similar_types, SIMVERT_NORMAL, "Type", "");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_MESH);
   RNA_def_enum_funcs(prop, select_similar_type_itemf);
 
   RNA_def_enum(ot->srna, "compare", prop_similar_compare_types, SIM_CMP_EQ, "Compare", "");

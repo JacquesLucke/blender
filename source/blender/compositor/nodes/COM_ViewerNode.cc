@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2011, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. */
 
 #include "COM_ViewerNode.h"
 
@@ -30,7 +15,7 @@ ViewerNode::ViewerNode(bNode *editor_node) : Node(editor_node)
 void ViewerNode::convert_to_operations(NodeConverter &converter,
                                        const CompositorContext &context) const
 {
-  bNode *editor_node = this->get_bnode();
+  const bNode *editor_node = this->get_bnode();
   bool do_output = (editor_node->flag & NODE_DO_OUTPUT_RECALC || context.is_rendering()) &&
                    (editor_node->flag & NODE_DO_OUTPUT);
   bool ignore_alpha = (editor_node->custom2 & CMP_NODE_OUTPUT_IGNORE_ALPHA) != 0;
@@ -52,8 +37,9 @@ void ViewerNode::convert_to_operations(NodeConverter &converter,
   viewer_operation->set_render_data(context.get_render_data());
   viewer_operation->set_view_name(context.get_view_name());
 
-  viewer_operation->set_view_settings(context.get_view_settings());
-  viewer_operation->set_display_settings(context.get_display_settings());
+  Scene *scene = context.get_scene();
+  viewer_operation->set_view_settings(&scene->view_settings);
+  viewer_operation->set_display_settings(&scene->display_settings);
 
   viewer_operation->set_canvas_input_index(0);
   if (!image_socket->is_linked()) {

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -51,7 +37,7 @@
  * \{ */
 
 /*
- * TODO(campbell): Current conversion is a approximation (usable not correct),
+ * TODO(@campbellbarton): Current conversion is a approximation (usable not correct),
  * we'll need to take the next/previous bones into account to get the tangent directions.
  * First last matrices from 'BKE_pchan_bbone_spline_setup' are close but also not quite accurate
  * since they're not at either end-points on the curve.
@@ -128,7 +114,7 @@ static bool WIDGETGROUP_armature_spline_poll(const bContext *C, wmGizmoGroupType
   }
 
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Base *base = BASACT(view_layer);
+  Base *base = view_layer->basact;
   if (base && BASE_SELECTABLE(v3d, base)) {
     Object *ob = BKE_object_pose_armature_get(base->object);
     if (ob) {
@@ -147,7 +133,7 @@ static bool WIDGETGROUP_armature_spline_poll(const bContext *C, wmGizmoGroupType
 static void WIDGETGROUP_armature_spline_setup(const bContext *C, wmGizmoGroup *gzgroup)
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = BKE_object_pose_armature_get(OBACT(view_layer));
+  Object *ob = BKE_object_pose_armature_get(BKE_view_layer_active_object_get(view_layer));
   bPoseChannel *pchan = BKE_pose_channel_active_if_layer_visible(ob);
 
   const wmGizmoType *gzt_move = WM_gizmotype_find("GIZMO_GT_move_3d", true);
@@ -180,7 +166,7 @@ static void WIDGETGROUP_armature_spline_setup(const bContext *C, wmGizmoGroup *g
 static void WIDGETGROUP_armature_spline_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = BKE_object_pose_armature_get(OBACT(view_layer));
+  Object *ob = BKE_object_pose_armature_get(BKE_view_layer_active_object_get(view_layer));
 
   if (!gzgroup->customdata) {
     return;

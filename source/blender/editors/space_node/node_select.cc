@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spnode
@@ -63,6 +47,8 @@
 #include "node_intern.hh" /* own include */
 
 namespace blender::ed::space_node {
+
+static bool is_event_over_node_or_socket(const bContext &C, const wmEvent &event);
 
 /**
  * Function to detect if there is a visible view3d that uses workbench in texture mode.
@@ -114,12 +100,17 @@ rctf node_frame_rect_inside(const bNode &node)
   return frame_inside;
 }
 
-static bool node_frame_select_isect_mouse(bNode *node, const float2 &mouse)
+bool node_or_socket_isect_event(const bContext &C, const wmEvent &event)
+{
+  return is_event_over_node_or_socket(C, event);
+}
+
+static bool node_frame_select_isect_mouse(const bNode &node, const float2 &mouse)
 {
   /* Frame nodes are selectable by their borders (including their whole rect - as for other nodes -
    * would prevent e.g. box selection of nodes inside that frame). */
-  const rctf frame_inside = node_frame_rect_inside(*node);
-  if (BLI_rctf_isect_pt(&node->totr, mouse.x, mouse.y) &&
+  const rctf frame_inside = node_frame_rect_inside(node);
+  if (BLI_rctf_isect_pt(&node.totr, mouse.x, mouse.y) &&
       !BLI_rctf_isect_pt(&frame_inside, mouse.x, mouse.y)) {
     return true;
   }
@@ -127,19 +118,18 @@ static bool node_frame_select_isect_mouse(bNode *node, const float2 &mouse)
   return false;
 }
 
-static bNode *node_under_mouse_select(bNodeTree &ntree, int mx, int my)
+static bNode *node_under_mouse_select(bNodeTree &ntree, const float2 mouse)
 {
   LISTBASE_FOREACH_BACKWARD (bNode *, node, &ntree.nodes) {
     switch (node->type) {
       case NODE_FRAME: {
-        const float2 mouse{(float)mx, (float)my};
-        if (node_frame_select_isect_mouse(node, mouse)) {
+        if (node_frame_select_isect_mouse(*node, mouse)) {
           return node;
         }
         break;
       }
       default: {
-        if (BLI_rctf_isect_pt(&node->totr, mx, my)) {
+        if (BLI_rctf_isect_pt(&node->totr, int(mouse.x), int(mouse.y))) {
           return node;
         }
         break;
@@ -149,35 +139,32 @@ static bNode *node_under_mouse_select(bNodeTree &ntree, int mx, int my)
   return nullptr;
 }
 
-static bNode *node_under_mouse_tweak(bNodeTree &ntree, const float2 &mouse)
+static bool node_under_mouse_tweak(const bNodeTree &ntree, const float2 &mouse)
 {
-  using namespace blender::math;
-
-  LISTBASE_FOREACH_BACKWARD (bNode *, node, &ntree.nodes) {
+  LISTBASE_FOREACH_BACKWARD (const bNode *, node, &ntree.nodes) {
     switch (node->type) {
       case NODE_REROUTE: {
-        bNodeSocket *socket = (bNodeSocket *)node->inputs.first;
-        const float2 location{socket->locx, socket->locy};
-        if (distance(mouse, location) < 24.0f) {
-          return node;
+        const float2 location = node_to_view(*node, {node->locx, node->locy});
+        if (math::distance(mouse, location) < 24.0f) {
+          return true;
         }
         break;
       }
       case NODE_FRAME: {
-        if (node_frame_select_isect_mouse(node, mouse)) {
-          return node;
+        if (node_frame_select_isect_mouse(*node, mouse)) {
+          return true;
         }
         break;
       }
       default: {
         if (BLI_rctf_isect_pt(&node->totr, mouse.x, mouse.y)) {
-          return node;
+          return true;
         }
         break;
       }
     }
   }
-  return nullptr;
+  return false;
 }
 
 static bool is_position_over_node_or_socket(SpaceNode &snode, const float2 &mouse)
@@ -196,18 +183,17 @@ static bool is_position_over_node_or_socket(SpaceNode &snode, const float2 &mous
   return false;
 }
 
-static bool is_event_over_node_or_socket(bContext *C, const wmEvent *event)
+static bool is_event_over_node_or_socket(const bContext &C, const wmEvent &event)
 {
-  SpaceNode *snode = CTX_wm_space_node(C);
-  ARegion *region = CTX_wm_region(C);
-  float2 mouse;
-  UI_view2d_region_to_view(&region->v2d, event->mval[0], event->mval[1], &mouse.x, &mouse.y);
-  return is_position_over_node_or_socket(*snode, mouse);
-}
+  SpaceNode &snode = *CTX_wm_space_node(&C);
+  ARegion &region = *CTX_wm_region(&C);
 
-static void node_toggle(bNode *node)
-{
-  nodeSetSelected(node, !(node->flag & SELECT));
+  int2 mval;
+  WM_event_drag_start_mval(&event, &region, mval);
+
+  float2 mouse;
+  UI_view2d_region_to_view(&region.v2d, mval.x, mval.y, &mouse.x, &mouse.y);
+  return is_position_over_node_or_socket(snode, mouse);
 }
 
 void node_socket_select(bNode *node, bNodeSocket &sock)
@@ -522,10 +508,10 @@ void node_select_single(bContext &C, bNode &node)
   WM_event_add_notifier(&C, NC_NODE | NA_SELECTED, nullptr);
 }
 
-static int node_mouse_select(bContext *C,
-                             wmOperator *op,
-                             const int mval[2],
-                             bool wait_to_deselect_others)
+static bool node_mouse_select(bContext *C,
+                              wmOperator *op,
+                              const int2 mval,
+                              SelectPick_Params *params)
 {
   Main &bmain = *CTX_data_main(C);
   SpaceNode &snode = *CTX_wm_space_node(C);
@@ -536,37 +522,39 @@ static int node_mouse_select(bContext *C,
   bNode *node, *tnode;
   bNodeSocket *sock = nullptr;
   bNodeSocket *tsock;
-  float cursor[2];
-  int ret_value = OPERATOR_CANCELLED;
 
-  const bool extend = RNA_boolean_get(op->ptr, "extend");
   /* always do socket_select when extending selection. */
-  const bool socket_select = extend || RNA_boolean_get(op->ptr, "socket_select");
-  const bool deselect_all = RNA_boolean_get(op->ptr, "deselect_all");
-
-  /* These cases are never modal. */
-  if (extend || socket_select) {
-    wait_to_deselect_others = false;
-  }
+  const bool socket_select = (params->sel_op == SEL_OP_XOR) ||
+                             RNA_boolean_get(op->ptr, "socket_select");
+  bool changed = false;
+  bool found = false;
+  bool node_was_selected = false;
 
   /* get mouse coordinates in view2d space */
-  UI_view2d_region_to_view(&region.v2d, mval[0], mval[1], &cursor[0], &cursor[1]);
+  float2 cursor;
+  UI_view2d_region_to_view(&region.v2d, mval.x, mval.y, &cursor.x, &cursor.y);
 
   /* first do socket selection, these generally overlap with nodes. */
   if (socket_select) {
+    /* NOTE: unlike nodes #SelectPick_Params isn't fully supported. */
+    const bool extend = (params->sel_op == SEL_OP_XOR);
     if (node_find_indicated_socket(snode, &node, &sock, cursor, SOCK_IN)) {
+      found = true;
+      node_was_selected = node->flag & SELECT;
+
       /* NOTE: SOCK_IN does not take into account the extend case...
        * This feature is not really used anyway currently? */
       node_socket_toggle(node, *sock, true);
-      ret_value = OPERATOR_FINISHED;
+      changed = true;
     }
     else if (node_find_indicated_socket(snode, &node, &sock, cursor, SOCK_OUT)) {
+      found = true;
+      node_was_selected = node->flag & SELECT;
+
       if (sock->flag & SELECT) {
         if (extend) {
           node_socket_deselect(node, *sock, true);
-        }
-        else {
-          ret_value = OPERATOR_FINISHED;
+          changed = true;
         }
       }
       else {
@@ -578,6 +566,7 @@ static int node_mouse_select(bContext *C,
               continue;
             }
             node_socket_deselect(node, *tsock, true);
+            changed = true;
           }
         }
         if (!extend) {
@@ -587,69 +576,71 @@ static int node_mouse_select(bContext *C,
             }
             for (tsock = (bNodeSocket *)tnode->outputs.first; tsock; tsock = tsock->next) {
               node_socket_deselect(tnode, *tsock, true);
+              changed = true;
             }
           }
         }
         node_socket_select(node, *sock);
-        ret_value = OPERATOR_FINISHED;
+        changed = true;
       }
     }
   }
 
   if (!sock) {
-    /* find the closest visible node */
-    node = node_under_mouse_select(*snode.edittree, (int)cursor[0], (int)cursor[1]);
 
-    if (extend) {
-      if (node != nullptr) {
-        /* If node is selected but not active, we want to make it active,
-         * but not toggle (deselect) it. */
-        if (!((node->flag & SELECT) && (node->flag & NODE_ACTIVE) == 0)) {
-          node_toggle(node);
-        }
-        ret_value = OPERATOR_FINISHED;
+    /* find the closest visible node */
+    node = node_under_mouse_select(*snode.edittree, cursor);
+    found = (node != nullptr);
+    node_was_selected = node && (node->flag & SELECT);
+
+    if (params->sel_op == SEL_OP_SET) {
+      if ((found && params->select_passthrough) && (node->flag & SELECT)) {
+        found = false;
       }
-    }
-    else if (deselect_all && node == nullptr) {
-      /* Rather than deselecting others, users may want to drag to box-select (drag from empty
-       * space) or tweak-translate an already selected item. If these cases may apply, delay
-       * deselection. */
-      if (wait_to_deselect_others) {
-        ret_value = OPERATOR_RUNNING_MODAL;
-      }
-      else {
-        /* Deselect in empty space. */
+      else if (found || params->deselect_all) {
+        /* Deselect everything. */
         for (tnode = (bNode *)snode.edittree->nodes.first; tnode; tnode = tnode->next) {
           nodeSetSelected(tnode, false);
         }
-        ret_value = OPERATOR_FINISHED;
+        changed = true;
       }
     }
-    else if (node != nullptr) {
-      /* When clicking on an already selected node, we want to wait to deselect
-       * others and allow the user to start moving the node without that. */
-      if (wait_to_deselect_others && (node->flag & SELECT)) {
-        ret_value = OPERATOR_RUNNING_MODAL;
-      }
-      else {
-        nodeSetSelected(node, true);
 
-        for (tnode = (bNode *)snode.edittree->nodes.first; tnode; tnode = tnode->next) {
-          if (tnode != node) {
-            nodeSetSelected(tnode, false);
-          }
+    if (found) {
+      switch (params->sel_op) {
+        case SEL_OP_ADD: {
+          nodeSetSelected(node, true);
+          break;
         }
-
-        ret_value = OPERATOR_FINISHED;
+        case SEL_OP_SUB: {
+          nodeSetSelected(node, false);
+          break;
+        }
+        case SEL_OP_XOR: {
+          /* Check active so clicking on an inactive node activates it. */
+          bool is_selected = (node->flag & NODE_SELECT) && (node->flag & NODE_ACTIVE);
+          nodeSetSelected(node, !is_selected);
+          break;
+        }
+        case SEL_OP_SET: {
+          nodeSetSelected(node, true);
+          break;
+        }
+        case SEL_OP_AND: {
+          BLI_assert_unreachable(); /* Doesn't make sense for picking. */
+          break;
+        }
       }
+
+      changed = true;
     }
   }
 
   /* update node order */
-  if (ret_value != OPERATOR_CANCELLED) {
+  if (changed || found) {
     bool active_texture_changed = false;
     bool viewer_node_changed = false;
-    if (node != nullptr && ret_value != OPERATOR_RUNNING_MODAL) {
+    if ((node != nullptr) && (node_was_selected == false || params->select_passthrough == false)) {
       viewer_node_changed = (node->flag & NODE_DO_OUTPUT) == 0 && node->type == GEO_NODE_VIEWER;
       ED_node_set_active(&bmain, &snode, snode.edittree, node, &active_texture_changed);
     }
@@ -666,23 +657,35 @@ static int node_mouse_select(bContext *C,
     WM_event_add_notifier(C, NC_NODE | NA_SELECTED, nullptr);
   }
 
-  return ret_value;
+  return changed || found;
 }
 
 static int node_select_exec(bContext *C, wmOperator *op)
 {
-  const bool wait_to_deselect_others = RNA_boolean_get(op->ptr, "wait_to_deselect_others");
-
   /* get settings from RNA properties for operator */
-  int mval[2];
-  mval[0] = RNA_int_get(op->ptr, "mouse_x");
-  mval[1] = RNA_int_get(op->ptr, "mouse_y");
+  int2 mval;
+  RNA_int_get_array(op->ptr, "location", mval);
+
+  SelectPick_Params params = {};
+  ED_select_pick_params_from_operator(op->ptr, &params);
 
   /* perform the select */
-  const int ret_value = node_mouse_select(C, op, mval, wait_to_deselect_others);
+  const bool changed = node_mouse_select(C, op, mval, &params);
 
-  /* allow tweak event to work too */
-  return ret_value | OPERATOR_PASS_THROUGH;
+  if (changed) {
+    return OPERATOR_PASS_THROUGH | OPERATOR_FINISHED;
+  }
+  /* Nothing selected, just passthrough. */
+  return OPERATOR_PASS_THROUGH | OPERATOR_CANCELLED;
+}
+
+static int node_select_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  RNA_int_set_array(op->ptr, "location", event->mval);
+
+  const int retval = node_select_exec(C, op);
+
+  return WM_operator_flag_only_pass_through_on_press(retval, event);
 }
 
 void NODE_OT_select(wmOperatorType *ot)
@@ -696,24 +699,29 @@ void NODE_OT_select(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = node_select_exec;
-  ot->invoke = WM_generic_select_invoke;
-  ot->modal = WM_generic_select_modal;
+  ot->invoke = node_select_invoke;
   ot->poll = ED_operator_node_active;
+  ot->get_name = ED_select_pick_get_name;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* properties */
-  WM_operator_properties_generic_select(ot);
-  prop = RNA_def_boolean(ot->srna, "extend", false, "Extend", "");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
+  WM_operator_properties_mouse_select(ot);
+
+  prop = RNA_def_int_vector(ot->srna,
+                            "location",
+                            2,
+                            nullptr,
+                            INT_MIN,
+                            INT_MAX,
+                            "Location",
+                            "Mouse location",
+                            INT_MIN,
+                            INT_MAX);
+  RNA_def_property_flag(prop, PROP_HIDDEN);
+
   RNA_def_boolean(ot->srna, "socket_select", false, "Socket Select", "");
-  prop = RNA_def_boolean(ot->srna,
-                         "deselect_all",
-                         false,
-                         "Deselect On Nothing",
-                         "Deselect all when nothing under the cursor");
-  RNA_def_property_flag(prop, PROP_SKIP_SAVE);
 }
 
 /** \} */
@@ -746,7 +754,7 @@ static int node_box_select_exec(bContext *C, wmOperator *op)
         /* Frame nodes are selectable by their borders (including their whole rect - as for other
          * nodes - would prevent selection of other nodes inside that frame. */
         const rctf frame_inside = node_frame_rect_inside(*node);
-        if (BLI_rctf_isect(&rectf, &node->totr, NULL) &&
+        if (BLI_rctf_isect(&rectf, &node->totr, nullptr) &&
             !BLI_rctf_inside_rctf(&frame_inside, &rectf)) {
           nodeSetSelected(node, select);
           is_inside = true;
@@ -775,7 +783,7 @@ static int node_box_select_invoke(bContext *C, wmOperator *op, const wmEvent *ev
 {
   const bool tweak = RNA_boolean_get(op->ptr, "tweak");
 
-  if (tweak && is_event_over_node_or_socket(C, event)) {
+  if (tweak && is_event_over_node_or_socket(*C, *event)) {
     return OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH;
   }
 
@@ -824,7 +832,7 @@ static int node_circleselect_exec(bContext *C, wmOperator *op)
   bNode *node;
 
   int x, y, radius;
-  float offset[2];
+  float2 offset;
 
   float zoom = (float)(BLI_rcti_size_x(&region->winrct)) /
                (float)(BLI_rctf_size_x(&region->v2d.cur));
@@ -842,7 +850,7 @@ static int node_circleselect_exec(bContext *C, wmOperator *op)
   y = RNA_int_get(op->ptr, "y");
   radius = RNA_int_get(op->ptr, "radius");
 
-  UI_view2d_region_to_view(&region->v2d, x, y, &offset[0], &offset[1]);
+  UI_view2d_region_to_view(&region->v2d, x, y, &offset.x, &offset.y);
 
   for (node = (bNode *)snode->edittree->nodes.first; node; node = node->next) {
     switch (node->type) {
@@ -883,8 +891,8 @@ void NODE_OT_select_circle(wmOperatorType *ot)
   ot->invoke = WM_gesture_circle_invoke;
   ot->exec = node_circleselect_exec;
   ot->modal = WM_gesture_circle_modal;
-
   ot->poll = ED_operator_node_active;
+  ot->get_name = ED_select_circle_get_name;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -904,7 +912,7 @@ static int node_lasso_select_invoke(bContext *C, wmOperator *op, const wmEvent *
 {
   const bool tweak = RNA_boolean_get(op->ptr, "tweak");
 
-  if (tweak && is_event_over_node_or_socket(C, event)) {
+  if (tweak && is_event_over_node_or_socket(*C, *event)) {
     return OPERATOR_CANCELLED | OPERATOR_PASS_THROUGH;
   }
 
@@ -948,7 +956,7 @@ static bool do_lasso_select_node(bContext *C,
         BLI_rctf_rcti_copy(&rectf, &rect);
         UI_view2d_region_to_view_rctf(&region->v2d, &rectf, &rectf);
         const rctf frame_inside = node_frame_rect_inside(*node);
-        if (BLI_rctf_isect(&rectf, &node->totr, NULL) &&
+        if (BLI_rctf_isect(&rectf, &node->totr, nullptr) &&
             !BLI_rctf_inside_rctf(&frame_inside, &rectf)) {
           nodeSetSelected(node, select);
           changed = true;
@@ -956,14 +964,14 @@ static bool do_lasso_select_node(bContext *C,
         break;
       }
       default: {
-        int screen_co[2];
-        const float cent[2] = {BLI_rctf_cent_x(&node->totr), BLI_rctf_cent_y(&node->totr)};
+        int2 screen_co;
+        const float2 center = {BLI_rctf_cent_x(&node->totr), BLI_rctf_cent_y(&node->totr)};
 
         /* marker in screen coords */
         if (UI_view2d_view_to_region_clip(
-                &region->v2d, cent[0], cent[1], &screen_co[0], &screen_co[1]) &&
-            BLI_rcti_isect_pt(&rect, screen_co[0], screen_co[1]) &&
-            BLI_lasso_is_point_inside(mcoords, mcoords_len, screen_co[0], screen_co[1], INT_MAX)) {
+                &region->v2d, center.x, center.y, &screen_co.x, &screen_co.y) &&
+            BLI_rcti_isect_pt(&rect, screen_co.x, screen_co.y) &&
+            BLI_lasso_is_point_inside(mcoords, mcoords_len, screen_co.x, screen_co.y, INT_MAX)) {
           nodeSetSelected(node, select);
           changed = true;
         }
@@ -1286,7 +1294,7 @@ static void node_find_create_label(const bNode *node, char *str, int maxlen)
 }
 
 /* Generic search invoke. */
-static void node_find_update_fn(const struct bContext *C,
+static void node_find_update_fn(const bContext *C,
                                 void *UNUSED(arg),
                                 const char *str,
                                 uiSearchItems *items,
@@ -1318,7 +1326,7 @@ static void node_find_update_fn(const struct bContext *C,
   BLI_string_search_free(search);
 }
 
-static void node_find_exec_fn(struct bContext *C, void *UNUSED(arg1), void *arg2)
+static void node_find_exec_fn(bContext *C, void *UNUSED(arg1), void *arg2)
 {
   SpaceNode *snode = CTX_wm_space_node(C);
   bNode *active = (bNode *)arg2;

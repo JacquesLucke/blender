@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) Blender Foundation
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edobj
@@ -32,6 +16,7 @@
 
 #include "BKE_collection.h"
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_object.h"
@@ -49,6 +34,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_prototypes.h"
 
 #include "UI_interface_icons.h"
 
@@ -217,7 +203,7 @@ static int objects_remove_active_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *ob = OBACT(view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   int single_collection_index = RNA_enum_get(op->ptr, "collection");
   Collection *single_collection = collection_object_active_find_index(
       bmain, scene, ob, single_collection_index);
@@ -541,13 +527,19 @@ void OBJECT_OT_collection_link(wmOperatorType *ot)
   ot->prop = prop;
 }
 
-static int collection_remove_exec(bContext *C, wmOperator *UNUSED(op))
+static int collection_remove_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Object *ob = ED_object_context(C);
   Collection *collection = CTX_data_pointer_get_type(C, "collection", &RNA_Collection).data;
 
   if (!ob || !collection) {
+    return OPERATOR_CANCELLED;
+  }
+  if (ID_IS_LINKED(collection) || ID_IS_OVERRIDE_LIBRARY(collection)) {
+    BKE_report(op->reports,
+               RPT_ERROR,
+               "Cannot remove an object from a linked or library override collection");
     return OPERATOR_CANCELLED;
   }
 
@@ -576,12 +568,20 @@ void OBJECT_OT_collection_remove(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-static int collection_unlink_exec(bContext *C, wmOperator *UNUSED(op))
+static int collection_unlink_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
   Collection *collection = CTX_data_pointer_get_type(C, "collection", &RNA_Collection).data;
 
   if (!collection) {
+    return OPERATOR_CANCELLED;
+  }
+  if (ID_IS_OVERRIDE_LIBRARY(collection) &&
+      collection->id.override_library->hierarchy_root != &collection->id) {
+    BKE_report(op->reports,
+               RPT_ERROR,
+               "Cannot unlink a library override collection which is not the root of its override "
+               "hierarchy");
     return OPERATOR_CANCELLED;
   }
 

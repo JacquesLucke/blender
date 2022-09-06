@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup edcurve
@@ -33,6 +19,7 @@
 #include "DNA_scene_types.h"
 
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_main.h"
 #include "BKE_undo_system.h"
 #include "BKE_vfont.h"
@@ -322,7 +309,7 @@ static void undofont_free_data(UndoFont *uf)
 static Object *editfont_object_from_context(bContext *C)
 {
   ViewLayer *view_layer = CTX_data_view_layer(C);
-  Object *obedit = OBEDIT_FROM_VIEW_LAYER(view_layer);
+  Object *obedit = BKE_view_layer_edit_object_get(view_layer);
   if (obedit && obedit->type == OB_FONT) {
     Curve *cu = obedit->data;
     EditFont *ef = cu->editfont;

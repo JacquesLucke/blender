@@ -1,26 +1,13 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2019, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2019 Blender Foundation. */
 
 /** \file
  * \ingroup draw_engine
  */
 
 #include "DRW_render.h"
+
+#include "UI_resources.h"
 
 #include "BKE_vfont.h"
 
@@ -50,20 +37,27 @@ void OVERLAY_edit_text_cache_init(OVERLAY_Data *vedata)
 
     sh = OVERLAY_shader_uniform_color();
     pd->edit_text_wire_grp[i] = grp = DRW_shgroup_create(sh, psl->edit_text_wire_ps[i]);
-    DRW_shgroup_uniform_vec4_copy(grp, "color", G_draw.block.colorWire);
+    DRW_shgroup_uniform_vec4_copy(grp, "color", G_draw.block.color_wire);
   }
   {
+    /* Cursor (text caret). */
     state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA;
-    DRW_PASS_CREATE(psl->edit_text_overlay_ps, state | pd->clipping_state);
-
+    DRW_PASS_CREATE(psl->edit_text_cursor_ps, state | pd->clipping_state);
     sh = OVERLAY_shader_uniform_color();
-    pd->edit_text_overlay_grp = grp = DRW_shgroup_create(sh, psl->edit_text_overlay_ps);
+    pd->edit_text_cursor_grp = grp = DRW_shgroup_create(sh, psl->edit_text_cursor_ps);
+    DRW_shgroup_uniform_vec4(grp, "color", pd->edit_text.cursor_color, 1);
 
-    DRW_shgroup_uniform_vec4(grp, "color", pd->edit_text.overlay_color, 1);
+    /* Selection boxes. */
+    state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA;
+    DRW_PASS_CREATE(psl->edit_text_selection_ps, state | pd->clipping_state);
+    sh = OVERLAY_shader_uniform_color();
+    pd->edit_text_selection_grp = grp = DRW_shgroup_create(sh, psl->edit_text_selection_ps);
+    DRW_shgroup_uniform_vec4(grp, "color", pd->edit_text.selection_color, 1);
 
-    state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_MUL | DRW_STATE_DEPTH_GREATER_EQUAL |
+    /* Highlight text within selection boxes. */
+    state = DRW_STATE_WRITE_COLOR | DRW_STATE_BLEND_ALPHA | DRW_STATE_DEPTH_GREATER_EQUAL |
             pd->clipping_state;
-    DRW_PASS_INSTANCE_CREATE(psl->edit_text_darken_ps, psl->edit_text_overlay_ps, state);
+    DRW_PASS_INSTANCE_CREATE(psl->edit_text_highlight_ps, psl->edit_text_selection_ps, state);
   }
   {
     /* Create view which will render everything (hopefully) behind the text geometry. */
@@ -127,7 +121,7 @@ static void edit_text_cache_populate_select(OVERLAY_Data *vedata, Object *ob)
     v2_quad_corners_to_mat4(box, final_mat);
     mul_m4_m4m4(final_mat, ob->obmat, final_mat);
 
-    DRW_shgroup_call_obmat(pd->edit_text_overlay_grp, geom, final_mat);
+    DRW_shgroup_call_obmat(pd->edit_text_selection_grp, geom, final_mat);
   }
 }
 
@@ -143,7 +137,7 @@ static void edit_text_cache_populate_cursor(OVERLAY_Data *vedata, Object *ob)
   mul_m4_m4m4(mat, ob->obmat, mat);
 
   struct GPUBatch *geom = DRW_cache_quad_get();
-  DRW_shgroup_call_obmat(pd->edit_text_overlay_grp, geom, mat);
+  DRW_shgroup_call_obmat(pd->edit_text_cursor_grp, geom, mat);
 }
 
 static void edit_text_cache_populate_boxes(OVERLAY_Data *vedata, Object *ob)
@@ -154,7 +148,7 @@ static void edit_text_cache_populate_boxes(OVERLAY_Data *vedata, Object *ob)
   for (int i = 0; i < cu->totbox; i++) {
     TextBox *tb = &cu->tb[i];
     const bool is_active = (i == (cu->actbox - 1));
-    float *color = is_active ? G_draw.block.colorActive : G_draw.block.colorWire;
+    float *color = is_active ? G_draw.block.color_active : G_draw.block.color_wire;
 
     if ((tb->w != 0.0f) || (tb->h != 0.0f)) {
       float vecs[4][3];
@@ -208,11 +202,18 @@ void OVERLAY_edit_text_draw(OVERLAY_Data *vedata)
 
   DRW_view_set_active(pd->view_edit_text);
 
-  /* Alpha blended. */
-  copy_v4_fl4(pd->edit_text.overlay_color, 0.8f, 0.8f, 0.8f, 0.5f);
-  DRW_draw_pass(psl->edit_text_overlay_ps);
+  /* Selection Boxes. */
+  UI_GetThemeColor4fv(TH_WIDGET_TEXT_SELECTION, pd->edit_text.selection_color);
+  srgb_to_linearrgb_v4(pd->edit_text.selection_color, pd->edit_text.selection_color);
+  DRW_draw_pass(psl->edit_text_selection_ps);
 
-  /* Multiply previous result where depth test fail. */
-  copy_v4_fl4(pd->edit_text.overlay_color, 0.0f, 0.0f, 0.0f, 1.0f);
-  DRW_draw_pass(psl->edit_text_darken_ps);
+  /* Highlight text within selection boxes. */
+  UI_GetThemeColor4fv(TH_WIDGET_TEXT_HIGHLIGHT, pd->edit_text.selection_color);
+  srgb_to_linearrgb_v4(pd->edit_text.selection_color, pd->edit_text.selection_color);
+  DRW_draw_pass(psl->edit_text_highlight_ps);
+
+  /* Cursor (text caret). */
+  UI_GetThemeColor4fv(TH_WIDGET_TEXT_CURSOR, pd->edit_text.cursor_color);
+  srgb_to_linearrgb_v4(pd->edit_text.cursor_color, pd->edit_text.cursor_color);
+  DRW_draw_pass(psl->edit_text_cursor_ps);
 }

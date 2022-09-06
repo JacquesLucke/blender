@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup RNA
@@ -60,7 +44,7 @@ static const char *rna_Mesh_unit_test_compare(struct Mesh *mesh,
 static void rna_Mesh_create_normals_split(Mesh *mesh)
 {
   if (!CustomData_has_layer(&mesh->ldata, CD_NORMAL)) {
-    CustomData_add_layer(&mesh->ldata, CD_NORMAL, CD_CALLOC, NULL, mesh->totloop);
+    CustomData_add_layer(&mesh->ldata, CD_NORMAL, CD_SET_DEFAULT, NULL, mesh->totloop);
     CustomData_set_layer_flag(&mesh->ldata, CD_NORMAL, CD_FLAG_TEMPORARY);
   }
 }
@@ -80,7 +64,7 @@ static void rna_Mesh_calc_tangents(Mesh *mesh, ReportList *reports, const char *
   }
   else {
     r_looptangents = CustomData_add_layer(
-        &mesh->ldata, CD_MLOOPTANGENT, CD_CALLOC, NULL, mesh->totloop);
+        &mesh->ldata, CD_MLOOPTANGENT, CD_SET_DEFAULT, NULL, mesh->totloop);
     CustomData_set_layer_flag(&mesh->ldata, CD_MLOOPTANGENT, CD_FLAG_TEMPORARY);
   }
 
@@ -106,11 +90,11 @@ static void rna_Mesh_calc_smooth_groups(
     Mesh *mesh, bool use_bitflags, int *r_poly_group_len, int **r_poly_group, int *r_group_total)
 {
   *r_poly_group_len = mesh->totpoly;
-  *r_poly_group = BKE_mesh_calc_smoothgroups(mesh->medge,
+  *r_poly_group = BKE_mesh_calc_smoothgroups(BKE_mesh_edges(mesh),
                                              mesh->totedge,
-                                             mesh->mpoly,
+                                             BKE_mesh_polygons(mesh),
                                              mesh->totpoly,
-                                             mesh->mloop,
+                                             BKE_mesh_loops(mesh),
                                              mesh->totloop,
                                              r_group_total,
                                              use_bitflags);
@@ -181,9 +165,10 @@ static void rna_Mesh_transform(Mesh *mesh, float mat[16], bool shape_keys)
 
 static void rna_Mesh_flip_normals(Mesh *mesh)
 {
-  BKE_mesh_polygons_flip(mesh->mpoly, mesh->mloop, &mesh->ldata, mesh->totpoly);
+  BKE_mesh_polygons_flip(
+      BKE_mesh_polygons(mesh), BKE_mesh_loops_for_write(mesh), &mesh->ldata, mesh->totpoly);
   BKE_mesh_tessface_clear(mesh);
-  BKE_mesh_calc_normals(mesh);
+  BKE_mesh_normals_tag_dirty(mesh);
   BKE_mesh_runtime_clear_geometry(mesh);
 
   DEG_id_tag_update(&mesh->id, 0);

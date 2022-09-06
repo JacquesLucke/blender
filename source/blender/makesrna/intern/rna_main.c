@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -110,9 +96,7 @@ RNA_MAIN_LISTBASE_FUNCS_DEF(collections)
 RNA_MAIN_LISTBASE_FUNCS_DEF(curves)
 RNA_MAIN_LISTBASE_FUNCS_DEF(fonts)
 RNA_MAIN_LISTBASE_FUNCS_DEF(gpencils)
-#  ifdef WITH_NEW_CURVES_TYPE
 RNA_MAIN_LISTBASE_FUNCS_DEF(hair_curves)
-#  endif
 RNA_MAIN_LISTBASE_FUNCS_DEF(images)
 RNA_MAIN_LISTBASE_FUNCS_DEF(lattices)
 RNA_MAIN_LISTBASE_FUNCS_DEF(libraries)
@@ -185,7 +169,6 @@ void RNA_def_main(BlenderRNA *brna)
 {
   StructRNA *srna;
   PropertyRNA *prop;
-  CollectionDefFunc *func;
 
   /* plural must match idtypes in readblenentry.c */
   MainCollectionDef lists[] = {
@@ -389,7 +372,6 @@ void RNA_def_main(BlenderRNA *brna)
        "Light Probes",
        "Light Probe data-blocks",
        RNA_def_main_lightprobes},
-#  ifdef WITH_NEW_CURVES_TYPE
       /**
        * \note The name `hair_curves` is chosen to be different than `curves`,
        * but they are generic curve data-blocks, not just for hair.
@@ -400,7 +382,6 @@ void RNA_def_main(BlenderRNA *brna)
        "Hair Curves",
        "Hair curve data-blocks",
        RNA_def_main_hair_curves},
-#  endif
       {"pointclouds",
        "PointCloud",
        "rna_Main_pointclouds_begin",
@@ -485,7 +466,7 @@ void RNA_def_main(BlenderRNA *brna)
     RNA_def_property_ui_text(prop, lists[i].name, lists[i].description);
 
     /* collection functions */
-    func = lists[i].func;
+    CollectionDefFunc *func = lists[i].func;
     if (func) {
       func(brna, prop);
     }

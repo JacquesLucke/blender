@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2022, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2022 Blender Foundation. */
 
 #pragma once
 
@@ -31,56 +16,59 @@
  *
  * All types are not copyable and Buffers are not Movable.
  *
- * `drw::UniformArrayBuffer<T, len>`
+ * `draw::UniformArrayBuffer<T, len>`
  *   Uniform buffer object containing an array of T with len elements.
  *   Data can be accessed using the [] operator.
  *
- * `drw::UniformBuffer<T>`
+ * `draw::UniformBuffer<T>`
  *   A uniform buffer object class inheriting from T.
  *   Data can be accessed just like a normal T object.
  *
- * `drw::StorageArrayBuffer<T, len>`
+ * `draw::StorageArrayBuffer<T, len>`
  *   Storage buffer object containing an array of T with len elements.
  *   The item count can be changed after creation using `resize()`.
  *   However, this requires the invalidation of the whole buffer and
  *   discarding all data inside it.
  *   Data can be accessed using the [] operator.
  *
- * `drw::StorageBuffer<T>`
+ * `draw::StorageBuffer<T>`
  *   A storage buffer object class inheriting from T.
  *   Data can be accessed just like a normal T object.
  *
- * `drw::Texture`
- *   A simple wrapper to #GPUTexture. A #drw::Texture can be created without allocation.
+ * `draw::Texture`
+ *   A simple wrapper to #GPUTexture. A #draw::Texture can be created without allocation.
  *   The `ensure_[1d|2d|3d|cube][_array]()` method is here to make sure the underlying texture
  *   will meet the requirements and create (or recreate) the #GPUTexture if needed.
  *
- * `drw::TextureFromPool`
+ * `draw::TextureFromPool`
  *   A GPUTexture from the viewport texture pool. This texture can be shared with other engines
  *   and its content is undefined when acquiring it.
- *   A #drw::TextureFromPool is acquired for rendering using `acquire()` and released once the
+ *   A #draw::TextureFromPool is acquired for rendering using `acquire()` and released once the
  *   rendering is done using `release()`. The same texture can be acquired & released multiple
  *   time in one draw loop.
  *   The `sync()` method *MUST* be called once during the cache populate (aka: Sync) phase.
  *
- * `drw::Framebuffer`
+ * `draw::Framebuffer`
  *   Simple wrapper to #GPUFramebuffer that can be moved.
- *
  */
+
+#include "DRW_render.h"
 
 #include "MEM_guardedalloc.h"
 
+#include "draw_manager.h"
 #include "draw_texture_pool.h"
 
 #include "BLI_math_vec_types.hh"
 #include "BLI_span.hh"
 #include "BLI_utildefines.h"
 #include "BLI_utility_mixins.hh"
+#include "BLI_vector.hh"
 
 #include "GPU_framebuffer.h"
+#include "GPU_storage_buffer.h"
 #include "GPU_texture.h"
 #include "GPU_uniform_buffer.h"
-#include "GPU_vertex_buffer.h"
 
 namespace blender::draw {
 
@@ -114,7 +102,7 @@ class DataBuffer {
   {
     BLI_STATIC_ASSERT(!device_only, "");
     BLI_assert(index >= 0);
-    BLI_assert(index < len);
+    BLI_assert(index < len_);
     return data_[index];
   }
 
@@ -122,7 +110,7 @@ class DataBuffer {
   {
     BLI_STATIC_ASSERT(!device_only, "");
     BLI_assert(index >= 0);
-    BLI_assert(index < len);
+    BLI_assert(index < len_);
     return data_[index];
   }
 
@@ -151,7 +139,7 @@ class DataBuffer {
   const T *end() const
   {
     BLI_STATIC_ASSERT(!device_only, "");
-    return data_ + len;
+    return data_ + len_;
   }
 
   T *begin()
@@ -162,13 +150,13 @@ class DataBuffer {
   T *end()
   {
     BLI_STATIC_ASSERT(!device_only, "");
-    return data_ + len;
+    return data_ + len_;
   }
 
   operator Span<T>() const
   {
     BLI_STATIC_ASSERT(!device_only, "");
-    return Span<T>(data_, len);
+    return Span<T>(data_, len_);
   }
 };
 
@@ -180,7 +168,7 @@ class UniformCommon : public DataBuffer<T, len, false>, NonMovable, NonCopyable 
 #ifdef DEBUG
   const char *name_ = typeid(T).name();
 #else
-  constexpr static const char *name_ = "UniformBuffer";
+  const char *name_ = "UniformBuffer";
 #endif
 
  public:
@@ -194,7 +182,7 @@ class UniformCommon : public DataBuffer<T, len, false>, NonMovable, NonCopyable 
     GPU_uniformbuf_free(ubo_);
   }
 
-  void push_update(void)
+  void push_update()
   {
     GPU_uniformbuf_update(ubo_, this->data_);
   }
@@ -215,60 +203,54 @@ class UniformCommon : public DataBuffer<T, len, false>, NonMovable, NonCopyable 
 template<typename T, int64_t len, bool device_only>
 class StorageCommon : public DataBuffer<T, len, false>, NonMovable, NonCopyable {
  protected:
-  /* Use vertex buffer for now. Until there is a complete GPUStorageBuf implementation. */
-  GPUVertBuf *ssbo_;
+  GPUStorageBuf *ssbo_;
 
 #ifdef DEBUG
   const char *name_ = typeid(T).name();
 #else
-  constexpr static const char *name_ = "StorageBuffer";
+  const char *name_ = "StorageBuffer";
 #endif
 
  public:
-  StorageCommon()
+  StorageCommon(const char *name = nullptr)
   {
-    init(len);
+    if (name) {
+      name_ = name;
+    }
+    this->len_ = len;
+    constexpr GPUUsageType usage = device_only ? GPU_USAGE_DEVICE_ONLY : GPU_USAGE_DYNAMIC;
+    ssbo_ = GPU_storagebuf_create_ex(sizeof(T) * this->len_, nullptr, usage, this->name_);
   }
 
   ~StorageCommon()
   {
-    GPU_vertbuf_discard(ssbo_);
+    GPU_storagebuf_free(ssbo_);
   }
 
-  void resize(int64_t new_size)
+  void push_update()
   {
-    BLI_assert(new_size > 0);
-    if (new_size != this->len_) {
-      GPU_vertbuf_discard(ssbo_);
-      this->init(new_size);
-    }
+    BLI_assert(device_only == false);
+    GPU_storagebuf_update(ssbo_, this->data_);
   }
 
-  operator GPUVertBuf *() const
+  void clear_to_zero()
+  {
+    GPU_storagebuf_clear_to_zero(ssbo_);
+  }
+
+  void read()
+  {
+    GPU_storagebuf_read(ssbo_, this->data_);
+  }
+
+  operator GPUStorageBuf *() const
   {
     return ssbo_;
   }
   /* To be able to use it with DRW_shgroup_*_ref(). */
-  GPUVertBuf **operator&()
+  GPUStorageBuf **operator&()
   {
     return &ssbo_;
-  }
-
- private:
-  void init(int64_t new_size)
-  {
-    this->len_ = new_size;
-
-    GPUVertFormat format = {0};
-    GPU_vertformat_attr_add(&format, "dummy", GPU_COMP_F32, 1, GPU_FETCH_FLOAT);
-
-    GPUUsageType usage = device_only ? GPU_USAGE_DEVICE_ONLY : GPU_USAGE_DYNAMIC;
-    ssbo_ = GPU_vertbuf_create_with_format_ex(&format, usage);
-    GPU_vertbuf_data_alloc(ssbo_, divide_ceil_u(sizeof(T) * this->len_, 4));
-    if (!device_only) {
-      this->data_ = (T *)GPU_vertbuf_get_data(ssbo_);
-      GPU_vertbuf_use(ssbo_);
-    }
   }
 };
 
@@ -337,13 +319,43 @@ template<
     bool device_only = false>
 class StorageArrayBuffer : public detail::StorageCommon<T, len, device_only> {
  public:
-  void push_update(void)
+  StorageArrayBuffer(const char *name = nullptr) : detail::StorageCommon<T, len, device_only>(name)
   {
-    BLI_assert(!device_only);
-    /* Get the data again to tag for update. The actual pointer should not
-     * change. */
-    this->data_ = (T *)GPU_vertbuf_get_data(this->ssbo_);
-    GPU_vertbuf_use(this->ssbo_);
+    /* TODO(@fclem): We should map memory instead. */
+    this->data_ = (T *)MEM_mallocN_aligned(len * sizeof(T), 16, this->name_);
+  }
+  ~StorageArrayBuffer()
+  {
+    MEM_freeN(this->data_);
+  }
+
+  /* Resize to \a new_size elements. */
+  void resize(int64_t new_size)
+  {
+    BLI_assert(new_size > 0);
+    if (new_size != this->len_) {
+      /* Manual realloc since MEM_reallocN_aligned does not exists. */
+      T *new_data_ = (T *)MEM_mallocN_aligned(new_size * sizeof(T), 16, this->name_);
+      memcpy(new_data_, this->data_, min_uu(this->len_, new_size) * sizeof(T));
+      MEM_freeN(this->data_);
+      this->data_ = new_data_;
+      GPU_storagebuf_free(this->ssbo_);
+
+      this->len_ = new_size;
+      constexpr GPUUsageType usage = device_only ? GPU_USAGE_DEVICE_ONLY : GPU_USAGE_DYNAMIC;
+      this->ssbo_ = GPU_storagebuf_create_ex(sizeof(T) * this->len_, nullptr, usage, this->name_);
+    }
+  }
+
+  /* Resize on access. */
+  T &get_or_resize(int64_t index)
+  {
+    BLI_assert(index >= 0);
+    if (index >= this->len_) {
+      size_t size = power_of_2_max_u(index + 1);
+      this->resize(size);
+    }
+    return this->data_[index];
   }
 };
 
@@ -354,14 +366,10 @@ template<
     bool device_only = false>
 class StorageBuffer : public T, public detail::StorageCommon<T, 1, device_only> {
  public:
-  void push_update(void)
+  StorageBuffer(const char *name = nullptr) : detail::StorageCommon<T, 1, device_only>(name)
   {
-    BLI_assert(!device_only);
-    /* TODO(fclem): Avoid a full copy. */
-    T &vert_data = *(T *)GPU_vertbuf_get_data(this->ssbo_);
-    vert_data = *this;
-
-    GPU_vertbuf_use(this->ssbo_);
+    /* TODO(@fclem): How could we map this? */
+    this->data_ = static_cast<T *>(this);
   }
 
   StorageBuffer<T> &operator=(const T &other)
@@ -380,6 +388,9 @@ class StorageBuffer : public T, public detail::StorageCommon<T, 1, device_only> 
 class Texture : NonCopyable {
  protected:
   GPUTexture *tx_ = nullptr;
+  GPUTexture *stencil_view_ = nullptr;
+  Vector<GPUTexture *, 0> mip_views_;
+  Vector<GPUTexture *, 0> layer_views_;
   const char *name_;
 
  public:
@@ -392,10 +403,10 @@ class Texture : NonCopyable {
           int extent,
           float *data = nullptr,
           bool cubemap = false,
-          int mips = 1)
+          int mip_len = 1)
       : name_(name)
   {
-    tx_ = create(extent, 0, 0, mips, format, data, false, cubemap);
+    tx_ = create(extent, 0, 0, mip_len, format, data, false, cubemap);
   }
 
   Texture(const char *name,
@@ -404,17 +415,20 @@ class Texture : NonCopyable {
           int layers,
           float *data = nullptr,
           bool cubemap = false,
-          int mips = 1)
+          int mip_len = 1)
       : name_(name)
   {
-    tx_ = create(extent, layers, 0, mips, format, data, true, cubemap);
+    tx_ = create(extent, layers, 0, mip_len, format, data, true, cubemap);
   }
 
-  Texture(
-      const char *name, eGPUTextureFormat format, int2 extent, float *data = nullptr, int mips = 1)
+  Texture(const char *name,
+          eGPUTextureFormat format,
+          int2 extent,
+          float *data = nullptr,
+          int mip_len = 1)
       : name_(name)
   {
-    tx_ = create(UNPACK2(extent), 0, mips, format, data, false, false);
+    tx_ = create(UNPACK2(extent), 0, mip_len, format, data, false, false);
   }
 
   Texture(const char *name,
@@ -422,17 +436,20 @@ class Texture : NonCopyable {
           int2 extent,
           int layers,
           float *data = nullptr,
-          int mips = 1)
+          int mip_len = 1)
       : name_(name)
   {
-    tx_ = create(UNPACK2(extent), layers, mips, format, data, true, false);
+    tx_ = create(UNPACK2(extent), layers, mip_len, format, data, true, false);
   }
 
-  Texture(
-      const char *name, eGPUTextureFormat format, int3 extent, float *data = nullptr, int mips = 1)
+  Texture(const char *name,
+          eGPUTextureFormat format,
+          int3 extent,
+          float *data = nullptr,
+          int mip_len = 1)
       : name_(name)
   {
-    tx_ = create(UNPACK3(extent), mips, format, data, false, false);
+    tx_ = create(UNPACK3(extent), mip_len, format, data, false, false);
   }
 
   ~Texture()
@@ -467,9 +484,9 @@ class Texture : NonCopyable {
    * Ensure the texture has the correct properties. Recreating it if needed.
    * Return true if a texture has been created.
    */
-  bool ensure_1d(eGPUTextureFormat format, int extent, float *data = nullptr, int mips = 1)
+  bool ensure_1d(eGPUTextureFormat format, int extent, float *data = nullptr, int mip_len = 1)
   {
-    return ensure_impl(extent, 0, 0, mips, format, data, false, false);
+    return ensure_impl(extent, 0, 0, mip_len, format, data, false, false);
   }
 
   /**
@@ -477,18 +494,18 @@ class Texture : NonCopyable {
    * Return true if a texture has been created.
    */
   bool ensure_1d_array(
-      eGPUTextureFormat format, int extent, int layers, float *data = nullptr, int mips = 1)
+      eGPUTextureFormat format, int extent, int layers, float *data = nullptr, int mip_len = 1)
   {
-    return ensure_impl(extent, layers, 0, mips, format, data, true, false);
+    return ensure_impl(extent, layers, 0, mip_len, format, data, true, false);
   }
 
   /**
    * Ensure the texture has the correct properties. Recreating it if needed.
    * Return true if a texture has been created.
    */
-  bool ensure_2d(eGPUTextureFormat format, int2 extent, float *data = nullptr, int mips = 1)
+  bool ensure_2d(eGPUTextureFormat format, int2 extent, float *data = nullptr, int mip_len = 1)
   {
-    return ensure_impl(UNPACK2(extent), 0, mips, format, data, false, false);
+    return ensure_impl(UNPACK2(extent), 0, mip_len, format, data, false, false);
   }
 
   /**
@@ -496,27 +513,27 @@ class Texture : NonCopyable {
    * Return true if a texture has been created.
    */
   bool ensure_2d_array(
-      eGPUTextureFormat format, int2 extent, int layers, float *data = nullptr, int mips = 1)
+      eGPUTextureFormat format, int2 extent, int layers, float *data = nullptr, int mip_len = 1)
   {
-    return ensure_impl(UNPACK2(extent), layers, mips, format, data, true, false);
+    return ensure_impl(UNPACK2(extent), layers, mip_len, format, data, true, false);
   }
 
   /**
    * Ensure the texture has the correct properties. Recreating it if needed.
    * Return true if a texture has been created.
    */
-  bool ensure_3d(eGPUTextureFormat format, int3 extent, float *data = nullptr, int mips = 1)
+  bool ensure_3d(eGPUTextureFormat format, int3 extent, float *data = nullptr, int mip_len = 1)
   {
-    return ensure_impl(UNPACK3(extent), mips, format, data, false, false);
+    return ensure_impl(UNPACK3(extent), mip_len, format, data, false, false);
   }
 
   /**
    * Ensure the texture has the correct properties. Recreating it if needed.
    * Return true if a texture has been created.
    */
-  bool ensure_cube(eGPUTextureFormat format, int extent, float *data = nullptr, int mips = 1)
+  bool ensure_cube(eGPUTextureFormat format, int extent, float *data = nullptr, int mip_len = 1)
   {
-    return ensure_impl(extent, extent, 0, mips, format, data, false, true);
+    return ensure_impl(extent, extent, 0, mip_len, format, data, false, true);
   }
 
   /**
@@ -524,50 +541,123 @@ class Texture : NonCopyable {
    * Return true if a texture has been created.
    */
   bool ensure_cube_array(
-      eGPUTextureFormat format, int extent, int layers, float *data = nullptr, int mips = 1)
+      eGPUTextureFormat format, int extent, int layers, float *data = nullptr, int mip_len = 1)
   {
-    return ensure_impl(extent, extent, layers, mips, format, data, false, true);
+    return ensure_impl(extent, extent, layers, mip_len, format, data, false, true);
+  }
+
+  /**
+   * Ensure the availability of mipmap views.
+   * MIP view covers all layers of array textures.
+   */
+  bool ensure_mip_views(bool cube_as_array = false)
+  {
+    int mip_len = GPU_texture_mip_count(tx_);
+    if (mip_views_.size() != mip_len) {
+      for (GPUTexture *&view : mip_views_) {
+        GPU_TEXTURE_FREE_SAFE(view);
+      }
+      eGPUTextureFormat format = GPU_texture_format(tx_);
+      for (auto i : IndexRange(mip_len)) {
+        mip_views_.append(
+            GPU_texture_create_view(name_, tx_, format, i, 1, 0, 9999, cube_as_array));
+      }
+      return true;
+    }
+    return false;
+  }
+
+  GPUTexture *mip_view(int miplvl)
+  {
+    return mip_views_[miplvl];
+  }
+
+  int mip_count() const
+  {
+    return GPU_texture_mip_count(tx_);
+  }
+
+  /**
+   * Ensure the availability of mipmap views.
+   * Layer views covers all layers of array textures.
+   * Returns true if the views were (re)created.
+   */
+  bool ensure_layer_views(bool cube_as_array = false)
+  {
+    int layer_len = GPU_texture_layer_count(tx_);
+    if (layer_views_.size() != layer_len) {
+      for (GPUTexture *&view : layer_views_) {
+        GPU_TEXTURE_FREE_SAFE(view);
+      }
+      eGPUTextureFormat format = GPU_texture_format(tx_);
+      for (auto i : IndexRange(layer_len)) {
+        layer_views_.append(
+            GPU_texture_create_view(name_, tx_, format, 0, 9999, i, 1, cube_as_array));
+      }
+      return true;
+    }
+    return false;
+  }
+
+  GPUTexture *layer_view(int layer)
+  {
+    return layer_views_[layer];
+  }
+
+  GPUTexture *stencil_view(bool cube_as_array = false)
+  {
+    if (stencil_view_ == nullptr) {
+      eGPUTextureFormat format = GPU_texture_format(tx_);
+      stencil_view_ = GPU_texture_create_view(name_, tx_, format, 0, 9999, 0, 9999, cube_as_array);
+      GPU_texture_stencil_texture_mode_set(stencil_view_, true);
+    }
+    return stencil_view_;
   }
 
   /**
    * Returns true if the texture has been allocated or acquired from the pool.
    */
-  bool is_valid(void) const
+  bool is_valid() const
   {
     return tx_ != nullptr;
   }
 
-  int width(void) const
+  int width() const
   {
     return GPU_texture_width(tx_);
   }
 
-  int height(void) const
+  int height() const
   {
     return GPU_texture_height(tx_);
   }
 
-  bool depth(void) const
+  int pixel_count() const
+  {
+    return GPU_texture_width(tx_) * GPU_texture_height(tx_);
+  }
+
+  bool depth() const
   {
     return GPU_texture_depth(tx_);
   }
 
-  bool is_stencil(void) const
+  bool is_stencil() const
   {
     return GPU_texture_stencil(tx_);
   }
 
-  bool is_integer(void) const
+  bool is_integer() const
   {
     return GPU_texture_integer(tx_);
   }
 
-  bool is_cube(void) const
+  bool is_cube() const
   {
     return GPU_texture_cube(tx_);
   }
 
-  bool is_array(void) const
+  bool is_array() const
   {
     return GPU_texture_array(tx_);
   }
@@ -618,11 +708,19 @@ class Texture : NonCopyable {
   }
 
   /**
-   * Free the internal texture but not the #drw::Texture itself.
+   * Free the internal texture but not the #draw::Texture itself.
    */
   void free()
   {
     GPU_TEXTURE_FREE_SAFE(tx_);
+    for (GPUTexture *&view : mip_views_) {
+      GPU_TEXTURE_FREE_SAFE(view);
+    }
+    for (GPUTexture *&view : layer_views_) {
+      GPU_TEXTURE_FREE_SAFE(view);
+    }
+    GPU_TEXTURE_FREE_SAFE(stencil_view_);
+    mip_views_.clear();
   }
 
   /**
@@ -638,7 +736,7 @@ class Texture : NonCopyable {
   bool ensure_impl(int w,
                    int h = 0,
                    int d = 0,
-                   int mips = 1,
+                   int mip_len = 1,
                    eGPUTextureFormat format = GPU_RGBA8,
                    float *data = nullptr,
                    bool layered = false,
@@ -651,16 +749,11 @@ class Texture : NonCopyable {
       int3 size = this->size();
       if (size != int3(w, h, d) || GPU_texture_format(tx_) != format ||
           GPU_texture_cube(tx_) != cubemap || GPU_texture_array(tx_) != layered) {
-        GPU_TEXTURE_FREE_SAFE(tx_);
+        free();
       }
     }
     if (tx_ == nullptr) {
-      tx_ = create(w, h, d, mips, format, data, layered, cubemap);
-      if (mips > 1) {
-        /* TODO(@fclem): Remove once we have immutable storage or when mips are
-         * generated on creation. */
-        GPU_texture_generate_mipmap(tx_);
-      }
+      tx_ = create(w, h, d, mip_len, format, data, layered, cubemap);
       return true;
     }
     return false;
@@ -669,75 +762,82 @@ class Texture : NonCopyable {
   GPUTexture *create(int w,
                      int h,
                      int d,
-                     int mips,
+                     int mip_len,
                      eGPUTextureFormat format,
                      float *data,
                      bool layered,
                      bool cubemap)
   {
     if (h == 0) {
-      return GPU_texture_create_1d(name_, w, mips, format, data);
+      return GPU_texture_create_1d(name_, w, mip_len, format, data);
     }
     else if (cubemap) {
       if (layered) {
-        return GPU_texture_create_cube_array(name_, w, d, mips, format, data);
+        return GPU_texture_create_cube_array(name_, w, d, mip_len, format, data);
       }
       else {
-        return GPU_texture_create_cube(name_, w, mips, format, data);
+        return GPU_texture_create_cube(name_, w, mip_len, format, data);
       }
     }
     else if (d == 0) {
       if (layered) {
-        return GPU_texture_create_1d_array(name_, w, h, mips, format, data);
+        return GPU_texture_create_1d_array(name_, w, h, mip_len, format, data);
       }
       else {
-        return GPU_texture_create_2d(name_, w, h, mips, format, data);
+        return GPU_texture_create_2d(name_, w, h, mip_len, format, data);
       }
     }
     else {
       if (layered) {
-        return GPU_texture_create_2d_array(name_, w, h, d, mips, format, data);
+        return GPU_texture_create_2d_array(name_, w, h, d, mip_len, format, data);
       }
       else {
-        return GPU_texture_create_3d(name_, w, h, d, mips, format, GPU_DATA_FLOAT, data);
+        return GPU_texture_create_3d(name_, w, h, d, mip_len, format, GPU_DATA_FLOAT, data);
       }
     }
   }
 };
 
 class TextureFromPool : public Texture, NonMovable {
- private:
-  GPUTexture *tx_tmp_saved_ = nullptr;
-
  public:
   TextureFromPool(const char *name = "gpu::Texture") : Texture(name){};
 
   /* Always use `release()` after rendering. */
-  void acquire(int2 extent, eGPUTextureFormat format, void *owner_)
+  void acquire(int2 extent, eGPUTextureFormat format)
   {
-    if (this->tx_ == nullptr) {
-      if (tx_tmp_saved_ != nullptr) {
-        this->tx_ = tx_tmp_saved_;
-        return;
-      }
-      DrawEngineType *owner = (DrawEngineType *)owner_;
-      this->tx_ = DRW_texture_pool_query_2d(UNPACK2(extent), format, owner);
-    }
+    BLI_assert(this->tx_ == nullptr);
+
+    this->tx_ = DRW_texture_pool_texture_acquire(
+        DST.vmempool->texture_pool, UNPACK2(extent), format);
   }
 
-  void release(void)
+  void release()
   {
-    tx_tmp_saved_ = this->tx_;
+    /* Allows multiple release. */
+    if (this->tx_ == nullptr) {
+      return;
+    }
+    DRW_texture_pool_texture_release(DST.vmempool->texture_pool, this->tx_);
     this->tx_ = nullptr;
   }
 
   /**
-   * Clears any reference. Workaround for pool texture not being able to release on demand.
-   * Needs to be called at during the sync phase.
+   * Swap the content of the two textures.
+   * Also change ownership accordingly if needed.
    */
-  void sync(void)
+  static void swap(TextureFromPool &a, Texture &b)
   {
-    tx_tmp_saved_ = nullptr;
+    Texture::swap(a, b);
+    DRW_texture_pool_give_texture_ownership(DST.vmempool->texture_pool, a);
+    DRW_texture_pool_take_texture_ownership(DST.vmempool->texture_pool, b);
+  }
+  static void swap(Texture &a, TextureFromPool &b)
+  {
+    swap(b, a);
+  }
+  static void swap(TextureFromPool &a, TextureFromPool &b)
+  {
+    Texture::swap(a, b);
   }
 
   /** Remove methods that are forbidden with this type of textures. */
@@ -750,7 +850,37 @@ class TextureFromPool : public Texture, NonMovable {
   bool ensure_cube_array(int, int, int, eGPUTextureFormat, float *) = delete;
   void filter_mode(bool) = delete;
   void free() = delete;
+  GPUTexture *mip_view(int) = delete;
+  GPUTexture *layer_view(int) = delete;
+  GPUTexture *stencil_view() = delete;
 };
+
+/**
+ * Dummy type to bind texture as image.
+ * It is just a GPUTexture in disguise.
+ */
+class Image {
+};
+
+static inline Image *as_image(GPUTexture *tex)
+{
+  return reinterpret_cast<Image *>(tex);
+}
+
+static inline Image **as_image(GPUTexture **tex)
+{
+  return reinterpret_cast<Image **>(tex);
+}
+
+static inline GPUTexture *as_texture(Image *img)
+{
+  return reinterpret_cast<GPUTexture *>(img);
+}
+
+static inline GPUTexture **as_texture(Image **img)
+{
+  return reinterpret_cast<GPUTexture **>(img);
+}
 
 /** \} */
 
@@ -808,6 +938,60 @@ class Framebuffer : NonCopyable {
   {
     SWAP(GPUFrameBuffer *, a.fb_, b.fb_);
     SWAP(const char *, a.name_, b.name_);
+  }
+};
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Double & Triple buffering util
+ *
+ * This is not strictly related to a GPU type and could be moved elsewhere.
+ * \{ */
+
+template<typename T, int64_t len> class SwapChain {
+ private:
+  BLI_STATIC_ASSERT(len > 1, "A swap-chain needs more than 1 unit in length.");
+  std::array<T, len> chain_;
+
+ public:
+  void swap()
+  {
+    for (auto i : IndexRange(len - 1)) {
+      T::swap(chain_[i], chain_[(i + 1) % len]);
+    }
+  }
+
+  T &current()
+  {
+    return chain_[0];
+  }
+
+  T &previous()
+  {
+    /* Avoid modulo operation with negative numbers. */
+    return chain_[(0 + len - 1) % len];
+  }
+
+  T &next()
+  {
+    return chain_[(0 + 1) % len];
+  }
+
+  const T &current() const
+  {
+    return chain_[0];
+  }
+
+  const T &previous() const
+  {
+    /* Avoid modulo operation with negative numbers. */
+    return chain_[(0 + len - 1) % len];
+  }
+
+  const T &next() const
+  {
+    return chain_[(0 + 1) % len];
   }
 };
 

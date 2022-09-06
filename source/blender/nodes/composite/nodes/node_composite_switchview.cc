@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2006 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2006 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup cmpnodes
@@ -26,6 +10,8 @@
 
 #include "UI_interface.h"
 #include "UI_resources.h"
+
+#include "COM_node_operation.hh"
 
 #include "node_composite_util.hh"
 
@@ -156,6 +142,25 @@ static void node_composit_buts_switch_view_ex(uiLayout *layout,
               nullptr);
 }
 
+using namespace blender::realtime_compositor;
+
+class SwitchViewOperation : public NodeOperation {
+ public:
+  using NodeOperation::NodeOperation;
+
+  void execute() override
+  {
+    Result &input = get_input(context().get_view_name());
+    Result &result = get_result("Image");
+    input.pass_through(result);
+  }
+};
+
+static NodeOperation *get_compositor_operation(Context &context, DNode node)
+{
+  return new SwitchViewOperation(context, node);
+}
+
 }  // namespace blender::nodes::node_composite_switchview_cc
 
 void register_node_type_cmp_switch_view()
@@ -169,6 +174,7 @@ void register_node_type_cmp_switch_view()
   ntype.draw_buttons_ex = file_ns::node_composit_buts_switch_view_ex;
   ntype.initfunc_api = file_ns::init_switch_view;
   node_type_update(&ntype, file_ns::cmp_node_switch_view_update);
+  ntype.get_compositor_operation = file_ns::get_compositor_operation;
 
   nodeRegisterType(&ntype);
 }

@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 #pragma once
 
 /** \file
@@ -174,14 +158,18 @@ struct BoundBox *BKE_armature_boundbox_get(struct Object *ob);
  * or the custom object's bounds (if the bone uses a custom object).
  * Visual elements such as the envelopes radius & bendy-bone spline segments are *not* included,
  * making this not so useful for viewport culling.
+ *
+ * \param use_empty_drawtype: When enabled, the draw type of empty custom-objects is taken into
+ * account when calculating the bounds.
  */
 void BKE_pchan_minmax(const struct Object *ob,
                       const struct bPoseChannel *pchan,
+                      const bool use_empty_drawtype,
                       float r_min[3],
                       float r_max[3]);
 /**
  * Calculate the axis aligned bounds of the pose of `ob` in world-space.
-
+ *
  * `r_min` and `r_max` are expanded to fit `ob->pose` so the caller must initialize them
  * (typically using #INIT_MINMAX).
  *

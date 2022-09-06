@@ -1,22 +1,4 @@
-# ##### BEGIN GPL LICENSE BLOCK #####
-#
-#  This program is free software; you can redistribute it and/or
-#  modify it under the terms of the GNU General Public License
-#  as published by the Free Software Foundation; either version 2
-#  of the License, or (at your option) any later version.
-#
-#  This program is distributed in the hope that it will be useful,
-#  but WITHOUT ANY WARRANTY; without even the implied warranty of
-#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-#  GNU General Public License for more details.
-#
-#  You should have received a copy of the GNU General Public License
-#  along with this program; if not, write to the Free Software Foundation,
-#  Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-#
-# ##### END GPL LICENSE BLOCK #####
-
-# <pep8 compliant>
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 """
 blender -b -noaudio --factory-startup --python tests/python/bl_rigging_symmetrize.py -- --testdir /path/to/lib/tests/animation
@@ -58,7 +40,7 @@ def check_loc_rot_scale(self, bone, exp_bone):
 
 def check_parent(self, bone, exp_bone):
     self.assertEqual(type(bone.parent), type(exp_bone.parent),
-                     "Missmatching types in pose.bones[%s].parent" % (bone.name))
+                     "Mismatching types in pose.bones[%s].parent" % (bone.name))
     self.assertTrue(bone.parent is None or bone.parent.name == exp_bone.parent.name,
                     "Bone parent does not match on bone %s" % (bone.name))
 
@@ -74,17 +56,17 @@ def check_bendy_bones(self, bone, exp_bone):
         exp_value = getattr(exp_bone, var)
 
         self.assertEqual(type(value), type(exp_value),
-                         "Missmatching types in pose.bones[%s].%s" % (bone.name, var))
+                         "Mismatching types in pose.bones[%s].%s" % (bone.name, var))
 
         if isinstance(value, str):
             self.assertEqual(value, exp_value,
-                             "Missmatching value in pose.bones[%s].%s" % (bone.name, var))
+                             "Mismatching value in pose.bones[%s].%s" % (bone.name, var))
         elif hasattr(value, "name"):
             self.assertEqual(value.name, exp_value.name,
-                             "Missmatching value in pose.bones[%s].%s" % (bone.name, var))
+                             "Mismatching value in pose.bones[%s].%s" % (bone.name, var))
         else:
             self.assertAlmostEqual(value, exp_value,
-                                   "Missmatching value in pose.bones[%s].%s" % (bone.name, var))
+                                   "Mismatching value in pose.bones[%s].%s" % (bone.name, var))
 
 
 def check_ik(self, bone, exp_bone):
@@ -99,7 +81,7 @@ def check_ik(self, bone, exp_bone):
         value = getattr(bone, var)
         exp_value = getattr(exp_bone, var)
         self.assertAlmostEqual(value, exp_value,
-                               "Missmatching value in pose.bones[%s].%s" % (bone.name, var))
+                               "Mismatching value in pose.bones[%s].%s" % (bone.name, var))
 
 
 def check_constraints(self, input_arm, expected_arm, bone, exp_bone):
@@ -107,14 +89,14 @@ def check_constraints(self, input_arm, expected_arm, bone, exp_bone):
     expo_const_len = len(exp_bone.constraints)
 
     self.assertEqual(const_len, expo_const_len,
-                     "Constraints missmatch on bone %s" % (bone.name))
+                     "Constraints mismatch on bone %s" % (bone.name))
 
     for exp_constraint in exp_bone.constraints:
         const_name = exp_constraint.name
         # Make sure that the constraint exists
         self.assertTrue(const_name in bone.constraints,
                         "Bone %s is expected to contain constraint %s, but it does not." % (
-                        bone.name, const_name))
+                            bone.name, const_name))
         constraint = bone.constraints[const_name]
         const_variables = constraint.bl_rna.properties.keys()
 
@@ -129,30 +111,30 @@ def check_constraints(self, input_arm, expected_arm, bone, exp_bone):
             exp_value = getattr(exp_constraint, var)
 
             self.assertEqual(type(value), type(exp_value),
-                             "Missmatching constraint value types in pose.bones[%s].constraints[%s].%s" % (
+                             "Mismatching constraint value types in pose.bones[%s].constraints[%s].%s" % (
                              bone.name, const_name, var))
 
             if isinstance(value, str):
                 self.assertEqual(value, exp_value,
-                                 "Missmatching constraint value in pose.bones[%s].constraints[%s].%s" % (
-                                 bone.name, const_name, var))
+                                 "Mismatching constraint value in pose.bones[%s].constraints[%s].%s" % (
+                                     bone.name, const_name, var))
             elif hasattr(value, "name"):
-                # Some constraints targets the armature itself, so the armature name should missmatch.
+                # Some constraints targets the armature itself, so the armature name should mismatch.
                 if value.name == input_arm.name and exp_value.name == expected_arm.name:
                     continue
 
                 self.assertEqual(value.name, exp_value.name,
-                                 "Missmatching constraint value in pose.bones[%s].constraints[%s].%s" % (
-                                 bone.name, const_name, var))
+                                 "Mismatching constraint value in pose.bones[%s].constraints[%s].%s" % (
+                                     bone.name, const_name, var))
 
             elif isinstance(value, bool):
                 self.assertEqual(value, exp_value,
-                                       "Missmatching constraint boolean in pose.bones[%s].constraints[%s].%s" % (
-                                       bone.name, const_name, var))
+                                 "Mismatching constraint boolean in pose.bones[%s].constraints[%s].%s" % (
+                                     bone.name, const_name, var))
             else:
-                self.assertAlmostEqual(value, exp_value,
-                                       "Missmatching constraint value in pose.bones[%s].constraints[%s].%s" % (
-                                       bone.name, const_name, var))
+                msg = "Mismatching constraint value in pose.bones[%s].constraints[%s].%s" % (
+                    bone.name, const_name, var)
+                self.assertAlmostEqual(value, exp_value, places=6, msg=msg)
 
 
 class AbstractAnimationTest:

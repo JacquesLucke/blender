@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup creator
@@ -83,11 +69,10 @@ static void sig_handle_fpe(int UNUSED(sig))
 #  if !defined(WITH_HEADLESS)
 static void sig_handle_blender_esc(int sig)
 {
-  static int count = 0;
-
   G.is_break = true; /* forces render loop to read queue, not sure if its needed */
 
   if (sig == 2) {
+    static int count = 0;
     if (count) {
       printf("\nBlender killed\n");
       exit(2);
@@ -258,11 +243,9 @@ void main_signal_setup_background(void)
   /* for all platforms, even windows has it! */
   BLI_assert(G.background);
 
-#  if !defined(WITH_HEADLESS)
   /* Support pressing `Ctrl-C` to close Blender in background-mode.
    * Useful to be able to cancel a render operation. */
   signal(SIGINT, sig_handle_blender_esc);
-#  endif
 }
 
 void main_signal_setup_fpe(void)
@@ -272,7 +255,7 @@ void main_signal_setup_fpe(void)
    * set breakpoints on sig_handle_fpe */
   signal(SIGFPE, sig_handle_fpe);
 
-#    if defined(__linux__) && defined(__GNUC__)
+#    if defined(__linux__) && defined(__GNUC__) && defined(HAVE_FEENABLEEXCEPT)
   feenableexcept(FE_DIVBYZERO | FE_INVALID | FE_OVERFLOW);
 #    endif /* defined(__linux__) && defined(__GNUC__) */
 #    if defined(OSX_SSE_FPE)

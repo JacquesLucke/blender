@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 /* Templated common implementation part of all CPU kernels.
  *
@@ -47,7 +34,7 @@
 #    include "kernel/integrator/megakernel.h"
 
 #    include "kernel/film/adaptive_sampling.h"
-#    include "kernel/film/id_passes.h"
+#    include "kernel/film/cryptomatte_passes.h"
 #    include "kernel/film/read.h"
 
 #    include "kernel/bake/bake.h"
@@ -182,7 +169,7 @@ bool KERNEL_FUNCTION_FULL_NAME(adaptive_sampling_convergence_check)(
   STUB_ASSERT(KERNEL_ARCH, adaptive_sampling_convergence_check);
   return false;
 #else
-  return kernel_adaptive_sampling_convergence_check(
+  return film_adaptive_sampling_convergence_check(
       kg, render_buffer, x, y, threshold, reset, offset, stride);
 #endif
 }
@@ -198,7 +185,7 @@ void KERNEL_FUNCTION_FULL_NAME(adaptive_sampling_filter_x)(const KernelGlobalsCP
 #ifdef KERNEL_STUB
   STUB_ASSERT(KERNEL_ARCH, adaptive_sampling_filter_x);
 #else
-  kernel_adaptive_sampling_filter_x(kg, render_buffer, y, start_x, width, offset, stride);
+  film_adaptive_sampling_filter_x(kg, render_buffer, y, start_x, width, offset, stride);
 #endif
 }
 
@@ -213,7 +200,7 @@ void KERNEL_FUNCTION_FULL_NAME(adaptive_sampling_filter_y)(const KernelGlobalsCP
 #ifdef KERNEL_STUB
   STUB_ASSERT(KERNEL_ARCH, adaptive_sampling_filter_y);
 #else
-  kernel_adaptive_sampling_filter_y(kg, render_buffer, x, start_y, height, offset, stride);
+  film_adaptive_sampling_filter_y(kg, render_buffer, x, start_y, height, offset, stride);
 #endif
 }
 
@@ -228,7 +215,7 @@ void KERNEL_FUNCTION_FULL_NAME(cryptomatte_postprocess)(const KernelGlobalsCPU *
 #ifdef KERNEL_STUB
   STUB_ASSERT(KERNEL_ARCH, cryptomatte_postprocess);
 #else
-  kernel_cryptomatte_post(kg, render_buffer, pixel_index);
+  film_cryptomatte_post(kg, render_buffer, pixel_index);
 #endif
 }
 

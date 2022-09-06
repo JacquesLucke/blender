@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spoutliner
@@ -32,7 +16,7 @@
 
 #include "BKE_context.h"
 #include "BKE_lib_remap.h"
-#include "BKE_outliner_treehash.h"
+#include "BKE_outliner_treehash.hh"
 #include "BKE_screen.h"
 
 #include "ED_screen.h"
@@ -53,16 +37,11 @@
 #include "outliner_intern.hh"
 #include "tree/tree_display.hh"
 
-SpaceOutliner_Runtime::SpaceOutliner_Runtime(const SpaceOutliner_Runtime & /*other*/)
-    : tree_display(nullptr), treehash(nullptr)
-{
-}
+namespace blender::ed::outliner {
 
-SpaceOutliner_Runtime::~SpaceOutliner_Runtime()
+SpaceOutliner_Runtime::SpaceOutliner_Runtime(const SpaceOutliner_Runtime & /*other*/)
+    : tree_display(nullptr), tree_hash(nullptr)
 {
-  if (treehash) {
-    BKE_outliner_treehash_free(treehash);
-  }
 }
 
 static void outliner_main_region_init(wmWindowManager *wm, ARegion *region)
@@ -116,8 +95,8 @@ static void outliner_main_region_listener(const wmRegionListenerParams *params)
 {
   ScrArea *area = params->area;
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
-  SpaceOutliner *space_outliner = reinterpret_cast<SpaceOutliner *>(area->spacedata.first);
+  const wmNotifier *wmn = params->notifier;
+  SpaceOutliner *space_outliner = static_cast<SpaceOutliner *>(area->spacedata.first);
 
   /* context changes */
   switch (wmn->category) {
@@ -207,7 +186,7 @@ static void outliner_main_region_listener(const wmRegionListenerParams *params)
       }
       break;
     case NC_ID:
-      if (ELEM(wmn->action, NA_RENAME, NA_ADDED)) {
+      if (ELEM(wmn->action, NA_RENAME, NA_ADDED, NA_REMOVED)) {
         ED_region_tag_redraw(region);
       }
       break;
@@ -275,14 +254,12 @@ static void outliner_main_region_listener(const wmRegionListenerParams *params)
   }
 }
 
-/* FIXME: See comment above #WM_msg_publish_rna_prop(). */
-extern "C" {
 static void outliner_main_region_message_subscribe(const wmRegionMessageSubscribeParams *params)
 {
   struct wmMsgBus *mbus = params->message_bus;
   ScrArea *area = params->area;
   ARegion *region = params->region;
-  SpaceOutliner *space_outliner = reinterpret_cast<SpaceOutliner *>(area->spacedata.first);
+  SpaceOutliner *space_outliner = static_cast<SpaceOutliner *>(area->spacedata.first);
 
   wmMsgSubscribeValue msg_sub_value_region_tag_redraw{};
   msg_sub_value_region_tag_redraw.owner = region;
@@ -292,7 +269,6 @@ static void outliner_main_region_message_subscribe(const wmRegionMessageSubscrib
   if (ELEM(space_outliner->outlinevis, SO_VIEW_LAYER, SO_SCENES, SO_OVERRIDES_LIBRARY)) {
     WM_msg_subscribe_rna_anon_prop(mbus, Window, view_layer, &msg_sub_value_region_tag_redraw);
   }
-}
 }
 
 /* ************************ header outliner area region *********************** */
@@ -315,7 +291,7 @@ static void outliner_header_region_free(ARegion *UNUSED(region))
 static void outliner_header_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -380,7 +356,7 @@ static void outliner_free(SpaceLink *sl)
 /* spacetype; init callback */
 static void outliner_init(wmWindowManager *UNUSED(wm), ScrArea *area)
 {
-  SpaceOutliner *space_outliner = reinterpret_cast<SpaceOutliner *>(area->spacedata.first);
+  SpaceOutliner *space_outliner = static_cast<SpaceOutliner *>(area->spacedata.first);
 
   if (space_outliner->runtime == nullptr) {
     space_outliner->runtime = MEM_new<SpaceOutliner_Runtime>("SpaceOutliner_Runtime");
@@ -390,7 +366,7 @@ static void outliner_init(wmWindowManager *UNUSED(wm), ScrArea *area)
 static SpaceLink *outliner_duplicate(SpaceLink *sl)
 {
   SpaceOutliner *space_outliner = (SpaceOutliner *)sl;
-  SpaceOutliner *space_outliner_new = MEM_new<SpaceOutliner>(__func__, *space_outliner);
+  SpaceOutliner *space_outliner_new = MEM_cnew<SpaceOutliner>(__func__, *space_outliner);
 
   BLI_listbase_clear(&space_outliner_new->tree);
   space_outliner_new->treestore = nullptr;
@@ -409,8 +385,6 @@ static SpaceLink *outliner_duplicate(SpaceLink *sl)
 static void outliner_id_remap(ScrArea *area, SpaceLink *slink, const struct IDRemapper *mappings)
 {
   SpaceOutliner *space_outliner = (SpaceOutliner *)slink;
-
-  BKE_id_remapper_apply(mappings, (ID **)&space_outliner->search_tse.id, ID_REMAP_APPLY_DEFAULT);
 
   if (!space_outliner->treestore) {
     return;
@@ -439,7 +413,7 @@ static void outliner_id_remap(ScrArea *area, SpaceLink *slink, const struct IDRe
 
   /* Note that the Outliner may not be the active editor of the area, and hence not initialized.
    * So runtime data might not have been created yet. */
-  if (space_outliner->runtime && space_outliner->runtime->treehash && changed) {
+  if (space_outliner->runtime && space_outliner->runtime->tree_hash && changed) {
     /* rebuild hash table, because it depends on ids too */
     /* postpone a full rebuild because this can be called many times on-free */
     space_outliner->storeflag |= SO_TREESTORE_REBUILD;
@@ -456,13 +430,17 @@ static void outliner_id_remap(ScrArea *area, SpaceLink *slink, const struct IDRe
 static void outliner_deactivate(struct ScrArea *area)
 {
   /* Remove hover highlights */
-  SpaceOutliner *space_outliner = reinterpret_cast<SpaceOutliner *>(area->spacedata.first);
-  outliner_flag_set(&space_outliner->tree, TSE_HIGHLIGHTED_ANY, false);
+  SpaceOutliner *space_outliner = static_cast<SpaceOutliner *>(area->spacedata.first);
+  outliner_flag_set(*space_outliner, TSE_HIGHLIGHTED_ANY, false);
   ED_region_tag_redraw_no_rebuild(BKE_area_find_region_type(area, RGN_TYPE_WINDOW));
 }
 
+}  // namespace blender::ed::outliner
+
 void ED_spacetype_outliner(void)
 {
+  using namespace blender::ed::outliner;
+
   SpaceType *st = MEM_cnew<SpaceType>("spacetype time");
   ARegionType *art;
 

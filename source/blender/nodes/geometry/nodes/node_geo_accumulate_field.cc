@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_attribute_math.hh"
 
@@ -101,7 +87,7 @@ static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 static void node_update(bNodeTree *ntree, bNode *node)
 {
   const NodeAccumulateField &storage = node_storage(*node);
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
 
   bNodeSocket *sock_in_vector = (bNodeSocket *)node->inputs.first;
   bNodeSocket *sock_in_float = sock_in_vector->next;
@@ -137,7 +123,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
 
 enum class AccumulationMode { Leading = 0, Trailing = 1 };
 
-static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
+static std::optional<eCustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
 {
   switch (socket.type) {
     case SOCK_FLOAT:
@@ -155,7 +141,7 @@ static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSock
 
 static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
-  const std::optional<CustomDataType> type = node_type_from_other_socket(params.other_socket());
+  const std::optional<eCustomDataType> type = node_type_from_other_socket(params.other_socket());
   if (!type) {
     return;
   }
@@ -206,19 +192,19 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
   }
 }
 
-template<typename T> class AccumulateFieldInput final : public GeometryFieldInput {
+template<typename T> class AccumulateFieldInput final : public bke::GeometryFieldInput {
  private:
   Field<T> input_;
   Field<int> group_index_;
-  AttributeDomain source_domain_;
+  eAttrDomain source_domain_;
   AccumulationMode accumulation_mode_;
 
  public:
-  AccumulateFieldInput(const AttributeDomain source_domain,
+  AccumulateFieldInput(const eAttrDomain source_domain,
                        Field<T> input,
                        Field<int> group_index,
                        AccumulationMode accumulation_mode)
-      : GeometryFieldInput(CPPType::get<T>(), "Accumulation"),
+      : bke::GeometryFieldInput(CPPType::get<T>(), "Accumulation"),
         input_(input),
         group_index_(group_index),
         source_domain_(source_domain),
@@ -226,19 +212,23 @@ template<typename T> class AccumulateFieldInput final : public GeometryFieldInpu
   {
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
-                                 IndexMask UNUSED(mask)) const final
+  GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
+                                 const IndexMask /*mask*/) const final
   {
-    const GeometryComponentFieldContext field_context{component, source_domain_};
-    const int domain_size = component.attribute_domain_size(field_context.domain());
+    const AttributeAccessor attributes = *context.attributes();
+    const int domain_size = attributes.domain_size(source_domain_);
+    if (domain_size == 0) {
+      return {};
+    }
 
-    fn::FieldEvaluator evaluator{field_context, domain_size};
+    const bke::GeometryFieldContext source_context{
+        context.geometry(), context.type(), source_domain_};
+    fn::FieldEvaluator evaluator{source_context, domain_size};
     evaluator.add(input_);
     evaluator.add(group_index_);
     evaluator.evaluate();
-    const VArray<T> &values = evaluator.get_evaluated<T>(0);
-    const VArray<int> &group_indices = evaluator.get_evaluated<int>(1);
+    const VArray<T> values = evaluator.get_evaluated<T>(0);
+    const VArray<int> group_indices = evaluator.get_evaluated<int>(1);
 
     Array<T> accumulations_out(domain_size);
 
@@ -275,8 +265,8 @@ template<typename T> class AccumulateFieldInput final : public GeometryFieldInpu
       }
     }
 
-    return component.attribute_try_adapt_domain<T>(
-        VArray<T>::ForContainer(std::move(accumulations_out)), source_domain_, domain);
+    return attributes.adapt_domain<T>(
+        VArray<T>::ForContainer(std::move(accumulations_out)), source_domain_, context.domain());
   }
 
   uint64_t hash() const override
@@ -297,34 +287,38 @@ template<typename T> class AccumulateFieldInput final : public GeometryFieldInpu
   }
 };
 
-template<typename T> class TotalFieldInput final : public GeometryFieldInput {
+template<typename T> class TotalFieldInput final : public bke::GeometryFieldInput {
  private:
   Field<T> input_;
   Field<int> group_index_;
-  AttributeDomain source_domain_;
+  eAttrDomain source_domain_;
 
  public:
-  TotalFieldInput(const AttributeDomain source_domain, Field<T> input, Field<int> group_index)
-      : GeometryFieldInput(CPPType::get<T>(), "Total Value"),
+  TotalFieldInput(const eAttrDomain source_domain, Field<T> input, Field<int> group_index)
+      : bke::GeometryFieldInput(CPPType::get<T>(), "Total Value"),
         input_(input),
         group_index_(group_index),
         source_domain_(source_domain)
   {
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
-                                 IndexMask UNUSED(mask)) const final
+  GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
+                                 IndexMask /*mask*/) const final
   {
-    const GeometryComponentFieldContext field_context{component, source_domain_};
-    const int domain_size = component.attribute_domain_size(field_context.domain());
+    const AttributeAccessor attributes = *context.attributes();
+    const int domain_size = attributes.domain_size(source_domain_);
+    if (domain_size == 0) {
+      return {};
+    }
 
-    fn::FieldEvaluator evaluator{field_context, domain_size};
+    const bke::GeometryFieldContext source_context{
+        context.geometry(), context.type(), source_domain_};
+    fn::FieldEvaluator evaluator{source_context, domain_size};
     evaluator.add(input_);
     evaluator.add(group_index_);
     evaluator.evaluate();
-    const VArray<T> &values = evaluator.get_evaluated<T>(0);
-    const VArray<int> &group_indices = evaluator.get_evaluated<int>(1);
+    const VArray<T> values = evaluator.get_evaluated<T>(0);
+    const VArray<int> group_indices = evaluator.get_evaluated<int>(1);
 
     if (group_indices.is_single()) {
       T accumulation = T();
@@ -344,8 +338,8 @@ template<typename T> class TotalFieldInput final : public GeometryFieldInput {
       accumulations_out[i] = accumulations.lookup(group_indices[i]);
     }
 
-    return component.attribute_try_adapt_domain<T>(
-        VArray<T>::ForContainer(std::move(accumulations_out)), source_domain_, domain);
+    return attributes.adapt_domain<T>(
+        VArray<T>::ForContainer(std::move(accumulations_out)), source_domain_, context.domain());
   }
 
   uint64_t hash() const override
@@ -379,8 +373,8 @@ template<typename T> std::string identifier_suffix()
 static void node_geo_exec(GeoNodeExecParams params)
 {
   const NodeAccumulateField &storage = node_storage(params.node());
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
-  const AttributeDomain source_domain = static_cast<AttributeDomain>(storage.domain);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
+  const eAttrDomain source_domain = static_cast<eAttrDomain>(storage.domain);
 
   Field<int> group_index_field = params.extract_input<Field<int>>("Group Index");
   attribute_math::convert_to_static_type(data_type, [&](auto dummy) {

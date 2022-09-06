@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -72,6 +56,7 @@ GPUShader *GPU_shader_create_from_info(const GPUShaderCreateInfo *_info);
 GPUShader *GPU_shader_create_from_info_name(const char *info_name);
 
 const GPUShaderCreateInfo *GPU_shader_create_info_get(const char *info_name);
+bool GPU_shader_create_info_check_error(const GPUShaderCreateInfo *_info, char r_error[128]);
 
 struct GPU_ShaderCreateFromArray_Params {
   const char **vert, **geom, **frag, **defs;
@@ -163,11 +148,19 @@ typedef enum {
   GPU_NUM_UNIFORM_BLOCKS, /* Special value, denotes number of builtin uniforms block. */
 } GPUUniformBlockBuiltin;
 
+typedef enum {
+  GPU_STORAGE_BUFFER_DEBUG_VERTS = 0, /* drw_debug_verts_buf */
+  GPU_STORAGE_BUFFER_DEBUG_PRINT,     /* drw_debug_print_buf */
+
+  GPU_NUM_STORAGE_BUFFERS, /* Special value, denotes number of builtin buffer blocks. */
+} GPUStorageBufferBuiltin;
+
 void GPU_shader_set_srgb_uniform(GPUShader *shader);
 
 int GPU_shader_get_uniform(GPUShader *shader, const char *name);
 int GPU_shader_get_builtin_uniform(GPUShader *shader, int builtin);
 int GPU_shader_get_builtin_block(GPUShader *shader, int builtin);
+int GPU_shader_get_builtin_ssbo(GPUShader *shader, int builtin);
 /** DEPRECATED: Kept only because of Python GPU API. */
 int GPU_shader_get_uniform_block(GPUShader *shader, const char *name);
 int GPU_shader_get_ssbo(GPUShader *shader, const char *name);
@@ -192,11 +185,18 @@ void GPU_shader_uniform_4f(GPUShader *sh, const char *name, float x, float y, fl
 void GPU_shader_uniform_2fv(GPUShader *sh, const char *name, const float data[2]);
 void GPU_shader_uniform_3fv(GPUShader *sh, const char *name, const float data[3]);
 void GPU_shader_uniform_4fv(GPUShader *sh, const char *name, const float data[4]);
+void GPU_shader_uniform_2iv(GPUShader *sh, const char *name, const int data[2]);
 void GPU_shader_uniform_mat4(GPUShader *sh, const char *name, const float data[4][4]);
+void GPU_shader_uniform_mat3_as_mat4(GPUShader *sh, const char *name, const float data[3][3]);
 void GPU_shader_uniform_2fv_array(GPUShader *sh, const char *name, int len, const float (*val)[2]);
 void GPU_shader_uniform_4fv_array(GPUShader *sh, const char *name, int len, const float (*val)[4]);
 
+unsigned int GPU_shader_get_attribute_len(const GPUShader *shader);
 int GPU_shader_get_attribute(GPUShader *shader, const char *name);
+bool GPU_shader_get_attribute_info(const GPUShader *shader,
+                                   int attr_location,
+                                   char r_name[256],
+                                   int *r_type);
 
 void GPU_shader_set_framebuffer_srgb_target(int use_srgb_to_linear);
 
@@ -206,30 +206,12 @@ typedef enum eGPUBuiltinShader {
   GPU_SHADER_TEXT,
   GPU_SHADER_KEYFRAME_SHAPE,
   GPU_SHADER_SIMPLE_LIGHTING,
-  /* for simple 2D drawing */
-  /**
-   * Take a single color for all the vertices and a 2D position for each vertex.
-   *
-   * \param color: uniform vec4
-   * \param pos: in vec2
-   */
-  GPU_SHADER_2D_UNIFORM_COLOR,
-  /**
-   * Take a 2D position and color for each vertex without color interpolation.
-   *
-   * \param color: in vec4
-   * \param pos: in vec2
-   */
-  GPU_SHADER_2D_FLAT_COLOR,
   /**
    * Take a 2D position and color for each vertex with linear interpolation in window space.
    *
    * \param color: in vec4
    * \param pos: in vec2
    */
-  GPU_SHADER_2D_SMOOTH_COLOR,
-  GPU_SHADER_2D_IMAGE,
-  GPU_SHADER_2D_IMAGE_COLOR,
   GPU_SHADER_2D_IMAGE_DESATURATE_COLOR,
   GPU_SHADER_2D_IMAGE_RECT_COLOR,
   GPU_SHADER_2D_IMAGE_MULTI_RECT_COLOR,
@@ -295,14 +277,24 @@ typedef enum eGPUBuiltinShader {
   GPU_SHADER_2D_IMAGE_OVERLAYS_STEREO_MERGE,
   GPU_SHADER_2D_IMAGE_SHUFFLE_COLOR,
   /**
-   * Draw texture with alpha. Take a 3D position and a 2D texture coordinate for each vertex.
+   * Draw a texture in 3D. Take a 3D position and a 2D texture coordinate for each vertex.
    *
-   * \param alpha: uniform float
+   * Exposed via Python-API for add-ons.
+   *
    * \param image: uniform sampler2D
    * \param texCoord: in vec2
    * \param pos: in vec3
    */
-  GPU_SHADER_3D_IMAGE_MODULATE_ALPHA,
+  GPU_SHADER_3D_IMAGE,
+  /**
+   * Take a 3D position and color for each vertex with linear interpolation in window space.
+   *
+   * \param color: uniform vec4
+   * \param image: uniform sampler2D
+   * \param texCoord: in vec2
+   * \param pos: in vec3
+   */
+  GPU_SHADER_3D_IMAGE_COLOR,
   /* points */
   /**
    * Draw round points with a constant size.
@@ -351,10 +343,7 @@ typedef enum eGPUBuiltinShader {
    */
   GPU_SHADER_3D_POINT_VARYING_SIZE_VARYING_COLOR,
   /* lines */
-  GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR,
   GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR,
-  /* instance */
-  GPU_SHADER_INSTANCE_VARIYING_COLOR_VARIYING_SIZE, /* Uniformly scaled */
   /* grease pencil drawing */
   GPU_SHADER_GPENCIL_STROKE,
   /* specialized for widget drawing */
@@ -379,17 +368,12 @@ typedef struct GPUShaderConfigData {
   const char *def;
 } GPUShaderConfigData;
 /* gpu_shader.c */
+
 extern const GPUShaderConfigData GPU_shader_cfg_data[GPU_SHADER_CFG_LEN];
 
 GPUShader *GPU_shader_get_builtin_shader_with_config(eGPUBuiltinShader shader,
                                                      eGPUShaderConfig sh_cfg);
 GPUShader *GPU_shader_get_builtin_shader(eGPUBuiltinShader shader);
-
-void GPU_shader_get_builtin_shader_code(eGPUBuiltinShader shader,
-                                        const char **r_vert,
-                                        const char **r_frag,
-                                        const char **r_geom,
-                                        const char **r_defines);
 
 void GPU_shader_free_builtin_shaders(void);
 

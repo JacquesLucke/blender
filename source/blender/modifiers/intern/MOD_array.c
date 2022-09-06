@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup modifiers
@@ -54,6 +38,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_ui_common.h"
 #include "MOD_util.h"
@@ -108,7 +93,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
   }
 
   if (need_transform_dependency) {
-    DEG_add_modifier_to_transform_relation(ctx->node, "Array Modifier");
+    DEG_add_depends_on_transform_relation(ctx->node, "Array Modifier");
   }
 }
 
@@ -154,17 +139,17 @@ static void svert_from_mvert(SortVertsElem *sv,
 
 /**
  * Take as inputs two sets of verts, to be processed for detection of doubles and mapping.
- * Each set of verts is defined by its start within mverts array and its num_verts;
+ * Each set of verts is defined by its start within mverts array and its verts_num;
  * It builds a mapping for all vertices within source,
  * to vertices within target, or -1 if no double found.
- * The int doubles_map[num_verts_source] array must have been allocated by caller.
+ * The `int doubles_map[verts_source_num]` array must have been allocated by caller.
  */
 static void dm_mvert_map_doubles(int *doubles_map,
                                  const MVert *mverts,
                                  const int target_start,
-                                 const int target_num_verts,
+                                 const int target_verts_num,
                                  const int source_start,
-                                 const int source_num_verts,
+                                 const int source_verts_num,
                                  const float dist)
 {
   const float dist3 = ((float)M_SQRT3 + 0.00005f) * dist; /* Just above sqrt(3) */
@@ -173,12 +158,12 @@ static void dm_mvert_map_doubles(int *doubles_map,
   SortVertsElem *sve_source, *sve_target, *sve_target_low_bound;
   bool target_scan_completed;
 
-  target_end = target_start + target_num_verts;
-  source_end = source_start + source_num_verts;
+  target_end = target_start + target_verts_num;
+  source_end = source_start + source_verts_num;
 
   /* build array of MVerts to be tested for merging */
-  sorted_verts_target = MEM_malloc_arrayN(target_num_verts, sizeof(SortVertsElem), __func__);
-  sorted_verts_source = MEM_malloc_arrayN(source_num_verts, sizeof(SortVertsElem), __func__);
+  sorted_verts_target = MEM_malloc_arrayN(target_verts_num, sizeof(SortVertsElem), __func__);
+  sorted_verts_source = MEM_malloc_arrayN(source_verts_num, sizeof(SortVertsElem), __func__);
 
   /* Copy target vertices index and cos into SortVertsElem array */
   svert_from_mvert(sorted_verts_target, mverts + target_start, target_start, target_end);
@@ -187,8 +172,8 @@ static void dm_mvert_map_doubles(int *doubles_map,
   svert_from_mvert(sorted_verts_source, mverts + source_start, source_start, source_end);
 
   /* sort arrays according to sum of vertex coordinates (sumco) */
-  qsort(sorted_verts_target, target_num_verts, sizeof(SortVertsElem), svert_sum_cmp);
-  qsort(sorted_verts_source, source_num_verts, sizeof(SortVertsElem), svert_sum_cmp);
+  qsort(sorted_verts_target, target_verts_num, sizeof(SortVertsElem), svert_sum_cmp);
+  qsort(sorted_verts_source, source_verts_num, sizeof(SortVertsElem), svert_sum_cmp);
 
   sve_target_low_bound = sorted_verts_target;
   i_target_low_bound = 0;
@@ -196,7 +181,7 @@ static void dm_mvert_map_doubles(int *doubles_map,
 
   /* Scan source vertices, in #SortVertsElem sorted array,
    * all the while maintaining the lower bound of possible doubles in target vertices. */
-  for (i_source = 0, sve_source = sorted_verts_source; i_source < source_num_verts;
+  for (i_source = 0, sve_source = sorted_verts_source; i_source < source_verts_num;
        i_source++, sve_source++) {
     int best_target_vertex = -1;
     float best_dist_sq = dist * dist;
@@ -217,13 +202,13 @@ static void dm_mvert_map_doubles(int *doubles_map,
 
     /* Skip all target vertices that are more than dist3 lower in terms of sumco */
     /* and advance the overall lower bound, applicable to all remaining vertices as well. */
-    while ((i_target_low_bound < target_num_verts) &&
+    while ((i_target_low_bound < target_verts_num) &&
            (sve_target_low_bound->sum_co < sve_source_sumco - dist3)) {
       i_target_low_bound++;
       sve_target_low_bound++;
     }
     /* If end of target list reached, then no more possible doubles */
-    if (i_target_low_bound >= target_num_verts) {
+    if (i_target_low_bound >= target_verts_num) {
       doubles_map[sve_source->vertex_num] = -1;
       target_scan_completed = true;
       continue;
@@ -236,7 +221,7 @@ static void dm_mvert_map_doubles(int *doubles_map,
     /* i_target will scan vertices in the
      * [v_source_sumco - dist3;  v_source_sumco + dist3] range */
 
-    while ((i_target < target_num_verts) && (sve_target->sum_co <= sve_source_sumco + dist3)) {
+    while ((i_target < target_verts_num) && (sve_target->sum_co <= sve_source_sumco + dist3)) {
       /* Testing distance for candidate double in target */
       /* v_target is within dist3 of v_source in terms of sumco;  check real distance */
       float dist_sq;
@@ -294,13 +279,17 @@ static void mesh_merge_transform(Mesh *result,
   MEdge *me;
   MLoop *ml;
   MPoly *mp;
+  MVert *result_verts = BKE_mesh_vertices_for_write(result);
+  MEdge *result_edges = BKE_mesh_edges_for_write(result);
+  MPoly *result_polys = BKE_mesh_polygons_for_write(result);
+  MLoop *result_loops = BKE_mesh_loops_for_write(result);
 
   CustomData_copy_data(&cap_mesh->vdata, &result->vdata, 0, cap_verts_index, cap_nverts);
   CustomData_copy_data(&cap_mesh->edata, &result->edata, 0, cap_edges_index, cap_nedges);
   CustomData_copy_data(&cap_mesh->ldata, &result->ldata, 0, cap_loops_index, cap_nloops);
   CustomData_copy_data(&cap_mesh->pdata, &result->pdata, 0, cap_polys_index, cap_npolys);
 
-  mv = result->mvert + cap_verts_index;
+  mv = result_verts + cap_verts_index;
 
   for (i = 0; i < cap_nverts; i++, mv++) {
     mul_m4_v3(cap_offset, mv->co);
@@ -318,32 +307,32 @@ static void mesh_merge_transform(Mesh *result,
   }
 
   /* remap the vertex groups if necessary */
-  if (result->dvert != NULL) {
-    BKE_object_defgroup_index_map_apply(
-        &result->dvert[cap_verts_index], cap_nverts, remap, remap_len);
+  if (BKE_mesh_deform_verts(result) != NULL) {
+    MDeformVert *dvert = BKE_mesh_deform_verts_for_write(result);
+    BKE_object_defgroup_index_map_apply(&dvert[cap_verts_index], cap_nverts, remap, remap_len);
   }
 
   /* adjust cap edge vertex indices */
-  me = result->medge + cap_edges_index;
+  me = result_edges + cap_edges_index;
   for (i = 0; i < cap_nedges; i++, me++) {
     me->v1 += cap_verts_index;
     me->v2 += cap_verts_index;
   }
 
   /* adjust cap poly loopstart indices */
-  mp = result->mpoly + cap_polys_index;
+  mp = result_polys + cap_polys_index;
   for (i = 0; i < cap_npolys; i++, mp++) {
     mp->loopstart += cap_loops_index;
   }
 
   /* adjust cap loop vertex and edge indices */
-  ml = result->mloop + cap_loops_index;
+  ml = result_loops + cap_loops_index;
   for (i = 0; i < cap_nloops; i++, ml++) {
     ml->v += cap_verts_index;
     ml->e += cap_edges_index;
   }
 
-  /* set origindex */
+  /* Set #CD_ORIGINDEX. */
   index_orig = CustomData_get_layer(&result->vdata, CD_ORIGINDEX);
   if (index_orig) {
     copy_vn_i(index_orig + cap_verts_index, cap_nverts, ORIGINDEX_NONE);
@@ -367,11 +356,8 @@ static void mesh_merge_transform(Mesh *result,
 
 static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
                                    const ModifierEvalContext *ctx,
-                                   Mesh *mesh)
+                                   const Mesh *mesh)
 {
-  const MVert *src_mvert;
-  MVert *result_dm_verts;
-
   MEdge *me;
   MLoop *ml;
   MPoly *mp;
@@ -387,7 +373,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   int tot_doubles;
 
   const bool use_merge = (amd->flags & MOD_ARR_MERGE) != 0;
-  const bool use_recalc_normals = (mesh->runtime.cd_dirty_vert & CD_MASK_NORMAL) || use_merge;
+  const bool use_recalc_normals = BKE_mesh_vertex_normals_are_dirty(mesh) || use_merge;
   const bool use_offset_ob = ((amd->offset_type & MOD_ARR_OFF_OBJ) && amd->offset_ob != NULL);
 
   int start_cap_nverts = 0, start_cap_nedges = 0, start_cap_npolys = 0, start_cap_nloops = 0;
@@ -412,10 +398,12 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
 
   Object *start_cap_ob = amd->start_cap;
   if (start_cap_ob && start_cap_ob != ctx->object) {
-    vgroup_start_cap_remap = BKE_object_defgroup_index_map_create(
-        start_cap_ob, ctx->object, &vgroup_start_cap_remap_len);
+    if (start_cap_ob->type == OB_MESH && ctx->object->type == OB_MESH) {
+      vgroup_start_cap_remap = BKE_object_defgroup_index_map_create(
+          start_cap_ob, ctx->object, &vgroup_start_cap_remap_len);
+    }
 
-    start_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(start_cap_ob, false);
+    start_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(start_cap_ob);
     if (start_cap_mesh) {
       start_cap_nverts = start_cap_mesh->totvert;
       start_cap_nedges = start_cap_mesh->totedge;
@@ -425,10 +413,12 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   }
   Object *end_cap_ob = amd->end_cap;
   if (end_cap_ob && end_cap_ob != ctx->object) {
-    vgroup_end_cap_remap = BKE_object_defgroup_index_map_create(
-        end_cap_ob, ctx->object, &vgroup_end_cap_remap_len);
+    if (end_cap_ob->type == OB_MESH && ctx->object->type == OB_MESH) {
+      vgroup_end_cap_remap = BKE_object_defgroup_index_map_create(
+          end_cap_ob, ctx->object, &vgroup_end_cap_remap_len);
+    }
 
-    end_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(end_cap_ob, false);
+    end_cap_mesh = BKE_modifier_get_evaluated_mesh_from_evaluated_object(end_cap_ob);
     if (end_cap_mesh) {
       end_cap_nverts = end_cap_mesh->totvert;
       end_cap_nedges = end_cap_mesh->totedge;
@@ -440,7 +430,10 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   /* Build up offset array, accumulating all settings options. */
 
   unit_m4(offset);
-  src_mvert = mesh->mvert;
+  const MVert *src_verts = BKE_mesh_vertices(mesh);
+  const MEdge *src_edges = BKE_mesh_edges(mesh);
+  const MPoly *src_polys = BKE_mesh_polygons(mesh);
+  const MLoop *src_loops = BKE_mesh_loops(mesh);
 
   if (amd->offset_type & MOD_ARR_OFF_CONST) {
     add_v3_v3(offset[3], amd->offset);
@@ -451,7 +444,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     const MVert *src_mv;
 
     INIT_MINMAX(min, max);
-    for (src_mv = src_mvert, j = chunk_nverts; j--; src_mv++) {
+    for (src_mv = src_verts, j = chunk_nverts; j--; src_mv++) {
       minmax_v3v3_v3(min, max, src_mv->co);
     }
 
@@ -475,7 +468,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     copy_m4_m4(offset, result_mat);
   }
 
-  /* Check if there is some scaling.  If scaling, then we will not translate mapping */
+  /* Check if there is some scaling. If scaling, then we will not translate mapping */
   mat4_to_size(scale, offset);
   offset_has_scale = !is_one_v3(scale);
 
@@ -489,7 +482,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   }
 
   /* About 67 million vertices max seems a decent limit for now. */
-  const size_t max_num_vertices = 1 << 26;
+  const size_t max_vertices_num = 1 << 26;
 
   /* calculate the maximum number of copies which will fit within the
    * prescribed length */
@@ -507,7 +500,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
        * vertices.
        */
       if (((size_t)count * (size_t)chunk_nverts + (size_t)start_cap_nverts +
-           (size_t)end_cap_nverts) > max_num_vertices) {
+           (size_t)end_cap_nverts) > max_vertices_num) {
         count = 1;
         offset_is_too_small = true;
       }
@@ -529,7 +522,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
    * vertices.
    */
   else if (((size_t)count * (size_t)chunk_nverts + (size_t)start_cap_nverts +
-            (size_t)end_cap_nverts) > max_num_vertices) {
+            (size_t)end_cap_nverts) > max_vertices_num) {
     count = 1;
     BKE_modifier_set_error(ctx->object,
                            &amd->modifier,
@@ -550,7 +543,10 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   /* Initialize a result dm */
   result = BKE_mesh_new_nomain_from_template(
       mesh, result_nverts, result_nedges, 0, result_nloops, result_npolys);
-  result_dm_verts = result->mvert;
+  MVert *result_verts = BKE_mesh_vertices_for_write(result);
+  MEdge *result_edges = BKE_mesh_edges_for_write(result);
+  MPoly *result_polys = BKE_mesh_polygons_for_write(result);
+  MLoop *result_loops = BKE_mesh_loops_for_write(result);
 
   if (use_merge) {
     /* Will need full_doubles_map for handling merge */
@@ -567,14 +563,14 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   /* Subsurf for eg won't have mesh data in the custom data arrays.
    * now add mvert/medge/mpoly layers. */
   if (!CustomData_has_layer(&mesh->vdata, CD_MVERT)) {
-    memcpy(result->mvert, mesh->mvert, sizeof(*result->mvert) * mesh->totvert);
+    memcpy(result_verts, src_verts, sizeof(MVert) * mesh->totvert);
   }
   if (!CustomData_has_layer(&mesh->edata, CD_MEDGE)) {
-    memcpy(result->medge, mesh->medge, sizeof(*result->medge) * mesh->totedge);
+    memcpy(result_edges, src_edges, sizeof(MEdge) * mesh->totedge);
   }
   if (!CustomData_has_layer(&mesh->pdata, CD_MPOLY)) {
-    memcpy(result->mloop, mesh->mloop, sizeof(*result->mloop) * mesh->totloop);
-    memcpy(result->mpoly, mesh->mpoly, sizeof(*result->mpoly) * mesh->totpoly);
+    memcpy(result_loops, src_loops, sizeof(MLoop) * mesh->totloop);
+    memcpy(result_polys, src_polys, sizeof(MPoly) * mesh->totpoly);
   }
 
   /* Remember first chunk, in case of cap merge */
@@ -605,7 +601,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     /* apply offset to all new verts */
     for (i = 0; i < chunk_nverts; i++) {
       const int i_dst = vert_offset + i;
-      mul_m4_v3(current_offset, result_dm_verts[i_dst].co);
+      mul_m4_v3(current_offset, result_verts[i_dst].co);
 
       /* We have to correct normals too, if we do not tag them as dirty! */
       if (!use_recalc_normals) {
@@ -616,19 +612,19 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     }
 
     /* adjust edge vertex indices */
-    me = result->medge + c * chunk_nedges;
+    me = result_edges + c * chunk_nedges;
     for (i = 0; i < chunk_nedges; i++, me++) {
       me->v1 += c * chunk_nverts;
       me->v2 += c * chunk_nverts;
     }
 
-    mp = result->mpoly + c * chunk_npolys;
+    mp = result_polys + c * chunk_npolys;
     for (i = 0; i < chunk_npolys; i++, mp++) {
       mp->loopstart += c * chunk_nloops;
     }
 
     /* adjust loop vertex and edge indices */
-    ml = result->mloop + c * chunk_nloops;
+    ml = result_loops + c * chunk_nloops;
     for (i = 0; i < chunk_nloops; i++, ml++) {
       ml->v += c * chunk_nverts;
       ml->e += c * chunk_nedges;
@@ -649,8 +645,8 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
             while (target != -1 && !ELEM(full_doubles_map[target], -1, target)) {
               /* If target is already mapped, we only follow that mapping if final target remains
                * close enough from current vert (otherwise no mapping at all). */
-              if (compare_len_v3v3(result_dm_verts[this_chunk_index].co,
-                                   result_dm_verts[full_doubles_map[target]].co,
+              if (compare_len_v3v3(result_verts[this_chunk_index].co,
+                                   result_verts[full_doubles_map[target]].co,
                                    amd->merge_dist)) {
                 target = full_doubles_map[target];
               }
@@ -664,7 +660,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
       }
       else {
         dm_mvert_map_doubles(full_doubles_map,
-                             result_dm_verts,
+                             result_verts,
                              (c - 1) * chunk_nverts,
                              chunk_nverts,
                              c * chunk_nverts,
@@ -702,7 +698,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
   if (use_merge && (amd->flags & MOD_ARR_MERGEFINAL) && (count > 1)) {
     /* Merge first and last copies */
     dm_mvert_map_doubles(full_doubles_map,
-                         result_dm_verts,
+                         result_verts,
                          last_chunk_start,
                          last_chunk_nverts,
                          first_chunk_start,
@@ -732,7 +728,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     /* Identify doubles with first chunk */
     if (use_merge) {
       dm_mvert_map_doubles(full_doubles_map,
-                           result_dm_verts,
+                           result_verts,
                            first_chunk_start,
                            first_chunk_nverts,
                            start_cap_start,
@@ -762,7 +758,7 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     /* Identify doubles with last chunk */
     if (use_merge) {
       dm_mvert_map_doubles(full_doubles_map,
-                           result_dm_verts,
+                           result_verts,
                            last_chunk_start,
                            last_chunk_nverts,
                            end_cap_start,
@@ -800,13 +796,6 @@ static Mesh *arrayModifier_doArray(ArrayModifierData *amd,
     MEM_freeN(full_doubles_map);
   }
 
-  /* In case org dm has dirty normals, or we made some merging, mark normals as dirty in new mesh!
-   * TODO: we may need to set other dirty flags as well?
-   */
-  if (use_recalc_normals) {
-    BKE_mesh_normals_tag_dirty(result);
-  }
-
   if (vgroup_start_cap_remap) {
     MEM_freeN(vgroup_start_cap_remap);
   }
@@ -835,7 +824,7 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
    * In other cases it should be impossible to have a type mismatch.
    */
 
-  if (amd->curve_ob && amd->curve_ob->type != OB_CURVE) {
+  if (amd->curve_ob && amd->curve_ob->type != OB_CURVES_LEGACY) {
     return true;
   }
   if (amd->start_cap && amd->start_cap->type != OB_MESH) {
@@ -1020,7 +1009,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Array = {
-    /* name */ "Array",
+    /* name */ N_("Array"),
     /* structName */ "ArrayModifierData",
     /* structSize */ sizeof(ArrayModifierData),
     /* srna */ &RNA_ArrayModifier,

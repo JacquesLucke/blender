@@ -1,19 +1,4 @@
-# ***** BEGIN GPL LICENSE BLOCK *****
-#
-# This program is free software; you can redistribute it and/or
-# modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
-# of the License, or (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program; if not, write to the Free Software Foundation,
-# Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
-# ***** END GPL LICENSE BLOCK *****
+# SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
   ../include
@@ -24,7 +9,9 @@ set(INC
   ../../depsgraph
   ../../io/alembic
   ../../io/collada
+  ../../io/common
   ../../io/gpencil
+  ../../io/stl
   ../../io/usd
   ../../io/wavefront_obj
   ../../makesdna
@@ -46,6 +33,7 @@ set(SRC
   io_gpencil_utils.c
   io_obj.c
   io_ops.c
+  io_stl_ops.c
   io_usd.c
 
   io_alembic.h
@@ -54,13 +42,13 @@ set(SRC
   io_gpencil.h
   io_obj.h
   io_ops.h
+  io_stl_ops.h
   io_usd.h
 )
 
 set(LIB
   bf_blenkernel
   bf_blenlib
-  bf_wavefront_obj
 )
 
 if(WITH_OPENCOLLADA)
@@ -68,6 +56,27 @@ if(WITH_OPENCOLLADA)
     bf_collada
   )
   add_definitions(-DWITH_COLLADA)
+endif()
+
+if(WITH_IO_WAVEFRONT_OBJ)
+  list(APPEND LIB
+    bf_wavefront_obj
+  )
+  add_definitions(-DWITH_IO_WAVEFRONT_OBJ)
+endif()
+
+if(WITH_IO_STL)
+  list(APPEND LIB
+    bf_stl
+  )
+  add_definitions(-DWITH_IO_STL)
+endif()
+
+if(WITH_IO_GPENCIL)
+  list(APPEND LIB
+    bf_gpencil
+  )
+  add_definitions(-DWITH_IO_GPENCIL)
 endif()
 
 if(WITH_ALEMBIC)
@@ -91,7 +100,5 @@ endif()
 if(WITH_HARU)
   add_definitions(-DWITH_HARU)
 endif()
-
-list(APPEND LIB bf_gpencil)
 
 blender_add_lib(bf_editor_io "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

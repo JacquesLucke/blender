@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation, Joshua Leung
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation, Joshua Leung. All rights reserved. */
 
 /** \file
  * \ingroup edanimation
@@ -138,7 +122,7 @@ static Key *actedit_get_shapekeys(bAnimContext *ac)
   Object *ob;
   Key *key;
 
-  ob = OBACT(view_layer);
+  ob = BKE_view_layer_active_object_get(view_layer);
   if (ob == NULL) {
     return NULL;
   }
@@ -1478,7 +1462,7 @@ static size_t animfilter_action(bAnimContext *ac,
   /* don't include anything from this action if it is linked in from another file,
    * and we're getting stuff for editing...
    */
-  if ((filter_mode & ANIMFILTER_FOREDIT) && ID_IS_LINKED(act)) {
+  if ((filter_mode & ANIMFILTER_FOREDIT) && (ID_IS_LINKED(act) || ID_IS_OVERRIDE_LIBRARY(act))) {
     return 0;
   }
 
@@ -1823,11 +1807,13 @@ static size_t animdata_filter_gpencil_data(ListBase *anim_data,
     ListBase tmp_data = {NULL, NULL};
     size_t tmp_items = 0;
 
-    /* add gpencil animation channels */
-    BEGIN_ANIMFILTER_SUBCHANNELS (EXPANDED_GPD(gpd)) {
-      tmp_items += animdata_filter_gpencil_layers_data(&tmp_data, ads, gpd, filter_mode);
+    if (!(filter_mode & ANIMFILTER_FCURVESONLY)) {
+      /* add gpencil animation channels */
+      BEGIN_ANIMFILTER_SUBCHANNELS (EXPANDED_GPD(gpd)) {
+        tmp_items += animdata_filter_gpencil_layers_data(&tmp_data, ads, gpd, filter_mode);
+      }
+      END_ANIMFILTER_SUBCHANNELS;
     }
-    END_ANIMFILTER_SUBCHANNELS;
 
     /* did we find anything? */
     if (tmp_items) {
@@ -1941,6 +1927,9 @@ static size_t animdata_filter_ds_gpencil(
     tmp_items += animfilter_block_data(ac, &tmp_data, ads, &gpd->id, filter_mode);
 
     /* add Grease Pencil layers */
+    if (!(filter_mode & ANIMFILTER_FCURVESONLY)) {
+      tmp_items += animdata_filter_gpencil_layers_data(&tmp_data, ads, gpd, filter_mode);
+    }
 
     /* TODO: do these need a separate expander?
      * XXX:  what order should these go in? */
@@ -2546,9 +2535,9 @@ static size_t animdata_filter_ds_obdata(
       expanded = FILTER_LAM_OBJD(la);
       break;
     }
-    case OB_CURVE: /* ------- Curve ---------- */
-    case OB_SURF:  /* ------- Nurbs Surface ---------- */
-    case OB_FONT:  /* ------- Text Curve ---------- */
+    case OB_CURVES_LEGACY: /* ------- Curve ---------- */
+    case OB_SURF:          /* ------- Nurbs Surface ---------- */
+    case OB_FONT:          /* ------- Text Curve ---------- */
     {
       Curve *cu = (Curve *)ob->data;
 
@@ -3283,7 +3272,7 @@ static size_t animdata_filter_dopesheet(bAnimContext *ac,
     /* Filter and add contents of each base (i.e. object) without them sorting first
      * NOTE: This saves performance in cases where order doesn't matter
      */
-    Object *obact = OBACT(view_layer);
+    Object *obact = BKE_view_layer_active_object_get(view_layer);
     const eObjectMode object_mode = obact ? obact->mode : OB_MODE_OBJECT;
     LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
       if (animdata_filter_base_is_ok(ads, base, object_mode, filter_mode)) {
@@ -3417,9 +3406,8 @@ static size_t animdata_filter_remove_duplis(ListBase *anim_data)
   GSet *gs;
   size_t items = 0;
 
-  /* build new hashtable to efficiently store and retrieve which entries have been
-   * encountered already while searching
-   */
+  /* Build new hash-table to efficiently store and retrieve which entries have been
+   * encountered already while searching. */
   gs = BLI_gset_ptr_new(__func__);
 
   /* loop through items, removing them from the list if a similar item occurs already */

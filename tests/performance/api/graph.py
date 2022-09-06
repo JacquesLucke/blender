@@ -1,4 +1,4 @@
-# Apache License, Version 2.0
+# SPDX-License-Identifier: Apache-2.0
 
 from . import TestQueue
 
@@ -74,7 +74,7 @@ class TestGraph:
                 revisions[revision] = len(revisions)
                 revision_dates[revision] = int(entry.date)
 
-        # Google Charts JSON data layout is like a spreadsheat table, with
+        # Google Charts JSON data layout is like a spreadsheet table, with
         # columns, rows, and cells. We create one column for revision labels,
         # and one column for each test.
         cols = []

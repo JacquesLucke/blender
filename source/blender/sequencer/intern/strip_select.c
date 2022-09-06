@@ -1,22 +1,7 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
+/* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright 2001-2002 NaN Holding BV. All rights reserved.
  *           2003-2009 Blender Foundation.
- *           2005-2006 Peter Schlaile <peter [at] schlaile [dot] de>
- */
+ *           2005-2006 Peter Schlaile <peter [at] schlaile [dot] de> */
 
 /** \file
  * \ingroup bke
@@ -52,14 +37,14 @@ void SEQ_select_active_set(Scene *scene, Sequence *seq)
   ed->act_seq = seq;
 }
 
-int SEQ_select_active_get_pair(Scene *scene, Sequence **r_seq_act, Sequence **r_seq_other)
+bool SEQ_select_active_get_pair(Scene *scene, Sequence **r_seq_act, Sequence **r_seq_other)
 {
   Editing *ed = SEQ_editing_get(scene);
 
   *r_seq_act = SEQ_select_active_get(scene);
 
   if (*r_seq_act == NULL) {
-    return 0;
+    return false;
   }
 
   Sequence *seq;
@@ -69,7 +54,7 @@ int SEQ_select_active_get_pair(Scene *scene, Sequence **r_seq_act, Sequence **r_
   for (seq = ed->seqbasep->first; seq; seq = seq->next) {
     if (seq->flag & SELECT && (seq != (*r_seq_act))) {
       if (*r_seq_other) {
-        return 0;
+        return false;
       }
 
       *r_seq_other = seq;

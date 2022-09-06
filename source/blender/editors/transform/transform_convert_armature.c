@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edtransform
@@ -48,6 +32,7 @@
 #include "DEG_depsgraph_query.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "transform.h"
 #include "transform_snap.h"
@@ -108,8 +93,8 @@ static void autokeyframe_pose(
   KeyingSet *active_ks = ANIM_scene_get_active_keyingset(scene);
   ListBase nla_cache = {NULL, NULL};
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
-  const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(depsgraph,
-                                                                                    (float)CFRA);
+  const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(
+      depsgraph, (float)scene->r.cfra);
   eInsertKeyFlags flag = 0;
 
   /* flag is initialized from UserPref keyframing settings
@@ -716,7 +701,7 @@ static void add_pose_transdata(TransInfo *t, bPoseChannel *pchan, Object *ob, Tr
   td->con = pchan->constraints.first;
 }
 
-void createTransPose(TransInfo *t)
+static void createTransPose(bContext *UNUSED(C), TransInfo *t)
 {
   Main *bmain = CTX_data_main(t->context);
 
@@ -894,7 +879,7 @@ void createTransPose(TransInfo *t)
   }
 }
 
-void createTransArmatureVerts(TransInfo *t)
+static void createTransArmatureVerts(bContext *UNUSED(C), TransInfo *t)
 {
   t->data_len_all = 0;
 
@@ -1204,10 +1189,10 @@ static void restoreBones(TransDataContainer *tc)
   }
 }
 
-void recalcData_edit_armature(TransInfo *t)
+static void recalcData_edit_armature(TransInfo *t)
 {
   if (t->state != TRANS_CANCEL) {
-    applyProject(t);
+    applySnappingIndividual(t);
   }
 
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -1371,7 +1356,7 @@ static void pose_transform_mirror_update(TransInfo *t, TransDataContainer *tc, O
       }
       mul_v3_m4v3(data->grabtarget, flip_mtx, td->loc);
       if (pid) {
-        /* TODO(germano): Relative Mirror support. */
+        /* TODO(@germano): Relative Mirror support. */
       }
       data->flag |= CONSTRAINT_IK_AUTO;
       /* Add a temporary auto IK constraint here, as we will only temporarily active this
@@ -1427,7 +1412,7 @@ static void restoreMirrorPoseBones(TransDataContainer *tc)
   }
 }
 
-void recalcData_pose(TransInfo *t)
+static void recalcData_pose(TransInfo *t)
 {
   if (t->mode == TFM_BONESIZE) {
     /* Handle the exception where for TFM_BONESIZE in edit mode we pretend to be
@@ -1486,7 +1471,7 @@ void recalcData_pose(TransInfo *t)
         /* XXX: this currently doesn't work, since flags aren't set yet! */
         int targetless_ik = (t->flag & T_AUTOIK);
 
-        animrecord_check_state(t, ob);
+        animrecord_check_state(t, &ob->id);
         autokeyframe_pose(t->context, t->scene, ob, t->mode, targetless_ik);
       }
 
@@ -1699,7 +1684,7 @@ static void pose_grab_with_ik_clear(Main *bmain, Object *ob)
   }
 }
 
-void special_aftertrans_update__pose(bContext *C, TransInfo *t)
+static void special_aftertrans_update__pose(bContext *C, TransInfo *t)
 {
   Object *ob;
 
@@ -1783,3 +1768,17 @@ void special_aftertrans_update__pose(bContext *C, TransInfo *t)
 }
 
 /** \} */
+
+TransConvertTypeInfo TransConvertType_EditArmature = {
+    /* flags */ (T_EDIT | T_POINTS),
+    /* createTransData */ createTransArmatureVerts,
+    /* recalcData */ recalcData_edit_armature,
+    /* special_aftertrans_update */ NULL,
+};
+
+TransConvertTypeInfo TransConvertType_Pose = {
+    /* flags */ 0,
+    /* createTransData */ createTransPose,
+    /* recalcData */ recalcData_pose,
+    /* special_aftertrans_update */ special_aftertrans_update__pose,
+};

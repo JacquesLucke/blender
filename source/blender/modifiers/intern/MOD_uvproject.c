@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2005 by the Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2005 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup modifiers
@@ -48,6 +32,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_prototypes.h"
 
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
@@ -87,7 +72,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
 {
   UVProjectModifierData *umd = (UVProjectModifierData *)md;
   bool do_add_own_transform = false;
-  for (int i = 0; i < umd->num_projectors; i++) {
+  for (int i = 0; i < umd->projectors_num; i++) {
     if (umd->projectors[i] != NULL) {
       DEG_add_object_relation(
           ctx->node, umd->projectors[i], DEG_OB_COMP_TRANSFORM, "UV Project Modifier");
@@ -95,7 +80,7 @@ static void updateDepsgraph(ModifierData *md, const ModifierUpdateDepsgraphConte
     }
   }
   if (do_add_own_transform) {
-    DEG_add_modifier_to_transform_relation(ctx->node, "UV Project Modifier");
+    DEG_add_depends_on_transform_relation(ctx->node, "UV Project Modifier");
   }
 }
 
@@ -113,11 +98,10 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
 {
   float(*coords)[3], (*co)[3];
   MLoopUV *mloop_uv;
-  int i, numVerts, numPolys, numLoops;
-  MPoly *mpoly, *mp;
-  MLoop *mloop;
+  int i, verts_num, polys_num, loops_num;
+  const MPoly *mp;
   Projector projectors[MOD_UVPROJECT_MAXPROJECTORS];
-  int num_projectors = 0;
+  int projectors_num = 0;
   char uvname[MAX_CUSTOMDATA_LAYER_NAME];
   float aspx = umd->aspectx ? umd->aspectx : 1.0f;
   float aspy = umd->aspecty ? umd->aspecty : 1.0f;
@@ -125,13 +109,13 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
   float scay = umd->scaley ? umd->scaley : 1.0f;
   int free_uci = 0;
 
-  for (i = 0; i < umd->num_projectors; i++) {
+  for (i = 0; i < umd->projectors_num; i++) {
     if (umd->projectors[i] != NULL) {
-      projectors[num_projectors++].ob = umd->projectors[i];
+      projectors[projectors_num++].ob = umd->projectors[i];
     }
   }
 
-  if (num_projectors == 0) {
+  if (projectors_num == 0) {
     return mesh;
   }
 
@@ -139,14 +123,14 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
    * (e.g. if a preceding modifier could not preserve it). */
   if (!CustomData_has_layer(&mesh->ldata, CD_MLOOPUV)) {
     CustomData_add_layer_named(
-        &mesh->ldata, CD_MLOOPUV, CD_DEFAULT, NULL, mesh->totloop, umd->uvlayer_name);
+        &mesh->ldata, CD_MLOOPUV, CD_SET_DEFAULT, NULL, mesh->totloop, umd->uvlayer_name);
   }
 
   /* make sure we're using an existing layer */
   CustomData_validate_layer_name(&mesh->ldata, CD_MLOOPUV, umd->uvlayer_name, uvname);
 
   /* calculate a projection matrix and normal for each projector */
-  for (i = 0; i < num_projectors; i++) {
+  for (i = 0; i < projectors_num; i++) {
     float tmpmat[4][4];
     float offsetmat[4][4];
     Camera *cam = NULL;
@@ -199,38 +183,38 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
     mul_mat3_m4_v3(projectors[i].ob->obmat, projectors[i].normal);
   }
 
-  numPolys = mesh->totpoly;
-  numLoops = mesh->totloop;
+  polys_num = mesh->totpoly;
+  loops_num = mesh->totloop;
 
   /* make sure we are not modifying the original UV map */
   mloop_uv = CustomData_duplicate_referenced_layer_named(
-      &mesh->ldata, CD_MLOOPUV, uvname, numLoops);
+      &mesh->ldata, CD_MLOOPUV, uvname, loops_num);
 
-  coords = BKE_mesh_vert_coords_alloc(mesh, &numVerts);
+  coords = BKE_mesh_vert_coords_alloc(mesh, &verts_num);
 
   /* Convert coords to world-space. */
-  for (i = 0, co = coords; i < numVerts; i++, co++) {
+  for (i = 0, co = coords; i < verts_num; i++, co++) {
     mul_m4_v3(ob->obmat, *co);
   }
 
   /* if only one projector, project coords to UVs */
-  if (num_projectors == 1 && projectors[0].uci == NULL) {
-    for (i = 0, co = coords; i < numVerts; i++, co++) {
+  if (projectors_num == 1 && projectors[0].uci == NULL) {
+    for (i = 0, co = coords; i < verts_num; i++, co++) {
       mul_project_m4_v3(projectors[0].projmat, *co);
     }
   }
 
-  mpoly = mesh->mpoly;
-  mloop = mesh->mloop;
+  const MPoly *polys = BKE_mesh_polygons(mesh);
+  const MLoop *loops = BKE_mesh_loops(mesh);
 
   /* apply coords as UVs */
-  for (i = 0, mp = mpoly; i < numPolys; i++, mp++) {
-    if (num_projectors == 1) {
+  for (i = 0, mp = polys; i < polys_num; i++, mp++) {
+    if (projectors_num == 1) {
       if (projectors[0].uci) {
         uint fidx = mp->totloop - 1;
         do {
           uint lidx = mp->loopstart + fidx;
-          uint vidx = mloop[lidx].v;
+          uint vidx = loops[lidx].v;
           BLI_uvproject_from_camera(mloop_uv[lidx].uv, coords[vidx], projectors[0].uci);
         } while (fidx--);
       }
@@ -239,7 +223,7 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
         uint fidx = mp->totloop - 1;
         do {
           uint lidx = mp->loopstart + fidx;
-          uint vidx = mloop[lidx].v;
+          uint vidx = loops[lidx].v;
           copy_v2_v2(mloop_uv[lidx].uv, coords[vidx]);
         } while (fidx--);
       }
@@ -253,7 +237,7 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
 
       /* get the untransformed face normal */
       BKE_mesh_calc_poly_normal_coords(
-          mp, mloop + mp->loopstart, (const float(*)[3])coords, face_no);
+          mp, loops + mp->loopstart, (const float(*)[3])coords, face_no);
 
       /* find the projector which the face points at most directly
        * (projector normal with largest dot product is best)
@@ -261,7 +245,7 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
       best_dot = dot_v3v3(projectors[0].normal, face_no);
       best_projector = &projectors[0];
 
-      for (j = 1; j < num_projectors; j++) {
+      for (j = 1; j < projectors_num; j++) {
         float tmp_dot = dot_v3v3(projectors[j].normal, face_no);
         if (tmp_dot > best_dot) {
           best_dot = tmp_dot;
@@ -273,7 +257,7 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
         uint fidx = mp->totloop - 1;
         do {
           uint lidx = mp->loopstart + fidx;
-          uint vidx = mloop[lidx].v;
+          uint vidx = loops[lidx].v;
           BLI_uvproject_from_camera(mloop_uv[lidx].uv, coords[vidx], best_projector->uci);
         } while (fidx--);
       }
@@ -281,7 +265,7 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
         uint fidx = mp->totloop - 1;
         do {
           uint lidx = mp->loopstart + fidx;
-          uint vidx = mloop[lidx].v;
+          uint vidx = loops[lidx].v;
           mul_v2_project_m4_v3(mloop_uv[lidx].uv, best_projector->projmat, coords[vidx]);
         } while (fidx--);
       }
@@ -292,17 +276,14 @@ static Mesh *uvprojectModifier_do(UVProjectModifierData *umd,
 
   if (free_uci) {
     int j;
-    for (j = 0; j < num_projectors; j++) {
+    for (j = 0; j < projectors_num; j++) {
       if (projectors[j].uci) {
         MEM_freeN(projectors[j].uci);
       }
     }
   }
 
-  mesh->runtime.is_original = false;
-
-  /* Mark tessellated CD layers as dirty. */
-  mesh->runtime.cd_dirty_vert |= CD_MASK_TESSLOOPNORMAL;
+  mesh->runtime.is_original_bmesh = false;
 
   return mesh;
 }
@@ -367,7 +348,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_UVProject = {
-    /* name */ "UVProject",
+    /* name */ N_("UVProject"),
     /* structName */ "UVProjectModifierData",
     /* structSize */ sizeof(UVProjectModifierData),
     /* srna */ &RNA_UVProjectModifier,

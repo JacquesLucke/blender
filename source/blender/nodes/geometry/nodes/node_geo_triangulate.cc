@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "BKE_customdata.h"
 #include "BKE_mesh.h"
@@ -58,7 +44,10 @@ static Mesh *triangulate_mesh_selection(const Mesh &mesh,
   CustomData_MeshMasks cd_mask_extra = {
       CD_MASK_ORIGINDEX, CD_MASK_ORIGINDEX, 0, CD_MASK_ORIGINDEX};
   BMeshCreateParams create_params{0};
-  BMeshFromMeshParams from_mesh_params{true, 1, 1, 1, cd_mask_extra};
+  BMeshFromMeshParams from_mesh_params{};
+  from_mesh_params.calc_face_normal = true;
+  from_mesh_params.calc_vert_normal = true;
+  from_mesh_params.cd_mask_extra = cd_mask_extra;
   BMesh *bm = BKE_mesh_to_bmesh_ex(&mesh, &create_params, &from_mesh_params);
 
   /* Tag faces to be triangulated from the selection mask. */
@@ -70,7 +59,6 @@ static Mesh *triangulate_mesh_selection(const Mesh &mesh,
   BM_mesh_triangulate(bm, quad_method, ngon_method, min_vertices, true, nullptr, nullptr, nullptr);
   Mesh *result = BKE_mesh_from_bmesh_for_eval_nomain(bm, &cd_mask_extra, &mesh);
   BM_mesh_free(bm);
-  BKE_mesh_normals_tag_dirty(result);
   return result;
 }
 
@@ -89,12 +77,10 @@ static void node_geo_exec(GeoNodeExecParams params)
     if (!geometry_set.has_mesh()) {
       return;
     }
-    GeometryComponent &component = geometry_set.get_component_for_write<MeshComponent>();
     const Mesh &mesh_in = *geometry_set.get_mesh_for_read();
 
-    const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_FACE);
-    GeometryComponentFieldContext context{component, ATTR_DOMAIN_FACE};
-    FieldEvaluator evaluator{context, domain_size};
+    bke::MeshFieldContext context{mesh_in, ATTR_DOMAIN_FACE};
+    FieldEvaluator evaluator{context, mesh_in.totpoly};
     evaluator.add(selection_field);
     evaluator.evaluate();
     const IndexMask selection = evaluator.get_evaluated_as_mask(0);

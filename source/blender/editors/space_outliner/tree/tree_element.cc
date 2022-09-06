@@ -1,22 +1,11 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spoutliner
  */
+
+#include <string>
+#include <string_view>
 
 #include "DNA_anim_types.h"
 #include "DNA_listBase.h"
@@ -31,6 +20,7 @@
 #include "tree_element_driver.hh"
 #include "tree_element_gpencil_layer.hh"
 #include "tree_element_id.hh"
+#include "tree_element_label.hh"
 #include "tree_element_nla.hh"
 #include "tree_element_overrides.hh"
 #include "tree_element_rna.hh"
@@ -47,7 +37,9 @@ std::unique_ptr<AbstractTreeElement> AbstractTreeElement::createFromType(const i
                                                                          TreeElement &legacy_te,
                                                                          void *idv)
 {
-  ID &id = *static_cast<ID *>(idv);
+  if (idv == nullptr) {
+    return nullptr;
+  }
 
   /*
    * The following calls make an implicit assumption about what data was passed to the `idv`
@@ -63,10 +55,12 @@ std::unique_ptr<AbstractTreeElement> AbstractTreeElement::createFromType(const i
 
   switch (type) {
     case TSE_SOME_ID:
-      return TreeElementID::createFromID(legacy_te, id);
+      return TreeElementID::createFromID(legacy_te, *static_cast<ID *>(idv));
+    case TSE_GENERIC_LABEL:
+      return std::make_unique<TreeElementLabel>(legacy_te, static_cast<const char *>(idv));
     case TSE_ANIM_DATA:
       return std::make_unique<TreeElementAnimData>(legacy_te,
-                                                   *reinterpret_cast<IdAdtTemplate &>(id).adt);
+                                                   *static_cast<IdAdtTemplate *>(idv)->adt);
     case TSE_DRIVER_BASE:
       return std::make_unique<TreeElementDriverBase>(legacy_te, *static_cast<AnimData *>(idv));
     case TSE_NLA:
@@ -84,32 +78,61 @@ std::unique_ptr<AbstractTreeElement> AbstractTreeElement::createFromType(const i
     case TSE_SCENE_OBJECTS_BASE:
       return std::make_unique<TreeElementSceneObjectsBase>(legacy_te, *static_cast<Scene *>(idv));
     case TSE_LIBRARY_OVERRIDE_BASE:
-      return std::make_unique<TreeElementOverridesBase>(legacy_te, id);
+      return std::make_unique<TreeElementOverridesBase>(legacy_te, *static_cast<ID *>(idv));
     case TSE_LIBRARY_OVERRIDE:
       return std::make_unique<TreeElementOverridesProperty>(
           legacy_te, *static_cast<TreeElementOverridesData *>(idv));
+    case TSE_LIBRARY_OVERRIDE_OPERATION:
+      return std::make_unique<TreeElementOverridesPropertyOperation>(
+          legacy_te, *static_cast<TreeElementOverridesData *>(idv));
     case TSE_RNA_STRUCT:
-      return std::make_unique<TreeElementRNAStruct>(legacy_te,
-                                                    *reinterpret_cast<PointerRNA *>(idv));
+      return std::make_unique<TreeElementRNAStruct>(legacy_te, *static_cast<PointerRNA *>(idv));
     case TSE_RNA_PROPERTY:
       return std::make_unique<TreeElementRNAProperty>(
-          legacy_te, *reinterpret_cast<PointerRNA *>(idv), legacy_te.index);
+          legacy_te, *static_cast<PointerRNA *>(idv), legacy_te.index);
     case TSE_RNA_ARRAY_ELEM:
       return std::make_unique<TreeElementRNAArrayElement>(
-          legacy_te, *reinterpret_cast<PointerRNA *>(idv), legacy_te.index);
+          legacy_te, *static_cast<PointerRNA *>(idv), legacy_te.index);
     case TSE_SEQUENCE:
-      return std::make_unique<TreeElementSequence>(legacy_te, *reinterpret_cast<Sequence *>(idv));
+      return std::make_unique<TreeElementSequence>(legacy_te, *static_cast<Sequence *>(idv));
     case TSE_SEQ_STRIP:
-      return std::make_unique<TreeElementSequenceStrip>(legacy_te,
-                                                        *reinterpret_cast<Strip *>(idv));
+      return std::make_unique<TreeElementSequenceStrip>(legacy_te, *static_cast<Strip *>(idv));
     case TSE_SEQUENCE_DUP:
-      return std::make_unique<TreeElementSequenceStripDuplicate>(
-          legacy_te, *reinterpret_cast<Sequence *>(idv));
+      return std::make_unique<TreeElementSequenceStripDuplicate>(legacy_te,
+                                                                 *static_cast<Sequence *>(idv));
     default:
       break;
   }
 
   return nullptr;
+}
+
+StringRefNull AbstractTreeElement::getWarning() const
+{
+  return "";
+}
+
+std::optional<BIFIconID> AbstractTreeElement::getIcon() const
+{
+  return {};
+}
+
+void AbstractTreeElement::print_path()
+{
+  std::string path = legacy_te_.name;
+
+  for (TreeElement *parent = legacy_te_.parent; parent; parent = parent->parent) {
+    path = parent->name + std::string_view("/") + path;
+  }
+
+  std::cout << path << std::endl;
+}
+
+void AbstractTreeElement::uncollapse_by_default(TreeElement *legacy_te)
+{
+  if (!TREESTORE(legacy_te)->used) {
+    TREESTORE(legacy_te)->flag &= ~TSE_CLOSED;
+  }
 }
 
 void tree_element_expand(const AbstractTreeElement &tree_element, SpaceOutliner &space_outliner)
@@ -121,42 +144,6 @@ void tree_element_expand(const AbstractTreeElement &tree_element, SpaceOutliner 
     return;
   }
   tree_element.expand(space_outliner);
-  tree_element.postExpand(space_outliner);
-}
-
-bool tree_element_warnings_get(TreeElement *te, int *r_icon, const char **r_message)
-{
-  TreeStoreElem *tselem = te->store_elem;
-
-  if (tselem->type != TSE_SOME_ID) {
-    return false;
-  }
-  if (te->idcode != ID_LI) {
-    return false;
-  }
-
-  Library *library = (Library *)tselem->id;
-  if (library->tag & LIBRARY_TAG_RESYNC_REQUIRED) {
-    if (r_icon) {
-      *r_icon = ICON_ERROR;
-    }
-    if (r_message) {
-      *r_message = TIP_(
-          "Contains linked library overrides that need to be resynced, updating the library is "
-          "recommended");
-    }
-    return true;
-  }
-  if (library->id.tag & LIB_TAG_MISSING) {
-    if (r_icon) {
-      *r_icon = ICON_ERROR;
-    }
-    if (r_message) {
-      *r_message = TIP_("Missing library");
-    }
-    return true;
-  }
-  return false;
 }
 
 }  // namespace blender::ed::outliner

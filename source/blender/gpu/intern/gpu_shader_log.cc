@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2021 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2021 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -30,8 +14,6 @@
 
 #include "gpu_shader_dependency_private.h"
 #include "gpu_shader_private.hh"
-
-#include "GPU_platform.h"
 
 #include "CLG_log.h"
 
@@ -93,6 +75,9 @@ void Shader::print_log(Span<const char *> sources,
           dynstr, "%s%s  %s%s\n", info_col, line_prefix, filename.c_str(), reset_col);
     }
 #endif
+  }
+  if (sources_end_line.size() == 0) {
+    sources_end_line.append(0);
   }
 
   char *log_line = log, *line_end;
@@ -243,6 +228,7 @@ void Shader::print_log(Span<const char *> sources,
     log_line = line_end + 1;
     previous_location = log_item.cursor;
   }
+  // printf("%s", sources_combined);
   MEM_freeN(sources_combined);
 
   CLG_Severity severity = error ? CLG_SEVERITY_ERROR : CLG_SEVERITY_WARN;

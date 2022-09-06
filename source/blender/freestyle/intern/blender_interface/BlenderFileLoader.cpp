@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup freestyle
@@ -22,10 +8,13 @@
 
 #include "BLI_utildefines.h"
 
+#include "BKE_attribute.hh"
 #include "BKE_global.h"
 #include "BKE_object.h"
 
 #include <sstream>
+
+using blender::Span;
 
 namespace Freestyle {
 
@@ -88,6 +77,11 @@ NodeGroup *BlenderFileLoader::Load()
     }
 
     if (!(BKE_object_visibility(ob, eval_mode) & OB_VISIBLE_SELF)) {
+      continue;
+    }
+
+    /* Evaluated metaballs will appear as mesh objects in the iterator. */
+    if (ob->type == OB_MBALL) {
       continue;
     }
 
@@ -384,11 +378,14 @@ int BlenderFileLoader::testDegenerateTriangle(float v1[3], float v2[3], float v3
   return 0;
 }
 
-static bool testEdgeMark(Mesh *me, FreestyleEdge *fed, const MLoopTri *lt, int i)
+static bool testEdgeMark(Mesh *me, const FreestyleEdge *fed, const MLoopTri *lt, int i)
 {
-  MLoop *mloop = &me->mloop[lt->tri[i]];
-  MLoop *mloop_next = &me->mloop[lt->tri[(i + 1) % 3]];
-  MEdge *medge = &me->medge[mloop->e];
+  const Span<MEdge> edges = me->edges();
+  const Span<MLoop> loops = me->loops();
+
+  const MLoop *mloop = &loops[lt->tri[i]];
+  const MLoop *mloop_next = &loops[lt->tri[(i + 1) % 3]];
+  const MEdge *medge = &edges[mloop->e];
 
   if (!ELEM(mloop_next->v, medge->v1, medge->v2)) {
     /* Not an edge in the original mesh before triangulation. */
@@ -402,25 +399,27 @@ void BlenderFileLoader::insertShapeNode(Object *ob, Mesh *me, int id)
 {
   char *name = ob->id.name + 2;
 
+  const Span<MVert> mesh_verts = me->vertices();
+  const Span<MPoly> mesh_polys = me->polygons();
+  const Span<MLoop> mesh_loops = me->loops();
+
   // Compute loop triangles
   int tottri = poly_to_tri_count(me->totpoly, me->totloop);
   MLoopTri *mlooptri = (MLoopTri *)MEM_malloc_arrayN(tottri, sizeof(*mlooptri), __func__);
-  BKE_mesh_recalc_looptri(me->mloop, me->mpoly, me->mvert, me->totloop, me->totpoly, mlooptri);
+  BKE_mesh_recalc_looptri(
+      mesh_loops.data(), mesh_polys.data(), mesh_verts.data(), me->totloop, me->totpoly, mlooptri);
 
   // Compute loop normals
   BKE_mesh_calc_normals_split(me);
-  float(*lnors)[3] = nullptr;
+  const float(*lnors)[3] = nullptr;
 
   if (CustomData_has_layer(&me->ldata, CD_NORMAL)) {
     lnors = (float(*)[3])CustomData_get_layer(&me->ldata, CD_NORMAL);
   }
 
   // Get other mesh data
-  MVert *mvert = me->mvert;
-  MLoop *mloop = me->mloop;
-  MPoly *mpoly = me->mpoly;
-  FreestyleEdge *fed = (FreestyleEdge *)CustomData_get_layer(&me->edata, CD_FREESTYLE_EDGE);
-  FreestyleFace *ffa = (FreestyleFace *)CustomData_get_layer(&me->pdata, CD_FREESTYLE_FACE);
+  const FreestyleEdge *fed = (FreestyleEdge *)CustomData_get_layer(&me->edata, CD_FREESTYLE_EDGE);
+  const FreestyleFace *ffa = (FreestyleFace *)CustomData_get_layer(&me->pdata, CD_FREESTYLE_FACE);
 
   // Compute view matrix
   Object *ob_camera_eval = DEG_get_evaluated_object(_depsgraph, RE_GetCamera(_re));
@@ -443,9 +442,9 @@ void BlenderFileLoader::insertShapeNode(Object *ob, Mesh *me, int id)
   for (int a = 0; a < tottri; a++) {
     const MLoopTri *lt = &mlooptri[a];
 
-    copy_v3_v3(v1, mvert[mloop[lt->tri[0]].v].co);
-    copy_v3_v3(v2, mvert[mloop[lt->tri[1]].v].co);
-    copy_v3_v3(v3, mvert[mloop[lt->tri[2]].v].co);
+    copy_v3_v3(v1, mesh_verts[mesh_loops[lt->tri[0]].v].co);
+    copy_v3_v3(v2, mesh_verts[mesh_loops[lt->tri[1]].v].co);
+    copy_v3_v3(v3, mesh_verts[mesh_loops[lt->tri[2]].v].co);
 
     mul_m4_v3(obmat, v1);
     mul_m4_v3(obmat, v2);
@@ -506,16 +505,20 @@ void BlenderFileLoader::insertShapeNode(Object *ob, Mesh *me, int id)
 
   FrsMaterial tmpMat;
 
+  const blender::VArray<int> material_indices =
+      blender::bke::mesh_attributes(*me).lookup_or_default<int>(
+          "material_index", ATTR_DOMAIN_FACE, 0);
+
   // We parse the vlak nodes again and import meshes while applying the clipping
   // by the near and far view planes.
   for (int a = 0; a < tottri; a++) {
     const MLoopTri *lt = &mlooptri[a];
-    const MPoly *mp = &mpoly[lt->poly];
-    Material *mat = BKE_object_material_get(ob, mp->mat_nr + 1);
+    const MPoly *mp = &mesh_polys[lt->poly];
+    Material *mat = BKE_object_material_get(ob, material_indices[lt->poly] + 1);
 
-    copy_v3_v3(v1, mvert[mloop[lt->tri[0]].v].co);
-    copy_v3_v3(v2, mvert[mloop[lt->tri[1]].v].co);
-    copy_v3_v3(v3, mvert[mloop[lt->tri[2]].v].co);
+    copy_v3_v3(v1, mesh_verts[mesh_loops[lt->tri[0]].v].co);
+    copy_v3_v3(v2, mesh_verts[mesh_loops[lt->tri[1]].v].co);
+    copy_v3_v3(v3, mesh_verts[mesh_loops[lt->tri[2]].v].co);
 
     mul_m4_v3(obmat, v1);
     mul_m4_v3(obmat, v2);

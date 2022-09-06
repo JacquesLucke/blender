@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup spview3d
@@ -57,15 +43,50 @@ void viewmove_modal_keymap(wmKeyConfig *keyconf)
   keymap = WM_modalkeymap_ensure(keyconf, "View3D Move Modal", modal_items);
 
   /* items for modal map */
-  WM_modalkeymap_add_item(keymap, MIDDLEMOUSE, KM_RELEASE, KM_ANY, 0, VIEW_MODAL_CONFIRM);
-  WM_modalkeymap_add_item(keymap, EVT_ESCKEY, KM_PRESS, KM_ANY, 0, VIEW_MODAL_CONFIRM);
+
+  WM_modalkeymap_add_item(keymap,
+                          &(const KeyMapItem_Params){
+                              .type = MIDDLEMOUSE,
+                              .value = KM_RELEASE,
+                              .modifier = KM_ANY,
+                              .direction = KM_ANY,
+                          },
+                          VIEW_MODAL_CONFIRM);
+  WM_modalkeymap_add_item(keymap,
+                          &(const KeyMapItem_Params){
+                              .type = EVT_ESCKEY,
+                              .value = KM_PRESS,
+                              .modifier = KM_ANY,
+                              .direction = KM_ANY,
+                          },
+                          VIEW_MODAL_CONFIRM);
 
   /* disabled mode switching for now, can re-implement better, later on */
 #if 0
-  WM_modalkeymap_add_item(keymap, LEFTMOUSE, KM_PRESS, KM_ANY, 0, VIEWROT_MODAL_SWITCH_ZOOM);
-  WM_modalkeymap_add_item(keymap, LEFTCTRLKEY, KM_PRESS, KM_ANY, 0, VIEWROT_MODAL_SWITCH_ZOOM);
-  WM_modalkeymap_add_item(
-      keymap, LEFTSHIFTKEY, KM_RELEASE, KM_ANY, 0, VIEWROT_MODAL_SWITCH_ROTATE);
+  WM_modalkeymap_add_item(keymap,
+                          &(const KeyMapItem_Params){
+                              .type = LEFTMOUSE,
+                              .value = KM_PRESS,
+                              .modifier = KM_ANY,
+                              .direction = KM_ANY,
+                          },
+                          VIEWROT_MODAL_SWITCH_ZOOM);
+  WM_modalkeymap_add_item(keymap,
+                          &(const KeyMapItem_Params){
+                              .type = EVT_LEFTCTRLKEY,
+                              .value = KM_PRESS,
+                              .modifier = KM_ANY,
+                              .direction = KM_ANY,
+                          },
+                          VIEWROT_MODAL_SWITCH_ZOOM);
+  WM_modalkeymap_add_item(keymap,
+                          &(const KeyMapItem_Params){
+                              .type = EVT_LEFTSHIFTKEY,
+                              .value = KM_RELEASE,
+                              .modifier = KM_ANY,
+                              .direction = KM_ANY,
+                          },
+                          VIEWROT_MODAL_SWITCH_ROTATE);
 #endif
 
   /* assign map to operators */
@@ -90,11 +111,11 @@ static int viewmove_modal(bContext *C, wmOperator *op, const wmEvent *event)
         event_code = VIEW_CONFIRM;
         break;
       case VIEWROT_MODAL_SWITCH_ZOOM:
-        WM_operator_name_call(C, "VIEW3D_OT_zoom", WM_OP_INVOKE_DEFAULT, NULL);
+        WM_operator_name_call(C, "VIEW3D_OT_zoom", WM_OP_INVOKE_DEFAULT, NULL, event);
         event_code = VIEW_CONFIRM;
         break;
       case VIEWROT_MODAL_SWITCH_ROTATE:
-        WM_operator_name_call(C, "VIEW3D_OT_rotate", WM_OP_INVOKE_DEFAULT, NULL);
+        WM_operator_name_call(C, "VIEW3D_OT_rotate", WM_OP_INVOKE_DEFAULT, NULL, event);
         event_code = VIEW_CONFIRM;
         break;
     }
@@ -119,6 +140,7 @@ static int viewmove_modal(bContext *C, wmOperator *op, const wmEvent *event)
   }
 
   if (ret & OPERATOR_FINISHED) {
+    ED_view3d_camera_lock_undo_push(op->type->name, vod->v3d, vod->rv3d, C);
     viewops_data_free(C, op->customdata);
     op->customdata = NULL;
   }

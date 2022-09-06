@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #ifndef __BLENDER_SYNC_H__
 #define __BLENDER_SYNC_H__
@@ -20,6 +7,7 @@
 #include "MEM_guardedalloc.h"
 #include "RNA_access.h"
 #include "RNA_blender_cpp.h"
+#include "RNA_path.h"
 #include "RNA_types.h"
 
 #include "blender/id_map.h"
@@ -96,7 +84,9 @@ class BlenderSync {
   }
 
   /* get parameters */
-  static SceneParams get_scene_params(BL::Scene &b_scene, bool background);
+  static SceneParams get_scene_params(BL::Scene &b_scene,
+                                      const bool background,
+                                      const bool use_developer_ui);
   static SessionParams get_session_params(BL::RenderEngine &b_engine,
                                           BL::Preferences &b_userpref,
                                           BL::Scene &b_scene,
@@ -127,7 +117,7 @@ class BlenderSync {
   /* Shader */
   array<Node *> find_used_shaders(BL::Object &b_ob);
   void sync_world(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d, bool update_all);
-  void sync_shaders(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d);
+  void sync_shaders(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d, bool update_all);
   void sync_nodes(Shader *shader, BL::ShaderNodeTree &b_ntree);
 
   /* Object */

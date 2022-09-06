@@ -31,10 +31,15 @@ layout(std140) uniform shader_data
   uint coarse_face_select_mask;
   uint coarse_face_smooth_mask;
   uint coarse_face_active_mask;
+  uint coarse_face_hidden_mask;
   uint coarse_face_loopstart_mask;
 
   /* Total number of elements to process. */
   uint total_dispatch_size;
+
+  bool is_edit_mode;
+
+  bool use_hide;
 };
 
 uint get_global_invocation_index()
@@ -107,6 +112,10 @@ struct PosNorLoop {
   float flag;
 };
 
+struct LoopNormal {
+  float nx, ny, nz, flag;
+};
+
 vec3 get_vertex_pos(PosNorLoop vertex_data)
 {
   return vec3(vertex_data.x, vertex_data.y, vertex_data.z);
@@ -117,6 +126,16 @@ vec3 get_vertex_nor(PosNorLoop vertex_data)
   return vec3(vertex_data.nx, vertex_data.ny, vertex_data.nz);
 }
 
+LoopNormal get_normal_and_flag(PosNorLoop vertex_data)
+{
+  LoopNormal loop_nor;
+  loop_nor.nx = vertex_data.nx;
+  loop_nor.ny = vertex_data.ny;
+  loop_nor.nz = vertex_data.nz;
+  loop_nor.flag = vertex_data.flag;
+  return loop_nor;
+}
+
 void set_vertex_pos(inout PosNorLoop vertex_data, vec3 pos)
 {
   vertex_data.x = pos.x;
@@ -124,20 +143,27 @@ void set_vertex_pos(inout PosNorLoop vertex_data, vec3 pos)
   vertex_data.z = pos.z;
 }
 
-void set_vertex_nor(inout PosNorLoop vertex_data, vec3 nor, uint flag)
-{
-  vertex_data.nx = nor.x;
-  vertex_data.ny = nor.y;
-  vertex_data.nz = nor.z;
-  vertex_data.flag = float(flag);
-}
-
 /* Set the vertex normal but preserve the existing flag. This is for when we compute manually the
  * vertex normals when we cannot use the limit surface, in which case the flag and the normal are
  * set by two separate compute pass. */
 void set_vertex_nor(inout PosNorLoop vertex_data, vec3 nor)
 {
-  set_vertex_nor(vertex_data, nor, 0);
+  vertex_data.nx = nor.x;
+  vertex_data.ny = nor.y;
+  vertex_data.nz = nor.z;
+}
+
+void set_vertex_nor(inout PosNorLoop vertex_data, vec3 nor, float flag)
+{
+  set_vertex_nor(vertex_data, nor);
+  vertex_data.flag = flag;
+}
+
+void add_newell_cross_v3_v3v3(inout vec3 n, vec3 v_prev, vec3 v_curr)
+{
+  n[0] += (v_prev[1] - v_curr[1]) * (v_prev[2] + v_curr[2]);
+  n[1] += (v_prev[2] - v_curr[2]) * (v_prev[0] + v_curr[0]);
+  n[2] += (v_prev[0] - v_curr[0]) * (v_prev[1] + v_curr[1]);
 }
 
 #define ORIGINDEX_NONE -1

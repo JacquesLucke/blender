@@ -1,25 +1,9 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup bli
- * Windows-posix compatibility layer, windows-specific functions.
+ * WIN32-POSIX compatibility layer, MS-Windows-specific functions.
  */
 
 #ifdef WIN32
@@ -79,23 +63,17 @@ bool BLI_windows_register_blend_extension(const bool background)
   char buffer[256];
 
   char BlPath[MAX_PATH];
-  char InstallDir[FILE_MAXDIR];
-  char SysDir[FILE_MAXDIR];
-  const char *ThumbHandlerDLL;
-  char RegCmd[MAX_PATH * 2];
   char MBox[256];
-  char *blender_app;
-#  ifndef _WIN64
-  BOOL IsWOW64;
-#  endif
 
   printf("Registering file extension...");
   GetModuleFileName(0, BlPath, MAX_PATH);
 
   /* Replace the actual app name with the wrapper. */
-  blender_app = strstr(BlPath, "blender.exe");
-  if (blender_app != NULL) {
-    strcpy(blender_app, "blender-launcher.exe");
+  {
+    char *blender_app = strstr(BlPath, "blender.exe");
+    if (blender_app != NULL) {
+      strcpy(blender_app, "blender-launcher.exe");
+    }
   }
 
   /* root is HKLM by default */
@@ -173,12 +151,17 @@ bool BLI_windows_register_blend_extension(const bool background)
   }
 
 #  ifdef WITH_BLENDER_THUMBNAILER
-  BLI_windows_get_executable_dir(InstallDir);
-  GetSystemDirectory(SysDir, FILE_MAXDIR);
-  ThumbHandlerDLL = "BlendThumb.dll";
-  snprintf(
-      RegCmd, MAX_PATH * 2, "%s\\regsvr32 /s \"%s\\%s\"", SysDir, InstallDir, ThumbHandlerDLL);
-  system(RegCmd);
+  {
+    char RegCmd[MAX_PATH * 2];
+    char InstallDir[FILE_MAXDIR];
+    char SysDir[FILE_MAXDIR];
+    BLI_windows_get_executable_dir(InstallDir);
+    GetSystemDirectory(SysDir, FILE_MAXDIR);
+    const char *ThumbHandlerDLL = "BlendThumb.dll";
+    snprintf(
+        RegCmd, MAX_PATH * 2, "%s\\regsvr32 /s \"%s\\%s\"", SysDir, InstallDir, ThumbHandlerDLL);
+    system(RegCmd);
+  }
 #  endif
 
   RegCloseKey(root);

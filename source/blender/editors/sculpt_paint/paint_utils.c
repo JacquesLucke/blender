@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup edsculpt
@@ -44,7 +28,9 @@
 #include "BKE_context.h"
 #include "BKE_customdata.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_material.h"
+#include "BKE_mesh.h"
 #include "BKE_mesh_runtime.h"
 #include "BKE_paint.h"
 #include "BKE_report.h"
@@ -54,6 +40,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_prototypes.h"
 
 #include "GPU_framebuffer.h"
 #include "GPU_matrix.h"
@@ -146,13 +133,12 @@ float paint_calc_object_space_radius(ViewContext *vc, const float center[3], flo
 {
   Object *ob = vc->obact;
   float delta[3], scale, loc[3];
-  const float mval_f[2] = {pixel_radius, 0.0f};
-  float zfac;
+  const float xy_delta[2] = {pixel_radius, 0.0f};
 
   mul_v3_m4v3(loc, ob->obmat, center);
 
-  zfac = ED_view3d_calc_zfac(vc->rv3d, loc, NULL);
-  ED_view3d_win_to_delta(vc->region, mval_f, delta, zfac);
+  const float zfac = ED_view3d_calc_zfac(vc->rv3d, loc);
+  ED_view3d_win_to_delta(vc->region, xy_delta, zfac, delta);
 
   scale = fabsf(mat4_to_scale(ob->obmat));
   scale = (scale == 0.0f) ? 1.0f : scale;
@@ -297,14 +283,13 @@ static void imapaint_pick_uv(
   float p[2], w[3], absw, minabsw;
   float matrix[4][4], proj[4][4];
   int view[4];
-  const eImagePaintMode mode = scene->toolsettings->imapaint.mode;
+  const ePaintCanvasSource mode = scene->toolsettings->imapaint.mode;
 
   const MLoopTri *lt = BKE_mesh_runtime_looptri_ensure(me_eval);
   const int tottri = me_eval->runtime.looptris.len;
 
-  const MVert *mvert = me_eval->mvert;
-  const MPoly *mpoly = me_eval->mpoly;
-  const MLoop *mloop = me_eval->mloop;
+  const MVert *mvert = BKE_mesh_vertices(me_eval);
+  const MLoop *mloop = BKE_mesh_loops(me_eval);
   const int *index_mp_to_orig = CustomData_get_layer(&me_eval->pdata, CD_ORIGINDEX);
 
   /* get the needed opengl matrices */
@@ -318,6 +303,9 @@ static void imapaint_pick_uv(
   minabsw = 1e10;
   uv[0] = uv[1] = 0.0;
 
+  const int *material_indices = (const int *)CustomData_get_layer_named(
+      &me_eval->pdata, CD_PROP_INT32, "material_index");
+
   /* test all faces in the derivedmesh with the original index of the picked face */
   /* face means poly here, not triangle, indeed */
   for (i = 0; i < tottri; i++, lt++) {
@@ -325,7 +313,6 @@ static void imapaint_pick_uv(
 
     if (findex == faceindex) {
       const MLoopUV *mloopuv;
-      const MPoly *mp = &mpoly[lt->poly];
       const MLoopUV *tri_uv[3];
       float tri_co[3][3];
 
@@ -333,11 +320,12 @@ static void imapaint_pick_uv(
         copy_v3_v3(tri_co[j], mvert[mloop[lt->tri[j]].v].co);
       }
 
-      if (mode == IMAGEPAINT_MODE_MATERIAL) {
+      if (mode == PAINT_CANVAS_SOURCE_MATERIAL) {
         const Material *ma;
         const TexPaintSlot *slot;
 
-        ma = BKE_object_material_get(ob_eval, mp->mat_nr + 1);
+        ma = BKE_object_material_get(
+            ob_eval, material_indices == NULL ? 1 : material_indices[lt->poly] + 1);
         slot = &ma->texpaintslot[ma->paint_active_slot];
 
         if (!(slot && slot->uvname &&
@@ -387,16 +375,6 @@ static int imapaint_pick_face(ViewContext *vc, const int mval[2], uint *r_index,
   return 1;
 }
 
-static Image *imapaint_face_image(Object *ob, Mesh *me, int face_index)
-{
-  Image *ima;
-  MPoly *mp = me->mpoly + face_index;
-  Material *ma = BKE_object_material_get(ob, mp->mat_nr + 1);
-  ima = ma && ma->texpaintslot ? ma->texpaintslot[ma->paint_active_slot].ima : NULL;
-
-  return ima;
-}
-
 void paint_sample_color(
     bContext *C, ARegion *region, int x, int y, bool texpaint_proj, bool use_palette)
 {
@@ -426,7 +404,7 @@ void paint_sample_color(
   if (v3d && texpaint_proj) {
     /* first try getting a color directly from the mesh faces if possible */
     ViewLayer *view_layer = CTX_data_view_layer(C);
-    Object *ob = OBACT(view_layer);
+    Object *ob = BKE_view_layer_active_object_get(view_layer);
     Object *ob_eval = DEG_get_evaluated_object(depsgraph, ob);
     ImagePaintSettings *imapaint = &scene->toolsettings->imapaint;
     bool use_material = (imapaint->mode == IMAGEPAINT_MODE_MATERIAL);
@@ -436,6 +414,8 @@ void paint_sample_color(
       cddata_masks.pmask |= CD_MASK_ORIGINDEX;
       Mesh *me = (Mesh *)ob->data;
       Mesh *me_eval = mesh_get_eval_final(depsgraph, scene, ob_eval, &cddata_masks);
+      const int *material_indices = (const int *)CustomData_get_layer_named(
+          &me_eval->pdata, CD_PROP_INT32, "material_index");
 
       ViewContext vc;
       const int mval[2] = {x, y};
@@ -448,13 +428,26 @@ void paint_sample_color(
         view3d_operator_needs_opengl(C);
 
         if (imapaint_pick_face(&vc, mval, &faceindex, totpoly)) {
-          Image *image;
+          Image *image = NULL;
+          int interp = SHD_INTERP_LINEAR;
 
           if (use_material) {
-            image = imapaint_face_image(ob_eval, me_eval, faceindex);
+            /* Image and texture interpolation from material. */
+            Material *ma = BKE_object_material_get(
+                ob_eval, material_indices ? material_indices[faceindex] + 1 : 1);
+
+            /* Force refresh since paint slots are not updated when changing interpolation. */
+            BKE_texpaint_slot_refresh_cache(scene, ma, ob);
+
+            if (ma && ma->texpaintslot) {
+              image = ma->texpaintslot[ma->paint_active_slot].ima;
+              interp = ma->texpaintslot[ma->paint_active_slot].interp;
+            }
           }
           else {
+            /* Image and texture interpolation from tool settings. */
             image = imapaint->canvas;
+            interp = imapaint->interp;
           }
 
           if (image) {
@@ -492,7 +485,12 @@ void paint_sample_color(
 
               if (ibuf->rect_float) {
                 float rgba_f[4];
-                bilinear_interpolation_color_wrap(ibuf, NULL, rgba_f, u, v);
+                if (interp == SHD_INTERP_CLOSEST) {
+                  nearest_interpolation_color_wrap(ibuf, NULL, rgba_f, u, v);
+                }
+                else {
+                  bilinear_interpolation_color_wrap(ibuf, NULL, rgba_f, u, v);
+                }
                 straight_to_premul_v4(rgba_f);
                 if (use_palette) {
                   linearrgb_to_srgb_v3_v3(color->rgb, rgba_f);
@@ -504,7 +502,12 @@ void paint_sample_color(
               }
               else {
                 uchar rgba[4];
-                bilinear_interpolation_color_wrap(ibuf, rgba, NULL, u, v);
+                if (interp == SHD_INTERP_CLOSEST) {
+                  nearest_interpolation_color_wrap(ibuf, rgba, NULL, u, v);
+                }
+                else {
+                  bilinear_interpolation_color_wrap(ibuf, rgba, NULL, u, v);
+                }
                 if (use_palette) {
                   rgb_uchar_to_float(color->rgb, rgba);
                 }
@@ -601,7 +604,8 @@ void BRUSH_OT_curve_preset(wmOperatorType *ot)
   ot->poll = brush_curve_preset_poll;
 
   prop = RNA_def_enum(ot->srna, "shape", prop_shape_items, CURVE_PRESET_SMOOTH, "Mode", "");
-  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_CURVE); /* Abusing id_curve :/ */
+  RNA_def_property_translation_context(prop,
+                                       BLT_I18NCONTEXT_ID_CURVE_LEGACY); /* Abusing id_curve :/ */
 }
 
 /* face-select ops */
@@ -699,7 +703,7 @@ static int vert_select_ungrouped_exec(bContext *C, wmOperator *op)
   Object *ob = CTX_data_active_object(C);
   Mesh *me = ob->data;
 
-  if (BLI_listbase_is_empty(&me->vertex_group_names) || (me->dvert == NULL)) {
+  if (BLI_listbase_is_empty(&me->vertex_group_names) || (BKE_mesh_deform_verts(me) == NULL)) {
     BKE_report(op->reports, RPT_ERROR, "No weights/vertex groups on object");
     return OPERATOR_CANCELLED;
   }
@@ -751,25 +755,68 @@ void PAINT_OT_face_select_hide(wmOperatorType *ot)
       ot->srna, "unselected", 0, "Unselected", "Hide unselected rather than selected objects");
 }
 
-static int face_select_reveal_exec(bContext *C, wmOperator *op)
+static int vert_select_hide_exec(bContext *C, wmOperator *op)
 {
-  const bool select = RNA_boolean_get(op->ptr, "select");
+  const bool unselected = RNA_boolean_get(op->ptr, "unselected");
   Object *ob = CTX_data_active_object(C);
-  paintface_reveal(C, ob, select);
+  paintvert_hide(C, ob, unselected);
   ED_region_tag_redraw(CTX_wm_region(C));
   return OPERATOR_FINISHED;
 }
 
-void PAINT_OT_face_select_reveal(wmOperatorType *ot)
+void PAINT_OT_vert_select_hide(wmOperatorType *ot)
 {
-  ot->name = "Face Select Reveal";
-  ot->description = "Reveal hidden faces";
-  ot->idname = "PAINT_OT_face_select_reveal";
+  ot->name = "Vertex Select Hide";
+  ot->description = "Hide selected vertices";
+  ot->idname = "PAINT_OT_vert_select_hide";
 
-  ot->exec = face_select_reveal_exec;
-  ot->poll = facemask_paint_poll;
+  ot->exec = vert_select_hide_exec;
+  ot->poll = vert_paint_poll;
 
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
-  RNA_def_boolean(ot->srna, "select", true, "Select", "");
+  RNA_def_boolean(
+      ot->srna, "unselected", 0, "Unselected", "Hide unselected rather than selected vertices");
+}
+
+static int face_vert_reveal_exec(bContext *C, wmOperator *op)
+{
+  const bool select = RNA_boolean_get(op->ptr, "select");
+  Object *ob = CTX_data_active_object(C);
+
+  if (BKE_paint_select_vert_test(ob)) {
+    paintvert_reveal(C, ob, select);
+  }
+  else {
+    paintface_reveal(C, ob, select);
+  }
+
+  ED_region_tag_redraw(CTX_wm_region(C));
+  return OPERATOR_FINISHED;
+}
+
+static bool face_vert_reveal_poll(bContext *C)
+{
+  Object *ob = CTX_data_active_object(C);
+
+  /* Allow using this operator when no selection is enabled but hiding is applied. */
+  return BKE_paint_select_elem_test(ob) || BKE_paint_always_hide_test(ob);
+}
+
+void PAINT_OT_face_vert_reveal(wmOperatorType *ot)
+{
+  ot->name = "Reveal Faces/Vertices";
+  ot->description = "Reveal hidden faces and vertices";
+  ot->idname = "PAINT_OT_face_vert_reveal";
+
+  ot->exec = face_vert_reveal_exec;
+  ot->poll = face_vert_reveal_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  RNA_def_boolean(ot->srna,
+                  "select",
+                  true,
+                  "Select",
+                  "Specifies whether the newly revealed geometry should be selected");
 }

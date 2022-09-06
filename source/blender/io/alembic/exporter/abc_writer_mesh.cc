@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup balembic
@@ -26,6 +12,7 @@
 #include "BLI_math_vector.h"
 
 #include "BKE_attribute.h"
+#include "BKE_attribute.hh"
 #include "BKE_customdata.h"
 #include "BKE_lib_id.h"
 #include "BKE_material.h"
@@ -172,6 +159,7 @@ void ABCGenericMeshWriter::do_write(HierarchyContext &context)
     BMeshCreateParams bmesh_create_params{};
     BMeshFromMeshParams bmesh_from_mesh_params{};
     bmesh_from_mesh_params.calc_face_normal = true;
+    bmesh_from_mesh_params.calc_vert_normal = true;
     BMesh *bm = BKE_mesh_to_bmesh_ex(mesh, &bmesh_create_params, &bmesh_from_mesh_params);
 
     BM_mesh_triangulate(bm, quad_method, ngon_method, 4, tag_only, nullptr, nullptr, nullptr);
@@ -188,8 +176,8 @@ void ABCGenericMeshWriter::do_write(HierarchyContext &context)
 
   m_custom_data_config.pack_uvs = args_.export_params->packuv;
   m_custom_data_config.mesh = mesh;
-  m_custom_data_config.mpoly = mesh->mpoly;
-  m_custom_data_config.mloop = mesh->mloop;
+  m_custom_data_config.mpoly = mesh->polygons_for_write().data();
+  m_custom_data_config.mloop = mesh->loops_for_write().data();
   m_custom_data_config.totpoly = mesh->totpoly;
   m_custom_data_config.totloop = mesh->totloop;
   m_custom_data_config.totvert = mesh->totvert;
@@ -323,7 +311,7 @@ void ABCGenericMeshWriter::write_subd(HierarchyContext &context, struct Mesh *me
   }
 
   if (args_.export_params->orcos) {
-    write_generated_coordinates(abc_poly_mesh_schema_.getArbGeomParams(), m_custom_data_config);
+    write_generated_coordinates(abc_subdiv_schema_.getArbGeomParams(), m_custom_data_config);
   }
 
   if (!edge_crease_indices.empty()) {
@@ -372,14 +360,14 @@ void ABCGenericMeshWriter::write_arb_geo_params(struct Mesh *me)
   else {
     arb_geom_params = abc_poly_mesh_.getSchema().getArbGeomParams();
   }
-  write_custom_data(arb_geom_params, m_custom_data_config, &me->ldata, CD_MLOOPCOL);
+  write_custom_data(arb_geom_params, m_custom_data_config, &me->ldata, CD_PROP_BYTE_COLOR);
 }
 
 bool ABCGenericMeshWriter::get_velocities(struct Mesh *mesh, std::vector<Imath::V3f> &vels)
 {
   /* Export velocity attribute output by fluid sim, sequence cache modifier
    * and geometry nodes. */
-  CustomDataLayer *velocity_layer = BKE_id_attribute_find(
+  const CustomDataLayer *velocity_layer = BKE_id_attribute_find(
       &mesh->id, "velocity", CD_PROP_FLOAT3, ATTR_DOMAIN_POINT);
 
   if (velocity_layer == nullptr) {
@@ -403,12 +391,12 @@ void ABCGenericMeshWriter::get_geo_groups(Object *object,
                                           struct Mesh *mesh,
                                           std::map<std::string, std::vector<int32_t>> &geo_groups)
 {
-  const int num_poly = mesh->totpoly;
-  MPoly *polygons = mesh->mpoly;
+  const bke::AttributeAccessor attributes = bke::mesh_attributes(*mesh);
+  const VArraySpan<int> material_indices = attributes.lookup_or_default<int>(
+      "material_index", ATTR_DOMAIN_FACE, 0);
 
-  for (int i = 0; i < num_poly; i++) {
-    MPoly &current_poly = polygons[i];
-    short mnr = current_poly.mat_nr;
+  for (const int i : material_indices.index_range()) {
+    short mnr = material_indices[i];
 
     Material *mat = BKE_object_material_get(object, mnr + 1);
 
@@ -448,8 +436,7 @@ static void get_vertices(struct Mesh *mesh, std::vector<Imath::V3f> &points)
   points.clear();
   points.resize(mesh->totvert);
 
-  MVert *verts = mesh->mvert;
-
+  const Span<MVert> verts = mesh->vertices();
   for (int i = 0, e = mesh->totvert; i < e; i++) {
     copy_yup_from_zup(points[i].getValue(), verts[i].co);
   }
@@ -460,25 +447,23 @@ static void get_topology(struct Mesh *mesh,
                          std::vector<int32_t> &loop_counts,
                          bool &r_has_flat_shaded_poly)
 {
-  const int num_poly = mesh->totpoly;
-  const int num_loops = mesh->totloop;
-  MLoop *mloop = mesh->mloop;
-  MPoly *mpoly = mesh->mpoly;
+  const Span<MPoly> polys = mesh->polygons();
+  const Span<MLoop> loops = mesh->loops();
   r_has_flat_shaded_poly = false;
 
   poly_verts.clear();
   loop_counts.clear();
-  poly_verts.reserve(num_loops);
-  loop_counts.reserve(num_poly);
+  poly_verts.reserve(loops.size());
+  loop_counts.reserve(polys.size());
 
   /* NOTE: data needs to be written in the reverse order. */
-  for (int i = 0; i < num_poly; i++) {
-    MPoly &poly = mpoly[i];
+  for (const int i : polys.index_range()) {
+    const MPoly &poly = polys[i];
     loop_counts.push_back(poly.totloop);
 
     r_has_flat_shaded_poly |= (poly.flag & ME_SMOOTH) == 0;
 
-    MLoop *loop = mloop + poly.loopstart + (poly.totloop - 1);
+    const MLoop *loop = &loops[poly.loopstart + (poly.totloop - 1)];
 
     for (int j = 0; j < poly.totloop; j++, loop--) {
       poly_verts.push_back(loop->v);
@@ -497,14 +482,14 @@ static void get_edge_creases(struct Mesh *mesh,
   lengths.clear();
   sharpnesses.clear();
 
-  MEdge *edge = mesh->medge;
+  const Span<MEdge> edges = mesh->edges();
 
-  for (int i = 0, e = mesh->totedge; i < e; i++) {
-    const float sharpness = static_cast<float>(edge[i].crease) * factor;
+  for (const int i : edges.index_range()) {
+    const float sharpness = static_cast<float>(edges[i].crease) * factor;
 
     if (sharpness != 0.0f) {
-      indices.push_back(edge[i].v1);
-      indices.push_back(edge[i].v2);
+      indices.push_back(edges[i].v1);
+      indices.push_back(edges[i].v2);
       sharpnesses.push_back(sharpness);
     }
   }
@@ -556,8 +541,10 @@ static void get_loop_normals(struct Mesh *mesh,
 
   /* NOTE: data needs to be written in the reverse order. */
   int abc_index = 0;
-  MPoly *mp = mesh->mpoly;
-  for (int i = 0, e = mesh->totpoly; i < e; i++, mp++) {
+  const Span<MPoly> polys = mesh->polygons();
+
+  for (const int i : polys.index_range()) {
+    const MPoly *mp = &polys[i];
     for (int j = mp->totloop - 1; j >= 0; j--, abc_index++) {
       int blender_index = mp->loopstart + j;
       copy_yup_from_zup(normals[abc_index].getValue(), lnors[blender_index]);

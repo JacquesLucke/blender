@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2020 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2020 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup bke
@@ -659,8 +643,7 @@ static void foreach_vertex(const SubdivForeachContext *foreach_context,
   const int face_index = multires_reshape_grid_to_face_index(reshape_context,
                                                              grid_coord.grid_index);
 
-  const Mesh *base_mesh = reshape_context->base_mesh;
-  const MPoly *base_poly = &base_mesh->mpoly[face_index];
+  const MPoly *base_poly = &reshape_context->base_polys[face_index];
   const int num_corners = base_poly->totloop;
   const int start_grid_index = reshape_context->face_start_grid_index[face_index];
   const int corner = grid_coord.grid_index - start_grid_index;
@@ -825,6 +808,7 @@ static void foreach_edge(const struct SubdivForeachContext *foreach_context,
                          void *UNUSED(tls),
                          const int coarse_edge_index,
                          const int UNUSED(subdiv_edge_index),
+                         const bool is_loose,
                          const int subdiv_v1,
                          const int subdiv_v2)
 {
@@ -832,7 +816,9 @@ static void foreach_edge(const struct SubdivForeachContext *foreach_context,
   const MultiresReshapeContext *reshape_context = reshape_smooth_context->reshape_context;
 
   if (reshape_smooth_context->smoothing_type == MULTIRES_SUBDIVIDE_LINEAR) {
-    store_edge(reshape_smooth_context, subdiv_v1, subdiv_v2, (char)255);
+    if (!is_loose) {
+      store_edge(reshape_smooth_context, subdiv_v1, subdiv_v2, (char)255);
+    }
     return;
   }
 
@@ -847,8 +833,7 @@ static void foreach_edge(const struct SubdivForeachContext *foreach_context,
     return;
   }
   /* Edges without crease are to be ignored as well. */
-  const Mesh *base_mesh = reshape_context->base_mesh;
-  const MEdge *base_edge = &base_mesh->medge[coarse_edge_index];
+  const MEdge *base_edge = &reshape_context->base_edges[coarse_edge_index];
   const char crease = get_effective_crease_char(reshape_smooth_context, base_edge);
   if (crease == 0) {
     return;
@@ -860,9 +845,9 @@ static void geometry_init_loose_information(MultiresReshapeSmoothContext *reshap
 {
   const MultiresReshapeContext *reshape_context = reshape_smooth_context->reshape_context;
   const Mesh *base_mesh = reshape_context->base_mesh;
-  const MPoly *base_mpoly = base_mesh->mpoly;
-  const MLoop *base_mloop = base_mesh->mloop;
-  const MEdge *base_edge = base_mesh->medge;
+  const MPoly *base_mpoly = reshape_context->base_polys;
+  const MLoop *base_mloop = reshape_context->base_loops;
+  const MEdge *base_edge = reshape_context->base_edges;
 
   reshape_smooth_context->non_loose_base_edge_map = BLI_BITMAP_NEW(base_mesh->totedge,
                                                                    "non_loose_base_edge_map");
@@ -1086,7 +1071,9 @@ static void reshape_subdiv_create(MultiresReshapeSmoothContext *reshape_smooth_c
   converter_init(reshape_smooth_context, &converter);
 
   Subdiv *reshape_subdiv = BKE_subdiv_new_from_converter(settings, &converter);
-  BKE_subdiv_eval_begin(reshape_subdiv, SUBDIV_EVALUATOR_TYPE_CPU, NULL);
+
+  OpenSubdiv_EvaluatorSettings evaluator_settings = {0};
+  BKE_subdiv_eval_begin(reshape_subdiv, SUBDIV_EVALUATOR_TYPE_CPU, NULL, &evaluator_settings);
 
   reshape_smooth_context->reshape_subdiv = reshape_subdiv;
 

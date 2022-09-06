@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 #pragma once
 
@@ -139,7 +123,7 @@ MINLINE void premul_float_to_straight_uchar(unsigned char *result, const float c
  * one of the primaries, it lies outside the color gamut
  * accessible from the given triple of primaries.  Desaturate
  * it by adding white, equal quantities of R, G, and B, enough
- * to make RGB all positive.  The function returns 1 if the
+ * to make RGB all positive. The function returns 1 if the
  * components were modified, zero otherwise.
  */
 int constrain_rgb(float *r, float *g, float *b);
@@ -180,7 +164,9 @@ void rgba_float_to_uchar(unsigned char r_col[4], const float col_f[4]);
 MINLINE float rgb_to_grayscale(const float rgb[3]);
 MINLINE unsigned char rgb_to_grayscale_byte(const unsigned char rgb[3]);
 
-MINLINE int compare_rgb_uchar(const unsigned char a[3], const unsigned char b[3], int limit);
+MINLINE int compare_rgb_uchar(const unsigned char col_a[3],
+                              const unsigned char col_b[3],
+                              int limit);
 
 /**
  * Return triangle noise in [-0.5..1.5] range.
@@ -201,9 +187,6 @@ MINLINE void rgba_float_args_set(float col[4], float r, float g, float b, float 
 MINLINE void rgba_uchar_args_test_set(
     unsigned char col[4], unsigned char r, unsigned char g, unsigned char b, unsigned char a);
 MINLINE void cpack_cpy_3ub(unsigned char r_col[3], unsigned int pack);
-
-void blackbody_temperature_to_rgb_table(float *r_table, int width, float min, float max);
-void wavelength_to_xyz_table(float *r_table, int width);
 
 /** \} */
 

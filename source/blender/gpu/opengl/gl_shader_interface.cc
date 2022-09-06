@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2016 by Mike Erwin.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 by Mike Erwin. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -25,7 +9,6 @@
 
 #include "BLI_bitmap.h"
 
-#include "gl_backend.hh"
 #include "gl_batch.hh"
 #include "gl_context.hh"
 
@@ -33,6 +16,7 @@
 
 #include "GPU_capabilities.h"
 
+using namespace blender::gpu::shader;
 namespace blender::gpu {
 
 /* -------------------------------------------------------------------- */
@@ -168,6 +152,52 @@ static inline int ssbo_binding(int32_t program, uint32_t ssbo_index)
 /** \name Creation / Destruction
  * \{ */
 
+static Type gpu_type_from_gl_type(int gl_type)
+{
+  switch (gl_type) {
+    case GL_FLOAT:
+      return Type::FLOAT;
+    case GL_FLOAT_VEC2:
+      return Type::VEC2;
+    case GL_FLOAT_VEC3:
+      return Type::VEC3;
+    case GL_FLOAT_VEC4:
+      return Type::VEC4;
+    case GL_FLOAT_MAT3:
+      return Type::MAT3;
+    case GL_FLOAT_MAT4:
+      return Type::MAT4;
+    case GL_UNSIGNED_INT:
+      return Type::UINT;
+    case GL_UNSIGNED_INT_VEC2:
+      return Type::UVEC2;
+    case GL_UNSIGNED_INT_VEC3:
+      return Type::UVEC3;
+    case GL_UNSIGNED_INT_VEC4:
+      return Type::UVEC4;
+    case GL_INT:
+      return Type::INT;
+    case GL_INT_VEC2:
+      return Type::IVEC2;
+    case GL_INT_VEC3:
+      return Type::IVEC3;
+    case GL_INT_VEC4:
+      return Type::IVEC4;
+    case GL_BOOL:
+      return Type::BOOL;
+    case GL_FLOAT_MAT2:
+    case GL_FLOAT_MAT2x3:
+    case GL_FLOAT_MAT2x4:
+    case GL_FLOAT_MAT3x2:
+    case GL_FLOAT_MAT3x4:
+    case GL_FLOAT_MAT4x2:
+    case GL_FLOAT_MAT4x3:
+    default:
+      BLI_assert(0);
+  }
+  return Type::FLOAT;
+}
+
 GLShaderInterface::GLShaderInterface(GLuint program)
 {
   /* Necessary to make #glUniform works. */
@@ -263,6 +293,9 @@ GLShaderInterface::GLShaderInterface(GLuint program)
 
     name_buffer_offset += set_input_name(input, name, name_len);
     enabled_attr_mask_ |= (1 << input->location);
+
+    /* Used in `GPU_shader_get_attribute_info`. */
+    attr_types_[input->location] = (uint8_t)gpu_type_from_gl_type(type);
   }
 
   /* Uniform Blocks */
@@ -333,6 +366,13 @@ GLShaderInterface::GLShaderInterface(GLuint program)
     GPUUniformBlockBuiltin u = static_cast<GPUUniformBlockBuiltin>(u_int);
     const ShaderInput *block = this->ubo_get(builtin_uniform_block_name(u));
     builtin_blocks_[u] = (block != nullptr) ? block->binding : -1;
+  }
+
+  /* Builtin Storage Buffers */
+  for (int32_t u_int = 0; u_int < GPU_NUM_STORAGE_BUFFERS; u_int++) {
+    GPUStorageBufferBuiltin u = static_cast<GPUStorageBufferBuiltin>(u_int);
+    const ShaderInput *block = this->ssbo_get(builtin_storage_block_name(u));
+    builtin_buffers_[u] = (block != nullptr) ? block->binding : -1;
   }
 
   MEM_freeN(uniforms_from_blocks);
@@ -413,7 +453,13 @@ GLShaderInterface::GLShaderInterface(GLuint program, const shader::ShaderCreateI
     else {
       input->location = input->binding = attr.index;
     }
-    enabled_attr_mask_ |= (1 << input->location);
+    if (input->location != -1) {
+      enabled_attr_mask_ |= (1 << input->location);
+
+      /* Used in `GPU_shader_get_attribute_info`. */
+      attr_types_[input->location] = (uint8_t)attr.type;
+    }
+
     input++;
   }
 
@@ -494,6 +540,13 @@ GLShaderInterface::GLShaderInterface(GLuint program, const shader::ShaderCreateI
     GPUUniformBlockBuiltin u = static_cast<GPUUniformBlockBuiltin>(u_int);
     const ShaderInput *block = this->ubo_get(builtin_uniform_block_name(u));
     builtin_blocks_[u] = (block != nullptr) ? block->binding : -1;
+  }
+
+  /* Builtin Storage Buffers */
+  for (int32_t u_int = 0; u_int < GPU_NUM_STORAGE_BUFFERS; u_int++) {
+    GPUStorageBufferBuiltin u = static_cast<GPUStorageBufferBuiltin>(u_int);
+    const ShaderInput *block = this->ssbo_get(builtin_storage_block_name(u));
+    builtin_buffers_[u] = (block != nullptr) ? block->binding : -1;
   }
 
   this->sort_inputs();

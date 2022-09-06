@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2011, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2011 Blender Foundation. */
 
 #include "COM_TonemapOperation.h"
 
@@ -61,7 +46,7 @@ void TonemapOperation::execute_pixel(float output[4], int x, int y, void *data)
 void PhotoreceptorTonemapOperation::execute_pixel(float output[4], int x, int y, void *data)
 {
   AvgLogLum *avg = (AvgLogLum *)data;
-  NodeTonemap *ntm = data_;
+  const NodeTonemap *ntm = data_;
 
   const float f = expf(-data_->f);
   const float m = (ntm->m > 0.0f) ? ntm->m : (0.3f + 0.7f * powf(avg->auto_key, 1.4f));
@@ -248,7 +233,7 @@ void PhotoreceptorTonemapOperation::update_memory_buffer_partial(MemoryBuffer *o
                                                                  Span<MemoryBuffer *> inputs)
 {
   AvgLogLum *avg = cached_instance_;
-  NodeTonemap *ntm = data_;
+  const NodeTonemap *ntm = data_;
   const float f = expf(-data_->f);
   const float m = (ntm->m > 0.0f) ? ntm->m : (0.3f + 0.7f * powf(avg->auto_key, 1.4f));
   const float ic = 1.0f - ntm->c;

@@ -1,18 +1,5 @@
-/*
- * Copyright 2021 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2021-2022 Blender Foundation */
 
 #pragma once
 
@@ -102,7 +89,7 @@ class BlenderDisplaySpaceShader : public BlenderDisplayShader {
 /* Display driver implementation which is specific for Blender viewport integration. */
 class BlenderDisplayDriver : public DisplayDriver {
  public:
-  BlenderDisplayDriver(BL::RenderEngine &b_engine, BL::Scene &b_scene);
+  BlenderDisplayDriver(BL::RenderEngine &b_engine, BL::Scene &b_scene, const bool background);
   ~BlenderDisplayDriver();
 
   virtual void graphics_interop_activate() override;
@@ -128,23 +115,18 @@ class BlenderDisplayDriver : public DisplayDriver {
   virtual void flush() override;
 
   /* Helper function which allocates new GPU context. */
-  void gl_context_create();
-  bool gl_context_enable();
-  void gl_context_disable();
-  void gl_context_dispose();
+  void gpu_context_create();
+  bool gpu_context_enable();
+  void gpu_context_disable();
+  void gpu_context_destroy();
+  void gpu_context_lock();
+  void gpu_context_unlock();
 
   /* Destroy all GPU resources which are being used by this object. */
-  void gl_resources_destroy();
+  void gpu_resources_destroy();
 
   BL::RenderEngine b_engine_;
-
-  /* OpenGL context which is used the render engine doesn't have its own. */
-  void *gl_context_ = nullptr;
-  /* The when Blender RenderEngine side context is not available and the DisplayDriver is to create
-   * its own context. */
-  bool use_gl_context_ = false;
-  /* Mutex used to guard the `gl_context_`. */
-  thread_mutex gl_context_mutex_;
+  bool background_;
 
   /* Content of the display is to be filled with zeroes. */
   std::atomic<bool> need_clear_ = true;

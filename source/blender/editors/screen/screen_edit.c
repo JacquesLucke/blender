@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup edscr
@@ -126,7 +110,7 @@ ScrArea *area_split(const wmWindow *win,
     return NULL;
   }
 
-  /* NOTE(campbell): regarding (fac > 0.5f) checks below.
+  /* NOTE(@campbellbarton): regarding (fac > 0.5f) checks below.
    * normally it shouldn't matter which is used since the copy should match the original
    * however with viewport rendering and python console this isn't the case. */
 
@@ -596,7 +580,7 @@ static void region_cursor_set(wmWindow *win, bool swin_changed)
   }
 }
 
-void ED_screen_do_listen(bContext *C, wmNotifier *note)
+void ED_screen_do_listen(bContext *C, const wmNotifier *note)
 {
   wmWindow *win = CTX_wm_window(C);
   bScreen *screen = CTX_wm_screen(C);
@@ -642,8 +626,8 @@ void ED_screen_refresh(wmWindowManager *wm, wmWindow *win)
     screen_geom_vertices_scale(win, screen);
 
     ED_screen_areas_iter (win, screen, area) {
-      /* set spacetype and region callbacks, calls init() */
-      /* sets subwindows for regions, adds handlers */
+      /* Set space-type and region callbacks, calls init() */
+      /* Sets sub-windows for regions, adds handlers. */
       ED_area_init(wm, win, area);
     }
 
@@ -1228,10 +1212,10 @@ void ED_screen_scene_change(bContext *C,
   /* Mode Syncing. */
   if (view_layer_old) {
     WorkSpace *workspace = CTX_wm_workspace(C);
-    Object *obact_new = OBACT(view_layer);
+    Object *obact_new = BKE_view_layer_active_object_get(view_layer);
     UNUSED_VARS(obact_new);
     eObjectMode object_mode_old = workspace->object_mode;
-    Object *obact_old = OBACT(view_layer_old);
+    Object *obact_old = BKE_view_layer_active_object_get(view_layer_old);
     UNUSED_VARS(obact_old, object_mode_old);
   }
 #endif
@@ -1331,7 +1315,7 @@ void ED_screen_full_restore(bContext *C, ScrArea *area)
     else {
       ED_screen_state_toggle(C, win, area, state);
     }
-    /* warning: 'area' may be freed */
+    /* WARNING: 'area' may be freed */
   }
   /* otherwise just tile the area again */
   else {

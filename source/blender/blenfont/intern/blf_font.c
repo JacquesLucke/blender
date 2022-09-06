@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2009 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2009 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup blf
@@ -33,7 +17,11 @@
 #include <ft2build.h>
 
 #include FT_FREETYPE_H
+#include FT_CACHE_H /* FreeType Cache. */
 #include FT_GLYPH_H
+#include FT_MULTIPLE_MASTERS_H /* Variable font support. */
+#include FT_TRUETYPE_IDS_H     /* Code-point coverage constants. */
+#include FT_TRUETYPE_TABLES_H  /* For TT_OS2 */
 
 #include "MEM_guardedalloc.h"
 
@@ -42,6 +30,7 @@
 #include "BLI_listbase.h"
 #include "BLI_math.h"
 #include "BLI_math_color_blend.h"
+#include "BLI_path_util.h"
 #include "BLI_rect.h"
 #include "BLI_string.h"
 #include "BLI_string_utf8.h"
@@ -66,41 +55,109 @@
 BatchBLF g_batch;
 
 /* freetype2 handle ONLY for this file! */
-static FT_Library ft_lib;
-static SpinLock ft_lib_mutex;
-static SpinLock blf_glyph_cache_mutex;
+static FT_Library ft_lib = NULL;
+static FTC_Manager ftc_manager = NULL;
+static FTC_CMapCache ftc_charmap_cache = NULL;
+
+/* Lock for FreeType library, used around face creation and deletion.  */
+static ThreadMutex ft_lib_mutex;
 
 /* May be set to #UI_widgetbase_draw_cache_flush. */
 static void (*blf_draw_cache_flush)(void) = NULL;
+
+static ft_pix blf_font_height_max_ft_pix(struct FontBLF *font);
+static ft_pix blf_font_width_max_ft_pix(struct FontBLF *font);
+
+/* -------------------------------------------------------------------- */
+
+/** \name FreeType Caching
+ * \{ */
+
+/**
+ * Called when a face is removed by the cache. FreeType will call #FT_Done_Face.
+ */
+static void blf_face_finalizer(void *object)
+{
+  FT_Face face = object;
+  FontBLF *font = (FontBLF *)face->generic.data;
+  font->face = NULL;
+}
+
+/**
+ * Called in response to #FTC_Manager_LookupFace. Now add a face to our font.
+ *
+ * \note Unused arguments are kept to match #FTC_Face_Requester function signature.
+ */
+static FT_Error blf_cache_face_requester(FTC_FaceID faceID,
+                                         FT_Library lib,
+                                         FT_Pointer UNUSED(reqData),
+                                         FT_Face *face)
+{
+  FontBLF *font = (FontBLF *)faceID;
+  int err = FT_Err_Cannot_Open_Resource;
+
+  BLI_mutex_lock(&ft_lib_mutex);
+  if (font->filepath) {
+    err = FT_New_Face(lib, font->filepath, 0, face);
+  }
+  else if (font->mem) {
+    err = FT_New_Memory_Face(lib, font->mem, (FT_Long)font->mem_size, 0, face);
+  }
+  BLI_mutex_unlock(&ft_lib_mutex);
+
+  if (err == FT_Err_Ok) {
+    font->face = *face;
+    font->face->generic.data = font;
+    font->face->generic.finalizer = blf_face_finalizer;
+  }
+  else {
+    /* Clear this on error to avoid exception in FTC_Manager_LookupFace. */
+    *face = NULL;
+  }
+
+  return err;
+}
+
+/**
+ * Called when the FreeType cache is removing a font size.
+ */
+static void blf_size_finalizer(void *object)
+{
+  FT_Size size = object;
+  FontBLF *font = (FontBLF *)size->generic.data;
+  font->ft_size = NULL;
+}
 
 /* -------------------------------------------------------------------- */
 /** \name FreeType Utilities (Internal)
  * \{ */
 
-/**
- * Convert a FreeType 26.6 value representing an unscaled design size to pixels.
- * This is an exact copy of the scaling done inside FT_Get_Kerning when called
- * with #FT_KERNING_DEFAULT, including arbitrary resizing for small fonts.
- */
-static int blf_unscaled_F26Dot6_to_pixels(FontBLF *font, FT_Pos value)
+uint blf_get_char_index(FontBLF *font, uint charcode)
 {
-  /* Scale value by font size using integer-optimized multiplication. */
-  FT_Long scaled = FT_MulFix(value, font->face->size->metrics.x_scale);
+  if (font->flags & BLF_CACHED) {
+    /* Use char-map cache for much faster lookup. */
+    return FTC_CMapCache_Lookup(ftc_charmap_cache, font, -1, charcode);
+  }
+  /* Fonts that are not cached need to use the regular lookup function. */
+  return blf_ensure_face(font) ? FT_Get_Char_Index(font->face, charcode) : 0;
+}
 
-  /* FreeType states that this '25' has been determined heuristically. */
-  if (font->face->size->metrics.x_ppem < 25) {
-    scaled = FT_MulDiv(scaled, font->face->size->metrics.x_ppem, 25);
+/* Convert a FreeType 26.6 value representing an unscaled design size to fractional pixels. */
+static ft_pix blf_unscaled_F26Dot6_to_pixels(FontBLF *font, FT_Pos value)
+{
+  /* Make sure we have a valid font->ft_size. */
+  blf_ensure_size(font);
+
+  /* Scale value by font size using integer-optimized multiplication. */
+  FT_Long scaled = FT_MulFix(value, font->ft_size->metrics.x_scale);
+
+  /* Copied from FreeType's FT_Get_Kerning (with FT_KERNING_DEFAULT), scaling down */
+  /* kerning distances at small PPEM values so that they don't become too big. */
+  if (font->ft_size->metrics.x_ppem < 25) {
+    scaled = FT_MulDiv(scaled, font->ft_size->metrics.x_ppem, 25);
   }
 
-  /* Copies of internal FreeType macros needed here. */
-#define FT_PIX_FLOOR(x) ((x) & ~63)
-#define FT_PIX_ROUND(x) FT_PIX_FLOOR((x) + 32)
-
-  /* Round to even 64ths, then divide by 64. */
-  return (int)FT_PIX_ROUND(scaled) >> 6;
-
-#undef FT_PIX_FLOOR
-#undef FT_PIX_ROUND
+  return (ft_pix)scaled;
 }
 
 /** \} */
@@ -162,28 +219,28 @@ void blf_batch_draw_begin(FontBLF *font)
 
   if (simple_shader) {
     /* Offset is applied to each glyph. */
-    g_batch.ofs[0] = floorf(font->pos[0]);
-    g_batch.ofs[1] = floorf(font->pos[1]);
+    g_batch.ofs[0] = font->pos[0];
+    g_batch.ofs[1] = font->pos[1];
   }
   else {
-    /* Offset is baked in modelview mat. */
-    zero_v2(g_batch.ofs);
+    /* Offset is baked in model-view matrix. */
+    zero_v2_int(g_batch.ofs);
   }
 
   if (g_batch.active) {
     float gpumat[4][4];
     GPU_matrix_model_view_get(gpumat);
 
-    bool mat_changed = (memcmp(gpumat, g_batch.mat, sizeof(g_batch.mat)) != 0);
+    bool mat_changed = equals_m4m4(gpumat, g_batch.mat) == false;
 
     if (mat_changed) {
-      /* Modelviewmat is no longer the same.
-       * Flush cache but with the previous mat. */
+      /* Model view matrix is no longer the same.
+       * Flush cache but with the previous matrix. */
       GPU_matrix_push();
       GPU_matrix_set(g_batch.mat);
     }
 
-    /* flush cache if config is not the same. */
+    /* Flush cache if configuration is not the same. */
     if (mat_changed || font_changed || shader_changed) {
       blf_batch_draw();
       g_batch.simple_shader = simple_shader;
@@ -196,7 +253,7 @@ void blf_batch_draw_begin(FontBLF *font)
 
     if (mat_changed) {
       GPU_matrix_pop();
-      /* Save for next memcmp. */
+      /* Save for next `memcmp`. */
       memcpy(g_batch.mat, gpumat, sizeof(g_batch.mat));
     }
   }
@@ -222,7 +279,7 @@ static GPUTexture *blf_batch_cache_texture_load(void)
     int offset_x = bitmap_len_landed % tex_width;
     int offset_y = bitmap_len_landed / tex_width;
 
-    /* TODO(germano): Update more than one row in a single call. */
+    /* TODO(@germano): Update more than one row in a single call. */
     while (remain) {
       int remain_row = tex_width - offset_x;
       int width = remain > remain_row ? remain_row : remain;
@@ -309,36 +366,39 @@ BLI_INLINE GlyphBLF *blf_glyph_from_utf8_and_step(
   return blf_glyph_ensure(font, gc, charcode);
 }
 
-BLI_INLINE int blf_kerning(FontBLF *font, const GlyphBLF *g_prev, const GlyphBLF *g)
+BLI_INLINE ft_pix blf_kerning(FontBLF *font, const GlyphBLF *g_prev, const GlyphBLF *g)
 {
-  if (!FT_HAS_KERNING(font->face) || g_prev == NULL) {
-    return 0;
+  ft_pix adjustment = 0;
+
+  /* Small adjust if there is hinting. */
+  adjustment += g->lsb_delta - ((g_prev) ? g_prev->rsb_delta : 0);
+
+  if (FT_HAS_KERNING(font) && g_prev) {
+    FT_Vector delta = {KERNING_ENTRY_UNSET};
+
+    /* Get unscaled kerning value from our cache if ASCII. */
+    if ((g_prev->c < KERNING_CACHE_TABLE_SIZE) && (g->c < GLYPH_ASCII_TABLE_SIZE)) {
+      delta.x = font->kerning_cache->ascii_table[g->c][g_prev->c];
+    }
+
+    /* If not ASCII or not found in cache, ask FreeType for kerning. */
+    if (UNLIKELY(font->face && delta.x == KERNING_ENTRY_UNSET)) {
+      /* Note that this function sets delta values to zero on any error. */
+      FT_Get_Kerning(font->face, g_prev->idx, g->idx, FT_KERNING_UNSCALED, &delta);
+    }
+
+    /* If ASCII we save this value to our cache for quicker access next time. */
+    if ((g_prev->c < KERNING_CACHE_TABLE_SIZE) && (g->c < GLYPH_ASCII_TABLE_SIZE)) {
+      font->kerning_cache->ascii_table[g->c][g_prev->c] = (int)delta.x;
+    }
+
+    if (delta.x != 0) {
+      /* Convert unscaled design units to pixels and move pen. */
+      adjustment += blf_unscaled_F26Dot6_to_pixels(font, delta.x);
+    }
   }
 
-  FT_Vector delta = {KERNING_ENTRY_UNSET};
-
-  /* Get unscaled kerning value from our cache if ASCII. */
-  if ((g_prev->c < KERNING_CACHE_TABLE_SIZE) && (g->c < GLYPH_ASCII_TABLE_SIZE)) {
-    delta.x = font->kerning_cache->ascii_table[g->c][g_prev->c];
-  }
-
-  /* If not ASCII or not found in cache, ask FreeType for kerning. */
-  if (UNLIKELY(delta.x == KERNING_ENTRY_UNSET)) {
-    /* Note that this function sets delta values to zero on any error. */
-    FT_Get_Kerning(font->face, g_prev->idx, g->idx, FT_KERNING_UNSCALED, &delta);
-  }
-
-  /* If ASCII we save this value to our cache for quicker access next time. */
-  if ((g_prev->c < KERNING_CACHE_TABLE_SIZE) && (g->c < GLYPH_ASCII_TABLE_SIZE)) {
-    font->kerning_cache->ascii_table[g->c][g_prev->c] = (int)delta.x;
-  }
-
-  if (delta.x != 0) {
-    /* Convert unscaled design units to pixels and move pen. */
-    return blf_unscaled_F26Dot6_to_pixels(font, delta.x);
-  }
-
-  return 0;
+  return adjustment;
 }
 
 /** \} */
@@ -352,10 +412,10 @@ static void blf_font_draw_ex(FontBLF *font,
                              const char *str,
                              const size_t str_len,
                              struct ResultBLF *r_info,
-                             int pen_y)
+                             const ft_pix pen_y)
 {
   GlyphBLF *g, *g_prev = NULL;
-  int pen_x = 0;
+  ft_pix pen_x = 0;
   size_t i = 0;
 
   if (str_len == 0) {
@@ -374,9 +434,9 @@ static void blf_font_draw_ex(FontBLF *font,
     pen_x += blf_kerning(font, g_prev, g);
 
     /* do not return this loop if clipped, we want every character tested */
-    blf_glyph_draw(font, gc, g, (float)pen_x, (float)pen_y);
+    blf_glyph_draw(font, gc, g, ft_pix_to_int_floor(pen_x), ft_pix_to_int_floor(pen_y));
 
-    pen_x += g->advance_i;
+    pen_x = ft_pix_round_advance(pen_x, g->advance_x);
     g_prev = g;
   }
 
@@ -384,7 +444,7 @@ static void blf_font_draw_ex(FontBLF *font,
 
   if (r_info) {
     r_info->lines = 1;
-    r_info->width = pen_x;
+    r_info->width = ft_pix_to_int(pen_x);
   }
 }
 void blf_font_draw(FontBLF *font, const char *str, const size_t str_len, struct ResultBLF *r_info)
@@ -398,7 +458,9 @@ int blf_font_draw_mono(FontBLF *font, const char *str, const size_t str_len, int
 {
   GlyphBLF *g;
   int col, columns = 0;
-  int pen_x = 0, pen_y = 0;
+  ft_pix pen_x = 0, pen_y = 0;
+  ft_pix cwidth_fpx = ft_pix_from_int(cwidth);
+
   size_t i = 0;
 
   GlyphCacheBLF *gc = blf_glyph_cache_acquire(font);
@@ -412,7 +474,7 @@ int blf_font_draw_mono(FontBLF *font, const char *str, const size_t str_len, int
       continue;
     }
     /* do not return this loop if clipped, we want every character tested */
-    blf_glyph_draw(font, gc, g, (float)pen_x, (float)pen_y);
+    blf_glyph_draw(font, gc, g, ft_pix_to_int_floor(pen_x), ft_pix_to_int_floor(pen_y));
 
     col = BLI_wcwidth((char32_t)g->c);
     if (col < 0) {
@@ -420,7 +482,7 @@ int blf_font_draw_mono(FontBLF *font, const char *str, const size_t str_len, int
     }
 
     columns += col;
-    pen_x += cwidth * col;
+    pen_x += cwidth_fpx * col;
   }
 
   blf_batch_draw_end();
@@ -441,17 +503,17 @@ static void blf_font_draw_buffer_ex(FontBLF *font,
                                     const char *str,
                                     const size_t str_len,
                                     struct ResultBLF *r_info,
-                                    int pen_y)
+                                    ft_pix pen_y)
 {
   GlyphBLF *g, *g_prev = NULL;
-  int pen_x = (int)font->pos[0];
-  int pen_y_basis = (int)font->pos[1] + pen_y;
+  ft_pix pen_x = ft_pix_from_int(font->pos[0]);
+  ft_pix pen_y_basis = ft_pix_from_int(font->pos[1]) + pen_y;
   size_t i = 0;
 
   /* buffer specific vars */
   FontBufInfoBLF *buf_info = &font->buf_info;
   const float *b_col_float = buf_info->col_float;
-  const unsigned char *b_col_char = buf_info->col_char;
+  const uchar *b_col_char = buf_info->col_char;
   int chx, chy;
   int y, x;
 
@@ -465,18 +527,18 @@ static void blf_font_draw_buffer_ex(FontBLF *font,
     }
     pen_x += blf_kerning(font, g_prev, g);
 
-    chx = pen_x + ((int)g->pos[0]);
-    chy = pen_y_basis + g->dims[1];
+    chx = ft_pix_to_int(pen_x + ft_pix_from_int(g->pos[0]));
+    chy = ft_pix_to_int(pen_y_basis + ft_pix_from_int(g->dims[1]));
 
     if (g->pitch < 0) {
-      pen_y = pen_y_basis + (g->dims[1] - g->pos[1]);
+      pen_y = pen_y_basis + ft_pix_from_int(g->dims[1] - g->pos[1]);
     }
     else {
-      pen_y = pen_y_basis - (g->dims[1] - g->pos[1]);
+      pen_y = pen_y_basis - ft_pix_from_int(g->dims[1] - g->pos[1]);
     }
 
-    if ((chx + g->dims[0]) >= 0 && chx < buf_info->dims[0] && (pen_y + g->dims[1]) >= 0 &&
-        pen_y < buf_info->dims[1]) {
+    if ((chx + g->dims[0]) >= 0 && chx < buf_info->dims[0] &&
+        (ft_pix_to_int(pen_y) + g->dims[1]) >= 0 && ft_pix_to_int(pen_y) < buf_info->dims[1]) {
       /* don't draw beyond the buffer bounds */
       int width_clip = g->dims[0];
       int height_clip = g->dims[1];
@@ -485,16 +547,19 @@ static void blf_font_draw_buffer_ex(FontBLF *font,
       if (width_clip + chx > buf_info->dims[0]) {
         width_clip -= chx + width_clip - buf_info->dims[0];
       }
-      if (height_clip + pen_y > buf_info->dims[1]) {
-        height_clip -= pen_y + height_clip - buf_info->dims[1];
+      if (height_clip + ft_pix_to_int(pen_y) > buf_info->dims[1]) {
+        height_clip -= ft_pix_to_int(pen_y) + height_clip - buf_info->dims[1];
       }
 
       /* drawing below the image? */
       if (pen_y < 0) {
-        yb_start += (g->pitch < 0) ? -pen_y : pen_y;
-        height_clip += pen_y;
+        yb_start += (g->pitch < 0) ? -ft_pix_to_int(pen_y) : ft_pix_to_int(pen_y);
+        height_clip += ft_pix_to_int(pen_y);
         pen_y = 0;
       }
+
+      /* Avoid conversions in the pixel writing loop. */
+      const int pen_y_px = ft_pix_to_int(pen_y);
 
       if (buf_info->fbuf) {
         int yb = yb_start;
@@ -504,7 +569,7 @@ static void blf_font_draw_buffer_ex(FontBLF *font,
             if (a_byte) {
               const float a = (a_byte / 255.0f) * b_col_float[3];
               const size_t buf_ofs = (((size_t)(chx + x) +
-                                       ((size_t)(pen_y + y) * (size_t)buf_info->dims[0])) *
+                                       ((size_t)(pen_y_px + y) * (size_t)buf_info->dims[0])) *
                                       (size_t)buf_info->ch);
               float *fbuf = buf_info->fbuf + buf_ofs;
 
@@ -535,9 +600,9 @@ static void blf_font_draw_buffer_ex(FontBLF *font,
             if (a_byte) {
               const float a = (a_byte / 255.0f) * b_col_float[3];
               const size_t buf_ofs = (((size_t)(chx + x) +
-                                       ((size_t)(pen_y + y) * (size_t)buf_info->dims[0])) *
+                                       ((size_t)(pen_y_px + y) * (size_t)buf_info->dims[0])) *
                                       (size_t)buf_info->ch);
-              unsigned char *cbuf = buf_info->cbuf + buf_ofs;
+              uchar *cbuf = buf_info->cbuf + buf_ofs;
 
               uchar font_pixel[4];
               font_pixel[0] = b_col_char[0];
@@ -558,13 +623,13 @@ static void blf_font_draw_buffer_ex(FontBLF *font,
       }
     }
 
-    pen_x += g->advance_i;
+    pen_x = ft_pix_round_advance(pen_x, g->advance_x);
     g_prev = g;
   }
 
   if (r_info) {
     r_info->lines = 1;
-    r_info->width = pen_x;
+    r_info->width = ft_pix_to_int(pen_x);
   }
 }
 
@@ -589,23 +654,24 @@ void blf_font_draw_buffer(FontBLF *font,
  * \{ */
 
 static bool blf_font_width_to_strlen_glyph_process(
-    FontBLF *font, GlyphBLF *g_prev, GlyphBLF *g, int *pen_x, const int width_i)
+    FontBLF *font, GlyphBLF *g_prev, GlyphBLF *g, ft_pix *pen_x, const int width_i)
 {
   if (UNLIKELY(g == NULL)) {
     return false; /* continue the calling loop. */
   }
   *pen_x += blf_kerning(font, g_prev, g);
-  *pen_x += g->advance_i;
+  *pen_x = ft_pix_round_advance(*pen_x, g->advance_x);
 
   /* When true, break the calling loop. */
-  return (*pen_x >= width_i);
+  return (ft_pix_to_int(*pen_x) >= width_i);
 }
 
 size_t blf_font_width_to_strlen(
-    FontBLF *font, const char *str, const size_t str_len, float width, float *r_width)
+    FontBLF *font, const char *str, const size_t str_len, int width, int *r_width)
 {
   GlyphBLF *g, *g_prev;
-  int pen_x, width_new;
+  ft_pix pen_x;
+  ft_pix width_new;
   size_t i, i_prev;
 
   GlyphCacheBLF *gc = blf_glyph_cache_acquire(font);
@@ -621,7 +687,7 @@ size_t blf_font_width_to_strlen(
   }
 
   if (r_width) {
-    *r_width = (float)width_new;
+    *r_width = ft_pix_to_int(width_new);
   }
 
   blf_glyph_cache_release(font);
@@ -629,15 +695,14 @@ size_t blf_font_width_to_strlen(
 }
 
 size_t blf_font_width_to_rstrlen(
-    FontBLF *font, const char *str, const size_t str_len, float width, float *r_width)
+    FontBLF *font, const char *str, const size_t str_len, int width, int *r_width)
 {
   GlyphBLF *g, *g_prev;
-  int pen_x, width_new;
+  ft_pix pen_x, width_new;
   size_t i, i_prev, i_tmp;
   const char *s, *s_prev;
 
   GlyphCacheBLF *gc = blf_glyph_cache_acquire(font);
-  const int width_i = (int)width;
 
   i = BLI_strnlen(str, str_len);
   s = BLI_str_find_prev_char_utf8(&str[i], str);
@@ -658,13 +723,13 @@ size_t blf_font_width_to_rstrlen(
       BLI_assert(i_tmp == i);
     }
 
-    if (blf_font_width_to_strlen_glyph_process(font, g_prev, g, &pen_x, width_i)) {
+    if (blf_font_width_to_strlen_glyph_process(font, g_prev, g, &pen_x, width)) {
       break;
     }
   }
 
   if (r_width) {
-    *r_width = (float)width_new;
+    *r_width = ft_pix_to_int(width_new);
   }
 
   blf_glyph_cache_release(font);
@@ -681,19 +746,18 @@ static void blf_font_boundbox_ex(FontBLF *font,
                                  GlyphCacheBLF *gc,
                                  const char *str,
                                  const size_t str_len,
-                                 rctf *box,
+                                 rcti *box,
                                  struct ResultBLF *r_info,
-                                 int pen_y)
+                                 ft_pix pen_y)
 {
   GlyphBLF *g, *g_prev = NULL;
-  int pen_x = 0;
+  ft_pix pen_x = 0;
   size_t i = 0;
-  rctf gbox;
 
-  box->xmin = 32000.0f;
-  box->xmax = -32000.0f;
-  box->ymin = 32000.0f;
-  box->ymax = -32000.0f;
+  ft_pix box_xmin = ft_pix_from_int(32000);
+  ft_pix box_xmax = ft_pix_from_int(-32000);
+  ft_pix box_ymin = ft_pix_from_int(32000);
+  ft_pix box_ymax = ft_pix_from_int(-32000);
 
   while ((i < str_len) && str[i]) {
     g = blf_glyph_from_utf8_and_step(font, gc, str, str_len, &i);
@@ -702,44 +766,50 @@ static void blf_font_boundbox_ex(FontBLF *font,
       continue;
     }
     pen_x += blf_kerning(font, g_prev, g);
+    const ft_pix pen_x_next = ft_pix_round_advance(pen_x, g->advance_x);
 
-    gbox.xmin = (float)pen_x;
-    gbox.xmax = (float)pen_x + g->advance;
-    gbox.ymin = g->box.ymin + (float)pen_y;
-    gbox.ymax = g->box.ymax + (float)pen_y;
+    const ft_pix gbox_xmin = pen_x;
+    const ft_pix gbox_xmax = pen_x_next;
+    const ft_pix gbox_ymin = g->box_ymin + pen_y;
+    const ft_pix gbox_ymax = g->box_ymax + pen_y;
 
-    if (gbox.xmin < box->xmin) {
-      box->xmin = gbox.xmin;
+    if (gbox_xmin < box_xmin) {
+      box_xmin = gbox_xmin;
     }
-    if (gbox.ymin < box->ymin) {
-      box->ymin = gbox.ymin;
-    }
-
-    if (gbox.xmax > box->xmax) {
-      box->xmax = gbox.xmax;
-    }
-    if (gbox.ymax > box->ymax) {
-      box->ymax = gbox.ymax;
+    if (gbox_ymin < box_ymin) {
+      box_ymin = gbox_ymin;
     }
 
-    pen_x += g->advance_i;
+    if (gbox_xmax > box_xmax) {
+      box_xmax = gbox_xmax;
+    }
+    if (gbox_ymax > box_ymax) {
+      box_ymax = gbox_ymax;
+    }
+
+    pen_x = pen_x_next;
     g_prev = g;
   }
 
-  if (box->xmin > box->xmax) {
-    box->xmin = 0.0f;
-    box->ymin = 0.0f;
-    box->xmax = 0.0f;
-    box->ymax = 0.0f;
+  if (box_xmin > box_xmax) {
+    box_xmin = 0;
+    box_ymin = 0;
+    box_xmax = 0;
+    box_ymax = 0;
   }
+
+  box->xmin = ft_pix_to_int_floor(box_xmin);
+  box->xmax = ft_pix_to_int_ceil(box_xmax);
+  box->ymin = ft_pix_to_int_floor(box_ymin);
+  box->ymax = ft_pix_to_int_ceil(box_ymax);
 
   if (r_info) {
     r_info->lines = 1;
-    r_info->width = pen_x;
+    r_info->width = ft_pix_to_int(pen_x);
   }
 }
 void blf_font_boundbox(
-    FontBLF *font, const char *str, const size_t str_len, rctf *r_box, struct ResultBLF *r_info)
+    FontBLF *font, const char *str, const size_t str_len, rcti *r_box, struct ResultBLF *r_info)
 {
   GlyphCacheBLF *gc = blf_glyph_cache_acquire(font);
   blf_font_boundbox_ex(font, gc, str, str_len, r_box, r_info, 0);
@@ -754,7 +824,7 @@ void blf_font_width_and_height(FontBLF *font,
                                struct ResultBLF *r_info)
 {
   float xa, ya;
-  rctf box;
+  rcti box;
 
   if (font->flags & BLF_ASPECT) {
     xa = font->aspect[0];
@@ -771,8 +841,8 @@ void blf_font_width_and_height(FontBLF *font,
   else {
     blf_font_boundbox(font, str, str_len, &box, r_info);
   }
-  *r_width = (BLI_rctf_size_x(&box) * xa);
-  *r_height = (BLI_rctf_size_y(&box) * ya);
+  *r_width = ((float)BLI_rcti_size_x(&box) * xa);
+  *r_height = ((float)BLI_rcti_size_y(&box) * ya);
 }
 
 float blf_font_width(FontBLF *font,
@@ -781,7 +851,7 @@ float blf_font_width(FontBLF *font,
                      struct ResultBLF *r_info)
 {
   float xa;
-  rctf box;
+  rcti box;
 
   if (font->flags & BLF_ASPECT) {
     xa = font->aspect[0];
@@ -796,7 +866,7 @@ float blf_font_width(FontBLF *font,
   else {
     blf_font_boundbox(font, str, str_len, &box, r_info);
   }
-  return BLI_rctf_size_x(&box) * xa;
+  return (float)BLI_rcti_size_x(&box) * xa;
 }
 
 float blf_font_height(FontBLF *font,
@@ -805,7 +875,7 @@ float blf_font_height(FontBLF *font,
                       struct ResultBLF *r_info)
 {
   float ya;
-  rctf box;
+  rcti box;
 
   if (font->flags & BLF_ASPECT) {
     ya = font->aspect[1];
@@ -820,7 +890,7 @@ float blf_font_height(FontBLF *font,
   else {
     blf_font_boundbox(font, str, str_len, &box, r_info);
   }
-  return BLI_rctf_size_y(&box) * ya;
+  return (float)BLI_rcti_size_y(&box) * ya;
 }
 
 float blf_font_fixed_width(FontBLF *font)
@@ -838,14 +908,14 @@ static void blf_font_boundbox_foreach_glyph_ex(FontBLF *font,
                                                BLF_GlyphBoundsFn user_fn,
                                                void *user_data,
                                                struct ResultBLF *r_info,
-                                               int pen_y)
+                                               ft_pix pen_y)
 {
   GlyphBLF *g, *g_prev = NULL;
-  int pen_x = 0;
+  ft_pix pen_x = 0;
   size_t i = 0, i_curr;
-  rcti gbox;
+  rcti gbox_px;
 
-  if (str_len == 0) {
+  if (str_len == 0 || str[0] == 0) {
     /* early output. */
     return;
   }
@@ -858,15 +928,23 @@ static void blf_font_boundbox_foreach_glyph_ex(FontBLF *font,
       continue;
     }
     pen_x += blf_kerning(font, g_prev, g);
+    const ft_pix pen_x_next = ft_pix_round_advance(pen_x, g->advance_x);
 
-    gbox.xmin = pen_x;
-    gbox.xmax = gbox.xmin + MIN2(g->advance_i, g->dims[0]);
-    gbox.ymin = pen_y;
-    gbox.ymax = gbox.ymin - g->dims[1];
+    gbox_px.xmin = ft_pix_to_int_floor(pen_x);
+    gbox_px.xmax = ft_pix_to_int_ceil(pen_x_next);
+    gbox_px.ymin = ft_pix_to_int_floor(pen_y);
+    gbox_px.ymax = gbox_px.ymin - g->dims[1];
+    const int advance_x_px = gbox_px.xmax - gbox_px.xmin;
 
-    pen_x += g->advance_i;
+    pen_x = pen_x_next;
 
-    if (user_fn(str, i_curr, &gbox, g->advance_i, &g->box, g->pos, user_data) == false) {
+    rcti box_px;
+    box_px.xmin = ft_pix_to_int_floor(g->box_xmin);
+    box_px.xmax = ft_pix_to_int_ceil(g->box_xmax);
+    box_px.ymin = ft_pix_to_int_floor(g->box_ymin);
+    box_px.ymax = ft_pix_to_int_ceil(g->box_ymax);
+
+    if (user_fn(str, i_curr, &gbox_px, advance_x_px, &box_px, g->pos, user_data) == false) {
       break;
     }
 
@@ -875,7 +953,7 @@ static void blf_font_boundbox_foreach_glyph_ex(FontBLF *font,
 
   if (r_info) {
     r_info->lines = 1;
-    r_info->width = pen_x;
+    r_info->width = ft_pix_to_int(pen_x);
   }
 }
 void blf_font_boundbox_foreach_glyph(FontBLF *font,
@@ -913,22 +991,25 @@ static void blf_font_wrap_apply(FontBLF *font,
                                                  GlyphCacheBLF *gc,
                                                  const char *str,
                                                  const size_t str_len,
-                                                 int pen_y,
+                                                 ft_pix pen_y,
                                                  void *userdata),
                                 void *userdata)
 {
   GlyphBLF *g, *g_prev = NULL;
-  int pen_x = 0, pen_y = 0;
+  ft_pix pen_x = 0;
+  ft_pix pen_y = 0;
   size_t i = 0;
   int lines = 0;
-  int pen_x_next = 0;
+  ft_pix pen_x_next = 0;
+
+  ft_pix line_height = blf_font_height_max_ft_pix(font);
 
   GlyphCacheBLF *gc = blf_glyph_cache_acquire(font);
 
   struct WordWrapVars {
-    int wrap_width;
+    ft_pix wrap_width;
     size_t start, last[2];
-  } wrap = {font->wrap_width != -1 ? font->wrap_width : INT_MAX, 0, {0, 0}};
+  } wrap = {font->wrap_width != -1 ? ft_pix_from_int(font->wrap_width) : INT_MAX, 0, {0, 0}};
 
   // printf("%s wrapping (%d, %d) `%s`:\n", __func__, str_len, strlen(str), str);
   while ((i < str_len) && str[i]) {
@@ -952,7 +1033,7 @@ static void blf_font_wrap_apply(FontBLF *font,
      *
      * This is _only_ done when we know for sure the character is ascii (newline or a space).
      */
-    pen_x_next = pen_x + g->advance_i;
+    pen_x_next = ft_pix_round_advance(pen_x, g->advance_x);
     if (UNLIKELY((pen_x_next >= wrap.wrap_width) && (wrap.start != wrap.last[0]))) {
       do_draw = true;
     }
@@ -980,7 +1061,7 @@ static void blf_font_wrap_apply(FontBLF *font,
       wrap.start = wrap.last[0];
       i = wrap.last[1];
       pen_x = 0;
-      pen_y -= blf_font_height_max(font);
+      pen_y -= line_height;
       g_prev = NULL;
       lines += 1;
       continue;
@@ -995,7 +1076,7 @@ static void blf_font_wrap_apply(FontBLF *font,
   if (r_info) {
     r_info->lines = lines;
     /* width of last line only (with wrapped lines) */
-    r_info->width = pen_x_next;
+    r_info->width = ft_pix_to_int(pen_x_next);
   }
 
   blf_glyph_cache_release(font);
@@ -1006,7 +1087,7 @@ static void blf_font_draw__wrap_cb(FontBLF *font,
                                    GlyphCacheBLF *gc,
                                    const char *str,
                                    const size_t str_len,
-                                   int pen_y,
+                                   ft_pix pen_y,
                                    void *UNUSED(userdata))
 {
   blf_font_draw_ex(font, gc, str, str_len, NULL, pen_y);
@@ -1024,22 +1105,22 @@ static void blf_font_boundbox_wrap_cb(FontBLF *font,
                                       GlyphCacheBLF *gc,
                                       const char *str,
                                       const size_t str_len,
-                                      int pen_y,
+                                      ft_pix pen_y,
                                       void *userdata)
 {
-  rctf *box = userdata;
-  rctf box_single;
+  rcti *box = userdata;
+  rcti box_single;
 
   blf_font_boundbox_ex(font, gc, str, str_len, &box_single, NULL, pen_y);
-  BLI_rctf_union(box, &box_single);
+  BLI_rcti_union(box, &box_single);
 }
 void blf_font_boundbox__wrap(
-    FontBLF *font, const char *str, const size_t str_len, rctf *box, struct ResultBLF *r_info)
+    FontBLF *font, const char *str, const size_t str_len, rcti *box, struct ResultBLF *r_info)
 {
-  box->xmin = 32000.0f;
-  box->xmax = -32000.0f;
-  box->ymin = 32000.0f;
-  box->ymax = -32000.0f;
+  box->xmin = 32000;
+  box->xmax = -32000;
+  box->ymin = 32000;
+  box->ymax = -32000;
 
   blf_font_wrap_apply(font, str, str_len, r_info, blf_font_boundbox_wrap_cb, box);
 }
@@ -1049,7 +1130,7 @@ static void blf_font_draw_buffer__wrap_cb(FontBLF *font,
                                           GlyphCacheBLF *gc,
                                           const char *str,
                                           const size_t str_len,
-                                          int pen_y,
+                                          ft_pix pen_y,
                                           void *UNUSED(userdata))
 {
   blf_font_draw_buffer_ex(font, gc, str, str_len, NULL, pen_y);
@@ -1078,14 +1159,14 @@ int blf_font_count_missing_chars(FontBLF *font,
 
   *r_tot_chars = 0;
   while (i < str_len) {
-    unsigned int c;
+    uint c;
 
     if ((c = str[i]) < GLYPH_ASCII_TABLE_SIZE) {
       i++;
     }
     else {
       c = BLI_str_utf8_as_unicode_step(str, str_len, &i);
-      if (FT_Get_Char_Index((font)->face, c) == 0) {
+      if (blf_get_char_index(font, c) == 0) {
         missing++;
       }
     }
@@ -1100,49 +1181,45 @@ int blf_font_count_missing_chars(FontBLF *font,
 /** \name Font Query: Attributes
  * \{ */
 
+static ft_pix blf_font_height_max_ft_pix(FontBLF *font)
+{
+  blf_ensure_size(font);
+  /* Metrics.height is rounded to pixel. Force minimum of one pixel. */
+  return MAX2((ft_pix)font->ft_size->metrics.height, ft_pix_from_int(1));
+}
+
 int blf_font_height_max(FontBLF *font)
 {
-  int height_max;
-  if (FT_IS_SCALABLE(font->face)) {
-    height_max = (int)((float)(font->face->ascender - font->face->descender) *
-                       (((float)font->face->size->metrics.y_ppem) /
-                        ((float)font->face->units_per_EM)));
-  }
-  else {
-    height_max = (int)(((float)font->face->size->metrics.height) / 64.0f);
-  }
-  /* can happen with size 1 fonts */
-  return MAX2(height_max, 1);
+  return ft_pix_to_int(blf_font_height_max_ft_pix(font));
+}
+
+static ft_pix blf_font_width_max_ft_pix(FontBLF *font)
+{
+  blf_ensure_size(font);
+  /* Metrics.max_advance is rounded to pixel. Force minimum of one pixel. */
+  return MAX2((ft_pix)font->ft_size->metrics.max_advance, ft_pix_from_int(1));
 }
 
 int blf_font_width_max(FontBLF *font)
 {
-  int width_max;
-  if (FT_IS_SCALABLE(font->face)) {
-    width_max = (int)((float)(font->face->bbox.xMax - font->face->bbox.xMin) *
-                      (((float)font->face->size->metrics.x_ppem) /
-                       ((float)font->face->units_per_EM)));
-  }
-  else {
-    width_max = (int)(((float)font->face->size->metrics.max_advance) / 64.0f);
-  }
-  /* can happen with size 1 fonts */
-  return MAX2(width_max, 1);
+  return ft_pix_to_int(blf_font_width_max_ft_pix(font));
 }
 
-float blf_font_descender(FontBLF *font)
+int blf_font_descender(FontBLF *font)
 {
-  return ((float)font->face->size->metrics.descender) / 64.0f;
+  blf_ensure_size(font);
+  return ft_pix_to_int((ft_pix)font->ft_size->metrics.descender);
 }
 
-float blf_font_ascender(FontBLF *font)
+int blf_font_ascender(FontBLF *font)
 {
-  return ((float)font->face->size->metrics.ascender) / 64.0f;
+  blf_ensure_size(font);
+  return ft_pix_to_int((ft_pix)font->ft_size->metrics.ascender);
 }
 
 char *blf_display_name(FontBLF *font)
 {
-  if (!font->face->family_name) {
+  if (!blf_ensure_face(font) || !font->face->family_name) {
     return NULL;
   }
   return BLI_sprintfN("%s %s", font->face->family_name, font->face->style_name);
@@ -1157,16 +1234,34 @@ char *blf_display_name(FontBLF *font)
 int blf_font_init(void)
 {
   memset(&g_batch, 0, sizeof(g_batch));
-  BLI_spin_init(&ft_lib_mutex);
-  BLI_spin_init(&blf_glyph_cache_mutex);
-  return FT_Init_FreeType(&ft_lib);
+  BLI_mutex_init(&ft_lib_mutex);
+  int err = FT_Init_FreeType(&ft_lib);
+  if (err == FT_Err_Ok) {
+    /* Create a FreeType cache manager. */
+    err = FTC_Manager_New(ft_lib,
+                          BLF_CACHE_MAX_FACES,
+                          BLF_CACHE_MAX_SIZES,
+                          BLF_CACHE_BYTES,
+                          blf_cache_face_requester,
+                          NULL,
+                          &ftc_manager);
+    if (err == FT_Err_Ok) {
+      /* Create a charmap cache to speed up glyph index lookups. */
+      err = FTC_CMapCache_New(ftc_manager, &ftc_charmap_cache);
+    }
+  }
+  return err;
 }
 
 void blf_font_exit(void)
 {
-  FT_Done_FreeType(ft_lib);
-  BLI_spin_end(&ft_lib_mutex);
-  BLI_spin_end(&blf_glyph_cache_mutex);
+  BLI_mutex_end(&ft_lib_mutex);
+  if (ftc_manager) {
+    FTC_Manager_Done(ftc_manager);
+  }
+  if (ft_lib) {
+    FT_Done_FreeType(ft_lib);
+  }
   blf_batch_draw_exit();
 }
 
@@ -1186,8 +1281,8 @@ static void blf_font_fill(FontBLF *font)
   font->aspect[0] = 1.0f;
   font->aspect[1] = 1.0f;
   font->aspect[2] = 1.0f;
-  font->pos[0] = 0.0f;
-  font->pos[1] = 0.0f;
+  font->pos[0] = 0;
+  font->pos[1] = 0;
   font->angle = 0.0f;
 
   for (int i = 0; i < 16; i++) {
@@ -1200,10 +1295,10 @@ static void blf_font_fill(FontBLF *font)
   font->color[2] = 0;
   font->color[3] = 255;
 
-  font->clip_rec.xmin = 0.0f;
-  font->clip_rec.xmax = 0.0f;
-  font->clip_rec.ymin = 0.0f;
-  font->clip_rec.ymax = 0.0f;
+  font->clip_rec.xmin = 0;
+  font->clip_rec.xmax = 0;
+  font->clip_rec.ymin = 0;
+  font->clip_rec.ymax = 0;
   font->flags = 0;
   font->dpi = 0;
   font->size = 0;
@@ -1223,20 +1318,38 @@ static void blf_font_fill(FontBLF *font)
   font->buf_info.col_init[1] = 0;
   font->buf_info.col_init[2] = 0;
   font->buf_info.col_init[3] = 0;
-
-  font->ft_lib = ft_lib;
-  font->ft_lib_mutex = &ft_lib_mutex;
-  font->glyph_cache_mutex = &blf_glyph_cache_mutex;
 }
 
-FontBLF *blf_font_new(const char *name, const char *filename)
+/**
+ * Create an FT_Face for this font if not already existing.
+ */
+bool blf_ensure_face(FontBLF *font)
 {
-  FontBLF *font;
-  FT_Error err;
-  char *mfile;
+  if (font->face) {
+    return true;
+  }
 
-  font = (FontBLF *)MEM_callocN(sizeof(FontBLF), "blf_font_new");
-  err = FT_New_Face(ft_lib, filename, 0, &font->face);
+  if (font->flags & BLF_BAD_FONT) {
+    return false;
+  }
+
+  FT_Error err;
+
+  if (font->flags & BLF_CACHED) {
+    err = FTC_Manager_LookupFace(ftc_manager, font, &font->face);
+  }
+  else {
+    BLI_mutex_lock(&ft_lib_mutex);
+    if (font->filepath) {
+      err = FT_New_Face(font->ft_lib, font->filepath, 0, &font->face);
+    }
+    if (font->mem) {
+      err = FT_New_Memory_Face(font->ft_lib, font->mem, (FT_Long)font->mem_size, 0, &font->face);
+    }
+    font->face->generic.data = font;
+    BLI_mutex_unlock(&ft_lib_mutex);
+  }
+
   if (err) {
     if (ELEM(err, FT_Err_Unknown_File_Format, FT_Err_Unimplemented_Feature)) {
       printf("Format of this font file is not supported\n");
@@ -1244,8 +1357,8 @@ FontBLF *blf_font_new(const char *name, const char *filename)
     else {
       printf("Error encountered while opening font file\n");
     }
-    MEM_freeN(font);
-    return NULL;
+    font->flags |= BLF_BAD_FONT;
+    return false;
   }
 
   err = FT_Select_Charmap(font->face, FT_ENCODING_UNICODE);
@@ -1257,25 +1370,49 @@ FontBLF *blf_font_new(const char *name, const char *filename)
   }
   if (err) {
     printf("Can't set a character map!\n");
-    FT_Done_Face(font->face);
-    MEM_freeN(font);
-    return NULL;
+    font->flags |= BLF_BAD_FONT;
+    return false;
   }
 
-  mfile = blf_dir_metrics_search(filename);
-  if (mfile) {
-    err = FT_Attach_File(font->face, mfile);
-    if (err) {
-      fprintf(stderr, "FT_Attach_File failed to load '%s' with error %d\n", filename, (int)err);
+  if (font->filepath) {
+    char *mfile = blf_dir_metrics_search(font->filepath);
+    if (mfile) {
+      err = FT_Attach_File(font->face, mfile);
+      if (err) {
+        fprintf(stderr,
+                "FT_Attach_File failed to load '%s' with error %d\n",
+                font->filepath,
+                (int)err);
+      }
+      MEM_freeN(mfile);
     }
-    MEM_freeN(mfile);
   }
 
-  font->name = BLI_strdup(name);
-  font->filename = BLI_strdup(filename);
-  blf_font_fill(font);
+  if (!(font->flags & BLF_CACHED)) {
+    /* Not cached so point at the face's size for convenience. */
+    font->ft_size = font->face->size;
+  }
 
-  if (FT_HAS_KERNING(font->face)) {
+  font->face_flags = font->face->face_flags;
+
+  if (FT_HAS_MULTIPLE_MASTERS(font)) {
+    FT_Get_MM_Var(font->face, &(font->variations));
+  }
+
+  /* Save TrueType table with bits to quickly test most unicode block coverage. */
+  TT_OS2 *os2_table = (TT_OS2 *)FT_Get_Sfnt_Table(font->face, FT_SFNT_OS2);
+  if (os2_table) {
+    font->unicode_ranges[0] = (uint)os2_table->ulUnicodeRange1;
+    font->unicode_ranges[1] = (uint)os2_table->ulUnicodeRange2;
+    font->unicode_ranges[2] = (uint)os2_table->ulUnicodeRange3;
+    font->unicode_ranges[3] = (uint)os2_table->ulUnicodeRange4;
+  }
+
+  if (FT_IS_FIXED_WIDTH(font)) {
+    font->flags |= BLF_MONOSPACED;
+  }
+
+  if (FT_HAS_KERNING(font) && !font->kerning_cache) {
     /* Create kerning cache table and fill with value indicating "unset". */
     font->kerning_cache = MEM_mallocN(sizeof(KerningCacheBLF), __func__);
     for (uint i = 0; i < KERNING_CACHE_TABLE_SIZE; i++) {
@@ -1285,43 +1422,136 @@ FontBLF *blf_font_new(const char *name, const char *filename)
     }
   }
 
+  return true;
+}
+
+struct FaceDetails {
+  char name[50];
+  uint coverage1;
+  uint coverage2;
+  uint coverage3;
+  uint coverage4;
+};
+
+/* Details about the fallback fonts we ship, so that we can load only when needed. */
+static const struct FaceDetails static_face_details[] = {
+    {"lastresort.woff2", UINT32_MAX, UINT32_MAX, UINT32_MAX, UINT32_MAX},
+    {"Noto Sans CJK Regular.woff2", 0x30000083L, 0x2BDF3C10L, 0x16L, 0},
+    {"NotoEmoji-VariableFont_wght.woff2", 0x80000003L, 0x241E4ACL, 0x14000000L, 0x4000000L},
+    {"NotoSansArabic-VariableFont_wdth,wght.woff2",
+     TT_UCR_ARABIC,
+     (uint)TT_UCR_ARABIC_PRESENTATION_FORMS_A,
+     TT_UCR_ARABIC_PRESENTATION_FORMS_B,
+     0},
+    {"NotoSansArmenian-VariableFont_wdth,wght.woff2", TT_UCR_ARMENIAN, 0, 0, 0},
+    {"NotoSansBengali-VariableFont_wdth,wght.woff2", TT_UCR_BENGALI, 0, 0, 0},
+    {"NotoSansDevanagari-Regular.woff2", TT_UCR_DEVANAGARI, 0, 0, 0},
+    {"NotoSansEthiopic-Regular.woff2", 0, 0, TT_UCR_ETHIOPIC, 0},
+    {"NotoSansGeorgian-VariableFont_wdth,wght.woff2", TT_UCR_GEORGIAN, 0, 0, 0},
+    {"NotoSansGujarati-Regular.woff2", TT_UCR_GUJARATI, 0, 0, 0},
+    {"NotoSansGurmukhi-VariableFont_wdth,wght.woff2", TT_UCR_GURMUKHI, 0, 0, 0},
+    {"NotoSansHebrew-Regular.woff2", TT_UCR_HEBREW, 0, 0, 0},
+    {"NotoSansJavanese-Regular.woff2", 0x80000003L, 0x2000L, 0, 0},
+    {"NotoSansKannada-VariableFont_wdth,wght.woff2", TT_UCR_KANNADA, 0, 0, 0},
+    {"NotoSansMalayalam-VariableFont_wdth,wght.woff2", TT_UCR_MALAYALAM, 0, 0, 0},
+    {"NotoSansMath-Regular.woff2", 0, TT_UCR_MATHEMATICAL_OPERATORS, 0, 0},
+    {"NotoSansMyanmar-Regular.woff2", 0, 0, TT_UCR_MYANMAR, 0},
+    {"NotoSansSymbols-VariableFont_wght.woff2", 0x3L, 0x200E4B4L, 0, 0},
+    {"NotoSansSymbols2-Regular.woff2", 0x80000003L, 0x200E3E4L, 0x40020L, 0x580A048L},
+    {"NotoSansTamil-VariableFont_wdth,wght.woff2", TT_UCR_TAMIL, 0, 0, 0},
+    {"NotoSansTelugu-VariableFont_wdth,wght.woff2", TT_UCR_TELUGU, 0, 0, 0},
+    {"NotoSansThai-VariableFont_wdth,wght.woff2", TT_UCR_THAI, 0, 0, 0},
+};
+
+/**
+ * Create a new font from filename OR memory pointer.
+ * For normal operation pass NULL as FT_Library object. Pass a custom FT_Library if you
+ * want to use the font without its lifetime being managed by the FreeType cache subsystem.
+ */
+FontBLF *blf_font_new_ex(const char *name,
+                         const char *filepath,
+                         const uchar *mem,
+                         const size_t mem_size,
+                         void *ft_library)
+{
+  FontBLF *font = (FontBLF *)MEM_callocN(sizeof(FontBLF), "blf_font_new");
+
+  font->name = BLI_strdup(name);
+  font->filepath = filepath ? BLI_strdup(filepath) : NULL;
+  if (mem) {
+    font->mem = (void *)mem;
+    font->mem_size = mem_size;
+  }
+  blf_font_fill(font);
+
+  if (ft_library && ((FT_Library)ft_library != ft_lib)) {
+    font->ft_lib = (FT_Library)ft_library;
+  }
+  else {
+    font->ft_lib = ft_lib;
+    font->flags |= BLF_CACHED;
+  }
+
+  font->ft_lib = ft_library ? (FT_Library)ft_library : ft_lib;
+
+  BLI_mutex_init(&font->glyph_cache_mutex);
+
+  /* If we have static details about this font file, we don't have to load the Face yet. */
+  bool face_needed = true;
+
+  if (font->filepath) {
+    const struct FaceDetails *static_details = NULL;
+    char filename[256];
+    for (int i = 0; i < (int)ARRAY_SIZE(static_face_details); i++) {
+      BLI_split_file_part(font->filepath, filename, sizeof(filename));
+      if (STREQ(static_face_details[i].name, filename)) {
+        static_details = &static_face_details[i];
+        font->unicode_ranges[0] = static_details->coverage1;
+        font->unicode_ranges[1] = static_details->coverage2;
+        font->unicode_ranges[2] = static_details->coverage3;
+        font->unicode_ranges[3] = static_details->coverage4;
+        face_needed = false;
+        break;
+      }
+    }
+  }
+
+  if (face_needed) {
+    if (!blf_ensure_face(font)) {
+      blf_font_free(font);
+      return NULL;
+    }
+  }
+
+  /* Detect "Last resort" fonts. They have everything. Usually except last 5 bits.  */
+  if (font->unicode_ranges[0] == 0xffffffffU && font->unicode_ranges[1] == 0xffffffffU &&
+      font->unicode_ranges[2] == 0xffffffffU && font->unicode_ranges[3] >= 0x7FFFFFFU) {
+    font->flags |= BLF_LAST_RESORT;
+  }
+
   return font;
 }
 
-void blf_font_attach_from_mem(FontBLF *font, const unsigned char *mem, int mem_size)
+FontBLF *blf_font_new(const char *name, const char *filepath)
+{
+  return blf_font_new_ex(name, filepath, NULL, 0, NULL);
+}
+
+FontBLF *blf_font_new_from_mem(const char *name, const uchar *mem, const size_t mem_size)
+{
+  return blf_font_new_ex(name, NULL, mem, mem_size, NULL);
+}
+
+void blf_font_attach_from_mem(FontBLF *font, const uchar *mem, const size_t mem_size)
 {
   FT_Open_Args open;
 
   open.flags = FT_OPEN_MEMORY;
   open.memory_base = (const FT_Byte *)mem;
-  open.memory_size = mem_size;
-  FT_Attach_Stream(font->face, &open);
-}
-
-FontBLF *blf_font_new_from_mem(const char *name, const unsigned char *mem, int mem_size)
-{
-  FontBLF *font;
-  FT_Error err;
-
-  font = (FontBLF *)MEM_callocN(sizeof(FontBLF), "blf_font_new_from_mem");
-  err = FT_New_Memory_Face(ft_lib, mem, mem_size, 0, &font->face);
-  if (err) {
-    MEM_freeN(font);
-    return NULL;
+  open.memory_size = (FT_Long)mem_size;
+  if (blf_ensure_face(font)) {
+    FT_Attach_Stream(font->face, &open);
   }
-
-  err = FT_Select_Charmap(font->face, ft_encoding_unicode);
-  if (err) {
-    printf("Can't set the unicode character map!\n");
-    FT_Done_Face(font->face);
-    MEM_freeN(font);
-    return NULL;
-  }
-
-  font->name = BLI_strdup(name);
-  font->filename = NULL;
-  blf_font_fill(font);
-  return font;
 }
 
 void blf_font_free(FontBLF *font)
@@ -1332,13 +1562,30 @@ void blf_font_free(FontBLF *font)
     MEM_freeN(font->kerning_cache);
   }
 
-  FT_Done_Face(font->face);
-  if (font->filename) {
-    MEM_freeN(font->filename);
+  if (font->variations) {
+    FT_Done_MM_Var(font->ft_lib, font->variations);
+  }
+
+  if (font->face) {
+    BLI_mutex_lock(&ft_lib_mutex);
+    if (font->flags & BLF_CACHED) {
+      FTC_Manager_RemoveFaceID(ftc_manager, font);
+    }
+    else {
+      FT_Done_Face(font->face);
+    }
+    BLI_mutex_unlock(&ft_lib_mutex);
+    font->face = NULL;
+  }
+  if (font->filepath) {
+    MEM_freeN(font->filepath);
   }
   if (font->name) {
     MEM_freeN(font->name);
   }
+
+  BLI_mutex_end(&font->glyph_cache_mutex);
+
   MEM_freeN(font);
 }
 
@@ -1348,24 +1595,64 @@ void blf_font_free(FontBLF *font)
 /** \name Font Configure
  * \{ */
 
-bool blf_font_size(FontBLF *font, float size, unsigned int dpi)
+void blf_ensure_size(FontBLF *font)
 {
+  if (font->ft_size || !(font->flags & BLF_CACHED)) {
+    return;
+  }
+
+  FTC_ScalerRec scaler = {0};
+  scaler.face_id = font;
+  scaler.width = 0;
+  scaler.height = round_fl_to_uint(font->size * 64.0f);
+  scaler.pixel = 0;
+  scaler.x_res = font->dpi;
+  scaler.y_res = font->dpi;
+  if (FTC_Manager_LookupSize(ftc_manager, &scaler, &font->ft_size) == FT_Err_Ok) {
+    font->ft_size->generic.data = (void *)font;
+    font->ft_size->generic.finalizer = blf_size_finalizer;
+    return;
+  }
+
+  BLI_assert_unreachable();
+}
+
+bool blf_font_size(FontBLF *font, float size, uint dpi)
+{
+  if (!blf_ensure_face(font)) {
+    return false;
+  }
+
   /* FreeType uses fixed-point integers in 64ths. */
-  FT_F26Dot6 ft_size = lroundf(size * 64.0f);
+  FT_UInt ft_size = round_fl_to_uint(size * 64.0f);
   /* Adjust our new size to be on even 64ths. */
   size = (float)ft_size / 64.0f;
 
   if (font->size != size || font->dpi != dpi) {
-    if (FT_Set_Char_Size(font->face, 0, ft_size, dpi, dpi) == 0) {
-      font->size = size;
-      font->dpi = dpi;
+    if (font->flags & BLF_CACHED) {
+      FTC_ScalerRec scaler = {0};
+      scaler.face_id = font;
+      scaler.width = 0;
+      scaler.height = ft_size;
+      scaler.pixel = 0;
+      scaler.x_res = dpi;
+      scaler.y_res = dpi;
+      if (FTC_Manager_LookupSize(ftc_manager, &scaler, &font->ft_size) != FT_Err_Ok) {
+        return false;
+      }
+      font->ft_size->generic.data = (void *)font;
+      font->ft_size->generic.finalizer = blf_size_finalizer;
     }
     else {
-      printf("The current font does not support the size, %f and dpi, %u\n", size, dpi);
-      return false;
+      if (FT_Set_Char_Size(font->face, 0, ft_size, dpi, dpi) != FT_Err_Ok) {
+        return false;
+      }
+      font->ft_size = font->face->size;
     }
   }
 
+  font->size = size;
+  font->dpi = dpi;
   return true;
 }
 

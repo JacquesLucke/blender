@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -87,6 +71,7 @@
 #include "BKE_lib_override.h"
 #include "BKE_lib_remap.h"
 #include "BKE_main.h"
+#include "BKE_main_namemap.h"
 #include "BKE_packedFile.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -262,7 +247,9 @@ static void wm_window_substitute_old(wmWindowManager *oldwm,
   oldwin->gpuctx = NULL;
 
   win->eventstate = oldwin->eventstate;
+  win->event_last_handled = oldwin->event_last_handled;
   oldwin->eventstate = NULL;
+  oldwin->event_last_handled = NULL;
 
   /* Ensure proper screen re-scaling. */
   win->sizex = oldwin->sizex;
@@ -307,6 +294,12 @@ static void wm_window_match_keep_current_wm(const bContext *C,
       bScreen *win_screen = WM_window_get_active_screen(win);
       win_screen->winid = win->winid;
     }
+  }
+
+  /* we'll be using the current wm list directly; make sure
+   * the names are validated and in the name map. */
+  LISTBASE_FOREACH (wmWindowManager *, wm_item, current_wm_list) {
+    BKE_main_namemap_get_name(bmain, &wm_item->id, wm_item->id.name + 2);
   }
 
   *r_new_wm_list = *current_wm_list;
@@ -712,6 +705,14 @@ static void wm_file_read_post(bContext *C, const struct wmFileReadPost_Params *p
     }
   }
 
+  if (is_factory_startup && BLT_translate_new_dataname()) {
+    /* Translate workspace names */
+    LISTBASE_FOREACH_MUTABLE (WorkSpace *, workspace, &bmain->workspaces) {
+      BKE_libblock_rename(
+          bmain, &workspace->id, CTX_DATA_(BLT_I18NCONTEXT_ID_WORKSPACE, workspace->id.name + 2));
+    }
+  }
+
   if (use_data) {
     /* important to do before NULL'ing the context */
     BKE_callback_exec_null(bmain, BKE_CB_EVT_VERSION_UPDATE);
@@ -860,8 +861,13 @@ static void file_read_reports_finalize(BlendFileReadReport *bf_reports)
                 bf_reports->count.missing_obproxies);
   }
   else {
-    BLI_assert(bf_reports->count.missing_obdata == 0);
-    BLI_assert(bf_reports->count.missing_obproxies == 0);
+    if (bf_reports->count.missing_obdata != 0 || bf_reports->count.missing_obproxies != 0) {
+      CLOG_ERROR(&LOG,
+                 "%d local ObjectData and %d local Object proxies are reported to be missing, "
+                 "this should never happen",
+                 bf_reports->count.missing_obdata,
+                 bf_reports->count.missing_obproxies);
+    }
   }
 
   if (bf_reports->resynced_lib_overrides_libraries_count != 0) {
@@ -881,7 +887,7 @@ static void file_read_reports_finalize(BlendFileReadReport *bf_reports)
         RPT_WARNING,
         "Proxies have been removed from Blender (%d proxies were automatically converted "
         "to library overrides, %d proxies could not be converted and were cleared). "
-        "Please also consider re-saving any library .blend file with the newest Blender version.",
+        "Please also consider re-saving any library .blend file with the newest Blender version",
         bf_reports->count.proxies_to_lib_overrides_success,
         bf_reports->count.proxies_to_lib_overrides_failures);
   }
@@ -1013,6 +1019,8 @@ bool WM_file_read(bContext *C, const char *filepath, ReportList *reports)
 
   WM_cursor_wait(false);
 
+  BLI_assert(BKE_main_namemap_validate(CTX_data_main(C)));
+
   return success;
 }
 
@@ -1105,7 +1113,7 @@ void wm_homefile_read_ex(bContext *C,
   const bool reset_app_template = ((!app_template && U.app_template[0]) ||
                                    (app_template && !STREQ(app_template, U.app_template)));
 
-  /* options exclude eachother */
+  /* Options exclude each other. */
   BLI_assert((use_factory_settings && filepath_startup_override) == 0);
 
   if ((G.f & G_FLAG_SCRIPT_OVERRIDE_PREF) == 0) {
@@ -1774,11 +1782,11 @@ static bool wm_file_write(bContext *C,
   /* Enforce full override check/generation on file save. */
   BKE_lib_override_library_main_operations_create(bmain, true);
 
-  if (!G.background && BLI_thread_is_main()) {
-    /* Redraw to remove menus that might be open.
-     * But only in the main thread otherwise this can crash, see T92704. */
-    WM_redraw_windows(C);
-  }
+  /* NOTE: Ideally we would call `WM_redraw_windows` here to remove any open menus.
+   * But we can crash if saving from a script, see T92704 & T97627.
+   * Just checking `!G.background && BLI_thread_is_main()` is not sufficient to fix this.
+   * Additionally some some EGL configurations don't support reading the front-buffer
+   * immediately after drawing, see: T98462. In that case off-screen drawing is necessary. */
 
   /* don't forget not to return without! */
   WM_cursor_wait(true);
@@ -1895,9 +1903,6 @@ static void wm_autosave_location(char *filepath)
 {
   const int pid = abs(getpid());
   char path[1024];
-#ifdef WIN32
-  const char *savedir;
-#endif
 
   /* Normally there is no need to check for this to be NULL,
    * however this runs on exit when it may be cleared. */
@@ -1923,7 +1928,7 @@ static void wm_autosave_location(char *filepath)
    * through BLI_windows_get_default_root_dir().
    * If there is no C:\tmp autosave fails. */
   if (!BLI_exists(BKE_tempdir_base())) {
-    savedir = BKE_appdir_folder_id_create(BLENDER_USER_AUTOSAVE, NULL);
+    const char *savedir = BKE_appdir_folder_id_create(BLENDER_USER_AUTOSAVE, NULL);
     BLI_make_file_string("/", filepath, savedir, path);
     return;
   }
@@ -1982,7 +1987,7 @@ void wm_autosave_timer_end(wmWindowManager *wm)
   }
 }
 
-void WM_autosave_init(wmWindowManager *wm)
+void WM_file_autosave_init(wmWindowManager *wm)
 {
   wm_autosave_timer_begin(wm);
 }
@@ -2013,20 +2018,20 @@ void wm_autosave_timer(Main *bmain, wmWindowManager *wm, wmTimer *UNUSED(wt))
 
 void wm_autosave_delete(void)
 {
-  char filename[FILE_MAX];
+  char filepath[FILE_MAX];
 
-  wm_autosave_location(filename);
+  wm_autosave_location(filepath);
 
-  if (BLI_exists(filename)) {
+  if (BLI_exists(filepath)) {
     char str[FILE_MAX];
     BLI_join_dirfile(str, sizeof(str), BKE_tempdir_base(), BLENDER_QUIT_FILE);
 
     /* if global undo; remove tempsave, otherwise rename */
     if (U.uiflag & USER_GLOBALUNDO) {
-      BLI_delete(filename, false, false);
+      BLI_delete(filepath, false, false);
     }
     else {
-      BLI_rename(filename, str);
+      BLI_rename(filepath, str);
     }
   }
 }
@@ -2438,7 +2443,7 @@ static int wm_homefile_read_exec(bContext *C, wmOperator *op)
 static void wm_homefile_read_after_dialog_callback(bContext *C, void *user_data)
 {
   WM_operator_name_call_with_properties(
-      C, "WM_OT_read_homefile", WM_OP_EXEC_DEFAULT, (IDProperty *)user_data);
+      C, "WM_OT_read_homefile", WM_OP_EXEC_DEFAULT, (IDProperty *)user_data, NULL);
 }
 
 static int wm_homefile_read_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
@@ -2591,7 +2596,7 @@ static int wm_open_mainfile_dispatch(bContext *C, wmOperator *op);
 static void wm_open_mainfile_after_dialog_callback(bContext *C, void *user_data)
 {
   WM_operator_name_call_with_properties(
-      C, "WM_OT_open_mainfile", WM_OP_INVOKE_DEFAULT, (IDProperty *)user_data);
+      C, "WM_OT_open_mainfile", WM_OP_INVOKE_DEFAULT, (IDProperty *)user_data, NULL);
 }
 
 static int wm_open_mainfile__discard_changes(bContext *C, wmOperator *op)
@@ -2876,7 +2881,7 @@ void WM_OT_revert_mainfile(wmOperatorType *ot)
 /** \name Recover Last Session Operator
  * \{ */
 
-bool WM_recover_last_session(bContext *C, ReportList *reports)
+bool WM_file_recover_last_session(bContext *C, ReportList *reports)
 {
   char filepath[FILE_MAX];
   BLI_join_dirfile(filepath, sizeof(filepath), BKE_tempdir_base(), BLENDER_QUIT_FILE);
@@ -2890,7 +2895,7 @@ static int wm_recover_last_session_exec(bContext *C, wmOperator *op)
 {
   wm_open_init_use_scripts(op, true);
   SET_FLAG_FROM_TEST(G.f, RNA_boolean_get(op->ptr, "use_scripts"), G_FLAG_SCRIPT_AUTOEXEC);
-  if (WM_recover_last_session(C, op->reports)) {
+  if (WM_file_recover_last_session(C, op->reports)) {
     if (!G.background) {
       wmOperatorType *ot = op->type;
       PointerRNA *props_ptr = MEM_callocN(sizeof(PointerRNA), __func__);
@@ -2906,7 +2911,7 @@ static int wm_recover_last_session_exec(bContext *C, wmOperator *op)
 static void wm_recover_last_session_after_dialog_callback(bContext *C, void *user_data)
 {
   WM_operator_name_call_with_properties(
-      C, "WM_OT_recover_last_session", WM_OP_EXEC_DEFAULT, (IDProperty *)user_data);
+      C, "WM_OT_recover_last_session", WM_OP_EXEC_DEFAULT, (IDProperty *)user_data, NULL);
 }
 
 static int wm_recover_last_session_invoke(bContext *C,
@@ -2973,10 +2978,10 @@ static int wm_recover_auto_save_exec(bContext *C, wmOperator *op)
 
 static int wm_recover_auto_save_invoke(bContext *C, wmOperator *op, const wmEvent *UNUSED(event))
 {
-  char filename[FILE_MAX];
+  char filepath[FILE_MAX];
 
-  wm_autosave_location(filename);
-  RNA_string_set(op->ptr, "filepath", filename);
+  wm_autosave_location(filepath);
+  RNA_string_set(op->ptr, "filepath", filepath);
   wm_open_init_use_scripts(op, true);
   WM_event_add_fileselect(C, op);
 
@@ -3014,7 +3019,9 @@ void WM_OT_recover_auto_save(wmOperatorType *ot)
 static void wm_filepath_default(const Main *bmain, char *filepath)
 {
   if (bmain->filepath[0] == '\0') {
-    BLI_path_filename_ensure(filepath, FILE_MAX, "untitled.blend");
+    char filename_untitled[FILE_MAXFILE];
+    SNPRINTF(filename_untitled, "%s.blend", DATA_("untitled"));
+    BLI_path_filename_ensure(filepath, FILE_MAX, filename_untitled);
   }
 }
 
@@ -3074,8 +3081,7 @@ static int wm_save_as_mainfile_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   char path[FILE_MAX];
   const bool is_save_as = (op->type->invoke == wm_save_as_mainfile_invoke);
-  const bool use_save_as_copy = (RNA_struct_property_is_set(op->ptr, "copy") &&
-                                 RNA_boolean_get(op->ptr, "copy"));
+  const bool use_save_as_copy = is_save_as && RNA_boolean_get(op->ptr, "copy");
 
   /* We could expose all options to the users however in most cases remapping
    * existing relative paths is a good default.
@@ -3304,7 +3310,7 @@ static void wm_block_autorun_warning_reload_with_scripts(bContext *C,
 
   /* Save user preferences for permanent execution. */
   if ((U.flag & USER_SCRIPT_AUTOEXEC_DISABLE) == 0) {
-    WM_operator_name_call(C, "WM_OT_save_userpref", WM_OP_EXEC_DEFAULT, NULL);
+    WM_operator_name_call(C, "WM_OT_save_userpref", WM_OP_EXEC_DEFAULT, NULL, NULL);
   }
 
   /* Load file again with scripts enabled.
@@ -3323,7 +3329,7 @@ static void wm_block_autorun_warning_enable_scripts(bContext *C,
 
   /* Save user preferences for permanent execution. */
   if ((U.flag & USER_SCRIPT_AUTOEXEC_DISABLE) == 0) {
-    WM_operator_name_call(C, "WM_OT_save_userpref", WM_OP_EXEC_DEFAULT, NULL);
+    WM_operator_name_call(C, "WM_OT_save_userpref", WM_OP_EXEC_DEFAULT, NULL, NULL);
   }
 
   /* Force a full refresh, but without reloading the file. */
@@ -3492,7 +3498,7 @@ void wm_test_autorun_revert_action_exec(bContext *C)
     wm_test_autorun_revert_action_set(ot, ptr);
   }
 
-  WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, ptr);
+  WM_operator_name_call_ptr(C, ot, WM_OP_EXEC_DEFAULT, ptr, NULL);
   wm_test_autorun_revert_action_set(NULL, NULL);
 }
 
@@ -3573,13 +3579,13 @@ static void wm_block_file_close_save(bContext *C, void *arg_block, void *arg_dat
   bool file_has_been_saved_before = BKE_main_blendfile_path(bmain)[0] != '\0';
 
   if (file_has_been_saved_before) {
-    if (WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_EXEC_DEFAULT, NULL) &
+    if (WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_EXEC_DEFAULT, NULL, NULL) &
         OPERATOR_CANCELLED) {
       execute_callback = false;
     }
   }
   else {
-    WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_INVOKE_DEFAULT, NULL);
+    WM_operator_name_call(C, "WM_OT_save_mainfile", WM_OP_INVOKE_DEFAULT, NULL, NULL);
     execute_callback = false;
   }
 
@@ -3648,7 +3654,7 @@ static uiBlock *block_create__close_file_dialog(struct bContext *C,
     BLI_split_file_part(blendfile_path, filename, sizeof(filename));
   }
   else {
-    STRNCPY(filename, "untitled.blend");
+    SNPRINTF(filename, "%s.blend", DATA_("untitled"));
   }
   uiItemL(layout, filename, ICON_NONE);
 

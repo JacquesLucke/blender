@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2008 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2008 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup spview3d
@@ -429,7 +413,9 @@ static void view3d_set_1_to_1_viewborder(Scene *scene,
 {
   RegionView3D *rv3d = region->regiondata;
   float size[2];
-  int im_width = (scene->r.size * scene->r.xsch) / 100;
+
+  int im_width, im_height;
+  BKE_render_resolution(&scene->r, false, &im_width, &im_height);
 
   ED_view3d_calc_camera_border_size(scene, depsgraph, region, v3d, rv3d, size);
 
@@ -523,19 +509,17 @@ void VIEW3D_OT_view_persportho(wmOperatorType *ot)
  * Wraps walk/fly modes.
  * \{ */
 
-static int view3d_navigate_invoke(bContext *C,
-                                  wmOperator *UNUSED(op),
-                                  const wmEvent *UNUSED(event))
+static int view3d_navigate_invoke(bContext *C, wmOperator *UNUSED(op), const wmEvent *event)
 {
   eViewNavigation_Method mode = U.navigation_mode;
 
   switch (mode) {
     case VIEW_NAVIGATION_FLY:
-      WM_operator_name_call(C, "VIEW3D_OT_fly", WM_OP_INVOKE_DEFAULT, NULL);
+      WM_operator_name_call(C, "VIEW3D_OT_fly", WM_OP_INVOKE_DEFAULT, NULL, event);
       break;
     case VIEW_NAVIGATION_WALK:
     default:
-      WM_operator_name_call(C, "VIEW3D_OT_walk", WM_OP_INVOKE_DEFAULT, NULL);
+      WM_operator_name_call(C, "VIEW3D_OT_walk", WM_OP_INVOKE_DEFAULT, NULL, event);
       break;
   }
 
@@ -626,7 +610,7 @@ void VIEW3D_OT_background_image_add(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO;
 
   /* properties */
-  RNA_def_string(ot->srna, "name", "Image", MAX_ID_NAME - 2, "Name", "Image name to assign");
+  WM_operator_properties_id_lookup(ot, true);
   WM_operator_properties_filesel(ot,
                                  FILE_TYPE_FOLDER | FILE_TYPE_IMAGE | FILE_TYPE_MOVIE,
                                  FILE_SPECIAL,
@@ -649,12 +633,19 @@ static int background_image_remove_exec(bContext *C, wmOperator *op)
   CameraBGImage *bgpic_rem = BLI_findlink(&cam->bg_images, index);
 
   if (bgpic_rem) {
-    if (bgpic_rem->source == CAM_BGIMG_SOURCE_IMAGE) {
-      id_us_min((ID *)bgpic_rem->ima);
+    if (ID_IS_OVERRIDE_LIBRARY(cam) &&
+        (bgpic_rem->flag & CAM_BGIMG_FLAG_OVERRIDE_LIBRARY_LOCAL) == 0) {
+      BKE_reportf(op->reports,
+                  RPT_WARNING,
+                  "Cannot remove background image %d from camera '%s', as it is from the linked "
+                  "reference data",
+                  index,
+                  cam->id.name + 2);
+      return OPERATOR_CANCELLED;
     }
-    else if (bgpic_rem->source == CAM_BGIMG_SOURCE_MOVIE) {
-      id_us_min((ID *)bgpic_rem->clip);
-    }
+
+    id_us_min((ID *)bgpic_rem->ima);
+    id_us_min((ID *)bgpic_rem->clip);
 
     BKE_camera_background_image_remove(cam, bgpic_rem);
 
@@ -675,7 +666,7 @@ void VIEW3D_OT_background_image_remove(wmOperatorType *ot)
 
   /* api callbacks */
   ot->exec = background_image_remove_exec;
-  ot->poll = ED_operator_camera;
+  ot->poll = ED_operator_camera_poll;
 
   /* flags */
   ot->flag = 0;
@@ -696,10 +687,8 @@ static int drop_world_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
 
-  char name[MAX_ID_NAME - 2];
-
-  RNA_string_get(op->ptr, "name", name);
-  World *world = (World *)BKE_libblock_find_name(bmain, ID_WO, name);
+  World *world = (World *)WM_operator_properties_id_lookup_from_name_or_session_uuid(
+      bmain, op->ptr, ID_WO);
   if (world == NULL) {
     return OPERATOR_CANCELLED;
   }
@@ -708,7 +697,7 @@ static int drop_world_exec(bContext *C, wmOperator *op)
   id_us_plus(&world->id);
   scene->world = world;
 
-  DEG_id_tag_update(&scene->id, 0);
+  DEG_id_tag_update(&scene->id, ID_RECALC_COPY_ON_WRITE);
   DEG_relations_tag_update(bmain);
 
   WM_event_add_notifier(C, NC_SCENE | ND_WORLD, scene);
@@ -736,7 +725,7 @@ void VIEW3D_OT_drop_world(wmOperatorType *ot)
   ot->flag = OPTYPE_UNDO | OPTYPE_INTERNAL;
 
   /* properties */
-  RNA_def_string(ot->srna, "name", "World", MAX_ID_NAME - 2, "Name", "World to assign");
+  WM_operator_properties_id_lookup(ot, true);
 }
 
 /** \} */
@@ -848,13 +837,13 @@ void ED_view3d_cursor3d_position(bContext *C,
     return;
   }
 
-  ED_view3d_calc_zfac(rv3d, cursor_co, &flip);
+  ED_view3d_calc_zfac_ex(rv3d, cursor_co, &flip);
 
   /* Reset the depth based on the view offset (we _know_ the offset is in front of us). */
   if (flip) {
     negate_v3_v3(cursor_co, rv3d->ofs);
     /* re initialize, no need to check flip again */
-    ED_view3d_calc_zfac(rv3d, cursor_co, NULL /* &flip */);
+    ED_view3d_calc_zfac(rv3d, cursor_co);
   }
 
   if (use_depth) { /* maybe this should be accessed some other way */
@@ -921,12 +910,13 @@ void ED_view3d_cursor3d_position_rotation(bContext *C,
                                                    CTX_data_ensure_evaluated_depsgraph(C),
                                                    region,
                                                    v3d,
-                                                   SCE_SNAP_MODE_FACE,
+                                                   SCE_SNAP_MODE_FACE_RAYCAST,
                                                    &(const struct SnapObjectParams){
-                                                       .snap_select = SNAP_ALL,
+                                                       .snap_target_select = SCE_SNAP_TARGET_ALL,
                                                        .edit_mode_type = SNAP_GEOM_FINAL,
                                                        .use_occlusion_test = true,
                                                    },
+                                                   NULL,
                                                    mval_fl,
                                                    NULL,
                                                    &dist_px,
@@ -1079,7 +1069,8 @@ static int view3d_cursor3d_invoke(bContext *C, wmOperator *op, const wmEvent *ev
   const enum eV3DCursorOrient orientation = RNA_enum_get(op->ptr, "orientation");
   ED_view3d_cursor3d_update(C, event->mval, use_depth, orientation);
 
-  return OPERATOR_FINISHED;
+  /* Use pass-through to allow click-drag to transform the cursor. */
+  return OPERATOR_FINISHED | OPERATOR_PASS_THROUGH;
 }
 
 void VIEW3D_OT_cursor3d(wmOperatorType *ot)

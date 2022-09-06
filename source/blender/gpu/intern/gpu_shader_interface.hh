@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2016 by Mike Erwin.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2016 by Mike Erwin. All rights reserved. */
 
 /** \file
  * \ingroup gpu
@@ -34,6 +18,7 @@
 #include "BLI_utildefines.h"
 
 #include "GPU_shader.h"
+#include "GPU_vertex_format.h" /* GPU_VERT_ATTR_MAX_LEN */
 #include "gpu_shader_create_info.hh"
 
 namespace blender::gpu {
@@ -55,9 +40,9 @@ class ShaderInterface {
   /* TODO(fclem): should be protected. */
  public:
   /** Flat array. In this order: Attributes, Ubos, Uniforms. */
-  ShaderInput *inputs_ = NULL;
+  ShaderInput *inputs_ = nullptr;
   /** Buffer containing all inputs names separated by '\0'. */
-  char *name_buffer_ = NULL;
+  char *name_buffer_ = nullptr;
   /** Input counts inside input array. */
   uint attr_len_ = 0;
   uint ubo_len_ = 0;
@@ -72,6 +57,14 @@ class ShaderInterface {
   /** Location of builtin uniforms. Fast access, no lookup needed. */
   int32_t builtins_[GPU_NUM_UNIFORMS];
   int32_t builtin_blocks_[GPU_NUM_UNIFORM_BLOCKS];
+  int32_t builtin_buffers_[GPU_NUM_STORAGE_BUFFERS];
+
+  /**
+   * Currently only used for `GPU_shader_get_attribute_info`.
+   * This utility is useful for automatic creation of `GPUVertFormat` in Python.
+   * Use `ShaderInput::location` to identify the `Type`.
+   */
+  uint8_t attr_types_[GPU_VERT_ATTR_MAX_LEN];
 
  public:
   ShaderInterface();
@@ -83,6 +76,10 @@ class ShaderInterface {
   inline const ShaderInput *attr_get(const char *name) const
   {
     return input_lookup(inputs_, attr_len_, name);
+  }
+  inline const ShaderInput *attr_get(const int binding) const
+  {
+    return input_lookup(inputs_, attr_len_, binding);
   }
 
   inline const ShaderInput *ubo_get(const char *name) const
@@ -132,9 +129,17 @@ class ShaderInterface {
     return builtin_blocks_[builtin];
   }
 
+  /* Returns binding position. */
+  inline int32_t ssbo_builtin(const GPUStorageBufferBuiltin builtin) const
+  {
+    BLI_assert(builtin >= 0 && builtin < GPU_NUM_STORAGE_BUFFERS);
+    return builtin_buffers_[builtin];
+  }
+
  protected:
   static inline const char *builtin_uniform_name(GPUUniformBuiltin u);
   static inline const char *builtin_uniform_block_name(GPUUniformBlockBuiltin u);
+  static inline const char *builtin_storage_block_name(GPUStorageBufferBuiltin u);
 
   inline uint32_t set_input_name(ShaderInput *input, char *name, uint32_t name_len) const;
   inline void copy_input_name(ShaderInput *input,
@@ -203,7 +208,7 @@ inline const char *ShaderInterface::builtin_uniform_name(GPUUniformBuiltin u)
       return "srgbTarget";
 
     default:
-      return NULL;
+      return nullptr;
   }
 }
 
@@ -224,7 +229,19 @@ inline const char *ShaderInterface::builtin_uniform_block_name(GPUUniformBlockBu
     case GPU_UNIFORM_BLOCK_DRW_INFOS:
       return "drw_infos";
     default:
-      return NULL;
+      return nullptr;
+  }
+}
+
+inline const char *ShaderInterface::builtin_storage_block_name(GPUStorageBufferBuiltin u)
+{
+  switch (u) {
+    case GPU_STORAGE_BUFFER_DEBUG_VERTS:
+      return "drw_debug_verts_buf";
+    case GPU_STORAGE_BUFFER_DEBUG_PRINT:
+      return "drw_debug_print_buf";
+    default:
+      return nullptr;
   }
 }
 
@@ -274,7 +291,7 @@ inline const ShaderInput *ShaderInterface::input_lookup(const ShaderInput *const
             return inputs + i; /* not found */
           }
         }
-        return NULL; /* not found */
+        return nullptr; /* not found */
       }
 
       /* This is a bit dangerous since we could have a hash collision.
@@ -284,7 +301,7 @@ inline const ShaderInput *ShaderInterface::input_lookup(const ShaderInput *const
       return inputs + i;
     }
   }
-  return NULL; /* not found */
+  return nullptr; /* not found */
 }
 
 inline const ShaderInput *ShaderInterface::input_lookup(const ShaderInput *const inputs,
@@ -297,7 +314,7 @@ inline const ShaderInput *ShaderInterface::input_lookup(const ShaderInput *const
       return inputs + i;
     }
   }
-  return NULL; /* not found */
+  return nullptr; /* not found */
 }
 
 }  // namespace blender::gpu

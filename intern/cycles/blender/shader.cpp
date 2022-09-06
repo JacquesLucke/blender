@@ -1,18 +1,5 @@
-/*
- * Copyright 2011-2013 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2011-2022 Blender Foundation */
 
 #include "scene/shader.h"
 #include "scene/background.h"
@@ -45,7 +32,8 @@ typedef map<string, ConvertNode *> ProxyMap;
 
 void BlenderSync::find_shader(BL::ID &id, array<Node *> &used_shaders, Shader *default_shader)
 {
-  Shader *shader = (id) ? shader_map.find(id) : default_shader;
+  Shader *synced_shader = (id) ? shader_map.find(id) : nullptr;
+  Shader *shader = (synced_shader) ? synced_shader : default_shader;
 
   used_shaders.push_back_slow(shader);
   shader->tag_used(scene);
@@ -260,6 +248,13 @@ static void get_tex_mapping(TextureNode *mapping, BL::TexMapping &b_mapping)
   mapping->set_tex_mapping_z_mapping((TextureMapping::Mapping)b_mapping.mapping_z());
 }
 
+static bool is_image_animated(BL::Image::source_enum b_image_source, BL::ImageUser &b_image_user)
+{
+  return (b_image_source == BL::Image::source_MOVIE ||
+          b_image_source == BL::Image::source_SEQUENCE) &&
+         b_image_user.use_auto_refresh();
+}
+
 static ShaderNode *add_node(Scene *scene,
                             BL::RenderEngine &b_engine,
                             BL::BlendData &b_data,
@@ -283,6 +278,7 @@ static ShaderNode *add_node(Scene *scene,
     curves->set_min_x(min_x);
     curves->set_max_x(max_x);
     curves->set_curves(curve_mapping_curves);
+    curves->set_extrapolate(mapping.extend() == mapping.extend_EXTRAPOLATED);
     node = curves;
   }
   if (b_node.is_a(&RNA_ShaderNodeVectorCurve)) {
@@ -296,6 +292,7 @@ static ShaderNode *add_node(Scene *scene,
     curves->set_min_x(min_x);
     curves->set_max_x(max_x);
     curves->set_curves(curve_mapping_curves);
+    curves->set_extrapolate(mapping.extend() == mapping.extend_EXTRAPOLATED);
     node = curves;
   }
   else if (b_node.is_a(&RNA_ShaderNodeFloatCurve)) {
@@ -309,6 +306,7 @@ static ShaderNode *add_node(Scene *scene,
     curve->set_min_x(min_x);
     curve->set_max_x(max_x);
     curve->set_curve(curve_mapping_curve);
+    curve->set_extrapolate(mapping.extend() == mapping.extend_EXTRAPOLATED);
     node = curve;
   }
   else if (b_node.is_a(&RNA_ShaderNodeValToRGB)) {
@@ -352,6 +350,33 @@ static ShaderNode *add_node(Scene *scene,
     mix->set_use_clamp(b_mix_node.use_clamp());
     node = mix;
   }
+  else if (b_node.is_a(&RNA_ShaderNodeMix)) {
+    BL::ShaderNodeMix b_mix_node(b_node);
+    if (b_mix_node.data_type() == BL::ShaderNodeMix::data_type_VECTOR) {
+      if (b_mix_node.factor_mode() == BL::ShaderNodeMix::factor_mode_UNIFORM) {
+        MixVectorNode *mix_node = graph->create_node<MixVectorNode>();
+        mix_node->set_use_clamp(b_mix_node.clamp_factor());
+        node = mix_node;
+      }
+      else {
+        MixVectorNonUniformNode *mix_node = graph->create_node<MixVectorNonUniformNode>();
+        mix_node->set_use_clamp(b_mix_node.clamp_factor());
+        node = mix_node;
+      }
+    }
+    else if (b_mix_node.data_type() == BL::ShaderNodeMix::data_type_RGBA) {
+      MixColorNode *mix_node = graph->create_node<MixColorNode>();
+      mix_node->set_blend_type((NodeMix)b_mix_node.blend_type());
+      mix_node->set_use_clamp(b_mix_node.clamp_factor());
+      mix_node->set_use_clamp_result(b_mix_node.clamp_result());
+      node = mix_node;
+    }
+    else {
+      MixFloatNode *mix_node = graph->create_node<MixFloatNode>();
+      mix_node->set_use_clamp(b_mix_node.clamp_factor());
+      node = mix_node;
+    }
+  }
   else if (b_node.is_a(&RNA_ShaderNodeSeparateRGB)) {
     node = graph->create_node<SeparateRGBNode>();
   }
@@ -363,6 +388,18 @@ static ShaderNode *add_node(Scene *scene,
   }
   else if (b_node.is_a(&RNA_ShaderNodeCombineHSV)) {
     node = graph->create_node<CombineHSVNode>();
+  }
+  else if (b_node.is_a(&RNA_ShaderNodeSeparateColor)) {
+    BL::ShaderNodeSeparateColor b_separate_node(b_node);
+    SeparateColorNode *separate_node = graph->create_node<SeparateColorNode>();
+    separate_node->set_color_type((NodeCombSepColorType)b_separate_node.mode());
+    node = separate_node;
+  }
+  else if (b_node.is_a(&RNA_ShaderNodeCombineColor)) {
+    BL::ShaderNodeCombineColor b_combine_node(b_node);
+    CombineColorNode *combine_node = graph->create_node<CombineColorNode>();
+    combine_node->set_color_type((NodeCombSepColorType)b_combine_node.mode());
+    node = combine_node;
   }
   else if (b_node.is_a(&RNA_ShaderNodeSeparateXYZ)) {
     node = graph->create_node<SeparateXYZNode>();
@@ -745,10 +782,11 @@ static ShaderNode *add_node(Scene *scene,
     get_tex_mapping(image, b_texture_mapping);
 
     if (b_image) {
+      BL::Image::source_enum b_image_source = b_image.source();
       PointerRNA colorspace_ptr = b_image.colorspace_settings().ptr;
       image->set_colorspace(ustring(get_enum_identifier(colorspace_ptr, "name")));
 
-      image->set_animated(b_image_node.image_user().use_auto_refresh());
+      image->set_animated(is_image_animated(b_image_source, b_image_user));
       image->set_alpha_type(get_image_alpha_type(b_image));
 
       array<int> tiles;
@@ -760,9 +798,9 @@ static ShaderNode *add_node(Scene *scene,
       /* builtin images will use callback-based reading because
        * they could only be loaded correct from blender side
        */
-      bool is_builtin = b_image.packed_file() || b_image.source() == BL::Image::source_GENERATED ||
-                        b_image.source() == BL::Image::source_MOVIE ||
-                        (b_engine.is_preview() && b_image.source() != BL::Image::source_SEQUENCE);
+      bool is_builtin = b_image.packed_file() || b_image_source == BL::Image::source_GENERATED ||
+                        b_image_source == BL::Image::source_MOVIE ||
+                        (b_engine.is_preview() && b_image_source != BL::Image::source_SEQUENCE);
 
       if (is_builtin) {
         /* for builtin images we're using image datablock name to find an image to
@@ -773,13 +811,25 @@ static ShaderNode *add_node(Scene *scene,
          */
         int scene_frame = b_scene.frame_current();
         int image_frame = image_user_frame_number(b_image_user, b_image, scene_frame);
-        image->handle = scene->image_manager->add_image(
-            new BlenderImageLoader(b_image, image_frame, b_engine.is_preview()),
-            image->image_params());
+        if (b_image_source != BL::Image::source_TILED) {
+          image->handle = scene->image_manager->add_image(
+              new BlenderImageLoader(b_image, image_frame, 0, b_engine.is_preview()),
+              image->image_params());
+        }
+        else {
+          vector<ImageLoader *> loaders;
+          loaders.reserve(image->get_tiles().size());
+          for (int tile_number : image->get_tiles()) {
+            loaders.push_back(
+                new BlenderImageLoader(b_image, image_frame, tile_number, b_engine.is_preview()));
+          }
+
+          image->handle = scene->image_manager->add_image(loaders, image->image_params());
+        }
       }
       else {
         ustring filename = ustring(
-            image_user_file_path(b_image_user, b_image, b_scene.frame_current()));
+            image_user_file_path(b_data, b_image_user, b_image, b_scene.frame_current()));
         image->set_filename(filename);
       }
     }
@@ -797,26 +847,26 @@ static ShaderNode *add_node(Scene *scene,
     get_tex_mapping(env, b_texture_mapping);
 
     if (b_image) {
+      BL::Image::source_enum b_image_source = b_image.source();
       PointerRNA colorspace_ptr = b_image.colorspace_settings().ptr;
       env->set_colorspace(ustring(get_enum_identifier(colorspace_ptr, "name")));
-
-      env->set_animated(b_env_node.image_user().use_auto_refresh());
+      env->set_animated(is_image_animated(b_image_source, b_image_user));
       env->set_alpha_type(get_image_alpha_type(b_image));
 
-      bool is_builtin = b_image.packed_file() || b_image.source() == BL::Image::source_GENERATED ||
-                        b_image.source() == BL::Image::source_MOVIE ||
-                        (b_engine.is_preview() && b_image.source() != BL::Image::source_SEQUENCE);
+      bool is_builtin = b_image.packed_file() || b_image_source == BL::Image::source_GENERATED ||
+                        b_image_source == BL::Image::source_MOVIE ||
+                        (b_engine.is_preview() && b_image_source != BL::Image::source_SEQUENCE);
 
       if (is_builtin) {
         int scene_frame = b_scene.frame_current();
         int image_frame = image_user_frame_number(b_image_user, b_image, scene_frame);
         env->handle = scene->image_manager->add_image(
-            new BlenderImageLoader(b_image, image_frame, b_engine.is_preview()),
+            new BlenderImageLoader(b_image, image_frame, 0, b_engine.is_preview()),
             env->image_params());
       }
       else {
         env->set_filename(
-            ustring(image_user_file_path(b_image_user, b_image, b_scene.frame_current())));
+            ustring(image_user_file_path(b_data, b_image_user, b_image, b_scene.frame_current())));
       }
     }
     node = env;
@@ -913,8 +963,22 @@ static ShaderNode *add_node(Scene *scene,
     sky->set_sun_disc(b_sky_node.sun_disc());
     sky->set_sun_size(b_sky_node.sun_size());
     sky->set_sun_intensity(b_sky_node.sun_intensity());
-    sky->set_sun_elevation(b_sky_node.sun_elevation());
-    sky->set_sun_rotation(b_sky_node.sun_rotation());
+    /* Patch sun position to be able to animate daylight cycle while keeping the shading code
+     * simple. */
+    float sun_rotation = b_sky_node.sun_rotation();
+    /* Wrap into [-2PI..2PI] range. */
+    float sun_elevation = fmodf(b_sky_node.sun_elevation(), M_2PI_F);
+    /* Wrap into [-PI..PI] range. */
+    if (fabsf(sun_elevation) >= M_PI_F) {
+      sun_elevation -= copysignf(2.0f, sun_elevation) * M_PI_F;
+    }
+    /* Wrap into [-PI/2..PI/2] range while keeping the same absolute position. */
+    if (sun_elevation >= M_PI_2_F || sun_elevation <= -M_PI_2_F) {
+      sun_elevation = copysignf(M_PI_F, sun_elevation) - sun_elevation;
+      sun_rotation += M_PI_F;
+    }
+    sky->set_sun_elevation(sun_elevation);
+    sky->set_sun_rotation(sun_rotation);
     sky->set_altitude(b_sky_node.altitude());
     sky->set_air_density(b_sky_node.air_density());
     sky->set_dust_density(b_sky_node.dust_density());
@@ -1035,7 +1099,9 @@ static bool node_use_modified_socket_name(ShaderNode *node)
   return true;
 }
 
-static ShaderInput *node_find_input_by_name(ShaderNode *node, BL::NodeSocket &b_socket)
+static ShaderInput *node_find_input_by_name(BL::Node b_node,
+                                            ShaderNode *node,
+                                            BL::NodeSocket &b_socket)
 {
   string name = b_socket.identifier();
   ShaderInput *input = node->input(name.c_str());
@@ -1045,6 +1111,35 @@ static ShaderInput *node_find_input_by_name(ShaderNode *node, BL::NodeSocket &b_
     if (string_startswith(name, "Shader")) {
       string_replace(name, "Shader", "Closure");
     }
+
+    /* Map mix node internal name for shader. */
+    if (b_node.is_a(&RNA_ShaderNodeMix)) {
+      if (string_endswith(name, "Factor_Float")) {
+        string_replace(name, "Factor_Float", "Factor");
+      }
+      else if (string_endswith(name, "Factor_Vector")) {
+        string_replace(name, "Factor_Vector", "Factor");
+      }
+      else if (string_endswith(name, "A_Float")) {
+        string_replace(name, "A_Float", "A");
+      }
+      else if (string_endswith(name, "B_Float")) {
+        string_replace(name, "B_Float", "B");
+      }
+      else if (string_endswith(name, "A_Color")) {
+        string_replace(name, "A_Color", "A");
+      }
+      else if (string_endswith(name, "B_Color")) {
+        string_replace(name, "B_Color", "B");
+      }
+      else if (string_endswith(name, "A_Vector")) {
+        string_replace(name, "A_Vector", "A");
+      }
+      else if (string_endswith(name, "B_Vector")) {
+        string_replace(name, "B_Vector", "B");
+      }
+    }
+
     input = node->input(name.c_str());
 
     if (!input) {
@@ -1074,7 +1169,9 @@ static ShaderInput *node_find_input_by_name(ShaderNode *node, BL::NodeSocket &b_
   return input;
 }
 
-static ShaderOutput *node_find_output_by_name(ShaderNode *node, BL::NodeSocket &b_socket)
+static ShaderOutput *node_find_output_by_name(BL::Node b_node,
+                                              ShaderNode *node,
+                                              BL::NodeSocket &b_socket)
 {
   string name = b_socket.identifier();
   ShaderOutput *output = node->output(name.c_str());
@@ -1084,6 +1181,21 @@ static ShaderOutput *node_find_output_by_name(ShaderNode *node, BL::NodeSocket &
     if (name == "Shader") {
       name = "Closure";
       output = node->output(name.c_str());
+    }
+    /* Map internal name for shader. */
+    if (b_node.is_a(&RNA_ShaderNodeMix)) {
+      if (string_endswith(name, "Result_Float")) {
+        string_replace(name, "Result_Float", "Result");
+        output = node->output(name.c_str());
+      }
+      else if (string_endswith(name, "Result_Color")) {
+        string_replace(name, "Result_Color", "Result");
+        output = node->output(name.c_str());
+      }
+      else if (string_endswith(name, "Result_Vector")) {
+        string_replace(name, "Result_Vector", "Result");
+        output = node->output(name.c_str());
+      }
     }
   }
 
@@ -1230,7 +1342,11 @@ static void add_nodes(Scene *scene,
       if (node) {
         /* map node sockets for linking */
         for (BL::NodeSocket &b_input : b_node.inputs) {
-          ShaderInput *input = node_find_input_by_name(node, b_input);
+          if (b_input.is_unavailable()) {
+            /* Skip unavailable sockets. */
+            continue;
+          }
+          ShaderInput *input = node_find_input_by_name(b_node, node, b_input);
           if (!input) {
             /* XXX should not happen, report error? */
             continue;
@@ -1240,7 +1356,11 @@ static void add_nodes(Scene *scene,
           set_default_value(input, b_input, b_data, b_ntree);
         }
         for (BL::NodeSocket &b_output : b_node.outputs) {
-          ShaderOutput *output = node_find_output_by_name(node, b_output);
+          if (b_output.is_unavailable()) {
+            /* Skip unavailable sockets. */
+            continue;
+          }
+          ShaderOutput *output = node_find_output_by_name(b_node, node, b_output);
           if (!output) {
             /* XXX should not happen, report error? */
             continue;
@@ -1541,6 +1661,8 @@ void BlenderSync::sync_world(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d,
   background->set_use_shader(view_layer.use_background_shader ||
                              viewport_parameters.use_custom_shader());
 
+  background->set_lightgroup(ustring(b_world ? b_world.lightgroup() : ""));
+
   background->tag_update(scene);
 }
 
@@ -1586,18 +1708,13 @@ void BlenderSync::sync_lights(BL::Depsgraph &b_depsgraph, bool update_all)
   }
 }
 
-void BlenderSync::sync_shaders(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d)
+void BlenderSync::sync_shaders(BL::Depsgraph &b_depsgraph, BL::SpaceView3D &b_v3d, bool update_all)
 {
-  /* for auto refresh images */
-  ImageManager *image_manager = scene->image_manager;
-  const int frame = b_scene.frame_current();
-  const bool auto_refresh_update = image_manager->set_animation_frame_update(frame);
-
   shader_map.pre_sync();
 
-  sync_world(b_depsgraph, b_v3d, auto_refresh_update);
-  sync_lights(b_depsgraph, auto_refresh_update);
-  sync_materials(b_depsgraph, auto_refresh_update);
+  sync_world(b_depsgraph, b_v3d, update_all);
+  sync_lights(b_depsgraph, update_all);
+  sync_materials(b_depsgraph, update_all);
 }
 
 CCL_NAMESPACE_END

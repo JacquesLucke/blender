@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -366,7 +352,7 @@ static void setup_app_data(bContext *C,
     do_versions_ipos_to_animato(bmain);
   }
 
-  /* NOTE: readfile's `do_version` does not allow to create new IDs, and only operates on a single
+  /* NOTE: readfile's `do_versions` does not allow to create new IDs, and only operates on a single
    * library at a time. This code needs to operate on the whole Main at once. */
   /* NOTE: Check bmain version (i.e. current blend file version), AND the versions of all the
    * linked libraries. */
@@ -467,7 +453,7 @@ static void handle_subversion_warning(Main *main, BlendFileReadReport *reports)
       (main->minversionfile == BLENDER_FILE_VERSION &&
        main->minsubversionfile > BLENDER_FILE_SUBVERSION)) {
     BKE_reportf(reports->reports,
-                RPT_ERROR,
+                RPT_WARNING,
                 "File written by newer Blender binary (%d.%d), expect loss of data!",
                 main->minversionfile,
                 main->minsubversionfile);
@@ -625,12 +611,12 @@ UserDef *BKE_blendfile_userdef_from_defaults(void)
     const char *addons[] = {
         "io_anim_bvh",
         "io_curve_svg",
-        "io_import_obj",
         "io_mesh_ply",
         "io_mesh_stl",
         "io_mesh_uv_layout",
         "io_scene_fbx",
         "io_scene_gltf2",
+        "io_scene_obj",
         "io_scene_x3d",
         "cycles",
         "pose_library",

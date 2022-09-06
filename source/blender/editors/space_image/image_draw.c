@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2001-2002 by NaN Holding BV.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2001-2002 NaN Holding BV. All rights reserved. */
 
 /** \file
  * \ingroup spimage
@@ -114,7 +98,7 @@ static void draw_render_info(
 
       uint pos = GPU_vertformat_attr_add(
           immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-      immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+      immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
       immUniformThemeColor(TH_FACE_SELECT);
 
       GPU_line_width(1.0f);
@@ -174,7 +158,7 @@ void ED_image_draw_info(Scene *scene,
 
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   /* noisy, high contrast make impossible to read if lower alpha is used. */
   immUniformColor4ub(0, 0, 0, 190);
@@ -354,7 +338,7 @@ void ED_image_draw_info(Scene *scene,
 
   /* BLF uses immediate mode too, so we must reset our vertex format */
   pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   if (channels == 4) {
     rcti color_rect_half;
@@ -397,7 +381,7 @@ void ED_image_draw_info(Scene *scene,
 
   /* draw outline */
   pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor3ub(128, 128, 128);
   imm_draw_box_wire_2d(pos, color_rect.xmin, color_rect.ymin, color_rect.xmax, color_rect.ymax);
   immUnbindProgram();
@@ -464,15 +448,15 @@ void draw_image_sample_line(SpaceImage *sima)
     uint shdr_dashed_pos = GPU_vertformat_attr_add(
         format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-    immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
     float viewport_size[4];
     GPU_viewport_size_get_f(viewport_size);
     immUniform2f("viewport_size", viewport_size[2] / UI_DPI_FAC, viewport_size[3] / UI_DPI_FAC);
 
     immUniform1i("colors_len", 2); /* Advanced dashes. */
-    immUniformArray4fv(
-        "colors", (float *)(float[][4]){{1.0f, 1.0f, 1.0f, 1.0f}, {0.0f, 0.0f, 0.0f, 1.0f}}, 2);
+    immUniform4f("color", 1.0f, 1.0f, 1.0f, 1.0f);
+    immUniform4f("color2", 0.0f, 0.0f, 0.0f, 1.0f);
     immUniform1f("dash_width", 2.0f);
     immUniform1f("dash_factor", 0.5f);
 
@@ -531,7 +515,8 @@ void draw_image_cache(const bContext *C, ARegion *region)
   SpaceImage *sima = CTX_wm_space_image(C);
   Scene *scene = CTX_data_scene(C);
   Image *image = ED_space_image(sima);
-  float x, cfra = CFRA, sfra = SFRA, efra = EFRA, framelen = region->winx / (efra - sfra + 1);
+  float x, cfra = scene->r.cfra, sfra = scene->r.sfra, efra = scene->r.efra,
+           framelen = region->winx / (efra - sfra + 1);
   Mask *mask = NULL;
 
   if (!ED_space_image_show_cache(sima)) {
@@ -557,7 +542,10 @@ void draw_image_cache(const bContext *C, ARegion *region)
     int num_segments = 0;
     int *points = NULL;
 
+    BLI_mutex_lock(image->runtime.cache_mutex);
     IMB_moviecache_get_cache_segments(image->cache, IMB_PROXY_NONE, 0, &num_segments, &points);
+    BLI_mutex_unlock(image->runtime.cache_mutex);
+
     ED_region_cache_draw_cached_segments(
         region, num_segments, points, sfra + sima->iuser.offset, efra + sima->iuser.offset);
   }
@@ -569,7 +557,7 @@ void draw_image_cache(const bContext *C, ARegion *region)
 
   uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_I32, 2, GPU_FETCH_INT_TO_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformThemeColor(TH_CFRAME);
   immRecti(pos, x, region_bottom, x + ceilf(framelen), region_bottom + 8 * UI_DPI_FAC);
   immUnbindProgram();

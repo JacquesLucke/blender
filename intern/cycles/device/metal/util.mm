@@ -1,18 +1,5 @@
-/*
- * Copyright 2021 Blender Foundation
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+/* SPDX-License-Identifier: Apache-2.0
+ * Copyright 2021-2022 Blender Foundation */
 
 #ifdef WITH_METAL
 
@@ -23,103 +10,121 @@
 #  include "util/string.h"
 #  include "util/time.h"
 
+#  include <IOKit/IOKitLib.h>
 #  include <pwd.h>
 #  include <sys/shm.h>
 #  include <time.h>
 
 CCL_NAMESPACE_BEGIN
 
-MetalGPUVendor MetalInfo::get_vendor_from_device_name(string const &device_name)
+string MetalInfo::get_device_name(id<MTLDevice> device)
 {
-  if (device_name.find("Intel") != string::npos) {
+  string device_name = [device.name UTF8String];
+  if (get_device_vendor(device) == METAL_GPU_APPLE) {
+    /* Append the GPU core count so we can distinguish between GPU variants in benchmarks. */
+    int gpu_core_count = get_apple_gpu_core_count(device);
+    device_name += string_printf(gpu_core_count ? " (GPU - %d cores)" : " (GPU)", gpu_core_count);
+  }
+  return device_name;
+}
+
+int MetalInfo::get_apple_gpu_core_count(id<MTLDevice> device)
+{
+  int core_count = 0;
+  if (@available(macos 12.0, *)) {
+    io_service_t gpu_service = IOServiceGetMatchingService(
+        kIOMainPortDefault, IORegistryEntryIDMatching(device.registryID));
+    if (CFNumberRef numberRef = (CFNumberRef)IORegistryEntryCreateCFProperty(
+            gpu_service, CFSTR("gpu-core-count"), 0, 0)) {
+      if (CFGetTypeID(numberRef) == CFNumberGetTypeID()) {
+        CFNumberGetValue(numberRef, kCFNumberSInt32Type, &core_count);
+      }
+      CFRelease(numberRef);
+    }
+  }
+  return core_count;
+}
+
+AppleGPUArchitecture MetalInfo::get_apple_gpu_architecture(id<MTLDevice> device)
+{
+  const char *device_name = [device.name UTF8String];
+  if (strstr(device_name, "M1")) {
+    return APPLE_M1;
+  }
+  else if (strstr(device_name, "M2")) {
+    return APPLE_M2;
+  }
+  return APPLE_UNKNOWN;
+}
+
+MetalGPUVendor MetalInfo::get_device_vendor(id<MTLDevice> device)
+{
+  const char *device_name = [device.name UTF8String];
+  if (strstr(device_name, "Intel")) {
     return METAL_GPU_INTEL;
   }
-  else if (device_name.find("AMD") != string::npos) {
+  else if (strstr(device_name, "AMD")) {
     return METAL_GPU_AMD;
   }
-  else if (device_name.find("Apple") != string::npos) {
+  else if (strstr(device_name, "Apple")) {
     return METAL_GPU_APPLE;
   }
   return METAL_GPU_UNKNOWN;
 }
 
-bool MetalInfo::device_version_check(id<MTLDevice> device)
+int MetalInfo::optimal_sort_partition_elements(id<MTLDevice> device)
 {
-  /* Metal Cycles doesn't work correctly on macOS versions older than 12.0 */
-  if (@available(macos 12.0, *)) {
-    MetalGPUVendor vendor = get_vendor_from_device_name([[device name] UTF8String]);
-
-    /* Metal Cycles works on Apple Silicon GPUs at present */
-    return (vendor == METAL_GPU_APPLE);
+  if (auto str = getenv("CYCLES_METAL_SORT_PARTITION_ELEMENTS")) {
+    return atoi(str);
   }
 
-  return false;
+  /* On M1 and M2 GPUs, we see better cache utilization if we partition the active indices before
+   * sorting each partition by material. Partitioning into chunks of 65536 elements results in an
+   * overall render time speedup of up to 15%. */
+  if (get_device_vendor(device) == METAL_GPU_APPLE) {
+    return 65536;
+  }
+  return 0;
 }
 
-void MetalInfo::get_usable_devices(vector<MetalPlatformDevice> *usable_devices)
+vector<id<MTLDevice>> const &MetalInfo::get_usable_devices()
 {
-  static bool first_time = true;
-#  define FIRST_VLOG(severity) \
-    if (first_time) \
-    VLOG(severity)
+  static vector<id<MTLDevice>> usable_devices;
+  static bool already_enumerated = false;
 
-  usable_devices->clear();
+  if (already_enumerated) {
+    return usable_devices;
+  }
 
-  NSArray<id<MTLDevice>> *allDevices = MTLCopyAllDevices();
-  for (id<MTLDevice> device in allDevices) {
-    string device_name;
-    if (!get_device_name(device, &device_name)) {
-      FIRST_VLOG(2) << "Failed to get device name, ignoring.";
-      continue;
+  metal_printf("Usable Metal devices:\n");
+  for (id<MTLDevice> device in MTLCopyAllDevices()) {
+    string device_name = get_device_name(device);
+    MetalGPUVendor vendor = get_device_vendor(device);
+    bool usable = false;
+
+    if (@available(macos 12.2, *)) {
+      usable |= (vendor == METAL_GPU_APPLE);
     }
 
-    static const char *forceIntelStr = getenv("CYCLES_METAL_FORCE_INTEL");
-    bool forceIntel = forceIntelStr ? (atoi(forceIntelStr) != 0) : false;
-    if (forceIntel && device_name.find("Intel") == string::npos) {
-      FIRST_VLOG(2) << "CYCLES_METAL_FORCE_INTEL causing non-Intel device " << device_name
-                    << " to be ignored.";
-      continue;
+    if (@available(macos 12.3, *)) {
+      usable |= (vendor == METAL_GPU_AMD);
     }
 
-    if (!device_version_check(device)) {
-      FIRST_VLOG(2) << "Ignoring device " << device_name << " due to too old compiler version.";
-      continue;
+    if (usable) {
+      metal_printf("- %s\n", device_name.c_str());
+      [device retain];
+      usable_devices.push_back(device);
     }
-    FIRST_VLOG(2) << "Adding new device " << device_name << ".";
-    string hardware_id;
-    usable_devices->push_back(MetalPlatformDevice(device, device_name));
+    else {
+      metal_printf("  (skipping \"%s\")\n", device_name.c_str());
+    }
   }
-  first_time = false;
-}
-
-bool MetalInfo::get_num_devices(uint32_t *num_devices)
-{
-  *num_devices = MTLCopyAllDevices().count;
-  return true;
-}
-
-uint32_t MetalInfo::get_num_devices()
-{
-  uint32_t num_devices;
-  if (!get_num_devices(&num_devices)) {
-    return 0;
+  if (usable_devices.empty()) {
+    metal_printf("   No usable Metal devices found\n");
   }
-  return num_devices;
-}
+  already_enumerated = true;
 
-bool MetalInfo::get_device_name(id<MTLDevice> device, string *platform_name)
-{
-  *platform_name = [device.name UTF8String];
-  return true;
-}
-
-string MetalInfo::get_device_name(id<MTLDevice> device)
-{
-  string platform_name;
-  if (!get_device_name(device, &platform_name)) {
-    return "";
-  }
-  return platform_name;
+  return usable_devices;
 }
 
 id<MTLBuffer> MetalBufferPool::get_buffer(id<MTLDevice> device,

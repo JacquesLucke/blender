@@ -1,21 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * The Original Code is Copyright (C) 2007 Blender Foundation.
- * All rights reserved.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2007 Blender Foundation. All rights reserved. */
 
 /** \file
  * \ingroup wm
@@ -94,50 +78,51 @@ static void wm_block_splash_add_label(uiBlock *block, const char *label, int x, 
 static void wm_block_splash_image_roundcorners_add(ImBuf *ibuf)
 {
   uchar *rct = (uchar *)ibuf->rect;
+  if (!rct) {
+    return;
+  }
 
-  if (rct) {
-    bTheme *btheme = UI_GetTheme();
-    const float roundness = btheme->tui.wcol_menu_back.roundness * U.dpi_fac;
-    const int size = roundness * 20;
+  bTheme *btheme = UI_GetTheme();
+  const float roundness = btheme->tui.wcol_menu_back.roundness * U.dpi_fac;
+  const int size = roundness * 20;
 
-    if (size < ibuf->x && size < ibuf->y) {
-      /* Y-axis initial offset. */
-      rct += 4 * (ibuf->y - size) * ibuf->x;
+  if (size < ibuf->x && size < ibuf->y) {
+    /* Y-axis initial offset. */
+    rct += 4 * (ibuf->y - size) * ibuf->x;
 
-      for (int y = 0; y < size; y++) {
-        for (int x = 0; x < size; x++, rct += 4) {
-          const float pixel = 1.0 / size;
-          const float u = pixel * x;
-          const float v = pixel * y;
-          const float distance = sqrt(u * u + v * v);
+    for (int y = 0; y < size; y++) {
+      for (int x = 0; x < size; x++, rct += 4) {
+        const float pixel = 1.0 / size;
+        const float u = pixel * x;
+        const float v = pixel * y;
+        const float distance = sqrt(u * u + v * v);
 
-          /* Pointer offset to the alpha value of pixel. */
-          /* NOTE: the left corner is flipped in the X-axis. */
-          const int offset_l = 4 * (size - x - x - 1) + 3;
-          const int offset_r = 4 * (ibuf->x - size) + 3;
+        /* Pointer offset to the alpha value of pixel. */
+        /* NOTE: the left corner is flipped in the X-axis. */
+        const int offset_l = 4 * (size - x - x - 1) + 3;
+        const int offset_r = 4 * (ibuf->x - size) + 3;
 
-          if (distance > 1.0) {
-            rct[offset_l] = 0;
-            rct[offset_r] = 0;
-          }
-          else {
-            /* Create a single pixel wide transition for anti-aliasing.
-             * Invert the distance and map its range [0, 1] to [0, pixel]. */
-            const float fac = (1.0 - distance) * size;
-
-            if (fac > 1.0) {
-              continue;
-            }
-
-            const uchar alpha = unit_float_to_uchar_clamp(fac);
-            rct[offset_l] = alpha;
-            rct[offset_r] = alpha;
-          }
+        if (distance > 1.0) {
+          rct[offset_l] = 0;
+          rct[offset_r] = 0;
         }
+        else {
+          /* Create a single pixel wide transition for anti-aliasing.
+           * Invert the distance and map its range [0, 1] to [0, pixel]. */
+          const float fac = (1.0 - distance) * size;
 
-        /* X-axis offset to the next row. */
-        rct += 4 * (ibuf->x - size);
+          if (fac > 1.0) {
+            continue;
+          }
+
+          const uchar alpha = unit_float_to_uchar_clamp(fac);
+          rct[offset_l] = alpha;
+          rct[offset_r] = alpha;
+        }
       }
+
+      /* X-axis offset to the next row. */
+      rct += 4 * (ibuf->x - size);
     }
   }
 }

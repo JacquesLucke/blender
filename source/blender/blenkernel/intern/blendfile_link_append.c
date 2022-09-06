@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup bke
@@ -414,7 +400,9 @@ typedef struct LooseDataInstantiateContext {
 static bool object_in_any_scene(Main *bmain, Object *ob)
 {
   LISTBASE_FOREACH (Scene *, sce, &bmain->scenes) {
-    if (BKE_scene_object_find(sce, ob)) {
+    /* #BKE_scene_has_object checks bases cache of the scenes' view-layer, not actual content of
+     * their collections. */
+    if (BKE_collection_has_object_recursive(sce->master_collection, ob)) {
       return true;
     }
   }
@@ -468,17 +456,6 @@ static ID *loose_data_instantiate_process_check(LooseDataInstantiateContext *ins
   ID *id = item->new_id;
   if (id == NULL) {
     return NULL;
-  }
-
-  if (item->action == LINK_APPEND_ACT_COPY_LOCAL) {
-    BLI_assert(ID_IS_LINKED(id));
-    id = id->newid;
-    if (id == NULL) {
-      return NULL;
-    }
-
-    BLI_assert(!ID_IS_LINKED(id));
-    return id;
   }
 
   BLI_assert(!ID_IS_LINKED(id));
@@ -940,9 +917,14 @@ static int foreach_libblock_link_append_callback(LibraryIDLinkCallbackData *cb_d
      * unfortunately they can use fully linkable valid IDs too, like actions. Those need to be
      * processed, so we need to recursively deal with them here. */
     /* NOTE: Since we are by-passing checks in `BKE_library_foreach_ID_link` by manually calling it
-     * recursively, we need to take care of potential recursion cases ourselves (e.g.animdata of
-     * shape-key referencing the shape-key itself). */
-    if (id != cb_data->id_self) {
+     * recursively, we need to take care of potential recursion cases ourselves (e.g.anim-data of
+     * shape-key referencing the shape-key itself).
+     * NOTE: in case both IDs (owner and 'used' ones) are non-linkable, we can assume we can break
+     * the dependency here. Indeed, either they are both linked in another way (through their own
+     * meshes for shape keys e.g.), or this is an unsupported case (two shape-keys depending on
+     * each-other need to be also 'linked' in by their respective meshes, independent shape-keys
+     * are not allowed). ref T96048. */
+    if (id != cb_data->id_self && BKE_idtype_idcode_is_linkable(GS(cb_data->id_self->name))) {
       BKE_library_foreach_ID_link(
           cb_data->bmain, id, foreach_libblock_link_append_callback, data, IDWALK_NOP);
     }
@@ -1008,7 +990,7 @@ static void blendfile_link_append_proxies_convert(Main *bmain, ReportList *repor
         RPT_WARNING,
         "Proxies have been removed from Blender (%d proxies were automatically converted "
         "to library overrides, %d proxies could not be converted and were cleared). "
-        "Please consider re-saving any library .blend file with the newest Blender version.",
+        "Please consider re-saving any library .blend file with the newest Blender version",
         bf_reports.count.proxies_to_lib_overrides_success,
         bf_reports.count.proxies_to_lib_overrides_failures);
   }
@@ -1132,7 +1114,7 @@ void BKE_blendfile_append(BlendfileLinkAppendContext *lapp_context, ReportList *
             &LOG, "Unexpected unset append action for '%s' ID, assuming 'keep link'", id->name);
         break;
       default:
-        BLI_assert(0);
+        BLI_assert_unreachable();
     }
 
     if (local_appended_new_id != NULL) {
@@ -1185,7 +1167,7 @@ void BKE_blendfile_append(BlendfileLinkAppendContext *lapp_context, ReportList *
   for (itemlink = lapp_context->items.list; itemlink; itemlink = itemlink->next) {
     BlendfileLinkAppendContextItem *item = itemlink->link;
 
-    if (item->action != LINK_APPEND_ACT_REUSE_LOCAL) {
+    if (!ELEM(item->action, LINK_APPEND_ACT_COPY_LOCAL, LINK_APPEND_ACT_REUSE_LOCAL)) {
       continue;
     }
 
@@ -1196,8 +1178,15 @@ void BKE_blendfile_append(BlendfileLinkAppendContext *lapp_context, ReportList *
     BLI_assert(ID_IS_LINKED(id));
     BLI_assert(id->newid != NULL);
 
-    id->tag |= LIB_TAG_DOIT;
+    /* Calling code may want to access newly appended IDs from the link/append context items. */
     item->new_id = id->newid;
+
+    /* Do NOT delete a linked data that was already linked before this append. */
+    if (id->tag & LIB_TAG_PRE_EXISTING) {
+      continue;
+    }
+
+    id->tag |= LIB_TAG_DOIT;
   }
   BKE_id_multi_tagged_delete(bmain);
 
@@ -1205,26 +1194,6 @@ void BKE_blendfile_append(BlendfileLinkAppendContext *lapp_context, ReportList *
   LooseDataInstantiateContext instantiate_context = {.lapp_context = lapp_context,
                                                      .active_collection = NULL};
   loose_data_instantiate(&instantiate_context);
-
-  /* Attempt to deal with object proxies.
-   *
-   * NOTE: Copied from `BKE_library_make_local`, but this is not really working (as in, not
-   * producing any useful result in any known use case), neither here nor in
-   * `BKE_library_make_local` currently.
-   * Proxies are end of life anyway, so not worth spending time on this. */
-  for (itemlink = lapp_context->items.list; itemlink; itemlink = itemlink->next) {
-    BlendfileLinkAppendContextItem *item = itemlink->link;
-
-    if (item->action != LINK_APPEND_ACT_COPY_LOCAL) {
-      continue;
-    }
-
-    ID *id = item->new_id;
-    if (id == NULL) {
-      continue;
-    }
-    BLI_assert(ID_IS_LINKED(id));
-  }
 
   BKE_main_id_newptr_and_tag_clear(bmain);
 
@@ -1263,8 +1232,9 @@ void BKE_blendfile_link(BlendfileLinkAppendContext *lapp_context, ReportList *re
 
     mainl = BLO_library_link_begin(&blo_handle, libname, lapp_context->params);
     lib = mainl->curlib;
-    BLI_assert(lib);
-    UNUSED_VARS_NDEBUG(lib);
+    BLI_assert(lib != NULL);
+    /* In case lib was already existing but not found originally, see T99820. */
+    lib->id.tag &= ~LIB_TAG_MISSING;
 
     if (mainl->versionfile < 250) {
       BKE_reportf(reports,
@@ -1463,7 +1433,7 @@ void BKE_blendfile_library_relocate(BlendfileLinkAppendContext *lapp_context,
         BlendfileLinkAppendContextItem *item;
 
         /* We remove it from current Main, and add it to items to link... */
-        /* Note that non-linkable IDs (like e.g. shapekeys) are also explicitly linked here... */
+        /* Note that non-linkable IDs (like e.g. shape-keys) are also explicitly linked here... */
         BLI_remlink(lbarray[lba_idx], id);
         /* Usual special code for ShapeKeys snowflakes... */
         Key *old_key = BKE_key_from_id(id);
@@ -1545,14 +1515,49 @@ void BKE_blendfile_library_relocate(BlendfileLinkAppendContext *lapp_context,
 
   BKE_main_unlock(bmain);
 
-  for (item_idx = 0, itemlink = lapp_context->items.list; itemlink;
-       item_idx++, itemlink = itemlink->next) {
-    BlendfileLinkAppendContextItem *item = itemlink->link;
-    ID *old_id = item->userdata;
+  /* Delete all no more used old IDs. */
+  /* NOTE: While this looping over until we are sure we deleted everything is very far from
+   * efficient, doing otherwise would require a much more complex handling of indirectly linked IDs
+   * in steps above. Currently, in case of relocation, those are skipped in remapping phase, though
+   * in some cases (essentially internal links between IDs from the same library) remapping should
+   * happen. But getting this to work reliably would be very difficult, so since this is not a
+   * performance-critical code, better to go with the (relatively) simpler, brute-force approach
+   * here in 'removal of old IDs' step. */
+  bool keep_looping = true;
+  while (keep_looping) {
+    keep_looping = false;
 
-    if (old_id->us == 0) {
-      BKE_id_free(bmain, old_id);
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
+    for (item_idx = 0, itemlink = lapp_context->items.list; itemlink;
+         item_idx++, itemlink = itemlink->next) {
+      BlendfileLinkAppendContextItem *item = itemlink->link;
+      ID *old_id = item->userdata;
+
+      if (old_id == NULL) {
+        continue;
+      }
+
+      if (GS(old_id->name) == ID_KE) {
+        /* Shape Keys are handled as part of their owning obdata (see below). This implies that
+         * there is no way to know when the old pointer gets invalid, so just clear it immediately.
+         */
+        item->userdata = NULL;
+        continue;
+      }
+
+      if (old_id->us == 0) {
+        old_id->tag |= LIB_TAG_DOIT;
+        item->userdata = NULL;
+        keep_looping = true;
+        Key *old_key = BKE_key_from_id(old_id);
+        if (old_key != NULL) {
+          old_key->id.tag |= LIB_TAG_DOIT;
+        }
+      }
     }
+    BKE_id_multi_tagged_delete(bmain);
+    /* Should not be needed, all tagged IDs should have been deleted above, just 'in case'. */
+    BKE_main_id_tag_all(bmain, LIB_TAG_DOIT, false);
   }
 
   /* Some datablocks can get reloaded/replaced 'silently' because they are not linkable

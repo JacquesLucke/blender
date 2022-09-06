@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 /** \file
  * \ingroup RNA
@@ -21,6 +7,8 @@
 #include <stdlib.h>
 
 #include "BLI_math.h"
+
+#include "BLT_translation.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -230,10 +218,10 @@ static void rna_Bone_select_update(Main *UNUSED(bmain), Scene *UNUSED(scene), Po
   WM_main_add_notifier(NC_ANIMATION | ND_ANIMCHAN, id);
 }
 
-static char *rna_Bone_path(PointerRNA *ptr)
+static char *rna_Bone_path(const PointerRNA *ptr)
 {
-  ID *id = ptr->owner_id;
-  Bone *bone = (Bone *)ptr->data;
+  const ID *id = ptr->owner_id;
+  const Bone *bone = (const Bone *)ptr->data;
   char name_esc[sizeof(bone->name) * 2];
 
   BLI_str_escape(name_esc, bone->name, sizeof(name_esc));
@@ -739,6 +727,7 @@ void rna_def_bone_curved_common(StructRNA *srna, bool is_posebone, bool is_editb
   RNA_def_property_ui_range(prop, -5.0f, 5.0f, 1, 3);
   RNA_def_property_float_default(prop, 1.0f);
   RNA_def_property_ui_text(prop, "Ease In", "Length of first Bezier Handle (for B-Bones only)");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_ARMATURE);
   RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone, is_editbone);
 
   prop = RNA_def_property(srna, "bbone_easeout", PROP_FLOAT, PROP_NONE);
@@ -746,6 +735,7 @@ void rna_def_bone_curved_common(StructRNA *srna, bool is_posebone, bool is_editb
   RNA_def_property_ui_range(prop, -5.0f, 5.0f, 1, 3);
   RNA_def_property_float_default(prop, 1.0f);
   RNA_def_property_ui_text(prop, "Ease Out", "Length of second Bezier Handle (for B-Bones only)");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_ARMATURE);
   RNA_DEF_CURVEBONE_UPDATE(prop, is_posebone, is_editbone);
 
   if (is_posebone == false) {
@@ -1061,6 +1051,7 @@ static void rna_def_bone_common(StructRNA *srna, int editbone)
     RNA_def_property_update(prop, 0, "rna_Bone_bbone_handle_update");
   }
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_PTR_NO_OWNERSHIP);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
   RNA_def_property_ui_text(
       prop, "B-Bone Start Handle", "Bone that serves as the start handle for the B-Bone curve");
 
@@ -1105,6 +1096,7 @@ static void rna_def_bone_common(StructRNA *srna, int editbone)
     RNA_def_property_update(prop, 0, "rna_Bone_bbone_handle_update");
   }
   RNA_def_property_flag(prop, PROP_EDITABLE | PROP_PTR_NO_OWNERSHIP);
+  RNA_def_property_override_flag(prop, PROPOVERRIDE_NO_COMPARISON);
   RNA_def_property_ui_text(
       prop, "B-Bone End Handle", "Bone that serves as the end handle for the B-Bone curve");
 
@@ -1397,7 +1389,7 @@ static void rna_def_armature_edit_bones(BlenderRNA *brna, PropertyRNA *cprop)
   RNA_def_property_pointer_sdna(prop, NULL, "act_edbone");
   RNA_def_property_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Active EditBone", "Armatures active edit bone");
-  /*RNA_def_property_update(prop, 0, "rna_Armature_act_editbone_update"); */
+  // RNA_def_property_update(prop, 0, "rna_Armature_act_editbone_update");
   RNA_def_property_pointer_funcs(prop, NULL, "rna_Armature_act_edit_bone_set", NULL, NULL);
 
   /* TODO: redraw. */

@@ -1,20 +1,5 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- *
- * Copyright 2019, Blender Foundation.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright 2019 Blender Foundation. */
 
 #include "COM_DenoiseOperation.h"
 #include "BLI_system.h"
@@ -178,7 +163,7 @@ void DenoiseOperation::deinit_execution()
   SingleThreadedOperation::deinit_execution();
 }
 
-static bool are_guiding_passes_noise_free(NodeDenoise *settings)
+static bool are_guiding_passes_noise_free(const NodeDenoise *settings)
 {
   switch (settings->prefilter) {
     case CMP_NODE_DENOISE_PREFILTER_NONE:
@@ -216,7 +201,7 @@ void DenoiseOperation::generate_denoise(MemoryBuffer *output,
                                         MemoryBuffer *input_color,
                                         MemoryBuffer *input_normal,
                                         MemoryBuffer *input_albedo,
-                                        NodeDenoise *settings)
+                                        const NodeDenoise *settings)
 {
   BLI_assert(input_color->get_buffer());
   if (!input_color->get_buffer()) {

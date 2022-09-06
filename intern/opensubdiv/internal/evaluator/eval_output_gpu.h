@@ -20,13 +20,11 @@
 #define OPENSUBDIV_EVAL_OUTPUT_GPU_H_
 
 #include "internal/evaluator/eval_output.h"
+#include "internal/evaluator/gl_compute_evaluator.h"
 
-#include <opensubdiv/osd/glComputeEvaluator.h>
 #include <opensubdiv/osd/glPatchTable.h>
 #include <opensubdiv/osd/glVertexBuffer.h>
 
-using OpenSubdiv::Osd::GLComputeEvaluator;
-using OpenSubdiv::Osd::GLStencilTableSSBO;
 using OpenSubdiv::Osd::GLVertexBuffer;
 
 namespace blender {
@@ -52,6 +50,8 @@ class GpuEvalOutput : public VolatileEvalOutput<GLVertexBuffer,
   void wrapPatchParamBuffer(OpenSubdiv_Buffer *patch_param_buffer) override;
 
   void wrapSrcBuffer(OpenSubdiv_Buffer *src_buffer) override;
+
+  void wrapSrcVertexDataBuffer(OpenSubdiv_Buffer *src_buffer) override;
 
   void fillFVarPatchArraysBuffer(const int face_varying_channel,
                                  OpenSubdiv_Buffer *patch_arrays_buffer) override;

@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -102,6 +88,14 @@ class SocketDeclaration {
   InputSocketFieldType input_field_type_ = InputSocketFieldType::None;
   OutputFieldDependency output_field_dependency_;
 
+  /** The priority of the input for determining the domain of the node. See
+   * realtime_compositor::InputDescriptor for more information. */
+  int compositor_domain_priority_ = 0;
+
+  /** This input expects a single value and can't operate on non-single values. See
+   * realtime_compositor::InputDescriptor for more information. */
+  bool compositor_expects_single_value_ = false;
+
   /** Utility method to make the socket available if there is a straightforward way to do so. */
   std::function<void(bNode &)> make_available_fn_;
 
@@ -124,7 +118,7 @@ class SocketDeclaration {
   /**
    * Change the node such that the socket will become visible. The node type's update method
    * should be called afterwards.
-   * \note Note that this is not necessarily implemented for all node types.
+   * \note this is not necessarily implemented for all node types.
    */
   void make_available(bNode &node) const;
 
@@ -137,6 +131,9 @@ class SocketDeclaration {
 
   InputSocketFieldType input_field_type() const;
   const OutputFieldDependency &output_field_dependency() const;
+
+  int compositor_domain_priority() const;
+  bool compositor_expects_single_value() const;
 
  protected:
   void set_common_flags(bNodeSocket &socket) const;
@@ -249,6 +246,22 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
   {
     decl_->output_field_dependency_ = OutputFieldDependency::ForPartiallyDependentField(
         std::move(input_dependencies));
+    return *(Self *)this;
+  }
+
+  /** The priority of the input for determining the domain of the node. See
+   * realtime_compositor::InputDescriptor for more information. */
+  Self &compositor_domain_priority(int priority)
+  {
+    decl_->compositor_domain_priority_ = priority;
+    return *(Self *)this;
+  }
+
+  /** This input expects a single value and can't operate on non-single values. See
+   * realtime_compositor::InputDescriptor for more information. */
+  Self &compositor_expects_single_value(bool value = true)
+  {
+    decl_->compositor_expects_single_value_ = value;
     return *(Self *)this;
   }
 
@@ -440,6 +453,16 @@ inline InputSocketFieldType SocketDeclaration::input_field_type() const
 inline const OutputFieldDependency &SocketDeclaration::output_field_dependency() const
 {
   return output_field_dependency_;
+}
+
+inline int SocketDeclaration::compositor_domain_priority() const
+{
+  return compositor_domain_priority_;
+}
+
+inline bool SocketDeclaration::compositor_expects_single_value() const
+{
+  return compositor_expects_single_value_;
 }
 
 inline void SocketDeclaration::make_available(bNode &node) const

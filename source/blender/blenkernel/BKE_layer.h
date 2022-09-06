@@ -1,18 +1,4 @@
-/*
- * This program is free software; you can redistribute it and/or
- * modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation; either version 2
- * of the License, or (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software Foundation,
- * Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
- */
+/* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #pragma once
 
@@ -22,7 +8,9 @@
 
 #include "BKE_collection.h"
 
+#include "DNA_layer_types.h"
 #include "DNA_listBase.h"
+#include "DNA_object_enums.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -315,10 +303,9 @@ void BKE_view_layer_visible_bases_iterator_end(BLI_Iterator *iter);
 
 #define FOREACH_SELECTED_OBJECT_BEGIN(_view_layer, _v3d, _instance) \
   { \
-    struct ObjectsVisibleIteratorData data_ = { \
-        .view_layer = _view_layer, \
-        .v3d = _v3d, \
-    }; \
+    struct ObjectsVisibleIteratorData data_ = {NULL}; \
+    data_.view_layer = _view_layer; \
+    data_.v3d = _v3d; \
     ITER_BEGIN (BKE_view_layer_selected_objects_iterator_begin, \
                 BKE_view_layer_selected_objects_iterator_next, \
                 BKE_view_layer_selected_objects_iterator_end, \
@@ -333,10 +320,9 @@ void BKE_view_layer_visible_bases_iterator_end(BLI_Iterator *iter);
 
 #define FOREACH_SELECTED_EDITABLE_OBJECT_BEGIN(_view_layer, _v3d, _instance) \
   { \
-    struct ObjectsVisibleIteratorData data_ = { \
-        .view_layer = _view_layer, \
-        .v3d = _v3d, \
-    }; \
+    struct ObjectsVisibleIteratorData data_ = {NULL}; \
+    data_.view_layer = _view_layer; \
+    data_.v3d = _v3d; \
     ITER_BEGIN (BKE_view_layer_selected_editable_objects_iterator_begin, \
                 BKE_view_layer_selected_editable_objects_iterator_next, \
                 BKE_view_layer_selected_editable_objects_iterator_end, \
@@ -351,10 +337,9 @@ void BKE_view_layer_visible_bases_iterator_end(BLI_Iterator *iter);
 
 #define FOREACH_VISIBLE_OBJECT_BEGIN(_view_layer, _v3d, _instance) \
   { \
-    struct ObjectsVisibleIteratorData data_ = { \
-        .view_layer = _view_layer, \
-        .v3d = _v3d, \
-    }; \
+    struct ObjectsVisibleIteratorData data_ = {NULL}; \
+    data_.view_layer = _view_layer; \
+    data_.v3d = _v3d; \
     ITER_BEGIN (BKE_view_layer_visible_objects_iterator_begin, \
                 BKE_view_layer_visible_objects_iterator_next, \
                 BKE_view_layer_visible_objects_iterator_end, \
@@ -369,13 +354,13 @@ void BKE_view_layer_visible_bases_iterator_end(BLI_Iterator *iter);
 
 #define FOREACH_BASE_IN_MODE_BEGIN(_view_layer, _v3d, _object_type, _object_mode, _instance) \
   { \
-    struct ObjectsInModeIteratorData data_ = { \
-        .object_mode = _object_mode, \
-        .object_type = _object_type, \
-        .view_layer = _view_layer, \
-        .v3d = _v3d, \
-        .base_active = _view_layer->basact, \
-    }; \
+    struct ObjectsInModeIteratorData data_; \
+    memset(&data_, 0, sizeof(data_)); \
+    data_.object_mode = _object_mode; \
+    data_.object_type = _object_type; \
+    data_.view_layer = _view_layer; \
+    data_.v3d = _v3d; \
+    data_.base_active = _view_layer->basact; \
     ITER_BEGIN (BKE_view_layer_bases_in_mode_iterator_begin, \
                 BKE_view_layer_bases_in_mode_iterator_next, \
                 BKE_view_layer_bases_in_mode_iterator_end, \
@@ -421,10 +406,9 @@ void BKE_view_layer_visible_bases_iterator_end(BLI_Iterator *iter);
 
 #define FOREACH_VISIBLE_BASE_BEGIN(_view_layer, _v3d, _instance) \
   { \
-    struct ObjectsVisibleIteratorData data_ = { \
-        .view_layer = _view_layer, \
-        .v3d = _v3d, \
-    }; \
+    struct ObjectsVisibleIteratorData data_ = {NULL}; \
+    data_.view_layer = _view_layer; \
+    data_.v3d = _v3d; \
     ITER_BEGIN (BKE_view_layer_visible_bases_iterator_begin, \
                 BKE_view_layer_visible_bases_iterator_next, \
                 BKE_view_layer_visible_bases_iterator_end, \
@@ -454,16 +438,26 @@ void BKE_view_layer_visible_bases_iterator_end(BLI_Iterator *iter);
     IteratorBeginCb func_begin; \
     IteratorCb func_next, func_end; \
     void *data_in; \
-    struct ObjectsVisibleIteratorData data_ = { \
-        .view_layer = _view_layer, \
-        .v3d = _v3d, \
-    }; \
+\
+    struct ObjectsVisibleIteratorData data_select_ = {NULL}; \
+    data_select_.view_layer = _view_layer; \
+    data_select_.v3d = _v3d; \
+\
+    struct SceneObjectsIteratorExData data_flag_ = {NULL}; \
+    data_flag_.scene = scene; \
+    data_flag_.flag = flag; \
 \
     if (flag == SELECT) { \
       func_begin = &BKE_view_layer_selected_objects_iterator_begin; \
       func_next = &BKE_view_layer_selected_objects_iterator_next; \
       func_end = &BKE_view_layer_selected_objects_iterator_end; \
-      data_in = &data_; \
+      data_in = &data_select_; \
+    } \
+    else if (flag != 0) { \
+      func_begin = BKE_scene_objects_iterator_begin_ex; \
+      func_next = BKE_scene_objects_iterator_next_ex; \
+      func_end = BKE_scene_objects_iterator_end_ex; \
+      data_in = &data_flag_; \
     } \
     else { \
       func_begin = BKE_scene_objects_iterator_begin; \
@@ -527,46 +521,30 @@ struct Object **BKE_view_layer_array_from_objects_in_mode_params(
     uint *len,
     const struct ObjectsInModeParams *params);
 
-#define BKE_view_layer_array_from_objects_in_mode(view_layer, v3d, r_len, ...) \
-  BKE_view_layer_array_from_objects_in_mode_params( \
-      view_layer, v3d, r_len, &(const struct ObjectsInModeParams)__VA_ARGS__)
-
-#define BKE_view_layer_array_from_bases_in_mode(view_layer, v3d, r_len, ...) \
-  BKE_view_layer_array_from_bases_in_mode_params( \
-      view_layer, v3d, r_len, &(const struct ObjectsInModeParams)__VA_ARGS__)
-
 bool BKE_view_layer_filter_edit_mesh_has_uvs(const struct Object *ob, void *user_data);
 bool BKE_view_layer_filter_edit_mesh_has_edges(const struct Object *ob, void *user_data);
 
-/* Utility macros that wrap common args (add more as needed). */
+/* Utility functions that wrap common arguments (add more as needed). */
 
-#define BKE_view_layer_array_from_objects_in_edit_mode(view_layer, v3d, r_len) \
-  BKE_view_layer_array_from_objects_in_mode(view_layer, v3d, r_len, {.object_mode = OB_MODE_EDIT})
+struct Object **BKE_view_layer_array_from_objects_in_edit_mode(struct ViewLayer *view_layer,
+                                                               const struct View3D *v3d,
+                                                               uint *r_len);
+struct Base **BKE_view_layer_array_from_bases_in_edit_mode(struct ViewLayer *view_layer,
+                                                           const struct View3D *v3d,
+                                                           uint *r_len);
+struct Object **BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
+    struct ViewLayer *view_layer, const struct View3D *v3d, uint *r_len);
 
-#define BKE_view_layer_array_from_bases_in_edit_mode(view_layer, v3d, r_len) \
-  BKE_view_layer_array_from_bases_in_mode(view_layer, v3d, r_len, {.object_mode = OB_MODE_EDIT})
-
-#define BKE_view_layer_array_from_objects_in_edit_mode_unique_data(view_layer, v3d, r_len) \
-  BKE_view_layer_array_from_objects_in_mode( \
-      view_layer, v3d, r_len, {.object_mode = OB_MODE_EDIT, .no_dup_data = true})
-
-#define BKE_view_layer_array_from_bases_in_edit_mode_unique_data(view_layer, v3d, r_len) \
-  BKE_view_layer_array_from_bases_in_mode( \
-      view_layer, v3d, r_len, {.object_mode = OB_MODE_EDIT, .no_dup_data = true})
-
-#define BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs( \
-    view_layer, v3d, r_len) \
-  BKE_view_layer_array_from_objects_in_mode( \
-      view_layer, \
-      v3d, \
-      r_len, \
-      {.object_mode = OB_MODE_EDIT, \
-       .no_dup_data = true, \
-       .filter_fn = BKE_view_layer_filter_edit_mesh_has_uvs})
-
-#define BKE_view_layer_array_from_objects_in_mode_unique_data(view_layer, v3d, r_len, mode) \
-  BKE_view_layer_array_from_objects_in_mode( \
-      view_layer, v3d, r_len, {.object_mode = mode, .no_dup_data = true})
+struct Base **BKE_view_layer_array_from_bases_in_edit_mode_unique_data(
+    struct ViewLayer *view_layer, const struct View3D *v3d, uint *r_len);
+struct Object **BKE_view_layer_array_from_objects_in_edit_mode_unique_data_with_uvs(
+    struct ViewLayer *view_layer, const struct View3D *v3d, uint *r_len);
+struct Object **BKE_view_layer_array_from_objects_in_mode_unique_data(struct ViewLayer *view_layer,
+                                                                      const struct View3D *v3d,
+                                                                      uint *r_len,
+                                                                      eObjectMode mode);
+struct Object *BKE_view_layer_active_object_get(const struct ViewLayer *view_layer);
+struct Object *BKE_view_layer_edit_object_get(const struct ViewLayer *view_layer);
 
 struct ViewLayerAOV *BKE_view_layer_add_aov(struct ViewLayer *view_layer);
 void BKE_view_layer_remove_aov(struct ViewLayer *view_layer, struct ViewLayerAOV *aov);
@@ -588,6 +566,23 @@ void BKE_view_layer_verify_aov(struct RenderEngine *engine,
 bool BKE_view_layer_has_valid_aov(struct ViewLayer *view_layer);
 struct ViewLayer *BKE_view_layer_find_with_aov(struct Scene *scene,
                                                struct ViewLayerAOV *view_layer_aov);
+
+struct ViewLayerLightgroup *BKE_view_layer_add_lightgroup(struct ViewLayer *view_layer,
+                                                          const char *name);
+void BKE_view_layer_remove_lightgroup(struct ViewLayer *view_layer,
+                                      struct ViewLayerLightgroup *lightgroup);
+void BKE_view_layer_set_active_lightgroup(struct ViewLayer *view_layer,
+                                          struct ViewLayerLightgroup *lightgroup);
+struct ViewLayer *BKE_view_layer_find_with_lightgroup(
+    struct Scene *scene, struct ViewLayerLightgroup *view_layer_lightgroup);
+void BKE_view_layer_rename_lightgroup(struct Scene *scene,
+                                      ViewLayer *view_layer,
+                                      ViewLayerLightgroup *lightgroup,
+                                      const char *name);
+
+void BKE_lightgroup_membership_get(struct LightgroupMembership *lgm, char *name);
+int BKE_lightgroup_membership_length(struct LightgroupMembership *lgm);
+void BKE_lightgroup_membership_set(struct LightgroupMembership **lgm, const char *name);
 
 #ifdef __cplusplus
 }
