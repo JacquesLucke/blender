@@ -169,19 +169,13 @@ class GraphExecutorLFParams;
 
 class Executor {
  private:
+  const LazyFunctionGraphExecutor &self_;
   /**
-   * The graph that is evaluated.
+   * Usually nodes are only executed when at least one of their outputs are required.
+   * Sometimes we want to execute nodes for their side effects though. So this is a list of all the
+   * nodes that should be executed even when their outputs are not required.
    */
-  const LazyFunctionGraph &graph_;
-  /**
-   * Input and output sockets of the entire graph.
-   */
-  const VectorSet<const OutputSocket *> &graph_inputs_;
-  const VectorSet<const InputSocket *> &graph_outputs_;
-  /**
-   * Optional logger for events that happen during execution.
-   */
-  const LazyFunctionGraphExecutor::Logger *logger_;
+  const Vector<const Node *> side_effect_nodes_;
   /**
    * Remembers which inputs have been loaded from the caller already, to avoid loading them twice.
    * Atomics are used to make sure that every input is only retrieved once.
@@ -213,18 +207,11 @@ class Executor {
   friend GraphExecutorLFParams;
 
  public:
-  Executor(const LazyFunctionGraph &graph,
-           const VectorSet<const OutputSocket *> &graph_inputs,
-           const VectorSet<const InputSocket *> &graph_outputs,
-           const LazyFunctionGraphExecutor::Logger *logger)
-      : graph_(graph),
-        graph_inputs_(graph_inputs),
-        graph_outputs_(graph_outputs),
-        logger_(logger),
-        loaded_inputs_(graph_inputs.size())
+  Executor(const LazyFunctionGraphExecutor &self)
+      : self_(self), loaded_inputs_(self.graph_inputs_.size())
   {
     /* The indices are necessary, because they are used as keys in #node_states_. */
-    BLI_assert(graph_.node_indices_are_valid());
+    BLI_assert(self_.graph_.node_indices_are_valid());
     this->initialize_node_states();
     task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
 
@@ -237,7 +224,7 @@ class Executor {
     BLI_task_pool_free(task_pool_);
     threading::parallel_for(node_states_.index_range(), 1024, [&](const IndexRange range) {
       for (const int node_index : range) {
-        const Node &node = *graph_.nodes()[node_index];
+        const Node &node = *self_.graph_.nodes()[node_index];
         NodeState &node_state = *node_states_[node_index];
         this->destruct_node_state(node, node_state);
       }
@@ -288,7 +275,7 @@ class Executor {
  private:
   void initialize_node_states()
   {
-    Span<const Node *> nodes = graph_.nodes();
+    Span<const Node *> nodes = self_.graph_.nodes();
     node_states_.reinitialize(nodes.size());
 
     /* Construct all node states in parallel. */
@@ -341,14 +328,14 @@ class Executor {
 
   void schedule_newly_requested_outputs(CurrentTask &current_task)
   {
-    for (const int graph_output_index : graph_outputs_.index_range()) {
+    for (const int graph_output_index : self_.graph_outputs_.index_range()) {
       if (params_->get_output_usage(graph_output_index) != ValueUsage::Used) {
         continue;
       }
       if (params_->output_was_set(graph_output_index)) {
         continue;
       }
-      const InputSocket &socket = *graph_outputs_[graph_output_index];
+      const InputSocket &socket = *self_.graph_outputs_[graph_output_index];
       const Node &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
       this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -359,8 +346,8 @@ class Executor {
 
   void set_defaulted_graph_outputs()
   {
-    for (const int graph_output_index : graph_outputs_.index_range()) {
-      const InputSocket &socket = *graph_outputs_[graph_output_index];
+    for (const int graph_output_index : self_.graph_outputs_.index_range()) {
+      const InputSocket &socket = *self_.graph_outputs_[graph_output_index];
       if (socket.origin() != nullptr) {
         continue;
       }
@@ -368,8 +355,8 @@ class Executor {
       const void *default_value = socket.default_value();
       BLI_assert(default_value != nullptr);
 
-      if (logger_ != nullptr) {
-        logger_->log_socket_value(*context_, socket, {type, default_value});
+      if (self_.logger_ != nullptr) {
+        self_.logger_->log_socket_value(*context_, socket, {type, default_value});
       }
 
       void *output_ptr = params_->get_output_data_ptr(graph_output_index);
@@ -380,8 +367,8 @@ class Executor {
 
   void set_always_unused_graph_inputs()
   {
-    for (const int i : graph_inputs_.index_range()) {
-      const OutputSocket &socket = *graph_inputs_[i];
+    for (const int i : self_.graph_inputs_.index_range()) {
+      const OutputSocket &socket = *self_.graph_inputs_[i];
       const Node &node = socket.node();
       const NodeState &node_state = *node_states_[node.index_in_graph()];
       const OutputState &output_state = node_state.outputs[socket.index_in_node()];
@@ -394,7 +381,7 @@ class Executor {
   void forward_newly_provided_inputs(CurrentTask &current_task)
   {
     LinearAllocator<> &allocator = local_allocators_.local();
-    for (const int graph_input_index : graph_inputs_.index_range()) {
+    for (const int graph_input_index : self_.graph_inputs_.index_range()) {
       std::atomic<bool> &was_loaded = loaded_inputs_[graph_input_index];
       if (was_loaded.load(std::memory_order_relaxed)) {
         continue;
@@ -416,7 +403,7 @@ class Executor {
                                     const int graph_input_index,
                                     void *input_data)
   {
-    const OutputSocket &socket = *graph_inputs_[graph_input_index];
+    const OutputSocket &socket = *self_.graph_inputs_[graph_input_index];
     const CPPType &type = socket.type();
     void *buffer = allocator.allocate(type.size(), type.alignment());
     type.move_construct(input_data, buffer);
@@ -431,7 +418,7 @@ class Executor {
     OutputState &output_state = node_state.outputs[index_in_node];
 
     if (node.is_dummy()) {
-      const int graph_input_index = graph_inputs_.index_of(&socket);
+      const int graph_input_index = self_.graph_inputs_.index_of(&socket);
       std::atomic<bool> &was_loaded = loaded_inputs_[graph_input_index];
       if (was_loaded.load(std::memory_order_relaxed)) {
         return;
@@ -473,7 +460,7 @@ class Executor {
         if (output_state.usage == ValueUsage::Maybe) {
           output_state.usage = ValueUsage::Unused;
           if (node.is_dummy()) {
-            const int graph_input_index = graph_inputs_.index_of(&socket);
+            const int graph_input_index = self_.graph_inputs_.index_of(&socket);
             params_->set_input_unused(graph_input_index);
           }
           else {
@@ -615,8 +602,8 @@ class Executor {
           const CPPType &type = input_socket.type();
           const void *default_value = input_socket.default_value();
           BLI_assert(default_value != nullptr);
-          if (logger_ != nullptr) {
-            logger_->log_socket_value(*context_, input_socket, {type, default_value});
+          if (self_.logger_ != nullptr) {
+            self_.logger_->log_socket_value(*context_, input_socket, {type, default_value});
           }
           void *buffer = allocator.allocate(type.size(), type.alignment());
           type.copy_construct(default_value, buffer);
@@ -820,8 +807,8 @@ class Executor {
     LinearAllocator<> &allocator = local_allocators_.local();
     const CPPType &type = *value_to_forward.type();
 
-    if (logger_ != nullptr) {
-      logger_->log_socket_value(*context_, from_socket, value_to_forward);
+    if (self_.logger_ != nullptr) {
+      self_.logger_->log_socket_value(*context_, from_socket, value_to_forward);
     }
 
     const Span<const InputSocket *> targets = from_socket.targets();
@@ -836,11 +823,11 @@ class Executor {
       BLI_assert(target_socket->type() == type);
       BLI_assert(target_socket->origin() == &from_socket);
 
-      if (logger_ != nullptr) {
-        logger_->log_socket_value(*context_, *target_socket, value_to_forward);
+      if (self_.logger_ != nullptr) {
+        self_.logger_->log_socket_value(*context_, *target_socket, value_to_forward);
       }
       if (target_node.is_dummy()) {
-        const int graph_output_index = graph_outputs_.index_of_try(target_socket);
+        const int graph_output_index = self_.graph_outputs_.index_of_try(target_socket);
         if (graph_output_index != -1 &&
             params_->get_output_usage(graph_output_index) != ValueUsage::Unused) {
           void *dst_buffer = params_->get_output_data_ptr(graph_output_index);
@@ -988,11 +975,17 @@ void Executor::execute_node(const FunctionNode &node,
   fn.execute(node_params, fn_context);
 }
 
-LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(const LazyFunctionGraph &graph,
-                                                     Span<const OutputSocket *> graph_inputs,
-                                                     Span<const InputSocket *> graph_outputs,
-                                                     const Logger *logger)
-    : graph_(graph), graph_inputs_(graph_inputs), graph_outputs_(graph_outputs), logger_(logger)
+LazyFunctionGraphExecutor::LazyFunctionGraphExecutor(
+    const LazyFunctionGraph &graph,
+    const Span<const OutputSocket *> graph_inputs,
+    const Span<const InputSocket *> graph_outputs,
+    const Logger *logger,
+    const SideEffectProvider *side_effect_provider)
+    : graph_(graph),
+      graph_inputs_(graph_inputs),
+      graph_outputs_(graph_outputs),
+      logger_(logger),
+      side_effect_provider_(side_effect_provider)
 {
   for (const OutputSocket *socket : graph_inputs_) {
     BLI_assert(socket->node().is_dummy());
@@ -1012,8 +1005,7 @@ void LazyFunctionGraphExecutor::execute_impl(Params &params, const Context &cont
 
 void *LazyFunctionGraphExecutor::init_storage(LinearAllocator<> &allocator) const
 {
-  Executor &executor =
-      *allocator.construct<Executor>(graph_, graph_inputs_, graph_outputs_, logger_).release();
+  Executor &executor = *allocator.construct<Executor>(*this).release();
   return &executor;
 }
 

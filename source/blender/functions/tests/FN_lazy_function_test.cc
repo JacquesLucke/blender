@@ -147,7 +147,7 @@ TEST(lazy_function, Simple)
   graph.update_node_indices();
   // std::cout << graph.to_dot() << "\n";
 
-  LazyFunctionGraphExecutor executor_fn{graph, {}, {&output_node.input(0)}, nullptr};
+  LazyFunctionGraphExecutor executor_fn{graph, {}, {&output_node.input(0)}, nullptr, nullptr};
 
   // SCOPED_TIMER("run");
   int result;

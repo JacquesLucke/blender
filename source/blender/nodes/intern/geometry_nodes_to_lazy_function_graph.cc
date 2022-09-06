@@ -479,8 +479,11 @@ class LazyFunctionForGroupNode : public LazyFunction {
     // std::cout << lf_graph_info.graph.to_dot() << "\n";
 
     lf_logger_.emplace(lf_graph_info);
-    graph_executor_.emplace(
-        lf_graph_info.graph, std::move(graph_inputs), std::move(graph_outputs), &*lf_logger_);
+    graph_executor_.emplace(lf_graph_info.graph,
+                            std::move(graph_inputs),
+                            std::move(graph_outputs),
+                            &*lf_logger_,
+                            nullptr);
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
