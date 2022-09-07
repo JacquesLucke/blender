@@ -36,6 +36,7 @@
 #include "BKE_main.h"
 #include "BKE_node.h"
 #include "BKE_node_runtime.hh"
+#include "BKE_node_tree_update.h"
 #include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
@@ -263,6 +264,7 @@ void node_sort(bNodeTree &ntree)
           b++;
           BLI_remlink(&ntree.nodes, tmp);
           BLI_insertlinkbefore(&ntree.nodes, node_a, tmp);
+          BKE_ntree_update_tag_node_reordered(&ntree);
         }
       }
 
