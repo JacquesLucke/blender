@@ -169,8 +169,11 @@ class GeoTreeLog {
 
 class GeoModifierLog {
  private:
-  threading::EnumerableThreadSpecific<Map<ContextStackHash, std::unique_ptr<GeoTreeLogger>>>
-      tree_loggers_per_thread_;
+  struct LocalData {
+    Map<ContextStackHash, std::unique_ptr<GeoTreeLogger>> tree_logger_by_context;
+  };
+
+  threading::EnumerableThreadSpecific<LocalData> data_per_thread_;
   Map<ContextStackHash, std::unique_ptr<GeoTreeLog>> tree_logs_;
 
  public:

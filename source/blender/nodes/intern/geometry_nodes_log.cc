@@ -255,8 +255,9 @@ void GeoTreeLog::ensure_viewer_node_logs()
 
 GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ContextStack &context_stack)
 {
+  LocalData &local_data = data_per_thread_.local();
   Map<ContextStackHash, std::unique_ptr<GeoTreeLogger>> &local_tree_loggers =
-      tree_loggers_per_thread_.local();
+      local_data.tree_logger_by_context;
   std::unique_ptr<GeoTreeLogger> &tree_logger_ptr = local_tree_loggers.lookup_or_add_default(
       context_stack.hash());
   if (tree_logger_ptr) {
@@ -281,9 +282,9 @@ GeoTreeLog &GeoModifierLog::get_tree_log(const ContextStackHash &context_stack_h
 {
   GeoTreeLog &reduced_tree_log = *tree_logs_.lookup_or_add_cb(context_stack_hash, [&]() {
     Vector<GeoTreeLogger *> tree_logs;
-    for (Map<ContextStackHash, std::unique_ptr<GeoTreeLogger>> &log_map :
-         tree_loggers_per_thread_) {
-      std::unique_ptr<GeoTreeLogger> *tree_log = log_map.lookup_ptr(context_stack_hash);
+    for (LocalData &local_data : data_per_thread_) {
+      std::unique_ptr<GeoTreeLogger> *tree_log = local_data.tree_logger_by_context.lookup_ptr(
+          context_stack_hash);
       if (tree_log != nullptr) {
         tree_logs.append(tree_log->get());
       }
