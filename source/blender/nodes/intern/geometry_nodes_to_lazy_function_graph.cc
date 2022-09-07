@@ -440,12 +440,20 @@ class LazyFunctionForComplexInput : public LazyFunction {
 class LazyFunctionForViewerNode : public LazyFunction {
  private:
   const bNode &bnode_;
+  bool use_field_input_ = true;
 
  public:
-  LazyFunctionForViewerNode(const bNode &bnode) : bnode_(bnode)
+  LazyFunctionForViewerNode(const bNode &bnode, Vector<const bNodeSocket *> &r_used_inputs)
+      : bnode_(bnode)
   {
     static_name_ = "Viewer";
-    inputs_.append({"Geometry", CPPType::get<GeometrySet>()});
+    Vector<const bNodeSocket *> dummy_used_outputs;
+    lazy_function_interface_from_node(bnode, r_used_inputs, dummy_used_outputs, inputs_, outputs_);
+    if (!r_used_inputs[1]->is_directly_linked()) {
+      use_field_input_ = false;
+      r_used_inputs.pop_last();
+      inputs_.pop_last();
+    }
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
@@ -455,13 +463,18 @@ class LazyFunctionForViewerNode : public LazyFunction {
 
     GeometrySet geometry = params.extract_input<GeometrySet>(0);
 
+    GField field;
+    if (use_field_input_) {
+      const void *value_or_field = params.try_get_input_data_ptr(1);
+      BLI_assert(value_or_field != nullptr);
+      const ValueOrFieldCPPType &value_or_field_type = static_cast<const ValueOrFieldCPPType &>(
+          *inputs_[1].type);
+      field = value_or_field_type.as_field(value_or_field);
+    }
+
     geo_eval_log::GeoTreeLogger &tree_logger =
         user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
-    tree_logger.log_viewer_node(bnode_, geometry);
-
-    std::stringstream ss;
-    ss << geometry;
-    user_data->context_stack->print_stack(std::cout, ss.str());
+    tree_logger.log_viewer_node(bnode_, geometry, field);
   }
 };
 
@@ -861,14 +874,18 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void handle_viewer_node(const bNode &bnode)
   {
-    auto lazy_function = std::make_unique<LazyFunctionForViewerNode>(bnode);
+    Vector<const bNodeSocket *> used_inputs;
+    auto lazy_function = std::make_unique<LazyFunctionForViewerNode>(bnode, used_inputs);
     lf::FunctionNode &lf_node = lf_graph_->add_function(*lazy_function);
     lf_graph_info_->functions.append(std::move(lazy_function));
 
-    const bNodeSocket &geometry_bsocket = bnode.input_socket(0);
-    lf::InputSocket &lf_geometry_input = lf_node.input(0);
-    input_socket_map_.add(&geometry_bsocket, &lf_geometry_input);
-    mapping_->bsockets_by_lf_socket_map.add(&lf_geometry_input, &geometry_bsocket);
+    for (const int i : used_inputs.index_range()) {
+      const bNodeSocket &bsocket = *used_inputs[i];
+      lf::InputSocket &lf_socket = lf_node.input(i);
+      input_socket_map_.add(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
+    }
+
     mapping_->viewer_node_map.add(&bnode, &lf_node);
   }
 

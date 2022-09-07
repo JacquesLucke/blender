@@ -42,6 +42,7 @@
 #include "spreadsheet_intern.hh"
 
 using blender::fn::GField;
+using blender::nodes::geo_eval_log::ViewerNodeLog;
 
 namespace blender::ed::spreadsheet {
 
@@ -410,24 +411,24 @@ int VolumeDataSource::tot_rows() const
   return BKE_volume_num_grids(volume);
 }
 
-static std::optional<GeometrySet> try_find_logged_geometry(const SpaceSpreadsheet &sspreadsheet)
+static const ViewerNodeLog *try_find_viewer_node_log(const SpaceSpreadsheet &sspreadsheet)
 {
   Vector<const SpreadsheetContext *> context_path = sspreadsheet.context_path;
   if (context_path.size() < 3) {
-    return std::nullopt;
+    return nullptr;
   }
   if (context_path[0]->type != SPREADSHEET_CONTEXT_OBJECT) {
-    return std::nullopt;
+    return nullptr;
   }
   if (context_path[1]->type != SPREADSHEET_CONTEXT_MODIFIER) {
-    return std::nullopt;
+    return nullptr;
   }
   const SpreadsheetContextObject *object_context =
       reinterpret_cast<const SpreadsheetContextObject *>(context_path[0]);
   const SpreadsheetContextModifier *modifier_context =
       reinterpret_cast<const SpreadsheetContextModifier *>(context_path[1]);
   if (object_context->object == nullptr) {
-    return std::nullopt;
+    return nullptr;
   }
   NodesModifierData *nmd = nullptr;
   LISTBASE_FOREACH (ModifierData *, md, &object_context->object->modifiers) {
@@ -438,10 +439,10 @@ static std::optional<GeometrySet> try_find_logged_geometry(const SpaceSpreadshee
     }
   }
   if (nmd == nullptr) {
-    return std::nullopt;
+    return nullptr;
   }
   if (nmd->runtime_eval_log == nullptr) {
-    return std::nullopt;
+    return nullptr;
   }
   nodes::geo_eval_log::GeoModifierLog *modifier_log =
       static_cast<nodes::geo_eval_log::GeoModifierLog *>(nmd->runtime_eval_log);
@@ -450,7 +451,7 @@ static std::optional<GeometrySet> try_find_logged_geometry(const SpaceSpreadshee
   context_stack_builder.push<nodes::ModifierContextStack>(modifier_context->modifier_name);
   for (const SpreadsheetContext *context : context_path.as_span().drop_front(2).drop_back(1)) {
     if (context->type != SPREADSHEET_CONTEXT_NODE) {
-      return std::nullopt;
+      return nullptr;
     }
     const SpreadsheetContextNode &node_context = *reinterpret_cast<const SpreadsheetContextNode *>(
         context);
@@ -462,16 +463,12 @@ static std::optional<GeometrySet> try_find_logged_geometry(const SpaceSpreadshee
 
   const SpreadsheetContext *last_context = context_path.last();
   if (last_context->type != SPREADSHEET_CONTEXT_NODE) {
-    return std::nullopt;
+    return nullptr;
   }
   const SpreadsheetContextNode &last_node_context =
       *reinterpret_cast<const SpreadsheetContextNode *>(last_context);
-  const nodes::geo_eval_log::ViewerNodeLog *viewer_log = tree_log.viewer_node_logs.lookup(
-      last_node_context.node_name);
-  if (viewer_log == nullptr) {
-    return std::nullopt;
-  }
-  return viewer_log->geometry;
+  const ViewerNodeLog *viewer_log = tree_log.viewer_node_logs.lookup(last_node_context.node_name);
+  return viewer_log;
 }
 
 GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspreadsheet,
@@ -529,8 +526,8 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
         }
       }
       else {
-        if (std::optional<GeometrySet> viewer_geometry = try_find_logged_geometry(*sspreadsheet)) {
-          geometry_set = std::move(*viewer_geometry);
+        if (const ViewerNodeLog *viewer_log = try_find_viewer_node_log(*sspreadsheet)) {
+          geometry_set = viewer_log->geometry;
         }
       }
     }
@@ -539,7 +536,7 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
 }
 
 static void find_fields_to_evaluate(const SpaceSpreadsheet *sspreadsheet,
-                                    Map<std::string, GField> &UNUSED(r_fields))
+                                    Map<std::string, GField> &r_fields)
 {
   if (sspreadsheet->object_eval_state != SPREADSHEET_OBJECT_EVAL_STATE_VIEWER_NODE) {
     return;
@@ -548,30 +545,11 @@ static void find_fields_to_evaluate(const SpaceSpreadsheet *sspreadsheet,
     /* No viewer is currently referenced by the context path. */
     return;
   }
-  // const geo_log::NodeLog *node_log =
-  // geo_log::ModifierLog::find_node_by_spreadsheet_editor_context(
-  //     *sspreadsheet);
-  // if (node_log == nullptr) {
-  //   return;
-  // }
-  // for (const geo_log::SocketLog &socket_log : node_log->input_logs()) {
-  //   const geo_log::ValueLog *value_log = socket_log.value();
-  //   if (value_log == nullptr) {
-  //     continue;
-  //   }
-  //   if (const geo_log::FieldInfoLog *field_value_log =
-  //           dynamic_cast<const geo_log::FieldInfoLog *>(value_log)) {
-  //     const GField &field = field_value_log->field();
-  //     if (field) {
-  //       r_fields.add("Viewer", std::move(field));
-  //     }
-  //   }
-  //   if (const geo_log::GenericValueLog *generic_value_log =
-  //           dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
-  //     GPointer value = generic_value_log->value();
-  //     r_fields.add("Viewer", fn::make_constant_field(*value.type(), value.get()));
-  //   }
-  // }
+  if (const ViewerNodeLog *viewer_log = try_find_viewer_node_log(*sspreadsheet)) {
+    if (viewer_log->field) {
+      r_fields.add("Viewer", viewer_log->field);
+    }
+  }
 }
 
 class GeometryComponentCacheKey : public SpreadsheetCache::Key {
