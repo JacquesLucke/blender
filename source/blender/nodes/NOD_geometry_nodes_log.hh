@@ -58,13 +58,12 @@ class GenericValueLog : public ValueLog {
   }
 };
 
-class GFieldValueLog : public ValueLog {
+class FieldInfoLog : public ValueLog {
  public:
-  GField field;
   const CPPType &type;
   Vector<std::string> input_tooltips;
 
-  GFieldValueLog(const GField &field, bool log_full_field);
+  FieldInfoLog(const GField &field);
 };
 
 struct GeometryAttributeInfo {
@@ -74,11 +73,10 @@ struct GeometryAttributeInfo {
   std::optional<eCustomDataType> data_type;
 };
 
-class GeometryValueLog : public ValueLog {
+class GeometryInfoLog : public ValueLog {
  public:
   Vector<GeometryAttributeInfo> attributes;
   Vector<GeometryComponentType> component_types;
-  std::unique_ptr<GeometrySet> full_geometry;
 
   struct MeshInfo {
     int verts_num, edges_num, faces_num;
@@ -103,7 +101,7 @@ class GeometryValueLog : public ValueLog {
   std::optional<InstancesInfo> instances_info;
   std::optional<EditDataInfo> edit_data_info;
 
-  GeometryValueLog(const GeometrySet &geometry_set, bool log_full_geometry);
+  GeometryInfoLog(const GeometrySet &geometry_set);
 };
 
 using Clock = std::chrono::steady_clock;

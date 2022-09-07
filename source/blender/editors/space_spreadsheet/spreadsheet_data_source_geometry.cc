@@ -468,8 +468,8 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
         //     geo_log::ModifierLog::find_node_by_spreadsheet_editor_context(*sspreadsheet);
         // if (node_log != nullptr) {
         //   for (const geo_log::SocketLog &input_log : node_log->input_logs()) {
-        //     if (const geo_log::GeometryValueLog *geo_value_log =
-        //             dynamic_cast<const geo_log::GeometryValueLog *>(input_log.value())) {
+        //     if (const geo_log::GeometryInfoLog *geo_value_log =
+        //             dynamic_cast<const geo_log::GeometryInfoLog *>(input_log.value())) {
         //       const GeometrySet *full_geometry = geo_value_log->full_geometry();
         //       if (full_geometry != nullptr) {
         //         geometry_set = *full_geometry;
@@ -505,8 +505,8 @@ static void find_fields_to_evaluate(const SpaceSpreadsheet *sspreadsheet,
   //   if (value_log == nullptr) {
   //     continue;
   //   }
-  //   if (const geo_log::GFieldValueLog *field_value_log =
-  //           dynamic_cast<const geo_log::GFieldValueLog *>(value_log)) {
+  //   if (const geo_log::FieldInfoLog *field_value_log =
+  //           dynamic_cast<const geo_log::FieldInfoLog *>(value_log)) {
   //     const GField &field = field_value_log->field();
   //     if (field) {
   //       r_fields.add("Viewer", std::move(field));

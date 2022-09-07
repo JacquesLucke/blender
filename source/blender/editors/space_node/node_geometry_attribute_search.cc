@@ -78,8 +78,8 @@ static Vector<const GeometryAttributeInfo *> get_attribute_info_from_context(
     // tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
     //   for (const geo_log::SocketLog &socket_log : node_log.input_logs()) {
     //     const geo_log::ValueLog *value_log = socket_log.value();
-    //     if (const geo_log::GeometryValueLog *geo_value_log =
-    //             dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
+    //     if (const geo_log::GeometryInfoLog *geo_value_log =
+    //             dynamic_cast<const geo_log::GeometryInfoLog *>(value_log)) {
     //       for (const GeometryAttributeInfo &attribute : geo_value_log->attributes()) {
     //         if (bke::allow_procedural_attribute_access(attribute.name)) {
     //           if (names.add(attribute.name)) {

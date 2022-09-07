@@ -503,25 +503,16 @@ static void create_inspection_string_for_generic_value(const GPointer value, std
   }
 }
 
-static void create_inspection_string_for_gfield(const geo_log::GFieldValueLog &value_log,
-                                                std::stringstream &ss)
+static void create_inspection_string_for_field_info(const geo_log::FieldInfoLog &value_log,
+                                                    std::stringstream &ss)
 {
   const CPPType &type = value_log.type;
-  const GField &field = value_log.field;
   const Span<std::string> input_tooltips = value_log.input_tooltips;
 
   if (input_tooltips.is_empty()) {
-    if (field) {
-      BUFFER_FOR_CPP_TYPE_VALUE(type, buffer);
-      blender::fn::evaluate_constant_field(field, buffer);
-      create_inspection_string_for_generic_value({type, buffer}, ss);
-      type.destruct(buffer);
-    }
-    else {
-      /* Constant values should always be logged. */
-      BLI_assert_unreachable();
-      ss << "Value has not been logged";
-    }
+    /* Should have been logged as constant value. */
+    BLI_assert_unreachable();
+    ss << "Value has not been logged";
   }
   else {
     if (type.is<int>()) {
@@ -554,9 +545,9 @@ static void create_inspection_string_for_gfield(const geo_log::GFieldValueLog &v
   }
 }
 
-static void create_inspection_string_for_geometry(const geo_log::GeometryValueLog &value_log,
-                                                  std::stringstream &ss,
-                                                  const nodes::decl::Geometry *socket_decl)
+static void create_inspection_string_for_geometry_info(const geo_log::GeometryInfoLog &value_log,
+                                                       std::stringstream &ss,
+                                                       const nodes::decl::Geometry *socket_decl)
 {
   Span<GeometryComponentType> component_types = value_log.component_types;
   if (component_types.is_empty()) {
@@ -575,7 +566,7 @@ static void create_inspection_string_for_geometry(const geo_log::GeometryValueLo
     const char *line_end = (type == component_types.last()) ? "" : ".\n";
     switch (type) {
       case GEO_COMPONENT_TYPE_MESH: {
-        const geo_log::GeometryValueLog::MeshInfo &mesh_info = *value_log.mesh_info;
+        const geo_log::GeometryInfoLog::MeshInfo &mesh_info = *value_log.mesh_info;
         char line[256];
         BLI_snprintf(line,
                      sizeof(line),
@@ -587,7 +578,7 @@ static void create_inspection_string_for_geometry(const geo_log::GeometryValueLo
         break;
       }
       case GEO_COMPONENT_TYPE_POINT_CLOUD: {
-        const geo_log::GeometryValueLog::PointCloudInfo &pointcloud_info =
+        const geo_log::GeometryInfoLog::PointCloudInfo &pointcloud_info =
             *value_log.pointcloud_info;
         char line[256];
         BLI_snprintf(line,
@@ -598,7 +589,7 @@ static void create_inspection_string_for_geometry(const geo_log::GeometryValueLo
         break;
       }
       case GEO_COMPONENT_TYPE_CURVE: {
-        const geo_log::GeometryValueLog::CurveInfo &curve_info = *value_log.curve_info;
+        const geo_log::GeometryInfoLog::CurveInfo &curve_info = *value_log.curve_info;
         char line[256];
         BLI_snprintf(line,
                      sizeof(line),
@@ -608,7 +599,7 @@ static void create_inspection_string_for_geometry(const geo_log::GeometryValueLo
         break;
       }
       case GEO_COMPONENT_TYPE_INSTANCES: {
-        const geo_log::GeometryValueLog::InstancesInfo &instances_info = *value_log.instances_info;
+        const geo_log::GeometryInfoLog::InstancesInfo &instances_info = *value_log.instances_info;
         char line[256];
         BLI_snprintf(line,
                      sizeof(line),
@@ -623,7 +614,7 @@ static void create_inspection_string_for_geometry(const geo_log::GeometryValueLo
       }
       case GEO_COMPONENT_TYPE_EDIT: {
         if (value_log.edit_data_info.has_value()) {
-          const geo_log::GeometryValueLog::EditDataInfo &edit_info = *value_log.edit_data_info;
+          const geo_log::GeometryInfoLog::EditDataInfo &edit_info = *value_log.edit_data_info;
           char line[256];
           BLI_snprintf(line,
                        sizeof(line),
@@ -693,13 +684,13 @@ static std::optional<std::string> create_socket_inspection_string(TreeDrawContex
           dynamic_cast<const geo_log::GenericValueLog *>(value_log)) {
     create_inspection_string_for_generic_value(generic_value_log->value, ss);
   }
-  else if (const geo_log::GFieldValueLog *gfield_value_log =
-               dynamic_cast<const geo_log::GFieldValueLog *>(value_log)) {
-    create_inspection_string_for_gfield(*gfield_value_log, ss);
+  else if (const geo_log::FieldInfoLog *gfield_value_log =
+               dynamic_cast<const geo_log::FieldInfoLog *>(value_log)) {
+    create_inspection_string_for_field_info(*gfield_value_log, ss);
   }
-  else if (const geo_log::GeometryValueLog *geo_value_log =
-               dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
-    create_inspection_string_for_geometry(
+  else if (const geo_log::GeometryInfoLog *geo_value_log =
+               dynamic_cast<const geo_log::GeometryInfoLog *>(value_log)) {
+    create_inspection_string_for_geometry_info(
         *geo_value_log,
         ss,
         dynamic_cast<const nodes::decl::Geometry *>(socket.runtime->declaration));

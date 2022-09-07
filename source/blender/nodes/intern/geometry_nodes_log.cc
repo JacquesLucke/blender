@@ -12,8 +12,7 @@ namespace blender::nodes::geo_eval_log {
 using fn::FieldInput;
 using fn::FieldInputs;
 
-GFieldValueLog::GFieldValueLog(const GField &field, const bool log_full_field)
-    : type(field.cpp_type())
+FieldInfoLog::FieldInfoLog(const GField &field) : type(field.cpp_type())
 {
   const std::shared_ptr<const fn::FieldInputs> &field_input_nodes = field.node().field_inputs();
 
@@ -37,13 +36,9 @@ GFieldValueLog::GFieldValueLog(const GField &field, const bool log_full_field)
   for (const FieldInput &field_input : field_inputs) {
     this->input_tooltips.append(field_input.socket_inspection_name());
   }
-
-  if (log_full_field) {
-    this->field = std::move(field);
-  }
 }
 
-GeometryValueLog::GeometryValueLog(const GeometrySet &geometry_set, const bool log_full_geometry)
+GeometryInfoLog::GeometryInfoLog(const GeometrySet &geometry_set)
 {
   static std::array all_component_types = {GEO_COMPONENT_TYPE_CURVE,
                                            GEO_COMPONENT_TYPE_INSTANCES,
@@ -112,10 +107,6 @@ GeometryValueLog::GeometryValueLog(const GeometrySet &geometry_set, const bool l
       }
     }
   }
-  if (log_full_geometry) {
-    this->full_geometry = std::make_unique<GeometrySet>(geometry_set);
-    this->full_geometry->ensure_owns_direct_data();
-  }
 }
 
 void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, const GPointer value)
@@ -137,23 +128,24 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
 
   if (type.is<GeometrySet>()) {
     const GeometrySet &geometry = *value.get<GeometrySet>();
-    store_logged_value(this->allocator.construct<GeometryValueLog>(geometry, false));
+    store_logged_value(this->allocator.construct<GeometryInfoLog>(geometry));
   }
   else if (const auto *value_or_field_type = dynamic_cast<const fn::ValueOrFieldCPPType *>(
                &type)) {
     const void *value_or_field = value.get();
+    const CPPType &base_type = value_or_field_type->base_type();
     if (value_or_field_type->is_field(value_or_field)) {
       const GField *field = value_or_field_type->get_field_ptr(value_or_field);
-      bool log_full_field = false;
-      if (!field->node().depends_on_input()) {
-        /* Always log constant fields so that their value can be shown in socket inspection.
-         * In the future we can also evaluate the field here and only store the value. */
-        log_full_field = true;
+      if (field->node().depends_on_input()) {
+        store_logged_value(this->allocator.construct<FieldInfoLog>(*field));
       }
-      store_logged_value(this->allocator.construct<GFieldValueLog>(*field, log_full_field));
+      else {
+        BUFFER_FOR_CPP_TYPE_VALUE(base_type, value);
+        fn::evaluate_constant_field(*field, value);
+        log_generic_value(base_type, value);
+      }
     }
     else {
-      const CPPType &base_type = value_or_field_type->base_type();
       const void *value = value_or_field_type->get_value_ptr(value_or_field);
       log_generic_value(base_type, value);
     }

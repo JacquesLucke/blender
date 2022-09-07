@@ -1407,7 +1407,7 @@ static void attribute_search_update_fn(
   // if (modifier_log == nullptr) {
   //   return;
   // }
-  // const geo_log::GeometryValueLog *geometry_log = data.is_output ?
+  // const geo_log::GeometryInfoLog *geometry_log = data.is_output ?
   //                                                     modifier_log->output_geometry_log() :
   //                                                     modifier_log->input_geometry_log();
   // if (geometry_log == nullptr) {
