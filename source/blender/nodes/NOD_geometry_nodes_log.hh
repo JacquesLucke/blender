@@ -16,6 +16,9 @@
 
 #include "DNA_node_types.h"
 
+struct SpaceNode;
+struct NodesModifierData;
+
 namespace blender::nodes::geo_eval_log {
 
 using fn::GField;
@@ -149,12 +152,14 @@ class GeoTreeLog {
   bool reduced_node_run_times_ = false;
   bool reduced_socket_values_ = false;
   bool reduced_viewer_node_logs_ = false;
+  bool reduced_existing_attributes_ = false;
 
  public:
   Map<std::string, GeoNodeLog> nodes;
   Map<std::string, ViewerNodeLog *, 0> viewer_node_logs;
   Vector<NodeWarning> all_warnings;
   std::chrono::nanoseconds run_time_sum{0};
+  Vector<const GeometryAttributeInfo *> existing_attributes;
 
   GeoTreeLog(GeoModifierLog *modifier_log, Vector<GeoTreeLogger *> tree_loggers)
       : modifier_log_(modifier_log), tree_loggers_(std::move(tree_loggers))
@@ -165,6 +170,7 @@ class GeoTreeLog {
   void ensure_node_run_time();
   void ensure_socket_values();
   void ensure_viewer_node_logs();
+  void ensure_existing_attributes();
 };
 
 class GeoModifierLog {
@@ -179,7 +185,15 @@ class GeoModifierLog {
 
  public:
   GeoTreeLogger &get_local_tree_logger(const ContextStack &context_stack);
-  GeoTreeLog &get_tree_log(const ContextStackHash &context_stack);
+  GeoTreeLog &get_tree_log(const ContextStackHash &context_stack_hash);
+
+  struct ObjectAndModifier {
+    const Object *object;
+    const NodesModifierData *nmd;
+  };
+
+  static std::optional<ObjectAndModifier> get_modifier_for_node_editor(const SpaceNode &snode);
+  static GeoTreeLog *get_tree_log_for_node_editor(const SpaceNode &snode);
 };
 
 }  // namespace blender::nodes::geo_eval_log

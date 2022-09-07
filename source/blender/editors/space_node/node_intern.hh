@@ -31,6 +31,11 @@ struct wmGizmoGroupType;
 struct wmKeyConfig;
 struct wmWindow;
 
+namespace blender::nodes::geo_eval_log {
+class ValueLog;
+class GeoTreeLog;
+}  // namespace blender::nodes::geo_eval_log
+
 /* Outside of blender namespace to avoid Python documentation build error with `ctypes`. */
 extern "C" {
 extern const char *node_context_dir[];
@@ -149,6 +154,9 @@ void node_socket_add_tooltip(const bNodeTree &ntree,
                              const bNode &node,
                              const bNodeSocket &sock,
                              uiLayout &layout);
+
+nodes::geo_eval_log::ValueLog *find_socket_value_log(nodes::geo_eval_log::GeoTreeLog &tree_log,
+                                                     const bNodeSocket &query_socket);
 
 /**
  * Sort nodes by selection: unselected nodes first, then selected,

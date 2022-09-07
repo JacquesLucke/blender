@@ -326,7 +326,7 @@ float2 node_from_view(const bNode &node, const float2 &co)
   return result;
 }
 
-static GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
+static nodes::geo_eval_log::GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
 {
   using namespace blender;
   using namespace blender::nodes;
@@ -391,8 +391,8 @@ static bool node_socket_has_tooltip(const bNodeTree *ntree, const bNodeSocket *s
   return false;
 }
 
-static blender::nodes::geo_eval_log::ValueLog *find_socket_value_log(
-    GeoTreeLog &tree_log, const bNodeSocket &query_socket)
+nodes::geo_eval_log::ValueLog *find_socket_value_log(GeoTreeLog &tree_log,
+                                                     const bNodeSocket &query_socket)
 {
   using namespace blender::nodes::geo_eval_log;
   tree_log.ensure_socket_values();

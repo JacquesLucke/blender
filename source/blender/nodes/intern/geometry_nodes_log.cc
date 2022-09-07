@@ -8,6 +8,9 @@
 
 #include "FN_field_cpp_type.hh"
 
+#include "DNA_modifier_types.h"
+#include "DNA_space_types.h"
+
 namespace blender::nodes::geo_eval_log {
 
 using fn::FieldInput;
@@ -254,6 +257,38 @@ void GeoTreeLog::ensure_viewer_node_logs()
   reduced_viewer_node_logs_ = true;
 }
 
+void GeoTreeLog::ensure_existing_attributes()
+{
+  if (reduced_existing_attributes_) {
+    return;
+  }
+  this->ensure_socket_values();
+
+  Set<StringRef> names;
+
+  auto handle_value_log = [&](const ValueLog &value_log) {
+    const GeometryInfoLog *geo_log = dynamic_cast<const GeometryInfoLog *>(&value_log);
+    if (geo_log == nullptr) {
+      return;
+    }
+    for (const GeometryAttributeInfo &attribute : geo_log->attributes) {
+      if (names.add(attribute.name)) {
+        this->existing_attributes.append(&attribute);
+      }
+    }
+  };
+
+  for (const GeoNodeLog &node_log : this->nodes.values()) {
+    for (const ValueLog *value_log : node_log.input_values_.values()) {
+      handle_value_log(*value_log);
+    }
+    for (const ValueLog *value_log : node_log.output_values_.values()) {
+      handle_value_log(*value_log);
+    }
+  }
+  reduced_existing_attributes_ = true;
+}
+
 GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ContextStack &context_stack)
 {
   LocalData &local_data = data_per_thread_.local();
@@ -294,6 +329,71 @@ GeoTreeLog &GeoModifierLog::get_tree_log(const ContextStackHash &context_stack_h
     return std::make_unique<GeoTreeLog>(this, std::move(tree_logs));
   });
   return reduced_tree_log;
+}
+
+std::optional<GeoModifierLog::ObjectAndModifier> GeoModifierLog::get_modifier_for_node_editor(
+    const SpaceNode &snode)
+{
+  if (snode.id == nullptr) {
+    return std::nullopt;
+  }
+  if (GS(snode.id->name) != ID_OB) {
+    return std::nullopt;
+  }
+  const Object *object = reinterpret_cast<Object *>(snode.id);
+  const NodesModifierData *used_modifier = nullptr;
+  if (snode.flag & SNODE_PIN) {
+    LISTBASE_FOREACH (const ModifierData *, md, &object->modifiers) {
+      if (md->type == eModifierType_Nodes) {
+        const NodesModifierData *nmd = reinterpret_cast<const NodesModifierData *>(md);
+        /* Would be good to store the name of the pinned modifier in the node editor. */
+        if (nmd->node_group == snode.nodetree) {
+          used_modifier = nmd;
+          break;
+        }
+      }
+    }
+  }
+  else {
+    LISTBASE_FOREACH (const ModifierData *, md, &object->modifiers) {
+      if (md->type == eModifierType_Nodes) {
+        const NodesModifierData *nmd = reinterpret_cast<const NodesModifierData *>(md);
+        if (nmd->node_group == snode.nodetree) {
+          if (md->flag & eModifierFlag_Active) {
+            used_modifier = nmd;
+            break;
+          }
+        }
+      }
+    }
+  }
+  if (used_modifier == nullptr) {
+    return std::nullopt;
+  }
+  return ObjectAndModifier{object, used_modifier};
+}
+
+GeoTreeLog *GeoModifierLog::get_tree_log_for_node_editor(const SpaceNode &snode)
+{
+  std::optional<ObjectAndModifier> object_and_modifier = get_modifier_for_node_editor(snode);
+  if (!object_and_modifier) {
+    return nullptr;
+  }
+  GeoModifierLog *modifier_log = static_cast<GeoModifierLog *>(
+      object_and_modifier->nmd->runtime_eval_log);
+  if (modifier_log == nullptr) {
+    return nullptr;
+  }
+  Vector<const bNodeTreePath *> tree_path = snode.treepath;
+  if (tree_path.is_empty()) {
+    return nullptr;
+  }
+  ContextStackBuilder context_stack_builder;
+  context_stack_builder.push<bke::ModifierContextStack>(object_and_modifier->nmd->modifier.name);
+  for (const bNodeTreePath *path_item : tree_path.as_span().drop_front(1)) {
+    context_stack_builder.push<bke::NodeGroupContextStack>(path_item->node_name);
+  }
+  return &modifier_log->get_tree_log(context_stack_builder.hash());
 }
 
 }  // namespace blender::nodes::geo_eval_log
