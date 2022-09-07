@@ -4,7 +4,7 @@
 
 #include <chrono>
 
-#include "BLI_context_stack_map.hh"
+#include "BLI_context_stack.hh"
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_generic_pointer.hh"
 #include "BLI_multi_value_map.hh"
