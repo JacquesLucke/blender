@@ -119,7 +119,7 @@ class GeoTreeLogger {
   std::optional<std::string> group_node_name;
   Vector<ContextStackHash> children_hashes;
 
-  LinearAllocator<> allocator;
+  LinearAllocator<> *allocator = nullptr;
   Vector<std::pair<std::string, NodeWarning>> node_warnings;
   Vector<destruct_ptr<ValueLog>> socket_values_owner;
   Vector<std::tuple<std::string, std::string, ValueLog *>> input_socket_values;
@@ -170,7 +170,8 @@ class GeoTreeLog {
 class GeoModifierLog {
  private:
   struct LocalData {
-    Map<ContextStackHash, std::unique_ptr<GeoTreeLogger>> tree_logger_by_context;
+    LinearAllocator<> allocator;
+    Map<ContextStackHash, destruct_ptr<GeoTreeLogger>> tree_logger_by_context;
   };
 
   threading::EnumerableThreadSpecific<LocalData> data_per_thread_;

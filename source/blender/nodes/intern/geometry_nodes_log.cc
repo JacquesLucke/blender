@@ -121,14 +121,14 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
   };
 
   auto log_generic_value = [&](const CPPType &type, const void *value) {
-    void *buffer = this->allocator.allocate(type.size(), type.alignment());
+    void *buffer = this->allocator->allocate(type.size(), type.alignment());
     type.copy_construct(value, buffer);
-    store_logged_value(this->allocator.construct<GenericValueLog>(GMutablePointer{type, buffer}));
+    store_logged_value(this->allocator->construct<GenericValueLog>(GMutablePointer{type, buffer}));
   };
 
   if (type.is<GeometrySet>()) {
     const GeometrySet &geometry = *value.get<GeometrySet>();
-    store_logged_value(this->allocator.construct<GeometryInfoLog>(geometry));
+    store_logged_value(this->allocator->construct<GeometryInfoLog>(geometry));
   }
   else if (const auto *value_or_field_type = dynamic_cast<const fn::ValueOrFieldCPPType *>(
                &type)) {
@@ -137,7 +137,7 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
     if (value_or_field_type->is_field(value_or_field)) {
       const GField *field = value_or_field_type->get_field_ptr(value_or_field);
       if (field->node().depends_on_input()) {
-        store_logged_value(this->allocator.construct<FieldInfoLog>(*field));
+        store_logged_value(this->allocator->construct<FieldInfoLog>(*field));
       }
       else {
         BUFFER_FOR_CPP_TYPE_VALUE(base_type, value);
@@ -159,7 +159,7 @@ void GeoTreeLogger::log_viewer_node(const bNode &viewer_node,
                                     const GeometrySet &geometry,
                                     const GField &field)
 {
-  destruct_ptr<ViewerNodeLog> log = this->allocator.construct<ViewerNodeLog>();
+  destruct_ptr<ViewerNodeLog> log = this->allocator->construct<ViewerNodeLog>();
   log->geometry = geometry;
   log->field = field;
   log->geometry.ensure_owns_direct_data();
@@ -256,15 +256,16 @@ void GeoTreeLog::ensure_viewer_node_logs()
 GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ContextStack &context_stack)
 {
   LocalData &local_data = data_per_thread_.local();
-  Map<ContextStackHash, std::unique_ptr<GeoTreeLogger>> &local_tree_loggers =
+  Map<ContextStackHash, destruct_ptr<GeoTreeLogger>> &local_tree_loggers =
       local_data.tree_logger_by_context;
-  std::unique_ptr<GeoTreeLogger> &tree_logger_ptr = local_tree_loggers.lookup_or_add_default(
+  destruct_ptr<GeoTreeLogger> &tree_logger_ptr = local_tree_loggers.lookup_or_add_default(
       context_stack.hash());
   if (tree_logger_ptr) {
     return *tree_logger_ptr;
   }
-  tree_logger_ptr = std::make_unique<GeoTreeLogger>();
+  tree_logger_ptr = local_data.allocator.construct<GeoTreeLogger>();
   GeoTreeLogger &tree_logger = *tree_logger_ptr;
+  tree_logger.allocator = &local_data.allocator;
   const ContextStack *parent_context_stack = context_stack.parent();
   if (parent_context_stack != nullptr) {
     tree_logger.parent_hash = parent_context_stack->hash();
@@ -283,7 +284,7 @@ GeoTreeLog &GeoModifierLog::get_tree_log(const ContextStackHash &context_stack_h
   GeoTreeLog &reduced_tree_log = *tree_logs_.lookup_or_add_cb(context_stack_hash, [&]() {
     Vector<GeoTreeLogger *> tree_logs;
     for (LocalData &local_data : data_per_thread_) {
-      std::unique_ptr<GeoTreeLogger> *tree_log = local_data.tree_logger_by_context.lookup_ptr(
+      destruct_ptr<GeoTreeLogger> *tree_log = local_data.tree_logger_by_context.lookup_ptr(
           context_stack_hash);
       if (tree_log != nullptr) {
         tree_logs.append(tree_log->get());
