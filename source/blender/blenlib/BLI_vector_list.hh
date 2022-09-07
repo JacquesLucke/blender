@@ -28,10 +28,19 @@
 
 namespace blender {
 
+template<typename T> struct VectorListChunk {
+  /** Start of this chunk. */
+  T *begin;
+  /** End of this chunk. */
+  T *capacity_end;
+};
 template<typename T,
          int64_t InlineBufferCapacity = default_inline_buffer_capacity(sizeof(T)),
          typename Allocator = GuardedAllocator>
 class VectorList {
+  T *current_end_;
+  T *current_capacity_end_;
+  VectorListChunk *current_chunk_;
 };
 
 }  // namespace blender
