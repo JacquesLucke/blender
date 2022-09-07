@@ -104,6 +104,11 @@ class GeometryInfoLog : public ValueLog {
   GeometryInfoLog(const GeometrySet &geometry_set);
 };
 
+class ViewerNodeLog {
+ public:
+  GeometrySet geometry;
+};
+
 using Clock = std::chrono::steady_clock;
 using TimePoint = Clock::time_point;
 
@@ -119,8 +124,10 @@ class GeoTreeLogger {
   Vector<std::tuple<std::string, std::string, ValueLog *>> input_socket_values;
   Vector<std::tuple<std::string, std::string, ValueLog *>> output_socket_values;
   Vector<std::tuple<std::string, TimePoint, TimePoint>> node_execution_times;
+  Vector<std::tuple<std::string, destruct_ptr<ViewerNodeLog>>, 0> viewer_node_logs_;
 
   void log_value(const bNode &node, const bNodeSocket &socket, GPointer value);
+  void log_viewer_node(const bNode &viewer_node, const GeometrySet &geometry);
 };
 
 class GeoNodeLog {
@@ -140,9 +147,11 @@ class GeoTreeLog {
   bool reduced_node_warnings_ = false;
   bool reduced_node_run_times_ = false;
   bool reduced_socket_values_ = false;
+  bool reduced_viewer_node_logs_ = false;
 
  public:
   Map<std::string, GeoNodeLog> nodes;
+  Map<std::string, ViewerNodeLog *, 0> viewer_node_logs;
   Vector<NodeWarning> all_warnings;
   std::chrono::nanoseconds run_time_sum{0};
 
@@ -154,6 +163,7 @@ class GeoTreeLog {
   void ensure_node_warnings();
   void ensure_node_run_time();
   void ensure_socket_values();
+  void ensure_viewer_node_logs();
 };
 
 class GeoModifierLog {

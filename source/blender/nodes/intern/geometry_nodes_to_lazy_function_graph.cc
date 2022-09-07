@@ -438,8 +438,11 @@ class LazyFunctionForComplexInput : public LazyFunction {
 };
 
 class LazyFunctionForViewerNode : public LazyFunction {
+ private:
+  const bNode &bnode_;
+
  public:
-  LazyFunctionForViewerNode()
+  LazyFunctionForViewerNode(const bNode &bnode) : bnode_(bnode)
   {
     static_name_ = "Viewer";
     inputs_.append({"Geometry", CPPType::get<GeometrySet>()});
@@ -447,9 +450,18 @@ class LazyFunctionForViewerNode : public LazyFunction {
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
   {
-    UNUSED_VARS(context);
+    GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+    BLI_assert(user_data != nullptr);
+
     GeometrySet geometry = params.extract_input<GeometrySet>(0);
-    std::cout << "View Geometry: " << geometry << "\n";
+
+    geo_eval_log::GeoTreeLogger &tree_logger =
+        user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
+    tree_logger.log_viewer_node(bnode_, geometry);
+
+    std::stringstream ss;
+    ss << geometry;
+    user_data->context_stack->print_stack(std::cout, ss.str());
   }
 };
 
@@ -849,7 +861,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void handle_viewer_node(const bNode &bnode)
   {
-    auto lazy_function = std::make_unique<LazyFunctionForViewerNode>();
+    auto lazy_function = std::make_unique<LazyFunctionForViewerNode>(bnode);
     lf::FunctionNode &lf_node = lf_graph_->add_function(*lazy_function);
     lf_graph_info_->functions.append(std::move(lazy_function));
 

@@ -155,6 +155,14 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
   }
 }
 
+void GeoTreeLogger::log_viewer_node(const bNode &viewer_node, const GeometrySet &geometry)
+{
+  destruct_ptr<ViewerNodeLog> log = this->allocator.construct<ViewerNodeLog>();
+  log->geometry = geometry;
+  log->geometry.ensure_owns_direct_data();
+  this->viewer_node_logs_.append({viewer_node.name, std::move(log)});
+}
+
 void GeoTreeLog::ensure_node_warnings()
 {
   if (reduced_node_warnings_) {
@@ -226,6 +234,20 @@ void GeoTreeLog::ensure_socket_values()
     }
   }
   reduced_socket_values_ = true;
+}
+
+void GeoTreeLog::ensure_viewer_node_logs()
+{
+  if (reduced_viewer_node_logs_) {
+    return;
+  }
+  for (GeoTreeLogger *tree_logger : tree_loggers_) {
+    for (const std::tuple<std::string, destruct_ptr<ViewerNodeLog>> &viewer_log :
+         tree_logger->viewer_node_logs_) {
+      this->viewer_node_logs.add(std::get<0>(viewer_log), std::get<1>(viewer_log).get());
+    }
+  }
+  reduced_viewer_node_logs_ = true;
 }
 
 GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ContextStack &context_stack)
