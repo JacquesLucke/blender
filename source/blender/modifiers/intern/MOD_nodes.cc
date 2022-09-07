@@ -108,6 +108,7 @@ using blender::MultiValueMap;
 using blender::MutableSpan;
 using blender::Set;
 using blender::Span;
+using blender::Stack;
 using blender::StringRef;
 using blender::StringRefNull;
 using blender::Vector;
@@ -838,26 +839,23 @@ static Vector<SpaceSpreadsheet *> find_spreadsheet_editors(Main *bmain)
   return spreadsheets;
 }
 
-struct SocketToPreview {
-  blender::ContextStackHash context_hash;
-  const bNodeSocket *bsocket;
+static const lf::FunctionNode &find_viewer_lf_node(const bNode &viewer_bnode)
+{
+  return *blender::nodes::ensure_geometry_nodes_lazy_function_graph(viewer_bnode.owner_tree())
+              .mapping.viewer_node_map.lookup(&viewer_bnode);
+}
+static const lf::FunctionNode &find_group_lf_node(const bNode &group_bnode)
+{
+  return *blender::nodes::ensure_geometry_nodes_lazy_function_graph(group_bnode.owner_tree())
+              .mapping.group_node_map.lookup(&group_bnode);
+}
 
-  friend bool operator==(const SocketToPreview &a, const SocketToPreview &b)
-  {
-    return a.context_hash == b.context_hash && a.bsocket == b.bsocket;
-  }
-
-  uint64_t hash() const
-  {
-    return blender::get_default_hash_2(this->context_hash, bsocket);
-  }
-};
-
-static void find_sockets_to_preview_for_spreadsheet(const SpaceSpreadsheet &sspreadsheet,
-                                                    const NodesModifierData &nmd,
-                                                    const ModifierEvalContext &ctx,
-                                                    const bNodeTree &root_tree,
-                                                    Set<SocketToPreview> &r_sockets_to_preview)
+static void find_side_effect_nodes_for_spreadsheet(
+    const SpaceSpreadsheet &sspreadsheet,
+    const NodesModifierData &nmd,
+    const ModifierEvalContext &ctx,
+    const bNodeTree &root_tree,
+    MultiValueMap<blender::ContextStackHash, const lf::FunctionNode *> &r_side_effect_nodes)
 {
   Vector<SpreadsheetContext *> context_path = sspreadsheet.context_path;
   if (context_path.size() < 3) {
@@ -886,14 +884,15 @@ static void find_sockets_to_preview_for_spreadsheet(const SpaceSpreadsheet &sspr
   blender::ContextStackBuilder context_stack_builder;
   context_stack_builder.push<blender::nodes::ModifierContextStack>(nmd.modifier.name);
 
-  Span<SpreadsheetContextNode *> nested_group_contexts =
+  const Span<SpreadsheetContextNode *> nested_group_contexts =
       context_path.as_span().drop_front(2).drop_back(1).cast<SpreadsheetContextNode *>();
-  SpreadsheetContextNode *last_context = (SpreadsheetContextNode *)context_path.last();
+  const SpreadsheetContextNode *last_context = (SpreadsheetContextNode *)context_path.last();
 
+  Stack<const bNode *> group_node_stack;
   const bNodeTree *group = &root_tree;
   for (SpreadsheetContextNode *node_context : nested_group_contexts) {
     const bNode *found_node = nullptr;
-    for (const bNode *node : group->all_nodes()) {
+    for (const bNode *node : group->nodes_by_type("GeometryNodeGroup")) {
       if (STREQ(node->name, node_context->node_name)) {
         found_node = node;
         break;
@@ -902,33 +901,40 @@ static void find_sockets_to_preview_for_spreadsheet(const SpaceSpreadsheet &sspr
     if (found_node == nullptr) {
       return;
     }
-    if (!found_node->is_group()) {
-      return;
-    }
     if (found_node->id == nullptr) {
       return;
     }
+    group_node_stack.push(found_node);
     group = reinterpret_cast<const bNodeTree *>(found_node->id);
     context_stack_builder.push<blender::nodes::NodeGroupContextStack>(node_context->node_name,
                                                                       group->id.name + 2);
   }
 
+  const bNode *found_viewer_node = nullptr;
   for (const bNode *viewer_node : group->nodes_by_type("GeometryNodeViewer")) {
     if (STREQ(viewer_node->name, last_context->node_name)) {
-      for (const bNodeSocket *input_socket : viewer_node->input_sockets()) {
-        if (input_socket->is_available() && input_socket->is_logically_linked()) {
-          r_sockets_to_preview.add(SocketToPreview{context_stack_builder.hash(), input_socket});
-          context_stack_builder.current()->print_stack(std::cout, input_socket->name);
-        }
-      }
+      found_viewer_node = viewer_node;
+      break;
     }
+  }
+  if (found_viewer_node == nullptr) {
+    return;
+  }
+
+  r_side_effect_nodes.add(context_stack_builder.hash(), &find_viewer_lf_node(*found_viewer_node));
+  context_stack_builder.pop();
+  while (!context_stack_builder.is_empty()) {
+    r_side_effect_nodes.add(context_stack_builder.hash(),
+                            &find_group_lf_node(*group_node_stack.pop()));
+    context_stack_builder.pop();
   }
 }
 
-static void find_sockets_to_preview(const NodesModifierData &nmd,
-                                    const ModifierEvalContext &ctx,
-                                    const bNodeTree &tree,
-                                    Set<SocketToPreview> &r_sockets_to_preview)
+static void find_side_effect_nodes(
+    const NodesModifierData &nmd,
+    const ModifierEvalContext &ctx,
+    const bNodeTree &tree,
+    MultiValueMap<blender::ContextStackHash, const lf::FunctionNode *> &r_side_effect_nodes)
 {
   Main *bmain = DEG_get_bmain(ctx.depsgraph);
 
@@ -936,7 +942,7 @@ static void find_sockets_to_preview(const NodesModifierData &nmd,
    * intermediate geometries cached for display. */
   Vector<SpaceSpreadsheet *> spreadsheets = find_spreadsheet_editors(bmain);
   for (SpaceSpreadsheet *sspreadsheet : spreadsheets) {
-    find_sockets_to_preview_for_spreadsheet(*sspreadsheet, nmd, ctx, tree, r_sockets_to_preview);
+    find_side_effect_nodes_for_spreadsheet(*sspreadsheet, nmd, ctx, tree, r_side_effect_nodes);
   }
 }
 
@@ -1150,6 +1156,9 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
   if (logging_enabled(ctx)) {
     geo_nodes_modifier_data.eval_log = eval_log.get();
   }
+  MultiValueMap<blender::ContextStackHash, const lf::FunctionNode *> r_side_effect_nodes;
+  find_side_effect_nodes(*nmd, *ctx, btree, r_side_effect_nodes);
+  geo_nodes_modifier_data.side_effect_nodes = &r_side_effect_nodes;
   blender::nodes::GeoNodesLFUserData user_data;
   user_data.modifier_data = &geo_nodes_modifier_data;
   blender::nodes::ModifierContextStack modifier_context_stack{nullptr, nmd->modifier.name};
@@ -1180,9 +1189,6 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
     void *buffer = allocator.allocate(type.size(), type.alignment());
     param_outputs[i] = {type, buffer};
   }
-
-  Set<SocketToPreview> sockets_to_preview;
-  find_sockets_to_preview(*nmd, *ctx, btree, sockets_to_preview);
 
   lf::Context lf_context;
   lf_context.storage = graph_executor.init_storage(allocator);

@@ -81,15 +81,20 @@ class ContextStack {
 class ContextStackBuilder {
  private:
   LinearAllocator<> allocator_;
-  Vector<destruct_ptr<ContextStack>> contexts_;
+  Stack<destruct_ptr<ContextStack>> contexts_;
 
  public:
+  bool is_empty() const
+  {
+    return contexts_.is_empty();
+  }
+
   const ContextStack *current() const
   {
     if (contexts_.is_empty()) {
       return nullptr;
     }
-    return contexts_.last().get();
+    return contexts_.peek().get();
   }
 
   const ContextStackHash hash() const
@@ -102,7 +107,12 @@ class ContextStackBuilder {
   {
     const ContextStack *current = this->current();
     destruct_ptr<T> context = allocator_.construct<T>(current, std::forward<Args>(args)...);
-    contexts_.append(std::move(context));
+    contexts_.push(std::move(context));
+  }
+
+  void pop()
+  {
+    contexts_.pop();
   }
 };
 

@@ -769,7 +769,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     Vector<const bNodeSocket *> used_outputs;
     auto lazy_function = std::make_unique<LazyFunctionForGroupNode>(
         bnode, used_inputs, used_outputs);
-    lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+    lf::FunctionNode &lf_node = lf_graph_->add_function(*lazy_function);
     lf_graph_info_->functions.append(std::move(lazy_function));
     for (const int i : used_inputs.index_range()) {
       const bNodeSocket &bsocket = *used_inputs[i];
@@ -784,6 +784,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       output_socket_map_.add_new(&bsocket, &lf_socket);
       mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
+    mapping_->group_node_map.add(&bnode, &lf_node);
   }
 
   void handle_geometry_node(const bNode &bnode)
@@ -849,13 +850,14 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   void handle_viewer_node(const bNode &bnode)
   {
     auto lazy_function = std::make_unique<LazyFunctionForViewerNode>();
-    lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+    lf::FunctionNode &lf_node = lf_graph_->add_function(*lazy_function);
     lf_graph_info_->functions.append(std::move(lazy_function));
 
     const bNodeSocket &geometry_bsocket = bnode.input_socket(0);
     lf::InputSocket &lf_geometry_input = lf_node.input(0);
     input_socket_map_.add(&geometry_bsocket, &lf_geometry_input);
     mapping_->bsockets_by_lf_socket_map.add(&lf_geometry_input, &geometry_bsocket);
+    mapping_->viewer_node_map.add(&bnode, &lf_node);
   }
 
   void handle_links()
@@ -1142,21 +1144,9 @@ Vector<const lf::FunctionNode *> GeometryNodesLazyFunctionSideEffectProvider::
 {
   GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
   BLI_assert(user_data != nullptr);
+  const ContextStackHash &context_hash = user_data->context_stack->hash();
   const GeoNodesModifierData &modifier_data = *user_data->modifier_data;
-
-  Vector<const lf::FunctionNode *> side_effect_nodes;
-
-  /* TODO: Get nodes from context. */
-  for (const lf::Node *node : lf_graph_info_.graph.nodes()) {
-    if (node->is_function()) {
-      const lf::FunctionNode &function_node = *static_cast<const lf::FunctionNode *>(node);
-      if (dynamic_cast<const LazyFunctionForViewerNode *>(&function_node.function())) {
-        side_effect_nodes.append(&function_node);
-      }
-    }
-  }
-
-  return side_effect_nodes;
+  return modifier_data.side_effect_nodes->lookup(context_hash);
 }
 
 }  // namespace blender::nodes

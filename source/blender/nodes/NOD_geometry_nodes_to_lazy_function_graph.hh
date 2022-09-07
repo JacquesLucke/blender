@@ -22,6 +22,7 @@ struct GeoNodesModifierData {
   const Object *self_object = nullptr;
   Depsgraph *depsgraph = nullptr;
   geo_eval_log::GeoModifierLog *eval_log = nullptr;
+  const MultiValueMap<ContextStackHash, const lf::FunctionNode *> *side_effect_nodes;
 };
 
 class NodeGroupContextStack : public ContextStack {
@@ -85,6 +86,8 @@ struct GeometryNodeLazyFunctionMapping {
   Map<const bNodeSocket *, lf::Socket *> dummy_socket_map;
   Vector<lf::OutputSocket *> group_input_sockets;
   MultiValueMap<const lf::Socket *, const bNodeSocket *> bsockets_by_lf_socket_map;
+  Map<const bNode *, const lf::FunctionNode *> group_node_map;
+  Map<const bNode *, const lf::FunctionNode *> viewer_node_map;
 };
 
 struct GeometryNodesLazyFunctionGraphInfo {
