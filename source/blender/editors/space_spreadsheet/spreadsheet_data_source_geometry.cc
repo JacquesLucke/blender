@@ -5,6 +5,7 @@
 
 #include "BKE_attribute.hh"
 #include "BKE_context.h"
+#include "BKE_context_stack.hh"
 #include "BKE_curves.hh"
 #include "BKE_editmesh.h"
 #include "BKE_geometry_fields.hh"
@@ -448,14 +449,14 @@ static const ViewerNodeLog *try_find_viewer_node_log(const SpaceSpreadsheet &ssp
       static_cast<nodes::geo_eval_log::GeoModifierLog *>(nmd->runtime_eval_log);
 
   ContextStackBuilder context_stack_builder;
-  context_stack_builder.push<nodes::ModifierContextStack>(modifier_context->modifier_name);
+  context_stack_builder.push<bke::ModifierContextStack>(modifier_context->modifier_name);
   for (const SpreadsheetContext *context : context_path.as_span().drop_front(2).drop_back(1)) {
     if (context->type != SPREADSHEET_CONTEXT_NODE) {
       return nullptr;
     }
     const SpreadsheetContextNode &node_context = *reinterpret_cast<const SpreadsheetContextNode *>(
         context);
-    context_stack_builder.push<nodes::NodeGroupContextStack>(node_context.node_name);
+    context_stack_builder.push<bke::NodeGroupContextStack>(node_context.node_name);
   }
   const ContextStackHash context_hash = context_stack_builder.hash();
   nodes::geo_eval_log::GeoTreeLog &tree_log = modifier_log->get_tree_log(context_hash);

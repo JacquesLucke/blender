@@ -3,6 +3,7 @@
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 
+#include "BKE_context_stack.hh"
 #include "BKE_curves.hh"
 
 #include "FN_field_cpp_type.hh"
@@ -272,8 +273,8 @@ GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ContextStack &context
     GeoTreeLogger &parent_logger = this->get_local_tree_logger(*parent_context_stack);
     parent_logger.children_hashes.append(context_stack.hash());
   }
-  if (const NodeGroupContextStack *node_group_context_stack =
-          dynamic_cast<const NodeGroupContextStack *>(&context_stack)) {
+  if (const bke::NodeGroupContextStack *node_group_context_stack =
+          dynamic_cast<const bke::NodeGroupContextStack *>(&context_stack)) {
     tree_logger.group_node_name.emplace(node_group_context_stack->node_name());
   }
   return tree_logger;

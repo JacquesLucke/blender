@@ -25,58 +25,6 @@ struct GeoNodesModifierData {
   const MultiValueMap<ContextStackHash, const lf::FunctionNode *> *side_effect_nodes;
 };
 
-class NodeGroupContextStack : public ContextStack {
- private:
-  static constexpr const char *s_static_type = "NODE_GROUP";
-
-  std::string node_name_;
-  std::string debug_group_name_;
-
- public:
-  NodeGroupContextStack(const ContextStack *parent,
-                        std::string node_name,
-                        std::string debug_group_name = "<unknown>")
-      : ContextStack(s_static_type, parent),
-        node_name_(std::move(node_name)),
-        debug_group_name_(std::move(debug_group_name))
-  {
-    hash_.mix_in(s_static_type, strlen(s_static_type));
-    hash_.mix_in(node_name_.data(), node_name_.size());
-  }
-
-  StringRefNull node_name() const
-  {
-    return node_name_;
-  }
-
- private:
-  void print_current_in_line(std::ostream &stream) const override
-  {
-    stream << "Node Group: " << debug_group_name_ << " \t Node Name: " << node_name_;
-  }
-};
-
-class ModifierContextStack : public ContextStack {
- private:
-  static constexpr const char *s_static_type = "MODIFIER";
-
-  std::string modifier_name_;
-
- public:
-  ModifierContextStack(const ContextStack *parent, std::string modifier_name)
-      : ContextStack(s_static_type, parent), modifier_name_(std::move(modifier_name))
-  {
-    hash_.mix_in(s_static_type, strlen(s_static_type));
-    hash_.mix_in(modifier_name_.data(), modifier_name_.size());
-  }
-
- private:
-  void print_current_in_line(std::ostream &stream) const override
-  {
-    stream << "Modifier: " << modifier_name_;
-  }
-};
-
 struct GeoNodesLFUserData : public lf::UserData {
   GeoNodesModifierData *modifier_data = nullptr;
   const ContextStack *context_stack = nullptr;

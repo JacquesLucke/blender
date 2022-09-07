@@ -31,6 +31,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_context.h"
+#include "BKE_context_stack.hh"
 #include "BKE_idtype.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
@@ -357,14 +358,14 @@ static GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
     return nullptr;
   }
   GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
-  context_stack_builder.push<ModifierContextStack>(nmd->modifier.name);
+  context_stack_builder.push<bke::ModifierContextStack>(nmd->modifier.name);
   Vector<const bNodeTreePath *> tree_path_vec{snode.treepath};
   if (tree_path_vec.is_empty()) {
     return nullptr;
   }
   for (const bNodeTreePath *path : tree_path_vec.as_span().drop_front(1)) {
-    context_stack_builder.push<NodeGroupContextStack>(path->node_name,
-                                                      path->nodetree->id.name + 2);
+    context_stack_builder.push<bke::NodeGroupContextStack>(path->node_name,
+                                                           path->nodetree->id.name + 2);
   }
 
   return &modifier_log.get_tree_log(context_stack_builder.hash());

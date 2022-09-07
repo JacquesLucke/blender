@@ -9,6 +9,7 @@
 
 #include "DNA_ID.h"
 
+#include "BKE_context_stack.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_type_conversions.hh"
 
@@ -533,7 +534,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
   {
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
-    NodeGroupContextStack context_stack{
+    bke::NodeGroupContextStack context_stack{
         user_data->context_stack, group_node_.name, group_node_.id->name + 2};
     GeoNodesLFUserData group_user_data = *user_data;
     group_user_data.context_stack = &context_stack;

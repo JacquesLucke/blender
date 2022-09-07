@@ -36,6 +36,7 @@
 #include "DNA_windowmanager_types.h"
 
 #include "BKE_attribute_math.hh"
+#include "BKE_context_stack.hh"
 #include "BKE_customdata.h"
 #include "BKE_geometry_fields.hh"
 #include "BKE_geometry_set_instances.hh"
@@ -882,7 +883,7 @@ static void find_side_effect_nodes_for_spreadsheet(
   }
 
   blender::ContextStackBuilder context_stack_builder;
-  context_stack_builder.push<blender::nodes::ModifierContextStack>(nmd.modifier.name);
+  context_stack_builder.push<blender::bke::ModifierContextStack>(nmd.modifier.name);
 
   const Span<SpreadsheetContextNode *> nested_group_contexts =
       context_path.as_span().drop_front(2).drop_back(1).cast<SpreadsheetContextNode *>();
@@ -906,8 +907,8 @@ static void find_side_effect_nodes_for_spreadsheet(
     }
     group_node_stack.push(found_node);
     group = reinterpret_cast<const bNodeTree *>(found_node->id);
-    context_stack_builder.push<blender::nodes::NodeGroupContextStack>(node_context->node_name,
-                                                                      group->id.name + 2);
+    context_stack_builder.push<blender::bke::NodeGroupContextStack>(node_context->node_name,
+                                                                    group->id.name + 2);
   }
 
   const bNode *found_viewer_node = nullptr;
@@ -1161,7 +1162,7 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
   geo_nodes_modifier_data.side_effect_nodes = &r_side_effect_nodes;
   blender::nodes::GeoNodesLFUserData user_data;
   user_data.modifier_data = &geo_nodes_modifier_data;
-  blender::nodes::ModifierContextStack modifier_context_stack{nullptr, nmd->modifier.name};
+  blender::bke::ModifierContextStack modifier_context_stack{nullptr, nmd->modifier.name};
   user_data.context_stack = &modifier_context_stack;
 
   blender::LinearAllocator<> allocator;
@@ -1681,7 +1682,7 @@ static void panel_draw(const bContext *C, Panel *panel)
   /* Draw node warnings. */
   if (nmd->runtime_eval_log != nullptr) {
     GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
-    blender::nodes::ModifierContextStack context_stack{nullptr, nmd->modifier.name};
+    blender::bke::ModifierContextStack context_stack{nullptr, nmd->modifier.name};
     GeoTreeLog &tree_log = modifier_log.get_tree_log(context_stack.hash());
     tree_log.ensure_node_warnings();
     for (const NodeWarning &warning : tree_log.all_warnings) {

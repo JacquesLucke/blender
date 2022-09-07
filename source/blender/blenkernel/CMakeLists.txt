@@ -100,6 +100,7 @@ set(SRC
   intern/colortools.c
   intern/constraint.c
   intern/context.c
+  intern/context_stack.cc
   intern/crazyspace.cc
   intern/cryptomatte.cc
   intern/curve.cc
@@ -354,6 +355,7 @@ set(SRC
   BKE_colortools.h
   BKE_constraint.h
   BKE_context.h
+  BKE_context_stack.hh
   BKE_crazyspace.h
   BKE_crazyspace.hh
   BKE_cryptomatte.h
