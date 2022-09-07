@@ -35,7 +35,7 @@ class NodeGroupContextStack : public ContextStack {
  public:
   NodeGroupContextStack(const ContextStack *parent,
                         std::string node_name,
-                        std::string debug_group_name)
+                        std::string debug_group_name = "<unknown>")
       : ContextStack(s_static_type, parent),
         node_name_(std::move(node_name)),
         debug_group_name_(std::move(debug_group_name))

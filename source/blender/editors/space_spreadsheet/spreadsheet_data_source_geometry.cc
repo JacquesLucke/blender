@@ -27,6 +27,7 @@
 #include "ED_spreadsheet.h"
 
 #include "NOD_geometry_nodes_log.hh"
+#include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 
 #include "BLT_translation.h"
 
@@ -409,6 +410,70 @@ int VolumeDataSource::tot_rows() const
   return BKE_volume_num_grids(volume);
 }
 
+static std::optional<GeometrySet> try_find_logged_geometry(const SpaceSpreadsheet &sspreadsheet)
+{
+  Vector<const SpreadsheetContext *> context_path = sspreadsheet.context_path;
+  if (context_path.size() < 3) {
+    return std::nullopt;
+  }
+  if (context_path[0]->type != SPREADSHEET_CONTEXT_OBJECT) {
+    return std::nullopt;
+  }
+  if (context_path[1]->type != SPREADSHEET_CONTEXT_MODIFIER) {
+    return std::nullopt;
+  }
+  const SpreadsheetContextObject *object_context =
+      reinterpret_cast<const SpreadsheetContextObject *>(context_path[0]);
+  const SpreadsheetContextModifier *modifier_context =
+      reinterpret_cast<const SpreadsheetContextModifier *>(context_path[1]);
+  if (object_context->object == nullptr) {
+    return std::nullopt;
+  }
+  NodesModifierData *nmd = nullptr;
+  LISTBASE_FOREACH (ModifierData *, md, &object_context->object->modifiers) {
+    if (STREQ(md->name, modifier_context->modifier_name)) {
+      if (md->type == eModifierType_Nodes) {
+        nmd = reinterpret_cast<NodesModifierData *>(md);
+      }
+    }
+  }
+  if (nmd == nullptr) {
+    return std::nullopt;
+  }
+  if (nmd->runtime_eval_log == nullptr) {
+    return std::nullopt;
+  }
+  nodes::geo_eval_log::GeoModifierLog *modifier_log =
+      static_cast<nodes::geo_eval_log::GeoModifierLog *>(nmd->runtime_eval_log);
+
+  ContextStackBuilder context_stack_builder;
+  context_stack_builder.push<nodes::ModifierContextStack>(modifier_context->modifier_name);
+  for (const SpreadsheetContext *context : context_path.as_span().drop_front(2).drop_back(1)) {
+    if (context->type != SPREADSHEET_CONTEXT_NODE) {
+      return std::nullopt;
+    }
+    const SpreadsheetContextNode &node_context = *reinterpret_cast<const SpreadsheetContextNode *>(
+        context);
+    context_stack_builder.push<nodes::NodeGroupContextStack>(node_context.node_name);
+  }
+  const ContextStackHash context_hash = context_stack_builder.hash();
+  nodes::geo_eval_log::GeoTreeLog &tree_log = modifier_log->get_tree_log(context_hash);
+  tree_log.ensure_viewer_node_logs();
+
+  const SpreadsheetContext *last_context = context_path.last();
+  if (last_context->type != SPREADSHEET_CONTEXT_NODE) {
+    return std::nullopt;
+  }
+  const SpreadsheetContextNode &last_node_context =
+      *reinterpret_cast<const SpreadsheetContextNode *>(last_context);
+  const nodes::geo_eval_log::ViewerNodeLog *viewer_log = tree_log.viewer_node_logs.lookup(
+      last_node_context.node_name);
+  if (viewer_log == nullptr) {
+    return std::nullopt;
+  }
+  return viewer_log->geometry;
+}
+
 GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspreadsheet,
                                                  Object *object_eval)
 {
@@ -464,20 +529,9 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
         }
       }
       else {
-        // const geo_log::NodeLog *node_log =
-        //     geo_log::ModifierLog::find_node_by_spreadsheet_editor_context(*sspreadsheet);
-        // if (node_log != nullptr) {
-        //   for (const geo_log::SocketLog &input_log : node_log->input_logs()) {
-        //     if (const geo_log::GeometryInfoLog *geo_value_log =
-        //             dynamic_cast<const geo_log::GeometryInfoLog *>(input_log.value())) {
-        //       const GeometrySet *full_geometry = geo_value_log->full_geometry();
-        //       if (full_geometry != nullptr) {
-        //         geometry_set = *full_geometry;
-        //         break;
-        //       }
-        //     }
-        //   }
-        // }
+        if (std::optional<GeometrySet> viewer_geometry = try_find_logged_geometry(*sspreadsheet)) {
+          geometry_set = std::move(*viewer_geometry);
+        }
       }
     }
   }
