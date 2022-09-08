@@ -1845,35 +1845,11 @@ static NodeExtraInfoRow row_from_used_named_attribute(
   return row;
 }
 
-static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(const SpaceNode &snode,
-                                                                        const bNode &node)
+static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(
+    TreeDrawContext &tree_draw_ctx, const bNode &node)
 {
-  UNUSED_VARS(snode);
-  if (node.type == NODE_GROUP) {
-    // const geo_log::TreeLog *root_tree_log =
-    // geo_log::ModifierLog::find_tree_by_node_editor_context(
-    //     snode);
-    // if (root_tree_log == nullptr) {
-    //   return std::nullopt;
-    // }
-    // const geo_log::TreeLog *tree_log = root_tree_log->lookup_child_log(node.name);
-    // if (tree_log == nullptr) {
-    //   return std::nullopt;
-    // }
-
-    Map<std::string, NamedAttributeUsage> usage_by_attribute;
-    // tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
-    //   for (const geo_log::UsedNamedAttribute &used_attribute : node_log.used_named_attributes())
-    //   {
-    //     usage_by_attribute.lookup_or_add_as(used_attribute.name,
-    //                                         used_attribute.usage) |= used_attribute.usage;
-    //   }
-    // });
-    if (usage_by_attribute.is_empty()) {
-      return std::nullopt;
-    }
-
-    return row_from_used_named_attribute(usage_by_attribute);
+  if (tree_draw_ctx.geo_tree_log == nullptr) {
+    return std::nullopt;
   }
   if (ELEM(node.type,
            GEO_NODE_STORE_NAMED_ATTRIBUTE,
@@ -1882,29 +1858,21 @@ static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(const Sp
     /* Only show the overlay when the name is passed in from somewhere else. */
     LISTBASE_FOREACH (bNodeSocket *, socket, &node.inputs) {
       if (STREQ(socket->name, "Name")) {
-        if ((socket->flag & SOCK_IN_USE) == 0) {
+        if (!socket->is_directly_linked()) {
           return std::nullopt;
         }
       }
     }
-    // const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
-    //     snode, node.name);
-    // if (node_log == nullptr) {
-    //   return std::nullopt;
-    // }
-    Map<std::string, NamedAttributeUsage> usage_by_attribute;
-    // for (const geo_log::UsedNamedAttribute &used_attribute : node_log->used_named_attributes())
-    // {
-    //   usage_by_attribute.lookup_or_add_as(used_attribute.name,
-    //                                       used_attribute.usage) |= used_attribute.usage;
-    // }
-    // if (usage_by_attribute.is_empty()) {
-    //   return std::nullopt;
-    // }
-    return row_from_used_named_attribute(usage_by_attribute);
   }
-
-  return std::nullopt;
+  tree_draw_ctx.geo_tree_log->ensure_used_named_attributes();
+  GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
+  if (node_log == nullptr) {
+    return std::nullopt;
+  }
+  if (node_log->used_named_attributes.is_empty()) {
+    return std::nullopt;
+  }
+  return row_from_used_named_attribute(node_log->used_named_attributes);
 }
 
 static Vector<NodeExtraInfoRow> node_get_extra_info(TreeDrawContext &tree_draw_ctx,
@@ -1918,7 +1886,8 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(TreeDrawContext &tree_draw_c
 
   if (snode.overlay.flag & SN_OVERLAY_SHOW_NAMED_ATTRIBUTES &&
       snode.edittree->type == NTREE_GEOMETRY) {
-    if (std::optional<NodeExtraInfoRow> row = node_get_accessed_attributes_row(snode, node)) {
+    if (std::optional<NodeExtraInfoRow> row = node_get_accessed_attributes_row(tree_draw_ctx,
+                                                                               node)) {
       rows.append(std::move(*row));
     }
   }

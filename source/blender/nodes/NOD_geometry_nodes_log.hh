@@ -129,7 +129,10 @@ class GeoTreeLogger {
   Vector<std::tuple<std::string, std::string, ValueLog *>> output_socket_values;
   Vector<std::tuple<std::string, TimePoint, TimePoint>> node_execution_times;
   Vector<std::tuple<std::string, destruct_ptr<ViewerNodeLog>>, 0> viewer_node_logs_;
+  Vector<std::tuple<std::string, std::string, NamedAttributeUsage>, 0> used_named_attributes_;
 
+  GeoTreeLogger();
+  ~GeoTreeLogger();
   void log_value(const bNode &node, const bNodeSocket &socket, GPointer value);
   void log_viewer_node(const bNode &viewer_node, const GeometrySet &geometry, const GField &field);
 };
@@ -140,6 +143,10 @@ class GeoNodeLog {
   std::chrono::nanoseconds run_time{0};
   Map<std::string, ValueLog *> input_values_;
   Map<std::string, ValueLog *> output_values_;
+  Map<std::string, NamedAttributeUsage> used_named_attributes;
+
+  GeoNodeLog();
+  ~GeoNodeLog();
 };
 
 class GeoModifierLog;
@@ -153,6 +160,7 @@ class GeoTreeLog {
   bool reduced_socket_values_ = false;
   bool reduced_viewer_node_logs_ = false;
   bool reduced_existing_attributes_ = false;
+  bool reduced_used_named_attributes_ = false;
 
  public:
   Map<std::string, GeoNodeLog> nodes;
@@ -160,17 +168,17 @@ class GeoTreeLog {
   Vector<NodeWarning> all_warnings;
   std::chrono::nanoseconds run_time_sum{0};
   Vector<const GeometryAttributeInfo *> existing_attributes;
+  Map<std::string, NamedAttributeUsage> used_named_attributes;
 
-  GeoTreeLog(GeoModifierLog *modifier_log, Vector<GeoTreeLogger *> tree_loggers)
-      : modifier_log_(modifier_log), tree_loggers_(std::move(tree_loggers))
-  {
-  }
+  GeoTreeLog(GeoModifierLog *modifier_log, Vector<GeoTreeLogger *> tree_loggers);
+  ~GeoTreeLog();
 
   void ensure_node_warnings();
   void ensure_node_run_time();
   void ensure_socket_values();
   void ensure_viewer_node_logs();
   void ensure_existing_attributes();
+  void ensure_used_named_attributes();
 
   ValueLog *find_socket_value_log(const bNodeSocket &query_socket);
 };

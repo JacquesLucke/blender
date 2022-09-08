@@ -114,6 +114,20 @@ GeometryInfoLog::GeometryInfoLog(const GeometrySet &geometry_set)
   }
 }
 
+/* Avoid generating these in every translation unit. */
+GeoTreeLogger::GeoTreeLogger() = default;
+GeoTreeLogger::~GeoTreeLogger() = default;
+
+GeoNodeLog::GeoNodeLog() = default;
+GeoNodeLog::~GeoNodeLog() = default;
+
+GeoTreeLog::GeoTreeLog(GeoModifierLog *modifier_log, Vector<GeoTreeLogger *> tree_loggers)
+    : modifier_log_(modifier_log), tree_loggers_(std::move(tree_loggers))
+{
+}
+
+GeoTreeLog::~GeoTreeLog() = default;
+
 void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, const GPointer value)
 {
   const CPPType &type = *value.type();
@@ -182,15 +196,15 @@ void GeoTreeLog::ensure_node_warnings()
       this->all_warnings.append(warnings.second);
     }
     for (const ComputeContextHash &child_hash : tree_logger->children_hashes) {
-      GeoTreeLog &child_reduced_log = modifier_log_->get_tree_log(child_hash);
-      child_reduced_log.ensure_node_warnings();
+      GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
+      child_log.ensure_node_warnings();
       const std::optional<std::string> &group_node_name =
-          child_reduced_log.tree_loggers_[0]->group_node_name;
+          child_log.tree_loggers_[0]->group_node_name;
       if (group_node_name.has_value()) {
         this->nodes.lookup_or_add_default(*group_node_name)
-            .warnings.extend(child_reduced_log.all_warnings);
+            .warnings.extend(child_log.all_warnings);
       }
-      this->all_warnings.extend(child_reduced_log.all_warnings);
+      this->all_warnings.extend(child_log.all_warnings);
     }
   }
   reduced_node_warnings_ = true;
@@ -210,15 +224,14 @@ void GeoTreeLog::ensure_node_run_time()
       this->run_time_sum += duration;
     }
     for (const ComputeContextHash &child_hash : tree_logger->children_hashes) {
-      GeoTreeLog &child_reduced_log = modifier_log_->get_tree_log(child_hash);
-      child_reduced_log.ensure_node_run_time();
+      GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
+      child_log.ensure_node_run_time();
       const std::optional<std::string> &group_node_name =
-          child_reduced_log.tree_loggers_[0]->group_node_name;
+          child_log.tree_loggers_[0]->group_node_name;
       if (group_node_name.has_value()) {
-        this->nodes.lookup_or_add_default(*group_node_name).run_time +=
-            child_reduced_log.run_time_sum;
+        this->nodes.lookup_or_add_default(*group_node_name).run_time += child_log.run_time_sum;
       }
-      this->run_time_sum += child_reduced_log.run_time_sum;
+      this->run_time_sum += child_log.run_time_sum;
     }
   }
   reduced_node_run_times_ = true;
@@ -288,6 +301,39 @@ void GeoTreeLog::ensure_existing_attributes()
     }
   }
   reduced_existing_attributes_ = true;
+}
+
+void GeoTreeLog::ensure_used_named_attributes()
+{
+  if (reduced_used_named_attributes_) {
+    return;
+  }
+
+  auto add_attribute = [&](const StringRef node_name,
+                           const StringRef attribute_name,
+                           const NamedAttributeUsage &usage) {
+    this->nodes.lookup_or_add_as(node_name).used_named_attributes.lookup_or_add_as(attribute_name,
+                                                                                   usage) |= usage;
+    this->used_named_attributes.lookup_or_add_as(attribute_name, usage) |= usage;
+  };
+
+  for (GeoTreeLogger *tree_logger : tree_loggers_) {
+    for (const std::tuple<std::string, std::string, NamedAttributeUsage> &item :
+         tree_logger->used_named_attributes_) {
+      add_attribute(std::get<0>(item), std::get<1>(item), std::get<2>(item));
+    }
+    for (const ComputeContextHash &child_hash : tree_logger->children_hashes) {
+      GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
+      child_log.ensure_used_named_attributes();
+      if (const std::optional<std::string> &group_node_name =
+              child_log.tree_loggers_[0]->group_node_name) {
+        for (const auto &item : child_log.used_named_attributes.items()) {
+          add_attribute(*group_node_name, item.key, item.value);
+        }
+      }
+    }
+  }
+  reduced_used_named_attributes_ = true;
 }
 
 ValueLog *GeoTreeLog::find_socket_value_log(const bNodeSocket &query_socket)

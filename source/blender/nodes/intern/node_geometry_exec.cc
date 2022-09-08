@@ -23,8 +23,9 @@ void GeoNodeExecParams::error_message_add(const NodeWarningType type, std::strin
 void GeoNodeExecParams::used_named_attribute(std::string attribute_name,
                                              const NamedAttributeUsage usage)
 {
-  /* TODO */
-  UNUSED_VARS(attribute_name, usage);
+  if (geo_eval_log::GeoTreeLogger *tree_logger = this->get_local_tree_logger()) {
+    tree_logger->used_named_attributes_.append({node_.name, std::move(attribute_name), usage});
+  }
 }
 
 void GeoNodeExecParams::check_input_geometry_set(StringRef identifier,
