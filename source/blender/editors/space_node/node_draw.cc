@@ -1906,17 +1906,6 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(TreeDrawContext &tree_draw_c
       rows.append(std::move(row));
     }
   }
-  // const geo_log::NodeLog *node_log =
-  // geo_log::ModifierLog::find_node_by_node_editor_context(snode,
-  //                                                                                           node);
-  // if (node_log != nullptr) {
-  //   for (const std::string &message : node_log->debug_messages()) {
-  //     NodeExtraInfoRow row;
-  //     row.text = message;
-  //     row.icon = ICON_INFO;
-  //     rows.append(std::move(row));
-  //   }
-  // }
 
   return rows;
 }

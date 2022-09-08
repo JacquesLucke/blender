@@ -31,11 +31,6 @@ struct wmGizmoGroupType;
 struct wmKeyConfig;
 struct wmWindow;
 
-namespace blender::nodes::geo_eval_log {
-class ValueLog;
-class GeoTreeLog;
-}  // namespace blender::nodes::geo_eval_log
-
 /* Outside of blender namespace to avoid Python documentation build error with `ctypes`. */
 extern "C" {
 extern const char *node_context_dir[];
