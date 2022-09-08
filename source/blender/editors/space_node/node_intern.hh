@@ -155,9 +155,6 @@ void node_socket_add_tooltip(const bNodeTree &ntree,
                              const bNodeSocket &sock,
                              uiLayout &layout);
 
-nodes::geo_eval_log::ValueLog *find_socket_value_log(nodes::geo_eval_log::GeoTreeLog &tree_log,
-                                                     const bNodeSocket &query_socket);
-
 /**
  * Sort nodes by selection: unselected nodes first, then selected,
  * then the active node at the very end. Relative order is kept intact.

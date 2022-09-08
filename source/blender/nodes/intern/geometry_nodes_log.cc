@@ -5,6 +5,7 @@
 
 #include "BKE_compute_contexts.hh"
 #include "BKE_curves.hh"
+#include "BKE_node_runtime.hh"
 
 #include "FN_field_cpp_type.hh"
 
@@ -287,6 +288,82 @@ void GeoTreeLog::ensure_existing_attributes()
     }
   }
   reduced_existing_attributes_ = true;
+}
+
+ValueLog *GeoTreeLog::find_socket_value_log(const bNodeSocket &query_socket)
+{
+  /**
+   * Geometry nodes does not log values for every socket. That would produce a lot of redundant
+   * data,because often many linked sockets have the same value. To find the logged value for a
+   * socket one might have to look at linked sockets as well.
+   */
+
+  BLI_assert(reduced_socket_values_);
+  if (query_socket.is_multi_input()) {
+    /* Not supported currently. */
+    return nullptr;
+  }
+
+  Set<const bNodeSocket *> added_sockets;
+  Stack<const bNodeSocket *> sockets_to_check;
+  sockets_to_check.push(&query_socket);
+  added_sockets.add(&query_socket);
+
+  while (!sockets_to_check.is_empty()) {
+    const bNodeSocket &socket = *sockets_to_check.pop();
+    const bNode &node = socket.owner_node();
+    if (GeoNodeLog *node_log = this->nodes.lookup_ptr(node.name)) {
+      ValueLog *value_log = socket.is_input() ?
+                                node_log->input_values_.lookup_default(socket.identifier,
+                                                                       nullptr) :
+                                node_log->output_values_.lookup_default(socket.identifier,
+                                                                        nullptr);
+      if (value_log != nullptr) {
+        return value_log;
+      }
+    }
+
+    if (socket.is_input()) {
+      const Span<const bNodeLink *> links = socket.directly_linked_links();
+      for (const bNodeLink *link : links) {
+        const bNodeSocket &from_socket = *link->fromsock;
+        if (added_sockets.add(&from_socket)) {
+          sockets_to_check.push(&from_socket);
+        }
+      }
+    }
+    else {
+      if (node.is_reroute()) {
+        const bNodeSocket &input_socket = node.input_socket(0);
+        if (added_sockets.add(&input_socket)) {
+          sockets_to_check.push(&input_socket);
+        }
+        const Span<const bNodeLink *> links = input_socket.directly_linked_links();
+        for (const bNodeLink *link : links) {
+          const bNodeSocket &from_socket = *link->fromsock;
+          if (added_sockets.add(&from_socket)) {
+            sockets_to_check.push(&from_socket);
+          }
+        }
+      }
+      else if (node.is_muted()) {
+        if (const bNodeSocket *input_socket = socket.internal_link_input()) {
+          if (added_sockets.add(input_socket)) {
+            sockets_to_check.push(input_socket);
+          }
+          const Span<const bNodeLink *> links = input_socket->directly_linked_links();
+          for (const bNodeLink *link : links) {
+            const bNodeSocket &from_socket = *link->fromsock;
+            if (added_sockets.add(&from_socket)) {
+              sockets_to_check.push(&from_socket);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ComputeContext &compute_context)

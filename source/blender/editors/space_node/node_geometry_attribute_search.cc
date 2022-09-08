@@ -93,7 +93,7 @@ static Vector<const GeometryAttributeInfo *> get_attribute_info_from_context(
     if (input_socket->type != SOCK_GEOMETRY) {
       continue;
     }
-    const ValueLog *value_log = find_socket_value_log(*tree_log, *input_socket);
+    const ValueLog *value_log = tree_log->find_socket_value_log(*input_socket);
     if (value_log == nullptr) {
       continue;
     }

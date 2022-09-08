@@ -171,6 +171,8 @@ class GeoTreeLog {
   void ensure_socket_values();
   void ensure_viewer_node_logs();
   void ensure_existing_attributes();
+
+  ValueLog *find_socket_value_log(const bNodeSocket &query_socket);
 };
 
 class GeoModifierLog {

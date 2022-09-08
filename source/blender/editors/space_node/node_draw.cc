@@ -353,78 +353,6 @@ static bool node_socket_has_tooltip(const bNodeTree *ntree, const bNodeSocket *s
   return false;
 }
 
-nodes::geo_eval_log::ValueLog *find_socket_value_log(GeoTreeLog &tree_log,
-                                                     const bNodeSocket &query_socket)
-{
-  using namespace blender::nodes::geo_eval_log;
-  tree_log.ensure_socket_values();
-
-  if (query_socket.is_multi_input()) {
-    return nullptr;
-  }
-
-  Set<const bNodeSocket *> added_sockets;
-  Stack<const bNodeSocket *> sockets_to_check;
-  sockets_to_check.push(&query_socket);
-  added_sockets.add(&query_socket);
-
-  while (!sockets_to_check.is_empty()) {
-    const bNodeSocket &socket = *sockets_to_check.pop();
-    const bNode &node = socket.owner_node();
-    if (GeoNodeLog *node_log = tree_log.nodes.lookup_ptr(node.name)) {
-      ValueLog *value_log = socket.is_input() ?
-                                node_log->input_values_.lookup_default(socket.identifier,
-                                                                       nullptr) :
-                                node_log->output_values_.lookup_default(socket.identifier,
-                                                                        nullptr);
-      if (value_log != nullptr) {
-        return value_log;
-      }
-    }
-
-    if (socket.is_input()) {
-      const Span<const bNodeLink *> links = socket.directly_linked_links();
-      for (const bNodeLink *link : links) {
-        const bNodeSocket &from_socket = *link->fromsock;
-        if (added_sockets.add(&from_socket)) {
-          sockets_to_check.push(&from_socket);
-        }
-      }
-    }
-    else {
-      if (node.is_reroute()) {
-        const bNodeSocket &input_socket = node.input_socket(0);
-        if (added_sockets.add(&input_socket)) {
-          sockets_to_check.push(&input_socket);
-        }
-        const Span<const bNodeLink *> links = input_socket.directly_linked_links();
-        for (const bNodeLink *link : links) {
-          const bNodeSocket &from_socket = *link->fromsock;
-          if (added_sockets.add(&from_socket)) {
-            sockets_to_check.push(&from_socket);
-          }
-        }
-      }
-      else if (node.is_muted()) {
-        if (const bNodeSocket *input_socket = socket.internal_link_input()) {
-          if (added_sockets.add(input_socket)) {
-            sockets_to_check.push(input_socket);
-          }
-          const Span<const bNodeLink *> links = input_socket->directly_linked_links();
-          for (const bNodeLink *link : links) {
-            const bNodeSocket &from_socket = *link->fromsock;
-            if (added_sockets.add(&from_socket)) {
-              sockets_to_check.push(&from_socket);
-            }
-          }
-        }
-      }
-    }
-  }
-
-  return nullptr;
-}
-
 static void create_inspection_string_for_generic_value(const GPointer value, std::stringstream &ss)
 {
   auto id_to_inspection_string = [&](const ID *id, const short idcode) {
@@ -638,7 +566,7 @@ static std::optional<std::string> create_socket_inspection_string(TreeDrawContex
                                                                   const bNodeSocket &socket)
 {
   using namespace blender::nodes::geo_eval_log;
-  ValueLog *value_log = find_socket_value_log(*tree_draw_ctx.geo_tree_log, socket);
+  ValueLog *value_log = tree_draw_ctx.geo_tree_log->find_socket_value_log(socket);
   if (value_log == nullptr) {
     return std::nullopt;
   }
