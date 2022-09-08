@@ -125,11 +125,13 @@ using blender::nodes::geo_eval_log::GeoModifierLog;
 using blender::threading::EnumerableThreadSpecific;
 using namespace blender::fn::multi_function_types;
 using blender::nodes::geo_eval_log::GeometryAttributeInfo;
+using blender::nodes::geo_eval_log::GeometryInfoLog;
 using blender::nodes::geo_eval_log::GeoNodeLog;
 using blender::nodes::geo_eval_log::GeoTreeLog;
 using blender::nodes::geo_eval_log::NamedAttributeUsage;
 using blender::nodes::geo_eval_log::NodeWarning;
 using blender::nodes::geo_eval_log::NodeWarningType;
+using blender::nodes::geo_eval_log::ValueLog;
 
 static void initData(ModifierData *md)
 {
@@ -1395,6 +1397,16 @@ static NodesModifierData *get_modifier_data(Main &bmain,
   return reinterpret_cast<NodesModifierData *>(md);
 }
 
+static GeoTreeLog *get_root_tree_log(const NodesModifierData &nmd)
+{
+  if (nmd.runtime_eval_log == nullptr) {
+    return nullptr;
+  }
+  GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd.runtime_eval_log);
+  blender::bke::ModifierComputeContext compute_context{nullptr, nmd.modifier.name};
+  return &modifier_log.get_tree_log(compute_context.hash());
+}
+
 static void attribute_search_update_fn(
     const bContext *C, void *arg, const char *str, uiSearchItems *items, const bool is_first)
 {
@@ -1403,27 +1415,52 @@ static void attribute_search_update_fn(
   if (nmd == nullptr) {
     return;
   }
-  // const geo_log::ModifierLog *modifier_log = static_cast<const geo_log::ModifierLog *>(
-  //     nmd->runtime_eval_log);
-  // if (modifier_log == nullptr) {
-  //   return;
-  // }
-  // const geo_log::GeometryInfoLog *geometry_log = data.is_output ?
-  //                                                     modifier_log->output_geometry_log() :
-  //                                                     modifier_log->input_geometry_log();
-  // if (geometry_log == nullptr) {
-  //   return;
-  // }
+  if (nmd->node_group == nullptr) {
+    return;
+  }
+  GeoTreeLog *tree_log = get_root_tree_log(*nmd);
+  if (tree_log == nullptr) {
+    return;
+  }
+  tree_log->ensure_existing_attributes();
+  nmd->node_group->ensure_topology_cache();
 
-  Span<GeometryAttributeInfo> infos;
-
-  /* The shared attribute search code expects a span of pointers, so convert to that. */
-  Array<const GeometryAttributeInfo *> info_ptrs(infos.size());
-  for (const int i : infos.index_range()) {
-    info_ptrs[i] = &infos[i];
+  Vector<const bNodeSocket *> sockets_to_check;
+  if (data.is_output) {
+    for (const bNode *node : nmd->node_group->nodes_by_type("NodeGroupOutput")) {
+      for (const bNodeSocket *socket : node->input_sockets()) {
+        if (socket->type == SOCK_GEOMETRY) {
+          sockets_to_check.append(socket);
+        }
+      }
+    }
+  }
+  else {
+    for (const bNode *node : nmd->node_group->nodes_by_type("NodeGroupInput")) {
+      for (const bNodeSocket *socket : node->output_sockets()) {
+        if (socket->type == SOCK_GEOMETRY) {
+          sockets_to_check.append(socket);
+        }
+      }
+    }
+  }
+  Set<StringRef> names;
+  Vector<const GeometryAttributeInfo *> attributes;
+  for (const bNodeSocket *socket : sockets_to_check) {
+    const ValueLog *value_log = tree_log->find_socket_value_log(*socket);
+    if (value_log == nullptr) {
+      continue;
+    }
+    if (const GeometryInfoLog *geo_log = dynamic_cast<const GeometryInfoLog *>(value_log)) {
+      for (const GeometryAttributeInfo &attribute : geo_log->attributes) {
+        if (names.add(attribute.name)) {
+          attributes.append(&attribute);
+        }
+      }
+    }
   }
   blender::ui::attribute_search_add_items(
-      str, data.is_output, info_ptrs.as_span(), items, is_first);
+      str, data.is_output, attributes.as_span(), items, is_first);
 }
 
 static void attribute_search_exec_fn(bContext *C, void *data_v, void *item_v)
@@ -1454,8 +1491,7 @@ static void add_attribute_search_button(const bContext &C,
                                         const bNodeSocket &socket,
                                         const bool is_output)
 {
-  // const geo_log::ModifierLog *log = static_cast<geo_log::ModifierLog *>(nmd.runtime_eval_log);
-  if (true) {
+  if (nmd.runtime_eval_log == nullptr) {
     uiItemR(layout, md_ptr, rna_path_attribute_name.c_str(), 0, "", ICON_NONE);
     return;
   }
@@ -1680,12 +1716,10 @@ static void panel_draw(const bContext *C, Panel *panel)
   }
 
   /* Draw node warnings. */
-  if (nmd->runtime_eval_log != nullptr) {
-    GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
-    blender::bke::ModifierComputeContext compute_context{nullptr, nmd->modifier.name};
-    GeoTreeLog &tree_log = modifier_log.get_tree_log(compute_context.hash());
-    tree_log.ensure_node_warnings();
-    for (const NodeWarning &warning : tree_log.all_warnings) {
+  GeoTreeLog *tree_log = get_root_tree_log(*nmd);
+  if (tree_log != nullptr) {
+    tree_log->ensure_node_warnings();
+    for (const NodeWarning &warning : tree_log->all_warnings) {
       if (warning.type != NodeWarningType::Info) {
         uiItemL(layout, warning.message.c_str(), ICON_ERROR);
       }
@@ -1726,14 +1760,14 @@ static void internal_dependencies_panel_draw(const bContext *UNUSED(C), Panel *p
   PointerRNA *ptr = modifier_panel_get_property_pointers(panel, nullptr);
   NodesModifierData *nmd = static_cast<NodesModifierData *>(ptr->data);
 
-  if (nmd->runtime_eval_log == nullptr) {
+  GeoTreeLog *tree_log = get_root_tree_log(*nmd);
+  if (tree_log == nullptr) {
     return;
   }
-  GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
-  blender::bke::ModifierComputeContext compute_context{nullptr, nmd->modifier.name};
-  GeoTreeLog &tree_log = modifier_log.get_tree_log(compute_context.hash());
-  tree_log.ensure_used_named_attributes();
-  const Map<std::string, NamedAttributeUsage> &usage_by_attribute = tree_log.used_named_attributes;
+
+  tree_log->ensure_used_named_attributes();
+  const Map<std::string, NamedAttributeUsage> &usage_by_attribute =
+      tree_log->used_named_attributes;
 
   if (usage_by_attribute.is_empty()) {
     uiItemL(layout, IFACE_("No named attributes used"), ICON_INFO);

@@ -71,6 +71,7 @@ static Vector<const GeometryAttributeInfo *> get_attribute_info_from_context(
   if (tree_log == nullptr) {
     return {};
   }
+  tree_log->ensure_socket_values();
 
   /* For the attribute input node, collect attribute information from all nodes in the group. */
   if (node->type == GEO_NODE_INPUT_NAMED_ATTRIBUTE) {
