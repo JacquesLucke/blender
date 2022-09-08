@@ -17,6 +17,7 @@
 #include "DNA_node_types.h"
 
 struct SpaceNode;
+struct SpaceSpreadsheet;
 struct NodesModifierData;
 
 namespace blender::nodes::geo_eval_log {
@@ -204,6 +205,8 @@ class GeoModifierLog {
 
   static std::optional<ObjectAndModifier> get_modifier_for_node_editor(const SpaceNode &snode);
   static GeoTreeLog *get_tree_log_for_node_editor(const SpaceNode &snode);
+  static const ViewerNodeLog *find_viewer_node_log_for_spreadsheet(
+      const SpaceSpreadsheet &sspreadsheet);
 };
 
 }  // namespace blender::nodes::geo_eval_log

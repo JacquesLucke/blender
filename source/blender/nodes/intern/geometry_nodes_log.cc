@@ -520,4 +520,65 @@ GeoTreeLog *GeoModifierLog::get_tree_log_for_node_editor(const SpaceNode &snode)
   return &modifier_log->get_tree_log(compute_context_builder.hash());
 }
 
+const ViewerNodeLog *GeoModifierLog::find_viewer_node_log_for_spreadsheet(
+    const SpaceSpreadsheet &sspreadsheet)
+{
+  Vector<const SpreadsheetContext *> context_path = sspreadsheet.context_path;
+  if (context_path.size() < 3) {
+    return nullptr;
+  }
+  if (context_path[0]->type != SPREADSHEET_CONTEXT_OBJECT) {
+    return nullptr;
+  }
+  if (context_path[1]->type != SPREADSHEET_CONTEXT_MODIFIER) {
+    return nullptr;
+  }
+  const SpreadsheetContextObject *object_context =
+      reinterpret_cast<const SpreadsheetContextObject *>(context_path[0]);
+  const SpreadsheetContextModifier *modifier_context =
+      reinterpret_cast<const SpreadsheetContextModifier *>(context_path[1]);
+  if (object_context->object == nullptr) {
+    return nullptr;
+  }
+  NodesModifierData *nmd = nullptr;
+  LISTBASE_FOREACH (ModifierData *, md, &object_context->object->modifiers) {
+    if (STREQ(md->name, modifier_context->modifier_name)) {
+      if (md->type == eModifierType_Nodes) {
+        nmd = reinterpret_cast<NodesModifierData *>(md);
+      }
+    }
+  }
+  if (nmd == nullptr) {
+    return nullptr;
+  }
+  if (nmd->runtime_eval_log == nullptr) {
+    return nullptr;
+  }
+  nodes::geo_eval_log::GeoModifierLog *modifier_log =
+      static_cast<nodes::geo_eval_log::GeoModifierLog *>(nmd->runtime_eval_log);
+
+  ComputeContextBuilder compute_context_builder;
+  compute_context_builder.push<bke::ModifierComputeContext>(modifier_context->modifier_name);
+  for (const SpreadsheetContext *context : context_path.as_span().drop_front(2).drop_back(1)) {
+    if (context->type != SPREADSHEET_CONTEXT_NODE) {
+      return nullptr;
+    }
+    const SpreadsheetContextNode &node_context = *reinterpret_cast<const SpreadsheetContextNode *>(
+        context);
+    compute_context_builder.push<bke::NodeGroupComputeContext>(node_context.node_name);
+  }
+  const ComputeContextHash context_hash = compute_context_builder.hash();
+  nodes::geo_eval_log::GeoTreeLog &tree_log = modifier_log->get_tree_log(context_hash);
+  tree_log.ensure_viewer_node_logs();
+
+  const SpreadsheetContext *last_context = context_path.last();
+  if (last_context->type != SPREADSHEET_CONTEXT_NODE) {
+    return nullptr;
+  }
+  const SpreadsheetContextNode &last_node_context =
+      *reinterpret_cast<const SpreadsheetContextNode *>(last_context);
+  const ViewerNodeLog *viewer_log = tree_log.viewer_node_logs.lookup(last_node_context.node_name);
+  return viewer_log;
+}
+
 }  // namespace blender::nodes::geo_eval_log

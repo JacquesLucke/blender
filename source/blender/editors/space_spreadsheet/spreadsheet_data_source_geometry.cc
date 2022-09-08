@@ -412,66 +412,6 @@ int VolumeDataSource::tot_rows() const
   return BKE_volume_num_grids(volume);
 }
 
-static const ViewerNodeLog *try_find_viewer_node_log(const SpaceSpreadsheet &sspreadsheet)
-{
-  Vector<const SpreadsheetContext *> context_path = sspreadsheet.context_path;
-  if (context_path.size() < 3) {
-    return nullptr;
-  }
-  if (context_path[0]->type != SPREADSHEET_CONTEXT_OBJECT) {
-    return nullptr;
-  }
-  if (context_path[1]->type != SPREADSHEET_CONTEXT_MODIFIER) {
-    return nullptr;
-  }
-  const SpreadsheetContextObject *object_context =
-      reinterpret_cast<const SpreadsheetContextObject *>(context_path[0]);
-  const SpreadsheetContextModifier *modifier_context =
-      reinterpret_cast<const SpreadsheetContextModifier *>(context_path[1]);
-  if (object_context->object == nullptr) {
-    return nullptr;
-  }
-  NodesModifierData *nmd = nullptr;
-  LISTBASE_FOREACH (ModifierData *, md, &object_context->object->modifiers) {
-    if (STREQ(md->name, modifier_context->modifier_name)) {
-      if (md->type == eModifierType_Nodes) {
-        nmd = reinterpret_cast<NodesModifierData *>(md);
-      }
-    }
-  }
-  if (nmd == nullptr) {
-    return nullptr;
-  }
-  if (nmd->runtime_eval_log == nullptr) {
-    return nullptr;
-  }
-  nodes::geo_eval_log::GeoModifierLog *modifier_log =
-      static_cast<nodes::geo_eval_log::GeoModifierLog *>(nmd->runtime_eval_log);
-
-  ComputeContextBuilder compute_context_builder;
-  compute_context_builder.push<bke::ModifierComputeContext>(modifier_context->modifier_name);
-  for (const SpreadsheetContext *context : context_path.as_span().drop_front(2).drop_back(1)) {
-    if (context->type != SPREADSHEET_CONTEXT_NODE) {
-      return nullptr;
-    }
-    const SpreadsheetContextNode &node_context = *reinterpret_cast<const SpreadsheetContextNode *>(
-        context);
-    compute_context_builder.push<bke::NodeGroupComputeContext>(node_context.node_name);
-  }
-  const ComputeContextHash context_hash = compute_context_builder.hash();
-  nodes::geo_eval_log::GeoTreeLog &tree_log = modifier_log->get_tree_log(context_hash);
-  tree_log.ensure_viewer_node_logs();
-
-  const SpreadsheetContext *last_context = context_path.last();
-  if (last_context->type != SPREADSHEET_CONTEXT_NODE) {
-    return nullptr;
-  }
-  const SpreadsheetContextNode &last_node_context =
-      *reinterpret_cast<const SpreadsheetContextNode *>(last_context);
-  const ViewerNodeLog *viewer_log = tree_log.viewer_node_logs.lookup(last_node_context.node_name);
-  return viewer_log;
-}
-
 GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspreadsheet,
                                                  Object *object_eval)
 {
@@ -485,8 +425,8 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
         BMEditMesh *em = mesh->edit_mesh;
         if (em != nullptr) {
           Mesh *new_mesh = (Mesh *)BKE_id_new_nomain(ID_ME, nullptr);
-          /* This is a potentially heavy operation to do on every redraw. The best solution here is
-           * to display the data directly from the bmesh without a conversion, which can be
+          /* This is a potentially heavy operation to do on every redraw. The best solution here
+           * is to display the data directly from the bmesh without a conversion, which can be
            * implemented a bit later. */
           BM_mesh_bm_to_me_for_eval(em->bm, new_mesh, nullptr);
           mesh_component.replace(new_mesh, GeometryOwnershipType::Owned);
@@ -527,7 +467,9 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
         }
       }
       else {
-        if (const ViewerNodeLog *viewer_log = try_find_viewer_node_log(*sspreadsheet)) {
+        if (const ViewerNodeLog *viewer_log =
+                nodes::geo_eval_log::GeoModifierLog::find_viewer_node_log_for_spreadsheet(
+                    *sspreadsheet)) {
           geometry_set = viewer_log->geometry;
         }
       }
@@ -546,7 +488,9 @@ static void find_fields_to_evaluate(const SpaceSpreadsheet *sspreadsheet,
     /* No viewer is currently referenced by the context path. */
     return;
   }
-  if (const ViewerNodeLog *viewer_log = try_find_viewer_node_log(*sspreadsheet)) {
+  if (const ViewerNodeLog *viewer_log =
+          nodes::geo_eval_log::GeoModifierLog::find_viewer_node_log_for_spreadsheet(
+              *sspreadsheet)) {
     if (viewer_log->field) {
       r_fields.add("Viewer", viewer_log->field);
     }
@@ -579,8 +523,8 @@ class GeometryComponentCacheKey : public SpreadsheetCache::Key {
 
 class GeometryComponentCacheValue : public SpreadsheetCache::Value {
  public:
-  /* Stores the result of fields evaluated on a geometry component. Without this, fields would have
-   * to be reevaluated on every redraw. */
+  /* Stores the result of fields evaluated on a geometry component. Without this, fields would
+   * have to be reevaluated on every redraw. */
   Map<std::pair<eAttrDomain, GField>, GArray<>> arrays;
 };
 
