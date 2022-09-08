@@ -12,7 +12,7 @@ namespace blender::fn::lazy_function {
 
 std::string LazyFunction::name() const
 {
-  return static_name_;
+  return debug_name_;
 }
 
 std::string LazyFunction::input_name(int index) const

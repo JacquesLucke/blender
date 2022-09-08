@@ -85,7 +85,7 @@ class GeometryNodesLazyFunctionSideEffectProvider
       const lf::Context &context) const override;
 };
 
-const GeometryNodesLazyFunctionGraphInfo &ensure_geometry_nodes_lazy_function_graph(
+const GeometryNodesLazyFunctionGraphInfo *ensure_geometry_nodes_lazy_function_graph(
     const bNodeTree &btree);
 
 }  // namespace blender::nodes

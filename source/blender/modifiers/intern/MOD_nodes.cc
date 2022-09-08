@@ -845,12 +845,12 @@ static Vector<SpaceSpreadsheet *> find_spreadsheet_editors(Main *bmain)
 static const lf::FunctionNode &find_viewer_lf_node(const bNode &viewer_bnode)
 {
   return *blender::nodes::ensure_geometry_nodes_lazy_function_graph(viewer_bnode.owner_tree())
-              .mapping.viewer_node_map.lookup(&viewer_bnode);
+              ->mapping.viewer_node_map.lookup(&viewer_bnode);
 }
 static const lf::FunctionNode &find_group_lf_node(const bNode &group_bnode)
 {
   return *blender::nodes::ensure_geometry_nodes_lazy_function_graph(group_bnode.owner_tree())
-              .mapping.group_node_map.lookup(&group_bnode);
+              ->mapping.group_node_map.lookup(&group_bnode);
 }
 
 static void find_side_effect_nodes_for_spreadsheet(
@@ -1118,15 +1118,14 @@ static void store_output_attributes(GeometrySet &geometry,
 /**
  * Evaluate a node group to compute the output geometry.
  */
-static GeometrySet compute_geometry(const bNodeTree &btree,
-                                    const bNode &output_node,
-                                    GeometrySet input_geometry_set,
-                                    NodesModifierData *nmd,
-                                    const ModifierEvalContext *ctx)
+static GeometrySet compute_geometry(
+    const bNodeTree &btree,
+    const blender::nodes::GeometryNodesLazyFunctionGraphInfo &lf_graph_info,
+    const bNode &output_node,
+    GeometrySet input_geometry_set,
+    NodesModifierData *nmd,
+    const ModifierEvalContext *ctx)
 {
-
-  const blender::nodes::GeometryNodesLazyFunctionGraphInfo &lf_graph_info =
-      blender::nodes::ensure_geometry_nodes_lazy_function_graph(btree);
   const blender::nodes::GeometryNodeLazyFunctionMapping &mapping = lf_graph_info.mapping;
 
   Vector<const lf::OutputSocket *> graph_inputs;
@@ -1284,13 +1283,6 @@ static void modifyGeometry(ModifierData *md,
   tree.ensure_topology_cache();
   check_property_socket_sync(ctx->object, md);
 
-  /* Todo: Check for link cycles recursively. */
-  if (tree.has_link_cycle()) {
-    BKE_modifier_set_error(ctx->object, md, "Node group has cycles");
-    geometry_set.clear();
-    return;
-  }
-
   const bNode *output_node = tree.group_output_node();
   if (output_node == nullptr) {
     BKE_modifier_set_error(ctx->object, md, "Node group must have a group output node");
@@ -1312,6 +1304,14 @@ static void modifyGeometry(ModifierData *md,
     return;
   }
 
+  const blender::nodes::GeometryNodesLazyFunctionGraphInfo *lf_graph_info =
+      blender::nodes::ensure_geometry_nodes_lazy_function_graph(tree);
+  if (lf_graph_info == nullptr) {
+    BKE_modifier_set_error(ctx->object, md, "Cannot evaluate node group");
+    geometry_set.clear();
+    return;
+  }
+
   bool use_orig_index_verts = false;
   bool use_orig_index_edges = false;
   bool use_orig_index_polys = false;
@@ -1322,7 +1322,8 @@ static void modifyGeometry(ModifierData *md,
     use_orig_index_polys = CustomData_has_layer(&mesh.pdata, CD_ORIGINDEX);
   }
 
-  geometry_set = compute_geometry(tree, *output_node, std::move(geometry_set), nmd, ctx);
+  geometry_set = compute_geometry(
+      tree, *lf_graph_info, *output_node, std::move(geometry_set), nmd, ctx);
 
   if (geometry_set.has_mesh()) {
     /* Add #CD_ORIGINDEX layers if they don't exist already. This is required because the

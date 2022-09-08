@@ -116,7 +116,7 @@ struct Output {
 
 class LazyFunction {
  protected:
-  const char *static_name_ = "Unnamed Function";
+  const char *debug_name_ = "Unnamed Function";
   Vector<Input> inputs_;
   Vector<Output> outputs_;
 

@@ -15,7 +15,7 @@ class AddLazyFunction : public LazyFunction {
  public:
   AddLazyFunction()
   {
-    static_name_ = "Add";
+    debug_name_ = "Add";
     inputs_.append({"A", CPPType::get<int>()});
     inputs_.append({"B", CPPType::get<int>()});
     outputs_.append({"Result", CPPType::get<int>()});
@@ -37,7 +37,7 @@ class StoreValueFunction : public LazyFunction {
  public:
   StoreValueFunction(int *dst1, int *dst2) : dst1_(dst1), dst2_(dst2)
   {
-    static_name_ = "Store Value";
+    debug_name_ = "Store Value";
     inputs_.append({"A", CPPType::get<int>()});
     inputs_.append({"B", CPPType::get<int>(), ValueUsage::Maybe});
   }
