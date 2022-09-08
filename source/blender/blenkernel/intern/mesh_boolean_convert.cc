@@ -415,7 +415,7 @@ static void copy_poly_attributes(Mesh *dest_mesh,
                                  Span<short> material_remap,
                                  MutableSpan<int> dst_material_indices)
 {
-  const VArray<int> src_material_indices = bke::mesh_attributes(*orig_me).lookup_or_default<int>(
+  const VArray<int> src_material_indices = orig_me->attributes().lookup_or_default<int>(
       "material_index", ATTR_DOMAIN_FACE, 0);
   const int src_index = src_material_indices[index_in_orig_me];
   if (material_remap.size() > 0 && material_remap.index_range().contains(src_index)) {
@@ -609,7 +609,7 @@ static void copy_or_interp_loop_attributes(Mesh *dest_mesh,
     get_poly2d_cos(orig_me, orig_mp, cos_2d, mim.to_target_transform[orig_me_index], axis_mat);
   }
   CustomData *target_cd = &dest_mesh->ldata;
-  const Span<MVert> dst_vertices = dest_mesh->verts();
+  const Span<MVert> dst_verts = dest_mesh->verts();
   const Span<MLoop> dst_loops = dest_mesh->loops();
   for (int i = 0; i < mp->totloop; ++i) {
     int loop_index = mp->loopstart + i;
@@ -620,7 +620,7 @@ static void copy_or_interp_loop_attributes(Mesh *dest_mesh,
        * The coordinate needs to be projected into 2d,  just like the interpolating polygon's
        * coordinates were. The `dest_mesh` coordinates are already in object 0 local space. */
       float co[2];
-      mul_v2_m3v3(co, axis_mat, dst_vertices[dst_loops[loop_index].v].co);
+      mul_v2_m3v3(co, axis_mat, dst_verts[dst_loops[loop_index].v].co);
       interp_weights_poly_v2(weights.data(), cos_2d, orig_mp->totloop, co);
     }
     for (int source_layer_i = 0; source_layer_i < source_cd->totlayer; ++source_layer_i) {
@@ -723,10 +723,10 @@ static Mesh *imesh_to_mesh(IMesh *im, MeshesToIMeshInfo &mim)
 
   merge_vertex_loop_poly_customdata_layers(result, mim);
   /* Set the vertex coordinate values and other data. */
-  MutableSpan<MVert> vertices = result->verts_for_write();
+  MutableSpan<MVert> verts = result->verts_for_write();
   for (int vi : im->vert_index_range()) {
     const Vert *v = im->vert(vi);
-    MVert *mv = &vertices[vi];
+    MVert *mv = &verts[vi];
     copy_v3fl_v3db(mv->co, v->co);
     if (v->orig != NO_INDEX) {
       const Mesh *orig_me;
@@ -739,8 +739,8 @@ static Mesh *imesh_to_mesh(IMesh *im, MeshesToIMeshInfo &mim)
   /* Set the loopstart and totloop for each output poly,
    * and set the vertices in the appropriate loops. */
   bke::SpanAttributeWriter<int> dst_material_indices =
-      bke::mesh_attributes_for_write(*result).lookup_or_add_for_write_only_span<int>(
-          "material_index", ATTR_DOMAIN_FACE);
+      result->attributes_for_write().lookup_or_add_for_write_only_span<int>("material_index",
+                                                                            ATTR_DOMAIN_FACE);
   int cur_loop_index = 0;
   MutableSpan<MLoop> dst_loops = result->loops_for_write();
   MutableSpan<MPoly> dst_polys = result->polys_for_write();
