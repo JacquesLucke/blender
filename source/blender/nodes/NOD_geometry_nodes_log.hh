@@ -156,6 +156,7 @@ class GeoTreeLog {
  private:
   GeoModifierLog *modifier_log_;
   Vector<GeoTreeLogger *> tree_loggers_;
+  VectorSet<ComputeContextHash> children_hashes_;
   bool reduced_node_warnings_ = false;
   bool reduced_node_run_times_ = false;
   bool reduced_socket_values_ = false;

@@ -124,6 +124,11 @@ GeoNodeLog::~GeoNodeLog() = default;
 GeoTreeLog::GeoTreeLog(GeoModifierLog *modifier_log, Vector<GeoTreeLogger *> tree_loggers)
     : modifier_log_(modifier_log), tree_loggers_(std::move(tree_loggers))
 {
+  for (GeoTreeLogger *tree_logger : tree_loggers_) {
+    for (const ComputeContextHash &hash : tree_logger->children_hashes) {
+      children_hashes_.add(hash);
+    }
+  }
 }
 
 GeoTreeLog::~GeoTreeLog() = default;
@@ -195,17 +200,16 @@ void GeoTreeLog::ensure_node_warnings()
       this->nodes.lookup_or_add_default(warnings.first).warnings.append(warnings.second);
       this->all_warnings.append(warnings.second);
     }
-    for (const ComputeContextHash &child_hash : tree_logger->children_hashes) {
-      GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
-      child_log.ensure_node_warnings();
-      const std::optional<std::string> &group_node_name =
-          child_log.tree_loggers_[0]->group_node_name;
-      if (group_node_name.has_value()) {
-        this->nodes.lookup_or_add_default(*group_node_name)
-            .warnings.extend(child_log.all_warnings);
-      }
-      this->all_warnings.extend(child_log.all_warnings);
+  }
+  for (const ComputeContextHash &child_hash : children_hashes_) {
+    GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
+    child_log.ensure_node_warnings();
+    const std::optional<std::string> &group_node_name =
+        child_log.tree_loggers_[0]->group_node_name;
+    if (group_node_name.has_value()) {
+      this->nodes.lookup_or_add_default(*group_node_name).warnings.extend(child_log.all_warnings);
     }
+    this->all_warnings.extend(child_log.all_warnings);
   }
   reduced_node_warnings_ = true;
 }
@@ -223,16 +227,16 @@ void GeoTreeLog::ensure_node_run_time()
       this->nodes.lookup_or_add_default_as(node_name).run_time += duration;
       this->run_time_sum += duration;
     }
-    for (const ComputeContextHash &child_hash : tree_logger->children_hashes) {
-      GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
-      child_log.ensure_node_run_time();
-      const std::optional<std::string> &group_node_name =
-          child_log.tree_loggers_[0]->group_node_name;
-      if (group_node_name.has_value()) {
-        this->nodes.lookup_or_add_default(*group_node_name).run_time += child_log.run_time_sum;
-      }
-      this->run_time_sum += child_log.run_time_sum;
+  }
+  for (const ComputeContextHash &child_hash : children_hashes_) {
+    GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
+    child_log.ensure_node_run_time();
+    const std::optional<std::string> &group_node_name =
+        child_log.tree_loggers_[0]->group_node_name;
+    if (group_node_name.has_value()) {
+      this->nodes.lookup_or_add_default(*group_node_name).run_time += child_log.run_time_sum;
     }
+    this->run_time_sum += child_log.run_time_sum;
   }
   reduced_node_run_times_ = true;
 }
@@ -322,14 +326,14 @@ void GeoTreeLog::ensure_used_named_attributes()
          tree_logger->used_named_attributes_) {
       add_attribute(std::get<0>(item), std::get<1>(item), std::get<2>(item));
     }
-    for (const ComputeContextHash &child_hash : tree_logger->children_hashes) {
-      GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
-      child_log.ensure_used_named_attributes();
-      if (const std::optional<std::string> &group_node_name =
-              child_log.tree_loggers_[0]->group_node_name) {
-        for (const auto &item : child_log.used_named_attributes.items()) {
-          add_attribute(*group_node_name, item.key, item.value);
-        }
+  }
+  for (const ComputeContextHash &child_hash : children_hashes_) {
+    GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
+    child_log.ensure_used_named_attributes();
+    if (const std::optional<std::string> &group_node_name =
+            child_log.tree_loggers_[0]->group_node_name) {
+      for (const auto &item : child_log.used_named_attributes.items()) {
+        add_attribute(*group_node_name, item.key, item.value);
       }
     }
   }
