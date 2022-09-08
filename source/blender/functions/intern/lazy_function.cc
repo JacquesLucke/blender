@@ -17,12 +17,12 @@ std::string LazyFunction::name() const
 
 std::string LazyFunction::input_name(int index) const
 {
-  return inputs_[index].static_name;
+  return inputs_[index].debug_name;
 }
 
 std::string LazyFunction::output_name(int index) const
 {
-  return outputs_[index].static_name;
+  return outputs_[index].debug_name;
 }
 
 void *LazyFunction::init_storage(LinearAllocator<> &UNUSED(allocator)) const
