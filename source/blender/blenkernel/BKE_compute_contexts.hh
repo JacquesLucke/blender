@@ -2,34 +2,35 @@
 
 #pragma once
 
-#include "BLI_context_stack.hh"
+/**
+ * This file implements some specific compute contexts for concepts in Blender.
+ */
+
+#include "BLI_compute_context.hh"
 
 namespace blender::bke {
 
-class ModifierContextStack : public ContextStack {
+class ModifierComputeContext : public ComputeContext {
  private:
   static constexpr const char *s_static_type = "MODIFIER";
 
   std::string modifier_name_;
 
  public:
-  ModifierContextStack(const ContextStack *parent, std::string modifier_name);
+  ModifierComputeContext(const ComputeContext *parent, std::string modifier_name);
 
  private:
   void print_current_in_line(std::ostream &stream) const override;
 };
 
-class NodeGroupContextStack : public ContextStack {
+class NodeGroupComputeContext : public ComputeContext {
  private:
   static constexpr const char *s_static_type = "NODE_GROUP";
 
   std::string node_name_;
-  std::string debug_group_name_;
 
  public:
-  NodeGroupContextStack(const ContextStack *parent,
-                        std::string node_name,
-                        std::string debug_group_name = "<unknown>");
+  NodeGroupComputeContext(const ComputeContext *parent, std::string node_name);
 
   StringRefNull node_name() const;
 

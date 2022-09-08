@@ -149,12 +149,12 @@ class GeoNodeExecParams {
   {
     GeoNodesLFUserData *user_data = this->user_data();
     BLI_assert(user_data != nullptr);
-    const ContextStack *context_stack = user_data->context_stack;
-    BLI_assert(context_stack != nullptr);
+    const ComputeContext *compute_context = user_data->compute_context;
+    BLI_assert(compute_context != nullptr);
     if (user_data->modifier_data->eval_log == nullptr) {
       return nullptr;
     }
-    return &user_data->modifier_data->eval_log->get_local_tree_logger(*context_stack);
+    return &user_data->modifier_data->eval_log->get_local_tree_logger(*compute_context);
   }
 
   /**

@@ -8,7 +8,7 @@
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_multi_function.hh"
 
-#include "BLI_context_stack.hh"
+#include "BLI_compute_context.hh"
 
 struct Object;
 struct Depsgraph;
@@ -22,12 +22,12 @@ struct GeoNodesModifierData {
   const Object *self_object = nullptr;
   Depsgraph *depsgraph = nullptr;
   geo_eval_log::GeoModifierLog *eval_log = nullptr;
-  const MultiValueMap<ContextStackHash, const lf::FunctionNode *> *side_effect_nodes;
+  const MultiValueMap<ComputeContextHash, const lf::FunctionNode *> *side_effect_nodes;
 };
 
 struct GeoNodesLFUserData : public lf::UserData {
   GeoNodesModifierData *modifier_data = nullptr;
-  const ContextStack *context_stack = nullptr;
+  const ComputeContext *compute_context = nullptr;
 };
 
 struct GeometryNodeLazyFunctionMapping {

@@ -1,11 +1,11 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
-#include "BLI_context_stack.hh"
+#include "BLI_compute_context.hh"
 #include "BLI_hash_md5.h"
 
 namespace blender {
 
-void ContextStackHash::mix_in(const void *data, int64_t len)
+void ComputeContextHash::mix_in(const void *data, int64_t len)
 {
   DynamicStackBuffer<> buffer_owner(HashSizeInBytes + len, 8);
   char *buffer = static_cast<char *>(buffer_owner.buffer());
@@ -15,7 +15,7 @@ void ContextStackHash::mix_in(const void *data, int64_t len)
   BLI_hash_md5_buffer(buffer, HashSizeInBytes + len, this);
 }
 
-std::ostream &operator<<(std::ostream &stream, const ContextStackHash &hash)
+std::ostream &operator<<(std::ostream &stream, const ComputeContextHash &hash)
 {
   std::stringstream ss;
   ss << "0x" << std::hex << hash.v1 << hash.v2;
@@ -23,25 +23,25 @@ std::ostream &operator<<(std::ostream &stream, const ContextStackHash &hash)
   return stream;
 }
 
-void ContextStack::print_stack(std::ostream &stream, StringRef name) const
+void ComputeContext::print_stack(std::ostream &stream, StringRef name) const
 {
-  Stack<const ContextStack *> stack;
-  for (const ContextStack *current = this; current; current = current->parent_) {
+  Stack<const ComputeContext *> stack;
+  for (const ComputeContext *current = this; current; current = current->parent_) {
     stack.push(current);
   }
   stream << "Context Stack: " << name << "\n";
   while (!stack.is_empty()) {
-    const ContextStack *current = stack.pop();
+    const ComputeContext *current = stack.pop();
     stream << "-> ";
     current->print_current_in_line(stream);
-    const ContextStackHash &current_hash = current->hash_;
+    const ComputeContextHash &current_hash = current->hash_;
     stream << " \t(hash: " << current_hash << ")\n";
   }
 }
 
-std::ostream &operator<<(std::ostream &stream, const ContextStack &context_stack)
+std::ostream &operator<<(std::ostream &stream, const ComputeContext &compute_context)
 {
-  context_stack.print_stack(stream, "");
+  compute_context.print_stack(stream, "");
   return stream;
 }
 

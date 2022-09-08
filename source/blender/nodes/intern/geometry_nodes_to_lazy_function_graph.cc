@@ -9,7 +9,7 @@
 
 #include "DNA_ID.h"
 
-#include "BKE_context_stack.hh"
+#include "BKE_compute_contexts.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_type_conversions.hh"
 
@@ -121,7 +121,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
 
     if (geo_eval_log::GeoModifierLog *modifier_log = user_data->modifier_data->eval_log) {
       geo_eval_log::GeoTreeLogger &tree_logger = modifier_log->get_local_tree_logger(
-          *user_data->context_stack);
+          *user_data->compute_context);
       tree_logger.node_execution_times.append_as(node_.name, start_time, end_time);
     }
   }
@@ -474,7 +474,7 @@ class LazyFunctionForViewerNode : public LazyFunction {
     }
 
     geo_eval_log::GeoTreeLogger &tree_logger =
-        user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
+        user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->compute_context);
     tree_logger.log_viewer_node(bnode_, geometry, field);
   }
 };
@@ -534,10 +534,9 @@ class LazyFunctionForGroupNode : public LazyFunction {
   {
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
-    bke::NodeGroupContextStack context_stack{
-        user_data->context_stack, group_node_.name, group_node_.id->name + 2};
+    bke::NodeGroupComputeContext compute_context{user_data->compute_context, group_node_.name};
     GeoNodesLFUserData group_user_data = *user_data;
-    group_user_data.context_stack = &context_stack;
+    group_user_data.compute_context = &compute_context;
 
     lf::Context group_context = context;
     group_context.user_data = &group_user_data;
@@ -1156,7 +1155,7 @@ void GeometryNodesLazyFunctionLogger::log_socket_value(const fn::lazy_function::
     return;
   }
   geo_eval_log::GeoTreeLogger &tree_logger =
-      user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->context_stack);
+      user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->compute_context);
   for (const bNodeSocket *bsocket : bsockets) {
     if (bsocket->is_input() && !bsocket->directly_linked_sockets().is_empty()) {
       continue;
@@ -1174,7 +1173,7 @@ Vector<const lf::FunctionNode *> GeometryNodesLazyFunctionSideEffectProvider::
 {
   GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
   BLI_assert(user_data != nullptr);
-  const ContextStackHash &context_hash = user_data->context_stack->hash();
+  const ComputeContextHash &context_hash = user_data->compute_context->hash();
   const GeoNodesModifierData &modifier_data = *user_data->modifier_data;
   return modifier_data.side_effect_nodes->lookup(context_hash);
 }

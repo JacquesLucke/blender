@@ -98,9 +98,9 @@ set(SRC
   intern/collision.c
   intern/colorband.c
   intern/colortools.c
+  intern/compute_contexts.cc
   intern/constraint.c
   intern/context.c
-  intern/context_stack.cc
   intern/crazyspace.cc
   intern/cryptomatte.cc
   intern/curve.cc
@@ -353,9 +353,9 @@ set(SRC
   BKE_collision.h
   BKE_colorband.h
   BKE_colortools.h
+  BKE_compute_contexts.hh
   BKE_constraint.h
   BKE_context.h
-  BKE_context_stack.hh
   BKE_crazyspace.h
   BKE_crazyspace.hh
   BKE_cryptomatte.h

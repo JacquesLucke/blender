@@ -4,7 +4,7 @@
 
 #include <chrono>
 
-#include "BLI_context_stack.hh"
+#include "BLI_compute_context.hh"
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_generic_pointer.hh"
 #include "BLI_multi_value_map.hh"
@@ -118,9 +118,9 @@ using TimePoint = Clock::time_point;
 
 class GeoTreeLogger {
  public:
-  std::optional<ContextStackHash> parent_hash;
+  std::optional<ComputeContextHash> parent_hash;
   std::optional<std::string> group_node_name;
-  Vector<ContextStackHash> children_hashes;
+  Vector<ComputeContextHash> children_hashes;
 
   LinearAllocator<> *allocator = nullptr;
   Vector<std::pair<std::string, NodeWarning>> node_warnings;
@@ -177,15 +177,15 @@ class GeoModifierLog {
  private:
   struct LocalData {
     LinearAllocator<> allocator;
-    Map<ContextStackHash, destruct_ptr<GeoTreeLogger>> tree_logger_by_context;
+    Map<ComputeContextHash, destruct_ptr<GeoTreeLogger>> tree_logger_by_context;
   };
 
   threading::EnumerableThreadSpecific<LocalData> data_per_thread_;
-  Map<ContextStackHash, std::unique_ptr<GeoTreeLog>> tree_logs_;
+  Map<ComputeContextHash, std::unique_ptr<GeoTreeLog>> tree_logs_;
 
  public:
-  GeoTreeLogger &get_local_tree_logger(const ContextStack &context_stack);
-  GeoTreeLog &get_tree_log(const ContextStackHash &context_stack_hash);
+  GeoTreeLogger &get_local_tree_logger(const ComputeContext &compute_context);
+  GeoTreeLog &get_tree_log(const ComputeContextHash &compute_context_hash);
 
   struct ObjectAndModifier {
     const Object *object;

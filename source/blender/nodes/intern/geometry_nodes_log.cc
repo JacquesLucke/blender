@@ -3,7 +3,7 @@
 #include "NOD_geometry_nodes_log.hh"
 #include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 
-#include "BKE_context_stack.hh"
+#include "BKE_compute_contexts.hh"
 #include "BKE_curves.hh"
 
 #include "FN_field_cpp_type.hh"
@@ -180,7 +180,7 @@ void GeoTreeLog::ensure_node_warnings()
       this->nodes.lookup_or_add_default(warnings.first).warnings.append(warnings.second);
       this->all_warnings.append(warnings.second);
     }
-    for (const ContextStackHash &child_hash : tree_logger->children_hashes) {
+    for (const ComputeContextHash &child_hash : tree_logger->children_hashes) {
       GeoTreeLog &child_reduced_log = modifier_log_->get_tree_log(child_hash);
       child_reduced_log.ensure_node_warnings();
       const std::optional<std::string> &group_node_name =
@@ -208,7 +208,7 @@ void GeoTreeLog::ensure_node_run_time()
       this->nodes.lookup_or_add_default_as(node_name).run_time += duration;
       this->run_time_sum += duration;
     }
-    for (const ContextStackHash &child_hash : tree_logger->children_hashes) {
+    for (const ComputeContextHash &child_hash : tree_logger->children_hashes) {
       GeoTreeLog &child_reduced_log = modifier_log_->get_tree_log(child_hash);
       child_reduced_log.ensure_node_run_time();
       const std::optional<std::string> &group_node_name =
@@ -289,39 +289,39 @@ void GeoTreeLog::ensure_existing_attributes()
   reduced_existing_attributes_ = true;
 }
 
-GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ContextStack &context_stack)
+GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ComputeContext &compute_context)
 {
   LocalData &local_data = data_per_thread_.local();
-  Map<ContextStackHash, destruct_ptr<GeoTreeLogger>> &local_tree_loggers =
+  Map<ComputeContextHash, destruct_ptr<GeoTreeLogger>> &local_tree_loggers =
       local_data.tree_logger_by_context;
   destruct_ptr<GeoTreeLogger> &tree_logger_ptr = local_tree_loggers.lookup_or_add_default(
-      context_stack.hash());
+      compute_context.hash());
   if (tree_logger_ptr) {
     return *tree_logger_ptr;
   }
   tree_logger_ptr = local_data.allocator.construct<GeoTreeLogger>();
   GeoTreeLogger &tree_logger = *tree_logger_ptr;
   tree_logger.allocator = &local_data.allocator;
-  const ContextStack *parent_context_stack = context_stack.parent();
-  if (parent_context_stack != nullptr) {
-    tree_logger.parent_hash = parent_context_stack->hash();
-    GeoTreeLogger &parent_logger = this->get_local_tree_logger(*parent_context_stack);
-    parent_logger.children_hashes.append(context_stack.hash());
+  const ComputeContext *parent_compute_context = compute_context.parent();
+  if (parent_compute_context != nullptr) {
+    tree_logger.parent_hash = parent_compute_context->hash();
+    GeoTreeLogger &parent_logger = this->get_local_tree_logger(*parent_compute_context);
+    parent_logger.children_hashes.append(compute_context.hash());
   }
-  if (const bke::NodeGroupContextStack *node_group_context_stack =
-          dynamic_cast<const bke::NodeGroupContextStack *>(&context_stack)) {
-    tree_logger.group_node_name.emplace(node_group_context_stack->node_name());
+  if (const bke::NodeGroupComputeContext *node_group_compute_context =
+          dynamic_cast<const bke::NodeGroupComputeContext *>(&compute_context)) {
+    tree_logger.group_node_name.emplace(node_group_compute_context->node_name());
   }
   return tree_logger;
 }
 
-GeoTreeLog &GeoModifierLog::get_tree_log(const ContextStackHash &context_stack_hash)
+GeoTreeLog &GeoModifierLog::get_tree_log(const ComputeContextHash &compute_context_hash)
 {
-  GeoTreeLog &reduced_tree_log = *tree_logs_.lookup_or_add_cb(context_stack_hash, [&]() {
+  GeoTreeLog &reduced_tree_log = *tree_logs_.lookup_or_add_cb(compute_context_hash, [&]() {
     Vector<GeoTreeLogger *> tree_logs;
     for (LocalData &local_data : data_per_thread_) {
       destruct_ptr<GeoTreeLogger> *tree_log = local_data.tree_logger_by_context.lookup_ptr(
-          context_stack_hash);
+          compute_context_hash);
       if (tree_log != nullptr) {
         tree_logs.append(tree_log->get());
       }
@@ -388,12 +388,13 @@ GeoTreeLog *GeoModifierLog::get_tree_log_for_node_editor(const SpaceNode &snode)
   if (tree_path.is_empty()) {
     return nullptr;
   }
-  ContextStackBuilder context_stack_builder;
-  context_stack_builder.push<bke::ModifierContextStack>(object_and_modifier->nmd->modifier.name);
+  ComputeContextBuilder compute_context_builder;
+  compute_context_builder.push<bke::ModifierComputeContext>(
+      object_and_modifier->nmd->modifier.name);
   for (const bNodeTreePath *path_item : tree_path.as_span().drop_front(1)) {
-    context_stack_builder.push<bke::NodeGroupContextStack>(path_item->node_name);
+    compute_context_builder.push<bke::NodeGroupComputeContext>(path_item->node_name);
   }
-  return &modifier_log->get_tree_log(context_stack_builder.hash());
+  return &modifier_log->get_tree_log(compute_context_builder.hash());
 }
 
 }  // namespace blender::nodes::geo_eval_log
