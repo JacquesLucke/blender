@@ -83,14 +83,6 @@ void Graph::add_link(OutputSocket &from, InputSocket &to)
   from.targets_.append(&to);
 }
 
-void Graph::remove_link(OutputSocket &from, InputSocket &to)
-{
-  BLI_assert(to.origin_ == &from);
-  BLI_assert(from.targets_.contains(&to));
-  to.origin_ = nullptr;
-  from.targets_.remove_first_occurrence_and_reorder(&to);
-}
-
 void Graph::update_node_indices()
 {
   for (const int i : nodes_.index_range()) {
@@ -161,11 +153,11 @@ std::string Graph::to_dot() const
   for (const Node *node : nodes_) {
     for (const InputSocket *socket : node->inputs()) {
       const dot::NodeWithSocketsRef &to_dot_node = dot_nodes.lookup(&socket->node());
-      const dot::NodePort to_dot_port = to_dot_node.input(socket->index_in_node());
+      const dot::NodePort to_dot_port = to_dot_node.input(socket->index());
 
       if (const OutputSocket *origin = socket->origin()) {
         dot::NodeWithSocketsRef &from_dot_node = dot_nodes.lookup(&origin->node());
-        digraph.new_edge(from_dot_node.output(origin->index_in_node()), to_dot_port);
+        digraph.new_edge(from_dot_node.output(origin->index()), to_dot_port);
       }
       else if (const void *default_value = socket->default_value()) {
         const CPPType &type = socket->type();

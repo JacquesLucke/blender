@@ -371,7 +371,7 @@ class Executor {
       const OutputSocket &socket = *self_.graph_inputs_[i];
       const Node &node = socket.node();
       const NodeState &node_state = *node_states_[node.index_in_graph()];
-      const OutputState &output_state = node_state.outputs[socket.index_in_node()];
+      const OutputState &output_state = node_state.outputs[socket.index()];
       if (output_state.usage == ValueUsage::Unused) {
         params_->set_input_unused(i);
       }
@@ -428,7 +428,7 @@ class Executor {
   void notify_output_required(const OutputSocket &socket, CurrentTask &current_task)
   {
     const Node &node = socket.node();
-    const int index_in_node = socket.index_in_node();
+    const int index_in_node = socket.index();
     NodeState &node_state = *node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
@@ -464,7 +464,7 @@ class Executor {
   void notify_output_unused(const OutputSocket &socket, CurrentTask &current_task)
   {
     const Node &node = socket.node();
-    const int index_in_node = socket.index_in_node();
+    const int index_in_node = socket.index();
     NodeState &node_state = *node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
@@ -759,7 +759,7 @@ class Executor {
   void set_input_unused(LockedNode &locked_node, const InputSocket &input_socket)
   {
     NodeState &node_state = locked_node.node_state;
-    const int input_index = input_socket.index_in_node();
+    const int input_index = input_socket.index();
     InputState &input_state = node_state.inputs[input_index];
 
     BLI_assert(input_state.usage != ValueUsage::Used);
@@ -795,7 +795,7 @@ class Executor {
   {
     BLI_assert(&locked_node.node == &input_socket.node());
     NodeState &node_state = locked_node.node_state;
-    const int input_index = input_socket.index_in_node();
+    const int input_index = input_socket.index();
     InputState &input_state = node_state.inputs[input_index];
 
     BLI_assert(input_state.usage != ValueUsage::Unused);
@@ -833,7 +833,7 @@ class Executor {
     for (const InputSocket *target_socket : targets) {
       const Node &target_node = target_socket->node();
       NodeState &node_state = *node_states_[target_node.index_in_graph()];
-      const int input_index = target_socket->index_in_node();
+      const int input_index = target_socket->index();
       InputState &input_state = node_state.inputs[input_index];
       const bool is_last_target = target_socket == targets.last();
       BLI_assert(input_state.value == nullptr);

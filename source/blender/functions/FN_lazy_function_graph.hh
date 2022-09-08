@@ -4,6 +4,15 @@
 
 /** \file
  * \ingroup fn
+ *
+ * This file contains a graph data structure that allows composing multiple lazy-functions into a
+ * combined lazy-function.
+ *
+ * There are two types of nodes in the graph:
+ * - #FunctionNode: Corresponds to a #LazyFunction. The inputs and outputs of the function become
+ *   input and output sockets of the node.
+ * - #DummyNode: Is used to indicate inputs and outputs of the entire graph. It can have an
+ *   arbitrary number of sockets.
  */
 
 #include "BLI_linear_allocator.hh"
@@ -18,11 +27,27 @@ class OutputSocket;
 class Node;
 class Graph;
 
+/**
+ * A #Socket is the interface of a #Node. Every #Socket is either an #InputSocket or #OutputSocket.
+ * Links can be created from output sockets to input sockets.
+ */
 class Socket : NonCopyable, NonMovable {
  protected:
+  /**
+   * The node the socket belongs to.
+   */
   Node *node_;
+  /**
+   * Data type of the socket. Only sockets with the same type can be linked.
+   */
   const CPPType *type_;
+  /**
+   * Indicates whether this is an #InputSocket or #OutputSocket.
+   */
   bool is_input_;
+  /**
+   * Index of the socket. E.g. 0 for the first input and the first output socket.
+   */
   int index_in_node_;
 
   friend Graph;
@@ -31,7 +56,7 @@ class Socket : NonCopyable, NonMovable {
   bool is_input() const;
   bool is_output() const;
 
-  int index_in_node() const;
+  int index() const;
 
   InputSocket &as_input();
   OutputSocket &as_output();
@@ -48,7 +73,20 @@ class Socket : NonCopyable, NonMovable {
 
 class InputSocket : public Socket {
  private:
+  /**
+   * An input can have at most one link connected to it. The linked socket is the "origin" because
+   * it's where the data is coming from. The type of the origin must be the same as the type of
+   * this socket.
+   */
   OutputSocket *origin_;
+  /**
+   * Can be null or a non-owning pointer to a value of the type of the socket. This value will be
+   * used when the input is used but not linked.
+   *
+   * This is technically not needed, because one could just create a separate node that just
+   * outputs the value, but that would have more overhead. Especially because it's commonly the
+   * case that most inputs are unlinked.
+   */
   const void *default_value_ = nullptr;
 
   friend Graph;
@@ -63,6 +101,9 @@ class InputSocket : public Socket {
 
 class OutputSocket : public Socket {
  private:
+  /**
+   * An output can be linked to an arbitrary number of inputs of the same type.
+   */
   Vector<InputSocket *> targets_;
 
   friend Graph;
@@ -72,11 +113,30 @@ class OutputSocket : public Socket {
   Span<const InputSocket *> targets() const;
 };
 
+/**
+ * A #Node has input and output sockets. Every node is either a #FunctionNode or a #DummyNode.
+ */
 class Node : NonCopyable, NonMovable {
  protected:
+  /**
+   * The function this node corresponds to. If this is null, the node is a #DummyNode.
+   * The function is not owned by this #Node nor by the #Graph.
+   */
   const LazyFunction *fn_ = nullptr;
+  /**
+   * Input sockets of the node.
+   */
   Span<InputSocket *> inputs_;
+  /**
+   * Output sockets of the node.
+   */
   Span<OutputSocket *> outputs_;
+  /**
+   * An index that is set when calling #Graph::update_node_indices. This can be used to create
+   * efficient mappings from nodes to other data using just an array instead of a hash map.
+   *
+   * This is technically not necessary but has better performance than always using hash maps.
+   */
   int index_in_graph_ = -1;
 
   friend Graph;
@@ -99,11 +159,18 @@ class Node : NonCopyable, NonMovable {
   std::string name() const;
 };
 
+/**
+ * A #Node that corresponds to a specific #LazyFunction.
+ */
 class FunctionNode : public Node {
  public:
   const LazyFunction &function() const;
 };
 
+/**
+ * A #Node that does *not* correspond to a #LazyFunction. Instead it can be used to indicate inputs
+ * and outputs of the entire graph. It can have an arbitrary number of inputs and outputs.
+ */
 class DummyNode : public Node {
  private:
   std::string name_;
@@ -111,24 +178,57 @@ class DummyNode : public Node {
   friend Node;
 };
 
+/**
+ * A container for an arbitrary number of nodes and links between their sockets.
+ */
 class Graph : NonCopyable, NonMovable {
  private:
+  /**
+   * Used to allocate nodes and sockets in the graph.
+   */
   LinearAllocator<> allocator_;
+  /**
+   * Contains all nodes in the graph so that it is efficient to iterate over them.
+   */
   Vector<Node *> nodes_;
 
  public:
   ~Graph();
 
+  /**
+   * Get all nodes in the graph. The index in the span corresponds to #Node::index_in_graph.
+   */
   Span<const Node *> nodes() const;
 
+  /**
+   * Add a new function node with sockets that match the passed in #LazyFunction.
+   */
   FunctionNode &add_function(const LazyFunction &fn);
-  DummyNode &add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types);
-  void add_link(OutputSocket &from, InputSocket &to);
-  void remove_link(OutputSocket &from, InputSocket &to);
 
+  /**
+   * Add a new dummy node with the given socket types.
+   */
+  DummyNode &add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types);
+
+  /**
+   * Add a link between the two given sockets.
+   * This has undefined behavior when the input is linked to something else already.
+   */
+  void add_link(OutputSocket &from, InputSocket &to);
+
+  /**
+   * Make sure that #Node::index_in_graph is up to date.
+   */
   void update_node_indices();
+
+  /**
+   * Can be used to assert that #update_node_indices has been called.
+   */
   bool node_indices_are_valid() const;
 
+  /**
+   * Utility to generate a dot graph string for the graph. This can be used for debugging.
+   */
   std::string to_dot() const;
 };
 
@@ -146,7 +246,7 @@ inline bool Socket::is_output() const
   return !is_input_;
 }
 
-inline int Socket::index_in_node() const
+inline int Socket::index() const
 {
   return index_in_node_;
 }
