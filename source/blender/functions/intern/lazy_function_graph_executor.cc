@@ -470,6 +470,8 @@ class Executor {
     NodeState &node_state = *node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
+    /* The notified output socket might be an input of the entire graph. In this case, notify the
+     * caller that the input is required. */
     if (node.is_dummy()) {
       const int graph_input_index = self_.graph_inputs_.index_of(&socket);
       std::atomic<bool> &was_loaded = loaded_inputs_[graph_input_index];
@@ -529,6 +531,10 @@ class Executor {
     BLI_assert(locked_node.node.is_function());
     switch (locked_node.node_state.schedule_state) {
       case NodeScheduleState::NotScheduled: {
+        /* Don't add the node to the task pool immeditately, because the task pool might start
+         * executing it immediatly (when Blender is started with a single thread). That would often
+         * result in a deadlock, because we are still holding the mutex of the current node.
+         * Also see comments in #LockedNode. */
         locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
         locked_node.delayed_scheduled_nodes.append(
             &static_cast<const FunctionNode &>(locked_node.node));
@@ -584,6 +590,9 @@ class Executor {
   void schedule_new_nodes(const Span<const FunctionNode *> nodes, CurrentTask &current_task)
   {
     for (const FunctionNode *node_to_schedule : nodes) {
+      /* Avoid a round trip through the task pool for the first node that is scheduled by the
+       * current node execution. Other nodes are added to the pool so that other threads can pick
+       * them up. */
       const FunctionNode *expected = nullptr;
       if (current_task.next_node.compare_exchange_strong(
               expected, node_to_schedule, std::memory_order_relaxed)) {
@@ -606,6 +615,8 @@ class Executor {
     Executor &executor = *static_cast<Executor *>(user_data);
     const FunctionNode &node = *static_cast<const FunctionNode *>(task_data);
 
+    /* This loop reduces the number of round trips through the task pool as long as the current
+     * node is scheduling more nodes. */
     CurrentTask current_task;
     current_task.next_node = &node;
     while (current_task.next_node != nullptr) {
@@ -694,6 +705,9 @@ class Executor {
     });
 
     if (node_needs_execution) {
+      /* Importantly, the node must not be locked when it is executed. That would result in locks
+       * being hold very long in some cases and results in multiple locks being hold by the same
+       * thread in the same graph which can lead to deadlocks. */
       this->execute_node(node, node_state, current_task);
     }
 
@@ -883,6 +897,7 @@ class Executor {
         self_.logger_->log_socket_value(*context_, *target_socket, value_to_forward);
       }
       if (target_node.is_dummy()) {
+        /* Forward the value to the outside of the graph. */
         const int graph_output_index = self_.graph_outputs_.index_of_try(target_socket);
         if (graph_output_index != -1 &&
             params_->get_output_usage(graph_output_index) != ValueUsage::Unused) {
