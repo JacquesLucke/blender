@@ -1729,14 +1729,11 @@ static void internal_dependencies_panel_draw(const bContext *UNUSED(C), Panel *p
   if (nmd->runtime_eval_log == nullptr) {
     return;
   }
-  Map<std::string, NamedAttributeUsage> usage_by_attribute;
-  // const geo_log::ModifierLog &log = *static_cast<geo_log::ModifierLog *>(nmd->runtime_eval_log);
-  // log.foreach_node_log([&](const geo_log::NodeLog &node_log) {
-  //   for (const geo_log::UsedNamedAttribute &used_attribute : node_log.used_named_attributes()) {
-  //     usage_by_attribute.lookup_or_add_as(used_attribute.name,
-  //                                         used_attribute.usage) |= used_attribute.usage;
-  //   }
-  // });
+  GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
+  blender::bke::ModifierComputeContext compute_context{nullptr, nmd->modifier.name};
+  GeoTreeLog &tree_log = modifier_log.get_tree_log(compute_context.hash());
+  tree_log.ensure_used_named_attributes();
+  const Map<std::string, NamedAttributeUsage> &usage_by_attribute = tree_log.used_named_attributes;
 
   if (usage_by_attribute.is_empty()) {
     uiItemL(layout, IFACE_("No named attributes used"), ICON_INFO);
