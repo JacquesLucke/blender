@@ -815,20 +815,6 @@ struct SocketTooltipData {
   const bNodeSocket *socket;
 };
 
-static bool node_socket_has_tooltip(const bNodeTree *ntree, const bNodeSocket *socket)
-{
-  if (ntree->type == NTREE_GEOMETRY) {
-    return true;
-  }
-
-  if (socket->runtime->declaration != nullptr) {
-    const nodes::SocketDeclaration &socket_decl = *socket->runtime->declaration;
-    return !socket_decl.description().is_empty();
-  }
-
-  return false;
-}
-
 static void create_inspection_string_for_generic_value(const GPointer value, std::stringstream &ss)
 {
   auto id_to_inspection_string = [&](const ID *id, const short idcode) {
@@ -1070,6 +1056,20 @@ static std::optional<std::string> create_socket_inspection_string(TreeDrawContex
   return str;
 }
 
+static bool node_socket_has_tooltip(const bNodeTree *ntree, const bNodeSocket *socket)
+{
+  if (ntree->type == NTREE_GEOMETRY) {
+    return true;
+  }
+
+  if (socket->runtime->declaration != nullptr) {
+    const nodes::SocketDeclaration &socket_decl = *socket->runtime->declaration;
+    return !socket_decl.description().is_empty();
+  }
+
+  return false;
+}
+
 static char *node_socket_get_tooltip(const bContext *C,
                                      const bNodeTree *ntree,
                                      const bNode *UNUSED(node),
@@ -1081,7 +1081,6 @@ static char *node_socket_get_tooltip(const bContext *C,
     if (ntree->type == NTREE_GEOMETRY) {
       tree_draw_ctx.geo_tree_log =
           nodes::geo_eval_log::GeoModifierLog::get_tree_log_for_node_editor(*snode);
-      ;
     }
   }
 
@@ -1643,16 +1642,12 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
 
 #define NODE_HEADER_ICON_SIZE (0.8f * U.widget_unit)
 
-static void node_add_error_message_button(const bContext &C,
-                                          TreeDrawContext &tree_draw_ctx,
+static void node_add_error_message_button(TreeDrawContext &tree_draw_ctx,
                                           bNode &node,
                                           uiBlock &block,
                                           const rctf &rect,
                                           float &icon_offset)
 {
-  SpaceNode *snode = CTX_wm_space_node(&C);
-  UNUSED_VARS(snode, node);
-
   Span<NodeWarning> warnings;
   if (tree_draw_ctx.geo_tree_log) {
     GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
@@ -2195,7 +2190,7 @@ static void node_draw_basis(const bContext &C,
     UI_block_emboss_set(&block, UI_EMBOSS);
   }
 
-  node_add_error_message_button(C, tree_draw_ctx, node, block, rct, iconofs);
+  node_add_error_message_button(tree_draw_ctx, node, block, rct, iconofs);
 
   /* Title. */
   if (node.flag & SELECT) {
