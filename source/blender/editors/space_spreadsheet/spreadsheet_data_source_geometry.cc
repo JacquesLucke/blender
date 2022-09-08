@@ -425,8 +425,8 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
         BMEditMesh *em = mesh->edit_mesh;
         if (em != nullptr) {
           Mesh *new_mesh = (Mesh *)BKE_id_new_nomain(ID_ME, nullptr);
-          /* This is a potentially heavy operation to do on every redraw. The best solution here
-           * is to display the data directly from the bmesh without a conversion, which can be
+          /* This is a potentially heavy operation to do on every redraw. The best solution here is
+           * to display the data directly from the bmesh without a conversion, which can be
            * implemented a bit later. */
           BM_mesh_bm_to_me_for_eval(em->bm, new_mesh, nullptr);
           mesh_component.replace(new_mesh, GeometryOwnershipType::Owned);
@@ -523,8 +523,8 @@ class GeometryComponentCacheKey : public SpreadsheetCache::Key {
 
 class GeometryComponentCacheValue : public SpreadsheetCache::Value {
  public:
-  /* Stores the result of fields evaluated on a geometry component. Without this, fields would
-   * have to be reevaluated on every redraw. */
+  /* Stores the result of fields evaluated on a geometry component. Without this, fields would have
+   * to be reevaluated on every redraw. */
   Map<std::pair<eAttrDomain, GField>, GArray<>> arrays;
 };
 

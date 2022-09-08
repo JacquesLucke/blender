@@ -923,6 +923,8 @@ static void find_side_effect_nodes_for_spreadsheet(
     return;
   }
 
+  /* Not only mark the viewer node as having side effects, but also all group nodes it is contained
+   * in. */
   r_side_effect_nodes.add(compute_context_builder.hash(),
                           &find_viewer_lf_node(*found_viewer_node));
   compute_context_builder.pop();
@@ -1125,8 +1127,6 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
 
   const blender::nodes::GeometryNodesLazyFunctionGraphInfo &lf_graph_info =
       blender::nodes::ensure_geometry_nodes_lazy_function_graph(btree);
-  // std::cout << graph.to_dot() << "\n";
-
   const blender::nodes::GeometryNodeLazyFunctionMapping &mapping = lf_graph_info.mapping;
 
   Vector<const lf::OutputSocket *> graph_inputs;
@@ -1168,7 +1168,6 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
   user_data.compute_context = &modifier_compute_context;
 
   blender::LinearAllocator<> allocator;
-
   Vector<GMutablePointer> inputs_to_destruct;
 
   int input_index;
@@ -1196,15 +1195,13 @@ static GeometrySet compute_geometry(const bNodeTree &btree,
   lf::Context lf_context;
   lf_context.storage = graph_executor.init_storage(allocator);
   lf_context.user_data = &user_data;
-
-  lf::BasicParams params{graph_executor,
-                         param_inputs,
-                         param_outputs,
-                         param_input_usages,
-                         param_output_usages,
-                         param_set_outputs};
-  graph_executor.execute(params, lf_context);
-
+  lf::BasicParams lf_params{graph_executor,
+                            param_inputs,
+                            param_outputs,
+                            param_input_usages,
+                            param_output_usages,
+                            param_set_outputs};
+  graph_executor.execute(lf_params, lf_context);
   graph_executor.destruct_storage(lf_context.storage);
 
   for (GMutablePointer &ptr : inputs_to_destruct) {
