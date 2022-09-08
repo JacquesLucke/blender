@@ -97,7 +97,14 @@ extern void ui_draw_dropshadow(
     const rctf *rct, float radius, float aspect, float alpha, int select);
 }
 
+/**
+ * This is passed to many functions which draw the node editor.
+ */
 struct TreeDrawContext {
+  /**
+   * Geometry nodes logs various data during execution. The logged data that corresponds to the
+   * currently drawn node tree can be retrieved from the log below.
+   */
   GeoTreeLog *geo_tree_log = nullptr;
 };
 
@@ -326,50 +333,6 @@ float2 node_from_view(const bNode &node, const float2 &co)
   return result;
 }
 
-static nodes::geo_eval_log::GeoTreeLog *get_geo_tree_log(SpaceNode &snode)
-{
-  using namespace blender;
-  using namespace blender::nodes;
-  using namespace blender::nodes::geo_eval_log;
-
-  ComputeContextBuilder compute_context_builder;
-
-  if (snode.id == nullptr) {
-    return nullptr;
-  }
-  if (GS(snode.id->name) != ID_OB) {
-    return nullptr;
-  }
-  Object *object = reinterpret_cast<Object *>(snode.id);
-  NodesModifierData *nmd = nullptr;
-  LISTBASE_FOREACH (ModifierData *, md_iter, &object->modifiers) {
-    if (md_iter->type == eModifierType_Nodes) {
-      NodesModifierData *nmd_iter = reinterpret_cast<NodesModifierData *>(md_iter);
-      if (nmd_iter->node_group == snode.nodetree) {
-        nmd = nmd_iter;
-        break;
-      }
-    }
-  }
-  if (nmd == nullptr) {
-    return nullptr;
-  }
-  if (nmd->runtime_eval_log == nullptr) {
-    return nullptr;
-  }
-  GeoModifierLog &modifier_log = *static_cast<GeoModifierLog *>(nmd->runtime_eval_log);
-  compute_context_builder.push<bke::ModifierComputeContext>(nmd->modifier.name);
-  Vector<const bNodeTreePath *> tree_path_vec{snode.treepath};
-  if (tree_path_vec.is_empty()) {
-    return nullptr;
-  }
-  for (const bNodeTreePath *path : tree_path_vec.as_span().drop_front(1)) {
-    compute_context_builder.push<bke::NodeGroupComputeContext>(path->node_name);
-  }
-
-  return &modifier_log.get_tree_log(compute_context_builder.hash());
-}
-
 struct SocketTooltipData {
   const bNodeTree *ntree;
   const bNode *node;
@@ -383,7 +346,7 @@ static bool node_socket_has_tooltip(const bNodeTree *ntree, const bNodeSocket *s
   }
 
   if (socket->runtime->declaration != nullptr) {
-    const blender::nodes::SocketDeclaration &socket_decl = *socket->runtime->declaration;
+    const nodes::SocketDeclaration &socket_decl = *socket->runtime->declaration;
     return !socket_decl.description().is_empty();
   }
 
@@ -712,7 +675,9 @@ static char *node_socket_get_tooltip(const bContext *C,
   TreeDrawContext tree_draw_ctx;
   if (snode != nullptr) {
     if (ntree->type == NTREE_GEOMETRY) {
-      tree_draw_ctx.geo_tree_log = get_geo_tree_log(*snode);
+      tree_draw_ctx.geo_tree_log =
+          nodes::geo_eval_log::GeoModifierLog::get_tree_log_for_node_editor(*snode);
+      ;
     }
   }
 
@@ -3173,7 +3138,8 @@ static void draw_nodetree(const bContext &C,
 
   TreeDrawContext tree_draw_ctx;
   if (ntree.type == NTREE_GEOMETRY) {
-    tree_draw_ctx.geo_tree_log = get_geo_tree_log(*snode);
+    tree_draw_ctx.geo_tree_log = nodes::geo_eval_log::GeoModifierLog::get_tree_log_for_node_editor(
+        *snode);
     if (tree_draw_ctx.geo_tree_log != nullptr) {
       tree_draw_ctx.geo_tree_log->ensure_node_warnings();
       tree_draw_ctx.geo_tree_log->ensure_node_run_time();

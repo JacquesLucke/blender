@@ -49,6 +49,11 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   /** Information about how inputs and outputs of the node group interact with fields. */
   std::unique_ptr<nodes::FieldInferencingInterface> field_inferencing_interface;
 
+  /**
+   * For geometry nodes, a lazy function graph with some additional info is cached. This is used to
+   * evaluate the node group. Caching it here allows us to reuse the preprocessed node tree in case
+   * its used multiple times.
+   */
   std::mutex geometry_nodes_lazy_function_graph_info_mutex;
   std::unique_ptr<nodes::GeometryNodesLazyFunctionGraphInfo>
       geometry_nodes_lazy_function_graph_info;
