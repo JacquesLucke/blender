@@ -1177,7 +1177,7 @@ static GeometrySet compute_geometry(
     }
 
     const CPPType *type = interface_socket->typeinfo->geometry_nodes_cpp_type;
-    BLI_assert(type != nullptr); /* Todo */
+    BLI_assert(type != nullptr);
     void *value = allocator.allocate(type->size(), type->alignment());
     initialize_group_input(*nmd, *interface_socket, input_index, value);
     param_inputs[input_index] = {type, value};
