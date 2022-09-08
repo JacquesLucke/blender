@@ -4,6 +4,8 @@
 
 /** \file
  * \ingroup fn
+ *
+ * This file common utilities for actually executing a lazy-function.
  */
 
 #include "BLI_parameter_pack_utils.hh"
@@ -12,6 +14,10 @@
 
 namespace blender::fn::lazy_function {
 
+/**
+ * Most basic implementation of #Params. It does not actually implement any logic for how to
+ * retrieve inputs or set outputs. Instead, code using #BasicParams has to implement that.
+ */
 class BasicParams : public Params {
  private:
   const Span<GMutablePointer> inputs_;
@@ -39,6 +45,9 @@ class BasicParams : public Params {
 
 namespace detail {
 
+/**
+ * Utility to implement #execute_lazy_function_eagerly.
+ */
 template<typename... Inputs, typename... Outputs, size_t... InIndices, size_t... OutIndices>
 inline void execute_lazy_function_eagerly_impl(
     const LazyFunction &fn,
@@ -85,6 +94,15 @@ inline void execute_lazy_function_eagerly_impl(
 
 }  // namespace detail
 
+/**
+ * In some cases (mainly for tests), the set of inputs and outputs for a lazy-function is known at
+ * compile time and one just wants to compute the outputs based on the inputs, without any
+ * lazyness.
+ *
+ * This function does exactly that. It takes all inputs in a tuple and writes the outputs to points
+ * provided in a second tuple. Since all inputs have to be provided, the lazy-function has to
+ * compute all outputs.
+ */
 template<typename... Inputs, typename... Outputs>
 inline void execute_lazy_function_eagerly(const LazyFunction &fn,
                                           UserData *user_data,
