@@ -4,6 +4,9 @@
 
 /** \file
  * \ingroup fn
+ *
+ * This file provides means to create a #LazyFunction from #Graph (which could then e.g. be used in
+ * another #Graph again).
  */
 
 #include "BLI_vector.hh"
@@ -13,6 +16,9 @@
 
 namespace blender::fn::lazy_function {
 
+/**
+ * Can be implemented to log values produced during graph evaluation.
+ */
 class GraphExecutorLogger {
  public:
   virtual ~GraphExecutorLogger() = default;
@@ -22,6 +28,11 @@ class GraphExecutorLogger {
                                 GPointer value) const;
 };
 
+/**
+ * Has to be implemented when some of the nodes in the graph may have side effects. The
+ * #GraphExecutor has to know about that to make sure that these nodes will be executed even though
+ * their outputs are not needed.
+ */
 class GraphExecutorSideEffectProvider {
  public:
   virtual ~GraphExecutorSideEffectProvider() = default;
