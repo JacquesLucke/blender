@@ -23,9 +23,17 @@ class GraphExecutorLogger {
  public:
   virtual ~GraphExecutorLogger() = default;
 
-  virtual void log_socket_value(const Context &context,
-                                const Socket &socket,
-                                GPointer value) const;
+  virtual void log_socket_value(const Socket &socket,
+                                GPointer value,
+                                const Context &context) const;
+
+  virtual void log_before_node_execute(const FunctionNode &node,
+                                       const Params &params,
+                                       const Context &context) const;
+
+  virtual void log_after_node_execute(const FunctionNode &node,
+                                      const Params &params,
+                                      const Context &context) const;
 };
 
 /**

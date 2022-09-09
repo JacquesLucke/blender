@@ -394,7 +394,7 @@ class Executor {
       BLI_assert(default_value != nullptr);
 
       if (self_.logger_ != nullptr) {
-        self_.logger_->log_socket_value(*context_, socket, {type, default_value});
+        self_.logger_->log_socket_value(socket, {type, default_value}, *context_);
       }
 
       void *output_ptr = params_->get_output_data_ptr(graph_output_index);
@@ -667,7 +667,7 @@ class Executor {
           const void *default_value = input_socket.default_value();
           BLI_assert(default_value != nullptr);
           if (self_.logger_ != nullptr) {
-            self_.logger_->log_socket_value(*context_, input_socket, {type, default_value});
+            self_.logger_->log_socket_value(input_socket, {type, default_value}, *context_);
           }
           void *buffer = allocator.allocate(type.size(), type.alignment());
           type.copy_construct(default_value, buffer);
@@ -878,7 +878,7 @@ class Executor {
     const CPPType &type = *value_to_forward.type();
 
     if (self_.logger_ != nullptr) {
-      self_.logger_->log_socket_value(*context_, from_socket, value_to_forward);
+      self_.logger_->log_socket_value(from_socket, value_to_forward, *context_);
     }
 
     const Span<const InputSocket *> targets = from_socket.targets();
@@ -894,7 +894,7 @@ class Executor {
       BLI_assert(target_socket->origin() == &from_socket);
 
       if (self_.logger_ != nullptr) {
-        self_.logger_->log_socket_value(*context_, *target_socket, value_to_forward);
+        self_.logger_->log_socket_value(*target_socket, value_to_forward, *context_);
       }
       if (target_node.is_dummy()) {
         /* Forward the value to the outside of the graph. */
@@ -1048,7 +1048,16 @@ inline void Executor::execute_node(const FunctionNode &node,
   BLI_assert(context_ != nullptr);
   Context fn_context = *context_;
   fn_context.storage = node_state.storage;
+
+  if (self_.logger_ != nullptr) {
+    self_.logger_->log_before_node_execute(node, node_params, fn_context);
+  }
+
   fn.execute(node_params, fn_context);
+
+  if (self_.logger_ != nullptr) {
+    self_.logger_->log_after_node_execute(node, node_params, fn_context);
+  }
 }
 
 GraphExecutor::GraphExecutor(const Graph &graph,
@@ -1089,11 +1098,25 @@ void GraphExecutor::destruct_storage(void *storage) const
   std::destroy_at(static_cast<Executor *>(storage));
 }
 
-void GraphExecutorLogger::log_socket_value(const Context &context,
-                                           const Socket &socket,
-                                           GPointer value) const
+void GraphExecutorLogger::log_socket_value(const Socket &socket,
+                                           const GPointer value,
+                                           const Context &context) const
 {
-  UNUSED_VARS(context, socket, value);
+  UNUSED_VARS(socket, value, context);
+}
+
+void GraphExecutorLogger::log_before_node_execute(const FunctionNode &node,
+                                                  const Params &params,
+                                                  const Context &context) const
+{
+  UNUSED_VARS(node, params, context);
+}
+
+void GraphExecutorLogger::log_after_node_execute(const FunctionNode &node,
+                                                 const Params &params,
+                                                 const Context &context) const
+{
+  UNUSED_VARS(node, params, context);
 }
 
 Vector<const FunctionNode *> GraphExecutorSideEffectProvider::get_nodes_with_side_effects(

@@ -1151,9 +1151,10 @@ const GeometryNodesLazyFunctionGraphInfo *ensure_geometry_nodes_lazy_function_gr
   return lf_graph_info_ptr.get();
 }
 
-void GeometryNodesLazyFunctionLogger::log_socket_value(const fn::lazy_function::Context &context,
-                                                       const fn::lazy_function::Socket &lf_socket,
-                                                       GPointer value) const
+void GeometryNodesLazyFunctionLogger::log_socket_value(
+    const fn::lazy_function::Socket &lf_socket,
+    const GPointer value,
+    const fn::lazy_function::Context &context) const
 {
   const Span<const bNodeSocket *> bsockets =
       lf_graph_info_.mapping.bsockets_by_lf_socket_map.lookup(&lf_socket);

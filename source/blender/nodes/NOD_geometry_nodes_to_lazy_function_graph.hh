@@ -64,9 +64,9 @@ class GeometryNodesLazyFunctionLogger : public fn::lazy_function::GraphExecutor:
   {
   }
 
-  void log_socket_value(const fn::lazy_function::Context &context,
-                        const fn::lazy_function::Socket &lf_socket,
-                        GPointer value) const override;
+  void log_socket_value(const fn::lazy_function::Socket &lf_socket,
+                        GPointer value,
+                        const fn::lazy_function::Context &context) const override;
 };
 
 class GeometryNodesLazyFunctionSideEffectProvider
