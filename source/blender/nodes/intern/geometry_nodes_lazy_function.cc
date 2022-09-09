@@ -374,6 +374,10 @@ class LazyFunctionForMutedNode : public LazyFunction {
   }
 };
 
+/**
+ * Type conversions are generally implemented as multi-functions. This node checks if the input is
+ * a field or single value and outputs a field or single value respectively.
+ */
 class LazyFunctionForMultiFunctionConversion : public LazyFunction {
  private:
   const MultiFunction &fn_;
