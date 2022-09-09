@@ -80,6 +80,7 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   MultiValueMap<const bNodeType *, bNode *> nodes_by_type;
   Vector<bNode *> toposort_left_to_right;
   Vector<bNode *> toposort_right_to_left;
+  Vector<bNode *> group_nodes;
   bool has_link_cycle = false;
   bool has_undefined_nodes_or_sockets = false;
   bNode *group_output_node = nullptr;
@@ -255,6 +256,18 @@ inline blender::Span<bNode *> bNodeTree::all_nodes()
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
   return this->runtime->nodes;
+}
+
+inline blender::Span<const bNode *> bNodeTree::group_nodes() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->group_nodes;
+}
+
+inline blender::Span<bNode *> bNodeTree::group_nodes()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->group_nodes;
 }
 
 inline bool bNodeTree::has_link_cycle() const

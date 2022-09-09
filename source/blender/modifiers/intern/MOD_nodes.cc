@@ -895,7 +895,7 @@ static void find_side_effect_nodes_for_spreadsheet(
   const bNodeTree *group = &root_tree;
   for (SpreadsheetContextNode *node_context : nested_group_contexts) {
     const bNode *found_node = nullptr;
-    for (const bNode *node : group->nodes_by_type("GeometryNodeGroup")) {
+    for (const bNode *node : group->group_nodes()) {
       if (STREQ(node->name, node_context->node_name)) {
         found_node = node;
         break;
