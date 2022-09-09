@@ -411,6 +411,9 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
   }
 };
 
+/**
+ * This lazy-function wraps nodes that are implemented as multi-function (mostly math nodes).
+ */
 class LazyFunctionForMultiFunctionNode : public LazyFunction {
  private:
   const bNode &node_;
@@ -456,8 +459,15 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
   }
 };
 
+/**
+ * Some sockets have non-trivial implicit inputs (e.g. the Position input of the Set Position
+ * node). Those are implemented as a separate node that outputs the value.
+ */
 class LazyFunctionForImplicitInput : public LazyFunction {
  private:
+  /**
+   * The function that generates the implicit input. The passed in memory is uninitialized.
+   */
   std::function<void(void *)> init_fn_;
 
  public:
@@ -476,9 +486,14 @@ class LazyFunctionForImplicitInput : public LazyFunction {
   }
 };
 
+/**
+ * The viewer node does not have outputs. Instead it is executed because the executor knows that it
+ * has side effects. The side effect is that the inputs to the viewer are logged.
+ */
 class LazyFunctionForViewerNode : public LazyFunction {
  private:
   const bNode &bnode_;
+  /** The field is only logged when it is linked. */
   bool use_field_input_ = true;
 
  public:
@@ -517,6 +532,10 @@ class LazyFunctionForViewerNode : public LazyFunction {
   }
 };
 
+/**
+ * This lazy-function wraps a group node. Internally it just executes the lazy-function graph of
+ * the referenced group.
+ */
 class LazyFunctionForGroupNode : public LazyFunction {
  private:
   const bNode &group_node_;
@@ -555,8 +574,6 @@ class LazyFunctionForGroupNode : public LazyFunction {
       }
     }
 
-    // std::cout << lf_graph_info.graph.to_dot() << "\n";
-
     lf_logger_.emplace(lf_graph_info);
     lf_side_effect_provider_.emplace(lf_graph_info);
     graph_executor_.emplace(lf_graph_info.graph,
@@ -570,6 +587,8 @@ class LazyFunctionForGroupNode : public LazyFunction {
   {
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
+
+    /* The compute context changes when entering a node group. */
     bke::NodeGroupComputeContext compute_context{user_data->compute_context, group_node_.name};
     GeoNodesLFUserData group_user_data = *user_data;
     group_user_data.compute_context = &compute_context;
@@ -604,6 +623,11 @@ static GMutablePointer get_socket_default_value(LinearAllocator<> &allocator,
   return {type, buffer};
 }
 
+/**
+ * Utility class to build a lazy-function graph based on a geometry nodes tree.
+ * This is mainly a separate class because it makes it easier to have variables that can be
+ * accessed by many functions.
+ */
 struct GeometryNodesLazyFunctionGraphBuilder {
  private:
   const bNodeTree &btree_;
