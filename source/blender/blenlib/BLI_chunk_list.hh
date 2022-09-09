@@ -75,7 +75,7 @@ class ChunkList {
   {
   }
 
-  ChunkList(const ChunkList &other)
+  ChunkList(const ChunkList &other) : ChunkList(other.allocator())
   {
     this->extend(other);
   }
@@ -85,6 +85,12 @@ class ChunkList {
       : ChunkList(other.allocator())
   {
     this->extend(other);
+  }
+
+  ChunkList(ChunkList &&other) : ChunkList(other.allocator())
+  {
+    this->extend(other);
+    other.clear();
   }
 
   ~ChunkList()
@@ -105,6 +111,22 @@ class ChunkList {
       alloc_info_->~AllocInfo();
       allocator_.deallocate(alloc_info_);
     }
+  }
+
+  ChunkList &operator=(const ChunkList &other)
+  {
+    return copy_assign_container(*this, other);
+  }
+
+  ChunkList &operator=(ChunkList &&other)
+  {
+    return move_assign_container(*this, std::move(other));
+  }
+
+  void clear()
+  {
+    this->~ChunkList();
+    new (this) ChunkList();
   }
 
   const Allocator &allocator() const
@@ -175,6 +197,17 @@ class ChunkList {
   {
     const Span<T> chunk = const_cast<const ChunkList *>(this)->get_chunk(index);
     return {const_cast<T *>(chunk.data()), chunk.size()};
+  }
+
+  T &last()
+  {
+    BLI_assert(!this->is_empty());
+    return *(active_end_ - 1);
+  }
+  const T &last() const
+  {
+    BLI_assert(!this->is_empty());
+    return *(active_end_ - 1);
   }
 
   void append(const T &value)

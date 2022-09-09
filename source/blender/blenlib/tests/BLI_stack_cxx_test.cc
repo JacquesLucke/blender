@@ -223,7 +223,6 @@ TEST(stack, PushExceptions)
   EXPECT_EQ(stack.size(), 2);
   ExceptionThrower *ptr2 = &stack.peek();
   EXPECT_EQ(ptr1, ptr2);
-  EXPECT_TRUE(stack.is_invariant_maintained());
 }
 
 TEST(stack, PopExceptions)
@@ -235,7 +234,6 @@ TEST(stack, PopExceptions)
   stack.pop();                        /* NOLINT: bugprone-throw-keyword-missing */
   EXPECT_ANY_THROW({ stack.pop(); }); /* NOLINT: bugprone-throw-keyword-missing */
   EXPECT_EQ(stack.size(), 1);
-  EXPECT_TRUE(stack.is_invariant_maintained());
 }
 
 TEST(stack, PushMultipleExceptions)
@@ -245,9 +243,7 @@ TEST(stack, PushMultipleExceptions)
   std::array<ExceptionThrower, 100> values;
   values[6].throw_during_copy = true;
   EXPECT_ANY_THROW({ stack.push_multiple(values); });
-  EXPECT_TRUE(stack.is_invariant_maintained());
   EXPECT_ANY_THROW({ stack.push_multiple(values); });
-  EXPECT_TRUE(stack.is_invariant_maintained());
 }
 
 }  // namespace blender::tests
