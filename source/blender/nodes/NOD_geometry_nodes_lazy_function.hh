@@ -2,6 +2,22 @@
 
 #pragma once
 
+/**
+ * For evaluation, geometry node groups are converted to a lazy-function graph. The generated graph
+ * is cached per node group, so it only has to be generated once after a change.
+ *
+ * Node groups are *not* inlined into the lazy-function graph. This could be added in the future as
+ * it might improve performance in some cases, but generally does not seem necessary. Inlining node
+ * groups also has disadvantages like making per-node-group caches less useful, resulting in more
+ * overhead.
+ *
+ * Instead, group nodes are just like all other nodes in the lazy-function graph. What makes them
+ * special is that they reference the lazy-function graph of the group they reference.
+ *
+ * During lazy-function graph generation, a mapping between the #bNodeTree and
+ * #lazy_function::Graph is build that can be used when evaluating the graph (e.g. for logging).
+ */
+
 #include "FN_lazy_function_graph.hh"
 #include "FN_lazy_function_graph_executor.hh"
 
@@ -18,40 +34,99 @@ namespace blender::nodes {
 namespace lf = fn::lazy_function;
 using lf::LazyFunction;
 
+/**
+ * Data that is passed into geometry nodes evaluation from the modifier.
+ */
 struct GeoNodesModifierData {
+  /** Object that is currently evaluated. */
   const Object *self_object = nullptr;
+  /** Depsgraph that is evaluating the modifier. */
   Depsgraph *depsgraph = nullptr;
+  /** Optional logger. */
   geo_eval_log::GeoModifierLog *eval_log = nullptr;
+  /**
+   * Some nodes should be executed even when their output is not used (e.g. active viewer nodes and
+   * the node groups they are contained in).
+   */
   const MultiValueMap<ComputeContextHash, const lf::FunctionNode *> *side_effect_nodes;
 };
 
+/**
+ * Custom user data that is passed to every geometry nodes related lazy-function evaluation.
+ */
 struct GeoNodesLFUserData : public lf::UserData {
+  /**
+   * Data from the modifier that is being evaluated.
+   */
   GeoNodesModifierData *modifier_data = nullptr;
+  /**
+   * Current compute context. This is different depending in the (nested) node group that is being
+   * evaluated.
+   */
   const ComputeContext *compute_context = nullptr;
 };
 
-struct GeometryNodeLazyFunctionMapping {
+/**
+ * Contains the mapping between the #bNodeTree and the corresponding lazy-function graph.
+ * This is *not* a one-to-one mapping.
+ */
+struct GeometryNodeLazyFunctionGraphMapping {
+  /**
+   * Contains mapping of sockets for special nodes like group input and group output.
+   */
   Map<const bNodeSocket *, lf::Socket *> dummy_socket_map;
+  /**
+   * The inputs sockets in the graph. Multiple group input nodes are combined into one in the
+   * lazy-function graph.
+   */
   Vector<lf::OutputSocket *> group_input_sockets;
+  /**
+   * A mapping used for logging intermediate values.
+   */
   MultiValueMap<const lf::Socket *, const bNodeSocket *> bsockets_by_lf_socket_map;
+  /**
+   * Mappings for some special node types. Generally, this mapping does not exist for all node
+   * types, so better have more specialized mappings for now.
+   */
   Map<const bNode *, const lf::FunctionNode *> group_node_map;
   Map<const bNode *, const lf::FunctionNode *> viewer_node_map;
 };
 
+/**
+ * Data that is cached for every #bNodeTree.
+ */
 struct GeometryNodesLazyFunctionGraphInfo {
+  /**
+   * Allocator used for many things contained in this struct.
+   */
   LinearAllocator<> allocator;
+  /**
+   * Many nodes are implemented as multi-functions. So this contains a mapping from nodes to their
+   * corresponding multi-functions.
+   */
   std::unique_ptr<NodeMultiFunctions> node_multi_functions;
+  /**
+   * Many lazy-functions are build for the lazy-function graph. Since the graph does not own them,
+   * we have to keep track of them separately.
+   */
   Vector<std::unique_ptr<LazyFunction>> functions;
+  /**
+   * Many sockets have default values. Since those are not owned by the lazy-function graph, we
+   * have to keep track of them separately. This only owns the values, the memory is owned by the
+   * allocator above.
+   */
   Vector<GMutablePointer> values_to_destruct;
-  GeometryNodeLazyFunctionMapping mapping;
+  /**
+   * The actual lazy-function graph.
+   */
   lf::Graph graph;
+  /**
+   * Mappings between the lazy-function graph and the #bNodeTree.
+   */
+  GeometryNodeLazyFunctionGraphMapping mapping;
 
-  ~GeometryNodesLazyFunctionGraphInfo()
-  {
-    for (GMutablePointer &p : this->values_to_destruct) {
-      p.destruct();
-    }
-  }
+  GeometryNodesLazyFunctionGraphInfo();
+  ~GeometryNodesLazyFunctionGraphInfo();
 };
 
 class GeometryNodesLazyFunctionLogger : public fn::lazy_function::GraphExecutor::Logger {

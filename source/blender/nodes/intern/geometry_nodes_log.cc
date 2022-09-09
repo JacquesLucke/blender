@@ -464,7 +464,7 @@ struct ObjectAndModifier {
   const NodesModifierData *nmd;
 };
 
-std::optional<ObjectAndModifier> get_modifier_for_node_editor(const SpaceNode &snode)
+static std::optional<ObjectAndModifier> get_modifier_for_node_editor(const SpaceNode &snode)
 {
   if (snode.id == nullptr) {
     return std::nullopt;

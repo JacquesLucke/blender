@@ -1126,7 +1126,7 @@ static GeometrySet compute_geometry(
     NodesModifierData *nmd,
     const ModifierEvalContext *ctx)
 {
-  const blender::nodes::GeometryNodeLazyFunctionMapping &mapping = lf_graph_info.mapping;
+  const blender::nodes::GeometryNodeLazyFunctionGraphMapping &mapping = lf_graph_info.mapping;
 
   Span<const lf::OutputSocket *> graph_inputs = mapping.group_input_sockets;
   Vector<const lf::InputSocket *> graph_outputs;

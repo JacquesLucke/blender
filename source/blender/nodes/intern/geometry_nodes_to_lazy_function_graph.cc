@@ -570,7 +570,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   const bNodeTree &btree_;
   GeometryNodesLazyFunctionGraphInfo *lf_graph_info_;
   lf::Graph *lf_graph_;
-  GeometryNodeLazyFunctionMapping *mapping_;
+  GeometryNodeLazyFunctionGraphMapping *mapping_;
   MultiValueMap<const bNodeSocket *, lf::InputSocket *> input_socket_map_;
   Map<const bNodeSocket *, lf::OutputSocket *> output_socket_map_;
   Map<const bNodeSocket *, lf::Node *> multi_input_socket_nodes_;
@@ -1189,6 +1189,14 @@ Vector<const lf::FunctionNode *> GeometryNodesLazyFunctionSideEffectProvider::
   const ComputeContextHash &context_hash = user_data->compute_context->hash();
   const GeoNodesModifierData &modifier_data = *user_data->modifier_data;
   return modifier_data.side_effect_nodes->lookup(context_hash);
+}
+
+GeometryNodesLazyFunctionGraphInfo::GeometryNodesLazyFunctionGraphInfo() = default;
+GeometryNodesLazyFunctionGraphInfo::~GeometryNodesLazyFunctionGraphInfo()
+{
+  for (GMutablePointer &p : this->values_to_destruct) {
+    p.destruct();
+  }
 }
 
 }  // namespace blender::nodes
