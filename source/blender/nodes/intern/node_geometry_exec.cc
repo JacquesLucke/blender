@@ -24,7 +24,7 @@ void GeoNodeExecParams::used_named_attribute(std::string attribute_name,
                                              const NamedAttributeUsage usage)
 {
   if (geo_eval_log::GeoTreeLogger *tree_logger = this->get_local_tree_logger()) {
-    tree_logger->used_named_attributes_.append({node_.name, std::move(attribute_name), usage});
+    tree_logger->used_named_attributes.append({node_.name, std::move(attribute_name), usage});
   }
 }
 

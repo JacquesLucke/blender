@@ -2,6 +2,28 @@
 
 #pragma once
 
+/**
+ * Many geometry nodes related UI features need access to data produced during evaluation. Not only
+ * is the final output required but also the intermediate results. Those features include attribute
+ * search, node warnings, socket inspection and the viewer node.
+ *
+ * This file provides the system for logging data during evaluation and accessing the data after
+ * evaluation. Geometry nodes is executed by a modifier, therefore the "root" of logging is
+ * #GeoModifierLog which will contain all data generated in a modifier.
+ *
+ * The system makes a distinction between "loggers" and the "log":
+ * - Logger (#GeoTreeLogger): Is used during geometry nodes evaluation. Each thread logs data
+ *   independently to avoid communication between threads. Logging should generally be fast.
+ *   Generally, the logged data is just dumped into simple containers. Any processing of the data
+ *   happens later if necessary. This is important for performance, because in practice, most of
+ *   the logged data is never used again. So any processing of the data is likely to be a waste of
+ *   resources.
+ * - Log (#GeoTreeLog, #GeoNodeLog): Those are used when accessing logged data in UI code. They
+ *   contain and cache preprocessed data produced during logging. The log combines data from all
+ *   threadlocal loggers to provide simple access. Importantly, the (preprocessed) log is only
+ *   created when it is actually used by UI code.
+ */
+
 #include <chrono>
 
 #include "BLI_compute_context.hh"
@@ -43,25 +65,40 @@ enum class NamedAttributeUsage {
 };
 ENUM_OPERATORS(NamedAttributeUsage, NamedAttributeUsage::Remove);
 
+/**
+ * Values of different types are logged differently. This is necesary because some types are so
+ * simple that we can log them entirely (e.g. `int`), while we don't want to log all intermediate
+ * geometries in their entirety.
+ *
+ * #ValueLog is a base class for the different ways we log values.
+ */
 class ValueLog {
  public:
   virtual ~ValueLog() = default;
 };
 
+/**
+ * Simplest logger. It just stores a copy of the entire value. This is used for most simple types
+ * like `int`.
+ */
 class GenericValueLog : public ValueLog {
  public:
+  /**
+   * This is owning the value, but not the memory.
+   */
   GMutablePointer value;
 
   GenericValueLog(const GMutablePointer value) : value(value)
   {
   }
 
-  ~GenericValueLog()
-  {
-    this->value.destruct();
-  }
+  ~GenericValueLog();
 };
 
+/**
+ * Fields are not logged entirely, because they might contain arbitrarily large data (e.g.
+ * geometries that are sampled). Instead, only the data needed for ui features is logged.
+ */
 class FieldInfoLog : public ValueLog {
  public:
   const CPPType &type;
@@ -77,6 +114,10 @@ struct GeometryAttributeInfo {
   std::optional<eCustomDataType> data_type;
 };
 
+/**
+ * Geometries are not logged entirely, because that would result in a lot of time and memory
+ * overhead. Instead, only the data needed for ui features is logged.
+ */
 class GeometryInfoLog : public ValueLog {
  public:
   Vector<GeometryAttributeInfo> attributes;
@@ -108,6 +149,10 @@ class GeometryInfoLog : public ValueLog {
   GeometryInfoLog(const GeometrySet &geometry_set);
 };
 
+/**
+ * Data logged by a viewer node when it is executed. In this case, we do want to log the entire
+ * geometry.
+ */
 class ViewerNodeLog {
  public:
   GeometrySet geometry;
@@ -117,6 +162,10 @@ class ViewerNodeLog {
 using Clock = std::chrono::steady_clock;
 using TimePoint = Clock::time_point;
 
+/**
+ * Logs all data for a specific geometry node tree in a specific context. When the same node group
+ * is used in multiple times each instantiation will have a separate logger.
+ */
 class GeoTreeLogger {
  public:
   std::optional<ComputeContextHash> parent_hash;
@@ -124,26 +173,66 @@ class GeoTreeLogger {
   Vector<ComputeContextHash> children_hashes;
 
   LinearAllocator<> *allocator = nullptr;
-  Vector<std::pair<std::string, NodeWarning>> node_warnings;
-  Vector<destruct_ptr<ValueLog>> socket_values_owner;
-  Vector<std::tuple<std::string, std::string, ValueLog *>> input_socket_values;
-  Vector<std::tuple<std::string, std::string, ValueLog *>> output_socket_values;
-  Vector<std::tuple<std::string, TimePoint, TimePoint>> node_execution_times;
-  Vector<std::tuple<std::string, destruct_ptr<ViewerNodeLog>>, 0> viewer_node_logs_;
-  Vector<std::tuple<std::string, std::string, NamedAttributeUsage>, 0> used_named_attributes_;
+
+  struct WarningWithNode {
+    std::string node_name;
+    NodeWarning warning;
+  };
+  struct SocketValueLog {
+    std::string node_name;
+    std::string socket_identifier;
+    destruct_ptr<ValueLog> value;
+  };
+  struct NodeExecutionTime {
+    std::string node_name;
+    TimePoint start;
+    TimePoint end;
+  };
+  struct ViewerNodeLogWithNode {
+    std::string node_name;
+    destruct_ptr<ViewerNodeLog> viewer_log;
+  };
+  struct AttributeUsageWithNode {
+    std::string node_name;
+    std::string attribute_name;
+    NamedAttributeUsage usage;
+  };
+
+  Vector<WarningWithNode> node_warnings;
+  Vector<SocketValueLog> input_socket_values;
+  Vector<SocketValueLog> output_socket_values;
+  Vector<NodeExecutionTime> node_execution_times;
+  Vector<ViewerNodeLogWithNode, 0> viewer_node_logs;
+  Vector<AttributeUsageWithNode, 0> used_named_attributes;
 
   GeoTreeLogger();
   ~GeoTreeLogger();
+
   void log_value(const bNode &node, const bNodeSocket &socket, GPointer value);
   void log_viewer_node(const bNode &viewer_node, const GeometrySet &geometry, const GField &field);
 };
 
+/**
+ * Contains data that has been logged for a specific node in a context. So when the node is in a
+ * node group that is used multiple times, there will be a different #GeoNodeLog for every
+ * instance.
+ *
+ * By default, not all of the info below is valid. A #GeoTreeLog::ensure_* method has to be called
+ * first.
+ */
 class GeoNodeLog {
  public:
+  /** Warnings generated for that node. */
   Vector<NodeWarning> warnings;
+  /**
+   * Time spend in that node. For node groups this is the sum of the run times of the nodes
+   * inside.
+   */
   std::chrono::nanoseconds run_time{0};
+  /** Maps from socket identifiers to their values. */
   Map<std::string, ValueLog *> input_values_;
   Map<std::string, ValueLog *> output_values_;
+  /** Maps from attribute name to their usage flags. */
   Map<std::string, NamedAttributeUsage> used_named_attributes;
 
   GeoNodeLog();
@@ -152,6 +241,13 @@ class GeoNodeLog {
 
 class GeoModifierLog;
 
+/**
+ * Contains data that has been logged for a specific node group in a context. If the same node
+ * group is used multiple times, there will be a different #GeoTreeLog for every instance.
+ *
+ * This contains lazily evaluated data. Call the corresponding `ensure_*` methods before accessing
+ * data.
+ */
 class GeoTreeLog {
  private:
   GeoModifierLog *modifier_log_;
@@ -185,29 +281,48 @@ class GeoTreeLog {
   ValueLog *find_socket_value_log(const bNodeSocket &query_socket);
 };
 
+/**
+ * There is one #GeoModifierLog for every modifier that evaluates geometry nodes. It contains all
+ * the loggers that are used during evaluation as well as the preprocessed logs that are used by UI
+ * code.
+ */
 class GeoModifierLog {
  private:
+  /** Data that is stored for each thread. */
   struct LocalData {
+    /** Each thread has its own allocator. */
     LinearAllocator<> allocator;
+    /**
+     * Store a separate #GeoTreeLogger for each instance of the corresponding node group (e.g.
+     * when the same node group is used multiple times).
+     */
     Map<ComputeContextHash, destruct_ptr<GeoTreeLogger>> tree_logger_by_context;
   };
 
+  /** Container for all threadlocal data. */
   threading::EnumerableThreadSpecific<LocalData> data_per_thread_;
+  /**
+   * A #GeoTreeLog for every compute context. Those are created lazily when requested by UI code.
+   */
   Map<ComputeContextHash, std::unique_ptr<GeoTreeLog>> tree_logs_;
 
  public:
   GeoModifierLog();
   ~GeoModifierLog();
 
+  /**
+   * Get a threadlocal logger for the current node tree.
+   */
   GeoTreeLogger &get_local_tree_logger(const ComputeContext &compute_context);
+
+  /**
+   * Get a log a specific node tree instance.
+   */
   GeoTreeLog &get_tree_log(const ComputeContextHash &compute_context_hash);
 
-  struct ObjectAndModifier {
-    const Object *object;
-    const NodesModifierData *nmd;
-  };
-
-  static std::optional<ObjectAndModifier> get_modifier_for_node_editor(const SpaceNode &snode);
+  /**
+   * Utility accessor to logged data.
+   */
   static GeoTreeLog *get_tree_log_for_node_editor(const SpaceNode &snode);
   static const ViewerNodeLog *find_viewer_node_log_for_spreadsheet(
       const SpaceSpreadsheet &sspreadsheet);

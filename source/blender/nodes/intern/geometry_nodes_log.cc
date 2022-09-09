@@ -17,6 +17,11 @@ namespace blender::nodes::geo_eval_log {
 using fn::FieldInput;
 using fn::FieldInputs;
 
+GenericValueLog::~GenericValueLog()
+{
+  this->value.destruct();
+}
+
 FieldInfoLog::FieldInfoLog(const GField &field) : type(field.cpp_type())
 {
   const std::shared_ptr<const fn::FieldInputs> &field_input_nodes = field.node().field_inputs();
@@ -143,8 +148,7 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
   auto store_logged_value = [&](destruct_ptr<ValueLog> value_log) {
     auto &socket_values = socket.in_out == SOCK_IN ? this->input_socket_values :
                                                      this->output_socket_values;
-    socket_values.append({node.name, socket.identifier, value_log.get()});
-    this->socket_values_owner.append(std::move(value_log));
+    socket_values.append({node.name, socket.identifier, std::move(value_log)});
   };
 
   auto log_generic_value = [&](const CPPType &type, const void *value) {
@@ -190,7 +194,7 @@ void GeoTreeLogger::log_viewer_node(const bNode &viewer_node,
   log->geometry = geometry;
   log->field = field;
   log->geometry.ensure_owns_direct_data();
-  this->viewer_node_logs_.append({viewer_node.name, std::move(log)});
+  this->viewer_node_logs.append({viewer_node.name, std::move(log)});
 }
 
 void GeoTreeLog::ensure_node_warnings()
@@ -199,9 +203,9 @@ void GeoTreeLog::ensure_node_warnings()
     return;
   }
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
-    for (const std::pair<std::string, NodeWarning> &warnings : tree_logger->node_warnings) {
-      this->nodes.lookup_or_add_default(warnings.first).warnings.append(warnings.second);
-      this->all_warnings.append(warnings.second);
+    for (const GeoTreeLogger::WarningWithNode &warnings : tree_logger->node_warnings) {
+      this->nodes.lookup_or_add_default(warnings.node_name).warnings.append(warnings.warning);
+      this->all_warnings.append(warnings.warning);
     }
   }
   for (const ComputeContextHash &child_hash : children_hashes_) {
@@ -223,11 +227,9 @@ void GeoTreeLog::ensure_node_run_time()
     return;
   }
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
-    for (const std::tuple<std::string, TimePoint, TimePoint> &timings :
-         tree_logger->node_execution_times) {
-      const StringRefNull node_name = std::get<0>(timings);
-      const std::chrono::nanoseconds duration = std::get<2>(timings) - std::get<1>(timings);
-      this->nodes.lookup_or_add_default_as(node_name).run_time += duration;
+    for (const GeoTreeLogger::NodeExecutionTime &timings : tree_logger->node_execution_times) {
+      const std::chrono::nanoseconds duration = timings.end - timings.start;
+      this->nodes.lookup_or_add_default_as(timings.node_name).run_time += duration;
       this->run_time_sum += duration;
     }
   }
@@ -250,15 +252,13 @@ void GeoTreeLog::ensure_socket_values()
     return;
   }
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
-    for (const std::tuple<std::string, std::string, ValueLog *> &value_log_data :
-         tree_logger->input_socket_values) {
-      this->nodes.lookup_or_add_as(std::get<0>(value_log_data))
-          .input_values_.add(std::get<1>(value_log_data), std::get<2>(value_log_data));
+    for (const GeoTreeLogger::SocketValueLog &value_log_data : tree_logger->input_socket_values) {
+      this->nodes.lookup_or_add_as(value_log_data.node_name)
+          .input_values_.add(value_log_data.socket_identifier, value_log_data.value.get());
     }
-    for (const std::tuple<std::string, std::string, ValueLog *> &value_log_data :
-         tree_logger->output_socket_values) {
-      this->nodes.lookup_or_add_as(std::get<0>(value_log_data))
-          .output_values_.add(std::get<1>(value_log_data), std::get<2>(value_log_data));
+    for (const GeoTreeLogger::SocketValueLog &value_log_data : tree_logger->output_socket_values) {
+      this->nodes.lookup_or_add_as(value_log_data.node_name)
+          .output_values_.add(value_log_data.socket_identifier, value_log_data.value.get());
     }
   }
   reduced_socket_values_ = true;
@@ -270,9 +270,8 @@ void GeoTreeLog::ensure_viewer_node_logs()
     return;
   }
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
-    for (const std::tuple<std::string, destruct_ptr<ViewerNodeLog>> &viewer_log :
-         tree_logger->viewer_node_logs_) {
-      this->viewer_node_logs.add(std::get<0>(viewer_log), std::get<1>(viewer_log).get());
+    for (const GeoTreeLogger::ViewerNodeLogWithNode &viewer_log : tree_logger->viewer_node_logs) {
+      this->viewer_node_logs.add(viewer_log.node_name, viewer_log.viewer_log.get());
     }
   }
   reduced_viewer_node_logs_ = true;
@@ -325,9 +324,8 @@ void GeoTreeLog::ensure_used_named_attributes()
   };
 
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
-    for (const std::tuple<std::string, std::string, NamedAttributeUsage> &item :
-         tree_logger->used_named_attributes_) {
-      add_attribute(std::get<0>(item), std::get<1>(item), std::get<2>(item));
+    for (const GeoTreeLogger::AttributeUsageWithNode &item : tree_logger->used_named_attributes) {
+      add_attribute(item.node_name, item.attribute_name, item.usage);
     }
   }
   for (const ComputeContextHash &child_hash : children_hashes_) {
@@ -461,8 +459,12 @@ GeoTreeLog &GeoModifierLog::get_tree_log(const ComputeContextHash &compute_conte
   return reduced_tree_log;
 }
 
-std::optional<GeoModifierLog::ObjectAndModifier> GeoModifierLog::get_modifier_for_node_editor(
-    const SpaceNode &snode)
+struct ObjectAndModifier {
+  const Object *object;
+  const NodesModifierData *nmd;
+};
+
+std::optional<ObjectAndModifier> get_modifier_for_node_editor(const SpaceNode &snode)
 {
   if (snode.id == nullptr) {
     return std::nullopt;
