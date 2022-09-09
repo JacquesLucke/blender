@@ -1034,9 +1034,14 @@ class GraphExecutorLFParams final : public Params {
   }
 };
 
-void Executor::execute_node(const FunctionNode &node,
-                            NodeState &node_state,
-                            CurrentTask &current_task)
+/**
+ * Actually execute the node.
+ *
+ * Making this `inline` results in a simpler backtrace in release builds.
+ */
+inline void Executor::execute_node(const FunctionNode &node,
+                                   NodeState &node_state,
+                                   CurrentTask &current_task)
 {
   const LazyFunction &fn = node.function();
   GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task};
