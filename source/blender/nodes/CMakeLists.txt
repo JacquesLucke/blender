@@ -40,8 +40,8 @@ set(INC
 
 set(SRC
   intern/derived_node_tree.cc
+  intern/geometry_nodes_lazy_function.cc
   intern/geometry_nodes_log.cc
-  intern/geometry_nodes_to_lazy_function_graph.cc
   intern/math_functions.cc
   intern/node_common.cc
   intern/node_declaration.cc
