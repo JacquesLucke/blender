@@ -27,7 +27,7 @@
  * executed, it advances its state until all required outputs are ready.
  *
  * The lazy-function interface is designed to support composition of many such functions into a new
- * lazy-functions. All while keeping the lazyness working. For example, in geometry nodes a switch
+ * lazy-functions, all while keeping the lazyness working. For example, in geometry nodes a switch
  * node in a node group should still be able to decide whether a node in the parent group will be
  * executed or not. This is essential to avoid doing unnecessary work.
  *
@@ -134,7 +134,7 @@ class Params {
   void output_set(int index);
 
   /**
-   * Allows the #MultiFunction to check whether an output was computed already without keeping
+   * Allows the #LazyFunction to check whether an output was computed already without keeping
    * track of it itself.
    */
   bool output_was_set(int index) const;

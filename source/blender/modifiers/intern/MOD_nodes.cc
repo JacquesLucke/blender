@@ -1128,11 +1128,8 @@ static GeometrySet compute_geometry(
 {
   const blender::nodes::GeometryNodeLazyFunctionMapping &mapping = lf_graph_info.mapping;
 
-  Vector<const lf::OutputSocket *> graph_inputs;
+  Span<const lf::OutputSocket *> graph_inputs = mapping.group_input_sockets;
   Vector<const lf::InputSocket *> graph_outputs;
-  for (const lf::OutputSocket *socket : mapping.group_input_sockets) {
-    graph_inputs.append(socket);
-  }
   for (const bNodeSocket *bsocket : output_node.input_sockets().drop_back(1)) {
     const lf::InputSocket &socket = mapping.dummy_socket_map.lookup(bsocket)->as_input();
     graph_outputs.append(&socket);

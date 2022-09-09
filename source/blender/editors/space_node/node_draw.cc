@@ -83,13 +83,6 @@ namespace geo_log = blender::nodes::geo_eval_log;
 using blender::GPointer;
 using blender::Vector;
 using blender::fn::GField;
-using geo_log::GeoModifierLog;
-using geo_log::GeoNodeLog;
-using geo_log::GeoTreeLog;
-using geo_log::GeoTreeLogger;
-using geo_log::NamedAttributeUsage;
-using geo_log::NodeWarning;
-using geo_log::NodeWarningType;
 
 extern "C" {
 /* XXX interface.h */
@@ -105,7 +98,7 @@ struct TreeDrawContext {
    * Geometry nodes logs various data during execution. The logged data that corresponds to the
    * currently drawn node tree can be retrieved from the log below.
    */
-  GeoTreeLog *geo_tree_log = nullptr;
+  geo_log::GeoTreeLog *geo_tree_log = nullptr;
 };
 
 float ED_node_grid_size()
@@ -180,7 +173,7 @@ void ED_node_tag_update_id(ID *id)
 
 namespace blender::ed::space_node {
 
-static void node_socket_add_tooltip_in_node_editor(TreeDrawContext *UNUSED(tree_draw_ctx),
+static void node_socket_add_tooltip_in_node_editor(TreeDrawContext * /*tree_draw_ctx*/,
                                                    const bNodeTree *ntree,
                                                    const bNode *node,
                                                    const bNodeSocket *sock,
@@ -1057,14 +1050,14 @@ static std::optional<std::string> create_socket_inspection_string(TreeDrawContex
   return str;
 }
 
-static bool node_socket_has_tooltip(const bNodeTree *ntree, const bNodeSocket *socket)
+static bool node_socket_has_tooltip(const bNodeTree &ntree, const bNodeSocket &socket)
 {
-  if (ntree->type == NTREE_GEOMETRY) {
+  if (ntree.type == NTREE_GEOMETRY) {
     return true;
   }
 
-  if (socket->runtime->declaration != nullptr) {
-    const nodes::SocketDeclaration &socket_decl = *socket->runtime->declaration;
+  if (socket.runtime->declaration != nullptr) {
+    const nodes::SocketDeclaration &socket_decl = *socket.runtime->declaration;
     return !socket_decl.description().is_empty();
   }
 
@@ -1080,8 +1073,7 @@ static char *node_socket_get_tooltip(const bContext *C,
   TreeDrawContext tree_draw_ctx;
   if (snode != nullptr) {
     if (ntree->type == NTREE_GEOMETRY) {
-      tree_draw_ctx.geo_tree_log =
-          nodes::geo_eval_log::GeoModifierLog::get_tree_log_for_node_editor(*snode);
+      tree_draw_ctx.geo_tree_log = geo_log::GeoModifierLog::get_tree_log_for_node_editor(*snode);
     }
   }
 
@@ -1105,7 +1097,7 @@ static char *node_socket_get_tooltip(const bContext *C,
       output << *socket_inspection_str;
     }
     else {
-      output << TIP_("Unknown socket value");
+      output << TIP_("The socket value has not been computed yet");
     }
   }
 
@@ -1122,7 +1114,7 @@ static void node_socket_add_tooltip_in_node_editor(TreeDrawContext *UNUSED(tree_
                                                    const bNodeSocket *sock,
                                                    uiLayout *layout)
 {
-  if (!node_socket_has_tooltip(ntree, sock)) {
+  if (!node_socket_has_tooltip(*ntree, *sock)) {
     return;
   }
 
@@ -1182,7 +1174,7 @@ static void node_socket_draw_nested(const bContext &C,
                    size_id,
                    outline_col_id);
 
-  if (!node_socket_has_tooltip(&ntree, &sock)) {
+  if (!node_socket_has_tooltip(ntree, sock)) {
     return;
   }
 
@@ -1573,14 +1565,14 @@ static void node_draw_sockets(const View2D &v2d,
   }
 }
 
-static int node_error_type_to_icon(const NodeWarningType type)
+static int node_error_type_to_icon(const geo_log::NodeWarningType type)
 {
   switch (type) {
-    case NodeWarningType::Error:
+    case geo_log::NodeWarningType::Error:
       return ICON_ERROR;
-    case NodeWarningType::Warning:
+    case geo_log::NodeWarningType::Warning:
       return ICON_ERROR;
-    case NodeWarningType::Info:
+    case geo_log::NodeWarningType::Info:
       return ICON_INFO;
   }
 
@@ -1588,14 +1580,14 @@ static int node_error_type_to_icon(const NodeWarningType type)
   return ICON_ERROR;
 }
 
-static uint8_t node_error_type_priority(const NodeWarningType type)
+static uint8_t node_error_type_priority(const geo_log::NodeWarningType type)
 {
   switch (type) {
-    case NodeWarningType::Error:
+    case geo_log::NodeWarningType::Error:
       return 3;
-    case NodeWarningType::Warning:
+    case geo_log::NodeWarningType::Warning:
       return 2;
-    case NodeWarningType::Info:
+    case geo_log::NodeWarningType::Info:
       return 1;
   }
 
@@ -1603,11 +1595,11 @@ static uint8_t node_error_type_priority(const NodeWarningType type)
   return 0;
 }
 
-static NodeWarningType node_error_highest_priority(Span<NodeWarning> warnings)
+static geo_log::NodeWarningType node_error_highest_priority(Span<geo_log::NodeWarning> warnings)
 {
   uint8_t highest_priority = 0;
-  NodeWarningType highest_priority_type = NodeWarningType::Info;
-  for (const NodeWarning &warning : warnings) {
+  geo_log::NodeWarningType highest_priority_type = geo_log::NodeWarningType::Info;
+  for (const geo_log::NodeWarning &warning : warnings) {
     const uint8_t priority = node_error_type_priority(warning.type);
     if (priority > highest_priority) {
       highest_priority = priority;
@@ -1618,7 +1610,7 @@ static NodeWarningType node_error_highest_priority(Span<NodeWarning> warnings)
 }
 
 struct NodeErrorsTooltipData {
-  Span<NodeWarning> warnings;
+  Span<geo_log::NodeWarning> warnings;
 };
 
 static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
@@ -1627,7 +1619,7 @@ static char *node_errors_tooltip_fn(bContext *UNUSED(C), void *argN, const char 
 
   std::string complete_string;
 
-  for (const NodeWarning &warning : data.warnings.drop_back(1)) {
+  for (const geo_log::NodeWarning &warning : data.warnings.drop_back(1)) {
     complete_string += warning.message;
     /* Adding the period is not ideal for multi-line messages, but it is consistent
      * with other tooltip implementations in Blender, so it is added here. */
@@ -1649,9 +1641,9 @@ static void node_add_error_message_button(TreeDrawContext &tree_draw_ctx,
                                           const rctf &rect,
                                           float &icon_offset)
 {
-  Span<NodeWarning> warnings;
+  Span<geo_log::NodeWarning> warnings;
   if (tree_draw_ctx.geo_tree_log) {
-    GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
+    geo_log::GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
     if (node_log != nullptr) {
       warnings = node_log->warnings;
     }
@@ -1660,7 +1652,7 @@ static void node_add_error_message_button(TreeDrawContext &tree_draw_ctx,
     return;
   }
 
-  const NodeWarningType display_type = node_error_highest_priority(warnings);
+  const geo_log::NodeWarningType display_type = node_error_highest_priority(warnings);
   NodeErrorsTooltipData *tooltip_data = MEM_new<NodeErrorsTooltipData>(__func__);
   tooltip_data->warnings = warnings;
 
@@ -1689,7 +1681,7 @@ static void node_add_error_message_button(TreeDrawContext &tree_draw_ctx,
 static std::optional<std::chrono::nanoseconds> node_get_execution_time(
     TreeDrawContext &tree_draw_ctx, const bNodeTree &ntree, const bNode &node)
 {
-  const GeoTreeLog *tree_log = tree_draw_ctx.geo_tree_log;
+  const geo_log::GeoTreeLog *tree_log = tree_draw_ctx.geo_tree_log;
   if (tree_log == nullptr) {
     return std::nullopt;
   }
@@ -1714,7 +1706,7 @@ static std::optional<std::chrono::nanoseconds> node_get_execution_time(
         }
       }
       else {
-        if (const GeoNodeLog *node_log = tree_log->nodes.lookup_ptr_as(tnode->name)) {
+        if (const geo_log::GeoNodeLog *node_log = tree_log->nodes.lookup_ptr_as(tnode->name)) {
           found_node = true;
           run_time += node_log->run_time;
         }
@@ -1725,7 +1717,7 @@ static std::optional<std::chrono::nanoseconds> node_get_execution_time(
     }
     return std::nullopt;
   }
-  if (const GeoNodeLog *node_log = tree_log->nodes.lookup_ptr(node.name)) {
+  if (const geo_log::GeoNodeLog *node_log = tree_log->nodes.lookup_ptr(node.name)) {
     return node_log->run_time;
   }
   return std::nullopt;
@@ -1778,7 +1770,7 @@ struct NodeExtraInfoRow {
 };
 
 struct NamedAttributeTooltipArg {
-  Map<std::string, NamedAttributeUsage> usage_by_attribute;
+  Map<std::string, geo_log::NamedAttributeUsage> usage_by_attribute;
 };
 
 static char *named_attribute_tooltip(bContext *UNUSED(C), void *argN, const char *UNUSED(tip))
@@ -1790,7 +1782,7 @@ static char *named_attribute_tooltip(bContext *UNUSED(C), void *argN, const char
 
   struct NameWithUsage {
     StringRefNull name;
-    NamedAttributeUsage usage;
+    geo_log::NamedAttributeUsage usage;
   };
 
   Vector<NameWithUsage> sorted_used_attribute;
@@ -1805,16 +1797,16 @@ static char *named_attribute_tooltip(bContext *UNUSED(C), void *argN, const char
 
   for (const NameWithUsage &attribute : sorted_used_attribute) {
     const StringRefNull name = attribute.name;
-    const NamedAttributeUsage usage = attribute.usage;
+    const geo_log::NamedAttributeUsage usage = attribute.usage;
     ss << "  \u2022 \"" << name << "\": ";
     Vector<std::string> usages;
-    if ((usage & NamedAttributeUsage::Read) != NamedAttributeUsage::None) {
+    if ((usage & geo_log::NamedAttributeUsage::Read) != geo_log::NamedAttributeUsage::None) {
       usages.append(TIP_("read"));
     }
-    if ((usage & NamedAttributeUsage::Write) != NamedAttributeUsage::None) {
+    if ((usage & geo_log::NamedAttributeUsage::Write) != geo_log::NamedAttributeUsage::None) {
       usages.append(TIP_("write"));
     }
-    if ((usage & NamedAttributeUsage::Remove) != NamedAttributeUsage::None) {
+    if ((usage & geo_log::NamedAttributeUsage::Remove) != geo_log::NamedAttributeUsage::None) {
       usages.append(TIP_("remove"));
     }
     for (const int i : usages.index_range()) {
@@ -1832,7 +1824,7 @@ static char *named_attribute_tooltip(bContext *UNUSED(C), void *argN, const char
 }
 
 static NodeExtraInfoRow row_from_used_named_attribute(
-    const Map<std::string, NamedAttributeUsage> &usage_by_attribute_name)
+    const Map<std::string, geo_log::NamedAttributeUsage> &usage_by_attribute_name)
 {
   const int attributes_num = usage_by_attribute_name.size();
 
@@ -1866,7 +1858,7 @@ static std::optional<NodeExtraInfoRow> node_get_accessed_attributes_row(
     }
   }
   tree_draw_ctx.geo_tree_log->ensure_used_named_attributes();
-  GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
+  geo_log::GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
   if (node_log == nullptr) {
     return std::nullopt;
   }
@@ -3026,8 +3018,7 @@ static void draw_nodetree(const bContext &C,
 
   TreeDrawContext tree_draw_ctx;
   if (ntree.type == NTREE_GEOMETRY) {
-    tree_draw_ctx.geo_tree_log = nodes::geo_eval_log::GeoModifierLog::get_tree_log_for_node_editor(
-        *snode);
+    tree_draw_ctx.geo_tree_log = geo_log::GeoModifierLog::get_tree_log_for_node_editor(*snode);
     if (tree_draw_ctx.geo_tree_log != nullptr) {
       tree_draw_ctx.geo_tree_log->ensure_node_warnings();
       tree_draw_ctx.geo_tree_log->ensure_node_run_time();

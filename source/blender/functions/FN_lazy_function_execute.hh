@@ -5,7 +5,7 @@
 /** \file
  * \ingroup fn
  *
- * This file common utilities for actually executing a lazy-function.
+ * This file contains common utilities for actually executing a lazy-function.
  */
 
 #include "BLI_parameter_pack_utils.hh"

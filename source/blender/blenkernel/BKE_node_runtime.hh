@@ -158,6 +158,10 @@ class bNodeRuntime : NonCopyable, NonMovable {
 
 namespace node_tree_runtime {
 
+/**
+ * Is executed when the depsgraph determines that something in the node group changed that will
+ * affect the output.
+ */
 void handle_node_tree_output_changed(bNodeTree &tree_cow);
 
 class AllowUsingOutdatedInfo : NonCopyable, NonMovable {

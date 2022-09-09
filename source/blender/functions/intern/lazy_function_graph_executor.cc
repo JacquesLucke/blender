@@ -3,7 +3,7 @@
 /**
  * This file implements the evaluation of a lazy-function graph. It's main objectices are:
  * - Only compute values that are actually used.
- * - Allow to spread the work over an arbitrary number of CPU cores.
+ * - Allow spreading the work over an arbitrary number of CPU cores.
  *
  * Other (simpler) executors with different main objectives could be implemented in the future. For
  * some scenarios those could be simpler when many nodes do very little work or most nodes have to
@@ -17,9 +17,9 @@
  * with that: a thread will next process the task that it added to a task pool just before.
  *
  * Communication between threads is synchronized by using a mutex in every node. When a thread
- * wants to access the state of a node, its mutex has to be locked first (there some documented
- * exceptions) to that. The assumption here is that most nodes are only ever touched by a single
- * thread and therefore the lock contention is reduced the more nodes there are.
+ * wants to access the state of a node, its mutex has to be locked first (with some documented
+ * exceptions). The assumption here is that most nodes are only ever touched by a single thread and
+ * therefore the lock contention is reduced the more nodes there are.
  *
  * Similar to how a #LazyFunction can be thought of as a state machine (see `FN_lazy_function.hh`),
  * each node can also be thought of as a state machine. The state of a node contains the evaluation

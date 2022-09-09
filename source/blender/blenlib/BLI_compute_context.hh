@@ -13,7 +13,7 @@
  * This is not a trivial problem because e.g. just storing storing a pointer to the socket a value
  * belongs to is not enough. That's because the same socket may correspond to many different values
  * when the socket is used in a node group that is used multiple times. In this case, not only does
- * the socket has to be stored but also the entire nested node group path that led to the
+ * the socket have to be stored but also the entire nested node group path that led to the
  * evaluation of the socket.
  *
  * Storing the entire "context path" for every logged value is not feasible, because that path can

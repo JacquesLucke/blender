@@ -417,12 +417,12 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
   }
 };
 
-class LazyFunctionForComplexInput : public LazyFunction {
+class LazyFunctionForImplicitInput : public LazyFunction {
  private:
   std::function<void(void *)> init_fn_;
 
  public:
-  LazyFunctionForComplexInput(const CPPType &type, std::function<void(void *)> init_fn)
+  LazyFunctionForImplicitInput(const CPPType &type, std::function<void(void *)> init_fn)
       : init_fn_(std::move(init_fn))
   {
     debug_name_ = "Input";
@@ -1074,7 +1074,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       return false;
     }
 
-    auto lazy_function = std::make_unique<LazyFunctionForComplexInput>(type, std::move(init_fn));
+    auto lazy_function = std::make_unique<LazyFunctionForImplicitInput>(type, std::move(init_fn));
     lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
     lf_graph_info_->functions.append(std::move(lazy_function));
     lf_graph_->add_link(lf_node.output(0), input_lf_socket);
