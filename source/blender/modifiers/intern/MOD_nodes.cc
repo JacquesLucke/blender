@@ -82,7 +82,7 @@
 #include "ED_undo.h"
 
 #include "NOD_geometry.h"
-#include "NOD_geometry_nodes_to_lazy_function_graph.hh"
+#include "NOD_geometry_nodes_lazy_function.hh"
 #include "NOD_node_declaration.hh"
 
 #include "FN_field.hh"

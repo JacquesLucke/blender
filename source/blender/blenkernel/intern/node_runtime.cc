@@ -10,7 +10,7 @@
 #include "BLI_task.hh"
 #include "BLI_timeit.hh"
 
-#include "NOD_geometry_nodes_to_lazy_function_graph.hh"
+#include "NOD_geometry_nodes_lazy_function.hh"
 
 namespace blender::bke::node_tree_runtime {
 

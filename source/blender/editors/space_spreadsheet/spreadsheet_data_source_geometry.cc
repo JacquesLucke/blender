@@ -27,8 +27,8 @@
 #include "ED_curves_sculpt.h"
 #include "ED_spreadsheet.h"
 
+#include "NOD_geometry_nodes_lazy_function.hh"
 #include "NOD_geometry_nodes_log.hh"
-#include "NOD_geometry_nodes_to_lazy_function_graph.hh"
 
 #include "BLT_translation.h"
 

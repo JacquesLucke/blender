@@ -12,7 +12,7 @@
 #include "DNA_node_types.h"
 
 #include "NOD_derived_node_tree.hh"
-#include "NOD_geometry_nodes_to_lazy_function_graph.hh"
+#include "NOD_geometry_nodes_lazy_function.hh"
 
 struct ModifierData;
 
