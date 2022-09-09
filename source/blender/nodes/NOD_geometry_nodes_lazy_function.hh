@@ -129,21 +129,26 @@ struct GeometryNodesLazyFunctionGraphInfo {
   ~GeometryNodesLazyFunctionGraphInfo();
 };
 
+/**
+ * Logs intermediate values from the lazy-function graph evaluation into #GeoModifierLog based on
+ * the mapping between the lazy-function graph and the corresponding #bNodeTree.
+ */
 class GeometryNodesLazyFunctionLogger : public fn::lazy_function::GraphExecutor::Logger {
  private:
   const GeometryNodesLazyFunctionGraphInfo &lf_graph_info_;
 
  public:
-  GeometryNodesLazyFunctionLogger(const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
-      : lf_graph_info_(lf_graph_info)
-  {
-  }
-
+  GeometryNodesLazyFunctionLogger(const GeometryNodesLazyFunctionGraphInfo &lf_graph_info);
   void log_socket_value(const fn::lazy_function::Socket &lf_socket,
                         GPointer value,
                         const fn::lazy_function::Context &context) const override;
 };
 
+/**
+ * Tells the lazy-function graph evaluator which nodes have side effects based on the current
+ * context. For example, the same viewer node can have side effects in one context, but not in
+ * another (depending on e.g. which tree path is currently viewed in the node editor).
+ */
 class GeometryNodesLazyFunctionSideEffectProvider
     : public fn::lazy_function::GraphExecutor::SideEffectProvider {
  private:
@@ -151,15 +156,16 @@ class GeometryNodesLazyFunctionSideEffectProvider
 
  public:
   GeometryNodesLazyFunctionSideEffectProvider(
-      const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
-      : lf_graph_info_(lf_graph_info)
-  {
-  }
-
+      const GeometryNodesLazyFunctionGraphInfo &lf_graph_info);
   Vector<const lf::FunctionNode *> get_nodes_with_side_effects(
       const lf::Context &context) const override;
 };
 
+/**
+ * Main function that converts a #bNodeTree into a lazy-function graph. If the graph has been
+ * generated already, nothing is done. Under some circumstances a valid graph cannot be created. In
+ * those cases null is returned.
+ */
 const GeometryNodesLazyFunctionGraphInfo *ensure_geometry_nodes_lazy_function_graph(
     const bNodeTree &btree);
 

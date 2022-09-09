@@ -1151,6 +1151,12 @@ const GeometryNodesLazyFunctionGraphInfo *ensure_geometry_nodes_lazy_function_gr
   return lf_graph_info_ptr.get();
 }
 
+GeometryNodesLazyFunctionLogger::GeometryNodesLazyFunctionLogger(
+    const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
+    : lf_graph_info_(lf_graph_info)
+{
+}
+
 void GeometryNodesLazyFunctionLogger::log_socket_value(
     const fn::lazy_function::Socket &lf_socket,
     const GPointer value,
@@ -1179,6 +1185,12 @@ void GeometryNodesLazyFunctionLogger::log_socket_value(
     }
     tree_logger.log_value(bsocket->owner_node(), *bsocket, value);
   }
+}
+
+GeometryNodesLazyFunctionSideEffectProvider::GeometryNodesLazyFunctionSideEffectProvider(
+    const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
+    : lf_graph_info_(lf_graph_info)
+{
 }
 
 Vector<const lf::FunctionNode *> GeometryNodesLazyFunctionSideEffectProvider::
