@@ -218,7 +218,7 @@ class Executor {
    * Remembers which inputs have been loaded from the caller already, to avoid loading them twice.
    * Atomics are used to make sure that every input is only retrieved once.
    */
-  Array<std::atomic<bool>> loaded_inputs_;
+  Array<std::atomic<uint8_t>> loaded_inputs_;
   /**
    * State of every node, indexed by #Node::index_in_graph.
    */
@@ -436,16 +436,16 @@ class Executor {
   {
     LinearAllocator<> &allocator = local_allocators_.local();
     for (const int graph_input_index : self_.graph_inputs_.index_range()) {
-      std::atomic<bool> &was_loaded = loaded_inputs_[graph_input_index];
-      if (was_loaded.load(std::memory_order_relaxed)) {
+      std::atomic<uint8_t> &was_loaded = loaded_inputs_[graph_input_index];
+      if (was_loaded.load()) {
         continue;
       }
       void *input_data = params_->try_get_input_data_ptr(graph_input_index);
       if (input_data == nullptr) {
         continue;
       }
-      static bool not_loaded = false;
-      if (!was_loaded.compare_exchange_strong(not_loaded, true)) {
+      if (was_loaded.fetch_or(1)) {
+        /* The value was forwarded before. */
         continue;
       }
       this->forward_newly_provided_input(current_task, allocator, graph_input_index, input_data);
@@ -475,16 +475,16 @@ class Executor {
      * caller that the input is required. */
     if (node.is_dummy()) {
       const int graph_input_index = self_.graph_inputs_.index_of(&socket);
-      std::atomic<bool> &was_loaded = loaded_inputs_[graph_input_index];
-      if (was_loaded.load(std::memory_order_relaxed)) {
+      std::atomic<uint8_t> &was_loaded = loaded_inputs_[graph_input_index];
+      if (was_loaded.load()) {
         return;
       }
       void *input_data = params_->try_get_input_data_ptr_or_request(graph_input_index);
       if (input_data == nullptr) {
         return;
       }
-      static bool not_loaded = false;
-      if (!was_loaded.compare_exchange_strong(not_loaded, true)) {
+      if (was_loaded.fetch_or(1)) {
+        /* The value was forwarded already. */
         return;
       }
       this->forward_newly_provided_input(
