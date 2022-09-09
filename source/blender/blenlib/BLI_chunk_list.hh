@@ -142,6 +142,13 @@ class ChunkList {
     return active_end_ == inline_buffer_;
   }
 
+  int64_t size() const
+  {
+    int64_t chunk_size_sum = 0;
+    this->foreach_chunk([&](const Span<T> chunk) { chunk_size_sum += chunk.size(); });
+    return chunk_size_sum;
+  }
+
   int64_t get_chunk_num() const
   {
     if (alloc_info_ == nullptr) {
@@ -211,6 +218,32 @@ class ChunkList {
       src += copy_num;
       this->activate_next_chunk();
     }
+  }
+
+  T pop_last()
+  {
+    BLI_assert(!this->is_empty());
+    T value = std::move(*(active_end_ - 1));
+    active_end_--;
+    std::destroy_at(active_end_);
+
+    if (alloc_info_ != nullptr) {
+      RawChunk &old_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+      if (active_end_ == old_chunk.begin) {
+        BLI_assert(old_chunk.capacity_end == active_capacity_end_);
+        old_chunk.end_if_inactive = active_end_;
+        while (alloc_info_->active_chunk > 0) {
+          alloc_info_->active_chunk--;
+          RawChunk &chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+          if (chunk.begin < chunk.end_if_inactive) {
+            active_end_ = chunk.end_if_inactive;
+            active_capacity_end_ = chunk.capacity_end;
+            break;
+          }
+        }
+      }
+    }
+    return value;
   }
 
   class Iterator {

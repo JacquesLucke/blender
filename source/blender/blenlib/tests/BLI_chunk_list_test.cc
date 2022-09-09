@@ -9,7 +9,7 @@ namespace blender::tests {
 
 TEST(chunk_list, Test)
 {
-  const int64_t amount = 1e9;
+  const int64_t amount = 1e4;
   for ([[maybe_unused]] const int64_t iter : IndexRange(5)) {
     {
       ChunkList<int, 2> list;
@@ -48,6 +48,21 @@ TEST(chunk_list, Test)
       std::cout << "Sum: " << sum << "\n";
     }
   }
+}
+
+TEST(chunk_list, Stack)
+{
+  ChunkList<int64_t> list;
+  const int64_t amount = 1e5;
+  for (const int64_t i : IndexRange(amount)) {
+    list.append(i);
+  }
+  EXPECT_EQ(list.size(), amount);
+  for (const int64_t i : IndexRange(amount)) {
+    const int popped_value = list.pop_last();
+    EXPECT_EQ(popped_value, amount - i - 1);
+  }
+  EXPECT_EQ(list.size(), 0);
 }
 
 }  // namespace blender::tests
