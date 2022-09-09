@@ -1,5 +1,16 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+/**
+ * This file mainly converts a #bNodeTree into a lazy-function graph. This generally works by
+ * creating a lazy-function for every node, which is then put into the lazy-function graph. Then
+ * the nodes in the new graph are linked based on links in the original #bNodeTree. Some additional
+ * nodes are inserted for things like type conversions and multi-input sockets.
+ *
+ * Currently, lazy-functions are even created for nodes that don't strictly require it, like
+ * reroutes or muted nodes. In the future we could avoid that at the cost of additional code
+ * complexity. So far, this does not seem to be a performance issue.
+ */
+
 #include "NOD_geometry_exec.hh"
 #include "NOD_geometry_nodes_lazy_function.hh"
 #include "NOD_multi_function.hh"
@@ -28,10 +39,7 @@ static const CPPType *get_socket_cpp_type(const bNodeSocketType &typeinfo)
   if (type == nullptr) {
     return nullptr;
   }
-  /* The evaluator only supports types that have special member functions. */
-  if (!type->has_special_member_functions()) {
-    return nullptr;
-  }
+  BLI_assert(type->has_special_member_functions());
   return type;
 }
 
@@ -42,6 +50,7 @@ static const CPPType *get_socket_cpp_type(const bNodeSocket &socket)
 
 static const CPPType *get_vector_type(const CPPType &type)
 {
+  /* This could be generalized in the future. For now we only support a small set of vectors. */
   if (type.is<GeometrySet>()) {
     return &CPPType::get<Vector<GeometrySet>>();
   }
@@ -51,6 +60,10 @@ static const CPPType *get_vector_type(const CPPType &type)
   return nullptr;
 }
 
+/**
+ * Checks which sockets of the node are available and creates corresponding inputs/outputs on the
+ * lazy-function.
+ */
 static void lazy_function_interface_from_node(const bNode &node,
                                               Vector<const bNodeSocket *> &r_used_inputs,
                                               Vector<const bNodeSocket *> &r_used_outputs,
@@ -102,17 +115,17 @@ class LazyFunctionForGeometryNode : public LazyFunction {
                               Vector<const bNodeSocket *> &r_used_outputs)
       : node_(node)
   {
+    BLI_assert(node.typeinfo->geometry_node_execute != nullptr);
     debug_name_ = node.name;
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
   {
-    GeoNodeExecParams geo_params{node_, params, context};
-    BLI_assert(node_.typeinfo->geometry_node_execute != nullptr);
-
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
+
+    GeoNodeExecParams geo_params{node_, params, context};
 
     geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     node_.typeinfo->geometry_node_execute(geo_params);
@@ -127,7 +140,8 @@ class LazyFunctionForGeometryNode : public LazyFunction {
 };
 
 /**
- * Used to gather all inputs of a multi-input socket.
+ * Used to gather all inputs of a multi-input socket. A separate node is necessary, because
+ * multi-inputs are not supported in lazy-function graphs.
  */
 class LazyFunctionForMultiInput : public LazyFunction {
  private:
@@ -152,6 +166,8 @@ class LazyFunctionForMultiInput : public LazyFunction {
 
   void execute_impl(lf::Params &params, const lf::Context &UNUSED(context)) const override
   {
+    /* Currently we only have multi-inputs for geometry and string sockets. This could be
+     * generalized in the future. */
     base_type_->to_static_type_tag<GeometrySet, ValueOrField<std::string>>([&](auto type_tag) {
       using T = typename decltype(type_tag)::type;
       if constexpr (std::is_void_v<T>) {
@@ -162,7 +178,7 @@ class LazyFunctionForMultiInput : public LazyFunction {
         void *output_ptr = params.get_output_data_ptr(0);
         Vector<T> &values = *new (output_ptr) Vector<T>();
         for (const int i : inputs_.index_range()) {
-          values.append(params.get_input<T>(i));
+          values.append(params.extract_input<T>(i));
         }
         params.output_set(0);
       }
@@ -194,6 +210,10 @@ class LazyFunctionForRerouteNode : public LazyFunction {
   }
 };
 
+/**
+ * Executes a multi-function. If all inputs are single values, the results will also be single
+ * values. If any input is a field, the outputs will also be fields.
+ */
 static void execute_multi_function_on_value_or_field(
     const MultiFunction &fn,
     const std::shared_ptr<MultiFunction> &owned_fn,
@@ -206,6 +226,7 @@ static void execute_multi_function_on_value_or_field(
   BLI_assert(input_types.size() == input_values.size());
   BLI_assert(output_types.size() == output_values.size());
 
+  /* Check if any input is a field. */
   bool any_input_is_field = false;
   for (const int i : input_types.index_range()) {
     const ValueOrFieldCPPType &type = *input_types[i];
@@ -217,6 +238,7 @@ static void execute_multi_function_on_value_or_field(
   }
 
   if (any_input_is_field) {
+    /* Convert all inputs into fields, so that they can be used as input in the new field. */
     Vector<GField> input_fields;
     for (const int i : input_types.index_range()) {
       const ValueOrFieldCPPType &type = *input_types[i];
@@ -224,6 +246,7 @@ static void execute_multi_function_on_value_or_field(
       input_fields.append(type.as_field(value_or_field));
     }
 
+    /* Construct the new field node. */
     std::shared_ptr<fn::FieldOperation> operation;
     if (owned_fn) {
       operation = std::make_shared<fn::FieldOperation>(owned_fn, std::move(input_fields));
@@ -232,6 +255,7 @@ static void execute_multi_function_on_value_or_field(
       operation = std::make_shared<fn::FieldOperation>(fn, std::move(input_fields));
     }
 
+    /* Store the new fields in the output. */
     for (const int i : output_types.index_range()) {
       const ValueOrFieldCPPType &type = *output_types[i];
       void *value_or_field = output_values[i];
@@ -239,6 +263,7 @@ static void execute_multi_function_on_value_or_field(
     }
   }
   else {
+    /* In this case, the multi-function is evaluated directly. */
     MFParamsBuilder params{fn, 1};
     MFContextBuilder context;
 
@@ -262,6 +287,12 @@ static void execute_multi_function_on_value_or_field(
   }
 }
 
+/**
+ * Behavior of muted nodes:
+ * - Some inputs are forwarded to outputs without changes.
+ * - Some inputs are converted to a different type which becomes the output.
+ * - Some outputs are value initialized because they don't have a corresponding input.
+ */
 class LazyFunctionForMutedNode : public LazyFunction {
  private:
   Array<int> input_by_output_index_;
@@ -304,6 +335,7 @@ class LazyFunctionForMutedNode : public LazyFunction {
       void *output_value = params.get_output_data_ptr(output_i);
       const int input_i = input_by_output_index_[output_i];
       if (input_i == -1) {
+        /* The output does not have a corresponding input. */
         output_type.value_initialize(output_value);
         params.output_set(output_i);
         continue;
@@ -314,10 +346,12 @@ class LazyFunctionForMutedNode : public LazyFunction {
       }
       const CPPType &input_type = *inputs_[input_i].type;
       if (input_type == output_type) {
+        /* Forward the value as is. */
         input_type.copy_construct(input_value, output_value);
         params.output_set(output_i);
         continue;
       }
+      /* Perform a type conversion and then format the value. */
       const bke::DataTypeConversions &conversions = bke::get_implicit_type_conversions();
       const auto *from_field_type = dynamic_cast<const ValueOrFieldCPPType *>(&input_type);
       const auto *to_field_type = dynamic_cast<const ValueOrFieldCPPType *>(&output_type);
@@ -333,6 +367,7 @@ class LazyFunctionForMutedNode : public LazyFunction {
         params.output_set(output_i);
         continue;
       }
+      /* Use a value initialization if the conversion does not work. */
       output_type.value_initialize(output_value);
       params.output_set(output_i);
     }
