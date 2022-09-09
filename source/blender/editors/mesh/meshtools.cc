@@ -253,7 +253,7 @@ static void join_mesh_single(Depsgraph *depsgraph,
     CustomData_merge(&me->pdata, pdata, CD_MASK_MESH.pmask, CD_SET_DEFAULT, totpoly);
     CustomData_copy_data_named(&me->pdata, pdata, 0, *polyofs, me->totpoly);
 
-    /* Apply matmap. In case we dont have material indices yet, create them if more than one
+    /* Apply matmap. In case we don't have material indices yet, create them if more than one
      * material is the result of joining. */
     int *material_indices = static_cast<int *>(
         CustomData_get_layer_named(pdata, CD_PROP_INT32, "material_index"));
@@ -347,7 +347,7 @@ int ED_mesh_join_objects_exec(bContext *C, wmOperator *op)
   int totloop = 0, totpoly = 0, vertofs, *matmap = nullptr;
   int i, haskey = 0, edgeofs, loopofs, polyofs;
   bool ok = false, join_parent = false;
-  CustomData vdata, edata, fdata, ldata, pdata;
+  CustomData vdata, edata, ldata, pdata;
 
   if (ob->mode & OB_MODE_EDIT) {
     BKE_report(op->reports, RPT_WARNING, "Cannot join while in edit mode");
@@ -586,7 +586,6 @@ int ED_mesh_join_objects_exec(bContext *C, wmOperator *op)
   /* setup new data for destination mesh */
   CustomData_reset(&vdata);
   CustomData_reset(&edata);
-  CustomData_reset(&fdata);
   CustomData_reset(&ldata);
   CustomData_reset(&pdata);
 
