@@ -639,10 +639,19 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   Map<const bNodeSocket *, lf::Node *> multi_input_socket_nodes_;
   const bke::DataTypeConversions *conversions_;
 
+  /**
+   * All group input nodes are combined into one dummy node in the lazy-function graph.
+   * If some input has an invalid type, it is ignored in the new graph. In this case null and -1 is
+   * used in the vectors below.
+   */
   Vector<const CPPType *> group_input_types_;
   Vector<int> group_input_indices_;
   lf::DummyNode *group_input_lf_node_;
 
+  /**
+   * The output types or null if an output is invalid. Each group output node gets a separate
+   * corresponding dummy node in the new graph.
+   */
   Vector<const CPPType *> group_output_types_;
   Vector<int> group_output_indices_;
 
@@ -668,9 +677,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->handle_nodes();
     this->handle_links();
     this->add_default_inputs();
-    lf_graph_->update_node_indices();
 
-    // std::cout << lf_graph_->to_dot() << "\n";
+    lf_graph_->update_node_indices();
   }
 
  private:
@@ -750,6 +758,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           this->handle_group_output_node(*bnode);
           break;
         }
+        case NODE_CUSTOM_GROUP:
         case NODE_GROUP: {
           this->handle_group_node(*bnode);
           break;
@@ -768,6 +777,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           if (fn_item.fn != nullptr) {
             this->handle_multi_function_node(*bnode, fn_item);
           }
+          /* Nodes that don't match any of the criteria above are just ignored. */
           break;
         }
       }
@@ -962,97 +972,101 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   void handle_links()
   {
     for (const auto item : output_socket_map_.items()) {
-      const bNodeSocket &from_bsocket = *item.key;
-      lf::OutputSocket &from_lf_socket = *item.value;
-      const Span<const bNodeLink *> links_from_bsocket = from_bsocket.directly_linked_links();
+      this->insert_links_from_socket(*item.key, *item.value);
+    }
+  }
 
-      struct TypeWithLinks {
-        const CPPType *type;
-        Vector<const bNodeLink *> links;
-      };
+  void insert_links_from_socket(const bNodeSocket &from_bsocket, lf::OutputSocket &from_lf_socket)
+  {
+    const Span<const bNodeLink *> links_from_bsocket = from_bsocket.directly_linked_links();
 
-      Vector<TypeWithLinks> types_with_links;
-      for (const bNodeLink *link : links_from_bsocket) {
-        if (link->is_muted()) {
-          continue;
+    struct TypeWithLinks {
+      const CPPType *type;
+      Vector<const bNodeLink *> links;
+    };
+
+    /* Group available target sockets by type so that they can be handled together. */
+    Vector<TypeWithLinks> types_with_links;
+    for (const bNodeLink *link : links_from_bsocket) {
+      if (link->is_muted()) {
+        continue;
+      }
+      const bNodeSocket &to_bsocket = *link->tosock;
+      if (!to_bsocket.is_available()) {
+        continue;
+      }
+      const CPPType *to_type = get_socket_cpp_type(to_bsocket);
+      if (to_type == nullptr) {
+        continue;
+      }
+      bool inserted = false;
+      for (TypeWithLinks &types_with_links : types_with_links) {
+        if (types_with_links.type == to_type) {
+          types_with_links.links.append(link);
+          inserted = true;
+          break;
         }
-        const bNodeSocket &to_bsocket = *link->tosock;
-        if (!to_bsocket.is_available()) {
-          continue;
-        }
-        const CPPType *to_type = get_socket_cpp_type(to_bsocket);
-        if (to_type == nullptr) {
-          continue;
-        }
-        bool inserted = false;
-        for (TypeWithLinks &types_with_links : types_with_links) {
-          if (types_with_links.type == to_type) {
-            types_with_links.links.append(link);
-            inserted = true;
-            break;
-          }
-        }
-        if (inserted) {
-          continue;
-        }
-        types_with_links.append({to_type, {link}});
+      }
+      if (inserted) {
+        continue;
+      }
+      types_with_links.append({to_type, {link}});
+    }
+
+    for (const TypeWithLinks &type_with_links : types_with_links) {
+      const CPPType &to_type = *type_with_links.type;
+      const Span<const bNodeLink *> links = type_with_links.links;
+
+      Vector<const bNodeSocket *> target_bsockets;
+      for (const bNodeLink *link : links) {
+        target_bsockets.append(link->tosock);
       }
 
-      for (const TypeWithLinks &type_with_links : types_with_links) {
-        const CPPType &to_type = *type_with_links.type;
-        const Span<const bNodeLink *> links = type_with_links.links;
+      lf::OutputSocket *converted_from_lf_socket = this->insert_type_conversion_if_necessary(
+          from_lf_socket, to_type, std::move(target_bsockets));
 
-        Vector<const bNodeSocket *> target_bsockets;
-        for (const bNodeLink *link : links) {
-          target_bsockets.append(link->tosock);
+      auto make_input_link_or_set_default = [&](lf::InputSocket &to_lf_socket) {
+        if (converted_from_lf_socket == nullptr) {
+          const void *default_value = to_type.default_value();
+          to_lf_socket.set_default_value(default_value);
         }
+        else {
+          lf_graph_->add_link(*converted_from_lf_socket, to_lf_socket);
+        }
+      };
 
-        lf::OutputSocket *converted_from_lf_socket = this->insert_type_conversion_if_necessary(
-            from_lf_socket, to_type, std::move(target_bsockets));
-
-        auto make_input_link_or_set_default = [&](lf::InputSocket &to_lf_socket) {
-          if (converted_from_lf_socket == nullptr) {
-            const void *default_value = to_type.default_value();
-            to_lf_socket.set_default_value(default_value);
-          }
-          else {
-            lf_graph_->add_link(*converted_from_lf_socket, to_lf_socket);
-          }
-        };
-
-        for (const bNodeLink *link : links) {
-          const bNodeSocket &to_bsocket = *link->tosock;
-          if (to_bsocket.is_multi_input()) {
-            /* TODO: Cache this index on the link. */
-            int link_index = 0;
-            for (const bNodeLink *multi_input_link : to_bsocket.directly_linked_links()) {
-              if (multi_input_link == link) {
-                break;
-              }
-              if (!multi_input_link->is_muted()) {
-                link_index++;
-              }
+      for (const bNodeLink *link : links) {
+        const bNodeSocket &to_bsocket = *link->tosock;
+        if (to_bsocket.is_multi_input()) {
+          /* TODO: Cache this index on the link. */
+          int link_index = 0;
+          for (const bNodeLink *multi_input_link : to_bsocket.directly_linked_links()) {
+            if (multi_input_link == link) {
+              break;
             }
-            if (to_bsocket.owner_node().is_muted()) {
-              if (link_index == 0) {
-                for (lf::InputSocket *to_lf_socket : input_socket_map_.lookup(&to_bsocket)) {
-                  make_input_link_or_set_default(*to_lf_socket);
-                }
-              }
+            if (!multi_input_link->is_muted()) {
+              link_index++;
             }
-            else {
-              lf::Node *multi_input_lf_node = multi_input_socket_nodes_.lookup_default(&to_bsocket,
-                                                                                       nullptr);
-              if (multi_input_lf_node == nullptr) {
-                continue;
+          }
+          if (to_bsocket.owner_node().is_muted()) {
+            if (link_index == 0) {
+              for (lf::InputSocket *to_lf_socket : input_socket_map_.lookup(&to_bsocket)) {
+                make_input_link_or_set_default(*to_lf_socket);
               }
-              make_input_link_or_set_default(multi_input_lf_node->input(link_index));
             }
           }
           else {
-            for (lf::InputSocket *to_lf_socket : input_socket_map_.lookup(&to_bsocket)) {
-              make_input_link_or_set_default(*to_lf_socket);
+            lf::Node *multi_input_lf_node = multi_input_socket_nodes_.lookup_default(&to_bsocket,
+                                                                                     nullptr);
+            if (multi_input_lf_node == nullptr) {
+              continue;
             }
+            make_input_link_or_set_default(multi_input_lf_node->input(link_index));
+          }
+        }
+        else {
+          for (lf::InputSocket *to_lf_socket : input_socket_map_.lookup(&to_bsocket)) {
+            make_input_link_or_set_default(*to_lf_socket);
           }
         }
       }
@@ -1239,7 +1253,9 @@ void GeometryNodesLazyFunctionLogger::log_socket_value(
   geo_eval_log::GeoTreeLogger &tree_logger =
       user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->compute_context);
   for (const bNodeSocket *bsocket : bsockets) {
-    if (bsocket->is_input() && !bsocket->directly_linked_sockets().is_empty()) {
+    /* Avoid logging to some sockets when the same value will also be logged to a linked socket.
+     * This reduces the number of logged values without losing information. */
+    if (bsocket->is_input() && bsocket->is_directly_linked()) {
       continue;
     }
     const bNode &bnode = bsocket->owner_node();
