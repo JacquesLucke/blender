@@ -196,6 +196,9 @@ class GeoModifierLog {
   Map<ComputeContextHash, std::unique_ptr<GeoTreeLog>> tree_logs_;
 
  public:
+  GeoModifierLog();
+  ~GeoModifierLog();
+
   GeoTreeLogger &get_local_tree_logger(const ComputeContext &compute_context);
   GeoTreeLog &get_tree_log(const ComputeContextHash &compute_context_hash);
 

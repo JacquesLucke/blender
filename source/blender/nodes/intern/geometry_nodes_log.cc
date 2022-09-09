@@ -115,6 +115,9 @@ GeometryInfoLog::GeometryInfoLog(const GeometrySet &geometry_set)
 }
 
 /* Avoid generating these in every translation unit. */
+GeoModifierLog::GeoModifierLog() = default;
+GeoModifierLog::~GeoModifierLog() = default;
+
 GeoTreeLogger::GeoTreeLogger() = default;
 GeoTreeLogger::~GeoTreeLogger() = default;
 
