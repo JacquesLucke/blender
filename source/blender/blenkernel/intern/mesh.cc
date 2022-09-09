@@ -249,9 +249,9 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
   else {
     Set<std::string> names_to_skip;
     if (!BLO_write_is_undo(writer)) {
-
       BKE_mesh_legacy_convert_hide_layers_to_flags(mesh);
       BKE_mesh_legacy_convert_material_indices_to_mpoly(mesh);
+      BKE_mesh_legacy_bevel_weight_from_layers(mesh);
       /* When converting to the old mesh format, don't save redundant attributes. */
       names_to_skip.add_multiple_new({".hide_vert", ".hide_edge", ".hide_poly"});
 
@@ -260,6 +260,7 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
       mesh->medge = const_cast<MEdge *>(mesh->edges().data());
       mesh->mpoly = const_cast<MPoly *>(mesh->polys().data());
       mesh->mloop = const_cast<MLoop *>(mesh->loops().data());
+      mesh->dvert = const_cast<MDeformVert *>(mesh->deform_verts().data());
     }
 
     CustomData_blend_write_prepare(mesh->vdata, vert_layers, names_to_skip);
@@ -314,9 +315,6 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
   BLO_read_data_address(reader, &mesh->adt);
   BKE_animdata_blend_read_data(reader, mesh->adt);
 
-  /* Normally BKE_defvert_blend_read should be called in CustomData_blend_read,
-   * but for backwards compatibility in do_versions to work we do it here. */
-  BKE_defvert_blend_read(reader, mesh->totvert, mesh->dvert);
   BLO_read_list(reader, &mesh->vertex_group_names);
 
   CustomData_blend_read(reader, &mesh->vdata, mesh->totvert);
@@ -324,6 +322,11 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
   CustomData_blend_read(reader, &mesh->fdata, mesh->totface);
   CustomData_blend_read(reader, &mesh->ldata, mesh->totloop);
   CustomData_blend_read(reader, &mesh->pdata, mesh->totpoly);
+  if (mesh->deform_verts().is_empty()) {
+    /* Vertex group data was also an owning pointer in old Blender versions.
+     * Don't read them again if they were read as part of #CustomData. */
+    BKE_defvert_blend_read(reader, mesh->totvert, mesh->dvert);
+  }
 
   mesh->texflag &= ~ME_AUTOSPACE_EVALUATED;
   mesh->edit_mesh = nullptr;
@@ -346,6 +349,7 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
   if (!BLO_read_data_is_undo(reader)) {
     BKE_mesh_legacy_convert_flags_to_hide_layers(mesh);
     BKE_mesh_legacy_convert_mpoly_to_material_indices(mesh);
+    BKE_mesh_legacy_bevel_weight_to_layers(mesh);
   }
 
   /* We don't expect to load normals from files, since they are derived data. */
@@ -400,7 +404,7 @@ IDTypeInfo IDType_ID_ME = {
     /* foreach_id */ mesh_foreach_id,
     /* foreach_cache */ nullptr,
     /* foreach_path */ mesh_foreach_path,
-    /* owner_get */ nullptr,
+    /* owner_pointer_get */ nullptr,
 
     /* blend_write */ mesh_blend_write,
     /* blend_read_data */ mesh_blend_read_data,
@@ -879,11 +883,12 @@ static void mesh_clear_geometry(Mesh *mesh)
   mesh->totpoly = 0;
   mesh->act_face = -1;
   mesh->totselect = 0;
+
+  BLI_freelistN(&mesh->vertex_group_names);
 }
 
 void BKE_mesh_clear_geometry(Mesh *mesh)
 {
-  BKE_animdata_free(&mesh->id, false);
   BKE_mesh_runtime_clear_cache(mesh);
   mesh_clear_geometry(mesh);
 }
@@ -973,6 +978,7 @@ void BKE_mesh_copy_parameters(Mesh *me_dst, const Mesh *me_src)
   copy_v3_v3(me_dst->size, me_src->size);
 
   me_dst->vertex_group_active_index = me_src->vertex_group_active_index;
+  me_dst->attributes_active_index = me_src->attributes_active_index;
 }
 
 void BKE_mesh_copy_parameters_for_eval(Mesh *me_dst, const Mesh *me_src)
@@ -1341,7 +1347,7 @@ void BKE_mesh_material_index_remove(Mesh *me, short index)
 {
   using namespace blender;
   using namespace blender::bke;
-  MutableAttributeAccessor attributes = mesh_attributes_for_write(*me);
+  MutableAttributeAccessor attributes = me->attributes_for_write();
   AttributeWriter<int> material_indices = attributes.lookup_for_write<int>("material_index");
   if (!material_indices) {
     return;
@@ -1366,7 +1372,7 @@ bool BKE_mesh_material_index_used(Mesh *me, short index)
 {
   using namespace blender;
   using namespace blender::bke;
-  const AttributeAccessor attributes = mesh_attributes(*me);
+  const AttributeAccessor attributes = me->attributes();
   const VArray<int> material_indices = attributes.lookup_or_default<int>(
       "material_index", ATTR_DOMAIN_FACE, 0);
   if (material_indices.is_single()) {
@@ -1380,7 +1386,7 @@ void BKE_mesh_material_index_clear(Mesh *me)
 {
   using namespace blender;
   using namespace blender::bke;
-  MutableAttributeAccessor attributes = mesh_attributes_for_write(*me);
+  MutableAttributeAccessor attributes = me->attributes_for_write();
   attributes.remove("material_index");
 
   BKE_mesh_tessface_clear(me);
@@ -1409,7 +1415,7 @@ void BKE_mesh_material_remap(Mesh *me, const uint *remap, uint remap_len)
     }
   }
   else {
-    MutableAttributeAccessor attributes = mesh_attributes_for_write(*me);
+    MutableAttributeAccessor attributes = me->attributes_for_write();
     AttributeWriter<int> material_indices = attributes.lookup_for_write<int>("material_index");
     if (!material_indices) {
       return;
@@ -1761,7 +1767,7 @@ void BKE_mesh_count_selected_items(const Mesh *mesh, int r_count[3])
 
 void BKE_mesh_vert_coords_get(const Mesh *mesh, float (*vert_coords)[3])
 {
-  blender::bke::AttributeAccessor attributes = blender::bke::mesh_attributes(*mesh);
+  blender::bke::AttributeAccessor attributes = mesh->attributes();
   VArray<float3> positions = attributes.lookup_or_default(
       "position", ATTR_DOMAIN_POINT, float3(0));
   positions.materialize({(float3 *)vert_coords, mesh->totvert});
