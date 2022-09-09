@@ -40,6 +40,7 @@
 
 #include <mutex>
 
+#include "BLI_compute_context.hh"
 #include "BLI_enumerable_thread_specific.hh"
 #include "BLI_function_ref.hh"
 #include "BLI_task.h"
@@ -444,7 +445,7 @@ class Executor {
         continue;
       }
       static bool not_loaded = false;
-      if (!was_loaded.compare_exchange_strong(not_loaded, true, std::memory_order_relaxed)) {
+      if (!was_loaded.compare_exchange_strong(not_loaded, true)) {
         continue;
       }
       this->forward_newly_provided_input(current_task, allocator, graph_input_index, input_data);
@@ -483,7 +484,7 @@ class Executor {
         return;
       }
       static bool not_loaded = false;
-      if (!was_loaded.compare_exchange_strong(not_loaded, true, std::memory_order_relaxed)) {
+      if (!was_loaded.compare_exchange_strong(not_loaded, true)) {
         return;
       }
       this->forward_newly_provided_input(
@@ -729,17 +730,29 @@ class Executor {
 
   void assert_expected_outputs_have_been_computed(LockedNode &locked_node)
   {
+    const FunctionNode &node = static_cast<const FunctionNode &>(locked_node.node);
     const NodeState &node_state = locked_node.node_state;
+
     if (node_state.missing_required_inputs > 0) {
       return;
     }
     if (node_state.schedule_state == NodeScheduleState::RunningAndRescheduled) {
       return;
     }
-    for (const OutputState &output_state : node_state.outputs) {
+    Vector<const OutputSocket *> missing_outputs;
+    for (const int i : node_state.outputs.index_range()) {
+      const OutputState &output_state = node_state.outputs[i];
       if (output_state.usage_for_execution == ValueUsage::Used) {
-        BLI_assert(output_state.has_been_computed);
+        if (!output_state.has_been_computed) {
+          missing_outputs.append(&node.output(i));
+        }
       }
+    }
+    if (!missing_outputs.is_empty()) {
+      if (self_.logger_ != nullptr) {
+        self_.logger_->dump_when_outputs_are_missing(node, missing_outputs, *context_);
+      }
+      BLI_assert_unreachable();
     }
   }
 
@@ -888,7 +901,14 @@ class Executor {
       const int input_index = target_socket->index();
       InputState &input_state = node_state.inputs[input_index];
       const bool is_last_target = target_socket == targets.last();
-      BLI_assert(input_state.value == nullptr);
+#ifdef DEBUG
+      if (input_state.value != nullptr) {
+        if (self_.logger_ != nullptr) {
+          self_.logger_->dump_when_input_is_set_twice(*target_socket, from_socket, *context_);
+        }
+        BLI_assert_unreachable();
+      }
+#endif
       BLI_assert(!input_state.was_ready_for_execution);
       BLI_assert(target_socket->type() == type);
       BLI_assert(target_socket->origin() == &from_socket);
@@ -1124,6 +1144,20 @@ Vector<const FunctionNode *> GraphExecutorSideEffectProvider::get_nodes_with_sid
 {
   UNUSED_VARS(context);
   return {};
+}
+
+void GraphExecutorLogger::dump_when_outputs_are_missing(const FunctionNode &node,
+                                                        Span<const OutputSocket *> missing_sockets,
+                                                        const Context &context) const
+{
+  UNUSED_VARS(node, missing_sockets, context);
+}
+
+void GraphExecutorLogger::dump_when_input_is_set_twice(const InputSocket &target_socket,
+                                                       const OutputSocket &from_socket,
+                                                       const Context &context) const
+{
+  UNUSED_VARS(target_socket, from_socket, context);
 }
 
 }  // namespace blender::fn::lazy_function

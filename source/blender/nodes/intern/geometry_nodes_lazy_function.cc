@@ -1250,6 +1250,40 @@ void GeometryNodesLazyFunctionLogger::log_socket_value(
   }
 }
 
+static std::mutex dump_error_context_mutex;
+
+void GeometryNodesLazyFunctionLogger::dump_when_outputs_are_missing(
+    const lf::FunctionNode &node,
+    Span<const lf::OutputSocket *> missing_sockets,
+    const lf::Context &context) const
+{
+  std::lock_guard lock{dump_error_context_mutex};
+
+  GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+  BLI_assert(user_data != nullptr);
+  user_data->compute_context->print_stack(std::cout, node.name());
+  std::cout << "Missing outputs:\n";
+  for (const lf::OutputSocket *socket : missing_sockets) {
+    std::cout << "  " << socket->name() << "\n";
+  }
+}
+
+void GeometryNodesLazyFunctionLogger::dump_when_input_is_set_twice(
+    const lf::InputSocket &target_socket,
+    const lf::OutputSocket &from_socket,
+    const lf::Context &context) const
+{
+  std::lock_guard lock{dump_error_context_mutex};
+
+  std::stringstream ss;
+  ss << from_socket.node().name() << ":" << from_socket.name() << " -> "
+     << target_socket.node().name() << ":" << target_socket.name();
+
+  GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+  BLI_assert(user_data != nullptr);
+  user_data->compute_context->print_stack(std::cout, ss.str());
+}
+
 GeometryNodesLazyFunctionSideEffectProvider::GeometryNodesLazyFunctionSideEffectProvider(
     const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
     : lf_graph_info_(lf_graph_info)

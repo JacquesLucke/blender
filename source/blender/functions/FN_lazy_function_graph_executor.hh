@@ -34,6 +34,13 @@ class GraphExecutorLogger {
   virtual void log_after_node_execute(const FunctionNode &node,
                                       const Params &params,
                                       const Context &context) const;
+
+  virtual void dump_when_outputs_are_missing(const FunctionNode &node,
+                                             Span<const OutputSocket *> missing_sockets,
+                                             const Context &context) const;
+  virtual void dump_when_input_is_set_twice(const InputSocket &target_socket,
+                                            const OutputSocket &from_socket,
+                                            const Context &context) const;
 };
 
 /**
