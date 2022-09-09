@@ -30,21 +30,36 @@
 
 namespace blender {
 
-namespace detail {
-template<typename T> struct alignas(std::max<size_t>(alignof(T), 8)) ChunkListAllocInfo {
-  Vector<MutableSpan<T>> chunks;
+namespace chunk_list_detail {
+
+template<typename T> struct RawChunk {
+  T *begin;
+  T *end_if_inactive;
+  T *capacity_end;
+
+  RawChunk(T *begin, T *end_if_inactive, T *capacity_end)
+      : begin(begin), end_if_inactive(end_if_inactive), capacity_end(capacity_end)
+  {
+  }
 };
-}  // namespace detail
+
+template<typename T> struct alignas(std::max<size_t>(alignof(T), 8)) AllocInfo {
+  int64_t active_chunk;
+  Vector<RawChunk<T>> raw_chunks;
+};
+
+}  // namespace chunk_list_detail
 
 template<typename T,
          int64_t InlineBufferCapacity = default_inline_buffer_capacity(sizeof(T)),
          typename Allocator = GuardedAllocator>
 class ChunkList {
  private:
-  using AllocInfo = detail::ChunkListAllocInfo<T>;
+  using RawChunk = chunk_list_detail::RawChunk<T>;
+  using AllocInfo = chunk_list_detail::AllocInfo<T>;
 
-  T *end_;
-  T *capacity_end_;
+  T *active_end_;
+  T *active_capacity_end_;
   AllocInfo *alloc_info_ = nullptr;
   BLI_NO_UNIQUE_ADDRESS TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
   BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
@@ -52,8 +67,8 @@ class ChunkList {
  public:
   ChunkList(Allocator allocator = {}) noexcept : allocator_(allocator)
   {
-    end_ = inline_buffer_;
-    capacity_end_ = end_ + InlineBufferCapacity;
+    active_end_ = inline_buffer_;
+    active_capacity_end_ = active_end_ + InlineBufferCapacity;
   }
 
   ChunkList(NoExceptConstructor, Allocator allocator = {}) noexcept : ChunkList(allocator)
@@ -74,36 +89,21 @@ class ChunkList {
 
   ~ChunkList()
   {
-    if (InlineBufferCapacity > 0) {
-      if (alloc_info_ == nullptr) {
-        destruct_n<T>(inline_buffer_, end_ - inline_buffer_);
-      }
-      else {
-        for (const int64_t i : IndexRange(this->get_chunk_num()).drop_front(2)) {
-          MutableSpan<T> chunk = this->get_chunk(i);
-          destruct_n(chunk.data(), chunk.size());
-          allocator_.deallocate(chunk.data());
-        }
-        const MutableSpan<T> inline_chunk = alloc_info_->chunks[0];
-        const MutableSpan<T> alloc_chunk = alloc_info_->chunks[1];
-        destruct_n(inline_chunk.data(), inline_chunk.size());
-        destruct_n(alloc_chunk.data(), alloc_chunk.size());
-        alloc_info_->~AllocInfo();
-        allocator_.deallocate(alloc_info_);
-      }
+    if (alloc_info_ == nullptr) {
+      destruct_n<T>(inline_buffer_, active_end_ - inline_buffer_);
     }
     else {
-      if (alloc_info_ != nullptr) {
-        for (const int64_t i : IndexRange(this->get_chunk_num()).drop_front(1)) {
-          MutableSpan<T> chunk = this->get_chunk(i);
-          destruct_n(chunk.data(), chunk.size());
-          allocator_.deallocate(chunk.data());
+      for (const int64_t i : alloc_info_->raw_chunks.index_range()) {
+        RawChunk &raw_chunk = alloc_info_->raw_chunks[i];
+        T *begin = raw_chunk.begin;
+        T *end = i == alloc_info_->active_chunk ? active_end_ : raw_chunk.end_if_inactive;
+        destruct_n(begin, end - begin);
+        if (i >= 2) {
+          allocator_.deallocate(begin);
         }
-        const MutableSpan<T> alloc_chunk = alloc_info_->chunks[1];
-        destruct_n(alloc_chunk.data(), alloc_chunk.size());
-        alloc_info_->~AllocInfo();
-        allocator_.deallocate(alloc_info_);
       }
+      alloc_info_->~AllocInfo();
+      allocator_.deallocate(alloc_info_);
     }
   }
 
@@ -137,41 +137,31 @@ class ChunkList {
     }
   }
 
+  bool is_empty() const
+  {
+    return active_end_ == inline_buffer_;
+  }
+
   int64_t get_chunk_num() const
   {
-    if constexpr (InlineBufferCapacity > 0) {
-      if (alloc_info_ == nullptr) {
-        return 1;
-      }
-      return alloc_info_->chunks.size();
+    if (alloc_info_ == nullptr) {
+      return 1;
     }
-    else {
-      if (alloc_info_ == nullptr) {
-        return 0;
-      }
-      return alloc_info_->chunks.size();
-    }
+    return alloc_info_->active_chunk + 1;
   }
 
   BLI_NOINLINE Span<T> get_chunk(const int64_t index) const
   {
     BLI_assert(index >= 0);
-    if constexpr (InlineBufferCapacity > 0) {
-      if (alloc_info_ == nullptr) {
-        BLI_assert(index == 0);
-        return {inline_buffer_, end_ - inline_buffer_};
-      }
-      BLI_assert(index < alloc_info_->chunks.size());
-      if (index == alloc_info_->chunks.size() - 1) {
-        const T *span_begin = alloc_info_->chunks.last().data();
-        return {span_begin, end_ - span_begin};
-      }
-      return alloc_info_->chunks[index];
+    if (alloc_info_ == nullptr) {
+      BLI_assert(index == 0);
+      return {inline_buffer_, active_end_ - inline_buffer_};
     }
-    else {
-      BLI_assert(alloc_info_ != nullptr);
-      return alloc_info_->chunks[index];
-    }
+    BLI_assert(index <= alloc_info_->active_chunk);
+    const RawChunk &chunk = alloc_info_->raw_chunks[index];
+    const T *begin = chunk.begin;
+    const T *end = index == alloc_info_->active_chunk ? active_end_ : chunk.end_if_inactive;
+    return {begin, end - begin};
   }
 
   MutableSpan<T> get_chunk(const int64_t index)
@@ -191,9 +181,9 @@ class ChunkList {
   template<typename... Args> void append_as(Args &&...args)
   {
     this->ensure_space_for_one();
-    BLI_assert(end_ < capacity_end_);
-    new (end_) T(std::forward<Args>(args)...);
-    end_++;
+    BLI_assert(active_end_ < active_capacity_end_);
+    new (active_end_) T(std::forward<Args>(args)...);
+    active_end_++;
   }
 
   template<int64_t OtherInlineBufferCapacity>
@@ -204,28 +194,23 @@ class ChunkList {
 
   void extend(const Span<T> values)
   {
-    const T *src_data = values.data();
-    const int64_t remaining_capacity = capacity_end_ - end_;
-    const int64_t copy_to_current_chunk = std::min(values.size(), remaining_capacity);
-    const int64_t copy_to_next_chunk = values.size() - copy_to_current_chunk;
+    /* TODO: Exception handling. */
+    const T *src_begin = values.data();
+    const T *src_end = src_begin + values.size();
+    const T *src = src_begin;
+    while (src < src_end) {
+      const int64_t remaining_copies = src_end - src;
+      const int64_t remaining_capacity = active_capacity_end_ - active_end_;
+      const int64_t copy_num = std::min(remaining_copies, remaining_capacity);
+      uninitialized_copy_n(src, copy_num, active_end_);
+      active_end_ += copy_num;
 
-    uninitialized_copy_n(src_data, copy_to_current_chunk, end_);
-    end_ += copy_to_current_chunk;
-    if (copy_to_next_chunk == 0) {
-      return;
+      if (copy_num == remaining_copies) {
+        break;
+      }
+      src += copy_num;
+      this->activate_next_chunk();
     }
-    this->add_chunk(copy_to_next_chunk);
-    try {
-      uninitialized_copy_n(src_data + copy_to_current_chunk, copy_to_next_chunk, end_);
-    }
-    catch (...) {
-      /* TODO:
-       * - Destruct data in previous chunk.
-       * - Free newly allocated chunk.
-       * - Reset `end_`. */
-      throw;
-    }
-    end_ += copy_to_next_chunk;
   }
 
   class Iterator {
@@ -276,19 +261,14 @@ class ChunkList {
   Iterator begin() const
   {
     const int64_t span_num = this->get_chunk_num();
+    BLI_assert(span_num >= 1);
+    const Span<T> span = this->get_chunk(0);
     Iterator it;
     it.chunk_list_ = this;
     it.chunk_index_ = 0;
     it.chunk_num_ = span_num;
-    if (span_num == 0) {
-      it.begin_ = nullptr;
-      it.end_ = nullptr;
-    }
-    else {
-      const Span<T> span = this->get_chunk(0);
-      it.begin_ = span.data();
-      it.end_ = it.begin_ + span.size();
-    }
+    it.begin_ = span.data();
+    it.end_ = it.begin_ + span.size();
     it.current_ = it.begin_;
     return it;
   }
@@ -296,19 +276,15 @@ class ChunkList {
   Iterator end() const
   {
     const int64_t span_num = this->get_chunk_num();
+    BLI_assert(span_num >= 1);
+    const Span<T> last_span = this->get_chunk(span_num - 1);
+
     Iterator it;
     it.chunk_list_ = this;
     it.chunk_index_ = span_num;
     it.chunk_num_ = span_num;
-    if (span_num == 0) {
-      it.begin_ = nullptr;
-      it.end_ = nullptr;
-    }
-    else {
-      const Span<T> last_span = this->get_chunk(span_num - 1);
-      it.begin_ = last_span.data();
-      it.end_ = it.begin_ + last_span.size();
-    }
+    it.begin_ = last_span.data();
+    it.end_ = it.begin_ + last_span.size();
     it.current_ = it.end_;
     return it;
   }
@@ -316,35 +292,56 @@ class ChunkList {
  private:
   void ensure_space_for_one()
   {
-    if (UNLIKELY(end_ >= capacity_end_)) {
-      this->add_chunk(1);
+    if (active_end_ >= active_capacity_end_) {
+      this->activate_next_chunk();
     }
+  }
+
+  void activate_next_chunk()
+  {
+    if (alloc_info_ != nullptr) {
+      RawChunk &old_active_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+      old_active_chunk.end_if_inactive = active_end_;
+      BLI_assert(old_active_chunk.capacity_end == active_capacity_end_);
+
+      alloc_info_->active_chunk++;
+      if (alloc_info_->active_chunk == alloc_info_->raw_chunks.size()) {
+        this->add_chunk(1);
+      }
+    }
+    else {
+      this->add_initial_alloc_chunk(1);
+      alloc_info_->active_chunk = 1;
+    }
+    RawChunk &new_active_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+    active_end_ = new_active_chunk.end_if_inactive;
+    active_capacity_end_ = new_active_chunk.capacity_end;
+  }
+
+  BLI_NOINLINE void add_initial_alloc_chunk(const int64_t min_chunk_size)
+  {
+    const int64_t new_chunk_size = std::max<int64_t>(
+        std::max<int64_t>(min_chunk_size, InlineBufferCapacity * 2), 8);
+    const size_t allocation_size = sizeof(AllocInfo) +
+                                   sizeof(T) * static_cast<size_t>(new_chunk_size);
+    void *buffer = allocator_.allocate(allocation_size, alignof(AllocInfo), __func__);
+    alloc_info_ = new (buffer) AllocInfo();
+    alloc_info_->raw_chunks.append_as(inline_buffer_, active_end_, active_capacity_end_);
+    T *new_chunk_begin = static_cast<T *>(POINTER_OFFSET(buffer, sizeof(AllocInfo)));
+    T *new_chunk_capacity_end = new_chunk_begin + new_chunk_size;
+    alloc_info_->raw_chunks.append_as(new_chunk_begin, new_chunk_begin, new_chunk_capacity_end);
   }
 
   BLI_NOINLINE void add_chunk(const int64_t min_chunk_size)
   {
-    int64_t new_chunk_size = min_chunk_size;
-    T *new_chunk_begin;
-    if (alloc_info_ == nullptr) {
-      math::max_inplace(new_chunk_size, std::max<int64_t>(InlineBufferCapacity * 2, 8));
-      const size_t allocation_size = sizeof(AllocInfo) +
-                                     sizeof(T) * static_cast<size_t>(new_chunk_size);
-      void *buffer = allocator_.allocate(allocation_size, alignof(AllocInfo), __func__);
-      alloc_info_ = new (buffer) AllocInfo();
-      alloc_info_->chunks.append({inline_buffer_, end_ - inline_buffer_});
-      new_chunk_begin = static_cast<T *>(POINTER_OFFSET(buffer, sizeof(AllocInfo)));
-    }
-    else {
-      math::max_inplace(new_chunk_size,
-                        std::min<int64_t>(alloc_info_->chunks.last().size() * 2, 4096 * 1000));
-      const size_t allocation_size = sizeof(T) * static_cast<size_t>(new_chunk_size);
-      new_chunk_begin = static_cast<T *>(
-          allocator_.allocate(allocation_size, alignof(T), __func__));
-    }
-    MutableSpan<T> new_chunk{new_chunk_begin, new_chunk_size};
-    alloc_info_->chunks.append(new_chunk);
-    end_ = new_chunk.data();
-    capacity_end_ = new_chunk.data() + new_chunk_size;
+    const RawChunk &last_chunk = alloc_info_->raw_chunks.last();
+    const int64_t last_chunk_size = last_chunk.capacity_end - last_chunk.begin;
+    const int64_t new_chunk_size = std::max<int64_t>(min_chunk_size,
+                                                     std::min<int64_t>(last_chunk_size * 2, 4096));
+    T *new_chunk_begin = static_cast<T *>(allocator_.allocate(
+        sizeof(T) * static_cast<size_t>(new_chunk_size), alignof(T), __func__));
+    T *new_chunk_capacity_end = new_chunk_begin + new_chunk_size;
+    alloc_info_->raw_chunks.append_as(new_chunk_begin, new_chunk_begin, new_chunk_capacity_end);
   }
 };
 

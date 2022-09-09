@@ -9,10 +9,10 @@ namespace blender::tests {
 
 TEST(chunk_list, Test)
 {
-  const int64_t amount = 1e3;
+  const int64_t amount = 1e9;
   for ([[maybe_unused]] const int64_t iter : IndexRange(5)) {
     {
-      ChunkList<int> list;
+      ChunkList<int, 2> list;
       {
         SCOPED_TIMER("chunk list: create");
         for (const int64_t i : IndexRange(amount)) {
