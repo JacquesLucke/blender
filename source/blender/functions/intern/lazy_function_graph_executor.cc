@@ -207,6 +207,10 @@ struct CurrentTask {
    * Indicates that some node has been added to the task pool.
    */
   std::atomic<bool> added_node_to_pool = false;
+  /**
+   * Keeps track of all scheduled nodes when the executor is running in single-threaded mode.
+   */
+  Stack<const FunctionNode *> scheduled_nodes;
 };
 
 class GraphExecutorLFParams;
@@ -253,7 +257,9 @@ class Executor {
 
   ~Executor()
   {
-    BLI_task_pool_free(task_pool_);
+    if (task_pool_ != nullptr) {
+      BLI_task_pool_free(task_pool_);
+    }
     threading::parallel_for(node_states_.index_range(), 1024, [&](const IndexRange range) {
       for (const int node_index : range) {
         const Node &node = *self_.graph_.nodes()[node_index];
@@ -281,7 +287,9 @@ class Executor {
     CurrentTask current_task;
     if (is_first_execution_) {
       this->initialize_node_states();
-      task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
+      if (!self_.single_threaded_) {
+        task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
+      }
 
       /* Initialize atomics to zero. */
       memset(static_cast<void *>(loaded_inputs_.data()), 0, loaded_inputs_.size() * sizeof(bool));
@@ -294,21 +302,29 @@ class Executor {
     this->schedule_newly_requested_outputs(current_task);
     this->forward_newly_provided_inputs(current_task);
 
-    /* Avoid using task pool when there is no parallel work to do. */
-    while (!current_task.added_node_to_pool) {
-      if (current_task.next_node == nullptr) {
-        /* Nothing to do. */
-        return;
+    if (self_.single_threaded_) {
+      while (!current_task.scheduled_nodes.is_empty()) {
+        const FunctionNode &node = *current_task.scheduled_nodes.pop();
+        this->run_node_task(node, current_task);
       }
-      const FunctionNode &node = *current_task.next_node;
-      current_task.next_node = nullptr;
-      this->run_node_task(node, current_task);
     }
-    if (current_task.next_node != nullptr) {
-      this->add_node_to_task_pool(*current_task.next_node);
-    }
+    else {
+      /* Avoid using task pool when there is no parallel work to do. */
+      while (!current_task.added_node_to_pool) {
+        if (current_task.next_node == nullptr) {
+          /* Nothing to do. */
+          return;
+        }
+        const FunctionNode &node = *current_task.next_node;
+        current_task.next_node = nullptr;
+        this->run_node_task(node, current_task);
+      }
+      if (current_task.next_node != nullptr) {
+        this->add_node_to_task_pool(*current_task.next_node);
+      }
 
-    BLI_task_pool_work_and_wait(task_pool_);
+      BLI_task_pool_work_and_wait(task_pool_);
+    }
   }
 
  private:
@@ -562,7 +578,10 @@ class Executor {
     BLI_assert(&node_state == node_states_[node.index_in_graph()]);
 
     LockedNode locked_node{node, node_state};
-    {
+    if (self_.single_threaded_) {
+      f(locked_node);
+    }
+    else {
       std::lock_guard lock{node_state.mutex};
       threading::isolate_task([&]() { f(locked_node); });
     }
@@ -590,6 +609,10 @@ class Executor {
 
   void schedule_new_nodes(const Span<const FunctionNode *> nodes, CurrentTask &current_task)
   {
+    if (self_.single_threaded_) {
+      current_task.scheduled_nodes.push_multiple(nodes);
+      return;
+    }
     for (const FunctionNode *node_to_schedule : nodes) {
       /* Avoid a round trip through the task pool for the first node that is scheduled by the
        * current node execution. Other nodes are added to the pool so that other threads can pick
@@ -1084,12 +1107,14 @@ GraphExecutor::GraphExecutor(const Graph &graph,
                              const Span<const OutputSocket *> graph_inputs,
                              const Span<const InputSocket *> graph_outputs,
                              const Logger *logger,
-                             const SideEffectProvider *side_effect_provider)
+                             const SideEffectProvider *side_effect_provider,
+                             const bool single_threaded)
     : graph_(graph),
       graph_inputs_(graph_inputs),
       graph_outputs_(graph_outputs),
       logger_(logger),
-      side_effect_provider_(side_effect_provider)
+      side_effect_provider_(side_effect_provider),
+      single_threaded_(single_threaded)
 {
   for (const OutputSocket *socket : graph_inputs_) {
     BLI_assert(socket->node().is_dummy());

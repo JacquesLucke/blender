@@ -78,6 +78,12 @@ class GraphExecutor : public LazyFunction {
    * during evaluation.
    */
   const SideEffectProvider *side_effect_provider_;
+  /**
+   * Don't use multi-threading in this execution. This can reduce overhead when the nodes in the
+   * graph do little work or are serial anyway. It's important that all lazy-functions in the graph
+   * are single threaded as well.
+   */
+  bool single_threaded_;
 
   friend class Executor;
 
@@ -86,7 +92,8 @@ class GraphExecutor : public LazyFunction {
                 Span<const OutputSocket *> graph_inputs,
                 Span<const InputSocket *> graph_outputs,
                 const Logger *logger,
-                const SideEffectProvider *side_effect_provider);
+                const SideEffectProvider *side_effect_provider,
+                bool single_threaded = false);
 
   void *init_storage(LinearAllocator<> &allocator) const override;
   void destruct_storage(void *storage) const override;
