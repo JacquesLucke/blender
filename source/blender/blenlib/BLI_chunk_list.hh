@@ -44,7 +44,7 @@ template<typename T> struct RawChunk {
 };
 
 template<typename T> struct alignas(std::max<size_t>(alignof(T), 8)) AllocInfo {
-  int64_t active_chunk;
+  int64_t active;
   Vector<RawChunk<T>> raw_chunks;
 };
 
@@ -104,7 +104,7 @@ class ChunkList {
       for (const int64_t i : alloc_info_->raw_chunks.index_range()) {
         RawChunk &raw_chunk = alloc_info_->raw_chunks[i];
         T *begin = raw_chunk.begin;
-        T *end = i == alloc_info_->active_chunk ? active_end_ : raw_chunk.end_if_inactive;
+        T *end = i == alloc_info_->active ? active_end_ : raw_chunk.end_if_inactive;
         destruct_n(begin, end - begin);
         if (i >= 2) {
           allocator_.deallocate(begin);
@@ -178,7 +178,7 @@ class ChunkList {
     if (alloc_info_ == nullptr) {
       return 1;
     }
-    return alloc_info_->active_chunk + 1;
+    return alloc_info_->active + 1;
   }
 
   BLI_NOINLINE Span<T> get_chunk(const int64_t index) const
@@ -188,10 +188,10 @@ class ChunkList {
       BLI_assert(index == 0);
       return {inline_buffer_, active_end_ - inline_buffer_};
     }
-    BLI_assert(index <= alloc_info_->active_chunk);
+    BLI_assert(index <= alloc_info_->active);
     const RawChunk &chunk = alloc_info_->raw_chunks[index];
     const T *begin = chunk.begin;
-    const T *end = index == alloc_info_->active_chunk ? active_end_ : chunk.end_if_inactive;
+    const T *end = index == alloc_info_->active ? active_end_ : chunk.end_if_inactive;
     return {begin, end - begin};
   }
 
@@ -242,7 +242,6 @@ class ChunkList {
 
   void extend(const Span<T> values)
   {
-    /* TODO: Exception handling. */
     const T *src_begin = values.data();
     const T *src_end = src_begin + values.size();
     const T *src = src_begin;
@@ -250,7 +249,23 @@ class ChunkList {
       const int64_t remaining_copies = src_end - src;
       const int64_t remaining_capacity = active_capacity_end_ - active_end_;
       const int64_t copy_num = std::min(remaining_copies, remaining_capacity);
-      uninitialized_copy_n(src, copy_num, active_end_);
+      try {
+        uninitialized_copy_n(src, copy_num, active_end_);
+      }
+      catch (...) {
+        if (alloc_info_ != nullptr) {
+          int64_t remaining_destructs = src - src_begin;
+          while (remaining_destructs > 0) {
+            this->move_end_back_to_prev_element();
+            const int64_t chunk_size = active_end_ - active_begin_;
+            const int64_t destruct_num = std::min(chunk_size, remaining_destructs);
+            destruct_n(active_end_ - destruct_num, destruct_num);
+            active_end_ -= destruct_num;
+            remaining_destructs -= destruct_num;
+          }
+        }
+        throw;
+      }
       active_end_ += copy_num;
 
       if (copy_num == remaining_copies) {
@@ -279,12 +294,12 @@ class ChunkList {
     if (alloc_info_ == nullptr) {
       return;
     }
-    if (alloc_info_->active_chunk == 0) {
+    if (alloc_info_->active == 0) {
       return;
     }
-    RawChunk &old_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+    RawChunk &old_chunk = alloc_info_->raw_chunks[alloc_info_->active];
     old_chunk.end_if_inactive = active_end_;
-    int new_active = alloc_info_->active_chunk - 1;
+    int new_active = alloc_info_->active - 1;
     while (new_active >= 0) {
       RawChunk &chunk = alloc_info_->raw_chunks[new_active];
       if (chunk.begin < chunk.end_if_inactive) {
@@ -293,7 +308,7 @@ class ChunkList {
       new_active--;
     }
     RawChunk &new_chunk = alloc_info_->raw_chunks[new_active];
-    alloc_info_->active_chunk = new_active;
+    alloc_info_->active = new_active;
     active_begin_ = new_chunk.begin;
     active_end_ = new_chunk.end_if_inactive;
     active_capacity_end_ = new_chunk.capacity_end;
@@ -386,20 +401,20 @@ class ChunkList {
   void activate_next_chunk()
   {
     if (alloc_info_ != nullptr) {
-      RawChunk &old_active_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+      RawChunk &old_active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
       old_active_chunk.end_if_inactive = active_end_;
       BLI_assert(old_active_chunk.capacity_end == active_capacity_end_);
 
-      alloc_info_->active_chunk++;
-      if (alloc_info_->active_chunk == alloc_info_->raw_chunks.size()) {
+      alloc_info_->active++;
+      if (alloc_info_->active == alloc_info_->raw_chunks.size()) {
         this->add_chunk(1);
       }
     }
     else {
       this->add_initial_alloc_chunk(1);
-      alloc_info_->active_chunk = 1;
+      alloc_info_->active = 1;
     }
-    RawChunk &new_active_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+    RawChunk &new_active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
     active_begin_ = new_active_chunk.begin;
     active_end_ = new_active_chunk.end_if_inactive;
     active_capacity_end_ = new_active_chunk.capacity_end;
