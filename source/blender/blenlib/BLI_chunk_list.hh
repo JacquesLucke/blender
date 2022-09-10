@@ -65,6 +65,9 @@ class ChunkList {
   BLI_NO_UNIQUE_ADDRESS TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
   BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
 
+  template<typename OtherT, int64_t OtherInlineBufferCapacity, typename OtherAllocator>
+  friend class ChunkList;
+
  public:
   ChunkList(Allocator allocator = {}) noexcept : allocator_(allocator)
   {
@@ -91,8 +94,7 @@ class ChunkList {
 
   ChunkList(ChunkList &&other) : ChunkList(other.allocator())
   {
-    this->extend(other);
-    other.clear();
+    this->extend(std::move(other));
   }
 
   ~ChunkList()
@@ -240,7 +242,25 @@ class ChunkList {
     list.foreach_chunk([&](const Span<T> chunk) { this->extend(chunk); });
   }
 
+  template<int64_t OtherInlineBufferCapacity>
+  void extend(ChunkList<T, OtherInlineBufferCapacity, Allocator> &&list)
+  {
+    /* TODO: Take ownership of memory. */
+    list.foreach_chunk([&](const MutableSpan<T> chunk) { this->extend_move(chunk); });
+    list.clear();
+  }
+
+  void extend_move(const MutableSpan<T> values)
+  {
+    this->extend_impl<true>(values);
+  }
+
   void extend(const Span<T> values)
+  {
+    this->extend_impl<false>(values);
+  }
+
+  template<bool UseMove> void extend_impl(const Span<T> values)
   {
     const T *src_begin = values.data();
     const T *src_end = src_begin + values.size();
@@ -250,7 +270,12 @@ class ChunkList {
       const int64_t remaining_capacity = active_capacity_end_ - active_end_;
       const int64_t copy_num = std::min(remaining_copies, remaining_capacity);
       try {
-        uninitialized_copy_n(src, copy_num, active_end_);
+        if constexpr (UseMove) {
+          uninitialized_move_n(const_cast<T *>(src), copy_num, active_end_);
+        }
+        else {
+          uninitialized_copy_n(src, copy_num, active_end_);
+        }
       }
       catch (...) {
         if (alloc_info_ != nullptr) {
