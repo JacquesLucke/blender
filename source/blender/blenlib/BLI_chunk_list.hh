@@ -43,7 +43,7 @@ template<typename T> struct RawChunk {
   }
 };
 
-template<typename T> struct alignas(std::max<size_t>(alignof(T), 8)) AllocInfo {
+template<typename T> struct AllocInfo {
   int64_t active;
   Vector<RawChunk<T>> raw_chunks;
 };
@@ -108,7 +108,7 @@ class ChunkList {
         T *begin = raw_chunk.begin;
         T *end = i == alloc_info_->active ? active_end_ : raw_chunk.end_if_inactive;
         destruct_n(begin, end - begin);
-        if (i >= 2) {
+        if (i >= 1) {
           allocator_.deallocate(begin);
         }
       }
@@ -425,38 +425,32 @@ class ChunkList {
 
   void activate_next_chunk()
   {
-    if (alloc_info_ != nullptr) {
-      RawChunk &old_active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
-      old_active_chunk.end_if_inactive = active_end_;
-      BLI_assert(old_active_chunk.capacity_end == active_capacity_end_);
+    if (alloc_info_ == nullptr) {
+      this->prepare_alloc_info();
+    }
 
-      alloc_info_->active++;
-      if (alloc_info_->active == alloc_info_->raw_chunks.size()) {
-        this->add_chunk(1);
-      }
+    RawChunk &old_active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
+    old_active_chunk.end_if_inactive = active_end_;
+    BLI_assert(old_active_chunk.capacity_end == active_capacity_end_);
+
+    alloc_info_->active++;
+    if (alloc_info_->active == alloc_info_->raw_chunks.size()) {
+      this->add_chunk(1);
     }
-    else {
-      this->add_initial_alloc_chunk(1);
-      alloc_info_->active = 1;
-    }
+
     RawChunk &new_active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
     active_begin_ = new_active_chunk.begin;
     active_end_ = new_active_chunk.end_if_inactive;
     active_capacity_end_ = new_active_chunk.capacity_end;
   }
 
-  BLI_NOINLINE void add_initial_alloc_chunk(const int64_t min_chunk_size)
+  BLI_NOINLINE void prepare_alloc_info()
   {
-    const int64_t new_chunk_size = std::max<int64_t>(
-        std::max<int64_t>(min_chunk_size, InlineBufferCapacity * 2), 8);
-    const size_t allocation_size = sizeof(AllocInfo) +
-                                   sizeof(T) * static_cast<size_t>(new_chunk_size);
-    void *buffer = allocator_.allocate(allocation_size, alignof(AllocInfo), __func__);
+    BLI_assert(alloc_info_ == nullptr);
+    void *buffer = allocator_.allocate(sizeof(AllocInfo), alignof(AllocInfo), __func__);
     alloc_info_ = new (buffer) AllocInfo();
     alloc_info_->raw_chunks.append_as(inline_buffer_, active_end_, active_capacity_end_);
-    T *new_chunk_begin = static_cast<T *>(POINTER_OFFSET(buffer, sizeof(AllocInfo)));
-    T *new_chunk_capacity_end = new_chunk_begin + new_chunk_size;
-    alloc_info_->raw_chunks.append_as(new_chunk_begin, new_chunk_begin, new_chunk_capacity_end);
+    alloc_info_->active = 0;
   }
 
   BLI_NOINLINE void add_chunk(const int64_t min_chunk_size)
