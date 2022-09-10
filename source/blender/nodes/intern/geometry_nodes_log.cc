@@ -341,6 +341,20 @@ void GeoTreeLog::ensure_used_named_attributes()
   reduced_used_named_attributes_ = true;
 }
 
+void GeoTreeLog::ensure_debug_messages()
+{
+  if (reduced_debug_messages_) {
+    return;
+  }
+  for (GeoTreeLogger *tree_logger : tree_loggers_) {
+    for (const GeoTreeLogger::DebugMessage &debug_message : tree_logger->debug_messages) {
+      this->nodes.lookup_or_add_as(debug_message.node_name)
+          .debug_messages.append(debug_message.message);
+    }
+  }
+  reduced_debug_messages_ = true;
+}
+
 ValueLog *GeoTreeLog::find_socket_value_log(const bNodeSocket &query_socket)
 {
   /**

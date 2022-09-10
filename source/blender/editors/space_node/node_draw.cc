@@ -1899,6 +1899,19 @@ static Vector<NodeExtraInfoRow> node_get_extra_info(TreeDrawContext &tree_draw_c
     }
   }
 
+  if (snode.edittree->type == NTREE_GEOMETRY && tree_draw_ctx.geo_tree_log != nullptr) {
+    tree_draw_ctx.geo_tree_log->ensure_debug_messages();
+    const geo_log::GeoNodeLog *node_log = tree_draw_ctx.geo_tree_log->nodes.lookup_ptr(node.name);
+    if (node_log != nullptr) {
+      for (const StringRef message : node_log->debug_messages) {
+        NodeExtraInfoRow row;
+        row.text = message;
+        row.icon = ICON_INFO;
+        rows.append(std::move(row));
+      }
+    }
+  }
+
   return rows;
 }
 

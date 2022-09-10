@@ -197,6 +197,10 @@ class GeoTreeLogger {
     std::string attribute_name;
     NamedAttributeUsage usage;
   };
+  struct DebugMessage {
+    std::string node_name;
+    std::string message;
+  };
 
   Vector<WarningWithNode> node_warnings;
   Vector<SocketValueLog> input_socket_values;
@@ -204,6 +208,7 @@ class GeoTreeLogger {
   Vector<NodeExecutionTime> node_execution_times;
   Vector<ViewerNodeLogWithNode, 0> viewer_node_logs;
   Vector<AttributeUsageWithNode, 0> used_named_attributes;
+  Vector<DebugMessage, 0> debug_messages;
 
   GeoTreeLogger();
   ~GeoTreeLogger();
@@ -234,6 +239,8 @@ class GeoNodeLog {
   Map<std::string, ValueLog *> output_values_;
   /** Maps from attribute name to their usage flags. */
   Map<std::string, NamedAttributeUsage> used_named_attributes;
+  /** Messages that are used for debugging purposes during development. */
+  Vector<std::string> debug_messages;
 
   GeoNodeLog();
   ~GeoNodeLog();
@@ -259,6 +266,7 @@ class GeoTreeLog {
   bool reduced_viewer_node_logs_ = false;
   bool reduced_existing_attributes_ = false;
   bool reduced_used_named_attributes_ = false;
+  bool reduced_debug_messages_ = false;
 
  public:
   Map<std::string, GeoNodeLog> nodes;
@@ -277,6 +285,7 @@ class GeoTreeLog {
   void ensure_viewer_node_logs();
   void ensure_existing_attributes();
   void ensure_used_named_attributes();
+  void ensure_debug_messages();
 
   ValueLog *find_socket_value_log(const bNodeSocket &query_socket);
 };
