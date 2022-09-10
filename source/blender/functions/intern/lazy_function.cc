@@ -49,6 +49,11 @@ bool LazyFunction::always_used_inputs_available(const Params &params) const
   return true;
 }
 
+bool LazyFunction::may_change_params_from_multiple_threads() const
+{
+  return false;
+}
+
 void Params::set_default_remaining_outputs()
 {
   for (const int i : fn_.outputs().index_range()) {

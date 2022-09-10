@@ -1087,6 +1087,13 @@ inline void Executor::execute_node(const FunctionNode &node,
                                    CurrentTask &current_task)
 {
   const LazyFunction &fn = node.function();
+
+#ifdef DEBUG
+  if (self_.thread_mode_ == ThreadMode::Single) {
+    BLI_assert(!fn.may_change_params_from_multiple_threads());
+  }
+#endif
+
   GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task};
   BLI_assert(context_ != nullptr);
   Context fn_context = *context_;
@@ -1141,6 +1148,11 @@ void *GraphExecutor::init_storage(LinearAllocator<> &allocator) const
 void GraphExecutor::destruct_storage(void *storage) const
 {
   std::destroy_at(static_cast<Executor *>(storage));
+}
+
+bool GraphExecutor::may_change_params_from_multiple_threads() const
+{
+  return thread_mode_ == ThreadMode::Multi;
 }
 
 void GraphExecutorLogger::log_socket_value(const Socket &socket,

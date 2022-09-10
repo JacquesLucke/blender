@@ -102,6 +102,7 @@ class GraphExecutor : public LazyFunction {
 
   void *init_storage(LinearAllocator<> &allocator) const override;
   void destruct_storage(void *storage) const override;
+  bool may_change_params_from_multiple_threads() const override;
 
  private:
   void execute_impl(Params &params, const Context &context) const override;

@@ -278,6 +278,12 @@ class LazyFunction {
    */
   bool always_used_inputs_available(const Params &params) const;
 
+  /**
+   * Allows the caller to make assumptions about how the function is using #Params.
+   * This may result in less overhead caused by thread communication.
+   */
+  virtual bool may_change_params_from_multiple_threads() const;
+
  private:
   /**
    * Needs to be implemented by subclasses. This is separate from #execute so that additional
