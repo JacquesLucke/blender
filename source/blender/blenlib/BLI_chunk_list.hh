@@ -37,6 +37,7 @@ template<typename T> struct RawChunk {
   T *end_if_inactive;
   T *capacity_end;
 
+  RawChunk() = default;
   RawChunk(T *begin, T *end_if_inactive, T *capacity_end)
       : begin(begin), end_if_inactive(end_if_inactive), capacity_end(capacity_end)
   {
@@ -245,9 +246,37 @@ class ChunkList {
   template<int64_t OtherInlineBufferCapacity>
   void extend(ChunkList<T, OtherInlineBufferCapacity, Allocator> &&list)
   {
-    /* TODO: Take ownership of memory. */
-    list.foreach_chunk([&](const MutableSpan<T> chunk) { this->extend_move(chunk); });
-    list.clear();
+    /* Move the inline values from the list. */
+    this->extend_move(list.get_chunk(0));
+
+    /* Take ownership of all allocated chunks. */
+    if (list.alloc_info_ != nullptr) {
+      list.alloc_info_->raw_chunks[list.alloc_info_->active].end_if_inactive = list.active_end_;
+
+      if (alloc_info_ == nullptr) {
+        /* Try to take ownership of the allocated info as well. */
+        alloc_info_ = list.alloc_info_;
+        list.alloc_info_ = nullptr;
+        RawChunk &chunk = alloc_info_->raw_chunks[0];
+        chunk.begin = inline_buffer_;
+        chunk.end_if_inactive = active_end_;
+        chunk.capacity_end = active_capacity_end_;
+      }
+      else {
+        alloc_info_->active += list.alloc_info_->active - 1;
+        alloc_info_->raw_chunks.extend(list.alloc_info_->raw_chunks.as_span().drop_front(1));
+        list.alloc_info_->raw_chunks.resize(1);
+      }
+    }
+    RawChunk &active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
+    active_begin_ = active_chunk.begin;
+    active_end_ = active_chunk.end_if_inactive;
+    active_capacity_end_ = active_chunk.capacity_end;
+
+    /* Reset the other list. */
+    list.active_begin_ = list.inline_buffer_;
+    list.active_end_ = list.active_begin_;
+    list.active_capacity_end_ = list.active_begin_ + OtherInlineBufferCapacity;
   }
 
   void extend_move(const MutableSpan<T> values)
