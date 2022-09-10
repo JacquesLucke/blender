@@ -224,7 +224,13 @@ class ChunkList {
   {
     this->ensure_space_for_one();
     BLI_assert(active_end_ < active_capacity_end_);
-    new (active_end_) T(std::forward<Args>(args)...);
+    try {
+      new (active_end_) T(std::forward<Args>(args)...);
+    }
+    catch (...) {
+      this->move_end_back_to_prev_element();
+      throw;
+    }
     active_end_++;
   }
 
@@ -261,15 +267,20 @@ class ChunkList {
     T value = std::move(*(active_end_ - 1));
     active_end_--;
     std::destroy_at(active_end_);
+    this->move_end_back_to_prev_element();
+    return value;
+  }
 
+  void move_end_back_to_prev_element()
+  {
     if (active_end_ > active_begin_) {
-      return value;
+      return;
     }
     if (alloc_info_ == nullptr) {
-      return value;
+      return;
     }
     if (alloc_info_->active_chunk == 0) {
-      return value;
+      return;
     }
     RawChunk &old_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
     old_chunk.end_if_inactive = active_end_;
@@ -286,7 +297,6 @@ class ChunkList {
     active_begin_ = new_chunk.begin;
     active_end_ = new_chunk.end_if_inactive;
     active_capacity_end_ = new_chunk.capacity_end;
-    return value;
   }
 
   class Iterator {
