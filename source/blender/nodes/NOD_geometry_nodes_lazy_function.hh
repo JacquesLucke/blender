@@ -125,6 +125,9 @@ struct GeometryNodesLazyFunctionGraphInfo {
    */
   GeometryNodeLazyFunctionGraphMapping mapping;
 
+  bool should_use_multi_threading = false;
+  bool has_node_that_writes_from_multiple_threads = false;
+
   GeometryNodesLazyFunctionGraphInfo();
   ~GeometryNodesLazyFunctionGraphInfo();
 };

@@ -574,6 +574,10 @@ class LazyFunctionForGroupNode : public LazyFunction {
       }
     }
 
+    const lf::ThreadMode thread_mode = lf_graph_info.should_use_multi_threading ?
+                                           lf::ThreadMode::Multi :
+                                           lf::ThreadMode::Single;
+
     lf_logger_.emplace(lf_graph_info);
     lf_side_effect_provider_.emplace(lf_graph_info);
     graph_executor_.emplace(lf_graph_info.graph,
@@ -581,7 +585,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
                             std::move(graph_outputs),
                             &*lf_logger_,
                             &*lf_side_effect_provider_,
-                            lf::ThreadMode::Single);
+                            thread_mode);
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
@@ -600,14 +604,19 @@ class LazyFunctionForGroupNode : public LazyFunction {
     graph_executor_->execute(params, group_context);
   }
 
-  void *init_storage(LinearAllocator<> &allocator) const
+  void *init_storage(LinearAllocator<> &allocator) const override
   {
     return graph_executor_->init_storage(allocator);
   }
 
-  void destruct_storage(void *storage) const
+  void destruct_storage(void *storage) const override
   {
     graph_executor_->destruct_storage(storage);
+  }
+
+  bool may_change_params_from_multiple_threads() const override
+  {
+    return graph_executor_->may_change_params_from_multiple_threads();
   }
 };
 
@@ -891,10 +900,19 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
     mapping_->group_node_map.add(&bnode, &lf_node);
+
+    if (group_lf_graph_info->should_use_multi_threading) {
+      lf_graph_info_->should_use_multi_threading = true;
+    }
+    if (lf_node.function().may_change_params_from_multiple_threads()) {
+      lf_graph_info_->has_node_that_writes_from_multiple_threads = true;
+    }
   }
 
   void handle_geometry_node(const bNode &bnode)
   {
+    lf_graph_info_->should_use_multi_threading = true;
+
     Vector<const bNodeSocket *> used_inputs;
     Vector<const bNodeSocket *> used_outputs;
     auto lazy_function = std::make_unique<LazyFunctionForGeometryNode>(
