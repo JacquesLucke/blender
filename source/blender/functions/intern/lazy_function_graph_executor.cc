@@ -287,7 +287,7 @@ class Executor {
     CurrentTask current_task;
     if (is_first_execution_) {
       this->initialize_node_states();
-      if (!self_.single_threaded_) {
+      if (self_.thread_mode_ == ThreadMode::Multi) {
         task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
       }
 
@@ -302,7 +302,7 @@ class Executor {
     this->schedule_newly_requested_outputs(current_task);
     this->forward_newly_provided_inputs(current_task);
 
-    if (self_.single_threaded_) {
+    if (self_.thread_mode_ == ThreadMode::Single) {
       while (!current_task.scheduled_nodes.is_empty()) {
         const FunctionNode &node = *current_task.scheduled_nodes.pop();
         this->run_node_task(node, current_task);
@@ -578,7 +578,7 @@ class Executor {
     BLI_assert(&node_state == node_states_[node.index_in_graph()]);
 
     LockedNode locked_node{node, node_state};
-    if (self_.single_threaded_) {
+    if (self_.thread_mode_ == ThreadMode::Single) {
       f(locked_node);
     }
     else {
@@ -609,7 +609,7 @@ class Executor {
 
   void schedule_new_nodes(const Span<const FunctionNode *> nodes, CurrentTask &current_task)
   {
-    if (self_.single_threaded_) {
+    if (self_.thread_mode_ == ThreadMode::Single) {
       current_task.scheduled_nodes.push_multiple(nodes);
       return;
     }
@@ -1108,13 +1108,13 @@ GraphExecutor::GraphExecutor(const Graph &graph,
                              const Span<const InputSocket *> graph_outputs,
                              const Logger *logger,
                              const SideEffectProvider *side_effect_provider,
-                             const bool single_threaded)
+                             const ThreadMode thread_mode)
     : graph_(graph),
       graph_inputs_(graph_inputs),
       graph_outputs_(graph_outputs),
       logger_(logger),
       side_effect_provider_(side_effect_provider),
-      single_threaded_(single_threaded)
+      thread_mode_(thread_mode)
 {
   for (const OutputSocket *socket : graph_inputs_) {
     BLI_assert(socket->node().is_dummy());

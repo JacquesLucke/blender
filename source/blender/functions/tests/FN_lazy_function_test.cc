@@ -105,7 +105,8 @@ TEST(lazy_function, SideEffects)
 
   SimpleSideEffectProvider side_effect_provider{{&store_node}};
 
-  GraphExecutor executor_fn{graph, {&input_node.output(0)}, {}, nullptr, &side_effect_provider};
+  GraphExecutor executor_fn{
+      graph, {&input_node.output(0)}, {}, nullptr, &side_effect_provider, ThreadMode::Multi};
   execute_lazy_function_eagerly(executor_fn, nullptr, std::make_tuple(5), std::make_tuple());
 
   EXPECT_EQ(dst1, 15);

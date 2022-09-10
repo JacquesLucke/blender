@@ -580,7 +580,8 @@ class LazyFunctionForGroupNode : public LazyFunction {
                             std::move(graph_inputs),
                             std::move(graph_outputs),
                             &*lf_logger_,
-                            &*lf_side_effect_provider_);
+                            &*lf_side_effect_provider_,
+                            lf::ThreadMode::Multi);
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override

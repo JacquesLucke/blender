@@ -1145,8 +1145,12 @@ static GeometrySet compute_geometry(
   blender::nodes::GeometryNodesLazyFunctionSideEffectProvider lf_side_effect_provider(
       lf_graph_info);
 
-  lf::GraphExecutor graph_executor{
-      lf_graph_info.graph, graph_inputs, graph_outputs, &lf_logger, &lf_side_effect_provider};
+  lf::GraphExecutor graph_executor{lf_graph_info.graph,
+                                   graph_inputs,
+                                   graph_outputs,
+                                   &lf_logger,
+                                   &lf_side_effect_provider,
+                                   lf::ThreadMode::Multi};
 
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
@@ -1271,6 +1275,7 @@ static void modifyGeometry(ModifierData *md,
                            const ModifierEvalContext *ctx,
                            GeometrySet &geometry_set)
 {
+  SCOPED_TIMER(__func__);
   NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
   if (nmd->node_group == nullptr) {
     return;

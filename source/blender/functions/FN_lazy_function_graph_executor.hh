@@ -54,6 +54,11 @@ class GraphExecutorSideEffectProvider {
   virtual Vector<const FunctionNode *> get_nodes_with_side_effects(const Context &context) const;
 };
 
+enum class ThreadMode {
+  Single,
+  Multi,
+};
+
 class GraphExecutor : public LazyFunction {
  public:
   using Logger = GraphExecutorLogger;
@@ -83,7 +88,7 @@ class GraphExecutor : public LazyFunction {
    * graph do little work or are serial anyway. It's important that all lazy-functions in the graph
    * are single threaded as well.
    */
-  bool single_threaded_;
+  ThreadMode thread_mode_;
 
   friend class Executor;
 
@@ -93,7 +98,7 @@ class GraphExecutor : public LazyFunction {
                 Span<const InputSocket *> graph_outputs,
                 const Logger *logger,
                 const SideEffectProvider *side_effect_provider,
-                bool single_threaded = false);
+                ThreadMode thread_mode);
 
   void *init_storage(LinearAllocator<> &allocator) const override;
   void destruct_storage(void *storage) const override;
