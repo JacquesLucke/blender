@@ -142,6 +142,9 @@ class GeometryNodesLazyFunctionLogger : public fn::lazy_function::GraphExecutor:
   void log_socket_value(const fn::lazy_function::Socket &lf_socket,
                         GPointer value,
                         const fn::lazy_function::Context &context) const override;
+  void log_before_node_execute(const lf::FunctionNode &node,
+                               const lf::Params &params,
+                               const lf::Context &context) const override;
   void dump_when_outputs_are_missing(const lf::FunctionNode &node,
                                      Span<const lf::OutputSocket *> missing_sockets,
                                      const lf::Context &context) const override;
