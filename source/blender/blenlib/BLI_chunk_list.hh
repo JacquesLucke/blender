@@ -58,6 +58,7 @@ class ChunkList {
   using RawChunk = chunk_list_detail::RawChunk<T>;
   using AllocInfo = chunk_list_detail::AllocInfo<T>;
 
+  T *active_begin_;
   T *active_end_;
   T *active_capacity_end_;
   AllocInfo *alloc_info_ = nullptr;
@@ -67,7 +68,8 @@ class ChunkList {
  public:
   ChunkList(Allocator allocator = {}) noexcept : allocator_(allocator)
   {
-    active_end_ = inline_buffer_;
+    active_begin_ = inline_buffer_;
+    active_end_ = active_begin_;
     active_capacity_end_ = active_end_ + InlineBufferCapacity;
   }
 
@@ -260,19 +262,30 @@ class ChunkList {
     active_end_--;
     std::destroy_at(active_end_);
 
+    if (active_end_ > active_begin_) {
+      return value;
+    }
     if (alloc_info_ == nullptr) {
       return value;
     }
-    RawChunk &active_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
-    if (active_end_ > active_chunk.begin) {
+    if (alloc_info_->active_chunk == 0) {
       return value;
     }
-    while (alloc_info_->active_chunk > 0) {
-      this->activate_previous_chunk();
-      if (active_end_ > alloc_info_->raw_chunks[alloc_info_->active_chunk].begin) {
+    RawChunk &old_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+    old_chunk.end_if_inactive = active_end_;
+    int new_active = alloc_info_->active_chunk - 1;
+    while (new_active >= 0) {
+      RawChunk &chunk = alloc_info_->raw_chunks[new_active];
+      if (chunk.begin < chunk.end_if_inactive) {
         break;
       }
+      new_active--;
     }
+    RawChunk &new_chunk = alloc_info_->raw_chunks[new_active];
+    alloc_info_->active_chunk = new_active;
+    active_begin_ = new_chunk.begin;
+    active_end_ = new_chunk.end_if_inactive;
+    active_capacity_end_ = new_chunk.capacity_end;
     return value;
   }
 
@@ -360,20 +373,6 @@ class ChunkList {
     }
   }
 
-  void activate_previous_chunk()
-  {
-    BLI_assert(alloc_info_ != nullptr);
-    BLI_assert(alloc_info_->active_chunk > 0);
-    RawChunk &old_active_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
-    BLI_assert(active_capacity_end_ == old_active_chunk.capacity_end);
-    BLI_assert(active_end_ == old_active_chunk.begin);
-    old_active_chunk.end_if_inactive = active_end_;
-    alloc_info_->active_chunk--;
-    RawChunk &new_active_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
-    active_capacity_end_ = new_active_chunk.capacity_end;
-    active_end_ = new_active_chunk.end_if_inactive;
-  }
-
   void activate_next_chunk()
   {
     if (alloc_info_ != nullptr) {
@@ -391,6 +390,7 @@ class ChunkList {
       alloc_info_->active_chunk = 1;
     }
     RawChunk &new_active_chunk = alloc_info_->raw_chunks[alloc_info_->active_chunk];
+    active_begin_ = new_active_chunk.begin;
     active_end_ = new_active_chunk.end_if_inactive;
     active_capacity_end_ = new_active_chunk.capacity_end;
   }
