@@ -9,7 +9,7 @@ namespace blender::tests {
 
 TEST(chunk_list, Test)
 {
-  const int64_t amount = 1e4;
+  const int64_t amount = 3;
   for ([[maybe_unused]] const int64_t iter : IndexRange(5)) {
     {
       ChunkList<int, 2> list;
@@ -30,7 +30,7 @@ TEST(chunk_list, Test)
       std::cout << "Sum: " << sum << "\n";
     }
     {
-      Vector<int> vec;
+      Vector<int, 2> vec;
       {
 
         SCOPED_TIMER("vector: create");

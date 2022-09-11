@@ -36,10 +36,19 @@ template<typename T> struct RawChunk {
   T *begin;
   T *end_if_inactive;
   T *capacity_end;
+  /**
+   * Pointer to the beginning of the allocation of this chunk. Might not be the same as `begin`,
+   * because the might be allocated together with #AllocInfo. Can be null when this chunk is
+   * inlined into the #ChunkList.
+   */
+  void *allocation;
 
   RawChunk() = default;
-  RawChunk(T *begin, T *end_if_inactive, T *capacity_end)
-      : begin(begin), end_if_inactive(end_if_inactive), capacity_end(capacity_end)
+  RawChunk(T *begin, T *end_if_inactive, T *capacity_end, void *allocation)
+      : begin(begin),
+        end_if_inactive(end_if_inactive),
+        capacity_end(capacity_end),
+        allocation(allocation)
   {
   }
 };
@@ -238,45 +247,63 @@ class ChunkList {
   }
 
   template<int64_t OtherInlineBufferCapacity>
-  void extend(const ChunkList<T, OtherInlineBufferCapacity, Allocator> &list)
+  void extend(const ChunkList<T, OtherInlineBufferCapacity, Allocator> &other)
   {
-    list.foreach_chunk([&](const Span<T> chunk) { this->extend(chunk); });
+    other.foreach_chunk([&](const Span<T> chunk) { this->extend(chunk); });
   }
 
   template<int64_t OtherInlineBufferCapacity>
-  void extend(ChunkList<T, OtherInlineBufferCapacity, Allocator> &&list)
+  void extend(ChunkList<T, OtherInlineBufferCapacity, Allocator> &&other)
   {
-    /* Move the inline values from the list. */
-    this->extend_move(list.get_chunk(0));
+    AllocInfo *other_alloc_info = other.alloc_info_;
 
-    /* Take ownership of all allocated chunks. */
-    if (list.alloc_info_ != nullptr) {
-      list.alloc_info_->raw_chunks[list.alloc_info_->active].end_if_inactive = list.active_end_;
-
-      if (alloc_info_ == nullptr) {
-        /* Try to take ownership of the allocated info as well. */
-        alloc_info_ = list.alloc_info_;
-        list.alloc_info_ = nullptr;
-        RawChunk &chunk = alloc_info_->raw_chunks[0];
-        chunk.begin = inline_buffer_;
-        chunk.end_if_inactive = active_end_;
-        chunk.capacity_end = active_capacity_end_;
+    if (other_alloc_info == nullptr) {
+      /* Handle case when the other list is fully inline. */
+      this->extend_move({other.active_begin_, other.active_end_ - other.active_begin_});
+    }
+    else {
+      /* Make sure all chunks are up to date. */
+      RawChunk &other_active_chunk = other_alloc_info->raw_chunks[other_alloc_info->active];
+      other_active_chunk.end_if_inactive = other.active_end_;
+      for (const int64_t other_chunk_index : other_alloc_info->raw_chunks.index_range()) {
+        const RawChunk &other_chunk = other_alloc_info->raw_chunks[other_chunk_index];
+        if (other_chunk.allocation == nullptr) {
+          /* This chunk is inline. */
+          this->extend_move({other_chunk.begin, other_chunk.end_if_inactive - other_chunk.begin});
+        }
+        else if (alloc_info_ == nullptr) {
+          alloc_info_ = other_alloc_info;
+          other.alloc_info_ = nullptr;
+          RawChunk &first_chunk = alloc_info_->raw_chunks[0];
+          BLI_assert(first_chunk.allocation == nullptr);
+          first_chunk.begin = active_begin_;
+          first_chunk.capacity_end = active_capacity_end_;
+          first_chunk.end_if_inactive = active_end_;
+          break;
+        }
+        else {
+          alloc_info_->raw_chunks.append(other_chunk);
+          if (other_chunk.begin < other_chunk.end_if_inactive) {
+            alloc_info_->active = alloc_info_->raw_chunks.size() - 1;
+          }
+        }
       }
-      else {
-        alloc_info_->active += list.alloc_info_->active - 1;
-        alloc_info_->raw_chunks.extend(list.alloc_info_->raw_chunks.as_span().drop_front(1));
-        list.alloc_info_->raw_chunks.resize(1);
+
+      if (alloc_info_ != nullptr) {
+        const RawChunk &active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
+        active_begin_ = active_chunk.begin;
+        active_end_ = active_chunk.end_if_inactive;
+        active_capacity_end_ = active_chunk.capacity_end;
+      }
+      if (other.alloc_info_ != nullptr) {
+        other.alloc_info_->raw_chunks.resize(1);
       }
     }
-    RawChunk &active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
-    active_begin_ = active_chunk.begin;
-    active_end_ = active_chunk.end_if_inactive;
-    active_capacity_end_ = active_chunk.capacity_end;
 
     /* Reset the other list. */
-    list.active_begin_ = list.inline_buffer_;
-    list.active_end_ = list.active_begin_;
-    list.active_capacity_end_ = list.active_begin_ + OtherInlineBufferCapacity;
+    other.active_begin_ = other.inline_buffer_;
+    other.active_end_ = other.active_begin_;
+    other.active_capacity_end_ = other.active_begin_ + OtherInlineBufferCapacity;
   }
 
   void extend_move(const MutableSpan<T> values)
@@ -478,7 +505,7 @@ class ChunkList {
     BLI_assert(alloc_info_ == nullptr);
     void *buffer = allocator_.allocate(sizeof(AllocInfo), alignof(AllocInfo), __func__);
     alloc_info_ = new (buffer) AllocInfo();
-    alloc_info_->raw_chunks.append_as(inline_buffer_, active_end_, active_capacity_end_);
+    alloc_info_->raw_chunks.append_as(inline_buffer_, active_end_, active_capacity_end_, nullptr);
     alloc_info_->active = 0;
   }
 
@@ -488,10 +515,12 @@ class ChunkList {
     const int64_t last_chunk_size = last_chunk.capacity_end - last_chunk.begin;
     const int64_t new_chunk_size = std::max<int64_t>(min_chunk_size,
                                                      std::min<int64_t>(last_chunk_size * 2, 4096));
-    T *new_chunk_begin = static_cast<T *>(allocator_.allocate(
-        sizeof(T) * static_cast<size_t>(new_chunk_size), alignof(T), __func__));
+    void *buffer = allocator_.allocate(
+        sizeof(T) * static_cast<size_t>(new_chunk_size), alignof(T), __func__);
+    T *new_chunk_begin = static_cast<T *>(buffer);
     T *new_chunk_capacity_end = new_chunk_begin + new_chunk_size;
-    alloc_info_->raw_chunks.append_as(new_chunk_begin, new_chunk_begin, new_chunk_capacity_end);
+    alloc_info_->raw_chunks.append_as(
+        new_chunk_begin, new_chunk_begin, new_chunk_capacity_end, buffer);
   }
 };
 
