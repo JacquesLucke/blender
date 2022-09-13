@@ -36,6 +36,11 @@ static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 
 static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
 {
+  uiItemR(layout, ptr, "domain", 0, "", ICON_NONE);
+}
+
+static void node_layout_ex(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+{
   uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
 }
 
@@ -132,7 +137,8 @@ void register_node_type_geo_viewer()
   node_type_update(&ntype, file_ns::node_update);
   node_type_init(&ntype, file_ns::node_init);
   ntype.declare = file_ns::node_declare;
-  ntype.draw_buttons_ex = file_ns::node_layout;
+  ntype.draw_buttons = file_ns::node_layout;
+  ntype.draw_buttons_ex = file_ns::node_layout_ex;
   ntype.gather_link_search_ops = file_ns::node_gather_link_searches;
   nodeRegisterType(&ntype);
 }
