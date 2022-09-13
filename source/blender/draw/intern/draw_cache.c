@@ -2889,6 +2889,12 @@ GPUBatch *DRW_cache_mesh_surface_mesh_analysis_get(Object *ob)
   return DRW_mesh_batch_cache_get_edit_mesh_analysis(ob->data);
 }
 
+GPUBatch *DRW_cache_mesh_surface_attribute_get(Object *ob)
+{
+  BLI_assert(ob->type == OB_MESH);
+  return DRW_mesh_batch_cache_get_surface_attribute(ob->data);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */

@@ -16,6 +16,7 @@
 
 #include "UI_interface.h"
 
+#include "BKE_duplilist.h"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 
@@ -202,6 +203,7 @@ static void OVERLAY_cache_init(void *vedata)
   }
   OVERLAY_antialiasing_cache_init(vedata);
   OVERLAY_armature_cache_init(vedata);
+  OVERLAY_attribute_cache_init(vedata);
   OVERLAY_background_cache_init(vedata);
   OVERLAY_fade_cache_init(vedata);
   OVERLAY_mode_transfer_cache_init(vedata);
@@ -369,6 +371,11 @@ static void OVERLAY_cache_populate(void *vedata, Object *ob)
   }
   if (draw_bone_selection) {
     OVERLAY_pose_cache_populate(vedata, ob);
+  }
+
+  DupliObject *dupli_object = DRW_object_get_dupli(ob);
+  if (dupli_object != NULL && dupli_object->is_preview) {
+    OVERLAY_attribute_cache_populate(vedata, ob);
   }
 
   if (ob->type == OB_VOLUME) {
@@ -593,6 +600,7 @@ static void OVERLAY_draw_scene(void *vedata)
   OVERLAY_mode_transfer_draw(vedata);
   OVERLAY_extra_blend_draw(vedata);
   OVERLAY_volume_draw(vedata);
+  OVERLAY_attribute_draw(vedata);
 
   /* These overlays are drawn here to avoid artifacts with wire-frame opacity. */
   switch (pd->ctx_mode) {

@@ -198,6 +198,7 @@ struct GPUBatch *DRW_mesh_batch_cache_get_surface_vertpaint(struct Object *objec
 struct GPUBatch *DRW_mesh_batch_cache_get_surface_sculpt(struct Object *object, struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_surface_weights(struct Mesh *me);
 struct GPUBatch *DRW_mesh_batch_cache_get_sculpt_overlays(struct Mesh *me);
+struct GPUBatch *DRW_mesh_batch_cache_get_surface_attribute(struct Mesh *me);
 
 /** \} */
 

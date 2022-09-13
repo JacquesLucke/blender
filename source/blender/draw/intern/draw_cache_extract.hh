@@ -130,6 +130,7 @@ struct MeshBufferList {
     GPUVertBuf *poly_idx;
     GPUVertBuf *fdot_idx;
     GPUVertBuf *attr[GPU_MAX_ATTR];
+    GPUVertBuf *attr_overlay;
   } vbo;
   /* Index Buffers:
    * Only need to be updated when topology changes. */
@@ -191,6 +192,7 @@ struct MeshBatchList {
   /* Same as wire_loops but only has uvs. */
   GPUBatch *wire_loops_uvs;
   GPUBatch *sculpt_overlays;
+  GPUBatch *attribute_overlay;
 };
 
 #define MBC_BATCH_LEN (sizeof(MeshBatchList) / sizeof(void *))
@@ -228,6 +230,7 @@ enum DRWBatchFlag {
   MBC_WIRE_LOOPS = (1u << MBC_BATCH_INDEX(wire_loops)),
   MBC_WIRE_LOOPS_UVS = (1u << MBC_BATCH_INDEX(wire_loops_uvs)),
   MBC_SCULPT_OVERLAYS = (1u << MBC_BATCH_INDEX(sculpt_overlays)),
+  MBC_ATTRIBUTE_OVERLAY = (1u << MBC_BATCH_INDEX(attribute_overlay)),
   MBC_SURFACE_PER_MAT = (1u << MBC_BATCH_LEN),
 };
 ENUM_OPERATORS(DRWBatchFlag, MBC_SURFACE_PER_MAT);
