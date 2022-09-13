@@ -1324,4 +1324,46 @@ GeometryNodesLazyFunctionGraphInfo::~GeometryNodesLazyFunctionGraphInfo()
   }
 }
 
+static void add_thread_id_debug_message(const GeometryNodesLazyFunctionGraphInfo &lf_graph_info,
+                                        const lf::FunctionNode &node,
+                                        const lf::Context &context)
+{
+  static std::atomic<int> thread_id_source = 0;
+  static thread_local const int thread_id = thread_id_source.fetch_add(1);
+  static thread_local const std::string thread_id_str = "Thread: " + std::to_string(thread_id);
+
+  GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+  BLI_assert(user_data != nullptr);
+  if (user_data->modifier_data->eval_log == nullptr) {
+    return;
+  }
+  geo_eval_log::GeoTreeLogger &tree_logger =
+      user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->compute_context);
+
+  Vector<const lf::Socket *> lf_sockets;
+  for (const lf::Socket *lf_socket : node.inputs()) {
+    lf_sockets.append(lf_socket);
+  }
+  for (const lf::Socket *lf_socket : node.outputs()) {
+    lf_sockets.append(lf_socket);
+  }
+  for (const lf::Socket *lf_socket : lf_sockets) {
+    const Span<const bNodeSocket *> bsockets =
+        lf_graph_info.mapping.bsockets_by_lf_socket_map.lookup(lf_socket);
+    if (!bsockets.is_empty()) {
+      const bNodeSocket &bsocket = *bsockets[0];
+      const bNode &bnode = bsocket.owner_node();
+      tree_logger.debug_messages.append({bnode.name, thread_id_str});
+      return;
+    }
+  }
+}
+
+void GeometryNodesLazyFunctionLogger::log_before_node_execute(const lf::FunctionNode &node,
+                                                              const lf::Params &UNUSED(params),
+                                                              const lf::Context &context) const
+{
+  add_thread_id_debug_message(lf_graph_info_, node, context);
+}
+
 }  // namespace blender::nodes

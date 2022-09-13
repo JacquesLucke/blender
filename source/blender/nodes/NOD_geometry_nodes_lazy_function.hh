@@ -148,6 +148,9 @@ class GeometryNodesLazyFunctionLogger : public fn::lazy_function::GraphExecutor:
   void dump_when_input_is_set_twice(const lf::InputSocket &target_socket,
                                     const lf::OutputSocket &from_socket,
                                     const lf::Context &context) const override;
+  void log_before_node_execute(const lf::FunctionNode &node,
+                               const lf::Params &params,
+                               const lf::Context &context) const override;
 };
 
 /**
