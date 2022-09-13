@@ -199,19 +199,13 @@ struct LockedNode {
   }
 };
 
-struct CurrentTask {
-  /**
-   * The node that should be run on the same thread after the current node is done. This avoids
-   * some overhead by skipping a round trip through the task pool.
-   */
-  std::atomic<const FunctionNode *> next_node = nullptr;
-  /**
-   * Indicates that some node has been added to the task pool.
-   */
-  std::atomic<bool> added_node_to_pool = false;
-};
-
+class Executor;
 class GraphExecutorLFParams;
+
+struct CurrentTask {
+  std::mutex mutex;
+  Vector<const FunctionNode *> scheduled_nodes;
+};
 
 class Executor {
  private:
@@ -232,8 +226,9 @@ class Executor {
   const Context *context_ = nullptr;
   /**
    * Used to distribute work on separate nodes to separate threads.
+   * If this is empty, the executor is in single threaded mode.
    */
-  tbb::task_group task_group_;
+  std::optional<tbb::task_group> task_group_;
   /**
    * A separate linear allocator for every thread. We could potentially reuse some memory, but that
    * doesn't seem worth it yet.
@@ -294,21 +289,11 @@ class Executor {
     this->schedule_newly_requested_outputs(current_task);
     this->forward_newly_provided_inputs(current_task);
 
-    /* Avoid using task pool when there is no parallel work to do. */
-    while (!current_task.added_node_to_pool) {
-      if (current_task.next_node == nullptr) {
-        /* Nothing to do. */
-        return;
-      }
-      const FunctionNode &node = *current_task.next_node;
-      current_task.next_node = nullptr;
-      this->run_node_task(node, current_task);
-    }
-    if (current_task.next_node != nullptr) {
-      this->add_node_to_task_pool(*current_task.next_node);
-    }
+    this->run_task(current_task);
 
-    task_group_.wait();
+    if (task_group_) {
+      task_group_->wait();
+    }
   }
 
  private:
@@ -562,9 +547,12 @@ class Executor {
     BLI_assert(&node_state == node_states_[node.index_in_graph()]);
 
     LockedNode locked_node{node, node_state};
-    {
+    if (this->use_multi_threading()) {
       std::lock_guard lock{node_state.mutex};
       threading::isolate_task([&]() { f(locked_node); });
+    }
+    else {
+      f(locked_node);
     }
 
     this->send_output_required_notifications(locked_node.delayed_required_outputs, current_task);
@@ -588,37 +576,26 @@ class Executor {
     }
   }
 
+  bool use_multi_threading() const
+  {
+    return task_group_.has_value();
+  }
+
   void schedule_new_nodes(const Span<const FunctionNode *> nodes, CurrentTask &current_task)
   {
-    for (const FunctionNode *node_to_schedule : nodes) {
-      /* Avoid a round trip through the task pool for the first node that is scheduled by the
-       * current node execution. Other nodes are added to the pool so that other threads can pick
-       * them up. */
-      const FunctionNode *expected = nullptr;
-      if (current_task.next_node.compare_exchange_strong(
-              expected, node_to_schedule, std::memory_order_relaxed)) {
-        continue;
-      }
-      this->add_node_to_task_pool(*node_to_schedule);
-      current_task.added_node_to_pool.store(true, std::memory_order_relaxed);
+    std::optional<std::lock_guard<std::mutex>> lock;
+    if (this->use_multi_threading()) {
+      lock.emplace(current_task.mutex);
+      std::lock_guard lock{current_task.mutex};
     }
+    current_task.scheduled_nodes.extend(nodes);
   }
 
-  void add_node_to_task_pool(const FunctionNode &node)
+  void run_task(CurrentTask &current_task)
   {
-    task_group_.run([this, &node]() { this->run_node_from_task_pool(node); });
-  }
-
-  void run_node_from_task_pool(const FunctionNode &node)
-  {
-    /* This loop reduces the number of round trips through the task pool as long as the current
-     * node is scheduling more nodes. */
-    CurrentTask current_task;
-    current_task.next_node = &node;
-    while (current_task.next_node != nullptr) {
-      const FunctionNode &node_to_run = *current_task.next_node;
-      current_task.next_node = nullptr;
-      this->run_node_task(node_to_run, current_task);
+    while (!current_task.scheduled_nodes.is_empty()) {
+      const FunctionNode &node = *current_task.scheduled_nodes.pop_last();
+      this->run_node_task(node, current_task);
     }
   }
 

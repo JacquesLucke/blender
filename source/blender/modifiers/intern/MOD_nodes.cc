@@ -1126,6 +1126,7 @@ static GeometrySet compute_geometry(
     NodesModifierData *nmd,
     const ModifierEvalContext *ctx)
 {
+  SCOPED_TIMER(__func__);
   const blender::nodes::GeometryNodeLazyFunctionGraphMapping &mapping = lf_graph_info.mapping;
 
   Span<const lf::OutputSocket *> graph_inputs = mapping.group_input_sockets;
