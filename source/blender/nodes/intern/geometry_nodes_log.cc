@@ -186,13 +186,10 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
   }
 }
 
-void GeoTreeLogger::log_viewer_node(const bNode &viewer_node,
-                                    const GeometrySet &geometry,
-                                    const GField &field)
+void GeoTreeLogger::log_viewer_node(const bNode &viewer_node, GeometrySet geometry)
 {
   destruct_ptr<ViewerNodeLog> log = this->allocator->construct<ViewerNodeLog>();
-  log->geometry = geometry;
-  log->field = field;
+  log->geometry = std::move(geometry);
   log->geometry.ensure_owns_direct_data();
   this->viewer_node_logs.append({viewer_node.name, std::move(log)});
 }

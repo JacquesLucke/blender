@@ -156,7 +156,6 @@ class GeometryInfoLog : public ValueLog {
 class ViewerNodeLog {
  public:
   GeometrySet geometry;
-  GField field;
 };
 
 using Clock = std::chrono::steady_clock;
@@ -214,7 +213,7 @@ class GeoTreeLogger {
   ~GeoTreeLogger();
 
   void log_value(const bNode &node, const bNodeSocket &socket, GPointer value);
-  void log_viewer_node(const bNode &viewer_node, const GeometrySet &geometry, const GField &field);
+  void log_viewer_node(const bNode &viewer_node, GeometrySet geometry);
 };
 
 /**

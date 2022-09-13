@@ -516,19 +516,24 @@ class LazyFunctionForViewerNode : public LazyFunction {
     BLI_assert(user_data != nullptr);
 
     GeometrySet geometry = params.extract_input<GeometrySet>(0);
+    const NodeGeometryViewer *storage = static_cast<NodeGeometryViewer *>(bnode_.storage);
 
-    GField field;
     if (use_field_input_) {
+      const eAttrDomain domain = eAttrDomain(storage->domain);
       const void *value_or_field = params.try_get_input_data_ptr(1);
       BLI_assert(value_or_field != nullptr);
       const ValueOrFieldCPPType &value_or_field_type = static_cast<const ValueOrFieldCPPType &>(
           *inputs_[1].type);
-      field = value_or_field_type.as_field(value_or_field);
+      GField field = value_or_field_type.as_field(value_or_field);
+      if (geometry.has_mesh()) {
+        MeshComponent &mesh_component = geometry.get_component_for_write<MeshComponent>();
+        bke::try_capture_field_on_geometry(mesh_component, ".viewer", domain, field);
+      }
     }
 
     geo_eval_log::GeoTreeLogger &tree_logger =
         user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->compute_context);
-    tree_logger.log_viewer_node(bnode_, geometry, field);
+    tree_logger.log_viewer_node(bnode_, std::move(geometry));
   }
 };
 
