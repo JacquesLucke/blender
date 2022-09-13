@@ -49,6 +49,8 @@
 
 #include "FN_lazy_function_graph_executor.hh"
 
+#include <tbb/task_group.h>
+
 namespace blender::fn::lazy_function {
 
 enum class NodeScheduleState {
@@ -231,7 +233,7 @@ class Executor {
   /**
    * Used to distribute work on separate nodes to separate threads.
    */
-  TaskPool *task_pool_ = nullptr;
+  tbb::task_group task_group_;
   /**
    * A separate linear allocator for every thread. We could potentially reuse some memory, but that
    * doesn't seem worth it yet.
@@ -253,7 +255,6 @@ class Executor {
 
   ~Executor()
   {
-    BLI_task_pool_free(task_pool_);
     threading::parallel_for(node_states_.index_range(), 1024, [&](const IndexRange range) {
       for (const int node_index : range) {
         const Node &node = *self_.graph_.nodes()[node_index];
@@ -281,7 +282,6 @@ class Executor {
     CurrentTask current_task;
     if (is_first_execution_) {
       this->initialize_node_states();
-      task_pool_ = BLI_task_pool_create(this, TASK_PRIORITY_HIGH);
 
       /* Initialize atomics to zero. */
       memset(static_cast<void *>(loaded_inputs_.data()), 0, loaded_inputs_.size() * sizeof(bool));
@@ -308,7 +308,7 @@ class Executor {
       this->add_node_to_task_pool(*current_task.next_node);
     }
 
-    BLI_task_pool_work_and_wait(task_pool_);
+    task_group_.wait();
   }
 
  private:
@@ -604,18 +604,13 @@ class Executor {
     }
   }
 
-  void add_node_to_task_pool(const Node &node)
+  void add_node_to_task_pool(const FunctionNode &node)
   {
-    BLI_task_pool_push(
-        task_pool_, Executor::run_node_from_task_pool, (void *)&node, false, nullptr);
+    task_group_.run([this, &node]() { this->run_node_from_task_pool(node); });
   }
 
-  static void run_node_from_task_pool(TaskPool *task_pool, void *task_data)
+  void run_node_from_task_pool(const FunctionNode &node)
   {
-    void *user_data = BLI_task_pool_user_data(task_pool);
-    Executor &executor = *static_cast<Executor *>(user_data);
-    const FunctionNode &node = *static_cast<const FunctionNode *>(task_data);
-
     /* This loop reduces the number of round trips through the task pool as long as the current
      * node is scheduling more nodes. */
     CurrentTask current_task;
@@ -623,7 +618,7 @@ class Executor {
     while (current_task.next_node != nullptr) {
       const FunctionNode &node_to_run = *current_task.next_node;
       current_task.next_node = nullptr;
-      executor.run_node_task(node_to_run, current_task);
+      this->run_node_task(node_to_run, current_task);
     }
   }
 
