@@ -298,7 +298,7 @@ class Executor {
   }
 
  private:
-  LinearAllocator<> &get_local_allocator()
+  LinearAllocator<> &get_main_or_local_allocator()
   {
     if (this->use_multi_threading()) {
       return local_allocators_.local();
@@ -313,7 +313,7 @@ class Executor {
 
     /* Construct all node states in parallel. */
     threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
-      LinearAllocator<> &allocator = this->get_local_allocator();
+      LinearAllocator<> &allocator = local_allocators_.local();
       for (const int i : range) {
         const Node &node = *nodes[i];
         NodeState &node_state = *allocator.construct<NodeState>().release();
@@ -428,7 +428,7 @@ class Executor {
 
   void forward_newly_provided_inputs(CurrentTask &current_task)
   {
-    LinearAllocator<> &allocator = this->get_local_allocator();
+    LinearAllocator<> &allocator = this->get_main_or_local_allocator();
     for (const int graph_input_index : self_.graph_inputs_.index_range()) {
       std::atomic<uint8_t> &was_loaded = loaded_inputs_[graph_input_index];
       if (was_loaded.load()) {
@@ -482,7 +482,7 @@ class Executor {
         return;
       }
       this->forward_newly_provided_input(
-          current_task, this->get_local_allocator(), graph_input_index, input_data);
+          current_task, this->get_main_or_local_allocator(), graph_input_index, input_data);
       return;
     }
 
@@ -606,7 +606,7 @@ class Executor {
   void run_node_task(const FunctionNode &node, CurrentTask &current_task)
   {
     NodeState &node_state = *node_states_[node.index_in_graph()];
-    LinearAllocator<> &allocator = this->get_local_allocator();
+    LinearAllocator<> &allocator = this->get_main_or_local_allocator();
     const LazyFunction &fn = node.function();
 
     bool node_needs_execution = false;
@@ -863,7 +863,7 @@ class Executor {
                                       CurrentTask &current_task)
   {
     BLI_assert(value_to_forward.get() != nullptr);
-    LinearAllocator<> &allocator = this->get_local_allocator();
+    LinearAllocator<> &allocator = this->get_main_or_local_allocator();
     const CPPType &type = *value_to_forward.type();
 
     if (self_.logger_ != nullptr) {
@@ -994,7 +994,7 @@ class GraphExecutorLFParams final : public Params {
     OutputState &output_state = node_state_.outputs[index];
     BLI_assert(!output_state.has_been_computed);
     if (output_state.value == nullptr) {
-      LinearAllocator<> &allocator = executor_.get_local_allocator();
+      LinearAllocator<> &allocator = executor_.get_main_or_local_allocator();
       const CPPType &type = node_.output(index).type();
       output_state.value = allocator.allocate(type.size(), type.alignment());
     }
