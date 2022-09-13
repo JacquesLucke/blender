@@ -26,6 +26,13 @@ struct Scene;
 struct ListBase *object_duplilist(struct Depsgraph *depsgraph,
                                   struct Scene *sce,
                                   struct Object *ob);
+/**
+ * Extend the given list with duplis used for preview.
+ */
+void object_duplilist_preview(struct Depsgraph *depsgraph,
+                              struct Scene *scene,
+                              struct Object *ob,
+                              struct ListBase *r_duplilist);
 void free_object_duplilist(struct ListBase *lb);
 
 typedef struct DupliObject {
@@ -39,6 +46,7 @@ typedef struct DupliObject {
 
   short type; /* from Object.transflag */
   char no_draw;
+  bool is_preview;
 
   /* Persistent identifier for a dupli object, for inter-frame matching of
    * objects with motion blur, or inter-update matching for syncing. */

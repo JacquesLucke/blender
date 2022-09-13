@@ -26,6 +26,7 @@
 #include "DNA_collection_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
+#include "DNA_modifier_types.h"
 #include "DNA_pointcloud_types.h"
 #include "DNA_scene_types.h"
 #include "DNA_vfont_types.h"
@@ -44,6 +45,7 @@
 #include "BKE_mesh.h"
 #include "BKE_mesh_iterators.h"
 #include "BKE_mesh_runtime.h"
+#include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
 #include "BKE_scene.h"
@@ -53,13 +55,15 @@
 #include "DEG_depsgraph_query.h"
 
 #include "BLI_hash.h"
-#include "BLI_strict_flags.h"
+
+#include "NOD_geometry_nodes_log.hh"
 
 using blender::Array;
 using blender::float3;
 using blender::float4x4;
 using blender::Span;
 using blender::Vector;
+namespace geo_log = blender::nodes::geo_eval_log;
 
 /* -------------------------------------------------------------------- */
 /** \name Internal Duplicate Context
@@ -75,6 +79,7 @@ struct DupliContext {
   Scene *scene;
   Object *object;
   float space_mat[4][4];
+  bool is_preview;
 
   /**
    * A stack that contains all the "parent" objects of a particular instance when recursive
@@ -139,7 +144,7 @@ static bool copy_dupli_context(
 
   /* XXX annoying, previously was done by passing an ID* argument,
    * this at least is more explicit. */
-  if (ctx->gen->type == OB_DUPLICOLLECTION) {
+  if (ctx->gen && ctx->gen->type == OB_DUPLICOLLECTION) {
     r_ctx->collection = ctx->object->instance_collection;
   }
 
@@ -183,7 +188,8 @@ static DupliObject *make_dupli(
   dob->ob = ob;
   dob->ob_data = const_cast<ID *>(object_data);
   mul_m4_m4m4(dob->mat, (float(*)[4])ctx->space_mat, mat);
-  dob->type = ctx->gen->type;
+  dob->type = ctx->gen == nullptr ? 0 : ctx->gen->type;
+  dob->is_preview = ctx->is_preview;
 
   /* Set persistent id, which is an array with a persistent index for each level
    * (particle number, vertex number, ..). by comparing this we can find the same
@@ -1623,12 +1629,43 @@ ListBase *object_duplilist(Depsgraph *depsgraph, Scene *sce, Object *ob)
   Vector<Object *> instance_stack;
   instance_stack.append(ob);
   init_context(&ctx, depsgraph, sce, ob, nullptr, instance_stack);
+  ctx.is_preview = false;
   if (ctx.gen) {
     ctx.duplilist = duplilist;
     ctx.gen->make_duplis(&ctx);
   }
 
   return duplilist;
+}
+
+void object_duplilist_preview(Depsgraph *depsgraph,
+                              Scene *sce,
+                              Object *ob_eval,
+                              ListBase *r_duplilist)
+{
+  DupliContext ctx;
+  Vector<Object *> instance_stack;
+  instance_stack.append(ob_eval);
+  init_context(&ctx, depsgraph, sce, ob_eval, nullptr, instance_stack);
+  ctx.duplilist = r_duplilist;
+  ctx.is_preview = true;
+
+  Object *ob_orig = DEG_get_original_object(ob_eval);
+
+  LISTBASE_FOREACH (ModifierData *, md_orig, &ob_orig->modifiers) {
+    if (md_orig->type != eModifierType_Nodes) {
+      continue;
+    }
+    NodesModifierData *nmd_orig = reinterpret_cast<NodesModifierData *>(md_orig);
+    if (nmd_orig->runtime_eval_log == nullptr) {
+      continue;
+    }
+    geo_log::GeoModifierLog *log = static_cast<geo_log::GeoModifierLog *>(
+        nmd_orig->runtime_eval_log);
+    for (const geo_log::ViewerNodeLog *viewer_log : log->get_viewer_node_logs()) {
+      make_duplis_geometry_set_impl(&ctx, viewer_log->geometry, ob_eval->obmat, true);
+    }
+  }
 }
 
 void free_object_duplilist(ListBase *lb)

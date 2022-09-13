@@ -314,6 +314,9 @@ class GeoModifierLog {
    */
   Map<ComputeContextHash, std::unique_ptr<GeoTreeLog>> tree_logs_;
 
+  bool reduced_viewer_node_logs_ = false;
+  Vector<const ViewerNodeLog *> viewer_node_logs_;
+
  public:
   GeoModifierLog();
   ~GeoModifierLog();
@@ -327,6 +330,8 @@ class GeoModifierLog {
    * Get a log a specific node tree instance.
    */
   GeoTreeLog &get_tree_log(const ComputeContextHash &compute_context_hash);
+
+  Span<const ViewerNodeLog *> get_viewer_node_logs();
 
   /**
    * Utility accessor to logged data.

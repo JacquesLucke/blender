@@ -470,6 +470,23 @@ GeoTreeLog &GeoModifierLog::get_tree_log(const ComputeContextHash &compute_conte
   return reduced_tree_log;
 }
 
+Span<const ViewerNodeLog *> GeoModifierLog::get_viewer_node_logs()
+{
+  if (!reduced_viewer_node_logs_) {
+    for (const LocalData &local_data : data_per_thread_) {
+      for (const destruct_ptr<GeoTreeLogger> &tree_logger :
+           local_data.tree_logger_by_context.values()) {
+        for (const GeoTreeLogger::ViewerNodeLogWithNode &viewer_node_log :
+             tree_logger->viewer_node_logs) {
+          viewer_node_logs_.append(viewer_node_log.viewer_log.get());
+        }
+      }
+    }
+    reduced_viewer_node_logs_ = true;
+  }
+  return viewer_node_logs_;
+}
+
 struct ObjectAndModifier {
   const Object *object;
   const NodesModifierData *nmd;

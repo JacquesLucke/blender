@@ -127,12 +127,35 @@ bool deg_object_hide_original(eEvaluationMode eval_mode, Object *ob, DupliObject
   return false;
 }
 
-void deg_iterator_duplis_init(DEGObjectIterData *data, Object *object)
+void deg_iterator_duplis_init(DEGObjectIterData *data,
+                              Object *object,
+                              const int ob_visibility,
+                              bool *r_is_preview)
 {
-  if ((data->flag & DEG_ITER_OBJECT_FLAG_DUPLI) &&
-      ((object->transflag & OB_DUPLI) || object->runtime.geometry_set_eval != nullptr)) {
+  *r_is_preview = false;
+
+  ListBase *duplis = nullptr;
+  ListBase preview_duplis{};
+  if (data->flag & DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+    object_duplilist_preview(data->graph, data->scene, object, &preview_duplis);
+  }
+  if (BLI_listbase_is_empty(&preview_duplis)) {
+    if (ob_visibility & OB_VISIBLE_INSTANCES) {
+      if ((data->flag & DEG_ITER_OBJECT_FLAG_DUPLI) &&
+          ((object->transflag & OB_DUPLI) || object->runtime.geometry_set_eval != nullptr)) {
+        duplis = object_duplilist(data->graph, data->scene, object);
+        BLI_movelisttolist(duplis, &preview_duplis);
+      }
+    }
+  }
+  else {
+    duplis = MEM_new<ListBase>(__func__, preview_duplis);
+    *r_is_preview = true;
+  }
+
+  if (duplis != nullptr) {
     data->dupli_parent = object;
-    data->dupli_list = object_duplilist(data->graph, data->scene, object);
+    data->dupli_list = duplis;
     data->dupli_object_next = (DupliObject *)data->dupli_list->first;
   }
 }
@@ -262,12 +285,13 @@ bool deg_iterator_objects_step(DEGObjectIterData *data)
     }
 
     object->runtime.select_id = DEG_get_original_object(object)->runtime.select_id;
-    if (ob_visibility & OB_VISIBLE_INSTANCES) {
-      deg_iterator_duplis_init(data, object);
-    }
+    bool is_preview;
+    deg_iterator_duplis_init(data, object, ob_visibility, &is_preview);
 
-    if (ob_visibility & (OB_VISIBLE_SELF | OB_VISIBLE_PARTICLES)) {
-      data->next_object = object;
+    if (!is_preview) {
+      if (ob_visibility & (OB_VISIBLE_SELF | OB_VISIBLE_PARTICLES)) {
+        data->next_object = object;
+      }
     }
     data->id_node_index++;
     return true;

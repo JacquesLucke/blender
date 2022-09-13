@@ -138,6 +138,7 @@ enum {
   DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET = (1 << 2),
   DEG_ITER_OBJECT_FLAG_VISIBLE = (1 << 3),
   DEG_ITER_OBJECT_FLAG_DUPLI = (1 << 4),
+  DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW = (1 << 5),
 };
 
 typedef struct DEGObjectIterData {
@@ -206,7 +207,7 @@ void DEG_iterator_objects_end(struct BLI_Iterator *iter);
                          instance_, \
                          DEG_ITER_OBJECT_FLAG_LINKED_DIRECTLY | \
                              DEG_ITER_OBJECT_FLAG_LINKED_VIA_SET | DEG_ITER_OBJECT_FLAG_VISIBLE | \
-                             DEG_ITER_OBJECT_FLAG_DUPLI)
+                             DEG_ITER_OBJECT_FLAG_DUPLI | DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW)
 
 #define DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END DEG_OBJECT_ITER_END
 
