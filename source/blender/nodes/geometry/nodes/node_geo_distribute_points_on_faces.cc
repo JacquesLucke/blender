@@ -533,6 +533,8 @@ static void node_geo_exec(GeoNodeExecParams params)
     attribute_outputs.rotation_id = StrongAnonymousAttributeID("Rotation");
   }
 
+  threading::blocking_compute_hint();
+
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     point_distribution_calculate(
         geometry_set, selection_field, method, seed, attribute_outputs, params);

@@ -30,10 +30,15 @@
 #  endif
 #endif
 
+#include "BLI_function_ref.hh"
 #include "BLI_index_range.hh"
 #include "BLI_utildefines.h"
 
 namespace blender::threading {
+
+void blocking_compute_hint();
+void push_blocking_hint_receiver(FunctionRef<void()> fn);
+void pop_block_hint_receiver();
 
 template<typename Range, typename Function>
 void parallel_for_each(Range &range, const Function &function)

@@ -192,7 +192,6 @@ struct LockedNode {
    */
   Vector<const OutputSocket *> delayed_required_outputs;
   Vector<const OutputSocket *> delayed_unused_outputs;
-  Vector<const FunctionNode *> delayed_scheduled_nodes;
 
   LockedNode(const Node &node, NodeState &node_state) : node(node), node_state(node_state)
   {
@@ -411,7 +410,7 @@ class Executor {
         NodeState &node_state = *node_states_[node->index_in_graph()];
         node_state.has_side_effects = true;
         this->with_locked_node(*node, node_state, current_task, [&](LockedNode &locked_node) {
-          this->schedule_node(locked_node);
+          this->schedule_node(locked_node, current_task);
         });
       }
     }
@@ -483,7 +482,7 @@ class Executor {
         return;
       }
       output_state.usage = ValueUsage::Used;
-      this->schedule_node(locked_node);
+      this->schedule_node(locked_node, current_task);
     });
   }
 
@@ -505,14 +504,14 @@ class Executor {
             params_->set_input_unused(graph_input_index);
           }
           else {
-            this->schedule_node(locked_node);
+            this->schedule_node(locked_node, current_task);
           }
         }
       }
     });
   }
 
-  void schedule_node(LockedNode &locked_node)
+  void schedule_node(LockedNode &locked_node, CurrentTask &current_task)
   {
     BLI_assert(locked_node.node.is_function());
     switch (locked_node.node_state.schedule_state) {
@@ -522,8 +521,14 @@ class Executor {
          * That would often result in a deadlock, because we are still holding the mutex of the
          * current node. Also see comments in #LockedNode. */
         locked_node.node_state.schedule_state = NodeScheduleState::Scheduled;
-        locked_node.delayed_scheduled_nodes.append(
-            &static_cast<const FunctionNode &>(locked_node.node));
+        const FunctionNode &node = static_cast<const FunctionNode &>(locked_node.node);
+        if (this->use_multi_threading()) {
+          std::lock_guard lock{current_task.mutex};
+          current_task.scheduled_nodes.append(&node);
+        }
+        else {
+          current_task.scheduled_nodes.append(&node);
+        }
         break;
       }
       case NodeScheduleState::Scheduled: {
@@ -557,7 +562,6 @@ class Executor {
 
     this->send_output_required_notifications(locked_node.delayed_required_outputs, current_task);
     this->send_output_unused_notifications(locked_node.delayed_unused_outputs, current_task);
-    this->schedule_new_nodes(locked_node.delayed_scheduled_nodes, current_task);
   }
 
   void send_output_required_notifications(const Span<const OutputSocket *> sockets,
@@ -579,16 +583,6 @@ class Executor {
   bool use_multi_threading() const
   {
     return task_group_.has_value();
-  }
-
-  void schedule_new_nodes(const Span<const FunctionNode *> nodes, CurrentTask &current_task)
-  {
-    std::optional<std::lock_guard<std::mutex>> lock;
-    if (this->use_multi_threading()) {
-      lock.emplace(current_task.mutex);
-      std::lock_guard lock{current_task.mutex};
-    }
-    current_task.scheduled_nodes.extend(nodes);
   }
 
   void run_task(CurrentTask &current_task)
@@ -644,7 +638,7 @@ class Executor {
           }
           void *buffer = allocator.allocate(type.size(), type.alignment());
           type.copy_construct(default_value, buffer);
-          this->forward_value_to_input(locked_node, input_state, {type, buffer});
+          this->forward_value_to_input(locked_node, input_state, {type, buffer}, current_task);
         }
 
         /* Request linked inputs that are always needed. */
@@ -695,7 +689,7 @@ class Executor {
                                         NodeScheduleState::RunningAndRescheduled;
       node_state.schedule_state = NodeScheduleState::NotScheduled;
       if (reschedule_requested && !node_state.node_has_finished) {
-        this->schedule_node(locked_node);
+        this->schedule_node(locked_node, current_task);
       }
     });
   }
@@ -910,13 +904,13 @@ class Executor {
         }
         if (is_last_target) {
           /* No need to make a copy if this is the last target. */
-          this->forward_value_to_input(locked_node, input_state, value_to_forward);
+          this->forward_value_to_input(locked_node, input_state, value_to_forward, current_task);
           value_to_forward = {};
         }
         else {
           void *buffer = allocator.allocate(type.size(), type.alignment());
           type.copy_construct(value_to_forward.get(), buffer);
-          this->forward_value_to_input(locked_node, input_state, {type, buffer});
+          this->forward_value_to_input(locked_node, input_state, {type, buffer}, current_task);
         }
       });
     }
@@ -927,7 +921,8 @@ class Executor {
 
   void forward_value_to_input(LockedNode &locked_node,
                               InputState &input_state,
-                              GMutablePointer value)
+                              GMutablePointer value,
+                              CurrentTask &current_task)
   {
     NodeState &node_state = locked_node.node_state;
 
@@ -938,7 +933,7 @@ class Executor {
     if (input_state.usage == ValueUsage::Used) {
       node_state.missing_required_inputs -= 1;
       if (node_state.missing_required_inputs == 0) {
-        this->schedule_node(locked_node);
+        this->schedule_node(locked_node, current_task);
       }
     }
   }
@@ -1045,7 +1040,32 @@ inline void Executor::execute_node(const FunctionNode &node,
     self_.logger_->log_before_node_execute(node, node_params, fn_context);
   }
 
+  auto blocking_hint_fn = [&]() {
+    /* TODO: Use atomics to make sure it's only done once? */
+    if (!task_group_.has_value()) {
+      task_group_.emplace();
+    }
+    Vector<const FunctionNode *> nodes;
+    {
+      std::lock_guard lock{current_task.mutex};
+      if (current_task.scheduled_nodes.is_empty()) {
+        return;
+      }
+      nodes = std::move(current_task.scheduled_nodes);
+    }
+    std::reverse(nodes.begin(), nodes.end());
+    task_group_->run([this, nodes]() {
+      CurrentTask new_current_task;
+      new_current_task.scheduled_nodes = std::move(nodes);
+      this->run_task(new_current_task);
+    });
+  };
+
+  threading::push_blocking_hint_receiver(blocking_hint_fn);
+
   fn.execute(node_params, fn_context);
+
+  threading::pop_block_hint_receiver();
 
   if (self_.logger_ != nullptr) {
     self_.logger_->log_after_node_execute(node, node_params, fn_context);
