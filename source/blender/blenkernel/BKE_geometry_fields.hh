@@ -304,4 +304,9 @@ class CurveLengthFieldInput final : public CurvesFieldInput {
   bool is_equal_to(const fn::FieldNode &other) const override;
 };
 
+bool try_capture_field_on_geometry(GeometryComponent &component,
+                                   const AttributeIDRef &attribute_id,
+                                   const eAttrDomain domain,
+                                   const fn::GField &field);
+
 }  // namespace blender::bke

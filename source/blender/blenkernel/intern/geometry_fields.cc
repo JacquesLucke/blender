@@ -360,6 +360,53 @@ bool NormalFieldInput::is_equal_to(const fn::FieldNode &other) const
   return dynamic_cast<const NormalFieldInput *>(&other) != nullptr;
 }
 
+bool try_capture_field_on_geometry(GeometryComponent &component,
+                                   const AttributeIDRef &attribute_id,
+                                   const eAttrDomain domain,
+                                   const fn::GField &field)
+{
+  MutableAttributeAccessor attributes = *component.attributes_for_write();
+  const int domain_size = attributes.domain_size(domain);
+  const CPPType &type = field.cpp_type();
+  const eCustomDataType data_type = bke::cpp_type_to_custom_data_type(type);
+
+  if (domain_size == 0) {
+    return attributes.add(attribute_id, domain, data_type, AttributeInitConstruct{});
+  }
+
+  bke::GeometryFieldContext field_context{component, domain};
+  const IndexMask mask{IndexMask(domain_size)};
+
+  /* Could avoid allocating a new buffer if:
+   * - We are writing to an attribute that exists already with the correct domain and type.
+   * - The field does not depend on that attribute (we can't easily check for that yet). */
+  void *buffer = MEM_mallocN(type.size() * domain_size, __func__);
+
+  fn::FieldEvaluator evaluator{field_context, &mask};
+  evaluator.add_with_destination(field, GMutableSpan{type, buffer, domain_size});
+  evaluator.evaluate();
+
+  if (GAttributeWriter attribute = attributes.lookup_for_write(attribute_id)) {
+    if (attribute.domain == domain && attribute.varray.type() == type) {
+      attribute.varray.set_all(buffer);
+      attribute.finish();
+      type.destruct_n(buffer, domain_size);
+      MEM_freeN(buffer);
+      return true;
+    }
+  }
+  attributes.remove(attribute_id);
+  if (attributes.add(attribute_id, domain, data_type, bke::AttributeInitMoveArray{buffer})) {
+    return true;
+  }
+
+  /* If the name corresponds to a builtin attribute, removing the attribute might fail if
+   * it's required, and adding the attribute might fail if the domain or type is incorrect. */
+  type.destruct_n(buffer, domain_size);
+  MEM_freeN(buffer);
+  return false;
+}
+
 }  // namespace blender::bke
 
 /** \} */
