@@ -227,7 +227,7 @@ class Executor {
    * Used to distribute work on separate nodes to separate threads.
    * If this is empty, the executor is in single threaded mode.
    */
-  std::optional<tbb::task_group> task_group_;
+  std::unique_ptr<tbb::task_group> task_group_;
   /**
    * A separate linear allocator for every thread. We could potentially reuse some memory, but that
    * doesn't seem worth it yet.
@@ -582,7 +582,7 @@ class Executor {
 
   bool use_multi_threading() const
   {
-    return task_group_.has_value();
+    return task_group_.get() != nullptr;
   }
 
   void run_task(CurrentTask &current_task)
@@ -1042,8 +1042,8 @@ inline void Executor::execute_node(const FunctionNode &node,
 
   auto blocking_hint_fn = [&]() {
     /* TODO: Use atomics to make sure it's only done once? */
-    if (!task_group_.has_value()) {
-      task_group_.emplace();
+    if (!task_group_) {
+      task_group_ = std::make_unique<tbb::task_group>();
     }
     Vector<const FunctionNode *> nodes;
     {
