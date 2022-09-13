@@ -13,6 +13,8 @@
 
 #include "GPU_batch.h"
 
+#include "BKE_attribute.hh"
+
 #include "draw_cache_extract.hh"
 #include "draw_cache_impl.h"
 #include "overlay_private.h"
@@ -35,9 +37,13 @@ void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
 
   OVERLAY_PrivateData *pd = vedata->stl->pd;
 
-  GPUBatch *batch = DRW_cache_mesh_surface_attribute_get(object);
-
-  DRW_shgroup_call(pd->attribute_grp, batch, object);
+  if (object->type == OB_MESH) {
+    Mesh *mesh = static_cast<Mesh *>(object->data);
+    if (mesh->attributes().contains(".viewer")) {
+      GPUBatch *batch = DRW_cache_mesh_surface_attribute_get(object);
+      DRW_shgroup_call(pd->attribute_grp, batch, object);
+    }
+  }
 }
 
 void OVERLAY_attribute_draw(OVERLAY_Data *vedata)
