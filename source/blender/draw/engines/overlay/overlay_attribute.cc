@@ -33,9 +33,11 @@ void OVERLAY_attribute_cache_init(OVERLAY_Data *vedata)
   GPUShader *mesh_sh = OVERLAY_shader_attribute_mesh();
   GPUShader *point_cloud_sh = OVERLAY_shader_attribute_point_cloud();
   GPUShader *curve_sh = OVERLAY_shader_attribute_curve();
+  GPUShader *curves_sh = OVERLAY_shader_attribute_curves();
   pd->attribute_mesh_grp = DRW_shgroup_create(mesh_sh, psl->attribute_ps);
   pd->attribute_pointcloud_grp = DRW_shgroup_create(point_cloud_sh, psl->attribute_ps);
   pd->attribute_curve_grp = DRW_shgroup_create(curve_sh, psl->attribute_ps);
+  pd->attribute_curves_grp = DRW_shgroup_create(curves_sh, psl->attribute_ps);
 }
 
 void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
@@ -64,6 +66,19 @@ void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
     if (curves.attributes().contains(".viewer")) {
       GPUBatch *batch = DRW_cache_curve_edge_write_attribute_get(object);
       DRW_shgroup_call(pd->attribute_curve_grp, batch, object);
+    }
+  }
+  else if (object->type == OB_CURVES) {
+    Curves *curves_id = static_cast<Curves *>(object->data);
+    const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id->geometry);
+    if (curves.attributes().contains(".viewer")) {
+      bool is_point_domain;
+      GPUTexture **texture = DRW_curves_texture_for_evaluated_attribute(
+          curves_id, ".viewer", &is_point_domain);
+      DRWShadingGroup *grp = DRW_shgroup_curves_create_sub(
+          object, pd->attribute_curves_grp, nullptr);
+      DRW_shgroup_uniform_bool_copy(grp, "is_point_domain", is_point_domain);
+      DRW_shgroup_uniform_texture(grp, "color_tx", *texture);
     }
   }
 }

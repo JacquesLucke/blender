@@ -24,6 +24,7 @@
 
 #include "DNA_anim_types.h"
 #include "DNA_collection_types.h"
+#include "DNA_curves_types.h"
 #include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
@@ -785,7 +786,8 @@ static const DupliGenerator gen_dupli_verts_font = {
 static void make_duplis_geometry_set_impl(const DupliContext *ctx,
                                           const GeometrySet &geometry_set,
                                           const float parent_transform[4][4],
-                                          bool geometry_set_is_instance)
+                                          bool geometry_set_is_instance,
+                                          bool allow_new_curves)
 {
   int component_index = 0;
   if (ctx->object->type != OB_MESH || geometry_set_is_instance) {
@@ -800,8 +802,15 @@ static void make_duplis_geometry_set_impl(const DupliContext *ctx,
   }
   if (!ELEM(ctx->object->type, OB_CURVES_LEGACY, OB_FONT, OB_CURVES) || geometry_set_is_instance) {
     if (const CurveComponent *component = geometry_set.get_component_for_read<CurveComponent>()) {
-      if (const Curve *curve = component->get_curve_for_render()) {
-        make_dupli(ctx, ctx->object, &curve->id, parent_transform, component_index++);
+      if (allow_new_curves) {
+        if (const Curves *curves = component->get_for_read()) {
+          make_dupli(ctx, ctx->object, &curves->id, parent_transform, component_index++);
+        }
+      }
+      else {
+        if (const Curve *curve = component->get_curve_for_render()) {
+          make_dupli(ctx, ctx->object, &curve->id, parent_transform, component_index++);
+        }
       }
     }
   }
@@ -885,7 +894,8 @@ static void make_duplis_geometry_set_impl(const DupliContext *ctx,
 
         DupliContext sub_ctx;
         if (copy_dupli_context(&sub_ctx, instances_ctx, instances_ctx->object, nullptr, id)) {
-          make_duplis_geometry_set_impl(&sub_ctx, reference.geometry_set(), new_transform, true);
+          make_duplis_geometry_set_impl(
+              &sub_ctx, reference.geometry_set(), new_transform, true, false);
         }
         break;
       }
@@ -899,7 +909,7 @@ static void make_duplis_geometry_set_impl(const DupliContext *ctx,
 static void make_duplis_geometry_set(const DupliContext *ctx)
 {
   const GeometrySet *geometry_set = ctx->object->runtime.geometry_set_eval;
-  make_duplis_geometry_set_impl(ctx, *geometry_set, ctx->object->obmat, false);
+  make_duplis_geometry_set_impl(ctx, *geometry_set, ctx->object->obmat, false, false);
 }
 
 static const DupliGenerator gen_dupli_geometry_set = {
@@ -1663,7 +1673,8 @@ void object_duplilist_preview(Depsgraph *depsgraph,
     geo_log::GeoModifierLog *log = static_cast<geo_log::GeoModifierLog *>(
         nmd_orig->runtime_eval_log);
     for (const geo_log::ViewerNodeLog *viewer_log : log->get_viewer_node_logs()) {
-      make_duplis_geometry_set_impl(&ctx, viewer_log->geometry, ob_eval->obmat, true);
+      make_duplis_geometry_set_impl(
+          &ctx, viewer_log->geometry, ob_eval->obmat, true, ob_eval->type == OB_CURVES);
     }
   }
 }

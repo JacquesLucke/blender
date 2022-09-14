@@ -29,6 +29,7 @@ typedef struct OVERLAY_Shaders {
   GPUShader *attribute_mesh;
   GPUShader *attribute_pointcloud;
   GPUShader *attribute_curve;
+  GPUShader *attribute_curves;
   GPUShader *background;
   GPUShader *clipbound;
   GPUShader *depth_only;
@@ -855,6 +856,18 @@ GPUShader *OVERLAY_shader_attribute_curve(void)
                                                      "overlay_attribute_curve");
   }
   return sh_data->attribute_curve;
+}
+
+GPUShader *OVERLAY_shader_attribute_curves(void)
+{
+  const DRWContextState *draw_ctx = DRW_context_state_get();
+  OVERLAY_Shaders *sh_data = &e_data.sh_data[draw_ctx->sh_cfg];
+  if (!sh_data->attribute_curves) {
+    sh_data->attribute_curves = GPU_shader_create_from_info_name(
+        draw_ctx->sh_cfg == GPU_SHADER_CFG_CLIPPED ? "overlay_attribute_curves_clipped" :
+                                                     "overlay_attribute_curves");
+  }
+  return sh_data->attribute_curves;
 }
 
 struct GPUShader *OVERLAY_shader_uniform_color(void)

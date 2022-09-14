@@ -44,3 +44,17 @@ GPU_SHADER_CREATE_INFO(overlay_attribute_curve)
 GPU_SHADER_CREATE_INFO(overlay_attribute_curve_clipped)
     .do_static_compilation(true)
     .additional_info("overlay_attribute_curve", "drw_clipped");
+
+GPU_SHADER_CREATE_INFO(overlay_attribute_curves)
+    .do_static_compilation(true)
+    .vertex_source("overlay_attribute_curves_vert.glsl")
+    .fragment_source("overlay_attribute_frag.glsl")
+    .fragment_out(0, Type::VEC4, "out_color")
+    .sampler(0, ImageType::FLOAT_BUFFER, "color_tx")
+    .push_constant(Type::BOOL, "is_point_domain")
+    .vertex_out(overlay_attribute_iface)
+    .additional_info("draw_hair");
+
+GPU_SHADER_CREATE_INFO(overlay_attribute_curves_clipped)
+    .do_static_compilation(true)
+    .additional_info("overlay_attribute_curves", "drw_clipped");
