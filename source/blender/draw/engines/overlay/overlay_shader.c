@@ -26,7 +26,8 @@ typedef struct OVERLAY_Shaders {
   GPUShader *armature_sphere_solid;
   GPUShader *armature_stick;
   GPUShader *armature_wire;
-  GPUShader *attribute;
+  GPUShader *attribute_mesh;
+  GPUShader *attribute_pointcloud;
   GPUShader *background;
   GPUShader *clipbound;
   GPUShader *depth_only;
@@ -819,16 +820,28 @@ GPUShader *OVERLAY_shader_sculpt_curves_selection(void)
   return sh_data->sculpt_curves_selection;
 }
 
-GPUShader *OVERLAY_shader_attribute(void)
+GPUShader *OVERLAY_shader_attribute_mesh(void)
 {
   const DRWContextState *draw_ctx = DRW_context_state_get();
   OVERLAY_Shaders *sh_data = &e_data.sh_data[draw_ctx->sh_cfg];
-  if (!sh_data->attribute) {
-    sh_data->attribute = GPU_shader_create_from_info_name(
-        draw_ctx->sh_cfg == GPU_SHADER_CFG_CLIPPED ? "overlay_attribute_clipped" :
-                                                     "overlay_attribute");
+  if (!sh_data->attribute_mesh) {
+    sh_data->attribute_mesh = GPU_shader_create_from_info_name(
+        draw_ctx->sh_cfg == GPU_SHADER_CFG_CLIPPED ? "overlay_attribute_mesh_clipped" :
+                                                     "overlay_attribute_mesh");
   }
-  return sh_data->attribute;
+  return sh_data->attribute_mesh;
+}
+
+GPUShader *OVERLAY_shader_attribute_point_cloud(void)
+{
+  const DRWContextState *draw_ctx = DRW_context_state_get();
+  OVERLAY_Shaders *sh_data = &e_data.sh_data[draw_ctx->sh_cfg];
+  if (!sh_data->attribute_pointcloud) {
+    sh_data->attribute_pointcloud = GPU_shader_create_from_info_name(
+        draw_ctx->sh_cfg == GPU_SHADER_CFG_CLIPPED ? "overlay_attribute_pointcloud_clipped" :
+                                                     "overlay_attribute_pointcloud");
+  }
+  return sh_data->attribute_pointcloud;
 }
 
 struct GPUShader *OVERLAY_shader_uniform_color(void)

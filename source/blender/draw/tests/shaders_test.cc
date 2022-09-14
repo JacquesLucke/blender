@@ -207,7 +207,8 @@ static void test_overlay_glsl_shaders()
     EXPECT_NE(OVERLAY_shader_armature_sphere(true), nullptr);
     EXPECT_NE(OVERLAY_shader_armature_stick(), nullptr);
     EXPECT_NE(OVERLAY_shader_armature_wire(), nullptr);
-    EXPECT_NE(OVERLAY_shader_attribute(), nullptr);
+    EXPECT_NE(OVERLAY_shader_attribute_mesh(), nullptr);
+    EXPECT_NE(OVERLAY_shader_attribute_point_cloud(), nullptr);
     EXPECT_NE(OVERLAY_shader_background(), nullptr);
     EXPECT_NE(OVERLAY_shader_clipbound(), nullptr);
     EXPECT_NE(OVERLAY_shader_depth_only(), nullptr);

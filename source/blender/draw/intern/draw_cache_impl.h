@@ -148,6 +148,7 @@ int DRW_pointcloud_material_count_get(struct PointCloud *pointcloud);
 
 struct GPUBatch *DRW_pointcloud_batch_cache_get_dots(struct Object *ob);
 struct GPUBatch *DRW_pointcloud_batch_cache_get_surface(struct Object *ob);
+struct GPUBatch *DRW_pointcloud_batch_cache_get_surface_attribute(struct Object *ob);
 struct GPUBatch **DRW_cache_pointcloud_surface_shaded_get(struct Object *ob,
                                                           struct GPUMaterial **gpumat_array,
                                                           uint gpumat_array_len);

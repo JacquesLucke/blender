@@ -7,6 +7,7 @@
 #include "DRW_render.h"
 
 #include "DNA_mesh_types.h"
+#include "DNA_pointcloud_types.h"
 
 #include "BLI_math_vector.hh"
 #include "BLI_span.hh"
@@ -27,8 +28,10 @@ void OVERLAY_attribute_cache_init(OVERLAY_Data *vedata)
   const DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND_ALPHA;
   DRW_PASS_CREATE(psl->attribute_ps, state | pd->clipping_state);
 
-  GPUShader *sh = OVERLAY_shader_attribute();
-  pd->attribute_grp = DRW_shgroup_create(sh, psl->attribute_ps);
+  GPUShader *mesh_sh = OVERLAY_shader_attribute_mesh();
+  GPUShader *point_cloud_sh = OVERLAY_shader_attribute_point_cloud();
+  pd->attribute_mesh_grp = DRW_shgroup_create(mesh_sh, psl->attribute_ps);
+  pd->attribute_pointcloud_grp = DRW_shgroup_create(point_cloud_sh, psl->attribute_ps);
 }
 
 void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
@@ -41,7 +44,14 @@ void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
     Mesh *mesh = static_cast<Mesh *>(object->data);
     if (mesh->attributes().contains(".viewer")) {
       GPUBatch *batch = DRW_cache_mesh_surface_attribute_get(object);
-      DRW_shgroup_call(pd->attribute_grp, batch, object);
+      DRW_shgroup_call(pd->attribute_mesh_grp, batch, object);
+    }
+  }
+  else if (object->type == OB_POINTCLOUD) {
+    PointCloud *pointcloud = static_cast<PointCloud *>(object->data);
+    if (pointcloud->attributes().contains(".viewer")) {
+      GPUBatch *batch = DRW_cache_pointcloud_surface_attribute_get(object);
+      DRW_shgroup_call_instance_range(pd->attribute_pointcloud_grp, object, batch, 0, 0);
     }
   }
 }

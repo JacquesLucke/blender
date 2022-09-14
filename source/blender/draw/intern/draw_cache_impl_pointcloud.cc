@@ -32,11 +32,13 @@
 struct PointCloudBatchCache {
   GPUVertBuf *pos;  /* Position and radius. */
   GPUVertBuf *geom; /* Instanced geometry for each point in the cloud (small sphere). */
+  GPUVertBuf *attr_overlay;
   GPUIndexBuf *geom_indices;
 
   GPUBatch *dots;
   GPUBatch *surface;
   GPUBatch **surface_per_mat;
+  GPUBatch *surface_attribute;
 
   /* settings to determine if cache is invalid */
   bool is_dirty;
@@ -109,6 +111,7 @@ static void pointcloud_batch_cache_clear(PointCloud &pointcloud)
   GPU_BATCH_DISCARD_SAFE(cache->surface);
   GPU_VERTBUF_DISCARD_SAFE(cache->pos);
   GPU_VERTBUF_DISCARD_SAFE(cache->geom);
+  GPU_VERTBUF_DISCARD_SAFE(cache->attr_overlay);
   GPU_INDEXBUF_DISCARD_SAFE(cache->geom_indices);
 
   if (cache->surface_per_mat) {
@@ -116,6 +119,7 @@ static void pointcloud_batch_cache_clear(PointCloud &pointcloud)
       GPU_BATCH_DISCARD_SAFE(cache->surface_per_mat[i]);
     }
   }
+  GPU_BATCH_DISCARD_SAFE(cache->surface_attribute);
   MEM_SAFE_FREE(cache->surface_per_mat);
 }
 
@@ -227,6 +231,28 @@ static void pointcloud_batch_cache_ensure_geom(PointCloudBatchCache &cache)
   cache.geom_indices = GPU_indexbuf_build(&builder);
 }
 
+static void pointcloud_batch_cache_ensure_attribute_overlay(const PointCloud &pointcloud,
+                                                            PointCloudBatchCache &cache)
+{
+  using namespace blender;
+  if (cache.attr_overlay != nullptr) {
+    return;
+  }
+
+  const bke::AttributeAccessor attributes = pointcloud.attributes();
+  const VArray<float3> colors = attributes.lookup<float3>(".viewer", ATTR_DOMAIN_POINT);
+
+  static GPUVertFormat format = {0};
+  if (format.attr_len == 0) {
+    GPU_vertformat_attr_add(&format, "vertex_color", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+  }
+  cache.attr_overlay = GPU_vertbuf_create_with_format(&format);
+  GPU_vertbuf_data_alloc(cache.attr_overlay, pointcloud.totpoint);
+  MutableSpan<float3> vbo_data{static_cast<float3 *>(GPU_vertbuf_get_data(cache.attr_overlay)),
+                               pointcloud.totpoint};
+  colors.materialize(vbo_data);
+}
+
 GPUBatch *DRW_pointcloud_batch_cache_get_dots(Object *ob)
 {
   PointCloud &pointcloud = *static_cast<PointCloud *>(ob->data);
@@ -254,6 +280,24 @@ GPUBatch *DRW_pointcloud_batch_cache_get_surface(Object *ob)
   }
 
   return cache->surface;
+}
+
+GPUBatch *DRW_pointcloud_batch_cache_get_surface_attribute(Object *ob)
+{
+  PointCloud &pointcloud = *static_cast<PointCloud *>(ob->data);
+  PointCloudBatchCache *cache = pointcloud_batch_cache_get(pointcloud);
+
+  if (cache->surface_attribute == nullptr) {
+    pointcloud_batch_cache_ensure_pos(pointcloud, *cache);
+    pointcloud_batch_cache_ensure_geom(*cache);
+    pointcloud_batch_cache_ensure_attribute_overlay(pointcloud, *cache);
+
+    cache->surface_attribute = GPU_batch_create(GPU_PRIM_TRIS, cache->geom, cache->geom_indices);
+    GPU_batch_instbuf_add_ex(cache->surface_attribute, cache->attr_overlay, false);
+    GPU_batch_instbuf_add_ex(cache->surface_attribute, cache->pos, false);
+  }
+
+  return cache->surface_attribute;
 }
 
 GPUBatch **DRW_cache_pointcloud_surface_shaded_get(Object *ob,

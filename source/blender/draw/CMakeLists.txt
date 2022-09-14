@@ -568,7 +568,8 @@ set(GLSL_SRC
   engines/overlay/shaders/overlay_armature_wire_frag.glsl
   engines/overlay/shaders/overlay_armature_wire_vert.glsl
   engines/overlay/shaders/overlay_attribute_frag.glsl
-  engines/overlay/shaders/overlay_attribute_vert.glsl
+  engines/overlay/shaders/overlay_attribute_mesh_vert.glsl
+  engines/overlay/shaders/overlay_attribute_pointcloud_vert.glsl
   engines/overlay/shaders/overlay_background_frag.glsl
   engines/overlay/shaders/overlay_clipbound_vert.glsl
   engines/overlay/shaders/overlay_common_lib.glsl
