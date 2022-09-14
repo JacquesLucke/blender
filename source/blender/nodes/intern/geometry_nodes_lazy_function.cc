@@ -416,7 +416,6 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
  */
 class LazyFunctionForMultiFunctionNode : public LazyFunction {
  private:
-  const bNode &node_;
   const NodeMultiFunctions::Item fn_item_;
   Vector<const ValueOrFieldCPPType *> input_types_;
   Vector<const ValueOrFieldCPPType *> output_types_;
@@ -427,7 +426,7 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
                                    NodeMultiFunctions::Item fn_item,
                                    Vector<const bNodeSocket *> &r_used_inputs,
                                    Vector<const bNodeSocket *> &r_used_outputs)
-      : node_(node), fn_item_(std::move(fn_item))
+      : fn_item_(std::move(fn_item))
   {
     BLI_assert(fn_item_.fn != nullptr);
     debug_name_ = node.name;
@@ -580,7 +579,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
     }
 
     lf_logger_.emplace(lf_graph_info);
-    lf_side_effect_provider_.emplace(lf_graph_info);
+    lf_side_effect_provider_.emplace();
     graph_executor_.emplace(lf_graph_info.graph,
                             std::move(graph_inputs),
                             std::move(graph_outputs),
@@ -604,12 +603,12 @@ class LazyFunctionForGroupNode : public LazyFunction {
     graph_executor_->execute(params, group_context);
   }
 
-  void *init_storage(LinearAllocator<> &allocator) const
+  void *init_storage(LinearAllocator<> &allocator) const override
   {
     return graph_executor_->init_storage(allocator);
   }
 
-  void destruct_storage(void *storage) const
+  void destruct_storage(void *storage) const override
   {
     graph_executor_->destruct_storage(storage);
   }
@@ -1303,12 +1302,6 @@ void GeometryNodesLazyFunctionLogger::dump_when_input_is_set_twice(
   GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
   BLI_assert(user_data != nullptr);
   user_data->compute_context->print_stack(std::cout, ss.str());
-}
-
-GeometryNodesLazyFunctionSideEffectProvider::GeometryNodesLazyFunctionSideEffectProvider(
-    const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
-    : lf_graph_info_(lf_graph_info)
-{
 }
 
 Vector<const lf::FunctionNode *> GeometryNodesLazyFunctionSideEffectProvider::
