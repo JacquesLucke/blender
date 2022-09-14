@@ -233,6 +233,7 @@ typedef struct OVERLAY_ArmatureCallBuffers {
 typedef struct OVERLAY_PrivateData {
   DRWShadingGroup *armature_bone_select_act_grp;
   DRWShadingGroup *armature_bone_select_grp;
+  DRWShadingGroup *attribute_curve_grp;
   DRWShadingGroup *attribute_mesh_grp;
   DRWShadingGroup *attribute_pointcloud_grp;
   DRWShadingGroup *edit_curve_normal_grp[2];
@@ -708,6 +709,7 @@ GPUShader *OVERLAY_shader_armature_shape_wire(void);
 GPUShader *OVERLAY_shader_armature_sphere(bool use_outline);
 GPUShader *OVERLAY_shader_armature_stick(void);
 GPUShader *OVERLAY_shader_armature_wire(void);
+GPUShader *OVERLAY_shader_attribute_curve(void);
 GPUShader *OVERLAY_shader_attribute_mesh(void);
 GPUShader *OVERLAY_shader_attribute_point_cloud(void);
 GPUShader *OVERLAY_shader_background(void);

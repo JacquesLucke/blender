@@ -2908,6 +2908,13 @@ GPUBatch *DRW_cache_curve_edge_wire_get(Object *ob)
   return DRW_curve_batch_cache_get_wire_edge(cu);
 }
 
+GPUBatch *DRW_cache_curve_edge_write_attribute_get(Object *ob)
+{
+  BLI_assert(ob->type == OB_CURVES_LEGACY);
+  struct Curve *cu = ob->data;
+  return DRW_curve_batch_cache_get_wire_edge_attribute(cu);
+}
+
 GPUBatch *DRW_cache_curve_edge_normal_get(Object *ob)
 {
   BLI_assert(ob->type == OB_CURVES_LEGACY);

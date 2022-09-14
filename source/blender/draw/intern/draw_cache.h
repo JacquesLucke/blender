@@ -175,6 +175,7 @@ struct GPUBatch *DRW_cache_mesh_surface_attribute_get(struct Object *ob);
 /* Curve */
 
 struct GPUBatch *DRW_cache_curve_edge_wire_get(struct Object *ob);
+struct GPUBatch *DRW_cache_curve_edge_write_attribute_get(struct Object *ob);
 
 /* edit-mode */
 

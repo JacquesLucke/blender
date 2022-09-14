@@ -15,6 +15,7 @@
 #include "GPU_batch.h"
 
 #include "BKE_attribute.hh"
+#include "BKE_curves.hh"
 
 #include "draw_cache_extract.hh"
 #include "draw_cache_impl.h"
@@ -25,13 +26,16 @@ void OVERLAY_attribute_cache_init(OVERLAY_Data *vedata)
   OVERLAY_PassList *psl = vedata->psl;
   OVERLAY_PrivateData *pd = vedata->stl->pd;
 
-  const DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_EQUAL | DRW_STATE_BLEND_ALPHA;
+  const DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL |
+                         DRW_STATE_BLEND_ALPHA;
   DRW_PASS_CREATE(psl->attribute_ps, state | pd->clipping_state);
 
   GPUShader *mesh_sh = OVERLAY_shader_attribute_mesh();
   GPUShader *point_cloud_sh = OVERLAY_shader_attribute_point_cloud();
+  GPUShader *curve_sh = OVERLAY_shader_attribute_curve();
   pd->attribute_mesh_grp = DRW_shgroup_create(mesh_sh, psl->attribute_ps);
   pd->attribute_pointcloud_grp = DRW_shgroup_create(point_cloud_sh, psl->attribute_ps);
+  pd->attribute_curve_grp = DRW_shgroup_create(curve_sh, psl->attribute_ps);
 }
 
 void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
@@ -52,6 +56,14 @@ void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
     if (pointcloud->attributes().contains(".viewer")) {
       GPUBatch *batch = DRW_cache_pointcloud_surface_attribute_get(object);
       DRW_shgroup_call_instance_range(pd->attribute_pointcloud_grp, object, batch, 0, 0);
+    }
+  }
+  else if (object->type == OB_CURVES_LEGACY) {
+    Curve *curve = static_cast<Curve *>(object->data);
+    const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curve->curve_eval->geometry);
+    if (curves.attributes().contains(".viewer")) {
+      GPUBatch *batch = DRW_cache_curve_edge_write_attribute_get(object);
+      DRW_shgroup_call(pd->attribute_curve_grp, batch, object);
     }
   }
 }

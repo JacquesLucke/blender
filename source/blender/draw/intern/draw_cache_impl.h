@@ -100,6 +100,7 @@ void DRW_curve_batch_cache_create_requested(struct Object *ob, const struct Scen
 int DRW_curve_material_count_get(struct Curve *cu);
 
 struct GPUBatch *DRW_curve_batch_cache_get_wire_edge(struct Curve *cu);
+struct GPUBatch *DRW_curve_batch_cache_get_wire_edge_attribute(struct Curve *cu);
 struct GPUBatch *DRW_curve_batch_cache_get_normal_edge(struct Curve *cu);
 struct GPUBatch *DRW_curve_batch_cache_get_edit_edges(struct Curve *cu);
 struct GPUBatch *DRW_curve_batch_cache_get_edit_verts(struct Curve *cu);
