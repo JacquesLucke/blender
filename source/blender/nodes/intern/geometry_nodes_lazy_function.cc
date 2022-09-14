@@ -524,9 +524,25 @@ class LazyFunctionForViewerNode : public LazyFunction {
       const ValueOrFieldCPPType &value_or_field_type = static_cast<const ValueOrFieldCPPType &>(
           *inputs_[1].type);
       GField field = value_or_field_type.as_field(value_or_field);
-      if (geometry.has_mesh()) {
-        MeshComponent &mesh_component = geometry.get_component_for_write<MeshComponent>();
-        bke::try_capture_field_on_geometry(mesh_component, ".viewer", domain, field);
+      const StringRefNull viewer_attribute_name = ".viewer";
+      if (domain == ATTR_DOMAIN_INSTANCE) {
+        if (geometry.has_instances()) {
+          GeometryComponent &component = geometry.get_component_for_write(
+              GEO_COMPONENT_TYPE_INSTANCES);
+          bke::try_capture_field_on_geometry(component, viewer_attribute_name, domain, field);
+        }
+      }
+      else {
+        geometry.modify_geometry_sets([&](GeometrySet &geometry) {
+          for (const GeometryComponentType type : {GEO_COMPONENT_TYPE_MESH,
+                                                   GEO_COMPONENT_TYPE_POINT_CLOUD,
+                                                   GEO_COMPONENT_TYPE_CURVE}) {
+            if (geometry.has(type)) {
+              GeometryComponent &component = geometry.get_component_for_write(type);
+              bke::try_capture_field_on_geometry(component, viewer_attribute_name, domain, field);
+            }
+          }
+        });
       }
     }
 
