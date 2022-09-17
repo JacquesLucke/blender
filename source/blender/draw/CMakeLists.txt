@@ -476,6 +476,7 @@ set(GLSL_SRC
   engines/workbench/shaders/workbench_world_light_lib.glsl
   engines/workbench/shaders/my_test_vert.glsl
   engines/workbench/shaders/my_test_frag.glsl
+  engines/workbench/shaders/my_test_geom.glsl
 
   engines/workbench/workbench_shader_shared.h
 
