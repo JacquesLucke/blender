@@ -229,7 +229,7 @@ static void sequencer_free(SpaceLink *sl)
   }
 }
 
-/* Spacetype init callback. */
+/* Space-type init callback. */
 static void sequencer_init(struct wmWindowManager *UNUSED(wm), ScrArea *UNUSED(area))
 {
 }
@@ -997,7 +997,7 @@ void ED_spacetype_sequencer(void)
   ARegionType *art;
 
   st->spaceid = SPACE_SEQ;
-  strncpy(st->name, "Sequencer", BKE_ST_MAXNAME);
+  STRNCPY(st->name, "Sequencer");
 
   st->create = sequencer_create;
   st->free = sequencer_free;

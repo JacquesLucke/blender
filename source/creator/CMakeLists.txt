@@ -344,10 +344,10 @@ if(UNIX AND NOT APPLE)
 
 elseif(WIN32)
   if(WITH_PYTHON_MODULE)
-    set(TARGETDIR_BPY $<TARGET_FILE_DIR:blender>)
-    set(TARGETDIR_VER $<TARGET_FILE_DIR:blender>/${BLENDER_VERSION})
+    set(TARGETDIR_BPY ${CMAKE_INSTALL_PREFIX_WITH_CONFIG}/bpy)
+    set(TARGETDIR_VER ${CMAKE_INSTALL_PREFIX_WITH_CONFIG}/bpy/${BLENDER_VERSION})
     # Important the DLL's are next to `__init__.pyd` otherwise it won't load.
-    set(TARGETDIR_LIB $<TARGET_FILE_DIR:blender>)
+    set(TARGETDIR_LIB ${CMAKE_INSTALL_PREFIX_WITH_CONFIG}/bpy)
   else()
     set(TARGETDIR_VER ${BLENDER_VERSION})
     set(TARGETDIR_TEXT .)
@@ -362,9 +362,9 @@ elseif(APPLE)
     else()
       # Paths defined in terms of site-packages since the site-packages
       # directory can be a symlink (brew for example).
-      set(TARGETDIR_BPY ${PYTHON_LIBPATH}/site-packages/bpy)
-      set(TARGETDIR_VER ${PYTHON_LIBPATH}/site-packages/bpy/${BLENDER_VERSION})
-      set(TARGETDIR_LIB ${PYTHON_LIBPATH}/site-packages/bpy/lib)
+      set(TARGETDIR_BPY ${PYTHON_SITE_PACKAGES}/bpy)
+      set(TARGETDIR_VER ${PYTHON_SITE_PACKAGES}/bpy/${BLENDER_VERSION})
+      set(TARGETDIR_LIB ${PYTHON_SITE_PACKAGES}/bpy/lib)
     endif()
   else()
     set(TARGETDIR_VER Blender.app/Contents/Resources/${BLENDER_VERSION})
@@ -410,6 +410,7 @@ if(WITH_PYTHON)
     DESTINATION ${TARGETDIR_VER}
     PATTERN ".git" EXCLUDE
     PATTERN ".gitignore" EXCLUDE
+    PATTERN ".github" EXCLUDE
     PATTERN ".arcconfig" EXCLUDE
     PATTERN "__pycache__" EXCLUDE
     PATTERN "${ADDON_EXCLUDE_CONDITIONAL}" EXCLUDE
@@ -1173,7 +1174,7 @@ elseif(APPLE)
   if(WITH_PYTHON AND NOT WITH_PYTHON_MODULE AND NOT WITH_PYTHON_FRAMEWORK)
     # Copy the python libraries into the install directory.
     install_dir(
-      ${PYTHON_LIBPATH}
+      ${PYTHON_LIBPATH}/python${PYTHON_VERSION}
       ${TARGETDIR_VER}/python/lib
     )
 

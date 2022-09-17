@@ -16,6 +16,7 @@
 #include "BLI_linklist_stack.h"
 #include "BLI_math.h"
 #include "BLI_rand.h"
+#include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
 #include "BKE_context.h"
@@ -174,7 +175,7 @@ void ED_area_do_refresh(bContext *C, ScrArea *area)
 }
 
 /**
- * \brief Corner widget use for quitting fullscreen.
+ * \brief Corner widget use for quitting full-screen.
  */
 static void area_draw_azone_fullscreen(
     short UNUSED(x1), short UNUSED(y1), short x2, short y2, float alpha)
@@ -844,7 +845,7 @@ void ED_workspace_status_text(bContext *C, const char *str)
 
 static void area_azone_init(wmWindow *win, const bScreen *screen, ScrArea *area)
 {
-  /* reinitialize entirely, regions and fullscreen add azones too */
+  /* reinitialize entirely, regions and full-screen add azones too */
   BLI_freelistN(&area->actionzones);
 
   if (screen->state != SCREENNORMAL) {
@@ -1901,6 +1902,7 @@ void ED_area_init(wmWindowManager *wm, wmWindow *win, ScrArea *area)
 {
   WorkSpace *workspace = WM_window_get_active_workspace(win);
   const bScreen *screen = BKE_workspace_active_screen_get(win->workspace_hook);
+  const Scene *scene = WM_window_get_active_scene(win);
   ViewLayer *view_layer = WM_window_get_active_view_layer(win);
 
   if (ED_area_is_global(area) && (area->global->flag & GLOBAL_AREA_IS_HIDDEN)) {
@@ -1965,7 +1967,7 @@ void ED_area_init(wmWindowManager *wm, wmWindow *win, ScrArea *area)
   /* Avoid re-initializing tools while resizing the window. */
   if ((G.moving & G_TRANSFORM_WM) == 0) {
     if ((1 << area->spacetype) & WM_TOOLSYSTEM_SPACE_MASK) {
-      WM_toolsystem_refresh_screen_area(workspace, view_layer, area);
+      WM_toolsystem_refresh_screen_area(workspace, scene, view_layer, area);
       area->flag |= AREA_FLAG_ACTIVE_TOOL_UPDATE;
     }
     else {
@@ -2576,8 +2578,8 @@ void ED_area_prevspace(bContext *C, ScrArea *area)
     /* no change */
     return;
   }
-  /* If this is a stacked fullscreen, changing to previous area exits it (meaning we're still in a
-   * fullscreen, but not in a stacked one). */
+  /* If this is a stacked full-screen, changing to previous area exits it (meaning we're still in a
+   * full-screen, but not in a stacked one). */
   area->flag &= ~AREA_FLAG_STACKED_FULLSCREEN;
 
   ED_area_tag_redraw(area);
@@ -2687,12 +2689,13 @@ static void ed_panel_draw(const bContext *C,
   const uiStyle *style = UI_style_get_dpi();
 
   /* Draw panel. */
-
   char block_name[BKE_ST_MAXNAME + INSTANCED_PANEL_UNIQUE_STR_LEN];
-  strncpy(block_name, pt->idname, BKE_ST_MAXNAME);
-  if (unique_panel_str != NULL) {
+  if (unique_panel_str) {
     /* Instanced panels should have already been added at this point. */
-    strncat(block_name, unique_panel_str, INSTANCED_PANEL_UNIQUE_STR_LEN);
+    BLI_string_join(block_name, sizeof(block_name), pt->idname, unique_panel_str);
+  }
+  else {
+    STRNCPY(block_name, pt->idname);
   }
   uiBlock *block = UI_block_begin(C, region, block_name, UI_EMBOSS);
 

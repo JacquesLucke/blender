@@ -20,7 +20,6 @@
 
 #include "kernel/osl/globals.h"
 #include "kernel/osl/services.h"
-#include "kernel/osl/shader.h"
 
 #include "util/foreach.h"
 #include "util/log.h"
@@ -29,8 +28,6 @@
 #include "kernel/device/cpu/compat.h"
 #include "kernel/device/cpu/globals.h"
 #include "kernel/device/cpu/image.h"
-
-#include "kernel/util/differential.h"
 
 #include "kernel/integrator/state.h"
 #include "kernel/integrator/state_flow.h"
@@ -123,14 +120,14 @@ ustring OSLRenderServices::u_v("v");
 ustring OSLRenderServices::u_empty;
 
 OSLRenderServices::OSLRenderServices(OSL::TextureSystem *texture_system)
-    : texture_system(texture_system)
+    : OSL::RendererServices(texture_system)
 {
 }
 
 OSLRenderServices::~OSLRenderServices()
 {
-  if (texture_system) {
-    VLOG_INFO << "OSL texture system stats:\n" << texture_system->getstats();
+  if (m_texturesys) {
+    VLOG_INFO << "OSL texture system stats:\n" << m_texturesys->getstats();
   }
 }
 
@@ -450,6 +447,7 @@ static bool set_attribute_float2(float2 f[3], TypeDesc type, bool derivatives, v
   return false;
 }
 
+#if 0
 static bool set_attribute_float2(float2 f, TypeDesc type, bool derivatives, void *val)
 {
   float2 fv[3];
@@ -460,6 +458,7 @@ static bool set_attribute_float2(float2 f, TypeDesc type, bool derivatives, void
 
   return set_attribute_float2(fv, type, derivatives, val);
 }
+#endif
 
 static bool set_attribute_float3(float3 f[3], TypeDesc type, bool derivatives, void *val)
 {
@@ -588,6 +587,7 @@ static bool set_attribute_float4(float4 f[3], TypeDesc type, bool derivatives, v
   return false;
 }
 
+#if 0
 static bool set_attribute_float4(float4 f, TypeDesc type, bool derivatives, void *val)
 {
   float4 fv[3];
@@ -598,6 +598,7 @@ static bool set_attribute_float4(float4 f, TypeDesc type, bool derivatives, void
 
   return set_attribute_float4(fv, type, derivatives, val);
 }
+#endif
 
 static bool set_attribute_float(float f[3], TypeDesc type, bool derivatives, void *val)
 {
@@ -1146,7 +1147,7 @@ TextureSystem::TextureHandle *OSLRenderServices::get_texture_handle(ustring file
   }
 
   /* Get handle from OpenImageIO. */
-  OSL::TextureSystem *ts = texture_system;
+  OSL::TextureSystem *ts = m_texturesys;
   TextureSystem::TextureHandle *handle = ts->get_texture_handle(filename);
   if (handle == NULL) {
     return NULL;
@@ -1168,7 +1169,7 @@ bool OSLRenderServices::good(TextureSystem::TextureHandle *texture_handle)
   OSLTextureHandle *handle = (OSLTextureHandle *)texture_handle;
 
   if (handle->oiio_handle) {
-    OSL::TextureSystem *ts = texture_system;
+    OSL::TextureSystem *ts = m_texturesys;
     return ts->good(handle->oiio_handle);
   }
   else {
@@ -1290,7 +1291,7 @@ bool OSLRenderServices::texture(ustring filename,
     }
     case OSLTextureHandle::OIIO: {
       /* OpenImageIO texture cache. */
-      OSL::TextureSystem *ts = texture_system;
+      OSL::TextureSystem *ts = m_texturesys;
 
       if (handle && handle->oiio_handle) {
         if (texture_thread_info == NULL) {
@@ -1394,7 +1395,7 @@ bool OSLRenderServices::texture3d(ustring filename,
     }
     case OSLTextureHandle::OIIO: {
       /* OpenImageIO texture cache. */
-      OSL::TextureSystem *ts = texture_system;
+      OSL::TextureSystem *ts = m_texturesys;
 
       if (handle && handle->oiio_handle) {
         if (texture_thread_info == NULL) {
@@ -1478,7 +1479,7 @@ bool OSLRenderServices::environment(ustring filename,
                                     ustring *errormessage)
 {
   OSLTextureHandle *handle = (OSLTextureHandle *)texture_handle;
-  OSL::TextureSystem *ts = texture_system;
+  OSL::TextureSystem *ts = m_texturesys;
   bool status = false;
 
   if (handle && handle->oiio_handle) {
@@ -1550,7 +1551,7 @@ bool OSLRenderServices::get_texture_info(OSL::ShaderGlobals *sg,
   }
 
   /* Get texture info from OpenImageIO. */
-  OSL::TextureSystem *ts = texture_system;
+  OSL::TextureSystem *ts = m_texturesys;
   return ts->get_texture_info(filename, subimage, dataname, datatype, data);
 }
 
