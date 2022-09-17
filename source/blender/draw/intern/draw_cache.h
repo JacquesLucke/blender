@@ -226,6 +226,7 @@ struct GPUBatch *DRW_cache_curves_edge_detection_get(struct Object *ob, bool *r_
 
 struct GPUBatch *DRW_cache_pointcloud_get_dots(struct Object *obj);
 struct GPUBatch *DRW_cache_pointcloud_surface_get(struct Object *obj);
+struct GPUBatch *DRW_cache_pointcloud_my_test(struct Object *obj);
 
 /* Volume */
 

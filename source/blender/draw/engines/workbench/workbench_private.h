@@ -348,6 +348,9 @@ typedef struct WORKBENCH_PrivateData {
   bool is_playback;
   bool is_navigating;
   bool reset_next_sample;
+
+  struct GPUPass *my_test_ps;
+  struct DRWShadingGroup *my_test_grp;
 } WORKBENCH_PrivateData; /* Transient data */
 
 typedef struct WORKBENCH_ObjectData {

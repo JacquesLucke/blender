@@ -196,6 +196,21 @@ static void workbench_cache_common_populate(WORKBENCH_PrivateData *wpd,
         workbench_object_drawcall(grp, geoms[i], ob);
       }
     }
+
+    if (ob->type == OB_POINTCLOUD) {
+
+      const DRWState state = DRW_STATE_WRITE_COLOR | DRW_STATE_DEPTH_LESS_EQUAL |
+                             DRW_STATE_BLEND_ALPHA;
+      if (wpd->my_test_ps == NULL) {
+        DRW_PASS_CREATE(wpd->my_test_ps, state);
+        const DRWContextState *drw_ctx = DRW_context_state_get();
+        GPUShader *shader = GPU_shader_create_from_info_name("my_test");
+        wpd->my_test_grp = DRW_shgroup_create(shader, wpd->my_test_ps);
+
+        struct GPUBatch *batch = DRW_cache_pointcloud_my_test(ob);
+        DRW_shgroup_call(wpd->my_test_grp, batch, ob);
+      }
+    }
   }
 }
 
@@ -594,6 +609,8 @@ void workbench_draw_sample(void *ved)
 
     workbench_dof_draw_pass(vedata);
   }
+
+  DRW_draw_pass(wpd->my_test_ps);
 
   workbench_antialiasing_draw_pass(vedata);
 }

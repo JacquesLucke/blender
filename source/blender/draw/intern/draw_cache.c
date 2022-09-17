@@ -3005,6 +3005,12 @@ GPUBatch *DRW_cache_pointcloud_surface_get(Object *object)
   return DRW_pointcloud_batch_cache_get_surface(object);
 }
 
+struct GPUBatch *DRW_cache_pointcloud_my_test(Object *object)
+{
+  BLI_assert(object->type == OB_POINTCLOUD);
+  return DRW_pointcloud_batch_cache_get_dots(object);
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
