@@ -65,4 +65,33 @@ TEST(chunk_list, Stack)
   EXPECT_EQ(list.size(), 0);
 }
 
+TEST(chunk_list, ExtendOther)
+{
+  const std::array self_sizes = {0, 2, 5, 10, 50, 300};
+  const std::array other_sizes = self_sizes;
+
+  for (const int self_size : self_sizes) {
+    for (const int other_size : other_sizes) {
+      ChunkList<int> self;
+      for (const int i : IndexRange(self_size)) {
+        self.append(i);
+      }
+      ChunkList<int> other;
+      for (const int i : IndexRange(other_size)) {
+        other.append(i);
+      }
+      self.extend(std::move(other));
+      EXPECT_EQ(self.size(), self_size + other_size);
+      EXPECT_EQ(other.size(), 0);
+
+      for (const int i : IndexRange(other_size)) {
+        EXPECT_EQ(self.pop_last(), other_size - i - 1);
+      }
+      for (const int i : IndexRange(self_size)) {
+        EXPECT_EQ(self.pop_last(), self_size - i - 1);
+      }
+    }
+  }
+}
+
 }  // namespace blender::tests

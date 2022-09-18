@@ -257,53 +257,56 @@ class ChunkList {
   {
     AllocInfo *other_alloc_info = other.alloc_info_;
 
+    auto reset_other_active = [&]() {
+      other.active_begin_ = other.inline_buffer_;
+      other.active_end_ = other.active_begin_;
+      other.active_capacity_end_ = other.active_begin_ + OtherInlineBufferCapacity;
+    };
+
     if (other_alloc_info == nullptr) {
       /* Handle case when the other list is fully inline. */
       this->extend_move({other.active_begin_, other.active_end_ - other.active_begin_});
-    }
-    else {
-      /* Make sure all chunks are up to date. */
-      RawChunk &other_active_chunk = other_alloc_info->raw_chunks[other_alloc_info->active];
-      other_active_chunk.end_if_inactive = other.active_end_;
-      for (const int64_t other_chunk_index : other_alloc_info->raw_chunks.index_range()) {
-        const RawChunk &other_chunk = other_alloc_info->raw_chunks[other_chunk_index];
-        if (other_chunk.allocation == nullptr) {
-          /* This chunk is inline. */
-          this->extend_move({other_chunk.begin, other_chunk.end_if_inactive - other_chunk.begin});
-        }
-        else if (alloc_info_ == nullptr) {
-          alloc_info_ = other_alloc_info;
-          other.alloc_info_ = nullptr;
-          RawChunk &first_chunk = alloc_info_->raw_chunks[0];
-          BLI_assert(first_chunk.allocation == nullptr);
-          first_chunk.begin = active_begin_;
-          first_chunk.capacity_end = active_capacity_end_;
-          first_chunk.end_if_inactive = active_end_;
-          break;
-        }
-        else {
-          alloc_info_->raw_chunks.append(other_chunk);
-          if (other_chunk.begin < other_chunk.end_if_inactive) {
-            alloc_info_->active = alloc_info_->raw_chunks.size() - 1;
-          }
-        }
-      }
-
-      if (alloc_info_ != nullptr) {
-        const RawChunk &active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
-        active_begin_ = active_chunk.begin;
-        active_end_ = active_chunk.end_if_inactive;
-        active_capacity_end_ = active_chunk.capacity_end;
-      }
-      if (other.alloc_info_ != nullptr) {
-        other.alloc_info_->raw_chunks.resize(1);
-      }
+      reset_other_active();
+      return;
     }
 
-    /* Reset the other list. */
-    other.active_begin_ = other.inline_buffer_;
-    other.active_end_ = other.active_begin_;
-    other.active_capacity_end_ = other.active_begin_ + OtherInlineBufferCapacity;
+    /* Make sure all chunks are up to date. */
+    other_alloc_info->raw_chunks[other_alloc_info->active].end_if_inactive = other.active_end_;
+
+    /* Always move first chunk. */
+    RawChunk &other_inline_chunk = other_alloc_info->raw_chunks[0];
+    this->extend_move(
+        {other_inline_chunk.begin, other_inline_chunk.end_if_inactive - other_inline_chunk.begin});
+
+    auto update_self_active = [&]() {
+      RawChunk &active_chunk = alloc_info_->raw_chunks[alloc_info_->active];
+      active_begin_ = active_chunk.begin;
+      active_end_ = active_chunk.end_if_inactive;
+      active_capacity_end_ = active_chunk.capacity_end;
+    };
+
+    /* Try to steal info block. */
+    if (alloc_info_ == nullptr) {
+      alloc_info_ = other_alloc_info;
+      other.alloc_info_ = nullptr;
+      alloc_info_->raw_chunks[0] = {active_begin_, active_end_, active_capacity_end_, nullptr};
+      reset_other_active();
+      update_self_active();
+      return;
+    }
+
+    alloc_info_->raw_chunks[alloc_info_->active].end_if_inactive = active_end_;
+
+    alloc_info_->raw_chunks.extend(other_alloc_info->raw_chunks.as_span().drop_front(1));
+    alloc_info_->active += other_alloc_info->active;
+    other_alloc_info->raw_chunks.resize(1);
+    other_alloc_info->raw_chunks[0] = {other.inline_buffer_,
+                                       other.inline_buffer_,
+                                       other.inline_buffer_ + OtherInlineBufferCapacity,
+                                       nullptr};
+    other_alloc_info->active = 0;
+    reset_other_active();
+    update_self_active();
   }
 
   void extend_move(const MutableSpan<T> values)
