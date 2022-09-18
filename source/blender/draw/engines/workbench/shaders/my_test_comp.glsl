@@ -1,4 +1,4 @@
 void main()
 {
-  out_values[gl_GlobalInvocationID.x] = float(gl_GlobalInvocationID.x);
+  out_values[gl_GlobalInvocationID.x] = vec2(float(gl_GlobalInvocationID.x), 2.0);
 }

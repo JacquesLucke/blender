@@ -212,7 +212,7 @@ static void workbench_cache_common_populate(WORKBENCH_PrivateData *wpd,
         wpd->my_test_comp_grp = DRW_shgroup_create(comp_shader, wpd->my_test_comp_ps);
 
         static GPUVertFormat format = {};
-        GPU_vertformat_attr_add(&format, "my_pos", GPU_COMP_F32, 1, GPU_FETCH_FLOAT);
+        GPU_vertformat_attr_add(&format, "my_pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
         wpd->my_test_buf = GPU_vertbuf_create_with_format_ex(&format, GPU_USAGE_DEVICE_ONLY);
         int amount_x = 5;
         int amount_y = 1;
