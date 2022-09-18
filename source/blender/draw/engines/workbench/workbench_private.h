@@ -349,8 +349,12 @@ typedef struct WORKBENCH_PrivateData {
   bool is_navigating;
   bool reset_next_sample;
 
-  struct GPUPass *my_test_ps;
+  struct DRWPass *my_test_ps;
+  struct DRWPass *my_test_comp_ps;
   struct DRWShadingGroup *my_test_grp;
+  struct DRWShadingGroup *my_test_comp_grp;
+  struct GPUVertBuf *my_test_buf;
+  struct GPUBatch *my_test_batch;
 } WORKBENCH_PrivateData; /* Transient data */
 
 typedef struct WORKBENCH_ObjectData {

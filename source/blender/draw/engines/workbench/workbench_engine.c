@@ -29,6 +29,8 @@
 
 #include "ED_paint.h"
 
+#include "GPU_batch.h"
+
 #include "workbench_engine.h"
 #include "workbench_private.h"
 
@@ -203,11 +205,25 @@ static void workbench_cache_common_populate(WORKBENCH_PrivateData *wpd,
                              DRW_STATE_BLEND_ALPHA;
       if (wpd->my_test_ps == NULL) {
         DRW_PASS_CREATE(wpd->my_test_ps, state);
-        const DRWContextState *drw_ctx = DRW_context_state_get();
+        // const DRWContextState *drw_ctx = DRW_context_state_get();
+
+        GPUShader *comp_shader = GPU_shader_create_from_info_name("my_test_comp");
+        wpd->my_test_comp_ps = DRW_pass_create("My Test Comp", DRW_STATE_NO_DRAW);
+        wpd->my_test_comp_grp = DRW_shgroup_create(comp_shader, wpd->my_test_comp_ps);
+
+        static GPUVertFormat format = {};
+        GPU_vertformat_attr_add(&format, "my_pos", GPU_COMP_F32, 1, GPU_FETCH_FLOAT);
+        wpd->my_test_buf = GPU_vertbuf_create_with_format_ex(&format, GPU_USAGE_DEVICE_ONLY);
+        int amount_x = 5;
+        int amount_y = 1;
+        int amount_tot = amount_x * amount_y;
+        GPU_vertbuf_data_alloc(wpd->my_test_buf, amount_tot);
+        DRW_shgroup_vertex_buffer(wpd->my_test_comp_grp, "out_values", wpd->my_test_buf);
+        DRW_shgroup_call_compute(wpd->my_test_comp_grp, amount_x, amount_y, 1);
+
         GPUShader *shader = GPU_shader_create_from_info_name("my_test");
         wpd->my_test_grp = DRW_shgroup_create(shader, wpd->my_test_ps);
-
-        struct GPUBatch *batch = DRW_cache_pointcloud_my_test(ob);
+        struct GPUBatch *batch = GPU_batch_create(GPU_PRIM_POINTS, wpd->my_test_buf, NULL);
         DRW_shgroup_call(wpd->my_test_grp, batch, ob);
       }
     }
@@ -610,6 +626,8 @@ void workbench_draw_sample(void *ved)
     workbench_dof_draw_pass(vedata);
   }
 
+  DRW_draw_pass(wpd->my_test_comp_ps);
+  GPU_memory_barrier(GPU_BARRIER_SHADER_STORAGE);
   DRW_draw_pass(wpd->my_test_ps);
 
   workbench_antialiasing_draw_pass(vedata);
