@@ -121,7 +121,8 @@ typedef enum {
   GHOST_kModifierKeyRightAlt,
   GHOST_kModifierKeyLeftControl,
   GHOST_kModifierKeyRightControl,
-  GHOST_kModifierKeyOS,
+  GHOST_kModifierKeyLeftOS,
+  GHOST_kModifierKeyRightOS,
   GHOST_kModifierKeyNum
 } GHOST_TModifierKey;
 
@@ -320,13 +321,17 @@ typedef enum {
   GHOST_kKeyBackslash = 0x5C,
   GHOST_kKeyAccentGrave = '`',
 
+  /* Modifiers: See #GHOST_KEY_IS_MODIFIER. */
   GHOST_kKeyLeftShift = 0x100,
   GHOST_kKeyRightShift,
   GHOST_kKeyLeftControl,
   GHOST_kKeyRightControl,
   GHOST_kKeyLeftAlt,
   GHOST_kKeyRightAlt,
-  GHOST_kKeyOS,     /* Command key on Apple, Windows key(s) on Windows. */
+  GHOST_kKeyLeftOS, /* Command key on Apple, Windows key(s) on Windows. */
+  GHOST_kKeyRightOS,
+  /* End modifiers. */
+
   GHOST_kKeyGrLess, /* German PC only! */
   GHOST_kKeyApp,    /* Also known as menu key. */
 
@@ -399,6 +404,8 @@ typedef enum {
   GHOST_kKeyMediaFirst,
   GHOST_kKeyMediaLast
 } GHOST_TKey;
+
+#define GHOST_KEY_IS_MODIFIER(key) (key >= GHOST_kKeyLeftShift && key <= GHOST_kKeyRightOS);
 
 typedef enum {
   /** Grab not set. */
