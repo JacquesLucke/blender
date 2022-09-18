@@ -214,7 +214,7 @@ static void workbench_cache_common_populate(WORKBENCH_PrivateData *wpd,
         static GPUVertFormat format = {};
         GPU_vertformat_attr_add(&format, "my_pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
         wpd->my_test_buf = GPU_vertbuf_create_with_format_ex(&format, GPU_USAGE_DEVICE_ONLY);
-        int amount_x = 5;
+        int amount_x = 20;
         int amount_y = 1;
         int amount_tot = amount_x * amount_y;
         GPU_vertbuf_data_alloc(wpd->my_test_buf, amount_tot);
@@ -223,7 +223,7 @@ static void workbench_cache_common_populate(WORKBENCH_PrivateData *wpd,
 
         GPUShader *shader = GPU_shader_create_from_info_name("my_test");
         wpd->my_test_grp = DRW_shgroup_create(shader, wpd->my_test_ps);
-        struct GPUBatch *batch = GPU_batch_create(GPU_PRIM_POINTS, wpd->my_test_buf, NULL);
+        struct GPUBatch *batch = GPU_batch_create(GPU_PRIM_LINES, wpd->my_test_buf, NULL);
         DRW_shgroup_call(wpd->my_test_grp, batch, ob);
       }
     }
