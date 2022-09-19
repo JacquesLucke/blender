@@ -539,18 +539,19 @@ class LazyFunctionForViewerNode : public LazyFunction {
     const NodeGeometryViewer *storage = static_cast<NodeGeometryViewer *>(bnode_.storage);
 
     if (use_field_input_) {
-      const eAttrDomain domain = eAttrDomain(storage->domain);
       const void *value_or_field = params.try_get_input_data_ptr(1);
       BLI_assert(value_or_field != nullptr);
       const ValueOrFieldCPPType &value_or_field_type = static_cast<const ValueOrFieldCPPType &>(
           *inputs_[1].type);
       GField field = value_or_field_type.as_field(value_or_field);
+      const eAttrDomain domain = eAttrDomain(storage->domain);
       const StringRefNull viewer_attribute_name = ".viewer";
       if (domain == ATTR_DOMAIN_INSTANCE) {
         if (geometry.has_instances()) {
           GeometryComponent &component = geometry.get_component_for_write(
               GEO_COMPONENT_TYPE_INSTANCES);
-          bke::try_capture_field_on_geometry(component, viewer_attribute_name, domain, field);
+          bke::try_capture_field_on_geometry(
+              component, viewer_attribute_name, ATTR_DOMAIN_INSTANCE, field);
         }
       }
       else {
@@ -560,7 +561,19 @@ class LazyFunctionForViewerNode : public LazyFunction {
                                                    GEO_COMPONENT_TYPE_CURVE}) {
             if (geometry.has(type)) {
               GeometryComponent &component = geometry.get_component_for_write(type);
-              bke::try_capture_field_on_geometry(component, viewer_attribute_name, domain, field);
+              eAttrDomain used_domain = domain;
+              if (used_domain == ATTR_DOMAIN_AUTO) {
+                if (const std::optional<eAttrDomain> detected_domain =
+                        bke::try_detect_field_domain(component, field)) {
+                  used_domain = *detected_domain;
+                }
+                else {
+                  used_domain = type == GEO_COMPONENT_TYPE_MESH ? ATTR_DOMAIN_CORNER :
+                                                                  ATTR_DOMAIN_POINT;
+                }
+              }
+              bke::try_capture_field_on_geometry(
+                  component, viewer_attribute_name, used_domain, field);
             }
           }
         });

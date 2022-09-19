@@ -30,6 +30,7 @@ static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 {
   NodeGeometryViewer *data = MEM_cnew<NodeGeometryViewer>(__func__);
   data->data_type = CD_PROP_FLOAT;
+  data->domain = ATTR_DOMAIN_AUTO;
 
   node->storage = data;
 }
