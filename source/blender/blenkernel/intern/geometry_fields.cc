@@ -450,7 +450,10 @@ std::optional<eAttrDomain> try_detect_field_domain(GeometryComponent &component,
   if (component_type == GEO_COMPONENT_TYPE_INSTANCES) {
     return ATTR_DOMAIN_INSTANCE;
   }
-  const fn::FieldInputs &field_inputs = *field.node().field_inputs();
+  const std::shared_ptr<const fn::FieldInputs> &field_inputs = field.node().field_inputs();
+  if (!field_inputs) {
+    return std::nullopt;
+  }
   std::optional<eAttrDomain> output_domain;
   auto handle_domain = [&](const std::optional<eAttrDomain> domain) {
     if (!domain.has_value()) {
@@ -471,7 +474,7 @@ std::optional<eAttrDomain> try_detect_field_domain(GeometryComponent &component,
     if (mesh == nullptr) {
       return std::nullopt;
     }
-    for (const fn::FieldInput &field_input : field_inputs.deduplicated_nodes) {
+    for (const fn::FieldInput &field_input : field_inputs->deduplicated_nodes) {
       if (auto geometry_field_input = dynamic_cast<const GeometryFieldInput *>(&field_input)) {
         if (!handle_domain(geometry_field_input->preferred_domain(component))) {
           return std::nullopt;
@@ -493,7 +496,7 @@ std::optional<eAttrDomain> try_detect_field_domain(GeometryComponent &component,
     if (curves == nullptr) {
       return std::nullopt;
     }
-    for (const fn::FieldInput &field_input : field_inputs.deduplicated_nodes) {
+    for (const fn::FieldInput &field_input : field_inputs->deduplicated_nodes) {
       if (auto geometry_field_input = dynamic_cast<const GeometryFieldInput *>(&field_input)) {
         if (!handle_domain(geometry_field_input->preferred_domain(component))) {
           return std::nullopt;
