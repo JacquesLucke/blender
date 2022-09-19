@@ -20,9 +20,9 @@ void main()
   gl_Position = point_world_to_ndc(world_pos);
 
   if (is_point_domain) {
-    attribute_color = texelFetch(color_tx, hair_get_base_id()).rgb;
+    attribute_color = texelFetch(color_tx, hair_get_base_id());
   }
   else {
-    attribute_color = texelFetch(color_tx, hair_get_strand_id()).rgb;
+    attribute_color = texelFetch(color_tx, hair_get_strand_id());
   }
 }

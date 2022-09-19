@@ -10,6 +10,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_array.hh"
+#include "BLI_color.hh"
 #include "BLI_listbase.h"
 #include "BLI_math_vec_types.hh"
 #include "BLI_math_vector.h"
@@ -38,6 +39,7 @@
 #include "draw_cache_impl.h" /* own include */
 
 using blender::Array;
+using blender::ColorGeometry4f;
 using blender::float3;
 using blender::IndexRange;
 using blender::Span;
@@ -484,7 +486,7 @@ static void curve_create_attribute(CurveRenderData *rdata, GPUVertBuf *vbo_attr)
 
   static GPUVertFormat format = {0};
   if (format.attr_len == 0) {
-    GPU_vertformat_attr_add(&format, "vertex_color", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+    GPU_vertformat_attr_add(&format, "vertex_color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
   }
 
   const int vert_len = curve_render_data_wire_verts_len_get(rdata);
@@ -493,9 +495,9 @@ static void curve_create_attribute(CurveRenderData *rdata, GPUVertBuf *vbo_attr)
 
   const blender::bke::CurvesGeometry &curves = blender::bke::CurvesGeometry::wrap(
       rdata->curve_eval->geometry);
-  const blender::VArraySpan<float3> colors = curves.attributes().lookup<float3>(".viewer",
-                                                                                ATTR_DOMAIN_POINT);
-  Array<float3> colors_interpolated(vert_len);
+  const blender::VArraySpan<ColorGeometry4f> colors = curves.attributes().lookup<ColorGeometry4f>(
+      ".viewer", ATTR_DOMAIN_POINT);
+  Array<ColorGeometry4f> colors_interpolated(vert_len);
   curves.interpolate_to_evaluated(colors, colors_interpolated.as_mutable_span());
   GPU_vertbuf_attr_fill(vbo_attr, 0, colors_interpolated.data());
 }

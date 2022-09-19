@@ -1,5 +1,5 @@
 
 void main()
 {
-  out_color = vec4(attribute_color, 1.0);
+  out_color = attribute_color;
 }

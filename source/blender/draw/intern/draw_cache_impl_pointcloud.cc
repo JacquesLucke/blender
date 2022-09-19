@@ -240,16 +240,18 @@ static void pointcloud_batch_cache_ensure_attribute_overlay(const PointCloud &po
   }
 
   const bke::AttributeAccessor attributes = pointcloud.attributes();
-  const VArray<float3> colors = attributes.lookup<float3>(".viewer", ATTR_DOMAIN_POINT);
+  const VArray<ColorGeometry4f> colors = attributes.lookup<ColorGeometry4f>(".viewer",
+                                                                            ATTR_DOMAIN_POINT);
 
   static GPUVertFormat format = {0};
   if (format.attr_len == 0) {
-    GPU_vertformat_attr_add(&format, "vertex_color", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+    GPU_vertformat_attr_add(&format, "vertex_color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
   }
   cache.attr_overlay = GPU_vertbuf_create_with_format(&format);
   GPU_vertbuf_data_alloc(cache.attr_overlay, pointcloud.totpoint);
-  MutableSpan<float3> vbo_data{static_cast<float3 *>(GPU_vertbuf_get_data(cache.attr_overlay)),
-                               pointcloud.totpoint};
+  MutableSpan<ColorGeometry4f> vbo_data{
+      static_cast<ColorGeometry4f *>(GPU_vertbuf_get_data(cache.attr_overlay)),
+      pointcloud.totpoint};
   colors.materialize(vbo_data);
 }
 

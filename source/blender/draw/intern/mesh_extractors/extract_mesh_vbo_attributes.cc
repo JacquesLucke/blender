@@ -442,19 +442,19 @@ static void extract_mesh_attr_overlay_init(const MeshRenderData *mr,
   GPUVertBuf *vbo = static_cast<GPUVertBuf *>(buf);
   static GPUVertFormat format = {0};
   if (format.attr_len == 0) {
-    GPU_vertformat_attr_add(&format, "vertex_color", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+    GPU_vertformat_attr_add(&format, "vertex_color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
   }
 
   GPU_vertbuf_init_with_format(vbo, &format);
   GPU_vertbuf_data_alloc(vbo, mr->loop_len);
-  MutableSpan<float3> attr{static_cast<float3 *>(GPU_vertbuf_get_data(vbo)), mr->loop_len};
+  MutableSpan<ColorGeometry4f> attr{static_cast<ColorGeometry4f *>(GPU_vertbuf_get_data(vbo)),
+                                    mr->loop_len};
 
   const StringRefNull attr_name = ".viewer";
   const bke::AttributeAccessor attributes = mr->me->attributes();
-  attributes.lookup_or_default<float3>(attr_name, ATTR_DOMAIN_CORNER, {1.0f, 0.0f, 1.0f})
+  attributes
+      .lookup_or_default<ColorGeometry4f>(attr_name, ATTR_DOMAIN_CORNER, {1.0f, 0.0f, 1.0f, 1.0f})
       .materialize(attr);
-
-  // attr.fill({0.1f, 0.2f, 0.9f});
 }
 
 constexpr MeshExtract create_extractor_attr_overlay()
