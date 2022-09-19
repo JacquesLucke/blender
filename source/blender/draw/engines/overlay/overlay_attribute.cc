@@ -19,7 +19,7 @@
 
 #include "draw_cache_extract.hh"
 #include "draw_cache_impl.h"
-#include "overlay_private.h"
+#include "overlay_private.hh"
 
 void OVERLAY_attribute_cache_init(OVERLAY_Data *vedata)
 {
