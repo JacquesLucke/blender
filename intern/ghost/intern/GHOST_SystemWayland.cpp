@@ -86,10 +86,6 @@ static void output_handle_done(void *data, struct wl_output *wl_output);
 static bool use_gnome_confine_hack = false;
 #endif
 
-#define XKB_STATE_MODS_ALL \
-  (enum xkb_state_component)(XKB_STATE_MODS_DEPRESSED | XKB_STATE_MODS_LATCHED | \
-                             XKB_STATE_MODS_LOCKED | XKB_STATE_MODS_EFFECTIVE)
-
 /* -------------------------------------------------------------------- */
 /** \name Inline Event Codes
  *
@@ -613,8 +609,8 @@ static GHOST_TKey xkb_map_gkey(const xkb_keysym_t sym)
       GXMAP(gkey, XKB_KEY_Control_R, GHOST_kKeyRightControl);
       GXMAP(gkey, XKB_KEY_Alt_L, GHOST_kKeyLeftAlt);
       GXMAP(gkey, XKB_KEY_Alt_R, GHOST_kKeyRightAlt);
-      GXMAP(gkey, XKB_KEY_Super_L, GHOST_kKeyOS);
-      GXMAP(gkey, XKB_KEY_Super_R, GHOST_kKeyOS);
+      GXMAP(gkey, XKB_KEY_Super_L, GHOST_kKeyLeftOS);
+      GXMAP(gkey, XKB_KEY_Super_R, GHOST_kKeyRightOS);
       GXMAP(gkey, XKB_KEY_Menu, GHOST_kKeyApp);
 
       GXMAP(gkey, XKB_KEY_Caps_Lock, GHOST_kKeyCapsLock);
@@ -2163,7 +2159,8 @@ static void keyboard_handle_enter(void *data,
      * modifiers will be compared against the seat state,
      * only enabling modifiers that were previously disabled. */
 
-    const xkb_mod_mask_t state = xkb_state_serialize_mods(seat->xkb_state, XKB_STATE_MODS_ALL);
+    const xkb_mod_mask_t state = xkb_state_serialize_mods(seat->xkb_state,
+                                                          XKB_STATE_MODS_DEPRESSED);
     uint32_t *key;
     WL_ARRAY_FOR_EACH (key, keys) {
       const xkb_keycode_t key_code = *key + EVDEV_OFFSET;
@@ -2185,8 +2182,8 @@ static void keyboard_handle_enter(void *data,
         MOD_TEST_CASE(XKB_KEY_Control_R, GHOST_kKeyRightControl, ctrl);
         MOD_TEST_CASE(XKB_KEY_Alt_L, GHOST_kKeyLeftAlt, alt);
         MOD_TEST_CASE(XKB_KEY_Alt_R, GHOST_kKeyRightAlt, alt);
-        MOD_TEST_CASE(XKB_KEY_Super_L, GHOST_kKeyOS, logo);
-        MOD_TEST_CASE(XKB_KEY_Super_R, GHOST_kKeyOS, logo);
+        MOD_TEST_CASE(XKB_KEY_Super_L, GHOST_kKeyLeftOS, logo);
+        MOD_TEST_CASE(XKB_KEY_Super_R, GHOST_kKeyRightOS, logo);
       }
 
 #undef MOD_TEST
@@ -3052,7 +3049,7 @@ GHOST_TSuccess GHOST_SystemWayland::getModifierKeys(GHOST_ModifierKeys &keys) co
 
   /* NOTE: XKB doesn't differentiate between left/right modifiers
    * for it's internal modifier state storage. */
-  const xkb_mod_mask_t state = xkb_state_serialize_mods(seat->xkb_state, XKB_STATE_MODS_ALL);
+  const xkb_mod_mask_t state = xkb_state_serialize_mods(seat->xkb_state, XKB_STATE_MODS_DEPRESSED);
 
 #define MOD_TEST(state, mod) ((mod != XKB_MOD_INVALID) && (state & (1 << mod)))
 
@@ -3069,7 +3066,8 @@ GHOST_TSuccess GHOST_SystemWayland::getModifierKeys(GHOST_ModifierKeys &keys) co
   keys.set(GHOST_kModifierKeyRightControl, val);
 
   val = MOD_TEST(state, seat->xkb_keymap_mod_index.logo);
-  keys.set(GHOST_kModifierKeyOS, val);
+  keys.set(GHOST_kModifierKeyLeftOS, val);
+  keys.set(GHOST_kModifierKeyRightOS, val);
 
   val = MOD_TEST(state, seat->xkb_keymap_mod_index.num);
   keys.set(GHOST_kModifierKeyNum, val);

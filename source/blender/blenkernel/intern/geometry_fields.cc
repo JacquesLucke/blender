@@ -376,6 +376,7 @@ bool try_capture_field_on_geometry(GeometryComponent &component,
 
   bke::GeometryFieldContext field_context{component, domain};
   const IndexMask mask{IndexMask(domain_size)};
+  const bke::AttributeValidator validator = attributes.lookup_validator(attribute_id);
 
   /* Could avoid allocating a new buffer if:
    * - We are writing to an attribute that exists already with the correct domain and type.
@@ -383,7 +384,8 @@ bool try_capture_field_on_geometry(GeometryComponent &component,
   void *buffer = MEM_mallocN(type.size() * domain_size, __func__);
 
   fn::FieldEvaluator evaluator{field_context, &mask};
-  evaluator.add_with_destination(field, GMutableSpan{type, buffer, domain_size});
+  evaluator.add_with_destination(validator.validate_field_if_necessary(field),
+                                 GMutableSpan{type, buffer, domain_size});
   evaluator.evaluate();
 
   if (GAttributeWriter attribute = attributes.lookup_for_write(attribute_id)) {

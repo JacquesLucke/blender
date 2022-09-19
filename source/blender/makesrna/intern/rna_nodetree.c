@@ -1892,7 +1892,7 @@ static void rna_Node_unregister(Main *UNUSED(bmain), StructRNA *type)
 }
 
 /* Generic internal registration function.
- * Can be used to implement callbacks for registerable RNA node subtypes.
+ * Can be used to implement callbacks for registerable RNA node sub-types.
  */
 static bNodeType *rna_Node_register_base(Main *bmain,
                                          ReportList *reports,
@@ -3585,7 +3585,7 @@ static void rna_difference_matte_t2_set(PointerRNA *ptr, float value)
   chroma->t2 = value;
 }
 
-/* Button Set Funcs for Matte Nodes */
+/* Button Set Functions for Matte Nodes */
 static void rna_Matte_t1_set(PointerRNA *ptr, float value)
 {
   bNode *node = (bNode *)ptr->data;

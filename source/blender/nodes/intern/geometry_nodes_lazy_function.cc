@@ -134,7 +134,8 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     if (geo_eval_log::GeoModifierLog *modifier_log = user_data->modifier_data->eval_log) {
       geo_eval_log::GeoTreeLogger &tree_logger = modifier_log->get_local_tree_logger(
           *user_data->compute_context);
-      tree_logger.node_execution_times.append({node_.name, start_time, end_time});
+      tree_logger.node_execution_times.append(
+          {tree_logger.allocator->copy_string(node_.name), start_time, end_time});
     }
   }
 };
@@ -207,6 +208,28 @@ class LazyFunctionForRerouteNode : public LazyFunction {
     const CPPType &type = *inputs_[0].type;
     type.move_construct(input_value, output_value);
     params.output_set(0);
+  }
+};
+
+/**
+ * Lazy functions for nodes whose type cannot be found. An undefined function just outputs default
+ * values. It's useful to have so other parts of the conversion don't have to care about undefined
+ * nodes.
+ */
+class LazyFunctionForUndefinedNode : public LazyFunction {
+ public:
+  LazyFunctionForUndefinedNode(const bNode &node, Vector<const bNodeSocket *> &r_used_outputs)
+  {
+    debug_name_ = "Undefined";
+    Vector<const bNodeSocket *> dummy_used_inputs;
+    Vector<lf::Input> dummy_inputs;
+    lazy_function_interface_from_node(
+        node, dummy_used_inputs, r_used_outputs, dummy_inputs, outputs_);
+  }
+
+  void execute_impl(lf::Params &params, const lf::Context &UNUSED(context)) const override
+  {
+    params.set_default_remaining_outputs();
   }
 };
 
@@ -419,7 +442,6 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
   const NodeMultiFunctions::Item fn_item_;
   Vector<const ValueOrFieldCPPType *> input_types_;
   Vector<const ValueOrFieldCPPType *> output_types_;
-  Vector<const bNodeSocket *> output_sockets_;
 
  public:
   LazyFunctionForMultiFunctionNode(const bNode &node,
@@ -437,7 +459,6 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     for (const lf::Output &fn_output : outputs_) {
       output_types_.append(dynamic_cast<const ValueOrFieldCPPType *>(fn_output.type));
     }
-    output_sockets_ = r_used_outputs;
   }
 
   void execute_impl(lf::Params &params, const lf::Context &UNUSED(context)) const override
@@ -796,6 +817,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
               *bnode);
           if (fn_item.fn != nullptr) {
             this->handle_multi_function_node(*bnode, fn_item);
+            break;
+          }
+          if (node_type == &NodeTypeUndefined) {
+            this->handle_undefined_node(*bnode);
+            break;
           }
           /* Nodes that don't match any of the criteria above are just ignored. */
           break;
@@ -987,6 +1013,21 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     }
 
     mapping_->viewer_node_map.add(&bnode, &lf_node);
+  }
+
+  void handle_undefined_node(const bNode &bnode)
+  {
+    Vector<const bNodeSocket *> used_outputs;
+    auto lazy_function = std::make_unique<LazyFunctionForUndefinedNode>(bnode, used_outputs);
+    lf::FunctionNode &lf_node = lf_graph_->add_function(*lazy_function);
+    lf_graph_info_->functions.append(std::move(lazy_function));
+
+    for (const int i : used_outputs.index_range()) {
+      const bNodeSocket &bsocket = *used_outputs[i];
+      lf::OutputSocket &lf_socket = lf_node.output(i);
+      output_socket_map_.add(&bsocket, &lf_socket);
+      mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
+    }
   }
 
   void handle_links()
