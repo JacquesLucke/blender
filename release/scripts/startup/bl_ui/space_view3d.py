@@ -6347,6 +6347,9 @@ class VIEW3D_PT_overlay_geometry(Panel):
         sub.prop(overlay, "wireframe_opacity", text="Opacity")
 
         row = col.row(align=True)
+        row.prop(overlay, "viewer_attribute_opacity")
+
+        row = col.row(align=True)
 
         # These properties should be always available in the UI for all modes
         # other than Object.

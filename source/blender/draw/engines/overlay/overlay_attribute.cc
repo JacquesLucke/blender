@@ -45,11 +45,13 @@ void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
   using namespace blender;
 
   OVERLAY_PrivateData *pd = vedata->stl->pd;
+  const float opacity = vedata->stl->pd->overlay.viewer_attribute_opacity;
 
   if (object->type == OB_MESH) {
     Mesh *mesh = static_cast<Mesh *>(object->data);
     if (mesh->attributes().contains(".viewer")) {
       GPUBatch *batch = DRW_cache_mesh_surface_attribute_get(object);
+      DRW_shgroup_uniform_float_copy(pd->attribute_mesh_grp, "opacity", opacity);
       DRW_shgroup_call(pd->attribute_mesh_grp, batch, object);
     }
   }
@@ -57,6 +59,7 @@ void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
     PointCloud *pointcloud = static_cast<PointCloud *>(object->data);
     if (pointcloud->attributes().contains(".viewer")) {
       GPUBatch *batch = DRW_cache_pointcloud_surface_attribute_get(object);
+      DRW_shgroup_uniform_float_copy(pd->attribute_pointcloud_grp, "opacity", opacity);
       DRW_shgroup_call_instance_range(pd->attribute_pointcloud_grp, object, batch, 0, 0);
     }
   }
@@ -65,6 +68,7 @@ void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
     const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curve->curve_eval->geometry);
     if (curves.attributes().contains(".viewer")) {
       GPUBatch *batch = DRW_cache_curve_edge_write_attribute_get(object);
+      DRW_shgroup_uniform_float_copy(pd->attribute_curve_grp, "opacity", opacity);
       DRW_shgroup_call(pd->attribute_curve_grp, batch, object);
     }
   }
@@ -77,6 +81,7 @@ void OVERLAY_attribute_cache_populate(OVERLAY_Data *vedata, Object *object)
           curves_id, ".viewer", &is_point_domain);
       DRWShadingGroup *grp = DRW_shgroup_curves_create_sub(
           object, pd->attribute_curves_grp, nullptr);
+      DRW_shgroup_uniform_float_copy(pd->attribute_curves_grp, "opacity", opacity);
       DRW_shgroup_uniform_bool_copy(grp, "is_point_domain", is_point_domain);
       DRW_shgroup_uniform_texture(grp, "color_tx", *texture);
     }

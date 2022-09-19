@@ -228,7 +228,7 @@ typedef struct View3DOverlay {
   /** Handles display type for curves. */
   int handle_display;
 
-  char _pad[4];
+  float viewer_attribute_opacity;
 } View3DOverlay;
 
 /** #View3DOverlay.handle_display */

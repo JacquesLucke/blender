@@ -4,6 +4,8 @@
 
 GPU_SHADER_INTERFACE_INFO(overlay_attribute_iface, "").smooth(Type::VEC4, "attribute_color");
 
+GPU_SHADER_CREATE_INFO(overlay_attribute_common).push_constant(Type::FLOAT, "opacity");
+
 GPU_SHADER_CREATE_INFO(overlay_attribute_mesh)
     .do_static_compilation(true)
     .vertex_source("overlay_attribute_mesh_vert.glsl")
@@ -12,7 +14,7 @@ GPU_SHADER_CREATE_INFO(overlay_attribute_mesh)
     .vertex_in(0, Type::VEC3, "pos")
     .vertex_in(1, Type::VEC4, "vertex_color")
     .vertex_out(overlay_attribute_iface)
-    .additional_info("draw_mesh");
+    .additional_info("overlay_attribute_common", "draw_mesh");
 
 GPU_SHADER_CREATE_INFO(overlay_attribute_mesh_clipped)
     .do_static_compilation(true)
@@ -25,7 +27,7 @@ GPU_SHADER_CREATE_INFO(overlay_attribute_pointcloud)
     .fragment_out(0, Type::VEC4, "out_color")
     .vertex_in(3, Type::VEC4, "vertex_color")
     .vertex_out(overlay_attribute_iface)
-    .additional_info("draw_pointcloud");
+    .additional_info("overlay_attribute_common", "draw_pointcloud");
 
 GPU_SHADER_CREATE_INFO(overlay_attribute_pointcloud_clipped)
     .do_static_compilation(true)
@@ -39,7 +41,7 @@ GPU_SHADER_CREATE_INFO(overlay_attribute_curve)
     .vertex_in(0, Type::VEC3, "pos")
     .vertex_in(1, Type::VEC4, "vertex_color")
     .vertex_out(overlay_attribute_iface)
-    .additional_info("draw_modelmat", "draw_resource_id");
+    .additional_info("overlay_attribute_common", "draw_modelmat", "draw_resource_id");
 
 GPU_SHADER_CREATE_INFO(overlay_attribute_curve_clipped)
     .do_static_compilation(true)
@@ -53,7 +55,7 @@ GPU_SHADER_CREATE_INFO(overlay_attribute_curves)
     .sampler(0, ImageType::FLOAT_BUFFER, "color_tx")
     .push_constant(Type::BOOL, "is_point_domain")
     .vertex_out(overlay_attribute_iface)
-    .additional_info("draw_hair");
+    .additional_info("overlay_attribute_common", "draw_hair");
 
 GPU_SHADER_CREATE_INFO(overlay_attribute_curves_clipped)
     .do_static_compilation(true)
