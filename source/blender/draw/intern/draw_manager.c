@@ -969,7 +969,7 @@ void DRW_cache_free_old_batches(Main *bmain)
 
       /* TODO(fclem): This is not optimal since it iter over all dupli instances.
        * In this case only the source object should be tagged. */
-      DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+      DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, 0) {
         DRW_batch_cache_free_old(ob, ctime);
       }
       DEG_OBJECT_ITER_FOR_RENDER_ENGINE_END;
@@ -1689,7 +1689,8 @@ void DRW_draw_render_loop_ex(struct Depsgraph *depsgraph,
     if (do_populate_loop) {
       DST.dupli_origin = NULL;
       DST.dupli_origin_data = NULL;
-      DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+      int my_flag = v3d->flag2 & V3D_SHOW_VIEWER ? DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW : 0;
+      DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, my_flag) {
         if ((object_type_exclude_viewport & (1 << ob->type)) != 0) {
           continue;
         }
@@ -1841,7 +1842,7 @@ bool DRW_render_check_grease_pencil(Depsgraph *depsgraph)
     return false;
   }
 
-  DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+  DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, 0) {
     if (ob->type == OB_GPENCIL) {
       if (DRW_object_visibility_in_active_context(ob) & OB_VISIBLE_SELF) {
         return true;
@@ -2051,7 +2052,7 @@ void DRW_render_object_iter(
                                                0;
   DST.dupli_origin = NULL;
   DST.dupli_origin_data = NULL;
-  DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+  DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, 0) {
     if ((object_type_exclude_viewport & (1 << ob->type)) == 0) {
       DST.dupli_parent = data_.dupli_parent;
       DST.dupli_source = data_.dupli_object_current;
@@ -2479,7 +2480,9 @@ void DRW_draw_select_loop(struct Depsgraph *depsgraph,
       bool filter_exclude = false;
       DST.dupli_origin = NULL;
       DST.dupli_origin_data = NULL;
-      DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+
+      int my_flag = v3d->flag2 & V3D_SHOW_VIEWER ? DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW : 0;
+      DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, my_flag) {
         if (!BKE_object_is_visible_in_viewport(v3d, ob)) {
           continue;
         }
@@ -2641,8 +2644,8 @@ static void drw_draw_depth_loop_impl(struct Depsgraph *depsgraph,
     const int object_type_exclude_viewport = v3d->object_type_exclude_viewport;
     DST.dupli_origin = NULL;
     DST.dupli_origin_data = NULL;
-    DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (
-        DST.draw_ctx.depsgraph, ob, DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+    int my_flag = v3d->flag2 & V3D_SHOW_VIEWER ? DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW : 0;
+    DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (DST.draw_ctx.depsgraph, ob, my_flag) {
       if ((object_type_exclude_viewport & (1 << ob->type)) != 0) {
         continue;
       }

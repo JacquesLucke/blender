@@ -443,7 +443,7 @@ enum {
 
 /** #View3D.flag2 (int) */
 #define V3D_HIDE_OVERLAYS (1 << 2)
-#define V3D_FLAG2_UNUSED_3 (1 << 3) /* cleared */
+#define V3D_SHOW_VIEWER (1 << 3)
 #define V3D_SHOW_ANNOTATION (1 << 4)
 #define V3D_LOCK_CAMERA (1 << 5)
 #define V3D_FLAG2_UNUSED_6 (1 << 6) /* cleared */

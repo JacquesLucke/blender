@@ -636,7 +636,7 @@ static void eevee_lightbake_count_probes(EEVEE_LightBake *lbake)
   /* At least one of each for the world */
   lbake->grid_len = lbake->cube_len = lbake->total_irr_samples = 1;
 
-  DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+  DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, 0) {
     const int ob_visibility = BKE_object_visibility(ob, DAG_EVAL_RENDER);
     if ((ob_visibility & OB_VISIBLE_SELF) == 0) {
       continue;
@@ -1279,7 +1279,7 @@ static void eevee_lightbake_gather_probes(EEVEE_LightBake *lbake)
 
   /* Convert all lightprobes to tight UBO data from all lightprobes in the scene.
    * This allows a large number of probe to be precomputed (even dupli ones). */
-  DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, DEG_ITER_OBJECT_FLAG_DUPLI_PREVIEW) {
+  DEG_OBJECT_ITER_FOR_RENDER_ENGINE_BEGIN (depsgraph, ob, 0) {
     const int ob_visibility = BKE_object_visibility(ob, DAG_EVAL_RENDER);
     if ((ob_visibility & OB_VISIBLE_SELF) == 0) {
       continue;
