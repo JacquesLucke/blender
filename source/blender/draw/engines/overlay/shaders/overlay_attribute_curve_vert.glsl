@@ -5,5 +5,5 @@ void main()
 {
   vec3 world_pos = point_object_to_world(pos);
   gl_Position = point_world_to_ndc(world_pos);
-  attribute_color = vertex_color;
+  finalColor = attribute_value;
 }

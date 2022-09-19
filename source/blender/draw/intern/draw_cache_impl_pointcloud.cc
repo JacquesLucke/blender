@@ -245,7 +245,7 @@ static void pointcloud_batch_cache_ensure_attribute_overlay(const PointCloud &po
 
   static GPUVertFormat format = {0};
   if (format.attr_len == 0) {
-    GPU_vertformat_attr_add(&format, "vertex_color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
+    GPU_vertformat_attr_add(&format, "attribute_value", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
   }
   cache.attr_overlay = GPU_vertbuf_create_with_format(&format);
   GPU_vertbuf_data_alloc(cache.attr_overlay, pointcloud.totpoint);
