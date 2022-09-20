@@ -6,7 +6,7 @@
 #include "UI_resources.h"
 
 #include "ED_node.h"
-#include "ED_spreadsheet.h"
+#include "ED_viewer_path.h"
 
 #include "NOD_socket_search_link.hh"
 
@@ -85,7 +85,7 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
     SpaceNode *snode = CTX_wm_space_node(&params.C);
     Main *bmain = CTX_data_main(&params.C);
     ED_node_set_active(bmain, snode, &params.node_tree, &viewer_node, nullptr);
-    ED_spreadsheet_context_paths_set_geometry_node(bmain, snode, &viewer_node);
+    ED_viewer_path_activate_geometry_node(bmain, snode, &viewer_node);
   };
 
   const std::optional<eCustomDataType> type = node_socket_to_custom_data_type(

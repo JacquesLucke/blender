@@ -53,6 +53,7 @@
 #include "BKE_pointcloud.h"
 #include "BKE_screen.h"
 #include "BKE_simulation.h"
+#include "BKE_viewer_path.h"
 #include "BKE_workspace.h"
 
 #include "BLO_read_write.h"
@@ -862,26 +863,26 @@ static void find_side_effect_nodes_for_spreadsheet(
     const bNodeTree &root_tree,
     MultiValueMap<blender::ComputeContextHash, const lf::FunctionNode *> &r_side_effect_nodes)
 {
-  Vector<SpreadsheetContext *> context_path = sspreadsheet.context_path;
-  if (context_path.size() < 3) {
+  Vector<ViewerPathElem *> viewer_path_elems = sspreadsheet.viewer_path.path;
+  if (viewer_path_elems.size() < 3) {
     return;
   }
-  if (context_path[0]->type != SPREADSHEET_CONTEXT_OBJECT) {
+  if (viewer_path_elems[0]->type != VIEWER_PATH_ELEM_TYPE_ID) {
     return;
   }
-  if (context_path[1]->type != SPREADSHEET_CONTEXT_MODIFIER) {
+  if (viewer_path_elems[1]->type != VIEWER_PATH_ELEM_TYPE_MODIFIER) {
     return;
   }
-  SpreadsheetContextObject *object_context = (SpreadsheetContextObject *)context_path[0];
-  if (object_context->object != DEG_get_original_object(ctx.object)) {
+  IDViewerPathElem *object_context = (IDViewerPathElem *)viewer_path_elems[0];
+  if (object_context->id != &DEG_get_original_object(ctx.object)->id) {
     return;
   }
-  SpreadsheetContextModifier *modifier_context = (SpreadsheetContextModifier *)context_path[1];
+  ModifierViewerPathElem *modifier_context = (ModifierViewerPathElem *)viewer_path_elems[1];
   if (StringRef(modifier_context->modifier_name) != nmd.modifier.name) {
     return;
   }
-  for (SpreadsheetContext *context : context_path.as_span().drop_front(2)) {
-    if (context->type != SPREADSHEET_CONTEXT_NODE) {
+  for (ViewerPathElem *context : viewer_path_elems.as_span().drop_front(2)) {
+    if (context->type != VIEWER_PATH_ELEM_TYPE_NODE) {
       return;
     }
   }
@@ -889,13 +890,13 @@ static void find_side_effect_nodes_for_spreadsheet(
   blender::ComputeContextBuilder compute_context_builder;
   compute_context_builder.push<blender::bke::ModifierComputeContext>(nmd.modifier.name);
 
-  const Span<SpreadsheetContextNode *> nested_group_contexts =
-      context_path.as_span().drop_front(2).drop_back(1).cast<SpreadsheetContextNode *>();
-  const SpreadsheetContextNode *last_context = (SpreadsheetContextNode *)context_path.last();
+  const Span<NodeViewerPathElem *> nested_group_contexts =
+      viewer_path_elems.as_span().drop_front(2).drop_back(1).cast<NodeViewerPathElem *>();
+  const NodeViewerPathElem *last_context = (NodeViewerPathElem *)viewer_path_elems.last();
 
   Stack<const bNode *> group_node_stack;
   const bNodeTree *group = &root_tree;
-  for (SpreadsheetContextNode *node_context : nested_group_contexts) {
+  for (NodeViewerPathElem *node_context : nested_group_contexts) {
     const bNode *found_node = nullptr;
     for (const bNode *node : group->group_nodes()) {
       if (STREQ(node->name, node_context->node_name)) {

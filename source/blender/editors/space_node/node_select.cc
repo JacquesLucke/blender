@@ -28,8 +28,8 @@
 #include "ED_node.h" /* own include */
 #include "ED_screen.h"
 #include "ED_select_utils.h"
-#include "ED_spreadsheet.h"
 #include "ED_view3d.h"
+#include "ED_viewer_path.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -655,7 +655,7 @@ static bool node_mouse_select(bContext *C,
     ED_node_set_active(&bmain, &snode, snode.edittree, node, &active_texture_changed);
   }
   else if (node != nullptr && node->type == GEO_NODE_VIEWER) {
-    ED_spreadsheet_context_paths_set_geometry_node(&bmain, &snode, node);
+    ED_viewer_path_activate_geometry_node(&bmain, &snode, node);
   }
   ED_node_set_active_viewer_key(&snode);
   node_sort(*snode.edittree);

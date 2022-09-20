@@ -32,7 +32,8 @@ class SPREADSHEET_OT_toggle_pin(Operator):
     def unpin(self, context):
         space = context.space_data
         space.is_pinned = False
-        space.context_path.guess()
+        # TODO
+        # space.context_path.guess()
 
 
 classes = (

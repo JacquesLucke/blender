@@ -43,7 +43,7 @@
 #include "ED_render.h"
 #include "ED_screen.h"
 #include "ED_select_utils.h"
-#include "ED_spreadsheet.h"
+#include "ED_viewer_path.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -821,7 +821,7 @@ void ED_node_set_active(
             }
           }
           node->flag |= NODE_DO_OUTPUT;
-          ED_spreadsheet_context_paths_set_geometry_node(bmain, snode, node);
+          ED_viewer_path_activate_geometry_node(bmain, snode, node);
         }
       }
     }

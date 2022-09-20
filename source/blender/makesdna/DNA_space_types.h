@@ -1885,31 +1885,37 @@ typedef struct SpreadsheetColumn {
   char *display_name;
 } SpreadsheetColumn;
 
-/**
- * An item in SpaceSpreadsheet.context_path.
- * This is a bases struct for the structs below.
- */
-typedef struct SpreadsheetContext {
-  struct SpreadsheetContext *next, *prev;
-  /* eSpaceSpreadsheet_ContextType. */
+typedef enum ViewerPathElemType {
+  VIEWER_PATH_ELEM_TYPE_ID = 0,
+  VIEWER_PATH_ELEM_TYPE_MODIFIER = 1,
+  VIEWER_PATH_ELEM_TYPE_NODE = 2,
+} ViewerPathElemType;
+
+typedef struct ViewerPathElem {
+  struct ViewerPathElem *next, *prev;
   int type;
   char _pad[4];
-} SpreadsheetContext;
+} ViewerPathElem;
 
-typedef struct SpreadsheetContextObject {
-  SpreadsheetContext base;
-  struct Object *object;
-} SpreadsheetContextObject;
+typedef struct IDViewerPathElem {
+  ViewerPathElem base;
+  ID *id;
+} IDViewerPathElem;
 
-typedef struct SpreadsheetContextModifier {
-  SpreadsheetContext base;
+typedef struct ModifierViewerPathElem {
+  ViewerPathElem base;
   char *modifier_name;
-} SpreadsheetContextModifier;
+} ModifierViewerPathElem;
 
-typedef struct SpreadsheetContextNode {
-  SpreadsheetContext base;
+typedef struct NodeViewerPathElem {
+  ViewerPathElem base;
   char *node_name;
-} SpreadsheetContextNode;
+} NodeViewerPathElem;
+
+typedef struct ViewerPath {
+  /** List of #ViewerPathElem. */
+  ListBase path;
+} ViewerPath;
 
 typedef struct SpaceSpreadsheet {
   SpaceLink *next, *prev;
@@ -1926,13 +1932,7 @@ typedef struct SpaceSpreadsheet {
   /* SpreadsheetRowFilter. */
   ListBase row_filters;
 
-  /**
-   * List of #SpreadsheetContext.
-   * This is a path to the data that is displayed in the spreadsheet.
-   * It can be set explicitly by an action of the user (e.g. clicking the preview icon in a
-   * geometry node) or it can be derived from context automatically based on some heuristic.
-   */
-  ListBase context_path;
+  ViewerPath viewer_path;
 
   /* eSpaceSpreadsheet_FilterFlag. */
   uint8_t filter_flag;

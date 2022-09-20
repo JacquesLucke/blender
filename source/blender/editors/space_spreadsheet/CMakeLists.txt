@@ -23,7 +23,6 @@ set(SRC
   space_spreadsheet.cc
   spreadsheet_cache.cc
   spreadsheet_column.cc
-  spreadsheet_context.cc
   spreadsheet_data_source.cc
   spreadsheet_data_source_geometry.cc
   spreadsheet_dataset_draw.cc
@@ -37,7 +36,6 @@ set(SRC
   spreadsheet_cache.hh
   spreadsheet_column.hh
   spreadsheet_column_values.hh
-  spreadsheet_context.hh
   spreadsheet_data_source.hh
   spreadsheet_data_source_geometry.hh
   spreadsheet_dataset_draw.hh

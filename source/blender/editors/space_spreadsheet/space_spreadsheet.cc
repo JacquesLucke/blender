@@ -10,6 +10,7 @@
 #include "ED_screen.h"
 #include "ED_space_api.h"
 #include "ED_spreadsheet.h"
+#include "ED_viewer_path.h"
 
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -32,7 +33,6 @@
 
 #include "BLF_api.h"
 
-#include "spreadsheet_context.hh"
 #include "spreadsheet_data_source_geometry.hh"
 #include "spreadsheet_dataset_draw.hh"
 #include "spreadsheet_intern.hh"
@@ -105,9 +105,7 @@ static void spreadsheet_free(SpaceLink *sl)
   LISTBASE_FOREACH_MUTABLE (SpreadsheetColumn *, column, &sspreadsheet->columns) {
     spreadsheet_column_free(column);
   }
-  LISTBASE_FOREACH_MUTABLE (SpreadsheetContext *, context, &sspreadsheet->context_path) {
-    spreadsheet_context_free(context);
-  }
+  BKE_viewer_path_clear(&sspreadsheet->viewer_path);
 }
 
 static void spreadsheet_init(wmWindowManager *UNUSED(wm), ScrArea *area)
@@ -141,11 +139,7 @@ static SpaceLink *spreadsheet_duplicate(SpaceLink *sl)
     BLI_addtail(&sspreadsheet_new->columns, new_column);
   }
 
-  BLI_listbase_clear(&sspreadsheet_new->context_path);
-  LISTBASE_FOREACH_MUTABLE (SpreadsheetContext *, src_context, &sspreadsheet_old->context_path) {
-    SpreadsheetContext *new_context = spreadsheet_context_copy(src_context);
-    BLI_addtail(&sspreadsheet_new->context_path, new_context);
-  }
+  BKE_viewer_path_copy(&sspreadsheet_new->viewer_path, &sspreadsheet_old->viewer_path);
 
   return (SpaceLink *)sspreadsheet_new;
 }
@@ -161,19 +155,7 @@ static void spreadsheet_id_remap(ScrArea *UNUSED(area),
                                  const IDRemapper *mappings)
 {
   SpaceSpreadsheet *sspreadsheet = (SpaceSpreadsheet *)slink;
-  LISTBASE_FOREACH (SpreadsheetContext *, context, &sspreadsheet->context_path) {
-    if (context->type != SPREADSHEET_CONTEXT_OBJECT) {
-      continue;
-    }
-    SpreadsheetContextObject *object_context = (SpreadsheetContextObject *)context;
-
-    if (object_context->object != nullptr && GS(object_context->object->id.name) != ID_OB) {
-      object_context->object = nullptr;
-      continue;
-    }
-
-    BKE_id_remapper_apply(mappings, ((ID **)&object_context->object), ID_REMAP_APPLY_DEFAULT);
-  }
+  BKE_viewer_path_remap_id(&sspreadsheet->viewer_path, mappings);
 }
 
 static void spreadsheet_main_region_init(wmWindowManager *wm, ARegion *region)
@@ -199,15 +181,16 @@ static void spreadsheet_main_region_init(wmWindowManager *wm, ARegion *region)
 
 ID *ED_spreadsheet_get_current_id(const struct SpaceSpreadsheet *sspreadsheet)
 {
-  if (BLI_listbase_is_empty(&sspreadsheet->context_path)) {
+  if (BLI_listbase_is_empty(&sspreadsheet->viewer_path.path)) {
     return nullptr;
   }
-  SpreadsheetContext *root_context = (SpreadsheetContext *)sspreadsheet->context_path.first;
-  if (root_context->type != SPREADSHEET_CONTEXT_OBJECT) {
+  ViewerPathElem *root_context = static_cast<ViewerPathElem *>(
+      sspreadsheet->viewer_path.path.first);
+  if (root_context->type != VIEWER_PATH_ELEM_TYPE_ID) {
     return nullptr;
   }
-  SpreadsheetContextObject *object_context = (SpreadsheetContextObject *)root_context;
-  return (ID *)object_context->object;
+  IDViewerPathElem *id_elem = reinterpret_cast<IDViewerPathElem *>(root_context);
+  return id_elem->id;
 }
 
 /* Check if the pinned context still exists. If it doesn't try to find a new context. */
@@ -215,15 +198,16 @@ static void update_pinned_context_path_if_outdated(const bContext *C)
 {
   SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
   Main *bmain = CTX_data_main(C);
-  if (!ED_spreadsheet_context_path_exists(bmain, sspreadsheet)) {
-    ED_spreadsheet_context_path_guess(C, sspreadsheet);
-    if (ED_spreadsheet_context_path_update_tag(sspreadsheet)) {
+  if (!ED_viewer_path_exists(bmain, &sspreadsheet->viewer_path)) {
+    BKE_viewer_path_clear(&sspreadsheet->viewer_path);
+    ED_viewer_path_guess(C, &sspreadsheet->viewer_path);
+    if (ED_viewer_path_tag_depsgraph(&sspreadsheet->viewer_path)) {
       ED_area_tag_redraw(CTX_wm_area(C));
     }
   }
 
-  if (BLI_listbase_is_empty(&sspreadsheet->context_path)) {
-    /* Don't pin empty context_path, that could be annoying. */
+  if (BLI_listbase_is_empty(&sspreadsheet->viewer_path.path)) {
+    /* Don't pin empty viewer path, that could be annoying. */
     sspreadsheet->flag &= ~SPREADSHEET_FLAG_PINNED;
   }
 }
@@ -231,9 +215,10 @@ static void update_pinned_context_path_if_outdated(const bContext *C)
 static void update_context_path_from_context(const bContext *C)
 {
   SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
-  if (!ED_spreadsheet_context_path_is_active(C, sspreadsheet)) {
-    ED_spreadsheet_context_path_guess(C, sspreadsheet);
-    if (ED_spreadsheet_context_path_update_tag(sspreadsheet)) {
+  if (!ED_viewer_path_is_active(C, &sspreadsheet->viewer_path)) {
+    BKE_viewer_path_clear(&sspreadsheet->viewer_path);
+    ED_viewer_path_guess(C, &sspreadsheet->viewer_path);
+    if (ED_viewer_path_tag_depsgraph(&sspreadsheet->viewer_path)) {
       ED_area_tag_redraw(CTX_wm_area(C));
     }
   }

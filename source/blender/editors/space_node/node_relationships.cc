@@ -27,8 +27,8 @@
 #include "ED_render.h"
 #include "ED_screen.h"
 #include "ED_space_api.h"
-#include "ED_spreadsheet.h"
 #include "ED_util.h"
+#include "ED_viewer_path.h"
 
 #include "RNA_access.h"
 #include "RNA_define.h"
@@ -660,7 +660,7 @@ static int link_socket_to_viewer(const bContext &C,
   remove_links_to_unavailable_viewer_sockets(btree, *viewer_bnode);
 
   if (btree.type == NTREE_GEOMETRY) {
-    ED_spreadsheet_context_paths_set_geometry_node(CTX_data_main(&C), &snode, viewer_bnode);
+    ED_viewer_path_activate_geometry_node(CTX_data_main(&C), &snode, viewer_bnode);
   }
 
   ED_node_tree_propagate_change(&C, CTX_data_main(&C), &btree);

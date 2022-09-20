@@ -461,7 +461,7 @@ GeometrySet spreadsheet_get_display_geometry_set(const SpaceSpreadsheet *sspread
       mesh_component.replace(mesh, GeometryOwnershipType::ReadOnly);
     }
     else {
-      if (BLI_listbase_count(&sspreadsheet->context_path) == 1) {
+      if (BLI_listbase_count(&sspreadsheet->viewer_path.path) == 1) {
         /* Use final evaluated object. */
         if (object_eval->runtime.geometry_set_eval != nullptr) {
           geometry_set = *object_eval->runtime.geometry_set_eval;
