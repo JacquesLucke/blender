@@ -19,7 +19,10 @@ class SPREADSHEET_HT_header(bpy.types.Header):
         if root_context.type != 'ID':
             self.draw_without_viewer_path(layout)
             return
-        obj = root_context.object
+        if not isinstance(root_context.id, bpy.types.Object):
+            self.draw_without_viewer_path(layout)
+            return
+        obj = root_context.id
         if obj is None:
             self.draw_without_viewer_path(layout)
             return
@@ -76,7 +79,7 @@ class SPREADSHEET_HT_header(bpy.types.Header):
 
     def draw_spreadsheet_context(self, layout, ctx):
         if ctx.type == 'ID':
-            if ctx.id is not None and ctx.id.type == 'OBJECT':
+            if ctx.id is not None and isinstance(ctx.id, bpy.types.Object):
                 layout.label(text=ctx.id.name, icon='OBJECT_DATA')
             else:
                 layout.label(text="Invalid id")
@@ -89,10 +92,10 @@ class SPREADSHEET_HT_header(bpy.types.Header):
         layout.prop(space, "display_viewer_path_collapsed", icon_only=True, emboss=False, icon=icon)
 
     def selection_filter_available(self, space):
-        root_context = space.viewer_path[0]
+        root_context = space.viewer_path.path[0]
         if root_context.type != 'ID':
             return False
-        if root_context.id.type != 'OBJECT':
+        if not isinstance(root_context.id, bpy.types.Object):
             return False
         obj = root_context.id
         if obj is None:

@@ -7967,7 +7967,7 @@ static void rna_def_space_spreadsheet(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Use Filter", "");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_SPREADSHEET, NULL);
 
-  prop = RNA_def_property(srna, "display_context_path_collapsed", PROP_BOOLEAN, PROP_NONE);
+  prop = RNA_def_property(srna, "display_viewer_path_collapsed", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_sdna(prop, NULL, "flag", SPREADSHEET_FLAG_CONTEXT_PATH_COLLAPSED);
   RNA_def_property_ui_text(prop, "Display Context Path Collapsed", "");
   RNA_def_property_update(prop, NC_SPACE | ND_SPACE_SPREADSHEET, NULL);

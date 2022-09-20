@@ -7,8 +7,11 @@
 #include "BKE_workspace.h"
 
 #include "BLI_listbase.h"
+#include "BLI_vector.hh"
 
 #include "DNA_windowmanager_types.h"
+
+using blender::Vector;
 
 void ED_viewer_path_activate_geometry_node(struct Main *bmain,
                                            struct SpaceNode *snode,
@@ -19,7 +22,10 @@ void ED_viewer_path_activate_geometry_node(struct Main *bmain,
 
 bool ED_viewer_path_is_active(const struct bContext *C, const ViewerPath *viewer_path)
 {
-  UNUSED_VARS(C, viewer_path);
+  Vector<const ViewerPathElem *> elems = viewer_path->path;
+  if (elems.is_empty()) {
+    return false;
+  }
   return true;
 }
 
