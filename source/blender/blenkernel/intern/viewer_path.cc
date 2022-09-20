@@ -168,6 +168,23 @@ ViewerPathElem *BKE_viewer_path_elem_new(const ViewerPathElemType type)
   return nullptr;
 }
 
+IDViewerPathElem *BKE_viewer_path_elem_new_id()
+{
+  return reinterpret_cast<IDViewerPathElem *>(BKE_viewer_path_elem_new(VIEWER_PATH_ELEM_TYPE_ID));
+}
+
+ModifierViewerPathElem *BKE_viewer_path_elem_new_modifier()
+{
+  return reinterpret_cast<ModifierViewerPathElem *>(
+      BKE_viewer_path_elem_new(VIEWER_PATH_ELEM_TYPE_MODIFIER));
+}
+
+NodeViewerPathElem *BKE_viewer_path_elem_new_node()
+{
+  return reinterpret_cast<NodeViewerPathElem *>(
+      BKE_viewer_path_elem_new(VIEWER_PATH_ELEM_TYPE_NODE));
+}
+
 ViewerPathElem *BKE_viewer_path_elem_copy(const ViewerPathElem *src)
 {
   ViewerPathElem *dst = BKE_viewer_path_elem_new(ViewerPathElemType(src->type));

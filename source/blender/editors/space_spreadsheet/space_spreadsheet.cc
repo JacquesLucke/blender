@@ -193,17 +193,28 @@ ID *ED_spreadsheet_get_current_id(const struct SpaceSpreadsheet *sspreadsheet)
   return id_elem->id;
 }
 
+static void view_active_object(const bContext *C, SpaceSpreadsheet *sspreadsheet)
+{
+  BKE_viewer_path_clear(&sspreadsheet->viewer_path);
+  Object *ob = CTX_data_active_object(C);
+  if (ob == nullptr) {
+    return;
+  }
+  IDViewerPathElem *id_elem = BKE_viewer_path_elem_new_id();
+  id_elem->id = &ob->id;
+  BLI_addtail(&sspreadsheet->viewer_path.path, id_elem);
+  if (ED_viewer_path_tag_depsgraph(&sspreadsheet->viewer_path)) {
+    ED_area_tag_redraw(CTX_wm_area(C));
+  }
+}
+
 /* Check if the pinned context still exists. If it doesn't try to find a new context. */
 static void update_pinned_context_path_if_outdated(const bContext *C)
 {
   SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
   Main *bmain = CTX_data_main(C);
   if (!ED_viewer_path_exists(bmain, &sspreadsheet->viewer_path)) {
-    BKE_viewer_path_clear(&sspreadsheet->viewer_path);
-    ED_viewer_path_guess(C, &sspreadsheet->viewer_path);
-    if (ED_viewer_path_tag_depsgraph(&sspreadsheet->viewer_path)) {
-      ED_area_tag_redraw(CTX_wm_area(C));
-    }
+    view_active_object(C, sspreadsheet);
   }
 
   if (BLI_listbase_is_empty(&sspreadsheet->viewer_path.path)) {
@@ -216,11 +227,7 @@ static void update_context_path_from_context(const bContext *C)
 {
   SpaceSpreadsheet *sspreadsheet = CTX_wm_space_spreadsheet(C);
   if (!ED_viewer_path_is_active(C, &sspreadsheet->viewer_path)) {
-    BKE_viewer_path_clear(&sspreadsheet->viewer_path);
-    ED_viewer_path_guess(C, &sspreadsheet->viewer_path);
-    if (ED_viewer_path_tag_depsgraph(&sspreadsheet->viewer_path)) {
-      ED_area_tag_redraw(CTX_wm_area(C));
-    }
+    view_active_object(C, sspreadsheet);
   }
 }
 

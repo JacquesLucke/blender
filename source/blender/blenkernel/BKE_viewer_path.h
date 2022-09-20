@@ -28,6 +28,9 @@ void BKE_viewer_path_foreach_id(struct LibraryForeachIDData *data, ViewerPath *v
 void BKE_viewer_path_remap_id(ViewerPath *viewer_path, const struct IDRemapper *mappings);
 
 ViewerPathElem *BKE_viewer_path_elem_new(ViewerPathElemType type);
+IDViewerPathElem *BKE_viewer_path_elem_new_id(void);
+ModifierViewerPathElem *BKE_viewer_path_elem_new_modifier(void);
+NodeViewerPathElem *BKE_viewer_path_elem_new_node(void);
 ViewerPathElem *BKE_viewer_path_elem_copy(const ViewerPathElem *src);
 bool BKE_viewer_path_elem_equal(const ViewerPathElem *a, const ViewerPathElem *b);
 void BKE_viewer_path_elem_free(ViewerPathElem *elem);
