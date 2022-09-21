@@ -455,6 +455,10 @@ static void spreadsheet_main_region_listener(const wmRegionListenerParams *param
       ED_region_tag_redraw(region);
       break;
     }
+    case NC_VIEWER_PATH: {
+      ED_region_tag_redraw(region);
+      break;
+    }
   }
 }
 
@@ -500,6 +504,10 @@ static void spreadsheet_header_region_listener(const wmRegionListenerParams *par
       break;
     }
     case NC_GEOM: {
+      ED_region_tag_redraw(region);
+      break;
+    }
+    case NC_VIEWER_PATH: {
       ED_region_tag_redraw(region);
       break;
     }
