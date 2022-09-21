@@ -26,6 +26,92 @@ void ED_viewer_path_activate_geometry_node(struct Main *bmain,
 
 bool ED_viewer_path_is_active(const struct bContext *C, const ViewerPath *viewer_path)
 {
+  const std::optional<ViewerPathForGeometryNodesViewer> parsed_path =
+      ED_viewer_path_parse_geometry_nodes_viewer(*viewer_path);
+  if (!parsed_path.has_value()) {
+    return false;
+  }
+
+  const NodesModifierData *modifier = nullptr;
+  LISTBASE_FOREACH (const ModifierData *, md, &parsed_path->object->modifiers) {
+    if (md->name != parsed_path->modifier_name) {
+      continue;
+    }
+    if (md->type != eModifierType_Nodes) {
+      return false;
+    }
+    modifier = reinterpret_cast<const NodesModifierData *>(md);
+    break;
+  }
+  if (modifier == nullptr) {
+    return false;
+  }
+  if (modifier->node_group == nullptr) {
+    return false;
+  }
+  const bool modifier_is_active = modifier->modifier.flag & eModifierFlag_Active;
+
+  const Main *bmain = CTX_data_main(C);
+  const wmWindowManager *wm = static_cast<wmWindowManager *>(bmain->wm.first);
+  LISTBASE_FOREACH (const wmWindow *, window, &wm->windows) {
+    const bScreen *active_screen = BKE_workspace_active_screen_get(window->workspace_hook);
+    Vector<const bScreen *> screens = {active_screen};
+    if (ELEM(active_screen->state, SCREENMAXIMIZED, SCREENFULL)) {
+      const ScrArea *area = static_cast<ScrArea *>(active_screen->areabase.first);
+      screens.append(area->full);
+    }
+    for (const bScreen *screen : screens) {
+      LISTBASE_FOREACH (const ScrArea *, area, &screen->areabase) {
+        const SpaceLink *sl = static_cast<SpaceLink *>(area->spacedata.first);
+        if (sl == nullptr) {
+          continue;
+        }
+        if (sl->spacetype != SPACE_NODE) {
+          continue;
+        }
+        const SpaceNode &snode = *reinterpret_cast<const SpaceNode *>(sl);
+        if (!modifier_is_active) {
+          if (!(snode.flag & SNODE_PIN)) {
+            /* Node tree has to be pinned when the modifier is not active. */
+            continue;
+          }
+        }
+        if (snode.id != &parsed_path->object->id) {
+          continue;
+        }
+        if (snode.nodetree != modifier->node_group) {
+          continue;
+        }
+        Vector<const bNodeTreePath *, 16> tree_path = snode.treepath;
+        if (tree_path.size() != parsed_path->group_node_names.size() + 1) {
+          continue;
+        }
+        bool valid_path = true;
+        for (const int i : parsed_path->group_node_names.index_range()) {
+          if (parsed_path->group_node_names[i] != tree_path[i + 1]->node_name) {
+            valid_path = false;
+            break;
+          }
+        }
+        if (!valid_path) {
+          continue;
+        }
+        const bNodeTree *ngroup = snode.edittree;
+        ngroup->ensure_topology_cache();
+        const bNode *viewer_node = nullptr;
+        for (const bNode *node : ngroup->nodes_by_type("GeometryNodesViewer")) {
+          if (node->name != parsed_path->viewer_node_name) {
+            continue;
+          }
+          viewer_node = node;
+        }
+        if (!(viewer_node->flag & NODE_DO_OUTPUT)) {
+          continue;
+        }
+        return true;
+      }
+    }
+  }
   return false;
 }
 
