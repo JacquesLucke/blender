@@ -53,7 +53,6 @@
 #include "BKE_pointcloud.h"
 #include "BKE_screen.h"
 #include "BKE_simulation.h"
-#include "BKE_viewer_path.h"
 #include "BKE_workspace.h"
 
 #include "BLO_read_write.h"
@@ -81,6 +80,7 @@
 #include "ED_screen.h"
 #include "ED_spreadsheet.h"
 #include "ED_undo.h"
+#include "ED_viewer_path.h"
 
 #include "NOD_geometry.h"
 #include "NOD_geometry_nodes_lazy_function.hh"
@@ -863,43 +863,27 @@ static void find_side_effect_nodes_for_spreadsheet(
     const bNodeTree &root_tree,
     MultiValueMap<blender::ComputeContextHash, const lf::FunctionNode *> &r_side_effect_nodes)
 {
-  Vector<ViewerPathElem *> viewer_path_elems = sspreadsheet.viewer_path.path;
-  if (viewer_path_elems.size() < 3) {
+  const std::optional<ViewerPathForGeometryNodesViewer> parsed_path =
+      ED_viewer_path_parse_geometry_nodes_viewer(sspreadsheet.viewer_path);
+  if (!parsed_path.has_value()) {
     return;
   }
-  if (viewer_path_elems[0]->type != VIEWER_PATH_ELEM_TYPE_ID) {
+  if (parsed_path->object != DEG_get_original_object(ctx.object)) {
     return;
   }
-  if (viewer_path_elems[1]->type != VIEWER_PATH_ELEM_TYPE_MODIFIER) {
+  if (parsed_path->modifier_name != nmd.modifier.name) {
     return;
-  }
-  IDViewerPathElem *object_context = (IDViewerPathElem *)viewer_path_elems[0];
-  if (object_context->id != &DEG_get_original_object(ctx.object)->id) {
-    return;
-  }
-  ModifierViewerPathElem *modifier_context = (ModifierViewerPathElem *)viewer_path_elems[1];
-  if (StringRef(modifier_context->modifier_name) != nmd.modifier.name) {
-    return;
-  }
-  for (ViewerPathElem *context : viewer_path_elems.as_span().drop_front(2)) {
-    if (context->type != VIEWER_PATH_ELEM_TYPE_NODE) {
-      return;
-    }
   }
 
   blender::ComputeContextBuilder compute_context_builder;
-  compute_context_builder.push<blender::bke::ModifierComputeContext>(nmd.modifier.name);
+  compute_context_builder.push<blender::bke::ModifierComputeContext>(parsed_path->modifier_name);
 
-  const Span<NodeViewerPathElem *> nested_group_contexts =
-      viewer_path_elems.as_span().drop_front(2).drop_back(1).cast<NodeViewerPathElem *>();
-  const NodeViewerPathElem *last_context = (NodeViewerPathElem *)viewer_path_elems.last();
-
-  Stack<const bNode *> group_node_stack;
   const bNodeTree *group = &root_tree;
-  for (NodeViewerPathElem *node_context : nested_group_contexts) {
+  Stack<const bNode *> group_node_stack;
+  for (const StringRefNull group_node_name : parsed_path->group_node_names) {
     const bNode *found_node = nullptr;
     for (const bNode *node : group->group_nodes()) {
-      if (STREQ(node->name, node_context->node_name)) {
+      if (node->name == group_node_name) {
         found_node = node;
         break;
       }
@@ -911,13 +895,13 @@ static void find_side_effect_nodes_for_spreadsheet(
       return;
     }
     group_node_stack.push(found_node);
-    group = reinterpret_cast<const bNodeTree *>(found_node->id);
-    compute_context_builder.push<blender::bke::NodeGroupComputeContext>(node_context->node_name);
+    group = reinterpret_cast<bNodeTree *>(found_node->id);
+    compute_context_builder.push<blender::bke::NodeGroupComputeContext>(group_node_name);
   }
 
   const bNode *found_viewer_node = nullptr;
   for (const bNode *viewer_node : group->nodes_by_type("GeometryNodeViewer")) {
-    if (STREQ(viewer_node->name, last_context->node_name)) {
+    if (viewer_node->name == parsed_path->viewer_node_name) {
       found_viewer_node = viewer_node;
       break;
     }
