@@ -14,6 +14,8 @@
 #include "DNA_modifier_types.h"
 #include "DNA_windowmanager_types.h"
 
+#include "DEG_depsgraph.h"
+
 using blender::Span;
 using blender::StringRefNull;
 using blender::Vector;
@@ -80,6 +82,7 @@ void ED_viewer_path_activate_geometry_node(Main *bmain, SpaceNode *snode, bNode 
         if (!(sspreadsheet.flag & SPREADSHEET_FLAG_PINNED)) {
           BKE_viewer_path_clear(&sspreadsheet.viewer_path);
           viewer_path_for_geometry_node(*snode, *node, &sspreadsheet.viewer_path);
+          ED_viewer_path_tag_depsgraph(&sspreadsheet.viewer_path);
           ED_area_tag_redraw(area);
         }
       }
@@ -246,8 +249,20 @@ bool ED_viewer_path_exists(Main * /*bmain*/, const ViewerPath *viewer_path)
 
 bool ED_viewer_path_tag_depsgraph(const ViewerPath *viewer_path)
 {
-  UNUSED_VARS(viewer_path);
-  return false;
+  if (BLI_listbase_is_empty(&viewer_path->path)) {
+    return false;
+  }
+  ViewerPathElem *elem = static_cast<ViewerPathElem *>(viewer_path->path.first);
+  if (elem->type != VIEWER_PATH_ELEM_TYPE_ID) {
+    return false;
+  }
+  ID *id = reinterpret_cast<IDViewerPathElem *>(elem)->id;
+  if (GS(id->name) != ID_OB) {
+    return false;
+  }
+  Object *ob = reinterpret_cast<Object *>(id);
+  DEG_id_tag_update(&ob->id, ID_RECALC_GEOMETRY);
+  return true;
 }
 
 std::optional<ViewerPathForGeometryNodesViewer> ED_viewer_path_parse_geometry_nodes_viewer(

@@ -203,9 +203,7 @@ static void view_active_object(const bContext *C, SpaceSpreadsheet *sspreadsheet
   IDViewerPathElem *id_elem = BKE_viewer_path_elem_new_id();
   id_elem->id = &ob->id;
   BLI_addtail(&sspreadsheet->viewer_path.path, id_elem);
-  if (ED_viewer_path_tag_depsgraph(&sspreadsheet->viewer_path)) {
-    ED_area_tag_redraw(CTX_wm_area(C));
-  }
+  ED_area_tag_redraw(CTX_wm_area(C));
 }
 
 /* Check if the pinned context still exists. If it doesn't try to find a new context. */
