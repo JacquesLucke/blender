@@ -33,6 +33,7 @@
 
 #include "BKE_attribute.h"
 #include "BKE_geometry_set.hh"
+#include "BKE_viewer_path.h"
 
 #include "FN_field.hh"
 
@@ -337,8 +338,7 @@ class GeoModifierLog {
    * Utility accessor to logged data.
    */
   static GeoTreeLog *get_tree_log_for_node_editor(const SpaceNode &snode);
-  static const ViewerNodeLog *find_viewer_node_log_for_spreadsheet(
-      const SpaceSpreadsheet &sspreadsheet);
+  static const ViewerNodeLog *find_viewer_node_log_for_path(const ViewerPath &viewer_path);
 };
 
 }  // namespace blender::nodes::geo_eval_log
