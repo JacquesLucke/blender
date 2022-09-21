@@ -157,12 +157,21 @@ void BKE_viewer_path_remap_id(ViewerPath *viewer_path, const IDRemapper *mapping
 ViewerPathElem *BKE_viewer_path_elem_new(const ViewerPathElemType type)
 {
   switch (type) {
-    case VIEWER_PATH_ELEM_TYPE_ID:
-      return &MEM_cnew<IDViewerPathElem>(__func__)->base;
-    case VIEWER_PATH_ELEM_TYPE_MODIFIER:
-      return &MEM_cnew<ModifierViewerPathElem>(__func__)->base;
-    case VIEWER_PATH_ELEM_TYPE_NODE:
-      return &MEM_cnew<NodeViewerPathElem>(__func__)->base;
+    case VIEWER_PATH_ELEM_TYPE_ID: {
+      IDViewerPathElem *elem = MEM_cnew<IDViewerPathElem>(__func__);
+      elem->base.type = type;
+      return &elem->base;
+    }
+    case VIEWER_PATH_ELEM_TYPE_MODIFIER: {
+      ModifierViewerPathElem *elem = MEM_cnew<ModifierViewerPathElem>(__func__);
+      elem->base.type = type;
+      return &elem->base;
+    }
+    case VIEWER_PATH_ELEM_TYPE_NODE: {
+      NodeViewerPathElem *elem = MEM_cnew<NodeViewerPathElem>(__func__);
+      elem->base.type = type;
+      return &elem->base;
+    }
   }
   BLI_assert_unreachable();
   return nullptr;

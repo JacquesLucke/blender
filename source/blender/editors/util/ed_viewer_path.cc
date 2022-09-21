@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "ED_viewer_path.h"
+#include "ED_screen.h"
 
 #include "BKE_context.h"
 #include "BKE_main.h"
@@ -17,11 +18,73 @@ using blender::Span;
 using blender::StringRefNull;
 using blender::Vector;
 
-void ED_viewer_path_activate_geometry_node(struct Main *bmain,
-                                           struct SpaceNode *snode,
-                                           struct bNode *node)
+static void viewer_path_for_geometry_node(const SpaceNode &snode,
+                                          const bNode &node,
+                                          ViewerPath *dst)
 {
-  UNUSED_VARS(bmain, snode, node);
+  BKE_viewer_path_init(dst);
+
+  Object *ob = reinterpret_cast<Object *>(snode.id);
+  IDViewerPathElem *id_elem = BKE_viewer_path_elem_new_id();
+  id_elem->id = &ob->id;
+  BLI_addtail(&dst->path, id_elem);
+
+  NodesModifierData *modifier = nullptr;
+  LISTBASE_FOREACH (ModifierData *, md, &ob->modifiers) {
+    if (md->type != eModifierType_Nodes) {
+      continue;
+    }
+    NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
+    if (nmd->node_group != snode.nodetree) {
+      continue;
+    }
+    if (snode.flag & SNODE_PIN) {
+      /* If the node group is pinned, use the first matching modifier. This can be improved by
+       * storing the modifier name in the node editor when the context is pinned. */
+      modifier = nmd;
+      break;
+    }
+    if (md->flag & eModifierFlag_Active) {
+      modifier = nmd;
+    }
+  }
+
+  ModifierViewerPathElem *modifier_elem = BKE_viewer_path_elem_new_modifier();
+  modifier_elem->modifier_name = BLI_strdup(modifier->modifier.name);
+  BLI_addtail(&dst->path, modifier_elem);
+
+  Vector<const bNodeTreePath *, 16> tree_path = snode.treepath;
+  for (const bNodeTreePath *tree_path_elem : tree_path.as_span().drop_front(1)) {
+    NodeViewerPathElem *node_elem = BKE_viewer_path_elem_new_node();
+    node_elem->node_name = BLI_strdup(tree_path_elem->node_name);
+    BLI_addtail(&dst->path, node_elem);
+  }
+
+  NodeViewerPathElem *viewer_node_elem = BKE_viewer_path_elem_new_node();
+  viewer_node_elem->node_name = BLI_strdup(node.name);
+  BLI_addtail(&dst->path, viewer_node_elem);
+}
+
+void ED_viewer_path_activate_geometry_node(Main *bmain, SpaceNode *snode, bNode *node)
+{
+  wmWindowManager *wm = (wmWindowManager *)bmain->wm.first;
+  if (wm == nullptr) {
+    return;
+  }
+  LISTBASE_FOREACH (wmWindow *, window, &wm->windows) {
+    bScreen *screen = BKE_workspace_active_screen_get(window->workspace_hook);
+    LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
+      SpaceLink *sl = static_cast<SpaceLink *>(area->spacedata.first);
+      if (sl->spacetype == SPACE_SPREADSHEET) {
+        SpaceSpreadsheet &sspreadsheet = *reinterpret_cast<SpaceSpreadsheet *>(sl);
+        if (!(sspreadsheet.flag & SPREADSHEET_FLAG_PINNED)) {
+          BKE_viewer_path_clear(&sspreadsheet.viewer_path);
+          viewer_path_for_geometry_node(*snode, *node, &sspreadsheet.viewer_path);
+          ED_area_tag_redraw(area);
+        }
+      }
+    }
+  }
 }
 
 bool ED_viewer_path_is_active(const bContext *C, const ViewerPath *viewer_path)
@@ -56,6 +119,9 @@ bool ED_viewer_path_is_active(const bContext *C, const ViewerPath *viewer_path)
 
   const Main *bmain = CTX_data_main(C);
   const wmWindowManager *wm = static_cast<wmWindowManager *>(bmain->wm.first);
+  if (wm == nullptr) {
+    return false;
+  }
   LISTBASE_FOREACH (const wmWindow *, window, &wm->windows) {
     const bScreen *active_screen = BKE_workspace_active_screen_get(window->workspace_hook);
     Vector<const bScreen *> screens = {active_screen};
@@ -102,11 +168,14 @@ bool ED_viewer_path_is_active(const bContext *C, const ViewerPath *viewer_path)
         const bNodeTree *ngroup = snode.edittree;
         ngroup->ensure_topology_cache();
         const bNode *viewer_node = nullptr;
-        for (const bNode *node : ngroup->nodes_by_type("GeometryNodesViewer")) {
+        for (const bNode *node : ngroup->nodes_by_type("GeometryNodeViewer")) {
           if (node->name != parsed_path->viewer_node_name) {
             continue;
           }
           viewer_node = node;
+        }
+        if (viewer_node == nullptr) {
+          continue;
         }
         if (!(viewer_node->flag & NODE_DO_OUTPUT)) {
           continue;
@@ -118,7 +187,7 @@ bool ED_viewer_path_is_active(const bContext *C, const ViewerPath *viewer_path)
   return false;
 }
 
-bool ED_viewer_path_exists(struct Main * /*bmain*/, const ViewerPath *viewer_path)
+bool ED_viewer_path_exists(Main * /*bmain*/, const ViewerPath *viewer_path)
 {
   const std::optional<ViewerPathForGeometryNodesViewer> parsed_path =
       ED_viewer_path_parse_geometry_nodes_viewer(*viewer_path);
