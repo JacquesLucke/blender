@@ -821,8 +821,8 @@ void ED_node_set_active(
             }
           }
           node->flag |= NODE_DO_OUTPUT;
-          ED_viewer_path_activate_geometry_node(bmain, snode, node);
         }
+        ED_viewer_path_activate_geometry_node(bmain, snode, node);
       }
     }
   }
