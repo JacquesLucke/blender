@@ -24,14 +24,17 @@ void ED_viewer_path_activate_geometry_node(struct Main *bmain,
   UNUSED_VARS(bmain, snode, node);
 }
 
-bool ED_viewer_path_is_active(const struct bContext *C, const ViewerPath *viewer_path)
+bool ED_viewer_path_is_active(const bContext *C, const ViewerPath *viewer_path)
 {
   const std::optional<ViewerPathForGeometryNodesViewer> parsed_path =
       ED_viewer_path_parse_geometry_nodes_viewer(*viewer_path);
   if (!parsed_path.has_value()) {
     return false;
   }
-
+  const Object *active_ob = CTX_data_active_object(C);
+  if (active_ob != parsed_path->object) {
+    return false;
+  }
   const NodesModifierData *modifier = nullptr;
   LISTBASE_FOREACH (const ModifierData *, md, &parsed_path->object->modifiers) {
     if (md->name != parsed_path->modifier_name) {
