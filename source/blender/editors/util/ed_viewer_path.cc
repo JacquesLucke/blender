@@ -90,6 +90,16 @@ void ED_viewer_path_activate_geometry_node(Main *bmain, SpaceNode *snode, bNode 
   }
 }
 
+bool ED_viewer_path_contains_node(const ViewerPath *viewer_path)
+{
+  LISTBASE_FOREACH (const ViewerPathElem *, elem, &viewer_path->path) {
+    if (elem->type == VIEWER_PATH_ELEM_TYPE_NODE) {
+      return true;
+    }
+  }
+  return false;
+}
+
 bool ED_viewer_path_is_active(const bContext *C, const ViewerPath *viewer_path)
 {
   const std::optional<ViewerPathForGeometryNodesViewer> parsed_path =

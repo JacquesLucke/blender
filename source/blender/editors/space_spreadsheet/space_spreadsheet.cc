@@ -427,6 +427,7 @@ static void spreadsheet_main_region_listener(const wmRegionListenerParams *param
 {
   ARegion *region = params->region;
   const wmNotifier *wmn = params->notifier;
+  SpaceSpreadsheet *sspreadsheet = static_cast<SpaceSpreadsheet *>(params->area->spacedata.first);
 
   switch (wmn->category) {
     case NC_SCENE: {
@@ -436,6 +437,11 @@ static void spreadsheet_main_region_listener(const wmRegionListenerParams *param
         case ND_OB_ACTIVE: {
           ED_region_tag_redraw(region);
           break;
+        }
+        case ND_NODES: {
+          if (ED_viewer_path_contains_node(&sspreadsheet->viewer_path)) {
+            ED_region_tag_redraw(region);
+          }
         }
       }
       break;
@@ -452,10 +458,6 @@ static void spreadsheet_main_region_listener(const wmRegionListenerParams *param
     }
     case NC_TEXTURE:
     case NC_GEOM: {
-      ED_region_tag_redraw(region);
-      break;
-    }
-    case NC_VIEWER_PATH: {
       ED_region_tag_redraw(region);
       break;
     }
@@ -481,6 +483,7 @@ static void spreadsheet_header_region_listener(const wmRegionListenerParams *par
 {
   ARegion *region = params->region;
   const wmNotifier *wmn = params->notifier;
+  SpaceSpreadsheet *sspreadsheet = static_cast<SpaceSpreadsheet *>(params->area->spacedata.first);
 
   switch (wmn->category) {
     case NC_SCENE: {
@@ -489,6 +492,11 @@ static void spreadsheet_header_region_listener(const wmRegionListenerParams *par
         case ND_OB_ACTIVE: {
           ED_region_tag_redraw(region);
           break;
+        }
+        case ND_NODES: {
+          if (ED_viewer_path_contains_node(&sspreadsheet->viewer_path)) {
+            ED_region_tag_redraw(region);
+          }
         }
       }
       break;
@@ -504,10 +512,6 @@ static void spreadsheet_header_region_listener(const wmRegionListenerParams *par
       break;
     }
     case NC_GEOM: {
-      ED_region_tag_redraw(region);
-      break;
-    }
-    case NC_VIEWER_PATH: {
       ED_region_tag_redraw(region);
       break;
     }

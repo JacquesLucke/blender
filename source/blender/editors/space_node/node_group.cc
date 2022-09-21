@@ -160,7 +160,6 @@ static int node_group_edit_exec(bContext *C, wmOperator *op)
   }
 
   WM_event_add_notifier(C, NC_SCENE | ND_NODES, nullptr);
-  WM_event_add_notifier(C, NC_VIEWER_PATH, nullptr);
 
   return OPERATOR_FINISHED;
 }
