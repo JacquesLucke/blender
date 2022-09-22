@@ -39,6 +39,7 @@ class Attribute {
             AttributeBaseType base_type,
             int array_size,
             int domain_size);
+  Attribute(const Attribute &other);
   ~Attribute();
 
   AttributeStorageType storage_type() const;
@@ -81,6 +82,9 @@ class Attribute {
 
   bool is_single() const;
   void reset();
+
+ private:
+  void ensure_mutable_values();
 };
 
 class Attributes {

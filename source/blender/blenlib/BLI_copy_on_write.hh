@@ -7,6 +7,7 @@
  */
 
 #include "BLI_copy_on_write.h"
+#include "BLI_function_ref.hh"
 
 namespace blender {
 
@@ -44,6 +45,21 @@ class bCopyOnWrite : private NonCopyable, NonMovable {
   {
     return BLI_cow_user_remove(&base_);
   }
+
+  static void *ensure_mutable(const bCopyOnWrite *cow,
+                              const void *old_value,
+                              FunctionRef<void *(void *)> copy_fn,
+                              FunctionRef<void(void *)> free_fn);
 };
 
 }  // namespace blender
+
+void *BLI_cow_ensure_mutable(bCopyOnWrite **cow_p,
+                             const void *old_value,
+                             blender::FunctionRef<void *(const void *)> copy_fn,
+                             blender::FunctionRef<void(void *)> free_fn);
+
+void *BLI_cow_ensure_mutable(const bCopyOnWrite **cow_p,
+                             const void *old_value,
+                             blender::FunctionRef<void *(const void *)> copy_fn,
+                             blender::FunctionRef<void(void *)> free_fn);

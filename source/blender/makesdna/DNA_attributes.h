@@ -3,6 +3,7 @@
 #pragma once
 
 #include "BLI_utildefines.h"
+#include "DNA_copy_on_write.h"
 
 #ifdef __cplusplus
 namespace blender::bke {
@@ -57,6 +58,9 @@ typedef struct Attribute {
   int num_indices;
   int *indices;
   void *fallback;
+
+  bCopyOnWrite *values_cow;
+  bCopyOnWrite *indices_cow;
 
 #ifdef __cplusplus
   blender::bke::Attribute &wrap();

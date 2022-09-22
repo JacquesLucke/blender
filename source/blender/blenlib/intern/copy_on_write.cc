@@ -7,6 +7,8 @@
 
 #include "MEM_guardedalloc.h"
 
+using blender::FunctionRef;
+
 static int &get_counter(const bCopyOnWrite *cow)
 {
   BLI_assert(cow != nullptr);
@@ -52,4 +54,40 @@ bool BLI_cow_user_remove(const bCopyOnWrite *cow)
   BLI_assert(new_user_count >= 0);
   const bool has_no_user_anymore = new_user_count == 0;
   return has_no_user_anymore;
+}
+
+void *BLI_cow_ensure_mutable(bCopyOnWrite **cow_p,
+                             const void *old_value,
+                             FunctionRef<void *(const void *)> copy_fn,
+                             FunctionRef<void(void *)> free_fn)
+{
+  return BLI_cow_ensure_mutable(
+      const_cast<const bCopyOnWrite **>(cow_p), old_value, copy_fn, free_fn);
+}
+
+void *BLI_cow_ensure_mutable(const bCopyOnWrite **cow_p,
+                             const void *old_value,
+                             const FunctionRef<void *(const void *)> copy_fn,
+                             const FunctionRef<void(void *)> free_fn)
+{
+  BLI_assert(cow_p != nullptr);
+  const bCopyOnWrite *cow = *cow_p;
+  if (old_value == nullptr) {
+    return nullptr;
+  }
+  if (cow == nullptr) {
+    return const_cast<void *>(old_value);
+  }
+  if (BLI_cow_is_mutable(cow)) {
+    return const_cast<void *>(old_value);
+  }
+  void *new_value = copy_fn(old_value);
+  if (BLI_cow_user_remove(cow)) {
+    free_fn(const_cast<void *>(old_value));
+    BLI_cow_init(cow);
+  }
+  else {
+    *cow_p = BLI_cow_new(1);
+  }
+  return new_value;
 }

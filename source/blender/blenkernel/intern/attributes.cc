@@ -2,6 +2,8 @@
 
 #include "BKE_attributes.hh"
 
+#include "BLI_copy_on_write.hh"
+
 namespace blender::bke {
 
 static const CPPType &base_type_to_cpp_type(const AttributeBaseType base_type)
@@ -22,6 +24,34 @@ static const CPPType &base_type_to_cpp_type(const AttributeBaseType base_type)
   }
   BLI_assert_unreachable();
   return CPPType::get<float>();
+}
+
+Attribute::Attribute(const Attribute &other) : base_(other.base_)
+{
+  base_.name = BLI_strdup(other.base_.name);
+  if (other.base_.runtime != nullptr) {
+    base_.runtime = MEM_new<AttributeRuntime>(
+        __func__, *static_cast<AttributeRuntime *>(other.base_.runtime));
+  }
+  if (other.base_.values != nullptr) {
+    if (other.base_.values_cow == nullptr) {
+      base_.values = MEM_dupallocN(other.base_.values);
+    }
+    else {
+      BLI_cow_user_add(base_.values_cow);
+    }
+  }
+  if (other.base_.indices != nullptr) {
+    if (other.base_.indices_cow == nullptr) {
+      base_.indices = static_cast<int *>(MEM_dupallocN(other.base_.indices));
+    }
+    else {
+      BLI_cow_user_add(base_.values_cow);
+    }
+  }
+  if (other.base_.fallback != nullptr) {
+    base_.fallback = MEM_dupallocN(other.base_.fallback);
+  }
 }
 
 Attribute::Attribute(const StringRef name,
@@ -53,6 +83,11 @@ const CPPType &Attribute::base_cpp_type() const
   return base_type_to_cpp_type(this->base_type());
 }
 
+void Attribute::ensure_mutable_values()
+{
+  base_.values = BLI_cow_ensure_mutable(&base_.values_cow, base_.values, MEM_dupallocN, MEM_freeN);
+}
+
 GSpan Attribute::dense_base_values() const
 {
   BLI_assert(this->is_dense());
@@ -63,6 +98,7 @@ GSpan Attribute::dense_base_values() const
 GMutableSpan Attribute::dense_base_values_for_write()
 {
   BLI_assert(this->is_dense());
+  this->ensure_mutable_values();
   const CPPType &type = this->base_cpp_type();
   return GMutableSpan{type, base_.values, base_.array_size * base_.domain_size};
 }
@@ -83,6 +119,7 @@ GSpan Attribute::sparse_base_values() const
 GMutableSpan Attribute::sparse_base_values_for_write()
 {
   BLI_assert(this->is_sparse());
+  this->ensure_mutable_values();
   const CPPType &type = this->base_cpp_type();
   return GMutableSpan{type, base_.values, base_.num_indices};
 }
@@ -91,12 +128,18 @@ void Attribute::reset()
 {
   switch (this->storage_type()) {
     case ATTR_STORAGE_TYPE_DENSE_ARRAY: {
-      MEM_SAFE_FREE(base_.values);
+      if (base_.values_cow == nullptr || BLI_cow_user_remove(base_.values_cow)) {
+        MEM_SAFE_FREE(base_.values);
+      }
       break;
     }
     case ATTR_STORAGE_TYPE_SPARSE_INDICES: {
-      MEM_SAFE_FREE(base_.values);
-      MEM_SAFE_FREE(base_.indices);
+      if (base_.values_cow == nullptr || BLI_cow_user_remove(base_.values_cow)) {
+        MEM_SAFE_FREE(base_.values);
+      }
+      if (base_.indices_cow == nullptr || BLI_cow_user_remove(base_.indices_cow)) {
+        MEM_SAFE_FREE(base_.indices);
+      }
       MEM_SAFE_FREE(base_.fallback);
       base_.num_indices = 0;
       break;
