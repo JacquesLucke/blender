@@ -4,6 +4,7 @@
 
 #include "DNA_attributes.h"
 
+#include "BLI_generic_pointer.hh"
 #include "BLI_generic_span.hh"
 #include "BLI_generic_virtual_array.hh"
 #include "BLI_linear_allocator.hh"
@@ -40,9 +41,7 @@ class Attribute {
   int domain_size() const;
 
   template<typename T> VArray<T> values() const;
-  template<typename T> VMutableArray<T> values_for_write();
   GVArray values() const;
-  GVMutableArray values_for_write();
 
   template<typename T> Span<T> dense_values() const;
   template<typename T> Span<T> dense_base_values() const;
@@ -58,6 +57,19 @@ class Attribute {
   template<typename T> MutableSpan<T> sparse_base_values_for_write();
   GSpan sparse_base_values() const;
   GMutableSpan sparse_base_values_for_write();
+
+  template<typename T> const T &sparse_fallback() const;
+  template<typename T> T &sparse_fallback_for_write();
+  GPointer sparse_base_fallback() const;
+  GMutablePointer sparse_base_fallback_for_write();
+
+  void convert_to_dense();
+  void convert_to_sparse(void *fallback);
+
+  void replace_with_dense(void *data);
+  void replace_with_sparse(void *data, MutableSpan<int> indices, void *fallback);
+
+  bool is_single() const;
 };
 
 class Attributes {
