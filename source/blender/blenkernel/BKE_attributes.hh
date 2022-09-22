@@ -34,6 +34,13 @@ class Attribute {
   ::Attribute base_;
 
  public:
+  Attribute(StringRef name,
+            AttributeDomain domain,
+            AttributeBaseType base_type,
+            int array_size,
+            int domain_size);
+  ~Attribute();
+
   AttributeStorageType storage_type() const;
   AttributeDomain domain() const;
   AttributeBaseType base_type() const;
@@ -73,6 +80,7 @@ class Attribute {
   void replace_with_sparse(void *data, MutableSpan<int> indices, void *fallback);
 
   bool is_single() const;
+  void reset();
 };
 
 class Attributes {
@@ -126,6 +134,11 @@ inline int Attribute::array_size() const
 inline int Attribute::domain_size() const
 {
   return base_.domain_size;
+}
+
+inline bool Attribute::is_single() const
+{
+  return this->storage_type() == ATTR_STORAGE_TYPE_SPARSE_INDICES && base_.num_indices == 0;
 }
 
 inline bool Attribute::is_dense() const

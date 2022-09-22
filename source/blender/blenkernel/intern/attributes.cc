@@ -24,6 +24,30 @@ static const CPPType &base_type_to_cpp_type(const AttributeBaseType base_type)
   return CPPType::get<float>();
 }
 
+Attribute::Attribute(const StringRef name,
+                     const AttributeDomain domain,
+                     const AttributeBaseType base_type,
+                     const int array_size,
+                     const int domain_size)
+{
+  memset(static_cast<void *>(this), 0, sizeof(*this));
+
+  base_.name = BLI_strdupn(name.data(), name.size());
+  base_.domain = domain;
+  base_.base_type = base_type;
+  base_.array_size = array_size;
+  base_.domain_size = domain_size;
+
+  BLI_assert(this->is_single());
+}
+
+Attribute::~Attribute()
+{
+  this->reset();
+  MEM_freeN(base_.name);
+  delete static_cast<AttributeRuntime *>(base_.runtime);
+}
+
 const CPPType &Attribute::base_cpp_type() const
 {
   return base_type_to_cpp_type(this->base_type());
@@ -61,6 +85,24 @@ GMutableSpan Attribute::sparse_base_values_for_write()
   BLI_assert(this->is_sparse());
   const CPPType &type = this->base_cpp_type();
   return GMutableSpan{type, base_.values, base_.num_indices};
+}
+
+void Attribute::reset()
+{
+  switch (this->storage_type()) {
+    case ATTR_STORAGE_TYPE_DENSE_ARRAY: {
+      MEM_SAFE_FREE(base_.values);
+      break;
+    }
+    case ATTR_STORAGE_TYPE_SPARSE_INDICES: {
+      MEM_SAFE_FREE(base_.values);
+      MEM_SAFE_FREE(base_.indices);
+      MEM_SAFE_FREE(base_.fallback);
+      base_.num_indices = 0;
+      break;
+    }
+  }
+  base_.storage_type = ATTR_STORAGE_TYPE_SPARSE_INDICES;
 }
 
 }  // namespace blender::bke
