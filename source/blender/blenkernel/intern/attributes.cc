@@ -114,6 +114,7 @@ void Attribute::replace_with_dense(void *values)
 
 void Attribute::replace_with_sparse(void *values, MutableSpan<int> indices, void *fallback)
 {
+  BLI_assert(std::is_sorted(indices.begin(), indices.end()));
   this->reset();
   base_.values = values;
   base_.indices = indices.data();
@@ -143,6 +144,40 @@ void Attribute::convert_to_dense()
 
   base_.values = buffer;
   base_.storage_type = ATTR_STORAGE_TYPE_DENSE_ARRAY;
+}
+
+class GVArrayImpl_For_SparseIndicesAttribute : public GVArrayImpl {
+ private:
+  const Attribute *attribute_;
+
+ public:
+  GVArrayImpl_For_SparseIndicesAttribute(const Attribute &attribute)
+      : GVArrayImpl(attribute.base_cpp_type(), attribute.domain_size() * attribute.array_size()),
+        attribute_(&attribute)
+  {
+  }
+
+  void get_to_uninitialized(const int64_t index, void *r_value) const override
+  {
+    /* TODO */
+    UNUSED_VARS(index, r_value);
+  }
+};
+
+GVArray Attribute::base_values() const
+{
+  const CPPType &cpp_type = this->base_cpp_type();
+  if (base_.domain_size == 0) {
+    return GVArray::ForEmpty(cpp_type);
+  }
+  switch (this->storage_type()) {
+    case ATTR_STORAGE_TYPE_DENSE_ARRAY:
+      return GVArray::ForSpan(this->dense_base_values());
+    case ATTR_STORAGE_TYPE_SPARSE_INDICES:
+      return GVArray::For<GVArrayImpl_For_SparseIndicesAttribute>(*this);
+  }
+  BLI_assert_unreachable();
+  return {};
 }
 
 }  // namespace blender::bke
