@@ -56,6 +56,7 @@ set(SRC
   intern/buffer.c
   intern/compute_context.cc
   intern/convexhull_2d.c
+  intern/copy_on_write.cc
   intern/cpp_type.cc
   intern/delaunay_2d.cc
   intern/dot_export.cc
@@ -180,6 +181,8 @@ set(SRC
   BLI_buffer.h
   BLI_color.hh
   BLI_color_mix.hh
+  BLI_copy_on_write.h
+  BLI_copy_on_write.hh
   BLI_compiler_attrs.h
   BLI_compiler_compat.h
   BLI_compiler_typecheck.h
