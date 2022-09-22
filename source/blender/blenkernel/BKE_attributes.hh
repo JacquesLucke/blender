@@ -48,8 +48,8 @@ class Attribute {
   int domain_size() const;
   const CPPType &base_cpp_type() const;
 
-  template<typename T> VArray<T> values() const;
-  GVArray values() const;
+  template<typename T> VArray<T> base_values() const;
+  GVArray base_values() const;
 
   bool is_dense() const;
   template<typename T> Span<T> dense_values() const;

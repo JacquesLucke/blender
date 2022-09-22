@@ -122,4 +122,27 @@ void Attribute::replace_with_sparse(void *values, MutableSpan<int> indices, void
   base_.storage_type = ATTR_STORAGE_TYPE_SPARSE_INDICES;
 }
 
+void Attribute::convert_to_dense()
+{
+  if (this->is_dense()) {
+    return;
+  }
+  if (base_.domain_size == 0) {
+    base_.storage_type = ATTR_STORAGE_TYPE_DENSE_ARRAY;
+    return;
+  }
+  const GVArray old_values = this->base_values();
+  const CPPType &cpp_type = this->base_cpp_type();
+  const size_t buffer_size = size_t(base_.array_size) * size_t(base_.domain_size) *
+                             size_t(cpp_type.size());
+  const size_t buffer_alignment = size_t(cpp_type.alignment());
+  void *buffer = MEM_mallocN_aligned(buffer_size, buffer_alignment, __func__);
+  old_values.materialize_to_uninitialized(buffer);
+
+  this->reset();
+
+  base_.values = buffer;
+  base_.storage_type = ATTR_STORAGE_TYPE_DENSE_ARRAY;
+}
+
 }  // namespace blender::bke
