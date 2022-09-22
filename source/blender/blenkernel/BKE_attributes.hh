@@ -76,8 +76,8 @@ class Attribute {
   void convert_to_dense();
   void convert_to_sparse(void *fallback);
 
-  void replace_with_dense(void *data);
-  void replace_with_sparse(void *data, MutableSpan<int> indices, void *fallback);
+  void replace_with_dense(void *values);
+  void replace_with_sparse(void *values, MutableSpan<int> indices, void *fallback);
 
   bool is_single() const;
   void reset();

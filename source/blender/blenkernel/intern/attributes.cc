@@ -105,4 +105,21 @@ void Attribute::reset()
   base_.storage_type = ATTR_STORAGE_TYPE_SPARSE_INDICES;
 }
 
+void Attribute::replace_with_dense(void *values)
+{
+  this->reset();
+  base_.values = values;
+  base_.storage_type = ATTR_STORAGE_TYPE_DENSE_ARRAY;
+}
+
+void Attribute::replace_with_sparse(void *values, MutableSpan<int> indices, void *fallback)
+{
+  this->reset();
+  base_.values = values;
+  base_.indices = indices.data();
+  base_.num_indices = indices.size();
+  base_.fallback = fallback;
+  base_.storage_type = ATTR_STORAGE_TYPE_SPARSE_INDICES;
+}
+
 }  // namespace blender::bke
