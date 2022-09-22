@@ -76,6 +76,7 @@ set(SRC
   intern/asset_library.cc
   intern/asset_library_service.cc
   intern/attribute.cc
+  intern/attributes.cc
   intern/attribute_access.cc
   intern/attribute_math.cc
   intern/autoexec.c
@@ -324,6 +325,7 @@ set(SRC
   BKE_asset_library.hh
   BKE_attribute.h
   BKE_attribute.hh
+  BKE_attributes.hh
   BKE_attribute_math.hh
   BKE_autoexec.h
   BKE_blender.h
