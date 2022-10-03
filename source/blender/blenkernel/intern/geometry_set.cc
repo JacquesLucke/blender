@@ -431,6 +431,14 @@ GeometrySet GeometrySet::create_with_curves(Curves *curves, GeometryOwnershipTyp
   return geometry_set;
 }
 
+GeometrySet GeometrySet::create_with_instances(Instances *instances,
+                                               GeometryOwnershipType ownership)
+{
+  GeometrySet geometry_set;
+  geometry_set.replace_instances(instances, ownership);
+  return geometry_set;
+}
+
 void GeometrySet::replace_mesh(Mesh *mesh, GeometryOwnershipType ownership)
 {
   if (mesh == nullptr) {

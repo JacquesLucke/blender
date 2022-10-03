@@ -43,6 +43,7 @@ enum class GeometryOwnershipType {
 namespace blender::bke {
 class ComponentAttributeProviders;
 class CurvesEditHints;
+class Instances;
 }  // namespace blender::bke
 
 class GeometryComponent;
@@ -246,6 +247,10 @@ struct GeometrySet {
    */
   static GeometrySet create_with_curves(
       Curves *curves, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
+
+  static GeometrySet create_with_instances(
+      blender::bke::Instances *instances,
+      GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
 
   /* Utility methods for access. */
   /**
@@ -517,10 +522,6 @@ class CurveComponent : public GeometryComponent {
 
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_CURVE;
 };
-
-namespace blender::bke {
-class Instances;
-}
 
 /**
  * A geometry component that stores instances. The instance data can be any type described by

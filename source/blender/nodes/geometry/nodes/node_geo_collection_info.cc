@@ -137,9 +137,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     instances->add_instance(handle, transform);
   }
 
-  GeometrySet geometry_set_out;
-  geometry_set_out.replace_instances(instances.release());
-  params.set_output("Geometry", geometry_set_out);
+  params.set_output("Geometry", GeometrySet::create_with_instances(instances.release()));
 }
 
 }  // namespace blender::nodes::node_geo_collection_info_cc

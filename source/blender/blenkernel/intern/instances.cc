@@ -18,6 +18,23 @@ InstanceReference::InstanceReference(GeometrySet geometry_set)
 {
 }
 
+void InstanceReference::ensure_owns_direct_data()
+{
+  if (type_ != Type::GeometrySet) {
+    return;
+  }
+  geometry_set_->ensure_owns_direct_data();
+}
+
+bool InstanceReference::owns_direct_data() const
+{
+  if (type_ != Type::GeometrySet) {
+    /* The object and collection instances are not direct data. */
+    return true;
+  }
+  return geometry_set_->owns_direct_data();
+}
+
 void Instances::reserve(int min_capacity)
 {
   instance_reference_handles_.reserve(min_capacity);

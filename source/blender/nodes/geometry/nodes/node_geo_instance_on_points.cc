@@ -9,6 +9,7 @@
 #include "UI_resources.h"
 
 #include "BKE_attribute_math.hh"
+#include "BKE_instances.hh"
 
 #include "node_geometry_util.hh"
 
@@ -43,7 +44,7 @@ static void node_declare(NodeDeclarationBuilder &b)
 }
 
 static void add_instances_from_component(
-    InstancesComponent &dst_component,
+    bke::Instances &dst_component,
     const GeometryComponent &src_component,
     const GeometrySet &instance,
     const GeoNodeExecParams &params,
@@ -88,17 +89,17 @@ static void add_instances_from_component(
   VArray<float3> positions = src_component.attributes()->lookup_or_default<float3>(
       "position", domain, {0, 0, 0});
 
-  const InstancesComponent *src_instances = instance.get_component_for_read<InstancesComponent>();
+  const bke::Instances *src_instances = instance.get_instances_for_read();
 
   /* Maps handles from the source instances to handles on the new instance. */
   Array<int> handle_mapping;
   /* Only fill #handle_mapping when it may be used below. */
   if (src_instances != nullptr &&
       (!pick_instance.is_single() || pick_instance.get_internal_single())) {
-    Span<InstanceReference> src_references = src_instances->references();
+    Span<bke::InstanceReference> src_references = src_instances->references();
     handle_mapping.reinitialize(src_references.size());
     for (const int src_instance_handle : src_references.index_range()) {
-      const InstanceReference &reference = src_references[src_instance_handle];
+      const bke::InstanceReference &reference = src_references[src_instance_handle];
       const int dst_instance_handle = dst_component.add_reference(reference);
       handle_mapping[src_instance_handle] = dst_instance_handle;
     }
@@ -106,7 +107,7 @@ static void add_instances_from_component(
 
   const int full_instance_handle = dst_component.add_reference(instance);
   /* Add this reference last, because it is the most likely one to be removed later on. */
-  const int empty_reference_handle = dst_component.add_reference(InstanceReference());
+  const int empty_reference_handle = dst_component.add_reference(bke::InstanceReference());
 
   threading::parallel_for(selection.index_range(), 1024, [&](IndexRange selection_range) {
     for (const int range_i : selection_range) {
@@ -157,7 +158,7 @@ static void add_instances_from_component(
     }
   }
 
-  bke::CustomDataAttributes &instance_attributes = dst_component.instance_attributes();
+  bke::CustomDataAttributes &instance_attributes = dst_component.custom_data_attributes();
   for (const auto item : attributes_to_propagate.items()) {
     const AttributeIDRef &attribute_id = item.key;
     const AttributeKind attribute_kind = item.value;
@@ -196,7 +197,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   instance.ensure_owns_direct_data();
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    InstancesComponent &instances = geometry_set.get_component_for_write<InstancesComponent>();
+    std::unique_ptr<bke::Instances> dst_instances = std::make_unique<bke::Instances>();
 
     const Array<GeometryComponentType> types{
         GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD, GEO_COMPONENT_TYPE_CURVE};
@@ -208,14 +209,14 @@ static void node_geo_exec(GeoNodeExecParams params)
 
     for (const GeometryComponentType type : types) {
       if (geometry_set.has(type)) {
-        add_instances_from_component(instances,
+        add_instances_from_component(*dst_instances,
                                      *geometry_set.get_component_for_read(type),
                                      instance,
                                      params,
                                      attributes_to_propagate);
       }
     }
-
+    geometry_set.replace_instances(dst_instances.release());
     geometry_set.remove_geometry_during_modify();
   });
 
@@ -223,8 +224,9 @@ static void node_geo_exec(GeoNodeExecParams params)
    * process them needlessly.
    * This should eventually be moved into the loop above, but currently this is quite tricky
    * because it might remove references that the loop still wants to iterate over. */
-  InstancesComponent &instances = geometry_set.get_component_for_write<InstancesComponent>();
-  instances.remove_unused_references();
+  if (bke::Instances *instances = geometry_set.get_instances_for_write()) {
+    instances->remove_unused_references();
+  }
 
   params.set_output("Instances", std::move(geometry_set));
 }

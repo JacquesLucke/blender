@@ -14,12 +14,16 @@
 
 #include "RNA_access.h"
 
+#include "BKE_instances.hh"
+
 #include "spreadsheet_data_source_geometry.hh"
 #include "spreadsheet_intern.hh"
 #include "spreadsheet_layout.hh"
 #include "spreadsheet_row_filter.hh"
 
 namespace blender::ed::spreadsheet {
+
+using bke::InstanceReference;
 
 template<typename T, typename OperationFn>
 static void apply_filter_operation(const VArray<T> &data,

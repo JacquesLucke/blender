@@ -6,6 +6,7 @@
 #include "BLI_math_vec_types.hh"
 
 #include "BKE_geometry_set.hh"
+#include "BKE_instances.hh"
 
 #include "spreadsheet_column_values.hh"
 #include "spreadsheet_layout.hh"
@@ -22,6 +23,8 @@
 #include "BLT_translation.h"
 
 namespace blender::ed::spreadsheet {
+
+using bke::InstanceReference;
 
 class SpreadsheetLayoutDrawer : public SpreadsheetDrawer {
  private:

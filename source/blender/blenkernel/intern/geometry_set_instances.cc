@@ -64,13 +64,11 @@ GeometrySet object_get_evaluated_geometry_set(const Object &object)
     return geometry_set;
   }
   if (object.type == OB_EMPTY && object.instance_collection != nullptr) {
-    GeometrySet geometry_set;
     Collection &collection = *object.instance_collection;
     std::unique_ptr<Instances> instances = std::make_unique<Instances>();
     const int handle = instances->add_reference(collection);
     instances->add_instance(handle, float4x4::identity());
-    geometry_set.replace_instances(instances.release());
-    return geometry_set;
+    return GeometrySet::create_with_instances(instances.release());
   }
 
   /* Return by value since there is not always an existing geometry set owned elsewhere to use. */
@@ -219,7 +217,6 @@ void Instances::ensure_geometry_instances()
       case InstanceReference::Type::Collection: {
         /* Create a new reference that contains a geometry set that contains all objects from the
          * collection as instances. */
-        GeometrySet collection_geometry_set;
         std::unique_ptr<Instances> instances = std::make_unique<Instances>();
         Collection &collection = reference.collection();
         FOREACH_COLLECTION_OBJECT_RECURSIVE_BEGIN (&collection, object) {
@@ -230,8 +227,7 @@ void Instances::ensure_geometry_instances()
         }
         FOREACH_COLLECTION_OBJECT_RECURSIVE_END;
         instances->ensure_geometry_instances();
-        collection_geometry_set.replace_instances(instances.release());
-        new_references.add_new(std::move(collection_geometry_set));
+        new_references.add_new(GeometrySet::create_with_instances(instances.release()));
         break;
       }
     }

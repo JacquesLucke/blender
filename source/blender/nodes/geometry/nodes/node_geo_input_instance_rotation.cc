@@ -2,6 +2,8 @@
 
 #include "node_geometry_util.hh"
 
+#include "BKE_instances.hh"
+
 namespace blender::nodes::node_geo_input_instance_rotation_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
@@ -15,7 +17,7 @@ class InstanceRotationFieldInput final : public bke::InstancesFieldInput {
   {
   }
 
-  GVArray get_varray_for_context(const InstancesComponent &instances,
+  GVArray get_varray_for_context(const bke::Instances &instances,
                                  IndexMask UNUSED(mask)) const final
   {
     auto rotation_fn = [&](const int i) -> float3 {

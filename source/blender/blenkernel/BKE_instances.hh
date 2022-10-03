@@ -6,6 +6,9 @@
  * \ingroup bke
  */
 
+#include <mutex>
+
+#include "BLI_float4x4.hh"
 #include "BLI_vector.hh"
 #include "BLI_vector_set.hh"
 
@@ -227,23 +230,6 @@ inline const GeometrySet &InstanceReference::geometry_set() const
 {
   BLI_assert(type_ == Type::GeometrySet);
   return *geometry_set_;
-}
-
-inline bool InstanceReference::owns_direct_data() const
-{
-  if (type_ != Type::GeometrySet) {
-    /* The object and collection instances are not direct data. */
-    return true;
-  }
-  return geometry_set_->owns_direct_data();
-}
-
-inline void InstanceReference::ensure_owns_direct_data()
-{
-  if (type_ != Type::GeometrySet) {
-    return;
-  }
-  geometry_set_->ensure_owns_direct_data();
 }
 
 inline CustomDataAttributes &Instances::custom_data_attributes()
