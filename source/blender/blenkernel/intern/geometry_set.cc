@@ -9,6 +9,7 @@
 #include "BKE_attribute.h"
 #include "BKE_curves.hh"
 #include "BKE_geometry_set.hh"
+#include "BKE_instances.hh"
 #include "BKE_lib_id.h"
 #include "BKE_mesh.h"
 #include "BKE_mesh_wrapper.h"
@@ -31,6 +32,8 @@ using blender::MutableSpan;
 using blender::Span;
 using blender::StringRef;
 using blender::Vector;
+using blender::bke::InstanceReference;
+using blender::bke::Instances;
 
 /* -------------------------------------------------------------------- */
 /** \name Geometry Component
@@ -256,8 +259,7 @@ std::ostream &operator<<(std::ostream &stream, const GeometrySet &geometry_set)
     parts.append(std::to_string(BKE_volume_num_grids(volume)) + " volume grids");
   }
   if (geometry_set.has_instances()) {
-    parts.append(std::to_string(
-                     geometry_set.get_component_for_read<InstancesComponent>()->instances_num()) +
+    parts.append(std::to_string(geometry_set.get_instances_for_read()->instances_num()) +
                  " instances");
   }
   if (geometry_set.get_curve_edit_hints_for_read()) {
@@ -354,7 +356,8 @@ bool GeometrySet::has_pointcloud() const
 bool GeometrySet::has_instances() const
 {
   const InstancesComponent *component = this->get_component_for_read<InstancesComponent>();
-  return component != nullptr && component->instances_num() >= 1;
+  return component != nullptr && component->get_for_read() != nullptr &&
+         component->get_for_read()->instances_num() >= 1;
 }
 
 bool GeometrySet::has_volume() const
@@ -539,7 +542,7 @@ void GeometrySet::attribute_foreach(const Span<GeometryComponentType> component_
     }
   }
   if (include_instances && this->has_instances()) {
-    const InstancesComponent &instances = *this->get_component_for_read<InstancesComponent>();
+    const Instances &instances = *this->get_instances_for_read();
     instances.foreach_referenced_geometry([&](const GeometrySet &instance_geometry_set) {
       instance_geometry_set.attribute_foreach(component_types, include_instances, callback);
     });
@@ -611,7 +614,7 @@ static void gather_component_types_recursive(const GeometrySet &geometry_set,
   if (!include_instances) {
     return;
   }
-  const InstancesComponent *instances = geometry_set.get_component_for_read<InstancesComponent>();
+  const blender::bke::Instances *instances = geometry_set.get_instances_for_read();
   if (instances == nullptr) {
     return;
   }
@@ -638,12 +641,11 @@ static void gather_mutable_geometry_sets(GeometrySet &geometry_set,
   }
   /* In the future this can be improved by deduplicating instance references across different
    * instances. */
-  InstancesComponent &instances_component =
-      geometry_set.get_component_for_write<InstancesComponent>();
-  instances_component.ensure_geometry_instances();
-  for (const int handle : instances_component.references().index_range()) {
-    if (instances_component.references()[handle].type() == InstanceReference::Type::GeometrySet) {
-      GeometrySet &instance_geometry = instances_component.geometry_set_from_reference(handle);
+  Instances &instances = *geometry_set.get_instances_for_write();
+  instances.ensure_geometry_instances();
+  for (const int handle : instances.references().index_range()) {
+    if (instances.references()[handle].type() == InstanceReference::Type::GeometrySet) {
+      GeometrySet &instance_geometry = instances.geometry_set_from_reference(handle);
       gather_mutable_geometry_sets(instance_geometry, r_geometry_sets);
     }
   }
