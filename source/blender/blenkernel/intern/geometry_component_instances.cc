@@ -68,6 +68,21 @@ bool InstancesComponent::is_empty() const
   return true;
 }
 
+bool InstancesComponent::owns_direct_data() const
+{
+  if (instances_ != nullptr) {
+    return instances_->owns_direct_data();
+  }
+  return true;
+}
+
+void InstancesComponent::ensure_owns_direct_data()
+{
+  if (instances_ != nullptr) {
+    instances_->ensure_owns_direct_data();
+  }
+}
+
 namespace blender::bke {
 
 static float3 get_transform_position(const float4x4 &transform)
