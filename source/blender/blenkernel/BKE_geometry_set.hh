@@ -551,6 +551,9 @@ class InstancesComponent : public GeometryComponent {
   const blender::bke::Instances *get_for_read() const;
   blender::bke::Instances *get_for_write();
 
+  void replace(blender::bke::Instances *instances,
+               GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
+
   bool is_empty() const final;
 
   bool owns_direct_data() const override;

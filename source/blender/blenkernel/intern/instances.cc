@@ -35,6 +35,12 @@ bool InstanceReference::owns_direct_data() const
   return geometry_set_->owns_direct_data();
 }
 
+Instances::Instances(const Instances & /*other*/)
+{
+  /* TODO */
+  throw nullptr;
+}
+
 void Instances::reserve(int min_capacity)
 {
   instance_reference_handles_.reserve(min_capacity);

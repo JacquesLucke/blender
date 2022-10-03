@@ -53,9 +53,8 @@ GeometryComponent *InstancesComponent::copy() const
 
 void InstancesComponent::clear()
 {
-  if (instances_ != nullptr) {
-    instances_->resize(0);
-  }
+  delete instances_;
+  instances_ = nullptr;
 }
 
 bool InstancesComponent::is_empty() const
@@ -81,6 +80,29 @@ void InstancesComponent::ensure_owns_direct_data()
   if (instances_ != nullptr) {
     instances_->ensure_owns_direct_data();
   }
+}
+
+const blender::bke::Instances *InstancesComponent::get_for_read() const
+{
+  return instances_;
+}
+
+blender::bke::Instances *InstancesComponent::get_for_write()
+{
+  BLI_assert(this->is_mutable());
+  if (ownership_ == GeometryOwnershipType::ReadOnly) {
+    instances_ = new Instances(*instances_);
+    ownership_ = GeometryOwnershipType::Owned;
+  }
+  return instances_;
+}
+
+void InstancesComponent::replace(Instances *instances, GeometryOwnershipType ownership)
+{
+  BLI_assert(this->is_mutable());
+  this->clear();
+  instances_ = instances;
+  ownership_ = ownership;
 }
 
 namespace blender::bke {
@@ -221,18 +243,30 @@ static const AttributeAccessorFunctions &get_instances_accessor_functions_ref()
   return fn;
 }
 
+blender::bke::AttributeAccessor Instances::attributes() const
+{
+  return blender::bke::AttributeAccessor(this,
+                                         blender::bke::get_instances_accessor_functions_ref());
+}
+
+blender::bke::MutableAttributeAccessor Instances::attributes_for_write()
+{
+  return blender::bke::MutableAttributeAccessor(
+      this, blender::bke::get_instances_accessor_functions_ref());
+}
+
 }  // namespace blender::bke
 
 std::optional<blender::bke::AttributeAccessor> InstancesComponent::attributes() const
 {
-  return blender::bke::AttributeAccessor(this,
+  return blender::bke::AttributeAccessor(instances_,
                                          blender::bke::get_instances_accessor_functions_ref());
 }
 
 std::optional<blender::bke::MutableAttributeAccessor> InstancesComponent::attributes_for_write()
 {
   return blender::bke::MutableAttributeAccessor(
-      this, blender::bke::get_instances_accessor_functions_ref());
+      instances_, blender::bke::get_instances_accessor_functions_ref());
 }
 
 /** \} */

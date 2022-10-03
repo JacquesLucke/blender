@@ -340,6 +340,12 @@ const Curves *GeometrySet::get_curves_for_read() const
   return (component == nullptr) ? nullptr : component->get_for_read();
 }
 
+const Instances *GeometrySet::get_instances_for_read() const
+{
+  const InstancesComponent *component = this->get_component_for_read<InstancesComponent>();
+  return (component == nullptr) ? nullptr : component->get_for_read();
+}
+
 const blender::bke::CurvesEditHints *GeometrySet::get_curve_edit_hints_for_read() const
 {
   const GeometryComponentEditData *component =
@@ -467,6 +473,20 @@ void GeometrySet::replace_curves(Curves *curves, GeometryOwnershipType ownership
   component.replace(curves, ownership);
 }
 
+void GeometrySet::replace_instances(Instances *instances, GeometryOwnershipType ownership)
+{
+  if (instances == nullptr) {
+    this->remove<InstancesComponent>();
+    return;
+  }
+  if (instances == this->get_instances_for_read()) {
+    return;
+  }
+  this->remove<InstancesComponent>();
+  InstancesComponent &component = this->get_component_for_write<InstancesComponent>();
+  component.replace(instances, ownership);
+}
+
 void GeometrySet::replace_pointcloud(PointCloud *pointcloud, GeometryOwnershipType ownership)
 {
   if (pointcloud == nullptr) {
@@ -516,6 +536,12 @@ Volume *GeometrySet::get_volume_for_write()
 Curves *GeometrySet::get_curves_for_write()
 {
   CurveComponent *component = this->get_component_ptr<CurveComponent>();
+  return component == nullptr ? nullptr : component->get_for_write();
+}
+
+Instances *GeometrySet::get_instances_for_write()
+{
+  InstancesComponent *component = this->get_component_ptr<InstancesComponent>();
   return component == nullptr ? nullptr : component->get_for_write();
 }
 
