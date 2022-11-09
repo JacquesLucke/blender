@@ -6,6 +6,8 @@
 
 #include "BLI_cpp_type_make.hh"
 #include "BLI_dot_export.hh"
+#include "BLI_noise.hh"
+#include "BLI_rand.hh"
 #include "BLI_stack.hh"
 
 #include "FN_field2.hh"
@@ -58,7 +60,7 @@ void Graph::add_link(const OutputSocket &from, const InputSocket &to)
   targets_map_.add(from, to);
 }
 
-std::string Graph::to_dot() const
+std::string Graph::to_dot(const ToDotSettings &settings) const
 {
   dot::DirectedGraph digraph;
   digraph.set_rankdir(dot::Attr_rankdir::LeftToRight);
@@ -66,8 +68,21 @@ std::string Graph::to_dot() const
   Map<const FunctionNode *, dot::NodeWithSocketsRef> function_dot_nodes;
   Map<const OutputNode *, dot::Node *> output_dot_nodes;
 
+  auto cluster_id_to_color = [](const uint32_t id) {
+    const float hue = noise::hash_to_float(id);
+    std::stringstream ss;
+    ss << hue << " 0.5 1.0";
+    return ss.str();
+  };
+
   for (const FunctionNode *node : function_nodes_) {
     dot::Node &dot_node = digraph.new_node("");
+
+    if (settings.cluster_ids_map.contains(node)) {
+      const uint32_t id = settings.cluster_ids_map.lookup(node);
+      dot_node.set_background_color(cluster_id_to_color(id));
+    }
+
     Vector<std::string> input_names;
     Vector<std::string> output_names;
     for (const int index : IndexRange(node->inputs_num())) {
@@ -82,6 +97,12 @@ std::string Graph::to_dot() const
   for (const OutputNode *node : output_nodes_) {
     dot::Node &dot_node = digraph.new_node("Output");
     dot_node.set_shape(dot::Attr_shape::Diamond);
+
+    if (settings.cluster_ids_map.contains(node)) {
+      const uint32_t id = settings.cluster_ids_map.lookup(node);
+      dot_node.set_background_color(cluster_id_to_color(id));
+    }
+
     output_dot_nodes.add_new(node, &dot_node);
   }
 
@@ -210,6 +231,56 @@ void FieldArrayEvaluator::finalize()
   }
 
   this->evaluate_constant_outputs();
+
+  /* TODO: Use topology sort to turn remove the quadratic complexity. */
+  RandomNumberGenerator rng{23};
+  Map<const dfg::Node *, uint32_t> cluster_ids_map;
+  for (const dfg::FunctionNode *node : graph_.function_nodes()) {
+    const BackendFlags backends = node->function().dfg_node_backends(node->fn_data());
+    if (!bool(backends & BackendFlags::LazyFunction)) {
+      continue;
+    }
+    {
+      /* Propagate cluster id forwards. */
+      Set<const dfg::Node *> pushed_nodes;
+      Stack<const dfg::Node *> nodes_to_check;
+      const uint32_t forward_id = rng.get_uint32();
+      nodes_to_check.push(node);
+      pushed_nodes.add_new(node);
+      while (!nodes_to_check.is_empty()) {
+        const dfg::Node *node = nodes_to_check.pop();
+        cluster_ids_map.lookup_or_add(node, 0) ^= forward_id;
+        for (const int output_index : IndexRange(node->outputs_num())) {
+          for (const dfg::InputSocket target_socket :
+               graph_.target_sockets({node, output_index})) {
+            const dfg::Node *target_node = target_socket.node;
+            if (pushed_nodes.add(target_node)) {
+              nodes_to_check.push(target_node);
+            }
+          }
+        }
+      }
+    }
+    {
+      /* Propagate cluster id backwards. */
+      Set<const dfg::Node *> pushed_nodes;
+      Stack<const dfg::Node *> nodes_to_check;
+      const uint32_t backward_id = rng.get_uint32();
+      nodes_to_check.push(node);
+      pushed_nodes.add_new(node);
+      while (!nodes_to_check.is_empty()) {
+        const dfg::Node *node = nodes_to_check.pop();
+        cluster_ids_map.lookup_or_add(node, 0) ^= backward_id;
+        for (const int input_index : IndexRange(node->inputs_num())) {
+          const dfg::OutputSocket origin_socket = graph_.origin_socket({node, input_index});
+          const dfg::Node *origin_node = origin_socket.node;
+          if (pushed_nodes.add(origin_node)) {
+            nodes_to_check.push(origin_node);
+          }
+        }
+      }
+    }
+  }
 }
 
 void FieldArrayEvaluator::find_context_dependent_nodes()

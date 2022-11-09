@@ -283,7 +283,7 @@ class FieldNode {
   Vector<GField> inputs_;
 
  public:
-  FieldNode(std::unique_ptr<const FieldFunction> fn, Vector<GField> inputs)
+  FieldNode(std::unique_ptr<const FieldFunction> fn, Vector<GField> inputs = {})
       : fn_(std::move(fn)), inputs_(std::move(inputs))
   {
   }
@@ -461,6 +461,11 @@ class Graph {
     return {&const_cast<ContextNode &>(context_node_), 0};
   }
 
+  Span<const FunctionNode *> function_nodes() const
+  {
+    return function_nodes_;
+  }
+
   OutputSocket origin_socket(const InputSocket &socket) const
   {
     return origins_map_.lookup(socket);
@@ -480,7 +485,11 @@ class Graph {
     return targets_map_.lookup(socket);
   }
 
-  std::string to_dot() const;
+  struct ToDotSettings {
+    Map<const Node *, uint32_t> cluster_ids_map;
+  };
+
+  std::string to_dot(const ToDotSettings &settings = {}) const;
 };
 
 }  // namespace data_flow_graph

@@ -197,13 +197,24 @@ TEST(field, Test3)
 {
   Field<int> const_42_field = make_constant_field<int>(42);
   Field<int> const_100_field = make_constant_field<int>(100);
+  Field<int> input_field1 = std::make_shared<const FieldNode>(std::make_unique<InputFunc>());
+  Field<int> input_field2 = std::make_shared<const FieldNode>(std::make_unique<InputFunc>());
 
   Field<int> added_field = std::make_shared<const FieldNode>(
       std::make_unique<AddFunc>(), Vector<GField>{const_42_field, const_100_field});
+  Field<int> added_field2 = std::make_shared<const FieldNode>(
+      std::make_unique<AddFunc>(), Vector<GField>{added_field, input_field1});
+  Field<int> added_field3 = std::make_shared<const FieldNode>(
+      std::make_unique<AddFunc>(), Vector<GField>{added_field, input_field2});
+  Field<int> added_field4 = std::make_shared<const FieldNode>(
+      std::make_unique<AddFunc>(), Vector<GField>{added_field2, added_field3});
 
   FieldArrayEvaluator evaluator;
   evaluator.add_field_ref(const_42_field);
   evaluator.add_field_ref(added_field);
+  evaluator.add_field_ref(added_field2);
+  evaluator.add_field_ref(added_field3);
+  evaluator.add_field_ref(added_field4);
   evaluator.finalize();
 
   FieldArrayContext context;
