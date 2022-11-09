@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_cpp_type_make.hh"
 #include "BLI_generic_virtual_array.hh"
+
+BLI_CPP_TYPE_MAKE(GVArray, blender::GVArray, CPPTypeFlags::None);
 
 namespace blender {
 

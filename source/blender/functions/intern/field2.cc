@@ -4,10 +4,15 @@
  * \ingroup fn
  */
 
+#include "BLI_cpp_type_make.hh"
 #include "BLI_dot_export.hh"
 #include "BLI_stack.hh"
 
 #include "FN_field2.hh"
+
+BLI_CPP_TYPE_MAKE(FieldArrayContextValue,
+                  blender::fn::field2::FieldArrayContextValue,
+                  CPPTypeFlags::None);
 
 namespace blender::fn::field2 {
 
@@ -168,6 +173,21 @@ Vector<dfg::OutputNode *> build_dfg_for_fields(dfg::Graph &graph, Span<GFieldRef
   }
 
   return output_nodes;
+}
+
+void FieldArrayEvaluator::finalize()
+{
+  BLI_assert(is_finalized_);
+  BLI_SCOPED_DEFER([&]() { is_finalized_ = true; });
+
+  output_nodes_ = build_dfg_for_fields(graph_, fields_);
+}
+
+FieldArrayEvaluation::FieldArrayEvaluation(const FieldArrayEvaluator &evaluator,
+                                           const FieldArrayContext &context)
+    : evaluator_(evaluator), context_(context)
+{
+  BLI_assert(evaluator_.is_finalized_);
 }
 
 }  // namespace blender::fn::field2

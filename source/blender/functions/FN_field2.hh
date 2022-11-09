@@ -3,10 +3,20 @@
 #pragma once
 
 #include "BLI_cpp_type.hh"
+#include "BLI_generic_virtual_array.hh"
 #include "BLI_linear_allocator.hh"
 #include "BLI_map.hh"
 #include "BLI_multi_value_map.hh"
+#include "BLI_resource_scope.hh"
 #include "BLI_vector.hh"
+
+namespace blender::fn {
+class MultiFunction;
+}
+
+namespace blender::fn::lazy_function {
+class LazyFunction;
+}
 
 namespace blender::fn::field2 {
 
@@ -26,6 +36,17 @@ class OutputSocket;
 }  // namespace data_flow_graph
 
 class DfgFunctionBuilder;
+
+class FieldArrayEvaluator;
+class FieldArrayEvaluation;
+class FieldArrayContext;
+
+enum class BackendFlags {
+  None = 0,
+  LazyFunction = (1 << 0),
+  MultiFunction = (1 << 1),
+};
+ENUM_OPERATORS(BackendFlags, BackendFlags::MultiFunction);
 
 class FieldFunction {
  private:
@@ -83,6 +104,23 @@ class FieldFunction {
 
   virtual int dfg_inputs_num(const void *fn_data) const = 0;
   virtual int dfg_outputs_num(const void *fn_data) const = 0;
+
+  virtual BackendFlags dfg_node_backends(const void * /*fn_data*/) const
+  {
+    return BackendFlags::None;
+  }
+
+  virtual const lazy_function::LazyFunction &dfg_node_lazy_function(
+      const void * /*fn_data*/, ResourceScope & /*scope*/) const
+  {
+    throw std::runtime_error("lazy-function backend is not supported for this node");
+  }
+
+  virtual const MultiFunction &dfg_node_multi_function(const void * /*fn_data*/,
+                                                       ResourceScope & /*scope*/) const
+  {
+    throw std::runtime_error("multi-function backend is not supported for this node");
+  }
 
  private:
   virtual const CPPType &input_cpp_type_impl(int /*index*/) const
@@ -537,5 +575,48 @@ template<typename T> inline Field<T> make_constant_field(T value)
 }
 
 Vector<dfg::OutputNode *> build_dfg_for_fields(dfg::Graph &graph, Span<GFieldRef> fields);
+
+class FieldArrayEvaluator {
+ private:
+  Vector<GFieldRef> fields_;
+  dfg::Graph graph_;
+  Vector<dfg::OutputNode *> output_nodes_;
+  bool is_finalized_ = false;
+
+  friend FieldArrayEvaluation;
+
+ public:
+  int add_field_ref(const GFieldRef field)
+  {
+    return fields_.append_and_get_index(field);
+  }
+
+  void finalize();
+};
+
+class FieldArrayContext {
+ public:
+  virtual ~FieldArrayContext() = default;
+};
+
+struct FieldArrayContextValue {
+  FieldArrayContext *context = nullptr;
+  std::shared_ptr<FieldArrayContext> owned_context;
+};
+
+class FieldArrayEvaluation {
+ private:
+  const FieldArrayEvaluator &evaluator_;
+  const FieldArrayContext &context_;
+
+ public:
+  FieldArrayEvaluation(const FieldArrayEvaluator &evaluator, const FieldArrayContext &context);
+
+  void add_destination(int index, GVMutableArray varray);
+
+  void evaluate();
+
+  GVArray get_evaluated(int index);
+};
 
 }  // namespace blender::fn::field2

@@ -3,8 +3,12 @@
 #include "testing/testing.h"
 
 #include "FN_field2.hh"
+#include "FN_lazy_function.hh"
+#include "FN_multi_function_builder.hh"
 
 namespace blender::fn::field2::tests {
+
+namespace lf = lazy_function;
 
 class AddFunc : public FieldFunction {
  public:
@@ -37,13 +41,25 @@ class AddFunc : public FieldFunction {
     return 1;
   }
 
-  void dfg_build(DfgFunctionBuilder &builder) const
+  void dfg_build(DfgFunctionBuilder &builder) const override
   {
     dfg::Graph &graph = builder.graph();
     dfg::FunctionNode &node = graph.add_function_node(*this);
     builder.set_input(0, {&node, 0});
     builder.set_input(1, {&node, 1});
     builder.set_output(0, {&node, 0});
+  }
+
+  BackendFlags dfg_node_backends(const void * /*fn_data*/) const override
+  {
+    return BackendFlags::MultiFunction;
+  }
+
+  const MultiFunction &dfg_node_multi_function(const void * /*fn_data*/,
+                                               ResourceScope & /*scope*/) const override
+  {
+    static CustomMF_SI_SI_SO<int, int, int> fn{"add", [](int a, int b) { return a + b; }};
+    return fn;
   }
 };
 
@@ -123,6 +139,24 @@ class ChangeContextFunc : public FieldFunction {
 };
 
 class InputFunc : public FieldFunction {
+ private:
+  class LazyFuncImpl : public lazy_function::LazyFunction {
+   public:
+    LazyFuncImpl()
+    {
+      debug_name_ = "input";
+      inputs_.append({"Context", CPPType::get<FieldArrayContextValue>()});
+      outputs_.append({"Value", CPPType::get<GVArray>()});
+    }
+
+    void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
+    {
+      const FieldArrayContextValue field_context = params.extract_input<FieldArrayContextValue>(0);
+      UNUSED_VARS(field_context);
+      params.set_output<GVArray>(0, VArray<int>::ForSingle(4, 10));
+    }
+  };
+
  public:
   InputFunc() : FieldFunction(0, 1)
   {
@@ -156,6 +190,13 @@ class InputFunc : public FieldFunction {
     graph.add_link(builder.context(), {&node, 0});
 
     builder.set_output(0, {&node, 0});
+  }
+
+  const lazy_function::LazyFunction &dfg_node_lazy_function(
+      const void * /*fn_data*/, ResourceScope & /*scope*/) const override
+  {
+    static LazyFuncImpl fn;
+    return fn;
   }
 };
 
