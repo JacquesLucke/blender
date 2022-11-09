@@ -55,8 +55,8 @@ class AddFunc : public FieldFunction {
     return BackendFlags::MultiFunction;
   }
 
-  const MultiFunction &dfg_node_multi_function(const void * /*fn_data*/,
-                                               ResourceScope & /*scope*/) const override
+  const MultiFunction &dfg_backend_multi_function(const void * /*fn_data*/,
+                                                  ResourceScope & /*scope*/) const override
   {
     static CustomMF_SI_SI_SO<int, int, int> fn{"add", [](int a, int b) { return a + b; }};
     return fn;
@@ -192,7 +192,12 @@ class InputFunc : public FieldFunction {
     builder.set_output(0, {&node, 0});
   }
 
-  const lazy_function::LazyFunction &dfg_node_lazy_function(
+  BackendFlags dfg_node_backends(const void * /*fn_data*/) const override
+  {
+    return BackendFlags::LazyFunction;
+  }
+
+  const lazy_function::LazyFunction &dfg_backend_lazy_function(
       const void * /*fn_data*/, ResourceScope & /*scope*/) const override
   {
     static LazyFuncImpl fn;

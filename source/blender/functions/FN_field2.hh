@@ -3,6 +3,7 @@
 #pragma once
 
 #include "BLI_cpp_type.hh"
+#include "BLI_generic_pointer.hh"
 #include "BLI_generic_virtual_array.hh"
 #include "BLI_linear_allocator.hh"
 #include "BLI_map.hh"
@@ -45,6 +46,7 @@ enum class BackendFlags {
   None = 0,
   LazyFunction = (1 << 0),
   MultiFunction = (1 << 1),
+  ConstantValue = (1 << 2),
 };
 ENUM_OPERATORS(BackendFlags, BackendFlags::MultiFunction);
 
@@ -110,16 +112,22 @@ class FieldFunction {
     return BackendFlags::None;
   }
 
-  virtual const lazy_function::LazyFunction &dfg_node_lazy_function(
+  virtual const lazy_function::LazyFunction &dfg_backend_lazy_function(
       const void * /*fn_data*/, ResourceScope & /*scope*/) const
   {
     throw std::runtime_error("lazy-function backend is not supported for this node");
   }
 
-  virtual const MultiFunction &dfg_node_multi_function(const void * /*fn_data*/,
-                                                       ResourceScope & /*scope*/) const
+  virtual const MultiFunction &dfg_backend_multi_function(const void * /*fn_data*/,
+                                                          ResourceScope & /*scope*/) const
   {
     throw std::runtime_error("multi-function backend is not supported for this node");
+  }
+
+  virtual GPointer dfg_backend_constant_value(const void * /*fn_data*/,
+                                              ResourceScope & /*scope*/) const
+  {
+    throw std::runtime_error("constant-value backend is not supported for this node");
   }
 
  private:
@@ -564,6 +572,17 @@ template<typename T> class ConstantFieldFunction : public FieldFunction {
     dfg::Graph &graph = builder.graph();
     dfg::FunctionNode &node = graph.add_function_node(*this);
     builder.set_output(0, {&node, 0});
+  }
+
+  BackendFlags dfg_node_backends(const void * /*fn_data*/) const override
+  {
+    return BackendFlags::ConstantValue;
+  }
+
+  GPointer dfg_backend_constant_value(const void * /*fn_data*/,
+                                      ResourceScope & /*scope*/) const override
+  {
+    return &value_;
   }
 };
 
