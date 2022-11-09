@@ -60,6 +60,24 @@ class FieldFunction {
     return this->output_cpp_type_impl(index);
   }
 
+  virtual std::string dfg_node_name(const void * /*fn_data*/) const
+  {
+    return "unnamed";
+  }
+
+  virtual std::string dfg_input_name(const void * /*fn_data*/, const int /*index*/) const
+  {
+    return "unnamed";
+  }
+
+  virtual std::string dfg_output_name(const void * /*fn_data*/, const int /*index*/) const
+  {
+    return "unnamed";
+  }
+
+  virtual int dfg_inputs_num(const void *fn_data) const = 0;
+  virtual int dfg_outputs_num(const void *fn_data) const = 0;
+
  private:
   virtual const CPPType &input_cpp_type_impl(int index) const = 0;
   virtual const CPPType &output_cpp_type_impl(int index) const = 0;
@@ -277,6 +295,31 @@ class FunctionNode : public Node {
   {
     return fn_data_;
   }
+
+  int inputs_num() const
+  {
+    return fn_->dfg_inputs_num(fn_data_);
+  }
+
+  int outputs_num() const
+  {
+    return fn_->dfg_outputs_num(fn_data_);
+  }
+
+  std::string input_name(const int index) const
+  {
+    return fn_->dfg_input_name(fn_data_, index);
+  }
+
+  std::string output_name(const int index) const
+  {
+    return fn_->dfg_output_name(fn_data_, index);
+  }
+
+  std::string name() const
+  {
+    return fn_->dfg_node_name(fn_data_);
+  }
 };
 
 class InputSocket {
@@ -297,7 +340,7 @@ class InputSocket {
 
 class OutputSocket {
  public:
-  Node *node = nullptr;
+  FunctionNode *node = nullptr;
   int index;
 
   uint64_t hash() const
@@ -321,7 +364,9 @@ class Graph {
 
  public:
   ~Graph();
+
   FunctionNode &add_function_node(const FieldFunction &fn, const void *fn_data);
+
   OutputNode &add_output_node(const CPPType &cpp_type);
 
   void add_link(const OutputSocket &from, const InputSocket &to);
@@ -344,8 +389,12 @@ class Graph {
   {
     return targets_map_.lookup(socket);
   }
+
+  std::string to_dot() const;
 };
 
 }  // namespace data_flow_graph
+
+namespace dfg = data_flow_graph;
 
 }  // namespace blender::fn::field2
