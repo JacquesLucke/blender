@@ -31,20 +31,10 @@ class AddFunc : public FieldFunction {
     return "add";
   }
 
-  int dfg_inputs_num(const void * /*fn_data*/) const override
-  {
-    return 2;
-  }
-
-  int dfg_outputs_num(const void * /*fn_data*/) const override
-  {
-    return 1;
-  }
-
   void dfg_build(DfgFunctionBuilder &builder) const override
   {
     dfg::Graph &graph = builder.graph();
-    dfg::FunctionNode &node = graph.add_function_node(*this);
+    dfg::FunctionNode &node = graph.add_function_node(*this, 2, 1, nullptr);
     builder.set_input(0, {&node, 0});
     builder.set_input(1, {&node, 1});
     builder.set_output(0, {&node, 0});
@@ -97,38 +87,14 @@ class ChangeContextFunc : public FieldFunction {
     return "";
   }
 
-  int dfg_inputs_num(const void *fn_data) const override
-  {
-    switch (FnData(uintptr_t(fn_data))) {
-      case FnData::PrepareContext:
-        return 1;
-      case FnData::Interpolate:
-        return 2;
-    }
-    BLI_assert_unreachable();
-    return 0;
-  }
-
-  int dfg_outputs_num(const void *fn_data) const override
-  {
-    switch (FnData(uintptr_t(fn_data))) {
-      case FnData::PrepareContext:
-        return 1;
-      case FnData::Interpolate:
-        return 1;
-    }
-    BLI_assert_unreachable();
-    return 0;
-  }
-
   void dfg_build(DfgFunctionBuilder &builder) const
   {
     dfg::Graph &graph = builder.graph();
 
     dfg::FunctionNode &prepare_node = graph.add_function_node(
-        *this, reinterpret_cast<void *>(FnData::PrepareContext));
+        *this, 1, 1, reinterpret_cast<void *>(FnData::PrepareContext));
     dfg::FunctionNode &interpolate_node = graph.add_function_node(
-        *this, reinterpret_cast<void *>(FnData::Interpolate));
+        *this, 2, 1, reinterpret_cast<void *>(FnData::Interpolate));
 
     graph.add_link(builder.context(), {&prepare_node, 0});
     graph.add_link(builder.context(), {&interpolate_node, 0});
@@ -172,21 +138,11 @@ class InputFunc : public FieldFunction {
     return "input";
   }
 
-  int dfg_inputs_num(const void * /*fn_data*/) const override
-  {
-    return 1;
-  }
-
-  int dfg_outputs_num(const void * /*fn_data*/) const override
-  {
-    return 1;
-  }
-
   void dfg_build(DfgFunctionBuilder &builder) const
   {
     dfg::Graph &graph = builder.graph();
 
-    dfg::FunctionNode &node = graph.add_function_node(*this);
+    dfg::FunctionNode &node = graph.add_function_node(*this, 1, 1, nullptr);
     graph.add_link(builder.context(), {&node, 0});
 
     builder.set_output(0, {&node, 0});
@@ -209,9 +165,9 @@ TEST(field, Test)
 {
   dfg::Graph graph;
   AddFunc add_func;
-  dfg::FunctionNode &add_node1 = graph.add_function_node(add_func, nullptr);
-  dfg::FunctionNode &add_node2 = graph.add_function_node(add_func, nullptr);
-  dfg::FunctionNode &add_node3 = graph.add_function_node(add_func, nullptr);
+  dfg::FunctionNode &add_node1 = graph.add_function_node(add_func, 2, 1, nullptr);
+  dfg::FunctionNode &add_node2 = graph.add_function_node(add_func, 2, 1, nullptr);
+  dfg::FunctionNode &add_node3 = graph.add_function_node(add_func, 2, 1, nullptr);
 
   graph.add_link({&add_node1, 0}, {&add_node2, 0});
   graph.add_link({&add_node1, 0}, {&add_node2, 1});
@@ -234,7 +190,31 @@ TEST(field, Test2)
 
   dfg::Graph graph;
   build_dfg_for_fields(graph, {field1, const_field, change_context_field});
-  std::cout << "\n\n" << graph.to_dot() << "\n\n";
+  // std::cout << "\n\n" << graph.to_dot() << "\n\n";
+}
+
+TEST(field, Test3)
+{
+  Field<int> const_42_field = make_constant_field<int>(42);
+  Field<int> const_100_field = make_constant_field<int>(100);
+
+  Field<int> added_field = std::make_shared<const FieldNode>(
+      std::make_unique<AddFunc>(), Vector<GField>{const_42_field, const_100_field});
+
+  FieldArrayEvaluator evaluator;
+  evaluator.add_field_ref(const_42_field);
+  evaluator.add_field_ref(added_field);
+  evaluator.finalize();
+
+  FieldArrayContext context;
+  IndexMask mask = IndexRange(10);
+  FieldArrayEvaluation evaluation{evaluator, context, &mask};
+  evaluation.evaluate();
+
+  VArray<int> result0 = evaluation.get_evaluated(0).typed<int>();
+  VArray<int> result1 = evaluation.get_evaluated(1).typed<int>();
+  std::cout << result0.size() << " " << result0[2] << "\n";
+  std::cout << result1.size() << " " << result1[2] << "\n";
 }
 
 }  // namespace blender::fn::field2::tests

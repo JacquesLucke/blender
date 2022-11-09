@@ -9,6 +9,7 @@
 #include "BLI_stack.hh"
 
 #include "FN_field2.hh"
+#include "FN_multi_function.hh"
 
 BLI_CPP_TYPE_MAKE(FieldArrayContextValue,
                   blender::fn::field2::FieldArrayContextValue,
@@ -24,10 +25,15 @@ Graph::~Graph()
   static_assert(std::is_trivially_destructible_v<OutputNode>);
 }
 
-FunctionNode &Graph::add_function_node(const FieldFunction &fn, const void *fn_data)
+FunctionNode &Graph::add_function_node(const FieldFunction &fn,
+                                       int inputs_num,
+                                       int outputs_num,
+                                       const void *fn_data)
 {
   FunctionNode &node = allocator_.construct_trivial<FunctionNode>();
   node.type_ = NodeType::Function;
+  node.inputs_num_ = inputs_num;
+  node.outputs_num_ = outputs_num;
   node.fn_ = &fn;
   node.fn_data_ = fn_data;
   function_nodes_.append(&node);
@@ -38,6 +44,8 @@ OutputNode &Graph::add_output_node(const CPPType &cpp_type)
 {
   OutputNode &node = allocator_.construct_trivial<OutputNode>();
   node.type_ = NodeType::Output;
+  node.inputs_num_ = 1;
+  node.outputs_num_ = 0;
   node.cpp_type_ = &cpp_type;
   output_nodes_.append(&node);
   return node;
@@ -137,6 +145,7 @@ Vector<dfg::OutputNode *> build_dfg_for_fields(dfg::Graph &graph, Span<GFieldRef
     const FieldSocketKey key = {field, main_context_socket};
     origins_map.add_new(output_node_socket, key);
     sockets_to_build.push(key);
+    output_nodes.append(&output_node);
   }
 
   while (!sockets_to_build.is_empty()) {
@@ -175,19 +184,144 @@ Vector<dfg::OutputNode *> build_dfg_for_fields(dfg::Graph &graph, Span<GFieldRef
   return output_nodes;
 }
 
+FieldArrayEvaluator::~FieldArrayEvaluator()
+{
+  for (GMutablePointer value : constant_outputs_) {
+    value.destruct();
+  }
+}
+
 void FieldArrayEvaluator::finalize()
 {
-  BLI_assert(is_finalized_);
+  BLI_assert(!is_finalized_);
   BLI_SCOPED_DEFER([&]() { is_finalized_ = true; });
 
   output_nodes_ = build_dfg_for_fields(graph_, fields_);
+  this->find_context_dependent_nodes();
+
+  for (const int i : output_nodes_.index_range()) {
+    const dfg::OutputNode *node = output_nodes_[i];
+    if (context_dependent_nodes_.contains(node)) {
+      varying_output_indices_.append(i);
+    }
+    else {
+      constant_output_indices_.append(i);
+    }
+  }
+
+  this->evaluate_constant_outputs();
+}
+
+void FieldArrayEvaluator::find_context_dependent_nodes()
+{
+  const dfg::ContextNode &main_context_node = graph_.context_node();
+  Stack<const dfg::Node *> nodes_to_check;
+  nodes_to_check.push(&main_context_node);
+  context_dependent_nodes_.add_new(&main_context_node);
+
+  while (!nodes_to_check.is_empty()) {
+    const dfg::Node *node = nodes_to_check.pop();
+    for (const int i : IndexRange(node->outputs_num())) {
+      const dfg::OutputSocket output_socket{node, i};
+      for (const dfg::InputSocket &target : graph_.target_sockets(output_socket)) {
+        const dfg::Node *target_node = target.node;
+        if (context_dependent_nodes_.add(target_node)) {
+          nodes_to_check.push(target_node);
+        }
+      }
+    }
+  }
+}
+
+void FieldArrayEvaluator::evaluate_constant_outputs()
+{
+  LinearAllocator<> &allocator = scope_.linear_allocator();
+  for (const int output_index : constant_output_indices_) {
+    const dfg::OutputNode *node = output_nodes_[output_index];
+    const CPPType &type = node->cpp_type();
+    void *buffer = allocator.allocate(type.size(), type.alignment());
+    GMutablePointer value{type, buffer};
+    this->evaluate_constant_input_socket({node, 0}, value);
+    constant_outputs_.append(value);
+  }
+}
+
+void FieldArrayEvaluator::evaluate_constant_input_socket(const dfg::InputSocket &socket_to_compute,
+                                                         GMutablePointer r_value)
+{
+  const dfg::OutputSocket &output_socket = graph_.origin_socket(socket_to_compute);
+  BLI_assert(output_socket.node->type() == dfg::NodeType::Function);
+  const dfg::FunctionNode &node = *static_cast<const dfg::FunctionNode *>(output_socket.node);
+  const FieldFunction &field_function = node.function();
+  const void *fn_data = node.fn_data();
+  const BackendFlags backends = field_function.dfg_node_backends(fn_data);
+  const CPPType &type_to_compute = *r_value.type();
+
+  if (bool(backends & BackendFlags::ConstantValue)) {
+    const GPointer value = field_function.dfg_backend_constant_value(fn_data, scope_);
+    BLI_assert(*value.type() == type_to_compute);
+    type_to_compute.copy_construct(value.get(), r_value.get());
+    return;
+  }
+  if (bool(backends & BackendFlags::MultiFunction)) {
+    const MultiFunction &fn = field_function.dfg_backend_multi_function(fn_data, scope_);
+    MFParamsBuilder params{fn, 1};
+    for (const int input_index : IndexRange(node.inputs_num())) {
+      const int param_index = input_index;
+      const MFParamType param_type = fn.param_type(param_index);
+      BLI_assert(param_type.category() == MFParamCategory::SingleInput);
+
+      const CPPType &input_type = param_type.data_type().single_type();
+      BUFFER_FOR_CPP_TYPE_VALUE(input_type, buffer);
+      GMutablePointer input_value{input_type, buffer};
+
+      this->evaluate_constant_input_socket({&node, input_index}, input_value);
+      params.add_readonly_single_input(GVArray::ForSingle(input_type, 1, buffer));
+      input_value.destruct();
+    }
+    for (const int output_index : IndexRange(node.outputs_num())) {
+      const int param_index = output_index + node.inputs_num();
+      const MFParamType param_type = fn.param_type(param_index);
+      BLI_assert(param_type.category() == MFParamCategory::SingleOutput);
+
+      const CPPType &output_type = param_type.data_type().single_type();
+
+      if (output_index == socket_to_compute.index) {
+        BLI_assert(output_type == type_to_compute);
+        params.add_uninitialized_single_output(GMutableSpan{output_type, r_value.get(), 1});
+      }
+      else {
+        params.add_ignored_single_output();
+      }
+    }
+    MFContextBuilder context;
+    fn.call(IndexRange(1), params, context);
+    return;
+  }
+
+  /* Use default value if no backend works. */
+  type_to_compute.copy_construct(type_to_compute.default_value(), r_value.get());
 }
 
 FieldArrayEvaluation::FieldArrayEvaluation(const FieldArrayEvaluator &evaluator,
-                                           const FieldArrayContext &context)
-    : evaluator_(evaluator), context_(context)
+                                           const FieldArrayContext &context,
+                                           const IndexMask *mask)
+    : evaluator_(evaluator),
+      context_(context),
+      mask_(*mask),
+      results_(evaluator_.output_nodes_.size())
 {
   BLI_assert(evaluator_.is_finalized_);
+}
+
+void FieldArrayEvaluation::evaluate()
+{
+  for (const int i : evaluator_.constant_output_indices_.index_range()) {
+    const int output_index = evaluator_.constant_output_indices_[i];
+    const GPointer value = evaluator_.constant_outputs_[i];
+    results_[output_index] = GVArray::ForSingleRef(
+        *value.type(), mask_.min_array_size(), value.get());
+  }
 }
 
 }  // namespace blender::fn::field2

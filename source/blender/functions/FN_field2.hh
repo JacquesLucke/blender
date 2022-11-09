@@ -9,6 +9,7 @@
 #include "BLI_map.hh"
 #include "BLI_multi_value_map.hh"
 #include "BLI_resource_scope.hh"
+#include "BLI_set.hh"
 #include "BLI_vector.hh"
 
 namespace blender::fn {
@@ -103,9 +104,6 @@ class FieldFunction {
   {
     return "unnamed";
   }
-
-  virtual int dfg_inputs_num(const void *fn_data) const = 0;
-  virtual int dfg_outputs_num(const void *fn_data) const = 0;
 
   virtual BackendFlags dfg_node_backends(const void * /*fn_data*/) const
   {
@@ -322,6 +320,8 @@ enum class NodeType {
 class Node {
  protected:
   NodeType type_;
+  int inputs_num_;
+  int outputs_num_;
 
   friend Graph;
 
@@ -329,6 +329,16 @@ class Node {
   NodeType type() const
   {
     return type_;
+  }
+
+  int inputs_num() const
+  {
+    return inputs_num_;
+  }
+
+  int outputs_num() const
+  {
+    return outputs_num_;
   }
 };
 
@@ -346,6 +356,13 @@ class OutputNode : public Node {
 };
 
 class ContextNode : public Node {
+ public:
+  ContextNode()
+  {
+    type_ = NodeType::Context;
+    inputs_num_ = 0;
+    outputs_num_ = 1;
+  }
 };
 
 class FunctionNode : public Node {
@@ -366,16 +383,6 @@ class FunctionNode : public Node {
     return fn_data_;
   }
 
-  int inputs_num() const
-  {
-    return fn_->dfg_inputs_num(fn_data_);
-  }
-
-  int outputs_num() const
-  {
-    return fn_->dfg_outputs_num(fn_data_);
-  }
-
   std::string input_name(const int index) const
   {
     return fn_->dfg_input_name(fn_data_, index);
@@ -394,7 +401,7 @@ class FunctionNode : public Node {
 
 class InputSocket {
  public:
-  Node *node = nullptr;
+  const Node *node = nullptr;
   int index;
 
   uint64_t hash() const
@@ -410,7 +417,7 @@ class InputSocket {
 
 class OutputSocket {
  public:
-  Node *node = nullptr;
+  const Node *node = nullptr;
   int index;
 
   uint64_t hash() const
@@ -436,10 +443,18 @@ class Graph {
  public:
   ~Graph();
 
-  FunctionNode &add_function_node(const FieldFunction &fn, const void *fn_data = nullptr);
+  FunctionNode &add_function_node(const FieldFunction &fn,
+                                  int inputs_num,
+                                  int outputs_num,
+                                  const void *fn_data);
   OutputNode &add_output_node(const CPPType &cpp_type);
 
   void add_link(const OutputSocket &from, const InputSocket &to);
+
+  const ContextNode &context_node() const
+  {
+    return context_node_;
+  }
 
   OutputSocket context_socket() const
   {
@@ -552,16 +567,6 @@ template<typename T> class ConstantFieldFunction : public FieldFunction {
     return CPPType::get<T>();
   }
 
-  int dfg_inputs_num(const void * /*fn_data*/) const override
-  {
-    return 0;
-  }
-
-  int dfg_outputs_num(const void * /*fn_data*/) const override
-  {
-    return 1;
-  }
-
   std::string dfg_node_name(const void * /*fn_data*/) const override
   {
     return "constant";
@@ -570,7 +575,7 @@ template<typename T> class ConstantFieldFunction : public FieldFunction {
   void dfg_build(DfgFunctionBuilder &builder) const override
   {
     dfg::Graph &graph = builder.graph();
-    dfg::FunctionNode &node = graph.add_function_node(*this);
+    dfg::FunctionNode &node = graph.add_function_node(*this, 0, 1, nullptr);
     builder.set_output(0, {&node, 0});
   }
 
@@ -599,18 +604,32 @@ class FieldArrayEvaluator {
  private:
   Vector<GFieldRef> fields_;
   dfg::Graph graph_;
+  ResourceScope scope_;
   Vector<dfg::OutputNode *> output_nodes_;
+  Set<const dfg::Node *> context_dependent_nodes_;
+  Vector<int> varying_output_indices_;
+  Vector<int> constant_output_indices_;
+  Vector<GMutablePointer> constant_outputs_;
   bool is_finalized_ = false;
 
   friend FieldArrayEvaluation;
 
  public:
+  ~FieldArrayEvaluator();
+
   int add_field_ref(const GFieldRef field)
   {
+    BLI_assert(!is_finalized_);
     return fields_.append_and_get_index(field);
   }
 
   void finalize();
+
+ private:
+  void find_context_dependent_nodes();
+  void evaluate_constant_outputs();
+  void evaluate_constant_input_socket(const dfg::InputSocket &socket_to_compute,
+                                      GMutablePointer r_value);
 };
 
 class FieldArrayContext {
@@ -627,15 +646,22 @@ class FieldArrayEvaluation {
  private:
   const FieldArrayEvaluator &evaluator_;
   const FieldArrayContext &context_;
+  const IndexMask mask_;
+  Vector<GVArray> results_;
 
  public:
-  FieldArrayEvaluation(const FieldArrayEvaluator &evaluator, const FieldArrayContext &context);
+  FieldArrayEvaluation(const FieldArrayEvaluator &evaluator,
+                       const FieldArrayContext &context,
+                       const IndexMask *mask);
 
   void add_destination(int index, GVMutableArray varray);
 
   void evaluate();
 
-  GVArray get_evaluated(int index);
+  const GVArray &get_evaluated(const int index)
+  {
+    return results_[index];
+  }
 };
 
 }  // namespace blender::fn::field2
