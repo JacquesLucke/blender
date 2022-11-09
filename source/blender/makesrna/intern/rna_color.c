@@ -577,11 +577,8 @@ static void rna_ColorManagedColorspaceSettings_colorspace_set(struct PointerRNA 
 }
 
 static const EnumPropertyItem *rna_ColorManagedColorspaceSettings_colorspace_itemf(
-    bContext *C, PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
+    bContext *UNUSED(C), PointerRNA *UNUSED(ptr), PropertyRNA *UNUSED(prop), bool *r_free)
 {
-  if (C == NULL) {
-    return rna_enum_color_space_convert_default_items;
-  }
   EnumPropertyItem *items = NULL;
   int totitem = 0;
 
