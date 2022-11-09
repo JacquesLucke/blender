@@ -31,6 +31,15 @@ class AddFunc : public FieldFunction {
   {
     return 1;
   }
+
+  void dfg_build(DfgFunctionBuilder &builder) const
+  {
+    dfg::Graph &graph = builder.graph();
+    dfg::FunctionNode &node = graph.add_function_node(*this);
+    builder.set_input(0, {&node, 0});
+    builder.set_input(1, {&node, 1});
+    builder.set_output(0, {&node, 0});
+  }
 };
 
 TEST(field, Test)

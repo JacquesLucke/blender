@@ -66,17 +66,26 @@ std::string Graph::to_dot() const
         node, dot::NodeWithSocketsRef(dot_node, node->name(), input_names, output_names));
   }
   for (const OutputNode *node : output_nodes_) {
-    dot::Node &dot_node = digraph.new_node("");
+    dot::Node &dot_node = digraph.new_node("Output");
     dot_node.set_shape(dot::Attr_shape::Diamond);
     output_dot_nodes.add_new(node, &dot_node);
   }
+
+  dot::Node &context_dot_node = digraph.new_node("Context");
+  context_dot_node.set_shape(dot::Attr_shape::Ellipse);
 
   for (auto item : origins_map_.items()) {
     const InputSocket to = item.key;
     const OutputSocket from = item.value;
 
-    const dot::NodePort from_dot_port = function_dot_nodes.lookup(from.node).output(from.index);
-    dot::NodePort to_dot_port = [&]() -> dot::NodePort {
+    const dot::NodePort from_dot_port = [&]() -> dot::NodePort {
+      if (to.node->type() == NodeType::Function) {
+        return function_dot_nodes.lookup(static_cast<const FunctionNode *>(from.node))
+            .output(from.index);
+      }
+      return context_dot_node;
+    }();
+    const dot::NodePort to_dot_port = [&]() -> dot::NodePort {
       if (to.node->type() == NodeType::Function) {
         return function_dot_nodes.lookup(static_cast<const FunctionNode *>(to.node))
             .input(to.index);

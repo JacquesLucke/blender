@@ -25,6 +25,8 @@ class InputSocket;
 class OutputSocket;
 }  // namespace data_flow_graph
 
+class DfgFunctionBuilder;
+
 class FieldFunction {
  private:
   int inputs_num_;
@@ -59,6 +61,8 @@ class FieldFunction {
     BLI_assert(index < outputs_num_);
     return this->output_cpp_type_impl(index);
   }
+
+  virtual void dfg_build(DfgFunctionBuilder &builder) const = 0;
 
   virtual std::string dfg_node_name(const void * /*fn_data*/) const
   {
@@ -249,6 +253,7 @@ namespace data_flow_graph {
 
 enum class NodeType {
   Output,
+  Context,
   Function,
 };
 
@@ -276,6 +281,9 @@ class OutputNode : public Node {
   {
     return *cpp_type_;
   }
+};
+
+class ContextNode : public Node {
 };
 
 class FunctionNode : public Node {
@@ -340,7 +348,7 @@ class InputSocket {
 
 class OutputSocket {
  public:
-  FunctionNode *node = nullptr;
+  Node *node = nullptr;
   int index;
 
   uint64_t hash() const
@@ -357,6 +365,7 @@ class OutputSocket {
 class Graph {
  private:
   LinearAllocator<> allocator_;
+  ContextNode context_node_;
   Vector<FunctionNode *> function_nodes_;
   Vector<OutputNode *> output_nodes_;
   Map<InputSocket, OutputSocket> origins_map_;
@@ -365,8 +374,7 @@ class Graph {
  public:
   ~Graph();
 
-  FunctionNode &add_function_node(const FieldFunction &fn, const void *fn_data);
-
+  FunctionNode &add_function_node(const FieldFunction &fn, const void *fn_data = nullptr);
   OutputNode &add_output_node(const CPPType &cpp_type);
 
   void add_link(const OutputSocket &from, const InputSocket &to);
@@ -396,5 +404,71 @@ class Graph {
 }  // namespace data_flow_graph
 
 namespace dfg = data_flow_graph;
+
+class DfgFunctionBuilder {
+ public:
+  struct InputInfo {
+    dfg::InputSocket socket;
+    dfg::OutputSocket context;
+  };
+
+  struct OutputInfo {
+    dfg::OutputSocket socket;
+  };
+
+ private:
+  dfg::Graph *graph_;
+  dfg::OutputSocket context_;
+  Vector<InputInfo> r_inputs_;
+  Vector<OutputInfo> r_outputs_;
+
+ public:
+  DfgFunctionBuilder(dfg::Graph &graph,
+                     const dfg::OutputSocket &context,
+                     const FieldFunction &function)
+      : graph_(&graph),
+        context_(context),
+        r_inputs_(function.inputs_num()),
+        r_outputs_(function.outputs_num())
+  {
+  }
+
+  dfg::Graph &graph()
+  {
+    return *graph_;
+  }
+
+  dfg::OutputSocket context() const
+  {
+    return context_;
+  }
+
+  void set_input(const int index, const dfg::InputSocket &input_socket)
+  {
+    r_inputs_[index] = InputInfo{input_socket, context_};
+  }
+
+  void set_input(const int index,
+                 const dfg::InputSocket &input_socket,
+                 const dfg::OutputSocket &input_context)
+  {
+    r_inputs_[index] = InputInfo{input_socket, input_context};
+  }
+
+  void set_output(const int index, const dfg::OutputSocket &output_socket)
+  {
+    r_outputs_[index] = OutputInfo{output_socket};
+  }
+
+  Span<InputInfo> built_inputs() const
+  {
+    return r_inputs_;
+  }
+
+  Span<OutputInfo> built_outputs() const
+  {
+    return r_outputs_;
+  }
+};
 
 }  // namespace blender::fn::field2
