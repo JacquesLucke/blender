@@ -115,6 +115,17 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
   }
 
   /**
+   * Same as `construct` but returns a reference because the value does not have to be destructed.
+   */
+  template<typename T, typename... Args> T &construct_trivial(Args &&...args)
+  {
+    static_assert(std::is_trivially_destructible_v<T>);
+    void *buffer = this->allocate(sizeof(T), alignof(T));
+    T *value = new (buffer) T(std::forward<Args>(args)...);
+    return *value;
+  }
+
+  /**
    * Construct multiple instances of a type in an array. The constructor of is called with the
    * given arguments. The caller is responsible for calling the destructor (and not `delete`) on
    * the constructed elements.
