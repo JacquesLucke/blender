@@ -36,6 +36,8 @@ class FieldFunction {
   FieldFunction(int inputs_num, int outputs_num)
       : inputs_num_(inputs_num), outputs_num_(outputs_num)
   {
+    BLI_assert(inputs_num_ >= 0);
+    BLI_assert(outputs_num_ >= 1);
   }
 
   int inputs_num() const
@@ -83,7 +85,11 @@ class FieldFunction {
   virtual int dfg_outputs_num(const void *fn_data) const = 0;
 
  private:
-  virtual const CPPType &input_cpp_type_impl(int index) const = 0;
+  virtual const CPPType &input_cpp_type_impl(int /*index*/) const
+  {
+    BLI_assert_unreachable();
+    return CPPType::get<int>();
+  }
   virtual const CPPType &output_cpp_type_impl(int index) const = 0;
 };
 
@@ -470,5 +476,44 @@ class DfgFunctionBuilder {
     return r_outputs_;
   }
 };
+
+template<typename T> class ConstantFieldFunction : public FieldFunction {
+ private:
+  T value_;
+
+ public:
+  ConstantFieldFunction(T value) : FieldFunction(0, 1), value_(std::move(value))
+  {
+  }
+
+  const CPPType &output_cpp_type_impl(const int /*index*/) const
+  {
+    return CPPType::get<T>();
+  }
+
+  int dfg_inputs_num(const void * /*fn_data*/) const
+  {
+    return 0;
+  }
+
+  int dfg_outputs_num(const void * /*fn_data*/) const
+  {
+    return 1;
+  }
+
+  void dfg_build(DfgFunctionBuilder &builder) const
+  {
+    dfg::Graph &graph = builder.graph();
+    dfg::FunctionNode &node = graph.add_function_node(*this);
+    builder.set_output(0, {&node, 0});
+  }
+};
+
+template<typename T> inline Field<T> make_constant_field(T value)
+{
+  auto fn = std::make_unique<ConstantFieldFunction<T>>(std::move(value));
+  auto node = std::make_shared<FieldNode>(std::move(fn), Vector<GField>{});
+  return {std::move(node), 0};
+}
 
 }  // namespace blender::fn::field2

@@ -57,4 +57,11 @@ TEST(field, Test)
   std::cout << "\n\n" << graph.to_dot() << "\n\n";
 }
 
+TEST(field, Test2)
+{
+  Field<int> field = std::make_shared<const FieldNode>(
+      std::make_unique<AddFunc>(),
+      Vector<GField>{make_constant_field<int>(4), make_constant_field<int>(10)});
+}
+
 }  // namespace blender::fn::field2::tests
