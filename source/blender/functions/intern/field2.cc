@@ -5,6 +5,7 @@
  */
 
 #include "BLI_dot_export.hh"
+#include "BLI_stack.hh"
 
 #include "FN_field2.hh"
 
@@ -79,7 +80,7 @@ std::string Graph::to_dot() const
     const OutputSocket from = item.value;
 
     const dot::NodePort from_dot_port = [&]() -> dot::NodePort {
-      if (to.node->type() == NodeType::Function) {
+      if (from.node->type() == NodeType::Function) {
         return function_dot_nodes.lookup(static_cast<const FunctionNode *>(from.node))
             .output(from.index);
       }
@@ -100,5 +101,73 @@ std::string Graph::to_dot() const
 }
 
 }  // namespace data_flow_graph
+
+struct FieldSocketKey {
+  GFieldRef field;
+  dfg::OutputSocket context;
+
+  uint64_t hash() const
+  {
+    return get_default_hash_2(field, context);
+  }
+
+  friend bool operator==(const FieldSocketKey &a, const FieldSocketKey &b)
+  {
+    return a.field == b.field && a.context == b.context;
+  }
+};
+
+Vector<dfg::OutputNode *> build_dfg_for_fields(dfg::Graph &graph, Span<GFieldRef> fields)
+{
+  Map<FieldSocketKey, dfg::OutputSocket> built_sockets_map;
+  Map<dfg::InputSocket, FieldSocketKey> origins_map;
+  Stack<FieldSocketKey> sockets_to_build;
+
+  const dfg::OutputSocket main_context_socket = graph.context_socket();
+
+  Vector<dfg::OutputNode *> output_nodes;
+  for (const GFieldRef &field : fields) {
+    dfg::OutputNode &output_node = graph.add_output_node(field.cpp_type());
+    const dfg::InputSocket output_node_socket = {&output_node, 0};
+    const FieldSocketKey key = {field, main_context_socket};
+    origins_map.add_new(output_node_socket, key);
+    sockets_to_build.push(key);
+  }
+
+  while (!sockets_to_build.is_empty()) {
+    const FieldSocketKey key = sockets_to_build.pop();
+    if (built_sockets_map.contains(key)) {
+      continue;
+    }
+
+    const FieldNode &field_node = key.field.node();
+    const FieldFunction &field_function = field_node.function();
+    DfgFunctionBuilder builder{graph, key.context, field_function};
+    field_function.dfg_build(builder);
+
+    const Span<DfgFunctionBuilder::InputInfo> built_inputs = builder.built_inputs();
+    const Span<DfgFunctionBuilder::OutputInfo> built_outputs = builder.built_outputs();
+
+    const Span<GField> field_node_inputs = field_node.inputs();
+    for (const int i : IndexRange(field_function.inputs_num())) {
+      FieldSocketKey origin_key = {field_node_inputs[i], built_inputs[i].context};
+      origins_map.add_new(built_inputs[i].socket, origin_key);
+      sockets_to_build.push(origin_key);
+    }
+    for (const int i : IndexRange(field_function.outputs_num())) {
+      FieldSocketKey output_key = {GFieldRef{field_node, i}, key.context};
+      built_sockets_map.add_new(output_key, built_outputs[i].socket);
+    }
+  }
+
+  for (auto item : origins_map.items()) {
+    const dfg::InputSocket &to = item.key;
+    const dfg::OutputSocket &from = built_sockets_map.lookup(item.value);
+
+    graph.add_link(from, to);
+  }
+
+  return output_nodes;
+}
 
 }  // namespace blender::fn::field2

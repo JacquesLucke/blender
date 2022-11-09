@@ -189,6 +189,11 @@ template<typename T> class Field {
     return field_;
   }
 
+  operator GFieldRef() const
+  {
+    return field_;
+  }
+
   operator bool() const
   {
     return static_cast<bool>(field_);
@@ -237,6 +242,11 @@ class FieldNode {
   FieldNode(std::unique_ptr<const FieldFunction> fn, Vector<GField> inputs)
       : fn_(std::move(fn)), inputs_(std::move(inputs))
   {
+  }
+
+  Span<GField> inputs() const
+  {
+    return inputs_;
   }
 
   const FieldFunction &function() const
@@ -385,6 +395,11 @@ class Graph {
 
   void add_link(const OutputSocket &from, const InputSocket &to);
 
+  OutputSocket context_socket() const
+  {
+    return {&const_cast<ContextNode &>(context_node_), 0};
+  }
+
   OutputSocket origin_socket(const InputSocket &socket) const
   {
     return origins_map_.lookup(socket);
@@ -486,22 +501,27 @@ template<typename T> class ConstantFieldFunction : public FieldFunction {
   {
   }
 
-  const CPPType &output_cpp_type_impl(const int /*index*/) const
+  const CPPType &output_cpp_type_impl(const int /*index*/) const override
   {
     return CPPType::get<T>();
   }
 
-  int dfg_inputs_num(const void * /*fn_data*/) const
+  int dfg_inputs_num(const void * /*fn_data*/) const override
   {
     return 0;
   }
 
-  int dfg_outputs_num(const void * /*fn_data*/) const
+  int dfg_outputs_num(const void * /*fn_data*/) const override
   {
     return 1;
   }
 
-  void dfg_build(DfgFunctionBuilder &builder) const
+  std::string dfg_node_name(const void * /*fn_data*/) const override
+  {
+    return "constant";
+  }
+
+  void dfg_build(DfgFunctionBuilder &builder) const override
   {
     dfg::Graph &graph = builder.graph();
     dfg::FunctionNode &node = graph.add_function_node(*this);
@@ -515,5 +535,7 @@ template<typename T> inline Field<T> make_constant_field(T value)
   auto node = std::make_shared<FieldNode>(std::move(fn), Vector<GField>{});
   return {std::move(node), 0};
 }
+
+Vector<dfg::OutputNode *> build_dfg_for_fields(dfg::Graph &graph, Span<GFieldRef> fields);
 
 }  // namespace blender::fn::field2
