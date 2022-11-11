@@ -28,7 +28,8 @@ void *BasicParams::try_get_input_data_ptr_impl(const int index) const
   return inputs_[index].get();
 }
 
-void *BasicParams::try_get_input_data_ptr_or_request_impl(const int index)
+void *BasicParams::try_get_input_data_ptr_or_request_impl(
+    const int index, std::unique_ptr<ValueRequest> /*request*/)
 {
   void *value = inputs_[index].get();
   if (value == nullptr) {
@@ -40,6 +41,11 @@ void *BasicParams::try_get_input_data_ptr_or_request_impl(const int index)
 void *BasicParams::get_output_data_ptr_impl(const int index)
 {
   return outputs_[index].get();
+}
+
+const ValueRequest *BasicParams::get_output_data_request_impl(int /*index*/)
+{
+  return nullptr;
 }
 
 void BasicParams::output_set_impl(const int index)

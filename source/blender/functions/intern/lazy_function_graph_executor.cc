@@ -125,6 +125,11 @@ struct OutputState {
    * it's forwarded to input sockets. Access does not require holding the node lock.
    */
   void *value = nullptr;
+
+  bool retrieved_empty_request = false;
+  int num_retrieved_requests = 0;
+  std::unique_ptr<ValueRequest> value_request;
+  std::unique_ptr<ValueRequest> value_request_for_execution;
 };
 
 struct NodeState {
@@ -170,6 +175,11 @@ struct NodeState {
   void *storage = nullptr;
 };
 
+struct RequiredOutputInfo {
+  const OutputSocket *socket;
+  std::unique_ptr<ValueRequest> request;
+};
+
 /**
  * Utility class that wraps a node whose state is locked. Having this is a separate class is useful
  * because it allows methods to communicate that they expect the node to be locked.
@@ -189,7 +199,7 @@ struct LockedNode {
    *
    * The notifications will be send right after the node is not locked anymore.
    */
-  Vector<const OutputSocket *> delayed_required_outputs;
+  Vector<RequiredOutputInfo> delayed_required_outputs;
   Vector<const OutputSocket *> delayed_unused_outputs;
 
   LockedNode(const Node &node, NodeState &node_state) : node(node), node_state(node_state)
@@ -386,7 +396,7 @@ class Executor {
       const Node &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
       this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-        this->set_input_required(locked_node, socket);
+        this->set_input_required(locked_node, socket, {});
       });
     }
   }
@@ -472,8 +482,9 @@ class Executor {
     this->forward_value_to_linked_inputs(socket, {type, buffer}, current_task);
   }
 
-  void notify_output_required(const OutputSocket &socket, CurrentTask &current_task)
+  void notify_output_required(RequiredOutputInfo &info, CurrentTask &current_task)
   {
+    const OutputSocket &socket = *info.socket;
     const Node &node = socket.node();
     const int index_in_node = socket.index();
     NodeState &node_state = *node_states_[node.index_in_graph()];
@@ -487,7 +498,7 @@ class Executor {
       if (was_loaded.load()) {
         return;
       }
-      void *input_data = params_->try_get_input_data_ptr_or_request(graph_input_index);
+      void *input_data = params_->try_get_input_data_ptr_or_request(graph_input_index, {});
       if (input_data == nullptr) {
         return;
       }
@@ -502,6 +513,20 @@ class Executor {
 
     BLI_assert(node.is_function());
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
+      if (!info.request) {
+        output_state.retrieved_empty_request = true;
+      }
+      output_state.num_retrieved_requests++;
+      if (output_state.value_request) {
+        output_state.value_request->merge(info.request.get());
+      }
+      else {
+        /* TODO: Handle case when there was a null-request before. */
+        output_state.value_request = std::move(info.request);
+        if (output_state.retrieved_empty_request && output_state.value_request) {
+          output_state.value_request->merge(nullptr);
+        }
+      }
       if (output_state.usage == ValueUsage::Used) {
         return;
       }
@@ -585,11 +610,11 @@ class Executor {
     this->send_output_unused_notifications(locked_node.delayed_unused_outputs, current_task);
   }
 
-  void send_output_required_notifications(const Span<const OutputSocket *> sockets,
+  void send_output_required_notifications(Vector<RequiredOutputInfo> &infos,
                                           CurrentTask &current_task)
   {
-    for (const OutputSocket *socket : sockets) {
-      this->notify_output_required(*socket, current_task);
+    for (RequiredOutputInfo &info : infos) {
+      this->notify_output_required(info, current_task);
     }
   }
 
@@ -666,7 +691,8 @@ class Executor {
           const Input &fn_input = fn_inputs[input_index];
           if (fn_input.usage == ValueUsage::Used) {
             const InputSocket &input_socket = node.input(input_index);
-            this->set_input_required(locked_node, input_socket);
+            this->set_input_required(
+                locked_node, input_socket, fn.get_static_value_request(input_index));
           }
         }
 
@@ -684,6 +710,24 @@ class Executor {
         }
         if (input_state.usage == ValueUsage::Used) {
           return;
+        }
+      }
+
+      for (const int output_index : node_state.outputs.index_range()) {
+        OutputState &output_state = node_state.outputs[output_index];
+        if (output_state.value_request_for_execution) {
+          if (output_state.value_request) {
+            output_state.value_request_for_execution->merge(output_state.value_request.get());
+            output_state.value_request.reset();
+          }
+        }
+        else {
+          output_state.value_request_for_execution = std::move(output_state.value_request);
+        }
+        if (output_state.value_request_for_execution) {
+          if (output_state.num_retrieved_requests < output_state.potential_target_sockets) {
+            output_state.value_request_for_execution->merge(nullptr);
+          }
         }
       }
 
@@ -831,17 +875,20 @@ class Executor {
   void *set_input_required_during_execution(const Node &node,
                                             NodeState &node_state,
                                             const int input_index,
+                                            std::unique_ptr<ValueRequest> request,
                                             CurrentTask &current_task)
   {
     const InputSocket &input_socket = node.input(input_index);
     void *result;
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      result = this->set_input_required(locked_node, input_socket);
+      result = this->set_input_required(locked_node, input_socket, std::move(request));
     });
     return result;
   }
 
-  void *set_input_required(LockedNode &locked_node, const InputSocket &input_socket)
+  void *set_input_required(LockedNode &locked_node,
+                           const InputSocket &input_socket,
+                           std::unique_ptr<ValueRequest> request)
   {
     BLI_assert(&locked_node.node == &input_socket.node());
     NodeState &node_state = locked_node.node_state;
@@ -863,7 +910,7 @@ class Executor {
     const OutputSocket *origin_socket = input_socket.origin();
     /* Unlinked inputs are always loaded in advance. */
     BLI_assert(origin_socket != nullptr);
-    locked_node.delayed_required_outputs.append(origin_socket);
+    locked_node.delayed_required_outputs.append({origin_socket, std::move(request)});
     return nullptr;
   }
 
@@ -1061,13 +1108,15 @@ class GraphExecutorLFParams final : public Params {
     return nullptr;
   }
 
-  void *try_get_input_data_ptr_or_request_impl(const int index) override
+  void *try_get_input_data_ptr_or_request_impl(const int index,
+                                               std::unique_ptr<ValueRequest> request) override
   {
     const InputState &input_state = node_state_.inputs[index];
     if (input_state.was_ready_for_execution) {
       return input_state.value;
     }
-    return executor_.set_input_required_during_execution(node_, node_state_, index, current_task_);
+    return executor_.set_input_required_during_execution(
+        node_, node_state_, index, std::move(request), current_task_);
   }
 
   void *get_output_data_ptr_impl(const int index) override
@@ -1080,6 +1129,12 @@ class GraphExecutorLFParams final : public Params {
       output_state.value = allocator.allocate(type.size(), type.alignment());
     }
     return output_state.value;
+  }
+
+  const ValueRequest *get_output_data_request_impl(int index) override
+  {
+    OutputState &output_state = node_state_.outputs[index];
+    return output_state.value_request_for_execution.get();
   }
 
   void output_set_impl(const int index) override

@@ -23,6 +23,7 @@
 
 #include "BKE_compute_contexts.hh"
 #include "BKE_geometry_set.hh"
+#include "BKE_mesh.h"
 #include "BKE_type_conversions.hh"
 
 #include "FN_field_cpp_type.hh"
@@ -121,6 +122,16 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     BLI_assert(node.typeinfo->geometry_node_execute != nullptr);
     debug_name_ = node.name;
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
+  }
+
+  std::unique_ptr<ValueRequest> get_static_value_request(const int index) const
+  {
+    if (node_.type == GEO_NODE_MESH_TO_POINTS && index == 0) {
+      auto request = std::make_unique<bke::MeshRequest>();
+      request->skip_faces = true;
+      return request;
+    }
+    return {};
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override

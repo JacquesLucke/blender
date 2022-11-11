@@ -45,7 +45,7 @@ void transform_geometry_set(GeoNodeExecParams &params,
 
 Mesh *create_line_mesh(const float3 start, const float3 delta, int count);
 
-Mesh *create_grid_mesh(int verts_x, int verts_y, float size_x, float size_y);
+Mesh *create_grid_mesh(int verts_x, int verts_y, float size_x, float size_y, bool generate_faces);
 
 struct ConeAttributeOutputs {
   StrongAnonymousAttributeID top_id;

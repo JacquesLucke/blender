@@ -76,15 +76,15 @@ static Mesh *create_cube_mesh(const float3 size,
   }
   if (dimensions == 2) {
     if (verts_z == 1) { /* XY plane. */
-      return create_grid_mesh(verts_x, verts_y, size.x, size.y);
+      return create_grid_mesh(verts_x, verts_y, size.x, size.y, true);
     }
     if (verts_y == 1) { /* XZ plane. */
-      Mesh *mesh = create_grid_mesh(verts_x, verts_z, size.x, size.z);
+      Mesh *mesh = create_grid_mesh(verts_x, verts_z, size.x, size.z, true);
       transform_mesh(*mesh, float3(0), float3(M_PI_2, 0.0f, 0.0f), float3(1));
       return mesh;
     }
     /* YZ plane. */
-    Mesh *mesh = create_grid_mesh(verts_z, verts_y, size.z, size.y);
+    Mesh *mesh = create_grid_mesh(verts_z, verts_y, size.z, size.y, true);
     transform_mesh(*mesh, float3(0), float3(0.0f, M_PI_2, 0.0f), float3(1));
     return mesh;
   }

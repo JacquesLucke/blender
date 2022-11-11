@@ -39,7 +39,8 @@ static void calculate_uvs(
 Mesh *create_grid_mesh(const int verts_x,
                        const int verts_y,
                        const float size_x,
-                       const float size_y)
+                       const float size_y,
+                       const bool generate_faces)
 {
   BLI_assert(verts_x > 0 && verts_y > 0);
   const int edges_x = verts_x - 1;
@@ -47,8 +48,8 @@ Mesh *create_grid_mesh(const int verts_x,
   Mesh *mesh = BKE_mesh_new_nomain(verts_x * verts_y,
                                    edges_x * verts_y + edges_y * verts_x,
                                    0,
-                                   edges_x * edges_y * 4,
-                                   edges_x * edges_y);
+                                   generate_faces ? edges_x * edges_y * 4 : 0,
+                                   generate_faces ? edges_x * edges_y : 0);
   MutableSpan<MVert> verts = mesh->verts_for_write();
   MutableSpan<MEdge> edges = mesh->edges_for_write();
   MutableSpan<MPoly> polys = mesh->polys_for_write();
@@ -111,34 +112,36 @@ Mesh *create_grid_mesh(const int verts_x,
     }
   });
 
-  threading::parallel_for(IndexRange(edges_x), 512, [&](IndexRange x_range) {
-    for (const int x : x_range) {
-      const int y_offset = x * edges_y;
-      threading::parallel_for(IndexRange(edges_y), 512, [&](IndexRange y_range) {
-        for (const int y : y_range) {
-          const int poly_index = y_offset + y;
-          const int loop_index = poly_index * 4;
-          MPoly &poly = polys[poly_index];
-          poly.loopstart = loop_index;
-          poly.totloop = 4;
-          const int vert_index = x * verts_y + y;
+  if (generate_faces) {
+    threading::parallel_for(IndexRange(edges_x), 512, [&](IndexRange x_range) {
+      for (const int x : x_range) {
+        const int y_offset = x * edges_y;
+        threading::parallel_for(IndexRange(edges_y), 512, [&](IndexRange y_range) {
+          for (const int y : y_range) {
+            const int poly_index = y_offset + y;
+            const int loop_index = poly_index * 4;
+            MPoly &poly = polys[poly_index];
+            poly.loopstart = loop_index;
+            poly.totloop = 4;
+            const int vert_index = x * verts_y + y;
 
-          MLoop &loop_a = loops[loop_index];
-          loop_a.v = vert_index;
-          loop_a.e = x_edges_start + edges_x * y + x;
-          MLoop &loop_b = loops[loop_index + 1];
-          loop_b.v = vert_index + verts_y;
-          loop_b.e = y_edges_start + edges_y * (x + 1) + y;
-          MLoop &loop_c = loops[loop_index + 2];
-          loop_c.v = vert_index + verts_y + 1;
-          loop_c.e = x_edges_start + edges_x * (y + 1) + x;
-          MLoop &loop_d = loops[loop_index + 3];
-          loop_d.v = vert_index + 1;
-          loop_d.e = y_edges_start + edges_y * x + y;
-        }
-      });
-    }
-  });
+            MLoop &loop_a = loops[loop_index];
+            loop_a.v = vert_index;
+            loop_a.e = x_edges_start + edges_x * y + x;
+            MLoop &loop_b = loops[loop_index + 1];
+            loop_b.v = vert_index + verts_y;
+            loop_b.e = y_edges_start + edges_y * (x + 1) + y;
+            MLoop &loop_c = loops[loop_index + 2];
+            loop_c.v = vert_index + verts_y + 1;
+            loop_c.e = x_edges_start + edges_x * (y + 1) + x;
+            MLoop &loop_d = loops[loop_index + 3];
+            loop_d.v = vert_index + 1;
+            loop_d.e = y_edges_start + edges_y * x + y;
+          }
+        });
+      }
+    });
+  }
 
   if (mesh->totpoly != 0) {
     calculate_uvs(mesh, verts, loops, size_x, size_y);
@@ -187,7 +190,11 @@ static void node_geo_exec(GeoNodeExecParams params)
     return;
   }
 
-  Mesh *mesh = create_grid_mesh(verts_x, verts_y, size_x, size_y);
+  const bke::MeshRequest *mesh_request = params.get_output_request<bke::MeshRequest>("Mesh");
+  const bool generate_faces = mesh_request ? !mesh_request->skip_faces : true;
+  std::cout << "Generate faces: " << generate_faces << "\n";
+
+  Mesh *mesh = create_grid_mesh(verts_x, verts_y, size_x, size_y, generate_faces);
   BKE_id_material_eval_ensure_default_slot(&mesh->id);
 
   params.set_output("Mesh", GeometrySet::create_with_mesh(mesh));

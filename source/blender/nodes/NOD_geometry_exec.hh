@@ -177,6 +177,18 @@ class GeoNodeExecParams {
     return params_.get_output_usage(index) != lf::ValueUsage::Unused;
   }
 
+  const ValueRequest *get_output_request(StringRef identifier)
+  {
+    const int index = this->get_output_index(identifier);
+    return params_.get_output_data_request(index);
+  }
+
+  template<typename T> const T *get_output_request(StringRef identifier)
+  {
+    static_assert(std::is_base_of_v<ValueRequest, T>);
+    return dynamic_cast<const T *>(this->get_output_request(identifier));
+  }
+
   /**
    * Tell the evaluator that a specific input is required.
    * This returns true when the input will only be available in the next execution.

@@ -12,6 +12,7 @@
 #  include <mutex>
 
 #  include "BLI_span.hh"
+#  include "BLI_value_request.hh"
 
 #  include "DNA_customdata_types.h"
 
@@ -155,6 +156,22 @@ struct MeshRuntime {
   ~MeshRuntime() = default;
 
   MEM_CXX_CLASS_ALLOC_FUNCS("MeshRuntime")
+};
+
+class MeshRequest : public ValueRequest {
+ public:
+  bool skip_faces = false;
+
+  void merge(const ValueRequest *other)
+  {
+    if (const MeshRequest *other_typed = dynamic_cast<const MeshRequest *>(other)) {
+      this->skip_faces &= other_typed->skip_faces;
+    }
+    else {
+      MeshRequest request;
+      this->merge(&request);
+    }
+  }
 };
 
 }  // namespace blender::bke
