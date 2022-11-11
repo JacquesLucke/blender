@@ -521,7 +521,6 @@ class Executor {
         output_state.value_request->merge(info.request.get());
       }
       else {
-        /* TODO: Handle case when there was a null-request before. */
         output_state.value_request = std::move(info.request);
         if (output_state.retrieved_empty_request && output_state.value_request) {
           output_state.value_request->merge(nullptr);
