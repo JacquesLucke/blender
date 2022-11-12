@@ -101,6 +101,9 @@ static void lazy_function_interface_from_node(const bNode &node,
     }
     r_outputs.append({socket->identifier, *type});
     r_used_outputs.append(socket);
+    if (type->is<GeometrySet>()) {
+      r_outputs.last().request_type = &ValueRequestCPPType::get<bke::GeometrySetRequest>();
+    }
   }
 }
 
@@ -122,12 +125,13 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
   }
 
-  std::unique_ptr<ValueRequest> get_static_value_request(const int index) const
+  GMutablePointer get_static_value_request(const int index,
+                                           LinearAllocator<> &allocator) const override
   {
     if (node_.type == GEO_NODE_MESH_TO_POINTS && index == 0) {
-      auto request = std::make_unique<bke::MeshRequest>();
-      request->skip_faces = true;
-      return request;
+      bke::GeometrySetRequest &request = *allocator.construct<bke::GeometrySetRequest>().release();
+      request.mesh.skip_faces = true;
+      return &request;
     }
     return {};
   }

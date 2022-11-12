@@ -38,7 +38,7 @@
  * - An executor that allows multi-threaded execution or such a graph.
  */
 
-#include "BLI_cpp_type.hh"
+#include "BLI_cpp_types.hh"
 #include "BLI_generic_pointer.hh"
 #include "BLI_linear_allocator.hh"
 #include "BLI_value_request.hh"
@@ -129,7 +129,7 @@ class Params {
    * Same as #try_get_input_data_ptr, but if the data is not yet available, request it. This makes
    * sure that the data will be available in a future execution of the #LazyFunction.
    */
-  void *try_get_input_data_ptr_or_request(int index, std::unique_ptr<ValueRequest> request = {});
+  void *try_get_input_data_ptr_or_request(int index, GMutablePointer request = {});
 
   /**
    * Get a pointer to where the output value should be stored.
@@ -139,7 +139,7 @@ class Params {
    */
   void *get_output_data_ptr(int index);
 
-  const ValueRequest *get_output_data_request(int index);
+  const void *get_output_data_request(int index);
 
   /**
    * Call this after the output value is initialized. After this is called, the value must not be
@@ -192,10 +192,9 @@ class Params {
    * implementations.
    */
   virtual void *try_get_input_data_ptr_impl(int index) const = 0;
-  virtual void *try_get_input_data_ptr_or_request_impl(int index,
-                                                       std::unique_ptr<ValueRequest> request) = 0;
+  virtual void *try_get_input_data_ptr_or_request_impl(int index, GMutablePointer request) = 0;
   virtual void *get_output_data_ptr_impl(int index) = 0;
-  virtual const ValueRequest *get_output_data_request_impl(int index) = 0;
+  virtual const void *get_output_data_request_impl(int index) = 0;
   virtual void output_set_impl(int index) = 0;
   virtual bool output_was_set_impl(int index) const = 0;
   virtual ValueUsage get_output_usage_impl(int index) const = 0;
@@ -244,7 +243,12 @@ struct Output {
    */
   const CPPType *type = nullptr;
 
-  Output(const char *debug_name, const CPPType &type) : debug_name(debug_name), type(&type)
+  const ValueRequestCPPType *request_type = nullptr;
+
+  Output(const char *debug_name,
+         const CPPType &type,
+         const ValueRequestCPPType *request_type = nullptr)
+      : debug_name(debug_name), type(&type), request_type(request_type)
   {
   }
 };
@@ -282,7 +286,8 @@ class LazyFunction {
    */
   virtual void destruct_storage(void *storage) const;
 
-  virtual std::unique_ptr<ValueRequest> get_static_value_request(int /*index*/) const
+  virtual GMutablePointer get_static_value_request(int /*index*/,
+                                                   LinearAllocator<> & /*allocator*/) const
   {
     return {};
   }
@@ -358,11 +363,10 @@ inline void *Params::try_get_input_data_ptr(const int index) const
   return this->try_get_input_data_ptr_impl(index);
 }
 
-inline void *Params::try_get_input_data_ptr_or_request(const int index,
-                                                       std::unique_ptr<ValueRequest> request)
+inline void *Params::try_get_input_data_ptr_or_request(const int index, GMutablePointer request)
 {
   this->assert_valid_thread();
-  return this->try_get_input_data_ptr_or_request_impl(index, std::move(request));
+  return this->try_get_input_data_ptr_or_request_impl(index, request);
 }
 
 inline void *Params::get_output_data_ptr(const int index)
@@ -371,7 +375,7 @@ inline void *Params::get_output_data_ptr(const int index)
   return this->get_output_data_ptr_impl(index);
 }
 
-inline const ValueRequest *Params::get_output_data_request(const int index)
+inline const void *Params::get_output_data_request(const int index)
 {
   this->assert_valid_thread();
   return this->get_output_data_request_impl(index);

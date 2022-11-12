@@ -22,6 +22,7 @@
 #include "BKE_anonymous_attribute.hh"
 #include "BKE_attribute.hh"
 #include "BKE_geometry_set.h"
+#include "BKE_mesh_types.h"
 
 struct Curves;
 struct Collection;
@@ -644,3 +645,22 @@ class GeometryComponentEditData final : public GeometryComponent {
 
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_EDIT;
 };
+
+namespace blender::bke {
+
+class GeometrySetRequest {
+ public:
+  MeshRequest mesh;
+
+  void merge(const GeometrySetRequest &other)
+  {
+    this->mesh.merge(other.mesh);
+  }
+
+  void merge_unknown()
+  {
+    this->mesh.merge_unknown();
+  }
+};
+
+};  // namespace blender::bke

@@ -14,6 +14,15 @@ inline VectorCPPType::VectorCPPType(TypeTag<ValueType> /*value_type*/)
   this->register_self();
 }
 
+template<typename T>
+ValueRequestCPPType::ValueRequestCPPType(TypeTag<T> /*type*/) : self(CPPType::get<T>())
+{
+  merge_ = [](void *value, const void *other) {
+    static_cast<T *>(value)->merge(*static_cast<const T *>(other));
+  };
+  merge_unknown_ = [](void *value) { static_cast<T *>(value)->merge_unknown(); };
+}
+
 }  // namespace blender
 
 /** Create a new #VectorCPPType that can be accessed through `VectorCPPType::get<T>()`. */
@@ -27,3 +36,13 @@ inline VectorCPPType::VectorCPPType(TypeTag<ValueType> /*value_type*/)
 
 /** Register a #VectorCPPType created with #BLI_VECTOR_CPP_TYPE_MAKE. */
 #define BLI_VECTOR_CPP_TYPE_REGISTER(VALUE_TYPE) blender::VectorCPPType::get<VALUE_TYPE>()
+
+#define BLI_VALUE_REQUEST_CPP_TYPE_MAKE(T) \
+  BLI_CPP_TYPE_MAKE(T, CPPTypeFlags::None) \
+  template<> const blender::ValueRequestCPPType &blender::ValueRequestCPPType::get_impl<T>() \
+  { \
+    static blender::ValueRequestCPPType type{blender::TypeTag<T>{}}; \
+    return type; \
+  }
+
+#define BLI_VALUE_REQUEST_CPP_TYPE_REGISTER(T) blender::ValueRequestCPPType::get<T>()

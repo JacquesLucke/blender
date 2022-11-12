@@ -128,8 +128,8 @@ struct OutputState {
 
   bool retrieved_empty_request = false;
   int num_retrieved_requests = 0;
-  std::unique_ptr<ValueRequest> value_request;
-  std::unique_ptr<ValueRequest> value_request_for_execution;
+  void *value_request;
+  void *value_request_for_execution;
 };
 
 struct NodeState {
@@ -177,7 +177,7 @@ struct NodeState {
 
 struct RequiredOutputInfo {
   const OutputSocket *socket;
-  std::unique_ptr<ValueRequest> request;
+  GMutablePointer request;
 };
 
 /**
@@ -513,17 +513,28 @@ class Executor {
 
     BLI_assert(node.is_function());
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      if (!info.request) {
-        output_state.retrieved_empty_request = true;
-      }
-      output_state.num_retrieved_requests++;
-      if (output_state.value_request) {
-        output_state.value_request->merge(info.request.get());
-      }
-      else {
-        output_state.value_request = std::move(info.request);
-        if (output_state.retrieved_empty_request && output_state.value_request) {
-          output_state.value_request->merge(nullptr);
+      const Output &fn_output =
+          static_cast<const FunctionNode *>(&node)->function().outputs()[index_in_node];
+      if (fn_output.request_type != nullptr) {
+        const CPPType *request_type = info.request.type();
+        void *request = info.request.get();
+        if (request == nullptr) {
+          output_state.retrieved_empty_request = true;
+        }
+        output_state.num_retrieved_requests++;
+        if (output_state.value_request != nullptr) {
+          if (*request_type == fn_output.request_type->self) {
+            fn_output.request_type->merge(output_state.value_request, request);
+          }
+          else {
+            fn_output.request_type->merge_unknown(output_state.value_request);
+          }
+        }
+        else {
+          output_state.value_request = request;
+          if (output_state.retrieved_empty_request && output_state.value_request) {
+            fn_output.request_type->merge_unknown(output_state.value_request);
+          }
         }
       }
       if (output_state.usage == ValueUsage::Used) {
@@ -690,8 +701,8 @@ class Executor {
           const Input &fn_input = fn_inputs[input_index];
           if (fn_input.usage == ValueUsage::Used) {
             const InputSocket &input_socket = node.input(input_index);
-            this->set_input_required(
-                locked_node, input_socket, fn.get_static_value_request(input_index));
+            const GMutablePointer request = fn.get_static_value_request(input_index, allocator);
+            this->set_input_required(locked_node, input_socket, request);
           }
         }
 
@@ -714,18 +725,21 @@ class Executor {
 
       for (const int output_index : node_state.outputs.index_range()) {
         OutputState &output_state = node_state.outputs[output_index];
-        if (output_state.value_request_for_execution) {
-          if (output_state.value_request) {
-            output_state.value_request_for_execution->merge(output_state.value_request.get());
-            output_state.value_request.reset();
+        const Output &fn_output = fn.outputs()[output_index];
+        if (fn_output.request_type != nullptr) {
+          if (output_state.value_request_for_execution) {
+            if (output_state.value_request) {
+              fn_output.request_type->merge(output_state.value_request_for_execution,
+                                            output_state.value_request);
+            }
           }
-        }
-        else {
-          output_state.value_request_for_execution = std::move(output_state.value_request);
-        }
-        if (output_state.value_request_for_execution) {
-          if (output_state.num_retrieved_requests < output_state.potential_target_sockets) {
-            output_state.value_request_for_execution->merge(nullptr);
+          else {
+            output_state.value_request_for_execution = output_state.value_request;
+          }
+          if (output_state.value_request_for_execution) {
+            if (output_state.num_retrieved_requests < output_state.potential_target_sockets) {
+              fn_output.request_type->merge_unknown(output_state.value_request_for_execution);
+            }
           }
         }
       }
@@ -874,20 +888,20 @@ class Executor {
   void *set_input_required_during_execution(const Node &node,
                                             NodeState &node_state,
                                             const int input_index,
-                                            std::unique_ptr<ValueRequest> request,
+                                            GMutablePointer request,
                                             CurrentTask &current_task)
   {
     const InputSocket &input_socket = node.input(input_index);
     void *result;
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      result = this->set_input_required(locked_node, input_socket, std::move(request));
+      result = this->set_input_required(locked_node, input_socket, request);
     });
     return result;
   }
 
   void *set_input_required(LockedNode &locked_node,
                            const InputSocket &input_socket,
-                           std::unique_ptr<ValueRequest> request)
+                           GMutablePointer request)
   {
     BLI_assert(&locked_node.node == &input_socket.node());
     NodeState &node_state = locked_node.node_state;
@@ -1107,15 +1121,14 @@ class GraphExecutorLFParams final : public Params {
     return nullptr;
   }
 
-  void *try_get_input_data_ptr_or_request_impl(const int index,
-                                               std::unique_ptr<ValueRequest> request) override
+  void *try_get_input_data_ptr_or_request_impl(const int index, GMutablePointer request) override
   {
     const InputState &input_state = node_state_.inputs[index];
     if (input_state.was_ready_for_execution) {
       return input_state.value;
     }
     return executor_.set_input_required_during_execution(
-        node_, node_state_, index, std::move(request), current_task_);
+        node_, node_state_, index, request, current_task_);
   }
 
   void *get_output_data_ptr_impl(const int index) override
@@ -1130,10 +1143,10 @@ class GraphExecutorLFParams final : public Params {
     return output_state.value;
   }
 
-  const ValueRequest *get_output_data_request_impl(int index) override
+  const void *get_output_data_request_impl(int index) override
   {
     OutputState &output_state = node_state_.outputs[index];
-    return output_state.value_request_for_execution.get();
+    return output_state.value_request_for_execution;
   }
 
   void output_set_impl(const int index) override

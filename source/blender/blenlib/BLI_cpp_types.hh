@@ -41,4 +41,33 @@ class VectorCPPType {
   void register_self();
 };
 
+class ValueRequestCPPType {
+ private:
+  void (*merge_)(void *value, const void *other);
+  void (*merge_unknown_)(void *value);
+
+ public:
+  const CPPType &self;
+
+  template<typename T> ValueRequestCPPType(TypeTag<T> /*type*/);
+  void merge(void *value, const void *other) const
+  {
+    merge_(value, other);
+  }
+
+  void merge_unknown(void *value) const
+  {
+    merge_unknown_(value);
+  }
+
+  template<typename T> static const ValueRequestCPPType &get()
+  {
+    static const ValueRequestCPPType &type = ValueRequestCPPType::get_impl<std::decay_t<T>>();
+    return type;
+  }
+
+ private:
+  template<typename T> static const ValueRequestCPPType &get_impl();
+};
+
 }  // namespace blender

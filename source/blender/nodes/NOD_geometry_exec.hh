@@ -177,7 +177,7 @@ class GeoNodeExecParams {
     return params_.get_output_usage(index) != lf::ValueUsage::Unused;
   }
 
-  const ValueRequest *get_output_request(StringRef identifier)
+  const void *get_output_request(StringRef identifier)
   {
     const int index = this->get_output_index(identifier);
     return params_.get_output_data_request(index);
@@ -185,8 +185,7 @@ class GeoNodeExecParams {
 
   template<typename T> const T *get_output_request(StringRef identifier)
   {
-    static_assert(std::is_base_of_v<ValueRequest, T>);
-    return dynamic_cast<const T *>(this->get_output_request(identifier));
+    return static_cast<const T *>(this->get_output_request(identifier));
   }
 
   /**

@@ -158,19 +158,18 @@ struct MeshRuntime {
   MEM_CXX_CLASS_ALLOC_FUNCS("MeshRuntime")
 };
 
-class MeshRequest : public ValueRequest {
+class MeshRequest {
  public:
   bool skip_faces = false;
 
-  void merge(const ValueRequest *other)
+  void merge(const MeshRequest &other)
   {
-    if (const MeshRequest *other_typed = dynamic_cast<const MeshRequest *>(other)) {
-      this->skip_faces &= other_typed->skip_faces;
-    }
-    else {
-      MeshRequest request;
-      this->merge(&request);
-    }
+    this->skip_faces &= other.skip_faces;
+  }
+
+  void merge_unknown()
+  {
+    this->merge(MeshRequest());
   }
 };
 
