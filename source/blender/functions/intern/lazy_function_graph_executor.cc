@@ -84,6 +84,8 @@ struct InputState {
    * If #was_ready_for_execution is true, access does not require holding the node lock.
    */
   void *value = nullptr;
+  /* TODO: Destruct. */
+  void *request = nullptr;
   /**
    * How the node intends to use this input. By default, all inputs may be used. Based on which
    * outputs are used, a node can decide that an input will definitely be used or is never used.
@@ -128,6 +130,7 @@ struct OutputState {
 
   bool retrieved_empty_request = false;
   int num_retrieved_requests = 0;
+  /* TODO: Destruct. */
   void *value_request;
   void *value_request_for_execution;
 };
@@ -177,7 +180,7 @@ struct NodeState {
 
 struct RequiredOutputInfo {
   const OutputSocket *socket;
-  GMutablePointer request;
+  const void *request;
 };
 
 /**
@@ -396,7 +399,7 @@ class Executor {
       const Node &node = socket.node();
       NodeState &node_state = *node_states_[node.index_in_graph()];
       this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-        this->set_input_required(locked_node, socket, {});
+        this->set_input_required(locked_node, socket);
       });
     }
   }
@@ -498,7 +501,7 @@ class Executor {
       if (was_loaded.load()) {
         return;
       }
-      void *input_data = params_->try_get_input_data_ptr_or_request(graph_input_index, {});
+      void *input_data = params_->try_get_input_data_ptr_or_request(graph_input_index);
       if (input_data == nullptr) {
         return;
       }
@@ -512,28 +515,26 @@ class Executor {
     }
 
     BLI_assert(node.is_function());
+    const FunctionNode &function_node = static_cast<const FunctionNode &>(node);
+    const LazyFunction &fn = function_node.function();
+    const Output &fn_output = fn.outputs()[index_in_node];
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      const Output &fn_output =
-          static_cast<const FunctionNode *>(&node)->function().outputs()[index_in_node];
-      if (fn_output.request_type != nullptr) {
-        const CPPType *request_type = info.request.type();
-        void *request = info.request.get();
-        if (request == nullptr) {
+      output_state.num_retrieved_requests++;
+      const ValueRequestCPPType *request_type = fn_output.request_type;
+      if (request_type != nullptr) {
+        if (info.request == nullptr) {
           output_state.retrieved_empty_request = true;
         }
-        output_state.num_retrieved_requests++;
-        if (output_state.value_request != nullptr) {
-          if (*request_type == fn_output.request_type->self) {
-            fn_output.request_type->merge(output_state.value_request, request);
+        else {
+          if (output_state.value_request != nullptr) {
+            request_type->merge(output_state.value_request, info.request);
           }
           else {
-            fn_output.request_type->merge_unknown(output_state.value_request);
-          }
-        }
-        else {
-          output_state.value_request = request;
-          if (output_state.retrieved_empty_request && output_state.value_request) {
-            fn_output.request_type->merge_unknown(output_state.value_request);
+            LinearAllocator<> &allocator = this->get_main_or_local_allocator();
+            void *request_copy = allocator.allocate(request_type->self.size(),
+                                                    request_type->self.alignment());
+            request_type->self.copy_construct(info.request, request_copy);
+            output_state.value_request = request_copy;
           }
         }
       }
@@ -701,8 +702,11 @@ class Executor {
           const Input &fn_input = fn_inputs[input_index];
           if (fn_input.usage == ValueUsage::Used) {
             const InputSocket &input_socket = node.input(input_index);
-            const GMutablePointer request = fn.get_static_value_request(input_index, allocator);
-            this->set_input_required(locked_node, input_socket, request);
+            if (fn_input.request_type != nullptr) {
+              InputState &input_state = node_state.inputs[input_index];
+              input_state.request = fn.get_static_value_request(input_index, allocator);
+            }
+            this->set_input_required(locked_node, input_socket);
           }
         }
 
@@ -888,20 +892,17 @@ class Executor {
   void *set_input_required_during_execution(const Node &node,
                                             NodeState &node_state,
                                             const int input_index,
-                                            GMutablePointer request,
                                             CurrentTask &current_task)
   {
     const InputSocket &input_socket = node.input(input_index);
     void *result;
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      result = this->set_input_required(locked_node, input_socket, request);
+      result = this->set_input_required(locked_node, input_socket);
     });
     return result;
   }
 
-  void *set_input_required(LockedNode &locked_node,
-                           const InputSocket &input_socket,
-                           GMutablePointer request)
+  void *set_input_required(LockedNode &locked_node, const InputSocket &input_socket)
   {
     BLI_assert(&locked_node.node == &input_socket.node());
     NodeState &node_state = locked_node.node_state;
@@ -923,7 +924,7 @@ class Executor {
     const OutputSocket *origin_socket = input_socket.origin();
     /* Unlinked inputs are always loaded in advance. */
     BLI_assert(origin_socket != nullptr);
-    locked_node.delayed_required_outputs.append({origin_socket, std::move(request)});
+    locked_node.delayed_required_outputs.append({origin_socket, input_state.request});
     return nullptr;
   }
 
@@ -1121,14 +1122,13 @@ class GraphExecutorLFParams final : public Params {
     return nullptr;
   }
 
-  void *try_get_input_data_ptr_or_request_impl(const int index, GMutablePointer request) override
+  void *try_get_input_data_ptr_or_request_impl(const int index) override
   {
     const InputState &input_state = node_state_.inputs[index];
     if (input_state.was_ready_for_execution) {
       return input_state.value;
     }
-    return executor_.set_input_required_during_execution(
-        node_, node_state_, index, request, current_task_);
+    return executor_.set_input_required_during_execution(node_, node_state_, index, current_task_);
   }
 
   void *get_output_data_ptr_impl(const int index) override
@@ -1143,7 +1143,19 @@ class GraphExecutorLFParams final : public Params {
     return output_state.value;
   }
 
-  const void *get_output_data_request_impl(int index) override
+  void *get_input_request_ptr_impl(const int index) override
+  {
+    InputState &input_state = node_state_.inputs[index];
+    const ValueRequestCPPType *request_type = fn_.inputs()[index].request_type;
+    if (request_type != nullptr && input_state.request == nullptr) {
+      LinearAllocator<> &allocator = executor_.get_main_or_local_allocator();
+      input_state.request = allocator.allocate(request_type->self.size(),
+                                               request_type->self.alignment());
+    }
+    return input_state.request;
+  }
+
+  const void *get_output_request_ptr_impl(const int index) const override
   {
     OutputState &output_state = node_state_.outputs[index];
     return output_state.value_request_for_execution;

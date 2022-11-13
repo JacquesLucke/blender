@@ -180,7 +180,7 @@ class GeoNodeExecParams {
   const void *get_output_request(StringRef identifier)
   {
     const int index = this->get_output_index(identifier);
-    return params_.get_output_data_request(index);
+    return params_.get_output_request_ptr(index);
   }
 
   template<typename T> const T *get_output_request(StringRef identifier)

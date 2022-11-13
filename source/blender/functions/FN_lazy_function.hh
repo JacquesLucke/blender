@@ -129,7 +129,7 @@ class Params {
    * Same as #try_get_input_data_ptr, but if the data is not yet available, request it. This makes
    * sure that the data will be available in a future execution of the #LazyFunction.
    */
-  void *try_get_input_data_ptr_or_request(int index, GMutablePointer request = {});
+  void *try_get_input_data_ptr_or_request(int index);
 
   /**
    * Get a pointer to where the output value should be stored.
@@ -138,8 +138,6 @@ class Params {
    * After the output has been initialized to its final value, #output_set has to be called.
    */
   void *get_output_data_ptr(int index);
-
-  const void *get_output_data_request(int index);
 
   /**
    * Call this after the output value is initialized. After this is called, the value must not be
@@ -163,6 +161,9 @@ class Params {
    * Only an input that was not #ValueUsage::Used can become unused.
    */
   void set_input_unused(int index);
+
+  void *get_input_request_ptr(int index);
+  const void *get_output_request_ptr(int index) const;
 
   /**
    * Typed utility methods that wrap the methods above.
@@ -192,14 +193,16 @@ class Params {
    * implementations.
    */
   virtual void *try_get_input_data_ptr_impl(int index) const = 0;
-  virtual void *try_get_input_data_ptr_or_request_impl(int index, GMutablePointer request) = 0;
+  virtual void *try_get_input_data_ptr_or_request_impl(int index) = 0;
   virtual void *get_output_data_ptr_impl(int index) = 0;
-  virtual const void *get_output_data_request_impl(int index) = 0;
   virtual void output_set_impl(int index) = 0;
   virtual bool output_was_set_impl(int index) const = 0;
   virtual ValueUsage get_output_usage_impl(int index) const = 0;
   virtual void set_input_unused_impl(int index) = 0;
   virtual bool try_enable_multi_threading_impl();
+
+  virtual void *get_input_request_ptr_impl(int index);
+  virtual const void *get_output_request_ptr_impl(int index) const;
 };
 
 /**
@@ -226,8 +229,13 @@ struct Input {
    */
   ValueUsage usage;
 
-  Input(const char *debug_name, const CPPType &type, const ValueUsage usage = ValueUsage::Used)
-      : debug_name(debug_name), type(&type), usage(usage)
+  const ValueRequestCPPType *request_type = nullptr;
+
+  Input(const char *debug_name,
+        const CPPType &type,
+        const ValueUsage usage = ValueUsage::Used,
+        const ValueRequestCPPType *request_type = nullptr)
+      : debug_name(debug_name), type(&type), usage(usage), request_type(request_type)
   {
   }
 };
@@ -286,8 +294,7 @@ class LazyFunction {
    */
   virtual void destruct_storage(void *storage) const;
 
-  virtual GMutablePointer get_static_value_request(int /*index*/,
-                                                   LinearAllocator<> & /*allocator*/) const
+  virtual void *get_static_value_request(int /*index*/, LinearAllocator<> & /*allocator*/) const
   {
     return {};
   }
@@ -363,22 +370,16 @@ inline void *Params::try_get_input_data_ptr(const int index) const
   return this->try_get_input_data_ptr_impl(index);
 }
 
-inline void *Params::try_get_input_data_ptr_or_request(const int index, GMutablePointer request)
+inline void *Params::try_get_input_data_ptr_or_request(const int index)
 {
   this->assert_valid_thread();
-  return this->try_get_input_data_ptr_or_request_impl(index, request);
+  return this->try_get_input_data_ptr_or_request_impl(index);
 }
 
 inline void *Params::get_output_data_ptr(const int index)
 {
   this->assert_valid_thread();
   return this->get_output_data_ptr_impl(index);
-}
-
-inline const void *Params::get_output_data_request(const int index)
-{
-  this->assert_valid_thread();
-  return this->get_output_data_request_impl(index);
 }
 
 inline void Params::output_set(const int index)
@@ -401,6 +402,18 @@ inline void Params::set_input_unused(const int index)
 {
   this->assert_valid_thread();
   this->set_input_unused_impl(index);
+}
+
+inline void *Params::get_input_request_ptr(const int index)
+{
+  this->assert_valid_thread();
+  return this->get_input_request_ptr_impl(index);
+}
+
+inline const void *Params::get_output_request_ptr(const int index) const
+{
+  this->assert_valid_thread();
+  return this->get_output_request_ptr_impl(index);
 }
 
 template<typename T> inline T Params::extract_input(const int index)

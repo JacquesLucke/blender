@@ -68,4 +68,14 @@ bool Params::try_enable_multi_threading_impl()
   return false;
 }
 
+void *Params::get_input_request_ptr_impl(const int /*index*/)
+{
+  return nullptr;
+}
+
+const void *Params::get_output_request_ptr_impl(const int /*index*/) const
+{
+  return nullptr;
+}
+
 }  // namespace blender::fn::lazy_function
