@@ -41,7 +41,6 @@
 #include "BLI_cpp_types.hh"
 #include "BLI_generic_pointer.hh"
 #include "BLI_linear_allocator.hh"
-#include "BLI_value_request.hh"
 #include "BLI_vector.hh"
 
 #include <atomic>

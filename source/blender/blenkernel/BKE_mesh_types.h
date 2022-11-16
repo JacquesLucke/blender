@@ -12,7 +12,6 @@
 #  include <mutex>
 
 #  include "BLI_span.hh"
-#  include "BLI_value_request.hh"
 
 #  include "DNA_customdata_types.h"
 
