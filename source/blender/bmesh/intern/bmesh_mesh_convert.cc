@@ -958,6 +958,8 @@ void BM_mesh_bm_to_me(Main *bmain, BMesh *bm, Mesh *me, const struct BMeshToMesh
   CustomData_free(&me->ldata, me->totloop);
   CustomData_free(&me->pdata, me->totpoly);
 
+  BKE_mesh_runtime_clear_geometry(me);
+
   /* Add new custom data. */
   me->totvert = bm->totvert;
   me->totedge = bm->totedge;
@@ -993,10 +995,6 @@ void BM_mesh_bm_to_me(Main *bmain, BMesh *bm, Mesh *me, const struct BMeshToMesh
   bool need_hide_edge = false;
   bool need_hide_poly = false;
   bool need_material_index = false;
-
-  /* Clear normals on the mesh completely, since the original vertex and polygon count might be
-   * different than the BMesh's. */
-  BKE_mesh_clear_derived_normals(me);
 
   i = 0;
   BM_ITER_MESH (v, &iter, bm, BM_VERTS_OF_MESH) {
@@ -1205,9 +1203,6 @@ void BM_mesh_bm_to_me(Main *bmain, BMesh *bm, Mesh *me, const struct BMeshToMesh
 
   /* Topology could be changed, ensure #CD_MDISPS are ok. */
   multires_topology_changed(me);
-
-  /* To be removed as soon as COW is enabled by default. */
-  BKE_mesh_runtime_clear_geometry(me);
 }
 
 /* NOTE: The function is called from multiple threads with the same input BMesh and different
@@ -1219,6 +1214,8 @@ void BM_mesh_bm_to_me_for_eval(BMesh *bm, Mesh *me, const CustomData_MeshMasks *
   /* Must be an empty mesh. */
   BLI_assert(me->totvert == 0);
   BLI_assert(cd_mask_extra == nullptr || (cd_mask_extra->vmask & CD_MASK_SHAPEKEY) == 0);
+  /* Just in case, clear the derived geometry caches from the input mesh. */
+  BKE_mesh_runtime_clear_geometry(me);
 
   me->totvert = bm->totvert;
   me->totedge = bm->totedge;
@@ -1253,10 +1250,6 @@ void BM_mesh_bm_to_me_for_eval(BMesh *bm, Mesh *me, const CustomData_MeshMasks *
   MutableSpan<MLoop> loops = me->loops_for_write();
   MLoop *mloop = loops.data();
   uint i, j;
-
-  /* Clear normals on the mesh completely, since the original vertex and polygon count might be
-   * different than the BMesh's. */
-  BKE_mesh_clear_derived_normals(me);
 
   me->runtime->deformed_only = true;
 

@@ -43,7 +43,7 @@ using blender::MutableSpan;
 using blender::short2;
 using blender::Span;
 
-#define DEBUG_TIME
+// #define DEBUG_TIME
 
 #ifdef DEBUG_TIME
 #  include "BLI_timeit.hh"
@@ -145,15 +145,6 @@ bool BKE_mesh_vertex_normals_are_dirty(const Mesh *mesh)
 bool BKE_mesh_poly_normals_are_dirty(const Mesh *mesh)
 {
   return mesh->runtime->poly_normals_dirty;
-}
-
-void BKE_mesh_clear_derived_normals(Mesh *mesh)
-{
-  MEM_SAFE_FREE(mesh->runtime->vert_normals);
-  MEM_SAFE_FREE(mesh->runtime->poly_normals);
-
-  mesh->runtime->vert_normals_dirty = true;
-  mesh->runtime->poly_normals_dirty = true;
 }
 
 void BKE_mesh_assert_normals_dirty_or_calculated(const Mesh *mesh)

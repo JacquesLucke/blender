@@ -91,10 +91,6 @@ static void mesh_init_data(ID *id)
 
   mesh->runtime = new blender::bke::MeshRuntime();
 
-  /* A newly created mesh does not have normals, so tag them dirty. This will be cleared
-   * by #BKE_mesh_vertex_normals_clear_dirty or #BKE_mesh_poly_normals_ensure. */
-  BKE_mesh_normals_tag_dirty(mesh);
-
   mesh->face_sets_color_seed = BLI_hash_int(PIL_check_seconds_timer_i() & UINT_MAX);
 }
 
@@ -128,6 +124,11 @@ static void mesh_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int 
    * highly unlikely we want to create a duplicate and not use it for drawing. */
   mesh_dst->runtime->is_original_bmesh = false;
 
+  /* Share the bounding box cache between the source and destination mesh for improved performance
+   * when the source is persistent and edits to the destination don't change the bounds. It will be
+   * "un-shared" as necessary when the positions are changed. */
+  mesh_dst->runtime->bounds_cache = mesh_src->runtime->bounds_cache;
+
   /* Only do tessface if we have no polys. */
   const bool do_tessface = ((mesh_src->totface != 0) && (mesh_src->totpoly == 0));
 
@@ -157,13 +158,6 @@ static void mesh_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int 
   mesh_dst->edit_mesh = nullptr;
 
   mesh_dst->mselect = (MSelect *)MEM_dupallocN(mesh_dst->mselect);
-
-  /* Set normal layers dirty. They should be dirty by default on new meshes anyway, but being
-   * explicit about it is safer. Alternatively normal layers could be copied if they aren't dirty,
-   * avoiding recomputation in some cases. However, a copied mesh is often changed anyway, so that
-   * idea is not clearly better. With proper reference counting, all custom data layers could be
-   * copied as the cost would be much lower. */
-  BKE_mesh_normals_tag_dirty(mesh_dst);
 
   /* TODO: Do we want to add flag to prevent this? */
   if (mesh_src->key && (flag & LIB_ID_COPY_SHAPEKEY)) {
@@ -196,7 +190,6 @@ static void mesh_free_data(ID *id)
 
   BKE_mesh_free_editmesh(mesh);
 
-  BKE_mesh_runtime_free_data(mesh);
   mesh_clear_geometry(mesh);
   MEM_SAFE_FREE(mesh->mat);
 
@@ -359,10 +352,6 @@ static void mesh_blend_read_data(BlendDataReader *reader, ID *id)
       BLI_endian_switch_uint32_array(tf->col, 4);
     }
   }
-
-  /* We don't expect to load normals from files, since they are derived data. */
-  BKE_mesh_normals_tag_dirty(mesh);
-  BKE_mesh_assert_normals_dirty_or_calculated(mesh);
 }
 
 static void mesh_blend_read_lib(BlendLibReader *reader, ID *id)
@@ -1523,29 +1512,27 @@ bool BKE_mesh_minmax(const Mesh *me, float r_min[3], float r_max[3])
     return false;
   }
 
-  struct Result {
-    float3 min;
-    float3 max;
-  };
-  const Span<MVert> verts = me->verts();
+  me->runtime->bounds_cache.ensure([me](Bounds<float3> &r_bounds) {
+    const Span<MVert> verts = me->verts();
+    r_bounds = threading::parallel_reduce(
+        verts.index_range(),
+        1024,
+        Bounds<float3>{float3(FLT_MAX), float3(-FLT_MAX)},
+        [verts](IndexRange range, const Bounds<float3> &init) {
+          Bounds<float3> result = init;
+          for (const int i : range) {
+            math::min_max(float3(verts[i].co), result.min, result.max);
+          }
+          return result;
+        },
+        [](const Bounds<float3> &a, const Bounds<float3> &b) {
+          return Bounds<float3>{math::min(a.min, b.min), math::max(a.max, b.max)};
+        });
+  });
 
-  const Result minmax = threading::parallel_reduce(
-      verts.index_range(),
-      1024,
-      Result{float3(FLT_MAX), float3(-FLT_MAX)},
-      [verts](IndexRange range, const Result &init) {
-        Result result = init;
-        for (const int i : range) {
-          math::min_max(float3(verts[i].co), result.min, result.max);
-        }
-        return result;
-      },
-      [](const Result &a, const Result &b) {
-        return Result{math::min(a.min, b.min), math::max(a.max, b.max)};
-      });
-
-  copy_v3_v3(r_min, math::min(minmax.min, float3(r_min)));
-  copy_v3_v3(r_max, math::max(minmax.max, float3(r_max)));
+  const Bounds<float3> &bounds = me->runtime->bounds_cache.data();
+  copy_v3_v3(r_min, math::min(bounds.min, float3(r_min)));
+  copy_v3_v3(r_max, math::max(bounds.max, float3(r_max)));
 
   return true;
 }

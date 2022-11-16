@@ -16,6 +16,10 @@
 
 #  include "DNA_customdata_types.h"
 
+#  include "BLI_bounds_types.hh"
+#  include "BLI_math_vec_types.hh"
+#  include "BLI_shared_cache.hh"
+
 #  include "MEM_guardedalloc.h"
 
 struct BVHCache;
@@ -85,6 +89,12 @@ struct MeshRuntime {
   /** Needed to ensure some thread-safety during render data pre-processing. */
   std::mutex render_mutex;
 
+  /**
+   * A cache of bounds shared between data-blocks with unchanged positions. When changing positions
+   * affect the bounds, the cache is "un-shared" with other geometries. See #SharedCache comments.
+   */
+  SharedCache<Bounds<float3>> bounds_cache;
+
   /** Lazily initialized SoA data from the #edit_mesh field in #Mesh. */
   EditMeshData *edit_data = nullptr;
 
@@ -140,8 +150,8 @@ struct MeshRuntime {
    * #CustomData because they can be calculated on a `const` mesh, and adding custom data layers on
    * a `const` mesh is not thread-safe.
    */
-  bool vert_normals_dirty = false;
-  bool poly_normals_dirty = false;
+  bool vert_normals_dirty = true;
+  bool poly_normals_dirty = true;
   float (*vert_normals)[3] = nullptr;
   float (*poly_normals)[3] = nullptr;
 
@@ -152,8 +162,7 @@ struct MeshRuntime {
   uint32_t *subsurf_face_dot_tags = nullptr;
 
   MeshRuntime() = default;
-  /** \warning This does not free all data currently. See #BKE_mesh_runtime_free_data. */
-  ~MeshRuntime() = default;
+  ~MeshRuntime();
 
   MEM_CXX_CLASS_ALLOC_FUNCS("MeshRuntime")
 };

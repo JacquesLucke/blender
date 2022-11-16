@@ -114,7 +114,9 @@ static void add_iso_edge(
 
 /* Build an `iso_graph` representation of an island of a `UvElementMap`.
  */
-GraphISO *build_iso_graph(UvElementMap *element_map, const int island_index, int cd_loop_uv_offset)
+static GraphISO *build_iso_graph(UvElementMap *element_map,
+                                 const int island_index,
+                                 int /*cd_loop_uv_offset*/)
 {
   GraphISO *g = new GraphISO(element_map->island_total_unique_uvs[island_index]);
   for (int i = 0; i < g->n; i++) {
@@ -260,7 +262,7 @@ bool UV_ClipboardBuffer::find_isomorphism(UvElementMap *dest_element_map,
   return false;
 }
 
-static int uv_copy_exec(bContext *C, wmOperator *op)
+static int uv_copy_exec(bContext *C, wmOperator * /*op*/)
 {
   UV_clipboard_free();
   uv_clipboard = new UV_ClipboardBuffer();
@@ -279,9 +281,10 @@ static int uv_copy_exec(bContext *C, wmOperator *op)
     const bool use_seams = false;
     UvElementMap *element_map = BM_uv_element_map_create(
         em->bm, scene, true, false, use_seams, true);
-
-    const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
-    uv_clipboard->append(element_map, cd_loop_uv_offset);
+    if (element_map) {
+      const int cd_loop_uv_offset = CustomData_get_offset(&em->bm->ldata, CD_MLOOPUV);
+      uv_clipboard->append(element_map, cd_loop_uv_offset);
+    }
     BM_uv_element_map_free(element_map);
   }
 
@@ -292,7 +295,7 @@ static int uv_copy_exec(bContext *C, wmOperator *op)
   return OPERATOR_FINISHED;
 }
 
-static int uv_paste_exec(bContext *C, wmOperator *op)
+static int uv_paste_exec(bContext *C, wmOperator * /*op*/)
 {
   /* TODO: Restore `UvClipboard` from system clipboard. */
   if (!uv_clipboard) {
@@ -314,6 +317,10 @@ static int uv_paste_exec(bContext *C, wmOperator *op)
 
     UvElementMap *dest_element_map = BM_uv_element_map_create(
         em->bm, scene, true, false, use_seams, true);
+
+    if (!dest_element_map) {
+      continue;
+    }
 
     for (int i = 0; i < dest_element_map->total_islands; i++) {
       blender::Vector<int> label;
