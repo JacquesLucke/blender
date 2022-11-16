@@ -229,7 +229,9 @@ NodeResizeDirection node_get_resize_direction(const bNode *node, const int x, co
     if (!(data->flag & NODE_FRAME_RESIZEABLE)) {
       return NODE_RESIZE_NONE;
     }
+  }
 
+  if (ELEM(node->type, NODE_FRAME, GEO_NODE_SIMULATION)) {
     NodeResizeDirection dir = NODE_RESIZE_NONE;
 
     const rctf &totr = node->totr;

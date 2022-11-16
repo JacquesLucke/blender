@@ -2720,6 +2720,14 @@ static void node_update_nodetree(const bContext &C,
       /* Frame sizes are calculated after all other nodes have calculating their #totr. */
       continue;
     }
+    if (node.type == GEO_NODE_SIMULATION) {
+      const float2 loc = node_to_view(node, float2(0));
+      node.totr.xmin = loc.x;
+      node.totr.xmax = loc.x + NODE_WIDTH(node);
+      node.totr.ymax = loc.y;
+      node.totr.ymin = loc.y - 50;
+      continue;
+    }
 
     if (node.type == NODE_REROUTE) {
       reroute_node_prepare_for_draw(node);
@@ -2931,6 +2939,15 @@ static void reroute_node_draw(
   UI_block_draw(&C, &block);
 }
 
+static void subcontext_node_draw(
+    const bContext &C, ARegion &region, bNodeTree &ntree, bNode &node, uiBlock &block)
+{
+  UNUSED_VARS(C, region, ntree, node, block);
+  const rctf &totr = node.totr;
+  const float4 color = {0.6f, 0.6f, 0.3f, 1.0f};
+  UI_draw_roundbox_4fv(&totr, true, 0, color);
+}
+
 static void node_draw(const bContext &C,
                       TreeDrawContext &tree_draw_ctx,
                       ARegion &region,
@@ -2947,7 +2964,7 @@ static void node_draw(const bContext &C,
     reroute_node_draw(C, region, ntree, node, block);
   }
   else if (node.type == GEO_NODE_SIMULATION) {
-    /* todo */
+    subcontext_node_draw(C, region, ntree, node, block);
   }
   else {
     const View2D &v2d = region.v2d;
