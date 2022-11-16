@@ -1576,6 +1576,8 @@ struct TexResult;
 
 /** \} */
 
+#define GEO_NODE_SIMULATION 2000
+
 void BKE_node_system_init(void);
 void BKE_node_system_exit(void);
 
