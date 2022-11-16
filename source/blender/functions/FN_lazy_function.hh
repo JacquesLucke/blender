@@ -204,6 +204,11 @@ class Params {
   virtual const void *get_output_request_ptr_impl(int index) const;
 };
 
+struct InOutTypes {
+  const CPPType *type = nullptr;
+  const ValueRequestCPPType *request_type = nullptr;
+};
+
 /**
  * Describes an input of a #LazyFunction.
  */
@@ -216,7 +221,7 @@ struct Input {
   /**
    * Data type of this input.
    */
-  const CPPType *type;
+  const InOutTypes types;
   /**
    * Can be used to indicate a caller or this function if this input is used statically before
    * executing it the first time. This is technically not needed but can improve efficiency because
@@ -228,14 +233,10 @@ struct Input {
    */
   ValueUsage usage;
 
-  const ValueRequestCPPType *request_type = nullptr;
-
-  Input(const char *debug_name,
-        const CPPType &type,
-        const ValueUsage usage = ValueUsage::Used,
-        const ValueRequestCPPType *request_type = nullptr)
-      : debug_name(debug_name), type(&type), usage(usage), request_type(request_type)
+  Input(const char *debug_name, const InOutTypes &types, const ValueUsage usage = ValueUsage::Used)
+      : debug_name(debug_name), types(types), usage(usage)
   {
+    BLI_assert(types.type != nullptr);
   }
 };
 
@@ -248,15 +249,11 @@ struct Output {
   /**
    * Data type of this output.
    */
-  const CPPType *type = nullptr;
+  const InOutTypes types;
 
-  const ValueRequestCPPType *request_type = nullptr;
-
-  Output(const char *debug_name,
-         const CPPType &type,
-         const ValueRequestCPPType *request_type = nullptr)
-      : debug_name(debug_name), type(&type), request_type(request_type)
+  Output(const char *debug_name, const InOutTypes &types) : debug_name(debug_name), types(types)
   {
+    BLI_assert(types.type != nullptr);
   }
 };
 

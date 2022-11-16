@@ -520,7 +520,7 @@ class Executor {
     const Output &fn_output = fn.outputs()[index_in_node];
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       output_state.num_retrieved_requests++;
-      const ValueRequestCPPType *request_type = fn_output.request_type;
+      const ValueRequestCPPType *request_type = fn_output.types.request_type;
       if (request_type != nullptr) {
         if (info.request == nullptr) {
           output_state.retrieved_empty_request = true;
@@ -702,7 +702,7 @@ class Executor {
           const Input &fn_input = fn_inputs[input_index];
           if (fn_input.usage == ValueUsage::Used) {
             const InputSocket &input_socket = node.input(input_index);
-            if (fn_input.request_type != nullptr) {
+            if (fn_input.types.request_type != nullptr) {
               InputState &input_state = node_state.inputs[input_index];
               input_state.request = fn.get_static_value_request(input_index, allocator);
             }
@@ -730,11 +730,11 @@ class Executor {
       for (const int output_index : node_state.outputs.index_range()) {
         OutputState &output_state = node_state.outputs[output_index];
         const Output &fn_output = fn.outputs()[output_index];
-        if (fn_output.request_type != nullptr) {
+        if (fn_output.types.request_type != nullptr) {
           if (output_state.value_request_for_execution) {
             if (output_state.value_request) {
-              fn_output.request_type->merge(output_state.value_request_for_execution,
-                                            output_state.value_request);
+              fn_output.types.request_type->merge(output_state.value_request_for_execution,
+                                                  output_state.value_request);
             }
           }
           else {
@@ -742,7 +742,8 @@ class Executor {
           }
           if (output_state.value_request_for_execution) {
             if (output_state.num_retrieved_requests < output_state.potential_target_sockets) {
-              fn_output.request_type->merge_unknown(output_state.value_request_for_execution);
+              fn_output.types.request_type->merge_unknown(
+                  output_state.value_request_for_execution);
             }
           }
         }
@@ -1146,7 +1147,7 @@ class GraphExecutorLFParams final : public Params {
   void *get_input_request_ptr_impl(const int index) override
   {
     InputState &input_state = node_state_.inputs[index];
-    const ValueRequestCPPType *request_type = fn_.inputs()[index].request_type;
+    const ValueRequestCPPType *request_type = fn_.inputs()[index].types.request_type;
     if (request_type != nullptr && input_state.request == nullptr) {
       LinearAllocator<> &allocator = executor_.get_main_or_local_allocator();
       input_state.request = allocator.allocate(request_type->self.size(),
@@ -1249,11 +1250,11 @@ GraphExecutor::GraphExecutor(const Graph &graph,
 {
   for (const OutputSocket *socket : graph_inputs_) {
     BLI_assert(socket->node().is_dummy());
-    inputs_.append({"In", socket->type(), ValueUsage::Maybe});
+    inputs_.append({"In", {&socket->type(), socket->request_type()}, ValueUsage::Maybe});
   }
   for (const InputSocket *socket : graph_outputs_) {
     BLI_assert(socket->node().is_dummy());
-    outputs_.append({"Out", socket->type()});
+    outputs_.append({"Out", {&socket->type(), socket->request_type()}});
   }
 }
 

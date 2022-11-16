@@ -34,21 +34,22 @@ FunctionNode &Graph::add_function(const LazyFunction &fn)
     socket.index_in_node_ = i;
     socket.is_input_ = true;
     socket.node_ = &node;
-    socket.type_ = inputs[i].type;
+    socket.types_ = inputs[i].types;
   }
   for (const int i : outputs.index_range()) {
     OutputSocket &socket = *node.outputs_[i];
     socket.index_in_node_ = i;
     socket.is_input_ = false;
     socket.node_ = &node;
-    socket.type_ = outputs[i].type;
+    socket.types_ = outputs[i].types;
   }
 
   nodes_.append(&node);
   return node;
 }
 
-DummyNode &Graph::add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types)
+DummyNode &Graph::add_dummy(const Span<InOutTypes> input_types,
+                            const Span<InOutTypes> output_types)
 {
   DummyNode &node = *allocator_.construct<DummyNode>().release();
   node.fn_ = nullptr;
@@ -61,14 +62,14 @@ DummyNode &Graph::add_dummy(Span<const CPPType *> input_types, Span<const CPPTyp
     socket.index_in_node_ = i;
     socket.is_input_ = true;
     socket.node_ = &node;
-    socket.type_ = input_types[i];
+    socket.types_ = input_types[i];
   }
   for (const int i : output_types.index_range()) {
     OutputSocket &socket = *node.outputs_[i];
     socket.index_in_node_ = i;
     socket.is_input_ = false;
     socket.node_ = &node;
-    socket.type_ = output_types[i];
+    socket.types_ = output_types[i];
   }
 
   nodes_.append(&node);
@@ -78,7 +79,7 @@ DummyNode &Graph::add_dummy(Span<const CPPType *> input_types, Span<const CPPTyp
 void Graph::add_link(OutputSocket &from, InputSocket &to)
 {
   BLI_assert(to.origin_ == nullptr);
-  BLI_assert(from.type_ == to.type_);
+  BLI_assert(from.types_.type == to.types_.type);
   to.origin_ = &from;
   from.targets_.append(&to);
 }

@@ -56,7 +56,7 @@ void Params::set_default_remaining_outputs()
       continue;
     }
     const Output &fn_output = fn_.outputs()[i];
-    const CPPType &type = *fn_output.type;
+    const CPPType &type = *fn_output.types.type;
     void *data_ptr = this->get_output_data_ptr(i);
     type.value_initialize(data_ptr);
     this->output_set(i);

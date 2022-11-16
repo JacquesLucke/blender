@@ -100,6 +100,7 @@ typedef struct bNodeSocketTemplate {
 #ifdef __cplusplus
 namespace blender {
 class CPPType;
+class ValueRequestCPPType;
 namespace nodes {
 class DNode;
 class NodeMultiFunctionBuilder;
@@ -118,6 +119,7 @@ class ShaderNode;
 }  // namespace blender
 
 using CPPTypeHandle = blender::CPPType;
+using ValueRequestCPPTypeHandle = blender::ValueRequestCPPType;
 using NodeMultiFunctionBuildFunction = void (*)(blender::nodes::NodeMultiFunctionBuilder &builder);
 using NodeGeometryExecFunction = void (*)(blender::nodes::GeoNodeExecParams params);
 using NodeDeclareFunction = void (*)(blender::nodes::NodeDeclarationBuilder &builder);
@@ -146,6 +148,7 @@ typedef void *SocketGetGeometryNodesCPPTypeFunction;
 typedef void *SocketGetGeometryNodesCPPValueFunction;
 typedef void *SocketGetCPPValueFunction;
 typedef struct CPPTypeHandle CPPTypeHandle;
+typedef struct ValueRequestCPPTypeHandle ValueRequestCPPTypeHandle;
 #endif
 
 /**
@@ -210,6 +213,7 @@ typedef struct bNodeSocketType {
   SocketGetCPPValueFunction get_base_cpp_value;
   /* Get geometry nodes cpp type. */
   const CPPTypeHandle *geometry_nodes_cpp_type;
+  const ValueRequestCPPTypeHandle *geometry_nodes_request_cpp_type;
   /* Get geometry nodes cpp value. */
   SocketGetGeometryNodesCPPValueFunction get_geometry_nodes_cpp_value;
 } bNodeSocketType;

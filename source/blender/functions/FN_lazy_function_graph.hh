@@ -40,7 +40,7 @@ class Socket : NonCopyable, NonMovable {
   /**
    * Data type of the socket. Only sockets with the same type can be linked.
    */
-  const CPPType *type_;
+  InOutTypes types_;
   /**
    * Indicates whether this is an #InputSocket or #OutputSocket.
    */
@@ -67,6 +67,7 @@ class Socket : NonCopyable, NonMovable {
   Node &node();
 
   const CPPType &type() const;
+  const ValueRequestCPPType *request_type() const;
 
   std::string name() const;
 };
@@ -208,7 +209,7 @@ class Graph : NonCopyable, NonMovable {
   /**
    * Add a new dummy node with the given socket types.
    */
-  DummyNode &add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types);
+  DummyNode &add_dummy(Span<InOutTypes> input_types, Span<InOutTypes> output_types);
 
   /**
    * Add a link between the two given sockets.
@@ -287,7 +288,12 @@ inline Node &Socket::node()
 
 inline const CPPType &Socket::type() const
 {
-  return *type_;
+  return *types_.type;
+}
+
+inline const ValueRequestCPPType *Socket::request_type() const
+{
+  return types_.request_type;
 }
 
 /** \} */

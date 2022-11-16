@@ -16,9 +16,9 @@ class AddLazyFunction : public LazyFunction {
   AddLazyFunction()
   {
     debug_name_ = "Add";
-    inputs_.append({"A", CPPType::get<int>()});
-    inputs_.append({"B", CPPType::get<int>()});
-    outputs_.append({"Result", CPPType::get<int>()});
+    inputs_.append({"A", {&CPPType::get<int>(), nullptr}});
+    inputs_.append({"B", {&CPPType::get<int>(), nullptr}});
+    outputs_.append({"Result", {&CPPType::get<int>(), nullptr}});
   }
 
   void execute_impl(Params &params, const Context & /*context*/) const override
@@ -38,8 +38,8 @@ class StoreValueFunction : public LazyFunction {
   StoreValueFunction(int *dst1, int *dst2) : dst1_(dst1), dst2_(dst2)
   {
     debug_name_ = "Store Value";
-    inputs_.append({"A", CPPType::get<int>()});
-    inputs_.append({"B", CPPType::get<int>(), ValueUsage::Maybe});
+    inputs_.append({"A", {&CPPType::get<int>(), nullptr}});
+    inputs_.append({"B", {&CPPType::get<int>(), nullptr}, ValueUsage::Maybe});
   }
 
   void execute_impl(Params &params, const Context & /*context*/) const override
@@ -89,7 +89,7 @@ TEST(lazy_function, SideEffects)
   FunctionNode &add_node_1 = graph.add_function(add_fn);
   FunctionNode &add_node_2 = graph.add_function(add_fn);
   FunctionNode &store_node = graph.add_function(store_fn);
-  DummyNode &input_node = graph.add_dummy({}, {&CPPType::get<int>()});
+  DummyNode &input_node = graph.add_dummy({}, {{&CPPType::get<int>(), nullptr}});
 
   graph.add_link(input_node.output(0), add_node_1.input(0));
   graph.add_link(input_node.output(0), add_node_2.input(0));

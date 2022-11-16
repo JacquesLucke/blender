@@ -53,6 +53,11 @@ static const CPPType *get_socket_cpp_type(const bNodeSocket &socket)
   return get_socket_cpp_type(*socket.typeinfo);
 }
 
+static const ValueRequestCPPType *get_socket_request_cpp_type(const bNodeSocket &socket)
+{
+  return socket.typeinfo->geometry_nodes_request_cpp_type;
+}
+
 static const CPPType *get_vector_type(const CPPType &type)
 {
   const VectorCPPType *vector_type = VectorCPPType::get_from_value(type);
@@ -85,14 +90,13 @@ static void lazy_function_interface_from_node(const bNode &node,
     if (type == nullptr) {
       continue;
     }
+    const ValueRequestCPPType *request_type = get_socket_request_cpp_type(*socket);
     if (socket->is_multi_input() && !is_muted) {
       type = get_vector_type(*type);
+      request_type = nullptr;
     }
-    r_inputs.append({socket->identifier, *type, input_usage});
+    r_inputs.append({socket->identifier, {type, request_type}, input_usage});
     r_used_inputs.append(socket);
-    if (type->is<GeometrySet>()) {
-      r_inputs.last().request_type = &ValueRequestCPPType::get<bke::GeometrySetRequest>();
-    }
   }
   for (const bNodeSocket *socket : node.output_sockets()) {
     if (!socket->is_available()) {
@@ -102,11 +106,9 @@ static void lazy_function_interface_from_node(const bNode &node,
     if (type == nullptr) {
       continue;
     }
-    r_outputs.append({socket->identifier, *type});
+    const ValueRequestCPPType *request_type = get_socket_request_cpp_type(*socket);
+    r_outputs.append({socket->identifier, {type, request_type}});
     r_used_outputs.append(socket);
-    if (type->is<GeometrySet>()) {
-      r_outputs.last().request_type = &ValueRequestCPPType::get<bke::GeometrySetRequest>();
-    }
   }
 }
 
@@ -171,17 +173,18 @@ class LazyFunctionForMultiInput : public LazyFunction {
   {
     debug_name_ = "Multi Input";
     base_type_ = get_socket_cpp_type(socket);
+    const ValueRequestCPPType *request_type = get_socket_request_cpp_type(socket);
     BLI_assert(base_type_ != nullptr);
     BLI_assert(socket.is_multi_input());
     const bNodeTree &btree = socket.owner_tree();
     for (const bNodeLink *link : socket.directly_linked_links()) {
       if (!(link->is_muted() || nodeIsDanglingReroute(&btree, link->fromnode))) {
-        inputs_.append({"Input", *base_type_});
+        inputs_.append({"Input", {base_type_, request_type}});
       }
     }
     const CPPType *vector_type = get_vector_type(*base_type_);
     BLI_assert(vector_type != nullptr);
-    outputs_.append({"Output", *vector_type});
+    outputs_.append({"Output", {vector_type, request_type}});
   }
 
   void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
@@ -211,11 +214,15 @@ class LazyFunctionForMultiInput : public LazyFunction {
  */
 class LazyFunctionForRerouteNode : public LazyFunction {
  public:
-  LazyFunctionForRerouteNode(const CPPType &type)
+  LazyFunctionForRerouteNode(const bNode &node)
   {
+    const bNodeSocket &socket = node.input_socket(0);
+    const CPPType *type = get_socket_cpp_type(socket);
+    const ValueRequestCPPType *request_type = get_socket_request_cpp_type(socket);
+
     debug_name_ = "Reroute";
-    inputs_.append({"Input", type});
-    outputs_.append({"Output", type});
+    inputs_.append({"Input", {type, request_type}});
+    outputs_.append({"Output", {type, request_type}});
   }
 
   void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
@@ -224,7 +231,7 @@ class LazyFunctionForRerouteNode : public LazyFunction {
     void *output_value = params.get_output_data_ptr(0);
     BLI_assert(input_value != nullptr);
     BLI_assert(output_value != nullptr);
-    const CPPType &type = *inputs_[0].type;
+    const CPPType &type = *inputs_[0].types.type;
     type.move_construct(input_value, output_value);
     params.output_set(0);
   }
@@ -371,7 +378,7 @@ class LazyFunctionForMutedNode : public LazyFunction {
       if (params.output_was_set(output_i)) {
         continue;
       }
-      const CPPType &output_type = *outputs_[output_i].type;
+      const CPPType &output_type = *outputs_[output_i].types.type;
       void *output_value = params.get_output_data_ptr(output_i);
       const int input_i = input_by_output_index_[output_i];
       if (input_i == -1) {
@@ -384,7 +391,7 @@ class LazyFunctionForMutedNode : public LazyFunction {
       if (input_value == nullptr) {
         continue;
       }
-      const CPPType &input_type = *inputs_[input_i].type;
+      const CPPType &input_type = *inputs_[input_i].types.type;
       if (input_type == output_type) {
         /* Forward the value as is. */
         input_type.copy_construct(input_value, output_value);
@@ -421,18 +428,16 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
   const MultiFunction &fn_;
   const ValueOrFieldCPPType &from_type_;
   const ValueOrFieldCPPType &to_type_;
-  const Vector<const bNodeSocket *> target_sockets_;
 
  public:
   LazyFunctionForMultiFunctionConversion(const MultiFunction &fn,
                                          const ValueOrFieldCPPType &from,
-                                         const ValueOrFieldCPPType &to,
-                                         Vector<const bNodeSocket *> &&target_sockets)
-      : fn_(fn), from_type_(from), to_type_(to), target_sockets_(std::move(target_sockets))
+                                         const ValueOrFieldCPPType &to)
+      : fn_(fn), from_type_(from), to_type_(to)
   {
     debug_name_ = "Convert";
-    inputs_.append({"From", from.self});
-    outputs_.append({"To", to.self});
+    inputs_.append({"From", {&from.self, nullptr}});
+    outputs_.append({"To", {&to.self, nullptr}});
   }
 
   void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
@@ -469,10 +474,10 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     debug_name_ = node.name;
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
     for (const lf::Input &fn_input : inputs_) {
-      input_types_.append(ValueOrFieldCPPType::get_from_self(*fn_input.type));
+      input_types_.append(ValueOrFieldCPPType::get_from_self(*fn_input.types.type));
     }
     for (const lf::Output &fn_output : outputs_) {
-      output_types_.append(ValueOrFieldCPPType::get_from_self(*fn_output.type));
+      output_types_.append(ValueOrFieldCPPType::get_from_self(*fn_output.types.type));
     }
   }
 
@@ -510,7 +515,7 @@ class LazyFunctionForImplicitInput : public LazyFunction {
       : init_fn_(std::move(init_fn))
   {
     debug_name_ = "Input";
-    outputs_.append({"Output", type});
+    outputs_.append({"Output", {&type, nullptr}});
   }
 
   void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
@@ -563,7 +568,8 @@ class LazyFunctionForViewerNode : public LazyFunction {
     if (use_field_input_) {
       const void *value_or_field = params.try_get_input_data_ptr(1);
       BLI_assert(value_or_field != nullptr);
-      const auto &value_or_field_type = *ValueOrFieldCPPType::get_from_self(*inputs_[1].type);
+      const auto &value_or_field_type = *ValueOrFieldCPPType::get_from_self(
+          *inputs_[1].types.type);
       GField field = value_or_field_type.as_field(value_or_field);
       const eAttrDomain domain = eAttrDomain(storage->domain);
       const StringRefNull viewer_attribute_name = ".viewer";
@@ -737,7 +743,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
    * If some input has an invalid type, it is ignored in the new graph. In this case null and -1 is
    * used in the vectors below.
    */
-  Vector<const CPPType *> group_input_types_;
+  Vector<lf::InOutTypes> group_input_types_;
   Vector<int> group_input_indices_;
   lf::DummyNode *group_input_lf_node_;
 
@@ -745,7 +751,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
    * The output types or null if an output is invalid. Each group output node gets a separate
    * corresponding dummy node in the new graph.
    */
-  Vector<const CPPType *> group_output_types_;
+  Vector<lf::InOutTypes> group_output_types_;
   Vector<int> group_output_indices_;
 
  public:
@@ -786,7 +792,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     LISTBASE_FOREACH (const bNodeSocket *, interface_bsocket, &btree_.inputs) {
       const CPPType *type = get_socket_cpp_type(*interface_bsocket->typeinfo);
       if (type != nullptr) {
-        const int index = group_input_types_.append_and_get_index(type);
+        const int index = group_input_types_.append_and_get_index({type, nullptr});
         group_input_indices_.append(index);
       }
       else {
@@ -800,7 +806,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     LISTBASE_FOREACH (const bNodeSocket *, interface_bsocket, &btree_.outputs) {
       const CPPType *type = get_socket_cpp_type(*interface_bsocket->typeinfo);
       if (type != nullptr) {
-        const int index = group_output_types_.append_and_get_index(type);
+        const int index = group_output_types_.append_and_get_index({type, nullptr});
         group_output_indices_.append(index);
       }
       else {
@@ -914,7 +920,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       return;
     }
 
-    auto lazy_function = std::make_unique<LazyFunctionForRerouteNode>(*type);
+    auto lazy_function = std::make_unique<LazyFunctionForRerouteNode>(bnode);
     lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
     lf_graph_info_->functions.append(std::move(lazy_function));
 
@@ -1137,13 +1143,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       const CPPType &to_type = *type_with_links.type;
       const Span<const bNodeLink *> links = type_with_links.links;
 
-      Vector<const bNodeSocket *> target_bsockets;
-      for (const bNodeLink *link : links) {
-        target_bsockets.append(link->tosock);
-      }
-
       lf::OutputSocket *converted_from_lf_socket = this->insert_type_conversion_if_necessary(
-          from_lf_socket, to_type, std::move(target_bsockets));
+          from_lf_socket, to_type);
 
       auto make_input_link_or_set_default = [&](lf::InputSocket &to_lf_socket) {
         if (converted_from_lf_socket == nullptr) {
@@ -1194,10 +1195,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     }
   }
 
-  lf::OutputSocket *insert_type_conversion_if_necessary(
-      lf::OutputSocket &from_socket,
-      const CPPType &to_type,
-      Vector<const bNodeSocket *> &&target_sockets)
+  lf::OutputSocket *insert_type_conversion_if_necessary(lf::OutputSocket &from_socket,
+                                                        const CPPType &to_type)
   {
     const CPPType &from_type = from_socket.type();
     if (from_type == to_type) {
@@ -1211,7 +1210,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             MFDataType::ForSingle(from_field_type->value),
             MFDataType::ForSingle(to_field_type->value));
         auto fn = std::make_unique<LazyFunctionForMultiFunctionConversion>(
-            multi_fn, *from_field_type, *to_field_type, std::move(target_sockets));
+            multi_fn, *from_field_type, *to_field_type);
         lf::Node &conversion_node = lf_graph_->add_function(*fn);
         lf_graph_info_->functions.append(std::move(fn));
         lf_graph_->add_link(from_socket, conversion_node.input(0));

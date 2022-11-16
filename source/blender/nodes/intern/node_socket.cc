@@ -10,6 +10,7 @@
 #include "DNA_node_types.h"
 
 #include "BLI_color.hh"
+#include "BLI_cpp_types.hh"
 #include "BLI_listbase.h"
 #include "BLI_math_vec_types.hh"
 #include "BLI_string.h"
@@ -798,6 +799,8 @@ static bNodeSocketType *make_socket_type_geometry()
     new (r_value) GeometrySet();
   };
   socktype->geometry_nodes_cpp_type = socktype->base_cpp_type;
+  socktype->geometry_nodes_request_cpp_type =
+      &blender::ValueRequestCPPType::get<blender::bke::GeometrySetRequest>();
   socktype->get_geometry_nodes_cpp_value = socktype->get_base_cpp_value;
   return socktype;
 }
