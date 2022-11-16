@@ -2946,6 +2946,9 @@ static void node_draw(const bContext &C,
   else if (node.type == NODE_REROUTE) {
     reroute_node_draw(C, region, ntree, node, block);
   }
+  else if (node.type == GEO_NODE_SIMULATION) {
+    /* todo */
+  }
   else {
     const View2D &v2d = region.v2d;
     if (node.flag & NODE_HIDDEN) {
