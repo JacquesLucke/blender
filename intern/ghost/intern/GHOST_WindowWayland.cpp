@@ -47,8 +47,6 @@ static constexpr size_t base_dpi = 96;
 #  define use_libdecor GHOST_SystemWayland::use_libdecor_runtime()
 #endif
 
-static GHOST_WindowManager *window_manager = nullptr;
-
 #ifdef WITH_GHOST_WAYLAND_LIBDECOR
 struct WGL_LibDecor_Window {
   struct libdecor_frame *frame = nullptr;
@@ -793,11 +791,6 @@ GHOST_WindowWayland::GHOST_WindowWayland(GHOST_SystemWayland *system,
   std::lock_guard lock_server_guard{*system->server_mutex};
 #endif
 
-  /* Globally store pointer to window manager. */
-  if (!window_manager) {
-    window_manager = system_->getWindowManager();
-  }
-
   window_->ghost_window = this;
   window_->ghost_system = system;
 
@@ -973,6 +966,9 @@ GHOST_TSuccess GHOST_WindowWayland::setWindowCursorGrab(GHOST_TGrabCursorMode mo
 
 GHOST_TSuccess GHOST_WindowWayland::setWindowCursorShape(GHOST_TStandardCursor shape)
 {
+#ifdef USE_EVENT_BACKGROUND_THREAD
+  std::lock_guard lock_server_guard{*system_->server_mutex};
+#endif
   const GHOST_TSuccess ok = system_->cursor_shape_set(shape);
   m_cursorShape = (ok == GHOST_kSuccess) ? shape : GHOST_kStandardCursorDefault;
   return ok;
@@ -1013,6 +1009,7 @@ void GHOST_WindowWayland::setTitle(const char *title)
 
 std::string GHOST_WindowWayland::getTitle() const
 {
+  /* No need to lock `server_mutex` (WAYLAND never changes this). */
   return window_->title.empty() ? "untitled" : window_->title;
 }
 
@@ -1023,6 +1020,7 @@ void GHOST_WindowWayland::getWindowBounds(GHOST_Rect &bounds) const
 
 void GHOST_WindowWayland::getClientBounds(GHOST_Rect &bounds) const
 {
+  /* No need to lock `server_mutex` (WAYLAND never changes this in a thread). */
   bounds.set(0, 0, UNPACK2(window_->frame.size));
 }
 
@@ -1105,6 +1103,9 @@ GHOST_WindowWayland::~GHOST_WindowWayland()
 
 uint16_t GHOST_WindowWayland::getDPIHint()
 {
+  /* No need to lock `server_mutex`
+   * (`outputs_changed_update_scale` never changes values in a non-main thread). */
+
   /* Using the physical DPI will cause wrong scaling of the UI
    * use a multiplier for the default DPI as a workaround. */
   return wl_fixed_to_int(window_->scale_fractional * base_dpi);
