@@ -39,6 +39,7 @@
  */
 
 #include "BLI_cpp_types.hh"
+#include "BLI_function_ref.hh"
 #include "BLI_generic_pointer.hh"
 #include "BLI_linear_allocator.hh"
 #include "BLI_vector.hh"
@@ -161,7 +162,7 @@ class Params {
    */
   void set_input_unused(int index);
 
-  void *get_input_request_ptr(int index);
+  void set_input_request(int index, void *value);
   const void *get_output_request_ptr(int index) const;
 
   /**
@@ -200,7 +201,7 @@ class Params {
   virtual void set_input_unused_impl(int index) = 0;
   virtual bool try_enable_multi_threading_impl();
 
-  virtual void *get_input_request_ptr_impl(int index);
+  virtual void set_input_request_impl(int index, void *request);
   virtual const void *get_output_request_ptr_impl(int index) const;
 };
 
@@ -400,10 +401,10 @@ inline void Params::set_input_unused(const int index)
   this->set_input_unused_impl(index);
 }
 
-inline void *Params::get_input_request_ptr(const int index)
+inline void Params::set_input_request(const int index, void *value)
 {
   this->assert_valid_thread();
-  return this->get_input_request_ptr_impl(index);
+  return this->set_input_request_impl(index, value);
 }
 
 inline const void *Params::get_output_request_ptr(const int index) const

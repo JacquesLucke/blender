@@ -68,9 +68,8 @@ bool Params::try_enable_multi_threading_impl()
   return false;
 }
 
-void *Params::get_input_request_ptr_impl(const int /*index*/)
+void Params::set_input_request_impl(const int /*index*/, void * /*value*/)
 {
-  return nullptr;
 }
 
 const void *Params::get_output_request_ptr_impl(const int /*index*/) const
