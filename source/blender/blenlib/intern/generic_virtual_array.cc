@@ -3,7 +3,7 @@
 #include "BLI_cpp_type_make.hh"
 #include "BLI_generic_virtual_array.hh"
 
-BLI_CPP_TYPE_MAKE(GVArray, blender::GVArray, CPPTypeFlags::None);
+BLI_CPP_TYPE_MAKE(blender::GVArray, CPPTypeFlags::None);
 
 namespace blender {
 

@@ -13,9 +13,7 @@
 #include "FN_field2.hh"
 #include "FN_multi_function.hh"
 
-BLI_CPP_TYPE_MAKE(FieldArrayContextValue,
-                  blender::fn::field2::FieldArrayContextValue,
-                  CPPTypeFlags::None);
+BLI_CPP_TYPE_MAKE(blender::fn::field2::FieldArrayContextValue, CPPTypeFlags::None);
 
 namespace blender::fn::field2 {
 
