@@ -130,14 +130,12 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
   }
 
-  void *get_static_value_request(const int index, LinearAllocator<> &allocator) const override
+  void get_static_value_request(const int index, void *r_request) const override
   {
     if (node_.type == GEO_NODE_MESH_TO_POINTS && index == 0) {
-      bke::GeometrySetRequest &request = *allocator.construct<bke::GeometrySetRequest>().release();
+      bke::GeometrySetRequest &request = *static_cast<bke::GeometrySetRequest *>(r_request);
       request.mesh.skip_faces = true;
-      return &request;
     }
-    return {};
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override

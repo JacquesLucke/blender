@@ -191,9 +191,8 @@ static void node_geo_exec(GeoNodeExecParams params)
     return;
   }
 
-  const bke::GeometrySetRequest *geometry_request =
-      params.get_output_request<bke::GeometrySetRequest>("Mesh");
-  const bool generate_faces = geometry_request ? !geometry_request->mesh.skip_faces : true;
+  const auto geometry_request = params.get_output_request<bke::GeometrySetRequest>("Mesh");
+  const bool generate_faces = !geometry_request.mesh.skip_faces;
   std::cout << "Generate faces: " << generate_faces << "\n";
 
   Mesh *mesh = create_grid_mesh(verts_x, verts_y, size_x, size_y, generate_faces);

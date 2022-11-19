@@ -162,8 +162,8 @@ class Params {
    */
   void set_input_unused(int index);
 
-  void set_input_request(int index, void *value);
-  const void *get_output_request_ptr(int index) const;
+  void set_input_request(int index, void *request);
+  void get_output_request(int index, void *r_request) const;
 
   /**
    * Typed utility methods that wrap the methods above.
@@ -202,7 +202,7 @@ class Params {
   virtual bool try_enable_multi_threading_impl();
 
   virtual void set_input_request_impl(int index, void *request);
-  virtual const void *get_output_request_ptr_impl(int index) const;
+  virtual void get_output_request_impl(int index, void *r_request) const;
 };
 
 struct InOutTypes {
@@ -291,9 +291,8 @@ class LazyFunction {
    */
   virtual void destruct_storage(void *storage) const;
 
-  virtual void *get_static_value_request(int /*index*/, LinearAllocator<> & /*allocator*/) const
+  virtual void get_static_value_request(int /*index*/, void * /*r_request*/) const
   {
-    return {};
   }
 
   /**
@@ -401,16 +400,16 @@ inline void Params::set_input_unused(const int index)
   this->set_input_unused_impl(index);
 }
 
-inline void Params::set_input_request(const int index, void *value)
+inline void Params::set_input_request(const int index, void *request)
 {
   this->assert_valid_thread();
-  return this->set_input_request_impl(index, value);
+  return this->set_input_request_impl(index, request);
 }
 
-inline const void *Params::get_output_request_ptr(const int index) const
+inline void Params::get_output_request(const int index, void *r_request) const
 {
   this->assert_valid_thread();
-  return this->get_output_request_ptr_impl(index);
+  return this->get_output_request_impl(index, r_request);
 }
 
 template<typename T> inline T Params::extract_input(const int index)

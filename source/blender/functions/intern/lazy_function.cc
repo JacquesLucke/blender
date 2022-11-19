@@ -68,13 +68,12 @@ bool Params::try_enable_multi_threading_impl()
   return false;
 }
 
-void Params::set_input_request_impl(const int /*index*/, void * /*value*/)
+void Params::set_input_request_impl(const int /*index*/, void * /*request*/)
 {
 }
 
-const void *Params::get_output_request_ptr_impl(const int /*index*/) const
+void Params::get_output_request_impl(const int /*index*/, void * /*r_request*/) const
 {
-  return nullptr;
 }
 
 }  // namespace blender::fn::lazy_function

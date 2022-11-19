@@ -177,15 +177,12 @@ class GeoNodeExecParams {
     return params_.get_output_usage(index) != lf::ValueUsage::Unused;
   }
 
-  const void *get_output_request(StringRef identifier)
+  template<typename T> T get_output_request(StringRef identifier)
   {
+    T request;
     const int index = this->get_output_index(identifier);
-    return params_.get_output_request_ptr(index);
-  }
-
-  template<typename T> const T *get_output_request(StringRef identifier)
-  {
-    return static_cast<const T *>(this->get_output_request(identifier));
+    params_.get_output_request(index, &request);
+    return request;
   }
 
   /**

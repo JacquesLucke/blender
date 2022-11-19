@@ -127,8 +127,6 @@ struct OutputState {
    * it's forwarded to input sockets. Access does not require holding the node lock.
    */
   void *value = nullptr;
-  /* TODO: Destruct. */
-  void *request = nullptr;
 };
 
 struct NodeState {
@@ -750,11 +748,15 @@ class Executor {
           const Input &fn_input = fn_inputs[input_index];
           if (fn_input.usage == ValueUsage::Used) {
             const InputSocket &input_socket = node.input(input_index);
-            if (fn_input.types.request_type != nullptr) {
+            const ValueRequestCPPType *request_type = input_socket.request_type();
+            if (request_type != nullptr) {
               InputState &input_state = node_state.inputs[input_index];
               /* May have been initialized before already. */
               if (input_state.request == nullptr) {
-                input_state.request = fn.get_static_value_request(input_index, allocator);
+                input_state.request = allocator.allocate(request_type->self.size(),
+                                                         request_type->self.alignment());
+                request_type->self.default_construct(input_state.request);
+                fn.get_static_value_request(input_index, input_state.request);
               }
             }
             this->set_input_required(locked_node, input_socket);
@@ -1173,49 +1175,37 @@ class GraphExecutorLFParams final : public Params {
     return output_state.value;
   }
 
-  void set_input_request_impl(const int index, void *value) override
+  void set_input_request_impl(const int index, void *request) override
   {
+    BLI_assert(request != nullptr);
     InputState &input_state = node_state_.inputs[index];
     const InputSocket &input_socket = node_.input(index);
     const ValueRequestCPPType *request_type = input_socket.request_type();
-    if (request_type == nullptr) {
-      return;
-    }
+    BLI_assert(request_type != nullptr);
+
     LinearAllocator<> &allocator = executor_.get_main_or_local_allocator();
     executor_.with_locked_node(
         node_, node_state_, current_task_, [&](LockedNode & /*locked_node*/) {
           if (input_state.request == nullptr) {
-            if (value == nullptr) {
-              return;
-            }
             input_state.request = allocator.allocate(request_type->self.size(),
                                                      request_type->self.alignment());
-            request_type->self.move_construct(value, input_state.request);
+            request_type->self.move_construct(request, input_state.request);
           }
           else {
-            if (value == nullptr) {
-              request_type->self.destruct(input_state.request);
-              input_state.request = nullptr;
-              return;
-            }
-            request_type->self.move_assign(value, input_state.request);
+            request_type->self.move_assign(request, input_state.request);
           }
         });
   }
 
-  const void *get_output_request_ptr_impl(const int index) const override
+  void get_output_request_impl(const int index, void *r_request) const override
   {
-    OutputState &output_state = node_state_.outputs[index];
     const OutputSocket &output_socket = node_.output(index);
-    const ValueRequestCPPType *request_cpp_type = output_socket.request_type();
-    if (request_cpp_type == nullptr) {
-      return nullptr;
-    }
+    const ValueRequestCPPType *request_type = output_socket.request_type();
+    BLI_assert(request_type != nullptr);
 
     LinearAllocator<> &allocator = executor_.get_main_or_local_allocator();
 
-    bool found_empty_request = false;
-    void *new_request = nullptr;
+    bool is_first = true;
     for (const InputSocket *target_socket : output_socket.targets()) {
       const Node &target_node = target_socket->node();
       NodeState &target_node_state = *executor_.node_states_[target_node.index_in_graph()];
@@ -1225,38 +1215,36 @@ class GraphExecutorLFParams final : public Params {
             if (target_socket_state.usage == ValueUsage::Unused) {
               return;
             }
-            if (!target_node_state.had_initialization) {
+            if (target_node_state.had_initialization) {
               if (target_node.is_function()) {
                 const LazyFunction &target_fn =
                     static_cast<const FunctionNode &>(target_node).function();
-                target_socket_state.request = target_fn.get_static_value_request(
-                    target_socket->index(), allocator);
+                target_socket_state.request = allocator.allocate(request_type->self.size(),
+                                                                 request_type->self.alignment());
+                request_type->self.default_construct(target_socket_state.request);
+                target_fn.get_static_value_request(target_socket->index(),
+                                                   target_socket_state.request);
               }
             }
+
             if (target_socket_state.request == nullptr) {
-              found_empty_request = true;
+              if (is_first) {
+                request_type->self.default_construct(r_request);
+                is_first = false;
+              }
+              else {
+                request_type->merge_unknown(r_request);
+              }
             }
-            else if (new_request == nullptr) {
-              new_request = allocator.allocate(request_cpp_type->self.size(),
-                                               request_cpp_type->self.alignment());
-              request_cpp_type->self.copy_construct(target_socket_state.request, new_request);
+            else if (is_first) {
+              request_type->self.copy_assign(target_socket_state.request, r_request);
+              is_first = false;
             }
             else {
-              request_cpp_type->merge(new_request, target_socket_state.request);
+              request_type->merge(r_request, target_socket_state.request);
             }
           });
     }
-    if (new_request != nullptr && found_empty_request) {
-      request_cpp_type->merge_unknown(new_request);
-    }
-    executor_.with_locked_node(
-        node_, node_state_, current_task_, [&](LockedNode & /*locked_node*/) {
-          if (output_state.request != nullptr) {
-            request_cpp_type->self.destruct(output_state.request);
-          }
-          output_state.request = new_request;
-        });
-    return output_state.request;
   }
 
   void output_set_impl(const int index) override
