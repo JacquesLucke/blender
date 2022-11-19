@@ -124,10 +124,12 @@ static void mesh_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int 
    * highly unlikely we want to create a duplicate and not use it for drawing. */
   mesh_dst->runtime->is_original_bmesh = false;
 
-  /* Share the bounding box cache between the source and destination mesh for improved performance
-   * when the source is persistent and edits to the destination don't change the bounds. It will be
-   * "un-shared" as necessary when the positions are changed. */
+  /* Share various derived caches between the source and destination mesh for improved performance
+   * when the source is persistent and edits to the destination mesh don't affect the caches.
+   * Caches will be "un-shared" as necessary later on. */
   mesh_dst->runtime->bounds_cache = mesh_src->runtime->bounds_cache;
+  mesh_dst->runtime->loose_edges_cache = mesh_src->runtime->loose_edges_cache;
+  mesh_dst->runtime->looptris_cache = mesh_src->runtime->looptris_cache;
 
   /* Only do tessface if we have no polys. */
   const bool do_tessface = ((mesh_src->totface != 0) && (mesh_src->totpoly == 0));
@@ -165,8 +167,6 @@ static void mesh_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int 
     /* XXX This is not nice, we need to make BKE_id_copy_ex fully re-entrant... */
     mesh_dst->key->from = &mesh_dst->id;
   }
-
-  BKE_mesh_assert_normals_dirty_or_calculated(mesh_dst);
 }
 
 void BKE_mesh_free_editmesh(struct Mesh *mesh)
@@ -229,7 +229,6 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
   mesh->mface = nullptr;
   mesh->totface = 0;
   memset(&mesh->fdata, 0, sizeof(mesh->fdata));
-  mesh->runtime = nullptr;
 
   /* Do not store actual geometry data in case this is a library override ID. */
   if (ID_IS_OVERRIDE_LIBRARY(mesh) && !is_undo) {
@@ -254,6 +253,7 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
       BKE_mesh_legacy_bevel_weight_from_layers(mesh);
       BKE_mesh_legacy_face_set_from_generic(mesh, poly_layers);
       BKE_mesh_legacy_edge_crease_from_layers(mesh);
+      BKE_mesh_legacy_convert_loose_edges_to_flag(mesh);
       /* When converting to the old mesh format, don't save redundant attributes. */
       names_to_skip.add_multiple_new({".hide_vert",
                                       ".hide_edge",
@@ -276,6 +276,8 @@ static void mesh_blend_write(BlendWriter *writer, ID *id, const void *id_address
     CustomData_blend_write_prepare(mesh->ldata, loop_layers, names_to_skip);
     CustomData_blend_write_prepare(mesh->pdata, poly_layers, names_to_skip);
   }
+
+  mesh->runtime = nullptr;
 
   BLO_write_id_struct(writer, Mesh, id_address, &mesh->id);
   BKE_id_blend_write(writer, &mesh->id);
@@ -983,8 +985,6 @@ void BKE_mesh_copy_parameters_for_eval(Mesh *me_dst, const Mesh *me_src)
   BLI_assert(me_dst->id.tag & (LIB_TAG_NO_MAIN | LIB_TAG_COPIED_ON_WRITE));
 
   BKE_mesh_copy_parameters(me_dst, me_src);
-
-  BKE_mesh_assert_normals_dirty_or_calculated(me_dst);
 
   /* Copy vertex group names. */
   BLI_assert(BLI_listbase_is_empty(&me_dst->vertex_group_names));
@@ -1819,8 +1819,6 @@ void BKE_mesh_calc_normals_split_ex(Mesh *mesh,
                               nullptr,
                               r_lnors_spacearr,
                               clnors);
-
-  BKE_mesh_assert_normals_dirty_or_calculated(mesh);
 }
 
 void BKE_mesh_calc_normals_split(Mesh *mesh)
@@ -2087,7 +2085,6 @@ void BKE_mesh_split_faces(Mesh *mesh, bool free_loop_normals)
   /* Also frees new_verts/edges temp data, since we used its memarena to allocate them. */
   BKE_lnor_spacearr_free(&lnors_spacearr);
 
-  BKE_mesh_assert_normals_dirty_or_calculated(mesh);
 #ifdef VALIDATE_MESH
   BKE_mesh_validate(mesh, true, true);
 #endif
