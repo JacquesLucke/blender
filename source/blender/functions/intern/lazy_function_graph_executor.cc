@@ -127,6 +127,7 @@ struct OutputState {
    * it's forwarded to input sockets. Access does not require holding the node lock.
    */
   void *value = nullptr;
+  /* TODO: Destruct. */
   void *request = nullptr;
 };
 
@@ -173,11 +174,6 @@ struct NodeState {
   void *storage = nullptr;
 };
 
-struct RequiredOutputInfo {
-  const OutputSocket *socket;
-  const void *request;
-};
-
 /**
  * Utility class that wraps a node whose state is locked. Having this is a separate class is useful
  * because it allows methods to communicate that they expect the node to be locked.
@@ -197,7 +193,7 @@ struct LockedNode {
    *
    * The notifications will be send right after the node is not locked anymore.
    */
-  Vector<RequiredOutputInfo> delayed_required_outputs;
+  Vector<const OutputSocket *> delayed_required_outputs;
   Vector<const OutputSocket *> delayed_unused_outputs;
 
   LockedNode(const Node &node, NodeState &node_state) : node(node), node_state(node_state)
@@ -560,9 +556,8 @@ class Executor {
     this->forward_value_to_linked_inputs(socket, {type, buffer}, current_task);
   }
 
-  void notify_output_required(RequiredOutputInfo &info, CurrentTask &current_task)
+  void notify_output_required(const OutputSocket &socket, CurrentTask &current_task)
   {
-    const OutputSocket &socket = *info.socket;
     const Node &node = socket.node();
     const int index_in_node = socket.index();
     NodeState &node_state = *node_states_[node.index_in_graph()];
@@ -674,11 +669,11 @@ class Executor {
     this->send_output_unused_notifications(locked_node.delayed_unused_outputs, current_task);
   }
 
-  void send_output_required_notifications(Vector<RequiredOutputInfo> &infos,
+  void send_output_required_notifications(const Span<const OutputSocket *> sockets,
                                           CurrentTask &current_task)
   {
-    for (RequiredOutputInfo &info : infos) {
-      this->notify_output_required(info, current_task);
+    for (const OutputSocket *socket : sockets) {
+      this->notify_output_required(*socket, current_task);
     }
   }
 
@@ -959,7 +954,7 @@ class Executor {
     const OutputSocket *origin_socket = input_socket.origin();
     /* Unlinked inputs are always loaded in advance. */
     BLI_assert(origin_socket != nullptr);
-    locked_node.delayed_required_outputs.append({origin_socket, input_state.request});
+    locked_node.delayed_required_outputs.append(origin_socket);
     return nullptr;
   }
 
