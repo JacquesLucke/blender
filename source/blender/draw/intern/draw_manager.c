@@ -1333,10 +1333,6 @@ void DRW_notify_view_update(const DRWUpdateContext *update_ctx)
 
   const bool gpencil_engine_needed = drw_gpencil_engine_needed(depsgraph, v3d);
 
-  if (G.is_rendering && U.experimental.use_draw_manager_acquire_lock) {
-    return;
-  }
-
   /* XXX Really nasty locking. But else this could
    * be executed by the material previews thread
    * while rendering a viewport. */
@@ -2039,6 +2035,7 @@ void DRW_render_to_image(RenderEngine *engine, struct Depsgraph *depsgraph)
   DRW_smoke_exit(DST.vmempool);
 
   drw_manager_exit(&DST);
+  DRW_cache_free_old_subdiv();
 
   /* Reset state after drawing */
   DRW_state_reset();

@@ -19,7 +19,6 @@
 
 #include "BLI_bitmap.h"
 #include "BLI_color.hh"
-#include "BLI_cpp_type_make.hh"
 #include "BLI_endian_switch.h"
 #include "BLI_index_range.hh"
 #include "BLI_math.h"
@@ -2799,6 +2798,14 @@ static CustomDataLayer *customData_add_layer__internal(CustomData *data,
   const LayerTypeInfo *typeInfo = layerType_getInfo(type);
   int flag = 0;
 
+  /* Some layer types only support a single layer. */
+  if (!typeInfo->defaultname && CustomData_has_layer(data, type)) {
+    /* This function doesn't support dealing with existing layer data for these layer types when
+     * the layer already exists. */
+    BLI_assert(layerdata == nullptr);
+    return &data->layers[CustomData_get_layer_index(data, type)];
+  }
+
   void *newlayerdata = nullptr;
   switch (alloctype) {
     case CD_SET_DEFAULT:
@@ -2849,21 +2856,6 @@ static CustomDataLayer *customData_add_layer__internal(CustomData *data,
         }
       }
       break;
-  }
-
-  /* Some layer types only support a single layer. */
-  const bool reuse_existing_layer = !typeInfo->defaultname && CustomData_has_layer(data, type);
-  if (reuse_existing_layer) {
-    CustomDataLayer &layer = data->layers[CustomData_get_layer_index(data, type)];
-    if (layer.data != nullptr) {
-      if (typeInfo->free) {
-        typeInfo->free(layer.data, totelem, typeInfo->size);
-      }
-      MEM_SAFE_FREE(layer.data);
-    }
-    layer.data = newlayerdata;
-    layer.flag = flag;
-    return &layer;
   }
 
   int index = data->totlayer;
@@ -5414,5 +5406,3 @@ size_t CustomData_get_elem_size(CustomDataLayer *layer)
 {
   return LAYERTYPEINFO[layer->type].size;
 }
-
-BLI_CPP_TYPE_MAKE(MStringProperty, MStringProperty, CPPTypeFlags::None);
