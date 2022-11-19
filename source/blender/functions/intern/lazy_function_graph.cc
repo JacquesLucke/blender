@@ -48,9 +48,12 @@ FunctionNode &Graph::add_function(const LazyFunction &fn)
   return node;
 }
 
-DummyNode &Graph::add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types)
+DummyNode &Graph::add_dummy(Span<const CPPType *> input_types,
+                            Span<const CPPType *> output_types,
+                            std::string name)
 {
   DummyNode &node = *allocator_.construct<DummyNode>().release();
+  node.name_ = std::move(name);
   node.fn_ = nullptr;
   node.inputs_ = allocator_.construct_elements_and_pointer_array<InputSocket>(input_types.size());
   node.outputs_ = allocator_.construct_elements_and_pointer_array<OutputSocket>(

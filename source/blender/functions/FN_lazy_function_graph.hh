@@ -176,6 +176,7 @@ class DummyNode : public Node {
   std::string name_;
 
   friend Node;
+  friend Graph;
 };
 
 /**
@@ -208,7 +209,9 @@ class Graph : NonCopyable, NonMovable {
   /**
    * Add a new dummy node with the given socket types.
    */
-  DummyNode &add_dummy(Span<const CPPType *> input_types, Span<const CPPType *> output_types);
+  DummyNode &add_dummy(Span<const CPPType *> input_types,
+                       Span<const CPPType *> output_types,
+                       std::string name = "");
 
   /**
    * Add a link between the two given sockets.

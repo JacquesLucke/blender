@@ -11,11 +11,14 @@
 #include "BLI_stack.hh"
 
 #include "FN_field2.hh"
+#include "FN_lazy_function_graph_executor.hh"
 #include "FN_multi_function.hh"
 
 BLI_CPP_TYPE_MAKE(blender::fn::field2::FieldArrayContextValue, CPPTypeFlags::None);
 
 namespace blender::fn::field2 {
+
+namespace lf = lazy_function;
 
 namespace data_flow_graph {
 
@@ -25,13 +28,15 @@ Graph::~Graph()
   static_assert(std::is_trivially_destructible_v<OutputNode>);
 }
 
-FunctionNode &Graph::add_function_node(const FieldFunction &fn,
+FunctionNode &Graph::add_function_node(const OutputSocket &context,
+                                       const FieldFunction &fn,
                                        int inputs_num,
                                        int outputs_num,
                                        const void *fn_data)
 {
   FunctionNode &node = allocator_.construct_trivial<FunctionNode>();
   node.type_ = NodeType::Function;
+  node.context_ = context;
   node.inputs_num_ = inputs_num;
   node.outputs_num_ = outputs_num;
   node.fn_ = &fn;
@@ -107,26 +112,39 @@ std::string Graph::to_dot(const ToDotSettings &settings) const
   dot::Node &context_dot_node = digraph.new_node("Context");
   context_dot_node.set_shape(dot::Attr_shape::Ellipse);
 
+  auto port_from_input_socket = [&](const InputSocket &socket) -> dot::NodePort {
+    if (socket.node->type() == NodeType::Function) {
+      return function_dot_nodes.lookup(static_cast<const FunctionNode *>(socket.node))
+          .input(socket.index);
+    }
+    return *output_dot_nodes.lookup(static_cast<const OutputNode *>(socket.node));
+  };
+  auto port_from_output_socket = [&](const OutputSocket &socket) -> dot::NodePort {
+    if (socket.node->type() == NodeType::Function) {
+      return function_dot_nodes.lookup(static_cast<const FunctionNode *>(socket.node))
+          .output(socket.index);
+    }
+    return context_dot_node;
+  };
+
   for (auto item : origins_map_.items()) {
     const InputSocket to = item.key;
     const OutputSocket from = item.value;
 
-    const dot::NodePort from_dot_port = [&]() -> dot::NodePort {
-      if (from.node->type() == NodeType::Function) {
-        return function_dot_nodes.lookup(static_cast<const FunctionNode *>(from.node))
-            .output(from.index);
-      }
-      return context_dot_node;
-    }();
-    const dot::NodePort to_dot_port = [&]() -> dot::NodePort {
-      if (to.node->type() == NodeType::Function) {
-        return function_dot_nodes.lookup(static_cast<const FunctionNode *>(to.node))
-            .input(to.index);
-      }
-      return *output_dot_nodes.lookup(static_cast<const OutputNode *>(to.node));
-    }();
+    const dot::NodePort from_dot_port = port_from_output_socket(from);
+    const dot::NodePort to_dot_port = port_from_input_socket(to);
 
     digraph.new_edge(from_dot_port, to_dot_port);
+  }
+  for (const FunctionNode *node : function_nodes_) {
+    const OutputSocket &context = node->context();
+    const dot::NodePort from_dot_port = port_from_output_socket(context);
+    const dot::NodePort to_dot_port = function_dot_nodes.lookup(node).header();
+
+    dot::DirectedEdge &edge = digraph.new_edge(from_dot_port, to_dot_port);
+    edge.set_arrowhead(dot::Attr_arrowType::Dot);
+    edge.attributes.set("style", "dashed");
+    edge.attributes.set("color", "#00000066");
   }
 
   return digraph.to_dot_string();
@@ -229,56 +247,6 @@ void FieldArrayEvaluator::finalize()
   }
 
   this->evaluate_constant_outputs();
-
-  /* TODO: Use topology sort to turn remove the quadratic complexity. */
-  RandomNumberGenerator rng{23};
-  Map<const dfg::Node *, uint32_t> cluster_ids_map;
-  for (const dfg::FunctionNode *node : graph_.function_nodes()) {
-    const BackendFlags backends = node->function().dfg_node_backends(node->fn_data());
-    if (!bool(backends & BackendFlags::LazyFunction)) {
-      continue;
-    }
-    {
-      /* Propagate cluster id forwards. */
-      Set<const dfg::Node *> pushed_nodes;
-      Stack<const dfg::Node *> nodes_to_check;
-      const uint32_t forward_id = rng.get_uint32();
-      nodes_to_check.push(node);
-      pushed_nodes.add_new(node);
-      while (!nodes_to_check.is_empty()) {
-        const dfg::Node *node = nodes_to_check.pop();
-        cluster_ids_map.lookup_or_add(node, 0) ^= forward_id;
-        for (const int output_index : IndexRange(node->outputs_num())) {
-          for (const dfg::InputSocket target_socket :
-               graph_.target_sockets({node, output_index})) {
-            const dfg::Node *target_node = target_socket.node;
-            if (pushed_nodes.add(target_node)) {
-              nodes_to_check.push(target_node);
-            }
-          }
-        }
-      }
-    }
-    {
-      /* Propagate cluster id backwards. */
-      Set<const dfg::Node *> pushed_nodes;
-      Stack<const dfg::Node *> nodes_to_check;
-      const uint32_t backward_id = rng.get_uint32();
-      nodes_to_check.push(node);
-      pushed_nodes.add_new(node);
-      while (!nodes_to_check.is_empty()) {
-        const dfg::Node *node = nodes_to_check.pop();
-        cluster_ids_map.lookup_or_add(node, 0) ^= backward_id;
-        for (const int input_index : IndexRange(node->inputs_num())) {
-          const dfg::OutputSocket origin_socket = graph_.origin_socket({node, input_index});
-          const dfg::Node *origin_node = origin_socket.node;
-          if (pushed_nodes.add(origin_node)) {
-            nodes_to_check.push(origin_node);
-          }
-        }
-      }
-    }
-  }
 }
 
 void FieldArrayEvaluator::find_context_dependent_nodes()

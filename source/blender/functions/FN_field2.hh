@@ -342,63 +342,6 @@ class Node {
   }
 };
 
-class OutputNode : public Node {
- private:
-  const CPPType *cpp_type_ = nullptr;
-
-  friend Graph;
-
- public:
-  const CPPType &cpp_type() const
-  {
-    return *cpp_type_;
-  }
-};
-
-class ContextNode : public Node {
- public:
-  ContextNode()
-  {
-    type_ = NodeType::Context;
-    inputs_num_ = 0;
-    outputs_num_ = 1;
-  }
-};
-
-class FunctionNode : public Node {
- private:
-  const FieldFunction *fn_;
-  const void *fn_data_ = nullptr;
-
-  friend Graph;
-
- public:
-  const FieldFunction &function() const
-  {
-    return *fn_;
-  }
-
-  const void *fn_data() const
-  {
-    return fn_data_;
-  }
-
-  std::string input_name(const int index) const
-  {
-    return fn_->dfg_input_name(fn_data_, index);
-  }
-
-  std::string output_name(const int index) const
-  {
-    return fn_->dfg_output_name(fn_data_, index);
-  }
-
-  std::string name() const
-  {
-    return fn_->dfg_node_name(fn_data_);
-  }
-};
-
 class InputSocket {
  public:
   const Node *node = nullptr;
@@ -431,6 +374,69 @@ class OutputSocket {
   }
 };
 
+class OutputNode : public Node {
+ private:
+  const CPPType *cpp_type_ = nullptr;
+
+  friend Graph;
+
+ public:
+  const CPPType &cpp_type() const
+  {
+    return *cpp_type_;
+  }
+};
+
+class ContextNode : public Node {
+ public:
+  ContextNode()
+  {
+    type_ = NodeType::Context;
+    inputs_num_ = 0;
+    outputs_num_ = 1;
+  }
+};
+
+class FunctionNode : public Node {
+ private:
+  const FieldFunction *fn_;
+  const void *fn_data_ = nullptr;
+  OutputSocket context_;
+
+  friend Graph;
+
+ public:
+  const FieldFunction &function() const
+  {
+    return *fn_;
+  }
+
+  const void *fn_data() const
+  {
+    return fn_data_;
+  }
+
+  OutputSocket context() const
+  {
+    return context_;
+  }
+
+  std::string input_name(const int index) const
+  {
+    return fn_->dfg_input_name(fn_data_, index);
+  }
+
+  std::string output_name(const int index) const
+  {
+    return fn_->dfg_output_name(fn_data_, index);
+  }
+
+  std::string name() const
+  {
+    return fn_->dfg_node_name(fn_data_);
+  }
+};
+
 class Graph {
  private:
   LinearAllocator<> allocator_;
@@ -443,7 +449,8 @@ class Graph {
  public:
   ~Graph();
 
-  FunctionNode &add_function_node(const FieldFunction &fn,
+  FunctionNode &add_function_node(const OutputSocket &context,
+                                  const FieldFunction &fn,
                                   int inputs_num,
                                   int outputs_num,
                                   const void *fn_data);
@@ -464,6 +471,11 @@ class Graph {
   Span<const FunctionNode *> function_nodes() const
   {
     return function_nodes_;
+  }
+
+  Span<const OutputNode *> output_nodes() const
+  {
+    return output_nodes_;
   }
 
   OutputSocket origin_socket(const InputSocket &socket) const
@@ -584,7 +596,7 @@ template<typename T> class ConstantFieldFunction : public FieldFunction {
   void dfg_build(DfgFunctionBuilder &builder) const override
   {
     dfg::Graph &graph = builder.graph();
-    dfg::FunctionNode &node = graph.add_function_node(*this, 0, 1, nullptr);
+    dfg::FunctionNode &node = graph.add_function_node(builder.context(), *this, 0, 1, nullptr);
     builder.set_output(0, {&node, 0});
   }
 

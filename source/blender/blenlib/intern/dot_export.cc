@@ -264,7 +264,7 @@ NodeWithSocketsRef::NodeWithSocketsRef(Node &node,
   ss << R"(<<table border="0" cellspacing="3">)";
 
   /* Header */
-  ss << R"(<tr><td colspan="3" align="center"><b>)";
+  ss << R"(<tr><td colspan="3" align="center" port="header"><b>)";
   ss << ((name.size() == 0) ? "No Name" : name);
   ss << "</b></td></tr>";
 

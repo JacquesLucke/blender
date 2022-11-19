@@ -34,7 +34,7 @@ class AddFunc : public FieldFunction {
   void dfg_build(DfgFunctionBuilder &builder) const override
   {
     dfg::Graph &graph = builder.graph();
-    dfg::FunctionNode &node = graph.add_function_node(*this, 2, 1, nullptr);
+    dfg::FunctionNode &node = graph.add_function_node(builder.context(), *this, 2, 1, nullptr);
     builder.set_input(0, {&node, 0});
     builder.set_input(1, {&node, 1});
     builder.set_output(0, {&node, 0});
@@ -92,12 +92,9 @@ class ChangeContextFunc : public FieldFunction {
     dfg::Graph &graph = builder.graph();
 
     dfg::FunctionNode &prepare_node = graph.add_function_node(
-        *this, 1, 1, reinterpret_cast<void *>(FnData::PrepareContext));
+        builder.context(), *this, 0, 1, reinterpret_cast<void *>(FnData::PrepareContext));
     dfg::FunctionNode &interpolate_node = graph.add_function_node(
-        *this, 2, 1, reinterpret_cast<void *>(FnData::Interpolate));
-
-    graph.add_link(builder.context(), {&prepare_node, 0});
-    graph.add_link(builder.context(), {&interpolate_node, 0});
+        builder.context(), *this, 1, 1, reinterpret_cast<void *>(FnData::Interpolate));
 
     builder.set_input(0, {&interpolate_node, 1}, {&prepare_node, 0});
     builder.set_output(0, {&interpolate_node, 0});
@@ -142,8 +139,7 @@ class InputFunc : public FieldFunction {
   {
     dfg::Graph &graph = builder.graph();
 
-    dfg::FunctionNode &node = graph.add_function_node(*this, 1, 1, nullptr);
-    graph.add_link(builder.context(), {&node, 0});
+    dfg::FunctionNode &node = graph.add_function_node(builder.context(), *this, 0, 1, nullptr);
 
     builder.set_output(0, {&node, 0});
   }
@@ -165,9 +161,12 @@ TEST(field, Test)
 {
   dfg::Graph graph;
   AddFunc add_func;
-  dfg::FunctionNode &add_node1 = graph.add_function_node(add_func, 2, 1, nullptr);
-  dfg::FunctionNode &add_node2 = graph.add_function_node(add_func, 2, 1, nullptr);
-  dfg::FunctionNode &add_node3 = graph.add_function_node(add_func, 2, 1, nullptr);
+  dfg::FunctionNode &add_node1 = graph.add_function_node(
+      graph.context_socket(), add_func, 2, 1, nullptr);
+  dfg::FunctionNode &add_node2 = graph.add_function_node(
+      graph.context_socket(), add_func, 2, 1, nullptr);
+  dfg::FunctionNode &add_node3 = graph.add_function_node(
+      graph.context_socket(), add_func, 2, 1, nullptr);
 
   graph.add_link({&add_node1, 0}, {&add_node2, 0});
   graph.add_link({&add_node1, 0}, {&add_node2, 1});
