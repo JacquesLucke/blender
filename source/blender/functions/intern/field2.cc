@@ -228,6 +228,25 @@ FieldArrayEvaluator::~FieldArrayEvaluator()
   }
 }
 
+class MyLazyFunction : public lf::LazyFunction {
+ public:
+  MyLazyFunction(const int num_field_inputs, const int num_field_outputs)
+  {
+    debug_name_ = "My Lazy Function";
+    inputs_.append({"Context", CPPType::get<FieldArrayContextValue>()});
+    for (const int i : IndexRange(num_field_inputs)) {
+      inputs_.append({"Input", CPPType::get<GVArray>()});
+    }
+    for (const int i : IndexRange(num_field_outputs)) {
+      outputs_.append({"Output", CPPType::get<GVArray>()});
+    }
+  }
+
+  void execute_impl(lf::Params & /*params*/, const lf::Context & /*context*/) const override
+  {
+  }
+};
+
 void FieldArrayEvaluator::finalize()
 {
   BLI_assert(!is_finalized_);
@@ -247,6 +266,65 @@ void FieldArrayEvaluator::finalize()
   }
 
   this->evaluate_constant_outputs();
+
+  Map<dfg::InputSocket, lf::InputSocket *> inputs_map;
+  Map<dfg::OutputSocket, lf::OutputSocket *> outputs_map;
+  Map<const dfg::FunctionNode *, lf::InputSocket *> context_inputs_map;
+
+  lf::Graph lf_graph;
+  const dfg::ContextNode &dfg_context_node = graph_.context_node();
+  lf::DummyNode &lf_context_node = lf_graph.add_dummy(
+      {}, {&CPPType::get<FieldArrayContextValue>()}, "Context");
+  outputs_map.add_new(graph_.context_socket(), &lf_context_node.output(0));
+
+  for (const dfg::OutputNode *dfg_output_node : graph_.output_nodes()) {
+    lf::DummyNode &lf_output_node = lf_graph.add_dummy({&CPPType::get<GVArray>()}, {}, "Output");
+    inputs_map.add_new({dfg_output_node, 0}, &lf_output_node.input(0));
+  }
+
+  for (const dfg::FunctionNode *dfg_function_node : graph_.function_nodes()) {
+    const FieldFunction &field_fn = dfg_function_node->function();
+    const void *field_fn_data = dfg_function_node->fn_data();
+
+    const lf::LazyFunction &lf_fn = scope_.construct<MyLazyFunction>(
+        dfg_function_node->inputs_num(), dfg_function_node->outputs_num());
+    lf::FunctionNode &lf_node = lf_graph.add_function(lf_fn);
+    for (const int i : IndexRange(dfg_function_node->inputs_num())) {
+      inputs_map.add_new({dfg_function_node, i}, &lf_node.input(i + 1));
+    }
+    for (const int i : IndexRange(dfg_function_node->outputs_num())) {
+      outputs_map.add_new({dfg_function_node, i}, &lf_node.output(i));
+    }
+    context_inputs_map.add_new(dfg_function_node, &lf_node.input(0));
+  }
+
+  for (const dfg::OutputNode *dfg_output_node : graph_.output_nodes()) {
+    const dfg::InputSocket dfg_to_socket{dfg_output_node, 0};
+    if (std::optional<dfg::OutputSocket> dfg_from_socket = graph_.origin_socket_opt(
+            dfg_to_socket)) {
+      lf::InputSocket &lf_to_socket = *inputs_map.lookup(dfg_to_socket);
+      lf::OutputSocket &lf_from_socket = *outputs_map.lookup(*dfg_from_socket);
+      lf_graph.add_link(lf_from_socket, lf_to_socket);
+    }
+  }
+
+  for (const dfg::FunctionNode *dfg_function_node : graph_.function_nodes()) {
+    for (const int i : IndexRange(dfg_function_node->inputs_num())) {
+      const dfg::InputSocket dfg_to_socket{dfg_function_node, i};
+      const dfg::OutputSocket dfg_from_socket{graph_.origin_socket(dfg_to_socket)};
+
+      lf::InputSocket &lf_to_socket = *inputs_map.lookup(dfg_to_socket);
+      lf::OutputSocket &lf_from_socket = *outputs_map.lookup(dfg_from_socket);
+      lf_graph.add_link(lf_from_socket, lf_to_socket);
+    }
+
+    const dfg::OutputSocket dfg_context_origin = dfg_function_node->context();
+    lf::InputSocket &lf_context_input = *context_inputs_map.lookup(dfg_function_node);
+    lf::OutputSocket &lf_context_origin = *outputs_map.lookup(dfg_context_origin);
+    lf_graph.add_link(lf_context_origin, lf_context_input);
+  }
+
+  std::cout << "\n\n" << lf_graph.to_dot() << "\n\n";
 }
 
 void FieldArrayEvaluator::find_context_dependent_nodes()
