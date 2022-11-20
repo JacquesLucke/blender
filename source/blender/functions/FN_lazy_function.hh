@@ -92,11 +92,11 @@ struct Context {
    * to finish its job), the state is stored here. This points to memory returned from
    * #LazyFunction::init_storage.
    */
-  void *storage;
+  void *storage = nullptr;
   /**
    * Custom user data that can be used in the function.
    */
-  UserData *user_data;
+  UserData *user_data = nullptr;
 };
 
 /**

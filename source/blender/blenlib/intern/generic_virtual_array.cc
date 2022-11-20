@@ -707,7 +707,7 @@ class GVArrayImpl_For_GArray : public GVArrayImpl_For_GSpan {
 
 GVArray GVArray::ForGArray(GArray<> array)
 {
-  return GVArray::For<GVArrayImpl_For_GArray>(array);
+  return GVArray::For<GVArrayImpl_For_GArray>(std::move(array));
 }
 
 GVArray GVArray::ForEmpty(const CPPType &type)

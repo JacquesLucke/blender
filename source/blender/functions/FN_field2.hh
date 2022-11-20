@@ -12,12 +12,11 @@
 #include "BLI_set.hh"
 #include "BLI_vector.hh"
 
+#include "FN_lazy_function_graph.hh"
+#include "FN_lazy_function_graph_executor.hh"
+
 namespace blender::fn {
 class MultiFunction;
-}
-
-namespace blender::fn::lazy_function {
-class LazyFunction;
 }
 
 namespace blender::fn::field2 {
@@ -623,15 +622,14 @@ Vector<dfg::OutputNode *> build_dfg_for_fields(dfg::Graph &graph, Span<GFieldRef
 
 class FieldArrayEvaluator {
  private:
+  ResourceScope scope_;
+  bool is_finalized_ = false;
+
   Vector<GFieldRef> fields_;
   dfg::Graph graph_;
-  ResourceScope scope_;
   Vector<dfg::OutputNode *> output_nodes_;
-  Set<const dfg::Node *> context_dependent_nodes_;
-  Vector<int> varying_output_indices_;
-  Vector<int> constant_output_indices_;
-  Vector<GMutablePointer> constant_outputs_;
-  bool is_finalized_ = false;
+  lazy_function::Graph lf_graph_;
+  std::optional<lazy_function::GraphExecutor> lf_graph_executor_;
 
   friend FieldArrayEvaluation;
 
@@ -645,12 +643,6 @@ class FieldArrayEvaluator {
   }
 
   void finalize();
-
- private:
-  void find_context_dependent_nodes();
-  void evaluate_constant_outputs();
-  void evaluate_constant_input_socket(const dfg::InputSocket &socket_to_compute,
-                                      GMutablePointer r_value);
 };
 
 class FieldArrayContext {
@@ -661,8 +653,8 @@ class FieldArrayContext {
 };
 
 struct FieldArrayContextValue {
-  FieldArrayContext *context = nullptr;
-  std::shared_ptr<FieldArrayContext> owned_context;
+  const FieldArrayContext *context = nullptr;
+  std::shared_ptr<const FieldArrayContext> owned_context;
 };
 
 class FieldArrayEvaluation {
