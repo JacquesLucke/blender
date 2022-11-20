@@ -234,11 +234,68 @@ class MyLazyFunction : public lf::LazyFunction {
   {
     debug_name_ = "My Lazy Function";
     inputs_.append({"Context", CPPType::get<FieldArrayContextValue>()});
-    for (const int i : IndexRange(num_field_inputs)) {
+    for ([[maybe_unused]] const int i : IndexRange(num_field_inputs)) {
       inputs_.append({"Input", CPPType::get<GVArray>()});
     }
-    for (const int i : IndexRange(num_field_outputs)) {
+    for ([[maybe_unused]] const int i : IndexRange(num_field_outputs)) {
       outputs_.append({"Output", CPPType::get<GVArray>()});
+    }
+  }
+
+  void execute_impl(lf::Params & /*params*/, const lf::Context & /*context*/) const override
+  {
+  }
+};
+
+class LazyFunctionForConstant : public lf::LazyFunction {
+ private:
+  const GPointer value_;
+
+ public:
+  LazyFunctionForConstant(const GPointer value) : value_(value)
+  {
+    debug_name_ = "Constant";
+    inputs_.append({"Context", CPPType::get<FieldArrayContextValue>()});
+    outputs_.append({"Value", CPPType::get<GVArray>()});
+  }
+
+  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
+  {
+    const FieldArrayContextValue &context = params.get_input<FieldArrayContextValue>(0);
+    const int array_size = context.context->array_size();
+    params.set_output<GVArray>(0, GVArray::ForSingleRef(*value_.type(), array_size, value_.get()));
+  }
+};
+
+class LazyFunctionForMultiFunction : public lf::LazyFunction {
+ private:
+  const MultiFunction &multi_function_;
+
+ public:
+  LazyFunctionForMultiFunction(const MultiFunction &multi_function)
+      : multi_function_(multi_function)
+  {
+    debug_name_ = "Multi Function";
+    inputs_.append({"Context", CPPType::get<FieldArrayContextValue>()});
+    for (const int param_index : multi_function.param_indices()) {
+      const MFParamType param_type = multi_function.param_type(param_index);
+      switch (param_type.category()) {
+        case MFParamCategory::SingleInput: {
+          inputs_.append({"Input", CPPType::get<GVArray>()});
+          break;
+        }
+        case MFParamCategory::SingleOutput: {
+          outputs_.append({"Output", CPPType::get<GVArray>()});
+          break;
+        }
+        case MFParamCategory::VectorInput:
+        case MFParamCategory::VectorOutput:
+        case MFParamCategory::SingleMutable:
+        case MFParamCategory::VectorMutable: {
+          BLI_assert_unreachable();
+          break;
+        }
+      }
     }
   }
 
@@ -272,7 +329,6 @@ void FieldArrayEvaluator::finalize()
   Map<const dfg::FunctionNode *, lf::InputSocket *> context_inputs_map;
 
   lf::Graph lf_graph;
-  const dfg::ContextNode &dfg_context_node = graph_.context_node();
   lf::DummyNode &lf_context_node = lf_graph.add_dummy(
       {}, {&CPPType::get<FieldArrayContextValue>()}, "Context");
   outputs_map.add_new(graph_.context_socket(), &lf_context_node.output(0));
@@ -286,8 +342,27 @@ void FieldArrayEvaluator::finalize()
     const FieldFunction &field_fn = dfg_function_node->function();
     const void *field_fn_data = dfg_function_node->fn_data();
 
-    const lf::LazyFunction &lf_fn = scope_.construct<MyLazyFunction>(
-        dfg_function_node->inputs_num(), dfg_function_node->outputs_num());
+    const BackendFlags backends = field_fn.dfg_node_backends(field_fn_data);
+
+    const lf::LazyFunction &lf_fn = [&]() -> const lf::LazyFunction & {
+      if (bool(backends & BackendFlags::ConstantValue)) {
+        const GPointer value = field_fn.dfg_backend_constant_value(field_fn_data, scope_);
+        return scope_.construct<LazyFunctionForConstant>(value);
+      }
+      else if (bool(backends & BackendFlags::MultiFunction)) {
+        const MultiFunction &multi_function = field_fn.dfg_backend_multi_function(field_fn_data,
+                                                                                  scope_);
+        return scope_.construct<LazyFunctionForMultiFunction>(multi_function);
+      }
+      else if (bool(backends & BackendFlags::LazyFunction)) {
+        return field_fn.dfg_backend_lazy_function(field_fn_data, scope_);
+      }
+      else {
+        return scope_.construct<MyLazyFunction>(dfg_function_node->inputs_num(),
+                                                dfg_function_node->outputs_num());
+      }
+    }();
+
     lf::FunctionNode &lf_node = lf_graph.add_function(lf_fn);
     for (const int i : IndexRange(dfg_function_node->inputs_num())) {
       inputs_map.add_new({dfg_function_node, i}, &lf_node.input(i + 1));

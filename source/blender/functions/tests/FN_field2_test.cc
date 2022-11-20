@@ -192,6 +192,14 @@ TEST(field, Test2)
   // std::cout << "\n\n" << graph.to_dot() << "\n\n";
 }
 
+class MyFieldArrayContext : public FieldArrayContext {
+ public:
+  int64_t array_size() const override
+  {
+    return 10;
+  }
+};
+
 TEST(field, Test3)
 {
   Field<int> const_42_field = make_constant_field<int>(42);
@@ -216,7 +224,7 @@ TEST(field, Test3)
   evaluator.add_field_ref(added_field4);
   evaluator.finalize();
 
-  FieldArrayContext context;
+  MyFieldArrayContext context;
   IndexMask mask = IndexRange(10);
   FieldArrayEvaluation evaluation{evaluator, context, &mask};
   evaluation.evaluate();

@@ -656,6 +656,8 @@ class FieldArrayEvaluator {
 class FieldArrayContext {
  public:
   virtual ~FieldArrayContext() = default;
+
+  virtual int64_t array_size() const = 0;
 };
 
 struct FieldArrayContextValue {
