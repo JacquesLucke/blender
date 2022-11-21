@@ -22,6 +22,7 @@
 #include "DNA_world_types.h"
 
 #include "BLI_array.hh"
+#include "BLI_convexhull_2d.h"
 #include "BLI_map.hh"
 #include "BLI_set.hh"
 #include "BLI_span.hh"
@@ -32,6 +33,7 @@
 
 #include "BKE_compute_contexts.hh"
 #include "BKE_context.h"
+#include "BKE_curves.hh"
 #include "BKE_idtype.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
@@ -76,6 +78,8 @@
 
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
+
+#include "GEO_fillet_curves.hh"
 
 #include "node_intern.hh" /* own include */
 
@@ -3087,15 +3091,63 @@ static void draw_nodetree(const bContext &C,
 
   node_update_nodetree(C, tree_draw_ctx, ntree, nodes, blocks);
 
-  Vector<float2> outline_positions;
+  if (ntree.all_nodes().is_empty()) {
+    return;
+  }
+
+  Vector<float2> all_positions;
+  const float padding = UI_UNIT_X;
   for (const bNode *node : ntree.all_nodes()) {
     const rctf &totr = node->runtime->totr;
-    outline_positions.append({totr.xmin, totr.ymin});
-    outline_positions.append({totr.xmin, totr.ymax});
-    outline_positions.append({totr.xmax, totr.ymin});
-    outline_positions.append({totr.xmax, totr.ymax});
+    all_positions.append({totr.xmin - padding, totr.ymin - padding});
+    all_positions.append({totr.xmin - padding, totr.ymax + padding});
+    all_positions.append({totr.xmax + padding, totr.ymin - padding});
+    all_positions.append({totr.xmax + padding, totr.ymax + padding});
   }
-  outline_positions.as_span().print_as_lines("");
+
+  Vector<int> convex_indices(all_positions.size());
+  const int num_convex_positions = BLI_convexhull_2d(
+      reinterpret_cast<float(*)[2]>(all_positions.data()),
+      all_positions.size(),
+      convex_indices.data());
+  convex_indices.resize(num_convex_positions);
+
+  blender::bke::CurvesGeometry curve(num_convex_positions, 1);
+  curve.cyclic_for_write().first() = true;
+  curve.fill_curve_types(CURVE_TYPE_POLY);
+  MutableSpan<float3> curve_positions = curve.positions_for_write();
+  MutableSpan<int> curve_offsets = curve.offsets_for_write();
+  curve_offsets[0] = 0;
+  curve_offsets[1] = num_convex_positions;
+  for (const int i : IndexRange(num_convex_positions)) {
+    curve_positions[i] = float3(all_positions[convex_indices[i]], 0.0f);
+  }
+  curve.tag_topology_changed();
+
+  blender::bke::CurvesGeometry fillet_curves = geometry::fillet_curves_poly(
+      curve,
+      IndexRange(1),
+      VArray<float>::ForSingle(UI_UNIT_X / 2, num_convex_positions),
+      VArray<int>::ForSingle(5, num_convex_positions),
+      true);
+  const Span<float3> fillet_curves_positions = fillet_curves.positions();
+
+  const uint pos = GPU_vertformat_attr_add(
+      immVertexFormat(), "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+  immUniformColor4f(0.7f, 0.3f, 0.3f, 0.2f);
+
+  GPU_blend(GPU_BLEND_ALPHA);
+  immBegin(GPU_PRIM_TRI_FAN, fillet_curves_positions.size() + 1);
+
+  for (const float3 &p : fillet_curves_positions) {
+    immVertex3fv(pos, p);
+  }
+  immVertex3fv(pos, fillet_curves_positions[0]);
+
+  immEnd();
+  immUnbindProgram();
+  GPU_blend(GPU_BLEND_NONE);
 
   node_draw_nodetree(C, tree_draw_ctx, region, *snode, ntree, nodes, blocks, parent_key);
 }
