@@ -3086,6 +3086,17 @@ static void draw_nodetree(const bContext &C,
   }
 
   node_update_nodetree(C, tree_draw_ctx, ntree, nodes, blocks);
+
+  Vector<float2> outline_positions;
+  for (const bNode *node : ntree.all_nodes()) {
+    const rctf &totr = node->runtime->totr;
+    outline_positions.append({totr.xmin, totr.ymin});
+    outline_positions.append({totr.xmin, totr.ymax});
+    outline_positions.append({totr.xmax, totr.ymin});
+    outline_positions.append({totr.xmax, totr.ymax});
+  }
+  outline_positions.as_span().print_as_lines("");
+
   node_draw_nodetree(C, tree_draw_ctx, region, *snode, ntree, nodes, blocks, parent_key);
 }
 
