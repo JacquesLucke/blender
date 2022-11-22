@@ -5668,6 +5668,21 @@ void UI_block_layout_free(uiBlock *block)
   }
 }
 
+static void store_layout_bounds_recursive(uiBlock *block, uiLayout *layout)
+{
+  uiBlockLayoutBounds *bounds = MEM_callocN(sizeof(uiBlockLayoutBounds), __func__);
+  bounds->layout = layout;
+  BLI_rcti_init(
+      &bounds->bounds, layout->x, layout->x + layout->w, layout->y, layout->y + layout->h);
+  BLI_addtail(&block->layout_bounds, bounds);
+
+  LISTBASE_FOREACH (uiItem *, item, &layout->items) {
+    if (item->type != ITEM_BUTTON) {
+      store_layout_bounds_recursive(block, (uiLayout *)item);
+    }
+  }
+}
+
 void UI_block_layout_resolve(uiBlock *block, int *r_x, int *r_y)
 {
   BLI_assert(block->active);
@@ -5681,11 +5696,14 @@ void UI_block_layout_resolve(uiBlock *block, int *r_x, int *r_y)
 
   block->curlayout = NULL;
 
+  BLI_freelistN(&block->layout_bounds);
+
   LISTBASE_FOREACH_MUTABLE (uiLayoutRoot *, root, &block->layouts) {
     ui_layout_add_padding_button(root);
 
     /* NULL in advance so we don't interfere when adding button */
     ui_layout_end(block, root->layout, r_x, r_y);
+    store_layout_bounds_recursive(block, root->layout);
     ui_layout_free(root->layout);
     MEM_freeN(root);
   }
@@ -5702,6 +5720,15 @@ void UI_block_layout_resolve(uiBlock *block, int *r_x, int *r_y)
 bool UI_block_layout_needs_resolving(const uiBlock *block)
 {
   return !BLI_listbase_is_empty(&block->layouts);
+}
+
+void UI_layout_bounds(uiBlock *block, uiLayout *layout, rcti *r_bounds)
+{
+  LISTBASE_FOREACH (uiBlockLayoutBounds *, bounds, &block->layout_bounds) {
+    if (bounds->layout == layout) {
+      *r_bounds = bounds->bounds;
+    }
+  }
 }
 
 void uiLayoutSetContextPointer(uiLayout *layout, const char *name, PointerRNA *ptr)

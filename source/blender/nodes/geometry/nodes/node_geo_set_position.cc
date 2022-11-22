@@ -12,6 +12,9 @@
 
 #include "node_geometry_util.hh"
 
+#include "UI_interface.h"
+#include "UI_resources.h"
+
 namespace blender::nodes::node_geo_set_position_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
@@ -21,6 +24,25 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Vector>(N_("Position")).implicit_field(implicit_field_inputs::position);
   b.add_input<decl::Vector>(N_("Offset")).supports_field().subtype(PROP_TRANSLATION);
   b.add_output<decl::Geometry>(N_("Geometry"));
+}
+
+static void node_draw_layout(DrawNodeLayoutParams &params)
+{
+  const bContext *C = params.C;
+  uiLayout *layout = params.layout;
+  PointerRNA *ptr = params.ptr;
+  bNode &node = *params.node;
+
+  uiLayout *col;
+
+  col = uiLayoutColumn(layout, false);
+  uiItemL(col, "Geometry", ICON_NONE);
+  params.attach_socket(*col, node.input_by_identifier("Geometry"));
+  params.attach_socket(*col, node.output_by_identifier("Geometry"));
+
+  params.draw_input(*layout, node.input_by_identifier("Selection"));
+  params.draw_input(*layout, node.input_by_identifier("Position"));
+  params.draw_input(*layout, node.input_by_identifier("Offset"));
 }
 
 static void set_computed_position_and_offset(GeometryComponent &component,
@@ -187,5 +209,6 @@ void register_node_type_geo_set_position()
   geo_node_type_base(&ntype, GEO_NODE_SET_POSITION, "Set Position", NODE_CLASS_GEOMETRY);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.declare = file_ns::node_declare;
+  ntype.draw_layout = file_ns::node_draw_layout;
   nodeRegisterType(&ntype);
 }

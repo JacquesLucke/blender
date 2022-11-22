@@ -5,16 +5,36 @@
 #include <functional>
 #include <type_traits>
 
+#include "BLI_multi_value_map.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_vector.hh"
 
 #include "DNA_node_types.h"
 
+#include "RNA_access.h"
+
 struct bNode;
+struct bContext;
+struct PointerRNA;
+struct uiLayout;
 
 namespace blender::nodes {
 
 class NodeDeclarationBuilder;
+
+class DrawNodeLayoutParams {
+ public:
+  const bContext *C;
+  uiLayout *layout;
+  bNode *node;
+  PointerRNA *ptr;
+  MultiValueMap<uiLayout *, bNodeSocket *> input_sockets;
+  MultiValueMap<uiLayout *, bNodeSocket *> output_sockets;
+
+  void attach_socket(uiLayout &layout, bNodeSocket &socket);
+
+  void draw_input(uiLayout &layout, bNodeSocket &socket);
+};
 
 enum class InputSocketFieldType {
   /** The input is required to be a single value. */

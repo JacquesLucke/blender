@@ -106,6 +106,7 @@ class NodeMultiFunctionBuilder;
 class GeoNodeExecParams;
 class NodeDeclarationBuilder;
 class GatherLinkSearchOpParams;
+class DrawNodeLayoutParams;
 }  // namespace nodes
 namespace fn {
 class MFDataType;
@@ -134,6 +135,8 @@ using NodeGetCompositorOperationFunction = blender::realtime_compositor::NodeOpe
 using NodeGetCompositorShaderNodeFunction =
     blender::realtime_compositor::ShaderNode *(*)(blender::nodes::DNode node);
 
+using DrawNodeLayoutFunction = void (*)(blender::nodes::DrawNodeLayoutParams &params);
+
 #else
 typedef void *NodeGetCompositorOperationFunction;
 typedef void *NodeGetCompositorShaderNodeFunction;
@@ -145,6 +148,7 @@ typedef void *SocketGetCPPTypeFunction;
 typedef void *SocketGetGeometryNodesCPPTypeFunction;
 typedef void *SocketGetGeometryNodesCPPValueFunction;
 typedef void *SocketGetCPPValueFunction;
+typedef void *DrawNodeLayoutFunction;
 typedef struct CPPTypeHandle CPPTypeHandle;
 #endif
 
@@ -257,6 +261,7 @@ typedef struct bNodeType {
   void (*draw_buttons)(struct uiLayout *, struct bContext *C, struct PointerRNA *ptr);
   /* Additional parameters in the side panel */
   void (*draw_buttons_ex)(struct uiLayout *, struct bContext *C, struct PointerRNA *ptr);
+  DrawNodeLayoutFunction draw_layout;
 
   /* Additional drawing on backdrop */
   void (*draw_backdrop)(

@@ -483,12 +483,22 @@ typedef struct uiBlockDynamicListener {
   void (*listener_func)(const struct wmRegionListenerParams *params);
 } uiBlockDynamicListener;
 
+typedef struct uiBlockLayoutBounds {
+  struct uiBlockLayoutBounds *next, *prev;
+
+  /* The actual layout is destructed. */
+  void *layout;
+  rcti bounds;
+} uiBlockLayoutBounds;
+
 struct uiBlock {
   uiBlock *next, *prev;
 
   ListBase buttons;
   struct Panel *panel;
   uiBlock *oldblock;
+
+  ListBase layout_bounds;
 
   /** Used for `UI_butstore_*` runtime function. */
   ListBase butstore;

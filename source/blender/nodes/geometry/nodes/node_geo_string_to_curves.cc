@@ -57,8 +57,11 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Vector>(N_("Pivot Point")).field_source();
 }
 
-static void node_layout(uiLayout *layout, struct bContext *C, PointerRNA *ptr)
+static void node_draw_layout(DrawNodeLayoutParams &params)
 {
+  const bContext *C = params.C;
+  uiLayout *layout = params.layout;
+  PointerRNA *ptr = params.ptr;
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
   uiTemplateID(layout,
@@ -73,7 +76,11 @@ static void node_layout(uiLayout *layout, struct bContext *C, PointerRNA *ptr)
                nullptr);
   uiItemR(layout, ptr, "overflow", 0, "", ICON_NONE);
   uiItemR(layout, ptr, "align_x", 0, "", ICON_NONE);
-  uiItemR(layout, ptr, "align_y", 0, "", ICON_NONE);
+
+  uiLayout *col = uiLayoutColumn(layout, false);
+  uiItemR(col, ptr, "align_y", 0, "", ICON_NONE);
+  params.attach_socket(*col, params.node->input_socket(0));
+  params.attach_socket(*col, params.node->output_socket(0));
   uiItemR(layout, ptr, "pivot_mode", 0, IFACE_("Pivot Point"), ICON_NONE);
 }
 
@@ -407,11 +414,11 @@ void register_node_type_geo_string_to_curves()
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.initfunc = file_ns::node_init;
   ntype.updatefunc = file_ns::node_update;
+  ntype.draw_layout = file_ns::node_draw_layout;
   node_type_size(&ntype, 190, 120, 700);
   node_type_storage(&ntype,
                     "NodeGeometryStringToCurves",
                     node_free_standard_storage,
                     node_copy_standard_storage);
-  ntype.draw_buttons = file_ns::node_layout;
   nodeRegisterType(&ntype);
 }

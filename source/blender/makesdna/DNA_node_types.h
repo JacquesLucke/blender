@@ -368,6 +368,8 @@ typedef struct bNode {
   /** Lookup socket of this node by its identifier. */
   const bNodeSocket &input_by_identifier(blender::StringRef identifier) const;
   const bNodeSocket &output_by_identifier(blender::StringRef identifier) const;
+  bNodeSocket &input_by_identifier(blender::StringRef identifier);
+  bNodeSocket &output_by_identifier(blender::StringRef identifier);
   /** If node is frame, will return all children nodes. */
   blender::Span<bNode *> direct_children_in_frame() const;
   /** Node tree this node belongs to. */
