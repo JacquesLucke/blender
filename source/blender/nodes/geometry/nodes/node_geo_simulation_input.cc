@@ -10,7 +10,11 @@ namespace blender::nodes::node_geo_simulation_input_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
+  b.add_input<decl::Bool>(N_("Run"));
   b.add_input<decl::Geometry>(N_("Geometry"));
+
+  b.add_output<decl::Float>(N_("Delta Time"));
+  b.add_output<decl::Float>(N_("Elapsed Time"));
   b.add_output<decl::Geometry>(N_("Geometry"));
 }
 
@@ -32,7 +36,11 @@ static void node_geo_exec(GeoNodeExecParams params)
   if (cache->geometry_per_frame.contains(previous_frame)) {
     GeometrySet geometry_set = cache->geometry_per_frame.lookup(previous_frame);
     params.set_output("Geometry", std::move(geometry_set));
-    // params.set_input_unused("Geometry");
+    params.set_input_unused("Geometry");
+    return;
+  }
+
+  if (params.lazy_require_input("Geometry")) {
     return;
   }
 
@@ -51,5 +59,6 @@ void register_node_type_geo_simulation_input()
   geo_node_type_base(&ntype, GEO_NODE_SIMULATION_INPUT, "Simulation Input", NODE_CLASS_INTERFACE);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.declare = file_ns::node_declare;
+  ntype.geometry_node_execute_supports_laziness = true;
   nodeRegisterType(&ntype);
 }

@@ -10,7 +10,11 @@ namespace blender::nodes::node_geo_simulation_output_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
+  b.add_input<decl::Bool>(N_("Stop"));
   b.add_input<decl::Geometry>(N_("Geometry"));
+  b.add_output<decl::Bool>(N_("Started"));
+  b.add_output<decl::Bool>(N_("Ended"));
+  b.add_output<decl::Float>(N_("Elapsed Time"));
   b.add_output<decl::Geometry>(N_("Geometry"));
 }
 
@@ -27,7 +31,11 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   if (cache.geometry_per_frame.contains(scene_frame)) {
     params.set_output("Geometry", cache.geometry_per_frame.lookup(scene_frame));
-    // params.set_input_unused("Geometry");
+    params.set_input_unused("Geometry");
+    return;
+  }
+
+  if (params.lazy_require_input("Geometry")) {
     return;
   }
 
@@ -36,6 +44,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   cache.geometry_per_frame.add_new(scene_frame, geometry_set);
 
   params.set_output("Geometry", std::move(geometry_set));
+  params.set_default_remaining_outputs();
 }
 
 }  // namespace blender::nodes::node_geo_simulation_output_cc
@@ -50,5 +59,6 @@ void register_node_type_geo_simulation_output()
       &ntype, GEO_NODE_SIMULATION_OUTPUT, "Simulation Output", NODE_CLASS_INTERFACE);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.declare = file_ns::node_declare;
+  ntype.geometry_node_execute_supports_laziness = true;
   nodeRegisterType(&ntype);
 }
