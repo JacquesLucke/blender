@@ -1534,6 +1534,14 @@ typedef struct NodeGeometryUVUnwrap {
   uint8_t method;
 } NodeGeometryUVUnwrap;
 
+typedef struct NodeGeometrySimulationInput {
+  int8_t dummy;
+} NodeGeometrySimulationInput;
+
+typedef struct NodeGeometrySimulationOutput {
+  int8_t use_cache;
+} NodeGeometrySimulationOutput;
+
 typedef struct NodeGeometryDistributePointsInVolume {
   /* GeometryNodePointDistributeVolumeMode. */
   uint8_t mode;

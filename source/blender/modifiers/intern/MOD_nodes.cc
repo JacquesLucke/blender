@@ -1318,7 +1318,7 @@ static void modifyGeometry(ModifierData *md,
                                   nmd,
                                   ctx);
 
-  if (orig_nmd->simulation_caches->cache_per_context.is_empty()) {
+  if (orig_nmd->simulation_caches->is_empty()) {
     delete orig_nmd->simulation_caches;
     orig_nmd->simulation_caches = nullptr;
   }
