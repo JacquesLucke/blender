@@ -1396,6 +1396,9 @@ struct TexResult;
 /** \name Geometry Nodes
  * \{ */
 
+#define GEO_NODE_SIMULATION_INPUT 1198
+#define GEO_NODE_SIMULATION_OUTPUT 1199
+
 #define GEO_NODE_TRIANGULATE 1000
 #define GEO_NODE_TRANSFORM 1002
 #define GEO_NODE_MESH_BOOLEAN 1003

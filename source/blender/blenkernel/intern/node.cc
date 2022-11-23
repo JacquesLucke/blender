@@ -2213,7 +2213,7 @@ bNode *nodeAddNode(const struct bContext *C, bNodeTree *ntree, const char *idnam
 
   BKE_ntree_update_tag_node_new(ntree, node);
 
-  if (ELEM(node->type, GEO_NODE_INPUT_SCENE_TIME, GEO_NODE_SELF_OBJECT)) {
+  if (ELEM(node->type, GEO_NODE_INPUT_SCENE_TIME, GEO_NODE_SELF_OBJECT, GEO_NODE_SIMULATION_INPUT)) {
     DEG_relations_tag_update(CTX_data_main(C));
   }
 
@@ -3061,7 +3061,10 @@ void nodeRemoveNode(Main *bmain, bNodeTree *ntree, bNode *node, bool do_id_user)
 
   /* Also update relations for the scene time node, which causes a dependency
    * on time that users expect to be removed when the node is removed. */
-  if (node_has_id || ELEM(node->type, GEO_NODE_INPUT_SCENE_TIME, GEO_NODE_SELF_OBJECT)) {
+  if (node_has_id || ELEM(node->type,
+                          GEO_NODE_INPUT_SCENE_TIME,
+                          GEO_NODE_SELF_OBJECT,
+                          GEO_NODE_SIMULATION_INPUT)) {
     if (bmain != nullptr) {
       DEG_relations_tag_update(bmain);
     }
@@ -4771,6 +4774,8 @@ static void registerGeometryNodes()
   register_node_type_geo_set_shade_smooth();
   register_node_type_geo_set_spline_cyclic();
   register_node_type_geo_set_spline_resolution();
+  register_node_type_geo_simulation_input();
+  register_node_type_geo_simulation_output();
   register_node_type_geo_store_named_attribute();
   register_node_type_geo_string_join();
   register_node_type_geo_string_to_curves();

@@ -37,6 +37,7 @@
 #include "DNA_windowmanager_types.h"
 
 #include "BKE_attribute_math.hh"
+#include "BKE_compute_cache.hh"
 #include "BKE_compute_contexts.hh"
 #include "BKE_customdata.h"
 #include "BKE_geometry_fields.hh"
@@ -336,7 +337,7 @@ static bool check_tree_for_time_node(const bNodeTree &tree,
     return false;
   }
   LISTBASE_FOREACH (const bNode *, node, &tree.nodes) {
-    if (node->type == GEO_NODE_INPUT_SCENE_TIME) {
+    if (ELEM(node->type, GEO_NODE_INPUT_SCENE_TIME, GEO_NODE_SIMULATION_INPUT)) {
       return true;
     }
     if (node->type == NODE_GROUP) {
@@ -1106,6 +1107,7 @@ static GeometrySet compute_geometry(
     const blender::nodes::GeometryNodesLazyFunctionGraphInfo &lf_graph_info,
     const bNode &output_node,
     GeometrySet input_geometry_set,
+    blender::bke::ComputeCaches &compute_caches,
     NodesModifierData *nmd,
     const ModifierEvalContext *ctx)
 {
@@ -1133,6 +1135,7 @@ static GeometrySet compute_geometry(
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;
   geo_nodes_modifier_data.self_object = ctx->object;
+  geo_nodes_modifier_data.cache_per_frame = &compute_caches;
   auto eval_log = std::make_unique<GeoModifierLog>();
   if (logging_enabled(ctx)) {
     geo_nodes_modifier_data.eval_log = eval_log.get();
@@ -1301,8 +1304,24 @@ static void modifyGeometry(ModifierData *md,
     use_orig_index_polys = CustomData_has_layer(&mesh.pdata, CD_ORIGINDEX);
   }
 
-  geometry_set = compute_geometry(
-      tree, *lf_graph_info, *output_node, std::move(geometry_set), nmd, ctx);
+  NodesModifierData *orig_nmd = reinterpret_cast<NodesModifierData *>(
+      BKE_modifier_get_original(ctx->object, md));
+  if (!orig_nmd->simulation_caches) {
+    orig_nmd->simulation_caches = new blender::bke::ComputeCaches();
+  }
+
+  geometry_set = compute_geometry(tree,
+                                  *lf_graph_info,
+                                  *output_node,
+                                  std::move(geometry_set),
+                                  *orig_nmd->simulation_caches,
+                                  nmd,
+                                  ctx);
+
+  if (orig_nmd->simulation_caches->cache_per_context.is_empty()) {
+    delete orig_nmd->simulation_caches;
+    orig_nmd->simulation_caches = nullptr;
+  }
 
   if (geometry_set.has_mesh()) {
     /* Add #CD_ORIGINDEX layers if they don't exist already. This is required because the
@@ -1827,6 +1846,7 @@ static void blendWrite(BlendWriter *writer, const ID * /*id_owner*/, const Modif
      * and don't necessarily need to be written, but we can't just free them. */
     IDP_BlendWrite(writer, nmd->settings.properties);
   }
+  /* TODO: Write cached geometry. */
 }
 
 static void blendRead(BlendDataReader *reader, ModifierData *md)
@@ -1840,6 +1860,8 @@ static void blendRead(BlendDataReader *reader, ModifierData *md)
     IDP_BlendDataRead(reader, &nmd->settings.properties);
   }
   nmd->runtime_eval_log = nullptr;
+  /* TODO: Read cached geometry. */
+  nmd->simulation_caches = nullptr;
 }
 
 static void copyData(const ModifierData *md, ModifierData *target, const int flag)
@@ -1850,6 +1872,11 @@ static void copyData(const ModifierData *md, ModifierData *target, const int fla
   BKE_modifier_copydata_generic(md, target, flag);
 
   tnmd->runtime_eval_log = nullptr;
+  if (nmd->simulation_caches) {
+    const blender::bke::ComputeCaches &src_caches = *static_cast<blender::bke::ComputeCaches *>(
+        nmd->simulation_caches);
+    tnmd->simulation_caches = new blender::bke::ComputeCaches(src_caches);
+  }
 
   if (nmd->settings.properties != nullptr) {
     tnmd->settings.properties = IDP_CopyProperty_ex(nmd->settings.properties, flag);
@@ -1863,6 +1890,8 @@ static void freeData(ModifierData *md)
     IDP_FreeProperty_ex(nmd->settings.properties, false);
     nmd->settings.properties = nullptr;
   }
+
+  delete static_cast<blender::bke::ComputeCaches *>(nmd->simulation_caches);
 
   clear_runtime_data(nmd);
 }

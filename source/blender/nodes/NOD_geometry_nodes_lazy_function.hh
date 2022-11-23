@@ -26,6 +26,8 @@
 
 #include "BLI_compute_context.hh"
 
+#include "BKE_compute_cache.hh"
+
 struct Object;
 struct Depsgraph;
 
@@ -44,6 +46,9 @@ struct GeoNodesModifierData {
   Depsgraph *depsgraph = nullptr;
   /** Optional logger. */
   geo_eval_log::GeoModifierLog *eval_log = nullptr;
+
+  bke::ComputeCaches *cache_per_frame;
+
   /**
    * Some nodes should be executed even when their output is not used (e.g. active viewer nodes and
    * the node groups they are contained in).

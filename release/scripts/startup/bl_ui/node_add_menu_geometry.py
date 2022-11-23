@@ -291,6 +291,17 @@ class NODE_MT_category_GEO_POINT(Menu):
         node_add_menu.draw_assets_for_catalog(layout, self.bl_label)
 
 
+class NODE_MT_category_simulation(Menu):
+    bl_idname = "NODE_MT_category_simulation"
+    bl_label = "Simulation"
+
+    def draw(self, _context):
+        layout = self.layout
+        node_add_menu.add_node_type(layout, "GeometryNodeSimulationInput")
+        node_add_menu.add_node_type(layout, "GeometryNodeSimulationOutput")
+        node_add_menu.draw_assets_for_catalog(layout, self.bl_label)
+
+
 class NODE_MT_category_GEO_TEXT(Menu):
     bl_idname = "NODE_MT_category_GEO_TEXT"
     bl_label = "Text"
@@ -428,6 +439,7 @@ class NODE_MT_geometry_node_add_all(Menu):
         layout.menu("NODE_MT_geometry_node_mesh_topology")
         layout.menu("NODE_MT_category_GEO_OUTPUT")
         layout.menu("NODE_MT_category_GEO_POINT")
+        layout.menu("NODE_MT_category_simulation")
         layout.menu("NODE_MT_category_GEO_TEXT")
         layout.menu("NODE_MT_category_GEO_TEXTURE")
         layout.menu("NODE_MT_category_GEO_UTILITIES")
@@ -455,6 +467,7 @@ classes = (
     NODE_MT_geometry_node_mesh_topology,
     NODE_MT_category_GEO_OUTPUT,
     NODE_MT_category_GEO_POINT,
+    NODE_MT_category_simulation,
     NODE_MT_category_GEO_TEXT,
     NODE_MT_category_GEO_TEXTURE,
     NODE_MT_category_GEO_UTILITIES,

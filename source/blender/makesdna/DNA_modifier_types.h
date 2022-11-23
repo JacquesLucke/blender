@@ -11,6 +11,15 @@
 #include "DNA_session_uuid_types.h"
 
 #ifdef __cplusplus
+namespace blender::bke {
+struct ComputeCaches;
+}
+using ComputeCachesHandle = blender::bke::ComputeCaches;
+#else
+typedef struct ComputeCachesHandle ComputeCachesHandle;
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -2295,7 +2304,9 @@ typedef struct NodesModifierData {
    * This can be used to help the user to debug a node tree.
    */
   void *runtime_eval_log;
-  void *_pad1;
+
+  /** #ComputeCaches. */
+  ComputeCachesHandle *simulation_caches;
 } NodesModifierData;
 
 typedef struct MeshToVolumeModifierData {
