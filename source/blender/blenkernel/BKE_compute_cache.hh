@@ -17,10 +17,20 @@ struct GeometryCacheValue {
   GeometrySet geometry_set;
 };
 
+/* TODO: Clear cache when editing nodes? Only sometimes, when persistent caching is turned off. */
 struct SimulationCache {
   Vector<GeometryCacheValue> geometry_per_frame;
 
   const GeometryCacheValue *value_at_or_before_time(const int frame) const
+  {
+    const int index = this->index_at_or_before_time(frame);
+    if (index >= geometry_per_frame.size()) {
+      return nullptr;
+    }
+    return &geometry_per_frame[index];
+  }
+
+  GeometryCacheValue *value_at_or_before_time(const int frame)
   {
     const int index = this->index_at_or_before_time(frame);
     if (index >= geometry_per_frame.size()) {
@@ -80,7 +90,7 @@ struct SimulationCache {
     }
     int insert_index = 0;
     for (const int i : geometry_per_frame.index_range()) {
-      if (geometry_per_frame[i].frame >= frame) {
+      if (geometry_per_frame[i].frame <= frame) {
         break;
       }
       insert_index++;
@@ -94,7 +104,7 @@ struct SimulationCache {
     }
     int insert_index = 0;
     for (const int i : geometry_per_frame.index_range()) {
-      if (geometry_per_frame[i].frame > frame) {
+      if (geometry_per_frame[i].frame < frame) {
         break;
       }
       insert_index++;
@@ -121,6 +131,10 @@ struct ComputeCaches {
     return cache_per_context.lookup_ptr(context_hash);
   }
 
+  /* TODO: Do we need to use the same context for multiple simulation inputs and outputs in the
+   * same node group? If so this won't work at all-- we would need some way to link the two nodes,
+   * which might be necessary for the "Run" socket anyway, since it needs to know whether the
+   * simulation is running in order to know whether to use the last cache or request a new one. */
   SimulationCache &ensure_for_context(const ComputeContextHash &context_hash)
   {
     std::scoped_lock lock{mutex};

@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BKE_compute_cache.hh"
 #include "BKE_scene.h"
 
 #include "DEG_depsgraph_query.h"
@@ -34,7 +35,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   const float scene_ctime = BKE_scene_ctime_get(scene);
   const int scene_frame = int(scene_ctime);
 
-  /* TODO: Somehow use "Run" input. */
+  /* TODO: Somehow use "Run" input. We also need to pass through the simulation state directly to
+   * the output node on the first frame the "Run" input is true. */
 
   const GeoNodesLFUserData &lf_data = *params.user_data();
   bke::ComputeCaches &all_caches = *lf_data.modifier_data->cache_per_frame;

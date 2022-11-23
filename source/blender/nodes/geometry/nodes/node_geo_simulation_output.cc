@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BKE_compute_cache.hh"
 #include "BKE_scene.h"
 
 #include "DEG_depsgraph_query.h"
@@ -94,15 +95,19 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
   geometry_set.ensure_owns_direct_data();
-  if (storage.use_cache) {
+  /* TODO: The "Use cache" input should probably become a "Persistent Cache" option. */
+  if (storage.use_cache || cache.geometry_per_frame.is_empty()) {
+    /* If using the cache or there is no cached data yet, write the input in a new cache value. */
     cache.insert(geometry_set, scene_frame, scene_ctime);
   }
   else {
-    bke::GeometryCacheValue &data = cache.value_at_time_ensure(scene_frame);
-    data.frame = scene_frame;
-    data.geometry_set = geometry_set;
+    /* If we aren't using the cache, overrite the cache to only store the last frame. */
     /* TODO: This breaks the elapsed time. */
-    data.time = scene_ctime;
+    /* TODO: Should we allow turning on and off caching procedurally? In that case we wouldn't be
+     * able to clear the whole cache, we would have to check if persistent caching was enabled for
+     * the *last* frame and then decide to replace it or not. */
+    cache.geometry_per_frame.clear();
+    cache.insert(geometry_set, scene_frame, scene_ctime);
   }
 
   params.set_output("Geometry", std::move(geometry_set));
