@@ -46,6 +46,30 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
    */
   uint8_t runtime_flag = 0;
 
+  /** Flag to prevent re-entrant update calls. */
+  short is_updating = 0;
+  /** Generic temporary flag for recursion check (DFS/BFS). */
+  short done = 0;
+
+  /** Execution data.
+   *
+   * XXX It would be preferable to completely move this data out of the underlying node tree,
+   * so node tree execution could finally run independent of the tree itself.
+   * This would allow node trees to be merely linked by other data (materials, textures, etc.),
+   * as ID data is supposed to.
+   * Execution data is generated from the tree once at execution start and can then be used
+   * as long as necessary, even while the tree is being modified.
+   */
+  struct bNodeTreeExec *execdata = nullptr;
+
+  /* Callbacks. */
+  void (*progress)(void *, float progress) = nullptr;
+  /** \warning may be called by different threads */
+  void (*stats_draw)(void *, const char *str) = nullptr;
+  bool (*test_break)(void *) = nullptr;
+  void (*update_draw)(void *) = nullptr;
+  void *tbh = nullptr, *prh = nullptr, *sdh = nullptr, *udh = nullptr;
+
   /** Information about how inputs and outputs of the node group interact with fields. */
   std::unique_ptr<nodes::FieldInferencingInterface> field_inferencing_interface;
 
@@ -104,6 +128,19 @@ class bNodeSocketRuntime : NonCopyable, NonMovable {
   /** #eNodeTreeChangedFlag. */
   uint32_t changed_flag = 0;
 
+  /**
+   * The location of the sockets, in the view-space of the node editor.
+   * \note Only calculated when drawing.
+   */
+  float locx = 0;
+  float locy = 0;
+
+  /* Runtime-only cache of the number of input links, for multi-input sockets. */
+  short total_inputs = 0;
+
+  /** Cached data from execution. */
+  void *cache = nullptr;
+
   /** Only valid when #topology_cache_is_dirty is false. */
   Vector<bNodeLink *> directly_linked_links;
   Vector<bNodeSocket *> directly_linked_sockets;
@@ -146,9 +183,8 @@ class bNodeRuntime : NonCopyable, NonMovable {
   /** #eNodeTreeChangedFlag. */
   uint32_t changed_flag = 0;
 
-  /** Both for dependency and sorting. */
+  /** For dependency and sorting. */
   short done = 0;
-  short level = 0;
 
   /** Used as a boolean for execution. */
   uint8_t need_exec = 0;
@@ -284,6 +320,18 @@ inline blender::Span<const bNode *> bNodeTree::toposort_left_to_right() const
 }
 
 inline blender::Span<const bNode *> bNodeTree::toposort_right_to_left() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->toposort_right_to_left;
+}
+
+inline blender::Span<bNode *> bNodeTree::toposort_left_to_right()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->toposort_left_to_right;
+}
+
+inline blender::Span<bNode *> bNodeTree::toposort_right_to_left()
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
   return this->runtime->toposort_right_to_left;
