@@ -22,6 +22,7 @@
 #include "DNA_world_types.h"
 
 #include "BLI_array.hh"
+#include "BLI_convexhull_2d.h"
 #include "BLI_map.hh"
 #include "BLI_set.hh"
 #include "BLI_span.hh"
@@ -32,6 +33,7 @@
 
 #include "BKE_compute_contexts.hh"
 #include "BKE_context.h"
+#include "BKE_curves.hh"
 #include "BKE_idtype.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
@@ -77,6 +79,8 @@
 #include "FN_field.hh"
 #include "FN_field_cpp_type.hh"
 
+#include "GEO_fillet_curves.hh"
+
 #include "node_intern.hh" /* own include */
 
 namespace geo_log = blender::nodes::geo_eval_log;
@@ -89,6 +93,14 @@ extern "C" {
 extern void ui_draw_dropshadow(
     const rctf *rct, float radius, float aspect, float alpha, int select);
 }
+
+namespace blender::ed::space_node {
+struct SubContext {
+  float3 color;
+  Vector<const bNode *> input_nodes;
+  Vector<const bNode *> output_nodes;
+};
+}  // namespace blender::ed::space_node
 
 /**
  * This is passed to many functions which draw the node editor.
@@ -111,6 +123,8 @@ struct TreeDrawContext {
    * True if there is an active realtime compositor using the node tree, false otherwise.
    */
   bool used_by_realtime_compositor = false;
+
+  Vector<blender::ed::space_node::SubContext> sub_contexts;
 };
 
 float ED_node_grid_size()
@@ -2100,7 +2114,9 @@ static void node_draw_basis(const bContext &C,
   }
 
   /* Shadow. */
-  node_draw_shadow(snode, node, BASIS_RAD, 1.0f);
+  if (!ELEM(node.type, GEO_NODE_SIMULATION_INPUT, GEO_NODE_SIMULATION_OUTPUT)) {
+    node_draw_shadow(snode, node, BASIS_RAD, 1.0f);
+  }
 
   const rctf &rct = node.runtime->totr;
   float color[4];
@@ -2368,6 +2384,23 @@ static void node_draw_basis(const bContext &C,
     }
     else if (nodeTypeUndefined(&node)) {
       UI_GetThemeColor4fv(TH_REDALERT, color_outline);
+    }
+    else if (ELEM(node.type, GEO_NODE_SIMULATION_INPUT, GEO_NODE_SIMULATION_OUTPUT)) {
+      const SubContext *context = [&]() -> const SubContext * {
+        for (const SubContext &context : tree_draw_ctx.sub_contexts) {
+          if (context.input_nodes.contains(&node) || context.output_nodes.contains(&node)) {
+            return &context;
+          }
+        }
+        return nullptr;
+      }();
+      if (context == nullptr) {
+        UI_GetThemeColor4fv(TH_REDALERT, color_outline);
+      }
+      else {
+        copy_v3_v3(color_outline, context->color);
+        color_outline[3] = 1.0f;
+      }
     }
     else {
       UI_GetThemeColorBlendShade4fv(TH_BACK, TH_NODE, 0.4f, -20, color_outline);
@@ -2988,6 +3021,149 @@ static void node_draw(const bContext &C,
   }
 }
 
+static Set<const bNode *> find_nodes_in_sub_context(const Span<const bNode *> context_inputs,
+                                                    const Span<const bNode *> context_outputs)
+{
+  Set<const bNode *> nodes_in_context;
+  Stack<const bNode *> nodes_to_check;
+
+  nodes_in_context.add_multiple(context_inputs);
+  nodes_in_context.add_multiple(context_outputs);
+  nodes_to_check.push_multiple(context_inputs);
+
+  while (!nodes_to_check.is_empty()) {
+    const bNode &node = *nodes_to_check.pop();
+    for (const bNodeSocket *output_socket : node.output_sockets()) {
+      if (!output_socket->is_available()) {
+        continue;
+      }
+      for (const bNodeLink *link : output_socket->directly_linked_links()) {
+        const bNode *target_node = link->tonode;
+        if (nodes_in_context.add(target_node)) {
+          nodes_to_check.push(target_node);
+        }
+      }
+    }
+  }
+
+  return nodes_in_context;
+}
+
+static void add_rect_corner_positions(Vector<float2> &positions, const rctf &rect)
+{
+  positions.append({rect.xmin, rect.ymin});
+  positions.append({rect.xmin, rect.ymax});
+  positions.append({rect.xmax, rect.ymin});
+  positions.append({rect.xmax, rect.ymax});
+}
+
+std::array<float2, 4> node_link_bezier_points_dragged(const SpaceNode &snode,
+                                                      const bNodeLink &link);
+
+static void node_draw_sub_context_frames(TreeDrawContext &tree_draw_ctx,
+                                         SpaceNode &snode,
+                                         bNodeTree &ntree)
+{
+  const Span<const bNode *> all_simulation_inputs = ntree.nodes_by_type(
+      "GeometryNodeSimulationInput");
+  const Span<const bNode *> all_simulation_outputs = ntree.nodes_by_type(
+      "GeometryNodeSimulationOutput");
+  if (all_simulation_inputs.is_empty() || all_simulation_outputs.is_empty()) {
+    return;
+  }
+  Vector<SubContext> sub_contexts;
+  sub_contexts.append({float3(0.0f, 0.0f, 0.0f), all_simulation_inputs, all_simulation_outputs});
+
+  for (SubContext &sub_context : sub_contexts) {
+    const Span<const bNode *> context_inputs = sub_context.input_nodes;
+    const Span<const bNode *> context_outputs = sub_context.output_nodes;
+    const Set<const bNode *> nodes_in_context = find_nodes_in_sub_context(context_inputs,
+                                                                          context_outputs);
+
+    Vector<float2> possible_boundary_positions;
+    const float padding = UI_UNIT_X;
+    for (const bNode *node : nodes_in_context) {
+      const rctf &totr = node->runtime->totr;
+      rctf rect = totr;
+      BLI_rctf_pad(&rect, padding, padding);
+      if (context_inputs.contains(node)) {
+        rect.xmin = math::interpolate(rect.xmin, rect.xmax, 0.5f);
+      }
+      else if (context_outputs.contains(node)) {
+        rect.xmax = math::interpolate(rect.xmin, rect.xmax, 0.5f);
+      }
+      add_rect_corner_positions(possible_boundary_positions, rect);
+    }
+
+    if (snode.runtime->linkdrag) {
+      for (const bNodeLink *link : snode.runtime->linkdrag->links) {
+        if (link->fromnode == nullptr) {
+          continue;
+        }
+        if (nodes_in_context.contains(link->fromnode) &&
+            !context_outputs.contains(link->fromnode)) {
+          const float2 pos = node_link_bezier_points_dragged(snode, *link)[3];
+          rctf rect;
+          BLI_rctf_init_pt_radius(&rect, pos, padding);
+          add_rect_corner_positions(possible_boundary_positions, rect);
+        }
+      }
+    }
+
+    Vector<int> convex_indices(possible_boundary_positions.size());
+    const int num_convex_positions = BLI_convexhull_2d(
+        reinterpret_cast<float(*)[2]>(possible_boundary_positions.data()),
+        possible_boundary_positions.size(),
+        convex_indices.data());
+    convex_indices.resize(num_convex_positions);
+
+    bke::CurvesGeometry boundary_curve(num_convex_positions, 1);
+    boundary_curve.cyclic_for_write().first() = true;
+    boundary_curve.fill_curve_types(CURVE_TYPE_POLY);
+    MutableSpan<float3> boundary_curve_positions = boundary_curve.positions_for_write();
+    MutableSpan<int> boundary_curve_offsets = boundary_curve.offsets_for_write();
+    boundary_curve_offsets[0] = 0;
+    boundary_curve_offsets[1] = num_convex_positions;
+    for (const int i : convex_indices.index_range()) {
+      boundary_curve_positions[i] = float3(possible_boundary_positions[convex_indices[i]], 0.0f);
+    }
+    boundary_curve.tag_topology_changed();
+
+    bke::CurvesGeometry fillet_curve = geometry::fillet_curves_poly(
+        boundary_curve,
+        IndexRange(1),
+        VArray<float>::ForSingle(UI_UNIT_X / 2, num_convex_positions),
+        VArray<int>::ForSingle(5, num_convex_positions),
+        true);
+    const Span<float3> boundary_positions = fillet_curve.positions();
+
+    const uint pos = GPU_vertformat_attr_add(
+        immVertexFormat(), "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+
+    GPU_blend(GPU_BLEND_ALPHA);
+    immUniformColor4f(sub_context.color[0], sub_context.color[1], sub_context.color[2], 0.2f);
+    immBegin(GPU_PRIM_TRI_FAN, boundary_positions.size() + 1);
+    for (const float3 &p : boundary_positions) {
+      immVertex3fv(pos, p);
+    }
+    immVertex3fv(pos, boundary_positions[0]);
+    immEnd();
+    immUniformColor4f(sub_context.color[0], sub_context.color[1], sub_context.color[2], 1.0f);
+    immBegin(GPU_PRIM_LINE_STRIP, boundary_positions.size() + 1);
+    for (const float3 &p : boundary_positions) {
+      immVertex3fv(pos, p);
+    }
+    immVertex3fv(pos, boundary_positions[0]);
+    immEnd();
+
+    immUnbindProgram();
+    GPU_blend(GPU_BLEND_NONE);
+  }
+
+  tree_draw_ctx.sub_contexts = sub_contexts;
+}
+
 #define USE_DRAW_TOT_UPDATE
 
 static void node_draw_nodetree(const bContext &C,
@@ -3163,6 +3339,7 @@ static void draw_nodetree(const bContext &C,
   }
 
   node_update_nodetree(C, tree_draw_ctx, ntree, nodes, blocks);
+  node_draw_sub_context_frames(tree_draw_ctx, *snode, ntree);
   node_draw_nodetree(C, tree_draw_ctx, region, *snode, ntree, nodes, blocks, parent_key);
 }
 
