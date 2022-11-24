@@ -94,7 +94,7 @@ extern void ui_draw_dropshadow(
     const rctf *rct, float radius, float aspect, float alpha, int select);
 }
 
-static blender::float4 convex_frame_color = {0.0f, 0.0f, 0.0f, 1.0f};
+static blender::float4 convex_frame_color = {0.8f, 0.8f, 0.2f, 1.0f};
 
 /**
  * This is passed to many functions which draw the node editor.
