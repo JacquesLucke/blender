@@ -94,6 +94,8 @@ extern void ui_draw_dropshadow(
     const rctf *rct, float radius, float aspect, float alpha, int select);
 }
 
+static blender::float4 convex_frame_color = {0.0f, 0.0f, 0.0f, 1.0f};
+
 /**
  * This is passed to many functions which draw the node editor.
  */
@@ -2104,7 +2106,9 @@ static void node_draw_basis(const bContext &C,
   }
 
   /* Shadow. */
-  node_draw_shadow(snode, node, BASIS_RAD, 1.0f);
+  if (!(node.is_group_input() || node.is_group_output())) {
+    node_draw_shadow(snode, node, BASIS_RAD, 1.0f);
+  }
 
   const rctf &rct = node.runtime->totr;
   float color[4];
@@ -2372,6 +2376,10 @@ static void node_draw_basis(const bContext &C,
     }
     else if (nodeTypeUndefined(&node)) {
       UI_GetThemeColor4fv(TH_REDALERT, color_outline);
+    }
+    else if (node.is_group_input() || node.is_group_output()) {
+      copy_v4_v4(color_outline, convex_frame_color);
+      color_outline[3] = 1.0f;
     }
     else {
       UI_GetThemeColorBlendShade4fv(TH_BACK, TH_NODE, 0.4f, -20, color_outline);
@@ -3172,14 +3180,48 @@ static void draw_nodetree(const bContext &C,
     return;
   }
 
+  Set<bNode *> nodes_in_frame;
+  Stack<bNode *> nodes_to_check;
+
+  bNode &input_node = *ntree.nodes_by_type("NodeGroupInput")[0];
+  bNode &output_node = *ntree.nodes_by_type("NodeGroupOutput")[0];
+
+  nodes_to_check.push(&input_node);
+  nodes_in_frame.add(&input_node);
+  nodes_in_frame.add(&output_node);
+  while (!nodes_to_check.is_empty()) {
+    bNode &node = *nodes_to_check.pop();
+    for (bNodeSocket *output_socket : node.output_sockets()) {
+      if (!output_socket->is_available()) {
+        continue;
+      }
+      for (bNodeLink *link : output_socket->directly_linked_links()) {
+        bNode *target_node = link->tonode;
+        if (nodes_in_frame.add(target_node)) {
+          nodes_to_check.push(target_node);
+        }
+      }
+    }
+  }
+
   Vector<float2> all_positions;
   const float padding = UI_UNIT_X;
-  for (const bNode *node : ntree.all_nodes()) {
+  for (const bNode *node : nodes_in_frame) {
     const rctf &totr = node->runtime->totr;
-    all_positions.append({totr.xmin - padding, totr.ymin - padding});
-    all_positions.append({totr.xmin - padding, totr.ymax + padding});
-    all_positions.append({totr.xmax + padding, totr.ymin - padding});
-    all_positions.append({totr.xmax + padding, totr.ymax + padding});
+    rctf rect = totr;
+    BLI_rctf_pad(&rect, padding, padding);
+    if (node == &input_node) {
+      rect.xmin = math::interpolate<float>(rect.xmin, rect.xmax, 0.5);
+    }
+    else if (node == &output_node) {
+      rect.xmax = math::interpolate<float>(rect.xmin, rect.xmax, 0.5);
+    }
+    else {
+    }
+    all_positions.append({rect.xmin, rect.ymin});
+    all_positions.append({rect.xmin, rect.ymax});
+    all_positions.append({rect.xmax, rect.ymin});
+    all_positions.append({rect.xmax, rect.ymax});
   }
 
   Vector<int> convex_indices(all_positions.size());
@@ -3212,17 +3254,23 @@ static void draw_nodetree(const bContext &C,
   const uint pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
   immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
-  immUniformColor4f(0.7f, 0.3f, 0.3f, 0.2f);
 
   GPU_blend(GPU_BLEND_ALPHA);
+  immUniformColor4f(convex_frame_color[0], convex_frame_color[1], convex_frame_color[2], 0.1f);
   immBegin(GPU_PRIM_TRI_FAN, fillet_curves_positions.size() + 1);
-
   for (const float3 &p : fillet_curves_positions) {
     immVertex3fv(pos, p);
   }
   immVertex3fv(pos, fillet_curves_positions[0]);
-
   immEnd();
+  immUniformColor4f(convex_frame_color[0], convex_frame_color[1], convex_frame_color[2], 1.0f);
+  immBegin(GPU_PRIM_LINE_STRIP, fillet_curves_positions.size() + 1);
+  for (const float3 &p : fillet_curves_positions) {
+    immVertex3fv(pos, p);
+  }
+  immVertex3fv(pos, fillet_curves_positions[0]);
+  immEnd();
+
   immUnbindProgram();
   GPU_blend(GPU_BLEND_NONE);
 
