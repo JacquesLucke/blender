@@ -2209,8 +2209,8 @@ void node_draw_link(const bContext &C,
   node_draw_link_bezier(C, v2d, snode, link, th_col1, th_col2, th_col3, selected);
 }
 
-static std::array<float2, 4> node_link_bezier_points_dragged(const SpaceNode &snode,
-                                                             const bNodeLink &link)
+std::array<float2, 4> node_link_bezier_points_dragged(const SpaceNode &snode,
+                                                      const bNodeLink &link)
 {
   const float2 cursor = snode.runtime->cursor * UI_DPI_FAC;
   std::array<float2, 4> points;

@@ -3147,6 +3147,9 @@ static bool realtime_compositor_is_in_use(const bContext &context)
   return false;
 }
 
+std::array<float2, 4> node_link_bezier_points_dragged(const SpaceNode &snode,
+                                                      const bNodeLink &link);
+
 static void draw_nodetree(const bContext &C,
                           ARegion &region,
                           bNodeTree &ntree,
@@ -3222,6 +3225,23 @@ static void draw_nodetree(const bContext &C,
     all_positions.append({rect.xmin, rect.ymax});
     all_positions.append({rect.xmax, rect.ymin});
     all_positions.append({rect.xmax, rect.ymax});
+  }
+
+  if (snode->runtime->linkdrag) {
+    for (const bNodeLink *link : snode->runtime->linkdrag->links) {
+      if (link->fromnode == nullptr) {
+        continue;
+      }
+      if (nodes_in_frame.contains(link->fromnode) && !link->fromnode->is_group_output()) {
+        const float2 pos = node_link_bezier_points_dragged(*snode, *link)[3];
+        rctf rect;
+        BLI_rctf_init_pt_radius(&rect, pos, padding);
+        all_positions.append({rect.xmin, rect.ymin});
+        all_positions.append({rect.xmin, rect.ymax});
+        all_positions.append({rect.xmax, rect.ymin});
+        all_positions.append({rect.xmax, rect.ymax});
+      }
+    }
   }
 
   Vector<int> convex_indices(all_positions.size());
