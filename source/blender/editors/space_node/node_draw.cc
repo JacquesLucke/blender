@@ -3087,10 +3087,10 @@ static void node_draw_sub_context_frames(TreeDrawContext &tree_draw_ctx,
       rctf rect = totr;
       BLI_rctf_pad(&rect, padding, padding);
       if (context_inputs.contains(node)) {
-        rect.xmin = math::interpolate(rect.xmin, rect.xmax, 0.5f);
+        rect.xmin = math::interpolate(totr.xmin, totr.xmax, 0.25f);
       }
       else if (context_outputs.contains(node)) {
-        rect.xmax = math::interpolate(rect.xmin, rect.xmax, 0.5f);
+        rect.xmax = math::interpolate(totr.xmin, totr.xmax, 0.75f);
       }
       add_rect_corner_positions(possible_boundary_positions, rect);
     }
