@@ -1571,6 +1571,7 @@ struct TexResult;
 void BKE_node_system_init(void);
 void BKE_node_system_exit(void);
 
+extern bNodeTreeType NodeTreeTypeUndefined;
 extern struct bNodeType NodeTypeUndefined;
 extern struct bNodeSocketType NodeSocketTypeUndefined;
 
