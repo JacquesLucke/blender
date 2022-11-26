@@ -228,6 +228,7 @@ set(SRC
   intern/multires_versioning.c
   intern/nla.c
   intern/node.cc
+  intern/node_regions.cc
   intern/node_runtime.cc
   intern/node_tree_update.cc
   intern/object.cc
@@ -435,6 +436,7 @@ set(SRC
   BKE_multires.h
   BKE_nla.h
   BKE_node.h
+  BKE_node_regions.hh
   BKE_node_runtime.hh
   BKE_node_tree_update.h
   BKE_object.h

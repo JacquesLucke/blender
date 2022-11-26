@@ -328,6 +328,15 @@ class BitVector {
     return {data_, index};
   }
 
+  BitVector &operator|=(const BitVector<> &other)
+  {
+    BLI_assert(this->size() == other.size());
+    for (const int64_t i : IndexRange(this->required_bytes_for_bits(this->size()))) {
+      data_[i] |= other.data_[i];
+    }
+    return *this;
+  }
+
   IndexRange index_range() const
   {
     return {0, size_in_bits_};

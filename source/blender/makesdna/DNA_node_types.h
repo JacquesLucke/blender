@@ -363,6 +363,7 @@ typedef struct bNode {
   blender::Span<bNode *> direct_children_in_frame() const;
   /** Node tree this node belongs to. */
   const bNodeTree &owner_tree() const;
+  int index_in_tree() const;
 #endif
 } bNode;
 

@@ -505,6 +505,12 @@ inline const bNodeTree &bNode::owner_tree() const
   return *this->runtime->owner_tree;
 }
 
+inline int bNode::index_in_tree() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->index_in_tree;
+}
+
 inline blender::StringRefNull bNode::label_or_name() const
 {
   if (this->label[0] == '\0') {

@@ -38,6 +38,7 @@
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_regions.hh"
 #include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
 #include "BKE_object.h"
@@ -3021,34 +3022,6 @@ static void node_draw(const bContext &C,
   }
 }
 
-static Set<const bNode *> find_nodes_in_sub_context(const Span<const bNode *> context_inputs,
-                                                    const Span<const bNode *> context_outputs)
-{
-  Set<const bNode *> nodes_in_context;
-  Stack<const bNode *> nodes_to_check;
-
-  nodes_in_context.add_multiple(context_inputs);
-  nodes_in_context.add_multiple(context_outputs);
-  nodes_to_check.push_multiple(context_inputs);
-
-  while (!nodes_to_check.is_empty()) {
-    const bNode &node = *nodes_to_check.pop();
-    for (const bNodeSocket *output_socket : node.output_sockets()) {
-      if (!output_socket->is_available()) {
-        continue;
-      }
-      for (const bNodeLink *link : output_socket->directly_linked_links()) {
-        const bNode *target_node = link->tonode;
-        if (nodes_in_context.add(target_node)) {
-          nodes_to_check.push(target_node);
-        }
-      }
-    }
-  }
-
-  return nodes_in_context;
-}
-
 static void add_rect_corner_positions(Vector<float2> &positions, const rctf &rect)
 {
   positions.append({rect.xmin, rect.ymin});
@@ -3064,21 +3037,40 @@ static void node_draw_sub_context_frames(TreeDrawContext &tree_draw_ctx,
                                          SpaceNode &snode,
                                          bNodeTree &ntree)
 {
-  const Span<const bNode *> all_simulation_inputs = ntree.nodes_by_type(
-      "GeometryNodeSimulationInput");
-  const Span<const bNode *> all_simulation_outputs = ntree.nodes_by_type(
+  Vector<const bNode *> all_simulation_inputs = ntree.nodes_by_type("GeometryNodeSimulationInput");
+  Vector<const bNode *> all_simulation_outputs = ntree.nodes_by_type(
       "GeometryNodeSimulationOutput");
-  if (all_simulation_inputs.is_empty() || all_simulation_outputs.is_empty()) {
+  std::sort(
+      all_simulation_inputs.begin(),
+      all_simulation_inputs.end(),
+      [](const bNode *a, const bNode *b) { return StringRef(a->name) < StringRef(b->name); });
+  std::sort(
+      all_simulation_outputs.begin(),
+      all_simulation_outputs.end(),
+      [](const bNode *a, const bNode *b) { return StringRef(a->name) < StringRef(b->name); });
+  const int num_regions = std::min(all_simulation_inputs.size(), all_simulation_outputs.size());
+
+  Vector<bke::NTreeRegionBounds> my_bounds;
+  for (const int i : IndexRange(num_regions)) {
+    my_bounds.append({{all_simulation_inputs[i]}, {all_simulation_outputs[i]}});
+  }
+  const bke::NTreeRegionResult result = bke::analyze_node_context_regions(ntree, my_bounds);
+
+  if (result.regions.is_empty()) {
     return;
   }
-  Vector<SubContext> sub_contexts;
-  sub_contexts.append({float3(0.0f, 0.0f, 0.0f), all_simulation_inputs, all_simulation_outputs});
 
-  for (SubContext &sub_context : sub_contexts) {
+  Vector<SubContext> sub_contexts;
+  for (const int region_index : my_bounds.index_range()) {
+    const bke::NTreeRegionBounds &bounds = my_bounds[region_index];
+    const bke::NTreeRegion &region = result.regions[region_index];
+    sub_contexts.append({float3(0.0f, 0.0f, 0.0f), bounds.inputs, bounds.outputs});
+    SubContext &sub_context = sub_contexts.last();
+
     const Span<const bNode *> context_inputs = sub_context.input_nodes;
     const Span<const bNode *> context_outputs = sub_context.output_nodes;
-    const Set<const bNode *> nodes_in_context = find_nodes_in_sub_context(context_inputs,
-                                                                          context_outputs);
+    Set<const bNode *> nodes_in_context;
+    nodes_in_context.add_multiple(region.contained_nodes);
 
     Vector<float2> possible_boundary_positions;
     const float padding = UI_UNIT_X;
