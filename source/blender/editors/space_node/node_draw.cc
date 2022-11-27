@@ -3064,7 +3064,8 @@ static void node_draw_sub_context_frames(TreeDrawContext &tree_draw_ctx,
   for (const int region_index : my_bounds.index_range()) {
     const bke::NTreeRegionBounds &bounds = my_bounds[region_index];
     const bke::NTreeRegion &region = result.regions[region_index];
-    sub_contexts.append({float3(0.0f, 0.0f, 0.0f), bounds.inputs, bounds.outputs});
+    const float3 color = region.is_in_cycle ? float3(0.5f, 0.1f, 0.1f) : float3(0.0f, 0.0f, 0.0f);
+    sub_contexts.append({color, bounds.inputs, bounds.outputs});
     SubContext &sub_context = sub_contexts.last();
 
     const Span<const bNode *> context_inputs = sub_context.input_nodes;

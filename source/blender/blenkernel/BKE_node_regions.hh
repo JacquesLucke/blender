@@ -20,6 +20,7 @@ struct NTreeRegion {
   std::optional<int> parent_region;
   Vector<int> children_regions;
   Vector<const bNode *> contained_nodes;
+  bool is_in_cycle = false;
 };
 
 struct NTreeRegionResult {
