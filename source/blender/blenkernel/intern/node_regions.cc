@@ -117,8 +117,10 @@ NTreeRegionResult analyze_node_context_regions(const bNodeTree &ntree,
         other_node_info.inside.extend_non_duplicates(info.inside);
       }
       for (const int parent_region_index : info.inside) {
-        NTreeRegion &parent_region = regions[parent_region_index];
-        parent_region.children_regions.append_non_duplicates(region_index);
+        if (parent_region_index != region_index) {
+          NTreeRegion &parent_region = regions[parent_region_index];
+          parent_region.children_regions.append_non_duplicates(region_index);
+        }
       }
       if (boundary_node.is_input) {
         info.inside.append_non_duplicates(region_index);
@@ -183,6 +185,27 @@ NTreeRegionResult analyze_node_context_regions(const bNodeTree &ntree,
           x_region.children_regions.remove_first_occurrence_and_reorder(z);
         }
       }
+    }
+  }
+
+  for (const int region_index : IndexRange(num_regions)) {
+    NTreeRegion &region = regions[region_index];
+    if (region.is_in_cycle) {
+      continue;
+    }
+    for (const int child_region_index : region.children_regions) {
+      NTreeRegion &child_region = regions[child_region_index];
+      child_region.parent_region = region_index;
+    }
+  }
+
+  for (const int region_index : IndexRange(num_regions)) {
+    NTreeRegion &region = regions[region_index];
+    region.parent_depth = 0;
+    std::optional<int> parent_region_index = region.parent_region;
+    while (parent_region_index.has_value()) {
+      region.parent_depth++;
+      parent_region_index = regions[*parent_region_index].parent_region;
     }
   }
 

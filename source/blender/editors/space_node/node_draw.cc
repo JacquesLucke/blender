@@ -3060,8 +3060,16 @@ static void node_draw_sub_context_frames(TreeDrawContext &tree_draw_ctx,
     return;
   }
 
+  Vector<int> draw_order;
+  for (const int i : IndexRange(num_regions)) {
+    draw_order.append(i);
+  }
+  std::stable_sort(draw_order.begin(), draw_order.end(), [&](const int a, const int b) {
+    return result.regions[a].parent_depth < result.regions[b].parent_depth;
+  });
+
   Vector<SubContext> sub_contexts;
-  for (const int region_index : my_bounds.index_range()) {
+  for (const int region_index : draw_order) {
     const bke::NTreeRegionBounds &bounds = my_bounds[region_index];
     const bke::NTreeRegion &region = result.regions[region_index];
     const float3 color = region.is_in_cycle ? float3(0.5f, 0.1f, 0.1f) : float3(0.0f, 0.0f, 0.0f);
@@ -3078,22 +3086,22 @@ static void node_draw_sub_context_frames(TreeDrawContext &tree_draw_ctx,
     for (const bNode *node : context_inputs) {
       if (node->flag & NODE_SELECT) {
         is_selected = true;
-      }
-      if (node->flag & NODE_ACTIVE) {
-        is_active = true;
+        if (node->flag & NODE_ACTIVE) {
+          is_active = true;
+        }
       }
     }
     for (const bNode *node : context_outputs) {
       if (node->flag & NODE_SELECT) {
         is_selected = true;
-      }
-      if (node->flag & NODE_ACTIVE) {
-        is_active = true;
+        if (node->flag & NODE_ACTIVE) {
+          is_active = true;
+        }
       }
     }
 
     Vector<float2> possible_boundary_positions;
-    const float padding = UI_UNIT_X;
+    const float padding = UI_UNIT_X / float(region.parent_depth + 1);
     for (const bNode *node : nodes_in_context) {
       const rctf &totr = node->runtime->totr;
       rctf rect = totr;

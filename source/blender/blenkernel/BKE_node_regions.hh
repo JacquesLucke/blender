@@ -21,6 +21,7 @@ struct NTreeRegion {
   Vector<int> children_regions;
   Vector<const bNode *> contained_nodes;
   bool is_in_cycle = false;
+  int parent_depth = 0;
 };
 
 struct NTreeRegionResult {
