@@ -3073,6 +3073,25 @@ static void node_draw_sub_context_frames(TreeDrawContext &tree_draw_ctx,
     Set<const bNode *> nodes_in_context;
     nodes_in_context.add_multiple(region.contained_nodes);
 
+    bool is_selected = false;
+    bool is_active = false;
+    for (const bNode *node : context_inputs) {
+      if (node->flag & NODE_SELECT) {
+        is_selected = true;
+      }
+      if (node->flag & NODE_ACTIVE) {
+        is_active = true;
+      }
+    }
+    for (const bNode *node : context_outputs) {
+      if (node->flag & NODE_SELECT) {
+        is_selected = true;
+      }
+      if (node->flag & NODE_ACTIVE) {
+        is_active = true;
+      }
+    }
+
     Vector<float2> possible_boundary_positions;
     const float padding = UI_UNIT_X;
     for (const bNode *node : nodes_in_context) {
@@ -3142,7 +3161,14 @@ static void node_draw_sub_context_frames(TreeDrawContext &tree_draw_ctx,
     }
     immVertex3fv(pos, boundary_positions[0]);
     immEnd();
-    immUniformColor4f(sub_context.color[0], sub_context.color[1], sub_context.color[2], 1.0f);
+    float3 outline_color = sub_context.color;
+    if (is_active) {
+      UI_GetThemeColor3fv(TH_ACTIVE, outline_color);
+    }
+    else if (is_selected) {
+      UI_GetThemeColor3fv(TH_SELECT, outline_color);
+    }
+    immUniformColor4f(outline_color[0], outline_color[1], outline_color[2], 1.0f);
     immBegin(GPU_PRIM_LINE_STRIP, boundary_positions.size() + 1);
     for (const float3 &p : boundary_positions) {
       immVertex3fv(pos, p);
