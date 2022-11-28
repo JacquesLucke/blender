@@ -14,8 +14,8 @@ namespace blender::nodes::node_geo_interpolate_curves_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
 {
-  b.add_input<decl::Geometry>(N_("Points"));
   b.add_input<decl::Geometry>(N_("Guide Curves"));
+  b.add_input<decl::Geometry>(N_("Points"));
   b.add_output<decl::Geometry>(N_("Curves"));
 }
 
