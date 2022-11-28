@@ -53,6 +53,7 @@ class NODE_MT_geometry_node_GEO_CURVE(Menu):
         node_add_menu.add_node_type(layout, "GeometryNodeSampleCurve")
         node_add_menu.add_node_type(layout, "GeometryNodeSubdivideCurve")
         node_add_menu.add_node_type(layout, "GeometryNodeTrimCurve")
+        node_add_menu.add_node_type(layout, "GeometryNodeInterpolateCurves")
         layout.separator()
         node_add_menu.add_node_type(layout, "GeometryNodeInputCurveHandlePositions")
         node_add_menu.add_node_type(layout, "GeometryNodeInputTangent")

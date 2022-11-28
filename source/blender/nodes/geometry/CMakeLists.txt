@@ -103,6 +103,7 @@ set(SRC
   nodes/node_geo_input_tangent.cc
   nodes/node_geo_instance_on_points.cc
   nodes/node_geo_instances_to_points.cc
+  nodes/node_geo_interpolate_curves.cc
   nodes/node_geo_interpolate_domain.cc
   nodes/node_geo_is_viewport.cc
   nodes/node_geo_join_geometry.cc

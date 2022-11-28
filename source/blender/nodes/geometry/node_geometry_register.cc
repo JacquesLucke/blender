@@ -87,6 +87,7 @@ void register_geometry_nodes()
   register_node_type_geo_input_tangent();
   register_node_type_geo_instance_on_points();
   register_node_type_geo_instances_to_points();
+  register_node_type_geo_interpolate_curves();
   register_node_type_geo_interpolate_domain();
   register_node_type_geo_is_viewport();
   register_node_type_geo_join_geometry();
