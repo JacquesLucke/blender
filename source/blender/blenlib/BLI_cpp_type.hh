@@ -20,7 +20,7 @@
  *     cost of longer compile time, a larger binary and the complexity that comes from using
  *     templates).
  *   - If the code is not performance sensitive, it usually makes sense to use #CPPType instead.
- * - Sometimes a combination can make sense. Optimized code can be be generated at compile-time for
+ * - Sometimes a combination can make sense. Optimized code can be generated at compile-time for
  *   some types, while there is a fallback code path using #CPPType for all other types.
  *   #CPPType::to_static_type allows dispatching between both versions based on the type.
  *
@@ -74,6 +74,7 @@
 #include "BLI_index_mask.hh"
 #include "BLI_map.hh"
 #include "BLI_math_base.h"
+#include "BLI_parameter_pack_utils.hh"
 #include "BLI_string_ref.hh"
 #include "BLI_utility_mixins.hh"
 
@@ -93,10 +94,6 @@ enum class CPPTypeFlags {
 ENUM_OPERATORS(CPPTypeFlags, CPPTypeFlags::EqualityComparable)
 
 namespace blender {
-
-/** Utility class to pass template parameters to constructor of `CPPType`. */
-template<typename T, CPPTypeFlags Flags> struct CPPTypeParam {
-};
 
 class CPPType : NonCopyable, NonMovable {
  private:
@@ -148,7 +145,8 @@ class CPPType : NonCopyable, NonMovable {
   std::string debug_name_;
 
  public:
-  template<typename T, CPPTypeFlags Flags> CPPType(CPPTypeParam<T, Flags>, StringRef debug_name);
+  template<typename T, CPPTypeFlags Flags>
+  CPPType(TypeTag<T> /*type*/, TypeForValue<CPPTypeFlags, Flags> /*flags*/, StringRef debug_name);
   virtual ~CPPType() = default;
 
   /**
@@ -173,7 +171,7 @@ class CPPType : NonCopyable, NonMovable {
   template<typename T> static const CPPType &get()
   {
     /* Store the #CPPType locally to avoid making the function call in most cases. */
-    static const CPPType &type = CPPType::get_impl<std::remove_cv_t<T>>();
+    static const CPPType &type = CPPType::get_impl<std::decay_t<T>>();
     return type;
   }
   template<typename T> static const CPPType &get_impl();
@@ -297,7 +295,7 @@ class CPPType : NonCopyable, NonMovable {
    */
   bool pointer_has_valid_alignment(const void *ptr) const
   {
-    return ((uintptr_t)ptr & alignment_mask_) == 0;
+    return (uintptr_t(ptr) & alignment_mask_) == 0;
   }
 
   bool pointer_can_point_to_instance(const void *ptr) const
@@ -626,6 +624,11 @@ class CPPType : NonCopyable, NonMovable {
     fill_construct_indices_(value, dst, mask);
   }
 
+  bool can_exist_in_buffer(const int64_t buffer_size, const int64_t buffer_alignment) const
+  {
+    return size_ <= buffer_size && alignment_ <= buffer_alignment;
+  }
+
   void print(const void *value, std::stringstream &ss) const
   {
     BLI_assert(this->pointer_can_point_to_instance(value));
@@ -740,30 +743,26 @@ class CPPType : NonCopyable, NonMovable {
     }
   }
 
-  template<typename T> struct type_tag {
-    using type = T;
-  };
-
  private:
   template<typename Fn> struct TypeTagExecutor {
     const Fn &fn;
 
     template<typename T> void operator()() const
     {
-      fn(type_tag<T>{});
+      fn(TypeTag<T>{});
     }
 
     void operator()() const
     {
-      fn(type_tag<void>{});
+      fn(TypeTag<void>{});
     }
   };
 
  public:
   /**
    * Similar to #to_static_type but is easier to use with a lambda function. The function is
-   * expected to take a single `auto type_tag` parameter. To extract the static type, use:
-   * `using T = typename decltype(type_tag)::type;`
+   * expected to take a single `auto TypeTag` parameter. To extract the static type, use:
+   * `using T = typename decltype(TypeTag)::type;`
    *
    * If the current #CPPType is not in #Types, the type tag is `void`.
    */
@@ -773,6 +772,11 @@ class CPPType : NonCopyable, NonMovable {
     this->to_static_type<Types...>(executor);
   }
 };
+
+/**
+ * Initialize and register basic cpp types.
+ */
+void register_cpp_types();
 
 }  // namespace blender
 

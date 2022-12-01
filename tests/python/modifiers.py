@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import math
 import os
 import sys
@@ -18,10 +16,12 @@ seed(0)
 def get_generate_modifiers_list(test_object_name, randomize=False):
     """
     Construct a list of 'Generate' modifiers with default parameters.
-    :param test_object_name: str - name of test object. Some modifiers like boolean need an extra parameter beside
-                                    the default one. E.g. boolean needs object, mask needs vertex group etc...
-                                    The extra parameter name will be <test_object_name>_<modifier_type>
-    :param randomize: bool - if True shuffle the list of modifiers.
+    :arg test_object_name: Name of test object. Some modifiers like boolean need an extra parameter beside
+       the default one. E.g. boolean needs object, mask needs vertex group etc...
+       The extra parameter name will be <test_object_name>_<modifier_type>
+    :type test_object_name: str
+    :arg randomize: If True shuffle the list of modifiers.
+    :type randomize: bool
     :return: list of 'Generate' modifiers with default parameters.
     """
 
@@ -215,7 +215,6 @@ def main():
         SpecMeshTest("MergedNoneWeld", "testMergedNoneWeld", "expectedMergedNoneWeld",
                      [ModifierSpec("weld", 'WELD', {"merge_threshold": 0.019})]),
 
-
         #############################################
         # One 'Deform' modifier on primitive meshes
         #############################################
@@ -326,6 +325,22 @@ def main():
                      [ModifierSpec('curve_Curve', 'CURVE', {'object': bpy.data.objects['NurbsCurve']})]),
 
     ]
+
+    boolean_basename = "CubeBooleanDiffBMeshObject"
+    tests.append(SpecMeshTest("BooleandDiffBMeshObject", "test" + boolean_basename, "expected" + boolean_basename,
+                              [ModifierSpec("boolean", 'BOOLEAN',
+                                            {"solver": 'FAST', "operation": 'DIFFERENCE', "operand_type": 'OBJECT',
+                                             "object": bpy.data.objects["test" + boolean_basename + "Operand"]})]))
+    boolean_basename = "CubeBooleanDiffBMeshCollection"
+    tests.append(SpecMeshTest("BooleandDiffBMeshCollection",
+                              "test" + boolean_basename,
+                              "expected" + boolean_basename,
+                              [ModifierSpec("boolean",
+                                            'BOOLEAN',
+                                            {"solver": 'FAST',
+                                             "operation": 'DIFFERENCE',
+                                             "operand_type": 'COLLECTION',
+                                             "collection": bpy.data.collections["test" + boolean_basename + "Operands"]})]))
 
     modifiers_test = RunTest(tests)
 

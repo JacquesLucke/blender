@@ -231,7 +231,9 @@ class GArray {
         this->deallocate(new_data);
         throw;
       }
-      this->deallocate(data_);
+      if (this->data_) {
+        this->deallocate(data_);
+      }
       data_ = new_data;
     }
 
@@ -241,14 +243,14 @@ class GArray {
  private:
   void *allocate(int64_t size)
   {
-    const size_t item_size = static_cast<size_t>(type_->size());
-    const size_t alignment = static_cast<size_t>(type_->alignment());
-    return allocator_.direct_allocate(static_cast<size_t>(size) * item_size, alignment, __func__);
+    const size_t item_size = size_t(type_->size());
+    const size_t alignment = size_t(type_->alignment());
+    return allocator_.direct_allocate(size_t(size) * item_size, alignment, __func__);
   }
 
   void deallocate(void *ptr)
   {
-    const size_t alignment = static_cast<size_t>(type_->alignment());
+    const size_t alignment = size_t(type_->alignment());
     allocator_.direct_deallocate(ptr, alignment);
   }
 };

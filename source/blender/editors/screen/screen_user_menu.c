@@ -34,6 +34,7 @@
 #include "UI_resources.h"
 
 #include "RNA_access.h"
+#include "RNA_path.h"
 #include "RNA_prototypes.h"
 
 /* -------------------------------------------------------------------- */
@@ -102,7 +103,7 @@ bUserMenuItem_Op *ED_screen_user_menu_item_find_operator(ListBase *lb,
     if (umi->type == USER_MENU_TYPE_OPERATOR) {
       bUserMenuItem_Op *umi_op = (bUserMenuItem_Op *)umi;
       if (STREQ(ot->idname, umi_op->op_idname) && (opcontext == umi_op->opcontext) &&
-          (IDP_EqualsProperties(prop, umi_op->prop))) {
+          IDP_EqualsProperties(prop, umi_op->prop)) {
         return umi_op;
       }
     }
@@ -214,7 +215,14 @@ static void screen_user_menu_draw(const bContext *C, Menu *menu)
         wmOperatorType *ot = WM_operatortype_find(umi_op->op_idname, false);
         if (ot != NULL) {
           IDProperty *prop = umi_op->prop ? IDP_CopyProperty(umi_op->prop) : NULL;
-          uiItemFullO_ptr(menu->layout, ot, ui_name, ICON_NONE, prop, umi_op->opcontext, 0, NULL);
+          uiItemFullO_ptr(menu->layout,
+                          ot,
+                          CTX_IFACE_(ot->translation_context, ui_name),
+                          ICON_NONE,
+                          prop,
+                          umi_op->opcontext,
+                          0,
+                          NULL);
           is_empty = false;
         }
         else {

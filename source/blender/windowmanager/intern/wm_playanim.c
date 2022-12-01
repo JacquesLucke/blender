@@ -33,6 +33,7 @@
 #include "BLI_path_util.h"
 #include "BLI_rect.h"
 #include "BLI_string.h"
+#include "BLI_system.h"
 #include "BLI_utildefines.h"
 
 #include "IMB_colormanagement.h"
@@ -57,6 +58,8 @@
 #include "GHOST_C-api.h"
 
 #include "DEG_depsgraph.h"
+
+#include "wm_window_private.h"
 
 #include "WM_api.h" /* only for WM_main_playanim */
 
@@ -211,7 +214,7 @@ static void playanim_gl_matrix(void)
 /* implementation */
 static void playanim_event_qual_update(void)
 {
-  int val;
+  bool val;
 
   /* Shift */
   GHOST_GetModifierKeyState(g_WS.ghost_system, GHOST_kModifierKeyLeftShift, &val);
@@ -481,7 +484,7 @@ static void draw_display_buffer(PlayState *ps, ImBuf *ibuf)
   GPU_texture_bind(texture, 0);
 
   if (!glsl_used) {
-    immBindBuiltinProgram(GPU_SHADER_2D_IMAGE_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_IMAGE_COLOR);
     immUniformColor3f(1.0f, 1.0f, 1.0f);
   }
 
@@ -600,7 +603,7 @@ static void playanim_toscreen(
 
     uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
     immUniformColor3ub(0, 255, 0);
 
     immBegin(GPU_PRIM_LINES, 2);
@@ -658,7 +661,7 @@ static void build_pict_list_ex(
     int fp_framenr;
     struct {
       char head[FILE_MAX], tail[FILE_MAX];
-      unsigned short digits;
+      ushort digits;
     } fp_decoded;
 
     char filepath[FILE_MAX];
@@ -673,7 +676,7 @@ static void build_pict_list_ex(
      *
      * If set, all reads and writes on the resulting file descriptor will
      * be performed directly to or from the user program buffer, provided
-     * appropriate size and alignment restrictions are met.  Refer to the
+     * appropriate size and alignment restrictions are met. Refer to the
      * F_SETFL and F_DIOINFO commands in the fcntl(2) manual entry for
      * information about how to determine the alignment constraints.
      * O_DIRECT is a Silicon Graphics extension and is only supported on
@@ -870,7 +873,7 @@ static void change_frame(PlayState *ps)
   ps->need_frame_update = false;
 }
 
-static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
+static bool ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
 {
   PlayState *ps = (PlayState *)ps_void;
   const GHOST_TEventType type = GHOST_GetEventType(evt);
@@ -901,7 +904,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
       default:
         break;
     }
-    return 1;
+    return true;
   }
 
   if (ps->wait2 && ps->stopped == false) {
@@ -1216,8 +1219,7 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
       GHOST_TEventButtonData *bd = GHOST_GetEventData(evt);
       int cx, cy, sizex, sizey, inside_window;
 
-      GHOST_GetCursorPosition(g_WS.ghost_system, &cx, &cy);
-      GHOST_ScreenToClient(g_WS.ghost_window, cx, cy, &cx, &cy);
+      GHOST_GetCursorPosition(g_WS.ghost_system, g_WS.ghost_window, &cx, &cy);
       playanim_window_get_size(&sizex, &sizey);
 
       inside_window = (cx >= 0 && cx < sizex && cy >= 0 && cy <= sizey);
@@ -1266,14 +1268,14 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
          * however the API currently doesn't support this. */
         {
           int x_test, y_test;
-          GHOST_GetCursorPosition(g_WS.ghost_system, &x_test, &y_test);
-          if (x_test != cd->x || y_test != cd->y) {
+          GHOST_GetCursorPosition(g_WS.ghost_system, g_WS.ghost_window, &cx, &cy);
+          GHOST_ScreenToClient(g_WS.ghost_window, cd->x, cd->y, &x_test, &y_test);
+
+          if (cx != x_test || cy != y_test) {
             /* we're not the last event... skipping */
             break;
           }
         }
-
-        GHOST_ScreenToClient(g_WS.ghost_window, cd->x, cd->y, &cx, &cy);
 
         tag_change_frame(ps, cx);
       }
@@ -1334,12 +1336,14 @@ static int ghost_event_proc(GHOST_EventHandle evt, GHOST_TUserDataPtr ps_void)
       break;
   }
 
-  return 1;
+  return true;
 }
 
 static void playanim_window_open(const char *title, int posx, int posy, int sizex, int sizey)
 {
   GHOST_GLSettings glsettings = {0};
+  const eGPUBackendType gpu_backend = GPU_backend_type_selection_get();
+  glsettings.context_type = wm_ghost_drawing_context_type(gpu_backend);
   uint32_t scr_w, scr_h;
 
   GHOST_GetMainDisplayDimensions(g_WS.ghost_system, &scr_w, &scr_h);
@@ -1353,10 +1357,9 @@ static void playanim_window_open(const char *title, int posx, int posy, int size
                                          posy,
                                          sizex,
                                          sizey,
-                                         /* could optionally start fullscreen */
+                                         /* Could optionally start full-screen. */
                                          GHOST_kWindowStateNormal,
                                          false,
-                                         GHOST_kDrawingContextTypeOpenGL,
                                          glsettings);
 }
 
@@ -1536,7 +1539,17 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
 
     GHOST_EventConsumerHandle consumer = GHOST_CreateEventConsumer(ghost_event_proc, &ps);
 
+    GHOST_SetBacktraceHandler((GHOST_TBacktraceFn)BLI_system_backtrace);
+
     g_WS.ghost_system = GHOST_CreateSystem();
+
+    if (UNLIKELY(g_WS.ghost_system == NULL)) {
+      /* GHOST will have reported the back-ends that failed to load. */
+      fprintf(stderr, "GHOST: unable to initialize, exiting!\n");
+      /* This will leak memory, it's preferable to crashing. */
+      exit(1);
+    }
+
     GHOST_AddEventConsumer(g_WS.ghost_system, consumer);
 
     playanim_window_open("Blender Animation Player", start_x, start_y, ibuf->x, ibuf->y);
@@ -1547,13 +1560,14 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
   // GHOST_ActivateWindowDrawingContext(g_WS.ghost_window);
 
   /* initialize OpenGL immediate mode */
-  g_WS.gpu_context = GPU_context_create(g_WS.ghost_window);
+  g_WS.gpu_context = GPU_context_create(g_WS.ghost_window, NULL);
   GPU_init();
 
   /* initialize the font */
   BLF_init();
+  BLF_load_font_stack();
   ps.fontid = BLF_load_mono_default(false);
-  BLF_size(ps.fontid, 11.0f, 72);
+  BLF_size(ps.fontid, 11.0f);
 
   ps.ibufx = ibuf->x;
   ps.ibufy = ibuf->y;
@@ -1804,20 +1818,21 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
   AUD_Sound_free(source);
   source = NULL;
 #endif
+
   /* we still miss freeing a lot!,
    * but many areas could skip initialization too for anim play */
 
-  GPU_shader_free_builtin_shaders();
-
-  if (g_WS.gpu_context) {
-    GPU_context_active_set(g_WS.gpu_context);
-    GPU_context_discard(g_WS.gpu_context);
-    g_WS.gpu_context = NULL;
-  }
+  IMB_exit();
+  DEG_free_node_types();
 
   BLF_exit();
 
-  GPU_exit();
+  if (g_WS.gpu_context) {
+    GPU_context_active_set(g_WS.gpu_context);
+    GPU_exit();
+    GPU_context_discard(g_WS.gpu_context);
+    g_WS.gpu_context = NULL;
+  }
 
   GHOST_DisposeWindow(g_WS.ghost_system, g_WS.ghost_window);
 
@@ -1826,9 +1841,6 @@ static char *wm_main_playanim_intern(int argc, const char **argv)
     BLI_strncpy(filepath, ps.dropped_file, sizeof(filepath));
     return filepath;
   }
-
-  IMB_exit();
-  DEG_free_node_types();
 
   totblock = MEM_get_memory_blocks_in_use();
   if (totblock != 0) {
@@ -1852,7 +1864,7 @@ void WM_main_playanim(int argc, const char **argv)
     AUD_DeviceSpecs specs;
 
     specs.rate = AUD_RATE_48000;
-    specs.format = AUD_FORMAT_S16;
+    specs.format = AUD_FORMAT_FLOAT32;
     specs.channels = AUD_CHANNELS_STEREO;
 
     AUD_initOnce();

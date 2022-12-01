@@ -95,7 +95,7 @@ void BKE_gpencil_cache_data_init(Depsgraph *depsgraph, Object *ob)
           MEM_SAFE_FREE(mmd->cache_data);
         }
         Object *ob_target = DEG_get_evaluated_object(depsgraph, ob);
-        Mesh *target = BKE_modifier_get_evaluated_mesh_from_evaluated_object(ob_target, false);
+        Mesh *target = BKE_modifier_get_evaluated_mesh_from_evaluated_object(ob_target);
         mmd->cache_data = MEM_callocN(sizeof(ShrinkwrapTreeData), __func__);
         if (BKE_shrinkwrap_init_tree(
                 mmd->cache_data, target, mmd->shrink_type, mmd->shrink_mode, false)) {
@@ -221,6 +221,9 @@ GpencilLineartLimitInfo BKE_gpencil_get_lineart_modifier_limits(const Object *ob
         info.max_level = MAX2(info.max_level,
                               (lmd->use_multiple_levels ? lmd->level_end : lmd->level_start));
         info.edge_types |= lmd->edge_types;
+        info.shadow_selection = MAX2(lmd->shadow_selection, info.shadow_selection);
+        info.silhouette_selection = MAX2(lmd->silhouette_selection, info.silhouette_selection);
+        is_first = false;
       }
     }
   }
@@ -237,11 +240,15 @@ void BKE_gpencil_set_lineart_modifier_limits(GpencilModifierData *md,
     lmd->level_start_override = info->min_level;
     lmd->level_end_override = info->max_level;
     lmd->edge_types_override = info->edge_types;
+    lmd->shadow_selection_override = info->shadow_selection;
+    lmd->shadow_use_silhouette_override = info->silhouette_selection;
   }
   else {
     lmd->level_start_override = lmd->level_start;
     lmd->level_end_override = lmd->level_end;
     lmd->edge_types_override = lmd->edge_types;
+    lmd->shadow_selection_override = lmd->shadow_selection;
+    lmd->shadow_use_silhouette_override = lmd->silhouette_selection;
   }
 }
 
@@ -353,7 +360,8 @@ GpencilModifierData *BKE_gpencil_modifier_new(int type)
   md->type = type;
   md->mode = eGpencilModifierMode_Realtime | eGpencilModifierMode_Render;
   md->flag = eGpencilModifierFlag_OverrideLibrary_Local;
-  md->ui_expand_flag = 1; /* Only expand the parent panel at first. */
+  /* Only expand the parent panel at first. */
+  md->ui_expand_flag = UI_PANEL_DATA_EXPAND_ROOT;
 
   if (mti->flags & eGpencilModifierTypeFlag_EnableInEditmode) {
     md->mode |= eGpencilModifierMode_Editmode;
@@ -647,32 +655,38 @@ static bGPdata *gpencil_copy_structure_for_eval(bGPdata *gpd)
   return gpd_eval;
 }
 
-static void copy_frame_to_eval_cb(bGPDlayer *UNUSED(gpl),
+static void copy_frame_to_eval_ex(bGPDframe *gpf_orig, bGPDframe *gpf_eval)
+{
+  /* Free any existing eval stroke data. This happens in case we have a single user on the data
+   * block and the strokes have not been deleted. */
+  if (!BLI_listbase_is_empty(&gpf_eval->strokes)) {
+    BKE_gpencil_free_strokes(gpf_eval);
+  }
+  /* Copy strokes to eval frame and update internal orig pointers. */
+  BKE_gpencil_frame_copy_strokes(gpf_orig, gpf_eval);
+  BKE_gpencil_frame_original_pointers_update(gpf_orig, gpf_eval);
+}
+
+static void copy_frame_to_eval_cb(bGPDlayer *gpl,
                                   bGPDframe *gpf,
                                   bGPDstroke *UNUSED(gps),
                                   void *UNUSED(thunk))
 {
-  /* Early return when callback is not provided with a frame. */
-  if (gpf == NULL) {
+  /* Early return when callback:
+   * - Is not provided with a frame.
+   * - When the frame is the layer's active frame (already handled in
+   * gpencil_copy_visible_frames_to_eval).
+   */
+  if (ELEM(gpf, NULL, gpl->actframe)) {
     return;
   }
 
-  /* Free any existing eval stroke data. This happens in case we have a single user on the data
-   * block and the strokes have not been deleted. */
-  if (!BLI_listbase_is_empty(&gpf->strokes)) {
-    BKE_gpencil_free_strokes(gpf);
-  }
-
-  /* Get original frame. */
-  bGPDframe *gpf_orig = gpf->runtime.gpf_orig;
-  /* Copy strokes to eval frame and update internal orig pointers. */
-  BKE_gpencil_frame_copy_strokes(gpf_orig, gpf);
-  BKE_gpencil_frame_original_pointers_update(gpf_orig, gpf);
+  copy_frame_to_eval_ex(gpf->runtime.gpf_orig, gpf);
 }
 
 static void gpencil_copy_visible_frames_to_eval(Depsgraph *depsgraph, Scene *scene, Object *ob)
 {
-  /* Remap layers' active frame with time modifiers applied. */
+  /* Remap layers active frame with time modifiers applied. */
   bGPdata *gpd_eval = ob->data;
   LISTBASE_FOREACH (bGPDlayer *, gpl_eval, &gpd_eval->layers) {
     bGPDframe *gpf_eval = gpl_eval->actframe;
@@ -680,9 +694,14 @@ static void gpencil_copy_visible_frames_to_eval(Depsgraph *depsgraph, Scene *sce
     if (gpf_eval == NULL || gpf_eval->framenum != remap_cfra) {
       gpl_eval->actframe = BKE_gpencil_layer_frame_get(gpl_eval, remap_cfra, GP_GETFRAME_USE_PREV);
     }
+    /* Always copy active frame to eval, because the modifiers always evaluate the active frame,
+     * even if it's not visible (e.g. the layer is hidden). */
+    if (gpl_eval->actframe != NULL) {
+      copy_frame_to_eval_ex(gpl_eval->actframe->runtime.gpf_orig, gpl_eval->actframe);
+    }
   }
 
-  /* Copy only visible frames to evaluated version. */
+  /* Copy visible frames that are not the active one to evaluated version. */
   BKE_gpencil_visible_stroke_advanced_iter(
       NULL, ob, copy_frame_to_eval_cb, NULL, NULL, true, scene->r.cfra);
 }
@@ -701,7 +720,14 @@ void BKE_gpencil_prepare_eval_data(Depsgraph *depsgraph, Scene *scene, Object *o
       do_parent = true;
       break;
     }
-    if ((!is_zero_v3(gpl->location)) || (!is_zero_v3(gpl->rotation)) || (!is_one_v3(gpl->scale))) {
+
+    /* Only do layer transformations for non-zero or animated transforms. */
+    bool transformed = (!is_zero_v3(gpl->location) || !is_zero_v3(gpl->rotation) ||
+                        !is_one_v3(gpl->scale));
+    float tmp_mat[4][4];
+    loc_eul_size_to_mat4(tmp_mat, gpl->location, gpl->rotation, gpl->scale);
+    transformed |= !equals_m4m4(gpl->layer_mat, tmp_mat);
+    if (transformed) {
       do_transform = true;
       break;
     }
@@ -726,7 +752,7 @@ void BKE_gpencil_prepare_eval_data(Depsgraph *depsgraph, Scene *scene, Object *o
   const bool is_curve_edit = (bool)GPENCIL_CURVE_EDIT_SESSIONS_ON(gpd_orig);
   const bool do_modifiers = (bool)((!is_multiedit) && (!is_curve_edit) &&
                                    (ob_orig->greasepencil_modifiers.first != NULL) &&
-                                   (!GPENCIL_SIMPLIFY_MODIF(scene)));
+                                   !GPENCIL_SIMPLIFY_MODIF(scene));
   if ((!do_modifiers) && (!do_parent) && (!do_transform)) {
     BLI_assert(ob->data != NULL);
     return;
@@ -756,7 +782,7 @@ void BKE_gpencil_modifiers_calc(Depsgraph *depsgraph, Scene *scene, Object *ob)
   const bool is_multiedit = (bool)(GPENCIL_MULTIEDIT_SESSIONS_ON(gpd) && !is_render);
   const bool do_modifiers = (bool)((!is_multiedit) && (!is_curve_edit) &&
                                    (ob->greasepencil_modifiers.first != NULL) &&
-                                   (!GPENCIL_SIMPLIFY_MODIF(scene)));
+                                   !GPENCIL_SIMPLIFY_MODIF(scene));
   if (!do_modifiers) {
     return;
   }
@@ -878,6 +904,11 @@ void BKE_gpencil_modifier_blend_write(BlendWriter *writer, ListBase *modbase)
       BLO_write_struct_array(
           writer, DashGpencilModifierSegment, gpmd->segments_len, gpmd->segments);
     }
+    else if (md->type == eGpencilModifierType_Time) {
+      TimeGpencilModifierData *gpmd = (TimeGpencilModifierData *)md;
+      BLO_write_struct_array(
+          writer, TimeGpencilModifierSegment, gpmd->segments_len, gpmd->segments);
+    }
   }
 }
 
@@ -911,7 +942,7 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb)
       BLO_read_data_address(reader, &gpmd->curve_intensity);
       if (gpmd->curve_intensity) {
         BKE_curvemapping_blend_read(reader, gpmd->curve_intensity);
-        /* initialize the curve. Maybe this could be moved to modififer logic */
+        /* Initialize the curve. Maybe this could be moved to modifier logic. */
         BKE_curvemapping_init(gpmd->curve_intensity);
       }
     }
@@ -962,6 +993,13 @@ void BKE_gpencil_modifier_blend_read_data(BlendDataReader *reader, ListBase *lb)
       BLO_read_data_address(reader, &gpmd->segments);
       for (int i = 0; i < gpmd->segments_len; i++) {
         gpmd->segments[i].dmd = gpmd;
+      }
+    }
+    else if (md->type == eGpencilModifierType_Time) {
+      TimeGpencilModifierData *gpmd = (TimeGpencilModifierData *)md;
+      BLO_read_data_address(reader, &gpmd->segments);
+      for (int i = 0; i < gpmd->segments_len; i++) {
+        gpmd->segments[i].gpmd = gpmd;
       }
     }
     if (md->type == eGpencilModifierType_Shrinkwrap) {

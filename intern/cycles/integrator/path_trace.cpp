@@ -26,6 +26,7 @@ PathTrace::PathTrace(Device *device,
                      RenderScheduler &render_scheduler,
                      TileManager &tile_manager)
     : device_(device),
+      film_(film),
       device_scene_(device_scene),
       render_scheduler_(render_scheduler),
       tile_manager_(tile_manager)
@@ -42,8 +43,11 @@ PathTrace::PathTrace(Device *device,
   /* Create path tracing work in advance, so that it can be reused by incremental sampling as much
    * as possible. */
   device_->foreach_device([&](Device *path_trace_device) {
-    path_trace_works_.emplace_back(PathTraceWork::create(
-        path_trace_device, film, device_scene, &render_cancel_.is_requested));
+    unique_ptr<PathTraceWork> work = PathTraceWork::create(
+        path_trace_device, film, device_scene, &render_cancel_.is_requested);
+    if (work) {
+      path_trace_works_.emplace_back(std::move(work));
+    }
   });
 
   work_balance_infos_.resize(path_trace_works_.size());
@@ -60,7 +64,17 @@ PathTrace::~PathTrace()
 void PathTrace::load_kernels()
 {
   if (denoiser_) {
+    /* Activate graphics interop while denoiser device is created, so that it can choose a device
+     * that supports interop for faster display updates. */
+    if (display_ && path_trace_works_.size() > 1) {
+      display_->graphics_interop_activate();
+    }
+
     denoiser_->load_kernels(progress_);
+
+    if (display_ && path_trace_works_.size() > 1) {
+      display_->graphics_interop_deactivate();
+    }
   }
 }
 
@@ -174,9 +188,23 @@ void PathTrace::render_pipeline(RenderWork render_work)
 
   rebalance(render_work);
 
+  /* Prepare all per-thread guiding structures before we start with the next rendering
+   * iteration/progression. */
+  const bool use_guiding = device_scene_->data.integrator.use_guiding;
+  if (use_guiding) {
+    guiding_prepare_structures();
+  }
+
   path_trace(render_work);
   if (render_cancel_.is_requested) {
     return;
+  }
+
+  /* Update the guiding field using the training data/samples collected during the rendering
+   * iteration/progression. */
+  const bool train_guiding = device_scene_->data.integrator.train_guiding;
+  if (use_guiding && train_guiding) {
+    guiding_update_structures();
   }
 
   adaptive_sample(render_work);
@@ -348,8 +376,8 @@ void PathTrace::path_trace(RenderWork &render_work)
     return;
   }
 
-  VLOG(3) << "Will path trace " << render_work.path_trace.num_samples
-          << " samples at the resolution divider " << render_work.resolution_divider;
+  VLOG_WORK << "Will path trace " << render_work.path_trace.num_samples
+            << " samples at the resolution divider " << render_work.resolution_divider;
 
   const double start_time = time_dt();
 
@@ -373,9 +401,9 @@ void PathTrace::path_trace(RenderWork &render_work)
     work_balance_infos_[i].time_spent += work_time;
     work_balance_infos_[i].occupancy = statistics.occupancy;
 
-    VLOG(3) << "Rendered " << num_samples << " samples in " << work_time << " seconds ("
-            << work_time / num_samples
-            << " seconds per sample), occupancy: " << statistics.occupancy;
+    VLOG_INFO << "Rendered " << num_samples << " samples in " << work_time << " seconds ("
+              << work_time / num_samples
+              << " seconds per sample), occupancy: " << statistics.occupancy;
   });
 
   float occupancy_accum = 0.0f;
@@ -398,10 +426,10 @@ void PathTrace::adaptive_sample(RenderWork &render_work)
   bool did_reschedule_on_idle = false;
 
   while (true) {
-    VLOG(3) << "Will filter adaptive stopping buffer, threshold "
-            << render_work.adaptive_sampling.threshold;
+    VLOG_WORK << "Will filter adaptive stopping buffer, threshold "
+              << render_work.adaptive_sampling.threshold;
     if (render_work.adaptive_sampling.reset) {
-      VLOG(3) << "Will re-calculate convergency flag for currently converged pixels.";
+      VLOG_WORK << "Will re-calculate convergency flag for currently converged pixels.";
     }
 
     const double start_time = time_dt();
@@ -420,11 +448,11 @@ void PathTrace::adaptive_sample(RenderWork &render_work)
         render_work, time_dt() - start_time, is_cancel_requested());
 
     if (num_active_pixels == 0) {
-      VLOG(3) << "All pixels converged.";
+      VLOG_WORK << "All pixels converged.";
       if (!render_scheduler_.render_work_reschedule_on_converge(render_work)) {
         break;
       }
-      VLOG(3) << "Continuing with lower threshold.";
+      VLOG_WORK << "Continuing with lower threshold.";
     }
     else if (did_reschedule_on_idle) {
       break;
@@ -436,10 +464,10 @@ void PathTrace::adaptive_sample(RenderWork &render_work)
        * A better heuristic is possible here: for example, use maximum of 128^2 and percentage of
        * the final resolution. */
       if (!render_scheduler_.render_work_reschedule_on_idle(render_work)) {
-        VLOG(3) << "Rescheduling is not possible: final threshold is reached.";
+        VLOG_WORK << "Rescheduling is not possible: final threshold is reached.";
         break;
       }
-      VLOG(3) << "Rescheduling lower threshold.";
+      VLOG_WORK << "Rescheduling lower threshold.";
       did_reschedule_on_idle = true;
     }
     else {
@@ -483,7 +511,7 @@ void PathTrace::cryptomatte_postprocess(const RenderWork &render_work)
   if (!render_work.cryptomatte.postprocess) {
     return;
   }
-  VLOG(3) << "Perform cryptomatte work.";
+  VLOG_WORK << "Perform cryptomatte work.";
 
   parallel_for_each(path_trace_works_, [&](unique_ptr<PathTraceWork> &path_trace_work) {
     path_trace_work->cryptomatte_postproces();
@@ -501,32 +529,34 @@ void PathTrace::denoise(const RenderWork &render_work)
     return;
   }
 
-  VLOG(3) << "Perform denoising work.";
+  VLOG_WORK << "Perform denoising work.";
 
   const double start_time = time_dt();
 
   RenderBuffers *buffer_to_denoise = nullptr;
-
-  unique_ptr<RenderBuffers> multi_device_buffers;
   bool allow_inplace_modification = false;
 
-  if (path_trace_works_.size() == 1) {
-    buffer_to_denoise = path_trace_works_.front()->get_render_buffers();
+  Device *denoiser_device = denoiser_->get_denoiser_device();
+  if (path_trace_works_.size() > 1 && denoiser_device && !big_tile_denoise_work_) {
+    big_tile_denoise_work_ = PathTraceWork::create(denoiser_device, film_, device_scene_, nullptr);
   }
-  else {
-    Device *denoiser_device = denoiser_->get_denoiser_device();
-    if (!denoiser_device) {
-      return;
-    }
 
-    multi_device_buffers = make_unique<RenderBuffers>(denoiser_device);
-    multi_device_buffers->reset(render_state_.effective_big_tile_params);
+  if (big_tile_denoise_work_) {
+    big_tile_denoise_work_->set_effective_buffer_params(render_state_.effective_big_tile_params,
+                                                        render_state_.effective_big_tile_params,
+                                                        render_state_.effective_big_tile_params);
 
-    buffer_to_denoise = multi_device_buffers.get();
+    buffer_to_denoise = big_tile_denoise_work_->get_render_buffers();
+    buffer_to_denoise->reset(render_state_.effective_big_tile_params);
 
-    copy_to_render_buffers(multi_device_buffers.get());
+    copy_to_render_buffers(buffer_to_denoise);
 
     allow_inplace_modification = true;
+  }
+  else {
+    DCHECK_EQ(path_trace_works_.size(), 1);
+
+    buffer_to_denoise = path_trace_works_.front()->get_render_buffers();
   }
 
   if (denoiser_->denoise_buffer(render_state_.effective_big_tile_params,
@@ -534,14 +564,6 @@ void PathTrace::denoise(const RenderWork &render_work)
                                 get_num_samples_in_buffer(),
                                 allow_inplace_modification)) {
     render_state_.has_denoised_result = true;
-  }
-
-  if (multi_device_buffers) {
-    multi_device_buffers->copy_from_device();
-    parallel_for_each(
-        path_trace_works_, [&multi_device_buffers](unique_ptr<PathTraceWork> &path_trace_work) {
-          path_trace_work->copy_from_denoised_render_buffers(multi_device_buffers.get());
-        });
   }
 
   render_scheduler_.report_denoise_time(render_work, time_dt() - start_time);
@@ -599,26 +621,26 @@ void PathTrace::update_display(const RenderWork &render_work)
   }
 
   if (!display_ && !output_driver_) {
-    VLOG(3) << "Ignore display update.";
+    VLOG_WORK << "Ignore display update.";
     return;
   }
 
   if (full_params_.width == 0 || full_params_.height == 0) {
-    VLOG(3) << "Skipping PathTraceDisplay update due to 0 size of the render buffer.";
+    VLOG_WORK << "Skipping PathTraceDisplay update due to 0 size of the render buffer.";
     return;
   }
 
   const double start_time = time_dt();
 
   if (output_driver_) {
-    VLOG(3) << "Invoke buffer update callback.";
+    VLOG_WORK << "Invoke buffer update callback.";
 
     PathTraceTile tile(*this);
     output_driver_->update_render_tile(tile);
   }
 
   if (display_) {
-    VLOG(3) << "Perform copy to GPUDisplay work.";
+    VLOG_WORK << "Perform copy to GPUDisplay work.";
 
     const int texture_width = render_state_.effective_big_tile_params.window_width;
     const int texture_height = render_state_.effective_big_tile_params.window_height;
@@ -635,8 +657,13 @@ void PathTrace::update_display(const RenderWork &render_work)
     /* TODO(sergey): When using multi-device rendering map the GPUDisplay once and copy data from
      * all works in parallel. */
     const int num_samples = get_num_samples_in_buffer();
-    for (auto &&path_trace_work : path_trace_works_) {
-      path_trace_work->copy_to_display(display_.get(), pass_mode, num_samples);
+    if (big_tile_denoise_work_ && render_state_.has_denoised_result) {
+      big_tile_denoise_work_->copy_to_display(display_.get(), pass_mode, num_samples);
+    }
+    else {
+      for (auto &&path_trace_work : path_trace_works_) {
+        path_trace_work->copy_to_display(display_.get(), pass_mode, num_samples);
+      }
     }
 
     display_->update_end();
@@ -654,33 +681,33 @@ void PathTrace::rebalance(const RenderWork &render_work)
   const int num_works = path_trace_works_.size();
 
   if (num_works == 1) {
-    VLOG(3) << "Ignoring rebalance work due to single device render.";
+    VLOG_WORK << "Ignoring rebalance work due to single device render.";
     return;
   }
 
   const double start_time = time_dt();
 
   if (VLOG_IS_ON(3)) {
-    VLOG(3) << "Perform rebalance work.";
-    VLOG(3) << "Per-device path tracing time (seconds):";
+    VLOG_WORK << "Perform rebalance work.";
+    VLOG_WORK << "Per-device path tracing time (seconds):";
     for (int i = 0; i < num_works; ++i) {
-      VLOG(3) << path_trace_works_[i]->get_device()->info.description << ": "
-              << work_balance_infos_[i].time_spent;
+      VLOG_WORK << path_trace_works_[i]->get_device()->info.description << ": "
+                << work_balance_infos_[i].time_spent;
     }
   }
 
   const bool did_rebalance = work_balance_do_rebalance(work_balance_infos_);
 
   if (VLOG_IS_ON(3)) {
-    VLOG(3) << "Calculated per-device weights for works:";
+    VLOG_WORK << "Calculated per-device weights for works:";
     for (int i = 0; i < num_works; ++i) {
-      VLOG(3) << path_trace_works_[i]->get_device()->info.description << ": "
-              << work_balance_infos_[i].weight;
+      VLOG_WORK << path_trace_works_[i]->get_device()->info.description << ": "
+                << work_balance_infos_[i].weight;
     }
   }
 
   if (!did_rebalance) {
-    VLOG(3) << "Balance in path trace works did not change.";
+    VLOG_WORK << "Balance in path trace works did not change.";
     render_scheduler_.report_rebalance_time(render_work, time_dt() - start_time, false);
     return;
   }
@@ -704,7 +731,7 @@ void PathTrace::write_tile_buffer(const RenderWork &render_work)
     return;
   }
 
-  VLOG(3) << "Write tile result.";
+  VLOG_WORK << "Write tile result.";
 
   render_state_.tile_written = true;
 
@@ -718,14 +745,13 @@ void PathTrace::write_tile_buffer(const RenderWork &render_work)
    *
    * Important thing is: tile should be written to the software via callback only once. */
   if (!has_multiple_tiles) {
-    VLOG(3) << "Write tile result via buffer write callback.";
+    VLOG_WORK << "Write tile result via buffer write callback.";
     tile_buffer_write();
   }
-
   /* Write tile to disk, so that the render work's render buffer can be re-used for the next tile.
    */
-  if (has_multiple_tiles) {
-    VLOG(3) << "Write tile result into .";
+  else {
+    VLOG_WORK << "Write tile result to disk.";
     tile_buffer_write_to_disk();
   }
 }
@@ -736,10 +762,10 @@ void PathTrace::finalize_full_buffer_on_disk(const RenderWork &render_work)
     return;
   }
 
-  VLOG(3) << "Handle full-frame render buffer work.";
+  VLOG_WORK << "Handle full-frame render buffer work.";
 
   if (!tile_manager_.has_written_tiles()) {
-    VLOG(3) << "No tiles on disk.";
+    VLOG_WORK << "No tiles on disk.";
     return;
   }
 
@@ -901,6 +927,10 @@ bool PathTrace::copy_render_tile_from_device()
     return true;
   }
 
+  if (big_tile_denoise_work_ && render_state_.has_denoised_result) {
+    return big_tile_denoise_work_->copy_render_buffers_from_device();
+  }
+
   bool success = true;
 
   parallel_for_each(path_trace_works_, [&](unique_ptr<PathTraceWork> &path_trace_work) {
@@ -935,7 +965,7 @@ static string get_layer_view_name(const RenderBuffers &buffers)
 
 void PathTrace::process_full_buffer_from_disk(string_view filename)
 {
-  VLOG(3) << "Processing full frame buffer file " << filename;
+  VLOG_WORK << "Processing full frame buffer file " << filename;
 
   progress_set_status("Reading full buffer from disk");
 
@@ -1000,6 +1030,10 @@ bool PathTrace::get_render_tile_pixels(const PassAccessor &pass_accessor,
 {
   if (full_frame_state_.render_buffers) {
     return pass_accessor.get_render_tile_pixels(full_frame_state_.render_buffers, destination);
+  }
+
+  if (big_tile_denoise_work_ && render_state_.has_denoised_result) {
+    return big_tile_denoise_work_->get_render_tile_pixels(pass_accessor, destination);
   }
 
   bool success = true;
@@ -1082,6 +1116,10 @@ void PathTrace::destroy_gpu_resources()
     for (auto &&path_trace_work : path_trace_works_) {
       path_trace_work->destroy_gpu_resources(display_.get());
     }
+
+    if (big_tile_denoise_work_) {
+      big_tile_denoise_work_->destroy_gpu_resources(display_.get());
+    }
   }
 }
 
@@ -1103,6 +1141,8 @@ static const char *device_type_for_description(const DeviceType type)
       return "OptiX";
     case DEVICE_HIP:
       return "HIP";
+    case DEVICE_ONEAPI:
+      return "oneAPI";
     case DEVICE_DUMMY:
       return "Dummy";
     case DEVICE_MULTI:
@@ -1216,6 +1256,125 @@ string PathTrace::full_report() const
   result += render_scheduler_.full_report();
 
   return result;
+}
+
+void PathTrace::set_guiding_params(const GuidingParams &guiding_params, const bool reset)
+{
+#ifdef WITH_PATH_GUIDING
+  if (guiding_params_.modified(guiding_params)) {
+    guiding_params_ = guiding_params;
+
+    if (guiding_params_.use) {
+      PGLFieldArguments field_args;
+      switch (guiding_params_.type) {
+        default:
+        /* Parallax-aware von Mises-Fisher mixture models. */
+        case GUIDING_TYPE_PARALLAX_AWARE_VMM: {
+          pglFieldArgumentsSetDefaults(
+              field_args,
+              PGL_SPATIAL_STRUCTURE_TYPE::PGL_SPATIAL_STRUCTURE_KDTREE,
+              PGL_DIRECTIONAL_DISTRIBUTION_TYPE::PGL_DIRECTIONAL_DISTRIBUTION_PARALLAX_AWARE_VMM);
+          break;
+        }
+        /* Directional quad-trees. */
+        case GUIDING_TYPE_DIRECTIONAL_QUAD_TREE: {
+          pglFieldArgumentsSetDefaults(
+              field_args,
+              PGL_SPATIAL_STRUCTURE_TYPE::PGL_SPATIAL_STRUCTURE_KDTREE,
+              PGL_DIRECTIONAL_DISTRIBUTION_TYPE::PGL_DIRECTIONAL_DISTRIBUTION_QUADTREE);
+          break;
+        }
+        /* von Mises-Fisher mixture models. */
+        case GUIDING_TYPE_VMM: {
+          pglFieldArgumentsSetDefaults(
+              field_args,
+              PGL_SPATIAL_STRUCTURE_TYPE::PGL_SPATIAL_STRUCTURE_KDTREE,
+              PGL_DIRECTIONAL_DISTRIBUTION_TYPE::PGL_DIRECTIONAL_DISTRIBUTION_VMM);
+          break;
+        }
+      }
+#  if OPENPGL_VERSION_MINOR >= 4
+      field_args.deterministic = guiding_params.deterministic;
+#  endif
+      reinterpret_cast<PGLKDTreeArguments *>(field_args.spatialSturctureArguments)->maxDepth = 16;
+      openpgl::cpp::Device *guiding_device = static_cast<openpgl::cpp::Device *>(
+          device_->get_guiding_device());
+      if (guiding_device) {
+        guiding_sample_data_storage_ = make_unique<openpgl::cpp::SampleStorage>();
+        guiding_field_ = make_unique<openpgl::cpp::Field>(guiding_device, field_args);
+      }
+      else {
+        guiding_sample_data_storage_ = nullptr;
+        guiding_field_ = nullptr;
+      }
+    }
+    else {
+      guiding_sample_data_storage_ = nullptr;
+      guiding_field_ = nullptr;
+    }
+  }
+  else if (reset) {
+    if (guiding_field_) {
+      guiding_field_->Reset();
+    }
+  }
+#else
+  (void)guiding_params;
+  (void)reset;
+#endif
+}
+
+void PathTrace::guiding_prepare_structures()
+{
+#ifdef WITH_PATH_GUIDING
+  const bool train = (guiding_params_.training_samples == 0) ||
+                     (guiding_field_->GetIteration() < guiding_params_.training_samples);
+
+  for (auto &&path_trace_work : path_trace_works_) {
+    path_trace_work->guiding_init_kernel_globals(
+        guiding_field_.get(), guiding_sample_data_storage_.get(), train);
+  }
+
+  if (train) {
+    /* For training the guiding distribution we need to force the number of samples
+     * per update to be limited, for reproducible results and reasonable training size.
+     *
+     * Idea: we could stochastically discard samples with a probability of 1/num_samples_per_update
+     * we can then update only after the num_samples_per_update iterations are rendered.  */
+    render_scheduler_.set_limit_samples_per_update(4);
+  }
+  else {
+    render_scheduler_.set_limit_samples_per_update(0);
+  }
+#endif
+}
+
+void PathTrace::guiding_update_structures()
+{
+#ifdef WITH_PATH_GUIDING
+  VLOG_WORK << "Update path guiding structures";
+
+  VLOG_DEBUG << "Number of surface samples: " << guiding_sample_data_storage_->GetSizeSurface();
+  VLOG_DEBUG << "Number of volume samples: " << guiding_sample_data_storage_->GetSizeVolume();
+
+  const size_t num_valid_samples = guiding_sample_data_storage_->GetSizeSurface() +
+                                   guiding_sample_data_storage_->GetSizeVolume();
+
+  /* we wait until we have at least 1024 samples */
+  if (num_valid_samples >= 1024) {
+#  if OPENPGL_VERSION_MINOR < 4
+    const size_t num_samples = 1;
+    guiding_field_->Update(*guiding_sample_data_storage_, num_samples);
+#  else
+    guiding_field_->Update(*guiding_sample_data_storage_);
+#  endif
+    guiding_update_count++;
+
+    VLOG_DEBUG << "Path guiding field valid: " << guiding_field_->Validate();
+
+    guiding_sample_data_storage_->Clear();
+  }
+#endif
 }
 
 CCL_NAMESPACE_END

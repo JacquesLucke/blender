@@ -5,7 +5,7 @@
  * \ingroup draw
  */
 
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 #include "draw_cache_impl.h"
 
@@ -21,7 +21,7 @@ struct MeshExtract_EditUVFdotData_Data {
 };
 
 static void extract_fdots_edituv_data_init(const MeshRenderData *mr,
-                                           struct MeshBatchCache *UNUSED(cache),
+                                           MeshBatchCache * /*cache*/,
                                            void *buf,
                                            void *tls_data)
 {
@@ -41,7 +41,7 @@ static void extract_fdots_edituv_data_init(const MeshRenderData *mr,
 
 static void extract_fdots_edituv_data_iter_poly_bm(const MeshRenderData *mr,
                                                    const BMFace *f,
-                                                   const int UNUSED(f_index),
+                                                   const int /*f_index*/,
                                                    void *_data)
 {
   MeshExtract_EditUVFdotData_Data *data = static_cast<MeshExtract_EditUVFdotData_Data *>(_data);
@@ -51,7 +51,7 @@ static void extract_fdots_edituv_data_iter_poly_bm(const MeshRenderData *mr,
 }
 
 static void extract_fdots_edituv_data_iter_poly_mesh(const MeshRenderData *mr,
-                                                     const MPoly *UNUSED(mp),
+                                                     const MPoly * /*mp*/,
                                                      const int mp_index,
                                                      void *_data)
 {
@@ -81,6 +81,4 @@ constexpr MeshExtract create_extractor_fdots_edituv_data()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_fdots_edituv_data = blender::draw::create_extractor_fdots_edituv_data();
-}

@@ -99,15 +99,13 @@ void transform_object(Object *object, const OBJImportParams &import_params)
   float obmat[4][4];
   unit_m4(obmat);
   /* +Y-forward and +Z-up are the default Blender axis settings. */
-  mat3_from_axis_conversion(import_params.forward_axis,
-                            import_params.up_axis,
-                            OBJ_AXIS_Y_FORWARD,
-                            OBJ_AXIS_Z_UP,
-                            axes_transform);
-  /* mat3_from_axis_conversion returns a transposed matrix! */
-  transpose_m3(axes_transform);
+  mat3_from_axis_conversion(
+      IO_AXIS_Y, IO_AXIS_Z, import_params.forward_axis, import_params.up_axis, axes_transform);
   copy_m4_m3(obmat, axes_transform);
 
+  float scale_vec[3] = {
+      import_params.global_scale, import_params.global_scale, import_params.global_scale};
+  rescale_m4(obmat, scale_vec);
   BKE_object_apply_mat4(object, obmat, true, false);
 
   if (import_params.clamp_size != 0.0f) {

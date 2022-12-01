@@ -19,6 +19,21 @@
 namespace blender {
 
 /**
+ * Under some circumstances #std::is_trivial_v<T> is false even though we know that the type is
+ * actually trivial. Using that extra knowledge allows for some optimizations.
+ */
+template<typename T> inline constexpr bool is_trivial_extended_v = std::is_trivial_v<T>;
+template<typename T>
+inline constexpr bool is_trivially_destructible_extended_v = is_trivial_extended_v<T> ||
+                                                             std::is_trivially_destructible_v<T>;
+template<typename T>
+inline constexpr bool is_trivially_copy_constructible_extended_v =
+    is_trivial_extended_v<T> || std::is_trivially_copy_constructible_v<T>;
+template<typename T>
+inline constexpr bool is_trivially_move_constructible_extended_v =
+    is_trivial_extended_v<T> || std::is_trivially_move_constructible_v<T>;
+
+/**
  * Call the destructor on n consecutive values. For trivially destructible types, this does
  * nothing.
  *
@@ -38,7 +53,7 @@ template<typename T> void destruct_n(T *ptr, int64_t n)
 
   /* This is not strictly necessary, because the loop below will be optimized away anyway. It is
    * nice to make behavior this explicitly, though. */
-  if (std::is_trivially_destructible_v<T>) {
+  if (is_trivially_destructible_extended_v<T>) {
     return;
   }
 
@@ -357,7 +372,7 @@ template<size_t Size, size_t Alignment> class AlignedBuffer {
  */
 template<typename T, int64_t Size = 1> class TypedBuffer {
  private:
-  BLI_NO_UNIQUE_ADDRESS AlignedBuffer<sizeof(T) * (size_t)Size, alignof(T)> buffer_;
+  BLI_NO_UNIQUE_ADDRESS AlignedBuffer<sizeof(T) * size_t(Size), alignof(T)> buffer_;
 
  public:
   operator T *()
@@ -529,7 +544,7 @@ template<typename T> inline bool can_zero_initialize_on_fill(const T &value)
  */
 inline constexpr int64_t default_inline_buffer_capacity(size_t element_size)
 {
-  return (static_cast<int64_t>(element_size) < 100) ? 4 : 0;
+  return (int64_t(element_size) < 100) ? 4 : 0;
 }
 
 /**

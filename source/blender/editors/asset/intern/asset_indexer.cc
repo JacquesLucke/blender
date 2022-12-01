@@ -22,9 +22,9 @@
 #include "BLI_string_ref.hh"
 #include "BLI_uuid.h"
 
+#include "AS_asset_catalog.hh"
 #include "BKE_appdir.h"
 #include "BKE_asset.h"
-#include "BKE_asset_catalog.hh"
 #include "BKE_idprop.hh"
 #include "BKE_preferences.h"
 
@@ -34,8 +34,8 @@ static CLG_LogRef LOG = {"ed.asset"};
 
 namespace blender::ed::asset::index {
 
+using namespace blender::asset_system;
 using namespace blender::io::serialize;
-using namespace blender::bke;
 using namespace blender::bke::idprop;
 
 /**
@@ -351,7 +351,7 @@ static void init_indexer_entry_from_value(FileIndexerEntry &indexer_entry,
 {
   indexer_entry.idcode = entry.get_idcode();
 
-  const std::string &name = entry.get_name();
+  const std::string name = entry.get_name();
   BLI_strncpy(
       indexer_entry.datablock_info.name, name.c_str(), sizeof(indexer_entry.datablock_info.name));
 
@@ -359,19 +359,19 @@ static void init_indexer_entry_from_value(FileIndexerEntry &indexer_entry,
   indexer_entry.datablock_info.asset_data = asset_data;
 
   if (entry.has_description()) {
-    const std::string &description = entry.get_description();
-    char *description_c_str = static_cast<char *>(MEM_mallocN(description.length() + 1, __func__));
-    BLI_strncpy(description_c_str, description.c_str(), description.length() + 1);
+    const StringRefNull description = entry.get_description();
+    char *description_c_str = static_cast<char *>(MEM_mallocN(description.size() + 1, __func__));
+    BLI_strncpy(description_c_str, description.c_str(), description.size() + 1);
     asset_data->description = description_c_str;
   }
   if (entry.has_author()) {
-    const std::string &author = entry.get_author();
-    char *author_c_str = static_cast<char *>(MEM_mallocN(author.length() + 1, __func__));
-    BLI_strncpy(author_c_str, author.c_str(), author.length() + 1);
+    const StringRefNull author = entry.get_author();
+    char *author_c_str = static_cast<char *>(MEM_mallocN(author.size() + 1, __func__));
+    BLI_strncpy(author_c_str, author.c_str(), author.size() + 1);
     asset_data->author = author_c_str;
   }
 
-  const std::string &catalog_name = entry.get_catalog_name();
+  const StringRefNull catalog_name = entry.get_catalog_name();
   BLI_strncpy(asset_data->catalog_simple_name,
               catalog_name.c_str(),
               sizeof(asset_data->catalog_simple_name));

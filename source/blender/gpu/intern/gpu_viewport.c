@@ -9,16 +9,13 @@
 
 #include <string.h>
 
-#include "BLI_listbase.h"
 #include "BLI_math_vector.h"
-#include "BLI_memblock.h"
 #include "BLI_rect.h"
 
 #include "BKE_colortools.h"
 
 #include "IMB_colormanagement.h"
 
-#include "DNA_userdef_types.h"
 #include "DNA_vec_types.h"
 
 #include "GPU_capabilities.h"
@@ -150,6 +147,10 @@ static void gpu_viewport_textures_create(GPUViewport *viewport)
   if (viewport->depth_tx == NULL) {
     viewport->depth_tx = GPU_texture_create_2d(
         "dtxl_depth", UNPACK2(size), 1, GPU_DEPTH24_STENCIL8, NULL);
+    if (GPU_clear_viewport_workaround()) {
+      static int depth_clear = 0;
+      GPU_texture_clear(viewport->depth_tx, GPU_DATA_UINT_24_8, &depth_clear);
+    }
   }
 
   if (!viewport->depth_tx || !viewport->color_render_tx[0] || !viewport->color_overlay_tx[0]) {

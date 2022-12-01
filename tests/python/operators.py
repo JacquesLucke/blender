@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import bpy
 import os
 import sys
@@ -115,6 +113,18 @@ def main():
         SpecMeshTest(
             "CubeDissolveFaces", "testCubeDissolveFaces", "expectedCubeDissolveFaces",
             [OperatorSpecEditMode("dissolve_faces", {}, "VERT", {5, 34, 47, 49, 83, 91, 95})],
+        ),
+
+        # dissolve limited
+        SpecMeshTest(
+            "SphereDissolveLimited", "testSphereDissolveLimited", "expectedSphereDissolveLimited",
+            [OperatorSpecEditMode("dissolve_limited", {"angle_limit": 0.610865}, "FACE", {20, 23, 26, 29, 32})],
+        ),
+
+        # dissolve mode
+        SpecMeshTest(
+            "PlaneDissolveMode", "testPlaneDissolveMode", "expectedPlaneDissolveMode",
+            [OperatorSpecEditMode("dissolve_mode", {"use_verts": True}, "FACE", {0, 1, 2, 10, 12, 13})],
         ),
 
         # dissolve verts
@@ -334,6 +344,12 @@ def main():
             [OperatorSpecEditMode("mark_seam", {}, "EDGE", {1})],
         ),
 
+        # merge normals
+        SpecMeshTest(
+            "CubeMergeNormals", "testCubeMergeNormals", "expectedCubeMergeNormals",
+            [OperatorSpecEditMode("merge_normals", {}, "FACE", {3, 5})],
+        ),
+
         # select all
         SpecMeshTest(
             "CircleSelectAll", "testCircleSelectAll", "expectedCircleSelectAll",
@@ -464,6 +480,12 @@ def main():
                                                     "use_center": True}, "VERT", {i for i in range(5)})],
         ),
 
+        # Triangulate Faces
+        SpecMeshTest(
+            "Triangulate Faces", "testCubeTriangulate", "expectedCubeTriangulate",
+            [OperatorSpecEditMode("quads_convert_to_tris", {}, "FACE", {i for i in range(6)})],
+        ),
+
         # Tris to Quads
         SpecMeshTest(
             "TrisToQuads", "testPlanesTrisToQuad", "expectedPlanesTrisToQuad",
@@ -545,24 +567,6 @@ def main():
                 "vert_connect_path", {}, "VERT", (0, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14),
                 select_history=True,
             )],
-        ),
-
-        # Vertex Colors
-        SpecMeshTest(
-            "VertexColorAdd", "testCubeColorAdd", "expectedCubeColorAdd",
-            [OperatorSpecEditMode("vertex_color_add", {}, "VERT", {})],
-        ),
-        SpecMeshTest(
-            "VertexColorRemove", "testCubeColorRemove", "expectedCubeColorRemove",
-            [OperatorSpecEditMode("vertex_color_remove", {}, "VERT", {})],
-        ),
-        SpecMeshTest(
-            "VertexColorSculptAdd", "testCubeSculptAdd", "expectedCubeSculptAdd",
-            [OperatorSpecEditMode("sculpt_vertex_color_add", {}, "VERT", {})],
-        ),
-        SpecMeshTest(
-            "VertexColorSculptRemove", "testCubeSculptRemove", "expectedCubeSculptRemove",
-            [OperatorSpecEditMode("sculpt_vertex_color_remove", {}, "VERT", {})],
         ),
 
         # Laplacian Smooth

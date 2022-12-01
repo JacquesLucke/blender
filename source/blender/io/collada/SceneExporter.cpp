@@ -82,11 +82,13 @@ void SceneExporter::writeNodeList(std::vector<Object *> &child_objects, Object *
 
 void SceneExporter::writeNode(Object *ob)
 {
+  const Scene *scene = blender_context.get_scene();
   ViewLayer *view_layer = blender_context.get_view_layer();
 
   std::vector<Object *> child_objects;
-  bc_get_children(child_objects, ob, view_layer);
-  bool can_export = bc_is_in_Export_set(this->export_settings.get_export_set(), ob, view_layer);
+  bc_get_children(child_objects, ob, scene, view_layer);
+  bool can_export = bc_is_in_Export_set(
+      this->export_settings.get_export_set(), ob, scene, view_layer);
 
   /* Add associated armature first if available */
   bool armature_exported = false;
@@ -94,7 +96,7 @@ void SceneExporter::writeNode(Object *ob)
 
   if (ob_arm != nullptr) {
     armature_exported = bc_is_in_Export_set(
-        this->export_settings.get_export_set(), ob_arm, view_layer);
+        this->export_settings.get_export_set(), ob_arm, scene, view_layer);
     if (armature_exported && bc_is_marked(ob_arm)) {
       writeNode(ob_arm);
       bc_remove_mark(ob_arm);
@@ -191,14 +193,11 @@ void SceneExporter::writeNode(Object *ob)
           /* not ideal: add the target object name as another parameter.
            * No real mapping in the `.dae`.
            * Need support for multiple target objects also. */
-          const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
-          ListBase targets = {nullptr, nullptr};
-          if (cti && cti->get_constraint_targets) {
 
+          ListBase targets = {nullptr, nullptr};
+          if (BKE_constraint_targets_get(con, &targets)) {
             bConstraintTarget *ct;
             Object *obtar;
-
-            cti->get_constraint_targets(con, &targets);
 
             for (ct = (bConstraintTarget *)targets.first; ct; ct = ct->next) {
               obtar = ct->tar;
@@ -206,9 +205,7 @@ void SceneExporter::writeNode(Object *ob)
               colladaNode.addExtraTechniqueChildParameter("blender", con_tag, "target_id", tar_id);
             }
 
-            if (cti->flush_constraint_targets) {
-              cti->flush_constraint_targets(con, &targets, true);
-            }
+            BKE_constraint_targets_flush(con, &targets, true);
           }
 
           con = con->next;

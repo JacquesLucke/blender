@@ -4,16 +4,23 @@
 
 #include "curves_sculpt_intern.hh"
 
+#include "BKE_attribute_math.hh"
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
+#include "BKE_object.h"
+#include "BKE_report.h"
 
 #include "ED_view3d.h"
 
 #include "UI_interface.h"
 
-#include "BLI_enumerable_thread_specific.hh"
+#include "BLI_length_parameterize.hh"
 #include "BLI_task.hh"
+
+#include "DEG_depsgraph_query.h"
+
+#include "BLT_translation.h"
 
 /**
  * The code below uses a prefix naming convention to indicate the coordinate space:
@@ -43,10 +50,11 @@ static std::optional<float3> find_curves_brush_position(const CurvesGeometry &cu
                                                         const float brush_radius_re,
                                                         const ARegion &region,
                                                         const RegionView3D &rv3d,
-                                                        const Object &object)
+                                                        const Object &object,
+                                                        const Span<float3> positions)
 {
   /* This value might have to be adjusted based on user feedback. */
-  const float brush_inner_radius_re = std::min<float>(brush_radius_re, (float)UI_UNIT_X / 3.0f);
+  const float brush_inner_radius_re = std::min<float>(brush_radius_re, float(UI_UNIT_X) / 3.0f);
   const float brush_inner_radius_sq_re = pow2f(brush_inner_radius_re);
 
   float4x4 projection;
@@ -82,8 +90,6 @@ static std::optional<float3> find_curves_brush_position(const CurvesGeometry &cu
       a = b;
     }
   };
-
-  const Span<float3> positions = curves.positions();
 
   BrushPositionCandidate best_candidate = threading::parallel_reduce(
       curves.curves_range(),
@@ -170,20 +176,21 @@ std::optional<CurvesBrush3D> sample_curves_3d_brush(const Depsgraph &depsgraph,
 {
   const Curves &curves_id = *static_cast<Curves *>(curves_object.data);
   const CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
-  const Object *surface_object = curves_id.surface;
+  Object *surface_object = curves_id.surface;
+  Object *surface_object_eval = DEG_get_evaluated_object(&depsgraph, surface_object);
 
   float3 center_ray_start_wo, center_ray_end_wo;
   ED_view3d_win_to_segment_clipped(
       &depsgraph, &region, &v3d, brush_pos_re, center_ray_start_wo, center_ray_end_wo, true);
 
   /* Shorten ray when the surface object is hit. */
-  if (surface_object != nullptr) {
-    const float4x4 surface_to_world_mat = surface_object->obmat;
+  if (surface_object_eval != nullptr) {
+    const float4x4 surface_to_world_mat = surface_object->object_to_world;
     const float4x4 world_to_surface_mat = surface_to_world_mat.inverted();
 
-    Mesh &surface = *static_cast<Mesh *>(surface_object->data);
+    Mesh *surface_eval = BKE_object_get_evaluated_mesh(surface_object_eval);
     BVHTreeFromMesh surface_bvh;
-    BKE_bvhtree_from_mesh_get(&surface_bvh, &surface, BVHTREE_FROM_LOOPTRI, 2);
+    BKE_bvhtree_from_mesh_get(&surface_bvh, surface_eval, BVHTREE_FROM_LOOPTRI, 2);
     BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh); });
 
     const float3 center_ray_start_su = world_to_surface_mat * center_ray_start_wo;
@@ -211,11 +218,14 @@ std::optional<CurvesBrush3D> sample_curves_3d_brush(const Depsgraph &depsgraph,
     }
   }
 
-  const float4x4 curves_to_world_mat = curves_object.obmat;
+  const float4x4 curves_to_world_mat = curves_object.object_to_world;
   const float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
 
   const float3 center_ray_start_cu = world_to_curves_mat * center_ray_start_wo;
   const float3 center_ray_end_cu = world_to_curves_mat * center_ray_end_wo;
+
+  const bke::crazyspace::GeometryDeformation deformation =
+      bke::crazyspace::get_evaluated_curves_deformation(depsgraph, curves_object);
 
   const std::optional<float3> brush_position_optional_cu = find_curves_brush_position(
       curves,
@@ -224,7 +234,8 @@ std::optional<CurvesBrush3D> sample_curves_3d_brush(const Depsgraph &depsgraph,
       brush_radius_re,
       region,
       rv3d,
-      curves_object);
+      curves_object,
+      deformation.positions);
   if (!brush_position_optional_cu.has_value()) {
     /* Nothing found. */
     return std::nullopt;
@@ -247,6 +258,55 @@ std::optional<CurvesBrush3D> sample_curves_3d_brush(const Depsgraph &depsgraph,
   brush_3d.position_cu = brush_position_cu;
   brush_3d.radius_cu = dist_to_line_v3(brush_position_cu, radius_ray_start_cu, radius_ray_end_cu);
   return brush_3d;
+}
+
+std::optional<CurvesBrush3D> sample_curves_surface_3d_brush(
+    const Depsgraph &depsgraph,
+    const ARegion &region,
+    const View3D &v3d,
+    const CurvesSurfaceTransforms &transforms,
+    const BVHTreeFromMesh &surface_bvh,
+    const float2 &brush_pos_re,
+    const float brush_radius_re)
+{
+  float3 brush_ray_start_wo, brush_ray_end_wo;
+  ED_view3d_win_to_segment_clipped(
+      &depsgraph, &region, &v3d, brush_pos_re, brush_ray_start_wo, brush_ray_end_wo, true);
+  const float3 brush_ray_start_su = transforms.world_to_surface * brush_ray_start_wo;
+  const float3 brush_ray_end_su = transforms.world_to_surface * brush_ray_end_wo;
+
+  const float3 brush_ray_direction_su = math::normalize(brush_ray_end_su - brush_ray_start_su);
+
+  BVHTreeRayHit ray_hit;
+  ray_hit.dist = FLT_MAX;
+  ray_hit.index = -1;
+  BLI_bvhtree_ray_cast(surface_bvh.tree,
+                       brush_ray_start_su,
+                       brush_ray_direction_su,
+                       0.0f,
+                       &ray_hit,
+                       surface_bvh.raycast_callback,
+                       const_cast<void *>(static_cast<const void *>(&surface_bvh)));
+  if (ray_hit.index == -1) {
+    return std::nullopt;
+  }
+
+  float3 brush_radius_ray_start_wo, brush_radius_ray_end_wo;
+  ED_view3d_win_to_segment_clipped(&depsgraph,
+                                   &region,
+                                   &v3d,
+                                   brush_pos_re + float2(brush_radius_re, 0),
+                                   brush_radius_ray_start_wo,
+                                   brush_radius_ray_end_wo,
+                                   true);
+  const float3 brush_radius_ray_start_cu = transforms.world_to_curves * brush_radius_ray_start_wo;
+  const float3 brush_radius_ray_end_cu = transforms.world_to_curves * brush_radius_ray_end_wo;
+
+  const float3 brush_pos_su = ray_hit.co;
+  const float3 brush_pos_cu = transforms.surface_to_curves * brush_pos_su;
+  const float brush_radius_cu = dist_to_line_v3(
+      brush_pos_cu, brush_radius_ray_start_cu, brush_radius_ray_end_cu);
+  return CurvesBrush3D{brush_pos_cu, brush_radius_cu};
 }
 
 Vector<float4x4> get_symmetry_brush_transforms(const eCurvesSymmetryType symmetry)
@@ -275,6 +335,91 @@ Vector<float4x4> get_symmetry_brush_transforms(const eCurvesSymmetryType symmetr
   }
 
   return matrices;
+}
+
+float transform_brush_radius(const float4x4 &transform,
+                             const float3 &brush_position,
+                             const float old_radius)
+{
+  const float3 offset_position = brush_position + float3(old_radius, 0.0f, 0.0f);
+  const float3 new_position = transform * brush_position;
+  const float3 new_offset_position = transform * offset_position;
+  return math::distance(new_position, new_offset_position);
+}
+
+void move_last_point_and_resample(MoveAndResampleBuffers &buffer,
+                                  MutableSpan<float3> positions,
+                                  const float3 &new_last_position)
+{
+  /* Find the accumulated length of each point in the original curve,
+   * treating it as a poly curve for performance reasons and simplicity. */
+  buffer.orig_lengths.reinitialize(length_parameterize::segments_num(positions.size(), false));
+  length_parameterize::accumulate_lengths<float3>(positions, false, buffer.orig_lengths);
+  const float orig_total_length = buffer.orig_lengths.last();
+
+  /* Find the factor by which the new curve is shorter or longer than the original. */
+  const float new_last_segment_length = math::distance(positions.last(1), new_last_position);
+  const float new_total_length = buffer.orig_lengths.last(1) + new_last_segment_length;
+  const float length_factor = safe_divide(new_total_length, orig_total_length);
+
+  /* Calculate the lengths to sample the original curve with by scaling the original lengths. */
+  buffer.new_lengths.reinitialize(positions.size() - 1);
+  buffer.new_lengths.first() = 0.0f;
+  for (const int i : buffer.new_lengths.index_range().drop_front(1)) {
+    buffer.new_lengths[i] = buffer.orig_lengths[i - 1] * length_factor;
+  }
+
+  buffer.sample_indices.reinitialize(positions.size() - 1);
+  buffer.sample_factors.reinitialize(positions.size() - 1);
+  length_parameterize::sample_at_lengths(
+      buffer.orig_lengths, buffer.new_lengths, buffer.sample_indices, buffer.sample_factors);
+
+  buffer.new_positions.reinitialize(positions.size() - 1);
+  length_parameterize::interpolate<float3>(
+      positions, buffer.sample_indices, buffer.sample_factors, buffer.new_positions);
+  positions.drop_back(1).copy_from(buffer.new_positions);
+  positions.last() = new_last_position;
+}
+
+CurvesSculptCommonContext::CurvesSculptCommonContext(const bContext &C)
+{
+  this->depsgraph = CTX_data_depsgraph_pointer(&C);
+  this->scene = CTX_data_scene(&C);
+  this->region = CTX_wm_region(&C);
+  this->v3d = CTX_wm_view3d(&C);
+  this->rv3d = CTX_wm_region_view3d(&C);
+}
+
+void report_empty_original_surface(ReportList *reports)
+{
+  BKE_report(reports, RPT_WARNING, TIP_("Original surface mesh is empty"));
+}
+
+void report_empty_evaluated_surface(ReportList *reports)
+{
+  BKE_report(reports, RPT_WARNING, TIP_("Evaluated surface mesh is empty"));
+}
+
+void report_missing_surface(ReportList *reports)
+{
+  BKE_report(reports, RPT_WARNING, TIP_("Missing surface mesh"));
+}
+
+void report_missing_uv_map_on_original_surface(ReportList *reports)
+{
+  BKE_report(
+      reports, RPT_WARNING, TIP_("Missing UV map for attaching curves on original surface"));
+}
+
+void report_missing_uv_map_on_evaluated_surface(ReportList *reports)
+{
+  BKE_report(
+      reports, RPT_WARNING, TIP_("Missing UV map for attaching curves on evaluated surface"));
+}
+
+void report_invalid_uv_map(ReportList *reports)
+{
+  BKE_report(reports, RPT_WARNING, TIP_("Invalid UV map: UV islands must not overlap"));
 }
 
 }  // namespace blender::ed::sculpt_paint

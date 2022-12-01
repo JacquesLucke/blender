@@ -10,6 +10,8 @@
 
 #include "BLI_math.h"
 
+#include "BLT_translation.h"
+
 #include "RNA_access.h"
 #include "RNA_define.h"
 
@@ -120,6 +122,24 @@ static char *rna_Camera_background_image_path(const PointerRNA *ptr)
 
   if (bgpic_index >= 0) {
     return BLI_sprintfN("background_images[%d]", bgpic_index);
+  }
+
+  return NULL;
+}
+
+char *rna_CameraBackgroundImage_image_or_movieclip_user_path(const PointerRNA *ptr)
+{
+  const char *user = ptr->data;
+  Camera *camera = (Camera *)ptr->owner_id;
+
+  int bgpic_index = BLI_findindex(&camera->bg_images, user - offsetof(CameraBGImage, iuser));
+  if (bgpic_index >= 0) {
+    return BLI_sprintfN("background_images[%d].image_user", bgpic_index);
+  }
+
+  bgpic_index = BLI_findindex(&camera->bg_images, user - offsetof(CameraBGImage, cuser));
+  if (bgpic_index >= 0) {
+    return BLI_sprintfN("background_images[%d].clip_user", bgpic_index);
   }
 
   return NULL;
@@ -272,6 +292,7 @@ static void rna_def_camera_background_image(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "image_user", PROP_POINTER, PROP_NONE);
   RNA_def_property_flag(prop, PROP_NEVER_NULL);
+  RNA_def_property_struct_type(prop, "ImageUser");
   RNA_def_property_pointer_sdna(prop, NULL, "iuser");
   RNA_def_property_ui_text(
       prop,
@@ -350,6 +371,7 @@ static void rna_def_camera_background_image(BlenderRNA *brna)
   RNA_def_property_enum_bitflag_sdna(prop, NULL, "flag");
   RNA_def_property_enum_items(prop, bgpic_display_depth_items);
   RNA_def_property_ui_text(prop, "Depth", "Display under or over everything");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_CAMERA);
   RNA_def_property_update(prop, NC_CAMERA | ND_DRAW_RENDER_VIEWPORT, NULL);
 
   /* expose 2 flags as a enum of 3 items */
@@ -498,6 +520,12 @@ static void rna_def_camera_dof_settings_data(BlenderRNA *brna)
   RNA_def_property_override_flag(prop, PROPOVERRIDE_OVERRIDABLE_LIBRARY);
   RNA_def_property_ui_text(
       prop, "Focus Object", "Use this object to define the depth of field focal point");
+  RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Camera_dependency_update");
+
+  prop = RNA_def_property(srna, "focus_subtarget", PROP_STRING, PROP_NONE);
+  RNA_def_property_string_sdna(prop, NULL, "focus_subtarget");
+  RNA_def_property_ui_text(
+      prop, "Focus Bone", "Use this armature bone to define the depth of field focal point");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Camera_dependency_update");
 
   prop = RNA_def_property(srna, "focus_distance", PROP_FLOAT, PROP_DISTANCE);
@@ -670,14 +698,12 @@ void RNA_def_camera(BlenderRNA *brna)
 
   prop = RNA_def_property(srna, "shift_x", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "shiftx");
-  RNA_def_property_range(prop, -10.0f, 10.0f);
   RNA_def_property_ui_range(prop, -2.0, 2.0, 1, 3);
   RNA_def_property_ui_text(prop, "Shift X", "Camera horizontal shift");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Camera_update");
 
   prop = RNA_def_property(srna, "shift_y", PROP_FLOAT, PROP_NONE);
   RNA_def_property_float_sdna(prop, NULL, "shifty");
-  RNA_def_property_range(prop, -10.0f, 10.0f);
   RNA_def_property_ui_range(prop, -2.0, 2.0, 1, 3);
   RNA_def_property_ui_text(prop, "Shift Y", "Camera vertical shift");
   RNA_def_property_update(prop, NC_OBJECT | ND_DRAW, "rna_Camera_update");

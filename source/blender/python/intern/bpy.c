@@ -29,9 +29,12 @@
 
 #include "GPU_state.h"
 
+#include "WM_api.h" /* For #WM_ghost_backend */
+
 #include "bpy.h"
 #include "bpy_app.h"
 #include "bpy_capi_utils.h"
+#include "bpy_driver.h"
 #include "bpy_library.h"
 #include "bpy_operator.h"
 #include "bpy_props.h"
@@ -321,9 +324,52 @@ static PyObject *bpy_resource_path(PyObject *UNUSED(self), PyObject *args, PyObj
     return NULL;
   }
 
-  path = BKE_appdir_folder_id_version(type.value_found, (major * 100) + minor, false);
+  path = BKE_appdir_resource_path_id_with_version(type.value_found, false, (major * 100) + minor);
 
   return PyC_UnicodeFromByte(path ? path : "");
+}
+
+/* This is only exposed for tests, see: `tests/python/bl_pyapi_bpy_driver_secure_eval.py`. */
+PyDoc_STRVAR(bpy_driver_secure_code_test_doc,
+             ".. function:: _driver_secure_code_test(code)\n"
+             "\n"
+             "   Test if the script should be considered trusted.\n"
+             "\n"
+             "   :arg code: The code to test.\n"
+             "   :type code: code\n"
+             "   :arg namespace: The namespace of values which are allowed.\n"
+             "   :type namespace: dict\n"
+             "   :arg verbose: Print the reason for considering insecure to the ``stderr``.\n"
+             "   :type verbose: bool\n"
+             "   :return: True when the script is considered trusted.\n"
+             "   :rtype: bool\n");
+static PyObject *bpy_driver_secure_code_test(PyObject *UNUSED(self), PyObject *args, PyObject *kw)
+{
+  PyObject *py_code;
+  PyObject *py_namespace = NULL;
+  const bool verbose = false;
+  static const char *_keywords[] = {"code", "namespace", "verbose", NULL};
+  static _PyArg_Parser _parser = {
+      "O!" /* `expression` */
+      "|$" /* Optional keyword only arguments. */
+      "O!" /* `namespace` */
+      "O&" /* `verbose` */
+      ":driver_secure_code_test",
+      _keywords,
+      0,
+  };
+  if (!_PyArg_ParseTupleAndKeywordsFast(args,
+                                        kw,
+                                        &_parser,
+                                        &PyCode_Type,
+                                        &py_code,
+                                        &PyDict_Type,
+                                        &py_namespace,
+                                        PyC_ParseBool,
+                                        &verbose)) {
+    return NULL;
+  }
+  return PyBool_FromLong(BPY_driver_secure_bytecode_test(py_code, py_namespace, verbose));
 }
 
 PyDoc_STRVAR(bpy_escape_identifier_doc,
@@ -492,65 +538,52 @@ static PyObject *bpy_rna_enum_items_static(PyObject *UNUSED(self))
   return result;
 }
 
-static PyMethodDef meth_bpy_script_paths = {
-    "script_paths",
-    (PyCFunction)bpy_script_paths,
-    METH_NOARGS,
-    bpy_script_paths_doc,
-};
-static PyMethodDef meth_bpy_blend_paths = {
-    "blend_paths",
-    (PyCFunction)bpy_blend_paths,
-    METH_VARARGS | METH_KEYWORDS,
-    bpy_blend_paths_doc,
-};
-static PyMethodDef meth_bpy_flip_name = {
-    "flip_name",
-    (PyCFunction)bpy_flip_name,
-    METH_VARARGS | METH_KEYWORDS,
-    bpy_flip_name_doc,
-};
-static PyMethodDef meth_bpy_user_resource = {
-    "user_resource",
-    (PyCFunction)bpy_user_resource,
-    METH_VARARGS | METH_KEYWORDS,
-    NULL,
-};
-static PyMethodDef meth_bpy_system_resource = {
-    "system_resource",
-    (PyCFunction)bpy_system_resource,
-    METH_VARARGS | METH_KEYWORDS,
-    bpy_system_resource_doc,
-};
-static PyMethodDef meth_bpy_resource_path = {
-    "resource_path",
-    (PyCFunction)bpy_resource_path,
-    METH_VARARGS | METH_KEYWORDS,
-    bpy_resource_path_doc,
-};
-static PyMethodDef meth_bpy_escape_identifier = {
-    "escape_identifier",
-    (PyCFunction)bpy_escape_identifier,
-    METH_O,
-    bpy_escape_identifier_doc,
-};
-static PyMethodDef meth_bpy_unescape_identifier = {
-    "unescape_identifier",
-    (PyCFunction)bpy_unescape_identifier,
-    METH_O,
-    bpy_unescape_identifier_doc,
-};
-static PyMethodDef meth_bpy_context_members = {
-    "context_members",
-    (PyCFunction)bpy_context_members,
-    METH_NOARGS,
-    bpy_context_members_doc,
-};
-static PyMethodDef meth_bpy_rna_enum_items_static = {
-    "rna_enum_items_static",
-    (PyCFunction)bpy_rna_enum_items_static,
-    METH_NOARGS,
-    bpy_rna_enum_items_static_doc,
+/* This is only exposed for (Unix/Linux), see: #GHOST_ISystem::getSystemBackend for details. */
+PyDoc_STRVAR(bpy_ghost_backend_doc,
+             ".. function:: _ghost_backend()\n"
+             "\n"
+             "   :return: An identifier for the GHOST back-end.\n"
+             "   :rtype: string\n");
+static PyObject *bpy_ghost_backend(PyObject *UNUSED(self))
+{
+  return PyUnicode_FromString(WM_ghost_backend());
+}
+
+static PyMethodDef bpy_methods[] = {
+    {"script_paths", (PyCFunction)bpy_script_paths, METH_NOARGS, bpy_script_paths_doc},
+    {"blend_paths",
+     (PyCFunction)bpy_blend_paths,
+     METH_VARARGS | METH_KEYWORDS,
+     bpy_blend_paths_doc},
+    {"flip_name", (PyCFunction)bpy_flip_name, METH_VARARGS | METH_KEYWORDS, bpy_flip_name_doc},
+    {"user_resource", (PyCFunction)bpy_user_resource, METH_VARARGS | METH_KEYWORDS, NULL},
+    {"system_resource",
+     (PyCFunction)bpy_system_resource,
+     METH_VARARGS | METH_KEYWORDS,
+     bpy_system_resource_doc},
+    {"resource_path",
+     (PyCFunction)bpy_resource_path,
+     METH_VARARGS | METH_KEYWORDS,
+     bpy_resource_path_doc},
+    {"escape_identifier", (PyCFunction)bpy_escape_identifier, METH_O, bpy_escape_identifier_doc},
+    {"unescape_identifier",
+     (PyCFunction)bpy_unescape_identifier,
+     METH_O,
+     bpy_unescape_identifier_doc},
+    {"context_members", (PyCFunction)bpy_context_members, METH_NOARGS, bpy_context_members_doc},
+    {"rna_enum_items_static",
+     (PyCFunction)bpy_rna_enum_items_static,
+     METH_NOARGS,
+     bpy_rna_enum_items_static_doc},
+
+    /* Private functions (not part of the public API and may be removed at any time). */
+    {"_driver_secure_code_test",
+     (PyCFunction)bpy_driver_secure_code_test,
+     METH_VARARGS | METH_KEYWORDS,
+     bpy_driver_secure_code_test_doc},
+    {"_ghost_backend", (PyCFunction)bpy_ghost_backend, METH_NOARGS, bpy_ghost_backend_doc},
+
+    {NULL, NULL, 0, NULL},
 };
 
 static PyObject *bpy_import_test(const char *modname)
@@ -632,37 +665,14 @@ void BPy_init_modules(struct bContext *C)
   /* Register methods and property get/set for RNA types. */
   BPY_rna_types_extend_capi();
 
-  /* utility func's that have nowhere else to go */
-  PyModule_AddObject(mod,
-                     meth_bpy_script_paths.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_script_paths, NULL));
-  PyModule_AddObject(
-      mod, meth_bpy_blend_paths.ml_name, (PyObject *)PyCFunction_New(&meth_bpy_blend_paths, NULL));
-  PyModule_AddObject(mod,
-                     meth_bpy_user_resource.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_user_resource, NULL));
-  PyModule_AddObject(mod,
-                     meth_bpy_system_resource.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_system_resource, NULL));
-  PyModule_AddObject(mod,
-                     meth_bpy_resource_path.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_resource_path, NULL));
-  PyModule_AddObject(mod,
-                     meth_bpy_escape_identifier.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_escape_identifier, NULL));
-  PyModule_AddObject(mod,
-                     meth_bpy_unescape_identifier.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_unescape_identifier, NULL));
-  PyModule_AddObject(
-      mod, meth_bpy_flip_name.ml_name, (PyObject *)PyCFunction_New(&meth_bpy_flip_name, NULL));
-  PyModule_AddObject(mod,
-                     meth_bpy_context_members.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_context_members, NULL));
-  PyModule_AddObject(mod,
-                     meth_bpy_rna_enum_items_static.ml_name,
-                     (PyObject *)PyCFunction_New(&meth_bpy_rna_enum_items_static, NULL));
+  for (int i = 0; bpy_methods[i].ml_name; i++) {
+    PyMethodDef *m = &bpy_methods[i];
+    /* Currently there is no need to support these. */
+    BLI_assert((m->ml_flags & (METH_CLASS | METH_STATIC)) == 0);
+    PyModule_AddObject(mod, m->ml_name, (PyObject *)PyCFunction_New(m, NULL));
+  }
 
-  /* register funcs (bpy_rna.c) */
+  /* Register functions (`bpy_rna.c`). */
   PyModule_AddObject(mod,
                      meth_bpy_register_class.ml_name,
                      (PyObject *)PyCFunction_New(&meth_bpy_register_class, NULL));

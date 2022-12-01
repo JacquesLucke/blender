@@ -56,6 +56,8 @@ bool IMB_colormanagement_space_name_is_data(const char *name);
 bool IMB_colormanagement_space_name_is_scene_linear(const char *name);
 bool IMB_colormanagement_space_name_is_srgb(const char *name);
 
+BLI_INLINE void IMB_colormanagement_get_luminance_coefficients(float r_rgb[3]);
+
 /**
  * Convert a float RGB triplet to the correct luminance weighted average.
  *
@@ -181,7 +183,6 @@ void IMB_colormanagement_imbuf_to_byte_texture(unsigned char *out_buffer,
                                                int width,
                                                int height,
                                                const struct ImBuf *ibuf,
-                                               bool compress_as_srgb,
                                                bool store_premultiplied);
 void IMB_colormanagement_imbuf_to_float_texture(float *out_buffer,
                                                 int offset_x,
@@ -342,6 +343,7 @@ const char *IMB_colormanagement_look_get_indexed_name(int index);
 
 int IMB_colormanagement_colorspace_get_named_index(const char *name);
 const char *IMB_colormanagement_colorspace_get_indexed_name(int index);
+const char *IMB_colormanagement_colorspace_get_name(const struct ColorSpace *colorspace);
 const char *IMB_colormanagement_view_get_default_name(const char *display_name);
 
 void IMB_colormanagement_colorspace_from_ibuf_ftype(
@@ -519,10 +521,10 @@ enum {
  * \{ */
 
 void IMB_colormanagement_blackbody_temperature_to_rgb_table(float *r_table,
-                                                            const int width,
-                                                            const float min,
-                                                            const float max);
-void IMB_colormanagement_wavelength_to_rgb_table(float *r_table, const int width);
+                                                            int width,
+                                                            float min,
+                                                            float max);
+void IMB_colormanagement_wavelength_to_rgb_table(float *r_table, int width);
 
 /** \} */
 

@@ -9,14 +9,11 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
-
 #include "BLI_hash.h"
+#include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 #include "BLI_rand.h"
-
-#include "BLI_blenlib.h"
-#include "BLI_math.h"
-#include "BLI_rand.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -107,9 +104,9 @@ static void BKE_gpencil_instance_modifier_instance_tfm(Object *ob,
     if (mmd->flag & GP_ARRAY_USE_OFFSET) {
       add_v3_v3(mat_offset[3], mmd->offset);
     }
-    invert_m4_m4(obinv, ob->obmat);
+    invert_m4_m4(obinv, ob->object_to_world);
 
-    mul_m4_series(r_offset, mat_offset, obinv, mmd->object->obmat);
+    mul_m4_series(r_offset, mat_offset, obinv, mmd->object->object_to_world);
     copy_m4_m4(mat_offset, r_offset);
 
     /* clear r_mat locations to avoid double transform */
@@ -450,7 +447,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Array = {
-    /* name */ "Array",
+    /* name */ N_("Array"),
     /* structName */ "ArrayGpencilModifierData",
     /* structSize */ sizeof(ArrayGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

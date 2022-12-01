@@ -100,7 +100,7 @@ std::optional<std::string> USDVolumeWriter::resolve_vdb_file(const Volume *volum
 
     vdb_file_path = construct_vdb_file_path(volume);
     if (!BKE_volume_save(
-            volume, usd_export_context_.bmain, NULL, vdb_file_path.value_or("").c_str())) {
+            volume, usd_export_context_.bmain, nullptr, vdb_file_path.value_or("").c_str())) {
       return std::nullopt;
     }
   }
@@ -145,14 +145,14 @@ std::optional<std::string> USDVolumeWriter::construct_vdb_file_path(const Volume
   BLI_strncpy(vdb_file_name, volume->id.name + 2, FILE_MAXFILE);
   const pxr::UsdTimeCode timecode = get_export_time_code();
   if (!timecode.IsDefault()) {
-    const int frame = (int)timecode.GetValue();
+    const int frame = int(timecode.GetValue());
     const int num_frame_digits = frame == 0 ? 1 : integer_digits_i(abs(frame));
     BLI_path_frame(vdb_file_name, frame, num_frame_digits);
   }
   strcat(vdb_file_name, ".vdb");
 
   char vdb_file_path[FILE_MAX];
-  BLI_path_join(vdb_file_path, sizeof(vdb_file_path), vdb_directory_path, vdb_file_name, NULL);
+  BLI_path_join(vdb_file_path, sizeof(vdb_file_path), vdb_directory_path, vdb_file_name);
 
   return vdb_file_path;
 }

@@ -14,7 +14,6 @@
 #include "DNA_material_types.h"
 #include "DNA_object_types.h"
 
-#include "BLI_bounds.hh"
 #include "BLI_index_range.hh"
 #include "BLI_listbase.h"
 #include "BLI_math_base.h"
@@ -53,8 +52,6 @@ using blender::Vector;
 
 static const char *ATTR_POSITION = "position";
 
-static void update_custom_data_pointers(Curves &curves);
-
 static void curves_init_data(ID *id)
 {
   Curves *curves = (Curves *)id;
@@ -65,7 +62,7 @@ static void curves_init_data(ID *id)
   new (&curves->geometry) blender::bke::CurvesGeometry();
 }
 
-static void curves_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, const int flag)
+static void curves_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, const int flag)
 {
   using namespace blender;
 
@@ -89,11 +86,14 @@ static void curves_copy_data(Main *UNUSED(bmain), ID *id_dst, const ID *id_src, 
 
   dst.curve_offsets = static_cast<int *>(MEM_dupallocN(src.curve_offsets));
 
+  if (curves_src->surface_uv_map != nullptr) {
+    curves_dst->surface_uv_map = BLI_strdup(curves_src->surface_uv_map);
+  }
+
   dst.runtime = MEM_new<bke::CurvesGeometryRuntime>(__func__);
 
   dst.runtime->type_counts = src.runtime->type_counts;
-
-  dst.update_customdata_pointers();
+  dst.runtime->bounds_cache = src.runtime->bounds_cache;
 
   curves_dst->batch_cache = nullptr;
 }
@@ -108,6 +108,7 @@ static void curves_free_data(ID *id)
   BKE_curves_batch_cache_free(curves);
 
   MEM_SAFE_FREE(curves->mat);
+  MEM_SAFE_FREE(curves->surface_uv_map);
 }
 
 static void curves_foreach_id(ID *id, LibraryForeachIDData *data)
@@ -148,6 +149,8 @@ static void curves_blend_write(BlendWriter *writer, ID *id, const void *id_addre
 
   BLO_write_int32_array(writer, curves->geometry.curve_num + 1, curves->geometry.curve_offsets);
 
+  BLO_write_string(writer, curves->surface_uv_map);
+
   BLO_write_pointer_array(writer, curves->totcol, curves->mat);
   if (curves->adt) {
     BKE_animdata_blend_write(writer, curves->adt);
@@ -163,9 +166,10 @@ static void curves_blend_read_data(BlendDataReader *reader, ID *id)
   /* Geometry */
   CustomData_blend_read(reader, &curves->geometry.point_data, curves->geometry.point_num);
   CustomData_blend_read(reader, &curves->geometry.curve_data, curves->geometry.curve_num);
-  update_custom_data_pointers(*curves);
 
   BLO_read_int32_array(reader, curves->geometry.curve_num + 1, &curves->geometry.curve_offsets);
+
+  BLO_read_data_address(reader, &curves->surface_uv_map);
 
   curves->geometry.runtime = MEM_new<blender::bke::CurvesGeometryRuntime>(__func__);
 
@@ -195,39 +199,34 @@ static void curves_blend_read_expand(BlendExpander *expander, ID *id)
 }
 
 IDTypeInfo IDType_ID_CV = {
-    /*id_code */ ID_CV,
-    /*id_filter */ FILTER_ID_CV,
-    /*main_listbase_index */ INDEX_ID_CV,
-    /*struct_size */ sizeof(Curves),
-    /*name */ "Hair Curves",
-    /*name_plural */ "Hair Curves",
-    /*translation_context */ BLT_I18NCONTEXT_ID_CURVES,
-    /*flags */ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
-    /*asset_type_info */ nullptr,
+    /* id_code */ ID_CV,
+    /* id_filter */ FILTER_ID_CV,
+    /* main_listbase_index */ INDEX_ID_CV,
+    /* struct_size */ sizeof(Curves),
+    /* name*/ "Curves",
+    /* name_plural */ "hair_curves",
+    /* translation_context */ BLT_I18NCONTEXT_ID_CURVES,
+    /* flags */ IDTYPE_FLAGS_APPEND_IS_REUSABLE,
+    /* asset_type_info */ nullptr,
 
-    /*init_data */ curves_init_data,
-    /*copy_data */ curves_copy_data,
-    /*free_data */ curves_free_data,
-    /*make_local */ nullptr,
-    /*foreach_id */ curves_foreach_id,
-    /*foreach_cache */ nullptr,
-    /*foreach_path */ nullptr,
-    /*owner_get */ nullptr,
+    /* init_data */ curves_init_data,
+    /* copy_data */ curves_copy_data,
+    /* free_data */ curves_free_data,
+    /* make_local */ nullptr,
+    /* foreach_id */ curves_foreach_id,
+    /* foreach_cache */ nullptr,
+    /* foreach_path */ nullptr,
+    /* owner_pointer_get */ nullptr,
 
-    /*blend_write */ curves_blend_write,
-    /*blend_read_data */ curves_blend_read_data,
-    /*blend_read_lib */ curves_blend_read_lib,
-    /*blend_read_expand */ curves_blend_read_expand,
+    /* blend_write */ curves_blend_write,
+    /* blend_read_data */ curves_blend_read_data,
+    /* blend_read_lib */ curves_blend_read_lib,
+    /* blend_read_expand */ curves_blend_read_expand,
 
-    /*blend_read_undo_preserve */ nullptr,
+    /* blend_read_undo_preserve */ nullptr,
 
-    /*lib_override_apply_post */ nullptr,
+    /* lib_override_apply_post */ nullptr,
 };
-
-static void update_custom_data_pointers(Curves &curves)
-{
-  blender::bke::CurvesGeometry::wrap(curves.geometry).update_customdata_pointers();
-}
 
 void *BKE_curves_add(Main *bmain, const char *name)
 {
@@ -264,9 +263,9 @@ BoundBox *BKE_curves_boundbox_get(Object *ob)
   return ob->runtime.bb;
 }
 
-bool BKE_curves_customdata_required(Curves *UNUSED(curves), CustomDataLayer *layer)
+bool BKE_curves_attribute_required(const Curves * /*curves*/, const char *name)
 {
-  return layer->type == CD_PROP_FLOAT3 && STREQ(layer->name, ATTR_POSITION);
+  return STREQ(name, ATTR_POSITION);
 }
 
 Curves *BKE_curves_copy_for_eval(Curves *curves_src, bool reference)
@@ -288,9 +287,14 @@ static void curves_evaluate_modifiers(struct Depsgraph *depsgraph,
 {
   /* Modifier evaluation modes. */
   const bool use_render = (DEG_get_mode(depsgraph) == DAG_EVAL_RENDER);
-  const int required_mode = use_render ? eModifierMode_Render : eModifierMode_Realtime;
+  int required_mode = use_render ? eModifierMode_Render : eModifierMode_Realtime;
+  if (BKE_object_is_in_editmode(object)) {
+    required_mode = (ModifierMode)(int(required_mode) | eModifierMode_Editmode);
+  }
   ModifierApplyFlag apply_flag = use_render ? MOD_APPLY_RENDER : MOD_APPLY_USECACHE;
   const ModifierEvalContext mectx = {depsgraph, object, apply_flag};
+
+  BKE_modifiers_clear_errors(object);
 
   /* Get effective list of modifiers to execute. Some effects like shape keys
    * are added as virtual modifiers before the user created modifiers. */
@@ -320,6 +324,14 @@ void BKE_curves_data_update(struct Depsgraph *depsgraph, struct Scene *scene, Ob
   Curves *curves = static_cast<Curves *>(object->data);
   GeometrySet geometry_set = GeometrySet::create_with_curves(curves,
                                                              GeometryOwnershipType::ReadOnly);
+  if (object->mode == OB_MODE_SCULPT_CURVES) {
+    /* Try to propagate deformation data through modifier evaluation, so that sculpt mode can work
+     * on evaluated curves. */
+    GeometryComponentEditData &edit_component =
+        geometry_set.get_component_for_write<GeometryComponentEditData>();
+    edit_component.curves_edit_hints_ = std::make_unique<blender::bke::CurvesEditHints>(
+        *static_cast<const Curves *>(DEG_get_original_object(object)->data));
+  }
   curves_evaluate_modifiers(depsgraph, scene, object, geometry_set);
 
   /* Assign evaluated object. */
@@ -357,6 +369,8 @@ namespace blender::bke {
 
 Curves *curves_new_nomain(const int points_num, const int curves_num)
 {
+  BLI_assert(points_num >= 0);
+  BLI_assert(curves_num >= 0);
   Curves *curves_id = static_cast<Curves *>(BKE_id_new_nomain(ID_CV, nullptr));
   CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
   curves.resize(points_num, curves_num);
@@ -377,6 +391,53 @@ Curves *curves_new_nomain(CurvesGeometry curves)
   Curves *curves_id = static_cast<Curves *>(BKE_id_new_nomain(ID_CV, nullptr));
   bke::CurvesGeometry::wrap(curves_id->geometry) = std::move(curves);
   return curves_id;
+}
+
+void curves_copy_parameters(const Curves &src, Curves &dst)
+{
+  dst.flag = src.flag;
+  dst.attributes_active_index = src.attributes_active_index;
+  MEM_SAFE_FREE(dst.mat);
+  dst.mat = static_cast<Material **>(MEM_malloc_arrayN(src.totcol, sizeof(Material *), __func__));
+  dst.totcol = src.totcol;
+  MutableSpan(dst.mat, dst.totcol).copy_from(Span(src.mat, src.totcol));
+  dst.symmetry = src.symmetry;
+  dst.selection_domain = src.selection_domain;
+  dst.surface = src.surface;
+  MEM_SAFE_FREE(dst.surface_uv_map);
+  if (src.surface_uv_map != nullptr) {
+    dst.surface_uv_map = BLI_strdup(src.surface_uv_map);
+  }
+}
+
+CurvesSurfaceTransforms::CurvesSurfaceTransforms(const Object &curves_ob, const Object *surface_ob)
+{
+  this->curves_to_world = curves_ob.object_to_world;
+  this->world_to_curves = this->curves_to_world.inverted();
+
+  if (surface_ob != nullptr) {
+    this->surface_to_world = surface_ob->object_to_world;
+    this->world_to_surface = this->surface_to_world.inverted();
+    this->surface_to_curves = this->world_to_curves * this->surface_to_world;
+    this->curves_to_surface = this->world_to_surface * this->curves_to_world;
+    this->surface_to_curves_normal = this->surface_to_curves.inverted().transposed();
+  }
+}
+
+bool CurvesEditHints::is_valid() const
+{
+  const int point_num = this->curves_id_orig.geometry.point_num;
+  if (this->positions.has_value()) {
+    if (this->positions->size() != point_num) {
+      return false;
+    }
+  }
+  if (this->deform_mats.has_value()) {
+    if (this->deform_mats->size() != point_num) {
+      return false;
+    }
+  }
+  return true;
 }
 
 }  // namespace blender::bke

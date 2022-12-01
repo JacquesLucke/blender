@@ -159,6 +159,39 @@ inline T safe_mod(const vec_base<T, Size> &a, const T &b)
   return result;
 }
 
+/**
+ * Returns \a a if it is a multiple of \a b or the next multiple or \a b after \b a .
+ * In other words, it is equivalent to `divide_ceil(a, b) * b`.
+ * It is undefined if \a a is negative or \b b is not strictly positive.
+ */
+template<typename T, int Size, BLI_ENABLE_IF((is_math_integral_type<T>))>
+inline vec_base<T, Size> ceil_to_multiple(const vec_base<T, Size> &a, const vec_base<T, Size> &b)
+{
+  vec_base<T, Size> result;
+  for (int i = 0; i < Size; i++) {
+    BLI_assert(a[i] >= 0);
+    BLI_assert(b[i] > 0);
+    result[i] = ((a[i] + b[i] - 1) / b[i]) * b[i];
+  }
+  return result;
+}
+
+/**
+ * Integer division that returns the ceiling, instead of flooring like normal C division.
+ * It is undefined if \a a is negative or \b b is not strictly positive.
+ */
+template<typename T, int Size, BLI_ENABLE_IF((is_math_integral_type<T>))>
+inline vec_base<T, Size> divide_ceil(const vec_base<T, Size> &a, const vec_base<T, Size> &b)
+{
+  vec_base<T, Size> result;
+  for (int i = 0; i < Size; i++) {
+    BLI_assert(a[i] >= 0);
+    BLI_assert(b[i] > 0);
+    result[i] = (a[i] + b[i] - 1) / b[i];
+  }
+  return result;
+}
+
 template<typename T, int Size>
 inline void min_max(const vec_base<T, Size> &vector,
                     vec_base<T, Size> &min,
@@ -324,16 +357,16 @@ inline vec_base<T, 3> cross(const vec_base<T, 3> &a, const vec_base<T, 3> &b)
 inline vec_base<float, 3> cross_high_precision(const vec_base<float, 3> &a,
                                                const vec_base<float, 3> &b)
 {
-  return {(float)((double)a.y * b.z - (double)a.z * b.y),
-          (float)((double)a.z * b.x - (double)a.x * b.z),
-          (float)((double)a.x * b.y - (double)a.y * b.x)};
+  return {float(double(a.y) * double(b.z) - double(a.z) * double(b.y)),
+          float(double(a.z) * double(b.x) - double(a.x) * double(b.z)),
+          float(double(a.x) * double(b.y) - double(a.y) * double(b.x))};
 }
 
 template<typename T, BLI_ENABLE_IF((is_math_float_type<T>))>
 inline vec_base<T, 3> cross_poly(Span<vec_base<T, 3>> poly)
 {
   /* Newell's Method. */
-  int nv = static_cast<int>(poly.size());
+  int nv = int(poly.size());
   if (nv < 3) {
     return vec_base<T, 3>(0, 0, 0);
   }

@@ -363,7 +363,7 @@ struct VolumeGrid {
     is_loaded = false;
   }
 
-  void clear_reference(const char *UNUSED(volume_name))
+  void clear_reference(const char * /*volume_name*/)
   {
     /* Clear any reference to a grid in the file cache. */
     local_grid = grid()->copyGridWithNewTree();
@@ -445,7 +445,7 @@ struct VolumeGrid {
    * may actually be loaded by another user while this is false. But only after
    * calling load() and is_loaded changes to true is it safe to access.
    *
-   * Const write access to this must be protected by `entry->mutex`.
+   * `const` write access to this must be protected by `entry->mutex`.
    */
   mutable bool is_loaded;
 };
@@ -480,7 +480,7 @@ struct VolumeGridVector : public std::list<VolumeGrid> {
     metadata.reset();
   }
 
-  /* Mutex for file loading of grids list. Const write access to the fields after this must be
+  /* Mutex for file loading of grids list. `const` write access to the fields after this must be
    * protected by locking with this mutex. */
   mutable std::mutex mutex;
   /* Absolute file path that grids have been loaded from. */
@@ -515,10 +515,7 @@ static void volume_init_data(ID *id)
   BLI_strncpy(volume->velocity_grid, "velocity", sizeof(volume->velocity_grid));
 }
 
-static void volume_copy_data(Main *UNUSED(bmain),
-                             ID *id_dst,
-                             const ID *id_src,
-                             const int UNUSED(flag))
+static void volume_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, const int /*flag*/)
 {
   Volume *volume_dst = (Volume *)id_dst;
   const Volume *volume_src = (const Volume *)id_src;
@@ -661,7 +658,7 @@ IDTypeInfo IDType_ID_VO = {
     /* foreach_id */ volume_foreach_id,
     /* foreach_cache */ volume_foreach_cache,
     /* foreach_path */ volume_foreach_path,
-    /* owner_get */ nullptr,
+    /* owner_pointer_get */ nullptr,
 
     /* blend_write */ volume_blend_write,
     /* blend_read_data */ volume_blend_read_data,
@@ -1089,6 +1086,8 @@ static void volume_evaluate_modifiers(struct Depsgraph *depsgraph,
   ModifierApplyFlag apply_flag = use_render ? MOD_APPLY_RENDER : MOD_APPLY_USECACHE;
   const ModifierEvalContext mectx = {depsgraph, object, apply_flag};
 
+  BKE_modifiers_clear_errors(object);
+
   /* Get effective list of modifiers to execute. Some effects like shape keys
    * are added as virtual modifiers before the user created modifiers. */
   VirtualModifierData virtualModifierData;
@@ -1359,6 +1358,26 @@ const char *BKE_volume_grid_name(const VolumeGrid *volume_grid)
 }
 
 #ifdef WITH_OPENVDB
+struct ClearGridOp {
+  openvdb::GridBase &grid;
+
+  template<typename Grid> void operator()()
+  {
+    static_cast<Grid &>(grid).clear();
+  }
+};
+void BKE_volume_grid_clear_tree(openvdb::GridBase &grid)
+{
+  const VolumeGridType grid_type = BKE_volume_grid_type_openvdb(grid);
+  ClearGridOp op{grid};
+  BKE_volume_grid_type_operation(grid_type, op);
+}
+void BKE_volume_grid_clear_tree(Volume &volume, VolumeGrid &volume_grid)
+{
+  openvdb::GridBase::Ptr grid = BKE_volume_grid_openvdb_for_write(&volume, &volume_grid, false);
+  BKE_volume_grid_clear_tree(*grid);
+}
+
 VolumeGridType BKE_volume_grid_type_openvdb(const openvdb::GridBase &grid)
 {
   if (grid.isType<openvdb::FloatGrid>()) {
@@ -1446,6 +1465,23 @@ void BKE_volume_grid_transform_matrix(const VolumeGrid *volume_grid, float mat[4
 #else
   unit_m4(mat);
   UNUSED_VARS(volume_grid);
+#endif
+}
+
+void BKE_volume_grid_transform_matrix_set(struct VolumeGrid *volume_grid, const float mat[4][4])
+{
+#ifdef WITH_OPENVDB
+  openvdb::math::Mat4f mat_openvdb;
+  for (int col = 0; col < 4; col++) {
+    for (int row = 0; row < 4; row++) {
+      mat_openvdb(col, row) = mat[col][row];
+    }
+  }
+  openvdb::GridBase::Ptr grid = volume_grid->grid();
+  grid->setTransform(std::make_shared<openvdb::math::Transform>(
+      std::make_shared<openvdb::math::AffineMap>(mat_openvdb)));
+#else
+  UNUSED_VARS(volume_grid, mat);
 #endif
 }
 
@@ -1545,6 +1581,17 @@ void BKE_volume_grid_remove(Volume *volume, VolumeGrid *grid)
 #endif
 }
 
+bool BKE_volume_grid_determinant_valid(const double determinant)
+{
+#ifdef WITH_OPENVDB
+  /* Limit taken from openvdb/math/Maps.h. */
+  return std::abs(determinant) >= 3.0 * openvdb::math::Tolerance<double>::value();
+#else
+  UNUSED_VARS(determinant);
+  return true;
+#endif
+}
+
 int BKE_volume_simplify_level(const Depsgraph *depsgraph)
 {
   if (DEG_get_mode(depsgraph) != DAG_EVAL_RENDER) {
@@ -1586,8 +1633,8 @@ bool BKE_volume_grid_bounds(openvdb::GridBase::ConstPtr grid, float3 &r_min, flo
 
   openvdb::BBoxd bbox = grid->transform().indexToWorld(coordbbox);
 
-  r_min = float3((float)bbox.min().x(), (float)bbox.min().y(), (float)bbox.min().z());
-  r_max = float3((float)bbox.max().x(), (float)bbox.max().y(), (float)bbox.max().z());
+  r_min = float3(float(bbox.min().x()), float(bbox.min().y()), float(bbox.min().z()));
+  r_max = float3(float(bbox.max().x()), float(bbox.max().y()), float(bbox.max().z()));
 
   return true;
 }
@@ -1596,7 +1643,7 @@ openvdb::GridBase::ConstPtr BKE_volume_grid_shallow_transform(openvdb::GridBase:
                                                               const blender::float4x4 &transform)
 {
   openvdb::math::Transform::Ptr grid_transform = grid->transform().copy();
-  grid_transform->postMult(openvdb::Mat4d(((float *)transform.values)));
+  grid_transform->postMult(openvdb::Mat4d((float *)transform.values));
 
   /* Create a transformed grid. The underlying tree is shared. */
   return grid->copyGridReplacingTransform(grid_transform);

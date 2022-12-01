@@ -210,7 +210,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
   RNA_string_get(op->ptr, "filename", relname);
   RNA_string_get(op->ptr, "directory", root);
 
-  BLI_join_dirfile(path, sizeof(path), root, relname);
+  BLI_path_join(path, sizeof(path), root, relname);
 
   /* test if we have a valid data */
   if (!BLO_library_path_explode(path, libname, &group, &name)) {
@@ -258,7 +258,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
   /* from here down, no error returns */
 
   if (view_layer && RNA_boolean_get(op->ptr, "autoselect")) {
-    BKE_view_layer_base_deselect_all(view_layer);
+    BKE_view_layer_base_deselect_all(scene, view_layer);
   }
 
   /* tag everything, all untagged data can be made local
@@ -284,7 +284,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
     RNA_BEGIN (op->ptr, itemptr, "files") {
       RNA_string_get(&itemptr, "name", relname);
 
-      BLI_join_dirfile(path, sizeof(path), root, relname);
+      BLI_path_join(path, sizeof(path), root, relname);
 
       if (BLO_library_path_explode(path, libname, &group, &name)) {
         if (!wm_link_append_item_poll(NULL, path, group, name, do_append)) {
@@ -303,7 +303,7 @@ static int wm_link_append_exec(bContext *C, wmOperator *op)
     RNA_BEGIN (op->ptr, itemptr, "files") {
       RNA_string_get(&itemptr, "name", relname);
 
-      BLI_join_dirfile(path, sizeof(path), root, relname);
+      BLI_path_join(path, sizeof(path), root, relname);
 
       if (BLO_library_path_explode(path, libname, &group, &name)) {
         BlendfileLinkAppendContextItem *item;
@@ -438,7 +438,7 @@ void WM_OT_link(wmOperatorType *ot)
   ot->exec = wm_link_append_exec;
   ot->poll = wm_link_append_poll;
 
-  ot->flag |= OPTYPE_UNDO;
+  ot->flag = OPTYPE_UNDO;
 
   WM_operator_properties_filesel(ot,
                                  FILE_TYPE_FOLDER | FILE_TYPE_BLENDER | FILE_TYPE_BLENDERLIB,
@@ -462,7 +462,7 @@ void WM_OT_append(wmOperatorType *ot)
   ot->exec = wm_link_append_exec;
   ot->poll = wm_link_append_poll;
 
-  ot->flag |= OPTYPE_UNDO;
+  ot->flag = OPTYPE_UNDO;
 
   WM_operator_properties_filesel(ot,
                                  FILE_TYPE_FOLDER | FILE_TYPE_BLENDER | FILE_TYPE_BLENDERLIB,
@@ -683,7 +683,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
       return OPERATOR_CANCELLED;
     }
 
-    BLI_join_dirfile(path, sizeof(path), root, libname);
+    BLI_path_join(path, sizeof(path), root, libname);
 
     if (!BLI_exists(path)) {
       BKE_reportf(op->reports,
@@ -739,7 +739,7 @@ static int wm_lib_relocate_exec_do(bContext *C, wmOperator *op, bool do_reload)
         RNA_BEGIN (op->ptr, itemptr, "files") {
           RNA_string_get(&itemptr, "name", relname);
 
-          BLI_join_dirfile(path, sizeof(path), root, relname);
+          BLI_path_join(path, sizeof(path), root, relname);
 
           if (BLI_path_cmp(path, lib->filepath_abs) == 0 || !BLO_has_bfile_extension(relname)) {
             continue;
@@ -803,7 +803,7 @@ void WM_OT_lib_relocate(wmOperatorType *ot)
   ot->invoke = wm_lib_relocate_invoke;
   ot->exec = wm_lib_relocate_exec;
 
-  ot->flag |= OPTYPE_UNDO;
+  ot->flag = OPTYPE_UNDO;
 
   prop = RNA_def_string(ot->srna, "library", NULL, MAX_NAME, "Library", "Library to relocate");
   RNA_def_property_flag(prop, PROP_HIDDEN);
@@ -833,7 +833,7 @@ void WM_OT_lib_reload(wmOperatorType *ot)
 
   ot->exec = wm_lib_reload_exec;
 
-  ot->flag |= OPTYPE_UNDO;
+  ot->flag = OPTYPE_UNDO;
 
   prop = RNA_def_string(ot->srna, "library", NULL, MAX_NAME, "Library", "Library to reload");
   RNA_def_property_flag(prop, PROP_HIDDEN);

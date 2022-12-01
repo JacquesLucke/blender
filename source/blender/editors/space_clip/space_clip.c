@@ -49,6 +49,8 @@
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
+#include "BLO_read_write.h"
+
 #include "RNA_access.h"
 
 #include "clip_intern.h" /* own include */
@@ -314,7 +316,7 @@ static SpaceLink *clip_duplicate(SpaceLink *sl)
 static void clip_listener(const wmSpaceTypeListenerParams *params)
 {
   ScrArea *area = params->area;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
   const Scene *scene = params->scene;
 
   /* context changes */
@@ -440,9 +442,6 @@ static void clip_operatortypes(void)
   /* navigation */
   WM_operatortype_append(CLIP_OT_frame_jump);
 
-  /* set optical center to frame center */
-  WM_operatortype_append(CLIP_OT_set_center_principal);
-
   /* selection */
   WM_operatortype_append(CLIP_OT_select);
   WM_operatortype_append(CLIP_OT_select_all);
@@ -514,6 +513,9 @@ static void clip_operatortypes(void)
 
   WM_operatortype_append(CLIP_OT_keyframe_insert);
   WM_operatortype_append(CLIP_OT_keyframe_delete);
+
+  WM_operatortype_append(CLIP_OT_new_image_from_plane_marker);
+  WM_operatortype_append(CLIP_OT_update_image_from_plane_marker);
 
   /* ** clip_graph_ops.c  ** */
 
@@ -808,8 +810,8 @@ static void clip_main_region_draw(const bContext *C, ARegion *region)
   int width, height;
   bool show_cursor = false;
 
-  /* if tracking is in progress, we should synchronize framenr from clipuser
-   * so latest tracked frame would be shown */
+  /* If tracking is in progress, we should synchronize the frame from the clip-user
+   * (#MovieClipUser.framenr) so latest tracked frame would be shown. */
   if (clip && clip->tracking_context) {
     BKE_autotrack_context_sync_user(clip->tracking_context, &sc->user);
   }
@@ -860,6 +862,7 @@ static void clip_main_region_draw(const bContext *C, ARegion *region)
                           sc->mask_info.draw_flag,
                           sc->mask_info.draw_type,
                           sc->mask_info.overlay_mode,
+                          sc->mask_info.blend_factor,
                           mask_width,
                           mask_height,
                           aspx,
@@ -915,7 +918,7 @@ static void clip_main_region_draw(const bContext *C, ARegion *region)
 static void clip_main_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -1114,7 +1117,7 @@ static void clip_header_region_draw(const bContext *C, ARegion *region)
 static void clip_header_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -1156,7 +1159,7 @@ static void clip_tools_region_draw(const bContext *C, ARegion *region)
 static void clip_props_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -1208,7 +1211,7 @@ static void clip_properties_region_draw(const bContext *C, ARegion *region)
 static void clip_properties_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -1241,13 +1244,34 @@ static void clip_id_remap(ScrArea *UNUSED(area),
   BKE_id_remapper_apply(mappings, (ID **)&sclip->mask_info.mask, ID_REMAP_APPLY_ENSURE_REAL);
 }
 
+static void clip_blend_read_data(BlendDataReader *UNUSED(reader), SpaceLink *sl)
+{
+  SpaceClip *sclip = (SpaceClip *)sl;
+
+  sclip->scopes.track_search = NULL;
+  sclip->scopes.track_preview = NULL;
+  sclip->scopes.ok = 0;
+}
+
+static void clip_blend_read_lib(BlendLibReader *reader, ID *parent_id, SpaceLink *sl)
+{
+  SpaceClip *sclip = (SpaceClip *)sl;
+  BLO_read_id_address(reader, parent_id->lib, &sclip->clip);
+  BLO_read_id_address(reader, parent_id->lib, &sclip->mask_info.mask);
+}
+
+static void clip_blend_write(BlendWriter *writer, SpaceLink *sl)
+{
+  BLO_write_struct(writer, SpaceClip, sl);
+}
+
 void ED_spacetype_clip(void)
 {
   SpaceType *st = MEM_callocN(sizeof(SpaceType), "spacetype clip");
   ARegionType *art;
 
   st->spaceid = SPACE_CLIP;
-  strncpy(st->name, "Clip", BKE_ST_MAXNAME);
+  STRNCPY(st->name, "Clip");
 
   st->create = clip_create;
   st->free = clip_free;
@@ -1261,6 +1285,9 @@ void ED_spacetype_clip(void)
   st->dropboxes = clip_dropboxes;
   st->refresh = clip_refresh;
   st->id_remap = clip_id_remap;
+  st->blend_read_data = clip_blend_read_data;
+  st->blend_read_lib = clip_blend_read_lib;
+  st->blend_write = clip_blend_write;
 
   /* regions: main window */
   art = MEM_callocN(sizeof(ARegionType), "spacetype clip region");

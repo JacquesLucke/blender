@@ -310,7 +310,7 @@ void GHOST_Wintab::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
   outWintabInfo.reserve(numPackets);
 
   for (int i = 0; i < numPackets; i++) {
-    PACKET pkt = m_pkts[i];
+    const PACKET pkt = m_pkts[i];
     GHOST_WintabInfoWin32 out;
 
     /* % 3 for multiple devices ("DualTrack"). */
@@ -331,7 +331,7 @@ void GHOST_Wintab::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
     out.y = pkt.pkY;
 
     if (m_maxPressure > 0) {
-      out.tabletData.Pressure = (float)pkt.pkNormalPressure / (float)m_maxPressure;
+      out.tabletData.Pressure = float(pkt.pkNormalPressure) / float(m_maxPressure);
     }
 
     if ((m_maxAzimuth > 0) && (m_maxAltitude > 0)) {
@@ -342,7 +342,7 @@ void GHOST_Wintab::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
        * Positive values specify an angle upward toward the positive z axis; negative values
        * specify an angle downward toward the negative z axis.
        *
-       * wintab.h defines orAltitude as a UINT but documents orAltitude as positive for upward
+       * wintab.h defines orAltitude as a `uint` but documents orAltitude as positive for upward
        * angles and negative for downward angles. WACOM uses negative altitude values to show that
        * the pen is inverted; therefore we cast orAltitude as an (int) and then use the absolute
        * value.
@@ -351,15 +351,15 @@ void GHOST_Wintab::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
       ORIENTATION ort = pkt.pkOrientation;
 
       /* Convert raw fixed point data to radians. */
-      float altRad = (float)((fabs((float)ort.orAltitude) / (float)m_maxAltitude) * M_PI_2);
-      float azmRad = (float)(((float)ort.orAzimuth / (float)m_maxAzimuth) * M_PI * 2.0);
+      float altRad = float((fabs(float(ort.orAltitude)) / float(m_maxAltitude)) * M_PI_2);
+      float azmRad = float((float(ort.orAzimuth) / float(m_maxAzimuth)) * M_PI * 2.0);
 
       /* Find length of the stylus' projected vector on the XY plane. */
       float vecLen = cos(altRad);
 
       /* From there calculate X and Y components based on azimuth. */
       out.tabletData.Xtilt = sin(azmRad) * vecLen;
-      out.tabletData.Ytilt = (float)(sin(M_PI_2 - azmRad) * vecLen);
+      out.tabletData.Ytilt = float(sin(M_PI_2 - azmRad) * vecLen);
     }
 
     out.time = pkt.pkTime;
@@ -367,12 +367,13 @@ void GHOST_Wintab::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
     /* Some Wintab libraries don't handle relative button input, so we track button presses
      * manually. */
     DWORD buttonsChanged = m_buttons ^ pkt.pkButtons;
-    WORD buttonIndex = 0;
+    /* We only needed the prior button state to compare to current, so we can overwrite it now. */
+    m_buttons = pkt.pkButtons;
 
-    while (buttonsChanged) {
+    /* Iterate over button flag indices until all flags are clear. */
+    for (WORD buttonIndex = 0; buttonsChanged; buttonIndex++, buttonsChanged >>= 1) {
       if (buttonsChanged & 1) {
-        /* Find the index for the changed button from the button map. */
-        GHOST_TButtonMask button = mapWintabToGhostButton(pkt.pkCursor, buttonIndex);
+        GHOST_TButton button = mapWintabToGhostButton(pkt.pkCursor, buttonIndex);
 
         if (button != GHOST_kButtonMaskNone) {
           /* If this is not the first button found, push info for the prior Wintab button. */
@@ -381,15 +382,11 @@ void GHOST_Wintab::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
           }
 
           out.button = button;
-          out.type = buttonsChanged & pkt.pkButtons ? GHOST_kEventButtonDown :
-                                                      GHOST_kEventButtonUp;
+
+          DWORD buttonFlag = 1 << buttonIndex;
+          out.type = pkt.pkButtons & buttonFlag ? GHOST_kEventButtonDown : GHOST_kEventButtonUp;
         }
-
-        m_buttons ^= 1 << buttonIndex;
       }
-
-      buttonsChanged >>= 1;
-      buttonIndex++;
     }
 
     outWintabInfo.push_back(out);
@@ -400,7 +397,7 @@ void GHOST_Wintab::getInput(std::vector<GHOST_WintabInfoWin32> &outWintabInfo)
   }
 }
 
-GHOST_TButtonMask GHOST_Wintab::mapWintabToGhostButton(UINT cursor, WORD physicalButton)
+GHOST_TButton GHOST_Wintab::mapWintabToGhostButton(uint cursor, WORD physicalButton)
 {
   const WORD numButtons = 32;
   BYTE logicalButtons[numButtons] = {0};
@@ -505,7 +502,7 @@ void GHOST_Wintab::printContextDebugInfo()
   BYTE systemButtons[32] = {0};
   for (int i = 0; i < 3; i++) {
     printf("initializeWintab cursor %d buttons\n", i);
-    UINT lbut = m_fpInfo(WTI_CURSORS + i, CSR_BUTTONMAP, &logicalButtons);
+    uint lbut = m_fpInfo(WTI_CURSORS + i, CSR_BUTTONMAP, &logicalButtons);
     if (lbut) {
       printf("%d", logicalButtons[0]);
       for (int j = 1; j < lbut; j++) {
@@ -516,7 +513,7 @@ void GHOST_Wintab::printContextDebugInfo()
     else {
       printf("logical button error\n");
     }
-    UINT sbut = m_fpInfo(WTI_CURSORS + i, CSR_SYSBTNMAP, &systemButtons);
+    uint sbut = m_fpInfo(WTI_CURSORS + i, CSR_SYSBTNMAP, &systemButtons);
     if (sbut) {
       printf("%d", systemButtons[0]);
       for (int j = 1; j < sbut; j++) {
@@ -532,7 +529,7 @@ void GHOST_Wintab::printContextDebugInfo()
   /* Print context information. */
 
   /* Print open context constraints. */
-  UINT maxcontexts, opencontexts;
+  uint maxcontexts, opencontexts;
   m_fpInfo(WTI_INTERFACE, IFC_NCONTEXTS, &maxcontexts);
   m_fpInfo(WTI_STATUS, STA_CONTEXTS, &opencontexts);
   printf("%u max contexts, %u open contexts\n", maxcontexts, opencontexts);
@@ -585,7 +582,7 @@ void GHOST_Wintab::printContextDebugInfo()
   printf("WTI_DEFSYSCTX CTX_*\n");
   printContextRanges(lc);
 
-  for (unsigned int i = 0; i < m_numDevices; i++) {
+  for (uint i = 0; i < m_numDevices; i++) {
     /* Print individual device system context. */
     m_fpInfo(WTI_DSCTXS + i, 0, &lc);
     printf("WTI_DSCTXS %u\n", i);

@@ -226,7 +226,7 @@ static int gpencil_layer_add_exec(bContext *C, wmOperator *op)
       bGPDlayer *gpl = BKE_gpencil_layer_addnew(gpd, DATA_("GP_Layer"), true, false);
       /* Add a new frame to make it visible in Dopesheet. */
       if (gpl != NULL) {
-        gpl->actframe = BKE_gpencil_layer_frame_get(gpl, CFRA, GP_GETFRAME_ADD_NEW);
+        gpl->actframe = BKE_gpencil_layer_frame_get(gpl, scene->r.cfra, GP_GETFRAME_ADD_NEW);
       }
     }
   }
@@ -623,6 +623,7 @@ void GPENCIL_OT_layer_duplicate_object(wmOperatorType *ot)
                          true,
                          "Only Active",
                          "Copy only active Layer, uncheck to append all layers");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 
@@ -646,12 +647,12 @@ static int gpencil_frame_duplicate_exec(bContext *C, wmOperator *op)
   }
 
   if (mode == 0) {
-    BKE_gpencil_frame_addcopy(gpl_active, CFRA);
+    BKE_gpencil_frame_addcopy(gpl_active, scene->r.cfra);
   }
   else {
     LISTBASE_FOREACH (bGPDlayer *, gpl, &gpd->layers) {
       if ((gpl->flag & GP_LAYER_LOCKED) == 0) {
-        BKE_gpencil_frame_addcopy(gpl, CFRA);
+        BKE_gpencil_frame_addcopy(gpl, scene->r.cfra);
       }
     }
   }
@@ -2076,6 +2077,9 @@ static void gpencil_brush_delete_mode_brushes(Main *bmain,
     }
 
     BKE_brush_delete(bmain, brush);
+    if (brush == brush_active) {
+      brush_active = NULL;
+    }
   }
 }
 
@@ -2109,8 +2113,8 @@ static int gpencil_brush_reset_all_exec(bContext *C, wmOperator *UNUSED(op))
 
   char tool = '0';
   if (paint) {
-    Brush *brush_active = paint->brush;
-    if (brush_active) {
+    if (paint->brush) {
+      Brush *brush_active = paint->brush;
       switch (mode) {
         case CTX_MODE_PAINT_GPENCIL: {
           tool = brush_active->gpencil_tool;
@@ -2910,8 +2914,8 @@ int ED_gpencil_join_objects_exec(bContext *C, wmOperator *op)
         float offset_global[3];
         float offset_local[3];
 
-        sub_v3_v3v3(offset_global, ob_active->loc, ob_iter->obmat[3]);
-        copy_m3_m4(bmat, ob_active->obmat);
+        sub_v3_v3v3(offset_global, ob_active->loc, ob_iter->object_to_world[3]);
+        copy_m3_m4(bmat, ob_active->object_to_world);
 
         /* Inverse transform for all selected curves in this object,
          * See #object_join_exec for detailed comment on why the safe version is used. */
@@ -3683,6 +3687,7 @@ void GPENCIL_OT_materials_copy_to_object(wmOperatorType *ot)
                          true,
                          "Only Active",
                          "Append only active material, uncheck to append all materials");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_GPENCIL);
   RNA_def_property_flag(prop, PROP_HIDDEN | PROP_SKIP_SAVE);
 }
 

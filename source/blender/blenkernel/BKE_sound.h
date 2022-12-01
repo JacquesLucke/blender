@@ -134,9 +134,9 @@ void *BKE_sound_add_scene_sound_defaults(struct Scene *scene, struct Sequence *s
 
 void BKE_sound_remove_scene_sound(struct Scene *scene, void *handle);
 
-void BKE_sound_mute_scene_sound(void *handle, char mute);
+void BKE_sound_mute_scene_sound(void *handle, bool mute);
 
-void BKE_sound_move_scene_sound(struct Scene *scene,
+void BKE_sound_move_scene_sound(const struct Scene *scene,
                                 void *handle,
                                 int startframe,
                                 int endframe,
@@ -170,7 +170,7 @@ int BKE_sound_scene_playing(struct Scene *scene);
 
 void BKE_sound_free_waveform(struct bSound *sound);
 
-void BKE_sound_read_waveform(struct Main *bmain, struct bSound *sound, short *stop);
+void BKE_sound_read_waveform(struct Main *bmain, struct bSound *sound, bool *stop);
 
 void BKE_sound_update_scene(struct Depsgraph *depsgraph, struct Scene *scene);
 

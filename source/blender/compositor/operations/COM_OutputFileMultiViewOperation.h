@@ -22,7 +22,7 @@ class OutputOpenExrSingleLayerMultiViewOperation : public OutputSingleLayerOpera
                                              const RenderData *rd,
                                              const bNodeTree *tree,
                                              DataType datatype,
-                                             ImageFormatData *format,
+                                             const ImageFormatData *format,
                                              const char *path,
                                              const char *view_name,
                                              bool save_as_render);
@@ -31,7 +31,7 @@ class OutputOpenExrSingleLayerMultiViewOperation : public OutputSingleLayerOpera
   void deinit_execution() override;
 };
 
-/* Writes inputs into OpenEXR multilayer channels. */
+/** Writes inputs into OpenEXR multi-layer channels. */
 class OutputOpenExrMultiLayerMultiViewOperation : public OutputOpenExrMultiLayerOperation {
  private:
  public:
@@ -57,7 +57,7 @@ class OutputStereoOperation : public OutputSingleLayerOperation {
                         const RenderData *rd,
                         const bNodeTree *tree,
                         DataType datatype,
-                        struct ImageFormatData *format,
+                        const struct ImageFormatData *format,
                         const char *path,
                         const char *name,
                         const char *view_name,

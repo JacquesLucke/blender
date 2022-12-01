@@ -17,14 +17,14 @@ static void node_declare(NodeDeclarationBuilder &b)
 
 static int node_shader_gpu_hair_info(GPUMaterial *mat,
                                      bNode *node,
-                                     bNodeExecData *UNUSED(execdata),
+                                     bNodeExecData * /*execdata*/,
                                      GPUNodeStack *in,
                                      GPUNodeStack *out)
 {
   /* Length: don't request length if not needed. */
   static const float zero = 0;
-  GPUNodeLink *length_link = (!out[2].hasoutput) ? GPU_constant(&zero) :
-                                                   GPU_attribute(mat, CD_HAIRLENGTH, "");
+  GPUNodeLink *length_link = out[2].hasoutput ? GPU_attribute(mat, CD_HAIRLENGTH, "") :
+                                                GPU_constant(&zero);
   return GPU_stack_link(mat, node, "node_hair_info", in, out, length_link);
 }
 
@@ -39,7 +39,7 @@ void register_node_type_sh_hair_info()
 
   sh_node_type_base(&ntype, SH_NODE_HAIR_INFO, "Curves Info", NODE_CLASS_INPUT);
   ntype.declare = file_ns::node_declare;
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_hair_info);
+  ntype.gpu_fn = file_ns::node_shader_gpu_hair_info;
 
   nodeRegisterType(&ntype);
 }

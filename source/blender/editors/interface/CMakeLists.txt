@@ -1,7 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(INC
+  .
   ../include
+  ../../asset_system
   ../../blenfont
   ../../blenkernel
   ../../blenlib
@@ -18,34 +20,35 @@ set(INC
   ../../python
   ../../render
   ../../windowmanager
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+  ../../bmesh
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 set(SRC
+  eyedroppers/eyedropper_color.cc
+  eyedroppers/eyedropper_colorband.cc
+  eyedroppers/eyedropper_datablock.cc
+  eyedroppers/eyedropper_depth.cc
+  eyedroppers/eyedropper_driver.cc
+  eyedroppers/eyedropper_gpencil_color.cc
+  eyedroppers/interface_eyedropper.cc
   interface.cc
-  interface_align.c
-  interface_anim.c
-  interface_button_group.c
-  interface_context_menu.c
+  interface_align.cc
+  interface_anim.cc
+  interface_button_group.cc
+  interface_context_menu.cc
   interface_context_path.cc
-  interface_draw.c
+  interface_drag.cc
+  interface_draw.cc
   interface_dropboxes.cc
-  interface_eyedropper.c
-  interface_eyedropper_color.c
-  interface_eyedropper_colorband.c
-  interface_eyedropper_datablock.c
-  interface_eyedropper_depth.c
-  interface_eyedropper_driver.c
-  interface_eyedropper_gpencil_color.c
-  interface_handlers.c
-  interface_icons.c
-  interface_icons_event.c
-  interface_layout.c
-  interface_ops.c
-  interface_panel.c
+  interface_handlers.cc
+  interface_icons.cc
+  interface_icons_event.cc
+  interface_layout.cc
+  interface_ops.cc
+  interface_panel.cc
   interface_query.cc
   interface_region_color_picker.cc
   interface_region_hud.cc
@@ -54,30 +57,33 @@ set(SRC
   interface_region_popover.cc
   interface_region_popup.cc
   interface_region_search.cc
-  interface_region_tooltip.c
+  interface_region_tooltip.cc
   interface_regions.cc
   interface_style.cc
   interface_template_asset_view.cc
   interface_template_attribute_search.cc
   interface_template_list.cc
   interface_template_search_menu.cc
-  interface_template_search_operator.c
-  interface_templates.c
-  interface_undo.c
+  interface_template_search_operator.cc
+  interface_templates.cc
+  interface_undo.cc
   interface_utils.cc
-  interface_view.cc
-  interface_widgets.c
-  resources.c
-  tree_view.cc
+  interface_widgets.cc
+  resources.cc
   view2d.cc
   view2d_draw.cc
   view2d_edge_pan.cc
   view2d_gizmo_navigate.cc
   view2d_ops.cc
+  views/abstract_view.cc
+  views/abstract_view_item.cc
+  views/grid_view.cc
+  views/interface_view.cc
+  views/tree_view.cc
 
-  interface_eyedropper_intern.h
-  interface_intern.h
-  interface_regions_intern.h
+  eyedroppers/eyedropper_intern.hh
+  interface_intern.hh
+  interface_regions_intern.hh
 )
 
 set(LIB

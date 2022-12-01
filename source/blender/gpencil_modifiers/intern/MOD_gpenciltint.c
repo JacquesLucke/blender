@@ -10,7 +10,9 @@
 #include "BLI_utildefines.h"
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_vector.h"
+
+#include "BLT_translation.h"
 
 #include "DNA_defaults.h"
 #include "DNA_gpencil_modifier_types.h"
@@ -47,7 +49,6 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
-#include "DEG_depsgraph_query.h"
 
 static void initData(GpencilModifierData *md)
 {
@@ -143,7 +144,7 @@ static void deformStroke(GpencilModifierData *md,
   float coba_res[4];
   float matrix[4][4];
   if (is_gradient) {
-    mul_m4_m4m4(matrix, mmd->object->imat, ob->obmat);
+    mul_m4_m4m4(matrix, mmd->object->world_to_object, ob->object_to_world);
   }
 
   /* loop points and apply color. */
@@ -366,7 +367,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Tint = {
-    /* name */ "Tint",
+    /* name */ N_("Tint"),
     /* structName */ "TintGpencilModifierData",
     /* structSize */ sizeof(TintGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

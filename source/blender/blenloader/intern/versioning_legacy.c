@@ -58,6 +58,7 @@
 #include "BKE_lattice.h"
 #include "BKE_main.h" /* for Main */
 #include "BKE_mesh.h" /* for ME_ defines (patching) */
+#include "BKE_mesh_legacy_convert.h"
 #include "BKE_modifier.h"
 #include "BKE_object.h"
 #include "BKE_particle.h"
@@ -291,8 +292,8 @@ static void customdata_version_242(Mesh *me)
         MEM_freeN(me->mcol);
       }
 
-      me->mcol = CustomData_add_layer(&me->fdata, CD_MCOL, CD_CALLOC, NULL, me->totface);
-      me->mtface = CustomData_add_layer(&me->fdata, CD_MTFACE, CD_CALLOC, NULL, me->totface);
+      me->mcol = CustomData_add_layer(&me->fdata, CD_MCOL, CD_SET_DEFAULT, NULL, me->totface);
+      me->mtface = CustomData_add_layer(&me->fdata, CD_MTFACE, CD_SET_DEFAULT, NULL, me->totface);
 
       mtf = me->mtface;
       mcol = me->mcol;
@@ -342,8 +343,6 @@ static void customdata_version_242(Mesh *me)
       mcoln++;
     }
   }
-
-  BKE_mesh_update_customdata_pointers(me, true);
 }
 
 /* Only copy render texface layer from active. */
@@ -1468,7 +1467,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
 
     for (me = bmain->meshes.first; me; me = me->id.next) {
       if (!me->medge) {
-        BKE_mesh_calc_edges_legacy(me, true); /* true = use mface->edcode */
+        BKE_mesh_calc_edges_legacy(me, true); /* true = use #MFace.edcode. */
       }
       else {
         BKE_mesh_strip_loose_faces(me);
@@ -2296,7 +2295,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
         psys->vgroup[PSYS_VG_VEL] = paf->vertgroup_v;
         psys->vgroup[PSYS_VG_LENGTH] = paf->vertgroup_v;
 
-        /* dupliobjects */
+        /* Dupli-objects. */
         if (ob->transflag & OB_DUPLIVERTS) {
           Object *dup = bmain->objects.first;
 
@@ -2533,7 +2532,7 @@ void blo_do_versions_pre250(FileData *fd, Library *lib, Main *bmain)
     Object *ob;
     for (ob = bmain->objects.first; ob; ob = ob->id.next) {
       if (ob->pd) {
-        ob->pd->seed = ((uint)(ceil(PIL_check_seconds_timer())) + 1) % 128;
+        ob->pd->seed = ((uint)ceil(PIL_check_seconds_timer()) + 1) % 128;
       }
     }
   }

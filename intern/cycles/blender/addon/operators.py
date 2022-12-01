@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2011-2022 Blender Foundation
-
-# <pep8 compliant>
 from __future__ import annotations
 
 import bpy
@@ -116,7 +114,7 @@ class CYCLES_OT_denoise_animation(Operator):
 
 
 class CYCLES_OT_merge_images(Operator):
-    "Combine OpenEXR multilayer images rendered with different sample " \
+    "Combine OpenEXR multi-layer images rendered with different sample " \
         "ranges into one image with reduced noise"
     bl_idname = "cycles.merge_images"
     bl_label = "Merge Images"

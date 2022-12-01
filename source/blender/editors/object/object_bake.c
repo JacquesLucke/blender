@@ -155,15 +155,16 @@ static bool multiresbake_check(bContext *C, wmOperator *op)
       break;
     }
 
-    if (!me->mloopuv) {
+    if (!CustomData_has_layer(&me->ldata, CD_MLOOPUV)) {
       BKE_report(op->reports, RPT_ERROR, "Mesh should be unwrapped before multires data baking");
 
       ok = false;
     }
     else {
+      const int *material_indices = BKE_mesh_material_indices(me);
       a = me->totpoly;
       while (ok && a--) {
-        Image *ima = bake_object_image_get(ob, me->mpoly[a].mat_nr);
+        Image *ima = bake_object_image_get(ob, material_indices ? material_indices[a] : 0);
 
         if (!ima) {
           BKE_report(
@@ -190,7 +191,7 @@ static bool multiresbake_check(bContext *C, wmOperator *op)
                 ok = false;
               }
 
-              if (ibuf->rect_float && !(ELEM(ibuf->channels, 0, 4))) {
+              if (ibuf->rect_float && !ELEM(ibuf->channels, 0, 4)) {
                 ok = false;
               }
 
@@ -220,22 +221,22 @@ static DerivedMesh *multiresbake_create_loresdm(Scene *scene, Object *ob, int *l
   MultiresModifierData *mmd = get_multires_modifier(scene, ob, 0);
   Mesh *me = (Mesh *)ob->data;
   MultiresModifierData tmp_mmd = *mmd;
-  DerivedMesh *cddm = CDDM_from_mesh(me);
-
-  DM_set_only_copy(cddm, &CD_MASK_BAREMESH);
-
-  if (mmd->lvl == 0) {
-    dm = CDDM_copy(cddm);
-  }
-  else {
-    tmp_mmd.lvl = mmd->lvl;
-    tmp_mmd.sculptlvl = mmd->lvl;
-    dm = multires_make_derived_from_derived(cddm, &tmp_mmd, scene, ob, 0);
-  }
-
-  cddm->release(cddm);
 
   *lvl = mmd->lvl;
+
+  if (mmd->lvl == 0) {
+    DerivedMesh *cddm = CDDM_from_mesh(me);
+    DM_set_only_copy(cddm, &CD_MASK_BAREMESH);
+    return cddm;
+  }
+
+  DerivedMesh *cddm = CDDM_from_mesh(me);
+  DM_set_only_copy(cddm, &CD_MASK_BAREMESH);
+  tmp_mmd.lvl = mmd->lvl;
+  tmp_mmd.sculptlvl = mmd->lvl;
+  dm = multires_make_derived_from_derived(cddm, &tmp_mmd, scene, ob, 0);
+
+  cddm->release(cddm);
 
   return dm;
 }
@@ -460,7 +461,7 @@ static void init_multiresbake_job(bContext *C, MultiresBakeJob *bkj)
   CTX_DATA_END;
 }
 
-static void multiresbake_startjob(void *bkv, short *stop, short *do_update, float *progress)
+static void multiresbake_startjob(void *bkv, bool *stop, bool *do_update, float *progress)
 {
   MultiresBakerJobData *data;
   MultiresBakeJob *bkj = bkv;

@@ -53,6 +53,7 @@ typedef struct BASIC_PrivateData {
   DRWShadingGroup *depth_shgrp[2];
   DRWShadingGroup *depth_shgrp_cull[2];
   DRWShadingGroup *depth_hair_shgrp[2];
+  DRWShadingGroup *depth_curves_shgrp[2];
   DRWShadingGroup *depth_pointcloud_shgrp[2];
   bool use_material_slot_selection;
 } BASIC_PrivateData; /* Transient data */
@@ -84,8 +85,7 @@ static void basic_cache_init(void *vedata)
 
     DRW_PASS_CREATE(psl->depth_pass[i], state | clip_state | infront_state);
     stl->g_data->depth_shgrp[i] = grp = DRW_shgroup_create(sh, psl->depth_pass[i]);
-    DRW_shgroup_uniform_vec2(grp, "sizeViewport", DRW_viewport_size_get(), 1);
-    DRW_shgroup_uniform_vec2(grp, "sizeViewportInv", DRW_viewport_invert_size_get(), 1);
+    DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
 
     sh = DRW_state_is_select() ?
              BASIC_shaders_pointcloud_depth_conservative_sh_get(draw_ctx->sh_cfg) :
@@ -93,19 +93,22 @@ static void basic_cache_init(void *vedata)
     DRW_PASS_CREATE(psl->depth_pass_pointcloud[i], state | clip_state | infront_state);
     stl->g_data->depth_pointcloud_shgrp[i] = grp = DRW_shgroup_create(
         sh, psl->depth_pass_pointcloud[i]);
-    DRW_shgroup_uniform_vec2(grp, "sizeViewport", DRW_viewport_size_get(), 1);
-    DRW_shgroup_uniform_vec2(grp, "sizeViewportInv", DRW_viewport_invert_size_get(), 1);
+    DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
 
     stl->g_data->depth_hair_shgrp[i] = grp = DRW_shgroup_create(
         BASIC_shaders_depth_sh_get(draw_ctx->sh_cfg), psl->depth_pass[i]);
+    DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
+
+    stl->g_data->depth_curves_shgrp[i] = grp = DRW_shgroup_create(
+        BASIC_shaders_curves_depth_sh_get(draw_ctx->sh_cfg), psl->depth_pass[i]);
+    DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
 
     sh = DRW_state_is_select() ? BASIC_shaders_depth_conservative_sh_get(draw_ctx->sh_cfg) :
                                  BASIC_shaders_depth_sh_get(draw_ctx->sh_cfg);
     state |= DRW_STATE_CULL_BACK;
     DRW_PASS_CREATE(psl->depth_pass_cull[i], state | clip_state | infront_state);
     stl->g_data->depth_shgrp_cull[i] = grp = DRW_shgroup_create(sh, psl->depth_pass_cull[i]);
-    DRW_shgroup_uniform_vec2(grp, "sizeViewport", DRW_viewport_size_get(), 1);
-    DRW_shgroup_uniform_vec2(grp, "sizeViewportInv", DRW_viewport_invert_size_get(), 1);
+    DRW_shgroup_uniform_block(grp, "globalsBlock", G_draw.block_ubo);
   }
 }
 
@@ -156,8 +159,17 @@ static void basic_cache_populate(void *vedata, Object *ob)
     basic_cache_populate_particles(vedata, ob);
   }
 
-  /* Make flat object selectable in ortho view if wireframe is enabled. */
   const bool do_in_front = (ob->dtx & OB_DRAW_IN_FRONT) != 0;
+  if (ob->type == OB_CURVES) {
+    DRW_shgroup_curves_create_sub(ob, stl->g_data->depth_curves_shgrp[do_in_front], NULL);
+  }
+
+  if (ob->type == OB_POINTCLOUD) {
+    DRW_shgroup_pointcloud_create_sub(ob, stl->g_data->depth_pointcloud_shgrp[do_in_front], NULL);
+    return;
+  }
+
+  /* Make flat object selectable in ortho view if wireframe is enabled. */
   if ((draw_ctx->v3d->overlay.flag & V3D_OVERLAY_WIREFRAMES) ||
       (draw_ctx->v3d->shading.type == OB_WIRE) || (ob->dtx & OB_DRAWWIRE) || (ob->dt == OB_WIRE)) {
     int flat_axis = 0;
@@ -175,23 +187,16 @@ static void basic_cache_populate(void *vedata, Object *ob)
     }
   }
 
-  const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->v3d) &&
+  const bool use_sculpt_pbvh = BKE_sculptsession_use_pbvh_draw(ob, draw_ctx->rv3d) &&
                                !DRW_state_is_image_render();
   const bool do_cull = (draw_ctx->v3d &&
                         (draw_ctx->v3d->shading.flag & V3D_SHADING_BACKFACE_CULLING));
 
-  DRWShadingGroup *shgrp = NULL;
-
-  if (ob->type == OB_POINTCLOUD) {
-    shgrp = stl->g_data->depth_pointcloud_shgrp[do_in_front];
-  }
-  else {
-    shgrp = (do_cull) ? stl->g_data->depth_shgrp_cull[do_in_front] :
-                        stl->g_data->depth_shgrp[do_in_front];
-  }
+  DRWShadingGroup *shgrp = (do_cull) ? stl->g_data->depth_shgrp_cull[do_in_front] :
+                                       stl->g_data->depth_shgrp[do_in_front];
 
   if (use_sculpt_pbvh) {
-    DRW_shgroup_call_sculpt(shgrp, ob, false, false);
+    DRW_shgroup_call_sculpt(shgrp, ob, false, false, false, false, false);
   }
   else {
     if (stl->g_data->use_material_slot_selection && BKE_object_supports_material_slots(ob)) {

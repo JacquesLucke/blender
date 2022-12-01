@@ -43,6 +43,7 @@
 #include "DNA_world_types.h"
 
 #include "RNA_access.h"
+#include "RNA_path.h"
 #include "RNA_prototypes.h"
 
 #include "BKE_anim_data.h"
@@ -84,7 +85,7 @@
 #define ANIM_CHAN_NAME_SIZE 256
 
 /* get the pointer used for some flag */
-#define GET_ACF_FLAG_PTR(ptr, type) ((*(type) = sizeof((ptr))), &(ptr))
+#define GET_ACF_FLAG_PTR(ptr, type) ((*(type) = sizeof(ptr)), &(ptr))
 
 /* *********************************************** */
 /* Generic Functions (Type independent) */
@@ -156,7 +157,7 @@ static void acf_generic_dataexpand_backdrop(bAnimContext *ac,
   /* set backdrop drawing color */
   acf->get_backdrop_color(ac, ale, color);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor3fv(color);
 
   /* no rounded corner - just rectangular box */
@@ -245,7 +246,7 @@ static void acf_generic_channel_backdrop(bAnimContext *ac,
   /* set backdrop drawing color */
   acf->get_backdrop_color(ac, ale, color);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor3fv(color);
 
   /* no rounded corners - just rectangular box */
@@ -3123,7 +3124,7 @@ static bAnimChannelType ACF_DSSIMULATION = {
 /* TODO: just get this from RNA? */
 static int acf_dsgpencil_icon(bAnimListElem *UNUSED(ale))
 {
-  return ICON_GREASEPENCIL;
+  return ICON_OUTLINER_DATA_GREASEPENCIL;
 }
 
 /* Get the appropriate flag(s) for the setting when it is valid. */
@@ -4351,15 +4352,15 @@ void ANIM_channel_setting_set(bAnimContext *ac,
 
 /* --------------------------- */
 
-/* size of icons */
+/** Size of icons. */
 #define ICON_WIDTH (0.85f * U.widget_unit)
-/* width of sliders */
+/** Width of sliders. */
 #define SLIDER_WIDTH (4 * U.widget_unit)
-/* min-width of rename textboxes */
+/** Min-width of rename text-boxes. */
 #define RENAME_TEXT_MIN_WIDTH (U.widget_unit)
-/* width of graph editor color bands */
+/** Width of graph editor color bands. */
 #define GRAPH_COLOR_BAND_WIDTH (0.3f * U.widget_unit)
-/* extra offset for the visibility icons in the graph editor */
+/** Extra offset for the visibility icons in the graph editor. */
 #define GRAPH_ICON_VISIBILITY_OFFSET (GRAPH_COLOR_BAND_WIDTH * 1.5f)
 
 /* Helper - Check if a channel needs renaming */
@@ -4448,7 +4449,7 @@ void ANIM_channel_draw(
         uint pos = GPU_vertformat_attr_add(
             immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-        immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+        immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
         /* F-Curve channels need to have a special 'color code' box drawn,
          * which is colored with whatever color the curve has stored.
@@ -4512,7 +4513,7 @@ void ANIM_channel_draw(
       uint pos = GPU_vertformat_attr_add(
           immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-      immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+      immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
       /* FIXME: replace hardcoded color here, and check on extents! */
       immUniformColor3f(1.0f, 0.0f, 0.0f);
@@ -4548,7 +4549,7 @@ void ANIM_channel_draw(
     float color[3];
     uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-    immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
     /* get and set backdrop color */
     acf->get_backdrop_color(ac, ale, color);
@@ -4747,13 +4748,13 @@ static void achannel_setting_slider_cb(bContext *C, void *id_poin, void *fcu_poi
   RNA_id_pointer_create(id, &id_ptr);
 
   /* Get NLA context for value remapping */
-  const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(depsgraph,
-                                                                                    (float)CFRA);
+  const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(
+      depsgraph, (float)scene->r.cfra);
   NlaKeyframingContext *nla_context = BKE_animsys_get_nla_keyframing_context(
       &nla_cache, &id_ptr, adt, &anim_eval_context);
 
   /* get current frame and apply NLA-mapping to it (if applicable) */
-  cfra = BKE_nla_tweakedit_remap(adt, (float)CFRA, NLATIME_CONVERT_UNMAP);
+  cfra = BKE_nla_tweakedit_remap(adt, (float)scene->r.cfra, NLATIME_CONVERT_UNMAP);
 
   /* Get flags for keyframing. */
   flag = ANIM_get_keyframing_flags(scene, true);
@@ -4803,8 +4804,8 @@ static void achannel_setting_slider_shapekey_cb(bContext *C, void *key_poin, voi
   RNA_id_pointer_create((ID *)key, &id_ptr);
 
   /* Get NLA context for value remapping */
-  const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(depsgraph,
-                                                                                    (float)CFRA);
+  const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(
+      depsgraph, (float)scene->r.cfra);
   NlaKeyframingContext *nla_context = BKE_animsys_get_nla_keyframing_context(
       &nla_cache, &id_ptr, key->adt, &anim_eval_context);
 
@@ -4872,7 +4873,7 @@ static void achannel_setting_slider_nla_curve_cb(bContext *C,
   float cfra;
 
   /* get current frame - *no* NLA mapping should be done */
-  cfra = (float)CFRA;
+  cfra = (float)scene->r.cfra;
 
   /* get flags for keyframing */
   flag = ANIM_get_keyframing_flags(scene, true);
@@ -4936,7 +4937,7 @@ static void draw_setting_widget(bAnimContext *ac,
         tooltip = TIP_("Grease Pencil layer is visible in the viewport");
       }
       else {
-        tooltip = TIP_("Channels are visible in Graph Editor for editing");
+        tooltip = TIP_("Toggle visibility of Channels in Graph Editor for editing");
       }
       break;
 
@@ -4992,7 +4993,7 @@ static void draw_setting_widget(bAnimContext *ac,
       }
       else if (ale->type == ANIMTYPE_GPLAYER) {
         tooltip = TIP_(
-            "Shows all keyframes during animation playback and enabled all frames for editing "
+            "Show all keyframes during animation playback and enable all frames for editing "
             "(uncheck to use only the current keyframe during animation playback and editing)");
       }
       else {
@@ -5352,8 +5353,8 @@ void ANIM_channel_draw_widgets(const bContext *C,
      *   and wouldn't be able to auto-keyframe.
      * - Slider should start before the toggles (if they're visible)
      *   to keep a clean line down the side.
-     * - Sliders are always drawn in Shapekey mode now. Prior to this
-     *   the SACTION_SLIDERS flag would be set when changing into Shapekey mode.
+     * - Sliders are always drawn in Shape-key mode now. Prior to this
+     *   the SACTION_SLIDERS flag would be set when changing into shape-key mode.
      */
     if (((draw_sliders) && ELEM(ale->type,
                                 ANIMTYPE_FCURVE,

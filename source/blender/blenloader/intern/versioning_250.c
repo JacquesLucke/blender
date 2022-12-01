@@ -54,6 +54,7 @@
 #include "BKE_global.h" /* for G */
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
+#include "BKE_mesh.h"
 #include "BKE_modifier.h"
 #include "BKE_multires.h"
 #include "BKE_node_tree_update.h"
@@ -425,14 +426,14 @@ static void do_versions_windowmanager_2_50(bScreen *screen)
   }
 }
 
-static void versions_gpencil_add_main(ListBase *lb, ID *id, const char *name)
+static void versions_gpencil_add_main(Main *bmain, ListBase *lb, ID *id, const char *name)
 {
   BLI_addtail(lb, id);
   id->us = 1;
   id->flag = LIB_FAKEUSER;
   *((short *)id->name) = ID_GD;
 
-  BKE_id_new_name_validate(lb, id, name, false);
+  BKE_id_new_name_validate(bmain, lb, id, name, false);
   /* alphabetic insertion: is in BKE_id_new_name_validate */
 
   if ((id->tag & LIB_TAG_TEMP_MAIN) == 0) {
@@ -455,21 +456,21 @@ static void do_versions_gpencil_2_50(Main *main, bScreen *screen)
       if (sl->spacetype == SPACE_VIEW3D) {
         View3D *v3d = (View3D *)sl;
         if (v3d->gpd) {
-          versions_gpencil_add_main(&main->gpencils, (ID *)v3d->gpd, "GPencil View3D");
+          versions_gpencil_add_main(main, &main->gpencils, (ID *)v3d->gpd, "GPencil View3D");
           v3d->gpd = NULL;
         }
       }
       else if (sl->spacetype == SPACE_NODE) {
         SpaceNode *snode = (SpaceNode *)sl;
         if (snode->gpd) {
-          versions_gpencil_add_main(&main->gpencils, (ID *)snode->gpd, "GPencil Node");
+          versions_gpencil_add_main(main, &main->gpencils, (ID *)snode->gpd, "GPencil Node");
           snode->gpd = NULL;
         }
       }
       else if (sl->spacetype == SPACE_SEQ) {
         SpaceSeq *sseq = (SpaceSeq *)sl;
         if (sseq->gpd) {
-          versions_gpencil_add_main(&main->gpencils, (ID *)sseq->gpd, "GPencil Node");
+          versions_gpencil_add_main(main, &main->gpencils, (ID *)sseq->gpd, "GPencil Node");
           sseq->gpd = NULL;
         }
       }
@@ -477,7 +478,7 @@ static void do_versions_gpencil_2_50(Main *main, bScreen *screen)
         SpaceImage *sima = (SpaceImage *)sl;
 #if 0 /* see comment on r28002 */
         if (sima->gpd) {
-          versions_gpencil_add_main(&main->gpencil, (ID *)sima->gpd, "GPencil Image");
+          versions_gpencil_add_main(main, &main->gpencil, (ID *)sima->gpd, "GPencil Image");
           sima->gpd = NULL;
         }
 #else
@@ -629,7 +630,7 @@ static bool seq_sound_proxy_update_cb(Sequence *seq, void *user_data)
   Main *bmain = (Main *)user_data;
   if (seq->type == SEQ_TYPE_SOUND_HD) {
     char str[FILE_MAX];
-    BLI_join_dirfile(str, sizeof(str), seq->strip->dir, seq->strip->stripdata->name);
+    BLI_path_join(str, sizeof(str), seq->strip->dir, seq->strip->stripdata->name);
     BLI_path_abs(str, BKE_main_blendfile_path(bmain));
     seq->sound = BKE_sound_new_file(bmain, str);
   }
@@ -989,15 +990,15 @@ void blo_do_versions_250(FileData *fd, Library *lib, Main *bmain)
     int a, tot;
 
     /* shape keys are no longer applied to the mesh itself, but rather
-     * to the evaluated #Mesh / #DispList, so here we ensure that the basis
+     * to the evaluated #Mesh, so here we ensure that the basis
      * shape key is always set in the mesh coordinates. */
     for (me = bmain->meshes.first; me; me = me->id.next) {
       if ((key = blo_do_versions_newlibadr(fd, lib, me->key)) && key->refkey) {
         data = key->refkey->data;
         tot = MIN2(me->totvert, key->refkey->totelem);
-
+        MVert *verts = BKE_mesh_verts_for_write(me);
         for (a = 0; a < tot; a++, data += 3) {
-          copy_v3_v3(me->mvert[a].co, data);
+          copy_v3_v3(verts[a].co, data);
         }
       }
     }
@@ -2271,18 +2272,6 @@ void blo_do_versions_250(FileData *fd, Library *lib, Main *bmain)
       }
       FOREACH_NODETREE_END;
     }
-
-    {
-      /* Initialize group tree nodetypes.
-       * These are used to distinguish tree types and
-       * associate them with specific node types for polling.
-       */
-      bNodeTree *ntree;
-      /* all node trees in bmain->nodetree are considered groups */
-      for (ntree = bmain->nodetrees.first; ntree; ntree = ntree->id.next) {
-        ntree->nodetype = NODE_GROUP;
-      }
-    }
   }
 
   if (!MAIN_VERSION_ATLEAST(bmain, 259, 4)) {
@@ -2315,7 +2304,6 @@ static void lib_node_do_versions_group_indices(bNode *gnode)
         /* deprecated */
         sock->own_index = link->fromsock->own_index;
         sock->to_index = 0;
-        sock->groupsock = NULL;
       }
     }
   }
@@ -2328,7 +2316,6 @@ static void lib_node_do_versions_group_indices(bNode *gnode)
         /* deprecated */
         sock->own_index = link->tosock->own_index;
         sock->to_index = 0;
-        sock->groupsock = NULL;
       }
     }
   }

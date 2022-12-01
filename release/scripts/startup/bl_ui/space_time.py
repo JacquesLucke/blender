@@ -1,8 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 import bpy
 from bpy.types import Menu, Panel
+from bpy.app.translations import contexts as i18n_contexts
 
 
 # Header buttons for timeline header (play, etc.)
@@ -89,6 +88,7 @@ class TIME_MT_editor_menus(Menu):
         sub.popover(
             panel="TIME_PT_keyframing_settings",
             text="Keying",
+            text_ctxt=i18n_contexts.id_windowmanager,
         )
 
         # Add a separator to keep the popover button from aligning with the menu button.
@@ -119,6 +119,10 @@ class TIME_MT_view(Menu):
 
         scene = context.scene
         st = context.space_data
+
+        layout.prop(st, "show_region_hud")
+
+        layout.separator()
 
         layout.prop(st, "show_seconds")
         layout.prop(st, "show_locked_time")

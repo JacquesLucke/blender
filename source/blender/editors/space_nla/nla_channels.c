@@ -20,6 +20,7 @@
 #include "BKE_anim_data.h"
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_layer.h"
 #include "BKE_nla.h"
 #include "BKE_report.h"
 #include "BKE_scene.h"
@@ -68,7 +69,8 @@ static int mouse_nla_channels(bContext *C, bAnimContext *ac, int channel_index, 
 
   /* get the channel that was clicked on */
   /* filter channels */
-  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS);
+  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS |
+            ANIMFILTER_FCURVESONLY);
   ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
 
   /* get channel from index */
@@ -128,7 +130,8 @@ static int mouse_nla_channels(bContext *C, bAnimContext *ac, int channel_index, 
         else {
           /* deselect all */
           /* TODO: should this deselect all other types of channels too? */
-          LISTBASE_FOREACH (Base *, b, &view_layer->object_bases) {
+          BKE_view_layer_synced_ensure(ac->scene, view_layer);
+          LISTBASE_FOREACH (Base *, b, BKE_view_layer_object_bases_get(view_layer)) {
             ED_object_base_select(b, BA_DESELECT);
             if (b->object->adt) {
               b->object->adt->flag &= ~(ADT_UI_SELECTED | ADT_UI_ACTIVE);
@@ -394,7 +397,8 @@ static int nlachannels_pushdown_exec(bContext *C, wmOperator *op)
     int filter;
 
     /* filter channels */
-    filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS);
+    filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS |
+              ANIMFILTER_FCURVESONLY);
     ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
 
     /* get channel from index */
@@ -476,7 +480,7 @@ void NLA_OT_action_pushdown(wmOperatorType *ot)
                          "Index of NLA action channel to perform pushdown operation on",
                          0,
                          INT_MAX);
-  RNA_def_property_flag(ot->prop, PROP_SKIP_SAVE);
+  RNA_def_property_flag(ot->prop, PROP_SKIP_SAVE | PROP_HIDDEN);
 }
 
 /* ******************** Action Unlink ******************************** */
@@ -561,7 +565,7 @@ bool nlaedit_add_tracks_existing(bAnimContext *ac, bool above_sel)
 
   /* get a list of the (selected) NLA Tracks being shown in the NLA */
   filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_SEL |
-            ANIMFILTER_NODUPLIS);
+            ANIMFILTER_NODUPLIS | ANIMFILTER_FCURVESONLY);
   ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
 
   /* add tracks... */
@@ -608,7 +612,7 @@ bool nlaedit_add_tracks_empty(bAnimContext *ac)
 
   /* get a list of the selected AnimData blocks in the NLA */
   filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_ANIMDATA |
-            ANIMFILTER_SEL | ANIMFILTER_NODUPLIS);
+            ANIMFILTER_SEL | ANIMFILTER_NODUPLIS | ANIMFILTER_FCURVESONLY);
   ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
 
   /* check if selected AnimData blocks are empty, and add tracks if so... */
@@ -710,7 +714,7 @@ static int nlaedit_delete_tracks_exec(bContext *C, wmOperator *UNUSED(op))
 
   /* get a list of the AnimData blocks being shown in the NLA */
   filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_SEL |
-            ANIMFILTER_NODUPLIS);
+            ANIMFILTER_NODUPLIS | ANIMFILTER_FCURVESONLY);
   ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
 
   /* delete tracks */

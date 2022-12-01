@@ -35,7 +35,7 @@
 /* Own include. */
 #include "transform_mode.h"
 
-int transform_mode_really_used(bContext *C, int mode)
+eTfmMode transform_mode_really_used(bContext *C, eTfmMode mode)
 {
   if (mode == TFM_BONESIZE) {
     Object *ob = CTX_data_active_object(C);
@@ -57,7 +57,7 @@ bool transdata_check_local_center(const TransInfo *t, short around)
   return ((around == V3D_AROUND_LOCAL_ORIGINS) &&
           ((t->options & (CTX_OBJECT | CTX_POSE_BONE)) ||
            /* implicit: (t->flag & T_EDIT) */
-           (ELEM(t->obedit_type, OB_MESH, OB_CURVES_LEGACY, OB_MBALL, OB_ARMATURE, OB_GPENCIL)) ||
+           ELEM(t->obedit_type, OB_MESH, OB_CURVES_LEGACY, OB_MBALL, OB_ARMATURE, OB_GPENCIL) ||
            (t->spacetype == SPACE_GRAPH) ||
            (t->options & (CTX_MOVIECLIP | CTX_MASK | CTX_PAINT_CURVE | CTX_SEQUENCER_IMAGE))));
 }
@@ -291,6 +291,9 @@ void constraintTransLim(const TransInfo *t, TransData *td)
           /* skip... incompatible spacetype */
           continue;
         }
+
+        /* Initialize the custom space for use in calculating the matrices. */
+        BKE_constraint_custom_object_space_init(&cob, con);
 
         /* get constraint targets if needed */
         BKE_constraint_targets_for_solving_get(t->depsgraph, con, &cob, &targets, ctime);
@@ -549,18 +552,14 @@ void ElementRotation_ex(const TransInfo *t,
     mul_m3_m3m3(totmat, mat, td->mtx);
     mul_m3_m3m3(smat, td->smtx, totmat);
 
-    /* apply gpencil falloff */
+    /* Apply gpencil falloff. */
     if (t->options & CTX_GPENCIL_STROKES) {
       bGPDstroke *gps = (bGPDstroke *)td->extra;
-      float sx = smat[0][0];
-      float sy = smat[1][1];
-      float sz = smat[2][2];
-
-      mul_m3_fl(smat, gps->runtime.multi_frame_falloff);
-      /* fix scale */
-      smat[0][0] = sx;
-      smat[1][1] = sy;
-      smat[2][2] = sz;
+      if (gps->runtime.multi_frame_falloff != 1.0f) {
+        float ident_mat[3][3];
+        unit_m3(ident_mat);
+        interp_m3_m3m3(smat, ident_mat, smat, gps->runtime.multi_frame_falloff);
+      }
     }
 
     sub_v3_v3v3(vec, td->iloc, center);
@@ -945,7 +944,11 @@ void ElementResize(const TransInfo *t,
   if (td->ext && td->ext->size) {
     float fsize[3];
 
-    if (ELEM(t->data_type, TC_SCULPT, TC_OBJECT, TC_OBJECT_TEXSPACE, TC_POSE)) {
+    if (ELEM(t->data_type,
+             &TransConvertType_Sculpt,
+             &TransConvertType_Object,
+             &TransConvertType_ObjectTexSpace,
+             &TransConvertType_Pose)) {
       float obsizemat[3][3];
       /* Reorient the size mat to fit the oriented object. */
       mul_m3_m3m3(obsizemat, tmat, td->axismtx);
@@ -1038,7 +1041,7 @@ void ElementResize(const TransInfo *t,
     if (t->options & CTX_POSE_BONE) {
       /* Without this, the resulting location of scaled bones aren't correct,
        * especially noticeable scaling root or disconnected bones around the cursor, see T92515. */
-      mul_mat3_m4_v3(tc->poseobj->obmat, vec);
+      mul_mat3_m4_v3(tc->poseobj->object_to_world, vec);
     }
     mul_m3_v3(td->smtx, vec);
   }
@@ -1205,13 +1208,13 @@ void transform_mode_init(TransInfo *t, wmOperator *op, const int mode)
       break;
   }
 
-  if (t->data_type == TC_MESH_VERTS) {
+  if (t->data_type == &TransConvertType_Mesh) {
     /* Init Custom Data correction.
      * Ideally this should be called when creating the TransData. */
     transform_convert_mesh_customdatacorrect_init(t);
   }
 
-  /* TODO(germano): Some of these operations change the `t->mode`.
+  /* TODO(@germano): Some of these operations change the `t->mode`.
    * This can be bad for Redo. */
   // BLI_assert(t->mode == mode);
 }

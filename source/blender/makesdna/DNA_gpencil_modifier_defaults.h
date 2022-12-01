@@ -172,6 +172,19 @@
     .curve_intensity = NULL, \
   }
 
+#define _DNA_DEFAULT_OutlineGpencilModifierData \
+  { \
+    .material = NULL, \
+    .layername = "", \
+    .pass_index = 0, \
+    .flag = GP_OUTLINE_KEEP_SHAPE, \
+    .thickness = 1, \
+    .sample_length = 0.0f, \
+    .subdiv = 3, \
+    .layer_pass = 0, \
+    .outline_material = NULL, \
+  }
+
 #define _DNA_DEFAULT_SimplifyGpencilModifierData \
   { \
     .material = NULL, \
@@ -249,6 +262,18 @@
     .mode = 0, \
     .sfra = 1, \
     .efra = 250, \
+    .segments = NULL, \
+    .segments_len = 1, \
+    .segment_active_index = 0, \
+  }
+
+  #define _DNA_DEFAULT_TimeGpencilModifierSegment \
+  { \
+    .name = "", \
+    .seg_start = 1, \
+    .seg_end = 2, \
+    .seg_mode = 0, \
+    .seg_repeat = 1, \
   }
 
 #define _DNA_DEFAULT_TintGpencilModifierData \
@@ -296,7 +321,7 @@
 
 #define _DNA_DEFAULT_LineartGpencilModifierData \
   { \
-    .edge_types = LRT_EDGE_FLAG_ALL_TYPE, \
+    .edge_types = LRT_EDGE_FLAG_INIT_TYPE, \
     .thickness = 25, \
     .opacity = 1.0f, \
     .flags = LRT_GPENCIL_MATCH_OUTPUT_VGROUP, \
@@ -306,8 +331,12 @@
     /* Do not split by default, this is for better chaining quality. */ \
     .angle_splitting_threshold = 0.0f, \
     .chaining_image_threshold = 0.001f, \
-    .chain_smooth_tolerance = 0.2f,\
     .stroke_depth_offset = 0.05,\
+    .chain_smooth_tolerance = 0.0f,\
+    .overscan = 0.1f,\
+    .shadow_camera_near = 0.1f, \
+    .shadow_camera_far = 200.0f, \
+    .shadow_camera_size = 200.0f, \
   }
 
 #define _DNA_DEFAULT_LengthGpencilModifierData \

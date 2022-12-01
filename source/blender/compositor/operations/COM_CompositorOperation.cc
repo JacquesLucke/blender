@@ -5,6 +5,7 @@
 
 #include "BKE_global.h"
 #include "BKE_image.h"
+#include "BKE_scene.h"
 
 #include "RE_pipeline.h"
 
@@ -112,7 +113,7 @@ void CompositorOperation::deinit_execution()
   depth_input_ = nullptr;
 }
 
-void CompositorOperation::execute_region(rcti *rect, unsigned int /*tile_number*/)
+void CompositorOperation::execute_region(rcti *rect, uint /*tile_number*/)
 {
   float color[8]; /* 7 is enough. */
   float *buffer = output_buffer_;
@@ -164,8 +165,8 @@ void CompositorOperation::execute_region(rcti *rect, unsigned int /*tile_number*
      *                      Full frame
      */
 
-    int full_width = rd->xsch * rd->size / 100;
-    int full_height = rd->ysch * rd->size / 100;
+    int full_width, full_height;
+    BKE_render_resolution(rd, false, &full_width, &full_height);
 
     dx = rd->border.xmin * full_width - (full_width - this->get_width()) / 2.0f;
     dy = rd->border.ymin * full_height - (full_height - this->get_height()) / 2.0f;
@@ -196,7 +197,7 @@ void CompositorOperation::execute_region(rcti *rect, unsigned int /*tile_number*
   }
 }
 
-void CompositorOperation::update_memory_buffer_partial(MemoryBuffer *UNUSED(output),
+void CompositorOperation::update_memory_buffer_partial(MemoryBuffer * /*output*/,
                                                        const rcti &area,
                                                        Span<MemoryBuffer *> inputs)
 {
@@ -212,10 +213,10 @@ void CompositorOperation::update_memory_buffer_partial(MemoryBuffer *UNUSED(outp
   depth_buf.copy_from(inputs[2], area);
 }
 
-void CompositorOperation::determine_canvas(const rcti &UNUSED(preferred_area), rcti &r_area)
+void CompositorOperation::determine_canvas(const rcti & /*preferred_area*/, rcti &r_area)
 {
-  int width = rd_->xsch * rd_->size / 100;
-  int height = rd_->ysch * rd_->size / 100;
+  int width, height;
+  BKE_render_resolution(rd_, false, &width, &height);
 
   /* Check actual render resolution with cropping it may differ with cropped border.rendering
    * Fix for T31777 Border Crop gives black (easy). */

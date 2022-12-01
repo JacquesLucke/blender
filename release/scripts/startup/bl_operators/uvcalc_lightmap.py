@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import bpy
 from bpy.types import Operator
 import mathutils
@@ -454,7 +452,7 @@ def lightmap_uvpack(
                         pretty_faces.append(pf_parent)
 
                         w, h = pf_parent.width, pf_parent.height
-                        assert(w <= h)
+                        assert w <= h
 
                         if w == h:
                             even_dict.setdefault(w, []).append(pf_parent)

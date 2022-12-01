@@ -8,7 +8,7 @@
 #include "BLI_string.h"
 
 #include "draw_subdivision.h"
-#include "extract_mesh.h"
+#include "extract_mesh.hh"
 
 namespace blender::draw {
 
@@ -19,7 +19,7 @@ namespace blender::draw {
 /* Initialize the vertex format to be used for UVs. Return true if any UV layer is
  * found, false otherwise. */
 static bool mesh_extract_uv_format_init(GPUVertFormat *format,
-                                        struct MeshBatchCache *cache,
+                                        MeshBatchCache *cache,
                                         CustomData *cd_ldata,
                                         eMRExtractType extract_type,
                                         uint32_t &r_uv_layers)
@@ -72,9 +72,9 @@ static bool mesh_extract_uv_format_init(GPUVertFormat *format,
 }
 
 static void extract_uv_init(const MeshRenderData *mr,
-                            struct MeshBatchCache *cache,
+                            MeshBatchCache *cache,
                             void *buf,
-                            void *UNUSED(tls_data))
+                            void * /*tls_data*/)
 {
   GPUVertBuf *vbo = static_cast<GPUVertBuf *>(buf);
   GPUVertFormat format = {0};
@@ -119,10 +119,10 @@ static void extract_uv_init(const MeshRenderData *mr,
 }
 
 static void extract_uv_init_subdiv(const DRWSubdivCache *subdiv_cache,
-                                   const MeshRenderData *UNUSED(mr),
-                                   struct MeshBatchCache *cache,
+                                   const MeshRenderData * /*mr*/,
+                                   MeshBatchCache *cache,
                                    void *buffer,
-                                   void *UNUSED(data))
+                                   void * /*data*/)
 {
   Mesh *coarse_mesh = subdiv_cache->mesh;
   GPUVertBuf *vbo = static_cast<GPUVertBuf *>(buffer);
@@ -146,7 +146,7 @@ static void extract_uv_init_subdiv(const DRWSubdivCache *subdiv_cache,
   int pack_layer_index = 0;
   for (int i = 0; i < MAX_MTFACE; i++) {
     if (uv_layers & (1 << i)) {
-      const int offset = (int)subdiv_cache->num_subdiv_loops * pack_layer_index++;
+      const int offset = int(subdiv_cache->num_subdiv_loops) * pack_layer_index++;
       draw_subdiv_extract_uvs(subdiv_cache, vbo, i, offset);
     }
   }
@@ -168,6 +168,4 @@ constexpr MeshExtract create_extractor_uv()
 
 }  // namespace blender::draw
 
-extern "C" {
 const MeshExtract extract_uv = blender::draw::create_extractor_uv();
-}

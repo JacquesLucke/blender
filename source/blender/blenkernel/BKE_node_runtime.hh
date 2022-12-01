@@ -3,13 +3,25 @@
 #pragma once
 
 #include <memory>
+#include <mutex>
 
-#include "BLI_sys_types.h"
+#include "BLI_multi_value_map.hh"
 #include "BLI_utility_mixins.hh"
+#include "BLI_vector.hh"
+
+#include "DNA_node_types.h"
+
+#include "BKE_node.h"
+
+struct bNode;
+struct bNodeSocket;
+struct bNodeTree;
+struct bNodeType;
 
 namespace blender::nodes {
 struct FieldInferencingInterface;
 class NodeDeclaration;
+struct GeometryNodesLazyFunctionGraphInfo;
 }  // namespace blender::nodes
 
 namespace blender::bke {
@@ -34,8 +46,64 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
    */
   uint8_t runtime_flag = 0;
 
+  /** Execution data.
+   *
+   * XXX It would be preferable to completely move this data out of the underlying node tree,
+   * so node tree execution could finally run independent of the tree itself.
+   * This would allow node trees to be merely linked by other data (materials, textures, etc.),
+   * as ID data is supposed to.
+   * Execution data is generated from the tree once at execution start and can then be used
+   * as long as necessary, even while the tree is being modified.
+   */
+  struct bNodeTreeExec *execdata = nullptr;
+
+  /* Callbacks. */
+  void (*progress)(void *, float progress) = nullptr;
+  /** \warning may be called by different threads */
+  void (*stats_draw)(void *, const char *str) = nullptr;
+  bool (*test_break)(void *) = nullptr;
+  void (*update_draw)(void *) = nullptr;
+  void *tbh = nullptr, *prh = nullptr, *sdh = nullptr, *udh = nullptr;
+
   /** Information about how inputs and outputs of the node group interact with fields. */
   std::unique_ptr<nodes::FieldInferencingInterface> field_inferencing_interface;
+
+  /**
+   * For geometry nodes, a lazy function graph with some additional info is cached. This is used to
+   * evaluate the node group. Caching it here allows us to reuse the preprocessed node tree in case
+   * its used multiple times.
+   */
+  std::mutex geometry_nodes_lazy_function_graph_info_mutex;
+  std::unique_ptr<nodes::GeometryNodesLazyFunctionGraphInfo>
+      geometry_nodes_lazy_function_graph_info;
+
+  /**
+   * Protects access to all topology cache variables below. This is necessary so that the cache can
+   * be updated on a const #bNodeTree.
+   */
+  std::mutex topology_cache_mutex;
+  bool topology_cache_is_dirty = true;
+  bool topology_cache_exists = false;
+  /**
+   * Under some circumstances, it can be useful to use the cached data while editing the
+   * #bNodeTree. By default, this is protected against using an assert.
+   */
+  mutable std::atomic<int> allow_use_dirty_topology_cache = 0;
+
+  /** Only valid when #topology_cache_is_dirty is false. */
+  Vector<bNode *> nodes;
+  Vector<bNodeLink *> links;
+  Vector<bNodeSocket *> sockets;
+  Vector<bNodeSocket *> input_sockets;
+  Vector<bNodeSocket *> output_sockets;
+  MultiValueMap<const bNodeType *, bNode *> nodes_by_type;
+  Vector<bNode *> toposort_left_to_right;
+  Vector<bNode *> toposort_right_to_left;
+  Vector<bNode *> group_nodes;
+  bool has_available_link_cycle = false;
+  bool has_undefined_nodes_or_sockets = false;
+  bNode *group_output_node = nullptr;
+  Vector<bNode *> root_frames;
 };
 
 /**
@@ -47,12 +115,34 @@ class bNodeSocketRuntime : NonCopyable, NonMovable {
  public:
   /**
    * References a socket declaration that is owned by `node->declaration`. This is only runtime
-   * data. It has to be updated when the node declaration changes.
+   * data. It has to be updated when the node declaration changes. Access can be allowed by using
+   * #AllowUsingOutdatedInfo.
    */
   const SocketDeclarationHandle *declaration = nullptr;
 
   /** #eNodeTreeChangedFlag. */
   uint32_t changed_flag = 0;
+
+  /**
+   * The location of the sockets, in the view-space of the node editor.
+   * \note Only calculated when drawing.
+   */
+  float locx = 0;
+  float locy = 0;
+
+  /* Runtime-only cache of the number of input links, for multi-input sockets. */
+  short total_inputs = 0;
+
+  /** Only valid when #topology_cache_is_dirty is false. */
+  Vector<bNodeLink *> directly_linked_links;
+  Vector<bNodeSocket *> directly_linked_sockets;
+  Vector<bNodeSocket *> logically_linked_sockets;
+  Vector<bNodeSocket *> logically_linked_skipped_sockets;
+  bNode *owner_node = nullptr;
+  bNodeSocket *internal_link_input = nullptr;
+  int index_in_node = -1;
+  int index_in_all_sockets = -1;
+  int index_in_inout_sockets = -1;
 };
 
 /**
@@ -84,6 +174,511 @@ class bNodeRuntime : NonCopyable, NonMovable {
 
   /** #eNodeTreeChangedFlag. */
   uint32_t changed_flag = 0;
+
+  /** For dependency and sorting. */
+  short done = 0;
+
+  /** Used as a boolean for execution. */
+  uint8_t need_exec = 0;
+
+  /** The original node in the tree (for localized tree). */
+  struct bNode *original = nullptr;
+
+  /**
+   * XXX TODO
+   * Node totr size depends on the prvr size, which in turn is determined from preview size.
+   * In earlier versions bNodePreview was stored directly in nodes, but since now there can be
+   * multiple instances using different preview images it is possible that required node size
+   * varies between instances. preview_xsize, preview_ysize defines a common reserved size for
+   * preview rect for now, could be replaced by more accurate node instance drawing,
+   * but that requires removing totr from DNA and replacing all uses with per-instance data.
+   */
+  /** Reserved size of the preview rect. */
+  short preview_xsize, preview_ysize = 0;
+  /** Entire bound-box (world-space). */
+  rctf totr{};
+  /** Optional preview area. */
+  rctf prvr{};
+
+  /** Used at runtime when going through the tree. Initialize before use. */
+  short tmp_flag = 0;
+
+  /** Used at runtime when iterating over node branches. */
+  char iter_flag = 0;
+
+  /** Update flags. */
+  int update = 0;
+
+  /** Initial locx for insert offset animation. */
+  float anim_init_locx;
+  /** Offset that will be added to locx for insert offset animation. */
+  float anim_ofsx;
+
+  /** List of cached internal links (input to output), for muted nodes and operators. */
+  Vector<bNodeLink *> internal_links;
+
+  /** Only valid if #topology_cache_is_dirty is false. */
+  Vector<bNodeSocket *> inputs;
+  Vector<bNodeSocket *> outputs;
+  Map<StringRefNull, bNodeSocket *> inputs_by_identifier;
+  Map<StringRefNull, bNodeSocket *> outputs_by_identifier;
+  int index_in_tree = -1;
+  bool has_available_linked_inputs = false;
+  bool has_available_linked_outputs = false;
+  Vector<bNode *> direct_children_in_frame;
+  bNodeTree *owner_tree = nullptr;
 };
 
+namespace node_tree_runtime {
+
+/**
+ * Is executed when the node tree changed in the depsgraph.
+ */
+void preprocess_geometry_node_tree_for_evaluation(bNodeTree &tree_cow);
+
+class AllowUsingOutdatedInfo : NonCopyable, NonMovable {
+ private:
+  const bNodeTree &tree_;
+
+ public:
+  AllowUsingOutdatedInfo(const bNodeTree &tree) : tree_(tree)
+  {
+    tree_.runtime->allow_use_dirty_topology_cache.fetch_add(1);
+  }
+
+  ~AllowUsingOutdatedInfo()
+  {
+    tree_.runtime->allow_use_dirty_topology_cache.fetch_sub(1);
+  }
+};
+
+inline bool topology_cache_is_available(const bNodeTree &tree)
+{
+  if (!tree.runtime->topology_cache_exists) {
+    return false;
+  }
+  if (tree.runtime->allow_use_dirty_topology_cache.load() > 0) {
+    return true;
+  }
+  if (tree.runtime->topology_cache_is_dirty) {
+    return false;
+  }
+  return true;
+}
+
+inline bool topology_cache_is_available(const bNode &node)
+{
+  const bNodeTree *ntree = node.runtime->owner_tree;
+  if (ntree == nullptr) {
+    return false;
+  }
+  return topology_cache_is_available(*ntree);
+}
+
+inline bool topology_cache_is_available(const bNodeSocket &socket)
+{
+  const bNode *node = socket.runtime->owner_node;
+  if (node == nullptr) {
+    return false;
+  }
+  return topology_cache_is_available(*node);
+}
+
+}  // namespace node_tree_runtime
+
 }  // namespace blender::bke
+
+/* -------------------------------------------------------------------- */
+/** \name #bNodeTree Inline Methods
+ * \{ */
+
+inline blender::Span<bNode *> bNodeTree::nodes_by_type(const blender::StringRefNull type_idname)
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->nodes_by_type.lookup(nodeTypeFind(type_idname.c_str()));
+}
+
+inline blender::Span<const bNode *> bNodeTree::nodes_by_type(
+    const blender::StringRefNull type_idname) const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->nodes_by_type.lookup(nodeTypeFind(type_idname.c_str()));
+}
+
+inline blender::Span<const bNode *> bNodeTree::toposort_left_to_right() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->toposort_left_to_right;
+}
+
+inline blender::Span<const bNode *> bNodeTree::toposort_right_to_left() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->toposort_right_to_left;
+}
+
+inline blender::Span<bNode *> bNodeTree::toposort_left_to_right()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->toposort_left_to_right;
+}
+
+inline blender::Span<bNode *> bNodeTree::toposort_right_to_left()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->toposort_right_to_left;
+}
+
+inline blender::Span<const bNode *> bNodeTree::all_nodes() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->nodes;
+}
+
+inline blender::Span<bNode *> bNodeTree::all_nodes()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->nodes;
+}
+
+inline blender::Span<const bNode *> bNodeTree::group_nodes() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->group_nodes;
+}
+
+inline blender::Span<bNode *> bNodeTree::group_nodes()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->group_nodes;
+}
+
+inline bool bNodeTree::has_available_link_cycle() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->has_available_link_cycle;
+}
+
+inline bool bNodeTree::has_undefined_nodes_or_sockets() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->has_undefined_nodes_or_sockets;
+}
+
+inline const bNode *bNodeTree::group_output_node() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->group_output_node;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::all_input_sockets() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->input_sockets;
+}
+
+inline blender::Span<bNodeSocket *> bNodeTree::all_input_sockets()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->input_sockets;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::all_output_sockets() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->output_sockets;
+}
+
+inline blender::Span<bNodeSocket *> bNodeTree::all_output_sockets()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->output_sockets;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::all_sockets() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->sockets;
+}
+
+inline blender::Span<bNodeSocket *> bNodeTree::all_sockets()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->sockets;
+}
+
+inline blender::Span<bNode *> bNodeTree::root_frames() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->root_frames;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name #bNode Inline Methods
+ * \{ */
+
+inline blender::Span<bNodeSocket *> bNode::input_sockets()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->inputs;
+}
+
+inline blender::Span<bNodeSocket *> bNode::output_sockets()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->outputs;
+}
+
+inline blender::Span<const bNodeSocket *> bNode::input_sockets() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->inputs;
+}
+
+inline blender::Span<const bNodeSocket *> bNode::output_sockets() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->outputs;
+}
+
+inline bNodeSocket &bNode::input_socket(int index)
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->inputs[index];
+}
+
+inline bNodeSocket &bNode::output_socket(int index)
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->outputs[index];
+}
+
+inline const bNodeSocket &bNode::input_socket(int index) const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->inputs[index];
+}
+
+inline const bNodeSocket &bNode::output_socket(int index) const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->outputs[index];
+}
+
+inline const bNodeSocket &bNode::input_by_identifier(blender::StringRef identifier) const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->inputs_by_identifier.lookup_as(identifier);
+}
+
+inline const bNodeSocket &bNode::output_by_identifier(blender::StringRef identifier) const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->outputs_by_identifier.lookup_as(identifier);
+}
+
+inline bNodeSocket &bNode::input_by_identifier(blender::StringRef identifier)
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->inputs_by_identifier.lookup_as(identifier);
+}
+
+inline bNodeSocket &bNode::output_by_identifier(blender::StringRef identifier)
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->outputs_by_identifier.lookup_as(identifier);
+}
+
+inline const bNodeTree &bNode::owner_tree() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->owner_tree;
+}
+
+inline blender::StringRefNull bNode::label_or_name() const
+{
+  if (this->label[0] == '\0') {
+    return this->name;
+  }
+  return this->label;
+}
+
+inline bool bNode::is_muted() const
+{
+  return this->flag & NODE_MUTED;
+}
+
+inline bool bNode::is_reroute() const
+{
+  return this->type == NODE_REROUTE;
+}
+
+inline bool bNode::is_frame() const
+{
+  return this->type == NODE_FRAME;
+}
+
+inline bool bNode::is_group() const
+{
+  return ELEM(this->type, NODE_GROUP, NODE_CUSTOM_GROUP);
+}
+
+inline bool bNode::is_group_input() const
+{
+  return this->type == NODE_GROUP_INPUT;
+}
+
+inline bool bNode::is_group_output() const
+{
+  return this->type == NODE_GROUP_OUTPUT;
+}
+
+inline blender::Span<const bNodeLink *> bNode::internal_links() const
+{
+  return this->runtime->internal_links;
+}
+
+inline blender::Span<bNode *> bNode::direct_children_in_frame() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  BLI_assert(this->is_frame());
+  return this->runtime->direct_children_in_frame;
+}
+
+inline const blender::nodes::NodeDeclaration *bNode::declaration() const
+{
+  return this->runtime->declaration;
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name #bNodeLink Inline Methods
+ * \{ */
+
+inline bool bNodeLink::is_muted() const
+{
+  return this->flag & NODE_LINK_MUTED;
+}
+
+inline bool bNodeLink::is_available() const
+{
+  return this->fromsock->is_available() && this->tosock->is_available();
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name #bNodeSocket Inline Methods
+ * \{ */
+
+inline int bNodeSocket::index() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->index_in_node;
+}
+
+inline int bNodeSocket::index_in_tree() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->index_in_all_sockets;
+}
+
+inline bool bNodeSocket::is_hidden() const
+{
+  return (this->flag & SOCK_HIDDEN) != 0;
+}
+
+inline bool bNodeSocket::is_available() const
+{
+  return (this->flag & SOCK_UNAVAIL) == 0;
+}
+
+inline bNode &bNodeSocket::owner_node()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->owner_node;
+}
+
+inline const bNodeTree &bNodeSocket::owner_tree() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->owner_node->runtime->owner_tree;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeSocket::logically_linked_sockets() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->logically_linked_sockets;
+}
+
+inline blender::Span<const bNodeLink *> bNodeSocket::directly_linked_links() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->directly_linked_links;
+}
+
+inline blender::Span<bNodeLink *> bNodeSocket::directly_linked_links()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->directly_linked_links;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeSocket::directly_linked_sockets() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->directly_linked_sockets;
+}
+
+inline blender::Span<bNodeSocket *> bNodeSocket::directly_linked_sockets()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->directly_linked_sockets;
+}
+
+inline bool bNodeSocket::is_directly_linked() const
+{
+  return !this->directly_linked_links().is_empty();
+}
+
+inline bool bNodeSocket::is_logically_linked() const
+{
+  return !this->logically_linked_sockets().is_empty();
+}
+
+inline const bNodeSocket *bNodeSocket::internal_link_input() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  BLI_assert(this->in_out == SOCK_OUT);
+  return this->runtime->internal_link_input;
+}
+
+template<typename T> const T *bNodeSocket::default_value_typed() const
+{
+  return static_cast<const T *>(this->default_value);
+}
+
+inline bool bNodeSocket::is_input() const
+{
+  return this->in_out == SOCK_IN;
+}
+
+inline bool bNodeSocket::is_output() const
+{
+  return this->in_out == SOCK_OUT;
+}
+
+inline bool bNodeSocket::is_multi_input() const
+{
+  return this->flag & SOCK_MULTI_INPUT;
+}
+
+inline const bNode &bNodeSocket::owner_node() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return *this->runtime->owner_node;
+}
+
+/** \} */

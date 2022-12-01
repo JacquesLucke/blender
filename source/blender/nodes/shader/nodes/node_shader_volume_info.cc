@@ -14,9 +14,9 @@ static void node_declare(NodeDeclarationBuilder &b)
 }
 
 static int node_shader_gpu_volume_info(GPUMaterial *mat,
-                                       bNode *UNUSED(node),
-                                       bNodeExecData *UNUSED(execdata),
-                                       GPUNodeStack *UNUSED(in),
+                                       bNode * /*node*/,
+                                       bNodeExecData * /*execdata*/,
+                                       GPUNodeStack * /*in*/,
                                        GPUNodeStack *out)
 {
   if (out[0].hasoutput) {
@@ -25,9 +25,11 @@ static int node_shader_gpu_volume_info(GPUMaterial *mat,
   }
   if (out[1].hasoutput) {
     out[1].link = GPU_attribute(mat, CD_AUTO_FROM_NAME, "density");
+    GPU_link(mat, "node_attribute_density", out[1].link, &out[1].link);
   }
   if (out[2].hasoutput) {
     out[2].link = GPU_attribute(mat, CD_AUTO_FROM_NAME, "flame");
+    GPU_link(mat, "node_attribute_flame", out[2].link, &out[2].link);
   }
   if (out[3].hasoutput) {
     out[3].link = GPU_attribute(mat, CD_AUTO_FROM_NAME, "temperature");
@@ -47,7 +49,7 @@ void register_node_type_sh_volume_info()
 
   sh_node_type_base(&ntype, SH_NODE_VOLUME_INFO, "Volume Info", NODE_CLASS_INPUT);
   ntype.declare = file_ns::node_declare;
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_volume_info);
+  ntype.gpu_fn = file_ns::node_shader_gpu_volume_info;
 
   nodeRegisterType(&ntype);
 }

@@ -34,7 +34,7 @@ static void shade_background_pixels(Device *device,
                                     Progress &progress)
 {
   /* Needs to be up to data for attribute access. */
-  device->const_copy_to("__data", &dscene->data, sizeof(dscene->data));
+  device->const_copy_to("data", &dscene->data, sizeof(dscene->data));
 
   const int size = width * height;
   const int num_channels = 3;
@@ -162,7 +162,9 @@ bool Light::has_contribution(Scene *scene)
   if (light_type == LIGHT_BACKGROUND) {
     return true;
   }
-  return (shader) ? shader->has_surface_emission : scene->default_light->has_surface_emission;
+
+  const Shader *effective_shader = (shader) ? shader : scene->default_light;
+  return !is_zero(effective_shader->emission_estimate);
 }
 
 /* Light Manager */
@@ -215,7 +217,9 @@ void LightManager::test_enabled_lights(Scene *scene)
      */
     Shader *shader = scene->background->get_shader(scene);
     const bool disable_mis = !(has_portal || shader->has_surface_spatial_varying);
-    VLOG_IF(1, disable_mis) << "Background MIS has been disabled.\n";
+    if (disable_mis) {
+      VLOG_INFO << "Background MIS has been disabled.\n";
+    }
     foreach (Light *light, scene->lights) {
       if (light->light_type == LIGHT_BACKGROUND) {
         light->is_enabled = !disable_mis;
@@ -254,36 +258,26 @@ bool LightManager::object_usable_as_light(Object *object)
    */
   foreach (Node *node, geom->get_used_shaders()) {
     Shader *shader = static_cast<Shader *>(node);
-    if (shader->get_use_mis() && shader->has_surface_emission) {
+    if (shader->emission_sampling != EMISSION_SAMPLING_NONE) {
       return true;
     }
   }
   return false;
 }
 
-void LightManager::device_update_distribution(Device *,
+void LightManager::device_update_distribution(Device *device,
                                               DeviceScene *dscene,
                                               Scene *scene,
                                               Progress &progress)
 {
+  KernelIntegrator *kintegrator = &dscene->data.integrator;
+  KernelFilm *kfilm = &dscene->data.film;
+
+  /* Update CDF over lights. */
   progress.set_status("Updating Lights", "Computing distribution");
 
-  /* count */
-  size_t num_lights = 0;
-  size_t num_portals = 0;
-  size_t num_background_lights = 0;
+  /* Counts emissive triangles in the scene. */
   size_t num_triangles = 0;
-
-  bool background_mis = false;
-
-  foreach (Light *light, scene->lights) {
-    if (light->is_enabled) {
-      num_lights++;
-    }
-    if (light->is_portal) {
-      num_portals++;
-    }
-  }
 
   foreach (Object *object, scene->objects) {
     if (progress.get_cancel())
@@ -293,29 +287,36 @@ void LightManager::device_update_distribution(Device *,
       continue;
     }
 
-    /* Count triangles. */
+    /* Count emissive triangles. */
     Mesh *mesh = static_cast<Mesh *>(object->get_geometry());
     size_t mesh_num_triangles = mesh->num_triangles();
+
     for (size_t i = 0; i < mesh_num_triangles; i++) {
       int shader_index = mesh->get_shader()[i];
       Shader *shader = (shader_index < mesh->get_used_shaders().size()) ?
                            static_cast<Shader *>(mesh->get_used_shaders()[shader_index]) :
                            scene->default_surface;
 
-      if (shader->get_use_mis() && shader->has_surface_emission) {
+      if (shader->emission_sampling != EMISSION_SAMPLING_NONE) {
         num_triangles++;
       }
     }
   }
 
-  size_t num_distribution = num_triangles + num_lights;
-  VLOG(1) << "Total " << num_distribution << " of light distribution primitives.";
+  const size_t num_lights = kintegrator->num_lights;
+  const size_t num_background_lights = kintegrator->num_background_lights;
+  const size_t num_distribution = num_triangles + num_lights;
 
-  /* emission area */
+  /* Distribution size. */
+  kintegrator->num_distribution = num_distribution;
+
+  VLOG_INFO << "Total " << num_distribution << " of light distribution primitives.";
+
+  /* Emission area. */
   KernelLightDistribution *distribution = dscene->light_distribution.alloc(num_distribution + 1);
   float totarea = 0.0f;
 
-  /* triangles */
+  /* Triangles. */
   size_t offset = 0;
   int j = 0;
 
@@ -360,7 +361,7 @@ void LightManager::device_update_distribution(Device *,
                            static_cast<Shader *>(mesh->get_used_shaders()[shader_index]) :
                            scene->default_surface;
 
-      if (shader->get_use_mis() && shader->has_surface_emission) {
+      if (shader->emission_sampling != EMISSION_SAMPLING_NONE) {
         distribution[offset].totarea = totarea;
         distribution[offset].prim = i + mesh->prim_offset;
         distribution[offset].mesh_light.shader_flag = shader_flag;
@@ -388,9 +389,9 @@ void LightManager::device_update_distribution(Device *,
     j++;
   }
 
-  float trianglearea = totarea;
-  /* point lights */
-  bool use_lamp_mis = false;
+  const float trianglearea = totarea;
+
+  /* Lights. */
   int light_index = 0;
 
   if (num_lights > 0) {
@@ -404,20 +405,6 @@ void LightManager::device_update_distribution(Device *,
       distribution[offset].lamp.pad = 1.0f;
       distribution[offset].lamp.size = light->size;
       totarea += lightarea;
-
-      if (light->light_type == LIGHT_DISTANT) {
-        use_lamp_mis |= (light->angle > 0.0f && light->use_mis);
-      }
-      else if (light->light_type == LIGHT_POINT || light->light_type == LIGHT_SPOT) {
-        use_lamp_mis |= (light->size > 0.0f && light->use_mis);
-      }
-      else if (light->light_type == LIGHT_AREA) {
-        use_lamp_mis |= light->use_mis;
-      }
-      else if (light->light_type == LIGHT_BACKGROUND) {
-        num_background_lights++;
-        background_mis |= light->use_mis;
-      }
 
       light_index++;
       offset++;
@@ -439,82 +426,42 @@ void LightManager::device_update_distribution(Device *,
   if (progress.get_cancel())
     return;
 
-  /* update device */
-  KernelIntegrator *kintegrator = &dscene->data.integrator;
-  KernelBackground *kbackground = &dscene->data.background;
-  KernelFilm *kfilm = &dscene->data.film;
+  /* Update integrator state. */
   kintegrator->use_direct_light = (totarea > 0.0f);
 
-  if (kintegrator->use_direct_light) {
-    /* number of emissives */
-    kintegrator->num_distribution = num_distribution;
+  /* Precompute pdfs for distribution sampling.
+   * Sample one, with 0.5 probability of light or triangle. */
+  kintegrator->distribution_pdf_triangles = 0.0f;
+  kintegrator->distribution_pdf_lights = 0.0f;
 
-    /* precompute pdfs */
-    kintegrator->pdf_triangles = 0.0f;
-    kintegrator->pdf_lights = 0.0f;
-
-    /* sample one, with 0.5 probability of light or triangle */
-    kintegrator->num_all_lights = num_lights;
-
-    if (trianglearea > 0.0f) {
-      kintegrator->pdf_triangles = 1.0f / trianglearea;
-      if (num_lights)
-        kintegrator->pdf_triangles *= 0.5f;
-    }
-
+  if (trianglearea > 0.0f) {
+    kintegrator->distribution_pdf_triangles = 1.0f / trianglearea;
     if (num_lights) {
-      kintegrator->pdf_lights = 1.0f / num_lights;
-      if (trianglearea > 0.0f)
-        kintegrator->pdf_lights *= 0.5f;
+      kintegrator->distribution_pdf_triangles *= 0.5f;
     }
-
-    kintegrator->use_lamp_mis = use_lamp_mis;
-
-    /* bit of an ugly hack to compensate for emitting triangles influencing
-     * amount of samples we get for this pass */
-    kfilm->pass_shadow_scale = 1.0f;
-
-    if (kintegrator->pdf_triangles != 0.0f)
-      kfilm->pass_shadow_scale /= 0.5f;
-
-    if (num_background_lights < num_lights)
-      kfilm->pass_shadow_scale /= (float)(num_lights - num_background_lights) / (float)num_lights;
-
-    /* CDF */
-    dscene->light_distribution.copy_to_device();
-
-    /* Portals */
-    if (num_portals > 0) {
-      kbackground->portal_offset = light_index;
-      kbackground->num_portals = num_portals;
-      kbackground->portal_weight = 1.0f;
-    }
-    else {
-      kbackground->num_portals = 0;
-      kbackground->portal_offset = 0;
-      kbackground->portal_weight = 0.0f;
-    }
-
-    /* Map */
-    kbackground->map_weight = background_mis ? 1.0f : 0.0f;
   }
-  else {
-    dscene->light_distribution.free();
 
-    kintegrator->num_distribution = 0;
-    kintegrator->num_all_lights = 0;
-    kintegrator->pdf_triangles = 0.0f;
-    kintegrator->pdf_lights = 0.0f;
-    kintegrator->use_lamp_mis = false;
-
-    kbackground->num_portals = 0;
-    kbackground->portal_offset = 0;
-    kbackground->portal_weight = 0.0f;
-    kbackground->sun_weight = 0.0f;
-    kbackground->map_weight = 0.0f;
-
-    kfilm->pass_shadow_scale = 1.0f;
+  if (num_lights) {
+    kintegrator->distribution_pdf_lights = 1.0f / num_lights;
+    if (trianglearea > 0.0f) {
+      kintegrator->distribution_pdf_lights *= 0.5f;
+    }
   }
+
+  /* bit of an ugly hack to compensate for emitting triangles influencing
+   * amount of samples we get for this pass */
+  kfilm->pass_shadow_scale = 1.0f;
+
+  if (kintegrator->distribution_pdf_triangles != 0.0f) {
+    kfilm->pass_shadow_scale /= 0.5f;
+  }
+
+  if (num_background_lights < num_lights) {
+    kfilm->pass_shadow_scale /= (float)(num_lights - num_background_lights) / (float)num_lights;
+  }
+
+  /* Copy distribution to device. */
+  dscene->light_distribution.copy_to_device();
 }
 
 static void background_cdf(
@@ -562,30 +509,33 @@ void LightManager::device_update_background(Device *device,
                                             Scene *scene,
                                             Progress &progress)
 {
+  KernelIntegrator *kintegrator = &dscene->data.integrator;
   KernelBackground *kbackground = &dscene->data.background;
   Light *background_light = NULL;
 
+  bool background_mis = false;
+
   /* find background light */
   foreach (Light *light, scene->lights) {
-    if (light->light_type == LIGHT_BACKGROUND) {
+    if (light->light_type == LIGHT_BACKGROUND && light->is_enabled) {
       background_light = light;
-      break;
+      background_mis |= light->use_mis;
     }
   }
+
+  kbackground->portal_weight = kintegrator->num_portals > 0 ? 1.0f : 0.0f;
+  kbackground->map_weight = background_mis ? 1.0f : 0.0f;
+  kbackground->sun_weight = 0.0f;
 
   /* no background light found, signal renderer to skip sampling */
   if (!background_light || !background_light->is_enabled) {
     kbackground->map_res_x = 0;
     kbackground->map_res_y = 0;
-    kbackground->map_weight = 0.0f;
-    kbackground->sun_weight = 0.0f;
     kbackground->use_mis = (kbackground->portal_weight > 0.0f);
     return;
   }
 
   progress.set_status("Updating Lights", "Importance map");
-
-  assert(dscene->data.integrator.use_direct_light);
 
   int2 environment_res = make_int2(0, 0);
   Shader *shader = scene->background->get_shader(scene);
@@ -630,6 +580,7 @@ void LightManager::device_update_background(Device *device,
         kbackground->sun = make_float4(
             sun_direction.x, sun_direction.y, sun_direction.z, half_angle);
 
+        /* empirical value */
         kbackground->sun_weight = 4.0f;
         environment_res.x = max(environment_res.x, 512);
         environment_res.y = max(environment_res.y, 256);
@@ -655,13 +606,14 @@ void LightManager::device_update_background(Device *device,
   if (res.x == 0) {
     res = environment_res;
     if (res.x > 0 && res.y > 0) {
-      VLOG(2) << "Automatically set World MIS resolution to " << res.x << " by " << res.y << "\n";
+      VLOG_INFO << "Automatically set World MIS resolution to " << res.x << " by " << res.y
+                << "\n";
     }
   }
   /* If it's still unknown, just use the default. */
   if (res.x == 0 || res.y == 0) {
     res = make_int2(1024, 512);
-    VLOG(2) << "Setting World MIS resolution to default\n";
+    VLOG_INFO << "Setting World MIS resolution to default\n";
   }
   kbackground->map_res_x = res.x;
   kbackground->map_res_y = res.y;
@@ -704,34 +656,90 @@ void LightManager::device_update_background(Device *device,
 
   marg_cdf[res.y].y = 1.0f;
 
-  VLOG(2) << "Background MIS build time " << time_dt() - time_start << "\n";
+  VLOG_WORK << "Background MIS build time " << time_dt() - time_start << "\n";
 
   /* update device */
   dscene->light_background_marginal_cdf.copy_to_device();
   dscene->light_background_conditional_cdf.copy_to_device();
 }
 
-void LightManager::device_update_points(Device *, DeviceScene *dscene, Scene *scene)
+void LightManager::device_update_lights(Device *, DeviceScene *dscene, Scene *scene)
 {
-  int num_scene_lights = scene->lights.size();
+  /* Counts lights in the scene. */
+  size_t num_lights = 0;
+  size_t num_portals = 0;
+  size_t num_background_lights = 0;
+  size_t num_distant_lights = 0;
+  bool use_light_mis = false;
 
-  int num_lights = 0;
   foreach (Light *light, scene->lights) {
-    if (light->is_enabled || light->is_portal) {
+    if (light->is_enabled) {
       num_lights++;
+
+      if (light->light_type == LIGHT_DISTANT) {
+        num_distant_lights++;
+      }
+      else if (light->light_type == LIGHT_POINT || light->light_type == LIGHT_SPOT) {
+        use_light_mis |= (light->size > 0.0f && light->use_mis);
+      }
+      else if (light->light_type == LIGHT_AREA) {
+        use_light_mis |= light->use_mis;
+      }
+      else if (light->light_type == LIGHT_BACKGROUND) {
+        num_distant_lights++;
+        num_background_lights++;
+      }
+    }
+    if (light->is_portal) {
+      num_portals++;
     }
   }
 
-  KernelLight *klights = dscene->lights.alloc(num_lights);
+  /* Update integrator settings. */
+  KernelIntegrator *kintegrator = &dscene->data.integrator;
+  kintegrator->num_lights = num_lights;
+  kintegrator->num_distant_lights = num_distant_lights;
+  kintegrator->num_background_lights = num_background_lights;
+  kintegrator->use_light_mis = use_light_mis;
 
-  if (num_lights == 0) {
-    VLOG(1) << "No effective light, ignoring points update.";
-    return;
-  }
+  kintegrator->num_portals = num_portals;
+  kintegrator->portal_offset = num_lights;
+
+  /* Create KernelLight for every portal and enabled light in the scene. */
+  KernelLight *klights = dscene->lights.alloc(num_lights + num_portals);
 
   int light_index = 0;
+  int portal_index = num_lights;
 
   foreach (Light *light, scene->lights) {
+    /* Consider moving portals update to their own function
+     * keeping this one more manageable. */
+    if (light->is_portal) {
+      assert(light->light_type == LIGHT_AREA);
+
+      float3 extentu = light->axisu * (light->sizeu * light->size);
+      float3 extentv = light->axisv * (light->sizev * light->size);
+      float area = len(extentu) * len(extentv);
+      if (light->round) {
+        area *= -M_PI_4_F;
+      }
+      float invarea = (area != 0.0f) ? 1.0f / area : 1.0f;
+      float3 dir = light->dir;
+
+      dir = safe_normalize(dir);
+
+      klights[portal_index].co = light->co;
+      klights[portal_index].area.extentu = extentu;
+      klights[portal_index].area.extentv = extentv;
+      klights[portal_index].area.invarea = invarea;
+      klights[portal_index].area.dir = dir;
+      klights[portal_index].tfm = light->tfm;
+      klights[portal_index].itfm = transform_inverse(light->tfm);
+
+      portal_index++;
+      continue;
+    }
+
     if (!light->is_enabled) {
       continue;
     }
@@ -778,10 +786,7 @@ void LightManager::device_update_points(Device *, DeviceScene *dscene, Scene *sc
       if (light->use_mis && radius > 0.0f)
         shader_id |= SHADER_USE_MIS;
 
-      klights[light_index].co[0] = co.x;
-      klights[light_index].co[1] = co.y;
-      klights[light_index].co[2] = co.z;
-
+      klights[light_index].co = co;
       klights[light_index].spot.radius = radius;
       klights[light_index].spot.invarea = invarea;
     }
@@ -800,16 +805,15 @@ void LightManager::device_update_points(Device *, DeviceScene *dscene, Scene *sc
       if (light->use_mis && area > 0.0f)
         shader_id |= SHADER_USE_MIS;
 
-      klights[light_index].co[0] = dir.x;
-      klights[light_index].co[1] = dir.y;
-      klights[light_index].co[2] = dir.z;
-
+      klights[light_index].co = dir;
       klights[light_index].distant.invarea = invarea;
       klights[light_index].distant.radius = radius;
       klights[light_index].distant.cosangle = cosangle;
     }
     else if (light->light_type == LIGHT_BACKGROUND) {
       uint visibility = scene->background->get_visibility();
+
+      dscene->data.background.light_index = light_index;
 
       shader_id &= ~SHADER_AREA_LIGHT;
       shader_id |= SHADER_USE_MIS;
@@ -828,9 +832,9 @@ void LightManager::device_update_points(Device *, DeviceScene *dscene, Scene *sc
       }
     }
     else if (light->light_type == LIGHT_AREA) {
-      float3 axisu = light->axisu * (light->sizeu * light->size);
-      float3 axisv = light->axisv * (light->sizev * light->size);
-      float area = len(axisu) * len(axisv);
+      float3 extentu = light->axisu * (light->sizeu * light->size);
+      float3 extentv = light->axisv * (light->sizev * light->size);
+      float area = len(extentu) * len(extentv);
       if (light->round) {
         area *= -M_PI_4_F;
       }
@@ -851,20 +855,11 @@ void LightManager::device_update_points(Device *, DeviceScene *dscene, Scene *sc
       if (light->use_mis && area != 0.0f)
         shader_id |= SHADER_USE_MIS;
 
-      klights[light_index].co[0] = co.x;
-      klights[light_index].co[1] = co.y;
-      klights[light_index].co[2] = co.z;
-
-      klights[light_index].area.axisu[0] = axisu.x;
-      klights[light_index].area.axisu[1] = axisu.y;
-      klights[light_index].area.axisu[2] = axisu.z;
-      klights[light_index].area.axisv[0] = axisv.x;
-      klights[light_index].area.axisv[1] = axisv.y;
-      klights[light_index].area.axisv[2] = axisv.z;
+      klights[light_index].co = co;
+      klights[light_index].area.extentu = extentu;
+      klights[light_index].area.extentv = extentv;
       klights[light_index].area.invarea = invarea;
-      klights[light_index].area.dir[0] = dir.x;
-      klights[light_index].area.dir[1] = dir.y;
-      klights[light_index].area.dir[2] = dir.z;
+      klights[light_index].area.dir = dir;
       klights[light_index].area.tan_spread = tan_spread;
       klights[light_index].area.normalize_spread = normalize_spread;
     }
@@ -873,8 +868,8 @@ void LightManager::device_update_points(Device *, DeviceScene *dscene, Scene *sc
 
       float radius = light->size;
       float invarea = (radius > 0.0f) ? 1.0f / (M_PI_F * radius * radius) : 1.0f;
-      float spot_angle = cosf(light->spot_angle * 0.5f);
-      float spot_smooth = (1.0f - spot_angle) * light->spot_smooth;
+      float cos_half_spot_angle = cosf(light->spot_angle * 0.5f);
+      float spot_smooth = (1.0f - cos_half_spot_angle) * light->spot_smooth;
       float3 dir = light->dir;
 
       dir = safe_normalize(dir);
@@ -882,17 +877,12 @@ void LightManager::device_update_points(Device *, DeviceScene *dscene, Scene *sc
       if (light->use_mis && radius > 0.0f)
         shader_id |= SHADER_USE_MIS;
 
-      klights[light_index].co[0] = co.x;
-      klights[light_index].co[1] = co.y;
-      klights[light_index].co[2] = co.z;
-
+      klights[light_index].co = co;
       klights[light_index].spot.radius = radius;
       klights[light_index].spot.invarea = invarea;
-      klights[light_index].spot.spot_angle = spot_angle;
+      klights[light_index].spot.cos_half_spot_angle = cos_half_spot_angle;
       klights[light_index].spot.spot_smooth = spot_smooth;
-      klights[light_index].spot.dir[0] = dir.x;
-      klights[light_index].spot.dir[1] = dir.y;
-      klights[light_index].spot.dir[2] = dir.z;
+      klights[light_index].spot.dir = dir;
     }
 
     klights[light_index].shader_id = shader_id;
@@ -915,49 +905,7 @@ void LightManager::device_update_points(Device *, DeviceScene *dscene, Scene *sc
     light_index++;
   }
 
-  /* TODO(sergey): Consider moving portals update to their own function
-   * keeping this one more manageable.
-   */
-  foreach (Light *light, scene->lights) {
-    if (!light->is_portal)
-      continue;
-    assert(light->light_type == LIGHT_AREA);
-
-    float3 co = light->co;
-    float3 axisu = light->axisu * (light->sizeu * light->size);
-    float3 axisv = light->axisv * (light->sizev * light->size);
-    float area = len(axisu) * len(axisv);
-    if (light->round) {
-      area *= -M_PI_4_F;
-    }
-    float invarea = (area != 0.0f) ? 1.0f / area : 1.0f;
-    float3 dir = light->dir;
-
-    dir = safe_normalize(dir);
-
-    klights[light_index].co[0] = co.x;
-    klights[light_index].co[1] = co.y;
-    klights[light_index].co[2] = co.z;
-
-    klights[light_index].area.axisu[0] = axisu.x;
-    klights[light_index].area.axisu[1] = axisu.y;
-    klights[light_index].area.axisu[2] = axisu.z;
-    klights[light_index].area.axisv[0] = axisv.x;
-    klights[light_index].area.axisv[1] = axisv.y;
-    klights[light_index].area.axisv[2] = axisv.z;
-    klights[light_index].area.invarea = invarea;
-    klights[light_index].area.dir[0] = dir.x;
-    klights[light_index].area.dir[1] = dir.y;
-    klights[light_index].area.dir[2] = dir.z;
-    klights[light_index].tfm = light->tfm;
-    klights[light_index].itfm = transform_inverse(light->tfm);
-
-    light_index++;
-  }
-
-  VLOG(1) << "Number of lights sent to the device: " << light_index;
-
-  VLOG(1) << "Number of lights without contribution: " << num_scene_lights - light_index;
+  VLOG_INFO << "Number of lights sent to the device: " << num_lights;
 
   dscene->lights.copy_to_device();
 }
@@ -976,18 +924,14 @@ void LightManager::device_update(Device *device,
     }
   });
 
-  VLOG(1) << "Total " << scene->lights.size() << " lights.";
+  VLOG_INFO << "Total " << scene->lights.size() << " lights.";
 
   /* Detect which lights are enabled, also determines if we need to update the background. */
   test_enabled_lights(scene);
 
   device_free(device, dscene, need_update_background);
 
-  device_update_points(device, dscene, scene);
-  if (progress.get_cancel())
-    return;
-
-  device_update_distribution(device, dscene, scene, progress);
+  device_update_lights(device, dscene, scene);
   if (progress.get_cancel())
     return;
 
@@ -996,6 +940,10 @@ void LightManager::device_update(Device *device,
     if (progress.get_cancel())
       return;
   }
+
+  device_update_distribution(device, dscene, scene, progress);
+  if (progress.get_cancel())
+    return;
 
   device_update_ies(dscene);
   if (progress.get_cancel())

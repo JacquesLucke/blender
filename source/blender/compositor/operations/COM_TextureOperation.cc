@@ -6,6 +6,7 @@
 
 #include "BKE_image.h"
 #include "BKE_node.h"
+#include "BKE_scene.h"
 
 #include "NOD_texture.h"
 
@@ -49,8 +50,8 @@ void TextureBaseOperation::deinit_execution()
   BKE_image_pool_free(pool_);
   pool_ = nullptr;
   if (texture_ != nullptr && texture_->use_nodes && texture_->nodetree != nullptr &&
-      texture_->nodetree->execdata != nullptr) {
-    ntreeTexEndExecTree(texture_->nodetree->execdata);
+      texture_->nodetree->runtime->execdata != nullptr) {
+    ntreeTexEndExecTree(texture_->nodetree->runtime->execdata);
   }
   NodeOperation::deinit_execution();
 }
@@ -59,8 +60,8 @@ void TextureBaseOperation::determine_canvas(const rcti &preferred_area, rcti &r_
 {
   r_area = preferred_area;
   if (BLI_rcti_is_empty(&preferred_area)) {
-    int width = rd_->xsch * rd_->size / 100;
-    int height = rd_->ysch * rd_->size / 100;
+    int width, height;
+    BKE_render_resolution(rd_, false, &width, &height);
     r_area.xmax = preferred_area.xmin + width;
     r_area.ymax = preferred_area.ymin + height;
   }

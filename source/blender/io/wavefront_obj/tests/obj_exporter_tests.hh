@@ -17,19 +17,21 @@ struct OBJExportParamsDefault {
     params.start_frame = 0;
     params.end_frame = 1;
 
-    params.forward_axis = OBJ_AXIS_NEGATIVE_Z_FORWARD;
-    params.up_axis = OBJ_AXIS_Y_UP;
-    params.scaling_factor = 1.f;
+    params.forward_axis = IO_AXIS_NEGATIVE_Z;
+    params.up_axis = IO_AXIS_Y;
+    params.global_scale = 1.f;
 
     params.apply_modifiers = true;
     params.export_eval_mode = DAG_EVAL_VIEWPORT;
     params.export_selected_objects = false;
     params.export_uv = true;
     params.export_normals = true;
+    params.export_colors = false;
     params.export_materials = true;
     params.path_mode = PATH_REFERENCE_AUTO;
     params.export_triangulated_mesh = false;
     params.export_curves_as_nurbs = false;
+    params.export_pbr_extensions = false;
 
     params.export_object_groups = false;
     params.export_material_groups = false;

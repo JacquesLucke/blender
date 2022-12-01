@@ -379,6 +379,8 @@ static int transformops_data(bContext *C, wmOperator *op, const wmEvent *event)
   if (op->customdata == NULL) {
     TransInfo *t = MEM_callocN(sizeof(TransInfo), "TransInfo data2");
 
+    t->undo_name = op->type->name;
+
     int mode = transformops_mode(op);
     retval = initTransform(C, t, op, event, mode);
 
@@ -419,7 +421,7 @@ static int transform_modal(bContext *C, wmOperator *op, const wmEvent *event)
 
   /* XXX, workaround: active needs to be calculated before transforming,
    * since we're not reading from 'td->center' in this case. see: T40241 */
-  if (t->tsnap.target == SCE_SNAP_TARGET_ACTIVE) {
+  if (t->tsnap.source_select == SCE_SNAP_SOURCE_ACTIVE) {
     /* In camera view, tsnap callback is not set
      * (see #initSnappingMode() in transform_snap.c, and T40348). */
     if (t->tsnap.targetSnap && ((t->tsnap.status & TARGET_INIT) == 0)) {
@@ -521,9 +523,7 @@ static int transform_invoke(bContext *C, wmOperator *op, const wmEvent *event)
   return OPERATOR_RUNNING_MODAL;
 }
 
-static bool transform_poll_property(const bContext *UNUSED(C),
-                                    wmOperator *op,
-                                    const PropertyRNA *prop)
+static bool transform_poll_property(const bContext *C, wmOperator *op, const PropertyRNA *prop)
 {
   const char *prop_id = RNA_property_identifier(prop);
 
@@ -557,10 +557,28 @@ static bool transform_poll_property(const bContext *UNUSED(C),
   }
 
   /* Proportional Editing. */
-  {
+  if (STRPREFIX(prop_id, "proportional") || STRPREFIX(prop_id, "use_proportional")) {
+    ScrArea *area = CTX_wm_area(C);
+    if (area->spacetype == SPACE_NLA) {
+      /* Hide properties that are not supported in some spaces. */
+      return false;
+    }
+
     PropertyRNA *prop_pet = RNA_struct_find_property(op->ptr, "use_proportional_edit");
-    if (prop_pet && (prop_pet != prop) && (RNA_property_boolean_get(op->ptr, prop_pet) == false)) {
-      if (STRPREFIX(prop_id, "proportional") || STRPREFIX(prop_id, "use_proportional")) {
+    if ((prop_pet != prop) && (RNA_property_boolean_get(op->ptr, prop_pet) == false)) {
+      /* If "use_proportional_edit" is false, hide:
+       * - "proportional_edit_falloff",
+       * - "proportional_size",
+       * - "use_proportional_connected",
+       * - "use_proportional_projected". */
+      return false;
+    }
+  }
+
+  /* Snapping. */
+  {
+    if (STREQ(prop_id, "use_snap_project")) {
+      if (RNA_boolean_get(op->ptr, "snap") == false) {
         return false;
       }
     }
@@ -613,7 +631,7 @@ void Transform_Properties(struct wmOperatorType *ot, int flags)
 
   if (flags & P_MIRROR) {
     prop = RNA_def_boolean(ot->srna, "mirror", 0, "Mirror Editing", "");
-    if (flags & P_MIRROR_DUMMY) {
+    if ((flags & P_MIRROR_DUMMY) == P_MIRROR_DUMMY) {
       /* only used so macros can disable this option */
       RNA_def_property_flag(prop, PROP_HIDDEN);
     }
@@ -644,18 +662,44 @@ void Transform_Properties(struct wmOperatorType *ot, int flags)
   }
 
   if (flags & P_SNAP) {
-    prop = RNA_def_boolean(ot->srna, "snap", 0, "Use Snapping Options", "");
+    prop = RNA_def_boolean(ot->srna, "snap", false, "Use Snapping Options", "");
     RNA_def_property_flag(prop, PROP_HIDDEN);
 
-    if (flags & P_GEO_SNAP) {
-      prop = RNA_def_enum(ot->srna, "snap_target", rna_enum_snap_target_items, 0, "Target", "");
+    if ((flags & P_GEO_SNAP) == P_GEO_SNAP) {
+      prop = RNA_def_enum(ot->srna,
+                          "snap_elements",
+                          rna_enum_snap_element_items,
+                          SCE_SNAP_MODE_INCREMENT,
+                          "Snap to Elements",
+                          "");
+      RNA_def_property_flag(prop, PROP_HIDDEN | PROP_ENUM_FLAG);
+
+      RNA_def_boolean(ot->srna, "use_snap_project", false, "Project Individual Elements", "");
+
+      /* TODO(@gfxcoder): Rename `snap_target` to `snap_source` to avoid previous ambiguity of
+       * "target" (now, "source" is geometry to be moved and "target" is geometry to which moved
+       * geometry is snapped).  Use "Source snap point" and "Point on source that will snap to
+       * target" for name and description, respectively. */
+      prop = RNA_def_enum(ot->srna, "snap_target", rna_enum_snap_source_items, 0, "Snap With", "");
       RNA_def_property_flag(prop, PROP_HIDDEN);
+
+      /* Target selection. */
+      prop = RNA_def_boolean(ot->srna, "use_snap_self", true, "Target: Include Active", "");
+      RNA_def_property_flag(prop, PROP_HIDDEN);
+      prop = RNA_def_boolean(ot->srna, "use_snap_edit", true, "Target: Include Edit", "");
+      RNA_def_property_flag(prop, PROP_HIDDEN);
+      prop = RNA_def_boolean(ot->srna, "use_snap_nonedit", true, "Target: Include Non-Edited", "");
+      RNA_def_property_flag(prop, PROP_HIDDEN);
+      prop = RNA_def_boolean(
+          ot->srna, "use_snap_selectable", false, "Target: Exclude Non-Selectable", "");
+      RNA_def_property_flag(prop, PROP_HIDDEN);
+
       prop = RNA_def_float_vector(
           ot->srna, "snap_point", 3, NULL, -FLT_MAX, FLT_MAX, "Point", "", -FLT_MAX, FLT_MAX);
       RNA_def_property_flag(prop, PROP_HIDDEN);
 
-      if (flags & P_ALIGN_SNAP) {
-        prop = RNA_def_boolean(ot->srna, "snap_align", 0, "Align with Point Normal", "");
+      if ((flags & P_ALIGN_SNAP) == P_ALIGN_SNAP) {
+        prop = RNA_def_boolean(ot->srna, "snap_align", false, "Align with Point Normal", "");
         RNA_def_property_flag(prop, PROP_HIDDEN);
         prop = RNA_def_float_vector(
             ot->srna, "snap_normal", 3, NULL, -FLT_MAX, FLT_MAX, "Normal", "", -FLT_MAX, FLT_MAX);
@@ -845,17 +889,6 @@ static void TRANSFORM_OT_trackball(struct wmOperatorType *ot)
   Transform_Properties(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_GPENCIL_EDIT | P_CENTER);
 }
 
-/* Similar to #transform_shear_poll. */
-static bool transform_rotate_poll(bContext *C)
-{
-  if (!ED_operator_screenactive(C)) {
-    return false;
-  }
-
-  ScrArea *area = CTX_wm_area(C);
-  return area && !ELEM(area->spacetype, SPACE_ACTION);
-}
-
 static void TRANSFORM_OT_rotate(struct wmOperatorType *ot)
 {
   /* identifiers */
@@ -869,7 +902,7 @@ static void TRANSFORM_OT_rotate(struct wmOperatorType *ot)
   ot->exec = transform_exec;
   ot->modal = transform_modal;
   ot->cancel = transform_cancel;
-  ot->poll = transform_rotate_poll;
+  ot->poll = ED_operator_screenactive;
   ot->poll_property = transform_poll_property;
 
   RNA_def_float_rotation(
@@ -934,7 +967,6 @@ static void TRANSFORM_OT_bend(struct wmOperatorType *ot)
   Transform_Properties(ot, P_PROPORTIONAL | P_MIRROR | P_SNAP | P_GPENCIL_EDIT | P_CENTER);
 }
 
-/* Similar to #transform_rotate_poll. */
 static bool transform_shear_poll(bContext *C)
 {
   if (!ED_operator_screenactive(C)) {
@@ -1125,7 +1157,7 @@ static void TRANSFORM_OT_edge_slide(struct wmOperatorType *ot)
                   "When Even mode is active, flips between the two adjacent edge loops");
   RNA_def_boolean(ot->srna, "use_clamp", true, "Clamp", "Clamp within the edge extents");
 
-  Transform_Properties(ot, P_MIRROR | P_SNAP | P_CORRECT_UV);
+  Transform_Properties(ot, P_MIRROR | P_GEO_SNAP | P_CORRECT_UV);
 }
 
 static void TRANSFORM_OT_vert_slide(struct wmOperatorType *ot)
@@ -1160,7 +1192,7 @@ static void TRANSFORM_OT_vert_slide(struct wmOperatorType *ot)
                   "When Even mode is active, flips between the two adjacent edge loops");
   RNA_def_boolean(ot->srna, "use_clamp", true, "Clamp", "Clamp within the edge extents");
 
-  Transform_Properties(ot, P_MIRROR | P_SNAP | P_CORRECT_UV);
+  Transform_Properties(ot, P_MIRROR | P_GEO_SNAP | P_CORRECT_UV);
 }
 
 static void TRANSFORM_OT_edge_crease(struct wmOperatorType *ot)

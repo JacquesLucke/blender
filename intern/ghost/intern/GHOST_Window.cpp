@@ -23,6 +23,7 @@ GHOST_Window::GHOST_Window(uint32_t width,
     : m_drawingContextType(GHOST_kDrawingContextTypeNone),
       m_cursorVisible(true),
       m_cursorGrab(GHOST_kGrabDisable),
+      m_cursorGrabAxis(GHOST_kAxisNone),
       m_cursorShape(GHOST_kStandardCursorDefault),
       m_wantStereoVisual(wantStereoVisual),
       m_context(new GHOST_ContextNone(false))
@@ -76,6 +77,11 @@ GHOST_TSuccess GHOST_Window::setDrawingContextType(GHOST_TDrawingContextType typ
   return GHOST_kSuccess;
 }
 
+GHOST_IContext *GHOST_Window::getDrawingContext()
+{
+  return m_context;
+}
+
 GHOST_TSuccess GHOST_Window::swapBuffers()
 {
   return m_context->swapBuffers();
@@ -91,9 +97,25 @@ GHOST_TSuccess GHOST_Window::getSwapInterval(int &intervalOut)
   return m_context->getSwapInterval(intervalOut);
 }
 
-unsigned int GHOST_Window::getDefaultFramebuffer()
+GHOST_Context *GHOST_Window::getContext()
+{
+  return m_context;
+}
+
+uint GHOST_Window::getDefaultFramebuffer()
 {
   return (m_context) ? m_context->getDefaultFramebuffer() : 0;
+}
+
+GHOST_TSuccess GHOST_Window::getVulkanBackbuffer(void *image,
+                                                 void *framebuffer,
+                                                 void *command_buffer,
+                                                 void *render_pass,
+                                                 void *extent,
+                                                 uint32_t *fb_id)
+{
+  return m_context->getVulkanBackbuffer(
+      image, framebuffer, command_buffer, render_pass, extent, fb_id);
 }
 
 GHOST_TSuccess GHOST_Window::activateDrawingContext()
@@ -155,8 +177,38 @@ GHOST_TSuccess GHOST_Window::setCursorGrab(GHOST_TGrabCursorMode mode,
 
 GHOST_TSuccess GHOST_Window::getCursorGrabBounds(GHOST_Rect &bounds)
 {
+  if (m_cursorGrab != GHOST_kGrabWrap) {
+    return GHOST_kFailure;
+  }
   bounds = m_cursorGrabBounds;
   return (bounds.m_l == -1 && bounds.m_r == -1) ? GHOST_kFailure : GHOST_kSuccess;
+}
+
+void GHOST_Window::getCursorGrabState(GHOST_TGrabCursorMode &mode,
+                                      GHOST_TAxisFlag &wrap_axis,
+                                      GHOST_Rect &bounds,
+                                      bool &use_software_cursor)
+{
+  mode = m_cursorGrab;
+  if (m_cursorGrab == GHOST_kGrabWrap) {
+    bounds = m_cursorGrabBounds;
+    wrap_axis = m_cursorGrabAxis;
+  }
+  else {
+    bounds.m_l = -1;
+    bounds.m_r = -1;
+    bounds.m_t = -1;
+    bounds.m_b = -1;
+    wrap_axis = GHOST_kAxisNone;
+  }
+  use_software_cursor = (m_cursorGrab != GHOST_kGrabDisable) ? getCursorGrabUseSoftwareDisplay() :
+                                                               false;
+}
+
+bool GHOST_Window::getCursorGrabUseSoftwareDisplay()
+{
+  /* Sub-classes may override, by default don't use software cursor. */
+  return false;
 }
 
 GHOST_TSuccess GHOST_Window::setCursorShape(GHOST_TStandardCursor cursorShape)
@@ -175,6 +227,12 @@ GHOST_TSuccess GHOST_Window::setCustomCursorShape(
     m_cursorShape = GHOST_kStandardCursorCustom;
     return GHOST_kSuccess;
   }
+  return GHOST_kFailure;
+}
+
+GHOST_TSuccess GHOST_Window::getCursorBitmap(GHOST_CursorBitmapRef * /*bitmap*/)
+{
+  /* Sub-classes may override. */
   return GHOST_kFailure;
 }
 

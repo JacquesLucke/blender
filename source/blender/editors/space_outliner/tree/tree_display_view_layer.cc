@@ -64,6 +64,7 @@ ListBase TreeDisplayViewLayer::buildTree(const TreeSourceData &source_data)
 {
   ListBase tree = {nullptr};
   Scene *scene = source_data.scene;
+  scene_ = scene;
   show_objects_ = !(space_outliner_.filter & SO_FILTER_NO_OBJECT);
 
   for (auto *view_layer : ListBaseWrapper<ViewLayer>(scene->view_layers)) {
@@ -96,7 +97,8 @@ void TreeDisplayViewLayer::add_view_layer(Scene &scene, ListBase &tree, TreeElem
 
   if (space_outliner_.filter & SO_FILTER_NO_COLLECTION) {
     /* Show objects in the view layer. */
-    for (Base *base : List<Base>(view_layer_->object_bases)) {
+    BKE_view_layer_synced_ensure(&scene, view_layer_);
+    for (Base *base : List<Base>(*BKE_view_layer_object_bases_get(view_layer_))) {
       TreeElement *te_object = outliner_add_element(
           &space_outliner_, &tree, base->object, parent, TSE_SOME_ID, 0);
       te_object->directdata = base;
@@ -166,6 +168,7 @@ void TreeDisplayViewLayer::add_layer_collection_objects(ListBase &tree,
                                                         LayerCollection &lc,
                                                         TreeElement &ten)
 {
+  BKE_view_layer_synced_ensure(scene_, view_layer_);
   for (CollectionObject *cob : List<CollectionObject>(lc.collection->gobject)) {
     Base *base = BKE_view_layer_base_find(view_layer_, cob->ob);
     TreeElement *te_object = outliner_add_element(
@@ -271,14 +274,14 @@ void ObjectsChildrenBuilder::make_object_parent_hierarchy_collections()
 
       if (!found) {
         /* We add the child in the tree even if it is not in the collection.
-         * We deliberately clear its sub-tree though, to make it less prominent. */
+         * We don't expand its sub-tree though, to make it less prominent. */
         TreeElement *child_ob_tree_element = outliner_add_element(&outliner_,
                                                                   &parent_ob_tree_element->subtree,
                                                                   child,
                                                                   parent_ob_tree_element,
                                                                   TSE_SOME_ID,
-                                                                  0);
-        outliner_free_tree(&child_ob_tree_element->subtree);
+                                                                  0,
+                                                                  false);
         child_ob_tree_element->flag |= TE_CHILD_NOT_IN_COLLECTION;
         child_ob_tree_elements.append(child_ob_tree_element);
       }

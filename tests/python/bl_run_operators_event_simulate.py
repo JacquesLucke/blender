@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 r"""
 Overview
 ========
@@ -463,7 +461,7 @@ class BlenderAction(argparse.Action):
         except ArgumentTypeError as ex:
             raise ArgumentTypeError("Invalid 'action' arguments \"%s\" at index %d, %s" % (value, index, str(ex)))
         # Validation should never yield any events.
-        assert(not dummy_result)
+        assert not dummy_result
 
         return (op, args, kwargs)
 

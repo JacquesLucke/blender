@@ -244,27 +244,50 @@ void BKE_nla_tracks_copy(Main *bmain, ListBase *dst, const ListBase *src, const 
   }
 }
 
-static void update_active_strip_from_listbase(AnimData *adt_dest,
-                                              NlaTrack *track_dest,
-                                              const NlaStrip *active_strip,
-                                              const ListBase /* NlaStrip */ *strips_source)
+/**
+ * Find `active_strip` in `strips_source`, then return the strip with the same
+ * index from `strips_dest`.
+ */
+static NlaStrip *find_active_strip_from_listbase(const NlaStrip *active_strip,
+                                                 const ListBase /* NlaStrip */ *strips_source,
+                                                 const ListBase /* NlaStrip */ *strips_dest)
 {
-  NlaStrip *strip_dest = track_dest->strips.first;
+  BLI_assert_msg(BLI_listbase_count(strips_source) == BLI_listbase_count(strips_dest),
+                 "Expecting the same number of source and destination strips");
+
+  NlaStrip *strip_dest = strips_dest->first;
   LISTBASE_FOREACH (const NlaStrip *, strip_source, strips_source) {
+    if (strip_dest == NULL) {
+      /* The tracks are assumed to have an equal number of strips, but this is
+       * not the case. Not sure when this might happen, but it's better to not
+       * crash. */
+      break;
+    }
     if (strip_source == active_strip) {
-      adt_dest->actstrip = strip_dest;
-      return;
+      return strip_dest;
     }
 
-    if (strip_source->type == NLASTRIP_TYPE_META) {
-      update_active_strip_from_listbase(adt_dest, track_dest, active_strip, &strip_source->strips);
+    const bool src_is_meta = strip_source->type == NLASTRIP_TYPE_META;
+    const bool dst_is_meta = strip_dest->type == NLASTRIP_TYPE_META;
+    BLI_assert_msg(src_is_meta == dst_is_meta,
+                   "Expecting topology of source and destination strips to be equal");
+    if (src_is_meta && dst_is_meta) {
+      NlaStrip *found_in_meta = find_active_strip_from_listbase(
+          active_strip, &strip_source->strips, &strip_dest->strips);
+      if (found_in_meta != NULL) {
+        return found_in_meta;
+      }
     }
 
     strip_dest = strip_dest->next;
   }
+
+  return NULL;
 }
 
-/* Set adt_dest->actstrip to the strip with the same index as adt_source->actstrip. */
+/* Set adt_dest->actstrip to the strip with the same index as
+ * adt_source->actstrip. Note that this always sets `adt_dest->actstrip`; sets
+ * to NULL when `adt_source->actstrip` cannot be found. */
 static void update_active_strip(AnimData *adt_dest,
                                 NlaTrack *track_dest,
                                 const AnimData *adt_source,
@@ -272,13 +295,20 @@ static void update_active_strip(AnimData *adt_dest,
 {
   BLI_assert(BLI_listbase_count(&track_source->strips) == BLI_listbase_count(&track_dest->strips));
 
-  update_active_strip_from_listbase(
-      adt_dest, track_dest, adt_source->actstrip, &track_source->strips);
+  NlaStrip *active_strip = find_active_strip_from_listbase(
+      adt_source->actstrip, &track_source->strips, &track_dest->strips);
+  adt_dest->actstrip = active_strip;
 }
 
 /* Set adt_dest->act_track to the track with the same index as adt_source->act_track. */
 static void update_active_track(AnimData *adt_dest, const AnimData *adt_source)
 {
+  adt_dest->act_track = NULL;
+  adt_dest->actstrip = NULL;
+  if (adt_source->act_track == NULL && adt_source->actstrip == NULL) {
+    return;
+  }
+
   BLI_assert(BLI_listbase_count(&adt_source->nla_tracks) ==
              BLI_listbase_count(&adt_dest->nla_tracks));
 
@@ -287,7 +317,11 @@ static void update_active_track(AnimData *adt_dest, const AnimData *adt_source)
     if (track_source == adt_source->act_track) {
       adt_dest->act_track = track_dest;
     }
-    update_active_strip(adt_dest, track_dest, adt_source, track_source);
+
+    /* Only search for the active strip if it hasn't been found yet. */
+    if (adt_dest->actstrip == NULL && adt_source->actstrip != NULL) {
+      update_active_strip(adt_dest, track_dest, adt_source, track_source);
+    }
 
     track_dest = track_dest->next;
   }
@@ -397,8 +431,7 @@ NlaStrip *BKE_nlastrip_new(bAction *act)
   BKE_action_get_frame_range(strip->act, &strip->actstart, &strip->actend);
 
   strip->start = strip->actstart;
-  strip->end = (IS_EQF(strip->actstart, strip->actend)) ? (strip->actstart + 1.0f) :
-                                                          (strip->actend);
+  strip->end = IS_EQF(strip->actstart, strip->actend) ? (strip->actstart + 1.0f) : strip->actend;
 
   /* strip should be referenced as-is */
   strip->scale = 1.0f;
@@ -431,6 +464,7 @@ NlaStrip *BKE_nlastack_add_strip(AnimData *adt, bAction *act, const bool is_libo
      */
     nlt = BKE_nlatrack_add(adt, NULL, is_liboverride);
     BKE_nlatrack_add_strip(nlt, strip, is_liboverride);
+    BLI_strncpy(nlt->name, act->id.name + 2, sizeof(nlt->name));
   }
 
   /* automatically name it too */
@@ -1205,6 +1239,68 @@ static NlaStrip *nlastrip_find_active(ListBase /* NlaStrip */ *strips)
   return NULL;
 }
 
+float BKE_nlastrip_compute_frame_from_previous_strip(NlaStrip *strip)
+{
+  float limit_prev = MINAFRAMEF;
+
+  /* Find the previous end frame, with a special case if the previous strip was a transition : */
+  if (strip->prev) {
+    if (strip->prev->type == NLASTRIP_TYPE_TRANSITION) {
+      limit_prev = strip->prev->start + NLASTRIP_MIN_LEN_THRESH;
+    }
+    else {
+      limit_prev = strip->prev->end;
+    }
+  }
+
+  return limit_prev;
+}
+
+float BKE_nlastrip_compute_frame_to_next_strip(NlaStrip *strip)
+{
+  float limit_next = MAXFRAMEF;
+
+  /* Find the next begin frame, with a special case if the next strip's a transition : */
+  if (strip->next) {
+    if (strip->next->type == NLASTRIP_TYPE_TRANSITION) {
+      limit_next = strip->next->end - NLASTRIP_MIN_LEN_THRESH;
+    }
+    else {
+      limit_next = strip->next->start;
+    }
+  }
+
+  return limit_next;
+}
+
+NlaStrip *BKE_nlastrip_next_in_track(struct NlaStrip *strip, bool skip_transitions)
+{
+  NlaStrip *next = strip->next;
+  while (next != NULL) {
+    if (skip_transitions && (next->type & NLASTRIP_TYPE_TRANSITION)) {
+      next = next->next;
+    }
+    else {
+      return next;
+    }
+  }
+  return NULL;
+}
+
+NlaStrip *BKE_nlastrip_prev_in_track(struct NlaStrip *strip, bool skip_transitions)
+{
+  NlaStrip *prev = strip->prev;
+  while (prev != NULL) {
+    if (skip_transitions && (prev->type & NLASTRIP_TYPE_TRANSITION)) {
+      prev = prev->prev;
+    }
+    else {
+      return prev;
+    }
+  }
+  return NULL;
+}
+
 NlaStrip *BKE_nlastrip_find_active(NlaTrack *nlt)
 {
   if (nlt == NULL) {
@@ -1262,6 +1358,17 @@ bool BKE_nlastrip_within_bounds(NlaStrip *strip, float min, float max)
 
   /* should be ok! */
   return true;
+}
+
+float BKE_nlastrip_distance_to_frame(const NlaStrip *strip, const float timeline_frame)
+{
+  if (timeline_frame < strip->start) {
+    return strip->start - timeline_frame;
+  }
+  if (strip->end < timeline_frame) {
+    return timeline_frame - strip->end;
+  }
+  return 0.0f;
 }
 
 /* Ensure that strip doesn't overlap those around it after resizing
@@ -1823,7 +1930,7 @@ bool BKE_nla_action_stash(AnimData *adt, const bool is_liboverride)
    * NOTE: this must be done *after* adding the strip to the track, or else
    *       the strip locking will prevent the strip from getting added
    */
-  nlt->flag = (NLATRACK_MUTED | NLATRACK_PROTECTED);
+  nlt->flag |= (NLATRACK_MUTED | NLATRACK_PROTECTED);
   strip->flag &= ~(NLASTRIP_FLAG_SELECT | NLASTRIP_FLAG_ACTIVE);
 
   /* also mark the strip for auto syncing the length, so that the strips accurately
@@ -1959,7 +2066,7 @@ bool BKE_nla_tweakmode_enter(AnimData *adt)
   }
 
   /* If block is already in tweak-mode, just leave, but we should report
-   * that this block is in tweak-mode (as our returncode). */
+   * that this block is in tweak-mode (as our return-code). */
   if (adt->flag & ADT_NLA_EDIT_ON) {
     return true;
   }
@@ -2004,7 +2111,7 @@ bool BKE_nla_tweakmode_enter(AnimData *adt)
 
   /* handle AnimData level changes:
    * - 'real' active action to temp storage (no need to change user-counts).
-   * - Action of active strip set to be the 'active action', and have its usercount incremented.
+   * - Action of active strip set to be the 'active action', and have its user-count incremented.
    * - Editing-flag for this AnimData block should also get turned on
    *   (for more efficient restoring).
    * - Take note of the active strip for mapping-correction of keyframes
@@ -2068,7 +2175,8 @@ void BKE_nla_tweakmode_exit(AnimData *adt)
   }
 
   /* handle AnimData level changes:
-   * - 'temporary' active action needs its usercount decreased, since we're removing this reference
+   * - 'temporary' active action needs its user-count decreased,
+   *   since we're removing this reference
    * - 'real' active action is restored from storage
    * - storage pointer gets cleared (to avoid having bad notes hanging around)
    * - editing-flag for this AnimData block should also get turned off

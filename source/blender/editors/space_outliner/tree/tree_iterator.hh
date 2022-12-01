@@ -10,9 +10,11 @@
 
 struct ListBase;
 struct SpaceOutliner;
-struct TreeElement;
 
 namespace blender::ed::outliner {
+
+struct TreeElement;
+
 namespace tree_iterator {
 
 using VisitorFn = FunctionRef<void(TreeElement *)>;
@@ -26,7 +28,7 @@ void all(const ListBase &subtree, VisitorFn visitor);
 
 /**
  * Preorder (meaning depth-first) traversal of all elements not part of a collapsed sub-tree.
- * Freeing the currently visited element in \a visitor is fine.
+ * Freeing the currently visited element in \a visitor is fine (but not its tree-store element).
  */
 void all_open(const SpaceOutliner &, VisitorFn visitor);
 void all_open(const SpaceOutliner &, const ListBase &subtree, VisitorFn visitor);

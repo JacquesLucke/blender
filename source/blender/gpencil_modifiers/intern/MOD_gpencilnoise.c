@@ -7,11 +7,10 @@
 
 #include <stdio.h>
 
-#include "BLI_listbase.h"
-#include "BLI_utildefines.h"
-
 #include "BLI_hash.h"
+#include "BLI_listbase.h"
 #include "BLI_math_vector.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -340,7 +339,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Noise = {
-    /* name */ "Noise",
+    /* name */ N_("Noise"),
     /* structName */ "NoiseGpencilModifierData",
     /* structSize */ sizeof(NoiseGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

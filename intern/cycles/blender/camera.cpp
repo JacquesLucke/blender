@@ -2,6 +2,7 @@
  * Copyright 2011-2022 Blender Foundation */
 
 #include "scene/camera.h"
+#include "scene/bake.h"
 #include "scene/scene.h"
 
 #include "blender/sync.h"
@@ -143,11 +144,20 @@ static float blender_camera_focal_distance(BL::RenderEngine &b_engine,
   if (!b_dof_object)
     return b_camera.dof().focus_distance();
 
+  Transform dofmat = get_transform(b_dof_object.matrix_world());
+
+  string focus_subtarget = b_camera.dof().focus_subtarget();
+  if (b_dof_object.pose() && !focus_subtarget.empty()) {
+    BL::PoseBone b_bone = b_dof_object.pose().bones[focus_subtarget];
+    if (b_bone) {
+      dofmat = dofmat * get_transform(b_bone.matrix());
+    }
+  }
+
   /* for dof object, return distance along camera Z direction */
   BL::Array<float, 16> b_ob_matrix;
   b_engine.camera_model_matrix(b_ob, bcam->use_spherical_stereo, b_ob_matrix);
   Transform obmat = transform_clear_scale(get_transform(b_ob_matrix));
-  Transform dofmat = get_transform(b_dof_object.matrix_world());
   float3 view_dir = normalize(transform_get_column(&obmat, 2));
   float3 dof_dir = transform_get_column(&obmat, 3) - transform_get_column(&dofmat, 3);
   return fabsf(dot(view_dir, dof_dir));
@@ -583,6 +593,11 @@ void BlenderSync::sync_camera(BL::RenderSettings &b_render,
     blender_camera_from_object(&bcam, b_engine, b_ob);
     b_engine.camera_model_matrix(b_ob, bcam.use_spherical_stereo, b_ob_matrix);
     bcam.matrix = get_transform(b_ob_matrix);
+    scene->bake_manager->set_use_camera(b_render.bake().view_from() ==
+                                        BL::BakeSettings::view_from_ACTIVE_CAMERA);
+  }
+  else {
+    scene->bake_manager->set_use_camera(false);
   }
 
   /* sync */
@@ -643,7 +658,7 @@ void BlenderSync::sync_camera_motion(
     /* TODO(sergey): De-duplicate calculation with camera sync. */
     float fov = 2.0f * atanf((0.5f * sensor_size) / bcam.lens / aspectratio);
     if (fov != cam->get_fov()) {
-      VLOG(3) << "Camera " << b_ob.name() << " FOV change detected.";
+      VLOG_WORK << "Camera " << b_ob.name() << " FOV change detected.";
       if (motion_time == 0.0f) {
         cam->set_fov(fov);
       }

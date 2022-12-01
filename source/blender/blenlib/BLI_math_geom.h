@@ -136,7 +136,7 @@ bool is_quad_convex_v2(const float v1[2], const float v2[2], const float v3[2], 
 bool is_poly_convex_v2(const float verts[][2], unsigned int nr);
 /**
  * Check if either of the diagonals along this quad create flipped triangles
- * (normals pointing away from eachother).
+ * (normals pointing away from each other).
  * - (1 << 0): (v1-v3) is flipped.
  * - (1 << 1): (v2-v4) is flipped.
  */
@@ -1270,8 +1270,8 @@ MINLINE void mul_sh_fl(float r[9], float f);
 MINLINE void add_sh_shsh(float r[9], const float a[9], const float b[9]);
 MINLINE float dot_shsh(const float a[9], const float b[9]);
 
-MINLINE float eval_shv3(float r[9], const float v[3]);
-MINLINE float diffuse_shv3(const float r[9], const float v[3]);
+MINLINE float eval_shv3(float sh[9], const float v[3]);
+MINLINE float diffuse_shv3(const float sh[9], const float v[3]);
 MINLINE void vec_fac_to_sh(float r[9], const float v[3], float f);
 MINLINE void madd_sh_shfl(float r[9], const float sh[9], float f);
 

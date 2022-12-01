@@ -147,7 +147,7 @@ PropertyDefRNA *rna_findlink(ListBase *listbase, const char *identifier)
 
   for (link = listbase->first; link; link = link->next) {
     PropertyRNA *prop = ((PropertyDefRNA *)link)->prop;
-    if (prop && (STREQ(prop->identifier, identifier))) {
+    if (prop && STREQ(prop->identifier, identifier)) {
       return (PropertyDefRNA *)link;
     }
   }
@@ -916,8 +916,8 @@ StructRNA *RNA_def_struct_ptr(BlenderRNA *brna, const char *identifier, StructRN
   DefRNA.laststruct = srna;
 
   if (srnafrom) {
-    /* copy from struct to derive stuff, a bit clumsy since we can't
-     * use MEM_dupallocN, data structs may not be alloced but builtin */
+    /* Copy from struct to derive stuff, a bit clumsy since we can't
+     * use #MEM_dupallocN, data structs may not be allocated but builtin. */
     memcpy(srna, srnafrom, sizeof(StructRNA));
     srna->cont.prophash = NULL;
     BLI_listbase_clear(&srna->cont.properties);
@@ -2753,7 +2753,7 @@ void RNA_def_property_pointer_sdna(PropertyRNA *prop, const char *structname, co
     return;
   }
 
-  if ((/* dp= */ rna_def_property_sdna(prop, structname, propname))) {
+  if (/* dp= */ rna_def_property_sdna(prop, structname, propname)) {
     if (prop->arraydimension) {
       prop->arraydimension = 0;
       prop->totarraylength = 0;
@@ -4421,6 +4421,16 @@ int rna_parameter_size(PropertyRNA *parm)
   return sizeof(void *);
 }
 
+int rna_parameter_size_pad(const int size)
+{
+  /* Pad parameters in memory so the next parameter is properly aligned.
+   * This silences warnings in UBSAN. More complicated logic to pack parameters
+   * more tightly in memory is unlikely to improve performance, and aligning
+   * to the requirements for pointers is enough for all data types we use. */
+  const int alignment = sizeof(void *);
+  return (size + alignment - 1) & ~(alignment - 1);
+}
+
 /* Dynamic Enums */
 
 void RNA_enum_item_add(EnumPropertyItem **items, int *totitem, const EnumPropertyItem *item)
@@ -4435,7 +4445,7 @@ void RNA_enum_item_add(EnumPropertyItem **items, int *totitem, const EnumPropert
 #endif
   }
   else if (tot >= 8 && (tot & (tot - 1)) == 0) {
-    /* power of two > 8 */
+    /* Power of two > 8. */
     *items = MEM_recallocN_id(*items, sizeof(EnumPropertyItem) * tot * 2, __func__);
 #ifdef DEBUG
     memset((*items) + tot, 0xff, sizeof(EnumPropertyItem) * tot);
@@ -4467,8 +4477,8 @@ void RNA_enum_items_add_value(EnumPropertyItem **items,
   for (; item->identifier; item++) {
     if (item->value == value) {
       RNA_enum_item_add(items, totitem, item);
-      /* break on first match - does this break anything?
-       * (is quick hack to get object->parent_type working ok for armature/lattice) */
+      /* Break on first match - does this break anything?
+       * (is quick hack to get `object->parent_type` working ok for armature/lattice). */
       break;
     }
   }

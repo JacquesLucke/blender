@@ -29,7 +29,7 @@ if(WITH_OPENSUBDIV)
 
   list(APPEND INC_SYS
     ${OPENSUBDIV_INCLUDE_DIRS}
-    ${GLEW_INCLUDE_PATH}
+    ${Epoxy_INCLUDE_DIRS}
   )
 
   list(APPEND SRC
@@ -41,18 +41,6 @@ if(WITH_OPENSUBDIV)
     internal/base/type_convert.h
     internal/base/util.cc
     internal/base/util.h
-
-    # Device.
-    internal/device/device_context_cuda.cc
-    internal/device/device_context_cuda.h
-    internal/device/device_context_glsl_compute.cc
-    internal/device/device_context_glsl_compute.h
-    internal/device/device_context_glsl_transform_feedback.cc
-    internal/device/device_context_glsl_transform_feedback.h
-    internal/device/device_context_opencl.cc
-    internal/device/device_context_opencl.h
-    internal/device/device_context_openmp.cc
-    internal/device/device_context_openmp.h
 
     # Evaluator.
     internal/evaluator/eval_output.cc
@@ -93,15 +81,6 @@ if(WITH_OPENSUBDIV)
     )
   endif()
 
-  OPENSUBDIV_DEFINE_COMPONENT(OPENSUBDIV_HAS_OPENMP)
-  OPENSUBDIV_DEFINE_COMPONENT(OPENSUBDIV_HAS_OPENCL)
-  OPENSUBDIV_DEFINE_COMPONENT(OPENSUBDIV_HAS_CUDA)
-  OPENSUBDIV_DEFINE_COMPONENT(OPENSUBDIV_HAS_GLSL_TRANSFORM_FEEDBACK)
-  OPENSUBDIV_DEFINE_COMPONENT(OPENSUBDIV_HAS_GLSL_COMPUTE)
-
-  add_definitions(${GL_DEFINITIONS})
-  add_definitions(-DOSD_USES_GLEW)
-
   if(WIN32)
     add_definitions(-DNOMINMAX)
     add_definitions(-D_USE_MATH_DEFINES)
@@ -125,7 +104,6 @@ if(WITH_GTESTS AND WITH_OPENSUBDIV)
 
   add_definitions(${GFLAGS_DEFINES})
   add_definitions(${GLOG_DEFINES})
-  add_definitions(-DBLENDER_GFLAGS_NAMESPACE=${GFLAGS_NAMESPACE})
 
   blender_add_test_executable(opensubdiv_mesh_topology_test "internal/topology/mesh_topology_test.cc" "${INC}" "${INC_SYS}" "${LIB};bf_intern_opensubdiv")
 endif()

@@ -12,6 +12,8 @@
 
 #include "DRW_render.h"
 
+#include "RE_pipeline.h"
+
 #include "eevee_engine.h" /* Own include. */
 
 #include "eevee_instance.hh"
@@ -97,6 +99,8 @@ static void eevee_draw_scene(void *vedata)
   DefaultFramebufferList *dfbl = DRW_viewport_framebuffer_list_get();
   ved->instance->draw_viewport(dfbl);
   STRNCPY(ved->info, ved->instance->info.c_str());
+  /* Reset view for other following engines. */
+  DRW_view_set_active(nullptr);
 }
 
 static void eevee_cache_init(void *vedata)
@@ -136,15 +140,45 @@ static void eevee_instance_free(void *instance)
   delete reinterpret_cast<eevee::Instance *>(instance);
 }
 
-static void eevee_render_to_image(void *UNUSED(vedata),
+static void eevee_render_to_image(void *vedata,
                                   struct RenderEngine *engine,
                                   struct RenderLayer *layer,
-                                  const struct rcti *UNUSED(rect))
+                                  const struct rcti * /*rect*/)
 {
   if (!GPU_shader_storage_buffer_objects_support()) {
     return;
   }
-  UNUSED_VARS(engine, layer);
+
+  eevee::Instance *instance = new eevee::Instance();
+
+  Render *render = engine->re;
+  Depsgraph *depsgraph = DRW_context_state_get()->depsgraph;
+  Object *camera_original_ob = RE_GetCamera(engine->re);
+  const char *viewname = RE_GetActiveRenderView(engine->re);
+  int size[2] = {engine->resolution_x, engine->resolution_y};
+
+  rctf view_rect;
+  rcti rect;
+  RE_GetViewPlane(render, &view_rect, &rect);
+
+  instance->init(size, &rect, engine, depsgraph, nullptr, camera_original_ob, layer);
+  instance->render_frame(layer, viewname);
+
+  EEVEE_Data *ved = static_cast<EEVEE_Data *>(vedata);
+  delete ved->instance;
+  ved->instance = instance;
+}
+
+static void eevee_store_metadata(void *vedata, struct RenderResult *render_result)
+{
+  if (!GPU_shader_storage_buffer_objects_support()) {
+    return;
+  }
+  EEVEE_Data *ved = static_cast<EEVEE_Data *>(vedata);
+  eevee::Instance *instance = ved->instance;
+  instance->store_metadata(render_result);
+  delete instance;
+  ved->instance = nullptr;
 }
 
 static void eevee_render_update_passes(RenderEngine *engine, Scene *scene, ViewLayer *view_layer)
@@ -152,7 +186,7 @@ static void eevee_render_update_passes(RenderEngine *engine, Scene *scene, ViewL
   if (!GPU_shader_storage_buffer_objects_support()) {
     return;
   }
-  UNUSED_VARS(engine, scene, view_layer);
+  eevee::Instance::update_passes(engine, scene, view_layer);
 }
 
 static const DrawEngineDataSize eevee_data_size = DRW_VIEWPORT_DATA_SIZE(EEVEE_Data);
@@ -174,7 +208,7 @@ DrawEngineType draw_engine_eevee_next_type = {
     nullptr,
     nullptr,
     &eevee_render_to_image,
-    nullptr,
+    &eevee_store_metadata,
 };
 
 RenderEngineType DRW_engine_viewport_eevee_next_type = {

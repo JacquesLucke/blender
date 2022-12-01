@@ -34,11 +34,17 @@ SET(PYTHON_VERSION 3.10 CACHE STRING "Python Version (major and minor only)")
 MARK_AS_ADVANCED(PYTHON_VERSION)
 
 
-# See: http://docs.python.org/extending/embedding.html#linking-requirements
-#      for why this is needed
-SET(PYTHON_LINKFLAGS "-Xlinker -export-dynamic" CACHE STRING "Linker flags for python")
-MARK_AS_ADVANCED(PYTHON_LINKFLAGS)
-
+if(APPLE)
+  if(WITH_PYTHON_MODULE)
+    set(PYTHON_LINKFLAGS "-undefined dynamic_lookup")
+  else()
+    set(PYTHON_LINKFLAGS)
+  endif()
+else()
+  # See: http://docs.python.org/extending/embedding.html#linking-requirements
+  SET(PYTHON_LINKFLAGS "-Xlinker -export-dynamic" CACHE STRING "Linker flags for python")
+  MARK_AS_ADVANCED(PYTHON_LINKFLAGS)
+endif()
 
 # if the user passes these defines as args, we don't want to overwrite
 SET(_IS_INC_DEF OFF)
@@ -175,7 +181,9 @@ FIND_PACKAGE_HANDLE_STANDARD_ARGS(PythonLibsUnix  DEFAULT_MSG
 IF(PYTHONLIBSUNIX_FOUND)
   # Assign cache items
   SET(PYTHON_INCLUDE_DIRS ${PYTHON_INCLUDE_DIR} ${PYTHON_INCLUDE_CONFIG_DIR})
-  SET(PYTHON_LIBRARIES ${PYTHON_LIBRARY})
+  IF(NOT WITH_PYTHON_MODULE)
+    SET(PYTHON_LIBRARIES ${PYTHON_LIBRARY})
+  ENDIF()
 
   FIND_FILE(PYTHON_SITE_PACKAGES
     NAMES

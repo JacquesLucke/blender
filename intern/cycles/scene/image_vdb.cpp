@@ -70,7 +70,7 @@ struct ToNanoOp {
         nanogrid = nanovdb::openToNanoVDB(floatgrid);
       }
       catch (const std::exception &e) {
-        VLOG(1) << "Error converting OpenVDB to NanoVDB grid: " << e.what();
+        VLOG_WARNING << "Error converting OpenVDB to NanoVDB grid: " << e.what();
       }
       return true;
     }
@@ -114,9 +114,11 @@ bool VDBImageLoader::load_metadata(const ImageDeviceFeatures &features, ImageMet
 #  ifdef WITH_NANOVDB
   if (features.has_nanovdb) {
     /* NanoVDB expects no inactive leaf nodes. */
-    /*openvdb::FloatGrid &pruned_grid = *openvdb::gridPtrCast<openvdb::FloatGrid>(grid);
+#    if 0
+    openvdb::FloatGrid &pruned_grid = *openvdb::gridPtrCast<openvdb::FloatGrid>(grid);
     openvdb::tools::pruneInactive(pruned_grid.tree());
-    nanogrid = nanovdb::openToNanoVDB(pruned_grid);*/
+    nanogrid = nanovdb::openToNanoVDB(pruned_grid);
+#    endif
     ToNanoOp op;
     op.precision = precision;
     if (!openvdb::grid_type_operation(grid, op)) {

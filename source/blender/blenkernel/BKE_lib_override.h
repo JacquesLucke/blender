@@ -60,14 +60,42 @@ void BKE_lib_override_library_clear(struct IDOverrideLibrary *override, bool do_
 void BKE_lib_override_library_free(struct IDOverrideLibrary **override, bool do_id_user);
 
 /**
+ * Return the actual #IDOverrideLibrary data 'controlling' the given `id`, and the actual ID owning
+ * it.
+ *
+ * \note This is especially useful when `id` is a non-real override (e.g. embedded ID like a master
+ * collection or root node tree, or a shape key).
+ *
+ * \param owner_id_hint: If not NULL, a potential owner for the given override-embedded `id`.
+ * \param r_owner_id: If given, will be set with the actual ID owning the return liboverride data.
+ */
+IDOverrideLibrary *BKE_lib_override_library_get(struct Main *bmain,
+                                                struct ID *id,
+                                                struct ID *owner_id_hint,
+                                                struct ID **r_owner_id);
+
+/**
  * Check if given ID has some override rules that actually indicate the user edited it.
  */
-bool BKE_lib_override_library_is_user_edited(struct ID *id);
+bool BKE_lib_override_library_is_user_edited(const struct ID *id);
 
 /**
  * Check if given ID is a system override.
  */
-bool BKE_lib_override_library_is_system_defined(struct Main *bmain, struct ID *id);
+bool BKE_lib_override_library_is_system_defined(const struct Main *bmain, const struct ID *id);
+
+/**
+ * Check if given Override Property for given ID is animated (through a F-Curve in an Action, or
+ * from a driver).
+ *
+ * \param override_rna_prop: if not NULL, the RNA property matching the given path in the
+ * `override_prop`.
+ * \param rnaprop_index: Array in the RNA property, 0 if unknown or irrelevant.
+ */
+bool BKE_lib_override_library_property_is_animated(const ID *id,
+                                                   const IDOverrideLibraryProperty *override_prop,
+                                                   const struct PropertyRNA *override_rna_prop,
+                                                   const int rnaprop_index);
 
 /**
  * Check if given ID is a leaf in its liboverride hierarchy (i.e. if it does not use any other
@@ -89,7 +117,7 @@ struct ID *BKE_lib_override_library_create_from_id(struct Main *bmain,
 /**
  * Create overridden local copies of all tagged data-blocks in given Main.
  *
- * \note Set `id->newid` of overridden libs with newly created overrides,
+ * \note Set `id->newid` of overridden libraries with newly created overrides,
  * caller is responsible to clean those pointers before/after usage as needed.
  *
  * \note By default, it will only remap newly created local overriding data-blocks between
@@ -281,11 +309,14 @@ void BKE_lib_override_library_property_delete(struct IDOverrideLibrary *override
  *
  * \param idpoin: Pointer to the override ID.
  * \param library_prop: The library override property to find the matching RNA property for.
+ * \param r_index: The RNA array flat index (i.e. flattened index in case of multi-dimensional
+ * array properties). See #RNA_path_resolve_full family of functions for details.
  */
 bool BKE_lib_override_rna_property_find(struct PointerRNA *idpoin,
                                         const struct IDOverrideLibraryProperty *library_prop,
                                         struct PointerRNA *r_override_poin,
-                                        struct PropertyRNA **r_override_prop);
+                                        struct PropertyRNA **r_override_prop,
+                                        int *r_index);
 
 /**
  * Find override property operation from given sub-item(s), if it exists.

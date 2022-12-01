@@ -14,6 +14,15 @@
 extern "C" {
 #endif
 
+/* Name of subfolder inside BLENDER_DATAFILES that contains font files. */
+#define BLF_DATAFILES_FONTS_DIR "fonts"
+
+/* File name of the default variable-width font. */
+#define BLF_DEFAULT_PROPORTIONAL_FONT "DejaVuSans.woff2"
+
+/* File name of the default fixed-pitch font. */
+#define BLF_DEFAULT_MONOSPACED_FONT "DejaVuSansMono.woff2"
+
 /* enable this only if needed (unused circa 2016) */
 #define BLF_BLUR_ENABLE 0
 
@@ -37,12 +46,14 @@ void BLF_cache_flush_set_fn(void (*cache_flush_fn)(void));
  */
 int BLF_load(const char *name) ATTR_NONNULL();
 int BLF_load_mem(const char *name, const unsigned char *mem, int mem_size) ATTR_NONNULL();
+bool BLF_is_loaded(const char *name) ATTR_NONNULL();
 
 int BLF_load_unique(const char *name) ATTR_NONNULL();
 int BLF_load_mem_unique(const char *name, const unsigned char *mem, int mem_size) ATTR_NONNULL();
 
 void BLF_unload(const char *name) ATTR_NONNULL();
 void BLF_unload_id(int fontid);
+void BLF_unload_all(void);
 
 char *BLF_display_name_from_file(const char *filepath);
 
@@ -58,7 +69,7 @@ void BLF_metrics_attach(int fontid, unsigned char *mem, int mem_size);
 
 void BLF_aspect(int fontid, float x, float y, float z);
 void BLF_position(int fontid, float x, float y, float z);
-void BLF_size(int fontid, float size, int dpi);
+void BLF_size(int fontid, float size);
 
 /* Goal: small but useful color API. */
 
@@ -107,10 +118,7 @@ int BLF_draw_mono(int fontid, const char *str, size_t str_len, int cwidth) ATTR_
 
 typedef bool (*BLF_GlyphBoundsFn)(const char *str,
                                   size_t str_step_ofs,
-                                  const struct rcti *glyph_step_bounds,
-                                  int glyph_advance_x,
-                                  const struct rcti *glyph_bounds,
-                                  const int glyph_bearing[2],
+                                  const struct rcti *bounds,
                                   void *user_data);
 
 /**
@@ -121,17 +129,27 @@ typedef bool (*BLF_GlyphBoundsFn)(const char *str,
  *
  * \note The font position, clipping, matrix and rotation are not applied.
  */
-void BLF_boundbox_foreach_glyph_ex(int fontid,
-                                   const char *str,
-                                   size_t str_len,
-                                   BLF_GlyphBoundsFn user_fn,
-                                   void *user_data,
-                                   struct ResultBLF *r_info) ATTR_NONNULL(2);
 void BLF_boundbox_foreach_glyph(int fontid,
                                 const char *str,
                                 size_t str_len,
                                 BLF_GlyphBoundsFn user_fn,
                                 void *user_data) ATTR_NONNULL(2);
+
+/**
+ * Get the byte offset within a string, selected by mouse at a horizontal location.
+ */
+size_t BLF_str_offset_from_cursor_position(int fontid,
+                                           const char *str,
+                                           size_t str_len,
+                                           int location_x);
+
+/**
+ * Return bounds of the glyph rect at the string offset.
+ */
+bool BLF_str_offset_to_glyph_bounds(int fontid,
+                                    const char *str,
+                                    size_t str_offset,
+                                    struct rcti *glyph_bounds);
 
 /**
  * Get the string byte offset that fits within a given width.
@@ -279,20 +297,11 @@ void BLF_dir_free(char **dirs, int count) ATTR_NONNULL();
  *
  * \note called from a thread, so it bypasses the normal BLF_* api (which isn't thread-safe).
  */
-void BLF_thumb_preview(const char *filepath,
-                       const char **draw_str,
-                       const char **i18n_draw_str,
-                       unsigned char draw_str_lines,
-                       const float font_color[4],
-                       int font_size,
-                       unsigned char *buf,
-                       int w,
-                       int h,
-                       int channels) ATTR_NONNULL();
+bool BLF_thumb_preview(const char *filename, unsigned char *buf, int w, int h, int channels)
+    ATTR_NONNULL();
 
 /* blf_default.c */
 
-void BLF_default_dpi(int dpi);
 void BLF_default_size(float size);
 void BLF_default_set(int fontid);
 /**
@@ -312,25 +321,39 @@ int BLF_set_default(void);
 
 int BLF_load_default(bool unique);
 int BLF_load_mono_default(bool unique);
+void BLF_load_font_stack(void);
 
 #ifdef DEBUG
 void BLF_state_print(int fontid);
 #endif
 
-/* font->flags. */
-#define BLF_ROTATION (1 << 0)
-#define BLF_CLIPPING (1 << 1)
-#define BLF_SHADOW (1 << 2)
-// #define BLF_FLAG_UNUSED_3 (1 << 3) /* dirty */
-#define BLF_MATRIX (1 << 4)
-#define BLF_ASPECT (1 << 5)
-#define BLF_WORD_WRAP (1 << 6)
-#define BLF_MONOCHROME (1 << 7) /* no-AA */
-#define BLF_HINTING_NONE (1 << 8)
-#define BLF_HINTING_SLIGHT (1 << 9)
-#define BLF_HINTING_FULL (1 << 10)
-#define BLF_BOLD (1 << 11)
-#define BLF_ITALIC (1 << 12)
+/** #FontBLF.flags. */
+enum {
+  BLF_ROTATION = 1 << 0,
+  BLF_CLIPPING = 1 << 1,
+  BLF_SHADOW = 1 << 2,
+  // BLF_FLAG_UNUSED_3 = 1 << 3, /* dirty */
+  BLF_MATRIX = 1 << 4,
+  BLF_ASPECT = 1 << 5,
+  BLF_WORD_WRAP = 1 << 6,
+  /** No anti-aliasing. */
+  BLF_MONOCHROME = 1 << 7,
+  BLF_HINTING_NONE = 1 << 8,
+  BLF_HINTING_SLIGHT = 1 << 9,
+  BLF_HINTING_FULL = 1 << 10,
+  BLF_BOLD = 1 << 11,
+  BLF_ITALIC = 1 << 12,
+  /** Intended USE is monospaced, regardless of font type. */
+  BLF_MONOSPACED = 1 << 13,
+  /** A font within the default stack of fonts. */
+  BLF_DEFAULT = 1 << 14,
+  /** Must only be used as last font in the stack. */
+  BLF_LAST_RESORT = 1 << 15,
+  /** Failure to load this font. Don't try again. */
+  BLF_BAD_FONT = 1 << 16,
+  /** This font is managed by the FreeType cache subsystem. */
+  BLF_CACHED = 1 << 17,
+};
 
 #define BLF_DRAW_STR_DUMMY_MAX 1024
 

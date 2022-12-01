@@ -16,8 +16,16 @@
 #include "DRW_render.h"
 
 #include "eevee_camera.hh"
+#include "eevee_cryptomatte.hh"
+#include "eevee_depth_of_field.hh"
+#include "eevee_film.hh"
+#include "eevee_hizbuffer.hh"
+#include "eevee_light.hh"
 #include "eevee_material.hh"
+#include "eevee_motion_blur.hh"
 #include "eevee_pipeline.hh"
+#include "eevee_renderbuffers.hh"
+#include "eevee_sampling.hh"
 #include "eevee_shader.hh"
 #include "eevee_sync.hh"
 #include "eevee_view.hh"
@@ -31,19 +39,29 @@ namespace blender::eevee {
  */
 class Instance {
   friend VelocityModule;
+  friend MotionBlurModule;
 
  public:
   ShaderModule &shaders;
   SyncModule sync;
   MaterialModule materials;
   PipelineModule pipelines;
+  LightModule lights;
   VelocityModule velocity;
+  MotionBlurModule motion_blur;
+  DepthOfField depth_of_field;
+  Cryptomatte cryptomatte;
+  HiZBuffer hiz_buffer;
+  Sampling sampling;
   Camera camera;
+  Film film;
+  RenderBuffers render_buffers;
   MainView main_view;
   World world;
 
   /** Input data. */
   Depsgraph *depsgraph;
+  Manager *manager;
   /** Evaluated IDs. */
   Scene *scene;
   ViewLayer *view_layer;
@@ -57,8 +75,13 @@ class Instance {
   const View3D *v3d;
   const RegionView3D *rv3d;
 
-  /* Info string displayed at the top of the render / viewport. */
+  /** True if the grease pencil engine might be running. */
+  bool gpencil_engine_enabled;
+
+  /** Info string displayed at the top of the render / viewport. */
   std::string info = "";
+  /** Debug mode from debug value. */
+  eDebugMode debug_mode = eDebugMode::DEBUG_NONE;
 
  public:
   Instance()
@@ -66,8 +89,16 @@ class Instance {
         sync(*this),
         materials(*this),
         pipelines(*this),
+        lights(*this),
         velocity(*this),
+        motion_blur(*this),
+        depth_of_field(*this),
+        cryptomatte(*this),
+        hiz_buffer(*this),
+        sampling(*this),
         camera(*this),
+        film(*this),
+        render_buffers(*this),
         main_view(*this),
         world(*this){};
   ~Instance(){};
@@ -89,15 +120,23 @@ class Instance {
 
   void render_sync();
   void render_frame(RenderLayer *render_layer, const char *view_name);
+  void store_metadata(RenderResult *render_result);
 
   void draw_viewport(DefaultFramebufferList *dfbl);
 
-  bool is_viewport(void)
+  static void update_passes(RenderEngine *engine, Scene *scene, ViewLayer *view_layer);
+
+  bool is_viewport() const
   {
-    return !DRW_state_is_scene_render();
+    return render == nullptr;
   }
 
-  bool use_scene_lights(void) const
+  bool overlays_enabled() const
+  {
+    return v3d && ((v3d->flag2 & V3D_HIDE_OVERLAYS) == 0);
+  }
+
+  bool use_scene_lights() const
   {
     return (!v3d) ||
            ((v3d->shading.type == OB_MATERIAL) &&
@@ -107,7 +146,7 @@ class Instance {
   }
 
   /* Light the scene using the selected HDRI in the viewport shading pop-over. */
-  bool use_studio_light(void) const
+  bool use_studio_light() const
   {
     return (v3d) && (((v3d->shading.type == OB_MATERIAL) &&
                       ((v3d->shading.flag & V3D_SHADING_SCENE_WORLD) == 0)) ||
@@ -116,8 +155,14 @@ class Instance {
   }
 
  private:
+  static void object_sync_render(void *instance_,
+                                 Object *ob,
+                                 RenderEngine *engine,
+                                 Depsgraph *depsgraph);
   void render_sample();
+  void render_read_result(RenderLayer *render_layer, const char *view_name);
 
+  void scene_sync();
   void mesh_sync(Object *ob, ObjectHandle &ob_handle);
 
   void update_eval_members();

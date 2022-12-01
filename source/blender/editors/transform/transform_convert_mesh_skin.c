@@ -66,7 +66,7 @@ static void tc_mesh_skin_transdata_create(TransDataBasic *td,
   td->extra = eve;
 }
 
-void createTransMeshSkin(TransInfo *t)
+static void createTransMeshSkin(bContext *UNUSED(C), TransInfo *t)
 {
   BLI_assert(t->mode == TFM_SKIN_RESIZE);
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -130,7 +130,7 @@ void createTransMeshSkin(TransInfo *t)
           em, calc_single_islands, calc_island_center, calc_island_axismtx, &island_data);
     }
 
-    copy_m3_m4(mtx, tc->obedit->obmat);
+    copy_m3_m4(mtx, tc->obedit->object_to_world);
     /* we use a pseudo-inverse so that when one of the axes is scaled to 0,
      * matrix inversion still works and we can still moving along the other */
     pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
@@ -271,7 +271,7 @@ static void tc_mesh_skin_apply_to_mirror(TransInfo *t)
   }
 }
 
-void recalcData_mesh_skin(TransInfo *t)
+static void recalcData_mesh_skin(TransInfo *t)
 {
   bool is_canceling = t->state == TRANS_CANCEL;
   /* mirror modifier clipping? */
@@ -289,3 +289,10 @@ void recalcData_mesh_skin(TransInfo *t)
 }
 
 /** \} */
+
+TransConvertTypeInfo TransConvertType_MeshSkin = {
+    /* flags */ (T_EDIT | T_POINTS),
+    /* createTransData */ createTransMeshSkin,
+    /* recalcData */ recalcData_mesh_skin,
+    /* special_aftertrans_update */ NULL,
+};

@@ -97,7 +97,7 @@ int BKE_scene_base_iter_next(struct Depsgraph *depsgraph,
                              struct Base **base,
                              struct Object **ob);
 
-void BKE_scene_base_flag_to_objects(struct ViewLayer *view_layer);
+void BKE_scene_base_flag_to_objects(const struct Scene *scene, struct ViewLayer *view_layer);
 /**
  * Synchronize object base flags
  *
@@ -251,6 +251,10 @@ bool BKE_scene_check_rigidbody_active(const struct Scene *scene);
 int BKE_scene_num_threads(const struct Scene *scene);
 int BKE_render_num_threads(const struct RenderData *r);
 
+void BKE_render_resolution(const struct RenderData *r,
+                           const bool use_crop,
+                           int *r_width,
+                           int *r_height);
 int BKE_render_preview_pixel_size(const struct RenderData *r);
 
 /**********************************/

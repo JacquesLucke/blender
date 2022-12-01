@@ -11,8 +11,6 @@ where <path-to-blender> is the path to the Blender executable,
 and <output-filename> is where to write the generated man page.
 '''
 
-# <pep8 compliant>
-
 import argparse
 import os
 import subprocess
@@ -141,7 +139,7 @@ https://www.blender.org''')
 
                 l = lines.pop(0)
                 if l:
-                    assert(l.startswith('\t'))
+                    assert l.startswith('\t')
                     l = l[1:]  # Remove first white-space (tab).
 
                 fh.write('%s\n' % man_format(l))

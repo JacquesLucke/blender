@@ -7,14 +7,17 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 
 #include "BLI_string_ref.hh"
+#include "UI_resources.h"
 
 struct ListBase;
 struct SpaceOutliner;
-struct TreeElement;
 
 namespace blender::ed::outliner {
+
+struct TreeElement;
 
 /* -------------------------------------------------------------------- */
 /* Tree-Display Interface */
@@ -64,6 +67,25 @@ class AbstractTreeElement {
   virtual StringRefNull getWarning() const;
 
   /**
+   * Define the icon to be displayed for this element. If this returns an icon, this will be
+   * displayed. Otherwise, #tree_element_get_icon() may still determine an icon. By default no
+   * value is returned (#std::nullopt).
+   *
+   * All elements should be ported to use this over #tree_element_get_icon().
+   */
+  virtual std::optional<BIFIconID> getIcon() const;
+
+  /**
+   * Debugging helper: Print effective path of this tree element, constructed out of the
+   * #TreeElement.name of each element. E.g.:
+   * - Lorem
+   *   - ipsum dolor sit
+   *     - amet
+   * will print: Lorem/ipsum dolor sit/amet.
+   */
+  void print_path();
+
+  /**
    * Expand this tree element if it is displayed for the first time (as identified by its
    * tree-store element).
    *
@@ -94,13 +116,19 @@ class AbstractTreeElement {
  * \note "ID" is not always a real ID.
  * \note If child items are only added to the tree if the item is open,
  * the `TSE_` type _must_ be added to #outliner_element_needs_rebuild_on_open_change().
+ *
+ * \param expand: If true, the element may add its own sub-tree. E.g. objects will list their
+ *                animation data, object data, constraints, modifiers, ... This often adds visual
+ *                noise, and can be expensive to add in big scenes. So prefer setting this to
+ *                false.
  */
 struct TreeElement *outliner_add_element(SpaceOutliner *space_outliner,
                                          ListBase *lb,
                                          void *idv,
                                          struct TreeElement *parent,
                                          short type,
-                                         short index);
+                                         short index,
+                                         const bool expand = true);
 
 void tree_element_expand(const AbstractTreeElement &tree_element, SpaceOutliner &space_outliner);
 

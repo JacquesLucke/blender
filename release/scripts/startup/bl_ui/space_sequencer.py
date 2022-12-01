@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 import bpy
 from bpy.types import (
     Header,
@@ -685,7 +683,7 @@ class SEQUENCER_MT_add(Menu):
         elif bpy_data_movieclips_len > 0:
             layout.operator_menu_enum("sequencer.movieclip_strip_add", "clip", text="Clip", icon='TRACKER')
         else:
-            layout.menu("SEQUENCER_MT_add_empty", text="Clip", icon='TRACKER')
+            layout.menu("SEQUENCER_MT_add_empty", text="Clip", text_ctxt=i18n_contexts.id_movieclip, icon='TRACKER')
         del bpy_data_movieclips_len
 
         bpy_data_masks_len = len(bpy.data.masks)
@@ -1652,7 +1650,7 @@ class SEQUENCER_PT_source(SequencerButtonsPanel, Panel):
                 if sound.samplerate <= 0:
                     split.label(text="Unknown")
                 else:
-                    split.label(text="%d Hz." % sound.samplerate, translate=False)
+                    split.label(text="%d Hz" % sound.samplerate, translate=False)
 
                 split = col.split(factor=0.5, align=False)
                 split.alignment = 'RIGHT'
@@ -1872,6 +1870,12 @@ class SEQUENCER_PT_time(SequencerButtonsPanel, Panel):
         split.label(text="Channel")
         split.prop(strip, "channel", text="")
 
+        if not is_effect:
+            split = layout.split(factor=0.5 + max_factor)
+            split.alignment = 'RIGHT'
+            split.label(text="Speed Factor")
+            split.prop(strip, "speed_factor", text="")
+
         sub = layout.column(align=True)
         split = sub.split(factor=0.5 + max_factor, align=True)
         split.alignment = 'RIGHT'
@@ -1984,11 +1988,6 @@ class SEQUENCER_PT_adjust_sound(SequencerButtonsPanel, Panel):
             split.label(text="Volume")
             split.prop(strip, "volume", text="")
 
-            split = col.split(factor=0.4)
-            split.alignment = 'RIGHT'
-            split.label(text="Pitch")
-            split.prop(strip, "pitch", text="")
-
             audio_channels = context.scene.render.ffmpeg.audio_channels
             pan_enabled = sound.use_mono and audio_channels != 'MONO'
             pan_text = "%.2f°" % (strip.pan * 90)
@@ -2089,10 +2088,9 @@ class SEQUENCER_PT_adjust_transform(SequencerButtonsPanel, Panel):
         col = layout.column(align=True)
         col.prop(strip.transform, "origin")
 
-        row = layout.row(heading="Mirror")
-        sub = row.row(align=True)
-        sub.prop(strip, "use_flip_x", text="X", toggle=True)
-        sub.prop(strip, "use_flip_y", text="Y", toggle=True)
+        col = layout.column(heading="Mirror", align=True)
+        col.prop(strip, "use_flip_x", text="X", toggle=True)
+        col.prop(strip, "use_flip_y", text="Y", toggle=True)
 
 
 class SEQUENCER_PT_adjust_video(SequencerButtonsPanel, Panel):

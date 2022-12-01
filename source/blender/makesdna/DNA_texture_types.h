@@ -115,7 +115,7 @@ typedef struct PointDensity {
 
   /** for 'Object' or 'Particle system' type - source object */
   struct Object *object;
-  /** `index + 1` in ob.particlesystem, non-ID pointer not allowed */
+  /** `index + 1` in ob.particle-system, non-ID pointer not allowed. */
   int psys;
   /** cache points in world-space, object space, ... ? */
   short psys_cache_space;
@@ -397,8 +397,7 @@ typedef struct ColorMapping {
 
 /* return value */
 #define TEX_INT 0
-#define TEX_RGB (1 << 0)
-#define TEX_NOR (1 << 1)
+#define TEX_RGB 1
 
 /* pr_texture in material, world, light. */
 #define TEX_PR_TEXTURE 0

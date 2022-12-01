@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import functools
 import shutil
 import pathlib
@@ -48,8 +46,8 @@ class AbstractBlenderRunnerTest(unittest.TestCase):
 
         Returns Blender's stdout + stderr combined into one string.
 
-        :param filepath: taken relative to self.testdir.
-        :param timeout: in seconds
+        :arg filepath: taken relative to self.testdir.
+        :arg timeout: in seconds
         """
 
         assert self.blender, "Path to Blender binary is to be set in setUpClass()"

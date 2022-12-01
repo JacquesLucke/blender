@@ -13,7 +13,7 @@
 
 #include "gpu_state_private.hh"
 
-#include "glew-mx.h"
+#include <epoxy/gl.h>
 
 namespace blender {
 namespace gpu {
@@ -129,6 +129,9 @@ static inline GLbitfield to_gl(eGPUBarrier barrier_bits)
   }
   if (barrier_bits & GPU_BARRIER_ELEMENT_ARRAY) {
     barrier |= GL_ELEMENT_ARRAY_BARRIER_BIT;
+  }
+  if (barrier_bits & GPU_BARRIER_UNIFORM) {
+    barrier |= GL_UNIFORM_BARRIER_BIT;
   }
   return barrier;
 }

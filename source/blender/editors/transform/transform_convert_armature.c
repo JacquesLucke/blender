@@ -93,8 +93,8 @@ static void autokeyframe_pose(
   KeyingSet *active_ks = ANIM_scene_get_active_keyingset(scene);
   ListBase nla_cache = {NULL, NULL};
   Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
-  const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(depsgraph,
-                                                                                    (float)CFRA);
+  const AnimationEvalContext anim_eval_context = BKE_animsys_eval_context_construct(
+      depsgraph, (float)scene->r.cfra);
   eInsertKeyFlags flag = 0;
 
   /* flag is initialized from UserPref keyframing settings
@@ -306,8 +306,9 @@ static short pose_grab_with_ik_add(bPoseChannel *pchan)
            * just make things obey standard rotation locks too */
           if (data->rootbone == 0) {
             for (bPoseChannel *pchan_iter = pchan; pchan_iter; pchan_iter = pchan_iter->parent) {
-              /* here, we set ik-settings for bone from pchan->protectflag */
-              /* XXX: careful with quats/axis-angle rotations where we're locking 4d components. */
+              /* Here, we set IK-settings for bone from `pchan->protectflag`. */
+              /* XXX: careful with quaternion/axis-angle rotations
+               * where we're locking 4d components. */
               if (pchan_iter->protectflag & OB_LOCK_ROTX) {
                 pchan_iter->ikflag |= BONE_IK_NO_XDOF_TEMP;
               }
@@ -592,7 +593,7 @@ static void add_pose_transdata(TransInfo *t, bPoseChannel *pchan, Object *ob, Tr
   td->ext->rotOrder = pchan->rotmode;
 
   /* proper way to get parent transform + own transform + constraints transform */
-  copy_m3_m4(omat, ob->obmat);
+  copy_m3_m4(omat, ob->object_to_world);
 
   /* New code, using "generic" BKE_bone_parent_transform_calc_from_pchan(). */
   {
@@ -701,7 +702,7 @@ static void add_pose_transdata(TransInfo *t, bPoseChannel *pchan, Object *ob, Tr
   td->con = pchan->constraints.first;
 }
 
-void createTransPose(TransInfo *t)
+static void createTransPose(bContext *UNUSED(C), TransInfo *t)
 {
   Main *bmain = CTX_data_main(t->context);
 
@@ -879,7 +880,7 @@ void createTransPose(TransInfo *t)
   }
 }
 
-void createTransArmatureVerts(TransInfo *t)
+static void createTransArmatureVerts(bContext *UNUSED(C), TransInfo *t)
 {
   t->data_len_all = 0;
 
@@ -954,7 +955,7 @@ void createTransArmatureVerts(TransInfo *t)
     bool mirror = ((arm->flag & ARM_MIRROR_EDIT) != 0);
     BoneInitData *bid = tc->custom.type.data;
 
-    copy_m3_m4(mtx, tc->obedit->obmat);
+    copy_m3_m4(mtx, tc->obedit->object_to_world);
     pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
 
     td = tc->data = MEM_callocN(tc->data_len * sizeof(TransData), "TransEditBone");
@@ -1189,10 +1190,10 @@ static void restoreBones(TransDataContainer *tc)
   }
 }
 
-void recalcData_edit_armature(TransInfo *t)
+static void recalcData_edit_armature(TransInfo *t)
 {
   if (t->state != TRANS_CANCEL) {
-    applyProject(t);
+    applySnappingIndividual(t);
   }
 
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -1356,7 +1357,7 @@ static void pose_transform_mirror_update(TransInfo *t, TransDataContainer *tc, O
       }
       mul_v3_m4v3(data->grabtarget, flip_mtx, td->loc);
       if (pid) {
-        /* TODO(germano): Relative Mirror support. */
+        /* TODO(@germano): Relative Mirror support. */
       }
       data->flag |= CONSTRAINT_IK_AUTO;
       /* Add a temporary auto IK constraint here, as we will only temporarily active this
@@ -1412,7 +1413,7 @@ static void restoreMirrorPoseBones(TransDataContainer *tc)
   }
 }
 
-void recalcData_pose(TransInfo *t)
+static void recalcData_pose(TransInfo *t)
 {
   if (t->mode == TFM_BONESIZE) {
     /* Handle the exception where for TFM_BONESIZE in edit mode we pretend to be
@@ -1471,7 +1472,7 @@ void recalcData_pose(TransInfo *t)
         /* XXX: this currently doesn't work, since flags aren't set yet! */
         int targetless_ik = (t->flag & T_AUTOIK);
 
-        animrecord_check_state(t, ob);
+        animrecord_check_state(t, &ob->id);
         autokeyframe_pose(t->context, t->scene, ob, t->mode, targetless_ik);
       }
 
@@ -1506,7 +1507,7 @@ static void bone_children_clear_transflag(int mode, short around, ListBase *lb)
     if ((bone->flag & BONE_HINGE) && (bone->flag & BONE_CONNECTED)) {
       bone->flag |= BONE_HINGE_CHILD_TRANSFORM;
     }
-    else if ((bone->flag & BONE_TRANSFORM) && (ELEM(mode, TFM_ROTATION, TFM_TRACKBALL)) &&
+    else if ((bone->flag & BONE_TRANSFORM) && ELEM(mode, TFM_ROTATION, TFM_TRACKBALL) &&
              (around == V3D_AROUND_LOCAL_ORIGINS)) {
       bone->flag |= BONE_TRANSFORM_CHILD;
     }
@@ -1684,7 +1685,7 @@ static void pose_grab_with_ik_clear(Main *bmain, Object *ob)
   }
 }
 
-void special_aftertrans_update__pose(bContext *C, TransInfo *t)
+static void special_aftertrans_update__pose(bContext *C, TransInfo *t)
 {
   Object *ob;
 
@@ -1768,3 +1769,17 @@ void special_aftertrans_update__pose(bContext *C, TransInfo *t)
 }
 
 /** \} */
+
+TransConvertTypeInfo TransConvertType_EditArmature = {
+    /* flags */ (T_EDIT | T_POINTS),
+    /* createTransData */ createTransArmatureVerts,
+    /* recalcData */ recalcData_edit_armature,
+    /* special_aftertrans_update */ NULL,
+};
+
+TransConvertTypeInfo TransConvertType_Pose = {
+    /* flags */ 0,
+    /* createTransData */ createTransPose,
+    /* recalcData */ recalcData_pose,
+    /* special_aftertrans_update */ special_aftertrans_update__pose,
+};

@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 __all__ = (
     "build_info",
     "SOURCE_DIR",
@@ -31,6 +29,8 @@ from typing import (
     Union,
     cast,
 )
+
+import shlex
 
 
 SOURCE_DIR = join(dirname(__file__), "..", "..")
@@ -162,7 +162,7 @@ def build_info(
 
         for c in compilers:
             args = args.replace(c, fake_compiler)
-        args = args.split()
+        args = shlex.split(args)
         # end
 
         # remove compiler

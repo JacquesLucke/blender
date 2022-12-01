@@ -20,11 +20,12 @@
 
 static const char *traceback_filepath(PyTracebackObject *tb, PyObject **coerce)
 {
-  *coerce = PyUnicode_EncodeFSDefault(tb->tb_frame->f_code->co_filename);
+  PyCodeObject *code = PyFrame_GetCode(tb->tb_frame);
+  *coerce = PyUnicode_EncodeFSDefault(code->co_filename);
   return PyBytes_AS_STRING(*coerce);
 }
 
-/* copied from pythonrun.c, 3.10.0 */
+/* Copied from `pythonrun.c`, 3.10.0 */
 _Py_static_string(PyId_string, "<string>");
 
 static int parse_syntax_error(PyObject *err,
@@ -165,7 +166,7 @@ finally:
 bool python_script_error_jump(
     const char *filepath, int *r_lineno, int *r_offset, int *r_lineno_end, int *r_offset_end)
 {
-  /* WARNING(@campbellbarton): The normalized exception is restored (loosing line number info).
+  /* WARNING(@campbellbarton): The normalized exception is restored (losing line number info).
    * Ideally this would leave the exception state as it found it, but that needs to be done
    * carefully with regards to reference counting, see: T97731. */
 

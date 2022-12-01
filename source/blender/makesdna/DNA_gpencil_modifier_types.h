@@ -47,6 +47,7 @@ typedef enum GpencilModifierType {
   eGpencilModifierType_WeightAngle = 23,
   eGpencilModifierType_Shrinkwrap = 24,
   eGpencilModifierType_Envelope = 25,
+  eGpencilModifierType_Outline = 26,
   /* Keep last. */
   NUM_GREASEPENCIL_MODIFIER_TYPES,
 } GpencilModifierType;
@@ -201,8 +202,18 @@ typedef enum eThickGpencil_Flag {
   GP_THICK_WEIGHT_FACTOR = (1 << 7),
 } eThickGpencil_Flag;
 
+typedef struct TimeGpencilModifierSegment {
+  char name[64];
+  /* For path reference. */
+  struct TimeGpencilModifierData *gpmd;
+  int seg_start;
+  int seg_end;
+  int seg_mode;
+  int seg_repeat;
+} TimeGpencilModifierSegment;
 typedef struct TimeGpencilModifierData {
   GpencilModifierData modifier;
+  struct Material *material;
   /** Layer name. */
   char layername[64];
   /** Custom index for passes. */
@@ -215,7 +226,13 @@ typedef struct TimeGpencilModifierData {
   int mode;
   /** Start and end frame for custom range. */
   int sfra, efra;
+
   char _pad[4];
+
+  TimeGpencilModifierSegment *segments;
+  int segments_len;
+  int segment_active_index;
+
 } TimeGpencilModifierData;
 
 typedef enum eTimeGpencil_Flag {
@@ -230,7 +247,14 @@ typedef enum eTimeGpencil_Mode {
   GP_TIME_MODE_REVERSE = 1,
   GP_TIME_MODE_FIX = 2,
   GP_TIME_MODE_PINGPONG = 3,
+  GP_TIME_MODE_CHAIN = 4,
 } eTimeGpencil_Mode;
+
+typedef enum eTimeGpencil_Seg_Mode {
+  GP_TIME_SEG_MODE_NORMAL = 0,
+  GP_TIME_SEG_MODE_REVERSE = 1,
+  GP_TIME_SEG_MODE_PINGPONG = 2,
+} eTimeGpencil_Seg_Mode;
 
 typedef enum eModifyColorGpencil_Flag {
   GP_MODIFY_COLOR_BOTH = 0,
@@ -312,6 +336,38 @@ typedef enum eOpacityGpencil_Flag {
   GP_OPACITY_NORMALIZE = (1 << 7),
   GP_OPACITY_WEIGHT_FACTOR = (1 << 8),
 } eOpacityGpencil_Flag;
+
+typedef struct OutlineGpencilModifierData {
+  GpencilModifierData modifier;
+  /** Target stroke origin. */
+  struct Object *object;
+  /** Material for filtering. */
+  struct Material *material;
+  /** Layer name. */
+  char layername[64];
+  /** Custom index for passes. */
+  int pass_index;
+  /** Flags. */
+  int flag;
+  /** Thickness. */
+  int thickness;
+  /** Sample Length. */
+  float sample_length;
+  /** Subdivisions. */
+  int subdiv;
+  /** Custom index for passes. */
+  int layer_pass;
+  /** Material for outline. */
+  struct Material *outline_material;
+} OutlineGpencilModifierData;
+
+typedef enum eOutlineGpencil_Flag {
+  GP_OUTLINE_INVERT_LAYER = (1 << 0),
+  GP_OUTLINE_INVERT_PASS = (1 << 1),
+  GP_OUTLINE_INVERT_LAYERPASS = (1 << 2),
+  GP_OUTLINE_INVERT_MATERIAL = (1 << 3),
+  GP_OUTLINE_KEEP_SHAPE = (1 << 4),
+} eOutlineGpencil_Flag;
 
 typedef struct ArrayGpencilModifierData {
   GpencilModifierData modifier;
@@ -998,6 +1054,23 @@ typedef enum eLineartGpencilModifierSource {
   LRT_SOURCE_SCENE = 2,
 } eLineartGpencilModifierSource;
 
+typedef enum eLineartGpencilModifierShadowFilter {
+  /* These options need to be ordered in this way because those latter options requires line art to
+   * run a few extra stages. Having those values set up this way will allow
+   * #BKE_gpencil_get_lineart_modifier_limits() to find out maximum stages needed in multiple
+   * cached line art modifiers. */
+  LRT_SHADOW_FILTER_NONE = 0,
+  LRT_SHADOW_FILTER_ILLUMINATED = 1,
+  LRT_SHADOW_FILTER_SHADED = 2,
+  LRT_SHADOW_FILTER_ILLUMINATED_ENCLOSED_SHAPES = 3,
+} eLineartGpencilModifierShadowFilter;
+
+typedef enum eLineartGpencilModifierSilhouetteFilter {
+  LRT_SILHOUETTE_FILTER_NONE = 0,
+  LRT_SILHOUETTE_FILTER_GROUP = (1 << 0),
+  LRT_SILHOUETTE_FILTER_INDIVIDUAL = (1 << 1),
+} eLineartGpencilModifierSilhouetteFilter;
+
 /* This enum is for modifier internal state only. */
 typedef enum eLineArtGPencilModifierFlags {
   /* These two moved to #eLineartMainFlags to keep consistent with flag variable purpose. */
@@ -1008,6 +1081,7 @@ typedef enum eLineArtGPencilModifierFlags {
   LRT_GPENCIL_USE_CACHE = (1 << 4),
   LRT_GPENCIL_OFFSET_TOWARDS_CUSTOM_CAMERA = (1 << 5),
   LRT_GPENCIL_INVERT_COLLECTION = (1 << 6),
+  LRT_GPENCIL_INVERT_SILHOUETTE_FILTER = (1 << 7),
 } eLineArtGPencilModifierFlags;
 
 typedef enum eLineartGpencilMaskSwitches {
@@ -1024,8 +1098,7 @@ struct LineartCache;
 typedef struct LineartGpencilModifierData {
   GpencilModifierData modifier;
 
-  /** Line type enable flags, bits in #eLineartEdgeFlag. */
-  short edge_types;
+  uint16_t edge_types; /* line type enable flags, bits in eLineartEdgeFlag */
 
   /** Object or Collection, from #eLineartGpencilModifierSource. */
   char source_type;
@@ -1035,6 +1108,7 @@ typedef struct LineartGpencilModifierData {
   short level_end;
 
   struct Object *source_camera;
+  struct Object *light_contour_object;
 
   struct Object *source_object;
   struct Collection *source_collection;
@@ -1049,13 +1123,18 @@ typedef struct LineartGpencilModifierData {
   char source_vertex_group[64];
   char vgname[64];
 
-  /**
-   * Camera focal length is divided by `1 + overscan`, before calculation, which give a wider FOV,
+  /* Camera focal length is divided by (1 + over-scan), before calculation, which give a wider FOV,
    * this doesn't change coordinates range internally (-1, 1), but makes the calculated frame
    * bigger than actual output. This is for the easier shifting calculation. A value of 0.5 means
-   * the "internal" focal length become 2/3 of the actual camera.
-   */
+   * the "internal" focal length become 2/3 of the actual camera. */
   float overscan;
+
+  /* Values for point light and directional (sun) light. */
+  /* For point light, fov always gonna be 120 deg horizontal, with 3 "cameras" covering 360 deg. */
+  float shadow_camera_fov;
+  float shadow_camera_size;
+  float shadow_camera_near;
+  float shadow_camera_far;
 
   float opacity;
   short thickness;
@@ -1064,7 +1143,9 @@ typedef struct LineartGpencilModifierData {
   unsigned char material_mask_bits;
   unsigned char intersection_mask;
 
-  char _pad[3];
+  unsigned char shadow_selection;
+  unsigned char silhouette_selection;
+  char _pad[1];
 
   /** `0..1` range for cosine angle */
   float crease_threshold;
@@ -1078,7 +1159,7 @@ typedef struct LineartGpencilModifierData {
   /* CPU mode */
   float chaining_image_threshold;
 
-  /* Ported from SceneLineArt flags. */
+  /* eLineartMainFlags, for one time calculation. */
   int calculation_flags;
 
   /* #eLineArtGPencilModifierFlags, modifier internal state. */
@@ -1095,10 +1176,14 @@ typedef struct LineartGpencilModifierData {
   char level_start_override;
   char level_end_override;
   short edge_types_override;
+  char shadow_selection_override;
+  char shadow_use_silhouette_override;
+
+  char _pad2[6];
 
   struct LineartCache *cache;
   /* Keep a pointer to the render buffer so we can call destroy from ModifierData. */
-  struct LineartRenderBuffer *render_buffer_ptr;
+  struct LineartData *la_data_ptr;
 
 } LineartGpencilModifierData;
 

@@ -66,8 +66,8 @@ void SEQ_render_thumbnails(const struct SeqRenderData *context,
                            struct Sequence *seq,
                            struct Sequence *seq_orig,
                            float frame_step,
-                           rctf *view_area,
-                           const short *stop);
+                           const struct rctf *view_area,
+                           const bool *stop);
 /**
  * Get cached thumbnails.
  */
@@ -79,28 +79,31 @@ struct ImBuf *SEQ_get_thumbnail(const struct SeqRenderData *context,
 /**
  * Get frame for first thumbnail.
  */
-float SEQ_render_thumbnail_first_frame_get(struct Sequence *seq,
+float SEQ_render_thumbnail_first_frame_get(const struct Scene *scene,
+                                           struct Sequence *seq,
                                            float frame_step,
-                                           struct rctf *view_area);
+                                           const struct rctf *view_area);
 /**
  * Get frame for first thumbnail.
  */
-float SEQ_render_thumbnail_next_frame_get(struct Sequence *seq,
+float SEQ_render_thumbnail_next_frame_get(const struct Scene *scene,
+                                          struct Sequence *seq,
                                           float last_frame,
                                           float frame_step);
 /**
  * Get frame step for equally spaced thumbnails. These thumbnails should always be present in
  * memory, so they can be used when zooming.
  */
-int SEQ_render_thumbnails_guaranteed_set_frame_step_get(const struct Sequence *seq);
+int SEQ_render_thumbnails_guaranteed_set_frame_step_get(const struct Scene *scene,
+                                                        const struct Sequence *seq);
 /**
  * Render set of evenly spaced thumbnails that are drawn when zooming..
  */
 void SEQ_render_thumbnails_base_set(const struct SeqRenderData *context,
                                     struct Sequence *seq,
                                     struct Sequence *seq_orig,
-                                    rctf *view_area,
-                                    const short *stop);
+                                    const struct rctf *view_area,
+                                    const bool *stop);
 
 void SEQ_render_init_colorspace(struct Sequence *seq);
 void SEQ_render_new_render_data(struct Main *bmain,
@@ -112,7 +115,9 @@ void SEQ_render_new_render_data(struct Main *bmain,
                                 int for_render,
                                 SeqRenderData *r_context);
 int SEQ_render_evaluate_frame(struct ListBase *seqbase, int timeline_frame);
-struct StripElem *SEQ_render_give_stripelem(struct Sequence *seq, int timeline_frame);
+struct StripElem *SEQ_render_give_stripelem(const struct Scene *scene,
+                                            struct Sequence *seq,
+                                            int timeline_frame);
 
 void SEQ_render_imbuf_from_sequencer_space(struct Scene *scene, struct ImBuf *ibuf);
 void SEQ_render_pixel_from_sequencer_space_v4(struct Scene *scene, float pixel[4]);

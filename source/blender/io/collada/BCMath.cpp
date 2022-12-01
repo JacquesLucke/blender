@@ -49,11 +49,7 @@ BCMatrix::BCMatrix(BC_global_forward_axis global_forward_axis, BC_global_up_axis
   float mrot[3][3];
   float mat[4][4];
   mat3_from_axis_conversion(
-      BC_DEFAULT_FORWARD, BC_DEFAULT_UP, global_forward_axis, global_up_axis, mrot);
-
-  /* TODO: Verify that `mat3_from_axis_conversion()` returns a transposed matrix */
-  transpose_m3(mrot);
-
+      global_forward_axis, global_up_axis, BC_DEFAULT_FORWARD, BC_DEFAULT_UP, mrot);
   copy_m4_m3(mat, mrot);
   set_transform(mat);
 }
@@ -144,9 +140,9 @@ void BCMatrix::sanitize(Matrix &mat, int precision)
 {
   for (auto &row : mat) {
     for (float &cell : row) {
-      double val = (double)cell;
+      double val = double(cell);
       val = double_round(val, precision);
-      cell = (float)val;
+      cell = float(val);
     }
   }
 }
@@ -173,7 +169,7 @@ void BCMatrix::get_matrix(DMatrix &mat, const bool transposed, const int precisi
     for (int j = 0; j < 4; j++) {
       float val = (transposed) ? matrix[j][i] : matrix[i][j];
       if (precision >= 0) {
-        val = floor((val * pow(10, precision) + 0.5)) / pow(10, precision);
+        val = floor(val * pow(10, precision) + 0.5) / pow(10, precision);
       }
       mat[i][j] = val;
     }
@@ -189,7 +185,7 @@ void BCMatrix::get_matrix(Matrix &mat,
     for (int j = 0; j < 4; j++) {
       float val = (transposed) ? matrix[j][i] : matrix[i][j];
       if (precision >= 0) {
-        val = floor((val * pow(10, precision) + 0.5)) / pow(10, precision);
+        val = floor(val * pow(10, precision) + 0.5) / pow(10, precision);
       }
       mat[i][j] = val;
     }

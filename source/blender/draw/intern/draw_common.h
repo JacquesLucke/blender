@@ -88,12 +88,20 @@ void DRW_curves_ubos_pool_free(struct CurvesUniformBufPool *pool);
 void DRW_curves_update(void);
 void DRW_curves_free(void);
 
+/* draw_pointcloud.cc */
+
+struct DRWShadingGroup *DRW_shgroup_pointcloud_create_sub(struct Object *object,
+                                                          struct DRWShadingGroup *shgrp_parent,
+                                                          struct GPUMaterial *gpu_material);
+void DRW_pointcloud_init(void);
+void DRW_pointcloud_free(void);
+
 /* draw_volume.cc */
 
 /**
  * Add attributes bindings of volume grids to an existing shading group.
  * No draw call is added so the caller can decide how to use the data.
- * \return nullptr if there is something to draw.
+ * \return nullptr if there is nothing to draw.
  */
 struct DRWShadingGroup *DRW_shgroup_volume_create_sub(struct Scene *scene,
                                                       struct Object *ob,
@@ -132,6 +140,7 @@ struct DRW_Global {
   struct GPUTexture *weight_ramp;
 
   struct GPUUniformBuf *view_ubo;
+  struct GPUUniformBuf *clipping_ubo;
 };
 extern struct DRW_Global G_draw;
 

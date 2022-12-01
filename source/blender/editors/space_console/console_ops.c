@@ -280,7 +280,7 @@ static bool console_line_column_from_index(
   return false;
 }
 
-/* static funcs for text editing */
+/* Static functions for text editing. */
 
 /* similar to the text editor, with some not used. keep compatible */
 static const EnumPropertyItem console_move_type_items[] = {
@@ -413,16 +413,8 @@ static int console_insert_invoke(bContext *C, wmOperator *op, const wmEvent *eve
     }
 
     char str[BLI_UTF8_MAX + 1];
-    size_t len;
-
-    if (event->utf8_buf[0]) {
-      len = BLI_str_utf8_size_safe(event->utf8_buf);
-      memcpy(str, event->utf8_buf, len);
-    }
-    else {
-      /* in theory, ghost can set value to extended ascii here */
-      len = BLI_str_utf8_from_unicode(event->ascii, str, sizeof(str) - 1);
-    }
+    const size_t len = BLI_str_utf8_size_safe(event->utf8_buf);
+    memcpy(str, event->utf8_buf, len);
     str[len] = '\0';
     RNA_string_set(op->ptr, "text", str);
   }

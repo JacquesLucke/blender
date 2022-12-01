@@ -96,8 +96,7 @@ class Vector {
    */
 #ifndef NDEBUG
   int64_t debug_size_;
-#  define UPDATE_VECTOR_SIZE(ptr) \
-    (ptr)->debug_size_ = static_cast<int64_t>((ptr)->end_ - (ptr)->begin_)
+#  define UPDATE_VECTOR_SIZE(ptr) (ptr)->debug_size_ = int64_t((ptr)->end_ - (ptr)->begin_)
 #else
 #  define UPDATE_VECTOR_SIZE(ptr) ((void)0)
 #endif
@@ -244,7 +243,7 @@ class Vector {
         /* Copy from inline buffer to newly allocated buffer. */
         const int64_t capacity = size;
         begin_ = static_cast<T *>(
-            allocator_.direct_allocate(sizeof(T) * static_cast<size_t>(capacity), alignof(T), AT));
+            allocator_.direct_allocate(sizeof(T) * size_t(capacity), alignof(T), AT));
         capacity_end_ = begin_ + capacity;
         uninitialized_relocate_n(other.begin_, size, begin_);
         end_ = begin_ + size;
@@ -464,8 +463,16 @@ class Vector {
    */
   int64_t append_and_get_index(const T &value)
   {
+    return this->append_and_get_index_as(value);
+  }
+  int64_t append_and_get_index(T &&value)
+  {
+    return this->append_and_get_index_as(std::move(value));
+  }
+  template<typename... ForwardValue> int64_t append_and_get_index_as(ForwardValue &&...value)
+  {
     const int64_t index = this->size();
-    this->append(value);
+    this->append_as(std::forward<ForwardValue>(value)...);
     return index;
   }
 
@@ -698,7 +705,7 @@ class Vector {
    */
   int64_t size() const
   {
-    const int64_t current_size = static_cast<int64_t>(end_ - begin_);
+    const int64_t current_size = int64_t(end_ - begin_);
     BLI_assert(debug_size_ == current_size);
     return current_size;
   }
@@ -811,6 +818,17 @@ class Vector {
   }
 
   /**
+   * Remove all values for which the given predicate is true.
+   *
+   * This is similar to std::erase_if.
+   */
+  template<typename Predicate> void remove_if(Predicate &&predicate)
+  {
+    end_ = std::remove_if(this->begin(), this->end(), predicate);
+    UPDATE_VECTOR_SIZE(this);
+  }
+
+  /**
    * Do a linear search to find the value in the vector.
    * When found, return the first index, otherwise return -1.
    */
@@ -818,7 +836,7 @@ class Vector {
   {
     for (const T *current = begin_; current != end_; current++) {
       if (*current == value) {
-        return static_cast<int64_t>(current - begin_);
+        return int64_t(current - begin_);
       }
     }
     return -1;
@@ -910,7 +928,12 @@ class Vector {
    */
   int64_t capacity() const
   {
-    return static_cast<int64_t>(capacity_end_ - begin_);
+    return int64_t(capacity_end_ - begin_);
+  }
+
+  bool is_at_capacity() const
+  {
+    return end_ == capacity_end_;
   }
 
   /**

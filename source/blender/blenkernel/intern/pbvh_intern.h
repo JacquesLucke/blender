@@ -2,6 +2,8 @@
 
 #pragma once
 
+struct PBVHGPUFormat;
+
 /** \file
  * \ingroup bke
  */
@@ -31,7 +33,7 @@ struct MeshElemMap;
  * union'd structs */
 struct PBVHNode {
   /* Opaque handle for drawing code */
-  struct GPU_PBVH_Buffers *draw_buffers;
+  struct PBVHBatches *draw_batches;
 
   /* Voxel bounds */
   BB vb;
@@ -94,7 +96,7 @@ struct PBVHNode {
 
   /* Indicates whether this node is a leaf or not; also used for
    * marking various updates that need to be applied. */
-  PBVHNodeFlags flag : 16;
+  PBVHNodeFlags flag : 32;
 
   /* Used for raycasting: how close bb is to the ray point. */
   float tmin;
@@ -114,23 +116,29 @@ struct PBVHNode {
   GSet *bm_faces;
   GSet *bm_unique_verts;
   GSet *bm_other_verts;
+
+  /* Deprecated. Stores original coordinates of triangles. */
   float (*bm_orco)[3];
   int (*bm_ortri)[3];
+  BMVert **bm_orvert;
   int bm_tot_ortri;
 
   /* Used to store the brush color during a stroke and composite it over the original color */
   PBVHColorBufferNode color_buffer;
   PBVHPixelsNode pixels;
+
+  /* Used to flash colors of updated node bounding boxes in
+   * debug draw mode (when G.debug_value / bpy.app.debug_value is 889).
+   */
+  int debug_draw_gen;
 };
 
-typedef enum {
-  PBVH_DYNTOPO_SMOOTH_SHADING = 1,
-} PBVHFlags;
+typedef enum { PBVH_DYNTOPO_SMOOTH_SHADING = 1 } PBVHFlags;
 
 typedef struct PBVHBMeshLog PBVHBMeshLog;
 
 struct PBVH {
-  PBVHType type;
+  struct PBVHPublic header;
   PBVHFlags flags;
 
   PBVHNode *nodes;
@@ -140,16 +148,21 @@ struct PBVH {
   int *prim_indices;
   int totprim;
   int totvert;
+  int faces_num; /* Do not use directly, use BKE_pbvh_num_faces. */
 
   int leaf_limit;
 
   /* Mesh data */
-  const struct Mesh *mesh;
+  struct Mesh *mesh;
 
   /* NOTE: Normals are not `const` because they can be updated for drawing by sculpt code. */
   float (*vert_normals)[3];
+  bool *hide_vert;
   struct MVert *verts;
   const struct MPoly *mpoly;
+  bool *hide_poly;
+  /** Material indices. Only valid for polygon meshes. */
+  const int *material_indices;
   const struct MLoop *mloop;
   const struct MLoopTri *looptri;
   CustomData *vdata;
@@ -183,7 +196,6 @@ struct PBVH {
   bool respect_hide;
 
   /* Dynamic topology */
-  BMesh *bm;
   float bm_max_edge_len;
   float bm_min_edge_len;
   int cd_vert_node_offset;
@@ -198,12 +210,16 @@ struct PBVH {
   const struct MeshElemMap *pmap;
 
   CustomDataLayer *color_layer;
-  AttributeDomain color_domain;
+  eAttrDomain color_domain;
 
   bool is_drawing;
 
   /* Used by DynTopo to invalidate the draw cache. */
   bool draw_cache_invalid;
+
+  struct PBVHGPUFormat *vbo_id;
+
+  PBVHPixels pixels;
 };
 
 /* pbvh.c */
@@ -263,7 +279,7 @@ bool pbvh_bmesh_node_raycast(PBVHNode *node,
                              struct IsectRayPrecalc *isect_precalc,
                              float *dist,
                              bool use_original,
-                             int *r_active_vertex_index,
+                             PBVHVertRef *r_active_vertex,
                              float *r_face_normal);
 bool pbvh_bmesh_node_nearest_to_ray(PBVHNode *node,
                                     const float ray_start[3],
@@ -276,7 +292,8 @@ void pbvh_bmesh_normals_update(PBVHNode **nodes, int totnode);
 
 /* pbvh_pixels.hh */
 
-void pbvh_pixels_free(PBVHNode *node);
+void pbvh_node_pixels_free(PBVHNode *node);
+void pbvh_pixels_free(PBVH *pbvh);
 void pbvh_pixels_free_brush_test(PBVHNode *node);
 void pbvh_free_draw_buffers(PBVH *pbvh, PBVHNode *node);
 

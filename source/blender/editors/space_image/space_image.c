@@ -5,6 +5,7 @@
  * \ingroup spimage
  */
 
+#include "DNA_defaults.h"
 #include "DNA_gpencil_types.h"
 #include "DNA_image_types.h"
 #include "DNA_mask_types.h"
@@ -20,6 +21,7 @@
 #include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_image.h"
+#include "BKE_layer.h"
 #include "BKE_lib_id.h"
 #include "BKE_lib_remap.h"
 #include "BKE_screen.h"
@@ -48,6 +50,8 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 #include "UI_view2d.h"
+
+#include "BLO_read_write.h"
 
 #include "DRW_engine.h"
 
@@ -111,7 +115,10 @@ static SpaceLink *image_create(const ScrArea *UNUSED(area), const Scene *UNUSED(
   simage->tile_grid_shape[0] = 1;
   simage->tile_grid_shape[1] = 1;
 
-  simage->custom_grid_subdiv = 10;
+  simage->custom_grid_subdiv[0] = 10;
+  simage->custom_grid_subdiv[1] = 10;
+
+  simage->mask_info = *DNA_struct_default_get(MaskSpaceInfo);
 
   /* header */
   region = MEM_callocN(sizeof(ARegion), "header for image");
@@ -199,6 +206,7 @@ static void image_operatortypes(void)
 
   WM_operatortype_append(IMAGE_OT_new);
   WM_operatortype_append(IMAGE_OT_open);
+  WM_operatortype_append(IMAGE_OT_file_browse);
   WM_operatortype_append(IMAGE_OT_match_movie_length);
   WM_operatortype_append(IMAGE_OT_replace);
   WM_operatortype_append(IMAGE_OT_reload);
@@ -297,7 +305,7 @@ static void image_listener(const wmSpaceTypeListenerParams *params)
 {
   wmWindow *win = params->window;
   ScrArea *area = params->area;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
   SpaceImage *sima = (SpaceImage *)area->spacedata.first;
 
   /* context changes */
@@ -315,6 +323,9 @@ static void image_listener(const wmSpaceTypeListenerParams *params)
           ED_area_tag_redraw(area);
           break;
         case ND_MODE:
+          ED_paint_cursor_start(&params->scene->toolsettings->imapaint.paint,
+                                ED_image_tools_paint_poll);
+
           if (wmn->subtype == NS_EDITMODE_MESH) {
             ED_area_tag_refresh(area);
           }
@@ -346,8 +357,10 @@ static void image_listener(const wmSpaceTypeListenerParams *params)
       }
       break;
     case NC_MASK: {
+      Scene *scene = WM_window_get_active_scene(win);
       ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-      Object *obedit = OBEDIT_FROM_VIEW_LAYER(view_layer);
+      BKE_view_layer_synced_ensure(scene, view_layer);
+      Object *obedit = BKE_view_layer_edit_object_get(view_layer);
       if (ED_space_image_check_show_maskedit(sima, obedit)) {
         switch (wmn->data) {
           case ND_SELECT:
@@ -388,8 +401,10 @@ static void image_listener(const wmSpaceTypeListenerParams *params)
       switch (wmn->data) {
         case ND_TRANSFORM:
         case ND_MODIFIER: {
+          const Scene *scene = WM_window_get_active_scene(win);
           ViewLayer *view_layer = WM_window_get_active_view_layer(win);
-          Object *ob = OBACT(view_layer);
+          BKE_view_layer_synced_ensure(scene, view_layer);
+          Object *ob = BKE_view_layer_active_object_get(view_layer);
           if (ob && (ob == wmn->reference) && (ob->mode & OB_MODE_EDIT)) {
             if (sima->lock && (sima->flag & SI_DRAWSHADOW)) {
               ED_area_tag_refresh(area);
@@ -690,6 +705,7 @@ static void image_main_region_draw(const bContext *C, ARegion *region)
                         sima->mask_info.draw_flag & ~MASK_DRAWFLAG_OVERLAY,
                         sima->mask_info.draw_type,
                         sima->mask_info.overlay_mode,
+                        sima->mask_info.blend_factor,
                         width,
                         height,
                         aspx,
@@ -708,7 +724,7 @@ static void image_main_region_listener(const wmRegionListenerParams *params)
 {
   ScrArea *area = params->area;
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -822,7 +838,7 @@ static void image_buttons_region_draw(const bContext *C, ARegion *region)
 static void image_buttons_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -884,7 +900,7 @@ static void image_tools_region_draw(const bContext *C, ARegion *region)
 static void image_tools_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -940,7 +956,7 @@ static void image_header_region_draw(const bContext *C, ARegion *region)
 static void image_header_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -1015,6 +1031,46 @@ static void image_space_subtype_item_extend(bContext *UNUSED(C),
   RNA_enum_items_add(item, totitem, rna_enum_space_image_mode_items);
 }
 
+static void image_blend_read_data(BlendDataReader *UNUSED(reader), SpaceLink *sl)
+{
+  SpaceImage *sima = (SpaceImage *)sl;
+
+  sima->iuser.scene = NULL;
+  sima->scopes.waveform_1 = NULL;
+  sima->scopes.waveform_2 = NULL;
+  sima->scopes.waveform_3 = NULL;
+  sima->scopes.vecscope = NULL;
+  sima->scopes.ok = 0;
+
+  /* WARNING: gpencil data is no longer stored directly in sima after 2.5
+   * so sacrifice a few old files for now to avoid crashes with new files!
+   * committed: r28002 */
+#if 0
+    sima->gpd = newdataadr(fd, sima->gpd);
+    if (sima->gpd) {
+      BKE_gpencil_blend_read_data(fd, sima->gpd);
+    }
+#endif
+}
+
+static void image_blend_read_lib(BlendLibReader *reader, ID *parent_id, SpaceLink *sl)
+{
+  SpaceImage *sima = (SpaceImage *)sl;
+
+  BLO_read_id_address(reader, parent_id->lib, &sima->image);
+  BLO_read_id_address(reader, parent_id->lib, &sima->mask_info.mask);
+
+  /* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
+   * so fingers crossed this works fine!
+   */
+  BLO_read_id_address(reader, parent_id->lib, &sima->gpd);
+}
+
+static void image_blend_write(BlendWriter *writer, SpaceLink *sl)
+{
+  BLO_write_struct(writer, SpaceImage, sl);
+}
+
 /**************************** spacetype *****************************/
 
 void ED_spacetype_image(void)
@@ -1023,7 +1079,7 @@ void ED_spacetype_image(void)
   ARegionType *art;
 
   st->spaceid = SPACE_IMAGE;
-  strncpy(st->name, "Image", BKE_ST_MAXNAME);
+  STRNCPY(st->name, "Image");
 
   st->create = image_create;
   st->free = image_free;
@@ -1040,6 +1096,9 @@ void ED_spacetype_image(void)
   st->space_subtype_item_extend = image_space_subtype_item_extend;
   st->space_subtype_get = image_space_subtype_get;
   st->space_subtype_set = image_space_subtype_set;
+  st->blend_read_data = image_blend_read_data;
+  st->blend_read_lib = image_blend_read_lib;
+  st->blend_write = image_blend_write;
 
   /* regions: main window */
   art = MEM_callocN(sizeof(ARegionType), "spacetype image region");

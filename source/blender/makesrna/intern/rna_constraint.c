@@ -598,22 +598,17 @@ static const EnumPropertyItem *rna_Constraint_target_space_itemf(bContext *UNUSE
                                                                  bool *UNUSED(r_free))
 {
   bConstraint *con = (bConstraint *)ptr->data;
-  const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
   ListBase targets = {NULL, NULL};
   bConstraintTarget *ct;
 
-  if (cti && cti->get_constraint_targets) {
-    cti->get_constraint_targets(con, &targets);
-
+  if (BKE_constraint_targets_get(con, &targets)) {
     for (ct = targets.first; ct; ct = ct->next) {
-      if (ct->tar && ct->tar->type == OB_ARMATURE) {
+      if (ct->tar && ct->tar->type == OB_ARMATURE && !(ct->flag & CONSTRAINT_TAR_CUSTOM_SPACE)) {
         break;
       }
     }
 
-    if (cti->flush_constraint_targets) {
-      cti->flush_constraint_targets(con, &targets, 1);
-    }
+    BKE_constraint_targets_flush(con, &targets, 1);
 
     if (ct) {
       return target_space_pchan_items;
@@ -3455,6 +3450,7 @@ void RNA_def_constraint(BlenderRNA *brna)
   RNA_def_struct_refine_func(srna, "rna_ConstraintType_refine");
   RNA_def_struct_path_func(srna, "rna_Constraint_path");
   RNA_def_struct_sdna(srna, "bConstraint");
+  RNA_def_struct_ui_icon(srna, ICON_CONSTRAINT);
 
   /* strings */
   prop = RNA_def_property(srna, "name", PROP_STRING, PROP_NONE);

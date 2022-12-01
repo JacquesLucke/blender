@@ -29,12 +29,10 @@ namespace blender::eevee {
 void Camera::init()
 {
   const Object *camera_eval = inst_.camera_eval_object;
-  synced_ = false;
-  data_.swap();
 
-  CameraData &data = data_.current();
+  CameraData &data = data_;
 
-  if (camera_eval) {
+  if (camera_eval && camera_eval->type == OB_CAMERA) {
     const ::Camera *cam = reinterpret_cast<const ::Camera *>(camera_eval->data);
     switch (cam->type) {
       default:
@@ -77,9 +75,8 @@ void Camera::init()
 void Camera::sync()
 {
   const Object *camera_eval = inst_.camera_eval_object;
-  CameraData &data = data_.current();
 
-  data.filter_size = inst_.scene->r.gauss;
+  CameraData &data = data_;
 
   if (inst_.drw_view) {
     DRW_view_viewmat_get(inst_.drw_view, data.viewmat.ptr(), false);
@@ -88,7 +85,9 @@ void Camera::sync()
     DRW_view_winmat_get(inst_.drw_view, data.wininv.ptr(), true);
     DRW_view_persmat_get(inst_.drw_view, data.persmat.ptr(), false);
     DRW_view_persmat_get(inst_.drw_view, data.persinv.ptr(), true);
-    DRW_view_camtexco_get(inst_.drw_view, data.uv_scale);
+    /* TODO(fclem): Derive from rv3d instead. */
+    data.uv_scale = float2(1.0f);
+    data.uv_bias = float2(0.0f);
   }
   else if (inst_.render) {
     /* TODO(@fclem): Over-scan. */
@@ -109,9 +108,11 @@ void Camera::sync()
     data.wininv = data.winmat.inverted();
     data.persmat = data.winmat * data.viewmat;
     data.persinv = data.persmat.inverted();
+    data.uv_scale = float2(1.0f);
+    data.uv_bias = float2(0.0f);
   }
 
-  if (camera_eval) {
+  if (camera_eval && camera_eval->type == OB_CAMERA) {
     const ::Camera *cam = reinterpret_cast<const ::Camera *>(camera_eval->data);
     data.clip_near = cam->clip_start;
     data.clip_far = cam->clip_end;
@@ -127,6 +128,10 @@ void Camera::sync()
     data.equirect_scale *= data.uv_scale;
 
     data.equirect_scale_inv = 1.0f / data.equirect_scale;
+#else
+    data.fisheye_fov = data.fisheye_lens = -1.0f;
+    data.equirect_bias = float2(0.0f);
+    data.equirect_scale = float2(0.0f);
 #endif
   }
   else if (inst_.drw_view) {
@@ -137,14 +142,8 @@ void Camera::sync()
     data.equirect_scale = float2(0.0f);
   }
 
-  data_.current().push_update();
-
-  synced_ = true;
-
-  /* Detect changes in parameters. */
-  if (data_.current() != data_.previous()) {
-    // inst_.sampling.reset();
-  }
+  data_.initialized = true;
+  data_.push_update();
 }
 
 /** \} */

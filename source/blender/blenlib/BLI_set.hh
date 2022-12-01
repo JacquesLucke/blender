@@ -89,7 +89,7 @@ template<
      * The equality operator used to compare keys. By default it will simply compare keys using the
      * `==` operator.
      */
-    typename IsEqual = DefaultEquality,
+    typename IsEqual = DefaultEquality<Key>,
     /**
      * This is what will actually be stored in the hash table array. At a minimum a slot has to
      * be able to hold a key and information about whether the slot is empty, occupied or removed.
@@ -427,10 +427,10 @@ class Set {
       return *this;
     }
 
-    Iterator operator++(int) const
+    Iterator operator++(int)
     {
       Iterator copied_iterator = *this;
-      ++copied_iterator;
+      ++(*this);
       return copied_iterator;
     }
 
@@ -490,6 +490,24 @@ class Set {
     BLI_assert(slot.is_occupied());
     slot.remove();
     removed_slots_++;
+  }
+
+  /**
+   * Remove all values for which the given predicate is true.
+   *
+   * This is similar to std::erase_if.
+   */
+  template<typename Predicate> void remove_if(Predicate &&predicate)
+  {
+    for (Slot &slot : slots_) {
+      if (slot.is_occupied()) {
+        const Key &key = *slot.key();
+        if (predicate(key)) {
+          slot.remove();
+          removed_slots_++;
+        }
+      }
+    }
   }
 
   /**
@@ -626,7 +644,7 @@ class Set {
     max_load_factor_.compute_total_and_usable_slots(
         SlotArray::inline_buffer_capacity(), min_usable_slots, &total_slots, &usable_slots);
     BLI_assert(total_slots >= 1);
-    const uint64_t new_slot_mask = static_cast<uint64_t>(total_slots) - 1;
+    const uint64_t new_slot_mask = uint64_t(total_slots) - 1;
 
     /**
      * Optimize the case when the set was empty beforehand. We can avoid some copies here.
@@ -854,7 +872,7 @@ template<typename Key> class StdUnorderedSetWrapper {
  public:
   int64_t size() const
   {
-    return static_cast<int64_t>(set_.size());
+    return int64_t(set_.size());
   }
 
   bool is_empty() const
@@ -899,7 +917,7 @@ template<typename Key> class StdUnorderedSetWrapper {
 
   bool remove(const Key &key)
   {
-    return (bool)set_.erase(key);
+    return bool(set_.erase(key));
   }
 
   void remove_contained(const Key &key)
@@ -931,7 +949,7 @@ template<typename Key,
          int64_t InlineBufferCapacity = default_inline_buffer_capacity(sizeof(Key)),
          typename ProbingStrategy = DefaultProbingStrategy,
          typename Hash = DefaultHash<Key>,
-         typename IsEqual = DefaultEquality,
+         typename IsEqual = DefaultEquality<Key>,
          typename Slot = typename DefaultSetSlot<Key>::type>
 using RawSet = Set<Key, InlineBufferCapacity, ProbingStrategy, Hash, IsEqual, Slot, RawAllocator>;
 

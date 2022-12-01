@@ -44,7 +44,10 @@ enum {
   /* non-event, for example disabled timer */
   EVENT_NONE = 0x0000,
 
-  /* ********** Start of Input devices. ********** */
+/* ********** Start of Input devices. ********** */
+
+/* Minimum mouse value (inclusive). */
+#define _EVT_MOUSE_MIN 0x0001
 
   /* MOUSE: 0x000x, 0x001x */
   LEFTMOUSE = 0x0001,
@@ -73,6 +76,9 @@ enum {
    * ignore all but the most recent MOUSEMOVE (for better performance),
    * paint and drawing tools however will want to handle these. */
   INBETWEEN_MOUSEMOVE = 0x0011,
+
+/* Maximum keyboard value (inclusive). */
+#define _EVT_MOUSE_MAX 0x0011 /* 17 */
 
   /* IME event, GHOST_kEventImeCompositionStart in ghost */
   WM_IME_COMPOSITE_START = 0x0014,
@@ -246,8 +252,6 @@ enum {
 #define _NDOF_MIN NDOF_MOTION
 #define _NDOF_BUTTON_MIN NDOF_BUTTON_MENU
 
-  /* used internally, never sent */
-  NDOF_BUTTON_NONE = NDOF_MOTION,
   /* these two are available from any 3Dconnexion device */
 
   NDOF_BUTTON_MENU = 0x0191, /* 401 */
@@ -275,35 +279,42 @@ enum {
   NDOF_BUTTON_DOMINANT = 0x01a3, /* 419 */
   NDOF_BUTTON_PLUS = 0x01a4,     /* 420 */
   NDOF_BUTTON_MINUS = 0x01a5,    /* 421 */
+  /* General-purpose buttons. */
+  NDOF_BUTTON_1 = 0x01a6,  /* 422 */
+  NDOF_BUTTON_2 = 0x01a7,  /* 423 */
+  NDOF_BUTTON_3 = 0x01a8,  /* 424 */
+  NDOF_BUTTON_4 = 0x01a9,  /* 425 */
+  NDOF_BUTTON_5 = 0x01aa,  /* 426 */
+  NDOF_BUTTON_6 = 0x01ab,  /* 427 */
+  NDOF_BUTTON_7 = 0x01ac,  /* 428 */
+  NDOF_BUTTON_8 = 0x01ad,  /* 429 */
+  NDOF_BUTTON_9 = 0x01ae,  /* 430 */
+  NDOF_BUTTON_10 = 0x01af, /* 431 */
+  /* more general-purpose buttons */
+  NDOF_BUTTON_A = 0x01b0, /* 432 */
+  NDOF_BUTTON_B = 0x01b1, /* 433 */
+  NDOF_BUTTON_C = 0x01b2, /* 434 */
+  /* Store/restore views. */
+  NDOF_BUTTON_V1 = 0x01b3, /* 435 */
+  NDOF_BUTTON_V2 = 0x01b4, /* 436 */
+  NDOF_BUTTON_V3 = 0x01b5, /* 437 */
 
 /* Disabled as GHOST converts these to keyboard events
  * which use regular keyboard event handling logic. */
 #if 0
   /* keyboard emulation */
-  NDOF_BUTTON_ESC = 0x01a6,   /* 422 */
-  NDOF_BUTTON_ALT = 0x01a7,   /* 423 */
-  NDOF_BUTTON_SHIFT = 0x01a8, /* 424 */
-  NDOF_BUTTON_CTRL = 0x01a9,  /* 425 */
+  NDOF_BUTTON_ESC = 0x01b6,    /* 438 */
+  NDOF_BUTTON_ENTER = 0x01b7,  /* 439 */
+  NDOF_BUTTON_DELETE = 0x01b8, /* 440 */
+  NDOF_BUTTON_TAB = 0x01b9,    /* 441 */
+  NDOF_BUTTON_SPACE = 0x01ba,  /* 442 */
+  NDOF_BUTTON_ALT = 0x01bb,    /* 443 */
+  NDOF_BUTTON_SHIFT = 0x01bc,  /* 444 */
+  NDOF_BUTTON_CTRL = 0x01bd,   /* 445 */
 #endif
 
-  /* general-purpose buttons */
-  NDOF_BUTTON_1 = 0x01aa,  /* 426 */
-  NDOF_BUTTON_2 = 0x01ab,  /* 427 */
-  NDOF_BUTTON_3 = 0x01ac,  /* 428 */
-  NDOF_BUTTON_4 = 0x01ad,  /* 429 */
-  NDOF_BUTTON_5 = 0x01ae,  /* 430 */
-  NDOF_BUTTON_6 = 0x01af,  /* 431 */
-  NDOF_BUTTON_7 = 0x01b0,  /* 432 */
-  NDOF_BUTTON_8 = 0x01b1,  /* 433 */
-  NDOF_BUTTON_9 = 0x01b2,  /* 434 */
-  NDOF_BUTTON_10 = 0x01b3, /* 435 */
-  /* more general-purpose buttons */
-  NDOF_BUTTON_A = 0x01b4, /* 436 */
-  NDOF_BUTTON_B = 0x01b5, /* 437 */
-  NDOF_BUTTON_C = 0x01b6, /* 438 */
-
-#define _NDOF_MAX NDOF_BUTTON_C
-#define _NDOF_BUTTON_MAX NDOF_BUTTON_C
+#define _NDOF_MAX NDOF_BUTTON_V3
+#define _NDOF_BUTTON_MAX NDOF_BUTTON_V3
 
   /* ********** End of Input devices. ********** */
 
@@ -311,7 +322,7 @@ enum {
 
   /* XXX Those are mixed inside keyboard 'area'! */
   /* System: 0x010x */
-  INPUTCHANGE = 0x0103,   /* Input connected or disconnected, (259). */
+  // INPUTCHANGE = 0x0103,   /* Input connected or disconnected, (259). */ /* UNUSED. */
   WINDEACTIVATE = 0x0104, /* Window is deactivated, focus lost, (260). */
   /* Timer: 0x011x */
   TIMER = 0x0110,         /* Timer event, passed on to all queues (272). */
@@ -358,12 +369,6 @@ enum {
 /** Test whether the event is timer event. */
 #define ISTIMER(event_type) ((event_type) >= TIMER && (event_type) <= TIMERF)
 
-/* for event checks */
-/* only used for KM_TEXTINPUT, so assume that we want all user-inputtable ascii codes included */
-/* Unused, see #wm_eventmatch, see: T30479. */
-// #define ISTEXTINPUT(event_type)  ((event_type) >= ' ' && (event_type) <= 255)
-/* NOTE: an alternative could be to check `event->utf8_buf`. */
-
 /** Test whether the event is a key on the keyboard (including modifier keys). */
 #define ISKEYBOARD(event_type) \
   (((event_type) >= _EVT_KEYBOARD_MIN && (event_type) <= _EVT_KEYBOARD_MAX) || \
@@ -385,13 +390,16 @@ enum {
   (((event_type) >= EVT_LEFTCTRLKEY && (event_type) <= EVT_LEFTSHIFTKEY) || \
    (event_type) == EVT_OSKEY)
 
-/** Test whether the event is a mouse button. */
-#define ISMOUSE(event_type) \
-  (((event_type) >= LEFTMOUSE && (event_type) <= BUTTON7MOUSE) || (event_type) == MOUSESMARTZOOM)
-/** Test whether the event is a mouse wheel. */
-#define ISMOUSE_WHEEL(event_type) ((event_type) >= WHEELUPMOUSE && (event_type) <= WHEELOUTMOUSE)
-/** Test whether the event is a mouse (track-pad) gesture. */
-#define ISMOUSE_GESTURE(event_type) ((event_type) >= MOUSEPAN && (event_type) <= MOUSEROTATE)
+/**
+ * Test whether the event is any kind:
+ * #ISMOUSE_MOTION, #ISMOUSE_BUTTON, #ISMOUSE_WHEEL & #ISMOUSE_GESTURE.
+ *
+ * \note It's best to use more specific check if possible as mixing motion/buttons/gestures
+ * is very broad and not necessarily obvious which kinds of events are important.
+ */
+#define ISMOUSE(event_type) ((event_type) >= _EVT_MOUSE_MIN && (event_type) <= _EVT_MOUSE_MAX)
+/** Test whether the event is a mouse button (excluding mouse-wheel). */
+#define ISMOUSE_MOTION(event_type) ELEM(event_type, MOUSEMOVE, INBETWEEN_MOUSEMOVE)
 /** Test whether the event is a mouse button (excluding mouse-wheel). */
 #define ISMOUSE_BUTTON(event_type) \
   (ELEM(event_type, \
@@ -402,6 +410,10 @@ enum {
         BUTTON5MOUSE, \
         BUTTON6MOUSE, \
         BUTTON7MOUSE))
+/** Test whether the event is a mouse wheel. */
+#define ISMOUSE_WHEEL(event_type) ((event_type) >= WHEELUPMOUSE && (event_type) <= WHEELOUTMOUSE)
+/** Test whether the event is a mouse (track-pad) gesture. */
+#define ISMOUSE_GESTURE(event_type) ((event_type) >= MOUSEPAN && (event_type) <= MOUSESMARTZOOM)
 
 /** Test whether the event is a NDOF event. */
 #define ISNDOF(event_type) ((event_type) >= _NDOF_MIN && (event_type) <= _NDOF_MAX)
@@ -441,6 +453,8 @@ enum eEventType_Mask {
 #define EVT_TYPE_MASK_HOTKEY_INCLUDE \
   (EVT_TYPE_MASK_KEYBOARD | EVT_TYPE_MASK_MOUSE | EVT_TYPE_MASK_NDOF)
 #define EVT_TYPE_MASK_HOTKEY_EXCLUDE EVT_TYPE_MASK_KEYBOARD_MODIFIER
+
+#define NDOF_BUTTON_INDEX_AS_EVENT(i) (_NDOF_BUTTON_MIN + (i))
 
 bool WM_event_type_mask_test(int event_type, enum eEventType_Mask mask);
 

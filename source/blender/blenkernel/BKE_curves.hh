@@ -11,16 +11,21 @@
 
 #include <mutex>
 
+#include "BLI_bounds_types.hh"
+#include "BLI_cache_mutex.hh"
+#include "BLI_float3x3.hh"
 #include "BLI_float4x4.hh"
 #include "BLI_generic_virtual_array.hh"
 #include "BLI_index_mask.hh"
 #include "BLI_math_vec_types.hh"
+#include "BLI_shared_cache.hh"
 #include "BLI_span.hh"
 #include "BLI_task.hh"
 #include "BLI_vector.hh"
 #include "BLI_virtual_array.hh"
 
-#include "BKE_attribute_access.hh"
+#include "BKE_attribute.hh"
+#include "BKE_attribute_math.hh"
 
 namespace blender::bke {
 
@@ -60,9 +65,7 @@ struct BasisCache {
 }  // namespace curves::nurbs
 
 /**
- * Contains derived data, caches, and other information not saved in files, besides a few pointers
- * to arrays that are kept in the non-runtime struct to avoid dereferencing this whenever they are
- * accessed.
+ * Contains derived data, caches, and other information not saved in files.
  */
 class CurvesGeometryRuntime {
  public:
@@ -78,17 +81,14 @@ class CurvesGeometryRuntime {
    */
   mutable Vector<int> evaluated_offsets_cache;
   mutable Vector<int> bezier_evaluated_offsets;
-  mutable std::mutex offsets_cache_mutex;
-  mutable bool offsets_cache_dirty = true;
+  mutable CacheMutex offsets_cache_mutex;
 
   mutable Vector<curves::nurbs::BasisCache> nurbs_basis_cache;
-  mutable std::mutex nurbs_basis_cache_mutex;
-  mutable bool nurbs_basis_cache_dirty = true;
+  mutable CacheMutex nurbs_basis_cache_mutex;
 
   /** Cache of evaluated positions. */
   mutable Vector<float3> evaluated_position_cache;
-  mutable std::mutex position_cache_mutex;
-  mutable bool position_cache_dirty = true;
+  mutable CacheMutex position_cache_mutex;
   /**
    * The evaluated positions result, using a separate span in case all curves are poly curves,
    * in which case a separate array of evaluated positions is unnecessary.
@@ -96,23 +96,27 @@ class CurvesGeometryRuntime {
   mutable Span<float3> evaluated_positions_span;
 
   /**
-   * Cache of lengths along each evaluated curve for for each evaluated point. If a curve is
+   * A cache of bounds shared between data-blocks with unchanged positions and radii.
+   * When data changes affect the bounds, the cache is "un-shared" with other geometries.
+   * See #SharedCache comments.
+   */
+  mutable SharedCache<Bounds<float3>> bounds_cache;
+
+  /**
+   * Cache of lengths along each evaluated curve for each evaluated point. If a curve is
    * cyclic, it needs one more length value to correspond to the last segment, so in order to
    * make slicing this array for a curve fast, an extra float is stored for every curve.
    */
   mutable Vector<float> evaluated_length_cache;
-  mutable std::mutex length_cache_mutex;
-  mutable bool length_cache_dirty = true;
+  mutable CacheMutex length_cache_mutex;
 
   /** Direction of the curve at each evaluated point. */
   mutable Vector<float3> evaluated_tangent_cache;
-  mutable std::mutex tangent_cache_mutex;
-  mutable bool tangent_cache_dirty = true;
+  mutable CacheMutex tangent_cache_mutex;
 
   /** Normal direction vectors for each evaluated point. */
   mutable Vector<float3> evaluated_normal_cache;
-  mutable std::mutex normal_cache_mutex;
-  mutable bool normal_cache_dirty = true;
+  mutable CacheMutex normal_cache_mutex;
 };
 
 /**
@@ -149,10 +153,21 @@ class CurvesGeometry : public ::CurvesGeometry {
    * Accessors.
    */
 
+  /**
+   * The total number of control points in all curves.
+   */
   int points_num() const;
+  /**
+   * The number of curves in the data-block.
+   */
   int curves_num() const;
   IndexRange points_range() const;
   IndexRange curves_range() const;
+
+  /**
+   * Number of control points in the indexed curve.
+   */
+  int points_num_for_curve(const int index) const;
 
   /**
    * The index of the first point in every curve. The size of this span is one larger than the
@@ -182,6 +197,7 @@ class CurvesGeometry : public ::CurvesGeometry {
   void update_curve_types();
 
   bool has_curve_with_type(CurveType type) const;
+  bool has_curve_with_type(Span<CurveType> types) const;
   /** Return true if all of the curves have the provided type. */
   bool is_single_type(CurveType type) const;
   /** Return the number of curves with each type. */
@@ -194,6 +210,8 @@ class CurvesGeometry : public ::CurvesGeometry {
                                    IndexMask selection,
                                    Vector<int64_t> &r_indices) const;
 
+  Array<int> point_to_curve_map() const;
+
   Span<float3> positions() const;
   MutableSpan<float3> positions_for_write();
 
@@ -204,7 +222,7 @@ class CurvesGeometry : public ::CurvesGeometry {
 
   /**
    * How many evaluated points to create for each segment when evaluating Bezier,
-   * Catmull Rom, and NURBS curves. On the curve domain.
+   * Catmull Rom, and NURBS curves. On the curve domain. Values must be one or greater.
    */
   VArray<int> resolution() const;
   /** Mutable access to curve resolution. Call #tag_topology_changed after changes. */
@@ -264,22 +282,15 @@ class CurvesGeometry : public ::CurvesGeometry {
   MutableSpan<float> nurbs_weights_for_write();
 
   /**
-   * The index of a triangle (#MLoopTri) that a curve is attached to.
-   * The index is -1, if the curve is not attached.
+   * UV coordinate for each curve that encodes where the curve is attached to the surface mesh.
    */
-  VArray<int> surface_triangle_indices() const;
-  MutableSpan<int> surface_triangle_indices_for_write();
+  Span<float2> surface_uv_coords() const;
+  MutableSpan<float2> surface_uv_coords_for_write();
 
-  /**
-   * Barycentric coordinates of the attachment point within a triangle.
-   * Only the first two coordinates are stored. The third coordinate can be derived because the sum
-   * of the three coordinates is 1.
-   *
-   * When the triangle index is -1, this coordinate should be ignored.
-   * The span can be empty, when all triangle indices are -1.
-   */
-  Span<float2> surface_triangle_coords() const;
-  MutableSpan<float2> surface_triangle_coords_for_write();
+  VArray<float> selection_point_float() const;
+  MutableSpan<float> selection_point_float_for_write();
+  VArray<float> selection_curve_float() const;
+  MutableSpan<float> selection_curve_float_for_write();
 
   /**
    * Calculate the largest and smallest position values, only including control points
@@ -343,12 +354,14 @@ class CurvesGeometry : public ::CurvesGeometry {
   /** Calculates the data described by #evaluated_lengths_for_curve if necessary. */
   void ensure_evaluated_lengths() const;
 
+  void ensure_can_interpolate_to_evaluated() const;
+
   /**
    * Evaluate a generic data to the standard evaluated points of a specific curve,
    * defined by the resolution attribute or other factors, depending on the curve type.
    *
    * \warning This function expects offsets to the evaluated points for each curve to be
-   * calculated. That can be ensured with #ensure_evaluated_offsets.
+   * calculated. That can be ensured with #ensure_can_interpolate_to_evaluated.
    */
   void interpolate_to_evaluated(int curve_index, GSpan src, GMutableSpan dst) const;
   /**
@@ -385,14 +398,18 @@ class CurvesGeometry : public ::CurvesGeometry {
   void tag_topology_changed();
   /** Call after changing the "tilt" or "up" attributes. */
   void tag_normals_changed();
+  /**
+   * Call when making manual changes to the "radius" attribute. The attribute API will also call
+   * this in #finish() calls.
+   */
+  void tag_radii_changed();
 
   void translate(const float3 &translation);
   void transform(const float4x4 &matrix);
 
   void calculate_bezier_auto_handles();
 
-  void update_customdata_pointers();
-
+  void remove_points(IndexMask points_to_delete);
   void remove_curves(IndexMask curves_to_delete);
 
   /**
@@ -401,11 +418,56 @@ class CurvesGeometry : public ::CurvesGeometry {
    */
   void reverse_curves(IndexMask curves_to_reverse);
 
+  /**
+   * Remove any attributes that are unused based on the types in the curves.
+   */
+  void remove_attributes_based_on_types();
+
+  AttributeAccessor attributes() const;
+  MutableAttributeAccessor attributes_for_write();
+
   /* --------------------------------------------------------------------
    * Attributes.
    */
 
-  GVArray adapt_domain(const GVArray &varray, AttributeDomain from, AttributeDomain to) const;
+  GVArray adapt_domain(const GVArray &varray, eAttrDomain from, eAttrDomain to) const;
+  template<typename T>
+  VArray<T> adapt_domain(const VArray<T> &varray, eAttrDomain from, eAttrDomain to) const
+  {
+    return this->adapt_domain(GVArray(varray), from, to).typed<T>();
+  }
+};
+
+/**
+ * Used to propagate deformation data through modifier evaluation so that sculpt tools can work on
+ * evaluated data.
+ */
+class CurvesEditHints {
+ public:
+  /**
+   * Original data that the edit hints below are meant to be used for.
+   */
+  const Curves &curves_id_orig;
+  /**
+   * Evaluated positions for the points in #curves_orig. If this is empty, the positions from the
+   * evaluated #Curves should be used if possible.
+   */
+  std::optional<Array<float3>> positions;
+  /**
+   * Matrices which transform point movement vectors from original data to corresponding movements
+   * of evaluated data.
+   */
+  std::optional<Array<float3x3>> deform_mats;
+
+  CurvesEditHints(const Curves &curves_id_orig) : curves_id_orig(curves_id_orig)
+  {
+  }
+
+  /**
+   * The edit hints have to correspond to the original curves, i.e. the number of deformed points
+   * is the same as the number of original points.
+   */
+  bool is_valid() const;
 };
 
 namespace curves {
@@ -418,7 +480,7 @@ namespace curves {
  * The number of segments between control points, accounting for the last segment of cyclic
  * curves. The logic is simple, but this function should be used to make intentions clearer.
  */
-inline int curve_segment_num(const int points_num, const bool cyclic)
+inline int segments_num(const int points_num, const bool cyclic)
 {
   BLI_assert(points_num > 0);
   return (cyclic && points_num > 1) ? points_num : points_num - 1;
@@ -478,9 +540,21 @@ namespace bezier {
  * Return true if the handles that make up a segment both have a vector type. Vector segments for
  * Bezier curves have special behavior because they aren't divided into many evaluated points.
  */
+bool segment_is_vector(const HandleType left, const HandleType right);
+bool segment_is_vector(const int8_t left, const int8_t right);
 bool segment_is_vector(Span<int8_t> handle_types_left,
                        Span<int8_t> handle_types_right,
                        int segment_index);
+
+/**
+ * True if the Bezier curve contains polygonal segments of HandleType::BEZIER_HANDLE_VECTOR.
+ *
+ * \param num_curve_points: Number of points in the curve.
+ * \param evaluated_size: Number of evaluated points in the curve.
+ * \param cyclic: If curve is cyclic.
+ * \param resolution: Curve resolution.
+ */
+bool has_vector_handles(int num_curve_points, int64_t evaluated_size, bool cyclic, int resolution);
 
 /**
  * Return true if the curve's last cyclic segment has a vector type.
@@ -509,6 +583,47 @@ void calculate_evaluated_offsets(Span<int8_t> handle_types_left,
                                  bool cyclic,
                                  int resolution,
                                  MutableSpan<int> evaluated_offsets);
+
+/** Knot insertion result, see #insert. */
+struct Insertion {
+  float3 handle_prev;
+  float3 left_handle;
+  float3 position;
+  float3 right_handle;
+  float3 handle_next;
+};
+
+/**
+ * Compute the insertion of a control point and handles in a Bezier segment without changing its
+ * shape.
+ * \param parameter: Factor in from 0 to 1 defining the insertion point within the segment.
+ * \return Inserted point parameters including position, and both new and updated handles for
+ * neighboring control points.
+ *
+ * <pre>
+ *           handle_prev         handle_next
+ *                x-----------------x
+ *               /                   \
+ *              /      x---O---x      \
+ *             /        result         \
+ *            /                         \
+ *           O                           O
+ *       point_prev                   point_next
+ * </pre>
+ */
+Insertion insert(const float3 &point_prev,
+                 const float3 &handle_prev,
+                 const float3 &handle_next,
+                 const float3 &point_next,
+                 float parameter);
+
+/**
+ * Calculate the automatically defined positions for a vector handle (#BEZIER_HANDLE_VECTOR). While
+ * this can be calculated automatically with #calculate_auto_handles, when more context is
+ * available, it can be preferable for performance reasons to calculate it for a single segment
+ * when necessary.
+ */
+float3 calculate_vector_handle(const float3 &point, const float3 &next_point);
 
 /**
  * Recalculate all auto (#BEZIER_HANDLE_AUTO) and vector (#BEZIER_HANDLE_VECTOR) handles with
@@ -593,6 +708,38 @@ int calculate_evaluated_num(int points_num, bool cyclic, int resolution);
  * #calculate_evaluated_num and is expected to divide evenly by the #src span's segment size.
  */
 void interpolate_to_evaluated(GSpan src, bool cyclic, int resolution, GMutableSpan dst);
+
+/**
+ * Evaluate the Catmull Rom curve. The size of each segment and its offset in the #dst span
+ * is encoded in #evaluated_offsets, with the same method as #CurvesGeometry::offsets().
+ */
+void interpolate_to_evaluated(const GSpan src,
+                              const bool cyclic,
+                              const Span<int> evaluated_offsets,
+                              GMutableSpan dst);
+
+void calculate_basis(const float parameter, float4 &r_weights);
+
+/**
+ * Interpolate the control point values for the given parameter on the piecewise segment.
+ * \param a: Value associated with the first control point influencing the segment.
+ * \param d: Value associated with the fourth control point.
+ * \param parameter: Parameter in range [0, 1] to compute the interpolation for.
+ */
+template<typename T>
+T interpolate(const T &a, const T &b, const T &c, const T &d, const float parameter)
+{
+  BLI_assert(0.0f <= parameter && parameter <= 1.0f);
+  float4 n;
+  calculate_basis(parameter, n);
+  if constexpr (is_same_any_v<T, float, float2, float3>) {
+    /* Save multiplications by adjusting weights after mix. */
+    return 0.5f * attribute_math::mix4<T>(n, a, b, c, d);
+  }
+  else {
+    return attribute_math::mix4<T>(n * 0.5f, a, b, c, d);
+  }
+}
 
 }  // namespace catmull_rom
 
@@ -679,6 +826,12 @@ Curves *curves_new_nomain(CurvesGeometry curves);
  */
 Curves *curves_new_nomain_single(int points_num, CurveType type);
 
+/**
+ * Copy data from #src to #dst, except the geometry data in #CurvesGeometry. Typically used to
+ * copy high-level parameters when a geometry-altering operation creates a new curves data-block.
+ */
+void curves_copy_parameters(const Curves &src, Curves &dst);
+
 std::array<int, CURVE_TYPES_NUM> calculate_type_counts(const VArray<int8_t> &types);
 
 /* -------------------------------------------------------------------- */
@@ -702,6 +855,16 @@ inline IndexRange CurvesGeometry::curves_range() const
   return IndexRange(this->curves_num());
 }
 
+inline int CurvesGeometry::points_num_for_curve(const int index) const
+{
+  BLI_assert(this->curve_num > 0);
+  BLI_assert(this->curve_num > index);
+  BLI_assert(this->curve_offsets != nullptr);
+  const int offset = this->curve_offsets[index];
+  const int offset_next = this->curve_offsets[index + 1];
+  return offset_next - offset;
+}
+
 inline bool CurvesGeometry::is_single_type(const CurveType type) const
 {
   return this->curve_type_counts()[type] == this->curves_num();
@@ -710,6 +873,12 @@ inline bool CurvesGeometry::is_single_type(const CurveType type) const
 inline bool CurvesGeometry::has_curve_with_type(const CurveType type) const
 {
   return this->curve_type_counts()[type] > 0;
+}
+
+inline bool CurvesGeometry::has_curve_with_type(const Span<CurveType> types) const
+{
+  return std::any_of(
+      types.begin(), types.end(), [&](CurveType type) { return this->has_curve_with_type(type); });
 }
 
 inline const std::array<int, CURVE_TYPES_NUM> &CurvesGeometry::curve_type_counts() const
@@ -722,6 +891,7 @@ inline IndexRange CurvesGeometry::points_for_curve(const int index) const
 {
   /* Offsets are not allocated when there are no curves. */
   BLI_assert(this->curve_num > 0);
+  BLI_assert(this->curve_num > index);
   BLI_assert(this->curve_offsets != nullptr);
   const int offset = this->curve_offsets[index];
   const int offset_next = this->curve_offsets[index + 1];
@@ -746,13 +916,13 @@ inline int CurvesGeometry::evaluated_points_num() const
 
 inline IndexRange CurvesGeometry::evaluated_points_for_curve(int index) const
 {
-  BLI_assert(!this->runtime->offsets_cache_dirty);
+  BLI_assert(this->runtime->offsets_cache_mutex.is_cached());
   return offsets_to_range(this->runtime->evaluated_offsets_cache.as_span(), index);
 }
 
 inline IndexRange CurvesGeometry::evaluated_points_for_curves(const IndexRange curves) const
 {
-  BLI_assert(!this->runtime->offsets_cache_dirty);
+  BLI_assert(this->runtime->offsets_cache_mutex.is_cached());
   BLI_assert(this->curve_num > 0);
   const int offset = this->runtime->evaluated_offsets_cache[curves.start()];
   const int offset_next = this->runtime->evaluated_offsets_cache[curves.one_after_last()];
@@ -771,13 +941,13 @@ inline IndexRange CurvesGeometry::lengths_range_for_curve(const int curve_index,
   BLI_assert(cyclic == this->cyclic()[curve_index]);
   const IndexRange points = this->evaluated_points_for_curve(curve_index);
   const int start = points.start() + curve_index;
-  return {start, curves::curve_segment_num(points.size(), cyclic)};
+  return {start, curves::segments_num(points.size(), cyclic)};
 }
 
 inline Span<float> CurvesGeometry::evaluated_lengths_for_curve(const int curve_index,
                                                                const bool cyclic) const
 {
-  BLI_assert(!this->runtime->length_cache_dirty);
+  BLI_assert(this->runtime->length_cache_mutex.is_cached());
   const IndexRange range = this->lengths_range_for_curve(curve_index, cyclic);
   return this->runtime->evaluated_length_cache.as_span().slice(range);
 }
@@ -794,11 +964,13 @@ inline float CurvesGeometry::evaluated_length_total_for_curve(const int curve_in
 
 /** \} */
 
+namespace curves {
+
 /* -------------------------------------------------------------------- */
 /** \name Bezier Inline Methods
  * \{ */
 
-namespace curves::bezier {
+namespace bezier {
 
 inline bool point_is_sharp(const Span<int8_t> handle_types_left,
                            const Span<int8_t> handle_types_right,
@@ -808,8 +980,46 @@ inline bool point_is_sharp(const Span<int8_t> handle_types_left,
          ELEM(handle_types_right[index], BEZIER_HANDLE_VECTOR, BEZIER_HANDLE_FREE);
 }
 
+inline bool segment_is_vector(const HandleType left, const HandleType right)
+{
+  return left == BEZIER_HANDLE_VECTOR && right == BEZIER_HANDLE_VECTOR;
+}
+
+inline bool segment_is_vector(const int8_t left, const int8_t right)
+{
+  return segment_is_vector(HandleType(left), HandleType(right));
+}
+
+inline bool has_vector_handles(const int num_curve_points,
+                               const int64_t evaluated_size,
+                               const bool cyclic,
+                               const int resolution)
+{
+  return evaluated_size - !cyclic != int64_t(segments_num(num_curve_points, cyclic)) * resolution;
+}
+
+inline float3 calculate_vector_handle(const float3 &point, const float3 &next_point)
+{
+  return math::interpolate(point, next_point, 1.0f / 3.0f);
+}
+
+}  // namespace bezier
+
 /** \} */
 
-}  // namespace curves::bezier
+}  // namespace curves
+
+struct CurvesSurfaceTransforms {
+  float4x4 curves_to_world;
+  float4x4 curves_to_surface;
+  float4x4 world_to_curves;
+  float4x4 world_to_surface;
+  float4x4 surface_to_world;
+  float4x4 surface_to_curves;
+  float4x4 surface_to_curves_normal;
+
+  CurvesSurfaceTransforms() = default;
+  CurvesSurfaceTransforms(const Object &curves_ob, const Object *surface_ob);
+};
 
 }  // namespace blender::bke

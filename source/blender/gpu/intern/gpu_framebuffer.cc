@@ -7,7 +7,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_math_base.h"
 #include "BLI_utildefines.h"
 
@@ -18,7 +17,6 @@
 
 #include "gpu_backend.hh"
 #include "gpu_context_private.hh"
-#include "gpu_private.h"
 #include "gpu_texture_private.hh"
 
 #include "gpu_framebuffer_private.hh"
@@ -126,6 +124,43 @@ void FrameBuffer::attachment_remove(GPUAttachmentType type)
   dirty_attachments_ = true;
 }
 
+void FrameBuffer::load_store_config_array(const GPULoadStore *load_store_actions, uint actions_len)
+{
+  /* Follows attachment structure of GPU_framebuffer_config_array/GPU_framebuffer_ensure_config */
+  const GPULoadStore &depth_action = load_store_actions[0];
+  Span<GPULoadStore> color_attachments(load_store_actions + 1, actions_len - 1);
+
+  if (this->attachments_[GPU_FB_DEPTH_STENCIL_ATTACHMENT].tex) {
+    this->attachment_set_loadstore_op(
+        GPU_FB_DEPTH_STENCIL_ATTACHMENT, depth_action.load_action, depth_action.store_action);
+  }
+  if (this->attachments_[GPU_FB_DEPTH_ATTACHMENT].tex) {
+    this->attachment_set_loadstore_op(
+        GPU_FB_DEPTH_ATTACHMENT, depth_action.load_action, depth_action.store_action);
+  }
+
+  GPUAttachmentType type = GPU_FB_COLOR_ATTACHMENT0;
+  for (const GPULoadStore &actions : color_attachments) {
+    if (this->attachments_[type].tex) {
+      this->attachment_set_loadstore_op(type, actions.load_action, actions.store_action);
+    }
+    ++type;
+  }
+}
+
+uint FrameBuffer::get_bits_per_pixel()
+{
+  uint total_bits = 0;
+  for (GPUAttachment &attachment : attachments_) {
+    Texture *tex = reinterpret_cast<Texture *>(attachment.tex);
+    if (tex != nullptr) {
+      int bits = to_bytesize(tex->format_get()) * to_component_len(tex->format_get());
+      total_bits += bits;
+    }
+  }
+  return total_bits;
+}
+
 void FrameBuffer::recursive_downsample(int max_lvl,
                                        void (*callback)(void *userData, int level),
                                        void *userData)
@@ -144,16 +179,27 @@ void FrameBuffer::recursive_downsample(int max_lvl,
         /* Some Intel HDXXX have issue with rendering to a mipmap that is below
          * the texture GL_TEXTURE_MAX_LEVEL. So even if it not correct, in this case
          * we allow GL_TEXTURE_MAX_LEVEL to be one level lower. In practice it does work! */
-        int mip_max = (GPU_mip_render_workaround()) ? mip_lvl : (mip_lvl - 1);
+        int mip_max = GPU_mip_render_workaround() ? mip_lvl : (mip_lvl - 1);
         /* Restrict fetches only to previous level. */
         tex->mip_range_set(mip_lvl - 1, mip_max);
         /* Bind next level. */
         attachment.mip = mip_lvl;
       }
     }
+
     /* Update the internal attachments and viewport size. */
     dirty_attachments_ = true;
     this->bind(true);
+
+    /* Optimize load-store state. */
+    GPUAttachmentType type = GPU_FB_DEPTH_ATTACHMENT;
+    for (GPUAttachment &attachment : attachments_) {
+      Texture *tex = reinterpret_cast<Texture *>(attachment.tex);
+      if (tex != nullptr) {
+        this->attachment_set_loadstore_op(type, GPU_LOADACTION_DONT_CARE, GPU_STOREACTION_STORE);
+      }
+      ++type;
+    }
 
     callback(userData, mip_lvl);
   }
@@ -192,12 +238,29 @@ void GPU_framebuffer_free(GPUFrameBuffer *gpu_fb)
   delete unwrap(gpu_fb);
 }
 
+const char *GPU_framebuffer_get_name(GPUFrameBuffer *gpu_fb)
+{
+  return unwrap(gpu_fb)->name_get();
+}
+
 /* ---------- Binding ----------- */
 
 void GPU_framebuffer_bind(GPUFrameBuffer *gpu_fb)
 {
   const bool enable_srgb = true;
   unwrap(gpu_fb)->bind(enable_srgb);
+}
+
+void GPU_framebuffer_bind_loadstore(GPUFrameBuffer *gpu_fb,
+                                    const GPULoadStore *load_store_actions,
+                                    uint actions_len)
+{
+  /* Bind */
+  GPU_framebuffer_bind(gpu_fb);
+
+  /* Update load store */
+  FrameBuffer *fb = unwrap(gpu_fb);
+  fb->load_store_config_array(load_store_actions, actions_len);
 }
 
 void GPU_framebuffer_bind_no_srgb(GPUFrameBuffer *gpu_fb)
@@ -308,6 +371,11 @@ void GPU_framebuffer_config_array(GPUFrameBuffer *gpu_fb,
     fb->attachment_set(type, attachment);
     ++type;
   }
+}
+
+void GPU_framebuffer_default_size(GPUFrameBuffer *gpu_fb, int width, int height)
+{
+  unwrap(gpu_fb)->size_set(width, height);
 }
 
 /* ---------- Viewport & Scissor Region ----------- */
@@ -610,7 +678,7 @@ void GPU_offscreen_bind(GPUOffScreen *ofs, bool save)
   unwrap(gpu_offscreen_fb_get(ofs))->bind(false);
 }
 
-void GPU_offscreen_unbind(GPUOffScreen *UNUSED(ofs), bool restore)
+void GPU_offscreen_unbind(GPUOffScreen * /*ofs*/, bool restore)
 {
   GPUFrameBuffer *fb = nullptr;
   if (restore) {

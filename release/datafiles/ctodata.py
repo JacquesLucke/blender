@@ -2,8 +2,6 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright 2009 Blender Foundation. All rights reserved.
 
-# <pep8 compliant>
-
 import sys
 
 argv = sys.argv[:]
@@ -33,7 +31,7 @@ data = [int(v) for v in data]
 if strip_byte:
     # String data gets trailing byte.
     last = data.pop()
-    assert(last == 0)
+    assert last == 0
 
 data = bytes(data)
 

@@ -7,13 +7,15 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 
-#include "BKE_attribute_access.hh"
 #include "BKE_attribute_math.hh"
 #include "BKE_deform.h"
 #include "BKE_geometry_fields.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_lib_id.h"
 #include "BKE_mesh.h"
+#include "BKE_mesh_mapping.h"
+
+#include "FN_multi_function_builder.hh"
 
 #include "attribute_access_intern.hh"
 
@@ -116,10 +118,9 @@ void MeshComponent::ensure_owns_direct_data()
 
 namespace blender::bke {
 
-VArray<float3> mesh_normals_varray(const MeshComponent &mesh_component,
-                                   const Mesh &mesh,
+VArray<float3> mesh_normals_varray(const Mesh &mesh,
                                    const IndexMask mask,
-                                   const AttributeDomain domain)
+                                   const eAttrDomain domain)
 {
   switch (domain) {
     case ATTR_DOMAIN_FACE: {
@@ -136,8 +137,8 @@ VArray<float3> mesh_normals_varray(const MeshComponent &mesh_component,
        * instead of the GeometryComponent API to avoid calculating unnecessary values and to
        * allow normalizing the result more simply. */
       Span<float3> vert_normals{(float3 *)BKE_mesh_vertex_normals_ensure(&mesh), mesh.totvert};
+      const Span<MEdge> edges = mesh.edges();
       Array<float3> edge_normals(mask.min_array_size());
-      Span<MEdge> edges{mesh.medge, mesh.totedge};
       for (const int i : mask) {
         const MEdge &edge = edges[i];
         edge_normals[i] = math::normalize(
@@ -151,7 +152,7 @@ VArray<float3> mesh_normals_varray(const MeshComponent &mesh_component,
        * array and copy the face normal for each of its corners. In this case using the mesh
        * component's generic domain interpolation is fine, the data will still be normalized,
        * since the face normal is just copied to every corner. */
-      return mesh_component.attribute_try_adapt_domain(
+      return mesh.attributes().adapt_domain(
           VArray<float3>::ForSpan({(float3 *)BKE_mesh_poly_normals_ensure(&mesh), mesh.totpoly}),
           ATTR_DOMAIN_FACE,
           ATTR_DOMAIN_CORNER);
@@ -169,26 +170,6 @@ VArray<float3> mesh_normals_varray(const MeshComponent &mesh_component,
 /** \name Attribute Access
  * \{ */
 
-int MeshComponent::attribute_domain_num(const AttributeDomain domain) const
-{
-  if (mesh_ == nullptr) {
-    return 0;
-  }
-  switch (domain) {
-    case ATTR_DOMAIN_CORNER:
-      return mesh_->totloop;
-    case ATTR_DOMAIN_POINT:
-      return mesh_->totvert;
-    case ATTR_DOMAIN_EDGE:
-      return mesh_->totedge;
-    case ATTR_DOMAIN_FACE:
-      return mesh_->totpoly;
-    default:
-      break;
-  }
-  return 0;
-}
-
 namespace blender::bke {
 
 template<typename T>
@@ -197,11 +178,13 @@ static void adapt_mesh_domain_corner_to_point_impl(const Mesh &mesh,
                                                    MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
+  const Span<MLoop> loops = mesh.loops();
+
   attribute_math::DefaultMixer<T> mixer(r_values);
 
   for (const int loop_index : IndexRange(mesh.totloop)) {
     const T value = old_values[loop_index];
-    const MLoop &loop = mesh.mloop[loop_index];
+    const MLoop &loop = loops[loop_index];
     const int point_index = loop.v;
     mixer.mix_in(point_index, value);
   }
@@ -215,11 +198,13 @@ void adapt_mesh_domain_corner_to_point_impl(const Mesh &mesh,
                                             MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
+  const Span<MLoop> loops = mesh.loops();
+
   Array<bool> loose_verts(mesh.totvert, true);
 
   r_values.fill(true);
   for (const int loop_index : IndexRange(mesh.totloop)) {
-    const MLoop &loop = mesh.mloop[loop_index];
+    const MLoop &loop = loops[loop_index];
     const int point_index = loop.v;
 
     loose_verts[point_index] = false;
@@ -229,27 +214,30 @@ void adapt_mesh_domain_corner_to_point_impl(const Mesh &mesh,
   }
 
   /* Deselect loose vertices without corners that are still selected from the 'true' default. */
-  for (const int vert_index : IndexRange(mesh.totvert)) {
-    if (loose_verts[vert_index]) {
-      r_values[vert_index] = false;
+  /* The record fact says that the value is true.
+   *Writing to the array from different threads is okay because each thread sets the same value. */
+  threading::parallel_for(loose_verts.index_range(), 2048, [&](const IndexRange range) {
+    for (const int vert_index : range) {
+      if (loose_verts[vert_index]) {
+        r_values[vert_index] = false;
+      }
     }
-  }
+  });
 }
 
 static GVArray adapt_mesh_domain_corner_to_point(const Mesh &mesh, const GVArray &varray)
 {
-  GVArray new_varray;
+  GArray<> values(varray.type(), mesh.totvert);
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
       /* We compute all interpolated values at once, because for this interpolation, one has to
        * iterate over all loops anyway. */
-      Array<T> values(mesh.totvert);
-      adapt_mesh_domain_corner_to_point_impl<T>(mesh, varray.typed<T>(), values);
-      new_varray = VArray<T>::ForContainer(std::move(values));
+      adapt_mesh_domain_corner_to_point_impl<T>(
+          mesh, varray.typed<T>(), values.as_mutable_span().typed<T>());
     }
   });
-  return new_varray;
+  return GVArray::ForGArray(std::move(values));
 }
 
 /**
@@ -257,12 +245,14 @@ static GVArray adapt_mesh_domain_corner_to_point(const Mesh &mesh, const GVArray
  */
 static GVArray adapt_mesh_domain_point_to_corner(const Mesh &mesh, const GVArray &varray)
 {
+  const Span<MLoop> loops = mesh.loops();
+
   GVArray new_varray;
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     new_varray = VArray<T>::ForFunc(mesh.totloop,
-                                    [&mesh, varray = varray.typed<T>()](const int64_t loop_index) {
-                                      const int vertex_index = mesh.mloop[loop_index].v;
+                                    [loops, varray = varray.typed<T>()](const int64_t loop_index) {
+                                      const int vertex_index = loops[loop_index].v;
                                       return varray[vertex_index];
                                     });
   });
@@ -271,15 +261,17 @@ static GVArray adapt_mesh_domain_point_to_corner(const Mesh &mesh, const GVArray
 
 static GVArray adapt_mesh_domain_corner_to_face(const Mesh &mesh, const GVArray &varray)
 {
+  const Span<MPoly> polys = mesh.polys();
+
   GVArray new_varray;
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
       if constexpr (std::is_same_v<T, bool>) {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [&mesh, varray = varray.typed<bool>()](const int face_index) {
+            polys.size(), [polys, varray = varray.typed<bool>()](const int face_index) {
               /* A face is selected if all of its corners were selected. */
-              const MPoly &poly = mesh.mpoly[face_index];
+              const MPoly &poly = polys[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
                 if (!varray[loop_index]) {
                   return false;
@@ -290,10 +282,10 @@ static GVArray adapt_mesh_domain_corner_to_face(const Mesh &mesh, const GVArray 
       }
       else {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [&mesh, varray = varray.typed<T>()](const int face_index) {
+            polys.size(), [polys, varray = varray.typed<T>()](const int face_index) {
               T return_value;
               attribute_math::DefaultMixer<T> mixer({&return_value, 1});
-              const MPoly &poly = mesh.mpoly[face_index];
+              const MPoly &poly = polys[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
                 const T value = varray[loop_index];
                 mixer.mix_in(0, value);
@@ -313,18 +305,23 @@ static void adapt_mesh_domain_corner_to_edge_impl(const Mesh &mesh,
                                                   MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
+
   attribute_math::DefaultMixer<T> mixer(r_values);
 
-  for (const int poly_index : IndexRange(mesh.totpoly)) {
-    const MPoly &poly = mesh.mpoly[poly_index];
+  for (const int poly_index : polys.index_range()) {
+    const MPoly &poly = polys[poly_index];
 
     /* For every edge, mix values from the two adjacent corners (the current and next corner). */
-    for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-      const int loop_index_next = (loop_index + 1) % poly.totloop;
-      const MLoop &loop = mesh.mloop[loop_index];
+    for (const int i : IndexRange(poly.totloop)) {
+      const int next_i = (i + 1) % poly.totloop;
+      const int loop_i = poly.loopstart + i;
+      const int next_loop_i = poly.loopstart + next_i;
+      const MLoop &loop = loops[loop_i];
       const int edge_index = loop.e;
-      mixer.mix_in(edge_index, old_values[loop_index]);
-      mixer.mix_in(edge_index, old_values[loop_index_next]);
+      mixer.mix_in(edge_index, old_values[loop_i]);
+      mixer.mix_in(edge_index, old_values[next_loop_i]);
     }
   }
 
@@ -338,48 +335,50 @@ void adapt_mesh_domain_corner_to_edge_impl(const Mesh &mesh,
                                            MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
-
-  /* It may be possible to rely on the #ME_LOOSEEDGE flag, but that seems error-prone. */
-  Array<bool> loose_edges(mesh.totedge, true);
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
 
   r_values.fill(true);
-  for (const int poly_index : IndexRange(mesh.totpoly)) {
-    const MPoly &poly = mesh.mpoly[poly_index];
+  for (const int poly_index : polys.index_range()) {
+    const MPoly &poly = polys[poly_index];
 
-    for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-      const int loop_index_next = (loop_index == poly.totloop) ? poly.loopstart : (loop_index + 1);
-      const MLoop &loop = mesh.mloop[loop_index];
+    for (const int i : IndexRange(poly.totloop)) {
+      const int next_i = (i + 1) % poly.totloop;
+      const int loop_i = poly.loopstart + i;
+      const int next_loop_i = poly.loopstart + next_i;
+      const MLoop &loop = loops[loop_i];
       const int edge_index = loop.e;
-      loose_edges[edge_index] = false;
 
-      if (!old_values[loop_index] || !old_values[loop_index_next]) {
+      if (!old_values[loop_i] || !old_values[next_loop_i]) {
         r_values[edge_index] = false;
       }
     }
   }
 
-  /* Deselect loose edges without corners that are still selected from the 'true' default. */
-  threading::parallel_for(IndexRange(mesh.totedge), 2048, [&](const IndexRange range) {
-    for (const int edge_index : range) {
-      if (loose_edges[edge_index]) {
-        r_values[edge_index] = false;
+  const bke::LooseEdgeCache &loose_edges = mesh.loose_edges();
+  if (loose_edges.count > 0) {
+    /* Deselect loose edges without corners that are still selected from the 'true' default. */
+    threading::parallel_for(IndexRange(mesh.totedge), 2048, [&](const IndexRange range) {
+      for (const int edge_index : range) {
+        if (loose_edges.is_loose_bits[edge_index]) {
+          r_values[edge_index] = false;
+        }
       }
-    }
-  });
+    });
+  }
 }
 
 static GVArray adapt_mesh_domain_corner_to_edge(const Mesh &mesh, const GVArray &varray)
 {
-  GVArray new_varray;
+  GArray<> values(varray.type(), mesh.totedge);
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
-      Array<T> values(mesh.totedge);
-      adapt_mesh_domain_corner_to_edge_impl<T>(mesh, varray.typed<T>(), values);
-      new_varray = VArray<T>::ForContainer(std::move(values));
+      adapt_mesh_domain_corner_to_edge_impl<T>(
+          mesh, varray.typed<T>(), values.as_mutable_span().typed<T>());
     }
   });
-  return new_varray;
+  return GVArray::ForGArray(std::move(values));
 }
 
 template<typename T>
@@ -388,13 +387,16 @@ void adapt_mesh_domain_face_to_point_impl(const Mesh &mesh,
                                           MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
+
   attribute_math::DefaultMixer<T> mixer(r_values);
 
-  for (const int poly_index : IndexRange(mesh.totpoly)) {
-    const MPoly &poly = mesh.mpoly[poly_index];
+  for (const int poly_index : polys.index_range()) {
+    const MPoly &poly = polys[poly_index];
     const T value = old_values[poly_index];
     for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-      const MLoop &loop = mesh.mloop[loop_index];
+      const MLoop &loop = loops[loop_index];
       const int point_index = loop.v;
       mixer.mix_in(point_index, value);
     }
@@ -410,32 +412,33 @@ void adapt_mesh_domain_face_to_point_impl(const Mesh &mesh,
                                           MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
 
   r_values.fill(false);
-  for (const int poly_index : IndexRange(mesh.totpoly)) {
-    const MPoly &poly = mesh.mpoly[poly_index];
-    if (old_values[poly_index]) {
-      for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-        const MLoop &loop = mesh.mloop[loop_index];
-        const int vert_index = loop.v;
-        r_values[vert_index] = true;
+  threading::parallel_for(polys.index_range(), 2048, [&](const IndexRange range) {
+    for (const int poly_index : range) {
+      if (old_values[poly_index]) {
+        const MPoly &poly = polys[poly_index];
+        for (const MLoop &loop : loops.slice(poly.loopstart, poly.totloop)) {
+          r_values[loop.v] = true;
+        }
       }
     }
-  }
+  });
 }
 
 static GVArray adapt_mesh_domain_face_to_point(const Mesh &mesh, const GVArray &varray)
 {
-  GVArray new_varray;
+  GArray<> values(varray.type(), mesh.totvert);
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
-      Array<T> values(mesh.totvert);
-      adapt_mesh_domain_face_to_point_impl<T>(mesh, varray.typed<T>(), values);
-      new_varray = VArray<T>::ForContainer(std::move(values));
+      adapt_mesh_domain_face_to_point_impl<T>(
+          mesh, varray.typed<T>(), values.as_mutable_span().typed<T>());
     }
   });
-  return new_varray;
+  return GVArray::ForGArray(std::move(values));
 }
 
 /* Each corner's value is simply a copy of the value at its face. */
@@ -445,10 +448,11 @@ void adapt_mesh_domain_face_to_corner_impl(const Mesh &mesh,
                                            MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totloop);
+  const Span<MPoly> polys = mesh.polys();
 
-  threading::parallel_for(IndexRange(mesh.totpoly), 1024, [&](const IndexRange range) {
+  threading::parallel_for(polys.index_range(), 1024, [&](const IndexRange range) {
     for (const int poly_index : range) {
-      const MPoly &poly = mesh.mpoly[poly_index];
+      const MPoly &poly = polys[poly_index];
       MutableSpan<T> poly_corner_values = r_values.slice(poly.loopstart, poly.totloop);
       poly_corner_values.fill(old_values[poly_index]);
     }
@@ -457,16 +461,15 @@ void adapt_mesh_domain_face_to_corner_impl(const Mesh &mesh,
 
 static GVArray adapt_mesh_domain_face_to_corner(const Mesh &mesh, const GVArray &varray)
 {
-  GVArray new_varray;
+  GArray<> values(varray.type(), mesh.totloop);
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
-      Array<T> values(mesh.totloop);
-      adapt_mesh_domain_face_to_corner_impl<T>(mesh, varray.typed<T>(), values);
-      new_varray = VArray<T>::ForContainer(std::move(values));
+      adapt_mesh_domain_face_to_corner_impl<T>(
+          mesh, varray.typed<T>(), values.as_mutable_span().typed<T>());
     }
   });
-  return new_varray;
+  return GVArray::ForGArray(std::move(values));
 }
 
 template<typename T>
@@ -475,13 +478,16 @@ void adapt_mesh_domain_face_to_edge_impl(const Mesh &mesh,
                                          MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
+
   attribute_math::DefaultMixer<T> mixer(r_values);
 
-  for (const int poly_index : IndexRange(mesh.totpoly)) {
-    const MPoly &poly = mesh.mpoly[poly_index];
+  for (const int poly_index : polys.index_range()) {
+    const MPoly &poly = polys[poly_index];
     const T value = old_values[poly_index];
     for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-      const MLoop &loop = mesh.mloop[loop_index];
+      const MLoop &loop = loops[loop_index];
       mixer.mix_in(loop.e, value);
     }
   }
@@ -495,47 +501,51 @@ void adapt_mesh_domain_face_to_edge_impl(const Mesh &mesh,
                                          MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totedge);
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
 
   r_values.fill(false);
-  for (const int poly_index : IndexRange(mesh.totpoly)) {
-    const MPoly &poly = mesh.mpoly[poly_index];
-    if (old_values[poly_index]) {
-      for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-        const MLoop &loop = mesh.mloop[loop_index];
-        const int edge_index = loop.e;
-        r_values[edge_index] = true;
+  threading::parallel_for(polys.index_range(), 2048, [&](const IndexRange range) {
+    for (const int poly_index : range) {
+      if (old_values[poly_index]) {
+        const MPoly &poly = polys[poly_index];
+        for (const MLoop &loop : loops.slice(poly.loopstart, poly.totloop)) {
+          r_values[loop.e] = true;
+        }
       }
     }
-  }
+  });
 }
 
 static GVArray adapt_mesh_domain_face_to_edge(const Mesh &mesh, const GVArray &varray)
 {
-  GVArray new_varray;
+  GArray<> values(varray.type(), mesh.totedge);
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
-      Array<T> values(mesh.totedge);
-      adapt_mesh_domain_face_to_edge_impl<T>(mesh, varray.typed<T>(), values);
-      new_varray = VArray<T>::ForContainer(std::move(values));
+      adapt_mesh_domain_face_to_edge_impl<T>(
+          mesh, varray.typed<T>(), values.as_mutable_span().typed<T>());
     }
   });
-  return new_varray;
+  return GVArray::ForGArray(std::move(values));
 }
 
 static GVArray adapt_mesh_domain_point_to_face(const Mesh &mesh, const GVArray &varray)
 {
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
+
   GVArray new_varray;
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
       if constexpr (std::is_same_v<T, bool>) {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [&mesh, varray = varray.typed<bool>()](const int face_index) {
+            mesh.totpoly, [loops, polys, varray = varray.typed<bool>()](const int face_index) {
               /* A face is selected if all of its vertices were selected. */
-              const MPoly &poly = mesh.mpoly[face_index];
+              const MPoly &poly = polys[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-                const MLoop &loop = mesh.mloop[loop_index];
+                const MLoop &loop = loops[loop_index];
                 if (!varray[loop.v]) {
                   return false;
                 }
@@ -545,12 +555,12 @@ static GVArray adapt_mesh_domain_point_to_face(const Mesh &mesh, const GVArray &
       }
       else {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [&mesh, varray = varray.typed<T>()](const int face_index) {
+            mesh.totpoly, [loops, polys, varray = varray.typed<T>()](const int face_index) {
               T return_value;
               attribute_math::DefaultMixer<T> mixer({&return_value, 1});
-              const MPoly &poly = mesh.mpoly[face_index];
+              const MPoly &poly = polys[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-                const MLoop &loop = mesh.mloop[loop_index];
+                const MLoop &loop = loops[loop_index];
                 const T value = varray[loop.v];
                 mixer.mix_in(0, value);
               }
@@ -565,6 +575,8 @@ static GVArray adapt_mesh_domain_point_to_face(const Mesh &mesh, const GVArray &
 
 static GVArray adapt_mesh_domain_point_to_edge(const Mesh &mesh, const GVArray &varray)
 {
+  const Span<MEdge> edges = mesh.edges();
+
   GVArray new_varray;
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
@@ -572,17 +584,17 @@ static GVArray adapt_mesh_domain_point_to_edge(const Mesh &mesh, const GVArray &
       if constexpr (std::is_same_v<T, bool>) {
         /* An edge is selected if both of its vertices were selected. */
         new_varray = VArray<bool>::ForFunc(
-            mesh.totedge, [&mesh, varray = varray.typed<bool>()](const int edge_index) {
-              const MEdge &edge = mesh.medge[edge_index];
+            edges.size(), [edges, varray = varray.typed<bool>()](const int edge_index) {
+              const MEdge &edge = edges[edge_index];
               return varray[edge.v1] && varray[edge.v2];
             });
       }
       else {
         new_varray = VArray<T>::ForFunc(
-            mesh.totedge, [&mesh, varray = varray.typed<T>()](const int edge_index) {
+            edges.size(), [edges, varray = varray.typed<T>()](const int edge_index) {
               T return_value;
               attribute_math::DefaultMixer<T> mixer({&return_value, 1});
-              const MEdge &edge = mesh.medge[edge_index];
+              const MEdge &edge = edges[edge_index];
               mixer.mix_in(0, varray[edge.v1]);
               mixer.mix_in(0, varray[edge.v2]);
               mixer.finalize();
@@ -600,16 +612,19 @@ void adapt_mesh_domain_edge_to_corner_impl(const Mesh &mesh,
                                            MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totloop);
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
+
   attribute_math::DefaultMixer<T> mixer(r_values);
 
-  for (const int poly_index : IndexRange(mesh.totpoly)) {
-    const MPoly &poly = mesh.mpoly[poly_index];
+  for (const int poly_index : polys.index_range()) {
+    const MPoly &poly = polys[poly_index];
 
     /* For every corner, mix the values from the adjacent edges on the face. */
     for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-      const int loop_index_prev = loop_index - 1 + (loop_index == poly.loopstart) * poly.totloop;
-      const MLoop &loop = mesh.mloop[loop_index];
-      const MLoop &loop_prev = mesh.mloop[loop_index_prev];
+      const int loop_index_prev = mesh_topology::previous_poly_loop(poly, loop_index);
+      const MLoop &loop = loops[loop_index];
+      const MLoop &loop_prev = loops[loop_index_prev];
       mixer.mix_in(loop_index, old_values[loop.e]);
       mixer.mix_in(loop_index, old_values[loop_prev.e]);
     }
@@ -625,34 +640,37 @@ void adapt_mesh_domain_edge_to_corner_impl(const Mesh &mesh,
                                            MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totloop);
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
 
   r_values.fill(false);
 
-  for (const int poly_index : IndexRange(mesh.totpoly)) {
-    const MPoly &poly = mesh.mpoly[poly_index];
-    for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-      const int loop_index_prev = loop_index - 1 + (loop_index == poly.loopstart) * poly.totloop;
-      const MLoop &loop = mesh.mloop[loop_index];
-      const MLoop &loop_prev = mesh.mloop[loop_index_prev];
-      if (old_values[loop.e] && old_values[loop_prev.e]) {
-        r_values[loop_index] = true;
+  threading::parallel_for(polys.index_range(), 2048, [&](const IndexRange range) {
+    for (const int poly_index : range) {
+      const MPoly &poly = polys[poly_index];
+      for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
+        const int loop_index_prev = mesh_topology::previous_poly_loop(poly, loop_index);
+        const MLoop &loop = loops[loop_index];
+        const MLoop &loop_prev = loops[loop_index_prev];
+        if (old_values[loop.e] && old_values[loop_prev.e]) {
+          r_values[loop_index] = true;
+        }
       }
     }
-  }
+  });
 }
 
 static GVArray adapt_mesh_domain_edge_to_corner(const Mesh &mesh, const GVArray &varray)
 {
-  GVArray new_varray;
+  GArray<> values(varray.type(), mesh.totloop);
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
-      Array<T> values(mesh.totloop);
-      adapt_mesh_domain_edge_to_corner_impl<T>(mesh, varray.typed<T>(), values);
-      new_varray = VArray<T>::ForContainer(std::move(values));
+      adapt_mesh_domain_edge_to_corner_impl<T>(
+          mesh, varray.typed<T>(), values.as_mutable_span().typed<T>());
     }
   });
-  return new_varray;
+  return GVArray::ForGArray(std::move(values));
 }
 
 template<typename T>
@@ -661,10 +679,12 @@ static void adapt_mesh_domain_edge_to_point_impl(const Mesh &mesh,
                                                  MutableSpan<T> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
+  const Span<MEdge> edges = mesh.edges();
+
   attribute_math::DefaultMixer<T> mixer(r_values);
 
   for (const int edge_index : IndexRange(mesh.totedge)) {
-    const MEdge &edge = mesh.medge[edge_index];
+    const MEdge &edge = edges[edge_index];
     const T value = old_values[edge_index];
     mixer.mix_in(edge.v1, value);
     mixer.mix_in(edge.v2, value);
@@ -680,33 +700,40 @@ void adapt_mesh_domain_edge_to_point_impl(const Mesh &mesh,
                                           MutableSpan<bool> r_values)
 {
   BLI_assert(r_values.size() == mesh.totvert);
+  const Span<MEdge> edges = mesh.edges();
 
+  /* Multiple threads can write to the same index here, but they are only
+   * writing true, and writing to single bytes is expected to be threadsafe. */
   r_values.fill(false);
-  for (const int edge_index : IndexRange(mesh.totedge)) {
-    const MEdge &edge = mesh.medge[edge_index];
-    if (old_values[edge_index]) {
-      r_values[edge.v1] = true;
-      r_values[edge.v2] = true;
+  threading::parallel_for(edges.index_range(), 4096, [&](const IndexRange range) {
+    for (const int edge_index : range) {
+      if (old_values[edge_index]) {
+        const MEdge &edge = edges[edge_index];
+        r_values[edge.v1] = true;
+        r_values[edge.v2] = true;
+      }
     }
-  }
+  });
 }
 
 static GVArray adapt_mesh_domain_edge_to_point(const Mesh &mesh, const GVArray &varray)
 {
-  GVArray new_varray;
+  GArray<> values(varray.type(), mesh.totvert);
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
     if constexpr (!std::is_void_v<attribute_math::DefaultMixer<T>>) {
-      Array<T> values(mesh.totvert);
-      adapt_mesh_domain_edge_to_point_impl<T>(mesh, varray.typed<T>(), values);
-      new_varray = VArray<T>::ForContainer(std::move(values));
+      adapt_mesh_domain_edge_to_point_impl<T>(
+          mesh, varray.typed<T>(), values.as_mutable_span().typed<T>());
     }
   });
-  return new_varray;
+  return GVArray::ForGArray(std::move(values));
 }
 
 static GVArray adapt_mesh_domain_edge_to_face(const Mesh &mesh, const GVArray &varray)
 {
+  const Span<MPoly> polys = mesh.polys();
+  const Span<MLoop> loops = mesh.loops();
+
   GVArray new_varray;
   attribute_math::convert_to_static_type(varray.type(), [&](auto dummy) {
     using T = decltype(dummy);
@@ -714,10 +741,10 @@ static GVArray adapt_mesh_domain_edge_to_face(const Mesh &mesh, const GVArray &v
       if constexpr (std::is_same_v<T, bool>) {
         /* A face is selected if all of its edges are selected. */
         new_varray = VArray<bool>::ForFunc(
-            mesh.totpoly, [&mesh, varray = varray.typed<T>()](const int face_index) {
-              const MPoly &poly = mesh.mpoly[face_index];
+            polys.size(), [loops, polys, varray = varray.typed<T>()](const int face_index) {
+              const MPoly &poly = polys[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-                const MLoop &loop = mesh.mloop[loop_index];
+                const MLoop &loop = loops[loop_index];
                 if (!varray[loop.e]) {
                   return false;
                 }
@@ -727,12 +754,12 @@ static GVArray adapt_mesh_domain_edge_to_face(const Mesh &mesh, const GVArray &v
       }
       else {
         new_varray = VArray<T>::ForFunc(
-            mesh.totpoly, [&mesh, varray = varray.typed<T>()](const int face_index) {
+            polys.size(), [loops, polys, varray = varray.typed<T>()](const int face_index) {
               T return_value;
               attribute_math::DefaultMixer<T> mixer({&return_value, 1});
-              const MPoly &poly = mesh.mpoly[face_index];
+              const MPoly &poly = polys[face_index];
               for (const int loop_index : IndexRange(poly.loopstart, poly.totloop)) {
-                const MLoop &loop = mesh.mloop[loop_index];
+                const MLoop &loop = loops[loop_index];
                 const T value = varray[loop.e];
                 mixer.mix_in(0, value);
               }
@@ -747,10 +774,42 @@ static GVArray adapt_mesh_domain_edge_to_face(const Mesh &mesh, const GVArray &v
 
 }  // namespace blender::bke
 
-blender::GVArray MeshComponent::attribute_try_adapt_domain_impl(
-    const blender::GVArray &varray,
-    const AttributeDomain from_domain,
-    const AttributeDomain to_domain) const
+static bool can_simple_adapt_for_single(const Mesh &mesh,
+                                        const eAttrDomain from_domain,
+                                        const eAttrDomain to_domain)
+{
+  /* For some domain combinations, a single value will always map directly. For others, there may
+   * be loose elements on the result domain that should have the default value rather than the
+   * single value from the source. */
+  switch (from_domain) {
+    case ATTR_DOMAIN_POINT:
+      /* All other domains are always connected to points. */
+      return true;
+    case ATTR_DOMAIN_EDGE:
+      /* There may be loose vertices not connected to edges. */
+      return ELEM(to_domain, ATTR_DOMAIN_FACE, ATTR_DOMAIN_CORNER);
+    case ATTR_DOMAIN_FACE:
+      /* There may be loose vertices or edges not connected to faces. */
+      if (to_domain == ATTR_DOMAIN_EDGE) {
+        return mesh.loose_edges().count == 0;
+      }
+      return to_domain == ATTR_DOMAIN_CORNER;
+    case ATTR_DOMAIN_CORNER:
+      /* Only faces are always connected to corners. */
+      if (to_domain == ATTR_DOMAIN_EDGE) {
+        return mesh.loose_edges().count == 0;
+      }
+      return to_domain == ATTR_DOMAIN_FACE;
+    default:
+      BLI_assert_unreachable();
+      return false;
+  }
+}
+
+static blender::GVArray adapt_mesh_attribute_domain(const Mesh &mesh,
+                                                    const blender::GVArray &varray,
+                                                    const eAttrDomain from_domain,
+                                                    const eAttrDomain to_domain)
 {
   if (!varray) {
     return {};
@@ -761,16 +820,24 @@ blender::GVArray MeshComponent::attribute_try_adapt_domain_impl(
   if (from_domain == to_domain) {
     return varray;
   }
+  if (varray.is_single()) {
+    if (can_simple_adapt_for_single(mesh, from_domain, to_domain)) {
+      BUFFER_FOR_CPP_TYPE_VALUE(varray.type(), value);
+      varray.get_internal_single(value);
+      return blender::GVArray::ForSingle(
+          varray.type(), mesh.attributes().domain_size(to_domain), value);
+    }
+  }
 
   switch (from_domain) {
     case ATTR_DOMAIN_CORNER: {
       switch (to_domain) {
         case ATTR_DOMAIN_POINT:
-          return blender::bke::adapt_mesh_domain_corner_to_point(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_corner_to_point(mesh, varray);
         case ATTR_DOMAIN_FACE:
-          return blender::bke::adapt_mesh_domain_corner_to_face(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_corner_to_face(mesh, varray);
         case ATTR_DOMAIN_EDGE:
-          return blender::bke::adapt_mesh_domain_corner_to_edge(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_corner_to_edge(mesh, varray);
         default:
           break;
       }
@@ -779,11 +846,11 @@ blender::GVArray MeshComponent::attribute_try_adapt_domain_impl(
     case ATTR_DOMAIN_POINT: {
       switch (to_domain) {
         case ATTR_DOMAIN_CORNER:
-          return blender::bke::adapt_mesh_domain_point_to_corner(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_point_to_corner(mesh, varray);
         case ATTR_DOMAIN_FACE:
-          return blender::bke::adapt_mesh_domain_point_to_face(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_point_to_face(mesh, varray);
         case ATTR_DOMAIN_EDGE:
-          return blender::bke::adapt_mesh_domain_point_to_edge(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_point_to_edge(mesh, varray);
         default:
           break;
       }
@@ -792,11 +859,11 @@ blender::GVArray MeshComponent::attribute_try_adapt_domain_impl(
     case ATTR_DOMAIN_FACE: {
       switch (to_domain) {
         case ATTR_DOMAIN_POINT:
-          return blender::bke::adapt_mesh_domain_face_to_point(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_face_to_point(mesh, varray);
         case ATTR_DOMAIN_CORNER:
-          return blender::bke::adapt_mesh_domain_face_to_corner(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_face_to_corner(mesh, varray);
         case ATTR_DOMAIN_EDGE:
-          return blender::bke::adapt_mesh_domain_face_to_edge(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_face_to_edge(mesh, varray);
         default:
           break;
       }
@@ -805,11 +872,11 @@ blender::GVArray MeshComponent::attribute_try_adapt_domain_impl(
     case ATTR_DOMAIN_EDGE: {
       switch (to_domain) {
         case ATTR_DOMAIN_CORNER:
-          return blender::bke::adapt_mesh_domain_edge_to_corner(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_edge_to_corner(mesh, varray);
         case ATTR_DOMAIN_POINT:
-          return blender::bke::adapt_mesh_domain_edge_to_point(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_edge_to_point(mesh, varray);
         case ATTR_DOMAIN_FACE:
-          return blender::bke::adapt_mesh_domain_edge_to_face(*mesh_, varray);
+          return blender::bke::adapt_mesh_domain_edge_to_face(mesh, varray);
         default:
           break;
       }
@@ -820,20 +887,6 @@ blender::GVArray MeshComponent::attribute_try_adapt_domain_impl(
   }
 
   return {};
-}
-
-static Mesh *get_mesh_from_component_for_write(GeometryComponent &component)
-{
-  BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
-  MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
-  return mesh_component.get_for_write();
-}
-
-static const Mesh *get_mesh_from_component_for_read(const GeometryComponent &component)
-{
-  BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
-  const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-  return mesh_component.get_for_read();
 }
 
 namespace blender::bke {
@@ -865,22 +918,12 @@ static void set_vertex_position(MVert &vert, float3 position)
   copy_v3_v3(vert.co, position);
 }
 
-static void tag_normals_dirty_when_writing_position(GeometryComponent &component)
+static void tag_component_positions_changed(void *owner)
 {
-  Mesh *mesh = get_mesh_from_component_for_write(component);
+  Mesh *mesh = static_cast<Mesh *>(owner);
   if (mesh != nullptr) {
-    BKE_mesh_normals_tag_dirty(mesh);
+    BKE_mesh_tag_coords_changed(mesh);
   }
-}
-
-static int get_material_index(const MPoly &mpoly)
-{
-  return static_cast<int>(mpoly.mat_nr);
-}
-
-static void set_material_index(MPoly &mpoly, int index)
-{
-  mpoly.mat_nr = static_cast<short>(std::clamp(index, 0, SHRT_MAX));
 }
 
 static bool get_shade_smooth(const MPoly &mpoly)
@@ -903,14 +946,14 @@ static void set_loop_uv(MLoopUV &uv, float2 co)
   copy_v2_v2(uv.uv, co);
 }
 
-static float get_crease(const MEdge &edge)
+static float get_crease(const float &crease)
 {
-  return edge.crease / 255.0f;
+  return crease;
 }
 
-static void set_crease(MEdge &edge, float value)
+static void set_crease(float &crease, const float value)
 {
-  edge.crease = round_fl_to_uchar_clamp(value * 255.0f);
+  crease = std::clamp(value, 0.0f, 1.0f);
 }
 
 class VArrayImpl_For_VertexWeights final : public VMutableArrayImpl<float> {
@@ -919,8 +962,15 @@ class VArrayImpl_For_VertexWeights final : public VMutableArrayImpl<float> {
   const int dvert_index_;
 
  public:
-  VArrayImpl_For_VertexWeights(MDeformVert *dverts, const int totvert, const int dvert_index)
-      : VMutableArrayImpl<float>(totvert), dverts_(dverts), dvert_index_(dvert_index)
+  VArrayImpl_For_VertexWeights(MutableSpan<MDeformVert> dverts, const int dvert_index)
+      : VMutableArrayImpl<float>(dverts.size()), dverts_(dverts.data()), dvert_index_(dvert_index)
+  {
+  }
+
+  VArrayImpl_For_VertexWeights(Span<MDeformVert> dverts, const int dvert_index)
+      : VMutableArrayImpl<float>(dverts.size()),
+        dverts_(const_cast<MDeformVert *>(dverts.data())),
+        dvert_index_(dvert_index)
   {
   }
 
@@ -1002,15 +1052,13 @@ class VArrayImpl_For_VertexWeights final : public VMutableArrayImpl<float> {
  */
 class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
  public:
-  ReadAttributeLookup try_get_for_read(const GeometryComponent &component,
-                                       const AttributeIDRef &attribute_id) const final
+  GAttributeReader try_get_for_read(const void *owner,
+                                    const AttributeIDRef &attribute_id) const final
   {
-    BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
     if (!attribute_id.is_named()) {
       return {};
     }
-    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-    const Mesh *mesh = mesh_component.get_for_read();
+    const Mesh *mesh = static_cast<const Mesh *>(owner);
     if (mesh == nullptr) {
       return {};
     }
@@ -1020,24 +1068,21 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
     if (vertex_group_index < 0) {
       return {};
     }
-    if (mesh->dvert == nullptr) {
+    const Span<MDeformVert> dverts = mesh->deform_verts();
+    if (dverts.is_empty()) {
       static const float default_value = 0.0f;
       return {VArray<float>::ForSingle(default_value, mesh->totvert), ATTR_DOMAIN_POINT};
     }
-    return {VArray<float>::For<VArrayImpl_For_VertexWeights>(
-                mesh->dvert, mesh->totvert, vertex_group_index),
+    return {VArray<float>::For<VArrayImpl_For_VertexWeights>(dverts, vertex_group_index),
             ATTR_DOMAIN_POINT};
   }
 
-  WriteAttributeLookup try_get_for_write(GeometryComponent &component,
-                                         const AttributeIDRef &attribute_id) const final
+  GAttributeWriter try_get_for_write(void *owner, const AttributeIDRef &attribute_id) const final
   {
-    BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
     if (!attribute_id.is_named()) {
       return {};
     }
-    MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
-    Mesh *mesh = mesh_component.get_for_write();
+    Mesh *mesh = static_cast<Mesh *>(owner);
     if (mesh == nullptr) {
       return {};
     }
@@ -1048,27 +1093,17 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
     if (vertex_group_index < 0) {
       return {};
     }
-    if (mesh->dvert == nullptr) {
-      BKE_object_defgroup_data_create(&mesh->id);
-    }
-    else {
-      /* Copy the data layer if it is shared with some other mesh. */
-      mesh->dvert = (MDeformVert *)CustomData_duplicate_referenced_layer(
-          &mesh->vdata, CD_MDEFORMVERT, mesh->totvert);
-    }
-    return {VMutableArray<float>::For<VArrayImpl_For_VertexWeights>(
-                mesh->dvert, mesh->totvert, vertex_group_index),
+    MutableSpan<MDeformVert> dverts = mesh->deform_verts_for_write();
+    return {VMutableArray<float>::For<VArrayImpl_For_VertexWeights>(dverts, vertex_group_index),
             ATTR_DOMAIN_POINT};
   }
 
-  bool try_delete(GeometryComponent &component, const AttributeIDRef &attribute_id) const final
+  bool try_delete(void *owner, const AttributeIDRef &attribute_id) const final
   {
-    BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
     if (!attribute_id.is_named()) {
       return false;
     }
-    MeshComponent &mesh_component = static_cast<MeshComponent &>(component);
-    Mesh *mesh = mesh_component.get_for_write();
+    Mesh *mesh = static_cast<Mesh *>(owner);
     if (mesh == nullptr) {
       return true;
     }
@@ -1082,27 +1117,25 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
     }
     BLI_remlink(&mesh->vertex_group_names, group);
     MEM_freeN(group);
-    if (mesh->dvert == nullptr) {
+    if (mesh->deform_verts().is_empty()) {
       return true;
     }
 
-    /* Copy the data layer if it is shared with some other mesh. */
-    mesh->dvert = (MDeformVert *)CustomData_duplicate_referenced_layer(
-        &mesh->vdata, CD_MDEFORMVERT, mesh->totvert);
-
-    for (MDeformVert &dvert : MutableSpan(mesh->dvert, mesh->totvert)) {
+    for (MDeformVert &dvert : mesh->deform_verts_for_write()) {
       MDeformWeight *weight = BKE_defvert_find_index(&dvert, index);
       BKE_defvert_remove_group(&dvert, weight);
+      for (MDeformWeight &weight : MutableSpan(dvert.dw, dvert.totweight)) {
+        if (weight.def_nr > index) {
+          weight.def_nr--;
+        }
+      }
     }
     return true;
   }
 
-  bool foreach_attribute(const GeometryComponent &component,
-                         const AttributeForeachCallback callback) const final
+  bool foreach_attribute(const void *owner, const AttributeForeachCallback callback) const final
   {
-    BLI_assert(component.type() == GEO_COMPONENT_TYPE_MESH);
-    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-    const Mesh *mesh = mesh_component.get_for_read();
+    const Mesh *mesh = static_cast<const Mesh *>(owner);
     if (mesh == nullptr) {
       return true;
     }
@@ -1115,7 +1148,7 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
     return true;
   }
 
-  void foreach_domain(const FunctionRef<void(AttributeDomain)> callback) const final
+  void foreach_domain(const FunctionRef<void(eAttrDomain)> callback) const final
   {
     callback(ATTR_DOMAIN_POINT);
   }
@@ -1132,35 +1165,34 @@ class NormalAttributeProvider final : public BuiltinAttributeProvider {
   {
   }
 
-  GVArray try_get_for_read(const GeometryComponent &component) const final
+  GVArray try_get_for_read(const void *owner) const final
   {
-    const MeshComponent &mesh_component = static_cast<const MeshComponent &>(component);
-    const Mesh *mesh = mesh_component.get_for_read();
+    const Mesh *mesh = static_cast<const Mesh *>(owner);
     if (mesh == nullptr || mesh->totpoly == 0) {
       return {};
     }
     return VArray<float3>::ForSpan({(float3 *)BKE_mesh_poly_normals_ensure(mesh), mesh->totpoly});
   }
 
-  WriteAttributeLookup try_get_for_write(GeometryComponent &UNUSED(component)) const final
+  GAttributeWriter try_get_for_write(void * /*owner*/) const final
   {
     return {};
   }
 
-  bool try_delete(GeometryComponent &UNUSED(component)) const final
+  bool try_delete(void * /*owner*/) const final
   {
     return false;
   }
 
-  bool try_create(GeometryComponent &UNUSED(component),
-                  const AttributeInit &UNUSED(initializer)) const final
+  bool try_create(void * /*owner*/, const AttributeInit & /*initializer*/) const final
   {
     return false;
   }
 
-  bool exists(const GeometryComponent &component) const final
+  bool exists(const void *owner) const final
   {
-    return component.attribute_domain_num(ATTR_DOMAIN_FACE) != 0;
+    const Mesh *mesh = static_cast<const Mesh *>(owner);
+    return mesh->totpoly != 0;
   }
 };
 
@@ -1170,35 +1202,34 @@ class NormalAttributeProvider final : public BuiltinAttributeProvider {
  */
 static ComponentAttributeProviders create_attribute_providers_for_mesh()
 {
-  static auto update_custom_data_pointers = [](GeometryComponent &component) {
-    if (Mesh *mesh = get_mesh_from_component_for_write(component)) {
-      BKE_mesh_update_customdata_pointers(mesh, false);
-    }
-  };
-
 #define MAKE_MUTABLE_CUSTOM_DATA_GETTER(NAME) \
-  [](GeometryComponent &component) -> CustomData * { \
-    Mesh *mesh = get_mesh_from_component_for_write(component); \
-    return mesh ? &mesh->NAME : nullptr; \
+  [](void *owner) -> CustomData * { \
+    Mesh *mesh = static_cast<Mesh *>(owner); \
+    return &mesh->NAME; \
   }
 #define MAKE_CONST_CUSTOM_DATA_GETTER(NAME) \
-  [](const GeometryComponent &component) -> const CustomData * { \
-    const Mesh *mesh = get_mesh_from_component_for_read(component); \
-    return mesh ? &mesh->NAME : nullptr; \
+  [](const void *owner) -> const CustomData * { \
+    const Mesh *mesh = static_cast<const Mesh *>(owner); \
+    return &mesh->NAME; \
+  }
+#define MAKE_GET_ELEMENT_NUM_GETTER(NAME) \
+  [](const void *owner) -> int { \
+    const Mesh *mesh = static_cast<const Mesh *>(owner); \
+    return mesh->NAME; \
   }
 
   static CustomDataAccessInfo corner_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(ldata),
                                                MAKE_CONST_CUSTOM_DATA_GETTER(ldata),
-                                               update_custom_data_pointers};
+                                               MAKE_GET_ELEMENT_NUM_GETTER(totloop)};
   static CustomDataAccessInfo point_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(vdata),
                                               MAKE_CONST_CUSTOM_DATA_GETTER(vdata),
-                                              update_custom_data_pointers};
+                                              MAKE_GET_ELEMENT_NUM_GETTER(totvert)};
   static CustomDataAccessInfo edge_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(edata),
                                              MAKE_CONST_CUSTOM_DATA_GETTER(edata),
-                                             update_custom_data_pointers};
+                                             MAKE_GET_ELEMENT_NUM_GETTER(totedge)};
   static CustomDataAccessInfo face_access = {MAKE_MUTABLE_CUSTOM_DATA_GETTER(pdata),
                                              MAKE_CONST_CUSTOM_DATA_GETTER(pdata),
-                                             update_custom_data_pointers};
+                                             MAKE_GET_ELEMENT_NUM_GETTER(totpoly)};
 
 #undef MAKE_CONST_CUSTOM_DATA_GETTER
 #undef MAKE_MUTABLE_CUSTOM_DATA_GETTER
@@ -1214,7 +1245,7 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
       point_access,
       make_derived_read_attribute<MVert, float3, get_vertex_position>,
       make_derived_write_attribute<MVert, float3, get_vertex_position, set_vertex_position>,
-      tag_normals_dirty_when_writing_position);
+      tag_component_positions_changed);
 
   static NormalAttributeProvider normal;
 
@@ -1230,18 +1261,25 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
                                            make_array_write_attribute<int>,
                                            nullptr);
 
-  static BuiltinCustomDataLayerProvider material_index(
-      "material_index",
-      ATTR_DOMAIN_FACE,
-      CD_PROP_INT32,
-      CD_MPOLY,
-      BuiltinAttributeProvider::NonCreatable,
-      BuiltinAttributeProvider::Writable,
-      BuiltinAttributeProvider::NonDeletable,
-      face_access,
-      make_derived_read_attribute<MPoly, int, get_material_index>,
-      make_derived_write_attribute<MPoly, int, get_material_index, set_material_index>,
-      nullptr);
+  static const fn::CustomMF_SI_SO<int, int> material_index_clamp{
+      "Material Index Validate",
+      [](int value) {
+        /* Use #short for the maximum since many areas still use that type for indices. */
+        return std::clamp<int>(value, 0, std::numeric_limits<short>::max());
+      },
+      fn::CustomMF_presets::AllSpanOrSingle()};
+  static BuiltinCustomDataLayerProvider material_index("material_index",
+                                                       ATTR_DOMAIN_FACE,
+                                                       CD_PROP_INT32,
+                                                       CD_PROP_INT32,
+                                                       BuiltinAttributeProvider::Creatable,
+                                                       BuiltinAttributeProvider::Writable,
+                                                       BuiltinAttributeProvider::Deletable,
+                                                       face_access,
+                                                       make_array_read_attribute<int>,
+                                                       make_array_write_attribute<int>,
+                                                       nullptr,
+                                                       AttributeValidator{&material_index_clamp});
 
   static BuiltinCustomDataLayerProvider shade_smooth(
       "shade_smooth",
@@ -1260,13 +1298,13 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
       "crease",
       ATTR_DOMAIN_EDGE,
       CD_PROP_FLOAT,
-      CD_MEDGE,
-      BuiltinAttributeProvider::NonCreatable,
+      CD_CREASE,
+      BuiltinAttributeProvider::Creatable,
       BuiltinAttributeProvider::Writable,
-      BuiltinAttributeProvider::NonDeletable,
+      BuiltinAttributeProvider::Deletable,
       edge_access,
-      make_derived_read_attribute<MEdge, float, get_crease>,
-      make_derived_write_attribute<MEdge, float, get_crease, set_crease>,
+      make_array_read_attribute<float>,
+      make_derived_write_attribute<float, float, get_crease, set_crease>,
       nullptr);
 
   static NamedLegacyCustomDataProvider uvs(
@@ -1293,13 +1331,74 @@ static ComponentAttributeProviders create_attribute_providers_for_mesh()
        &face_custom_data});
 }
 
+static AttributeAccessorFunctions get_mesh_accessor_functions()
+{
+  static const ComponentAttributeProviders providers = create_attribute_providers_for_mesh();
+  AttributeAccessorFunctions fn =
+      attribute_accessor_functions::accessor_functions_for_providers<providers>();
+  fn.domain_size = [](const void *owner, const eAttrDomain domain) {
+    if (owner == nullptr) {
+      return 0;
+    }
+    const Mesh &mesh = *static_cast<const Mesh *>(owner);
+    switch (domain) {
+      case ATTR_DOMAIN_POINT:
+        return mesh.totvert;
+      case ATTR_DOMAIN_EDGE:
+        return mesh.totedge;
+      case ATTR_DOMAIN_FACE:
+        return mesh.totpoly;
+      case ATTR_DOMAIN_CORNER:
+        return mesh.totloop;
+      default:
+        return 0;
+    }
+  };
+  fn.domain_supported = [](const void * /*owner*/, const eAttrDomain domain) {
+    return ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_EDGE, ATTR_DOMAIN_FACE, ATTR_DOMAIN_CORNER);
+  };
+  fn.adapt_domain = [](const void *owner,
+                       const blender::GVArray &varray,
+                       const eAttrDomain from_domain,
+                       const eAttrDomain to_domain) -> blender::GVArray {
+    if (owner == nullptr) {
+      return {};
+    }
+    const Mesh &mesh = *static_cast<const Mesh *>(owner);
+    return adapt_mesh_attribute_domain(mesh, varray, from_domain, to_domain);
+  };
+  return fn;
+}
+
+static const AttributeAccessorFunctions &get_mesh_accessor_functions_ref()
+{
+  static const AttributeAccessorFunctions fn = get_mesh_accessor_functions();
+  return fn;
+}
+
 }  // namespace blender::bke
 
-const blender::bke::ComponentAttributeProviders *MeshComponent::get_attribute_providers() const
+blender::bke::AttributeAccessor Mesh::attributes() const
 {
-  static blender::bke::ComponentAttributeProviders providers =
-      blender::bke::create_attribute_providers_for_mesh();
-  return &providers;
+  return blender::bke::AttributeAccessor(this, blender::bke::get_mesh_accessor_functions_ref());
+}
+
+blender::bke::MutableAttributeAccessor Mesh::attributes_for_write()
+{
+  return blender::bke::MutableAttributeAccessor(this,
+                                                blender::bke::get_mesh_accessor_functions_ref());
+}
+
+std::optional<blender::bke::AttributeAccessor> MeshComponent::attributes() const
+{
+  return blender::bke::AttributeAccessor(mesh_, blender::bke::get_mesh_accessor_functions_ref());
+}
+
+std::optional<blender::bke::MutableAttributeAccessor> MeshComponent::attributes_for_write()
+{
+  Mesh *mesh = this->get_for_write();
+  return blender::bke::MutableAttributeAccessor(mesh,
+                                                blender::bke::get_mesh_accessor_functions_ref());
 }
 
 /** \} */

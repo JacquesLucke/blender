@@ -123,7 +123,7 @@ MINLINE void premul_float_to_straight_uchar(unsigned char *result, const float c
  * one of the primaries, it lies outside the color gamut
  * accessible from the given triple of primaries.  Desaturate
  * it by adding white, equal quantities of R, G, and B, enough
- * to make RGB all positive.  The function returns 1 if the
+ * to make RGB all positive. The function returns 1 if the
  * components were modified, zero otherwise.
  */
 int constrain_rgb(float *r, float *g, float *b);
@@ -164,7 +164,9 @@ void rgba_float_to_uchar(unsigned char r_col[4], const float col_f[4]);
 MINLINE float rgb_to_grayscale(const float rgb[3]);
 MINLINE unsigned char rgb_to_grayscale_byte(const unsigned char rgb[3]);
 
-MINLINE int compare_rgb_uchar(const unsigned char a[3], const unsigned char b[3], int limit);
+MINLINE int compare_rgb_uchar(const unsigned char col_a[3],
+                              const unsigned char col_b[3],
+                              int limit);
 
 /**
  * Return triangle noise in [-0.5..1.5] range.

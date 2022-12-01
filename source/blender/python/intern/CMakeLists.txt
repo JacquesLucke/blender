@@ -174,8 +174,8 @@ if(WITH_CODEC_SNDFILE)
   add_definitions(-DWITH_SNDFILE)
 endif()
 
-if(WITH_COMPOSITOR)
-  add_definitions(-DWITH_COMPOSITOR)
+if(WITH_COMPOSITOR_CPU)
+  add_definitions(-DWITH_COMPOSITOR_CPU)
 endif()
 
 if(WITH_CYCLES)
@@ -232,7 +232,7 @@ if(WITH_IMAGE_TIFF)
 endif()
 
 if(WITH_WEBP)
-	add_definitions(-DWITH_WEBP)
+  add_definitions(-DWITH_WEBP)
 endif()
 
 if(WITH_INPUT_NDOF)
@@ -308,6 +308,18 @@ endif()
 
 if(WITH_OPENCOLLADA)
   add_definitions(-DWITH_COLLADA)
+endif()
+
+if(WITH_IO_WAVEFRONT_OBJ)
+  add_definitions(-DWITH_IO_WAVEFRONT_OBJ)
+endif()
+
+if(WITH_IO_STL)
+  add_definitions(-DWITH_IO_STL)
+endif()
+
+if(WITH_IO_GPENCIL)
+  add_definitions(-DWITH_IO_GPENCIL)
 endif()
 
 if(WITH_ALEMBIC)

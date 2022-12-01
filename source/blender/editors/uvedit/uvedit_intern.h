@@ -7,15 +7,16 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct BMFace;
 struct BMLoop;
 struct Object;
 struct Scene;
 struct SpaceImage;
 struct wmOperatorType;
-
-/* geometric utilities */
-void uv_poly_copy_aspect(float uv_orig[][2], float uv[][2], float aspx, float aspy, int len);
 
 /* find nearest */
 
@@ -149,6 +150,10 @@ void UV_OT_rip(struct wmOperatorType *ot);
 void UV_OT_stitch(struct wmOperatorType *ot);
 void UV_OT_smart_project(struct wmOperatorType *ot);
 
+/* uvedit_copy_paste.cc */
+void UV_OT_copy(wmOperatorType *ot);
+void UV_OT_paste(wmOperatorType *ot);
+
 /* uvedit_path.c */
 
 void UV_OT_shortest_path_pick(struct wmOperatorType *ot);
@@ -182,5 +187,10 @@ void UV_OT_select_circle(struct wmOperatorType *ot);
 void UV_OT_select_more(struct wmOperatorType *ot);
 void UV_OT_select_less(struct wmOperatorType *ot);
 void UV_OT_select_overlap(struct wmOperatorType *ot);
+void UV_OT_select_similar(struct wmOperatorType *ot);
 /* Used only when UV sync select is disabled. */
 void UV_OT_select_mode(struct wmOperatorType *ot);
+
+#ifdef __cplusplus
+}
+#endif

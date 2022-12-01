@@ -27,6 +27,7 @@
 #include "BLI_fileops.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
+#include "BLI_timeit.hh"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -42,17 +43,27 @@ struct ExportJobData {
   USDExportParams params;
 
   bool export_ok;
+  timeit::TimePoint start_time;
 };
+
+static void report_job_duration(const ExportJobData *data)
+{
+  timeit::Nanoseconds duration = timeit::Clock::now() - data->start_time;
+  std::cout << "USD export of '" << data->filepath << "' took ";
+  timeit::print_duration(duration);
+  std::cout << '\n';
+}
 
 static void export_startjob(void *customdata,
                             /* Cannot be const, this function implements wm_jobs_start_callback.
                              * NOLINTNEXTLINE: readability-non-const-parameter. */
-                            short *stop,
-                            short *do_update,
+                            bool *stop,
+                            bool *do_update,
                             float *progress)
 {
   ExportJobData *data = static_cast<ExportJobData *>(customdata);
   data->export_ok = false;
+  data->start_time = timeit::Clock::now();
 
   G.is_rendering = true;
   WM_set_locked_interface(data->wm, true);
@@ -72,7 +83,7 @@ static void export_startjob(void *customdata,
   *do_update = true;
 
   /* For restoring the current frame after exporting animation is done. */
-  const int orig_frame = CFRA;
+  const int orig_frame = scene->r.cfra;
 
   pxr::UsdStageRefPtr usd_stage = pxr::UsdStage::CreateNew(data->filepath);
   if (!usd_stage) {
@@ -85,8 +96,7 @@ static void export_startjob(void *customdata,
   }
 
   usd_stage->SetMetadata(pxr::UsdGeomTokens->upAxis, pxr::VtValue(pxr::UsdGeomTokens->z));
-  usd_stage->SetMetadata(pxr::UsdGeomTokens->metersPerUnit,
-                         static_cast<double>(scene->unit.scale_length));
+  usd_stage->SetMetadata(pxr::UsdGeomTokens->metersPerUnit, double(scene->unit.scale_length));
   usd_stage->GetRootLayer()->SetDocumentation(std::string("Blender v") +
                                               BKE_blender_version_string());
 
@@ -109,7 +119,7 @@ static void export_startjob(void *customdata,
       }
 
       /* Update the scene for the next frame to render. */
-      scene->r.cfra = static_cast<int>(frame);
+      scene->r.cfra = int(frame);
       scene->r.subframe = frame - scene->r.cfra;
       BKE_scene_graph_update_for_newframe(data->depsgraph);
 
@@ -129,8 +139,8 @@ static void export_startjob(void *customdata,
   usd_stage->GetRootLayer()->Save();
 
   /* Finish up by going back to the keyframe that was current before we started. */
-  if (CFRA != orig_frame) {
-    CFRA = orig_frame;
+  if (scene->r.cfra != orig_frame) {
+    scene->r.cfra = orig_frame;
     BKE_scene_graph_update_for_newframe(data->depsgraph);
   }
 
@@ -151,6 +161,7 @@ static void export_endjob(void *customdata)
 
   G.is_rendering = false;
   WM_set_locked_interface(data->wm, false);
+  report_job_duration(data);
 }
 
 }  // namespace blender::io::usd
@@ -194,7 +205,7 @@ bool USD_export(bContext *C,
   }
   else {
     /* Fake a job context, so that we don't need NULL pointer checks while exporting. */
-    short stop = 0, do_update = 0;
+    bool stop = false, do_update = false;
     float progress = 0.0f;
 
     blender::io::usd::export_startjob(job, &stop, &do_update, &progress);

@@ -14,19 +14,9 @@
 #include "BLI_math_base_safe.h"
 #include "BLI_utildefines.h"
 
-#ifdef WITH_GMP
-#  include "BLI_math_mpq.hh"
-#endif
-
 namespace blender::math {
 
-template<typename T>
-inline constexpr bool is_math_float_type = (std::is_floating_point_v<T>
-#ifdef WITH_GMP
-                                            || std::is_same_v<T, mpq_class>
-#endif
-);
-
+template<typename T> inline constexpr bool is_math_float_type = std::is_floating_point_v<T>;
 template<typename T> inline constexpr bool is_math_integral_type = std::is_integral_v<T>;
 
 template<typename T> inline bool is_zero(const T &a)
@@ -52,6 +42,16 @@ template<typename T> inline T min(const T &a, const T &b)
 template<typename T> inline T max(const T &a, const T &b)
 {
   return std::max(a, b);
+}
+
+template<typename T> inline void max_inplace(T &a, const T &b)
+{
+  a = math::max(a, b);
+}
+
+template<typename T> inline void min_inplace(T &a, const T &b)
+{
+  a = math::min(a, b);
 }
 
 template<typename T> inline T clamp(const T &a, const T &min, const T &max)
@@ -100,6 +100,41 @@ template<typename T> inline T distance(const T &a, const T &b)
 template<typename T, BLI_ENABLE_IF((is_math_float_type<T>))> inline T fract(const T &a)
 {
   return a - std::floor(a);
+}
+
+template<typename T> inline T cos(const T &a)
+{
+  return std::cos(a);
+}
+
+template<typename T> inline T sin(const T &a)
+{
+  return std::sin(a);
+}
+
+template<typename T> inline T tan(const T &a)
+{
+  return std::tan(a);
+}
+
+template<typename T> inline T acos(const T &a)
+{
+  return std::acos(a);
+}
+
+template<typename T> inline T asin(const T &a)
+{
+  return std::asin(a);
+}
+
+template<typename T> inline T atan(const T &a)
+{
+  return std::atan(a);
+}
+
+template<typename T> inline T atan2(const T &a, const T &b)
+{
+  return std::atan2(a, b);
 }
 
 template<typename T,

@@ -68,8 +68,8 @@ struct Object;
 struct Scene;
 
 /*
- * NOTE: all mface interfaces now officially operate on tessellated data.
- *       Also, the mface origindex layer indexes mpolys, not mfaces.
+ * NOTE: all #MFace interfaces now officially operate on tessellated data.
+ *       Also, the #MFace orig-index layer indexes #MPoly, not #MFace.
  */
 
 /* keep in sync with MFace/MPoly types */
@@ -104,9 +104,6 @@ struct DerivedMesh {
     int num_alloc;
   } looptris;
 
-  /* use for converting to BMesh which doesn't store bevel weight and edge crease by default */
-  char cd_flag;
-
   short tangent_mask; /* which tangent layers are calculated */
 
   /** Loop tessellation cache (WARNING! Only call inside threading-protected code!) */
@@ -140,14 +137,6 @@ struct DerivedMesh {
   void (*copyEdgeArray)(DerivedMesh *dm, struct MEdge *r_edge);
   void (*copyLoopArray)(DerivedMesh *dm, struct MLoop *r_loop);
   void (*copyPolyArray)(DerivedMesh *dm, struct MPoly *r_poly);
-
-  /** Return a copy of all verts/edges/faces from the derived mesh
-   * it is the caller's responsibility to free the returned pointer
-   */
-  struct MVert *(*dupVertArray)(DerivedMesh *dm);
-  struct MEdge *(*dupEdgeArray)(DerivedMesh *dm);
-  struct MLoop *(*dupLoopArray)(DerivedMesh *dm);
-  struct MPoly *(*dupPolyArray)(DerivedMesh *dm);
 
   /** Return a pointer to the entire array of vert/edge/face custom data
    * from the derived mesh (this gives a pointer to the actual data, not
@@ -252,11 +241,6 @@ void DM_copy_vert_data(struct DerivedMesh *source,
                        int source_index,
                        int dest_index,
                        int count);
-
-/**
- * Sets up mpolys for a DM based on face iterators in source.
- */
-void DM_DupPolys(DerivedMesh *source, DerivedMesh *target);
 
 /**
  * Ensure the array is large enough.

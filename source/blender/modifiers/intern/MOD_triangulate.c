@@ -82,11 +82,11 @@ static Mesh *triangulate_mesh(Mesh *mesh,
   }
 
   edges_num = result->totedge;
-  me = result->medge;
+  me = BKE_mesh_edges_for_write(result);
 
   /* force drawing of all edges (seems to be omitted in CDDM_from_bmesh) */
   for (i = 0; i < edges_num; i++, me++) {
-    me->flag |= ME_EDGEDRAW | ME_EDGERENDER;
+    me->flag |= ME_EDGEDRAW;
   }
 
   return result;
@@ -139,7 +139,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Triangulate = {
-    /* name */ "Triangulate",
+    /* name */ N_("Triangulate"),
     /* structName */ "TriangulateModifierData",
     /* structSize */ sizeof(TriangulateModifierData),
     /* srna */ &RNA_TriangulateModifier,

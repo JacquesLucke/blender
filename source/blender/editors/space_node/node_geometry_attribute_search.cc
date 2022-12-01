@@ -14,6 +14,7 @@
 #include "DNA_space_types.h"
 
 #include "BKE_context.h"
+#include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
 #include "BKE_object.h"
 
@@ -30,12 +31,11 @@
 #include "UI_interface.hh"
 #include "UI_resources.h"
 
-#include "NOD_geometry_nodes_eval_log.hh"
+#include "NOD_geometry_nodes_log.hh"
 
 #include "node_intern.hh"
 
-namespace geo_log = blender::nodes::geometry_nodes_eval_log;
-using geo_log::GeometryAttributeInfo;
+using blender::nodes::geo_eval_log::GeometryAttributeInfo;
 
 namespace blender::ed::space_node {
 
@@ -50,6 +50,8 @@ BLI_STATIC_ASSERT(std::is_trivially_destructible_v<AttributeSearchData>, "");
 static Vector<const GeometryAttributeInfo *> get_attribute_info_from_context(
     const bContext &C, AttributeSearchData &data)
 {
+  using namespace nodes::geo_eval_log;
+
   SpaceNode *snode = CTX_wm_space_node(&C);
   if (!snode) {
     BLI_assert_unreachable();
@@ -65,39 +67,48 @@ static Vector<const GeometryAttributeInfo *> get_attribute_info_from_context(
     BLI_assert_unreachable();
     return {};
   }
+  GeoTreeLog *tree_log = GeoModifierLog::get_tree_log_for_node_editor(*snode);
+  if (tree_log == nullptr) {
+    return {};
+  }
+  tree_log->ensure_socket_values();
 
   /* For the attribute input node, collect attribute information from all nodes in the group. */
   if (node->type == GEO_NODE_INPUT_NAMED_ATTRIBUTE) {
-    const geo_log::TreeLog *tree_log = geo_log::ModifierLog::find_tree_by_node_editor_context(
-        *snode);
-    if (tree_log == nullptr) {
-      return {};
-    }
-
+    tree_log->ensure_existing_attributes();
     Vector<const GeometryAttributeInfo *> attributes;
-    Set<StringRef> names;
-    tree_log->foreach_node_log([&](const geo_log::NodeLog &node_log) {
-      for (const geo_log::SocketLog &socket_log : node_log.input_logs()) {
-        const geo_log::ValueLog *value_log = socket_log.value();
-        if (const geo_log::GeometryValueLog *geo_value_log =
-                dynamic_cast<const geo_log::GeometryValueLog *>(value_log)) {
-          for (const GeometryAttributeInfo &attribute : geo_value_log->attributes()) {
-            if (names.add(attribute.name)) {
-              attributes.append(&attribute);
-            }
-          }
-        }
+    for (const GeometryAttributeInfo *attribute : tree_log->existing_attributes) {
+      if (bke::allow_procedural_attribute_access(attribute->name)) {
+        attributes.append(attribute);
       }
-    });
+    }
     return attributes;
   }
-
-  const geo_log::NodeLog *node_log = geo_log::ModifierLog::find_node_by_node_editor_context(
-      *snode, data.node_name);
+  GeoNodeLog *node_log = tree_log->nodes.lookup_ptr(node->name);
   if (node_log == nullptr) {
     return {};
   }
-  return node_log->lookup_available_attributes();
+  Set<StringRef> names;
+  Vector<const GeometryAttributeInfo *> attributes;
+  for (const bNodeSocket *input_socket : node->input_sockets()) {
+    if (input_socket->type != SOCK_GEOMETRY) {
+      continue;
+    }
+    const ValueLog *value_log = tree_log->find_socket_value_log(*input_socket);
+    if (value_log == nullptr) {
+      continue;
+    }
+    if (const GeometryInfoLog *geo_log = dynamic_cast<const GeometryInfoLog *>(value_log)) {
+      for (const GeometryAttributeInfo &attribute : geo_log->attributes) {
+        if (bke::allow_procedural_attribute_access(attribute.name)) {
+          if (names.add(attribute.name)) {
+            attributes.append(&attribute);
+          }
+        }
+      }
+    }
+  }
+  return attributes;
 }
 
 static void attribute_search_update_fn(
@@ -111,14 +122,6 @@ static void attribute_search_update_fn(
 
   Vector<const GeometryAttributeInfo *> infos = get_attribute_info_from_context(*C, *data);
 
-  /* Remove the deprecated normal attribute from the search. */
-  for (const int i : infos.index_range()) {
-    if (infos[i]->domain == ATTR_DOMAIN_FACE && infos[i]->name == "normal") {
-      infos.remove(i);
-      break;
-    }
-  }
-
   ui::attribute_search_add_items(str, true, infos, items, is_first);
 }
 
@@ -126,7 +129,7 @@ static void attribute_search_update_fn(
  * Some custom data types don't correspond to node types and therefore can't be
  * used by the named attribute input node. Find the best option or fallback to float.
  */
-static CustomDataType data_type_in_attribute_input_node(const CustomDataType type)
+static eCustomDataType data_type_in_attribute_input_node(const eCustomDataType type)
 {
   switch (type) {
     case CD_PROP_FLOAT:
@@ -185,7 +188,7 @@ static void attribute_search_exec_fn(bContext *C, void *data_v, void *item_v)
   /* For the attribute input node, also adjust the type and links connected to the output. */
   if (node->type == GEO_NODE_INPUT_NAMED_ATTRIBUTE && item->data_type.has_value()) {
     NodeGeometryInputNamedAttribute &storage = *(NodeGeometryInputNamedAttribute *)node->storage;
-    const CustomDataType new_type = data_type_in_attribute_input_node(*item->data_type);
+    const eCustomDataType new_type = data_type_in_attribute_input_node(*item->data_type);
     if (new_type != storage.data_type) {
       storage.data_type = new_type;
       /* Make the output socket with the new type on the attribute input node active. */
@@ -194,10 +197,14 @@ static void attribute_search_exec_fn(bContext *C, void *data_v, void *item_v)
       /* Relink all node links to the newly active output socket. */
       bNodeSocket *output_socket = bke::node_find_enabled_output_socket(*node, "Attribute");
       LISTBASE_FOREACH (bNodeLink *, link, &node_tree->links) {
-        if (link->fromnode == node) {
-          link->fromsock = output_socket;
-          BKE_ntree_update_tag_link_changed(node_tree);
+        if (link->fromnode != node) {
+          continue;
         }
+        if (!STREQ(link->fromsock->name, "Attribute")) {
+          continue;
+        }
+        link->fromsock = output_socket;
+        BKE_ntree_update_tag_link_changed(node_tree);
       }
     }
     BKE_ntree_update_tag_node_property(node_tree, node);
@@ -210,7 +217,7 @@ static void attribute_search_exec_fn(bContext *C, void *data_v, void *item_v)
   ED_undo_push(C, "Assign Attribute Name");
 }
 
-void node_geometry_add_attribute_search_button(const bContext &UNUSED(C),
+void node_geometry_add_attribute_search_button(const bContext & /*C*/,
                                                const bNode &node,
                                                PointerRNA &socket_ptr,
                                                uiLayout &layout)

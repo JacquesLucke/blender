@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8-80 compliant>
-
 import bpy
 from bpy.types import Panel, Header, Menu, UIList
-from bpy.app.translations import pgettext_iface as iface_
+from bpy.app.translations import (
+    pgettext_iface as iface_,
+    contexts as i18n_contexts,
+)
 from bl_ui.utils import PresetPanel
 from bl_ui.properties_grease_pencil_common import (
     AnnotationDrawingToolsPanel,
@@ -167,8 +168,9 @@ class CLIP_HT_header(Header):
                 r = active_object.reconstruction
 
                 if r.is_valid and sc.view == 'CLIP':
-                    layout.label(text="Solve error: %.2f px" %
-                                 (r.average_error))
+                    layout.label(text=iface_("Solve error: %.2f px") %
+                                 (r.average_error),
+                                 translate=False)
 
                 row = layout.row()
                 row.prop(sc, "pivot_point", text="", icon_only=True)
@@ -201,7 +203,8 @@ class CLIP_HT_header(Header):
                 row = layout.row(align=True)
                 row.prop(dopesheet, "sort_method", text="")
                 row.prop(dopesheet, "use_invert_sort",
-                         text="Invert", toggle=True)
+                         text="", toggle=True,
+                         icon='SORT_DESC' if dopesheet.use_invert_sort else 'SORT_ASC')
 
     def _draw_masking(self, context):
         layout = self.layout
@@ -250,6 +253,13 @@ class CLIP_HT_header(Header):
             self._draw_tracking(context)
         else:
             self._draw_masking(context)
+
+        # Gizmo toggle & popover.
+        row = layout.row(align=True)
+        row.prop(sc, "show_gizmo", icon='GIZMO', text="")
+        sub = row.row(align=True)
+        sub.active = sc.show_gizmo
+        sub.popover(panel="CLIP_PT_gizmo_display", text="")
 
 
 class CLIP_MT_tracking_editor_menus(Menu):
@@ -735,8 +745,8 @@ class CLIP_PT_track(CLIP_PT_tracking_panel, Panel):
         layout.prop(act_track, "weight_stab")
 
         if act_track.has_bundle:
-            label_text = "Average Error: %.2f px" % (act_track.average_error)
-            layout.label(text=label_text)
+            label_text = iface_("Average Error: %.2f px") % (act_track.average_error)
+            layout.label(text=label_text, translate=False)
 
         layout.use_property_split = False
 
@@ -772,8 +782,10 @@ class CLIP_PT_plane_track(CLIP_PT_tracking_panel, Panel):
 
         layout.prop(active_track, "name")
         layout.prop(active_track, "use_auto_keying")
-        layout.template_ID(
+        row = layout.row()
+        row.template_ID(
             active_track, "image", new="image.new", open="image.open")
+        row.menu("CLIP_MT_plane_track_image_context_menu", icon='DOWNARROW_HLT', text="")
 
         row = layout.row()
         row.active = active_track.image is not None
@@ -908,8 +920,7 @@ class CLIP_PT_tracking_lens(Panel):
         col.prop(camera, "units", text="Units")
 
         col = layout.column()
-        col.prop(clip.tracking.camera, "principal", text="Optical Center")
-        col.operator("clip.set_center_principal", text="Set Center")
+        col.prop(clip.tracking.camera, "principal_point", text="Optical Center")
 
         col = layout.column()
         col.prop(camera, "distortion_model", text="Lens Distortion")
@@ -1341,7 +1352,6 @@ class CLIP_MT_clip(Menu):
 
         if clip:
             layout.operator("clip.set_scene_frames")
-            layout.operator("clip.set_center_principal")
             layout.operator("clip.prefetch")
             layout.operator("clip.reload")
             layout.menu("CLIP_MT_proxy")
@@ -1482,6 +1492,10 @@ class CLIP_MT_track(Menu):
         layout.operator("clip.add_marker_move", text="Add Marker")
         layout.operator("clip.detect_features")
         layout.operator("clip.create_plane_track")
+
+        layout.separator()
+        layout.operator("clip.new_image_from_plane_marker")
+        layout.operator("clip.update_image_from_plane_marker")
 
         layout.separator()
 
@@ -1635,6 +1649,16 @@ class CLIP_MT_tracking_context_menu(Menu):
             draw_mask_context_menu(layout, context)
 
 
+class CLIP_MT_plane_track_image_context_menu(Menu):
+    bl_label = "Plane Track Image Specials"
+
+    def draw(self, _context):
+        layout = self.layout
+
+        layout.operator("clip.new_image_from_plane_marker")
+        layout.operator("clip.update_image_from_plane_marker")
+
+
 class CLIP_PT_camera_presets(PresetPanel, Panel):
     """Predefined tracking camera intrinsics"""
     bl_label = "Camera Presets"
@@ -1736,6 +1760,7 @@ class CLIP_MT_marker_pie(Menu):
 class CLIP_MT_tracking_pie(Menu):
     # Tracking Operators
     bl_label = "Tracking"
+    bl_translation_context = i18n_contexts.id_movieclip
 
     @classmethod
     def poll(cls, context):
@@ -1879,6 +1904,26 @@ class CLIP_MT_view_pie(Menu):
             pie.operator("clip.graph_center_current_frame")
 
 
+class CLIP_PT_gizmo_display(Panel):
+    bl_space_type = 'CLIP_EDITOR'
+    bl_region_type = 'HEADER'
+    bl_label = "Gizmos"
+    bl_ui_units_x = 8
+
+    def draw(self, context):
+        layout = self.layout
+
+        view = context.space_data
+
+        col = layout.column()
+        col.label(text="Viewport Gizmos")
+        col.separator()
+
+        col.active = view.show_gizmo
+        colsub = col.column()
+        colsub.prop(view, "show_gizmo_navigate", text="Navigate")
+
+
 classes = (
     CLIP_UL_tracking_objects,
     CLIP_HT_header,
@@ -1936,6 +1981,7 @@ classes = (
     CLIP_MT_select,
     CLIP_MT_select_grouped,
     CLIP_MT_tracking_context_menu,
+    CLIP_MT_plane_track_image_context_menu,
     CLIP_PT_camera_presets,
     CLIP_PT_track_color_presets,
     CLIP_PT_tracking_settings_presets,
@@ -1947,6 +1993,7 @@ classes = (
     CLIP_MT_reconstruction_pie,
     CLIP_MT_solving_pie,
     CLIP_MT_view_pie,
+    CLIP_PT_gizmo_display,
 )
 
 if __name__ == "__main__":  # only for live edit.

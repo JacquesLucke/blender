@@ -124,6 +124,11 @@ static void rna_MaterialLineArt_update(Main *UNUSED(bmain), Scene *UNUSED(scene)
   WM_main_add_notifier(NC_MATERIAL | ND_SHADING_DRAW, ma);
 }
 
+static char *rna_MaterialLineArt_path(const PointerRNA *UNUSED(ptr))
+{
+  return BLI_strdup("lineart");
+}
+
 static void rna_Material_draw_update(Main *UNUSED(bmain), Scene *UNUSED(scene), PointerRNA *ptr)
 {
   Material *ma = (Material *)ptr->owner_id;
@@ -142,7 +147,6 @@ static void rna_Material_texpaint_begin(CollectionPropertyIterator *iter, Pointe
 static void rna_Material_active_paint_texture_index_update(bContext *C, PointerRNA *ptr)
 {
   Main *bmain = CTX_data_main(C);
-  bScreen *screen;
   Material *ma = (Material *)ptr->owner_id;
 
   if (ma->use_nodes && ma->nodetree) {
@@ -157,25 +161,7 @@ static void rna_Material_active_paint_texture_index_update(bContext *C, PointerR
     TexPaintSlot *slot = &ma->texpaintslot[ma->paint_active_slot];
     Image *image = slot->ima;
     if (image) {
-      for (screen = bmain->screens.first; screen; screen = screen->id.next) {
-        wmWindow *win = ED_screen_window_find(screen, bmain->wm.first);
-        if (win == NULL) {
-          continue;
-        }
-
-        ScrArea *area;
-        for (area = screen->areabase.first; area; area = area->next) {
-          SpaceLink *sl;
-          for (sl = area->spacedata.first; sl; sl = sl->next) {
-            if (sl->spacetype == SPACE_IMAGE) {
-              SpaceImage *sima = (SpaceImage *)sl;
-              if (!sima->pin) {
-                ED_space_image_set(bmain, sima, image, true);
-              }
-            }
-          }
-        }
-      }
+      ED_space_image_sync(bmain, image, false);
     }
 
     /* For compatibility reasons with vertex paint we activate the color attribute. */
@@ -367,13 +353,13 @@ static char *rna_GpencilColorData_path(const PointerRNA *UNUSED(ptr))
   return BLI_strdup("grease_pencil");
 }
 
-static int rna_GpencilColorData_is_stroke_visible_get(PointerRNA *ptr)
+static bool rna_GpencilColorData_is_stroke_visible_get(PointerRNA *ptr)
 {
   MaterialGPencilStyle *pcolor = ptr->data;
   return (pcolor->stroke_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH);
 }
 
-static int rna_GpencilColorData_is_fill_visible_get(PointerRNA *ptr)
+static bool rna_GpencilColorData_is_fill_visible_get(PointerRNA *ptr)
 {
   MaterialGPencilStyle *pcolor = (MaterialGPencilStyle *)ptr->data;
   return ((pcolor->fill_rgba[3] > GPENCIL_ALPHA_OPACITY_THRESH) || (pcolor->fill_style > 0));
@@ -731,6 +717,7 @@ static void rna_def_material_lineart(BlenderRNA *brna)
   srna = RNA_def_struct(brna, "MaterialLineArt", NULL);
   RNA_def_struct_sdna(srna, "MaterialLineArt");
   RNA_def_struct_ui_text(srna, "Material Line Art", "");
+  RNA_def_struct_path_func(srna, "rna_MaterialLineArt_path");
 
   prop = RNA_def_property(srna, "use_material_mask", PROP_BOOLEAN, PROP_NONE);
   RNA_def_property_boolean_default(prop, 0);
@@ -753,6 +740,22 @@ static void rna_def_material_lineart(BlenderRNA *brna)
       prop,
       "Effectiveness",
       "Faces with this material will behave as if it has set number of layers in occlusion");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialLineArt_update");
+
+  prop = RNA_def_property(srna, "intersection_priority", PROP_INT, PROP_NONE);
+  RNA_def_property_range(prop, 0, 255);
+  RNA_def_property_ui_text(prop,
+                           "Intersection Priority",
+                           "The intersection line will be included into the object with the "
+                           "higher intersection priority value");
+  RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialLineArt_update");
+
+  prop = RNA_def_property(srna, "use_intersection_priority_override", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_boolean_default(prop, 0);
+  RNA_def_property_boolean_sdna(prop, NULL, "flags", LRT_MATERIAL_CUSTOM_INTERSECTION_PRIORITY);
+  RNA_def_property_ui_text(prop,
+                           "Use Intersection Priority",
+                           "Override object and collection intersection priority value");
   RNA_def_property_update(prop, NC_GPENCIL | ND_SHADING, "rna_MaterialLineArt_update");
 }
 

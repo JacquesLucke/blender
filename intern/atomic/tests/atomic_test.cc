@@ -6,12 +6,8 @@
 #include "testing/testing.h"
 
 #ifdef __GNUC__
-#  if (__GNUC__ * 100 + __GNUC_MINOR__) >= 406 /* gcc4.6+ only */
-#    pragma GCC diagnostic error "-Wsign-compare"
-#  endif
-#  if (__GNUC__ * 100 + __GNUC_MINOR__) >= 408
-#    pragma GCC diagnostic error "-Wsign-conversion"
-#  endif
+#  pragma GCC diagnostic error "-Wsign-compare"
+#  pragma GCC diagnostic error "-Wsign-conversion"
 #endif
 
 /* -------------------------------------------------------------------- */
@@ -1057,6 +1053,25 @@ TEST(atomic, atomic_cas_ptr)
     void *value = INT_AS_PTR(0x7f);
     EXPECT_EQ(atomic_cas_ptr(&value, INT_AS_PTR(0x7f), INT_AS_PTR(0xef)), INT_AS_PTR(0x7f));
     EXPECT_EQ(value, INT_AS_PTR(0xef));
+  }
+}
+
+TEST(atomic, atomic_load_ptr)
+{
+  {
+    void *value = INT_AS_PTR(0x7f);
+    void *dest = atomic_load_ptr(&value);
+    EXPECT_EQ(dest, INT_AS_PTR(0x7f));
+  }
+}
+
+TEST(atomic, atomic_store_ptr)
+{
+  {
+    void *value = INT_AS_PTR(0x7f);
+    void *dest = nullptr;
+    atomic_store_ptr(&dest, value);
+    EXPECT_EQ(dest, INT_AS_PTR(0x7f));
   }
 }
 

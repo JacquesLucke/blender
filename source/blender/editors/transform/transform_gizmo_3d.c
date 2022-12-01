@@ -45,7 +45,6 @@
 #include "WM_api.h"
 #include "WM_message.h"
 #include "WM_types.h"
-#include "wm.h"
 
 #include "ED_armature.h"
 #include "ED_gizmo_library.h"
@@ -70,6 +69,10 @@
 #include "MEM_guardedalloc.h"
 
 #include "GPU_state.h"
+
+static void gizmo_refresh_from_matrix(wmGizmoGroup *gzgroup,
+                                      const float twmat[4][4],
+                                      const float scale[3]);
 
 /* return codes for select, and drawing flags */
 
@@ -154,6 +157,9 @@ typedef struct GizmoGroup {
   struct {
     float viewinv_m3[3][3];
   } prev;
+
+  /* Only for Rotate operator. */
+  float rotation;
 
   struct wmGizmo *gizmos[MAN_AXIS_LAST];
 } GizmoGroup;
@@ -547,7 +553,7 @@ static void axis_angle_to_gimbal_axis(float gmat[3][3], const float axis[3], con
 
 static bool test_rotmode_euler(short rotmode)
 {
-  return (ELEM(rotmode, ROT_MODE_AXISANGLE, ROT_MODE_QUAT)) ? 0 : 1;
+  return ELEM(rotmode, ROT_MODE_AXISANGLE, ROT_MODE_QUAT) ? 0 : 1;
 }
 
 bool gimbal_axis_pose(Object *ob, const bPoseChannel *pchan, float gmat[3][3])
@@ -575,12 +581,12 @@ bool gimbal_axis_pose(Object *ob, const bPoseChannel *pchan, float gmat[3][3])
     mul_m3_m3m3(mat, parent_mat, tmat);
 
     /* needed if object transformation isn't identity */
-    copy_m3_m4(obmat, ob->obmat);
+    copy_m3_m4(obmat, ob->object_to_world);
     mul_m3_m3m3(gmat, obmat, mat);
   }
   else {
     /* needed if object transformation isn't identity */
-    copy_m3_m4(obmat, ob->obmat);
+    copy_m3_m4(obmat, ob->object_to_world);
     mul_m3_m3m3(gmat, obmat, tmat);
   }
 
@@ -602,7 +608,7 @@ bool gimbal_axis_object(Object *ob, float gmat[3][3])
 
   if (ob->parent) {
     float parent_mat[3][3];
-    copy_m3_m4(parent_mat, ob->parent->obmat);
+    copy_m3_m4(parent_mat, ob->parent->object_to_world);
     normalize_m3(parent_mat);
     mul_m3_m3m3(gmat, parent_mat, gmat);
   }
@@ -633,7 +639,8 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
                                  (params->orientation_index - 1) :
                                  BKE_scene_orientation_get_index(scene, SCE_ORIENT_DEFAULT);
 
-  Object *ob = OBACT(view_layer);
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  Object *ob = BKE_view_layer_active_object_get(view_layer);
   Object *obedit = OBEDIT_FROM_OBACT(ob);
   if (ob && ob->mode & OB_MODE_WEIGHT_PAINT) {
     Object *obpose = BKE_object_pose_armature_get(ob);
@@ -668,14 +675,14 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
   copy_m3_m4(tbounds->axis, rv3d->twmat);
   if (params->use_local_axis && (ob && ob->mode & (OB_MODE_EDIT | OB_MODE_POSE))) {
     float diff_mat[3][3];
-    copy_m3_m4(diff_mat, ob->obmat);
+    copy_m3_m4(diff_mat, ob->object_to_world);
     normalize_m3(diff_mat);
     invert_m3(diff_mat);
     mul_m3_m3m3(tbounds->axis, tbounds->axis, diff_mat);
     normalize_m3(tbounds->axis);
 
     tbounds->use_matrix_space = true;
-    copy_m4_m4(tbounds->matrix_space, ob->obmat);
+    copy_m4_m4(tbounds->matrix_space, ob->object_to_world);
   }
 
   if (is_gp_edit) {
@@ -744,10 +751,10 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
 
 #define FOREACH_EDIT_OBJECT_BEGIN(ob_iter, use_mat_local) \
   { \
-    invert_m4_m4(obedit->imat, obedit->obmat); \
+    invert_m4_m4(obedit->world_to_object, obedit->object_to_world); \
     uint objects_len = 0; \
     Object **objects = BKE_view_layer_array_from_objects_in_edit_mode( \
-        view_layer, CTX_wm_view3d(C), &objects_len); \
+        scene, view_layer, CTX_wm_view3d(C), &objects_len); \
     for (uint ob_index = 0; ob_index < objects_len; ob_index++) { \
       Object *ob_iter = objects[ob_index]; \
       const bool use_mat_local = (ob_iter != obedit);
@@ -773,7 +780,7 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
 
         float mat_local[4][4];
         if (use_mat_local) {
-          mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
+          mul_m4_m4m4(mat_local, obedit->world_to_object, ob_iter->object_to_world);
         }
 
         BM_ITER_MESH (eve, &iter, bm, BM_VERTS_OF_MESH) {
@@ -793,7 +800,7 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
 
         float mat_local[4][4];
         if (use_mat_local) {
-          mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
+          mul_m4_m4m4(mat_local, obedit->world_to_object, ob_iter->object_to_world);
         }
         LISTBASE_FOREACH (EditBone *, ebo, arm->edbo) {
           if (EBONE_VISIBLE(arm, ebo)) {
@@ -826,7 +833,7 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
 
         float mat_local[4][4];
         if (use_mat_local) {
-          mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
+          mul_m4_m4m4(mat_local, obedit->world_to_object, ob_iter->object_to_world);
         }
 
         nu = nurbs->first;
@@ -886,7 +893,7 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
 
         float mat_local[4][4];
         if (use_mat_local) {
-          mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
+          mul_m4_m4m4(mat_local, obedit->world_to_object, ob_iter->object_to_world);
         }
 
         LISTBASE_FOREACH (MetaElem *, ml, mb->editelems) {
@@ -906,7 +913,7 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
 
         float mat_local[4][4];
         if (use_mat_local) {
-          mul_m4_m4m4(mat_local, obedit->imat, ob_iter->obmat);
+          mul_m4_m4m4(mat_local, obedit->world_to_object, ob_iter->object_to_world);
         }
 
         while (a--) {
@@ -926,16 +933,16 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
     /* selection center */
     if (totsel) {
       mul_v3_fl(tbounds->center, 1.0f / (float)totsel); /* centroid! */
-      mul_m4_v3(obedit->obmat, tbounds->center);
-      mul_m4_v3(obedit->obmat, tbounds->min);
-      mul_m4_v3(obedit->obmat, tbounds->max);
+      mul_m4_v3(obedit->object_to_world, tbounds->center);
+      mul_m4_v3(obedit->object_to_world, tbounds->min);
+      mul_m4_v3(obedit->object_to_world, tbounds->max);
     }
   }
   else if (ob && (ob->mode & OB_MODE_POSE)) {
-    invert_m4_m4(ob->imat, ob->obmat);
+    invert_m4_m4(ob->world_to_object, ob->object_to_world);
 
     uint objects_len = 0;
-    Object **objects = BKE_object_pose_array_get(view_layer, v3d, &objects_len);
+    Object **objects = BKE_object_pose_array_get(scene, view_layer, v3d, &objects_len);
 
     for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
       Object *ob_iter = objects[ob_index];
@@ -947,7 +954,7 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
 
       float mat_local[4][4];
       if (use_mat_local) {
-        mul_m4_m4m4(mat_local, ob->imat, ob_iter->obmat);
+        mul_m4_m4m4(mat_local, ob->world_to_object, ob_iter->object_to_world);
       }
 
       /* Use channels to get stats. */
@@ -964,18 +971,18 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
 
     if (totsel) {
       mul_v3_fl(tbounds->center, 1.0f / (float)totsel); /* centroid! */
-      mul_m4_v3(ob->obmat, tbounds->center);
-      mul_m4_v3(ob->obmat, tbounds->min);
-      mul_m4_v3(ob->obmat, tbounds->max);
+      mul_m4_v3(ob->object_to_world, tbounds->center);
+      mul_m4_v3(ob->object_to_world, tbounds->min);
+      mul_m4_v3(ob->object_to_world, tbounds->max);
     }
   }
   else if (ob && (ob->mode & OB_MODE_ALL_PAINT)) {
     if (ob->mode & OB_MODE_SCULPT) {
       totsel = 1;
-      calc_tw_center_with_matrix(tbounds, ob->sculpt->pivot_pos, false, ob->obmat);
-      mul_m4_v3(ob->obmat, tbounds->center);
-      mul_m4_v3(ob->obmat, tbounds->min);
-      mul_m4_v3(ob->obmat, tbounds->max);
+      calc_tw_center_with_matrix(tbounds, ob->sculpt->pivot_pos, false, ob->object_to_world);
+      mul_m4_v3(ob->object_to_world, tbounds->center);
+      mul_m4_v3(ob->object_to_world, tbounds->min);
+      mul_m4_v3(ob->object_to_world, tbounds->max);
     }
   }
   else if (ob && ob->mode & OB_MODE_PARTICLE_EDIT) {
@@ -1008,13 +1015,14 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
   else {
 
     /* we need the one selected object, if its not active */
-    base = BASACT(view_layer);
-    ob = OBACT(view_layer);
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    base = BKE_view_layer_active_base_get(view_layer);
+    ob = base ? base->object : NULL;
     if (base && ((base->flag & BASE_SELECTED) == 0)) {
       ob = NULL;
     }
 
-    for (base = view_layer->object_bases.first; base; base = base->next) {
+    for (base = BKE_view_layer_object_bases_get(view_layer)->first; base; base = base->next) {
       if (!BASE_SELECTED_EDITABLE(v3d, base)) {
         continue;
       }
@@ -1029,12 +1037,12 @@ int ED_transform_calc_gizmo_stats(const bContext *C,
       }
 
       if (params->use_only_center || (bb == NULL)) {
-        calc_tw_center(tbounds, base->object->obmat[3]);
+        calc_tw_center(tbounds, base->object->object_to_world[3]);
       }
       else {
         for (uint j = 0; j < 8; j++) {
           float co[3];
-          mul_v3_m4v3(co, base->object->obmat, bb->vec[j]);
+          mul_v3_m4v3(co, base->object->object_to_world, bb->vec[j]);
           calc_tw_center(tbounds, co);
         }
       }
@@ -1092,13 +1100,15 @@ static void gizmo_prepare_mat(const bContext *C,
       mid_v3_v3v3(rv3d->twmat[3], tbounds->min, tbounds->max);
 
       if (scene->toolsettings->transform_pivot_point == V3D_AROUND_ACTIVE) {
-        bGPdata *gpd = CTX_data_gpencil_data(C);
-        if (gpd && (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
-          /* pass */
-        }
-        else {
-          Object *ob = OBACT(view_layer);
-          if (ob != NULL) {
+        BKE_view_layer_synced_ensure(scene, view_layer);
+        Object *ob = BKE_view_layer_active_object_get(view_layer);
+        if (ob != NULL) {
+          /* Grease Pencil uses object origin. */
+          bGPdata *gpd = CTX_data_gpencil_data(C);
+          if (gpd && (gpd->flag & GP_DATA_STROKE_EDITMODE)) {
+            ED_object_calc_active_center(ob, false, rv3d->twmat[3]);
+          }
+          else {
             if ((ob->mode & OB_MODE_ALL_SCULPT) && ob->sculpt) {
               SculptSession *ss = ob->sculpt;
               copy_v3_v3(rv3d->twmat[3], ss->pivot_pos);
@@ -1269,103 +1279,31 @@ static void gizmo_xform_message_subscribe(wmGizmoGroup *gzgroup,
   WM_msg_subscribe_rna_anon_prop(mbus, EditBone, lock, &msg_sub_value_gz_tag_refresh);
 }
 
-void drawDial3d(const TransInfo *t)
+static void gizmo_3d_dial_matrixbasis_calc(const ARegion *region,
+                                           float axis[3],
+                                           float center_global[3],
+                                           float mval_init[2],
+                                           float r_mat_basis[4][4])
 {
-  if (t->mode == TFM_ROTATION && t->spacetype == SPACE_VIEW3D) {
-    if (t->options & CTX_PAINT_CURVE) {
-      /* Matrices are in the screen space. Not supported. */
-      return;
-    }
+  copy_v3_v3(r_mat_basis[2], axis);
+  copy_v3_v3(r_mat_basis[3], center_global);
+  r_mat_basis[2][3] = -dot_v3v3(axis, center_global);
 
-    wmGizmo *gz = wm_gizmomap_modal_get(t->region->gizmo_map);
-    if (gz == NULL) {
-      /* We only draw Dial3d if the operator has been called by a gizmo. */
-      return;
-    }
-
-    float mat_basis[4][4];
-    float mat_final[4][4];
-    float color[4];
-    float increment = 0.0f;
-    float line_with = GIZMO_AXIS_LINE_WIDTH + 1.0f;
-    float scale = UI_DPI_FAC * U.gizmo_size;
-
-    int axis_idx;
-
-    const TransCon *tc = &(t->con);
-    if (tc->mode & CON_APPLY) {
-      if (tc->mode & CON_AXIS0) {
-        axis_idx = MAN_AXIS_ROT_X;
-        negate_v3_v3(mat_basis[2], t->spacemtx[0]);
-      }
-      else if (tc->mode & CON_AXIS1) {
-        axis_idx = MAN_AXIS_ROT_Y;
-        negate_v3_v3(mat_basis[2], t->spacemtx[1]);
-      }
-      else {
-        BLI_assert((tc->mode & CON_AXIS2) != 0);
-        axis_idx = MAN_AXIS_ROT_Z;
-        negate_v3_v3(mat_basis[2], t->spacemtx[2]);
-      }
-    }
-    else {
-      axis_idx = MAN_AXIS_ROT_C;
-      copy_v3_v3(mat_basis[2], t->spacemtx[t->orient_axis]);
-      scale *= 1.2f;
-      line_with -= 1.0f;
-    }
-
-    copy_v3_v3(mat_basis[3], t->center_global);
-    mat_basis[2][3] = -dot_v3v3(mat_basis[2], mat_basis[3]);
-
-    if (ED_view3d_win_to_3d_on_plane(
-            t->region, mat_basis[2], (float[2]){UNPACK2(t->mouse.imval)}, false, mat_basis[1])) {
-      sub_v3_v3(mat_basis[1], mat_basis[3]);
-      normalize_v3(mat_basis[1]);
-      cross_v3_v3v3(mat_basis[0], mat_basis[1], mat_basis[2]);
-    }
-    else {
-      /* The plane and the mouse direction are parallel.
-       * Calculate a matrix orthogonal to the axis. */
-      ortho_basis_v3v3_v3(mat_basis[0], mat_basis[1], mat_basis[2]);
-    }
-
-    mat_basis[0][3] = 0.0f;
-    mat_basis[1][3] = 0.0f;
-    mat_basis[2][3] = 0.0f;
-    mat_basis[3][3] = 1.0f;
-
-    copy_m4_m4(mat_final, mat_basis);
-    scale *= ED_view3d_pixel_size_no_ui_scale(t->region->regiondata, mat_final[3]);
-    mul_mat3_m4_fl(mat_final, scale);
-
-    if (activeSnap(t) && (!transformModeUseSnap(t) ||
-                          (t->tsnap.mode & (SCE_SNAP_MODE_INCREMENT | SCE_SNAP_MODE_GRID)))) {
-      increment = (t->modifiers & MOD_PRECISION) ? t->snap[1] : t->snap[0];
-    }
-
-    BLI_assert(axis_idx >= MAN_AXIS_RANGE_ROT_START && axis_idx < MAN_AXIS_RANGE_ROT_END);
-    gizmo_get_axis_color(axis_idx, NULL, color, color);
-
-    GPU_depth_test(GPU_DEPTH_NONE);
-    GPU_blend(GPU_BLEND_ALPHA);
-    GPU_line_smooth(true);
-
-    ED_gizmotypes_dial_3d_draw_util(mat_basis,
-                                    mat_final,
-                                    line_with,
-                                    color,
-                                    false,
-                                    &(struct Dial3dParams){
-                                        .draw_options = ED_GIZMO_DIAL_DRAW_FLAG_ANGLE_VALUE,
-                                        .angle_delta = t->values_final[0],
-                                        .angle_increment = increment,
-                                    });
-
-    GPU_line_smooth(false);
-    GPU_depth_test(GPU_DEPTH_LESS_EQUAL);
-    GPU_blend(GPU_BLEND_NONE);
+  if (ED_view3d_win_to_3d_on_plane(region, axis, mval_init, false, r_mat_basis[1])) {
+    sub_v3_v3(r_mat_basis[1], center_global);
+    normalize_v3(r_mat_basis[1]);
+    cross_v3_v3v3(r_mat_basis[0], r_mat_basis[1], r_mat_basis[2]);
   }
+  else {
+    /* The plane and the mouse direction are parallel.
+     * Calculate a matrix orthogonal to the axis. */
+    ortho_basis_v3v3_v3(r_mat_basis[0], r_mat_basis[1], r_mat_basis[2]);
+  }
+
+  r_mat_basis[0][3] = 0.0f;
+  r_mat_basis[1][3] = 0.0f;
+  r_mat_basis[2][3] = 0.0f;
+  r_mat_basis[3][3] = 1.0f;
 }
 
 /** \} */
@@ -1373,6 +1311,23 @@ void drawDial3d(const TransInfo *t)
 /* -------------------------------------------------------------------- */
 /** \name Transform Gizmo
  * \{ */
+
+/** Scale of the two-axis planes. */
+#define MAN_AXIS_SCALE_PLANE_SCALE 0.07f
+/** Offset of the two-axis planes, depends on the gizmos scale. Define to avoid repeating. */
+#define MAN_AXIS_SCALE_PLANE_OFFSET 7.0f
+
+static void rotation_get_fn(const wmGizmo *UNUSED(gz), wmGizmoProperty *gz_prop, void *value)
+{
+  const GizmoGroup *ggd = (const GizmoGroup *)gz_prop->custom_func.user_data;
+  *(float *)value = ggd->rotation;
+}
+
+static void rotation_set_fn(const wmGizmo *UNUSED(gz), wmGizmoProperty *gz_prop, const void *value)
+{
+  GizmoGroup *ggd = (GizmoGroup *)gz_prop->custom_func.user_data;
+  ggd->rotation = *(const float *)value;
+}
 
 static GizmoGroup *gizmogroup_init(wmGizmoGroup *gzgroup)
 {
@@ -1384,6 +1339,9 @@ static GizmoGroup *gizmogroup_init(wmGizmoGroup *gzgroup)
   const wmGizmoType *gzt_dial = WM_gizmotype_find("GIZMO_GT_dial_3d", true);
   const wmGizmoType *gzt_prim = WM_gizmotype_find("GIZMO_GT_primitive_3d", true);
 
+  wmGizmoPropertyFnParams params = {
+      .value_get_fn = rotation_get_fn, .value_set_fn = rotation_set_fn, .user_data = ggd};
+
 #define GIZMO_NEW_ARROW(v, draw_style) \
   { \
     ggd->gizmos[v] = WM_gizmo_new_ptr(gzt_arrow, gzgroup, NULL); \
@@ -1394,6 +1352,7 @@ static GizmoGroup *gizmogroup_init(wmGizmoGroup *gzgroup)
   { \
     ggd->gizmos[v] = WM_gizmo_new_ptr(gzt_dial, gzgroup, NULL); \
     RNA_enum_set(ggd->gizmos[v]->ptr, "draw_options", draw_options); \
+    WM_gizmo_target_property_def_func(ggd->gizmos[v], "offset", &params); \
   } \
   ((void)0)
 #define GIZMO_NEW_PRIM(v, draw_style) \
@@ -1461,18 +1420,104 @@ static int gizmo_modal(bContext *C,
 
   ARegion *region = CTX_wm_region(C);
   RegionView3D *rv3d = region->regiondata;
-  struct TransformBounds tbounds;
+  wmGizmoGroup *gzgroup = widget->parent_gzgroup;
 
-  if (ED_transform_calc_gizmo_stats(C,
-                                    &(struct TransformCalcParams){
-                                        .use_only_center = true,
-                                    },
-                                    &tbounds)) {
-    gizmo_prepare_mat(C, rv3d, &tbounds);
-    WM_gizmo_set_matrix_location(widget, rv3d->twmat[3]);
+  /* Recalculating the orientation has two problems.
+   * - The matrix calculated based on the transformed selection may not match the matrix
+   *   that was set when transform started.
+   * - Inspecting the selection for every update is expensive (for *every* redraw).
+   *
+   * Instead, use #transform_apply_matrix to transform `rv3d->twmat` or the final scale value
+   * when scaling.
+   */
+  if (false) {
+    struct TransformBounds tbounds;
+
+    if (ED_transform_calc_gizmo_stats(C,
+                                      &(struct TransformCalcParams){
+                                          .use_only_center = true,
+                                      },
+                                      &tbounds)) {
+      gizmo_prepare_mat(C, rv3d, &tbounds);
+      for (wmGizmo *gz = gzgroup->gizmos.first; gz; gz = gz->next) {
+        WM_gizmo_set_matrix_location(gz, rv3d->twmat[3]);
+      }
+    }
   }
+  else {
+    GizmoGroup *ggd = gzgroup->customdata;
 
-  ED_region_tag_redraw_editor_overlays(region);
+    short axis_type = 0;
+    MAN_ITER_AXES_BEGIN (axis, axis_idx) {
+      if (axis == widget) {
+        axis_type = gizmo_get_axis_type(axis_idx);
+        break;
+      }
+    }
+    MAN_ITER_AXES_END;
+
+    /* Showing axes which aren't being manipulated doesn't always work so well.
+     *
+     * For rotate: global axis will reset after finish.
+     * Also, gimbal axis isn't properly recalculated while transforming.
+     */
+    if (axis_type == MAN_AXES_ROTATE) {
+      MAN_ITER_AXES_BEGIN (axis, axis_idx) {
+        if (axis == widget) {
+          continue;
+        }
+
+        bool is_plane_dummy;
+        const uint aidx_norm = gizmo_orientation_axis(axis_idx, &is_plane_dummy);
+        /* Always show the axis-aligned handle as it's distracting when it's disabled. */
+        if (aidx_norm == 3) {
+          continue;
+        }
+        WM_gizmo_set_flag(axis, WM_GIZMO_HIDDEN, true);
+      }
+      MAN_ITER_AXES_END;
+    }
+
+    wmWindow *win = CTX_wm_window(C);
+    wmOperator *op = NULL;
+    for (int i = 0; i < widget->op_data_len; i++) {
+      wmGizmoOpElem *gzop = WM_gizmo_operator_get(widget, i);
+      op = WM_operator_find_modal_by_type(win, gzop->type);
+      if (op != NULL) {
+        break;
+      }
+    }
+
+    if (op != NULL) {
+      float twmat[4][4];
+      float scale_buf[3];
+      float *scale = NULL;
+      bool update = false;
+      copy_m4_m4(twmat, rv3d->twmat);
+
+      if (axis_type == MAN_AXES_SCALE) {
+        scale = scale_buf;
+        transform_final_value_get(op->customdata, scale, 3);
+        update = true;
+      }
+      else if (axis_type == MAN_AXES_ROTATE) {
+        transform_final_value_get(op->customdata, &ggd->rotation, 1);
+        if (widget != ggd->gizmos[MAN_AXIS_ROT_C]) {
+          ggd->rotation *= -1;
+        }
+        RNA_float_set(
+            widget->ptr, "incremental_angle", transform_snap_increment_get(op->customdata));
+      }
+      else if (transform_apply_matrix(op->customdata, twmat)) {
+        update = true;
+      }
+
+      if (update) {
+        gizmo_refresh_from_matrix(gzgroup, twmat, scale);
+        ED_region_tag_redraw_editor_overlays(region);
+      }
+    }
+  }
 
   return OPERATOR_RUNNING_MODAL;
 }
@@ -1524,9 +1569,8 @@ static void gizmogroup_init_properties_from_twtype(wmGizmoGroup *gzgroup)
       case MAN_AXIS_SCALE_XY:
       case MAN_AXIS_SCALE_YZ:
       case MAN_AXIS_SCALE_ZX: {
-        const float ofs_ax = 7.0f;
-        const float ofs[3] = {ofs_ax, ofs_ax, 0.0f};
-        WM_gizmo_set_scale(axis, 0.07f);
+        const float ofs[3] = {MAN_AXIS_SCALE_PLANE_OFFSET, MAN_AXIS_SCALE_PLANE_OFFSET, 0.0f};
+        WM_gizmo_set_scale(axis, MAN_AXIS_SCALE_PLANE_SCALE);
         WM_gizmo_set_matrix_offset_location(axis, ofs);
         WM_gizmo_set_flag(axis, WM_GIZMO_DRAW_OFFSET_SCALE, true);
         break;
@@ -1638,13 +1682,134 @@ static void WIDGETGROUP_gizmo_setup(const bContext *C, wmGizmoGroup *gzgroup)
   gizmogroup_init_properties_from_twtype(gzgroup);
 }
 
+/**
+ * Set properties for axes.
+ *
+ * \param twmat: The transform matrix (typically #RegionView3D.twmat).
+ * \param scale: Optional scale, to show scale while modally dragging the scale handles.
+ */
+static void gizmo_refresh_from_matrix(wmGizmoGroup *gzgroup,
+                                      const float twmat[4][4],
+                                      const float scale[3])
+{
+  GizmoGroup *ggd = gzgroup->customdata;
+
+  MAN_ITER_AXES_BEGIN (axis, axis_idx) {
+    const short axis_type = gizmo_get_axis_type(axis_idx);
+    const int aidx_norm = gizmo_orientation_axis(axis_idx, NULL);
+
+    WM_gizmo_set_matrix_location(axis, twmat[3]);
+    switch (axis_idx) {
+      case MAN_AXIS_TRANS_X:
+      case MAN_AXIS_TRANS_Y:
+      case MAN_AXIS_TRANS_Z:
+      case MAN_AXIS_SCALE_X:
+      case MAN_AXIS_SCALE_Y:
+      case MAN_AXIS_SCALE_Z: {
+        float start_co[3] = {0.0f, 0.0f, 0.0f};
+        float len;
+
+        gizmo_line_range(ggd->twtype, axis_type, &start_co[2], &len);
+
+        const float *z_axis = twmat[aidx_norm];
+        if (axis_type == MAN_AXES_SCALE) {
+          /* Scale handles are cubes that don't look right when not aligned with other axes.
+           * This is noticeable when the axis is rotated to something besides the global-axis. */
+          const int aidx_norm_y = (aidx_norm + 2) % 3;
+          const float *y_axis = twmat[aidx_norm_y];
+          WM_gizmo_set_matrix_rotation_from_yz_axis(axis, y_axis, z_axis);
+        }
+        else {
+          WM_gizmo_set_matrix_rotation_from_z_axis(axis, z_axis);
+        }
+
+        if (axis_idx >= MAN_AXIS_RANGE_TRANS_START && axis_idx < MAN_AXIS_RANGE_TRANS_END) {
+          if (ggd->twtype & V3D_GIZMO_SHOW_OBJECT_ROTATE) {
+            /* Avoid rotate and translate arrows overlap. */
+            start_co[2] += 0.215f;
+          }
+        }
+
+        if (scale) {
+          if (axis_type == MAN_AXES_SCALE) {
+            len = ((start_co[2] + len) * scale[aidx_norm]) - start_co[2];
+          }
+        }
+
+        RNA_float_set(axis->ptr, "length", len);
+
+        WM_gizmo_set_matrix_offset_location(axis, start_co);
+
+        WM_gizmo_set_flag(axis, WM_GIZMO_DRAW_OFFSET_SCALE, true);
+
+        break;
+      }
+      case MAN_AXIS_ROT_X:
+      case MAN_AXIS_ROT_Y:
+      case MAN_AXIS_ROT_Z:
+      case MAN_AXIS_ROT_C: {
+        if (axis_idx != MAN_AXIS_ROT_C) {
+          WM_gizmo_set_matrix_rotation_from_z_axis(axis, twmat[aidx_norm]);
+        }
+
+        /* Remove #ED_GIZMO_DIAL_DRAW_FLAG_ANGLE_VALUE. It is used only for modal drawing. */
+        PropertyRNA *prop = RNA_struct_find_property(axis->ptr, "draw_options");
+        RNA_property_enum_set(axis->ptr,
+                              prop,
+                              RNA_property_enum_get(axis->ptr, prop) &
+                                  ~ED_GIZMO_DIAL_DRAW_FLAG_ANGLE_VALUE);
+      } break;
+      case MAN_AXIS_TRANS_XY:
+      case MAN_AXIS_TRANS_YZ:
+      case MAN_AXIS_TRANS_ZX:
+      case MAN_AXIS_SCALE_XY:
+      case MAN_AXIS_SCALE_YZ:
+      case MAN_AXIS_SCALE_ZX: {
+        const int aidx_norm_x = (aidx_norm + 1) % 3;
+        const int aidx_norm_y = (aidx_norm + 2) % 3;
+        const float *y_axis = twmat[aidx_norm_y];
+        const float *z_axis = twmat[aidx_norm];
+        WM_gizmo_set_matrix_rotation_from_yz_axis(axis, y_axis, z_axis);
+
+        if (axis_type == MAN_AXES_SCALE) {
+          float ofs[3] = {MAN_AXIS_SCALE_PLANE_OFFSET, MAN_AXIS_SCALE_PLANE_OFFSET, 0.0f};
+          if (scale) {
+            ofs[0] *= scale[aidx_norm_x];
+            ofs[1] *= scale[aidx_norm_y];
+          }
+          WM_gizmo_set_matrix_offset_location(axis, ofs);
+        }
+        break;
+      }
+    }
+  }
+  MAN_ITER_AXES_END;
+
+  /* Ensure rotate disks don't overlap scale arrows, especially in ortho view. */
+  float rotate_select_bias = 0.0f;
+  if ((ggd->twtype & V3D_GIZMO_SHOW_OBJECT_SCALE) && ggd->twtype & V3D_GIZMO_SHOW_OBJECT_ROTATE) {
+    rotate_select_bias = -2.0f;
+  }
+  for (int i = MAN_AXIS_RANGE_ROT_START; i < MAN_AXIS_RANGE_ROT_END; i++) {
+    ggd->gizmos[i]->select_bias = rotate_select_bias;
+  }
+}
+
 static void WIDGETGROUP_gizmo_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 {
+  ARegion *region = CTX_wm_region(C);
+
+  {
+    wmGizmo *gz = WM_gizmomap_get_modal(region->gizmo_map);
+    if (gz && gz->parent_gzgroup == gzgroup) {
+      return;
+    }
+  }
+
   GizmoGroup *ggd = gzgroup->customdata;
   Scene *scene = CTX_data_scene(C);
   ScrArea *area = CTX_wm_area(C);
   View3D *v3d = area->spacedata.first;
-  ARegion *region = CTX_wm_region(C);
   RegionView3D *rv3d = region->regiondata;
   struct TransformBounds tbounds;
 
@@ -1670,67 +1835,7 @@ static void WIDGETGROUP_gizmo_refresh(const bContext *C, wmGizmoGroup *gzgroup)
 
   gizmo_prepare_mat(C, rv3d, &tbounds);
 
-  /* *** set properties for axes *** */
-
-  MAN_ITER_AXES_BEGIN (axis, axis_idx) {
-    const short axis_type = gizmo_get_axis_type(axis_idx);
-    const int aidx_norm = gizmo_orientation_axis(axis_idx, NULL);
-
-    WM_gizmo_set_matrix_location(axis, rv3d->twmat[3]);
-
-    switch (axis_idx) {
-      case MAN_AXIS_TRANS_X:
-      case MAN_AXIS_TRANS_Y:
-      case MAN_AXIS_TRANS_Z:
-      case MAN_AXIS_SCALE_X:
-      case MAN_AXIS_SCALE_Y:
-      case MAN_AXIS_SCALE_Z: {
-        float start_co[3] = {0.0f, 0.0f, 0.0f};
-        float len;
-
-        gizmo_line_range(ggd->twtype, axis_type, &start_co[2], &len);
-
-        WM_gizmo_set_matrix_rotation_from_z_axis(axis, rv3d->twmat[aidx_norm]);
-        RNA_float_set(axis->ptr, "length", len);
-
-        if (axis_idx >= MAN_AXIS_RANGE_TRANS_START && axis_idx < MAN_AXIS_RANGE_TRANS_END) {
-          if (ggd->twtype & V3D_GIZMO_SHOW_OBJECT_ROTATE) {
-            /* Avoid rotate and translate arrows overlap. */
-            start_co[2] += 0.215f;
-          }
-        }
-        WM_gizmo_set_matrix_offset_location(axis, start_co);
-        WM_gizmo_set_flag(axis, WM_GIZMO_DRAW_OFFSET_SCALE, true);
-        break;
-      }
-      case MAN_AXIS_ROT_X:
-      case MAN_AXIS_ROT_Y:
-      case MAN_AXIS_ROT_Z:
-        WM_gizmo_set_matrix_rotation_from_z_axis(axis, rv3d->twmat[aidx_norm]);
-        break;
-      case MAN_AXIS_TRANS_XY:
-      case MAN_AXIS_TRANS_YZ:
-      case MAN_AXIS_TRANS_ZX:
-      case MAN_AXIS_SCALE_XY:
-      case MAN_AXIS_SCALE_YZ:
-      case MAN_AXIS_SCALE_ZX: {
-        const float *y_axis = rv3d->twmat[aidx_norm - 1 < 0 ? 2 : aidx_norm - 1];
-        const float *z_axis = rv3d->twmat[aidx_norm];
-        WM_gizmo_set_matrix_rotation_from_yz_axis(axis, y_axis, z_axis);
-        break;
-      }
-    }
-  }
-  MAN_ITER_AXES_END;
-
-  /* Ensure rotate disks don't overlap scale arrows, especially in ortho view. */
-  float rotate_select_bias = 0.0f;
-  if ((ggd->twtype & V3D_GIZMO_SHOW_OBJECT_SCALE) && ggd->twtype & V3D_GIZMO_SHOW_OBJECT_ROTATE) {
-    rotate_select_bias = -2.0f;
-  }
-  for (int i = MAN_AXIS_RANGE_ROT_START; i < MAN_AXIS_RANGE_ROT_END; i++) {
-    ggd->gizmos[i]->select_bias = rotate_select_bias;
-  }
+  gizmo_refresh_from_matrix(gzgroup, rv3d->twmat, NULL);
 }
 
 static void WIDGETGROUP_gizmo_message_subscribe(const bContext *C,
@@ -1756,11 +1861,22 @@ static void WIDGETGROUP_gizmo_draw_prepare(const bContext *C, wmGizmoGroup *gzgr
   copy_m3_m4(viewinv_m3, rv3d->viewinv);
   float idot[3];
 
+  /* Re-calculate hidden unless modal. */
+  bool is_modal = false;
+  {
+    wmGizmo *gz = WM_gizmomap_get_modal(region->gizmo_map);
+    if (gz && gz->parent_gzgroup == gzgroup) {
+      is_modal = true;
+    }
+  }
+
   /* when looking through a selected camera, the gizmo can be at the
    * exact same position as the view, skip so we don't break selection */
   if (ggd->all_hidden || fabsf(ED_view3d_pixel_size(rv3d, rv3d->twmat[3])) < 5e-7f) {
     MAN_ITER_AXES_BEGIN (axis, axis_idx) {
-      WM_gizmo_set_flag(axis, WM_GIZMO_HIDDEN, true);
+      if (!is_modal) {
+        WM_gizmo_set_flag(axis, WM_GIZMO_HIDDEN, true);
+      }
     }
     MAN_ITER_AXES_END;
     return;
@@ -1771,12 +1887,15 @@ static void WIDGETGROUP_gizmo_draw_prepare(const bContext *C, wmGizmoGroup *gzgr
   MAN_ITER_AXES_BEGIN (axis, axis_idx) {
     const short axis_type = gizmo_get_axis_type(axis_idx);
     /* XXX maybe unset _HIDDEN flag on redraw? */
-
     if (gizmo_is_axis_visible(rv3d, ggd->twtype, idot, axis_type, axis_idx)) {
-      WM_gizmo_set_flag(axis, WM_GIZMO_HIDDEN, false);
+      if (!is_modal) {
+        WM_gizmo_set_flag(axis, WM_GIZMO_HIDDEN, false);
+      }
     }
     else {
-      WM_gizmo_set_flag(axis, WM_GIZMO_HIDDEN, true);
+      if (!is_modal) {
+        WM_gizmo_set_flag(axis, WM_GIZMO_HIDDEN, true);
+      }
       continue;
     }
 
@@ -1785,13 +1904,15 @@ static void WIDGETGROUP_gizmo_draw_prepare(const bContext *C, wmGizmoGroup *gzgr
     WM_gizmo_set_color(axis, color);
     WM_gizmo_set_color_highlight(axis, color_hi);
 
-    switch (axis_idx) {
-      case MAN_AXIS_TRANS_C:
-      case MAN_AXIS_ROT_C:
-      case MAN_AXIS_SCALE_C:
-      case MAN_AXIS_ROT_T:
-        WM_gizmo_set_matrix_rotation_from_z_axis(axis, rv3d->viewinv[2]);
-        break;
+    if (!is_modal) {
+      switch (axis_idx) {
+        case MAN_AXIS_TRANS_C:
+        case MAN_AXIS_ROT_C:
+        case MAN_AXIS_SCALE_C:
+        case MAN_AXIS_ROT_T:
+          WM_gizmo_set_matrix_rotation_from_z_axis(axis, rv3d->viewinv[2]);
+          break;
+      }
     }
   }
   MAN_ITER_AXES_END;
@@ -1879,6 +2000,17 @@ static void WIDGETGROUP_gizmo_invoke_prepare(const bContext *C,
       }
     }
   }
+  else if (ELEM(axis_idx, MAN_AXIS_ROT_X, MAN_AXIS_ROT_Y, MAN_AXIS_ROT_Z, MAN_AXIS_ROT_C)) {
+    gizmo_3d_dial_matrixbasis_calc(CTX_wm_region(C),
+                                   gz->matrix_basis[2],
+                                   gz->matrix_basis[3],
+                                   (float[2]){UNPACK2(event->mval)},
+                                   gz->matrix_basis);
+    PropertyRNA *prop = RNA_struct_find_property(gz->ptr, "draw_options");
+    RNA_property_enum_set(
+        gz->ptr, prop, RNA_property_enum_get(gz->ptr, prop) | ED_GIZMO_DIAL_DRAW_FLAG_ANGLE_VALUE);
+    RNA_float_set(gz->ptr, "incremental_angle", 0.0f);
+  }
 }
 
 static bool WIDGETGROUP_gizmo_poll_generic(View3D *v3d)
@@ -1944,8 +2076,8 @@ void VIEW3D_GGT_xform_gizmo(wmGizmoGroupType *gzgt)
   gzgt->name = "3D View: Transform Gizmo";
   gzgt->idname = "VIEW3D_GGT_xform_gizmo";
 
-  gzgt->flag = WM_GIZMOGROUPTYPE_3D | WM_GIZMOGROUPTYPE_DRAW_MODAL_EXCLUDE |
-               WM_GIZMOGROUPTYPE_TOOL_FALLBACK_KEYMAP | WM_GIZMOGROUPTYPE_DELAY_REFRESH_FOR_TWEAK;
+  gzgt->flag = WM_GIZMOGROUPTYPE_3D | WM_GIZMOGROUPTYPE_TOOL_FALLBACK_KEYMAP |
+               WM_GIZMOGROUPTYPE_DELAY_REFRESH_FOR_TWEAK;
 
   gzgt->gzmap_params.spaceid = SPACE_VIEW3D;
   gzgt->gzmap_params.regionid = RGN_TYPE_WINDOW;

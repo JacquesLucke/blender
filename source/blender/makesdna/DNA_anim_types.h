@@ -771,7 +771,7 @@ typedef enum eNlaStrip_Blend_Mode {
   NLASTRIP_MODE_COMBINE,
 } eNlaStrip_Blend_Mode;
 
-/** NLA Strip Extrpolation Mode. */
+/** NLA Strip Extrapolation Mode. */
 typedef enum eNlaStrip_Extrapolate_Mode {
   /* extend before first frame if no previous strips in track,
    * and always hold+extend last frame */
@@ -1159,6 +1159,9 @@ typedef struct IdAdtTemplate {
   ID id;
   AnimData *adt;
 } IdAdtTemplate;
+
+/* From: `DNA_object_types.h`, see it's doc-string there. */
+#define SELECT 1
 
 /* ************************************************ */
 

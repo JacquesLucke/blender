@@ -25,7 +25,7 @@
 /** \name Curve/Surfaces Transform Creation
  * \{ */
 
-void createTransLatticeVerts(TransInfo *t)
+static void createTransLatticeVerts(bContext *UNUSED(C), TransInfo *t)
 {
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
 
@@ -66,7 +66,7 @@ void createTransLatticeVerts(TransInfo *t)
     }
     tc->data = MEM_callocN(tc->data_len * sizeof(TransData), "TransObData(Lattice EditMode)");
 
-    copy_m3_m4(mtx, tc->obedit->obmat);
+    copy_m3_m4(mtx, tc->obedit->object_to_world);
     pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
 
     td = tc->data;
@@ -98,10 +98,10 @@ void createTransLatticeVerts(TransInfo *t)
   }
 }
 
-void recalcData_lattice(TransInfo *t)
+static void recalcData_lattice(TransInfo *t)
 {
   if (t->state != TRANS_CANCEL) {
-    applyProject(t);
+    applySnappingIndividual(t);
   }
 
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -114,3 +114,10 @@ void recalcData_lattice(TransInfo *t)
 }
 
 /** \} */
+
+TransConvertTypeInfo TransConvertType_Lattice = {
+    /* flags */ (T_EDIT | T_POINTS),
+    /* createTransData */ createTransLatticeVerts,
+    /* recalcData */ recalcData_lattice,
+    /* special_aftertrans_update */ NULL,
+};

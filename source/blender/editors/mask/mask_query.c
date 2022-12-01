@@ -615,7 +615,7 @@ bool ED_mask_selected_minmax(const bContext *C,
 
   /* Use evaluated mask to take animation into account.
    * The animation of splies is not "flushed" back to original, so need to explicitly
-   * sue evaluated datablock here. */
+   * use evaluated datablock here. */
   Mask *mask_eval = (Mask *)DEG_get_evaluated_id(depsgraph, &mask->id);
 
   INIT_MINMAX2(min, max);
@@ -682,8 +682,7 @@ void ED_mask_get_size(ScrArea *area, int *width, int *height)
       }
       case SPACE_SEQ: {
         //              Scene *scene = CTX_data_scene(C);
-        //              *width = (scene->r.size * scene->r.xsch) / 100;
-        //              *height = (scene->r.size * scene->r.ysch) / 100;
+        //              BKE_render_resolution(&scene->r, false, width, height);
         break;
       }
       case SPACE_IMAGE: {

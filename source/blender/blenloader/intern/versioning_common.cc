@@ -12,18 +12,21 @@
 #include "DNA_screen_types.h"
 
 #include "BLI_listbase.h"
+#include "BLI_map.hh"
 #include "BLI_string.h"
 #include "BLI_string_ref.hh"
 
 #include "BKE_animsys.h"
 #include "BKE_lib_id.h"
 #include "BKE_main.h"
+#include "BKE_main_namemap.h"
 #include "BKE_node.h"
 
 #include "MEM_guardedalloc.h"
 
 #include "versioning_common.h"
 
+using blender::Map;
 using blender::StringRef;
 
 ARegion *do_versions_add_region_if_not_found(ListBase *regionbase,
@@ -66,6 +69,7 @@ ID *do_versions_rename_id(Main *bmain,
     }
   }
   if (id != nullptr) {
+    BKE_main_namemap_remove_name(bmain, id, id->name + 2);
     BLI_strncpy(id->name + 2, name_dst, sizeof(id->name) - 2);
     /* We know it's unique, this just sorts. */
     BLI_libblock_ensure_unique_name(bmain, id->name);
@@ -231,4 +235,31 @@ ARegion *do_versions_add_region(int regiontype, const char *name)
   ARegion *region = (ARegion *)MEM_callocN(sizeof(ARegion), name);
   region->regiontype = regiontype;
   return region;
+}
+
+void node_tree_relink_with_socket_id_map(bNodeTree &ntree,
+                                         bNode &old_node,
+                                         bNode &new_node,
+                                         const Map<std::string, std::string> &map)
+{
+  LISTBASE_FOREACH_MUTABLE (bNodeLink *, link, &ntree.links) {
+    if (link->tonode == &old_node) {
+      bNodeSocket *old_socket = link->tosock;
+      if (const std::string *new_identifier = map.lookup_ptr_as(old_socket->identifier)) {
+        bNodeSocket *new_socket = nodeFindSocket(&new_node, SOCK_IN, new_identifier->c_str());
+        link->tonode = &new_node;
+        link->tosock = new_socket;
+        old_socket->link = nullptr;
+      }
+    }
+    if (link->fromnode == &old_node) {
+      bNodeSocket *old_socket = link->fromsock;
+      if (const std::string *new_identifier = map.lookup_ptr_as(old_socket->identifier)) {
+        bNodeSocket *new_socket = nodeFindSocket(&new_node, SOCK_OUT, new_identifier->c_str());
+        link->fromnode = &new_node;
+        link->fromsock = new_socket;
+        old_socket->link = nullptr;
+      }
+    }
+  }
 }

@@ -7,6 +7,10 @@
 
 #pragma once
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**
  * Size of the sphere being dragged for trackball rotation within the view bounds.
  * also affects speed (smaller is faster).
@@ -231,6 +235,14 @@ typedef struct V3D_SmoothParams {
 
   /** Alternate rotation center, when set `ofs` must be NULL. */
   const float *dyn_ofs;
+
+  /** When non-NULL, perform undo pushes when transforming the camera. */
+  const char *undo_str;
+  /**
+   * When true use grouped undo pushes, use for incremental viewport manipulation
+   * which are likely to be activated by holding a key or from the mouse-wheel.
+   */
+  bool undo_grouped;
 } V3D_SmoothParams;
 
 /**
@@ -250,6 +262,22 @@ void ED_view3d_smooth_view(struct bContext *C,
                            struct ARegion *region,
                            int smooth_viewtx,
                            const V3D_SmoothParams *sview);
+
+/**
+ * Call before multiple smooth-view operations begin to properly handle undo.
+ *
+ * \note Only use explicit undo calls when multiple calls to smooth-view are necessary
+ * or when calling #ED_view3d_smooth_view_ex.
+ * Otherwise pass in #V3D_SmoothParams.undo_str so an undo step is pushed as needed.
+ */
+void ED_view3d_smooth_view_undo_begin(struct bContext *C, const struct ScrArea *area);
+/**
+ * Run after multiple smooth-view operations have run to push undo as needed.
+ */
+void ED_view3d_smooth_view_undo_end(struct bContext *C,
+                                    const struct ScrArea *area,
+                                    const char *undo_str,
+                                    bool undo_grouped);
 
 /**
  * Apply the smooth-view immediately, use when we need to start a new view operation.
@@ -274,3 +302,7 @@ void VIEW3D_OT_zoom(struct wmOperatorType *ot);
 /* view3d_navigate_zoom_border.c */
 
 void VIEW3D_OT_zoom_border(struct wmOperatorType *ot);
+
+#ifdef __cplusplus
+}
+#endif

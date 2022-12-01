@@ -24,7 +24,6 @@ set(SRC
   intern/allocimbuf.c
   intern/anim_movie.c
   intern/bmp.c
-  intern/cache.c
   intern/colormanagement.c
   intern/colormanagement_inline.c
   intern/divers.c
@@ -178,13 +177,13 @@ if(WITH_IMAGE_WEBP)
   list(APPEND SRC
     intern/webp.c
   )
-	list(APPEND INC_SYS
-		${WEBP_INCLUDE_DIRS}
-	)
+  list(APPEND INC_SYS
+    ${WEBP_INCLUDE_DIRS}
+  )
   list(APPEND LIB
     ${WEBP_LIBRARIES}
   )
-	add_definitions(-DWITH_WEBP)
+  add_definitions(-DWITH_WEBP)
 endif()
 
 list(APPEND INC

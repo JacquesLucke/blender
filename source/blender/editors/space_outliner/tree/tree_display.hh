@@ -30,11 +30,11 @@ struct Main;
 struct Scene;
 struct Sequence;
 struct SpaceOutliner;
-struct TreeElement;
 struct ViewLayer;
 
 namespace blender::ed::outliner {
 
+struct TreeElement;
 class TreeElementID;
 
 /**
@@ -84,6 +84,15 @@ class AbstractTreeDisplay {
    */
   virtual bool supportsModeColumn() const;
 
+  /**
+   * Some trees may want to skip building children of collapsed parents. This should be done if the
+   * tree type may become very complex, which could cause noticeable slowdowns.
+   * Problem: This doesn't address performance issues while searching, since all elements are
+   * constructed for that. Trees of this type have to be rebuilt for any change to the collapsed
+   * state of any element.
+   */
+  virtual bool is_lazy_built() const;
+
  protected:
   /** All derived classes will need a handle to this, so storing it in the base for convenience. */
   SpaceOutliner &space_outliner_;
@@ -96,6 +105,7 @@ class AbstractTreeDisplay {
  * \brief Tree-Display for the View Layer display mode.
  */
 class TreeDisplayViewLayer final : public AbstractTreeDisplay {
+  Scene *scene_ = nullptr;
   ViewLayer *view_layer_ = nullptr;
   bool show_objects_ = true;
 
@@ -157,11 +167,12 @@ class TreeDisplayOverrideLibraryHierarchies final : public AbstractTreeDisplay {
 
   ListBase buildTree(const TreeSourceData &source_data) override;
 
+  bool is_lazy_built() const override;
+
  private:
   ListBase build_hierarchy_for_lib_or_main(Main *bmain,
                                            TreeElement &parent_te,
                                            Library *lib = nullptr);
-  void build_hierarchy_for_ID(Main *bmain, ID &override_root_id, TreeElementID &te_id) const;
 };
 
 /* -------------------------------------------------------------------- */
@@ -233,6 +244,8 @@ class TreeDisplayDataAPI final : public AbstractTreeDisplay {
   TreeDisplayDataAPI(SpaceOutliner &space_outliner);
 
   ListBase buildTree(const TreeSourceData &source_data) override;
+
+  bool is_lazy_built() const override;
 };
 
 }  // namespace blender::ed::outliner

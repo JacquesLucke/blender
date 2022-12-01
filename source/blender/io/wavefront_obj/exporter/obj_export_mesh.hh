@@ -28,20 +28,6 @@ const int NOT_FOUND = -1;
 /** Any negative number other than `NOT_FOUND` to initialize usually non-negative numbers. */
 const int NEGATIVE_INIT = -10;
 
-/**
- * #std::unique_ptr than handles freeing #BMesh.
- */
-struct CustomBMeshDeleter {
-  void operator()(BMesh *bmesh)
-  {
-    if (bmesh) {
-      BM_mesh_free(bmesh);
-    }
-  }
-};
-
-using unique_bmesh_ptr = std::unique_ptr<BMesh, CustomBMeshDeleter>;
-
 class OBJMesh : NonCopyable {
  private:
   /**
@@ -130,14 +116,8 @@ class OBJMesh : NonCopyable {
    * Return mat_nr-th material of the object. The given index should be zero-based.
    */
   const Material *get_object_material(int16_t mat_nr) const;
-  /**
-   * Returns a zero-based index of a polygon's material indexing into
-   * the Object's material slots.
-   */
-  int16_t ith_poly_matnr(int poly_index) const;
 
   void ensure_mesh_normals() const;
-  void ensure_mesh_edges() const;
 
   /**
    * Calculate smooth groups of a smooth-shaded object.
@@ -166,7 +146,7 @@ class OBJMesh : NonCopyable {
   /**
    * Calculate coordinates of the vertex at the given index.
    */
-  float3 calc_vertex_coords(int vert_index, float scaling_factor) const;
+  float3 calc_vertex_coords(int vert_index, float global_scale) const;
   /**
    * Calculate vertex indices of all vertices of the polygon at the given index.
    */
@@ -221,11 +201,6 @@ class OBJMesh : NonCopyable {
   const char *get_poly_deform_group_name(int16_t def_group_index) const;
 
   /**
-   * Calculate vertex indices of an edge's corners if it is a loose edge.
-   */
-  std::optional<std::array<int, 2>> calc_loose_edge_vert_indices(int edge_index) const;
-
-  /**
    * Calculate the order in which the polygons should be written into the file (sorted by material
    * index).
    */
@@ -239,6 +214,11 @@ class OBJMesh : NonCopyable {
   int remap_poly_index(int i) const
   {
     return i < 0 || i >= poly_order_.size() ? i : poly_order_[i];
+  }
+
+  Mesh *get_mesh() const
+  {
+    return export_mesh_eval_;
   }
 
  private:
@@ -256,6 +236,6 @@ class OBJMesh : NonCopyable {
   /**
    * Set the final transform after applying axes settings and an Object's world transform.
    */
-  void set_world_axes_transform(eTransformAxisForward forward, eTransformAxisUp up);
+  void set_world_axes_transform(eIOAxis forward, eIOAxis up);
 };
 }  // namespace blender::io::obj

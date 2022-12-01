@@ -15,8 +15,10 @@
 
 #include "BKE_context.h"
 #include "BKE_global.h"
+#include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 #include "BKE_node_tree_update.h"
 #include "BKE_tracking.h"
 
@@ -31,15 +33,12 @@
 #include "NOD_composite.h"
 #include "node_composite_util.hh"
 
-#ifdef WITH_COMPOSITOR
+#ifdef WITH_COMPOSITOR_CPU
 #  include "COM_compositor.h"
 #endif
 
-static void composite_get_from_context(const bContext *C,
-                                       bNodeTreeType *UNUSED(treetype),
-                                       bNodeTree **r_ntree,
-                                       ID **r_id,
-                                       ID **r_from)
+static void composite_get_from_context(
+    const bContext *C, bNodeTreeType * /*treetype*/, bNodeTree **r_ntree, ID **r_id, ID **r_from)
 {
   Scene *scene = CTX_data_scene(C);
 
@@ -48,7 +47,7 @@ static void composite_get_from_context(const bContext *C,
   *r_ntree = scene->nodetree;
 }
 
-static void foreach_nodeclass(Scene *UNUSED(scene), void *calldata, bNodeClassCallback func)
+static void foreach_nodeclass(Scene * /*scene*/, void *calldata, bNodeClassCallback func)
 {
   func(calldata, NODE_CLASS_INPUT, N_("Input"));
   func(calldata, NODE_CLASS_OUTPUT, N_("Output"));
@@ -63,22 +62,6 @@ static void foreach_nodeclass(Scene *UNUSED(scene), void *calldata, bNodeClassCa
   func(calldata, NODE_CLASS_LAYOUT, N_("Layout"));
 }
 
-static void free_node_cache(bNodeTree *UNUSED(ntree), bNode *node)
-{
-  LISTBASE_FOREACH (bNodeSocket *, sock, &node->outputs) {
-    if (sock->cache) {
-      sock->cache = nullptr;
-    }
-  }
-}
-
-static void free_cache(bNodeTree *ntree)
-{
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    free_node_cache(ntree, node);
-  }
-}
-
 /* local tree then owns all compbufs */
 static void localize(bNodeTree *localtree, bNodeTree *ntree)
 {
@@ -88,8 +71,8 @@ static void localize(bNodeTree *localtree, bNodeTree *ntree)
   while (node != nullptr) {
 
     /* Ensure new user input gets handled ok. */
-    node->need_exec = 0;
-    local_node->original = node;
+    node->runtime->need_exec = 0;
+    local_node->runtime->original = node;
 
     /* move over the compbufs */
     /* right after #ntreeCopyTree() `oldsock` pointers are valid */
@@ -112,13 +95,10 @@ static void localize(bNodeTree *localtree, bNodeTree *ntree)
 
 static void local_merge(Main *bmain, bNodeTree *localtree, bNodeTree *ntree)
 {
-  bNode *lnode;
-  bNodeSocket *lsock;
-
   /* move over the compbufs and previews */
   BKE_node_preview_merge_tree(ntree, localtree, true);
 
-  for (lnode = (bNode *)localtree->nodes.first; lnode; lnode = lnode->next) {
+  for (bNode *lnode = (bNode *)localtree->nodes.first; lnode; lnode = lnode->next) {
     if (bNode *orig_node = nodeFindNodebyName(ntree, lnode->name)) {
       if (ELEM(lnode->type, CMP_NODE_VIEWER, CMP_NODE_SPLITVIEWER)) {
         if (lnode->id && (lnode->flag & NODE_DO_OUTPUT)) {
@@ -138,14 +118,6 @@ static void local_merge(Main *bmain, bNodeTree *localtree, bNodeTree *ntree)
           orig_node->storage = BKE_tracking_distortion_copy((MovieDistortion *)lnode->storage);
         }
       }
-
-      for (lsock = (bNodeSocket *)lnode->outputs.first; lsock; lsock = lsock->next) {
-        if (bNodeSocket *orig_socket = nodeFindSocket(orig_node, SOCK_OUT, lsock->identifier)) {
-          orig_socket->cache = lsock->cache;
-          lsock->cache = nullptr;
-          orig_socket = nullptr;
-        }
-      }
     }
   }
 }
@@ -157,7 +129,7 @@ static void update(bNodeTree *ntree)
   ntree_update_reroute_nodes(ntree);
 }
 
-static void composite_node_add_init(bNodeTree *UNUSED(bnodetree), bNode *bnode)
+static void composite_node_add_init(bNodeTree * /*bnodetree*/, bNode *bnode)
 {
   /* Composite node will only show previews for input classes
    * by default, other will be hidden
@@ -167,7 +139,7 @@ static void composite_node_add_init(bNodeTree *UNUSED(bnodetree), bNode *bnode)
   }
 }
 
-static bool composite_node_tree_socket_type_valid(bNodeTreeType *UNUSED(ntreetype),
+static bool composite_node_tree_socket_type_valid(bNodeTreeType * /*ntreetype*/,
                                                   bNodeSocketType *socket_type)
 {
   return nodeIsStaticSocketType(socket_type) &&
@@ -182,12 +154,11 @@ void register_node_tree_type_cmp()
 
   tt->type = NTREE_COMPOSIT;
   strcpy(tt->idname, "CompositorNodeTree");
+  strcpy(tt->group_idname, "CompositorNodeGroup");
   strcpy(tt->ui_name, N_("Compositor"));
   tt->ui_icon = ICON_NODE_COMPOSITING;
   strcpy(tt->ui_description, N_("Compositing nodes"));
 
-  tt->free_cache = free_cache;
-  tt->free_node_cache = free_node_cache;
   tt->foreach_nodeclass = foreach_nodeclass;
   tt->localize = localize;
   tt->local_merge = local_merge;
@@ -208,7 +179,7 @@ void ntreeCompositExecTree(Scene *scene,
                            int do_preview,
                            const char *view_name)
 {
-#ifdef WITH_COMPOSITOR
+#ifdef WITH_COMPOSITOR_CPU
   COM_execute(rd, scene, ntree, rendering, view_name);
 #else
   UNUSED_VARS(scene, ntree, rd, rendering, view_name);
@@ -263,9 +234,14 @@ void ntreeCompositClearTags(bNodeTree *ntree)
   }
 
   LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
-    node->need_exec = 0;
+    node->runtime->need_exec = 0;
     if (node->type == NODE_GROUP) {
       ntreeCompositClearTags((bNodeTree *)node->id);
     }
   }
+}
+
+void ntreeCompositTagNeedExec(bNode *node)
+{
+  node->runtime->need_exec = true;
 }

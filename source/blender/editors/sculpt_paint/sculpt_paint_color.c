@@ -7,44 +7,23 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_blenlib.h"
 #include "BLI_hash.h"
 #include "BLI_math.h"
 #include "BLI_math_color_blend.h"
 #include "BLI_task.h"
 
-#include "DNA_mesh_types.h"
 #include "DNA_meshdata_types.h"
 
 #include "BKE_brush.h"
+#include "BKE_colorband.h"
 #include "BKE_colortools.h"
 #include "BKE_context.h"
-#include "BKE_mesh.h"
-#include "BKE_mesh_mapping.h"
-#include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_pbvh.h"
-#include "BKE_scene.h"
-
-#include "DEG_depsgraph.h"
 
 #include "IMB_colormanagement.h"
 
-#include "WM_api.h"
-#include "WM_message.h"
-#include "WM_toolsystem.h"
-#include "WM_types.h"
-
-#include "ED_object.h"
-#include "ED_screen.h"
-#include "ED_sculpt.h"
-#include "paint_intern.h"
 #include "sculpt_intern.h"
-
-#include "RNA_access.h"
-#include "RNA_define.h"
-
-#include "UI_interface.h"
 
 #include "IMB_imbuf.h"
 
@@ -69,10 +48,17 @@ static void do_color_smooth_task_cb_exec(void *__restrict userdata,
       ss, &test, data->brush->falloff_shape);
   const int thread_id = BLI_task_parallel_thread_id(tls);
 
+  AutomaskingNodeData automask_data;
+  SCULPT_automasking_node_begin(
+      data->ob, ss, ss->cache->automasking, &automask_data, data->nodes[n]);
+
   BKE_pbvh_vertex_iter_begin (ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
     if (!sculpt_brush_test_sq_fn(&test, vd.co)) {
       continue;
     }
+
+    SCULPT_automasking_node_update(ss, &automask_data, &vd);
+
     const float fade = bstrength * SCULPT_brush_strength_factor(ss,
                                                                 brush,
                                                                 vd.co,
@@ -80,20 +66,17 @@ static void do_color_smooth_task_cb_exec(void *__restrict userdata,
                                                                 vd.no,
                                                                 vd.fno,
                                                                 vd.mask ? *vd.mask : 0.0f,
-                                                                vd.index,
-                                                                thread_id);
+                                                                vd.vertex,
+                                                                thread_id,
+                                                                &automask_data);
 
     float smooth_color[4];
-    SCULPT_neighbor_color_average(ss, smooth_color, vd.index);
+    SCULPT_neighbor_color_average(ss, smooth_color, vd.vertex);
     float col[4];
 
-    SCULPT_vertex_color_get(ss, vd.index, col);
+    SCULPT_vertex_color_get(ss, vd.vertex, col);
     blend_color_interpolate_float(col, col, smooth_color, fade);
-    SCULPT_vertex_color_set(ss, vd.index, col);
-
-    if (vd.mvert) {
-      BKE_pbvh_vert_mark_update(ss->pbvh, vd.index);
-    }
+    SCULPT_vertex_color_set(ss, vd.vertex, col);
   }
   BKE_pbvh_vertex_iter_end;
 }
@@ -111,7 +94,7 @@ static void do_paint_brush_task_cb_ex(void *__restrict userdata,
   PBVHColorBufferNode *color_buffer;
 
   SculptOrigVertData orig_data;
-  SCULPT_orig_vert_data_init(&orig_data, data->ob, data->nodes[n]);
+  SCULPT_orig_vert_data_init(&orig_data, data->ob, data->nodes[n], SCULPT_UNDO_COLOR);
 
   color_buffer = BKE_pbvh_node_color_buffer_get(data->nodes[n]);
 
@@ -121,10 +104,34 @@ static void do_paint_brush_task_cb_ex(void *__restrict userdata,
   const int thread_id = BLI_task_parallel_thread_id(tls);
 
   float brush_color[4] = {0.0f, 0.0f, 0.0f, 1.0f};
+
   copy_v3_v3(brush_color,
              ss->cache->invert ? BKE_brush_secondary_color_get(ss->scene, brush) :
                                  BKE_brush_color_get(ss->scene, brush));
+
   IMB_colormanagement_srgb_to_scene_linear_v3(brush_color, brush_color);
+
+  AutomaskingNodeData automask_data;
+  SCULPT_automasking_node_begin(
+      data->ob, ss, ss->cache->automasking, &automask_data, data->nodes[n]);
+
+  if (brush->flag & BRUSH_USE_GRADIENT) {
+    switch (brush->gradient_stroke_mode) {
+      case BRUSH_GRADIENT_PRESSURE:
+        BKE_colorband_evaluate(brush->gradient, ss->cache->pressure, brush_color);
+        break;
+      case BRUSH_GRADIENT_SPACING_REPEAT: {
+        float coord = fmod(ss->cache->stroke_distance / brush->gradient_spacing, 1.0);
+        BKE_colorband_evaluate(brush->gradient, coord, brush_color);
+        break;
+      }
+      case BRUSH_GRADIENT_SPACING_CLAMP: {
+        BKE_colorband_evaluate(
+            brush->gradient, ss->cache->stroke_distance / brush->gradient_spacing, brush_color);
+        break;
+      }
+    }
+  }
 
   BKE_pbvh_vertex_iter_begin (ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
     SCULPT_orig_vert_data_update(&orig_data, &vd);
@@ -144,6 +151,8 @@ static void do_paint_brush_task_cb_ex(void *__restrict userdata,
       continue;
     }
 
+    SCULPT_automasking_node_update(ss, &automask_data, &vd);
+
     float fade = bstrength * SCULPT_brush_strength_factor(ss,
                                                           brush,
                                                           vd.co,
@@ -151,8 +160,9 @@ static void do_paint_brush_task_cb_ex(void *__restrict userdata,
                                                           vd.no,
                                                           vd.fno,
                                                           vd.mask ? *vd.mask : 0.0f,
-                                                          vd.index,
-                                                          thread_id);
+                                                          vd.vertex,
+                                                          thread_id,
+                                                          &automask_data);
 
     /* Density. */
     float noise = 1.0f;
@@ -178,18 +188,17 @@ static void do_paint_brush_task_cb_ex(void *__restrict userdata,
         paint_color, paint_color, wet_mix_color, ss->cache->paint_brush.wet_mix);
     blend_color_mix_float(color_buffer->color[vd.i], color_buffer->color[vd.i], paint_color);
 
-    /* Final mix over the original color using brush alpha. */
-    mul_v4_v4fl(buffer_color, color_buffer->color[vd.i], brush->alpha);
+    /* Final mix over the original color using brush alpha. We apply auto-making again
+     * at this point to avoid washing out non-binary masking modes like cavity masking. */
+    float automasking = SCULPT_automasking_factor_get(
+        ss->cache->automasking, ss, vd.vertex, &automask_data);
+    mul_v4_v4fl(buffer_color, color_buffer->color[vd.i], brush->alpha * automasking);
 
     float col[4];
-    SCULPT_vertex_color_get(ss, vd.index, col);
+    SCULPT_vertex_color_get(ss, vd.vertex, col);
     IMB_blend_color_float(col, orig_data.col, buffer_color, brush->blend);
     CLAMP4(col, 0.0f, 1.0f);
-    SCULPT_vertex_color_set(ss, vd.index, col);
-
-    if (vd.mvert) {
-      BKE_pbvh_vert_mark_update(ss->pbvh, vd.index);
-    }
+    SCULPT_vertex_color_set(ss, vd.vertex, col);
   }
   BKE_pbvh_vertex_iter_end;
 }
@@ -221,7 +230,7 @@ static void do_sample_wet_paint_task_cb(void *__restrict userdata,
     }
 
     float col[4];
-    SCULPT_vertex_color_get(ss, vd.index, col);
+    SCULPT_vertex_color_get(ss, vd.vertex, col);
 
     add_v4_v4(swptd->color, col);
     swptd->tot_samples++;
@@ -380,10 +389,26 @@ static void do_smear_brush_task_cb_exec(void *__restrict userdata,
       ss, &test, data->brush->falloff_shape);
   const int thread_id = BLI_task_parallel_thread_id(tls);
 
+  float brush_delta[3];
+
+  if (brush->flag & BRUSH_ANCHORED) {
+    copy_v3_v3(brush_delta, ss->cache->grab_delta_symmetry);
+  }
+  else {
+    sub_v3_v3v3(brush_delta, ss->cache->location, ss->cache->last_location);
+  }
+
+  AutomaskingNodeData automask_data;
+  SCULPT_automasking_node_begin(
+      data->ob, ss, ss->cache->automasking, &automask_data, data->nodes[n]);
+
   BKE_pbvh_vertex_iter_begin (ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
     if (!sculpt_brush_test_sq_fn(&test, vd.co)) {
       continue;
     }
+
+    SCULPT_automasking_node_update(ss, &automask_data, &vd);
+
     const float fade = bstrength * SCULPT_brush_strength_factor(ss,
                                                                 brush,
                                                                 vd.co,
@@ -391,8 +416,9 @@ static void do_smear_brush_task_cb_exec(void *__restrict userdata,
                                                                 vd.no,
                                                                 vd.fno,
                                                                 vd.mask ? *vd.mask : 0.0f,
-                                                                vd.index,
-                                                                thread_id);
+                                                                vd.vertex,
+                                                                thread_id,
+                                                                &automask_data);
 
     float current_disp[3];
     float current_disp_norm[3];
@@ -400,11 +426,11 @@ static void do_smear_brush_task_cb_exec(void *__restrict userdata,
     copy_v4_v4(interp_color, ss->cache->prev_colors[vd.index]);
 
     float no[3];
-    SCULPT_vertex_normal_get(ss, vd.index, no);
+    SCULPT_vertex_normal_get(ss, vd.vertex, no);
 
     switch (brush->smear_deform_type) {
       case BRUSH_SMEAR_DEFORM_DRAG:
-        sub_v3_v3v3(current_disp, ss->cache->location, ss->cache->last_location);
+        copy_v3_v3(current_disp, brush_delta);
         break;
       case BRUSH_SMEAR_DEFORM_PINCH:
         sub_v3_v3v3(current_disp, ss->cache->location, vd.co);
@@ -418,7 +444,7 @@ static void do_smear_brush_task_cb_exec(void *__restrict userdata,
     madd_v3_v3fl(current_disp, no, -dot_v3v3(current_disp, no));
 
     normalize_v3_v3(current_disp_norm, current_disp);
-    mul_v3_v3fl(current_disp, current_disp_norm, ss->cache->bstrength);
+    mul_v3_v3fl(current_disp, current_disp_norm, bstrength);
 
     float accum[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     float totw = 0.0f;
@@ -433,11 +459,11 @@ static void do_smear_brush_task_cb_exec(void *__restrict userdata,
      */
 
     SculptVertexNeighborIter ni2;
-    SCULPT_VERTEX_NEIGHBORS_ITER_BEGIN (ss, vd.index, ni2) {
-      const float *nco = SCULPT_vertex_co_get(ss, ni2.index);
+    SCULPT_VERTEX_NEIGHBORS_ITER_BEGIN (ss, vd.vertex, ni2) {
+      const float *nco = SCULPT_vertex_co_get(ss, ni2.vertex);
 
       SculptVertexNeighborIter ni;
-      SCULPT_VERTEX_NEIGHBORS_ITER_BEGIN (ss, ni2.index, ni) {
+      SCULPT_VERTEX_NEIGHBORS_ITER_BEGIN (ss, ni2.vertex, ni) {
         if (ni.index == vd.index) {
           continue;
         }
@@ -445,15 +471,15 @@ static void do_smear_brush_task_cb_exec(void *__restrict userdata,
         float vertex_disp[3];
         float vertex_disp_norm[3];
 
-        sub_v3_v3v3(vertex_disp, SCULPT_vertex_co_get(ss, ni.index), vd.co);
+        sub_v3_v3v3(vertex_disp, SCULPT_vertex_co_get(ss, ni.vertex), vd.co);
 
         /* Weight by how close we are to our target distance from vd.co. */
-        float w = (1.0f + fabsf(len_v3(vertex_disp) / ss->cache->bstrength - 1.0f));
+        float w = (1.0f + fabsf(len_v3(vertex_disp) / bstrength - 1.0f));
 
         /* TODO: use cotangents (or at least face areas) here. */
-        float len = len_v3v3(SCULPT_vertex_co_get(ss, ni.index), nco);
+        float len = len_v3v3(SCULPT_vertex_co_get(ss, ni.vertex), nco);
         if (len > 0.0f) {
-          len = ss->cache->bstrength / len;
+          len = bstrength / len;
         }
         else { /* Coincident point. */
           len = 1.0f;
@@ -493,13 +519,9 @@ static void do_smear_brush_task_cb_exec(void *__restrict userdata,
     blend_color_mix_float(interp_color, interp_color, accum);
 
     float col[4];
-    SCULPT_vertex_color_get(ss, vd.index, col);
+    SCULPT_vertex_color_get(ss, vd.vertex, col);
     blend_color_interpolate_float(col, ss->cache->prev_colors[vd.index], interp_color, fade);
-    SCULPT_vertex_color_set(ss, vd.index, col);
-
-    if (vd.mvert) {
-      BKE_pbvh_vert_mark_update(ss->pbvh, vd.index);
-    }
+    SCULPT_vertex_color_set(ss, vd.vertex, col);
   }
   BKE_pbvh_vertex_iter_end;
 }
@@ -513,7 +535,7 @@ static void do_smear_store_prev_colors_task_cb_exec(void *__restrict userdata,
 
   PBVHVertexIter vd;
   BKE_pbvh_vertex_iter_begin (ss->pbvh, data->nodes[n], vd, PBVH_ITER_UNIQUE) {
-    SCULPT_vertex_color_get(ss, vd.index, ss->cache->prev_colors[vd.index]);
+    SCULPT_vertex_color_get(ss, vd.vertex, ss->cache->prev_colors[vd.index]);
   }
   BKE_pbvh_vertex_iter_end;
 }
@@ -523,18 +545,18 @@ void SCULPT_do_smear_brush(Sculpt *sd, Object *ob, PBVHNode **nodes, int totnode
   Brush *brush = BKE_paint_brush(&sd->paint);
   SculptSession *ss = ob->sculpt;
 
-  if (!SCULPT_has_colors(ss)) {
+  if (!SCULPT_has_colors(ss) || ss->cache->bstrength == 0.0f) {
     return;
   }
 
   const int totvert = SCULPT_vertex_count_get(ss);
 
-  if (SCULPT_stroke_is_first_brush_step(ss->cache)) {
-    if (!ss->cache->prev_colors) {
-      ss->cache->prev_colors = MEM_callocN(sizeof(float[4]) * totvert, "prev colors");
-      for (int i = 0; i < totvert; i++) {
-        SCULPT_vertex_color_get(ss, i, ss->cache->prev_colors[i]);
-      }
+  if (!ss->cache->prev_colors) {
+    ss->cache->prev_colors = MEM_callocN(sizeof(float[4]) * totvert, "prev colors");
+    for (int i = 0; i < totvert; i++) {
+      PBVHVertRef vertex = BKE_pbvh_index_to_vertex(ss->pbvh, i);
+
+      SCULPT_vertex_color_get(ss, vertex, ss->cache->prev_colors[i]);
     }
   }
 

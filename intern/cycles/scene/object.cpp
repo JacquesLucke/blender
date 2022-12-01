@@ -57,7 +57,8 @@ struct UpdateObjectTransformState {
   /* Flags which will be synchronized to Integrator. */
   bool have_motion;
   bool have_curves;
-  // bool have_points;
+  bool have_points;
+  bool have_volumes;
 
   /* ** Scheduling queue. ** */
   Scene *scene;
@@ -230,7 +231,7 @@ void Object::tag_update(Scene *scene)
 
     foreach (Node *node, geometry->get_used_shaders()) {
       Shader *shader = static_cast<Shader *>(node);
-      if (shader->get_use_mis() && shader->has_surface_emission)
+      if (shader->emission_sampling != EMISSION_SAMPLING_NONE)
         scene->light_manager->tag_update(scene, LightManager::EMISSIVE_MESH_MODIFIED);
     }
   }
@@ -340,12 +341,12 @@ float Object::compute_volume_step_size() const
           if (metadata.use_transform_3d) {
             voxel_tfm = tfm * transform_inverse(metadata.transform_3d);
           }
-          voxel_step_size = min3(fabs(transform_direction(&voxel_tfm, size)));
+          voxel_step_size = reduce_min(fabs(transform_direction(&voxel_tfm, size)));
         }
         else if (volume->get_object_space()) {
           /* User specified step size in object space. */
           float3 size = make_float3(voxel_step_size, voxel_step_size, voxel_step_size);
-          voxel_step_size = min3(fabs(transform_direction(&tfm, size)));
+          voxel_step_size = reduce_min(fabs(transform_direction(&tfm, size)));
         }
 
         if (voxel_step_size > 0.0f) {
@@ -545,6 +546,12 @@ void ObjectManager::device_update_object_transform(UpdateObjectTransformState *s
   if (geom->geometry_type == Geometry::HAIR) {
     state->have_curves = true;
   }
+  if (geom->geometry_type == Geometry::POINTCLOUD) {
+    state->have_points = true;
+  }
+  if (geom->geometry_type == Geometry::VOLUME) {
+    state->have_volumes = true;
+  }
 
   /* Light group. */
   auto it = scene->lightgroups.find(ob->lightgroup);
@@ -591,6 +598,8 @@ void ObjectManager::device_update_transforms(DeviceScene *dscene, Scene *scene, 
   state.need_motion = scene->need_motion();
   state.have_motion = false;
   state.have_curves = false;
+  state.have_points = false;
+  state.have_volumes = false;
   state.scene = scene;
   state.queue_start_object = 0;
 
@@ -658,6 +667,8 @@ void ObjectManager::device_update_transforms(DeviceScene *dscene, Scene *scene, 
 
   dscene->data.bvh.have_motion = state.have_motion;
   dscene->data.bvh.have_curves = state.have_curves;
+  dscene->data.bvh.have_points = state.have_points;
+  dscene->data.bvh.have_volumes = state.have_volumes;
 
   dscene->objects.clear_modified();
   dscene->object_motion_pass.clear_modified();
@@ -688,7 +699,7 @@ void ObjectManager::device_update(Device *device,
     dscene->objects.tag_modified();
   }
 
-  VLOG(1) << "Total " << scene->objects.size() << " objects.";
+  VLOG_INFO << "Total " << scene->objects.size() << " objects.";
 
   device_free(device, dscene, false);
 

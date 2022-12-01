@@ -39,7 +39,7 @@ static void sh_node_map_range_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Vector>(N_("Vector"));
 }
 
-static void node_shader_buts_map_range(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_map_range(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "data_type", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
   uiItemR(layout, ptr, "interpolation_type", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
@@ -53,7 +53,7 @@ static void node_shader_buts_map_range(uiLayout *layout, bContext *UNUSED(C), Po
 static int node_shader_map_range_ui_class(const bNode *node)
 {
   const NodeMapRange &storage = node_storage(*node);
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
   if (data_type == CD_PROP_FLOAT3) {
     return NODE_CLASS_OP_VECTOR;
   }
@@ -63,7 +63,7 @@ static int node_shader_map_range_ui_class(const bNode *node)
 static void node_shader_update_map_range(bNodeTree *ntree, bNode *node)
 {
   const NodeMapRange &storage = node_storage(*node);
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
   const int type = (data_type == CD_PROP_FLOAT) ? SOCK_FLOAT : SOCK_VECTOR;
 
   Array<bool> new_input_availability(BLI_listbase_count(&node->inputs));
@@ -94,7 +94,7 @@ static void node_shader_update_map_range(bNodeTree *ntree, bNode *node)
   }
 }
 
-static void node_shader_init_map_range(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_map_range(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeMapRange *data = MEM_cnew<NodeMapRange>(__func__);
   data->clamp = 1;
@@ -108,7 +108,7 @@ static void node_shader_init_map_range(bNodeTree *UNUSED(ntree), bNode *node)
 class SocketSearchOp {
  public:
   std::string socket_name;
-  CustomDataType data_type;
+  eCustomDataType data_type;
   int interpolation_type = NODE_MAP_RANGE_LINEAR;
 
   void operator()(LinkSearchOpParams &params)
@@ -120,7 +120,7 @@ class SocketSearchOp {
   }
 };
 
-static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
+static std::optional<eCustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
 {
   switch (socket.type) {
     case SOCK_FLOAT:
@@ -137,7 +137,7 @@ static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSock
 
 static void node_map_range_gather_link_searches(GatherLinkSearchOpParams &params)
 {
-  const std::optional<CustomDataType> type = node_type_from_other_socket(params.other_socket());
+  const std::optional<eCustomDataType> type = node_type_from_other_socket(params.other_socket());
   if (!type) {
     return;
   }
@@ -197,7 +197,7 @@ static const char *gpu_shader_get_name(int mode, bool use_vector)
 
 static int gpu_shader_map_range(GPUMaterial *mat,
                                 bNode *node,
-                                bNodeExecData *UNUSED(execdata),
+                                bNodeExecData * /*execdata*/,
                                 GPUNodeStack *in,
                                 GPUNodeStack *out)
 {
@@ -502,11 +502,11 @@ void register_node_type_sh_map_range()
   ntype.declare = file_ns::sh_node_map_range_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_map_range;
   ntype.ui_class = file_ns::node_shader_map_range_ui_class;
-  node_type_init(&ntype, file_ns::node_shader_init_map_range);
+  ntype.initfunc = file_ns::node_shader_init_map_range;
   node_type_storage(
       &ntype, "NodeMapRange", node_free_standard_storage, node_copy_standard_storage);
-  node_type_update(&ntype, file_ns::node_shader_update_map_range);
-  node_type_gpu(&ntype, file_ns::gpu_shader_map_range);
+  ntype.updatefunc = file_ns::node_shader_update_map_range;
+  ntype.gpu_fn = file_ns::gpu_shader_map_range;
   ntype.build_multi_function = file_ns::sh_node_map_range_build_multi_function;
   ntype.gather_link_search_ops = file_ns::node_map_range_gather_link_searches;
   nodeRegisterType(&ntype);

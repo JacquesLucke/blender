@@ -16,9 +16,11 @@ unique_ptr<Denoiser> Denoiser::create(Device *path_trace_device, const DenoisePa
 {
   DCHECK(params.use);
 
+#ifdef WITH_OPTIX
   if (params.type == DENOISER_OPTIX && Device::available_devices(DEVICE_MASK_OPTIX).size()) {
     return make_unique<OptiXDenoiser>(path_trace_device, params);
   }
+#endif
 
   /* Always fallback to OIDN. */
   DenoiseParams oidn_params = params;
@@ -58,8 +60,8 @@ bool Denoiser::load_kernels(Progress *progress)
     return false;
   }
 
-  VLOG(3) << "Will denoise on " << denoiser_device->info.description << " ("
-          << denoiser_device->info.id << ")";
+  VLOG_WORK << "Will denoise on " << denoiser_device->info.description << " ("
+            << denoiser_device->info.id << ")";
 
   return true;
 }
@@ -101,10 +103,17 @@ static Device *find_best_device(Device *device, DenoiserType type)
     if ((sub_device->info.denoisers & type) == 0) {
       return;
     }
+
     if (!best_device) {
       best_device = sub_device;
     }
     else {
+      /* Prefer a device that can use graphics interop for faster display update. */
+      if (sub_device->should_use_graphics_interop() &&
+          !best_device->should_use_graphics_interop()) {
+        best_device = sub_device;
+      }
+
       /* TODO(sergey): Choose fastest device from available ones. Taking into account performance
        * of the device and data transfer cost. */
     }

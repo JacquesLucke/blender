@@ -30,6 +30,7 @@
 #include "BLI_math_rotation.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
+#include "BLI_timeit.hh"
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
@@ -125,16 +126,25 @@ struct ImportJobData {
 
   USDStageReader *archive;
 
-  short *stop;
-  short *do_update;
+  bool *stop;
+  bool *do_update;
   float *progress;
 
   char error_code;
   bool was_canceled;
   bool import_ok;
+  timeit::TimePoint start_time;
 };
 
-static void import_startjob(void *customdata, short *stop, short *do_update, float *progress)
+static void report_job_duration(const ImportJobData *data)
+{
+  timeit::Nanoseconds duration = timeit::Clock::now() - data->start_time;
+  std::cout << "USD import of '" << data->filepath << "' took ";
+  timeit::print_duration(duration);
+  std::cout << '\n';
+}
+
+static void import_startjob(void *customdata, bool *stop, bool *do_update, float *progress)
 {
   ImportJobData *data = static_cast<ImportJobData *>(customdata);
 
@@ -143,6 +153,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
   data->progress = progress;
   data->was_canceled = false;
   data->archive = nullptr;
+  data->start_time = timeit::Clock::now();
 
   WM_set_locked_interface(data->wm, true);
   G.is_break = false;
@@ -207,6 +218,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
     data->scene->r.efra = stage->GetEndTimeCode();
   }
 
+  *data->do_update = true;
   *data->progress = 0.15f;
 
   USDStageReader *archive = new USDStageReader(stage, data->params, data->settings);
@@ -215,13 +227,32 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
 
   archive->collect_readers(data->bmain);
 
+  *data->do_update = true;
   *data->progress = 0.2f;
 
-  const float size = static_cast<float>(archive->readers().size());
+  const float size = float(archive->readers().size());
   size_t i = 0;
 
-  /* Setup parenthood */
+  /* Sort readers by name: when creating a lot of objects in Blender,
+   * it is much faster if the order is sorted by name. */
+  archive->sort_readers();
+  *data->do_update = true;
+  *data->progress = 0.25f;
 
+  /* Create blender objects. */
+  for (USDPrimReader *reader : archive->readers()) {
+    if (!reader) {
+      continue;
+    }
+    reader->create_object(data->bmain, 0.0);
+    if ((++i & 1023) == 0) {
+      *data->do_update = true;
+      *data->progress = 0.25f + 0.25f * (i / size);
+    }
+  }
+
+  /* Setup parenthood and read actual object data. */
+  i = 0;
   for (USDPrimReader *reader : archive->readers()) {
 
     if (!reader) {
@@ -241,7 +272,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
       ob->parent = parent->object();
     }
 
-    *data->progress = 0.2f + 0.8f * (++i / size);
+    *data->progress = 0.5f + 0.5f * (++i / size);
     *data->do_update = true;
 
     if (G.is_break) {
@@ -277,29 +308,37 @@ static void import_endjob(void *customdata)
     }
   }
   else if (data->archive) {
-    /* Add object to scene. */
     Base *base;
     LayerCollection *lc;
+    const Scene *scene = data->scene;
     ViewLayer *view_layer = data->view_layer;
 
-    BKE_view_layer_base_deselect_all(view_layer);
+    BKE_view_layer_base_deselect_all(scene, view_layer);
 
     lc = BKE_layer_collection_get_active(view_layer);
 
+    /* Add all objects to the collection. */
     for (USDPrimReader *reader : data->archive->readers()) {
-
       if (!reader) {
         continue;
       }
-
       Object *ob = reader->object();
-
       if (!ob) {
         continue;
       }
-
       BKE_collection_object_add(data->bmain, lc->collection, ob);
+    }
 
+    /* Sync and do the view layer operations. */
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    for (USDPrimReader *reader : data->archive->readers()) {
+      if (!reader) {
+        continue;
+      }
+      Object *ob = reader->object();
+      if (!ob) {
+        continue;
+      }
       base = BKE_view_layer_base_find(view_layer, ob);
       /* TODO: is setting active needed? */
       BKE_view_layer_base_select_and_set_active(view_layer, base);
@@ -328,6 +367,7 @@ static void import_endjob(void *customdata)
   }
 
   WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
+  report_job_duration(data);
 }
 
 static void import_freejob(void *user_data)
@@ -390,7 +430,7 @@ bool USD_import(struct bContext *C,
   }
   else {
     /* Fake a job context, so that we don't need NULL pointer checks while importing. */
-    short stop = 0, do_update = 0;
+    bool stop = false, do_update = false;
     float progress = 0.0f;
 
     import_startjob(job, &stop, &do_update, &progress);

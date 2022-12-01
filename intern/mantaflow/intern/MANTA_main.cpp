@@ -58,7 +58,6 @@ MANTA::MANTA(int *res, FluidModifierData *fmd)
   mUsingDiffusion = (fds->flags & FLUID_DOMAIN_USE_DIFFUSION) && mUsingLiquid;
   mUsingViscosity = (fds->flags & FLUID_DOMAIN_USE_VISCOSITY) && mUsingLiquid;
   mUsingMVel = (fds->flags & FLUID_DOMAIN_USE_SPEED_VECTORS) && mUsingLiquid;
-  mUsingGuiding = (fds->flags & FLUID_DOMAIN_USE_GUIDE);
   mUsingDrops = (fds->particle_type & FLUID_DOMAIN_PARTICLE_SPRAY) && mUsingLiquid;
   mUsingBubbles = (fds->particle_type & FLUID_DOMAIN_PARTICLE_BUBBLE) && mUsingLiquid;
   mUsingFloats = (fds->particle_type & FLUID_DOMAIN_PARTICLE_FOAM) && mUsingLiquid;
@@ -68,6 +67,7 @@ MANTA::MANTA(int *res, FluidModifierData *fmd)
   mUsingFire = (fds->active_fields & FLUID_DOMAIN_ACTIVE_FIRE) && mUsingSmoke;
   mUsingColors = (fds->active_fields & FLUID_DOMAIN_ACTIVE_COLORS) && mUsingSmoke;
   mUsingObstacle = (fds->active_fields & FLUID_DOMAIN_ACTIVE_OBSTACLE);
+  mUsingGuiding = (fds->active_fields & FLUID_DOMAIN_ACTIVE_GUIDE);
   mUsingInvel = (fds->active_fields & FLUID_DOMAIN_ACTIVE_INVEL);
   mUsingOutflow = (fds->active_fields & FLUID_DOMAIN_ACTIVE_OUTFLOW);
 
@@ -562,31 +562,103 @@ MANTA::~MANTA()
   pythonCommands.push_back(finalString);
   result = runPythonString(pythonCommands);
 
+  /* WARNING: this causes crash on exit in the `cycles_volume_cpu/smoke_color` test,
+   * freeing a single modifier ends up clearing the shared module.
+   * For this to be handled properly there would need to be a initialize/free
+   * function for global data. */
+#if 0
+  MANTA::terminateMantaflow();
+#endif
+
   BLI_assert(result);
   UNUSED_VARS(result);
 }
 
 /**
- * Store a pointer to the __main__ module used by mantaflow. This is necessary, because sometimes
- * Blender will overwrite that module. That happens when e.g. scripts are executed in the text
- * editor.
- *
+ * Copied from `PyC_DefaultNameSpace` in Blender.
+ * with some differences:
+ * - Doesn't touch `sys.modules`, use #manta_python_main_module_activate instead.
+ * - Returns the module instead of the modules `dict`.
+ * */
+static PyObject *manta_python_main_module_create(const char *filename)
+{
+  PyObject *builtins = PyEval_GetBuiltins();
+  PyObject *mod_main = PyModule_New("__main__");
+  PyModule_AddStringConstant(mod_main, "__name__", "__main__");
+  if (filename) {
+    /* __file__ mainly for nice UI'ness
+     * NOTE: this won't map to a real file when executing text-blocks and buttons. */
+    PyModule_AddObject(mod_main, "__file__", PyUnicode_InternFromString(filename));
+  }
+  PyModule_AddObject(mod_main, "__builtins__", builtins);
+  Py_INCREF(builtins); /* AddObject steals a reference */
+  return mod_main;
+}
+
+static void manta_python_main_module_activate(PyObject *mod_main)
+{
+  PyObject *modules = PyImport_GetModuleDict();
+  PyObject *main_mod_cmp = PyDict_GetItemString(modules, "__main__");
+  if (mod_main == main_mod_cmp) {
+    return;
+  }
+  /* NOTE: we could remove the reference to `mod_main` here, but as it's know to be removed
+   * accept that there is temporarily an extra reference. */
+  PyDict_SetItemString(modules, "__main__", mod_main);
+}
+
+static void manta_python_main_module_backup(PyObject **r_main_mod)
+{
+  PyObject *modules = PyImport_GetModuleDict();
+  *r_main_mod = PyDict_GetItemString(modules, "__main__");
+  Py_XINCREF(*r_main_mod); /* don't free */
+}
+
+static void manta_python_main_module_restore(PyObject *main_mod)
+{
+  PyObject *modules = PyImport_GetModuleDict();
+  PyDict_SetItemString(modules, "__main__", main_mod);
+  Py_XDECREF(main_mod);
+}
+
+/**
  * Mantaflow stores many variables in the globals() dict of the __main__ module. To be able to
  * access these variables, the same __main__ module has to be used every time.
  *
  * Unfortunately, we also depend on the fact that mantaflow dumps variables into this module using
- * PyRun_SimpleString. So we can't easily create a separate module without changing mantaflow.
+ * #PyRun_String. So we can't easily create a separate module without changing mantaflow.
  */
 static PyObject *manta_main_module = nullptr;
+
+static void manta_python_main_module_clear()
+{
+  if (manta_main_module) {
+    Py_DECREF(manta_main_module);
+    manta_main_module = nullptr;
+  }
+}
+
+static PyObject *manta_python_main_module_ensure()
+{
+  if (!manta_main_module) {
+    manta_main_module = manta_python_main_module_create("<manta_namespace>");
+  }
+  return manta_main_module;
+}
 
 bool MANTA::runPythonString(vector<string> commands)
 {
   bool success = true;
   PyGILState_STATE gilstate = PyGILState_Ensure();
 
-  if (manta_main_module == nullptr) {
-    manta_main_module = PyImport_ImportModule("__main__");
-  }
+  /* Temporarily set `sys.modules["__main__"]` as some Python modules expect this. */
+  PyObject *main_mod_backup;
+  manta_python_main_module_backup(&main_mod_backup);
+
+  /* If we never want to run this when the module isn't initialize,
+   * assign with `manta_python_main_module_ensure()`. */
+  BLI_assert(manta_main_module != nullptr);
+  manta_python_main_module_activate(manta_main_module);
 
   for (vector<string>::iterator it = commands.begin(); it != commands.end(); ++it) {
     string command = *it;
@@ -605,6 +677,9 @@ bool MANTA::runPythonString(vector<string> commands)
       Py_DECREF(return_value);
     }
   }
+
+  manta_python_main_module_restore(main_mod_backup);
+
   PyGILState_Release(gilstate);
 
   BLI_assert(success);
@@ -622,7 +697,10 @@ void MANTA::initializeMantaflow()
   /* Initialize extension classes and wrappers. */
   srand(0);
   PyGILState_STATE gilstate = PyGILState_Ensure();
-  Pb::setup(filename, fill); /* Namespace from Mantaflow (registry). */
+
+  PyObject *manta_main_module = manta_python_main_module_ensure();
+  PyObject *globals_dict = PyModule_GetDict(manta_main_module);
+  Pb::setup(false, filename, fill, globals_dict); /* Namespace from Mantaflow (registry). */
   PyGILState_Release(gilstate);
 }
 
@@ -632,7 +710,8 @@ void MANTA::terminateMantaflow()
     cout << "Fluid: Releasing Mantaflow framework" << endl;
 
   PyGILState_STATE gilstate = PyGILState_Ensure();
-  Pb::finalize(); /* Namespace from Mantaflow (registry). */
+  Pb::finalize(false); /* Namespace from Mantaflow (registry). */
+  manta_python_main_module_clear();
   PyGILState_Release(gilstate);
 }
 
@@ -1082,7 +1161,7 @@ string MANTA::parseScript(const string &setup_string, FluidModifierData *fmd)
   return res.str();
 }
 
-/* Dirty hack: Needed to format paths from python code that is run via PyRun_SimpleString */
+/** Dirty hack: Needed to format paths from python code that is run via #PyRun_String. */
 static string escapePath(string const &s)
 {
   string result = "";
@@ -1428,13 +1507,9 @@ bool MANTA::bakeData(FluidModifierData *fmd, int framenr)
 
   string volume_format = getCacheFileEnding(fds->cache_data_format);
 
+  BLI_path_join(cacheDirData, sizeof(cacheDirData), fds->cache_directory, FLUID_DOMAIN_DIR_DATA);
   BLI_path_join(
-      cacheDirData, sizeof(cacheDirData), fds->cache_directory, FLUID_DOMAIN_DIR_DATA, nullptr);
-  BLI_path_join(cacheDirGuiding,
-                sizeof(cacheDirGuiding),
-                fds->cache_directory,
-                FLUID_DOMAIN_DIR_GUIDE,
-                nullptr);
+      cacheDirGuiding, sizeof(cacheDirGuiding), fds->cache_directory, FLUID_DOMAIN_DIR_GUIDE);
   BLI_path_make_safe(cacheDirData);
   BLI_path_make_safe(cacheDirGuiding);
 
@@ -1461,7 +1536,7 @@ bool MANTA::bakeNoise(FluidModifierData *fmd, int framenr)
   string volume_format = getCacheFileEnding(fds->cache_data_format);
 
   BLI_path_join(
-      cacheDirNoise, sizeof(cacheDirNoise), fds->cache_directory, FLUID_DOMAIN_DIR_NOISE, nullptr);
+      cacheDirNoise, sizeof(cacheDirNoise), fds->cache_directory, FLUID_DOMAIN_DIR_NOISE);
   BLI_path_make_safe(cacheDirNoise);
 
   ss.str("");
@@ -1487,8 +1562,7 @@ bool MANTA::bakeMesh(FluidModifierData *fmd, int framenr)
   string volume_format = getCacheFileEnding(fds->cache_data_format);
   string mesh_format = getCacheFileEnding(fds->cache_mesh_format);
 
-  BLI_path_join(
-      cacheDirMesh, sizeof(cacheDirMesh), fds->cache_directory, FLUID_DOMAIN_DIR_MESH, nullptr);
+  BLI_path_join(cacheDirMesh, sizeof(cacheDirMesh), fds->cache_directory, FLUID_DOMAIN_DIR_MESH);
   BLI_path_make_safe(cacheDirMesh);
 
   ss.str("");
@@ -1517,8 +1591,7 @@ bool MANTA::bakeParticles(FluidModifierData *fmd, int framenr)
   BLI_path_join(cacheDirParticles,
                 sizeof(cacheDirParticles),
                 fds->cache_directory,
-                FLUID_DOMAIN_DIR_PARTICLES,
-                nullptr);
+                FLUID_DOMAIN_DIR_PARTICLES);
   BLI_path_make_safe(cacheDirParticles);
 
   ss.str("");
@@ -1544,11 +1617,8 @@ bool MANTA::bakeGuiding(FluidModifierData *fmd, int framenr)
   string volume_format = getCacheFileEnding(fds->cache_data_format);
   string resumable_cache = !(fds->flags & FLUID_DOMAIN_USE_RESUMABLE_CACHE) ? "False" : "True";
 
-  BLI_path_join(cacheDirGuiding,
-                sizeof(cacheDirGuiding),
-                fds->cache_directory,
-                FLUID_DOMAIN_DIR_GUIDE,
-                nullptr);
+  BLI_path_join(
+      cacheDirGuiding, sizeof(cacheDirGuiding), fds->cache_directory, FLUID_DOMAIN_DIR_GUIDE);
   BLI_path_make_safe(cacheDirGuiding);
 
   ss.str("");
@@ -1599,13 +1669,11 @@ bool MANTA::exportSmokeScript(FluidModifierData *fmd)
 
   FluidDomainSettings *fds = fmd->domain;
 
-  BLI_path_join(
-      cacheDir, sizeof(cacheDir), fds->cache_directory, FLUID_DOMAIN_DIR_SCRIPT, nullptr);
+  BLI_path_join(cacheDir, sizeof(cacheDir), fds->cache_directory, FLUID_DOMAIN_DIR_SCRIPT);
   BLI_path_make_safe(cacheDir);
   /* Create 'script' subdir if it does not exist already */
   BLI_dir_create_recursive(cacheDir);
-  BLI_path_join(
-      cacheDirScript, sizeof(cacheDirScript), cacheDir, FLUID_DOMAIN_SMOKE_SCRIPT, nullptr);
+  BLI_path_join(cacheDirScript, sizeof(cacheDirScript), cacheDir, FLUID_DOMAIN_SMOKE_SCRIPT);
   BLI_path_make_safe(cacheDir);
 
   bool noise = fds->flags & FLUID_DOMAIN_USE_NOISE;
@@ -1712,13 +1780,11 @@ bool MANTA::exportLiquidScript(FluidModifierData *fmd)
 
   FluidDomainSettings *fds = fmd->domain;
 
-  BLI_path_join(
-      cacheDir, sizeof(cacheDir), fds->cache_directory, FLUID_DOMAIN_DIR_SCRIPT, nullptr);
+  BLI_path_join(cacheDir, sizeof(cacheDir), fds->cache_directory, FLUID_DOMAIN_DIR_SCRIPT);
   BLI_path_make_safe(cacheDir);
   /* Create 'script' subdir if it does not exist already */
   BLI_dir_create_recursive(cacheDir);
-  BLI_path_join(
-      cacheDirScript, sizeof(cacheDirScript), cacheDir, FLUID_DOMAIN_LIQUID_SCRIPT, nullptr);
+  BLI_path_join(cacheDirScript, sizeof(cacheDirScript), cacheDir, FLUID_DOMAIN_LIQUID_SCRIPT);
   BLI_path_make_safe(cacheDirScript);
 
   bool mesh = fds->flags & FLUID_DOMAIN_USE_MESH;
@@ -2244,8 +2310,7 @@ bool MANTA::hasGuiding(FluidModifierData *fmd, int framenr, bool sourceDomain)
 string MANTA::getDirectory(FluidModifierData *fmd, string subdirectory)
 {
   char directory[FILE_MAX];
-  BLI_path_join(
-      directory, sizeof(directory), fmd->domain->cache_directory, subdirectory.c_str(), nullptr);
+  BLI_path_join(directory, sizeof(directory), fmd->domain->cache_directory, subdirectory.c_str());
   BLI_path_make_safe(directory);
   return directory;
 }
@@ -2256,7 +2321,7 @@ string MANTA::getFile(
   char targetFile[FILE_MAX];
   string path = getDirectory(fmd, subdirectory);
   string filename = fname + "_####" + extension;
-  BLI_join_dirfile(targetFile, sizeof(targetFile), path.c_str(), filename.c_str());
+  BLI_path_join(targetFile, sizeof(targetFile), path.c_str(), filename.c_str());
   BLI_path_frame(targetFile, framenr, 0);
   return targetFile;
 }

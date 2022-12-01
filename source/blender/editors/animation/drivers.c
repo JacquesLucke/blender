@@ -39,6 +39,7 @@
 
 #include "RNA_access.h"
 #include "RNA_define.h"
+#include "RNA_path.h"
 #include "RNA_prototypes.h"
 
 #include "anim_intern.h"
@@ -124,7 +125,7 @@ struct FCurve *alloc_driver_fcurve(const char rna_path[],
       insert_vert_fcurve(
           fcu, 1.0f, 1.0f, BEZT_KEYTYPE_KEYFRAME, INSERTKEY_FAST | INSERTKEY_NO_USERPREF);
       fcu->extend = FCURVE_EXTRAPOLATE_LINEAR;
-      calchandles_fcurve(fcu);
+      BKE_fcurve_handles_recalc(fcu);
     }
   }
 
@@ -180,7 +181,7 @@ static int add_driver_with_target(ReportList *UNUSED(reports),
     }
     else if ((RNA_property_unit(src_prop) == PROP_UNIT_ROTATION) &&
              (RNA_property_unit(dst_prop) != PROP_UNIT_ROTATION)) {
-      /* Rotation Source:  radians -> normal,  so convert src to degrees
+      /* Rotation Source: radians -> normal, so convert src to degrees
        * (However, if both input and output is a rotation, don't apply such corrections)
        */
       BLI_strncpy(driver->expression, "degrees(var)", sizeof(driver->expression));
@@ -321,8 +322,8 @@ int ANIM_add_driver_with_target(ReportList *reports,
                                     * then use the first one */
     {
       /* Use the shorter of the two (to avoid out of bounds access) */
-      int dst_len = (RNA_property_array_check(prop)) ? RNA_property_array_length(&ptr, prop) : 1;
-      int src_len = (RNA_property_array_check(prop)) ? RNA_property_array_length(&ptr2, prop2) : 1;
+      int dst_len = RNA_property_array_check(prop) ? RNA_property_array_length(&ptr, prop) : 1;
+      int src_len = RNA_property_array_check(prop) ? RNA_property_array_length(&ptr2, prop2) : 1;
 
       int len = MIN2(dst_len, src_len);
 
@@ -346,7 +347,7 @@ int ANIM_add_driver_with_target(ReportList *reports,
 
     case CREATEDRIVER_MAPPING_1_N: /* 1-N - Specified target index for all */
     default: {
-      int len = (RNA_property_array_check(prop)) ? RNA_property_array_length(&ptr, prop) : 1;
+      int len = RNA_property_array_check(prop) ? RNA_property_array_length(&ptr, prop) : 1;
 
       for (int i = 0; i < len; i++) {
         done_tot += add_driver_with_target(reports,
@@ -1125,7 +1126,7 @@ void ANIM_OT_driver_button_remove(wmOperatorType *ot)
   ot->name = "Remove Driver";
   ot->idname = "ANIM_OT_driver_button_remove";
   ot->description =
-      "Remove the driver(s) for the property(s) connected represented by the highlighted button";
+      "Remove the driver(s) for the connected property(s) represented by the highlighted button";
 
   /* callbacks */
   ot->exec = remove_driver_button_exec;
@@ -1162,7 +1163,7 @@ void ANIM_OT_driver_button_edit(wmOperatorType *ot)
   ot->name = "Edit Driver";
   ot->idname = "ANIM_OT_driver_button_edit";
   ot->description =
-      "Edit the drivers for the property connected represented by the highlighted button";
+      "Edit the drivers for the connected property represented by the highlighted button";
 
   /* callbacks */
   ot->exec = edit_driver_button_exec;
@@ -1256,7 +1257,7 @@ void ANIM_OT_paste_driver_button(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Paste Driver";
   ot->idname = "ANIM_OT_paste_driver_button";
-  ot->description = "Paste the driver in the copy/paste buffer for the highlighted button";
+  ot->description = "Paste the driver in the clipboard to the highlighted button";
 
   /* callbacks */
   ot->exec = paste_driver_button_exec;

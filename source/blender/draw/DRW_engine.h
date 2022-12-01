@@ -23,6 +23,9 @@ struct DrawEngineType;
 struct GHash;
 struct GPUMaterial;
 struct GPUOffScreen;
+struct GPUVertFormat;
+struct CustomDataLayer;
+struct CustomData;
 struct GPUViewport;
 struct ID;
 struct Main;
@@ -123,14 +126,10 @@ void DRW_draw_select_loop(struct Depsgraph *depsgraph,
 void DRW_draw_depth_loop(struct Depsgraph *depsgraph,
                          struct ARegion *region,
                          struct View3D *v3d,
-                         struct GPUViewport *viewport);
-/**
- * Converted from #ED_view3d_draw_depth_gpencil (legacy drawing).
- */
-void DRW_draw_depth_loop_gpencil(struct Depsgraph *depsgraph,
-                                 struct ARegion *region,
-                                 struct View3D *v3d,
-                                 struct GPUViewport *viewport);
+                         struct GPUViewport *viewport,
+                         const bool use_gpencil,
+                         const bool use_basic,
+                         const bool use_overlay);
 /**
  * Clears the Depth Buffer and draws only the specified object.
  */
@@ -218,6 +217,12 @@ void DRW_opengl_context_activate(bool drw_state);
  */
 void DRW_draw_cursor_2d_ex(const struct ARegion *region, const float cursor[2]);
 
+void DRW_cdlayer_attr_aliases_add(struct GPUVertFormat *format,
+                                  const char *base_name,
+                                  const struct CustomData *data,
+                                  const struct CustomDataLayer *cl,
+                                  bool is_active_render,
+                                  bool is_active_layer);
 #ifdef __cplusplus
 }
 #endif

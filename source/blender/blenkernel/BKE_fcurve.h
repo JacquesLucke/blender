@@ -106,7 +106,7 @@ typedef enum eFMI_Action_Types {
 
 /* Flags for the requirements of a FModifier Type */
 typedef enum eFMI_Requirement_Flags {
-  /* modifier requires original data-points (kindof beats the purpose of a modifier stack?) */
+  /* modifier requires original data-points (kind of beats the purpose of a modifier stack?) */
   FMI_REQUIRES_ORIGINAL_DATA = (1 << 0),
   /* modifier doesn't require on any preceding data (i.e. it will generate a curve).
    * Use in conjunction with FMI_TYPE_GENRATE_CURVE
@@ -167,7 +167,7 @@ void set_active_fmodifier(ListBase *modifiers, struct FModifier *fcm);
  * \param mtype: Type of modifier (if 0, doesn't matter).
  * \param acttype: Type of action to perform (if -1, doesn't matter).
  */
-bool list_has_suitable_fmodifier(ListBase *modifiers, int mtype, short acttype);
+bool list_has_suitable_fmodifier(const ListBase *modifiers, int mtype, short acttype);
 
 typedef struct FModifiersStackStorage {
   uint modifier_count;
@@ -259,6 +259,18 @@ struct FCurve *BKE_fcurve_iter_step(struct FCurve *fcu_iter, const char rna_path
 
 /**
  * High level function to get an f-curve from C without having the RNA.
+ *
+ * If there is an action assigned to the `id`'s #AnimData, it will be searched for a matching
+ * F-curve first. Drivers are searched only if no valid action F-curve could be found.
+ *
+ * \note Return pointer parameter (`r_driven`) is optional and may be NULL.
+ *
+ * \warning In case no animation (from an Action) F-curve is found, returned value is always NULL.
+ * This means that this function will set `r_driven` to True in case a valid driver F-curve is
+ * found, but will not return said F-curve. In other words:
+ * - Animated with FCurve: returns the `FCurve*` and `*r_driven = false`.
+ * - Animated with driver: returns `NULL` and `*r_driven = true`.
+ * - Not animated: returns `NULL` and `*r_driven = false`.
  */
 struct FCurve *id_data_find_fcurve(
     ID *id, void *data, struct StructRNA *type, const char *prop_name, int index, bool *r_driven);
@@ -279,6 +291,25 @@ struct FCurve *id_data_find_fcurve(
 int BKE_fcurves_filter(ListBase *dst, ListBase *src, const char *dataPrefix, const char *dataName);
 
 /**
+ * Find an F-Curve from its rna path and index.
+ *
+ * If there is an action assigned to the `animdata`, it will be searched for a matching F-curve
+ * first. Drivers are searched only if no valid action F-curve could be found.
+ *
+ * \note Typically, indices in RNA arrays are stored separately in F-curves, so the rna_path
+ * should not include them (e.g. `rna_path='location[0]'` will not match any F-Curve on an Object,
+ * but `rna_path='location', rna_index=0` will if it exists).
+ *
+ * \note Return pointer parameters (`r_action`, `r_driven` and `r_special`) are all optional and
+ * may be NULL.
+ */
+struct FCurve *BKE_animadata_fcurve_find_by_rna_path(struct AnimData *animdata,
+                                                     const char *rna_path,
+                                                     const int rna_index,
+                                                     struct bAction **r_action,
+                                                     bool *r_driven);
+
+/**
  * Find an f-curve based on an rna property.
  */
 struct FCurve *BKE_fcurve_find_by_rna(struct PointerRNA *ptr,
@@ -291,6 +322,9 @@ struct FCurve *BKE_fcurve_find_by_rna(struct PointerRNA *ptr,
 /**
  * Same as above, but takes a context data,
  * temp hack needed for complex paths like texture ones.
+ *
+ * \param r_special: Optional, ignored when NULL. Set to `true` if the given RNA `ptr` is a NLA
+ * strip, and the returned F-curve comes from this NLA strip.
  */
 struct FCurve *BKE_fcurve_find_by_rna_context_ui(struct bContext *C,
                                                  const struct PointerRNA *ptr,
@@ -335,12 +369,12 @@ int BKE_fcurve_pathcache_find_array(struct FCurvePathCache *fcache,
  * Calculate the extents of F-Curve's keyframes.
  */
 bool BKE_fcurve_calc_range(
-    struct FCurve *fcu, float *min, float *max, bool do_sel_only, bool do_min_length);
+    const struct FCurve *fcu, float *min, float *max, bool do_sel_only, bool do_min_length);
 
 /**
  * Calculate the extents of F-Curve's data.
  */
-bool BKE_fcurve_calc_bounds(struct FCurve *fcu,
+bool BKE_fcurve_calc_bounds(const struct FCurve *fcu,
                             float *xmin,
                             float *xmax,
                             float *ymin,
@@ -387,20 +421,25 @@ void BKE_fcurve_keyframe_move_value_with_handles(struct BezTriple *keyframe, flo
  * Usability of keyframes refers to whether they should be displayed,
  * and also whether they will have any influence on the final result.
  */
-bool BKE_fcurve_are_keyframes_usable(struct FCurve *fcu);
+bool BKE_fcurve_are_keyframes_usable(const struct FCurve *fcu);
 
 /**
  * Can keyframes be added to F-Curve?
  * Keyframes can only be added if they are already visible.
  */
-bool BKE_fcurve_is_keyframable(struct FCurve *fcu);
-bool BKE_fcurve_is_protected(struct FCurve *fcu);
+bool BKE_fcurve_is_keyframable(const struct FCurve *fcu);
+bool BKE_fcurve_is_protected(const struct FCurve *fcu);
+
+/**
+ * Are any of the keyframe control points selected on the F-Curve?
+ */
+bool BKE_fcurve_has_selected_control_points(const struct FCurve *fcu);
 
 /**
  * Checks if the F-Curve has a Cycles modifier with simple settings
  * that warrant transition smoothing.
  */
-bool BKE_fcurve_is_cyclic(struct FCurve *fcu);
+bool BKE_fcurve_is_cyclic(const struct FCurve *fcu);
 
 /* Type of infinite cycle for a curve. */
 typedef enum eFCU_Cycle_Type {
@@ -414,7 +453,7 @@ typedef enum eFCU_Cycle_Type {
 /**
  * Checks if the F-Curve has a Cycles modifier, and returns the type of the cycle behavior.
  */
-eFCU_Cycle_Type BKE_fcurve_get_cycle_type(struct FCurve *fcu);
+eFCU_Cycle_Type BKE_fcurve_get_cycle_type(const struct FCurve *fcu);
 
 /**
  * Recompute bezier handles of all three given BezTriples, so that `bezt` can be inserted between
@@ -429,23 +468,39 @@ bool BKE_fcurve_bezt_subdivide_handles(struct BezTriple *bezt,
                                        struct BezTriple *next,
                                        float *r_pdelta);
 
+/**
+ * Delete a keyframe from an F-curve at a specific index.
+ */
+void BKE_fcurve_delete_key(struct FCurve *fcu, int index);
+
+/**
+ * Delete selected keyframes from an F-curve.
+ */
+bool BKE_fcurve_delete_keys_selected(struct FCurve *fcu);
+
+/**
+ * Delete all keyframes from an F-curve.
+ */
+void BKE_fcurve_delete_keys_all(struct FCurve *fcu);
+
 /* -------- Curve Sanity -------- */
 
 /**
  * This function recalculates the handles of an F-Curve. Acts based on selection with `SELECT`
- * flag. To use a different flag, use #calchandles_fcurve_ex().
+ * flag. To use a different flag, use #BKE_fcurve_handles_recalc_ex().
  *
  * If the BezTriples have been rearranged, sort them first before using this.
  */
-void calchandles_fcurve(struct FCurve *fcu);
+void BKE_fcurve_handles_recalc(struct FCurve *fcu);
 /**
- * Variant of #calchandles_fcurve() that allows calculating based on a different select flag.
+ * Variant of #BKE_fcurve_handles_recalc() that allows calculating based on a different select
+ * flag.
  *
  * \param handle_sel_flag: The flag (bezt.f1/2/3) value to use to determine selection.
  * Usually `SELECT`, but may want to use a different one at times
  * (if caller does not operate on selection).
  */
-void calchandles_fcurve_ex(struct FCurve *fcu, eBezTriple_Flag handle_sel_flag);
+void BKE_fcurve_handles_recalc_ex(struct FCurve *fcu, eBezTriple_Flag handle_sel_flag);
 /**
  * Update handles, making sure the handle-types are valid (e.g. correctly deduced from an "Auto"
  * type), and recalculating their position vectors.
@@ -489,7 +544,7 @@ float evaluate_fcurve_driver(struct PathResolvedRNA *anim_rna,
 /**
  * Checks if the curve has valid keys, drivers or modifiers that produce an actual curve.
  */
-bool BKE_fcurve_is_empty(struct FCurve *fcu);
+bool BKE_fcurve_is_empty(const struct FCurve *fcu);
 /**
  * Calculate the value of the given F-Curve at the given frame,
  * and store it's value in #FCurve.curval.

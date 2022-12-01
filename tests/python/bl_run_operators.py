@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 # semi-useful script, runs all operators in a number of different
 # contexts, cheap way to find misc small bugs but is in no way a complete test.
 #
@@ -85,7 +83,7 @@ op_blacklist = (
     "object.voxel_remesh",
     "mesh.paint_mask_slice",
     "paint.mask_flood_fill",
-    "sculpt.dirty_mask",
+    "sculpt.mask_from_cavity",
     # TODO: use empty temp dir to avoid behavior depending on local setup.
     "view3d.pastebuffer",
     # Needs active window.
@@ -319,7 +317,6 @@ def ctx_editmode_mesh_extra():
     bpy.ops.object.shape_key_add(from_mix=False)
     bpy.ops.object.shape_key_add(from_mix=True)
     bpy.ops.mesh.uv_texture_add()
-    bpy.ops.mesh.vertex_color_add()
     bpy.ops.object.material_slot_add()
     # editmode last!
     bpy.ops.object.mode_set(mode='EDIT')

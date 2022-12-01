@@ -1,8 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 import bpy
 from bpy.types import Header, Menu, Panel
+
+from bpy.app.translations import (
+    pgettext_iface as iface_,
+    contexts as i18n_contexts,
+)
 
 
 class TOPBAR_HT_upper_bar(Header):
@@ -269,7 +272,7 @@ class TOPBAR_MT_file(Menu):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_AREA'
-        layout.menu("TOPBAR_MT_file_new", text="New", icon='FILE_NEW')
+        layout.menu("TOPBAR_MT_file_new", text="New", text_ctxt=i18n_contexts.id_windowmanager, icon='FILE_NEW')
         layout.operator("wm.open_mainfile", text="Open...", icon='FILE_FOLDER')
         layout.menu("TOPBAR_MT_file_open_recent")
         layout.operator("wm.revert_mainfile")
@@ -365,7 +368,7 @@ class TOPBAR_MT_file_new(Menu):
         for d in paths:
             props = layout.operator(
                 "wm.read_homefile",
-                text=bpy.path.display_name(d),
+                text=bpy.path.display_name(iface_(d)),
                 icon=icon,
             )
             props.app_template = d
@@ -404,13 +407,25 @@ class TOPBAR_MT_file_defaults(Menu):
             app_template = None
 
         if app_template:
-            layout.label(text=bpy.path.display_name(
-                app_template, has_ext=False))
+            layout.label(
+                text=iface_(bpy.path.display_name(app_template, has_ext=False),
+                            i18n_contexts.id_workspace), translate=False)
 
         layout.operator("wm.save_homefile")
-        props = layout.operator("wm.read_factory_settings")
         if app_template:
+            display_name = bpy.path.display_name(iface_(app_template))
+            props = layout.operator("wm.read_factory_settings",
+                                    text="Load Factory Blender Settings")
             props.app_template = app_template
+            props = layout.operator("wm.read_factory_settings",
+                                    text=iface_("Load Factory %s Settings",
+                                                i18n_contexts.operator_default) % display_name,
+                                    translate=False)
+            props.app_template = app_template
+            props.use_factory_startup_app_template_only = True
+            del display_name
+        else:
+            layout.operator("wm.read_factory_settings")
 
 
 # Include technical operators here which would otherwise have no way for users to access.
@@ -455,8 +470,13 @@ class TOPBAR_MT_file_import(Menu):
             self.layout.operator(
                 "wm.usd_import", text="Universal Scene Description (.usd, .usdc, .usda)")
 
-        self.layout.operator("wm.gpencil_import_svg", text="SVG as Grease Pencil")
-        self.layout.operator("wm.obj_import", text="Wavefront (.obj) (experimental)")
+        if bpy.app.build_options.io_gpencil:
+            self.layout.operator("wm.gpencil_import_svg", text="SVG as Grease Pencil")
+
+        if bpy.app.build_options.io_wavefront_obj:
+            self.layout.operator("wm.obj_import", text="Wavefront (.obj)")
+        if bpy.app.build_options.io_stl:
+            self.layout.operator("wm.stl_import", text="STL (.stl) (experimental)")
 
 
 class TOPBAR_MT_file_export(Menu):
@@ -473,14 +493,16 @@ class TOPBAR_MT_file_export(Menu):
             self.layout.operator(
                 "wm.usd_export", text="Universal Scene Description (.usd, .usdc, .usda)")
 
-        # Pugixml lib dependency
-        if bpy.app.build_options.pugixml:
-            self.layout.operator("wm.gpencil_export_svg", text="Grease Pencil as SVG")
-        # Haru lib dependency
-        if bpy.app.build_options.haru:
-            self.layout.operator("wm.gpencil_export_pdf", text="Grease Pencil as PDF")
+        if bpy.app.build_options.io_gpencil:
+            # Pugixml lib dependency
+            if bpy.app.build_options.pugixml:
+                self.layout.operator("wm.gpencil_export_svg", text="Grease Pencil as SVG")
+            # Haru lib dependency
+            if bpy.app.build_options.haru:
+                self.layout.operator("wm.gpencil_export_pdf", text="Grease Pencil as PDF")
 
-        self.layout.operator("wm.obj_export", text="Wavefront (.obj) (experimental)")
+        if bpy.app.build_options.io_wavefront_obj:
+            self.layout.operator("wm.obj_export", text="Wavefront (.obj)")
 
 
 class TOPBAR_MT_file_external_data(Menu):
@@ -717,7 +739,7 @@ class TOPBAR_MT_file_context_menu(Menu):
         layout = self.layout
 
         layout.operator_context = 'INVOKE_AREA'
-        layout.menu("TOPBAR_MT_file_new", text="New", icon='FILE_NEW')
+        layout.menu("TOPBAR_MT_file_new", text="New", text_ctxt=i18n_contexts.id_windowmanager, icon='FILE_NEW')
         layout.operator("wm.open_mainfile", text="Open...", icon='FILE_FOLDER')
 
         layout.separator()

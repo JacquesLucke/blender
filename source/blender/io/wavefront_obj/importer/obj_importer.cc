@@ -9,6 +9,7 @@
 #include "BLI_map.hh"
 #include "BLI_math_vec_types.hh"
 #include "BLI_set.hh"
+#include "BLI_sort.hh"
 #include "BLI_string_ref.hh"
 
 #include "BKE_layer.h"
@@ -18,6 +19,7 @@
 
 #include "DNA_collection_types.h"
 
+#include "obj_export_mtl.hh"
 #include "obj_import_file_reader.hh"
 #include "obj_import_mesh.hh"
 #include "obj_import_nurbs.hh"
@@ -38,11 +40,16 @@ static void geometry_to_blender_objects(Main *bmain,
                                         Map<std::string, std::unique_ptr<MTLMaterial>> &materials,
                                         Map<std::string, Material *> &created_materials)
 {
-  BKE_view_layer_base_deselect_all(view_layer);
   LayerCollection *lc = BKE_layer_collection_get_active(view_layer);
 
-  /* Don't do collection syncs for each object, will do once after the loop. */
-  BKE_layer_collection_resync_forbid();
+  /* Sort objects by name: creating many objects is much faster if the creation
+   * order is sorted by name. */
+  blender::parallel_sort(
+      all_geometries.begin(), all_geometries.end(), [](const auto &a, const auto &b) {
+        const char *na = a ? a->geometry_name_.c_str() : "";
+        const char *nb = b ? b->geometry_name_.c_str() : "";
+        return BLI_strcasecmp(na, nb) < 0;
+      });
 
   /* Create all the objects. */
   Vector<Object *> objects;
@@ -63,11 +70,8 @@ static void geometry_to_blender_objects(Main *bmain,
     }
   }
 
-  /* Sync the collection after all objects are created. */
-  BKE_layer_collection_resync_allow();
-  BKE_main_collection_sync(bmain);
-
-  /* After collection sync, select objects in the view layer and do DEG updates. */
+  /* Do object selections in a separate loop (allows just one view layer sync). */
+  BKE_view_layer_synced_ensure(scene, view_layer);
   for (Object *obj : objects) {
     Base *base = BKE_view_layer_base_find(view_layer, obj);
     BKE_view_layer_base_select_and_set_active(view_layer, base);
@@ -112,6 +116,9 @@ void importer_main(Main *bmain,
     mtl_parser.parse_and_store(materials);
   }
 
+  if (import_params.clear_selection) {
+    BKE_view_layer_base_deselect_all(scene, view_layer);
+  }
   geometry_to_blender_objects(bmain,
                               scene,
                               view_layer,

@@ -272,17 +272,12 @@ void ImageMetaData::detect_colorspace()
     compress_as_srgb = true;
   }
   else {
-    /* Always compress non-raw 8bit images as scene linear + sRGB, as a
-     * heuristic to keep memory usage the same without too much data loss
-     * due to quantization in common cases. */
-    compress_as_srgb = (type == IMAGE_DATA_TYPE_BYTE || type == IMAGE_DATA_TYPE_BYTE4);
-
     /* If colorspace conversion needed, use half instead of short so we can
      * represent HDR values that might result from conversion. */
-    if (type == IMAGE_DATA_TYPE_USHORT) {
+    if (type == IMAGE_DATA_TYPE_BYTE || type == IMAGE_DATA_TYPE_USHORT) {
       type = IMAGE_DATA_TYPE_HALF;
     }
-    else if (type == IMAGE_DATA_TYPE_USHORT4) {
+    else if (type == IMAGE_DATA_TYPE_BYTE4 || type == IMAGE_DATA_TYPE_USHORT4) {
       type = IMAGE_DATA_TYPE_HALF4;
     }
   }
@@ -658,8 +653,8 @@ bool ImageManager::file_load_image(Image *img, int texture_limit)
     while (max_size * scale_factor > texture_limit) {
       scale_factor *= 0.5f;
     }
-    VLOG(1) << "Scaling image " << img->loader->name() << " by a factor of " << scale_factor
-            << ".";
+    VLOG_WORK << "Scaling image " << img->loader->name() << " by a factor of " << scale_factor
+              << ".";
     vector<StorageType> scaled_pixels;
     size_t scaled_width, scaled_height, scaled_depth;
     util_image_resize_pixels(pixels_storage,
@@ -702,7 +697,7 @@ void ImageManager::device_load_image(Device *device, Scene *scene, int slot, Pro
   ImageDataType type = img->metadata.type;
 
   /* Name for debugging. */
-  img->mem_name = string_printf("__tex_image_%s_%03d", name_from_type(type), slot);
+  img->mem_name = string_printf("tex_image_%s_%03d", name_from_type(type), slot);
 
   /* Free previous texture in slot. */
   if (img->mem) {

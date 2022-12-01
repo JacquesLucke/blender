@@ -15,6 +15,13 @@ struct CacheReader;
 struct Object;
 struct bContext;
 
+/* Behavior when the name of an imported material
+ * conflicts with an existing material. */
+typedef enum eUSDMtlNameCollisionMode {
+  USD_MTL_NAME_COLLISION_MAKE_UNIQUE = 0,
+  USD_MTL_NAME_COLLISION_REFERENCE_EXISTING = 1,
+} eUSDMtlNameCollisionMode;
+
 struct USDExportParams {
   bool export_animation;
   bool export_hair;
@@ -45,7 +52,7 @@ struct USDImportParams {
   bool import_materials;
   bool import_meshes;
   bool import_volumes;
-  char *prim_path_mask;
+  char prim_path_mask[1024];
   bool import_subdiv;
   bool import_instance_proxies;
   bool create_collection;
@@ -57,6 +64,7 @@ struct USDImportParams {
   bool import_usd_preview;
   bool set_material_blend;
   float light_intensity_scale;
+  eUSDMtlNameCollisionMode mtl_name_collision_mode;
 };
 
 /* The USD_export takes a as_background_job parameter, and returns a boolean.

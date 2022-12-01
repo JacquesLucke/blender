@@ -93,9 +93,9 @@ static void move_geom_draw(const wmGizmo *gz,
 #else
   const int draw_style = RNA_enum_get(gz->ptr, "draw_style");
   const bool filled = (draw_style != ED_GIZMO_MOVE_STYLE_CROSS_2D) &&
-                      ((draw_options & (select ? (ED_GIZMO_MOVE_DRAW_FLAG_FILL |
-                                                  ED_GIZMO_MOVE_DRAW_FLAG_FILL_SELECT) :
-                                                 ED_GIZMO_MOVE_DRAW_FLAG_FILL)));
+                      (draw_options & (select ? (ED_GIZMO_MOVE_DRAW_FLAG_FILL |
+                                                 ED_GIZMO_MOVE_DRAW_FLAG_FILL_SELECT) :
+                                                ED_GIZMO_MOVE_DRAW_FLAG_FILL));
 
   GPUVertFormat *format = immVertexFormat();
   /* NOTE(Metal): Prefer using 3D coordinates with 3D shader, even if rendering 2D gizmo's. */
@@ -278,12 +278,13 @@ static int gizmo_move_modal(bContext *C,
               CTX_data_ensure_evaluated_depsgraph(C),
               region,
               CTX_wm_view3d(C),
-              (SCE_SNAP_MODE_VERTEX | SCE_SNAP_MODE_EDGE | SCE_SNAP_MODE_FACE),
+              (SCE_SNAP_MODE_VERTEX | SCE_SNAP_MODE_EDGE | SCE_SNAP_MODE_FACE_RAYCAST),
               &(const struct SnapObjectParams){
-                  .snap_select = SNAP_ALL,
+                  .snap_target_select = SCE_SNAP_TARGET_ALL,
                   .edit_mode_type = SNAP_GEOM_EDIT,
                   .use_occlusion_test = true,
               },
+              NULL,
               mval_fl,
               NULL,
               &dist_px,

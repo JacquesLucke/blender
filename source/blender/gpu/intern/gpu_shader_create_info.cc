@@ -19,7 +19,6 @@
 #include "gpu_shader_create_info.hh"
 #include "gpu_shader_create_info_private.hh"
 #include "gpu_shader_dependency_private.h"
-#include "gpu_shader_private.hh"
 
 #undef GPU_SHADER_INTERFACE_INFO
 #undef GPU_SHADER_CREATE_INFO
@@ -69,7 +68,9 @@ void ShaderCreateInfo::finalize()
     if (info.early_fragment_test_) {
       early_fragment_test_ = true;
     }
-    if (info.depth_write_ != DepthWrite::ANY) {
+    /* Override depth-write with additional info if this specifies a writing mode
+     * other than the default. */
+    if (info.depth_write_ != DepthWrite::UNCHANGED) {
       depth_write_ = info.depth_write_;
     }
 
@@ -155,13 +156,13 @@ std::string ShaderCreateInfo::check_error() const
   }
   else {
     if (!this->vertex_source_.is_empty()) {
-      error += "Compute shader has vertex_source_ shader attached in" + this->name_ + ".\n";
+      error += "Compute shader has vertex_source_ shader attached in " + this->name_ + ".\n";
     }
     if (!this->geometry_source_.is_empty()) {
-      error += "Compute shader has geometry_source_ shader attached in" + this->name_ + ".\n";
+      error += "Compute shader has geometry_source_ shader attached in " + this->name_ + ".\n";
     }
     if (!this->fragment_source_.is_empty()) {
-      error += "Compute shader has fragment_source_ shader attached in" + this->name_ + ".\n";
+      error += "Compute shader has fragment_source_ shader attached in " + this->name_ + ".\n";
     }
   }
 
@@ -285,6 +286,7 @@ void gpu_shader_create_info_init()
   _info
 
 /* Declare, register and construct the infos. */
+#include "compositor_shader_create_info_list.hh"
 #include "gpu_shader_create_info_list.hh"
 
 /* Baked shader data appended to create infos. */
@@ -301,12 +303,50 @@ void gpu_shader_create_info_init()
     draw_modelmat = draw_modelmat_legacy;
   }
 
+  /* WORKAROUND: Replace the use of gpu_BaseInstance by an instance attribute. */
+  if (GPU_shader_draw_parameters_support() == false) {
+    draw_resource_id_new = draw_resource_id_fallback;
+  }
+
+  /* Metal-specific alternatives for Geometry shaders. */
+  if (GPU_type_matches_ex(GPU_DEVICE_ANY, GPU_OS_MAC, GPU_DRIVER_ANY, GPU_BACKEND_METAL)) {
+
+    /* 3D polyline. */
+    gpu_shader_3D_polyline_uniform_color = gpu_shader_3D_polyline_uniform_color_no_geom;
+    gpu_shader_3D_polyline_flat_color = gpu_shader_3D_polyline_flat_color_no_geom;
+    gpu_shader_3D_polyline_smooth_color = gpu_shader_3D_polyline_smooth_color_no_geom;
+    gpu_shader_3D_polyline_uniform_color_clipped =
+        gpu_shader_3D_polyline_uniform_color_clipped_no_geom;
+
+    /* Overlay Edit Mesh. */
+    overlay_edit_mesh_edge = overlay_edit_mesh_edge_no_geom;
+    overlay_edit_mesh_edge_flat = overlay_edit_mesh_edge_flat_no_geom;
+    overlay_edit_mesh_edge_clipped = overlay_edit_mesh_edge_clipped_no_geom;
+    overlay_edit_mesh_edge_flat_clipped = overlay_edit_mesh_edge_flat_clipped_no_geom;
+
+    /* Overlay Armature Shape outline. */
+    overlay_armature_shape_outline = overlay_armature_shape_outline_no_geom;
+    overlay_armature_shape_outline_clipped = overlay_armature_shape_outline_clipped_no_geom;
+
+    /* Overlay Motion Path Line. */
+    overlay_motion_path_line = overlay_motion_path_line_no_geom;
+    overlay_motion_path_line_clipped = overlay_motion_path_line_clipped_no_geom;
+  }
+
   for (ShaderCreateInfo *info : g_create_infos->values()) {
     if (info->do_static_compilation_) {
       info->builtins_ |= gpu_shader_dependency_get_builtins(info->vertex_source_);
       info->builtins_ |= gpu_shader_dependency_get_builtins(info->fragment_source_);
       info->builtins_ |= gpu_shader_dependency_get_builtins(info->geometry_source_);
       info->builtins_ |= gpu_shader_dependency_get_builtins(info->compute_source_);
+
+      /* Automatically amend the create info for ease of use of the debug feature. */
+      if ((info->builtins_ & BuiltinBits::USE_DEBUG_DRAW) == BuiltinBits::USE_DEBUG_DRAW) {
+        info->additional_info("draw_debug_draw");
+      }
+      if ((info->builtins_ & BuiltinBits::USE_DEBUG_PRINT) == BuiltinBits::USE_DEBUG_PRINT) {
+        info->additional_info("draw_debug_print");
+      }
     }
   }
 
@@ -334,8 +374,11 @@ bool gpu_shader_create_info_compile_all()
   int skipped = 0;
   int total = 0;
   for (ShaderCreateInfo *info : g_create_infos->values()) {
+    info->finalize();
     if (info->do_static_compilation_) {
-      if (GPU_compute_shader_support() == false && info->compute_source_ != nullptr) {
+      if ((GPU_compute_shader_support() == false && info->compute_source_ != nullptr) ||
+          (GPU_shader_image_load_store_support() == false && info->has_resource_image()) ||
+          (GPU_shader_storage_buffer_objects_support() == false && info->has_resource_storage())) {
         skipped++;
         continue;
       }

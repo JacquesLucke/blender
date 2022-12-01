@@ -20,7 +20,7 @@ static void node_declare(NodeDeclarationBuilder &b)
 
 static int node_shader_gpu_geometry(GPUMaterial *mat,
                                     bNode *node,
-                                    bNodeExecData *UNUSED(execdata),
+                                    bNodeExecData * /*execdata*/,
                                     GPUNodeStack *in,
                                     GPUNodeStack *out)
 {
@@ -29,10 +29,9 @@ static int node_shader_gpu_geometry(GPUMaterial *mat,
   if (out[5].hasoutput) {
     GPU_material_flag_set(mat, GPU_MATFLAG_BARYCENTRIC);
   }
-  /* Opti: don't request orco if not needed. */
+  /* Optimization: don't request orco if not needed. */
   const float val[4] = {0.0f, 0.0f, 0.0f, 0.0f};
-  GPUNodeLink *orco_link = (!out[2].hasoutput) ? GPU_constant(val) :
-                                                 GPU_attribute(mat, CD_ORCO, "");
+  GPUNodeLink *orco_link = out[2].hasoutput ? GPU_attribute(mat, CD_ORCO, "") : GPU_constant(val);
 
   const bool success = GPU_stack_link(mat, node, "node_geometry", in, out, orco_link);
 
@@ -69,7 +68,7 @@ void register_node_type_sh_geometry()
 
   sh_node_type_base(&ntype, SH_NODE_NEW_GEOMETRY, "Geometry", NODE_CLASS_INPUT);
   ntype.declare = file_ns::node_declare;
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_geometry);
+  ntype.gpu_fn = file_ns::node_shader_gpu_geometry;
 
   nodeRegisterType(&ntype);
 }

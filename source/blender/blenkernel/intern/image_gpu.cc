@@ -138,6 +138,8 @@ static GPUTexture *gpu_texture_create_tile_array(Image *ima, ImBuf *main_ibuf)
   int arraywidth = 0, arrayheight = 0;
   ListBase boxes = {nullptr};
 
+  int planes = 0;
+
   LISTBASE_FOREACH (ImageTile *, tile, &ima->tiles) {
     ImageUser iuser;
     BKE_imageuser_default(&iuser);
@@ -164,6 +166,7 @@ static GPUTexture *gpu_texture_create_tile_array(Image *ima, ImBuf *main_ibuf)
 
       BKE_image_release_ibuf(ima, ibuf, nullptr);
       BLI_addtail(&boxes, packtile);
+      planes = max_ii(planes, ibuf->planes);
     }
   }
 
@@ -195,9 +198,15 @@ static GPUTexture *gpu_texture_create_tile_array(Image *ima, ImBuf *main_ibuf)
   }
 
   const bool use_high_bitdepth = (ima->flag & IMA_HIGH_BITDEPTH);
+  const bool use_grayscale = planes <= 8;
   /* Create Texture without content. */
-  GPUTexture *tex = IMB_touch_gpu_texture(
-      ima->id.name + 2, main_ibuf, arraywidth, arrayheight, arraylayers, use_high_bitdepth);
+  GPUTexture *tex = IMB_touch_gpu_texture(ima->id.name + 2,
+                                          main_ibuf,
+                                          arraywidth,
+                                          arrayheight,
+                                          arraylayers,
+                                          use_high_bitdepth,
+                                          use_grayscale);
 
   /* Upload each tile one by one. */
   LISTBASE_FOREACH (ImageTile *, tile, &ima->tiles) {
@@ -223,6 +232,7 @@ static GPUTexture *gpu_texture_create_tile_array(Image *ima, ImBuf *main_ibuf)
                                  tilelayer,
                                  UNPACK2(tilesize),
                                  use_high_bitdepth,
+                                 use_grayscale,
                                  store_premultiplied);
     }
 
@@ -541,7 +551,7 @@ void BKE_image_free_anim_gputextures(Main *bmain)
 void BKE_image_free_old_gputextures(Main *bmain)
 {
   static int lasttime = 0;
-  int ctime = (int)PIL_check_seconds_timer();
+  int ctime = int(PIL_check_seconds_timer());
 
   /*
    * Run garbage collector once for every collecting period of time
@@ -592,8 +602,8 @@ static ImBuf *update_do_scale(uchar *rect,
                               int full_h)
 {
   /* Partial update with scaling. */
-  float xratio = limit_w / (float)full_w;
-  float yratio = limit_h / (float)full_h;
+  float xratio = limit_w / float(full_w);
+  float yratio = limit_h / float(full_h);
 
   int part_w = *w, part_h = *h;
 
@@ -601,8 +611,8 @@ static ImBuf *update_do_scale(uchar *rect,
    * losing 1 pixel due to rounding errors in x,y. */
   *x *= xratio;
   *y *= yratio;
-  *w = (int)ceil(xratio * (*w));
-  *h = (int)ceil(yratio * (*h));
+  *w = int(ceil(xratio * (*w)));
+  *h = int(ceil(yratio * (*h)));
 
   /* ...but take back if we are over the limit! */
   if (*x + *w > limit_w) {
@@ -718,12 +728,31 @@ static void gpu_texture_update_from_ibuf(
   int tex_offset = ibuf->channels * (y * ibuf->x + x);
 
   const bool store_premultiplied = BKE_image_has_gpu_texture_premultiplied_alpha(ima, ibuf);
-  if (rect_float == nullptr) {
-    /* Byte pixels. */
-    if (!IMB_colormanagement_space_is_data(ibuf->rect_colorspace)) {
-      const bool compress_as_srgb = !IMB_colormanagement_space_is_scene_linear(
-          ibuf->rect_colorspace);
+  if (rect_float) {
+    /* Float image is already in scene linear colorspace or non-color data by
+     * convention, no colorspace conversion needed. But we do require 4 channels
+     * currently. */
+    if (ibuf->channels != 4 || scaled || !store_premultiplied) {
+      rect_float = (float *)MEM_mallocN(sizeof(float[4]) * w * h, __func__);
+      if (rect_float == nullptr) {
+        return;
+      }
 
+      tex_stride = w;
+      tex_offset = 0;
+
+      IMB_colormanagement_imbuf_to_float_texture(
+          rect_float, x, y, w, h, ibuf, store_premultiplied);
+    }
+  }
+  else {
+    /* Byte image is in original colorspace from the file, and may need conversion. */
+    if (IMB_colormanagement_space_is_data(ibuf->rect_colorspace)) {
+      /* Non-color data, just store buffer as is. */
+    }
+    else if (IMB_colormanagement_space_is_srgb(ibuf->rect_colorspace) ||
+             IMB_colormanagement_space_is_scene_linear(ibuf->rect_colorspace)) {
+      /* sRGB or scene linear, store as byte texture that the GPU can decode directly. */
       rect = (uchar *)MEM_mallocN(sizeof(uchar[4]) * w * h, __func__);
       if (rect == nullptr) {
         return;
@@ -734,13 +763,10 @@ static void gpu_texture_update_from_ibuf(
 
       /* Convert to scene linear with sRGB compression, and premultiplied for
        * correct texture interpolation. */
-      IMB_colormanagement_imbuf_to_byte_texture(
-          rect, x, y, w, h, ibuf, compress_as_srgb, store_premultiplied);
+      IMB_colormanagement_imbuf_to_byte_texture(rect, x, y, w, h, ibuf, store_premultiplied);
     }
-  }
-  else {
-    /* Float pixels. */
-    if (ibuf->channels != 4 || scaled || !store_premultiplied) {
+    else {
+      /* Other colorspace, store as float texture to avoid precision loss. */
       rect_float = (float *)MEM_mallocN(sizeof(float[4]) * w * h, __func__);
       if (rect_float == nullptr) {
         return;

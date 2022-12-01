@@ -29,7 +29,7 @@ class UniformBuf {
   /** Data size in bytes. */
   size_t size_in_bytes_;
   /** Continuous memory block to copy to GPU. This data is owned by the UniformBuf. */
-  void *data_ = NULL;
+  void *data_ = nullptr;
   /** Debugging name */
   char name_[DEBUG_NAME_LEN];
 
@@ -38,7 +38,9 @@ class UniformBuf {
   virtual ~UniformBuf();
 
   virtual void update(const void *data) = 0;
+  virtual void clear_to_zero() = 0;
   virtual void bind(int slot) = 0;
+  virtual void bind_as_ssbo(int slot) = 0;
   virtual void unbind() = 0;
 
   /** Used to defer data upload at drawing time.

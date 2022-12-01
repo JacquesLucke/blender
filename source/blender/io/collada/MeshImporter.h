@@ -24,6 +24,7 @@
 #include "collada_utils.h"
 
 #include "BLI_edgehash.h"
+#include "BLI_math_vec_types.hh"
 
 #include "DNA_material_types.h"
 #include "DNA_mesh_types.h"
@@ -63,6 +64,7 @@ class VCOLDataWrapper {
 class MeshImporter : public MeshImporterBase {
  private:
   UnitConverter *unitconverter;
+  bool use_custom_normals;
 
   Main *m_bmain;
   Scene *scene;
@@ -72,7 +74,7 @@ class MeshImporter : public MeshImporterBase {
 
   std::map<std::string, std::string> mesh_geom_map;       /* needed for correct shape key naming */
   std::map<COLLADAFW::UniqueId, Mesh *> uid_mesh_map;     /* geometry unique id-to-mesh map */
-  std::map<COLLADAFW::UniqueId, Object *> uid_object_map; /* geom uid-to-object */
+  std::map<COLLADAFW::UniqueId, Object *> uid_object_map; /* geom UID-to-object */
   std::vector<Object *> imported_objects;                 /* list of imported objects */
 
   /* this structure is used to assign material indices to polygons
@@ -80,13 +82,14 @@ class MeshImporter : public MeshImporterBase {
    * (<triangles>, <polylist>, etc.) */
   struct Primitive {
     MPoly *mpoly;
+    int *material_indices;
     unsigned int totpoly;
   };
   typedef std::map<COLLADAFW::MaterialId, std::vector<Primitive>> MaterialIdPrimitiveArrayMap;
   /* crazy name! */
   std::map<COLLADAFW::UniqueId, MaterialIdPrimitiveArrayMap> geom_uid_mat_mapping_map;
   /* < materials that have already been mapped to a geometry.
-   * A pair/of geom uid and mat uid, one geometry can have several materials */
+   * A pair/of geom UID and mat UID, one geometry can have several materials. */
   std::multimap<COLLADAFW::UniqueId, COLLADAFW::UniqueId> materials_mapped_to_geom;
 
   bool set_poly_indices(
@@ -155,7 +158,7 @@ class MeshImporter : public MeshImporterBase {
    *
    * TODO: import uv set names.
    */
-  void read_polys(COLLADAFW::Mesh *mesh, Mesh *me);
+  void read_polys(COLLADAFW::Mesh *mesh, Mesh *me, blender::Vector<blender::float3> &loop_normals);
   /**
    * Read all loose edges.
    * IMPORTANT: This function assumes that all edges from existing
@@ -178,6 +181,7 @@ class MeshImporter : public MeshImporterBase {
 
  public:
   MeshImporter(UnitConverter *unitconv,
+               bool use_custom_normals,
                ArmatureImporter *arm,
                Main *bmain,
                Scene *sce,
@@ -203,7 +207,6 @@ class MeshImporter : public MeshImporterBase {
    *         if the check is positive:
    *             Add the materials of the first user to the geometry
    *             adjust all other users accordingly.
-   *
    */
   void optimize_material_assignements();
 

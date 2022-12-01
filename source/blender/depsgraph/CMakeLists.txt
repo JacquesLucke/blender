@@ -26,6 +26,8 @@ set(SRC
   intern/builder/deg_builder.cc
   intern/builder/deg_builder_cache.cc
   intern/builder/deg_builder_cycle.cc
+  intern/builder/deg_builder_key.cc
+  intern/builder/deg_builder_key.h
   intern/builder/deg_builder_map.cc
   intern/builder/deg_builder_nodes.cc
   intern/builder/deg_builder_nodes_rig.cc
@@ -34,7 +36,6 @@ set(SRC
   intern/builder/deg_builder_pchanmap.cc
   intern/builder/deg_builder_relations.cc
   intern/builder/deg_builder_relations_drivers.cc
-  intern/builder/deg_builder_relations_keys.cc
   intern/builder/deg_builder_relations_rig.cc
   intern/builder/deg_builder_relations_scene.cc
   intern/builder/deg_builder_relations_view_layer.cc
@@ -67,6 +68,8 @@ set(SRC
   intern/eval/deg_eval_runtime_backup_sound.cc
   intern/eval/deg_eval_runtime_backup_volume.cc
   intern/eval/deg_eval_stats.cc
+  intern/eval/deg_eval_visibility.cc
+  intern/eval/deg_eval_visibility.h
   intern/node/deg_node.cc
   intern/node/deg_node_component.cc
   intern/node/deg_node_factory.cc

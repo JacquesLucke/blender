@@ -9,31 +9,12 @@
 #include "BKE_context.h"
 #include "BLI_path_util.h"
 #include "DEG_depsgraph.h"
+#include "IO_orientation.h"
 #include "IO_path_util_types.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-typedef enum {
-  OBJ_AXIS_X_UP = 0,
-  OBJ_AXIS_Y_UP = 1,
-  OBJ_AXIS_Z_UP = 2,
-  OBJ_AXIS_NEGATIVE_X_UP = 3,
-  OBJ_AXIS_NEGATIVE_Y_UP = 4,
-  OBJ_AXIS_NEGATIVE_Z_UP = 5,
-} eTransformAxisUp;
-
-typedef enum {
-  OBJ_AXIS_X_FORWARD = 0,
-  OBJ_AXIS_Y_FORWARD = 1,
-  OBJ_AXIS_Z_FORWARD = 2,
-  OBJ_AXIS_NEGATIVE_X_FORWARD = 3,
-  OBJ_AXIS_NEGATIVE_Y_FORWARD = 4,
-  OBJ_AXIS_NEGATIVE_Z_FORWARD = 5,
-} eTransformAxisForward;
-
-static const int TOTAL_AXES = 3;
 
 struct OBJExportParams {
   /** Full path to the destination .OBJ file. */
@@ -52,9 +33,9 @@ struct OBJExportParams {
   int end_frame;
 
   /* Geometry Transform options. */
-  eTransformAxisForward forward_axis;
-  eTransformAxisUp up_axis;
-  float scaling_factor;
+  eIOAxis forward_axis;
+  eIOAxis up_axis;
+  float global_scale;
 
   /* File Write Options. */
   bool export_selected_objects;
@@ -62,22 +43,20 @@ struct OBJExportParams {
   eEvaluationMode export_eval_mode;
   bool export_uv;
   bool export_normals;
+  bool export_colors;
   bool export_materials;
   bool export_triangulated_mesh;
   bool export_curves_as_nurbs;
   ePathReferenceMode path_mode;
+  bool export_pbr_extensions;
 
   /* Grouping options. */
   bool export_object_groups;
   bool export_material_groups;
   bool export_vertex_groups;
-  /**
-   * Calculate smooth groups from sharp edges.
-   */
+  /* Calculate smooth groups from sharp edges. */
   bool export_smooth_groups;
-  /**
-   * Create bitflags instead of the default "0"/"1" group IDs.
-   */
+  /* Create bitflags instead of the default "0"/"1" group IDs. */
   bool smooth_groups_bitflags;
 };
 
@@ -86,9 +65,13 @@ struct OBJImportParams {
   char filepath[FILE_MAX];
   /** Value 0 disables clamping. */
   float clamp_size;
-  eTransformAxisForward forward_axis;
-  eTransformAxisUp up_axis;
+  float global_scale;
+  eIOAxis forward_axis;
+  eIOAxis up_axis;
+  bool import_vertex_groups;
   bool validate_meshes;
+  bool relative_paths;
+  bool clear_selection;
 };
 
 /**

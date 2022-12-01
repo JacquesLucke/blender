@@ -218,7 +218,7 @@ static short ob_keyframes_loop(KeyframeEditData *ked,
   ac.datatype = ANIMCONT_CHANNEL;
 
   /* get F-Curves to take keyframes from */
-  filter = ANIMFILTER_DATA_VISIBLE; /* curves only */
+  filter = ANIMFILTER_DATA_VISIBLE | ANIMFILTER_FCURVESONLY;
   ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
 
   /* Loop through each F-Curve, applying the operation as required,
@@ -267,7 +267,7 @@ static short scene_keyframes_loop(KeyframeEditData *ked,
   ac.datatype = ANIMCONT_CHANNEL;
 
   /* get F-Curves to take keyframes from */
-  filter = ANIMFILTER_DATA_VISIBLE; /* curves only */
+  filter = ANIMFILTER_DATA_VISIBLE | ANIMFILTER_FCURVESONLY;
   ANIM_animdata_filter(&ac, &anim_data, filter, ac.data, ac.datatype);
 
   /* Loop through each F-Curve, applying the operation as required,
@@ -444,7 +444,7 @@ void ANIM_animdata_keyframe_callback(bAnimContext *ac,
   ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
 
   for (ale = anim_data.first; ale; ale = ale->next) {
-    ANIM_fcurve_keyframes_loop(NULL, ale->key_data, NULL, callback_fn, calchandles_fcurve);
+    ANIM_fcurve_keyframes_loop(NULL, ale->key_data, NULL, callback_fn, BKE_fcurve_handles_recalc);
     ale->update |= ANIM_UPDATE_DEFAULT;
   }
 
@@ -497,7 +497,7 @@ void ANIM_editkeyframes_refresh(bAnimContext *ac)
     if (ked && (ked->iterflags & KEYFRAME_ITER_INCL_HANDLES)) { \
       /* Only act on visible items, so check handle visibility state. */ \
       const bool handles_visible = ((ked->iterflags & KEYFRAME_ITER_HANDLES_DEFAULT_INVISIBLE) ? \
-                                        (BEZT_ISSEL_ANY(bezt)) : \
+                                        BEZT_ISSEL_ANY(bezt) : \
                                         true); \
       if (handles_visible) { \
         if (check(0)) { \
@@ -809,7 +809,7 @@ void bezt_remap_times(KeyframeEditData *ked, BezTriple *bezt)
 static short snap_bezier_nearest(KeyframeEditData *UNUSED(ked), BezTriple *bezt)
 {
   if (bezt->f2 & SELECT) {
-    bezt->vec[1][0] = (float)(floorf(bezt->vec[1][0] + 0.5f));
+    bezt->vec[1][0] = (float)floorf(bezt->vec[1][0] + 0.5f);
   }
   return 0;
 }
@@ -831,7 +831,7 @@ static short snap_bezier_cframe(KeyframeEditData *ked, BezTriple *bezt)
 {
   const Scene *scene = ked->scene;
   if (bezt->f2 & SELECT) {
-    bezt->vec[1][0] = (float)CFRA;
+    bezt->vec[1][0] = (float)scene->r.cfra;
   }
   return 0;
 }
@@ -929,7 +929,7 @@ static short mirror_bezier_cframe(KeyframeEditData *ked, BezTriple *bezt)
   const Scene *scene = ked->scene;
 
   if (bezt->f2 & SELECT) {
-    mirror_bezier_xaxis_ex(bezt, CFRA);
+    mirror_bezier_xaxis_ex(bezt, scene->r.cfra);
   }
 
   return 0;
@@ -1303,7 +1303,8 @@ void ANIM_fcurve_equalize_keyframes_loop(FCurve *fcu,
 
     /* Perform handle equalization if mode is 'Both' or 'Left'. */
     if (mode & EQUALIZE_HANDLES_LEFT) {
-      /*If left handle type is 'Auto', 'Auto Clamped', or 'Vector', convert handles to 'Aligned'.*/
+      /* If left handle type is 'Auto', 'Auto Clamped', or 'Vector', convert handles to 'Aligned'.
+       */
       if (ELEM(bezt->h1, HD_AUTO, HD_AUTO_ANIM, HD_VECT)) {
         bezt->h1 = HD_ALIGN;
         bezt->h2 = HD_ALIGN;
@@ -1319,8 +1320,8 @@ void ANIM_fcurve_equalize_keyframes_loop(FCurve *fcu,
 
     /* Perform handle equalization if mode is 'Both' or 'Right'. */
     if (mode & EQUALIZE_HANDLES_RIGHT) {
-      /*If right handle type is 'Auto', 'Auto Clamped', or 'Vector', convert handles to
-       * 'Aligned'.*/
+      /* If right handle type is 'Auto', 'Auto Clamped', or 'Vector', convert handles to
+       * 'Aligned'. */
       if (ELEM(bezt->h2, HD_AUTO, HD_AUTO_ANIM, HD_VECT)) {
         bezt->h1 = HD_ALIGN;
         bezt->h2 = HD_ALIGN;
@@ -1493,7 +1494,7 @@ static short select_bezier_add(KeyframeEditData *ked, BezTriple *bezt)
 {
   /* Only act on visible items, so check handle visibility state. */
   const bool handles_visible = ked && ((ked->iterflags & KEYFRAME_ITER_HANDLES_DEFAULT_INVISIBLE) ?
-                                           (BEZT_ISSEL_ANY(bezt)) :
+                                           BEZT_ISSEL_ANY(bezt) :
                                            true);
 
   /* if we've got info on what to select, use it, otherwise select all */
@@ -1519,7 +1520,7 @@ static short select_bezier_subtract(KeyframeEditData *ked, BezTriple *bezt)
 {
   /* Only act on visible items, so check handle visibility state. */
   const bool handles_visible = ked && ((ked->iterflags & KEYFRAME_ITER_HANDLES_DEFAULT_INVISIBLE) ?
-                                           (BEZT_ISSEL_ANY(bezt)) :
+                                           BEZT_ISSEL_ANY(bezt) :
                                            true);
 
   /* if we've got info on what to deselect, use it, otherwise deselect all */

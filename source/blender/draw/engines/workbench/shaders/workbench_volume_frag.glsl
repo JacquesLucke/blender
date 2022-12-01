@@ -30,7 +30,7 @@ vec4 sample_tricubic(sampler3D ima, vec3 co)
   vec3 f = co - tc;
   vec3 f2 = f * f;
   vec3 f3 = f2 * f;
-  /* Bspline coefs (optimized) */
+  /* Bspline coefficients (optimized). */
   vec3 w3 = f3 / 6.0;
   vec3 w0 = -w3 + f2 * 0.5 - f * 0.5 + 1.0 / 6.0;
   vec3 w1 = f3 * 0.5 - f2 + 2.0 / 3.0;
@@ -237,7 +237,7 @@ void main()
   fragColor = vec4(Lscat, Tr);
 #else
   vec2 screen_uv = gl_FragCoord.xy / vec2(textureSize(depthBuffer, 0).xy);
-  bool is_persp = ProjectionMatrix[3][3] == 0.0;
+  bool is_persp = drw_view.winmat[3][3] == 0.0;
 
   vec3 volume_center = ModelMatrix[3].xyz;
 

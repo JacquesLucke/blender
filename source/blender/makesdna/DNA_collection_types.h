@@ -36,14 +36,19 @@ enum eCollectionLineArt_Usage {
   COLLECTION_LRT_EXCLUDE = (1 << 1),
   COLLECTION_LRT_INTERSECTION_ONLY = (1 << 2),
   COLLECTION_LRT_NO_INTERSECTION = (1 << 3),
+  COLLECTION_LRT_FORCE_INTERSECTION = (1 << 4),
 };
 
 enum eCollectionLineArt_Flags {
   COLLECTION_LRT_USE_INTERSECTION_MASK = (1 << 0),
+  COLLECTION_LRT_USE_INTERSECTION_PRIORITY = (1 << 1),
 };
 
 typedef struct Collection {
   ID id;
+
+  /** The ID owning this node tree, in case it is an embedded one. */
+  ID *owner_id;
 
   /** CollectionObject. */
   ListBase gobject;
@@ -62,7 +67,8 @@ typedef struct Collection {
   short lineart_usage;         /* eCollectionLineArt_Usage */
   unsigned char lineart_flags; /* eCollectionLineArt_Flags */
   unsigned char lineart_intersection_mask;
-  char _pad[6];
+  unsigned char lineart_intersection_priority;
+  char _pad[5];
 
   int16_t color_tag;
 

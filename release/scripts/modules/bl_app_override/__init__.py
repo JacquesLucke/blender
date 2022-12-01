@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8-80 compliant>
-
 """
 Module to manage overriding various parts of Blender.
 
@@ -76,7 +74,7 @@ def ui_draw_filter_register(
                         if ui_test is None:
                             UILayout.__getattribute__(self, "label")(text="")
                         else:
-                            assert(ui_test is True)
+                            assert ui_test is True
                         # may need to be set
                         ret = OperatorProperties_Fake()
                     return ret
@@ -97,7 +95,7 @@ def ui_draw_filter_register(
                         if ui_test is None:
                             UILayout.__getattribute__(self, "label")(text="")
                         else:
-                            assert(ui_test is True)
+                            assert ui_test is True
                         ret = None
                     return ret
                 return dummy_func
@@ -117,7 +115,7 @@ def ui_draw_filter_register(
                         if ui_test is None:
                             UILayout.__getattribute__(self, "label")(text="")
                         else:
-                            assert(ui_test is True)
+                            assert ui_test is True
                         ret = None
                     return ret
                 return dummy_func
@@ -137,7 +135,7 @@ def ui_draw_filter_register(
                         if ui_test is None:
                             real_func(text="")
                         else:
-                            assert(ui_test is True)
+                            assert ui_test is True
                         ret = None
                     return ret
                 return dummy_func

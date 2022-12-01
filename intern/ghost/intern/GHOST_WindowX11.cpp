@@ -10,37 +10,36 @@
 #include <X11/Xmd.h>
 #include <X11/Xutil.h>
 #include <X11/cursorfont.h>
-#ifdef WITH_X11_ALPHA
-#  include <X11/extensions/Xrender.h>
-#endif
+
 #include "GHOST_Debug.h"
 #include "GHOST_IconX11.h"
 #include "GHOST_SystemX11.h"
+#include "GHOST_Types.h"
 #include "GHOST_WindowX11.h"
+#include "GHOST_utildefines.h"
 
 #ifdef WITH_XDND
 #  include "GHOST_DropTargetX11.h"
 #endif
 
-#ifdef WITH_GL_EGL
-#  include "GHOST_ContextEGL.h"
-#  include <EGL/eglext.h>
-#else
-#  include "GHOST_ContextGLX.h"
+#include "GHOST_ContextEGL.h"
+#include "GHOST_ContextGLX.h"
+#ifdef WITH_VULKAN_BACKEND
+#  include "GHOST_ContextVK.h"
 #endif
 
-/* for XIWarpPointer */
+/* For #XIWarpPointer. */
 #ifdef WITH_X11_XINPUT
 #  include <X11/extensions/XInput2.h>
 #endif
 
-// For DPI value
+/* For DPI value. */
 #include <X11/Xresource.h>
 
 #include <cstdio>
 #include <cstring>
 
-/* gethostname */
+/* For `gethostname`. */
 #include <unistd.h>
 
 #include <algorithm>
@@ -87,112 +86,13 @@ enum {
 #define _NET_WM_STATE_ADD 1
 // #define _NET_WM_STATE_TOGGLE 2 // UNUSED
 
-#ifdef WITH_GL_EGL
-
-static XVisualInfo *x11_visualinfo_from_egl(Display *display)
+static XVisualInfo *get_x11_visualinfo(Display *display)
 {
   int num_visuals;
   XVisualInfo vinfo_template;
   vinfo_template.screen = DefaultScreen(display);
   return XGetVisualInfo(display, VisualScreenMask, &vinfo_template, &num_visuals);
 }
-
-#else
-
-static XVisualInfo *x11_visualinfo_from_glx(Display *display,
-                                            bool stereoVisual,
-                                            bool needAlpha,
-                                            GLXFBConfig *fbconfig)
-{
-  int glx_major, glx_minor, glx_version; /* GLX version: major.minor */
-  int glx_attribs[64];
-
-  *fbconfig = nullptr;
-
-  /* Set up the minimum attributes that we require and see if
-   * X can find us a visual matching those requirements. */
-
-  if (!glXQueryVersion(display, &glx_major, &glx_minor)) {
-    fprintf(stderr,
-            "%s:%d: X11 glXQueryVersion() failed, "
-            "verify working openGL system!\n",
-            __FILE__,
-            __LINE__);
-
-    return nullptr;
-  }
-  glx_version = glx_major * 100 + glx_minor;
-#  ifndef WITH_X11_ALPHA
-  (void)glx_version;
-#  endif
-
-#  ifdef WITH_X11_ALPHA
-  if (needAlpha && glx_version >= 103 &&
-      (glXChooseFBConfig || (glXChooseFBConfig = (PFNGLXCHOOSEFBCONFIGPROC)glXGetProcAddressARB(
-                                 (const GLubyte *)"glXChooseFBConfig")) != nullptr) &&
-      (glXGetVisualFromFBConfig ||
-       (glXGetVisualFromFBConfig = (PFNGLXGETVISUALFROMFBCONFIGPROC)glXGetProcAddressARB(
-            (const GLubyte *)"glXGetVisualFromFBConfig")) != nullptr)) {
-
-    GHOST_X11_GL_GetAttributes(glx_attribs, 64, stereoVisual, needAlpha, true);
-
-    int nbfbconfig;
-    GLXFBConfig *fbconfigs = glXChooseFBConfig(
-        display, DefaultScreen(display), glx_attribs, &nbfbconfig);
-
-    /* Any sample level or even zero, which means oversampling disabled, is good
-     * but we need a valid visual to continue */
-    if (nbfbconfig > 0) {
-      /* take a frame buffer config that has alpha cap */
-      for (int i = 0; i < nbfbconfig; i++) {
-        XVisualInfo *visual = (XVisualInfo *)glXGetVisualFromFBConfig(display, fbconfigs[i]);
-        if (!visual)
-          continue;
-        /* if we don't need a alpha background, the first config will do, otherwise
-         * test the alphaMask as it won't necessarily be present */
-        if (needAlpha) {
-          XRenderPictFormat *pict_format = XRenderFindVisualFormat(display, visual->visual);
-          if (!pict_format)
-            continue;
-          if (pict_format->direct.alphaMask <= 0)
-            continue;
-        }
-
-        *fbconfig = fbconfigs[i];
-        XFree(fbconfigs);
-
-        return visual;
-      }
-
-      XFree(fbconfigs);
-    }
-  }
-  else
-#  endif
-  {
-    /* legacy, don't use extension */
-    GHOST_X11_GL_GetAttributes(glx_attribs, 64, stereoVisual, needAlpha, false);
-
-    XVisualInfo *visual = glXChooseVisual(display, DefaultScreen(display), glx_attribs);
-
-    /* Any sample level or even zero, which means oversampling disabled, is good
-     * but we need a valid visual to continue */
-    if (visual != nullptr) {
-      return visual;
-    }
-  }
-
-  /* All options exhausted, cannot continue */
-  fprintf(stderr,
-          "%s:%d: X11 glXChooseVisual() failed, "
-          "verify working openGL system!\n",
-          __FILE__,
-          __LINE__);
-
-  return nullptr;
-}
-
-#endif  // WITH_GL_EGL
 
 GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
                                  Display *display,
@@ -207,7 +107,6 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
                                  const bool is_dialog,
                                  const bool stereoVisual,
                                  const bool exclusive,
-                                 const bool alphaBackground,
                                  const bool is_debug)
     : GHOST_Window(width, height, state, stereoVisual, exclusive),
       m_display(display),
@@ -231,13 +130,7 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
       m_is_debug_context(is_debug)
 {
   if (type == GHOST_kDrawingContextTypeOpenGL) {
-#ifdef WITH_GL_EGL
-    m_visualInfo = x11_visualinfo_from_egl(m_display);
-    (void)alphaBackground;
-#else
-    m_visualInfo = x11_visualinfo_from_glx(
-        m_display, stereoVisual, alphaBackground, (GLXFBConfig *)&m_fbconfig);
-#endif
+    m_visualInfo = get_x11_visualinfo(m_display);
   }
   else {
     XVisualInfo tmp = {nullptr};
@@ -251,7 +144,7 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
     return;
   }
 
-  unsigned int xattributes_valuemask = 0;
+  uint xattributes_valuemask = 0;
 
   XSetWindowAttributes xattributes;
   memset(&xattributes, 0, sizeof(xattributes));
@@ -296,7 +189,7 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
   GHOST_PRINT("Set drop target\n");
 #endif
 
-  if (state == GHOST_kWindowStateMaximized || state == GHOST_kWindowStateFullScreen) {
+  if (ELEM(state, GHOST_kWindowStateMaximized, GHOST_kWindowStateFullScreen)) {
     Atom atoms[2];
     int count = 0;
     if (state == GHOST_kWindowStateMaximized) {
@@ -313,7 +206,7 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
                     XA_ATOM,
                     32,
                     PropModeReplace,
-                    (unsigned char *)atoms,
+                    (uchar *)atoms,
                     count);
     m_post_init = False;
   }
@@ -328,7 +221,7 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
    * So, m_post_init indicate that we need wait for the MapNotify
    * event and then set the Window state to the m_post_state.
    */
-  else if ((state != GHOST_kWindowStateNormal) && (state != GHOST_kWindowStateMinimized)) {
+  else if (!ELEM(state, GHOST_kWindowStateNormal, GHOST_kWindowStateMinimized)) {
     m_post_init = True;
     m_post_state = state;
   }
@@ -411,22 +304,16 @@ GHOST_WindowX11::GHOST_WindowX11(GHOST_SystemX11 *system,
                     XA_CARDINAL,
                     32,
                     PropModeReplace,
-                    (unsigned char *)BLENDER_ICONS_WM_X11,
-                    sizeof(BLENDER_ICONS_WM_X11) / sizeof(unsigned long));
+                    (uchar *)BLENDER_ICONS_WM_X11,
+                    ARRAY_SIZE(BLENDER_ICONS_WM_X11));
   }
 
   /* set the process ID (_NET_WM_PID) */
   {
     Atom _NET_WM_PID = XInternAtom(m_display, "_NET_WM_PID", False);
     pid_t pid = getpid();
-    XChangeProperty(m_display,
-                    m_window,
-                    _NET_WM_PID,
-                    XA_CARDINAL,
-                    32,
-                    PropModeReplace,
-                    (unsigned char *)&pid,
-                    1);
+    XChangeProperty(
+        m_display, m_window, _NET_WM_PID, XA_CARDINAL, 32, PropModeReplace, (uchar *)&pid, 1);
   }
 
   /* set the hostname (WM_CLIENT_MACHINE) */
@@ -486,8 +373,9 @@ static Bool destroyICCallback(XIC /*xic*/, XPointer ptr, XPointer /*data*/)
 bool GHOST_WindowX11::createX11_XIC()
 {
   XIM xim = m_system->getX11_XIM();
-  if (!xim)
+  if (!xim) {
     return false;
+  }
 
   XICCallback destroy;
   destroy.callback = (XICProc)destroyICCallback;
@@ -509,7 +397,7 @@ bool GHOST_WindowX11::createX11_XIC()
   if (!m_xic)
     return false;
 
-  unsigned long fevent;
+  ulong fevent;
   XGetICValues(m_xic, XNFilterEvents, &fevent, nullptr);
   XSelectInput(m_display,
                m_window,
@@ -535,20 +423,24 @@ void GHOST_WindowX11::refreshXInputDevices()
       XEventClass ev;
 
       DeviceMotionNotify(xtablet.Device, xtablet.MotionEvent, ev);
-      if (ev)
+      if (ev) {
         xevents.push_back(ev);
+      }
       DeviceButtonPress(xtablet.Device, xtablet.PressEvent, ev);
-      if (ev)
+      if (ev) {
         xevents.push_back(ev);
+      }
       ProximityIn(xtablet.Device, xtablet.ProxInEvent, ev);
-      if (ev)
+      if (ev) {
         xevents.push_back(ev);
+      }
       ProximityOut(xtablet.Device, xtablet.ProxOutEvent, ev);
-      if (ev)
+      if (ev) {
         xevents.push_back(ev);
+      }
     }
 
-    XSelectExtensionEvent(m_display, m_window, xevents.data(), (int)xevents.size());
+    XSelectExtensionEvent(m_display, m_window, xevents.data(), int(xevents.size()));
   }
 }
 
@@ -568,14 +460,8 @@ void GHOST_WindowX11::setTitle(const char *title)
 {
   Atom name = XInternAtom(m_display, "_NET_WM_NAME", 0);
   Atom utf8str = XInternAtom(m_display, "UTF8_STRING", 0);
-  XChangeProperty(m_display,
-                  m_window,
-                  name,
-                  utf8str,
-                  8,
-                  PropModeReplace,
-                  (const unsigned char *)title,
-                  strlen(title));
+  XChangeProperty(
+      m_display, m_window, name, utf8str, 8, PropModeReplace, (const uchar *)title, strlen(title));
 
   /* This should convert to valid x11 string
    * and getTitle would need matching change */
@@ -605,7 +491,7 @@ void GHOST_WindowX11::getClientBounds(GHOST_Rect &bounds) const
 {
   Window root_return;
   int x_return, y_return;
-  unsigned int w_return, h_return, border_w_return, depth_return;
+  uint w_return, h_return, border_w_return, depth_return;
   int32_t screen_x, screen_y;
 
   XGetGeometry(m_display,
@@ -629,7 +515,7 @@ void GHOST_WindowX11::getClientBounds(GHOST_Rect &bounds) const
 GHOST_TSuccess GHOST_WindowX11::setClientWidth(uint32_t width)
 {
   XWindowChanges values;
-  unsigned int value_mask = CWWidth;
+  uint value_mask = CWWidth;
   values.width = width;
   XConfigureWindow(m_display, m_window, value_mask, &values);
 
@@ -639,7 +525,7 @@ GHOST_TSuccess GHOST_WindowX11::setClientWidth(uint32_t width)
 GHOST_TSuccess GHOST_WindowX11::setClientHeight(uint32_t height)
 {
   XWindowChanges values;
-  unsigned int value_mask = CWHeight;
+  uint value_mask = CWHeight;
   values.height = height;
   XConfigureWindow(m_display, m_window, value_mask, &values);
   return GHOST_kSuccess;
@@ -648,7 +534,7 @@ GHOST_TSuccess GHOST_WindowX11::setClientHeight(uint32_t height)
 GHOST_TSuccess GHOST_WindowX11::setClientSize(uint32_t width, uint32_t height)
 {
   XWindowChanges values;
-  unsigned int value_mask = CWWidth | CWHeight;
+  uint value_mask = CWWidth | CWHeight;
   values.width = width;
   values.height = height;
   XConfigureWindow(m_display, m_window, value_mask, &values);
@@ -657,15 +543,15 @@ GHOST_TSuccess GHOST_WindowX11::setClientSize(uint32_t width, uint32_t height)
 
 void GHOST_WindowX11::screenToClient(int32_t inX, int32_t inY, int32_t &outX, int32_t &outY) const
 {
-  /* This is correct! */
-
   int ax, ay;
   Window temp;
 
+  /* Use (0, 0) instead of (inX, inY) to work around overflow of signed int16 in
+   * the implementation of this function. */
   XTranslateCoordinates(
-      m_display, RootWindow(m_display, m_visualInfo->screen), m_window, inX, inY, &ax, &ay, &temp);
-  outX = ax;
-  outY = ay;
+      m_display, RootWindow(m_display, m_visualInfo->screen), m_window, 0, 0, &ax, &ay, &temp);
+  outX = ax + inX;
+  outY = ay + inY;
 }
 
 void GHOST_WindowX11::clientToScreen(int32_t inX, int32_t inY, int32_t &outX, int32_t &outY) const
@@ -692,7 +578,7 @@ GHOST_TSuccess GHOST_WindowX11::setDialogHints(GHOST_WindowX11 *parentWindow)
                   XA_ATOM,
                   32,
                   PropModeReplace,
-                  (unsigned char *)&atom_dialog,
+                  (uchar *)&atom_dialog,
                   1);
   XSetTransientForHint(m_display, m_window, parentWindow->m_window);
 
@@ -709,7 +595,7 @@ GHOST_TSuccess GHOST_WindowX11::setDialogHints(GHOST_WindowX11 *parentWindow)
                   m_system->m_atom._MOTIF_WM_HINTS,
                   32,
                   PropModeReplace,
-                  (unsigned char *)&hints,
+                  (uchar *)&hints,
                   4);
 
   return GHOST_kSuccess;
@@ -744,7 +630,7 @@ int GHOST_WindowX11::icccmGetState() const
     CARD32 state;
     XID icon;
   } * prop_ret;
-  unsigned long bytes_after, num_ret;
+  ulong bytes_after, num_ret;
   Atom type_ret;
   int ret, format_ret;
   CARD32 st;
@@ -761,7 +647,7 @@ int GHOST_WindowX11::icccmGetState() const
                            &format_ret,
                            &num_ret,
                            &bytes_after,
-                           ((unsigned char **)&prop_ret));
+                           ((uchar **)&prop_ret));
   if ((ret == Success) && (prop_ret != nullptr) && (num_ret == 2)) {
     st = prop_ret->state;
   }
@@ -808,7 +694,7 @@ void GHOST_WindowX11::netwmMaximized(bool set)
 bool GHOST_WindowX11::netwmIsMaximized() const
 {
   Atom *prop_ret;
-  unsigned long bytes_after, num_ret, i;
+  ulong bytes_after, num_ret, i;
   Atom type_ret;
   bool st;
   int format_ret, ret, count;
@@ -826,7 +712,7 @@ bool GHOST_WindowX11::netwmIsMaximized() const
                            &format_ret,
                            &num_ret,
                            &bytes_after,
-                           (unsigned char **)&prop_ret);
+                           (uchar **)&prop_ret);
   if ((ret == Success) && (prop_ret) && (format_ret == 32)) {
     count = 0;
     for (i = 0; i < num_ret; i++) {
@@ -881,7 +767,7 @@ void GHOST_WindowX11::netwmFullScreen(bool set)
 bool GHOST_WindowX11::netwmIsFullScreen() const
 {
   Atom *prop_ret;
-  unsigned long bytes_after, num_ret, i;
+  ulong bytes_after, num_ret, i;
   Atom type_ret;
   bool st;
   int format_ret, ret;
@@ -899,7 +785,7 @@ bool GHOST_WindowX11::netwmIsFullScreen() const
                            &format_ret,
                            &num_ret,
                            &bytes_after,
-                           (unsigned char **)&prop_ret);
+                           (uchar **)&prop_ret);
   if ((ret == Success) && (prop_ret) && (format_ret == 32)) {
     for (i = 0; i < num_ret; i++) {
       if (prop_ret[i] == m_system->m_atom._NET_WM_STATE_FULLSCREEN) {
@@ -933,14 +819,14 @@ void GHOST_WindowX11::motifFullScreen(bool set)
                   m_system->m_atom._MOTIF_WM_HINTS,
                   32,
                   PropModeReplace,
-                  (unsigned char *)&hints,
+                  (uchar *)&hints,
                   4);
 }
 
 bool GHOST_WindowX11::motifIsFullScreen() const
 {
   MotifWmHints *prop_ret;
-  unsigned long bytes_after, num_ret;
+  ulong bytes_after, num_ret;
   Atom type_ret;
   bool state;
   int format_ret, st;
@@ -958,7 +844,7 @@ bool GHOST_WindowX11::motifIsFullScreen() const
                           &format_ret,
                           &num_ret,
                           &bytes_after,
-                          (unsigned char **)&prop_ret);
+                          (uchar **)&prop_ret);
   if ((st == Success) && prop_ret) {
     if (prop_ret->flags & MWM_HINTS_DECORATIONS) {
       if (!prop_ret->decorations) {
@@ -984,7 +870,7 @@ GHOST_TWindowState GHOST_WindowX11::getState() const
    * In the Iconic and Withdrawn state, the window
    * is unmapped, so only need return a Minimized state.
    */
-  if ((state == IconicState) || (state == WithdrawnState)) {
+  if (ELEM(state, IconicState, WithdrawnState)) {
     state_ret = GHOST_kWindowStateMinimized;
   }
   else if (netwmIsFullScreen() == True) {
@@ -1005,7 +891,7 @@ GHOST_TSuccess GHOST_WindowX11::setState(GHOST_TWindowState state)
   bool is_max, is_full, is_motif_full;
 
   cur_state = getState();
-  if (state == (int)cur_state) {
+  if (state == int(cur_state)) {
     return GHOST_kSuccess;
   }
 
@@ -1161,7 +1047,7 @@ bool GHOST_WindowX11::isDialog() const
   Atom atom_dialog = XInternAtom(m_display, "_NET_WM_WINDOW_TYPE_DIALOG", False);
 
   Atom *prop_ret;
-  unsigned long bytes_after, num_ret;
+  ulong bytes_after, num_ret;
   Atom type_ret;
   bool st;
   int format_ret, ret;
@@ -1179,7 +1065,7 @@ bool GHOST_WindowX11::isDialog() const
                            &format_ret,
                            &num_ret,
                            &bytes_after,
-                           (unsigned char **)&prop_ret);
+                           (uchar **)&prop_ret);
   if ((ret == Success) && (prop_ret) && (format_ret == 32)) {
     if (prop_ret[0] == atom_dialog) {
       st = True;
@@ -1233,7 +1119,7 @@ void GHOST_WindowX11::validate()
 
 GHOST_WindowX11::~GHOST_WindowX11()
 {
-  std::map<unsigned int, Cursor>::iterator it = m_standard_cursors.begin();
+  std::map<uint, Cursor>::iterator it = m_standard_cursors.begin();
   for (; it != m_standard_cursors.end(); ++it) {
     XFreeCursor(m_display, it->second);
   }
@@ -1284,8 +1170,87 @@ GHOST_WindowX11::~GHOST_WindowX11()
   }
 }
 
+#ifdef USE_EGL
+static GHOST_Context *create_egl_context(GHOST_SystemX11 *system,
+                                         Window window,
+                                         Display *display,
+                                         bool want_stereo,
+                                         bool debug_context,
+                                         int ver_major,
+                                         int ver_minor)
+{
+  GHOST_Context *context;
+  context = new GHOST_ContextEGL(system,
+                                 want_stereo,
+                                 EGLNativeWindowType(window),
+                                 EGLNativeDisplayType(display),
+                                 EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT,
+                                 ver_major,
+                                 ver_minor,
+                                 GHOST_OPENGL_EGL_CONTEXT_FLAGS |
+                                     (debug_context ? EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR : 0),
+                                 GHOST_OPENGL_EGL_RESET_NOTIFICATION_STRATEGY,
+                                 EGL_OPENGL_API);
+
+  if (context->initializeDrawingContext()) {
+    return context;
+  }
+  delete context;
+
+  return nullptr;
+}
+#endif
+
+static GHOST_Context *create_glx_context(Window window,
+                                         Display *display,
+                                         GLXFBConfig fbconfig,
+                                         bool want_stereo,
+                                         bool debug_context,
+                                         int ver_major,
+                                         int ver_minor)
+{
+  GHOST_Context *context;
+  context = new GHOST_ContextGLX(want_stereo,
+                                 window,
+                                 display,
+                                 fbconfig,
+                                 GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
+                                 ver_major,
+                                 ver_minor,
+                                 GHOST_OPENGL_GLX_CONTEXT_FLAGS |
+                                     (debug_context ? GLX_CONTEXT_DEBUG_BIT_ARB : 0),
+                                 GHOST_OPENGL_GLX_RESET_NOTIFICATION_STRATEGY);
+
+  if (context->initializeDrawingContext()) {
+    return context;
+  }
+  delete context;
+
+  return nullptr;
+}
+
 GHOST_Context *GHOST_WindowX11::newDrawingContext(GHOST_TDrawingContextType type)
 {
+#if defined(WITH_VULKAN)
+  if (type == GHOST_kDrawingContextTypeVulkan) {
+    GHOST_Context *context = new GHOST_ContextVK(m_wantStereoVisual,
+                                                 GHOST_kVulkanPlatformX11,
+                                                 m_window,
+                                                 m_display,
+                                                 NULL,
+                                                 NULL,
+                                                 1,
+                                                 0,
+                                                 m_is_debug_context);
+
+    if (!context->initializeDrawingContext()) {
+      delete context;
+      return nullptr;
+    }
+    return context;
+  }
+#endif
+
   if (type == GHOST_kDrawingContextTypeOpenGL) {
 
     /* During development:
@@ -1298,99 +1263,48 @@ GHOST_Context *GHOST_WindowX11::newDrawingContext(GHOST_TDrawingContextType type
      * - Try 3.3 core profile
      * - No fall-backs. */
 
-#if defined(WITH_GL_PROFILE_CORE)
-    {
-      const char *version_major = (char *)glewGetString(GLEW_VERSION_MAJOR);
-      if (version_major != nullptr && version_major[0] == '1') {
-        fprintf(stderr, "Error: GLEW version 2.0 and above is required.\n");
-        abort();
-      }
-    }
-#endif
-
-    const int profile_mask =
-#ifdef WITH_GL_EGL
-#  if defined(WITH_GL_PROFILE_CORE)
-        EGL_CONTEXT_OPENGL_CORE_PROFILE_BIT;
-#  elif defined(WITH_GL_PROFILE_COMPAT)
-        EGL_CONTEXT_OPENGL_COMPATIBILITY_PROFILE_BIT;
-#  else
-#    error  // must specify either core or compat at build time
-#  endif
-#else
-#  if defined(WITH_GL_PROFILE_CORE)
-        GLX_CONTEXT_CORE_PROFILE_BIT_ARB;
-#  elif defined(WITH_GL_PROFILE_COMPAT)
-        GLX_CONTEXT_COMPATIBILITY_PROFILE_BIT_ARB;
-#  else
-#    error  // must specify either core or compat at build time
-#  endif
-#endif
-
     GHOST_Context *context;
 
+#ifdef USE_EGL
+    /* Try to initialize an EGL context. */
     for (int minor = 5; minor >= 0; --minor) {
-#ifdef WITH_GL_EGL
-      context = new GHOST_ContextEGL(
-          this->m_system,
-          m_wantStereoVisual,
-          EGLNativeWindowType(m_window),
-          EGLNativeDisplayType(m_display),
-          profile_mask,
-          4,
-          minor,
-          GHOST_OPENGL_EGL_CONTEXT_FLAGS |
-              (m_is_debug_context ? EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR : 0),
-          GHOST_OPENGL_EGL_RESET_NOTIFICATION_STRATEGY,
-          EGL_OPENGL_API);
-#else
-      context = new GHOST_ContextGLX(m_wantStereoVisual,
-                                     m_window,
-                                     m_display,
-                                     (GLXFBConfig)m_fbconfig,
-                                     profile_mask,
-                                     4,
-                                     minor,
-                                     GHOST_OPENGL_GLX_CONTEXT_FLAGS |
-                                         (m_is_debug_context ? GLX_CONTEXT_DEBUG_BIT_ARB : 0),
-                                     GHOST_OPENGL_GLX_RESET_NOTIFICATION_STRATEGY);
-#endif
-
-      if (context->initializeDrawingContext()) {
+      context = create_egl_context(
+          this->m_system, m_window, m_display, m_wantStereoVisual, m_is_debug_context, 4, minor);
+      if (context != nullptr) {
         return context;
       }
-      delete context;
     }
 
-#ifdef WITH_GL_EGL
-    context = new GHOST_ContextEGL(this->m_system,
-                                   m_wantStereoVisual,
-                                   EGLNativeWindowType(m_window),
-                                   EGLNativeDisplayType(m_display),
-                                   profile_mask,
-                                   3,
-                                   3,
-                                   GHOST_OPENGL_EGL_CONTEXT_FLAGS |
-                                       (m_is_debug_context ? EGL_CONTEXT_OPENGL_DEBUG_BIT_KHR : 0),
-                                   GHOST_OPENGL_EGL_RESET_NOTIFICATION_STRATEGY,
-                                   EGL_OPENGL_API);
-#else
-    context = new GHOST_ContextGLX(m_wantStereoVisual,
-                                   m_window,
-                                   m_display,
-                                   (GLXFBConfig)m_fbconfig,
-                                   profile_mask,
-                                   3,
-                                   3,
-                                   GHOST_OPENGL_GLX_CONTEXT_FLAGS |
-                                       (m_is_debug_context ? GLX_CONTEXT_DEBUG_BIT_ARB : 0),
-                                   GHOST_OPENGL_GLX_RESET_NOTIFICATION_STRATEGY);
-#endif
-
-    if (context->initializeDrawingContext()) {
+    context = create_egl_context(
+        this->m_system, m_window, m_display, m_wantStereoVisual, m_is_debug_context, 3, 3);
+    if (context != nullptr) {
       return context;
     }
-    delete context;
+
+    /* EGL initialization failed, try to fallback to a GLX context. */
+#endif
+    for (int minor = 5; minor >= 0; --minor) {
+      context = create_glx_context(m_window,
+                                   m_display,
+                                   (GLXFBConfig)m_fbconfig,
+                                   m_wantStereoVisual,
+                                   m_is_debug_context,
+                                   4,
+                                   minor);
+      if (context != nullptr) {
+        return context;
+      }
+    }
+    context = create_glx_context(m_window,
+                                 m_display,
+                                 (GLXFBConfig)m_fbconfig,
+                                 m_wantStereoVisual,
+                                 m_is_debug_context,
+                                 3,
+                                 3);
+    if (context != nullptr) {
+      return context;
+    }
 
     /* Ugly, but we get crashes unless a whole bunch of systems are patched. */
     fprintf(stderr, "Error! Unsupported graphics card or driver.\n");
@@ -1406,7 +1320,7 @@ GHOST_Context *GHOST_WindowX11::newDrawingContext(GHOST_TDrawingContextType type
 
 GHOST_TSuccess GHOST_WindowX11::getStandardCursor(GHOST_TStandardCursor g_cursor, Cursor &xcursor)
 {
-  unsigned int xcursor_id;
+  uint xcursor_id;
 
   switch (g_cursor) {
     case GHOST_kStandardCursorHelp:
@@ -1514,7 +1428,7 @@ GHOST_TSuccess GHOST_WindowX11::setWindowCursorGrab(GHOST_TGrabCursorMode mode)
 {
   if (mode != GHOST_kGrabDisable) {
     if (mode != GHOST_kGrabNormal) {
-      m_system->getCursorPosition(m_cursorGrabInitPos[0], m_cursorGrabInitPos[1]);
+      m_system->getCursorPosition(UNPACK2(m_cursorGrabInitPos));
       setCursorGrabAccum(0, 0);
 
       if (mode == GHOST_kGrabHide) {
@@ -1535,7 +1449,7 @@ GHOST_TSuccess GHOST_WindowX11::setWindowCursorGrab(GHOST_TGrabCursorMode mode)
   }
   else {
     if (m_cursorGrab == GHOST_kGrabHide) {
-      m_system->setCursorPosition(m_cursorGrabInitPos[0], m_cursorGrabInitPos[1]);
+      m_system->setCursorPosition(UNPACK2(m_cursorGrabInitPos));
     }
 
     if (m_cursorGrab != GHOST_kGrabNormal) {
@@ -1644,7 +1558,7 @@ GHOST_TSuccess GHOST_WindowX11::beginFullScreen() const
   {
     Window root_return;
     int x_return, y_return;
-    unsigned int w_return, h_return, border_w_return, depth_return;
+    uint w_return, h_return, border_w_return, depth_return;
 
     XGetGeometry(m_display,
                  m_window,
@@ -1703,7 +1617,7 @@ uint16_t GHOST_WindowX11::getDPIHint()
 
       int success = XrmGetResource(xrdb, "Xft.dpi", "Xft.Dpi", &type, &val);
       if (success && type) {
-        if (strcmp(type, "String") == 0) {
+        if (STREQ(type, "String")) {
           return atoi((char *)val.addr);
         }
       }
@@ -1711,7 +1625,7 @@ uint16_t GHOST_WindowX11::getDPIHint()
     XrmDestroyDatabase(xrdb);
   }
 
-  /* Fallback to calculating DPI using X reported DPI, set using xrandr --dpi */
+  /* Fallback to calculating DPI using X reported DPI, set using `xrandr --dpi`. */
   XWindowAttributes attr;
   if (!XGetWindowAttributes(m_display, m_window, &attr)) {
     /* Failed to get window attributes, return X11 default DPI */

@@ -82,7 +82,7 @@ class DeviceScene {
 
   device_vector<uint> patches;
 
-  /* pointcloud */
+  /* point-cloud */
   device_vector<float4> points;
   device_vector<uint> points_shader;
 
@@ -98,7 +98,7 @@ class DeviceScene {
   device_vector<DecomposedTransform> camera_motion;
 
   /* attributes */
-  device_vector<uint4> attributes_map;
+  device_vector<AttributeMap> attributes_map;
   device_vector<float> attributes_float;
   device_vector<float2> attributes_float2;
   device_vector<packed_float3> attributes_float3;
@@ -124,7 +124,7 @@ class DeviceScene {
   /* integrator */
   device_vector<float> sample_pattern_lut;
 
-  /* ies lights */
+  /* IES lights */
   device_vector<float> ies_lights;
 
   KernelData data;
@@ -261,7 +261,7 @@ class Scene : public NodeOwner {
   float motion_shutter_time();
 
   bool need_update();
-  bool need_reset();
+  bool need_reset(const bool check_camera = true);
 
   void reset();
   void device_free();
@@ -270,6 +270,7 @@ class Scene : public NodeOwner {
 
   void enable_update_stats();
 
+  bool load_kernels(Progress &progress);
   bool update(Progress &progress);
 
   bool has_shadow_catcher();
@@ -333,7 +334,6 @@ class Scene : public NodeOwner {
   uint loaded_kernel_features;
 
   void update_kernel_features();
-  bool load_kernels(Progress &progress, bool lock_scene = true);
 
   bool has_shadow_catcher_ = false;
   bool shadow_catcher_modified_ = true;

@@ -6,6 +6,7 @@ set(INC
   ../../blenfont
   ../../blenkernel
   ../../blenlib
+  ../../blenloader
   ../../blentranslation
   ../../depsgraph
   ../../gpu
@@ -13,7 +14,6 @@ set(INC
   ../../makesdna
   ../../makesrna
   ../../windowmanager
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
 
   # dna_type_offsets.h
@@ -36,7 +36,7 @@ set(SRC
   space_clip.c
   tracking_ops.c
   tracking_ops_detect.c
-  tracking_ops_orient.c
+  tracking_ops_orient.cc
   tracking_ops_plane.c
   tracking_ops_solve.c
   tracking_ops_stabilize.c

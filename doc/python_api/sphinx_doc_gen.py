@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 """
 API dump in RST files
 ---------------------
@@ -140,6 +138,26 @@ def handle_args():
         action='store_true',
         help="Write the RST file of the bpy module "
         "(default=False)",
+        required=False,
+    )
+
+    parser.add_argument(
+        "--api-changelog-generate",
+        dest="changelog",
+        default=False,
+        action='store_true',
+        help="Generate the API changelog RST file "
+        "(default=False, requires `--api-dump-index-path` parameter)",
+        required=False,
+    )
+
+    parser.add_argument(
+        "--api-dump-index-path",
+        dest="api_dump_index_path",
+        metavar='FILE',
+        default=None,
+        help="Path to the API dump index JSON file "
+        "(required when `--api-changelog-generate` is True)",
         required=False,
     )
 
@@ -369,23 +387,35 @@ EXAMPLE_SET_USED = set()
 # RST files directory.
 RST_DIR = os.path.abspath(os.path.join(SCRIPT_DIR, "rst"))
 
-# extra info, not api reference docs
-# stored in ./rst/info_*
+# Extra info, not api reference docs stored in `./rst/info_*`.
+# Pairs of (file, description), the title makes from the RST files are displayed before the description.
 INFO_DOCS = (
     ("info_quickstart.rst",
-     "Quickstart: New to Blender or scripting and want to get your feet wet?"),
+     "New to Blender or scripting and want to get your feet wet?"),
     ("info_overview.rst",
-     "API Overview: A more complete explanation of Python integration"),
+     "A more complete explanation of Python integration."),
     ("info_api_reference.rst",
-     "API Reference Usage: examples of how to use the API reference docs"),
+     "Examples of how to use the API reference docs."),
     ("info_best_practice.rst",
-     "Best Practice: Conventions to follow for writing good scripts"),
+     "Conventions to follow for writing good scripts."),
     ("info_tips_and_tricks.rst",
-     "Tips and Tricks: Hints to help you while writing scripts for Blender"),
+     "Hints to help you while writing scripts for Blender."),
     ("info_gotcha.rst",
-     "Gotcha's: Some of the problems you may encounter when writing scripts"),
-    ("change_log.rst", "Change Log: List of changes since last Blender release"),
+     "Some of the problems you may encounter when writing scripts."),
+    ("info_advanced.rst",
+     "Topics which may not be required for typical usage."),
+    ("change_log.rst",
+     "List of changes since last Blender release"),
 )
+# Referenced indirectly.
+INFO_DOCS_OTHER = (
+    # Included by: `info_advanced.rst`.
+    "info_advanced_blender_as_bpy.rst",
+)
+
+# Hide the actual TOC, use a separate list that links to the items.
+# This is done so a short description can be included with each link.
+USE_INFO_DOCS_FANCY_INDEX = True
 
 # only support for properties atm.
 RNA_BLACKLIST = {
@@ -516,6 +546,42 @@ if ARGS.sphinx_build_pdf:
         sphinx_make_pdf_log = os.path.join(ARGS.output_dir, ".latex_make.log")
         SPHINX_MAKE_PDF_STDOUT = open(sphinx_make_pdf_log, "w", encoding="utf-8")
 
+
+# --------------------------------CHANGELOG GENERATION--------------------------------------
+
+def generate_changelog():
+    import importlib.util
+    spec = importlib.util.spec_from_file_location(
+        "sphinx_changelog_gen",
+        os.path.abspath(os.path.join(SCRIPT_DIR, "sphinx_changelog_gen.py")),
+    )
+    sphinx_changelog_gen = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(sphinx_changelog_gen)
+
+    API_DUMP_INDEX_FILEPATH = ARGS.api_dump_index_path
+    API_DUMP_ROOT = os.path.dirname(API_DUMP_INDEX_FILEPATH)
+    API_DUMP_FILEPATH = os.path.abspath(os.path.join(API_DUMP_ROOT, BLENDER_VERSION_DOTS, "api_dump.json"))
+    API_CHANGELOG_FILEPATH = os.path.abspath(os.path.join(SPHINX_IN_TMP, "change_log.rst"))
+
+    sphinx_changelog_gen.main((
+        "--",
+        "--indexpath",
+        API_DUMP_INDEX_FILEPATH,
+        "dump",
+        "--filepath-out",
+        API_DUMP_FILEPATH,
+    ))
+
+    sphinx_changelog_gen.main((
+        "--",
+        "--indexpath",
+        API_DUMP_INDEX_FILEPATH,
+        "changelog",
+        "--filepath-out",
+        API_CHANGELOG_FILEPATH,
+    ))
+
+
 # --------------------------------API DUMP--------------------------------------
 
 # Lame, python won't give some access.
@@ -552,7 +618,7 @@ def import_value_from_module(module_name, import_name):
 
 def execfile(filepath):
     global_namespace = {"__file__": filepath, "__name__": "__main__"}
-    with open(filepath) as file_handle:
+    with open(filepath, encoding="utf-8") as file_handle:
         exec(compile(file_handle.read(), filepath, 'exec'), global_namespace)
 
 
@@ -712,26 +778,6 @@ def write_indented_lines(ident, fn, text, strip=True):
         # Add <indent> number of blanks to the current indentation.
         for l in lines:
             fn(ident + l + "\n")
-
-
-def pymethod2sphinx(ident, fw, identifier, py_func):
-    """
-    class method to sphinx
-    """
-    arg_str = inspect.formatargspec(*inspect.getargspec(py_func))
-    if arg_str.startswith("(self, "):
-        arg_str = "(" + arg_str[7:]
-        func_type = "method"
-    elif arg_str.startswith("(cls, "):
-        arg_str = "(" + arg_str[6:]
-        func_type = "classmethod"
-    else:
-        func_type = "staticmethod"
-
-    fw(ident + ".. %s:: %s%s\n\n" % (func_type, identifier, arg_str))
-    if py_func.__doc__:
-        write_indented_lines(ident + "   ", fw, py_func.__doc__)
-        fw("\n")
 
 
 def pyfunc2sphinx(ident, fw, module_name, type_name, identifier, py_func, is_class=True):
@@ -1097,6 +1143,7 @@ def pymodule2sphinx(basepath, module_name, module, title, module_all_extra):
 # Changes In Blender will force errors here.
 context_type_map = {
     # context_member: (RNA type, is_collection)
+    "active_action": ("Action", False),
     "active_annotation_layer": ("GPencilLayer", False),
     "active_bone": ("EditBone", False),
     "active_file": ("FileSelectEntry", False),
@@ -1247,6 +1294,7 @@ def pycontext2sphinx(basepath):
 
             type_descr = prop.get_type_description(
                 class_fmt=":class:`bpy.types.%s`",
+                mathutils_fmt=":class:`mathutils.%s`",
                 collection_id=_BPY_PROP_COLLECTION_ID,
                 enum_descr_override=enum_descr_override,
             )
@@ -1399,6 +1447,7 @@ def pyrna2sphinx(basepath):
             identifier = " %s" % prop.identifier
 
         kwargs["class_fmt"] = ":class:`%s`"
+        kwargs["mathutils_fmt"] = ":class:`mathutils.%s`"
 
         kwargs["collection_id"] = _BPY_PROP_COLLECTION_ID
 
@@ -1412,15 +1461,15 @@ def pyrna2sphinx(basepath):
         # If the link has been written, no need to inline the enum items.
         enum_text = "" if enum_descr_override else pyrna_enum2sphinx(prop)
         if prop.name or prop.description or enum_text:
-            fw(ident + ":%s%s:\n\n" % (id_name, identifier))
+            fw(ident + ":%s%s: " % (id_name, identifier))
 
             if prop.name or prop.description:
-                fw(indent(", ".join(val for val in (prop.name, prop.description) if val), ident + "   ") + "\n\n")
+                fw(", ".join(val for val in (prop.name, prop.description.replace("\n", "")) if val) + "\n")
 
             # Special exception, can't use generic code here for enums.
             if enum_text:
-                write_indented_lines(ident + "   ", fw, enum_text)
                 fw("\n")
+                write_indented_lines(ident + "   ", fw, enum_text)
             del enum_text
             # end enum exception
 
@@ -1435,7 +1484,7 @@ def pyrna2sphinx(basepath):
 
         struct_module_name = struct.module_name
         if USE_ONLY_BUILTIN_RNA_TYPES:
-            assert(struct_module_name == "bpy.types")
+            assert struct_module_name == "bpy.types"
         filepath = os.path.join(basepath, "%s.%s.rst" % (struct_module_name, struct.identifier))
         file = open(filepath, "w", encoding="utf-8")
         fw = file.write
@@ -1495,7 +1544,8 @@ def pyrna2sphinx(basepath):
         else:
             fw(".. class:: %s\n\n" % struct_id)
 
-        fw("   %s\n\n" % struct.description)
+        write_indented_lines("   ", fw, struct.description, False)
+        fw("\n")
 
         # Properties sorted in alphabetical order.
         sorted_struct_properties = struct.properties[:]
@@ -1517,6 +1567,7 @@ def pyrna2sphinx(basepath):
 
             type_descr = prop.get_type_description(
                 class_fmt=":class:`%s`",
+                mathutils_fmt=":class:`mathutils.%s`",
                 collection_id=_BPY_PROP_COLLECTION_ID,
                 enum_descr_override=enum_descr_override,
             )
@@ -1583,6 +1634,7 @@ def pyrna2sphinx(basepath):
 
                     type_descr = prop.get_type_description(
                         as_ret=True, class_fmt=":class:`%s`",
+                        mathutils_fmt=":class:`mathutils.%s`",
                         collection_id=_BPY_PROP_COLLECTION_ID,
                         enum_descr_override=enum_descr_override,
                     )
@@ -1834,10 +1886,15 @@ def write_sphinx_conf_py(basepath):
     fw("extensions = ['sphinx.ext.intersphinx']\n\n")
     fw("intersphinx_mapping = {'blender_manual': ('https://docs.blender.org/manual/en/dev/', None)}\n\n")
     fw("project = 'Blender %s Python API'\n" % BLENDER_VERSION_STRING)
-    fw("master_doc = 'index'\n")
-    fw("copyright = u'Blender Foundation'\n")
+    fw("root_doc = 'index'\n")
+    fw("copyright = 'Blender Foundation'\n")
     fw("version = '%s'\n" % BLENDER_VERSION_DOTS)
     fw("release = '%s'\n" % BLENDER_VERSION_DOTS)
+
+    # Set this as the default is a super-set of Python3.
+    fw("highlight_language = 'python3'\n")
+    # No need to detect encoding.
+    fw("highlight_options = {'default': {'encoding': 'utf-8'}}\n\n")
 
     # Quiet file not in table-of-contents warnings.
     fw("exclude_patterns = [\n")
@@ -1863,7 +1920,7 @@ except ModuleNotFoundError:
     # fw("        'collapse_navigation': True,\n")
     fw("        'sticky_navigation': False,\n")
     fw("        'navigation_depth': 1,\n")
-    # fw("        'includehidden': True,\n")
+    fw("        'includehidden': False,\n")
     # fw("        'titles_only': False\n")
     fw("    }\n\n")
 
@@ -1935,11 +1992,20 @@ def write_rst_index(basepath):
 
     if not EXCLUDE_INFO_DOCS:
         fw(".. toctree::\n")
+        if USE_INFO_DOCS_FANCY_INDEX:
+            fw("   :hidden:\n")
         fw("   :maxdepth: 1\n")
         fw("   :caption: Documentation\n\n")
         for info, info_desc in INFO_DOCS:
-            fw("   %s <%s>\n" % (info_desc, info))
+            fw("   %s\n" % info)
         fw("\n")
+
+        if USE_INFO_DOCS_FANCY_INDEX:
+            # Show a fake TOC, allowing for an extra description to be shown as well as the title.
+            fw(title_string("Documentation", "="))
+            for info, info_desc in INFO_DOCS:
+                fw("- :doc:`%s`: %s\n" % (info.removesuffix(".rst"), info_desc))
+            fw("\n")
 
     fw(".. toctree::\n")
     fw("   :maxdepth: 1\n")
@@ -2177,7 +2243,7 @@ def write_rst_enum_items_and_index(basepath):
         fw("\n")
         for key, enum_items in rna_enum_dict.items():
             if not key.startswith("rna_enum_"):
-                raise Exception("Found RNA enum identifier that doesn't use the 'rna_enum_' prefix, found %r!", key)
+                raise Exception("Found RNA enum identifier that doesn't use the 'rna_enum_' prefix, found %r!" % key)
             key_no_prefix = key.removeprefix("rna_enum_")
             fw("   %s\n" % key_no_prefix)
 
@@ -2272,6 +2338,8 @@ def copy_handwritten_rsts(basepath):
     # Info docs.
     if not EXCLUDE_INFO_DOCS:
         for info, _info_desc in INFO_DOCS:
+            shutil.copy2(os.path.join(RST_DIR, info), basepath)
+        for info in INFO_DOCS_OTHER:
             shutil.copy2(os.path.join(RST_DIR, info), basepath)
 
     # TODO: put this docs in Blender's code and use import as per modules above.
@@ -2428,8 +2496,6 @@ def setup_monkey_patch():
 
 # Avoid adding too many changes here.
 def setup_blender():
-    import bpy
-
     # Remove handlers since the functions get included
     # in the doc-string and don't have meaningful names.
     lists_to_restore = []
@@ -2491,6 +2557,9 @@ def main():
         shutil.rmtree(SPHINX_IN_TMP, True)
 
     rna2sphinx(SPHINX_IN_TMP)
+
+    if ARGS.changelog:
+        generate_changelog()
 
     if ARGS.full_rebuild:
         # Only for full updates.
