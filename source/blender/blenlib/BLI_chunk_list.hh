@@ -398,19 +398,19 @@ class ChunkList {
     active_capacity_end_ = new_chunk.capacity_end;
   }
 
-  class Iterator {
+  template<bool UseConst> class Iterator {
    private:
     using iterator_category = std::forward_iterator_tag;
     using value_type = T;
-    using pointer = const T *;
-    using reference = const T &;
+    using pointer = std::conditional_t<UseConst, const T *, T *>;
+    using reference = std::conditional_t<UseConst, const T &, T &>;
 
-    const T *begin_;
-    const T *current_;
-    const T *end_;
+    pointer begin_;
+    pointer current_;
+    pointer end_;
     int64_t chunk_index_;
     int64_t chunk_num_;
-    const ChunkList *chunk_list_;
+    std::conditional_t<UseConst, const ChunkList *, ChunkList *> chunk_list_;
 
     friend ChunkList;
 
@@ -422,7 +422,7 @@ class ChunkList {
       if (current_ == end_) {
         chunk_index_++;
         if (chunk_index_ < chunk_num_) {
-          const Span<T> next_chunk = chunk_list_->get_chunk(chunk_index_);
+          auto next_chunk = chunk_list_->get_chunk(chunk_index_);
           begin_ = next_chunk.data();
           current_ = begin_;
           end_ = begin_ + next_chunk.size();
@@ -437,44 +437,64 @@ class ChunkList {
       return a.current_ != b.current_;
     }
 
-    constexpr const T &operator*() const
+    constexpr reference operator*() const
     {
       return *current_;
     }
   };
 
-  Iterator begin() const
+  Iterator<true> begin() const
+  {
+    return this->begin_impl<true>();
+  }
+
+  Iterator<true> end() const
+  {
+    return this->end_impl<true>();
+  }
+
+  Iterator<false> begin()
+  {
+    return this->begin_impl<false>();
+  }
+
+  Iterator<false> end()
+  {
+    return this->end_impl<false>();
+  }
+
+ private:
+  template<bool UseConst> Iterator<UseConst> begin_impl() const
   {
     const int64_t span_num = this->get_chunk_num();
     BLI_assert(span_num >= 1);
     const Span<T> span = this->get_chunk(0);
-    Iterator it;
-    it.chunk_list_ = this;
+    Iterator<UseConst> it;
+    it.chunk_list_ = const_cast<ChunkList *>(this);
     it.chunk_index_ = 0;
     it.chunk_num_ = span_num;
-    it.begin_ = span.data();
+    it.begin_ = const_cast<T *>(span.data());
     it.end_ = it.begin_ + span.size();
     it.current_ = it.begin_;
     return it;
   }
 
-  Iterator end() const
+  template<bool UseConst> Iterator<UseConst> end_impl() const
   {
     const int64_t span_num = this->get_chunk_num();
     BLI_assert(span_num >= 1);
     const Span<T> last_span = this->get_chunk(span_num - 1);
 
-    Iterator it;
-    it.chunk_list_ = this;
+    Iterator<UseConst> it;
+    it.chunk_list_ = const_cast<ChunkList *>(this);
     it.chunk_index_ = span_num;
     it.chunk_num_ = span_num;
-    it.begin_ = last_span.data();
+    it.begin_ = const_cast<T *>(last_span.data());
     it.end_ = it.begin_ + last_span.size();
     it.current_ = it.end_;
     return it;
   }
 
- private:
   void ensure_space_for_one()
   {
     if (active_end_ >= active_capacity_end_) {

@@ -6,6 +6,7 @@
 #include <optional>
 
 #include "BLI_array.hh"
+#include "BLI_chunk_list.hh"
 #include "BLI_edgehash.h"
 #include "BLI_float3x3.hh"
 #include "BLI_map.hh"
@@ -13,7 +14,6 @@
 #include "BLI_math_vec_types.hh"
 #include "BLI_rect.h"
 #include "BLI_vector.hh"
-#include "BLI_vector_list.hh"
 
 #include "DNA_meshdata_types.h"
 
@@ -562,9 +562,9 @@ struct UVBorder {
 };
 
 struct UVIsland {
-  VectorList<UVVertex> uv_vertices;
-  VectorList<UVEdge> uv_edges;
-  VectorList<UVPrimitive> uv_primitives;
+  ChunkList<UVVertex> uv_vertices;
+  ChunkList<UVEdge> uv_edges;
+  ChunkList<UVPrimitive> uv_primitives;
   /**
    * List of borders of this island. There can be multiple borders per island as a border could
    * be completely encapsulated by another one.
@@ -657,11 +657,9 @@ struct UVIsland {
  public:
   bool has_shared_edge(const UVPrimitive &primitive) const
   {
-    for (const VectorList<UVPrimitive>::UsedVector &prims : uv_primitives) {
-      for (const UVPrimitive &prim : prims) {
-        if (prim.has_shared_edge(primitive)) {
-          return true;
-        }
+    for (const UVPrimitive &prim : uv_primitives) {
+      if (prim.has_shared_edge(primitive)) {
+        return true;
       }
     }
     return false;
@@ -669,11 +667,9 @@ struct UVIsland {
 
   bool has_shared_edge(const MeshPrimitive &primitive) const
   {
-    for (const VectorList<UVPrimitive>::UsedVector &primitives : uv_primitives) {
-      for (const UVPrimitive &prim : primitives) {
-        if (prim.has_shared_edge(primitive)) {
-          return true;
-        }
+    for (const UVPrimitive &prim : uv_primitives) {
+      if (prim.has_shared_edge(primitive)) {
+        return true;
       }
     }
     return false;
@@ -681,11 +677,9 @@ struct UVIsland {
 
   const void extend_border(const UVPrimitive &primitive)
   {
-    for (const VectorList<UVPrimitive>::UsedVector &primitives : uv_primitives) {
-      for (const UVPrimitive &prim : primitives) {
-        if (prim.has_shared_edge(primitive)) {
-          append(primitive);
-        }
+    for (const UVPrimitive &prim : uv_primitives) {
+      if (prim.has_shared_edge(primitive)) {
+        append(primitive);
       }
     }
   }
