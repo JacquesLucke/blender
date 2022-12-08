@@ -391,6 +391,7 @@ class ChunkList {
       }
       new_active--;
     }
+    /* TODO: new_active might be -1? */
     RawChunk &new_chunk = alloc_info_->raw_chunks[new_active];
     alloc_info_->active = new_active;
     active_begin_ = new_chunk.begin;
