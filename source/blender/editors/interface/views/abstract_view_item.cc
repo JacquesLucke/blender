@@ -12,7 +12,7 @@
 #include "WM_api.h"
 
 #include "UI_interface.h"
-#include "interface_intern.h"
+#include "interface_intern.hh"
 
 #include "UI_abstract_view.hh"
 
@@ -112,7 +112,7 @@ static AbstractViewItem *find_item_from_rename_button(const uiBut &rename_but)
   return nullptr;
 }
 
-static void rename_button_fn(bContext *UNUSED(C), void *arg, char *UNUSED(origstr))
+static void rename_button_fn(bContext * /*C*/, void *arg, char * /*origstr*/)
 {
   const uiBut *rename_but = static_cast<uiBut *>(arg);
   AbstractViewItem *item = find_item_from_rename_button(*rename_but);

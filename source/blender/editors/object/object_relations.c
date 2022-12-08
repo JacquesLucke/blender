@@ -272,7 +272,7 @@ static int vertex_parent_set_exec(bContext *C, wmOperator *op)
 
           /* inverse parent matrix */
           BKE_object_workob_calc_parent(depsgraph, scene, ob, &workob);
-          invert_m4_m4(ob->parentinv, workob.obmat);
+          invert_m4_m4(ob->parentinv, workob.object_to_world);
         }
         else {
           ob->partype = PARVERT1;
@@ -280,7 +280,7 @@ static int vertex_parent_set_exec(bContext *C, wmOperator *op)
 
           /* inverse parent matrix */
           BKE_object_workob_calc_parent(depsgraph, scene, ob, &workob);
-          invert_m4_m4(ob->parentinv, workob.obmat);
+          invert_m4_m4(ob->parentinv, workob.object_to_world);
         }
       }
     }
@@ -401,7 +401,7 @@ void ED_object_parent_clear(Object *ob, const int type)
       /* remove parent, and apply the parented transform
        * result as object's local transforms */
       ob->parent = NULL;
-      BKE_object_apply_mat4(ob, ob->obmat, true, false);
+      BKE_object_apply_mat4(ob, ob->object_to_world, true, false);
       break;
     }
     case CLEAR_PARENT_INVERSE: {
@@ -570,7 +570,9 @@ bool ED_object_parent_set(ReportList *reports,
       pchan = BKE_pose_channel_active_if_layer_visible(par);
       pchan_eval = BKE_pose_channel_active_if_layer_visible(parent_eval);
 
-      if (pchan == NULL) {
+      if (pchan == NULL || pchan_eval == NULL) {
+        /* If pchan_eval is NULL, pchan should also be NULL. */
+        BLI_assert_msg(pchan == NULL, "Missing evaluated bone data");
         BKE_report(reports, RPT_ERROR, "No active bone");
         return false;
       }
@@ -582,7 +584,7 @@ bool ED_object_parent_set(ReportList *reports,
   if (keep_transform) {
     /* Was removed because of bug T23577,
      * but this can be handy in some cases too T32616, so make optional. */
-    BKE_object_apply_mat4(ob, ob->obmat, false, false);
+    BKE_object_apply_mat4(ob, ob->object_to_world, false, false);
   }
 
   /* Set the parent (except for follow-path constraint option). */
@@ -704,7 +706,7 @@ bool ED_object_parent_set(ReportList *reports,
 
     BKE_constraint_target_matrix_get(
         depsgraph, scene, con, 0, CONSTRAINT_OBTYPE_OBJECT, NULL, cmat, scene->r.cfra);
-    sub_v3_v3v3(vec, ob->obmat[3], cmat[3]);
+    sub_v3_v3v3(vec, ob->object_to_world[3], cmat[3]);
 
     copy_v3_v3(ob->loc, vec);
   }
@@ -727,7 +729,7 @@ bool ED_object_parent_set(ReportList *reports,
     ob->partype = PAROBJECT;
     BKE_object_workob_calc_parent(depsgraph, scene, ob, &workob);
 
-    invert_m4_m4(ob->parentinv, workob.obmat);
+    invert_m4_m4(ob->parentinv, workob.object_to_world);
   }
   else if (is_armature_parent && (ob->type == OB_GPENCIL) && (par->type == OB_ARMATURE)) {
     if (partype == PAR_ARMATURE) {
@@ -745,7 +747,7 @@ bool ED_object_parent_set(ReportList *reports,
     ob->partype = PAROBJECT;
     BKE_object_workob_calc_parent(depsgraph, scene, ob, &workob);
 
-    invert_m4_m4(ob->parentinv, workob.obmat);
+    invert_m4_m4(ob->parentinv, workob.object_to_world);
   }
   else if ((ob->type == OB_GPENCIL) && (par->type == OB_LATTICE)) {
     /* Add Lattice modifier */
@@ -756,12 +758,12 @@ bool ED_object_parent_set(ReportList *reports,
     ob->partype = PAROBJECT;
     BKE_object_workob_calc_parent(depsgraph, scene, ob, &workob);
 
-    invert_m4_m4(ob->parentinv, workob.obmat);
+    invert_m4_m4(ob->parentinv, workob.object_to_world);
   }
   else {
     /* calculate inverse parent matrix */
     BKE_object_workob_calc_parent(depsgraph, scene, ob, &workob);
-    invert_m4_m4(ob->parentinv, workob.obmat);
+    invert_m4_m4(ob->parentinv, workob.object_to_world);
   }
 
   DEG_id_tag_update(&ob->id, ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
@@ -770,7 +772,7 @@ bool ED_object_parent_set(ReportList *reports,
 
 static void parent_set_vert_find(KDTree_3d *tree, Object *child, int vert_par[3], bool is_tri)
 {
-  const float *co_find = child->obmat[3];
+  const float *co_find = child->object_to_world[3];
   if (is_tri) {
     KDTreeNearest_3d nearest[3];
     int tot;
@@ -1184,7 +1186,7 @@ static int object_track_clear_exec(bContext *C, wmOperator *op)
     }
 
     if (type == CLEAR_TRACK_KEEP_TRANSFORM) {
-      BKE_object_apply_mat4(ob, ob->obmat, true, true);
+      BKE_object_apply_mat4(ob, ob->object_to_world, true, true);
     }
   }
   CTX_DATA_END;
@@ -2214,7 +2216,7 @@ static int make_local_exec(bContext *C, wmOperator *op)
     CTX_DATA_END;
   }
 
-  BKE_library_make_local(bmain, NULL, NULL, true, false); /* NULL is all libs */
+  BKE_library_make_local(bmain, NULL, NULL, true, false); /* NULL is all libraries. */
 
   WM_event_add_notifier(C, NC_WINDOW, NULL);
   return OPERATOR_FINISHED;
@@ -2316,10 +2318,31 @@ static int make_override_library_exec(bContext *C, wmOperator *op)
     id_root = &collection->id;
     user_overrides_from_selected_objects = true;
   }
-  /* Else, poll func ensures us that ID_IS_LINKED(obact) is true. */
+  /* Else, poll func ensures us that ID_IS_LINKED(obact) is true, or that it is already an existing
+   * liboverride. */
   else {
+    BLI_assert(ID_IS_LINKED(obact) || ID_IS_OVERRIDE_LIBRARY_REAL(obact));
     id_root = &obact->id;
     user_overrides_from_selected_objects = true;
+  }
+
+  /* Make already existing selected liboverrides editable. */
+  bool is_active_override = false;
+  FOREACH_SELECTED_OBJECT_BEGIN (view_layer, CTX_wm_view3d(C), ob_iter) {
+    if (ID_IS_OVERRIDE_LIBRARY_REAL(ob_iter) && !ID_IS_LINKED(ob_iter)) {
+      ob_iter->id.override_library->flag &= ~IDOVERRIDE_LIBRARY_FLAG_SYSTEM_DEFINED;
+      is_active_override = is_active_override || (&ob_iter->id == id_root);
+      DEG_id_tag_update(&ob_iter->id, ID_RECALC_COPY_ON_WRITE);
+    }
+  }
+  FOREACH_SELECTED_OBJECT_END;
+  /* If the active object is a liboverride, there is no point going further, since in the weird
+   * case where some other selected objects would be linked ones, there is no way to properly
+   * create overrides for them currently.
+   *
+   * Could be added later if really needed, but would rather avoid that extra complexity here. */
+  if (is_active_override) {
+    return OPERATOR_FINISHED;
   }
 
   const bool do_fully_editable = !user_overrides_from_selected_objects;
@@ -2328,14 +2351,6 @@ static int make_override_library_exec(bContext *C, wmOperator *op)
                                                           BLI_gset_new(BLI_ghashutil_inthash_p,
                                                                        BLI_ghashutil_intcmp,
                                                                        __func__);
-
-  /* Make already existing selected liboverrides editable. */
-  FOREACH_SELECTED_OBJECT_BEGIN (view_layer, CTX_wm_view3d(C), ob_iter) {
-    if (ID_IS_OVERRIDE_LIBRARY_REAL(ob_iter) && !ID_IS_LINKED(ob_iter)) {
-      ob_iter->id.override_library->flag &= ~IDOVERRIDE_LIBRARY_FLAG_SYSTEM_DEFINED;
-    }
-  }
-  FOREACH_SELECTED_OBJECT_END;
 
   if (do_fully_editable) {
     /* Pass. */

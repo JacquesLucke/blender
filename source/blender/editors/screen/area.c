@@ -147,7 +147,7 @@ void ED_region_do_listen(wmRegionListenerParams *params)
   }
 
   LISTBASE_FOREACH (uiBlock *, block, &region->uiblocks) {
-    UI_block_views_listen(block, params);
+    UI_block_listen(block, params);
   }
 
   LISTBASE_FOREACH (uiList *, list, &region->ui_lists) {
@@ -187,7 +187,8 @@ static void area_draw_azone_fullscreen(
                   min_ff(alpha, 0.75f),
                   0.0f,
                   NULL,
-                  false);
+                  false,
+                  UI_NO_ICON_OVERLAY_TEXT);
 }
 
 /**
@@ -3794,7 +3795,7 @@ void ED_region_cache_draw_curfra_label(const int framenr, const float x, const f
   float font_dims[2] = {0.0f, 0.0f};
 
   /* frame number */
-  BLF_size(fontid, 11.0f * U.pixelsize, U.dpi);
+  BLF_size(fontid, 11.0f * U.dpi_fac);
   BLI_snprintf(numstr, sizeof(numstr), "%d", framenr);
 
   BLF_width_and_height(fontid, numstr, sizeof(numstr), &font_dims[0], &font_dims[1]);

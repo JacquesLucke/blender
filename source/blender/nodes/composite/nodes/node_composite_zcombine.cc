@@ -5,6 +5,8 @@
  * \ingroup cmpnodes
  */
 
+#include "BLT_translation.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -26,7 +28,7 @@ static void cmp_node_zcombine_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("Z"));
 }
 
-static void node_composit_buts_zcombine(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_composit_buts_zcombine(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiLayout *col;
 
@@ -45,6 +47,7 @@ class ZCombineOperation : public NodeOperation {
   {
     get_input("Image").pass_through(get_result("Image"));
     get_result("Z").allocate_invalid();
+    context().set_info_message("Viewport compositor setup not fully supported");
   }
 };
 
@@ -65,6 +68,8 @@ void register_node_type_cmp_zcombine()
   ntype.declare = file_ns::cmp_node_zcombine_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_zcombine;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

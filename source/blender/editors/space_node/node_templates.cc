@@ -32,7 +32,7 @@
 #include "NOD_socket.h"
 #include "NOD_socket_declarations.hh"
 
-#include "../interface/interface_intern.h" /* XXX bad level */
+#include "../interface/interface_intern.hh" /* XXX bad level */
 #include "UI_interface.h"
 
 #include "ED_node.h" /* own include */
@@ -494,7 +494,7 @@ static int ui_node_item_name_compare(const void *a, const void *b)
   return BLI_strcasecmp_natural(type_a->ui_name, type_b->ui_name);
 }
 
-static bool ui_node_item_special_poll(const bNodeTree *UNUSED(ntree), const bNodeType *ntype)
+static bool ui_node_item_special_poll(const bNodeTree * /*ntree*/, const bNodeType *ntype)
 {
   if (STREQ(ntype->idname, "ShaderNodeUVAlongStroke")) {
     /* TODO(sergey): Currently we don't have Freestyle nodes edited from
@@ -830,7 +830,7 @@ static void ui_node_draw_input(
 
     sub = uiLayoutRow(sub, true);
     uiLayoutSetAlignment(sub, UI_LAYOUT_ALIGN_RIGHT);
-    uiItemL(sub, IFACE_(input.name), ICON_NONE);
+    uiItemL(sub, IFACE_(nodeSocketLabel(&input)), ICON_NONE);
   }
 
   if (dependency_loop) {

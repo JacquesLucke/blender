@@ -44,6 +44,8 @@
 #include "UI_interface.h"
 #include "UI_view2d.h"
 
+#include "BLO_read_write.h"
+
 #include "IMB_imbuf.h"
 
 /* Only for cursor drawing. */
@@ -127,7 +129,6 @@ static SpaceLink *sequencer_create(const ScrArea *UNUSED(area), const Scene *sce
   region->regiontype = RGN_TYPE_TOOLS;
   region->alignment = RGN_ALIGN_LEFT;
   region->flag = RGN_FLAG_HIDDEN;
-  region->v2d.flag |= V2D_VIEWSYNC_AREA_VERTICAL;
 
   /* Channels. */
   region = MEM_callocN(sizeof(ARegion), "channels for sequencer");
@@ -135,6 +136,7 @@ static SpaceLink *sequencer_create(const ScrArea *UNUSED(area), const Scene *sce
   BLI_addtail(&sseq->regionbase, region);
   region->regiontype = RGN_TYPE_CHANNELS;
   region->alignment = RGN_ALIGN_LEFT;
+  region->v2d.flag |= V2D_VIEWSYNC_AREA_VERTICAL;
 
   /* Preview region. */
   /* NOTE: if you change values here, also change them in sequencer_init_preview_region. */
@@ -563,7 +565,7 @@ static void sequencer_main_clamp_view(const bContext *C, ARegion *region)
 
   /* Initialize default view with 7 channels, that are visible even if empty. */
   rctf strip_boundbox;
-  BLI_rctf_init(&strip_boundbox, 0.0f, 0.0f, 1.0f, 7.0f);
+  BLI_rctf_init(&strip_boundbox, 0.0f, 0.0f, 1.0f, 6.0f);
   SEQ_timeline_expand_boundbox(scene, ed->seqbasep, &strip_boundbox);
 
   /* Clamp Y max. Scrubbing area height must be added, so strips aren't occluded. */
@@ -572,8 +574,8 @@ static void sequencer_main_clamp_view(const bContext *C, ARegion *region)
   const float pixel_view_size_y = BLI_rctf_size_y(&v2d->cur) / BLI_rcti_size_y(&v2d->mask);
   const float scrub_bar_height = BLI_rcti_size_y(&scrub_rect) * pixel_view_size_y;
 
-  /* Channel n has range of <n, n+1>. */
-  strip_boundbox.ymax += 1.0f + scrub_bar_height;
+  /* Channel n has range of <n, n+1>, +1 for empty channel. */
+  strip_boundbox.ymax += 2.0f + scrub_bar_height;
 
   /* Clamp Y min. Scroller and marker area height must be added, so strips aren't occluded. */
   float scroll_bar_height = v2d->hor.ymax * pixel_view_size_y;
@@ -991,6 +993,47 @@ static void sequencer_channel_region_draw(const bContext *C, ARegion *region)
   draw_channels(C, region);
 }
 
+static void sequencer_blend_read_data(BlendDataReader *UNUSED(reader), SpaceLink *sl)
+{
+  SpaceSeq *sseq = (SpaceSeq *)sl;
+
+  /* grease pencil data is not a direct data and can't be linked from direct_link*
+   * functions, it should be linked from lib_link* functions instead
+   *
+   * otherwise it'll lead to lost grease data on open because it'll likely be
+   * read from file after all other users of grease pencil and newdataadr would
+   * simple return NULL here (sergey)
+   */
+#if 0
+    if (sseq->gpd) {
+      sseq->gpd = newdataadr(fd, sseq->gpd);
+      BKE_gpencil_blend_read_data(fd, sseq->gpd);
+    }
+#endif
+  sseq->scopes.reference_ibuf = NULL;
+  sseq->scopes.zebra_ibuf = NULL;
+  sseq->scopes.waveform_ibuf = NULL;
+  sseq->scopes.sep_waveform_ibuf = NULL;
+  sseq->scopes.vector_ibuf = NULL;
+  sseq->scopes.histogram_ibuf = NULL;
+  memset(&sseq->runtime, 0x0, sizeof(sseq->runtime));
+}
+
+static void sequencer_blend_read_lib(BlendLibReader *reader, ID *parent_id, SpaceLink *sl)
+{
+  SpaceSeq *sseq = (SpaceSeq *)sl;
+
+  /* NOTE: pre-2.5, this was local data not lib data, but now we need this as lib data
+   * so fingers crossed this works fine!
+   */
+  BLO_read_id_address(reader, parent_id->lib, &sseq->gpd);
+}
+
+static void sequencer_blend_write(BlendWriter *writer, SpaceLink *sl)
+{
+  BLO_write_struct(writer, SpaceSeq, sl);
+}
+
 void ED_spacetype_sequencer(void)
 {
   SpaceType *st = MEM_callocN(sizeof(SpaceType), "spacetype sequencer");
@@ -1011,6 +1054,9 @@ void ED_spacetype_sequencer(void)
   st->refresh = sequencer_refresh;
   st->listener = sequencer_listener;
   st->id_remap = sequencer_id_remap;
+  st->blend_read_data = sequencer_blend_read_data;
+  st->blend_read_lib = sequencer_blend_read_lib;
+  st->blend_write = sequencer_blend_write;
 
   /* Create regions: */
   /* Main window. */

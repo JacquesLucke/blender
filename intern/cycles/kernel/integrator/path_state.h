@@ -56,6 +56,18 @@ ccl_device_inline void path_state_init_integrator(KernelGlobals kg,
   INTEGRATOR_STATE_WRITE(state, path, continuation_probability) = 1.0f;
   INTEGRATOR_STATE_WRITE(state, path, throughput) = one_spectrum();
 
+#ifdef __PATH_GUIDING__
+  INTEGRATOR_STATE_WRITE(state, path, unguided_throughput) = 1.0f;
+  INTEGRATOR_STATE_WRITE(state, guiding, path_segment) = nullptr;
+  INTEGRATOR_STATE_WRITE(state, guiding, use_surface_guiding) = false;
+  INTEGRATOR_STATE_WRITE(state, guiding, sample_surface_guiding_rand) = 0.5f;
+  INTEGRATOR_STATE_WRITE(state, guiding, surface_guiding_sampling_prob) = 0.0f;
+  INTEGRATOR_STATE_WRITE(state, guiding, bssrdf_sampling_prob) = 0.0f;
+  INTEGRATOR_STATE_WRITE(state, guiding, use_volume_guiding) = false;
+  INTEGRATOR_STATE_WRITE(state, guiding, sample_volume_guiding_rand) = 0.5f;
+  INTEGRATOR_STATE_WRITE(state, guiding, volume_guiding_sampling_prob) = 0.0f;
+#endif
+
 #ifdef __MNEE__
   INTEGRATOR_STATE_WRITE(state, path, mnee) = 0;
 #endif
@@ -79,7 +91,10 @@ ccl_device_inline void path_state_init_integrator(KernelGlobals kg,
 #endif
 }
 
-ccl_device_inline void path_state_next(KernelGlobals kg, IntegratorState state, int label)
+ccl_device_inline void path_state_next(KernelGlobals kg,
+                                       IntegratorState state,
+                                       const int label,
+                                       const int shader_flag)
 {
   uint32_t flag = INTEGRATOR_STATE(state, path, flag);
 
@@ -108,12 +123,12 @@ ccl_device_inline void path_state_next(KernelGlobals kg, IntegratorState state, 
     flag |= PATH_RAY_TERMINATE_AFTER_TRANSPARENT;
   }
 
-  flag &= ~(PATH_RAY_ALL_VISIBILITY | PATH_RAY_MIS_SKIP);
+  flag &= ~(PATH_RAY_ALL_VISIBILITY | PATH_RAY_MIS_SKIP | PATH_RAY_MIS_HAD_TRANSMISSION);
 
 #ifdef __VOLUME__
   if (label & LABEL_VOLUME_SCATTER) {
     /* volume scatter */
-    flag |= PATH_RAY_VOLUME_SCATTER;
+    flag |= PATH_RAY_VOLUME_SCATTER | PATH_RAY_MIS_HAD_TRANSMISSION;
     flag &= ~PATH_RAY_TRANSPARENT_BACKGROUND;
     if (!(flag & PATH_RAY_ANY_PASS)) {
       flag |= PATH_RAY_VOLUME_PASS;
@@ -174,6 +189,11 @@ ccl_device_inline void path_state_next(KernelGlobals kg, IntegratorState state, 
     else {
       kernel_assert(label & LABEL_SINGULAR);
       flag |= PATH_RAY_GLOSSY | PATH_RAY_SINGULAR | PATH_RAY_MIS_SKIP;
+    }
+
+    /* Flag for consistent MIS weights with light tree. */
+    if (shader_flag & SD_BSDF_HAS_TRANSMISSION) {
+      flag |= PATH_RAY_MIS_HAD_TRANSMISSION;
     }
 
     /* Render pass categories. */
@@ -249,7 +269,11 @@ ccl_device_inline float path_state_continuation_probability(KernelGlobals kg,
 
   /* Probabilistic termination: use sqrt() to roughly match typical view
    * transform and do path termination a bit later on average. */
-  return min(sqrtf(reduce_max(fabs(INTEGRATOR_STATE(state, path, throughput)))), 1.0f);
+  Spectrum throughput = INTEGRATOR_STATE(state, path, throughput);
+#if defined(__PATH_GUIDING__) && PATH_GUIDING_LEVEL >= 4
+  throughput *= INTEGRATOR_STATE(state, path, unguided_throughput);
+#endif
+  return min(sqrtf(reduce_max(fabs(throughput))), 1.0f);
 }
 
 ccl_device_inline bool path_state_ao_bounce(KernelGlobals kg, ConstIntegratorState state)

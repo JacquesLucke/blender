@@ -62,7 +62,7 @@ static void node_shader_buts_tex_sky(uiLayout *layout, bContext *C, PointerRNA *
   }
 }
 
-static void node_shader_init_tex_sky(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_tex_sky(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeTexSky *tex = MEM_cnew<NodeTexSky>("NodeTexSky");
   BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
@@ -146,7 +146,7 @@ static void sky_precompute_old(SkyModelPreetham *sunsky, const float sun_angles[
 
 static int node_shader_gpu_tex_sky(GPUMaterial *mat,
                                    bNode *node,
-                                   bNodeExecData *UNUSED(execdata),
+                                   bNodeExecData * /*execdata*/,
                                    GPUNodeStack *in,
                                    GPUNodeStack *out)
 {
@@ -189,12 +189,12 @@ static int node_shader_gpu_tex_sky(GPUMaterial *mat,
     /* Pass sky_state->configs[3][9] as 3*(vec4+vec4)+vec3 */
     float config_x07[8], config_y07[8], config_z07[8], config_xyz8[3];
     for (int i = 0; i < 8; ++i) {
-      config_x07[i] = (float)sky_state->configs[0][i];
-      config_y07[i] = (float)sky_state->configs[1][i];
-      config_z07[i] = (float)sky_state->configs[2][i];
+      config_x07[i] = float(sky_state->configs[0][i]);
+      config_y07[i] = float(sky_state->configs[1][i]);
+      config_z07[i] = float(sky_state->configs[2][i]);
     }
     for (int i = 0; i < 3; ++i) {
-      config_xyz8[i] = (float)sky_state->configs[i][8];
+      config_xyz8[i] = float(sky_state->configs[i][8]);
     }
     float radiance[3];
     for (int i = 0; i < 3; i++) {
@@ -308,11 +308,11 @@ void register_node_type_sh_tex_sky()
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_tex_sky;
   node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
-  node_type_init(&ntype, file_ns::node_shader_init_tex_sky);
+  ntype.initfunc = file_ns::node_shader_init_tex_sky;
   node_type_storage(&ntype, "NodeTexSky", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_tex_sky);
+  ntype.gpu_fn = file_ns::node_shader_gpu_tex_sky;
   /* Remove vector input for Nishita sky model. */
-  node_type_update(&ntype, file_ns::node_shader_update_sky);
+  ntype.updatefunc = file_ns::node_shader_update_sky;
   ntype.gather_link_search_ops = file_ns::node_gather_link_searches;
 
   nodeRegisterType(&ntype);

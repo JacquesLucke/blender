@@ -18,6 +18,8 @@ ccl_device_inline void integrate_light(KernelGlobals kg,
   Intersection isect ccl_optional_struct_init;
   integrator_state_read_isect(kg, state, &isect);
 
+  guiding_record_light_surface_segment(kg, state, &isect);
+
   float3 ray_P = INTEGRATOR_STATE(state, ray, P);
   const float3 ray_D = INTEGRATOR_STATE(state, ray, D);
   const float ray_time = INTEGRATOR_STATE(state, ray, time);
@@ -59,13 +61,11 @@ ccl_device_inline void integrate_light(KernelGlobals kg,
   /* MIS weighting. */
   float mis_weight = 1.0f;
   if (!(path_flag & PATH_RAY_MIS_SKIP)) {
-    /* multiple importance sampling, get regular light pdf,
-     * and compute weight with respect to BSDF pdf */
-    const float mis_ray_pdf = INTEGRATOR_STATE(state, path, mis_ray_pdf);
-    mis_weight = light_sample_mis_weight_forward(kg, mis_ray_pdf, ls.pdf);
+    mis_weight = light_sample_mis_weight_forward_lamp(kg, state, path_flag, &ls, ray_P);
   }
 
   /* Write to render buffer. */
+  guiding_record_surface_emission(kg, state, light_eval, mis_weight);
   film_write_surface_emission(kg, state, light_eval, mis_weight, render_buffer, ls.group);
 }
 

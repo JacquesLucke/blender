@@ -40,12 +40,12 @@ typedef enum GPUAttachmentType : int {
 
 inline constexpr GPUAttachmentType operator-(GPUAttachmentType a, int b)
 {
-  return static_cast<GPUAttachmentType>(static_cast<int>(a) - b);
+  return static_cast<GPUAttachmentType>(int(a) - b);
 }
 
 inline constexpr GPUAttachmentType operator+(GPUAttachmentType a, int b)
 {
-  return static_cast<GPUAttachmentType>(static_cast<int>(a) + b);
+  return static_cast<GPUAttachmentType>(int(a) + b);
 }
 
 inline GPUAttachmentType &operator++(GPUAttachmentType &a)
@@ -93,11 +93,6 @@ class FrameBuffer {
    */
   void **py_ref = nullptr;
 #endif
-
- public:
-  /* Reference of a pointer that needs to be cleaned when deallocating the frame-buffer.
-   * Points to #BPyGPUFrameBuffer::fb */
-  void **ref = nullptr;
 
  public:
   FrameBuffer(const char *name);
@@ -208,6 +203,11 @@ class FrameBuffer {
   inline GPUTexture *color_tex(int slot) const
   {
     return attachments_[GPU_FB_COLOR_ATTACHMENT0 + slot].tex;
+  };
+
+  inline const char *const name_get() const
+  {
+    return name_;
   };
 };
 

@@ -5,7 +5,8 @@
 
 #include "BKE_mesh.h"
 
-#include "BLI_disjoint_set.hh"
+#include "BLI_atomic_disjoint_set.hh"
+#include "BLI_task.hh"
 
 #include "node_geometry_util.hh"
 
@@ -31,21 +32,19 @@ class IslandFieldInput final : public bke::MeshFieldInput {
 
   GVArray get_varray_for_context(const Mesh &mesh,
                                  const eAttrDomain domain,
-                                 IndexMask UNUSED(mask)) const final
+                                 const IndexMask /*mask*/) const final
   {
     const Span<MEdge> edges = mesh.edges();
 
-    DisjointSet islands(mesh.totvert);
-    for (const int i : edges.index_range()) {
-      islands.join(edges[i].v1, edges[i].v2);
-    }
+    AtomicDisjointSet islands(mesh.totvert);
+    threading::parallel_for(edges.index_range(), 1024, [&](const IndexRange range) {
+      for (const MEdge &edge : edges.slice(range)) {
+        islands.join(edge.v1, edge.v2);
+      }
+    });
 
     Array<int> output(mesh.totvert);
-    VectorSet<int> ordered_roots;
-    for (const int i : IndexRange(mesh.totvert)) {
-      const int64_t root = islands.find_root(i);
-      output[i] = ordered_roots.index_of_or_add(root);
-    }
+    islands.calc_reduced_ids(output);
 
     return mesh.attributes().adapt_domain<int>(
         VArray<int>::ForContainer(std::move(output)), ATTR_DOMAIN_POINT, domain);
@@ -61,6 +60,11 @@ class IslandFieldInput final : public bke::MeshFieldInput {
   {
     return dynamic_cast<const IslandFieldInput *>(&other) != nullptr;
   }
+
+  std::optional<eAttrDomain> preferred_domain(const Mesh & /*mesh*/) const override
+  {
+    return ATTR_DOMAIN_POINT;
+  }
 };
 
 class IslandCountFieldInput final : public bke::MeshFieldInput {
@@ -72,22 +76,19 @@ class IslandCountFieldInput final : public bke::MeshFieldInput {
 
   GVArray get_varray_for_context(const Mesh &mesh,
                                  const eAttrDomain domain,
-                                 IndexMask UNUSED(mask)) const final
+                                 const IndexMask /*mask*/) const final
   {
     const Span<MEdge> edges = mesh.edges();
 
-    DisjointSet islands(mesh.totvert);
-    for (const int i : edges.index_range()) {
-      islands.join(edges[i].v1, edges[i].v2);
-    }
+    AtomicDisjointSet islands(mesh.totvert);
+    threading::parallel_for(edges.index_range(), 1024, [&](const IndexRange range) {
+      for (const MEdge &edge : edges.slice(range)) {
+        islands.join(edge.v1, edge.v2);
+      }
+    });
 
-    Set<int> island_list;
-    for (const int i_vert : IndexRange(mesh.totvert)) {
-      const int64_t root = islands.find_root(i_vert);
-      island_list.add(root);
-    }
-
-    return VArray<int>::ForSingle(island_list.size(), mesh.attributes().domain_size(domain));
+    const int islands_num = islands.count_sets();
+    return VArray<int>::ForSingle(islands_num, mesh.attributes().domain_size(domain));
   }
 
   uint64_t hash() const override
@@ -99,6 +100,11 @@ class IslandCountFieldInput final : public bke::MeshFieldInput {
   bool is_equal_to(const fn::FieldNode &other) const override
   {
     return dynamic_cast<const IslandCountFieldInput *>(&other) != nullptr;
+  }
+
+  std::optional<eAttrDomain> preferred_domain(const Mesh & /*mesh*/) const override
+  {
+    return ATTR_DOMAIN_POINT;
   }
 };
 

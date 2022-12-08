@@ -158,14 +158,14 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
         copy_qt_qt(td->ext->oquat, ob->quat);
       }
       /* update object's loc/rot to get current rigid body transform */
-      mat4_to_loc_rot_size(ob->loc, rot, scale, ob->obmat);
+      mat4_to_loc_rot_size(ob->loc, rot, scale, ob->object_to_world);
       sub_v3_v3(ob->loc, ob->dloc);
       BKE_object_mat3_to_rot(ob, rot, false); /* drot is already corrected here */
     }
   }
 
   /* axismtx has the real orientation */
-  transform_orientations_create_from_axis(td->axismtx, UNPACK3(ob->obmat));
+  transform_orientations_create_from_axis(td->axismtx, UNPACK3(ob->object_to_world));
   if (t->orient_type_mask & (1 << V3D_ORIENT_GIMBAL)) {
     if (!gimbal_axis_object(ob, td->ext->axismtx_gimbal)) {
       copy_m3_m3(td->ext->axismtx_gimbal, td->axismtx);
@@ -192,7 +192,7 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
    * More proper solution would be to make a shallow copy of the object and
    * evaluate that, and access matrix of that evaluated copy of the object.
    * Might be more tricky than it sounds, if some logic later on accesses the
-   * object matrix via td->ob->obmat. */
+   * object matrix via td->ob->object_to_world. */
   Object *object_eval = DEG_get_evaluated_object(t->depsgraph, ob);
   if (skip_invert == false && constinv == false) {
     object_eval->transflag |= OB_NO_CONSTRAINTS; /* BKE_object_where_is_calc checks this */
@@ -208,7 +208,7 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
   }
   /* Copy newly evaluated fields to the original object, similar to how
    * active dependency graph will do it. */
-  copy_m4_m4(ob->obmat, object_eval->obmat);
+  copy_m4_m4(ob->object_to_world, object_eval->object_to_world);
   /* Only copy negative scale flag, this is the only flag which is modified by
    * the BKE_object_where_is_calc(). The rest of the flags we need to keep,
    * otherwise we might lose dupli flags  (see T61787). */
@@ -258,9 +258,9 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
   copy_v3_v3(td->ext->isize, ob->scale);
   copy_v3_v3(td->ext->dscale, ob->dscale);
 
-  copy_v3_v3(td->center, ob->obmat[3]);
+  copy_v3_v3(td->center, ob->object_to_world[3]);
 
-  copy_m4_m4(td->ext->obmat, ob->obmat);
+  copy_m4_m4(td->ext->obmat, ob->object_to_world);
 
   /* is there a need to set the global<->data space conversion matrices? */
   if (ob->parent || constinv) {
@@ -271,7 +271,7 @@ static void ObjectToTransData(TransInfo *t, TransData *td, Object *ob)
      *       done, as it doesn't work well.
      */
     BKE_object_to_mat3(ob, obmtx);
-    copy_m3_m4(totmat, ob->obmat);
+    copy_m3_m4(totmat, ob->object_to_world);
 
     /* If the object scale is zero on any axis, this might result in a zero matrix.
      * In this case, the transformation would not do anything, see: T50103. */
@@ -383,7 +383,7 @@ static void set_trans_object_base_flags(TransInfo *t)
       if (parsel != NULL) {
         /* Rotation around local centers are allowed to propagate. */
         if ((t->around == V3D_AROUND_LOCAL_ORIGINS) &&
-            (ELEM(t->mode, TFM_ROTATION, TFM_TRACKBALL))) {
+            ELEM(t->mode, TFM_ROTATION, TFM_TRACKBALL)) {
           base->flag_legacy |= BA_TRANSFORM_CHILD;
         }
         else {
@@ -427,7 +427,7 @@ static int count_proportional_objects(TransInfo *t)
   /* Clear all flags we need. It will be used to detect dependencies. */
   trans_object_base_deps_flag_prepare(scene, view_layer);
   /* Rotations around local centers are allowed to propagate, so we take all objects. */
-  if (!((t->around == V3D_AROUND_LOCAL_ORIGINS) && (ELEM(t->mode, TFM_ROTATION, TFM_TRACKBALL)))) {
+  if (!((t->around == V3D_AROUND_LOCAL_ORIGINS) && ELEM(t->mode, TFM_ROTATION, TFM_TRACKBALL))) {
     /* Mark all parents. */
     LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
       if (BASE_SELECTED_EDITABLE(v3d, base) && BASE_SELECTABLE(v3d, base)) {
@@ -658,7 +658,7 @@ static void createTransObject(bContext *C, TransInfo *t)
       if (ob->parent != NULL) {
         if (ob->parent && !BLI_gset_haskey(objects_in_transdata, ob->parent) &&
             !BLI_gset_haskey(objects_in_transdata, ob)) {
-          if (((base->flag_legacy & BA_WAS_SEL) && (base->flag & BASE_SELECTED) == 0)) {
+          if ((base->flag_legacy & BA_WAS_SEL) && (base->flag & BASE_SELECTED) == 0) {
             Base *base_parent = BKE_view_layer_base_find(view_layer, ob->parent);
             if (base_parent && !BASE_XFORM_INDIRECT(base_parent)) {
               Object *ob_parent_recurse = ob->parent;

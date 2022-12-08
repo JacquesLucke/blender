@@ -266,7 +266,7 @@ CurveLengthFieldInput::CurveLengthFieldInput()
 
 GVArray CurveLengthFieldInput::get_varray_for_context(const CurvesGeometry &curves,
                                                       const eAttrDomain domain,
-                                                      IndexMask UNUSED(mask)) const
+                                                      const IndexMask /*mask*/) const
 {
   return construct_curve_length_gvarray(curves, domain);
 }
@@ -280,6 +280,12 @@ uint64_t CurveLengthFieldInput::hash() const
 bool CurveLengthFieldInput::is_equal_to(const fn::FieldNode &other) const
 {
   return dynamic_cast<const CurveLengthFieldInput *>(&other) != nullptr;
+}
+
+std::optional<eAttrDomain> CurveLengthFieldInput::preferred_domain(
+    const bke::CurvesGeometry & /*curves*/) const
+{
+  return ATTR_DOMAIN_CURVE;
 }
 
 /** \} */
@@ -307,6 +313,12 @@ static void tag_component_positions_changed(void *owner)
 {
   blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
   curves.tag_positions_changed();
+}
+
+static void tag_component_radii_changed(void *owner)
+{
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.tag_radii_changed();
 }
 
 static void tag_component_normals_changed(void *owner)
@@ -378,7 +390,7 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                point_access,
                                                make_array_read_attribute<float>,
                                                make_array_write_attribute<float>,
-                                               nullptr);
+                                               tag_component_radii_changed);
 
   static BuiltinCustomDataLayerProvider id("id",
                                            ATTR_DOMAIN_POINT,
@@ -617,7 +629,7 @@ static AttributeAccessorFunctions get_curves_accessor_functions()
         return 0;
     }
   };
-  fn.domain_supported = [](const void *UNUSED(owner), const eAttrDomain domain) {
+  fn.domain_supported = [](const void * /*owner*/, const eAttrDomain domain) {
     return ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE);
   };
   fn.adapt_domain = [](const void *owner,

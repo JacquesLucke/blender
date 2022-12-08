@@ -12,8 +12,10 @@
 /* XXX(@campbellbarton): temp feature. */
 #define DURIAN_CAMERA_SWITCH
 
-/* check for cyclic set-scene,
- * libs can cause this case which is normally prevented, see (T#####) */
+/**
+ * Check for cyclic set-scene.
+ * Libraries can cause this case which is normally prevented, see (T42009).
+ */
 #define USE_SETSCENE_CHECK
 
 #include "DNA_ID.h"
@@ -401,7 +403,7 @@ typedef struct ImageFormatData {
 
   /** R_IMF_PLANES_BW, R_IMF_PLANES_RGB, R_IMF_PLANES_RGBA. */
   char planes;
-  /** Generic options for all image types, alpha zbuffer. */
+  /** Generic options for all image types, alpha Z-buffer. */
   char flag;
 
   /** (0 - 100), eg: JPEG quality. */
@@ -470,6 +472,7 @@ typedef struct ImageFormatData {
 #define R_IMF_IMTYPE_THEORA 33
 #define R_IMF_IMTYPE_PSD 34
 #define R_IMF_IMTYPE_WEBP 35
+#define R_IMF_IMTYPE_AV1 36
 
 #define R_IMF_IMTYPE_INVALID 255
 
@@ -557,7 +560,8 @@ typedef struct BakeData {
   char target;
   char save_mode;
   char margin_type;
-  char _pad[5];
+  char view_from;
+  char _pad[4];
 
   struct Object *cage_object;
 } BakeData;
@@ -589,6 +593,12 @@ typedef enum eBakeSaveMode {
   R_BAKE_SAVE_INTERNAL = 0,
   R_BAKE_SAVE_EXTERNAL = 1,
 } eBakeSaveMode;
+
+/** #BakeData.view_from (char) */
+typedef enum eBakeViewFrom {
+  R_BAKE_VIEW_FROM_ABOVE_SURFACE = 0,
+  R_BAKE_VIEW_FROM_ACTIVE_CAMERA = 1,
+} eBakeViewFrom;
 
 /** #BakeData.pass_filter */
 typedef enum eBakePassFilter {
@@ -1019,8 +1029,15 @@ typedef struct Sculpt {
   float constant_detail;
   float detail_percent;
 
+  int automasking_cavity_blur_steps;
+  float automasking_cavity_factor;
   char _pad[4];
 
+  float automasking_start_normal_limit, automasking_start_normal_falloff;
+  float automasking_view_normal_limit, automasking_view_normal_falloff;
+
+  struct CurveMapping *automasking_cavity_curve;
+  struct CurveMapping *automasking_cavity_curve_op; /* For use by operators */
   struct Object *gravity_object;
 } Sculpt;
 
@@ -1138,6 +1155,16 @@ typedef enum eGP_Sculpt_SettingsFlag {
   GP_SCULPT_SETT_FLAG_PRIMITIVE_CURVE = (1 << 1),
   /** Scale thickness. */
   GP_SCULPT_SETT_FLAG_SCALE_THICKNESS = (1 << 3),
+  /* Stroke Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_STROKE = (1 << 4),
+  /* Stroke Layer Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_STROKE = (1 << 5),
+  /* Stroke Material Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_STROKE = (1 << 6),
+  /* Active Layer Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_ACTIVE = (1 << 7),
+  /* Active Material Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_ACTIVE = (1 << 8),
 } eGP_Sculpt_SettingsFlag;
 
 /** #GP_Sculpt_Settings.gpencil_selectmode_sculpt */
@@ -1172,6 +1199,8 @@ typedef enum eGP_Interpolate_SettingsFlag {
   GP_TOOLFLAG_INTERPOLATE_ALL_LAYERS = (1 << 0),
   /* apply interpolation to only selected */
   GP_TOOLFLAG_INTERPOLATE_ONLY_SELECTED = (1 << 1),
+  /* Exclude breakdown keyframe type as extreme */
+  GP_TOOLFLAG_INTERPOLATE_EXCLUDE_BREAKDOWNS = (1 << 2),
 } eGP_Interpolate_SettingsFlag;
 
 /** #GP_Interpolate_Settings.type */
@@ -1745,6 +1774,8 @@ typedef struct Scene {
   ID id;
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt;
+  /* runtime (must be immediately after id for utilities to use it). */
+  DrawDataList drawdata;
 
   struct Object *camera;
   struct World *world;
@@ -2107,6 +2138,8 @@ typedef enum eSnapSourceSelect {
   SCE_SNAP_SOURCE_ACTIVE = 3,
 } eSnapSourceSelect;
 
+ENUM_OPERATORS(eSnapSourceSelect, SCE_SNAP_SOURCE_ACTIVE)
+
 /** #TransSnap.target_select and #ToolSettings.snap_flag (#SCE_SNAP_NOT_TO_ACTIVE,
  * #SCE_SNAP_TO_INCLUDE_EDITED, #SCE_SNAP_TO_INCLUDE_NONEDITED, #SCE_SNAP_TO_ONLY_SELECTABLE) */
 typedef enum eSnapTargetSelect {
@@ -2117,6 +2150,7 @@ typedef enum eSnapTargetSelect {
   SCE_SNAP_TARGET_ONLY_SELECTABLE = (1 << 3),
   SCE_SNAP_TARGET_NOT_NONEDITED = (1 << 4),
 } eSnapTargetSelect;
+ENUM_OPERATORS(eSnapTargetSelect, SCE_SNAP_TARGET_NOT_NONEDITED)
 
 /** #ToolSettings.snap_mode */
 typedef enum eSnapMode {
@@ -2273,6 +2307,7 @@ typedef enum ePaintSymmetryFlags {
   PAINT_TILE_Y = (1 << 5),
   PAINT_TILE_Z = (1 << 6),
 } ePaintSymmetryFlags;
+ENUM_OPERATORS(ePaintSymmetryFlags, PAINT_TILE_Z);
 
 #define PAINT_SYMM_AXIS_ALL (PAINT_SYMM_X | PAINT_SYMM_Y | PAINT_SYMM_Z)
 

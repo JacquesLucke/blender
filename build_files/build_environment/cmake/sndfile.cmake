@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(SNDFILE_EXTRA_ARGS)
-set(SNDFILE_ENV PKG_CONFIG_PATH=${mingw_LIBDIR}/ogg/lib/pkgconfig:${mingw_LIBDIR}/vorbis/lib/pkgconfig:${mingw_LIBDIR}/flac/lib/pkgconfig:${mingw_LIBDIR})
+set(SNDFILE_ENV PKG_CONFIG_PATH=${mingw_LIBDIR}/ogg/lib/pkgconfig:${mingw_LIBDIR}/vorbis/lib/pkgconfig:${mingw_LIBDIR}/flac/lib/pkgconfig:${mingw_LIBDIR}/opus/lib/pkgconfig:${mingw_LIBDIR})
 
 if(WIN32)
   set(SNDFILE_ENV set ${SNDFILE_ENV} &&)
@@ -11,18 +11,11 @@ else()
   set(SNDFILE_OPTIONS --enable-static --disable-shared )
 endif()
 
-if(UNIX)
-  set(SNDFILE_PATCH_CMD ${PATCH_CMD} --verbose -p 0 -d ${BUILD_DIR}/sndfile/src/external_sndfile < ${PATCH_DIR}/sndfile.diff)
-else()
-  set(SNDFILE_PATCH_CMD)
-endif()
-
 ExternalProject_Add(external_sndfile
   URL file://${PACKAGE_DIR}/${SNDFILE_FILE}
   DOWNLOAD_DIR ${DOWNLOAD_DIR}
   URL_HASH ${SNDFILE_HASH_TYPE}=${SNDFILE_HASH}
   PREFIX ${BUILD_DIR}/sndfile
-  PATCH_COMMAND ${SNDFILE_PATCH_CMD}
   CONFIGURE_COMMAND ${CONFIGURE_ENV} && cd ${BUILD_DIR}/sndfile/src/external_sndfile/ && ${SNDFILE_ENV} ${CONFIGURE_COMMAND} ${SNDFILE_OPTIONS} --prefix=${mingw_LIBDIR}/sndfile
   BUILD_COMMAND ${CONFIGURE_ENV} && cd ${BUILD_DIR}/sndfile/src/external_sndfile/ && make -j${MAKE_THREADS}
   INSTALL_COMMAND ${CONFIGURE_ENV} && cd ${BUILD_DIR}/sndfile/src/external_sndfile/ && make install
@@ -37,6 +30,7 @@ add_dependencies(
   external_sndfile
   external_ogg
   external_vorbis
+  external_opus
 )
 if(UNIX)
   add_dependencies(

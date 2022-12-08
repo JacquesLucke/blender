@@ -79,7 +79,7 @@ void GpencilIO::prepare_camera_params(Scene *scene, const GpencilIOParams *ipara
     BKE_camera_params_compute_matrix(&params);
 
     float viewmat[4][4];
-    invert_m4_m4(viewmat, cam_ob->obmat);
+    invert_m4_m4(viewmat, cam_ob->object_to_world);
 
     mul_m4_m4m4(persmat_, params.winmat, viewmat);
   }
@@ -152,7 +152,7 @@ void GpencilIO::create_object_list()
 
     /* Save z-depth from view to sort from back to front. */
     if (is_camera_) {
-      float camera_z = dot_v3v3(camera_z_axis, object->obmat[3]);
+      float camera_z = dot_v3v3(camera_z_axis, object->object_to_world[3]);
       ObjectZ obz = {camera_z, object};
       ob_list_.append(obz);
     }
@@ -160,10 +160,10 @@ void GpencilIO::create_object_list()
       float zdepth = 0;
       if (rv3d_) {
         if (rv3d_->is_persp) {
-          zdepth = ED_view3d_calc_zfac(rv3d_, object->obmat[3]);
+          zdepth = ED_view3d_calc_zfac(rv3d_, object->object_to_world[3]);
         }
         else {
-          zdepth = -dot_v3v3(rv3d_->viewinv[2], object->obmat[3]);
+          zdepth = -dot_v3v3(rv3d_->viewinv[2], object->object_to_world[3]);
         }
         ObjectZ obz = {zdepth * -1.0f, object};
         ob_list_.append(obz);
@@ -227,16 +227,16 @@ float2 GpencilIO::gpencil_3D_point_to_render_space(const float3 co)
 
   float2 r_co;
   mul_v2_project_m4_v3(&r_co.x, persmat_, &parent_co.x);
-  r_co.x = (r_co.x + 1.0f) / 2.0f * (float)render_x_;
-  r_co.y = (r_co.y + 1.0f) / 2.0f * (float)render_y_;
+  r_co.x = (r_co.x + 1.0f) / 2.0f * float(render_x_);
+  r_co.y = (r_co.y + 1.0f) / 2.0f * float(render_y_);
 
   /* Invert X axis. */
   if (invert_axis_[0]) {
-    r_co.x = (float)render_x_ - r_co.x;
+    r_co.x = float(render_x_) - r_co.x;
   }
   /* Invert Y axis. */
   if (invert_axis_[1]) {
-    r_co.y = (float)render_y_ - r_co.y;
+    r_co.y = float(render_y_) - r_co.y;
   }
 
   return r_co;
@@ -244,7 +244,7 @@ float2 GpencilIO::gpencil_3D_point_to_render_space(const float3 co)
 
 float2 GpencilIO::gpencil_3D_point_to_2D(const float3 co)
 {
-  const bool is_camera = (bool)(rv3d_->persp == RV3D_CAMOB);
+  const bool is_camera = bool(rv3d_->persp == RV3D_CAMOB);
   if (is_camera) {
     return gpencil_3D_point_to_render_space(co);
   }
@@ -292,9 +292,9 @@ void GpencilIO::prepare_stroke_export_colors(Object *ob, bGPDstroke *gps)
     avg_opacity_ += pt.strength;
   }
 
-  mul_v4_v4fl(avg_color, avg_color, 1.0f / (float)gps->totpoints);
+  mul_v4_v4fl(avg_color, avg_color, 1.0f / float(gps->totpoints));
   interp_v3_v3v3(stroke_color_, stroke_color_, avg_color, avg_color[3]);
-  avg_opacity_ /= (float)gps->totpoints;
+  avg_opacity_ /= float(gps->totpoints);
 
   /* Fill color. */
   copy_v4_v4(fill_color_, gp_style->fill_rgba);

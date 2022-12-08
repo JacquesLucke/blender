@@ -5,6 +5,8 @@
  * \ingroup cmpnodes
  */
 
+#include "BLT_translation.h"
+
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
 #include "BKE_tracking.h"
@@ -26,7 +28,7 @@ static void cmp_node_moviedistortion_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Color>(N_("Image"));
 }
 
-static void label(const bNodeTree *UNUSED(ntree), const bNode *node, char *label, int maxlen)
+static void label(const bNodeTree * /*ntree*/, const bNode *node, char *label, int maxlen)
 {
   if (node->custom1 == 0) {
     BLI_strncpy(label, IFACE_("Undistortion"), maxlen);
@@ -54,7 +56,7 @@ static void storage_free(bNode *node)
   node->storage = nullptr;
 }
 
-static void storage_copy(bNodeTree *UNUSED(dest_ntree), bNode *dest_node, const bNode *src_node)
+static void storage_copy(bNodeTree * /*dst_ntree*/, bNode *dest_node, const bNode *src_node)
 {
   if (src_node->storage) {
     dest_node->storage = BKE_tracking_distortion_copy((MovieDistortion *)src_node->storage);
@@ -92,6 +94,7 @@ class MovieDistortionOperation : public NodeOperation {
   void execute() override
   {
     get_input("Image").pass_through(get_result("Image"));
+    context().set_info_message("Viewport compositor setup not fully supported");
   }
 };
 
@@ -115,6 +118,8 @@ void register_node_type_cmp_moviedistortion()
   ntype.initfunc_api = file_ns::init;
   node_type_storage(&ntype, nullptr, file_ns::storage_free, file_ns::storage_copy);
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

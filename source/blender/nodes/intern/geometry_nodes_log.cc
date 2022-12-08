@@ -6,11 +6,14 @@
 #include "BKE_compute_contexts.hh"
 #include "BKE_curves.hh"
 #include "BKE_node_runtime.hh"
+#include "BKE_viewer_path.h"
 
 #include "FN_field_cpp_type.hh"
 
 #include "DNA_modifier_types.h"
 #include "DNA_space_types.h"
+
+#include "ED_viewer_path.hh"
 
 namespace blender::nodes::geo_eval_log {
 
@@ -35,8 +38,8 @@ FieldInfoLog::FieldInfoLog(const GField &field) : type(field.cpp_type())
 
   std::sort(
       field_inputs.begin(), field_inputs.end(), [](const FieldInput &a, const FieldInput &b) {
-        const int index_a = (int)a.category();
-        const int index_b = (int)b.category();
+        const int index_a = int(a.category());
+        const int index_b = int(b.category());
         if (index_a == index_b) {
           return a.socket_inspection_name().size() < b.socket_inspection_name().size();
         }
@@ -66,7 +69,7 @@ GeometryInfoLog::GeometryInfoLog(const GeometrySet &geometry_set)
       true,
       [&](const bke::AttributeIDRef &attribute_id,
           const bke::AttributeMetaData &meta_data,
-          const GeometryComponent &UNUSED(component)) {
+          const GeometryComponent & /*component*/) {
         if (attribute_id.is_named() && names.add(attribute_id.name())) {
           this->attributes.append({attribute_id.name(), meta_data.domain, meta_data.data_type});
         }
@@ -98,7 +101,7 @@ GeometryInfoLog::GeometryInfoLog(const GeometrySet &geometry_set)
       case GEO_COMPONENT_TYPE_INSTANCES: {
         const InstancesComponent &instances_component = *(const InstancesComponent *)component;
         InstancesInfo &info = this->instances_info.emplace();
-        info.instances_num = instances_component.instances_num();
+        info.instances_num = instances_component.attribute_domain_size(ATTR_DOMAIN_INSTANCE);
         break;
       }
       case GEO_COMPONENT_TYPE_EDIT: {
@@ -148,9 +151,8 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
   auto store_logged_value = [&](destruct_ptr<ValueLog> value_log) {
     auto &socket_values = socket.in_out == SOCK_IN ? this->input_socket_values :
                                                      this->output_socket_values;
-    socket_values.append({this->allocator->copy_string(node.name),
-                          this->allocator->copy_string(socket.identifier),
-                          std::move(value_log)});
+    socket_values.append(
+        {node.identifier, this->allocator->copy_string(socket.identifier), std::move(value_log)});
   };
 
   auto log_generic_value = [&](const CPPType &type, const void *value) {
@@ -163,10 +165,9 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
     const GeometrySet &geometry = *value.get<GeometrySet>();
     store_logged_value(this->allocator->construct<GeometryInfoLog>(geometry));
   }
-  else if (const auto *value_or_field_type = dynamic_cast<const fn::ValueOrFieldCPPType *>(
-               &type)) {
+  else if (const auto *value_or_field_type = fn::ValueOrFieldCPPType::get_from_self(type)) {
     const void *value_or_field = value.get();
-    const CPPType &base_type = value_or_field_type->base_type();
+    const CPPType &base_type = value_or_field_type->value;
     if (value_or_field_type->is_field(value_or_field)) {
       const GField *field = value_or_field_type->get_field_ptr(value_or_field);
       if (field->node().depends_on_input()) {
@@ -188,15 +189,12 @@ void GeoTreeLogger::log_value(const bNode &node, const bNodeSocket &socket, cons
   }
 }
 
-void GeoTreeLogger::log_viewer_node(const bNode &viewer_node,
-                                    const GeometrySet &geometry,
-                                    const GField &field)
+void GeoTreeLogger::log_viewer_node(const bNode &viewer_node, GeometrySet geometry)
 {
   destruct_ptr<ViewerNodeLog> log = this->allocator->construct<ViewerNodeLog>();
-  log->geometry = geometry;
-  log->field = field;
+  log->geometry = std::move(geometry);
   log->geometry.ensure_owns_direct_data();
-  this->viewer_node_logs.append({this->allocator->copy_string(viewer_node.name), std::move(log)});
+  this->viewer_node_logs.append({viewer_node.identifier, std::move(log)});
 }
 
 void GeoTreeLog::ensure_node_warnings()
@@ -206,17 +204,16 @@ void GeoTreeLog::ensure_node_warnings()
   }
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
     for (const GeoTreeLogger::WarningWithNode &warnings : tree_logger->node_warnings) {
-      this->nodes.lookup_or_add_default(warnings.node_name).warnings.append(warnings.warning);
+      this->nodes.lookup_or_add_default(warnings.node_id).warnings.append(warnings.warning);
       this->all_warnings.append(warnings.warning);
     }
   }
   for (const ComputeContextHash &child_hash : children_hashes_) {
     GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
     child_log.ensure_node_warnings();
-    const std::optional<std::string> &group_node_name =
-        child_log.tree_loggers_[0]->group_node_name;
-    if (group_node_name.has_value()) {
-      this->nodes.lookup_or_add_default(*group_node_name).warnings.extend(child_log.all_warnings);
+    const std::optional<int32_t> &group_node_id = child_log.tree_loggers_[0]->group_node_id;
+    if (group_node_id.has_value()) {
+      this->nodes.lookup_or_add_default(*group_node_id).warnings.extend(child_log.all_warnings);
     }
     this->all_warnings.extend(child_log.all_warnings);
   }
@@ -231,17 +228,16 @@ void GeoTreeLog::ensure_node_run_time()
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
     for (const GeoTreeLogger::NodeExecutionTime &timings : tree_logger->node_execution_times) {
       const std::chrono::nanoseconds duration = timings.end - timings.start;
-      this->nodes.lookup_or_add_default_as(timings.node_name).run_time += duration;
+      this->nodes.lookup_or_add_default_as(timings.node_id).run_time += duration;
       this->run_time_sum += duration;
     }
   }
   for (const ComputeContextHash &child_hash : children_hashes_) {
     GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
     child_log.ensure_node_run_time();
-    const std::optional<std::string> &group_node_name =
-        child_log.tree_loggers_[0]->group_node_name;
-    if (group_node_name.has_value()) {
-      this->nodes.lookup_or_add_default(*group_node_name).run_time += child_log.run_time_sum;
+    const std::optional<int32_t> &group_node_id = child_log.tree_loggers_[0]->group_node_id;
+    if (group_node_id.has_value()) {
+      this->nodes.lookup_or_add_default(*group_node_id).run_time += child_log.run_time_sum;
     }
     this->run_time_sum += child_log.run_time_sum;
   }
@@ -255,11 +251,11 @@ void GeoTreeLog::ensure_socket_values()
   }
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
     for (const GeoTreeLogger::SocketValueLog &value_log_data : tree_logger->input_socket_values) {
-      this->nodes.lookup_or_add_as(value_log_data.node_name)
+      this->nodes.lookup_or_add_as(value_log_data.node_id)
           .input_values_.add(value_log_data.socket_identifier, value_log_data.value.get());
     }
     for (const GeoTreeLogger::SocketValueLog &value_log_data : tree_logger->output_socket_values) {
-      this->nodes.lookup_or_add_as(value_log_data.node_name)
+      this->nodes.lookup_or_add_as(value_log_data.node_id)
           .output_values_.add(value_log_data.socket_identifier, value_log_data.value.get());
     }
   }
@@ -273,7 +269,7 @@ void GeoTreeLog::ensure_viewer_node_logs()
   }
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
     for (const GeoTreeLogger::ViewerNodeLogWithNode &viewer_log : tree_logger->viewer_node_logs) {
-      this->viewer_node_logs.add(viewer_log.node_name, viewer_log.viewer_log.get());
+      this->viewer_node_logs.add(viewer_log.node_id, viewer_log.viewer_log.get());
     }
   }
   reduced_viewer_node_logs_ = true;
@@ -317,26 +313,25 @@ void GeoTreeLog::ensure_used_named_attributes()
     return;
   }
 
-  auto add_attribute = [&](const StringRefNull node_name,
+  auto add_attribute = [&](const int32_t node_id,
                            const StringRefNull attribute_name,
                            const NamedAttributeUsage &usage) {
-    this->nodes.lookup_or_add_default(node_name).used_named_attributes.lookup_or_add(
-        attribute_name, usage) |= usage;
+    this->nodes.lookup_or_add_default(node_id).used_named_attributes.lookup_or_add(attribute_name,
+                                                                                   usage) |= usage;
     this->used_named_attributes.lookup_or_add_as(attribute_name, usage) |= usage;
   };
 
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
     for (const GeoTreeLogger::AttributeUsageWithNode &item : tree_logger->used_named_attributes) {
-      add_attribute(item.node_name, item.attribute_name, item.usage);
+      add_attribute(item.node_id, item.attribute_name, item.usage);
     }
   }
   for (const ComputeContextHash &child_hash : children_hashes_) {
     GeoTreeLog &child_log = modifier_log_->get_tree_log(child_hash);
     child_log.ensure_used_named_attributes();
-    if (const std::optional<std::string> &group_node_name =
-            child_log.tree_loggers_[0]->group_node_name) {
+    if (const std::optional<int32_t> &group_node_id = child_log.tree_loggers_[0]->group_node_id) {
       for (const auto &item : child_log.used_named_attributes.items()) {
-        add_attribute(*group_node_name, item.key, item.value);
+        add_attribute(*group_node_id, item.key, item.value);
       }
     }
   }
@@ -350,7 +345,7 @@ void GeoTreeLog::ensure_debug_messages()
   }
   for (GeoTreeLogger *tree_logger : tree_loggers_) {
     for (const GeoTreeLogger::DebugMessage &debug_message : tree_logger->debug_messages) {
-      this->nodes.lookup_or_add_as(debug_message.node_name)
+      this->nodes.lookup_or_add_as(debug_message.node_id)
           .debug_messages.append(debug_message.message);
     }
   }
@@ -379,7 +374,7 @@ ValueLog *GeoTreeLog::find_socket_value_log(const bNodeSocket &query_socket)
   while (!sockets_to_check.is_empty()) {
     const bNodeSocket &socket = *sockets_to_check.pop();
     const bNode &node = socket.owner_node();
-    if (GeoNodeLog *node_log = this->nodes.lookup_ptr(node.name)) {
+    if (GeoNodeLog *node_log = this->nodes.lookup_ptr(node.identifier)) {
       ValueLog *value_log = socket.is_input() ?
                                 node_log->input_values_.lookup_default(socket.identifier,
                                                                        nullptr) :
@@ -454,7 +449,7 @@ GeoTreeLogger &GeoModifierLog::get_local_tree_logger(const ComputeContext &compu
   }
   if (const bke::NodeGroupComputeContext *node_group_compute_context =
           dynamic_cast<const bke::NodeGroupComputeContext *>(&compute_context)) {
-    tree_logger.group_node_name.emplace(node_group_compute_context->node_name());
+    tree_logger.group_node_id.emplace(node_group_compute_context->node_id());
   }
   return tree_logger;
 }
@@ -539,35 +534,25 @@ GeoTreeLog *GeoModifierLog::get_tree_log_for_node_editor(const SpaceNode &snode)
   ComputeContextBuilder compute_context_builder;
   compute_context_builder.push<bke::ModifierComputeContext>(
       object_and_modifier->nmd->modifier.name);
-  for (const bNodeTreePath *path_item : tree_path.as_span().drop_front(1)) {
-    compute_context_builder.push<bke::NodeGroupComputeContext>(path_item->node_name);
+  for (const int i : tree_path.index_range().drop_back(1)) {
+    /* The tree path contains the name of the node but not its ID. */
+    const bNode *node = nodeFindNodebyName(tree_path[i]->nodetree, tree_path[i + 1]->node_name);
+    compute_context_builder.push<bke::NodeGroupComputeContext>(*node);
   }
   return &modifier_log->get_tree_log(compute_context_builder.hash());
 }
 
-const ViewerNodeLog *GeoModifierLog::find_viewer_node_log_for_spreadsheet(
-    const SpaceSpreadsheet &sspreadsheet)
+const ViewerNodeLog *GeoModifierLog::find_viewer_node_log_for_path(const ViewerPath &viewer_path)
 {
-  Vector<const SpreadsheetContext *> context_path = sspreadsheet.context_path;
-  if (context_path.size() < 3) {
+  const std::optional<ed::viewer_path::ViewerPathForGeometryNodesViewer> parsed_path =
+      ed::viewer_path::parse_geometry_nodes_viewer(viewer_path);
+  if (!parsed_path.has_value()) {
     return nullptr;
   }
-  if (context_path[0]->type != SPREADSHEET_CONTEXT_OBJECT) {
-    return nullptr;
-  }
-  if (context_path[1]->type != SPREADSHEET_CONTEXT_MODIFIER) {
-    return nullptr;
-  }
-  const SpreadsheetContextObject *object_context =
-      reinterpret_cast<const SpreadsheetContextObject *>(context_path[0]);
-  const SpreadsheetContextModifier *modifier_context =
-      reinterpret_cast<const SpreadsheetContextModifier *>(context_path[1]);
-  if (object_context->object == nullptr) {
-    return nullptr;
-  }
+  const Object *object = parsed_path->object;
   NodesModifierData *nmd = nullptr;
-  LISTBASE_FOREACH (ModifierData *, md, &object_context->object->modifiers) {
-    if (STREQ(md->name, modifier_context->modifier_name)) {
+  LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
+    if (md->name == parsed_path->modifier_name) {
       if (md->type == eModifierType_Nodes) {
         nmd = reinterpret_cast<NodesModifierData *>(md);
       }
@@ -583,27 +568,16 @@ const ViewerNodeLog *GeoModifierLog::find_viewer_node_log_for_spreadsheet(
       static_cast<nodes::geo_eval_log::GeoModifierLog *>(nmd->runtime_eval_log);
 
   ComputeContextBuilder compute_context_builder;
-  compute_context_builder.push<bke::ModifierComputeContext>(modifier_context->modifier_name);
-  for (const SpreadsheetContext *context : context_path.as_span().drop_front(2).drop_back(1)) {
-    if (context->type != SPREADSHEET_CONTEXT_NODE) {
-      return nullptr;
-    }
-    const SpreadsheetContextNode &node_context = *reinterpret_cast<const SpreadsheetContextNode *>(
-        context);
-    compute_context_builder.push<bke::NodeGroupComputeContext>(node_context.node_name);
+  compute_context_builder.push<bke::ModifierComputeContext>(parsed_path->modifier_name);
+  for (const int32_t group_node_id : parsed_path->group_node_ids) {
+    compute_context_builder.push<bke::NodeGroupComputeContext>(group_node_id);
   }
   const ComputeContextHash context_hash = compute_context_builder.hash();
   nodes::geo_eval_log::GeoTreeLog &tree_log = modifier_log->get_tree_log(context_hash);
   tree_log.ensure_viewer_node_logs();
 
-  const SpreadsheetContext *last_context = context_path.last();
-  if (last_context->type != SPREADSHEET_CONTEXT_NODE) {
-    return nullptr;
-  }
-  const SpreadsheetContextNode &last_node_context =
-      *reinterpret_cast<const SpreadsheetContextNode *>(last_context);
   const ViewerNodeLog *viewer_log = tree_log.viewer_node_logs.lookup_default(
-      last_node_context.node_name, nullptr);
+      parsed_path->viewer_node_id, nullptr);
   return viewer_log;
 }
 

@@ -65,10 +65,7 @@ static void metaball_init_data(ID *id)
   MEMCPY_STRUCT_AFTER(metaball, DNA_struct_default_get(MetaBall), id);
 }
 
-static void metaball_copy_data(Main *UNUSED(bmain),
-                               ID *id_dst,
-                               const ID *id_src,
-                               const int UNUSED(flag))
+static void metaball_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, const int /*flag*/)
 {
   MetaBall *metaball_dst = (MetaBall *)id_dst;
   const MetaBall *metaball_src = (const MetaBall *)id_src;
@@ -300,7 +297,7 @@ bool BKE_mball_is_basis(const Object *ob)
 
   /* Just a quick test. */
   const int len = strlen(ob->id.name);
-  return (!isdigit(ob->id.name[len - 1]));
+  return !isdigit(ob->id.name[len - 1]);
 }
 
 bool BKE_mball_is_same_group(const Object *ob1, const Object *ob2)
@@ -529,7 +526,7 @@ bool BKE_mball_center_median(const MetaBall *mb, float r_cent[3])
   }
 
   if (total) {
-    mul_v3_fl(r_cent, 1.0f / (float)total);
+    mul_v3_fl(r_cent, 1.0f / float(total));
   }
 
   return (total != 0);

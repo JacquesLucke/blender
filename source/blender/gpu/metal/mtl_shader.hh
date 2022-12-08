@@ -261,8 +261,6 @@ class MTLShader : public Shader {
   bool get_push_constant_is_dirty();
   void push_constant_bindstate_mark_dirty(bool is_dirty);
 
-  void vertformat_from_shader(GPUVertFormat *format) const override;
-
   /* DEPRECATED: Kept only because of BGL API. (Returning -1 in METAL). */
   int program_handle_get() const override
   {
@@ -990,6 +988,9 @@ inline bool mtl_convert_vertex_format(MTLVertexFormat shader_attrib_format,
 
     case GPU_COMP_I10:
       out_vert_format = MTLVertexFormatInt1010102Normalized;
+      break;
+    case GPU_COMP_MAX:
+      BLI_assert_unreachable();
       break;
   }
   *r_convertedFormat = out_vert_format;

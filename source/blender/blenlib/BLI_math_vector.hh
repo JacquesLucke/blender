@@ -357,16 +357,16 @@ inline vec_base<T, 3> cross(const vec_base<T, 3> &a, const vec_base<T, 3> &b)
 inline vec_base<float, 3> cross_high_precision(const vec_base<float, 3> &a,
                                                const vec_base<float, 3> &b)
 {
-  return {(float)((double)a.y * b.z - (double)a.z * b.y),
-          (float)((double)a.z * b.x - (double)a.x * b.z),
-          (float)((double)a.x * b.y - (double)a.y * b.x)};
+  return {float(double(a.y) * double(b.z) - double(a.z) * double(b.y)),
+          float(double(a.z) * double(b.x) - double(a.x) * double(b.z)),
+          float(double(a.x) * double(b.y) - double(a.y) * double(b.x))};
 }
 
 template<typename T, BLI_ENABLE_IF((is_math_float_type<T>))>
 inline vec_base<T, 3> cross_poly(Span<vec_base<T, 3>> poly)
 {
   /* Newell's Method. */
-  int nv = static_cast<int>(poly.size());
+  int nv = int(poly.size());
   if (nv < 3) {
     return vec_base<T, 3>(0, 0, 0);
   }
@@ -412,6 +412,45 @@ template<typename T> inline int dominant_axis(const vec_base<T, 3> &a)
 {
   vec_base<T, 3> b = abs(a);
   return ((b.x > b.y) ? ((b.x > b.z) ? 0 : 2) : ((b.y > b.z) ? 1 : 2));
+}
+
+/**
+ * Calculates a perpendicular vector to \a v.
+ * \note Returned vector can be in any perpendicular direction.
+ * \note Returned vector might not the same length as \a v.
+ */
+template<typename T> inline vec_base<T, 3> orthogonal(const vec_base<T, 3> &v)
+{
+  const int axis = dominant_axis(v);
+  switch (axis) {
+    case 0:
+      return {-v.y - v.z, v.x, v.x};
+    case 1:
+      return {v.y, -v.x - v.z, v.y};
+    case 2:
+      return {v.z, v.z, -v.x - v.y};
+  }
+  return v;
+}
+
+/**
+ * Calculates a perpendicular vector to \a v.
+ * \note Returned vector can be in any perpendicular direction.
+ */
+template<typename T> inline vec_base<T, 2> orthogonal(const vec_base<T, 2> &v)
+{
+  return {-v.y, v.x};
+}
+
+template<typename T, int Size>
+inline bool compare(const vec_base<T, Size> &a, const vec_base<T, Size> &b, const T limit)
+{
+  for (int i = 0; i < Size; i++) {
+    if (std::abs(a[i] - b[i]) > limit) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** Intersections. */

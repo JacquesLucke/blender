@@ -123,7 +123,7 @@ static void deformVerts(ModifierData *md,
     }
   }
 
-  /* clear old dm */
+  /* Clear old evaluated mesh. */
   bool had_mesh_final = (psmd->mesh_final != nullptr);
   if (psmd->mesh_final) {
     BKE_id_free(nullptr, psmd->mesh_final);
@@ -159,7 +159,7 @@ static void deformVerts(ModifierData *md,
 
   BKE_mesh_tessface_ensure(psmd->mesh_final);
 
-  if (!psmd->mesh_final->runtime.deformed_only) {
+  if (!psmd->mesh_final->runtime->deformed_only) {
     /* Get the original mesh from the object, this is what the particles
      * are attached to so in case of non-deform modifiers we need to remap
      * them to the final mesh (typically subdivision surfaces). */
@@ -249,7 +249,7 @@ static void deformVertsEM(ModifierData *md,
 }
 #endif
 
-static void panel_draw(const bContext *UNUSED(C), Panel *panel)
+static void panel_draw(const bContext * /*C*/, Panel *panel)
 {
   uiLayout *layout = panel->layout;
 

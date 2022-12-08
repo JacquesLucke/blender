@@ -692,7 +692,7 @@ static int pose_armature_layers_showall_exec(bContext *C, wmOperator *op)
   Object *ob = CTX_data_active_object(C);
   bArmature *arm = armature_layers_get_data(&ob);
   PointerRNA ptr;
-  int maxLayers = (RNA_boolean_get(op->ptr, "all")) ? 32 : 16;
+  int maxLayers = RNA_boolean_get(op->ptr, "all") ? 32 : 16;
   /* hardcoded for now - we can only have 32 armature layers, so this should be fine... */
   bool layers[32] = {false};
 
@@ -954,6 +954,7 @@ static int armature_bone_layers_exec(bContext *C, wmOperator *op)
 
   /* NOTE: notifier might evolve. */
   WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
+  DEG_id_tag_update((ID *)ob->data, ID_RECALC_PARAMETERS);
 
   return OPERATOR_FINISHED;
 }

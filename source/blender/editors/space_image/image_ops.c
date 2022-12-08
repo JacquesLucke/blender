@@ -667,35 +667,47 @@ static int image_view_zoom_modal(bContext *C, wmOperator *op, const wmEvent *eve
 {
   ViewZoomData *vpd = op->customdata;
   short event_code = VIEW_PASS;
+  int ret = OPERATOR_RUNNING_MODAL;
 
-  /* execute the events */
-  if (event->type == TIMER && event->customdata == vpd->timer) {
-    /* continuous zoom */
+  /* Execute the events. */
+  if (event->type == MOUSEMOVE) {
     event_code = VIEW_APPLY;
   }
-  else if (event->type == MOUSEMOVE) {
-    event_code = VIEW_APPLY;
+  else if (event->type == TIMER) {
+    /* Continuous zoom. */
+    if (event->customdata == vpd->timer) {
+      event_code = VIEW_APPLY;
+    }
   }
-  else if (event->type == vpd->launch_event && event->val == KM_RELEASE) {
-    event_code = VIEW_CONFIRM;
+  else if (event->type == vpd->launch_event) {
+    if (event->val == KM_RELEASE) {
+      event_code = VIEW_CONFIRM;
+    }
   }
 
-  if (event_code == VIEW_APPLY) {
-    const bool use_cursor_init = RNA_boolean_get(op->ptr, "use_cursor_init");
-    image_zoom_apply(vpd,
-                     op,
-                     event->xy[0],
-                     event->xy[1],
-                     U.viewzoom,
-                     (U.uiflag & USER_ZOOM_INVERT) != 0,
-                     (use_cursor_init && (U.uiflag & USER_ZOOM_TO_MOUSEPOS)));
+  switch (event_code) {
+    case VIEW_APPLY: {
+      const bool use_cursor_init = RNA_boolean_get(op->ptr, "use_cursor_init");
+      image_zoom_apply(vpd,
+                       op,
+                       event->xy[0],
+                       event->xy[1],
+                       U.viewzoom,
+                       (U.uiflag & USER_ZOOM_INVERT) != 0,
+                       (use_cursor_init && (U.uiflag & USER_ZOOM_TO_MOUSEPOS)));
+      break;
+    }
+    case VIEW_CONFIRM: {
+      ret = OPERATOR_FINISHED;
+      break;
+    }
   }
-  else if (event_code == VIEW_CONFIRM) {
+
+  if ((ret & OPERATOR_RUNNING_MODAL) == 0) {
     image_view_zoom_exit(C, op, false);
-    return OPERATOR_FINISHED;
   }
 
-  return OPERATOR_RUNNING_MODAL;
+  return ret;
 }
 
 static void image_view_zoom_cancel(bContext *C, wmOperator *op)
@@ -762,14 +774,14 @@ static int image_view_ndof_invoke(bContext *C, wmOperator *UNUSED(op), const wmE
   float pan_vec[3];
 
   const wmNDOFMotionData *ndof = event->customdata;
-  const float speed = NDOF_PIXELS_PER_SECOND;
+  const float pan_speed = NDOF_PIXELS_PER_SECOND;
 
   WM_event_ndof_pan_get(ndof, pan_vec, true);
 
-  mul_v2_fl(pan_vec, (speed * ndof->dt) / sima->zoom);
-  pan_vec[2] *= -ndof->dt;
+  mul_v3_fl(pan_vec, ndof->dt);
+  mul_v2_fl(pan_vec, pan_speed / sima->zoom);
 
-  sima_zoom_set_factor(sima, region, 1.0f + pan_vec[2], NULL, false);
+  sima_zoom_set_factor(sima, region, max_ff(0.0f, 1.0f - pan_vec[2]), NULL, false);
   sima->xof += pan_vec[0];
   sima->yof += pan_vec[1];
 
@@ -1485,7 +1497,7 @@ static bool image_open_draw_check_prop(PointerRNA *UNUSED(ptr),
 {
   const char *prop_id = RNA_property_identifier(prop);
 
-  return !(STR_ELEM(prop_id, "filepath", "directory", "filename"));
+  return !STR_ELEM(prop_id, "filepath", "directory", "filename");
 }
 
 static void image_open_draw(bContext *UNUSED(C), wmOperator *op)
@@ -1871,8 +1883,7 @@ static ImageSaveData *image_save_as_init(bContext *C, wmOperator *op)
   }
 
   /* Enable save_copy by default for render results. */
-  if (ELEM(image->type, IMA_TYPE_R_RESULT, IMA_TYPE_COMPOSITE) &&
-      !RNA_struct_property_is_set(op->ptr, "copy")) {
+  if (image->source == IMA_SRC_VIEWER && !RNA_struct_property_is_set(op->ptr, "copy")) {
     RNA_boolean_set(op->ptr, "copy", true);
   }
 
@@ -1964,16 +1975,16 @@ static void image_save_as_cancel(bContext *UNUSED(C), wmOperator *op)
   image_save_as_free(op);
 }
 
-static bool image_save_as_draw_check_prop(PointerRNA *ptr,
-                                          PropertyRNA *prop,
-                                          void *UNUSED(user_data))
+static bool image_save_as_draw_check_prop(PointerRNA *ptr, PropertyRNA *prop, void *user_data)
 {
+  ImageSaveData *isd = user_data;
   const char *prop_id = RNA_property_identifier(prop);
 
   return !(STREQ(prop_id, "filepath") || STREQ(prop_id, "directory") ||
            STREQ(prop_id, "filename") ||
            /* when saving a copy, relative path has no effect */
-           (STREQ(prop_id, "relative_path") && RNA_boolean_get(ptr, "copy")));
+           (STREQ(prop_id, "relative_path") && RNA_boolean_get(ptr, "copy")) ||
+           (STREQ(prop_id, "save_as_render") && isd->image->source == IMA_SRC_VIEWER));
 }
 
 static void image_save_as_draw(bContext *UNUSED(C), wmOperator *op)
@@ -1987,13 +1998,13 @@ static void image_save_as_draw(bContext *UNUSED(C), wmOperator *op)
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
 
-  /* main draw call */
+  /* Operator settings. */
   uiDefAutoButsRNA(
-      layout, op->ptr, image_save_as_draw_check_prop, NULL, NULL, UI_BUT_LABEL_ALIGN_NONE, false);
+      layout, op->ptr, image_save_as_draw_check_prop, isd, NULL, UI_BUT_LABEL_ALIGN_NONE, false);
 
   uiItemS(layout);
 
-  /* image template */
+  /* Image format settings. */
   RNA_pointer_create(NULL, &RNA_ImageFormatSettings, &isd->opts.im_format, &imf_ptr);
   uiTemplateImageSettings(layout, &imf_ptr, save_as_render);
 
@@ -2004,7 +2015,7 @@ static void image_save_as_draw(bContext *UNUSED(C), wmOperator *op)
     uiItemR(col, &linear_settings_ptr, "name", 0, IFACE_("Color Space"), ICON_NONE);
   }
 
-  /* multiview template */
+  /* Multiview settings. */
   if (is_multiview) {
     uiTemplateImageFormatViews(layout, &imf_ptr, op->ptr);
   }
@@ -2049,11 +2060,14 @@ void IMAGE_OT_save_as(wmOperatorType *ot)
 
   /* properties */
   PropertyRNA *prop;
-  prop = RNA_def_boolean(ot->srna,
-                         "save_as_render",
-                         0,
-                         "Save As Render",
-                         "Apply render part of display transform when saving byte image");
+  prop = RNA_def_boolean(
+      ot->srna,
+      "save_as_render",
+      0,
+      "Save As Render",
+      "Save image with render color management.\n"
+      "For display image formats like PNG, apply view and display transform.\n"
+      "For intermediate image formats like OpenEXR, use the default render output color space");
   RNA_def_property_flag(prop, PROP_SKIP_SAVE);
   prop = RNA_def_boolean(ot->srna,
                          "copy",

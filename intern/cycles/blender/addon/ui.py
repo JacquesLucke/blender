@@ -150,6 +150,17 @@ def get_effective_preview_denoiser(context):
     return 'OIDN'
 
 
+def use_mnee(context):
+    # The MNEE kernel doesn't compile on macOS < 13.
+    if use_metal(context):
+        import platform
+        version, _, _ = platform.mac_ver()
+        major_version = version.split(".")[0]
+        if int(major_version) < 13:
+            return False
+    return True
+
+
 class CYCLES_RENDER_PT_sampling(CyclesButtonsPanel, Panel):
     bl_label = "Sampling"
 
@@ -278,6 +289,64 @@ class CYCLES_RENDER_PT_sampling_render_denoise(CyclesButtonsPanel, Panel):
             col.prop(cscene, "denoising_prefilter", text="Prefilter")
 
 
+class CYCLES_RENDER_PT_sampling_path_guiding(CyclesButtonsPanel, Panel):
+    bl_label = "Path Guiding"
+    bl_parent_id = "CYCLES_RENDER_PT_sampling"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    @classmethod
+    def poll(cls, context):
+        from . import engine
+        return use_cpu(context) and engine.with_path_guiding()
+
+    def draw_header(self, context):
+        scene = context.scene
+        cscene = scene.cycles
+
+        self.layout.prop(cscene, "use_guiding", text="")
+
+    def draw(self, context):
+        scene = context.scene
+        cscene = scene.cycles
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.active = cscene.use_guiding
+
+        layout.prop(cscene, "guiding_training_samples")
+
+        col = layout.column(align=True)
+        col.prop(cscene, "use_surface_guiding", text="Surface")
+        col.prop(cscene, "use_volume_guiding", text="Volume")
+
+
+class CYCLES_RENDER_PT_sampling_path_guiding_debug(CyclesDebugButtonsPanel, Panel):
+    bl_label = "Debug"
+    bl_parent_id = "CYCLES_RENDER_PT_sampling_path_guiding"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw(self, context):
+        scene = context.scene
+        cscene = scene.cycles
+
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+        layout.active = cscene.use_guiding
+
+        layout.prop(cscene, "guiding_distribution_type", text="Distribution Type")
+
+        col = layout.column(align=True)
+        col.prop(cscene, "surface_guiding_probability")
+        col.prop(cscene, "volume_guiding_probability")
+
+        col = layout.column(align=True)
+        col.prop(cscene, "use_deterministic_guiding")
+        col.prop(cscene, "use_guiding_direct_light")
+        col.prop(cscene, "use_guiding_mis_weights")
+
+
 class CYCLES_RENDER_PT_sampling_advanced(CyclesButtonsPanel, Panel):
     bl_label = "Advanced"
     bl_parent_id = "CYCLES_RENDER_PT_sampling"
@@ -314,13 +383,37 @@ class CYCLES_RENDER_PT_sampling_advanced(CyclesButtonsPanel, Panel):
         col = layout.column(align=True)
         col.prop(cscene, "min_light_bounces")
         col.prop(cscene, "min_transparent_bounces")
-        col.prop(cscene, "light_sampling_threshold", text="Light Threshold")
 
         for view_layer in scene.view_layers:
             if view_layer.samples > 0:
                 layout.separator()
                 layout.row().prop(cscene, "use_layer_samples")
                 break
+
+
+class CYCLES_RENDER_PT_sampling_lights(CyclesButtonsPanel, Panel):
+    bl_label = "Lights"
+    bl_parent_id = "CYCLES_RENDER_PT_sampling"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    def draw_header(self, context):
+        layout = self.layout
+        scene = context.scene
+        cscene = scene.cycles
+
+    def draw(self, context):
+        layout = self.layout
+        layout.use_property_split = True
+        layout.use_property_decorate = False
+
+        scene = context.scene
+        cscene = scene.cycles
+
+        col = layout.column(align=True)
+        col.prop(cscene, "use_light_tree")
+        sub = col.row()
+        sub.prop(cscene, "light_sampling_threshold", text="Light Threshold")
+        sub.active = not cscene.use_light_tree
 
 
 class CYCLES_RENDER_PT_subdivision(CyclesButtonsPanel, Panel):
@@ -885,7 +978,6 @@ class CYCLES_RENDER_PT_passes_light(CyclesButtonsPanel, Panel):
         col = layout.column(heading="Other", align=True)
         col.prop(view_layer, "use_pass_emit", text="Emission")
         col.prop(view_layer, "use_pass_environment")
-        col.prop(view_layer, "use_pass_shadow")
         col.prop(view_layer, "use_pass_ambient_occlusion", text="Ambient Occlusion")
         col.prop(cycles_view_layer, "use_pass_shadow_catcher")
 
@@ -1178,7 +1270,7 @@ class CYCLES_OBJECT_PT_shading_caustics(CyclesButtonsPanel, Panel):
 
     @classmethod
     def poll(cls, context):
-        return CyclesButtonsPanel.poll(context) and not use_metal(context) and context.object.type != 'LIGHT'
+        return CyclesButtonsPanel.poll(context) and use_mnee(context) and context.object.type != 'LIGHT'
 
     def draw(self, context):
         layout = self.layout
@@ -1392,7 +1484,7 @@ class CYCLES_LIGHT_PT_light(CyclesButtonsPanel, Panel):
         sub.active = not (light.type == 'AREA' and clamp.is_portal)
         sub.prop(clamp, "cast_shadow")
         sub.prop(clamp, "use_multiple_importance_sampling", text="Multiple Importance")
-        if not use_metal(context):
+        if use_mnee(context):
             sub.prop(clamp, "is_caustics_light", text="Shadow Caustics")
 
         if light.type == 'AREA':
@@ -1763,9 +1855,9 @@ class CYCLES_MATERIAL_PT_settings_surface(CyclesButtonsPanel, Panel):
         cmat = mat.cycles
 
         col = layout.column()
-        col.prop(cmat, "sample_as_light", text="Multiple Importance")
-        col.prop(cmat, "use_transparent_shadow")
         col.prop(cmat, "displacement_method", text="Displacement")
+        col.prop(cmat, "emission_sampling")
+        col.prop(cmat, "use_transparent_shadow")
 
     def draw(self, context):
         self.draw_shared(self, context.material)
@@ -1822,6 +1914,12 @@ class CYCLES_RENDER_PT_bake(CyclesButtonsPanel, Panel):
             layout.operator("object.bake", icon='RENDER_STILL').type = cscene.bake_type
             layout.prop(rd, "use_bake_multires")
             layout.prop(cscene, "bake_type")
+
+        if not rd.use_bake_multires and cscene.bake_type not in {
+                "AO", "POSITION", "NORMAL", "UV", "ROUGHNESS", "ENVIRONMENT"}:
+            row = layout.row()
+            row.prop(cbk, "view_from")
+            row.active = scene.camera is not None
 
 
 class CYCLES_RENDER_PT_bake_influence(CyclesButtonsPanel, Panel):
@@ -2232,7 +2330,10 @@ def draw_device(self, context):
         col.prop(cscene, "device")
 
         from . import engine
-        if engine.with_osl() and use_cpu(context):
+        if engine.with_osl() and (
+                use_cpu(context) or
+                (use_optix(context) and (engine.osl_version()[1] >= 13 or engine.osl_version()[0] > 1))
+        ):
             col.prop(cscene, "shading_system")
 
 
@@ -2286,6 +2387,9 @@ classes = (
     CYCLES_RENDER_PT_sampling_viewport_denoise,
     CYCLES_RENDER_PT_sampling_render,
     CYCLES_RENDER_PT_sampling_render_denoise,
+    CYCLES_RENDER_PT_sampling_path_guiding,
+    CYCLES_RENDER_PT_sampling_path_guiding_debug,
+    CYCLES_RENDER_PT_sampling_lights,
     CYCLES_RENDER_PT_sampling_advanced,
     CYCLES_RENDER_PT_light_paths,
     CYCLES_RENDER_PT_light_paths_max_bounces,

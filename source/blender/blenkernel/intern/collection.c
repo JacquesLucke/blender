@@ -796,10 +796,10 @@ static void collection_object_cache_fill(ListBase *lb,
     /* Only collection flags are checked here currently, object restrict flag is checked
      * in FOREACH_COLLECTION_VISIBLE_OBJECT_RECURSIVE_BEGIN since it can be animated
      * without updating the cache. */
-    if (((child_restrict & COLLECTION_HIDE_VIEWPORT) == 0)) {
+    if ((child_restrict & COLLECTION_HIDE_VIEWPORT) == 0) {
       base->flag |= BASE_ENABLED_VIEWPORT;
     }
-    if (((child_restrict & COLLECTION_HIDE_RENDER) == 0)) {
+    if ((child_restrict & COLLECTION_HIDE_RENDER) == 0) {
       base->flag |= BASE_ENABLED_RENDER;
     }
   }
@@ -946,7 +946,7 @@ bool BKE_collection_has_object(Collection *collection, const Object *ob)
     return false;
   }
 
-  return (BLI_findptr(&collection->gobject, ob, offsetof(CollectionObject, ob)));
+  return BLI_findptr(&collection->gobject, ob, offsetof(CollectionObject, ob));
 }
 
 bool BKE_collection_has_object_recursive(Collection *collection, Object *ob)
@@ -956,7 +956,7 @@ bool BKE_collection_has_object_recursive(Collection *collection, Object *ob)
   }
 
   const ListBase objects = BKE_collection_object_cache_get(collection);
-  return (BLI_findptr(&objects, ob, offsetof(Base, object)));
+  return BLI_findptr(&objects, ob, offsetof(Base, object));
 }
 
 bool BKE_collection_has_object_recursive_instanced(Collection *collection, Object *ob)
@@ -966,7 +966,7 @@ bool BKE_collection_has_object_recursive_instanced(Collection *collection, Objec
   }
 
   const ListBase objects = BKE_collection_object_cache_instanced_get(collection);
-  return (BLI_findptr(&objects, ob, offsetof(Base, object)));
+  return BLI_findptr(&objects, ob, offsetof(Base, object));
 }
 
 static Collection *collection_next_find(Main *bmain, Scene *scene, Collection *collection)
@@ -1122,7 +1122,8 @@ static bool collection_object_remove(Main *bmain,
     id_us_min(&ob->id);
   }
 
-  collection_tag_update_parent_recursive(bmain, collection, ID_RECALC_COPY_ON_WRITE);
+  collection_tag_update_parent_recursive(
+      bmain, collection, ID_RECALC_COPY_ON_WRITE | ID_RECALC_GEOMETRY);
 
   return true;
 }

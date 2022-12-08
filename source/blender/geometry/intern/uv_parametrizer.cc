@@ -8,6 +8,7 @@
 
 #include "MEM_guardedalloc.h"
 
+#include "BLI_array.hh"
 #include "BLI_boxpack_2d.h"
 #include "BLI_convexhull_2d.h"
 #include "BLI_ghash.h"
@@ -16,17 +17,18 @@
 #include "BLI_polyfill_2d.h"
 #include "BLI_polyfill_2d_beautify.h"
 #include "BLI_rand.h"
+#include "BLI_vector.hh"
 
 #include "eigen_capi.h"
 
 /* Utils */
 
 #define param_assert(condition) \
-  if (!(condition)) { /*printf("Assertion %s:%d\n", __FILE__, __LINE__); abort();*/ \
+  if (!(condition)) { /* `printf("Assertion %s:%d\n", __FILE__, __LINE__); abort();` */ \
   } \
   (void)0
 #define param_warning(message) \
-  {/*printf("Warning %s:%d: %s\n", __FILE__, __LINE__, message);*/}(void)0
+  {/* `printf("Warning %s:%d: %s\n", __FILE__, __LINE__, message);` */}(void)0
 
 /* Special Purpose Hash */
 
@@ -195,7 +197,7 @@ static int PHashSizes[] = {
     1048583, 2097169, 4194319, 8388617, 16777259, 33554467, 67108879, 134217757, 268435459,
 };
 
-#define PHASH_hash(ph, item) (((uintptr_t)(item)) % ((uint)(ph)->cursize))
+#define PHASH_hash(ph, item) (uintptr_t(item) % uint((ph)->cursize))
 #define PHASH_edge(v1, v2) (((v1) < (v2)) ? ((v1)*39) ^ ((v2)*31) : ((v1)*31) ^ ((v2)*39))
 
 static PHash *phash_new(PHashLink **list, int sizehint)
@@ -297,17 +299,6 @@ static PHashLink *phash_next(PHash *ph, PHashKey key, PHashLink *link)
   return link;
 }
 
-/* Geometry */
-
-static float p_vec_angle(const float v1[3], const float v2[3], const float v3[3])
-{
-  return angle_v3v3v3(v1, v2, v3);
-}
-static float p_vec2_angle(const float v1[2], const float v2[2], const float v3[2])
-{
-  return angle_v2v2v2(v1, v2, v3);
-}
-
 /* Angles close to 0 or 180 degrees cause rows filled with zeros in the linear_solver.
  * The matrix will then be rank deficient and / or have poor conditioning.
  * => Reduce the maximum angle to 179 degrees, and spread the remainder to the other angles.
@@ -319,7 +310,7 @@ static void fix_large_angle(const float v_fix[3],
                             float *r_a1,
                             float *r_a2)
 {
-  const float max_angle = (float)M_PI * (179.0f / 180.0f);
+  const float max_angle = float(M_PI) * (179.0f / 180.0f);
   const float fix_amount = *r_fix - max_angle;
   if (fix_amount < 0.0f) {
     return; /* angle is reasonable, i.e. less than 179 degrees. */
@@ -358,9 +349,9 @@ static void fix_large_angle(const float v_fix[3],
 static void p_triangle_angles(
     const float v1[3], const float v2[3], const float v3[3], float *r_a1, float *r_a2, float *r_a3)
 {
-  *r_a1 = p_vec_angle(v3, v1, v2);
-  *r_a2 = p_vec_angle(v1, v2, v3);
-  *r_a3 = p_vec_angle(v2, v3, v1);
+  *r_a1 = angle_v3v3v3(v3, v1, v2);
+  *r_a2 = angle_v3v3v3(v1, v2, v3);
+  *r_a3 = angle_v3v3v3(v2, v3, v1);
 
   /* Fix for degenerate geometry e.g. v1 = sum(v2 + v3). See T100874 */
   fix_large_angle(v1, v2, v3, r_a1, r_a2, r_a3);
@@ -437,9 +428,7 @@ static float p_chart_uv_area(PChart *chart)
 
 static void p_chart_uv_scale(PChart *chart, float scale)
 {
-  PVert *v;
-
-  for (v = chart->verts; v; v = v->nextlink) {
+  for (PVert *v = chart->verts; v; v = v->nextlink) {
     v->uv[0] *= scale;
     v->uv[1] *= scale;
   }
@@ -447,9 +436,7 @@ static void p_chart_uv_scale(PChart *chart, float scale)
 
 static void p_chart_uv_scale_xy(PChart *chart, float x, float y)
 {
-  PVert *v;
-
-  for (v = chart->verts; v; v = v->nextlink) {
+  for (PVert *v = chart->verts; v; v = v->nextlink) {
     v->uv[0] *= x;
     v->uv[1] *= y;
   }
@@ -457,9 +444,7 @@ static void p_chart_uv_scale_xy(PChart *chart, float x, float y)
 
 static void p_chart_uv_translate(PChart *chart, const float trans[2])
 {
-  PVert *v;
-
-  for (v = chart->verts; v; v = v->nextlink) {
+  for (PVert *v = chart->verts; v; v = v->nextlink) {
     v->uv[0] += trans[0];
     v->uv[1] += trans[1];
   }
@@ -467,9 +452,7 @@ static void p_chart_uv_translate(PChart *chart, const float trans[2])
 
 static void p_chart_uv_transform(PChart *chart, const float mat[2][2])
 {
-  PVert *v;
-
-  for (v = chart->verts; v; v = v->nextlink) {
+  for (PVert *v = chart->verts; v; v = v->nextlink) {
     mul_m2_v2(mat, v->uv);
   }
 }
@@ -628,25 +611,18 @@ static void p_vert_load_pin_select_uvs(ParamHandle *handle, PVert *v)
 
 static void p_flush_uvs(ParamHandle *handle, PChart *chart)
 {
-  PEdge *e;
-
-  for (e = chart->edges; e; e = e->nextlink) {
+  const float blend = handle->blend;
+  const float invblend = 1.0f - blend;
+  for (PEdge *e = chart->edges; e; e = e->nextlink) {
     if (e->orig_uv) {
-      e->orig_uv[0] = e->vert->uv[0] / handle->aspx;
-      e->orig_uv[1] = e->vert->uv[1] / handle->aspy;
-    }
-  }
-}
-
-static void p_flush_uvs_blend(ParamHandle *handle, PChart *chart, float blend)
-{
-  PEdge *e;
-  float invblend = 1.0f - blend;
-
-  for (e = chart->edges; e; e = e->nextlink) {
-    if (e->orig_uv) {
-      e->orig_uv[0] = blend * e->old_uv[0] + invblend * e->vert->uv[0] / handle->aspx;
-      e->orig_uv[1] = blend * e->old_uv[1] + invblend * e->vert->uv[1] / handle->aspy;
+      if (blend) {
+        e->orig_uv[0] = blend * e->old_uv[0] + invblend * e->vert->uv[0] / handle->aspx;
+        e->orig_uv[1] = blend * e->old_uv[1] + invblend * e->vert->uv[1] / handle->aspy;
+      }
+      else {
+        e->orig_uv[0] = e->vert->uv[0] / handle->aspx;
+        e->orig_uv[1] = e->vert->uv[1] / handle->aspy;
+      }
     }
   }
 }
@@ -1148,32 +1124,6 @@ static PFace *p_face_add_fill(ParamHandle *handle, PChart *chart, PVert *v1, PVe
   return f;
 }
 
-static bool p_quad_split_direction(ParamHandle *handle, const float **co, const ParamKey *vkeys)
-{
-  /* Slight bias to prefer one edge over the other in case they are equal, so
-   * that in symmetric models we choose the same split direction instead of
-   * depending on floating point errors to decide. */
-  float bias = 1.0f + 1e-6f;
-  float fac = len_v3v3(co[0], co[2]) * bias - len_v3v3(co[1], co[3]);
-  bool dir = (fac <= 0.0f);
-
-  /* The face exists check is there because of a special case:
-   * when two quads share three vertices, they can each be split into two triangles,
-   * resulting in two identical triangles. For example in Suzanne's nose. */
-  if (dir) {
-    if (p_face_exists(handle, vkeys, 0, 1, 2) || p_face_exists(handle, vkeys, 0, 2, 3)) {
-      return !dir;
-    }
-  }
-  else {
-    if (p_face_exists(handle, vkeys, 0, 1, 3) || p_face_exists(handle, vkeys, 1, 2, 3)) {
-      return !dir;
-    }
-  }
-
-  return dir;
-}
-
 /* Construction: boundary filling */
 
 static void p_chart_boundaries(PChart *chart, PEdge **r_outer)
@@ -1229,7 +1179,7 @@ static float p_edge_boundary_angle(PEdge *e)
   do {
     v1 = we->next->vert;
     v2 = we->next->next->vert;
-    angle -= p_vec_angle(v1->co, v->co, v2->co);
+    angle -= angle_v3v3v3(v1->co, v->co, v2->co);
 
     we = we->next->next->pair;
     n++;
@@ -1903,7 +1853,7 @@ static bool p_collapse_allowed_geometric(PEdge *edge, PEdge *pair)
 
   if (p_vert_interior(oldv)) {
     /* HLSCM criterion: angular defect smaller than threshold. */
-    if (fabsf(angulardefect) > (float)(M_PI * 30.0 / 180.0)) {
+    if (fabsf(angulardefect) > float(M_PI * 30.0 / 180.0)) {
       return false;
     }
   }
@@ -2465,7 +2415,7 @@ static float p_abf_compute_gradient(PAbfSystem *sys, PChart *chart)
 
     norm += galpha1 * galpha1 + galpha2 * galpha2 + galpha3 * galpha3;
 
-    gtriangle = sys->alpha[e1->u.id] + sys->alpha[e2->u.id] + sys->alpha[e3->u.id] - (float)M_PI;
+    gtriangle = sys->alpha[e1->u.id] + sys->alpha[e2->u.id] + sys->alpha[e3->u.id] - float(M_PI);
     sys->bTriangle[f->u.id] = -gtriangle;
     norm += gtriangle * gtriangle;
   }
@@ -2696,8 +2646,8 @@ static bool p_abf_matrix_invert(PAbfSystem *sys, PChart *chart)
       /* clamp */
       PEdge *e = f->edge;
       do {
-        if (sys->alpha[e->u.id] > (float)M_PI) {
-          sys->alpha[e->u.id] = (float)M_PI;
+        if (sys->alpha[e->u.id] > float(M_PI)) {
+          sys->alpha[e->u.id] = float(M_PI);
         }
         else if (sys->alpha[e->u.id] < 0.0f) {
           sys->alpha[e->u.id] = 0.0f;
@@ -2706,8 +2656,8 @@ static bool p_abf_matrix_invert(PAbfSystem *sys, PChart *chart)
     }
 
     for (int i = 0; i < ninterior; i++) {
-      sys->lambdaPlanar[i] += (float)EIG_linear_solver_variable_get(context, 0, i);
-      sys->lambdaLength[i] += (float)EIG_linear_solver_variable_get(context, 0, ninterior + i);
+      sys->lambdaPlanar[i] += float(EIG_linear_solver_variable_get(context, 0, i));
+      sys->lambdaLength[i] += float(EIG_linear_solver_variable_get(context, 0, ninterior + i));
     }
   }
 
@@ -2780,7 +2730,7 @@ static bool p_chart_abf_solve(PChart *chart)
         e = e->next->next->pair;
       } while (e && (e != v->edge));
 
-      scale = (anglesum == 0.0f) ? 0.0f : 2.0f * (float)M_PI / anglesum;
+      scale = (anglesum == 0.0f) ? 0.0f : 2.0f * float(M_PI) / anglesum;
 
       e = v->edge;
       do {
@@ -3061,7 +3011,7 @@ static void p_chart_lscm_begin(PChart *chart, bool live, bool abf)
     }
   }
 
-  if ((live && (!select || !deselect))) {
+  if (live && (!select || !deselect)) {
     chart->u.lscm.context = nullptr;
   }
   else {
@@ -3113,29 +3063,21 @@ static void p_chart_lscm_begin(PChart *chart, bool live, bool abf)
 static bool p_chart_lscm_solve(ParamHandle *handle, PChart *chart)
 {
   LinearSolver *context = chart->u.lscm.context;
-  PVert *v, *pin1 = chart->u.lscm.pin1, *pin2 = chart->u.lscm.pin2;
-  PFace *f;
-  const float *alpha = chart->u.lscm.abf_alpha;
-  float area_pinned_up, area_pinned_down;
-  bool flip_faces;
-  int row;
 
-#if 0
-  /* TODO: make loading pins work for simplify/complexify. */
-#endif
-
-  for (v = chart->verts; v; v = v->nextlink) {
+  for (PVert *v = chart->verts; v; v = v->nextlink) {
     if (v->flag & PVERT_PIN) {
-      p_vert_load_pin_select_uvs(handle, v); /* reload for live */
+      p_vert_load_pin_select_uvs(handle, v); /* Reload for Live Unwrap. */
     }
   }
 
   if (chart->u.lscm.single_pin) {
-    /* If only one pin, save area and pin for transform later. */
+    /* If only one pin, save pin location for transform later. */
     copy_v2_v2(chart->u.lscm.single_pin_uv, chart->u.lscm.single_pin->uv);
   }
 
   if (chart->u.lscm.pin1) {
+    PVert *pin1 = chart->u.lscm.pin1;
+    PVert *pin2 = chart->u.lscm.pin2;
     EIG_linear_solver_variable_lock(context, 2 * pin1->u.id);
     EIG_linear_solver_variable_lock(context, 2 * pin1->u.id + 1);
     EIG_linear_solver_variable_lock(context, 2 * pin2->u.id);
@@ -3147,8 +3089,8 @@ static bool p_chart_lscm_solve(ParamHandle *handle, PChart *chart)
     EIG_linear_solver_variable_set(context, 0, 2 * pin2->u.id + 1, pin2->uv[1]);
   }
   else {
-    /* set and lock the pins */
-    for (v = chart->verts; v; v = v->nextlink) {
+    /* Set and lock the pins. */
+    for (PVert *v = chart->verts; v; v = v->nextlink) {
       if (v->flag & PVERT_PIN) {
         EIG_linear_solver_variable_lock(context, 2 * v->u.id);
         EIG_linear_solver_variable_lock(context, 2 * v->u.id + 1);
@@ -3159,16 +3101,16 @@ static bool p_chart_lscm_solve(ParamHandle *handle, PChart *chart)
     }
   }
 
-  /* detect up direction based on pinned vertices */
-  area_pinned_up = 0.0f;
-  area_pinned_down = 0.0f;
+  /* Detect "up" direction based on pinned vertices. */
+  float area_pinned_up = 0.0f;
+  float area_pinned_down = 0.0f;
 
-  for (f = chart->faces; f; f = f->nextlink) {
+  for (PFace *f = chart->faces; f; f = f->nextlink) {
     PEdge *e1 = f->edge, *e2 = e1->next, *e3 = e2->next;
     PVert *v1 = e1->vert, *v2 = e2->vert, *v3 = e3->vert;
 
     if ((v1->flag & PVERT_PIN) && (v2->flag & PVERT_PIN) && (v3->flag & PVERT_PIN)) {
-      float area = p_face_uv_area_signed(f);
+      const float area = p_face_uv_area_signed(f);
 
       if (area > 0.0f) {
         area_pinned_up += area;
@@ -3179,19 +3121,18 @@ static bool p_chart_lscm_solve(ParamHandle *handle, PChart *chart)
     }
   }
 
-  flip_faces = (area_pinned_down > area_pinned_up);
+  const bool flip_faces = (area_pinned_down > area_pinned_up);
 
-  /* construct matrix */
-
-  row = 0;
-  for (f = chart->faces; f; f = f->nextlink) {
+  /* Construct matrix. */
+  const float *alpha = chart->u.lscm.abf_alpha;
+  int row = 0;
+  for (PFace *f = chart->faces; f; f = f->nextlink) {
     PEdge *e1 = f->edge, *e2 = e1->next, *e3 = e2->next;
     PVert *v1 = e1->vert, *v2 = e2->vert, *v3 = e3->vert;
-    float a1, a2, a3, ratio, cosine, sine;
-    float sina1, sina2, sina3, sinmax;
+    float a1, a2, a3;
 
     if (alpha) {
-      /* use abf angles if passed on */
+      /* Use abf angles if present. */
       a1 = *(alpha++);
       a2 = *(alpha++);
       a3 = *(alpha++);
@@ -3206,13 +3147,13 @@ static bool p_chart_lscm_solve(ParamHandle *handle, PChart *chart)
       SWAP(PVert *, v2, v3);
     }
 
-    sina1 = sinf(a1);
-    sina2 = sinf(a2);
-    sina3 = sinf(a3);
+    float sina1 = sinf(a1);
+    float sina2 = sinf(a2);
+    float sina3 = sinf(a3);
 
-    sinmax = max_fff(sina1, sina2, sina3);
+    const float sinmax = max_fff(sina1, sina2, sina3);
 
-    /* shift vertices to find most stable order */
+    /* Shift vertices to find most stable order. */
     if (sina3 != sinmax) {
       SHIFT3(PVert *, v1, v2, v3);
       SHIFT3(float, a1, a2, a3);
@@ -3225,10 +3166,10 @@ static bool p_chart_lscm_solve(ParamHandle *handle, PChart *chart)
       }
     }
 
-    /* angle based lscm formulation */
-    ratio = (sina3 == 0.0f) ? 1.0f : sina2 / sina3;
-    cosine = cosf(a1) * ratio;
-    sine = sina1 * ratio;
+    /* Angle based lscm formulation. */
+    const float ratio = (sina3 == 0.0f) ? 1.0f : sina2 / sina3;
+    const float cosine = cosf(a1) * ratio;
+    const float sine = sina1 * ratio;
 
     EIG_linear_solver_matrix_add(context, row, 2 * v1->u.id, cosine - 1.0f);
     EIG_linear_solver_matrix_add(context, row, 2 * v1->u.id + 1, -sine);
@@ -3250,7 +3191,7 @@ static bool p_chart_lscm_solve(ParamHandle *handle, PChart *chart)
     return true;
   }
 
-  for (v = chart->verts; v; v = v->nextlink) {
+  for (PVert *v = chart->verts; v; v = v->nextlink) {
     v->uv[0] = 0.0f;
     v->uv[1] = 0.0f;
   }
@@ -3409,7 +3350,7 @@ static void p_chart_stretch_minimize(PChart *chart, RNG *rng)
 
     trusted_radius /= 2 * nedges;
 
-    random_angle = BLI_rng_get_float(rng) * 2.0f * (float)M_PI;
+    random_angle = BLI_rng_get_float(rng) * 2.0f * float(M_PI);
     dir[0] = trusted_radius * cosf(random_angle);
     dir[1] = trusted_radius * sinf(random_angle);
 
@@ -3588,7 +3529,7 @@ static float p_chart_minimum_area_angle(PChart *chart)
     p2 = points[i];
     p3 = (i == npoints - 1) ? points[0] : points[i + 1];
 
-    angles[i] = (float)M_PI - p_vec2_angle(p1->uv, p2->uv, p3->uv);
+    angles[i] = float(M_PI) - angle_v2v2v2(p1->uv, p2->uv, p3->uv);
 
     if (points[i]->uv[1] < miny) {
       miny = points[i]->uv[1];
@@ -3608,19 +3549,19 @@ static float p_chart_minimum_area_angle(PChart *chart)
 
   v[0] = points[idx[0]]->uv[0];
   v[1] = points[idx[0]]->uv[1] + 1.0f;
-  a[0] = p_vec2_angle(points[(idx[0] + 1) % npoints]->uv, points[idx[0]]->uv, v);
+  a[0] = angle_v2v2v2(points[(idx[0] + 1) % npoints]->uv, points[idx[0]]->uv, v);
 
   v[0] = points[idx[1]]->uv[0] + 1.0f;
   v[1] = points[idx[1]]->uv[1];
-  a[1] = p_vec2_angle(points[(idx[1] + 1) % npoints]->uv, points[idx[1]]->uv, v);
+  a[1] = angle_v2v2v2(points[(idx[1] + 1) % npoints]->uv, points[idx[1]]->uv, v);
 
   v[0] = points[idx[2]]->uv[0];
   v[1] = points[idx[2]]->uv[1] - 1.0f;
-  a[2] = p_vec2_angle(points[(idx[2] + 1) % npoints]->uv, points[idx[2]]->uv, v);
+  a[2] = angle_v2v2v2(points[(idx[2] + 1) % npoints]->uv, points[idx[2]]->uv, v);
 
   v[0] = points[idx[3]]->uv[0] - 1.0f;
   v[1] = points[idx[3]]->uv[1];
-  a[3] = p_vec2_angle(points[(idx[3] + 1) % npoints]->uv, points[idx[3]]->uv, v);
+  a[3] = angle_v2v2v2(points[(idx[3] + 1) % npoints]->uv, points[idx[3]]->uv, v);
 
   /* 4 rotating calipers */
 
@@ -3628,7 +3569,7 @@ static float p_chart_minimum_area_angle(PChart *chart)
   minarea = 1e10;
   minangle = 0.0;
 
-  while (rotated <= (float)M_PI_2) { /* INVESTIGATE: how far to rotate? */
+  while (rotated <= float(M_PI_2)) { /* INVESTIGATE: how far to rotate? */
     /* rotate with the smallest angle */
     i_min = 0;
     mina = 1e10;
@@ -3675,8 +3616,8 @@ static float p_chart_minimum_area_angle(PChart *chart)
   }
 
   /* try keeping rotation as small as possible */
-  if (minangle > (float)M_PI_4) {
-    minangle -= (float)M_PI_2;
+  if (minangle > float(M_PI_4)) {
+    minangle -= float(M_PI_2);
   }
 
   MEM_freeN(angles);
@@ -3869,9 +3810,9 @@ static void p_add_ngon(ParamHandle *handle,
   Heap *heap = handle->polyfill_heap;
   uint nfilltri = nverts - 2;
   uint(*tris)[3] = static_cast<uint(*)[3]>(
-      BLI_memarena_alloc(arena, sizeof(*tris) * (size_t)nfilltri));
+      BLI_memarena_alloc(arena, sizeof(*tris) * size_t(nfilltri)));
   float(*projverts)[2] = static_cast<float(*)[2]>(
-      BLI_memarena_alloc(arena, sizeof(*projverts) * (size_t)nverts));
+      BLI_memarena_alloc(arena, sizeof(*projverts) * size_t(nverts)));
 
   /* Calc normal, flipped: to get a positive 2d cross product. */
   float normal[3];
@@ -3927,24 +3868,77 @@ void GEO_uv_parametrizer_face_add(ParamHandle *phandle,
                                   const bool *pin,
                                   const bool *select)
 {
-  param_assert(phash_lookup(phandle->hash_faces, key) == nullptr);
+  BLI_assert(nverts >= 3);
   param_assert(phandle->state == PHANDLE_STATE_ALLOCATED);
-  param_assert(ELEM(nverts, 3, 4));
 
-  if (nverts > 4) {
+  if (nverts > 3) {
+    /* Protect against (manifold) geometry which has a non-manifold triangulation.
+     * See T102543. */
+
+    blender::Vector<int, 32> permute;
+    permute.reserve(nverts);
+    for (int i = 0; i < nverts; i++) {
+      permute.append_unchecked(i);
+    }
+
+    int i = nverts - 1;
+    while (i >= 0) {
+      /* Just check the "ears" of the n-gon.
+       * For quads, this is sufficient.
+       * For pentagons and higher, we might miss internal duplicate triangles, but note
+       * that such cases are rare if the source geometry is manifold and non-intersecting. */
+      int pm = permute.size();
+      BLI_assert(pm > 3);
+      int i0 = permute[i];
+      int i1 = permute[(i + 1) % pm];
+      int i2 = permute[(i + 2) % pm];
+      if (!p_face_exists(phandle, vkeys, i0, i1, i2)) {
+        i--; /* ...All good...*/
+        continue;
+      }
+
+      /* An existing triangle has already been inserted. As a heuristic, attempt to add the
+       * *previous* triangle. \note: Should probably call `GEO_uv_parametrizer_face_add` instead of
+       * `p_face_add_construct`. */
+      int iprev = permute[(i + pm - 1) % pm];
+      p_face_add_construct(phandle, key, vkeys, co, uv, iprev, i0, i1, pin, select);
+
+      permute.remove(i);
+      if (permute.size() == 3) {
+        break;
+      }
+    }
+    if (permute.size() != nverts) {
+      int pm = permute.size();
+      /* Add the remaining pm-gon. */
+      blender::Array<ParamKey> vkeys_sub(pm);
+      blender::Array<const float *> co_sub(pm);
+      blender::Array<float *> uv_sub(pm);
+      blender::Array<bool> pin_sub(pm);
+      blender::Array<bool> select_sub(pm);
+      for (int i = 0; i < pm; i++) {
+        int j = permute[i];
+        vkeys_sub[i] = vkeys[j];
+        co_sub[i] = co[j];
+        uv_sub[i] = uv[j];
+        pin_sub[i] = pin && pin[j];
+        select_sub[i] = select && select[j];
+      }
+      p_add_ngon(phandle,
+                 key,
+                 pm,
+                 &vkeys_sub.first(),
+                 &co_sub.first(),
+                 &uv_sub.first(),
+                 &pin_sub.first(),
+                 &select_sub.first());
+      return; /* Nothing more to do. */
+    }
+    /* No "ears" have previously been inserted. Continue as normal. */
+  }
+  if (nverts > 3) {
     /* ngon */
     p_add_ngon(phandle, key, nverts, vkeys, co, uv, pin, select);
-  }
-  else if (nverts == 4) {
-    /* quad */
-    if (p_quad_split_direction(phandle, co, vkeys)) {
-      p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 2, pin, select);
-      p_face_add_construct(phandle, key, vkeys, co, uv, 0, 2, 3, pin, select);
-    }
-    else {
-      p_face_add_construct(phandle, key, vkeys, co, uv, 0, 1, 3, pin, select);
-      p_face_add_construct(phandle, key, vkeys, co, uv, 1, 2, 3, pin, select);
-    }
   }
   else if (!p_face_exists(phandle, vkeys, 0, 1, 2)) {
     /* triangle */
@@ -4019,14 +4013,11 @@ void GEO_uv_parametrizer_construct_end(ParamHandle *phandle,
 
 void GEO_uv_parametrizer_lscm_begin(ParamHandle *phandle, bool live, bool abf)
 {
-  PFace *f;
-  int i;
-
   param_assert(phandle->state == PHANDLE_STATE_CONSTRUCTED);
   phandle->state = PHANDLE_STATE_LSCM;
 
-  for (i = 0; i < phandle->ncharts; i++) {
-    for (f = phandle->charts[i]->faces; f; f = f->nextlink) {
+  for (int i = 0; i < phandle->ncharts; i++) {
+    for (PFace *f = phandle->charts[i]->faces; f; f = f->nextlink) {
       p_face_backup_uvs(f);
     }
     p_chart_lscm_begin(phandle->charts[i], live, abf);
@@ -4035,13 +4026,10 @@ void GEO_uv_parametrizer_lscm_begin(ParamHandle *phandle, bool live, bool abf)
 
 void GEO_uv_parametrizer_lscm_solve(ParamHandle *phandle, int *count_changed, int *count_failed)
 {
-  PChart *chart;
-  int i;
-
   param_assert(phandle->state == PHANDLE_STATE_LSCM);
 
-  for (i = 0; i < phandle->ncharts; i++) {
-    chart = phandle->charts[i];
+  for (int i = 0; i < phandle->ncharts; i++) {
+    PChart *chart = phandle->charts[i];
 
     if (chart->u.lscm.context) {
       const bool result = p_chart_lscm_solve(phandle, chart);
@@ -4209,7 +4197,7 @@ void GEO_uv_parametrizer_pack(ParamHandle *handle,
     box->index = i; /* Warning this index skips chart->has_pins boxes. */
 
     if (margin > 0.0f) {
-      area += (double)sqrtf(box->w * box->h);
+      area += double(sqrtf(box->w * box->h));
     }
   }
 
@@ -4218,7 +4206,7 @@ void GEO_uv_parametrizer_pack(ParamHandle *handle,
      * ...Without using the area running pack multiple times also gives a bad feedback loop.
      * multiply by 0.1 so the margin value from the UI can be from
      * 0.0 to 1.0 but not give a massive margin */
-    margin = (margin * (float)area) * 0.1f;
+    margin = (margin * float(area)) * 0.1f;
     unpacked = 0;
     for (i = 0; i < handle->ncharts; i++) {
       chart = handle->charts[i];
@@ -4342,7 +4330,7 @@ void GEO_uv_parametrizer_average(ParamHandle *phandle,
         /* Compute correction transform. */
         float t[2][2];
         t[0][0] = scale_factor_u;
-        t[1][0] = clamp_f((float)(scale_cross / weight_sum), -0.5f, 0.5f);
+        t[1][0] = clamp_f(float(scale_cross / weight_sum), -0.5f, 0.5f);
         t[0][1] = 0;
         t[1][1] = 1.0f / scale_factor_u;
 
@@ -4428,12 +4416,7 @@ void GEO_uv_parametrizer_flush(ParamHandle *phandle)
       continue;
     }
 
-    if (phandle->blend == 0.0f) {
-      p_flush_uvs(phandle, chart);
-    }
-    else {
-      p_flush_uvs_blend(phandle, chart, phandle->blend);
-    }
+    p_flush_uvs(phandle, chart);
   }
 }
 

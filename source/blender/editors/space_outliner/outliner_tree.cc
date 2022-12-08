@@ -278,9 +278,6 @@ static void outliner_add_object_contents(SpaceOutliner *space_outliner,
     outliner_add_element(space_outliner, &te->subtree, ob, te, TSE_ANIM_DATA, 0);
   }
 
-  /* FIXME: add a special type for this. */
-  outliner_add_element(space_outliner, &te->subtree, ob->poselib, te, TSE_SOME_ID, 0);
-
   outliner_add_element(space_outliner, &te->subtree, ob->data, te, TSE_SOME_ID, 0);
 
   if (ob->pose) {
@@ -1571,7 +1568,7 @@ static int outliner_filter_subtree(SpaceOutliner *space_outliner,
 
   for (te = static_cast<TreeElement *>(lb->first); te; te = te_next) {
     te_next = te->next;
-    if ((outliner_element_visible_get(scene, view_layer, te, exclude_filter) == false)) {
+    if (outliner_element_visible_get(scene, view_layer, te, exclude_filter) == false) {
       /* Don't free the tree, but extract the children from the parent and add to this tree. */
       /* This also needs filtering the subtree prior (see T69246). */
       outliner_filter_subtree(
@@ -1598,7 +1595,7 @@ static int outliner_filter_subtree(SpaceOutliner *space_outliner,
       /* flag as not a found item */
       tselem->flag &= ~TSE_SEARCHMATCH;
 
-      if ((!TSELEM_OPEN(tselem, space_outliner)) ||
+      if (!TSELEM_OPEN(tselem, space_outliner) ||
           outliner_filter_subtree(
               space_outliner, scene, view_layer, &te->subtree, search_string, exclude_filter) ==
               0) {

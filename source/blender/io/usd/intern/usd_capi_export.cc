@@ -57,8 +57,8 @@ static void report_job_duration(const ExportJobData *data)
 static void export_startjob(void *customdata,
                             /* Cannot be const, this function implements wm_jobs_start_callback.
                              * NOLINTNEXTLINE: readability-non-const-parameter. */
-                            short *stop,
-                            short *do_update,
+                            bool *stop,
+                            bool *do_update,
                             float *progress)
 {
   ExportJobData *data = static_cast<ExportJobData *>(customdata);
@@ -96,8 +96,7 @@ static void export_startjob(void *customdata,
   }
 
   usd_stage->SetMetadata(pxr::UsdGeomTokens->upAxis, pxr::VtValue(pxr::UsdGeomTokens->z));
-  usd_stage->SetMetadata(pxr::UsdGeomTokens->metersPerUnit,
-                         static_cast<double>(scene->unit.scale_length));
+  usd_stage->SetMetadata(pxr::UsdGeomTokens->metersPerUnit, double(scene->unit.scale_length));
   usd_stage->GetRootLayer()->SetDocumentation(std::string("Blender v") +
                                               BKE_blender_version_string());
 
@@ -120,7 +119,7 @@ static void export_startjob(void *customdata,
       }
 
       /* Update the scene for the next frame to render. */
-      scene->r.cfra = static_cast<int>(frame);
+      scene->r.cfra = int(frame);
       scene->r.subframe = frame - scene->r.cfra;
       BKE_scene_graph_update_for_newframe(data->depsgraph);
 
@@ -175,8 +174,6 @@ bool USD_export(bContext *C,
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Scene *scene = CTX_data_scene(C);
 
-  blender::io::usd::ensure_usd_plugin_path_registered();
-
   blender::io::usd::ExportJobData *job = static_cast<blender::io::usd::ExportJobData *>(
       MEM_mallocN(sizeof(blender::io::usd::ExportJobData), "ExportJobData"));
 
@@ -206,7 +203,7 @@ bool USD_export(bContext *C,
   }
   else {
     /* Fake a job context, so that we don't need NULL pointer checks while exporting. */
-    short stop = 0, do_update = 0;
+    bool stop = false, do_update = false;
     float progress = 0.0f;
 
     blender::io::usd::export_startjob(job, &stop, &do_update, &progress);

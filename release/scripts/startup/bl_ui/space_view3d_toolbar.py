@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-from bpy.types import Menu, Panel, UIList
+from bpy.types import Menu, Panel, UIList, WindowManager
 from bl_ui.properties_grease_pencil_common import (
     GreasePencilSculptAdvancedPanel,
     GreasePencilDisplayPanel,
@@ -52,6 +52,8 @@ class VIEW3D_MT_brush_context_menu(Menu):
         elif context.sculpt_object:
             layout.prop_menu_enum(brush, "sculpt_tool")
             layout.operator("brush.reset")
+        elif context.tool_settings.curves_sculpt:
+            layout.prop_menu_enum(brush, "curves_sculpt_tool")
 
 
 class VIEW3D_MT_brush_gpencil_context_menu(Menu):
@@ -79,22 +81,6 @@ class VIEW3D_MT_brush_gpencil_context_menu(Menu):
 
         layout.operator("gpencil.brush_reset")
         layout.operator("gpencil.brush_reset_all")
-
-
-class VIEW3D_MT_brush_context_menu_paint_modes(Menu):
-    bl_label = "Enabled Modes"
-
-    def draw(self, context):
-        layout = self.layout
-
-        settings = UnifiedPaintPanel.paint_settings(context)
-        brush = settings.brush
-
-        layout.prop(brush, "use_paint_sculpt", text="Sculpt")
-        layout.prop(brush, "use_paint_uv_sculpt", text="UV Sculpt")
-        layout.prop(brush, "use_paint_vertex", text="Vertex Paint")
-        layout.prop(brush, "use_paint_weight", text="Weight Paint")
-        layout.prop(brush, "use_paint_image", text="Texture Paint")
 
 
 class View3DPanel:
@@ -278,7 +264,7 @@ class TEXTURE_UL_texpaintslots(UIList):
         # mat = data
 
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            layout.prop(item, "name", text="", emboss=False, icon_value=item.icon_value)
+            layout.label(text=item.name, icon_value=item.icon_value)
         elif self.layout_type == 'GRID':
             layout.alignment = 'CENTER'
             layout.label(text="")
@@ -964,14 +950,6 @@ class VIEW3D_PT_sculpt_options(Panel, View3DPaintPanel):
         col.prop(sculpt, "use_sculpt_delay_updates")
         col.prop(sculpt, "use_deform_only")
 
-        col.separator()
-
-        col = layout.column(heading="Auto-Masking", align=True)
-        col.prop(sculpt, "use_automasking_topology", text="Topology")
-        col.prop(sculpt, "use_automasking_face_sets", text="Face Sets")
-        col.prop(sculpt, "use_automasking_boundary_edges", text="Mesh Boundary")
-        col.prop(sculpt, "use_automasking_boundary_face_sets", text="Face Sets Boundary")
-
 
 class VIEW3D_PT_sculpt_options_gravity(Panel, View3DPaintPanel):
     bl_context = ".sculpt_mode"  # dot on purpose (access from topbar)
@@ -1042,6 +1020,7 @@ class VIEW3D_PT_sculpt_symmetry(Panel, View3DPaintPanel):
 
         layout.prop(sculpt, "symmetrize_direction")
         layout.operator("sculpt.symmetrize")
+        layout.prop(WindowManager.operator_properties_last("sculpt.symmetrize"), "merge_tolerance")
 
 
 class VIEW3D_PT_sculpt_symmetry_for_topbar(Panel):
@@ -1889,11 +1868,13 @@ class VIEW3D_PT_tools_grease_pencil_brush_gap_closure(View3DPanel, Panel):
 
         col.prop(gp_settings, "extend_stroke_factor", text="Size")
         row = col.row(align=True)
-        row.enabled = gp_settings.extend_stroke_factor > 0
         row.prop(gp_settings, "fill_extend_mode", text="Mode")
         row = col.row(align=True)
-        row.enabled = gp_settings.extend_stroke_factor > 0
         row.prop(gp_settings, "show_fill_extend", text="Visual Aids")
+
+        if gp_settings.fill_extend_mode == 'EXTEND':
+            row = col.row(align=True)
+            row.prop(gp_settings, "use_collide_strokes")
 
 
 # Grease Pencil stroke sculpting tools
@@ -1984,7 +1965,7 @@ class VIEW3D_PT_tools_grease_pencil_sculpt_brush_advanced(GreasePencilSculptAdva
             return False
 
         tool = brush.gpencil_sculpt_tool
-        return tool != 'CLONE'
+        return tool in {'SMOOTH', 'RANDOMIZE'}
 
 
 class VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover(GreasePencilSculptAdvancedPanel, View3DPanel, Panel):
@@ -2002,7 +1983,7 @@ class VIEW3D_PT_tools_grease_pencil_sculpt_brush_popover(GreasePencilSculptAdvan
             return False
 
         tool = brush.gpencil_sculpt_tool
-        return tool != 'CLONE'
+        return tool in {'SMOOTH', 'RANDOMIZE'}
 
 
 # Grease Pencil weight painting tools
@@ -2379,7 +2360,6 @@ class VIEW3D_PT_gpencil_brush_presets(Panel, PresetPanel):
 classes = (
     VIEW3D_MT_brush_context_menu,
     VIEW3D_MT_brush_gpencil_context_menu,
-    VIEW3D_MT_brush_context_menu_paint_modes,
     VIEW3D_PT_tools_object_options,
     VIEW3D_PT_tools_object_options_transform,
     VIEW3D_PT_tools_meshedit_options,

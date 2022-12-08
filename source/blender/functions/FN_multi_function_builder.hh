@@ -207,6 +207,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
   (
       /* Setup information for all parameters. */
       [&] {
+        /* Use `typedef` instead of `using` to work around a compiler bug. */
         typedef ParamTags ParamTag;
         typedef typename ParamTag::base_type T;
         [[maybe_unused]] ArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
@@ -231,7 +232,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
 
   /* Outer loop over all chunks. */
   for (int64_t chunk_start = 0; chunk_start < mask_size; chunk_start += MaxChunkSize) {
-    const IndexMask sliced_mask = mask.slice(chunk_start, MaxChunkSize);
+    const IndexMask sliced_mask = mask.slice_safe(chunk_start, MaxChunkSize);
     const int64_t chunk_size = sliced_mask.size();
     const bool sliced_mask_is_range = sliced_mask.is_range();
 
@@ -282,6 +283,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
     (
         /* Destruct values that have been materialized before. */
         [&] {
+          /* Use `typedef` instead of `using` to work around a compiler bug. */
           typedef ParamTags ParamTag;
           typedef typename ParamTag::base_type T;
           [[maybe_unused]] ArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
@@ -298,6 +300,7 @@ void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
   (
       /* Destruct buffers for single value inputs. */
       [&] {
+        /* Use `typedef` instead of `using` to work around a compiler bug. */
         typedef ParamTags ParamTag;
         typedef typename ParamTag::base_type T;
         [[maybe_unused]] ArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
@@ -347,6 +350,7 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
     (
         /* Get all parameters from #params and store them in #retrieved_params. */
         [&]() {
+          /* Use `typedef` instead of `using` to work around a compiler bug. */
           typedef typename TagsSequence::template at_index<I> ParamTag;
           typedef typename ParamTag::base_type T;
 
@@ -402,13 +406,14 @@ template<typename... ParamTags> class CustomMF : public MultiFunction {
     (
         /* Loop over all parameter types and add an entry for each in the signature. */
         [&] {
+          /* Use `typedef` instead of `using` to work around a compiler bug. */
           typedef typename TagsSequence::template at_index<I> ParamTag;
           signature.add(ParamTag(), "");
         }(),
         ...);
   }
 
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext /*context*/) const override
   {
     fn_(mask, params);
   }
@@ -566,7 +571,7 @@ template<typename Mut1> class CustomMF_SM : public MultiFunction {
     };
   }
 
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext /*context*/) const override
   {
     MutableSpan<Mut1> mut1 = params.single_mutable<Mut1>(0);
     function_(mask, mut1);
@@ -626,7 +631,7 @@ template<typename T> class CustomMF_Constant : public MultiFunction {
     this->set_signature(&signature_);
   }
 
-  void call(IndexMask mask, MFParams params, MFContext UNUSED(context)) const override
+  void call(IndexMask mask, MFParams params, MFContext /*context*/) const override
   {
     MutableSpan<T> output = params.uninitialized_single_output<T>(0);
     mask.to_best_mask_type([&](const auto &mask) {

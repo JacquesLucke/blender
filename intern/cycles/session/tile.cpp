@@ -7,6 +7,7 @@
 
 #include "graph/node.h"
 #include "scene/background.h"
+#include "scene/bake.h"
 #include "scene/film.h"
 #include "scene/integrator.h"
 #include "scene/scene.h"
@@ -341,8 +342,8 @@ void TileManager::reset_scheduling(const BufferParams &params, int2 tile_size)
 
   tile_size_ = tile_size;
 
-  tile_state_.num_tiles_x = divide_up(params.width, tile_size_.x);
-  tile_state_.num_tiles_y = divide_up(params.height, tile_size_.y);
+  tile_state_.num_tiles_x = tile_size_.x ? divide_up(params.width, tile_size_.x) : 0;
+  tile_state_.num_tiles_y = tile_size_.y ? divide_up(params.height, tile_size_.y) : 0;
   tile_state_.num_tiles = tile_state_.num_tiles_x * tile_state_.num_tiles_y;
 
   tile_state_.next_tile_index = 0;
@@ -367,7 +368,9 @@ void TileManager::update(const BufferParams &params, const Scene *scene)
     node_to_image_spec_atttributes(
         &write_state_.image_spec, &denoise_params, ATTR_DENOISE_SOCKET_PREFIX);
 
-    if (adaptive_sampling.use) {
+    /* Not adaptive sampling overscan yet for baking, would need overscan also
+     * for buffers read from the output driver. */
+    if (adaptive_sampling.use && !scene->bake_manager->get_baking()) {
       overscan_ = 4;
     }
     else {

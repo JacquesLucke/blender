@@ -108,6 +108,7 @@ class Texture {
   bool init_buffer(GPUVertBuf *vbo, eGPUTextureFormat format);
   bool init_view(const GPUTexture *src,
                  eGPUTextureFormat format,
+                 eGPUTextureType type,
                  int mip_start,
                  int mip_len,
                  int layer_start,
@@ -128,6 +129,10 @@ class Texture {
 
   virtual void update_sub(
       int mip, int offset[3], int extent[3], eGPUDataFormat format, const void *data) = 0;
+  virtual void update_sub(int offset[3],
+                          int extent[3],
+                          eGPUDataFormat format,
+                          GPUPixelBuffer *pixbuf) = 0;
 
   /* TODO(fclem): Legacy. Should be removed at some point. */
   virtual uint gl_bindcode_get() const = 0;
@@ -261,6 +266,35 @@ static inline Texture *unwrap(GPUTexture *vert)
 static inline const Texture *unwrap(const GPUTexture *vert)
 {
   return reinterpret_cast<const Texture *>(vert);
+}
+
+/* GPU pixel Buffer. */
+class PixelBuffer {
+ protected:
+  uint size_ = 0;
+
+ public:
+  PixelBuffer(uint size) : size_(size){};
+  virtual ~PixelBuffer(){};
+
+  virtual void *map() = 0;
+  virtual void unmap() = 0;
+  virtual int64_t get_native_handle() = 0;
+  virtual uint get_size() = 0;
+};
+
+/* Syntactic sugar. */
+static inline GPUPixelBuffer *wrap(PixelBuffer *pixbuf)
+{
+  return reinterpret_cast<GPUPixelBuffer *>(pixbuf);
+}
+static inline PixelBuffer *unwrap(GPUPixelBuffer *pixbuf)
+{
+  return reinterpret_cast<PixelBuffer *>(pixbuf);
+}
+static inline const PixelBuffer *unwrap(const GPUPixelBuffer *pixbuf)
+{
+  return reinterpret_cast<const PixelBuffer *>(pixbuf);
 }
 
 #undef DEBUG_NAME_LEN
@@ -404,6 +438,8 @@ inline size_t to_bytesize(eGPUDataFormat data_format)
   switch (data_format) {
     case GPU_DATA_UBYTE:
       return 1;
+    case GPU_DATA_HALF_FLOAT:
+      return 2;
     case GPU_DATA_FLOAT:
     case GPU_DATA_INT:
     case GPU_DATA_UINT:
@@ -430,15 +466,16 @@ inline bool validate_data_format(eGPUTextureFormat tex_format, eGPUDataFormat da
     case GPU_DEPTH_COMPONENT24:
     case GPU_DEPTH_COMPONENT16:
     case GPU_DEPTH_COMPONENT32F:
-      return data_format == GPU_DATA_FLOAT;
+      return ELEM(data_format, GPU_DATA_FLOAT, GPU_DATA_UINT);
     case GPU_DEPTH24_STENCIL8:
     case GPU_DEPTH32F_STENCIL8:
-      return data_format == GPU_DATA_UINT_24_8;
+      return ELEM(data_format, GPU_DATA_UINT_24_8, GPU_DATA_UINT);
     case GPU_R8UI:
     case GPU_R16UI:
     case GPU_RG16UI:
     case GPU_R32UI:
       return data_format == GPU_DATA_UINT;
+    case GPU_R32I:
     case GPU_RG16I:
     case GPU_R16I:
       return data_format == GPU_DATA_INT;
@@ -452,6 +489,8 @@ inline bool validate_data_format(eGPUTextureFormat tex_format, eGPUDataFormat da
       return ELEM(data_format, GPU_DATA_2_10_10_10_REV, GPU_DATA_FLOAT);
     case GPU_R11F_G11F_B10F:
       return ELEM(data_format, GPU_DATA_10_11_11_REV, GPU_DATA_FLOAT);
+    case GPU_RGBA16F:
+      return ELEM(data_format, GPU_DATA_HALF_FLOAT, GPU_DATA_FLOAT);
     default:
       return data_format == GPU_DATA_FLOAT;
   }
@@ -584,7 +623,7 @@ inline eGPUFrameBufferBits to_framebuffer_bits(eGPUTextureFormat tex_format)
 
 static inline eGPUTextureFormat to_texture_format(const GPUVertFormat *format)
 {
-  if (format->attr_len > 1 || format->attr_len == 0) {
+  if (format->attr_len == 0) {
     BLI_assert_msg(0, "Incorrect vertex format for buffer texture");
     return GPU_DEPTH_COMPONENT24;
   }

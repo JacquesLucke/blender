@@ -5,6 +5,8 @@
  * \ingroup cmpnodes
  */
 
+#include "BLT_translation.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 
@@ -22,7 +24,7 @@ static void cmp_node_idmask_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("Alpha"));
 }
 
-static void node_composit_buts_id_mask(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_composit_buts_id_mask(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "index", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
   uiItemR(layout, ptr, "use_antialiasing", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
@@ -37,6 +39,7 @@ class IDMaskOperation : public NodeOperation {
   void execute() override
   {
     get_input("ID value").pass_through(get_result("Alpha"));
+    context().set_info_message("Viewport compositor setup not fully supported");
   }
 };
 
@@ -57,6 +60,8 @@ void register_node_type_cmp_idmask()
   ntype.declare = file_ns::cmp_node_idmask_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_id_mask;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

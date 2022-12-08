@@ -755,7 +755,7 @@ void OUTLINER_OT_collection_link(wmOperatorType *ot)
 /** \name Instance Collection
  * \{ */
 
-static int collection_instance_exec(bContext *C, wmOperator *UNUSED(op))
+static int collection_instance_exec(bContext *C, wmOperator * /*op*/)
 {
   Main *bmain = CTX_data_main(C);
   Scene *scene = CTX_data_scene(C);
@@ -799,7 +799,6 @@ static int collection_instance_exec(bContext *C, wmOperator *UNUSED(op))
         C, OB_EMPTY, collection->id.name + 2, scene->cursor.location, nullptr, false, 0);
     ob->instance_collection = collection;
     ob->transflag |= OB_DUPLICOLLECTION;
-    id_lib_extern(&collection->id);
     id_us_plus(&collection->id);
   }
 
@@ -1502,7 +1501,7 @@ static TreeTraversalAction outliner_hide_collect_data_to_edit(TreeElement *te, v
   return TRAVERSE_CONTINUE;
 }
 
-static int outliner_hide_exec(bContext *C, wmOperator *UNUSED(op))
+static int outliner_hide_exec(bContext *C, wmOperator * /*op*/)
 {
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
@@ -1558,7 +1557,7 @@ void OUTLINER_OT_hide(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 }
 
-static int outliner_unhide_all_exec(bContext *C, wmOperator *UNUSED(op))
+static int outliner_unhide_all_exec(bContext *C, wmOperator * /*op*/)
 {
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);

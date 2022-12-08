@@ -279,7 +279,7 @@ typedef struct ParticleSettings {
   struct PartDeflect *pd;
   struct PartDeflect *pd2;
 
-  /* modified dm support */
+  /* Evaluated mesh support. */
   short use_modifier_stack;
   char _pad5[2];
 
@@ -465,7 +465,7 @@ enum {
 #define PART_REACT_MULTIPLE 2
 
 //#define PART_LOOP         4   /* not used anymore */
-/* for dopesheet */
+/* For dope-sheet. */
 #define PART_DS_EXPAND 8
 
 #define PART_HAIR_REGROW 16 /* regrow hair for each frame */

@@ -1326,7 +1326,7 @@ static int actkeys_expo_exec(bContext *C, wmOperator *op)
 void ACTION_OT_extrapolation_type(wmOperatorType *ot)
 {
   /* identifiers */
-  ot->name = "Set Keyframe Extrapolation";
+  ot->name = "Set F-Curve Extrapolation";
   ot->idname = "ACTION_OT_extrapolation_type";
   ot->description = "Set extrapolation mode for selected F-Curves";
 
@@ -1791,10 +1791,14 @@ static void snap_action_keys(bAnimContext *ac, short mode)
     else if (adt) {
       ANIM_nla_mapping_apply_fcurve(adt, ale->key_data, 0, 0);
       ANIM_fcurve_keyframes_loop(&ked, ale->key_data, NULL, edit_cb, BKE_fcurve_handles_recalc);
+      BKE_fcurve_merge_duplicate_keys(
+          ale->key_data, SELECT, false); /* only use handles in graph editor */
       ANIM_nla_mapping_apply_fcurve(adt, ale->key_data, 1, 0);
     }
     else {
       ANIM_fcurve_keyframes_loop(&ked, ale->key_data, NULL, edit_cb, BKE_fcurve_handles_recalc);
+      BKE_fcurve_merge_duplicate_keys(
+          ale->key_data, SELECT, false); /* only use handles in graph editor */
     }
 
     ale->update |= ANIM_UPDATE_DEFAULT;

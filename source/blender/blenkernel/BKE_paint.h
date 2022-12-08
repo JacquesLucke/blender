@@ -52,6 +52,7 @@ struct Palette;
 struct PaletteColor;
 struct Scene;
 struct StrokeCache;
+struct Sculpt;
 struct SubdivCCG;
 struct Tex;
 struct ToolSettings;
@@ -118,6 +119,7 @@ typedef enum ePaintSymmetryAreas {
   PAINT_SYMM_AREA_Y = (1 << 1),
   PAINT_SYMM_AREA_Z = (1 << 2),
 } ePaintSymmetryAreas;
+ENUM_OPERATORS(ePaintSymmetryAreas, PAINT_SYMM_AREA_Z);
 
 #define PAINT_SYMM_AREAS 8
 
@@ -371,6 +373,7 @@ typedef struct SculptClothSimulation {
   float (*acceleration)[3];
   float (*pos)[3];
   float (*init_pos)[3];
+  float (*init_no)[3];
   float (*softbody_pos)[3];
   float (*prev_pos)[3];
   float (*last_iteration_pos)[3];
@@ -417,7 +420,6 @@ typedef struct SculptBoundaryPreviewEdge {
 typedef struct SculptBoundary {
   /* Vertex indices of the active boundary. */
   PBVHVertRef *verts;
-  int *verts_i;
   int verts_capacity;
   int verts_num;
 
@@ -549,6 +551,9 @@ typedef struct SculptAttributePointers {
   /* Precomputed auto-mask factor indexed by vertex, owned by the auto-masking system and
    * initialized in #SCULPT_automasking_cache_init when needed. */
   SculptAttribute *automasking_factor;
+  SculptAttribute *automasking_occlusion; /* CD_PROP_INT8. */
+  SculptAttribute *automasking_stroke_id;
+  SculptAttribute *automasking_cavity;
 
   /* BMesh */
   SculptAttribute *dyntopo_node_id_vertex;
@@ -739,11 +744,16 @@ typedef struct SculptSession {
    */
   bool sticky_shading_color;
 
+  uchar stroke_id;
+
   /**
    * Last used painting canvas key.
    */
   char *last_paint_canvas_key;
+  float last_normal[3];
 
+  int last_automasking_settings_hash;
+  uchar last_automask_stroke_id;
 } SculptSession;
 
 void BKE_sculptsession_free(struct Object *ob);
@@ -851,7 +861,19 @@ int *BKE_sculpt_face_sets_ensure(struct Mesh *mesh);
  * (see #SCULPT_visibility_sync_all_from_faces).
  */
 bool *BKE_sculpt_hide_poly_ensure(struct Mesh *mesh);
-int BKE_sculpt_mask_layers_ensure(struct Object *ob, struct MultiresModifierData *mmd);
+
+/**
+ * Ensures a mask layer exists. If depsgraph and bmain are non-null,
+ * a mask doesn't exist and the object has a multi-resolution modifier
+ * then the scene depsgraph will be evaluated to update the runtime
+ * subdivision data.
+ *
+ * \note always call *before* #BKE_sculpt_update_object_for_edit.
+ */
+int BKE_sculpt_mask_layers_ensure(struct Depsgraph *depsgraph,
+                                  struct Main *bmain,
+                                  struct Object *ob,
+                                  struct MultiresModifierData *mmd);
 void BKE_sculpt_toolsettings_data_ensure(struct Scene *scene);
 
 struct PBVH *BKE_sculpt_object_pbvh_ensure(struct Depsgraph *depsgraph, struct Object *ob);
@@ -865,7 +887,7 @@ void BKE_sculpt_sync_face_visibility_to_grids(struct Mesh *mesh, struct SubdivCC
  * Test if PBVH can be used directly for drawing, which is faster than
  * drawing the mesh and all updates that come with it.
  */
-bool BKE_sculptsession_use_pbvh_draw(const struct Object *ob, const struct View3D *v3d);
+bool BKE_sculptsession_use_pbvh_draw(const struct Object *ob, const struct RegionView3D *rv3d);
 
 enum {
   SCULPT_MASK_LAYER_CALC_VERT = (1 << 0),
@@ -901,6 +923,8 @@ bool BKE_paint_canvas_image_get(struct PaintModeSettings *settings,
                                 struct ImageUser **r_image_user);
 int BKE_paint_canvas_uvmap_layer_index_get(const struct PaintModeSettings *settings,
                                            struct Object *ob);
+void BKE_sculpt_check_cavity_curves(struct Sculpt *sd);
+struct CurveMapping *BKE_sculpt_default_cavity_curve(void);
 
 #ifdef __cplusplus
 }

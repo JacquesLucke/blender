@@ -126,8 +126,8 @@ struct ImportJobData {
 
   USDStageReader *archive;
 
-  short *stop;
-  short *do_update;
+  bool *stop;
+  bool *do_update;
   float *progress;
 
   char error_code;
@@ -144,7 +144,7 @@ static void report_job_duration(const ImportJobData *data)
   std::cout << '\n';
 }
 
-static void import_startjob(void *customdata, short *stop, short *do_update, float *progress)
+static void import_startjob(void *customdata, bool *stop, bool *do_update, float *progress)
 {
   ImportJobData *data = static_cast<ImportJobData *>(customdata);
 
@@ -230,7 +230,7 @@ static void import_startjob(void *customdata, short *stop, short *do_update, flo
   *data->do_update = true;
   *data->progress = 0.2f;
 
-  const float size = static_cast<float>(archive->readers().size());
+  const float size = float(archive->readers().size());
   size_t i = 0;
 
   /* Sort readers by name: when creating a lot of objects in Blender,
@@ -317,8 +317,7 @@ static void import_endjob(void *customdata)
 
     lc = BKE_layer_collection_get_active(view_layer);
 
-    /* Add all objects to the collection (don't do sync for each object). */
-    BKE_layer_collection_resync_forbid();
+    /* Add all objects to the collection. */
     for (USDPrimReader *reader : data->archive->readers()) {
       if (!reader) {
         continue;
@@ -330,9 +329,7 @@ static void import_endjob(void *customdata)
       BKE_collection_object_add(data->bmain, lc->collection, ob);
     }
 
-    /* Sync the collection, and do view layer operations. */
-    BKE_layer_collection_resync_allow();
-    BKE_main_collection_sync(data->bmain);
+    /* Sync and do the view layer operations. */
     BKE_view_layer_synced_ensure(scene, view_layer);
     for (USDPrimReader *reader : data->archive->readers()) {
       if (!reader) {
@@ -385,13 +382,16 @@ static void import_freejob(void *user_data)
 
 using namespace blender::io::usd;
 
+void USD_ensure_plugin_path_registered()
+{
+  blender::io::usd::ensure_usd_plugin_path_registered();
+}
+
 bool USD_import(struct bContext *C,
                 const char *filepath,
                 const USDImportParams *params,
                 bool as_background_job)
 {
-  blender::io::usd::ensure_usd_plugin_path_registered();
-
   /* Using new here since `MEM_*` functions do not call constructor to properly initialize data. */
   ImportJobData *job = new ImportJobData();
   job->bmain = CTX_data_main(C);
@@ -433,7 +433,7 @@ bool USD_import(struct bContext *C,
   }
   else {
     /* Fake a job context, so that we don't need NULL pointer checks while importing. */
-    short stop = 0, do_update = 0;
+    bool stop = false, do_update = false;
     float progress = 0.0f;
 
     import_startjob(job, &stop, &do_update, &progress);
@@ -450,7 +450,9 @@ bool USD_import(struct bContext *C,
  * USD reader is compatible with the type of the given (currently unused) 'ob'
  * Object parameter, similar to the logic in get_abc_reader() in the
  * Alembic importer code. */
-static USDPrimReader *get_usd_reader(CacheReader *reader, Object * /* ob */, const char **err_str)
+static USDPrimReader *get_usd_reader(CacheReader *reader,
+                                     const Object * /* ob */,
+                                     const char **err_str)
 {
   USDPrimReader *usd_reader = reinterpret_cast<USDPrimReader *>(reader);
   pxr::UsdPrim iobject = usd_reader->prim();
@@ -479,8 +481,11 @@ struct Mesh *USD_read_mesh(struct CacheReader *reader,
   return usd_reader->read_mesh(existing_mesh, time, read_flag, err_str);
 }
 
-bool USD_mesh_topology_changed(
-    CacheReader *reader, Object *ob, Mesh *existing_mesh, const double time, const char **err_str)
+bool USD_mesh_topology_changed(CacheReader *reader,
+                               const Object *ob,
+                               const Mesh *existing_mesh,
+                               const double time,
+                               const char **err_str)
 {
   USDGeomReader *usd_reader = dynamic_cast<USDGeomReader *>(get_usd_reader(reader, ob, err_str));
 
@@ -545,9 +550,6 @@ CacheArchiveHandle *USD_create_handle(struct Main * /*bmain*/,
                                       const char *filepath,
                                       ListBase *object_paths)
 {
-  /* Must call this so that USD file format plugins are loaded. */
-  ensure_usd_plugin_path_registered();
-
   pxr::UsdStageRefPtr stage = pxr::UsdStage::Open(filepath);
 
   if (!stage) {

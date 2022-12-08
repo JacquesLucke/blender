@@ -60,13 +60,14 @@ enum_filter_types = (
 )
 
 enum_panorama_types = (
-    ('EQUIRECTANGULAR', "Equirectangular", "Render the scene with a spherical camera, also known as Lat Long panorama"),
-    ('FISHEYE_EQUIDISTANT', "Fisheye Equidistant", "Ideal for fulldomes, ignore the sensor dimensions"),
+    ('EQUIRECTANGULAR', "Equirectangular", "Spherical camera for environment maps, also known as Lat Long panorama", 0),
+    ('EQUIANGULAR_CUBEMAP_FACE', "Equiangular Cubemap Face", "Single face of an equiangular cubemap", 5),
+    ('MIRRORBALL', "Mirror Ball", "Mirror ball mapping for environment maps", 3),
+    ('FISHEYE_EQUIDISTANT', "Fisheye Equidistant", "Ideal for fulldomes, ignore the sensor dimensions", 1),
     ('FISHEYE_EQUISOLID', "Fisheye Equisolid",
-                          "Similar to most fisheye modern lens, takes sensor dimensions into consideration"),
-    ('MIRRORBALL', "Mirror Ball", "Uses the mirror ball mapping"),
+                          "Similar to most fisheye modern lens, takes sensor dimensions into consideration", 2),
     ('FISHEYE_LENS_POLYNOMIAL', "Fisheye Lens Polynomial",
-     "Defines the lens projection as polynomial to allow real world camera lenses to be mimicked"),
+     "Defines the lens projection as polynomial to allow real world camera lenses to be mimicked", 4),
 )
 
 enum_curve_shape = (
@@ -83,6 +84,29 @@ enum_use_layer_samples = (
 enum_sampling_pattern = (
     ('SOBOL', "Sobol-Burley", "Use Sobol-Burley random sampling pattern", 0),
     ('PROGRESSIVE_MULTI_JITTER', "Progressive Multi-Jitter", "Use Progressive Multi-Jitter random sampling pattern", 1),
+)
+
+enum_emission_sampling = (
+    ('NONE',
+     'None',
+     "Do not use this surface as a light for sampling",
+     0),
+    ('AUTO',
+     'Auto',
+     "Automatically determine if the surface should be treated as a light for sampling, based on estimated emission intensity",
+     1),
+    ('FRONT',
+     'Front',
+     "Treat only front side of the surface as a light, usually for closed meshes whose interior is not visible",
+     2),
+    ('BACK',
+     'Back',
+     "Treat only back side of the surface as a light for sampling",
+     3),
+    ('FRONT_BACK',
+     'Front and Back',
+     "Treat surface as a light for sampling, emitting from both the front and back side",
+     4),
 )
 
 enum_volume_sampling = (
@@ -146,7 +170,6 @@ enum_view3d_shading_render_pass = (
     ('EMISSION', "Emission", "Show the Emission render pass"),
     ('BACKGROUND', "Background", "Show the Background render pass"),
     ('AO', "Ambient Occlusion", "Show the Ambient Occlusion render pass"),
-    ('SHADOW', "Shadow", "Show the Shadow render pass"),
     ('SHADOW_CATCHER', "Shadow Catcher", "Show the Shadow Catcher render pass"),
 
     ('', "Light", ""),
@@ -177,6 +200,12 @@ enum_view3d_shading_render_pass = (
     ('DENOISING_ALBEDO', "Denoising Albedo", "Albedo pass used by denoiser"),
     ('DENOISING_NORMAL', "Denoising Normal", "Normal pass used by denoiser"),
     ('SAMPLE_COUNT', "Sample Count", "Per-pixel number of samples"),
+)
+
+enum_guiding_distribution = (
+    ('PARALLAX_AWARE_VMM', "Parallax-Aware VMM", "Use Parallax-aware von Mises-Fisher models as directional distribution", 0),
+    ('DIRECTIONAL_QUAD_TREE', "Directional Quad Tree", "Use Directional Quad Trees as directional distribution", 1),
+    ('VMM', "VMM", "Use von Mises-Fisher models as directional distribution", 2),
 )
 
 
@@ -283,7 +312,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     )
     shading_system: BoolProperty(
         name="Open Shading Language",
-        description="Use Open Shading Language (CPU rendering only)",
+        description="Use Open Shading Language",
     )
 
     preview_pause: BoolProperty(
@@ -358,7 +387,9 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
     preview_samples: IntProperty(
         name="Viewport Samples",
         description="Number of samples to render in the viewport, unlimited if 0",
-        min=0, max=(1 << 24),
+        min=0,
+        soft_min=1,
+        max=(1 << 24),
         default=1024,
     )
 
@@ -472,6 +503,12 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         default='MULTIPLE_IMPORTANCE_SAMPLING',
     )
 
+    use_light_tree: BoolProperty(
+        name="Light Tree",
+        description="Sample multiple lights more efficiently based on estimated contribution at every shading point",
+        default=True,
+    )
+
     min_light_bounces: IntProperty(
         name="Min Light Bounces",
         description="Minimum number of light bounces. Setting this higher reduces noise in the first bounces, "
@@ -505,6 +542,78 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
         "to reduce noise at the cost of accuracy",
         min=0.0, max=10.0,
         default=1.0,
+    )
+
+    use_guiding: BoolProperty(
+        name="Guiding",
+        description="Use path guiding for sampling paths. Path guiding incrementally "
+        "learns the light distribution of the scene and guides path into directions "
+        "with high direct and indirect light contributions",
+        default=False,
+    )
+
+    use_deterministic_guiding: BoolProperty(
+        name="Deterministic",
+        description="Makes path guiding deterministic which means renderings will be "
+        "reproducible with the same pixel values every time. This feature slows down "
+        "training",
+        default=True,
+    )
+
+    guiding_distribution_type: EnumProperty(
+        name="Guiding Distribution Type",
+        description="Type of representation for the guiding distribution",
+        items=enum_guiding_distribution,
+        default='PARALLAX_AWARE_VMM',
+    )
+
+    use_surface_guiding: BoolProperty(
+        name="Surface Guiding",
+        description="Use guiding when sampling directions on a surface",
+        default=True,
+    )
+
+    surface_guiding_probability: FloatProperty(
+        name="Surface Guiding Probability",
+        description="The probability of guiding a direction on a surface",
+        min=0.0, max=1.0,
+        default=0.5,
+    )
+
+    use_volume_guiding: BoolProperty(
+        name="Volume Guiding",
+        description="Use guiding when sampling directions inside a volume",
+        default=True,
+    )
+
+    guiding_training_samples: IntProperty(
+        name="Training Samples",
+        description="The maximum number of samples used for training path guiding. "
+        "Higher samples lead to more accurate guiding, however may also unnecessarily slow "
+        "down rendering once guiding is accurate enough. "
+        "A value of 0 will continue training until the last sample",
+        min=0,
+        soft_min=1,
+        default=128,
+    )
+
+    volume_guiding_probability: FloatProperty(
+        name="Volume Guiding Probability",
+        description="The probability of guiding a direction inside a volume",
+        min=0.0, max=1.0,
+        default=0.5,
+    )
+
+    use_guiding_direct_light: BoolProperty(
+        name="Guide Direct Light",
+        description="Consider the contribution of directly visible light sources during guiding",
+        default=True,
+    )
+
+    use_guiding_mis_weights: BoolProperty(
+        name="Use MIS Weights",
+        description="Use the MIS weight to weight the contribution of directly visible light sources during guiding",
+        default=True,
     )
 
     max_bounces: IntProperty(
@@ -541,7 +650,7 @@ class CyclesRenderSettings(bpy.types.PropertyGroup):
 
     transparent_max_bounces: IntProperty(
         name="Transparent Max Bounces",
-        description="Maximum number of transparent bounces. This is independent of maximum number of other bounces ",
+        description="Maximum number of transparent bounces. This is independent of maximum number of other bounces",
         min=0, max=1024,
         default=8,
     )
@@ -962,13 +1071,13 @@ class CyclesCameraSettings(bpy.types.PropertyGroup):
 
 class CyclesMaterialSettings(bpy.types.PropertyGroup):
 
-    sample_as_light: BoolProperty(
-        name="Multiple Importance Sample",
-        description="Use multiple importance sampling for this material, "
-        "disabling may reduce overall noise for large "
-        "objects that emit little light compared to other light sources",
-        default=True,
+    emission_sampling: EnumProperty(
+        name="Emission Sampling",
+        description="Sampling strategy for emissive surfaces",
+        items=enum_emission_sampling,
+        default="AUTO",
     )
+
     use_transparent_shadow: BoolProperty(
         name="Transparent Shadows",
         description="Use transparent shadows for this material if it contains a Transparent BSDF, "
@@ -1556,11 +1665,13 @@ class CyclesPreferences(bpy.types.AddonPreferences):
                     col.label(text="and AMD driver version 22.10 or newer", icon='BLANK1')
             elif device_type == 'ONEAPI':
                 import sys
-                col.label(text="Requires Intel GPU with Xe-HPG architecture", icon='BLANK1')
                 if sys.platform.startswith("win"):
-                    col.label(text="and Windows driver version 101.3268 or newer", icon='BLANK1')
+                    col.label(text="Requires Intel GPU with Xe-HPG architecture", icon='BLANK1')
+                    col.label(text="and Windows driver version 101.3430 or newer", icon='BLANK1')
                 elif sys.platform.startswith("linux"):
-                    col.label(text="and Linux driver version xx.xx.23570 or newer", icon='BLANK1')
+                    col.label(text="Requires Intel GPU with Xe-HPG architecture and", icon='BLANK1')
+                    col.label(text="  - intel-level-zero-gpu version 1.3.23904 or newer", icon='BLANK1')
+                    col.label(text="  - oneAPI Level-Zero Loader", icon='BLANK1')
             elif device_type == 'METAL':
                 col.label(text="Requires Apple Silicon with macOS 12.2 or newer", icon='BLANK1')
                 col.label(text="or AMD with macOS 12.3 or newer", icon='BLANK1')
@@ -1571,6 +1682,7 @@ class CyclesPreferences(bpy.types.AddonPreferences):
             box.prop(
                 device, "use", text=device.name
                 .replace('(TM)', unicodedata.lookup('TRADE MARK SIGN'))
+                .replace('(tm)', unicodedata.lookup('TRADE MARK SIGN'))
                 .replace('(R)', unicodedata.lookup('REGISTERED SIGN'))
                 .replace('(C)', unicodedata.lookup('COPYRIGHT SIGN'))
             )

@@ -187,7 +187,6 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
   kfilm->pass_transmission_indirect = PASS_UNUSED;
   kfilm->pass_volume_direct = PASS_UNUSED;
   kfilm->pass_volume_indirect = PASS_UNUSED;
-  kfilm->pass_shadow = PASS_UNUSED;
   kfilm->pass_lightgroup = PASS_UNUSED;
 
   /* Mark passes as unused so that the kernel knows the pass is inaccessible. */
@@ -199,6 +198,10 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
   kfilm->pass_shadow_catcher = PASS_UNUSED;
   kfilm->pass_shadow_catcher_sample_count = PASS_UNUSED;
   kfilm->pass_shadow_catcher_matte = PASS_UNUSED;
+
+  kfilm->pass_guiding_color = PASS_UNUSED;
+  kfilm->pass_guiding_probability = PASS_UNUSED;
+  kfilm->pass_guiding_avg_roughness = PASS_UNUSED;
 
   bool have_cryptomatte = false;
   bool have_aov_color = false;
@@ -291,9 +294,6 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
       case PASS_AO:
         kfilm->pass_ao = kfilm->pass_stride;
         break;
-      case PASS_SHADOW:
-        kfilm->pass_shadow = kfilm->pass_stride;
-        break;
 
       case PASS_DIFFUSE_COLOR:
         kfilm->pass_diffuse_color = kfilm->pass_stride;
@@ -381,6 +381,15 @@ void Film::device_update(Device *device, DeviceScene *dscene, Scene *scene)
           kfilm->pass_aov_value = kfilm->pass_stride;
           have_aov_value = true;
         }
+        break;
+      case PASS_GUIDING_COLOR:
+        kfilm->pass_guiding_color = kfilm->pass_stride;
+        break;
+      case PASS_GUIDING_PROBABILITY:
+        kfilm->pass_guiding_probability = kfilm->pass_stride;
+        break;
+      case PASS_GUIDING_AVG_ROUGHNESS:
+        kfilm->pass_guiding_avg_roughness = kfilm->pass_stride;
         break;
       default:
         assert(false);
@@ -712,10 +721,6 @@ uint Film::get_kernel_features(const Scene *scene) const
 
     if (pass_type >= PASS_DIFFUSE && pass_type <= PASS_VOLUME_INDIRECT) {
       kernel_features |= KERNEL_FEATURE_LIGHT_PASSES;
-    }
-
-    if (pass_type == PASS_SHADOW) {
-      kernel_features |= KERNEL_FEATURE_SHADOW_PASS;
     }
 
     if (pass_type == PASS_AO) {

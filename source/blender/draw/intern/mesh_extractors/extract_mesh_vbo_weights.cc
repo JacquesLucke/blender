@@ -111,9 +111,9 @@ static void extract_weights_init(const MeshRenderData *mr,
   }
 }
 
-static void extract_weights_iter_poly_bm(const MeshRenderData *UNUSED(mr),
+static void extract_weights_iter_poly_bm(const MeshRenderData * /*mr*/,
                                          const BMFace *f,
-                                         const int UNUSED(f_index),
+                                         const int /*f_index*/,
                                          void *_data)
 {
   MeshExtract_Weight_Data *data = static_cast<MeshExtract_Weight_Data *>(_data);
@@ -134,7 +134,7 @@ static void extract_weights_iter_poly_bm(const MeshRenderData *UNUSED(mr),
 
 static void extract_weights_iter_poly_mesh(const MeshRenderData *mr,
                                            const MPoly *mp,
-                                           const int UNUSED(mp_index),
+                                           const int /*mp_index*/,
                                            void *_data)
 {
   MeshExtract_Weight_Data *data = static_cast<MeshExtract_Weight_Data *>(_data);
@@ -187,7 +187,7 @@ static void extract_weights_init_subdiv(const DRWSubdivCache *subdiv_cache,
     }
   }
 
-  draw_subdiv_interp_custom_data(subdiv_cache, coarse_weights, vbo, 1, 0, false);
+  draw_subdiv_interp_custom_data(subdiv_cache, coarse_weights, vbo, GPU_COMP_F32, 1, 0);
 
   GPU_vertbuf_discard(coarse_weights);
 }

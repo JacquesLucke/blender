@@ -64,7 +64,8 @@ struct GPU_ShaderCreateFromArray_Params {
 /**
  * Use via #GPU_shader_create_from_arrays macro (avoids passing in param).
  *
- * Similar to #DRW_shader_create_with_lib with the ability to include libs for each type of shader.
+ * Similar to #DRW_shader_create_with_lib with the ability to include libraries for each type of
+ * shader.
  *
  * It has the advantage that each item can be conditionally included
  * without having to build the string inline, then free it.
@@ -96,6 +97,7 @@ void GPU_shader_free(GPUShader *shader);
 
 void GPU_shader_bind(GPUShader *shader);
 void GPU_shader_unbind(void);
+GPUShader *GPU_shader_get_bound(void);
 
 const char *GPU_shader_get_name(GPUShader *shader);
 
@@ -144,6 +146,7 @@ typedef enum {
   GPU_UNIFORM_BLOCK_DRW_VIEW,
   GPU_UNIFORM_BLOCK_DRW_MODEL,
   GPU_UNIFORM_BLOCK_DRW_INFOS,
+  GPU_UNIFORM_BLOCK_DRW_CLIPPING,
 
   GPU_NUM_UNIFORM_BLOCKS, /* Special value, denotes number of builtin uniforms block. */
 } GPUUniformBlockBuiltin;
@@ -206,6 +209,10 @@ typedef enum eGPUBuiltinShader {
   GPU_SHADER_TEXT,
   GPU_SHADER_KEYFRAME_SHAPE,
   GPU_SHADER_SIMPLE_LIGHTING,
+  /**
+   * Draw an icon, leaving a semi-transparent rectangle on top of the icon.
+   */
+  GPU_SHADER_ICON,
   /**
    * Take a 2D position and color for each vertex with linear interpolation in window space.
    *

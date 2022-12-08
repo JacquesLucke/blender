@@ -33,6 +33,7 @@
 
 #include "BKE_attribute.h"
 #include "BKE_geometry_set.hh"
+#include "BKE_viewer_path.h"
 
 #include "FN_field.hh"
 
@@ -156,7 +157,6 @@ class GeometryInfoLog : public ValueLog {
 class ViewerNodeLog {
  public:
   GeometrySet geometry;
-  GField field;
 };
 
 using Clock = std::chrono::steady_clock;
@@ -169,36 +169,36 @@ using TimePoint = Clock::time_point;
 class GeoTreeLogger {
  public:
   std::optional<ComputeContextHash> parent_hash;
-  std::optional<StringRefNull> group_node_name;
+  std::optional<int32_t> group_node_id;
   Vector<ComputeContextHash> children_hashes;
 
   LinearAllocator<> *allocator = nullptr;
 
   struct WarningWithNode {
-    StringRefNull node_name;
+    int32_t node_id;
     NodeWarning warning;
   };
   struct SocketValueLog {
-    StringRefNull node_name;
+    int32_t node_id;
     StringRefNull socket_identifier;
     destruct_ptr<ValueLog> value;
   };
   struct NodeExecutionTime {
-    StringRefNull node_name;
+    int32_t node_id;
     TimePoint start;
     TimePoint end;
   };
   struct ViewerNodeLogWithNode {
-    StringRefNull node_name;
+    int32_t node_id;
     destruct_ptr<ViewerNodeLog> viewer_log;
   };
   struct AttributeUsageWithNode {
-    StringRefNull node_name;
+    int32_t node_id;
     StringRefNull attribute_name;
     NamedAttributeUsage usage;
   };
   struct DebugMessage {
-    StringRefNull node_name;
+    int32_t node_id;
     StringRefNull message;
   };
 
@@ -214,7 +214,7 @@ class GeoTreeLogger {
   ~GeoTreeLogger();
 
   void log_value(const bNode &node, const bNodeSocket &socket, GPointer value);
-  void log_viewer_node(const bNode &viewer_node, const GeometrySet &geometry, const GField &field);
+  void log_viewer_node(const bNode &viewer_node, GeometrySet geometry);
 };
 
 /**
@@ -269,8 +269,8 @@ class GeoTreeLog {
   bool reduced_debug_messages_ = false;
 
  public:
-  Map<StringRefNull, GeoNodeLog> nodes;
-  Map<StringRefNull, ViewerNodeLog *, 0> viewer_node_logs;
+  Map<int32_t, GeoNodeLog> nodes;
+  Map<int32_t, ViewerNodeLog *, 0> viewer_node_logs;
   Vector<NodeWarning> all_warnings;
   std::chrono::nanoseconds run_time_sum{0};
   Vector<const GeometryAttributeInfo *> existing_attributes;
@@ -333,8 +333,7 @@ class GeoModifierLog {
    * Utility accessor to logged data.
    */
   static GeoTreeLog *get_tree_log_for_node_editor(const SpaceNode &snode);
-  static const ViewerNodeLog *find_viewer_node_log_for_spreadsheet(
-      const SpaceSpreadsheet &sspreadsheet);
+  static const ViewerNodeLog *find_viewer_node_log_for_path(const ViewerPath &viewer_path);
 };
 
 }  // namespace blender::nodes::geo_eval_log

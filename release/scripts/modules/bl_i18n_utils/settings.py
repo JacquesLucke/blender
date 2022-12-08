@@ -98,7 +98,7 @@ IMPORT_MIN_LEVEL = 0.0
 
 # Languages in /branches we do not want to import in /trunk currently...
 IMPORT_LANGUAGES_SKIP = {
-    'am_ET', 'bg_BG', 'fi_FI', 'el_GR', 'et_EE', 'ne_NP', 'ro_RO', 'uz_UZ', 'uz_UZ@cyrillic', 'kk_KZ', 'es_ES',
+    'am_ET', 'bg_BG', 'el_GR', 'et_EE', 'ne_NP', 'ro_RO', 'uz_UZ', 'uz_UZ@cyrillic', 'kk_KZ', 'es_ES',
 }
 
 # Languages that need RTL pre-processing.
@@ -260,9 +260,9 @@ PYGETTEXT_KEYWORDS = (() +
     # NOTE: regex is a bit more complex than it would need too. Since the actual
     # identifier (`B_UNIT_DEF_`) is at the end, if it's simpler/too general it
     # becomes extremely slow to process some (unrelated) source files.
-    ((r"\{(?:(?:\s*\"[^\"',]+\"\s*,)|(?:\s*NULL\s*,)){4}\s*" +
+    ((r"\{(?:(?:\s*\"[^\",]+\"\s*,)|(?:\s*\"\\\"\",)|(?:\s*NULL\s*,)){4}\s*" +
       _msg_re + r"\s*,(?:(?:\s*\"[^\"',]+\"\s*,)|(?:\s*NULL\s*,))(?:[^,]+,){2}"
-      + "\s*B_UNIT_DEF_[_A-Z]+\s*\}"),) +
+      + "(?:\|?\s*B_UNIT_DEF_[_A-Z]+\s*)+\}"),) +
 
     tuple((r"{}\(\s*" + _msg_re + r"\s*,\s*(?:" +
            r"\s*,\s*)?(?:".join(_ctxt_re_gen(i) for i in range(PYGETTEXT_MAX_MULTI_CTXT)) + r")?\s*\)").format(it)
@@ -367,9 +367,9 @@ WARN_MSGID_NOT_CAPITALIZED_ALLOWED = {
     "all and invert unselected",
     "and AMD driver version 22.10 or newer",
     "and AMD Radeon Pro 21.Q4 driver or newer",
-    "and Linux driver version xx.xx.23570 or newer",
+    "and Linux driver version xx.xx.23904 or newer",
     "and NVIDIA driver version 470 or newer",
-    "and Windows driver version 101.3268 or newer",
+    "and Windows driver version 101.3430 or newer",
     "available with",
     "brown fox",
     "can't save image while rendering",
@@ -548,6 +548,8 @@ CUSTOM_PY_UI_FILES = [
     os.path.join("scripts", "startup", "bl_ui"),
     os.path.join("scripts", "startup", "bl_operators"),
     os.path.join("scripts", "modules", "rna_prop_ui.py"),
+    os.path.join("scripts", "modules", "rna_keymap_ui.py"),
+    os.path.join("scripts", "modules", "bpy_types.py"),
     os.path.join("scripts", "presets", "keyconfig"),
 ]
 

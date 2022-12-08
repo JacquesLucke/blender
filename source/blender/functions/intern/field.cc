@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_array_utils.hh"
 #include "BLI_index_mask_ops.hh"
 #include "BLI_map.hh"
 #include "BLI_multi_value_map.hh"
@@ -468,11 +469,9 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
       }
       /* Still have to copy over the data in the destination provided by the caller. */
       if (dst_varray.is_span()) {
-        /* Materialize into a span. */
-        threading::parallel_for(mask.index_range(), 2048, [&](const IndexRange range) {
-          computed_varray.materialize_to_uninitialized(mask.slice(range),
-                                                       dst_varray.get_internal_span().data());
-        });
+        array_utils::copy(computed_varray,
+                          mask,
+                          dst_varray.get_internal_span().take_front(mask.min_array_size()));
       }
       else {
         /* Slower materialize into a different structure. */
@@ -552,9 +551,9 @@ GVArray IndexFieldInput::get_index_varray(IndexMask mask)
   return VArray<int>::ForFunc(mask.min_array_size(), index_func);
 }
 
-GVArray IndexFieldInput::get_varray_for_context(const fn::FieldContext &UNUSED(context),
+GVArray IndexFieldInput::get_varray_for_context(const fn::FieldContext & /*context*/,
                                                 IndexMask mask,
-                                                ResourceScope &UNUSED(scope)) const
+                                                ResourceScope & /*scope*/) const
 {
   /* TODO: Investigate a similar method to IndexRange::as_span() */
   return get_index_varray(mask);
@@ -743,8 +742,8 @@ int FieldEvaluator::add(GField field, GVArray *varray_ptr)
   const int field_index = fields_to_evaluate_.append_and_get_index(std::move(field));
   dst_varrays_.append(nullptr);
   output_pointer_infos_.append(OutputPointerInfo{
-      varray_ptr, [](void *dst, const GVArray &varray, ResourceScope &UNUSED(scope)) {
-        *(GVArray *)dst = varray;
+      varray_ptr, [](void *dst, const GVArray &varray, ResourceScope & /*scope*/) {
+        *static_cast<GVArray *>(dst) = varray;
       }});
   return field_index;
 }

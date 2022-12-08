@@ -13,6 +13,8 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "AS_asset_library.h"
+
 #include "DNA_listBase.h"
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
@@ -41,6 +43,7 @@
 #include "BKE_report.h"
 #include "BKE_scene.h"
 #include "BKE_screen.h"
+#include "BKE_undo_system.h"
 #include "BKE_workspace.h"
 
 #include "BKE_sound.h"
@@ -55,6 +58,8 @@
 #include "ED_undo.h"
 #include "ED_util.h"
 #include "ED_view3d.h"
+
+#include "GPU_context.h"
 
 #include "RNA_access.h"
 
@@ -323,7 +328,7 @@ void WM_event_add_notifier(const bContext *C, uint type, void *reference)
   WM_event_add_notifier_ex(CTX_wm_manager(C), CTX_wm_window(C), type, reference);
 }
 
-void WM_main_add_notifier(unsigned int type, void *reference)
+void WM_main_add_notifier(uint type, void *reference)
 {
   Main *bmain = G_MAIN;
   wmWindowManager *wm = static_cast<wmWindowManager *>(bmain->wm.first);
@@ -357,7 +362,7 @@ void WM_main_remove_notifier_reference(const void *reference)
   }
 }
 
-static void wm_main_remap_assetlist(ID *old_id, ID *new_id, void *UNUSED(user_data))
+static void wm_main_remap_assetlist(ID *old_id, ID *new_id, void * /*user_data*/)
 {
   ED_assetlist_storage_id_remap(old_id, new_id);
 }
@@ -391,6 +396,8 @@ void WM_main_remap_editor_id_reference(const IDRemapper *mappings)
   if (wm && wm->message_bus) {
     BKE_id_remapper_iter(mappings, wm_main_remap_msgbus_notify, wm->message_bus);
   }
+
+  AS_asset_library_remap_ids(mappings);
 }
 
 static void wm_notifier_clear(wmNotifier *note)
@@ -484,11 +491,15 @@ static void wm_event_execute_timers(bContext *C)
 
 void wm_event_do_notifiers(bContext *C)
 {
+  /* Ensure inside render boundary. */
+  GPU_render_begin();
+
   /* Run the timer before assigning `wm` in the unlikely case a timer loads a file, see T80028. */
   wm_event_execute_timers(C);
 
   wmWindowManager *wm = CTX_wm_manager(C);
   if (wm == nullptr) {
+    GPU_render_end();
     return;
   }
 
@@ -561,7 +572,7 @@ void wm_event_do_notifiers(bContext *C)
       }
 
       if (note->window == win ||
-          (note->window == nullptr && (ELEM(note->reference, nullptr, scene)))) {
+          (note->window == nullptr && ELEM(note->reference, nullptr, scene))) {
         if (note->category == NC_SCENE) {
           if (note->data == ND_FRAME) {
             do_anim = true;
@@ -626,6 +637,7 @@ void wm_event_do_notifiers(bContext *C)
                win->screen->id.name + 2,
                note->category);
 #  endif
+        ED_workspace_do_listen(C, note);
         ED_screen_do_listen(C, note);
 
         LISTBASE_FOREACH (ARegion *, region, &screen->regionbase) {
@@ -691,6 +703,8 @@ void wm_event_do_notifiers(bContext *C)
 
   /* Auto-run warning. */
   wm_test_autorun_warning(C);
+
+  GPU_render_end();
 }
 
 static bool wm_event_always_pass(const wmEvent *event)
@@ -884,7 +898,8 @@ static void wm_add_reports(ReportList *reports)
 void WM_report(eReportType type, const char *message)
 {
   ReportList reports;
-  BKE_reports_init(&reports, RPT_STORE);
+  BKE_reports_init(&reports, RPT_STORE | RPT_PRINT);
+  BKE_report_print_level_set(&reports, RPT_WARNING);
   BKE_report(&reports, type, message);
 
   wm_add_reports(&reports);
@@ -913,6 +928,17 @@ void WM_reportf(eReportType type, const char *format, ...)
 /* -------------------------------------------------------------------- */
 /** \name Operator Logic
  * \{ */
+
+/**
+ * Return the active undo step as an identifier for the purpose of comparison only.
+ */
+static intptr_t wm_operator_undo_active_id(const wmWindowManager *wm)
+{
+  if (wm->undo_stack) {
+    return intptr_t(wm->undo_stack->step_active);
+  }
+  return -1;
+}
 
 bool WM_operator_poll(bContext *C, wmOperatorType *ot)
 {
@@ -1045,7 +1071,12 @@ static bool wm_operator_register_check(wmWindowManager *wm, wmOperatorType *ot)
   return wm && (wm->op_undo_depth == 0) && (ot->flag & (OPTYPE_REGISTER | OPTYPE_UNDO));
 }
 
-static void wm_operator_finished(bContext *C, wmOperator *op, const bool repeat, const bool store)
+/**
+ * \param has_undo_step: True when an undo step was added,
+ * needed when the operator doesn't use #OPTYPE_UNDO, #OPTYPE_UNDO_GROUPED but adds an undo step.
+ */
+static void wm_operator_finished(
+    bContext *C, wmOperator *op, const bool repeat, const bool store, const bool has_undo_step)
 {
   wmWindowManager *wm = CTX_wm_manager(C);
   enum {
@@ -1072,6 +1103,11 @@ static void wm_operator_finished(bContext *C, wmOperator *op, const bool repeat,
     }
     else if (op->type->flag & OPTYPE_UNDO_GROUPED) {
       ED_undo_grouped_push_op(C, op);
+      if (repeat == 0) {
+        hud_status = CLEAR;
+      }
+    }
+    else if (has_undo_step) {
       if (repeat == 0) {
         hud_status = CLEAR;
       }
@@ -1136,6 +1172,7 @@ static int wm_operator_exec(bContext *C, wmOperator *op, const bool repeat, cons
     return retval;
   }
 
+  const intptr_t undo_id_prev = wm_operator_undo_active_id(wm);
   if (op->type->exec) {
     if (op->type->flag & OPTYPE_UNDO) {
       wm->op_undo_depth++;
@@ -1157,7 +1194,9 @@ static int wm_operator_exec(bContext *C, wmOperator *op, const bool repeat, cons
   }
 
   if (retval & OPERATOR_FINISHED) {
-    wm_operator_finished(C, op, repeat, store && wm->op_undo_depth == 0);
+    const bool has_undo_step = (undo_id_prev != wm_operator_undo_active_id(wm));
+
+    wm_operator_finished(C, op, repeat, store && wm->op_undo_depth == 0, has_undo_step);
   }
   else if (repeat == 0) {
     /* WARNING: modal from exec is bad practice, but avoid crashing. */
@@ -1217,7 +1256,7 @@ int WM_operator_repeat_last(bContext *C, wmOperator *op)
   op->flag &= ~op_flag;
   return ret;
 }
-bool WM_operator_repeat_check(const bContext *UNUSED(C), wmOperator *op)
+bool WM_operator_repeat_check(const bContext * /*C*/, wmOperator *op)
 {
   if (op->type->exec != nullptr) {
     return true;
@@ -1398,6 +1437,7 @@ static int wm_operator_invoke(bContext *C,
 
   if (WM_operator_poll(C, ot)) {
     wmWindowManager *wm = CTX_wm_manager(C);
+    const intptr_t undo_id_prev = wm_operator_undo_active_id(wm);
 
     /* If `reports == nullptr`, they'll be initialized. */
     wmOperator *op = wm_operator_create(wm, ot, properties, reports);
@@ -1466,8 +1506,9 @@ static int wm_operator_invoke(bContext *C,
       /* Do nothing, #wm_operator_exec() has been called somewhere. */
     }
     else if (retval & OPERATOR_FINISHED) {
+      const bool has_undo_step = (undo_id_prev != wm_operator_undo_active_id(wm));
       const bool store = !is_nested_call && use_last_properties;
-      wm_operator_finished(C, op, false, store);
+      wm_operator_finished(C, op, false, store, has_undo_step);
     }
     else if (retval & OPERATOR_RUNNING_MODAL) {
       /* Take ownership of reports (in case python provided own). */
@@ -2177,26 +2218,26 @@ static bool wm_eventmatch(const wmEvent *winevent, const wmKeyMapItem *kmi)
   /* Account for rare case of when these keys are used as the 'type' not as modifiers. */
   if (kmi->shift != KM_ANY) {
     const bool shift = (winevent->modifier & KM_SHIFT) != 0;
-    if ((shift != (bool)kmi->shift) &&
+    if ((shift != bool(kmi->shift)) &&
         !ELEM(winevent->type, EVT_LEFTSHIFTKEY, EVT_RIGHTSHIFTKEY)) {
       return false;
     }
   }
   if (kmi->ctrl != KM_ANY) {
     const bool ctrl = (winevent->modifier & KM_CTRL) != 0;
-    if (ctrl != (bool)kmi->ctrl && !ELEM(winevent->type, EVT_LEFTCTRLKEY, EVT_RIGHTCTRLKEY)) {
+    if (ctrl != bool(kmi->ctrl) && !ELEM(winevent->type, EVT_LEFTCTRLKEY, EVT_RIGHTCTRLKEY)) {
       return false;
     }
   }
   if (kmi->alt != KM_ANY) {
     const bool alt = (winevent->modifier & KM_ALT) != 0;
-    if (alt != (bool)kmi->alt && !ELEM(winevent->type, EVT_LEFTALTKEY, EVT_RIGHTALTKEY)) {
+    if (alt != bool(kmi->alt) && !ELEM(winevent->type, EVT_LEFTALTKEY, EVT_RIGHTALTKEY)) {
       return false;
     }
   }
   if (kmi->oskey != KM_ANY) {
     const bool oskey = (winevent->modifier & KM_OSKEY) != 0;
-    if ((oskey != (bool)kmi->oskey) && (winevent->type != EVT_OSKEY)) {
+    if ((oskey != bool(kmi->oskey)) && (winevent->type != EVT_OSKEY)) {
       return false;
     }
   }
@@ -2221,7 +2262,7 @@ static wmKeyMapItem *wm_eventmatch_modal_keymap_items(const wmKeyMap *keymap,
     /* Should already be handled by #wm_user_modal_keymap_set_items. */
     BLI_assert(kmi->propvalue_str[0] == '\0');
     if (wm_eventmatch(event, kmi)) {
-      if ((keymap->poll_modal_item == nullptr) || (keymap->poll_modal_item(op, kmi->propvalue))) {
+      if ((keymap->poll_modal_item == nullptr) || keymap->poll_modal_item(op, kmi->propvalue)) {
         return kmi;
       }
     }
@@ -2364,6 +2405,7 @@ static int wm_handler_operator_call(bContext *C,
       wmEvent_ModalMapStore event_backup;
       wm_event_modalkeymap_begin(C, op, event, &event_backup);
 
+      const intptr_t undo_id_prev = wm_operator_undo_active_id(wm);
       if (ot->flag & OPTYPE_UNDO) {
         wm->op_undo_depth++;
       }
@@ -2379,7 +2421,7 @@ static int wm_handler_operator_call(bContext *C,
       /* When the window changes the modal modifier may have loaded a new blend file
        * (the `system_demo_mode` add-on does this), so we have to assume the event,
        * operator, area, region etc have all been freed. */
-      if ((CTX_wm_window(C) == win)) {
+      if (CTX_wm_window(C) == win) {
 
         wm_event_modalkeymap_end(event, &event_backup);
 
@@ -2399,7 +2441,9 @@ static int wm_handler_operator_call(bContext *C,
 
         /* Important to run 'wm_operator_finished' before setting the context members to null. */
         if (retval & OPERATOR_FINISHED) {
-          wm_operator_finished(C, op, false, true);
+          const bool has_undo_step = (undo_id_prev != wm_operator_undo_active_id(wm));
+
+          wm_operator_finished(C, op, false, true, has_undo_step);
           handler->op = nullptr;
         }
         else if (retval & (OPERATOR_CANCELLED | OPERATOR_FINISHED)) {
@@ -4267,7 +4311,7 @@ void WM_event_modal_handler_region_replace(wmWindow *win,
        * it needs to keep old region stored in handler, so don't change it. */
       if ((handler->context.region == old_region) && (handler->is_fileselect == false)) {
         handler->context.region = new_region;
-        handler->context.region_type = new_region ? new_region->regiontype : (int)RGN_TYPE_WINDOW;
+        handler->context.region_type = new_region ? new_region->regiontype : int(RGN_TYPE_WINDOW);
       }
     }
   }
@@ -4448,7 +4492,7 @@ wmEventHandler_Keymap *WM_event_add_keymap_handler_dynamic(
 
 wmEventHandler_Keymap *WM_event_add_keymap_handler_priority(ListBase *handlers,
                                                             wmKeyMap *keymap,
-                                                            int UNUSED(priority))
+                                                            int /*priority*/)
 {
   WM_event_remove_keymap_handler(handlers, keymap);
 
@@ -4526,7 +4570,7 @@ wmEventHandler_UI *WM_event_add_ui_handler(const bContext *C,
                                            wmUIHandlerFunc handle_fn,
                                            wmUIHandlerRemoveFunc remove_fn,
                                            void *user_data,
-                                           const char flag)
+                                           const eWM_EventHandlerFlag flag)
 {
   wmEventHandler_UI *handler = MEM_cnew<wmEventHandler_UI>(__func__);
   handler->head.type = WM_HANDLER_TYPE_UI;
@@ -4670,16 +4714,16 @@ void WM_event_add_mousemove(wmWindow *win)
 static int convert_key(GHOST_TKey key)
 {
   if (key >= GHOST_kKeyA && key <= GHOST_kKeyZ) {
-    return (EVT_AKEY + ((int)key - GHOST_kKeyA));
+    return (EVT_AKEY + (int(key) - GHOST_kKeyA));
   }
   if (key >= GHOST_kKey0 && key <= GHOST_kKey9) {
-    return (EVT_ZEROKEY + ((int)key - GHOST_kKey0));
+    return (EVT_ZEROKEY + (int(key) - GHOST_kKey0));
   }
   if (key >= GHOST_kKeyNumpad0 && key <= GHOST_kKeyNumpad9) {
-    return (EVT_PAD0 + ((int)key - GHOST_kKeyNumpad0));
+    return (EVT_PAD0 + (int(key) - GHOST_kKeyNumpad0));
   }
   if (key >= GHOST_kKeyF1 && key <= GHOST_kKeyF24) {
-    return (EVT_F1KEY + ((int)key - GHOST_kKeyF1));
+    return (EVT_F1KEY + (int(key) - GHOST_kKeyF1));
   }
 
   switch (key) {
@@ -4822,7 +4866,7 @@ static int convert_key(GHOST_TKey key)
 #endif
   }
 
-  CLOG_WARN(WM_LOG_EVENTS, "unknown event type %d from ghost", (int)key);
+  CLOG_WARN(WM_LOG_EVENTS, "unknown event type %d from ghost", int(key));
   return EVENT_NONE;
 }
 
@@ -4935,7 +4979,7 @@ void WM_event_tablet_data_default_set(wmTabletData *tablet_data)
 void wm_tablet_data_from_ghost(const GHOST_TabletData *tablet_data, wmTabletData *wmtab)
 {
   if ((tablet_data != nullptr) && tablet_data->Active != GHOST_kTabletModeNone) {
-    wmtab->active = (int)tablet_data->Active;
+    wmtab->active = int(tablet_data->Active);
     wmtab->pressure = wm_pressure_curve(tablet_data->Pressure);
     wmtab->x_tilt = tablet_data->Xtilt;
     wmtab->y_tilt = tablet_data->Ytilt;
@@ -5462,7 +5506,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, void 
          * special handling of Latin1 when building without UTF8 support.
          * Avoid regressions by adding this conversions, it should eventually be removed. */
         if ((event.utf8_buf[0] >= 0x80) && (event.utf8_buf[1] == '\0')) {
-          const uint c = (uint)event.utf8_buf[0];
+          const uint c = uint(event.utf8_buf[0]);
           int utf8_buf_len = BLI_str_utf8_from_unicode(c, event.utf8_buf, sizeof(event.utf8_buf));
           CLOG_ERROR(WM_LOG_EVENTS,
                      "ghost detected non-ASCII single byte character '%u', converting to utf8 "
@@ -5476,10 +5520,29 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, void 
         if (BLI_str_utf8_size(event.utf8_buf) == -1) {
           CLOG_ERROR(WM_LOG_EVENTS,
                      "ghost detected an invalid unicode character '%d'",
-                     (int)(unsigned char)event.utf8_buf[0]);
+                     int(uchar(event.utf8_buf[0])));
           event.utf8_buf[0] = '\0';
         }
       }
+
+      /* NOTE(@campbellbarton): Setting the modifier state based on press/release
+       * is technically incorrect.
+       *
+       * - The user might hold both left/right modifier keys, then only release one.
+       *
+       *   This could be solved by storing a separate flag for the left/right modifiers,
+       *   and combine them into `event.modifiers`.
+       *
+       * - The user might have multiple keyboards (or keyboard + NDOF device)
+       *   where it's possible to press the same modifier key multiple times.
+       *
+       *   This could be solved by tracking the number of held modifier keys,
+       *   (this is in fact what LIBXKB does), however doing this relies on all GHOST
+       *   back-ends properly reporting every press/release as any mismatch could result
+       *   in modifier keys being stuck (which is very bad!).
+       *
+       * To my knowledge users never reported a bug relating to these limitations so
+       * it seems reasonable to keep the current logic. */
 
       switch (event.type) {
         case EVT_LEFTSHIFTKEY:
@@ -5592,7 +5655,7 @@ void wm_event_add_ghostevent(wmWindowManager *wm, wmWindow *win, int type, void 
     case GHOST_kEventNDOFButton: {
       GHOST_TEventNDOFButtonData *e = static_cast<GHOST_TEventNDOFButtonData *>(customdata);
 
-      event.type = NDOF_BUTTON_NONE + e->button;
+      event.type = NDOF_BUTTON_INDEX_AS_EVENT(e->button);
 
       switch (e->action) {
         case GHOST_kPress:

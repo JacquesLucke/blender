@@ -91,6 +91,9 @@
 
 /* the global to talk to ghost */
 static GHOST_SystemHandle g_system = NULL;
+#if !(defined(WIN32) || defined(__APPLE__))
+static const char *g_system_backend_id = NULL;
+#endif
 
 typedef enum eWinOverrideFlag {
   WIN_OVERRIDE_GEOM = (1 << 0),
@@ -158,8 +161,8 @@ static bool wm_window_timer(const bContext *C);
 
 void wm_get_screensize(int *r_width, int *r_height)
 {
-  unsigned int uiwidth;
-  unsigned int uiheight;
+  uint uiwidth;
+  uint uiheight;
 
   GHOST_GetMainDisplayDimensions(g_system, &uiwidth, &uiheight);
   *r_width = uiwidth;
@@ -168,8 +171,8 @@ void wm_get_screensize(int *r_width, int *r_height)
 
 void wm_get_desktopsize(int *r_width, int *r_height)
 {
-  unsigned int uiwidth;
-  unsigned int uiheight;
+  uint uiwidth;
+  uint uiheight;
 
   GHOST_GetAllDisplayDimensions(g_system, &uiwidth, &uiheight);
   *r_width = uiwidth;
@@ -503,27 +506,22 @@ void WM_window_set_dpi(const wmWindow *win)
    * while Windows and Linux use DPI 96. GHOST assumes a default 96 so we
    * remap the DPI to Blender's convention. */
   auto_dpi *= GHOST_GetNativePixelSize(win->ghostwin);
-  int dpi = auto_dpi * U.ui_scale * (72.0 / 96.0f);
+  U.dpi = auto_dpi * U.ui_scale * (72.0 / 96.0f);
 
   /* Automatically set larger pixel size for high DPI. */
-  int pixelsize = max_ii(1, (int)(dpi / 64));
+  int pixelsize = max_ii(1, (int)(U.dpi / 64));
   /* User adjustment for pixel size. */
   pixelsize = max_ii(1, pixelsize + U.ui_line_width);
 
   /* Set user preferences globals for drawing, and for forward compatibility. */
   U.pixelsize = pixelsize;
-  U.dpi = dpi / pixelsize;
   U.virtual_pixel = (pixelsize == 1) ? VIRTUAL_PIXEL_NATIVE : VIRTUAL_PIXEL_DOUBLE;
-  U.dpi_fac = ((U.pixelsize * (float)U.dpi) / 72.0f);
+  U.dpi_fac = U.dpi / 72.0f;
   U.inv_dpi_fac = 1.0f / U.dpi_fac;
 
-  /* Set user preferences globals for drawing, and for forward compatibility. */
-  U.widget_unit = (U.pixelsize * U.dpi * 20 + 36) / 72;
-  /* If line thickness differs from scaling factor then adjustments need to be made */
-  U.widget_unit += 2 * ((int)U.pixelsize - (int)U.dpi_fac);
-
-  /* update font drawing */
-  BLF_default_dpi(U.pixelsize * U.dpi);
+  /* Widget unit is 20 pixels at 1X scale. This consists of 18 user-scaled units plus
+   *  left and right borders of line-width (pixelsize). */
+  U.widget_unit = (int)roundf(18.0f * U.dpi_fac) + (2 * pixelsize);
 }
 
 static void wm_window_update_eventstate(wmWindow *win)
@@ -558,6 +556,9 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm,
     glSettings.flags |= GHOST_glDebugContext;
   }
 
+  eGPUBackendType gpu_backend = GPU_backend_type_selection_get();
+  glSettings.context_type = wm_ghost_drawing_context_type(gpu_backend);
+
   int scr_w, scr_h;
   wm_get_desktopsize(&scr_w, &scr_h);
   int posy = (scr_h - win->posy - win->sizey);
@@ -575,11 +576,11 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm,
                                                    win->sizey,
                                                    (GHOST_TWindowState)win->windowstate,
                                                    is_dialog,
-                                                   GHOST_kDrawingContextTypeOpenGL,
                                                    glSettings);
 
   if (ghostwin) {
-    win->gpuctx = GPU_context_create(ghostwin);
+    win->gpuctx = GPU_context_create(ghostwin, NULL);
+    GPU_render_begin();
 
     /* needed so we can detect the graphics card below */
     GPU_init();
@@ -621,6 +622,7 @@ static void wm_window_ghostwindow_add(wmWindowManager *wm,
     GPU_clear_color(0.55f, 0.55f, 0.55f, 1.0f);
 
     // GHOST_SetWindowState(ghostwin, GHOST_kWindowStateModified);
+    GPU_render_end();
   }
   else {
     wm_window_set_drawable(wm, prev_windrawable, false);
@@ -1504,6 +1506,7 @@ static bool wm_window_timer(const bContext *C)
 void wm_window_process_events(const bContext *C)
 {
   BLI_assert(BLI_thread_is_main());
+  GPU_render_begin();
 
   bool has_event = GHOST_ProcessEvents(g_system, false); /* `false` is no wait. */
 
@@ -1516,6 +1519,7 @@ void wm_window_process_events(const bContext *C)
    * processing/dispatching but also handling. */
   has_event |= wm_xr_events_handle(CTX_wm_manager(C));
 #endif
+  GPU_render_end();
 
   /* When there is no event, sleep 5 milliseconds not to use too much CPU when idle.
    *
@@ -1546,6 +1550,16 @@ void wm_ghost_init(bContext *C)
   GHOST_SetBacktraceHandler((GHOST_TBacktraceFn)BLI_system_backtrace);
 
   g_system = GHOST_CreateSystem();
+
+  if (UNLIKELY(g_system == NULL)) {
+    /* GHOST will have reported the back-ends that failed to load. */
+    fprintf(stderr, "GHOST: unable to initialize, exiting!\n");
+    /* This will leak memory, it's preferable to crashing. */
+    exit(1);
+  }
+#if !(defined(WIN32) || defined(__APPLE__))
+  g_system_backend_id = GHOST_SystemBackend();
+#endif
 
   GHOST_Debug debug = {0};
   if (G.debug & G_DEBUG_GHOST) {
@@ -1591,6 +1605,47 @@ void wm_ghost_exit(void)
   g_system = NULL;
 }
 
+const char *WM_ghost_backend(void)
+{
+#if !(defined(WIN32) || defined(__APPLE__))
+  return g_system_backend_id ? g_system_backend_id : "NONE";
+#else
+  /* While this could be supported, at the moment it's only needed with GHOST X11/WAYLAND
+   * to check which was selected and the API call may be removed after that's no longer needed.
+   * Use dummy values to prevent this being used on other systems. */
+  return g_system ? "DEFAULT" : "NONE";
+#endif
+}
+
+GHOST_TDrawingContextType wm_ghost_drawing_context_type(const eGPUBackendType gpu_backend)
+{
+  switch (gpu_backend) {
+    case GPU_BACKEND_NONE:
+      return GHOST_kDrawingContextTypeNone;
+    case GPU_BACKEND_ANY:
+    case GPU_BACKEND_OPENGL:
+      return GHOST_kDrawingContextTypeOpenGL;
+    case GPU_BACKEND_VULKAN:
+#ifdef WITH_VULKAN_BACKEND
+      return GHOST_kDrawingContextTypeVulkan;
+#endif
+      BLI_assert_unreachable();
+      return GHOST_kDrawingContextTypeNone;
+    case GPU_BACKEND_METAL:
+#ifdef WITH_METAL_BACKEND
+      return GHOST_kDrawingContextTypeMetal;
+#else
+      BLI_assert_unreachable();
+      return GHOST_kDrawingContextTypeNone;
+#endif
+  }
+
+  /* Avoid control reaches end of non-void function compilation warning, which could be promoted
+   * to error. */
+  BLI_assert_unreachable();
+  return GHOST_kDrawingContextTypeNone;
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */
@@ -1629,7 +1684,7 @@ wmTimer *WM_event_add_timer(wmWindowManager *wm, wmWindow *win, int event_type, 
 
 wmTimer *WM_event_add_timer_notifier(wmWindowManager *wm,
                                      wmWindow *win,
-                                     unsigned int type,
+                                     uint type,
                                      double timestep)
 {
   wmTimer *wt = MEM_callocN(sizeof(wmTimer), "window timer");
@@ -2007,11 +2062,13 @@ void WM_init_native_pixels(bool do_it)
 /** \name Cursor API
  * \{ */
 
-void WM_init_tablet_api(void)
+void WM_init_input_devices(void)
 {
   if (UNLIKELY(!g_system)) {
     return;
   }
+
+  GHOST_SetMultitouchGestures(g_system, (U.uiflag & USER_NO_MULTITOUCH_GESTURES) == 0);
 
   switch (U.tablet_api) {
     case USER_TABLET_NATIVE:

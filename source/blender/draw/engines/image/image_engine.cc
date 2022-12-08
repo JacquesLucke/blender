@@ -53,7 +53,7 @@ template<
      *
      * Useful during development to switch between drawing implementations.
      */
-    typename DrawingMode = ScreenSpaceDrawingMode<OneTextureMethod>>
+    typename DrawingMode = ScreenSpaceDrawingMode<FullScreenTextures>>
 class ImageEngine {
  private:
   const DRWContextState *draw_ctx;
@@ -150,7 +150,7 @@ static void IMAGE_cache_init(void *vedata)
   image_engine.cache_populate();
 }
 
-static void IMAGE_cache_populate(void *UNUSED(vedata), Object *UNUSED(ob))
+static void IMAGE_cache_populate(void * /*vedata*/, Object * /*ob*/)
 {
   /* Function intentional left empty. `cache_populate` is required to be implemented. */
 }

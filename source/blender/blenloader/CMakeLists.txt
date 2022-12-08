@@ -43,11 +43,11 @@ set(SRC
   intern/versioning_270.c
   intern/versioning_280.c
   intern/versioning_290.c
-  intern/versioning_300.c
+  intern/versioning_300.cc
   intern/versioning_400.cc
   intern/versioning_common.cc
   intern/versioning_cycles.c
-  intern/versioning_defaults.c
+  intern/versioning_defaults.cc
   intern/versioning_dna.c
   intern/versioning_legacy.c
   intern/versioning_userdef.c

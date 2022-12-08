@@ -358,14 +358,14 @@ struct IndexBuildContext *IMB_anim_index_rebuild_context(struct anim *anim,
  * Will rebuild all used indices and proxies at once.
  */
 void IMB_anim_index_rebuild(struct IndexBuildContext *context,
-                            short *stop,
-                            short *do_update,
+                            bool *stop,
+                            bool *do_update,
                             float *progress);
 
 /**
  * Finish rebuilding proxies/time-codes and free temporary contexts used.
  */
-void IMB_anim_index_rebuild_finish(struct IndexBuildContext *context, short stop);
+void IMB_anim_index_rebuild_finish(struct IndexBuildContext *context, bool stop);
 
 /**
  * Return the length (in frames) of the given \a anim.
@@ -451,17 +451,6 @@ void IMB_makemipmap(struct ImBuf *ibuf, int use_filter);
  */
 void IMB_remakemipmap(struct ImBuf *ibuf, int use_filter);
 struct ImBuf *IMB_getmipmap(struct ImBuf *ibuf, int level);
-
-/**
- * \attention Defined in cache.c
- */
-
-/**
- * Presumed to be called when no threads are running.
- */
-void IMB_tile_cache_params(int totthread, int maxmem);
-unsigned int *IMB_gettile(struct ImBuf *ibuf, int tx, int ty, int thread);
-void IMB_tiles_to_rect(struct ImBuf *ibuf);
 
 /**
  * \attention Defined in filter.c
@@ -816,9 +805,6 @@ bool imb_addrectfloatImBuf(struct ImBuf *ibuf, const unsigned int channels);
 void imb_freerectfloatImBuf(struct ImBuf *ibuf);
 void imb_freemipmapImBuf(struct ImBuf *ibuf);
 
-bool imb_addtilesImBuf(struct ImBuf *ibuf);
-void imb_freetilesImBuf(struct ImBuf *ibuf);
-
 /** Free all pixel data (associated with image size). */
 void imb_freerectImbuf_all(struct ImBuf *ibuf);
 
@@ -893,6 +879,13 @@ GPUTexture *IMB_create_gpu_texture(const char *name,
 eGPUTextureFormat IMB_gpu_get_texture_format(const struct ImBuf *ibuf,
                                              bool high_bitdepth,
                                              bool use_grayscale);
+
+/**
+ * Ensures that values stored in the float rect can safely loaded into half float gpu textures.
+ *
+ * Does nothing when given image_buffer doesn't contain a float rect.
+ */
+void IMB_gpu_clamp_half_float(struct ImBuf *image_buffer);
 
 /**
  * The `ibuf` is only here to detect the storage type. The produced texture will have undefined

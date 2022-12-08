@@ -5,13 +5,14 @@
  * \ingroup blenloader
  */
 
-#include <ctype.h> /* for isdigit. */
+#include <cctype> /* for isdigit. */
+#include <cerrno>
+#include <climits>
+#include <cstdarg> /* for va_start/end. */
+#include <cstddef> /* for offsetof. */
+#include <cstdlib> /* for atoi. */
+#include <ctime>   /* for gmtime. */
 #include <fcntl.h> /* for open flags (O_BINARY, O_RDONLY). */
-#include <limits.h>
-#include <stdarg.h> /* for va_start/end. */
-#include <stddef.h> /* for offsetof. */
-#include <stdlib.h> /* for atoi. */
-#include <time.h>   /* for gmtime. */
 
 #include "BLI_utildefines.h"
 #ifndef WIN32
@@ -50,6 +51,7 @@
 #include "BLI_endian_switch.h"
 #include "BLI_ghash.h"
 #include "BLI_linklist.h"
+#include "BLI_map.hh"
 #include "BLI_math.h"
 #include "BLI_memarena.h"
 #include "BLI_mempool.h"
@@ -101,8 +103,6 @@
 #include "SEQ_utils.h"
 
 #include "readfile.h"
-
-#include <errno.h>
 
 /* Make preferences read-only. */
 #define U (*((const UserDef *)&U))
@@ -181,7 +181,7 @@ static void *read_struct(FileData *fd, BHead *bh, const char *blockname);
 static BHead *find_bhead_from_code_name(FileData *fd, const short idcode, const char *name);
 static BHead *find_bhead_from_idname(FileData *fd, const char *idname);
 
-typedef struct BHeadN {
+struct BHeadN {
   struct BHeadN *next, *prev;
 #ifdef USE_BHEAD_READ_ON_DEMAND
   /** Use to read the data from the file directly into memory as needed. */
@@ -191,9 +191,9 @@ typedef struct BHeadN {
 #endif
   bool is_memchunk_identical;
   struct BHead bhead;
-} BHeadN;
+};
 
-#define BHEADN_FROM_BHEAD(bh) ((BHeadN *)POINTER_OFFSET(bh, -(int)offsetof(BHeadN, bhead)))
+#define BHEADN_FROM_BHEAD(bh) ((BHeadN *)POINTER_OFFSET(bh, -int(offsetof(BHeadN, bhead))))
 
 /**
  * We could change this in the future, for now it's simplest if only data is delayed
@@ -230,119 +230,19 @@ static const char *library_parent_filepath(Library *lib)
 /** \name OldNewMap API
  * \{ */
 
-typedef struct OldNew {
-  const void *oldp;
+struct NewAddress {
   void *newp;
   /* `nr` is "user count" for data, and ID code for libdata. */
   int nr;
-} OldNew;
+};
 
-typedef struct OldNewMap {
-  /* Array that stores the actual entries. */
-  OldNew *entries;
-  int nentries;
-  /* Hash-map that stores indices into the `entries` array. */
-  int32_t *map;
+struct OldNewMap {
+  blender::Map<const void *, NewAddress> map;
+};
 
-  int capacity_exp;
-} OldNewMap;
-
-#define ENTRIES_CAPACITY(onm) (1ll << (onm)->capacity_exp)
-#define MAP_CAPACITY(onm) (1ll << ((onm)->capacity_exp + 1))
-#define SLOT_MASK(onm) (MAP_CAPACITY(onm) - 1)
-#define DEFAULT_SIZE_EXP 6
-#define PERTURB_SHIFT 5
-
-/* based on the probing algorithm used in Python dicts. */
-#define ITER_SLOTS(onm, KEY, SLOT_NAME, INDEX_NAME) \
-  uint32_t hash = BLI_ghashutil_ptrhash(KEY); \
-  uint32_t mask = SLOT_MASK(onm); \
-  uint perturb = hash; \
-  int SLOT_NAME = mask & hash; \
-  int INDEX_NAME = onm->map[SLOT_NAME]; \
-  for (;; SLOT_NAME = mask & ((5 * SLOT_NAME) + 1 + perturb), \
-          perturb >>= PERTURB_SHIFT, \
-          INDEX_NAME = onm->map[SLOT_NAME])
-
-static void oldnewmap_insert_index_in_map(OldNewMap *onm, const void *ptr, int index)
+static OldNewMap *oldnewmap_new()
 {
-  ITER_SLOTS (onm, ptr, slot, stored_index) {
-    if (stored_index == -1) {
-      onm->map[slot] = index;
-      break;
-    }
-  }
-}
-
-static void oldnewmap_insert_or_replace(OldNewMap *onm, OldNew entry)
-{
-  ITER_SLOTS (onm, entry.oldp, slot, index) {
-    if (index == -1) {
-      onm->entries[onm->nentries] = entry;
-      onm->map[slot] = onm->nentries;
-      onm->nentries++;
-      break;
-    }
-    if (onm->entries[index].oldp == entry.oldp) {
-      onm->entries[index] = entry;
-      break;
-    }
-  }
-}
-
-static OldNew *oldnewmap_lookup_entry(const OldNewMap *onm, const void *addr)
-{
-  ITER_SLOTS (onm, addr, slot, index) {
-    if (index >= 0) {
-      OldNew *entry = &onm->entries[index];
-      if (entry->oldp == addr) {
-        return entry;
-      }
-    }
-    else {
-      return nullptr;
-    }
-  }
-}
-
-static void oldnewmap_clear_map(OldNewMap *onm)
-{
-  memset(onm->map, 0xFF, MAP_CAPACITY(onm) * sizeof(*onm->map));
-}
-
-static void oldnewmap_increase_size(OldNewMap *onm)
-{
-  onm->capacity_exp++;
-  onm->entries = static_cast<OldNew *>(
-      MEM_reallocN(onm->entries, sizeof(*onm->entries) * ENTRIES_CAPACITY(onm)));
-  onm->map = static_cast<int32_t *>(MEM_reallocN(onm->map, sizeof(*onm->map) * MAP_CAPACITY(onm)));
-  oldnewmap_clear_map(onm);
-  for (int i = 0; i < onm->nentries; i++) {
-    oldnewmap_insert_index_in_map(onm, onm->entries[i].oldp, i);
-  }
-}
-
-/* Public OldNewMap API */
-
-static void oldnewmap_init_data(OldNewMap *onm, const int capacity_exp)
-{
-  memset(onm, 0x0, sizeof(*onm));
-
-  onm->capacity_exp = capacity_exp;
-  onm->entries = static_cast<OldNew *>(
-      MEM_malloc_arrayN(ENTRIES_CAPACITY(onm), sizeof(*onm->entries), "OldNewMap.entries"));
-  onm->map = static_cast<int32_t *>(
-      MEM_malloc_arrayN(MAP_CAPACITY(onm), sizeof(*onm->map), "OldNewMap.map"));
-  oldnewmap_clear_map(onm);
-}
-
-static OldNewMap *oldnewmap_new(void)
-{
-  OldNewMap *onm = static_cast<OldNewMap *>(MEM_mallocN(sizeof(*onm), "OldNewMap"));
-
-  oldnewmap_init_data(onm, DEFAULT_SIZE_EXP);
-
-  return onm;
+  return MEM_new<OldNewMap>(__func__);
 }
 
 static void oldnewmap_insert(OldNewMap *onm, const void *oldaddr, void *newaddr, int nr)
@@ -351,15 +251,7 @@ static void oldnewmap_insert(OldNewMap *onm, const void *oldaddr, void *newaddr,
     return;
   }
 
-  if (UNLIKELY(onm->nentries == ENTRIES_CAPACITY(onm))) {
-    oldnewmap_increase_size(onm);
-  }
-
-  OldNew entry;
-  entry.oldp = oldaddr;
-  entry.newp = newaddr;
-  entry.nr = nr;
-  oldnewmap_insert_or_replace(onm, entry);
+  onm->map.add_overwrite(oldaddr, NewAddress{newaddr, nr});
 }
 
 static void oldnewmap_lib_insert(FileData *fd, const void *oldaddr, ID *newaddr, int nr)
@@ -374,7 +266,7 @@ void blo_do_versions_oldnewmap_insert(OldNewMap *onm, const void *oldaddr, void 
 
 static void *oldnewmap_lookup_and_inc(OldNewMap *onm, const void *addr, bool increase_users)
 {
-  OldNew *entry = oldnewmap_lookup_entry(onm, addr);
+  NewAddress *entry = onm->map.lookup_ptr(addr);
   if (entry == nullptr) {
     return nullptr;
   }
@@ -384,7 +276,7 @@ static void *oldnewmap_lookup_and_inc(OldNewMap *onm, const void *addr, bool inc
   return entry->newp;
 }
 
-/* for libdata, OldNew.nr has ID code, no increment */
+/* for libdata, NewAddress.nr has ID code, no increment */
 static void *oldnewmap_liblookup(OldNewMap *onm, const void *addr, const void *lib)
 {
   if (addr == nullptr) {
@@ -404,33 +296,18 @@ static void *oldnewmap_liblookup(OldNewMap *onm, const void *addr, const void *l
 static void oldnewmap_clear(OldNewMap *onm)
 {
   /* Free unused data. */
-  for (int i = 0; i < onm->nentries; i++) {
-    OldNew *entry = &onm->entries[i];
-    if (entry->nr == 0) {
-      MEM_freeN(entry->newp);
-      entry->newp = nullptr;
+  for (NewAddress &new_addr : onm->map.values()) {
+    if (new_addr.nr == 0) {
+      MEM_freeN(new_addr.newp);
     }
   }
-
-  MEM_freeN(onm->entries);
-  MEM_freeN(onm->map);
-
-  oldnewmap_init_data(onm, DEFAULT_SIZE_EXP);
+  onm->map.clear();
 }
 
 static void oldnewmap_free(OldNewMap *onm)
 {
-  MEM_freeN(onm->entries);
-  MEM_freeN(onm->map);
-  MEM_freeN(onm);
+  MEM_delete(onm);
 }
-
-#undef ENTRIES_CAPACITY
-#undef MAP_CAPACITY
-#undef SLOT_MASK
-#undef DEFAULT_SIZE_EXP
-#undef PERTURB_SHIFT
-#undef ITER_SLOTS
 
 /** \} */
 
@@ -475,7 +352,7 @@ static void split_libdata(ListBase *lb_src, Main **lib_main_array, const uint li
     idnext = static_cast<ID *>(id->next);
 
     if (id->lib) {
-      if (((uint)id->lib->temp_index < lib_main_array_len) &&
+      if ((uint(id->lib->temp_index) < lib_main_array_len) &&
           /* this check should never fail, just in case 'id->lib' is a dangling pointer. */
           (lib_main_array[id->lib->temp_index]->curlib == id->lib)) {
         Main *mainvar = lib_main_array[id->lib->temp_index];
@@ -591,7 +468,7 @@ static void read_file_bhead_idname_map_create(FileData *fd)
     if (code_prev != bhead->code) {
       code_prev = bhead->code;
       is_link = blo_bhead_is_id_valid_type(bhead) ?
-                    BKE_idtype_idcode_is_linkable((short)code_prev) :
+                    BKE_idtype_idcode_is_linkable(short(code_prev)) :
                     false;
     }
 
@@ -608,7 +485,7 @@ static void read_file_bhead_idname_map_create(FileData *fd)
     if (code_prev != bhead->code) {
       code_prev = bhead->code;
       is_link = blo_bhead_is_id_valid_type(bhead) ?
-                    BKE_idtype_idcode_is_linkable((short)code_prev) :
+                    BKE_idtype_idcode_is_linkable(short(code_prev)) :
                     false;
     }
 
@@ -677,19 +554,19 @@ static Main *blo_find_main(FileData *fd, const char *filepath, const char *relab
 /** \name File Parsing
  * \{ */
 
-typedef struct BlendDataReader {
+struct BlendDataReader {
   FileData *fd;
-} BlendDataReader;
+};
 
-typedef struct BlendLibReader {
+struct BlendLibReader {
   FileData *fd;
   Main *main;
-} BlendLibReader;
+};
 
-typedef struct BlendExpander {
+struct BlendExpander {
   FileData *fd;
   Main *main;
-} BlendExpander;
+};
 
 static void switch_endian_bh4(BHead4 *bhead)
 {
@@ -738,7 +615,7 @@ static void bh4_from_bh8(BHead *bhead, BHead8 *bhead8, bool do_endian_swap)
     /* this patch is to avoid `intptr_t` being read from not-eight aligned positions
      * is necessary on any modern 64bit architecture) */
     memcpy(&old, &bhead8->old, 8);
-    bhead4->old = (int)(old >> 3);
+    bhead4->old = int(old >> 3);
 
     bhead4->SDNAnr = bhead8->SDNAnr;
     bhead4->nr = bhead8->nr;
@@ -862,7 +739,7 @@ static BHeadN *get_bhead(FileData *fd)
 #endif
       else {
         new_bhead = static_cast<BHeadN *>(
-            MEM_mallocN(sizeof(BHeadN) + (size_t)bhead.len, "new_bhead"));
+            MEM_mallocN(sizeof(BHeadN) + size_t(bhead.len), "new_bhead"));
         if (new_bhead) {
           new_bhead->next = new_bhead->prev = nullptr;
 #ifdef USE_BHEAD_READ_ON_DEMAND
@@ -872,7 +749,7 @@ static BHeadN *get_bhead(FileData *fd)
           new_bhead->is_memchunk_identical = false;
           new_bhead->bhead = bhead;
 
-          readsize = fd->file->read(fd->file, new_bhead + 1, (size_t)bhead.len);
+          readsize = fd->file->read(fd->file, new_bhead + 1, size_t(bhead.len));
 
           if (readsize != bhead.len) {
             fd->is_eof = true;
@@ -921,7 +798,7 @@ BHead *blo_bhead_first(FileData *fd)
   return bhead;
 }
 
-BHead *blo_bhead_prev(FileData *UNUSED(fd), BHead *thisblock)
+BHead *blo_bhead_prev(FileData * /*fd*/, BHead *thisblock)
 {
   BHeadN *bheadn = BHEADN_FROM_BHEAD(thisblock);
   BHeadN *prev = bheadn->prev;
@@ -966,7 +843,7 @@ static bool blo_bhead_read_data(FileData *fd, BHead *thisblock, void *buf)
     success = false;
   }
   else {
-    if (fd->file->read(fd->file, buf, (size_t)new_bhead->bhead.len) != new_bhead->bhead.len) {
+    if (fd->file->read(fd->file, buf, size_t(new_bhead->bhead.len)) != new_bhead->bhead.len) {
       success = false;
     }
     if (fd->flags & FD_FLAGS_IS_MEMFILE) {
@@ -1113,7 +990,7 @@ static int *read_file_thumbnail(FileData *fd)
       const bool do_endian_swap = (fd->flags & FD_FLAGS_SWITCH_ENDIAN) != 0;
       int *data = (int *)(bhead + 1);
 
-      if (bhead->len < (sizeof(int[2]))) {
+      if (bhead->len < sizeof(int[2])) {
         break;
       }
 
@@ -1331,7 +1208,7 @@ FileData *blo_filedata_from_memory(const void *mem, int memsize, BlendFileReadRe
 }
 
 FileData *blo_filedata_from_memfile(MemFile *memfile,
-                                    const struct BlendFileReadParams *params,
+                                    const BlendFileReadParams *params,
                                     BlendFileReadReport *reports)
 {
   if (!memfile) {
@@ -1556,13 +1433,11 @@ static void change_link_placeholder_to_real_ID_pointer_fd(FileData *fd,
                                                           const void *old,
                                                           void *newp)
 {
-  for (int i = 0; i < fd->libmap->nentries; i++) {
-    OldNew *entry = &fd->libmap->entries[i];
-
-    if (old == entry->newp && entry->nr == ID_LINK_PLACEHOLDER) {
-      entry->newp = newp;
+  for (NewAddress &entry : fd->libmap->map.values()) {
+    if (old == entry.newp && entry.nr == ID_LINK_PLACEHOLDER) {
+      entry.newp = newp;
       if (newp) {
-        entry->nr = GS(((ID *)newp)->name);
+        entry.nr = GS(((ID *)newp)->name);
       }
     }
   }
@@ -1641,12 +1516,10 @@ void blo_make_packed_pointer_map(FileData *fd, Main *oldmain)
 
 void blo_end_packed_pointer_map(FileData *fd, Main *oldmain)
 {
-  OldNew *entry = fd->packedmap->entries;
-
   /* used entries were restored, so we put them to zero */
-  for (int i = 0; i < fd->packedmap->nentries; i++, entry++) {
-    if (entry->nr > 0) {
-      entry->newp = nullptr;
+  for (NewAddress &entry : fd->packedmap->map.values()) {
+    if (entry.nr > 0) {
+      entry.newp = nullptr;
     }
   }
 
@@ -1699,19 +1572,19 @@ void blo_make_old_idmap_from_main(FileData *fd, Main *bmain)
   fd->old_idmap = BKE_main_idmap_create(bmain, false, nullptr, MAIN_IDMAP_TYPE_UUID);
 }
 
-typedef struct BLOCacheStorage {
+struct BLOCacheStorage {
   GHash *cache_map;
   MemArena *memarena;
-} BLOCacheStorage;
+};
 
-typedef struct BLOCacheStorageValue {
+struct BLOCacheStorageValue {
   void *cache_v;
   uint new_usage_count;
-} BLOCacheStorageValue;
+};
 
 /** Register a cache data entry to be preserved when reading some undo memfile. */
 static void blo_cache_storage_entry_register(
-    ID *id, const IDCacheKey *key, void **cache_p, uint UNUSED(flags), void *cache_storage_v)
+    ID *id, const IDCacheKey *key, void **cache_p, uint /*flags*/, void *cache_storage_v)
 {
   BLI_assert(key->id_session_uuid == id->session_uuid);
   UNUSED_VARS_NDEBUG(id);
@@ -1731,7 +1604,7 @@ static void blo_cache_storage_entry_register(
 
 /** Restore a cache data entry from old ID into new one, when reading some undo memfile. */
 static void blo_cache_storage_entry_restore_in_new(
-    ID *UNUSED(id), const IDCacheKey *key, void **cache_p, uint flags, void *cache_storage_v)
+    ID * /*id*/, const IDCacheKey *key, void **cache_p, uint flags, void *cache_storage_v)
 {
   BLOCacheStorage *cache_storage = static_cast<BLOCacheStorage *>(cache_storage_v);
 
@@ -1756,11 +1629,8 @@ static void blo_cache_storage_entry_restore_in_new(
 }
 
 /** Clear as needed a cache data entry from old ID, when reading some undo memfile. */
-static void blo_cache_storage_entry_clear_in_old(ID *UNUSED(id),
-                                                 const IDCacheKey *key,
-                                                 void **cache_p,
-                                                 uint UNUSED(flags),
-                                                 void *cache_storage_v)
+static void blo_cache_storage_entry_clear_in_old(
+    ID * /*id*/, const IDCacheKey *key, void **cache_p, uint /*flags*/, void *cache_storage_v)
 {
   BLOCacheStorage *cache_storage = static_cast<BLOCacheStorage *>(cache_storage_v);
 
@@ -1860,7 +1730,7 @@ void blo_cache_storage_end(FileData *fd)
 /** \name DNA Struct Loading
  * \{ */
 
-static void switch_endian_structs(const struct SDNA *filesdna, BHead *bhead)
+static void switch_endian_structs(const SDNA *filesdna, BHead *bhead)
 {
   int blocksize, nblocks;
   char *data;
@@ -2147,7 +2017,7 @@ static void direct_link_id_common(
     BlendDataReader *reader, Library *current_library, ID *id, ID *id_old, const int tag)
 {
   if (!BLO_read_data_is_undo(reader)) {
-    /* When actually reading a file, we do want to reset/re-generate session uuids.
+    /* When actually reading a file, we do want to reset/re-generate session UUIDS.
      * In undo case, we want to re-use existing ones. */
     id->session_uuid = MAIN_ID_SESSION_UUID_UNSET;
   }
@@ -2261,7 +2131,7 @@ void blo_do_versions_key_uidgen(Key *key)
 
 #ifdef USE_SETSCENE_CHECK
 /**
- * A version of #BKE_scene_validate_setscene with special checks for linked libs.
+ * A version of #BKE_scene_validate_setscene with special checks for linked libraries.
  */
 static bool scene_validate_setscene__liblink(Scene *sce, const int totscene)
 {
@@ -2321,10 +2191,10 @@ static void lib_link_scenes_check_set(Main *bmain)
  * \{ */
 
 /* how to handle user count on pointer restore */
-typedef enum ePointerUserMode {
+enum ePointerUserMode {
   USER_IGNORE = 0, /* ignore user count */
   USER_REAL = 1,   /* ensure at least one real user (fake user ignored) */
-} ePointerUserMode;
+};
 
 static void restore_pointer_user(ID *id, ID *newid, ePointerUserMode user)
 {
@@ -2374,7 +2244,7 @@ static void *restore_pointer_by_name_main(Main *mainp, ID *id, ePointerUserMode 
  * this could be made an optional argument (falling back to a full lookup),
  * however at the moment it's always available.
  */
-static void *restore_pointer_by_name(struct IDNameLib_Map *id_map, ID *id, ePointerUserMode user)
+static void *restore_pointer_by_name(IDNameLib_Map *id_map, ID *id, ePointerUserMode user)
 {
 #ifdef USE_GHASH_RESTORE_POINTER
   if (id) {
@@ -2392,7 +2262,7 @@ static void *restore_pointer_by_name(struct IDNameLib_Map *id_map, ID *id, ePoin
 #endif
 }
 
-static void lib_link_seq_clipboard_pt_restore(ID *id, struct IDNameLib_Map *id_map)
+static void lib_link_seq_clipboard_pt_restore(ID *id, IDNameLib_Map *id_map)
 {
   if (id) {
     /* clipboard must ensure this */
@@ -2402,7 +2272,7 @@ static void lib_link_seq_clipboard_pt_restore(ID *id, struct IDNameLib_Map *id_m
 }
 static bool lib_link_seq_clipboard_cb(Sequence *seq, void *arg_pt)
 {
-  struct IDNameLib_Map *id_map = static_cast<IDNameLib_Map *>(arg_pt);
+  IDNameLib_Map *id_map = static_cast<IDNameLib_Map *>(arg_pt);
 
   lib_link_seq_clipboard_pt_restore((ID *)seq->scene, id_map);
   lib_link_seq_clipboard_pt_restore((ID *)seq->scene_camera, id_map);
@@ -2412,7 +2282,7 @@ static bool lib_link_seq_clipboard_cb(Sequence *seq, void *arg_pt)
   return true;
 }
 
-static void lib_link_clipboard_restore(struct IDNameLib_Map *id_map)
+static void lib_link_clipboard_restore(IDNameLib_Map *id_map)
 {
   /* update IDs stored in sequencer clipboard */
   SEQ_for_each_callback(&seqbase_clipboard, lib_link_seq_clipboard_cb, id_map);
@@ -2439,7 +2309,7 @@ static int lib_link_main_data_restore_cb(LibraryIDLinkCallbackData *cb_data)
     }
   }
 
-  struct IDNameLib_Map *id_map = static_cast<IDNameLib_Map *>(cb_data->user_data);
+  IDNameLib_Map *id_map = static_cast<IDNameLib_Map *>(cb_data->user_data);
 
   /* NOTE: Handling of user-count here is really bad, defining its own system...
    * Will have to be refactored at some point, but that is not top priority task for now.
@@ -2450,7 +2320,7 @@ static int lib_link_main_data_restore_cb(LibraryIDLinkCallbackData *cb_data)
   return IDWALK_RET_NOP;
 }
 
-static void lib_link_main_data_restore(struct IDNameLib_Map *id_map, Main *newmain)
+static void lib_link_main_data_restore(IDNameLib_Map *id_map, Main *newmain)
 {
   ID *id;
   FOREACH_MAIN_ID_BEGIN (newmain, id) {
@@ -2459,7 +2329,7 @@ static void lib_link_main_data_restore(struct IDNameLib_Map *id_map, Main *newma
   FOREACH_MAIN_ID_END;
 }
 
-static void lib_link_wm_xr_data_restore(struct IDNameLib_Map *id_map, wmXrData *xr_data)
+static void lib_link_wm_xr_data_restore(IDNameLib_Map *id_map, wmXrData *xr_data)
 {
   xr_data->session_settings.base_pose_object = static_cast<Object *>(restore_pointer_by_name(
       id_map, (ID *)xr_data->session_settings.base_pose_object, USER_REAL));
@@ -2515,7 +2385,18 @@ static void lib_link_window_scene_data_restore(wmWindow *win, Scene *scene, View
   }
 }
 
-static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map,
+static void lib_link_restore_viewer_path(IDNameLib_Map *id_map, ViewerPath *viewer_path)
+{
+  LISTBASE_FOREACH (ViewerPathElem *, elem, &viewer_path->path) {
+    if (elem->type == VIEWER_PATH_ELEM_TYPE_ID) {
+      IDViewerPathElem *typed_elem = reinterpret_cast<IDViewerPathElem *>(elem);
+      typed_elem->id = static_cast<ID *>(
+          restore_pointer_by_name(id_map, (ID *)typed_elem->id, USER_IGNORE));
+    }
+  }
+}
+
+static void lib_link_workspace_layout_restore(IDNameLib_Map *id_map,
                                               Main *newmain,
                                               WorkSpaceLayout *layout)
 {
@@ -2532,6 +2413,8 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map,
               restore_pointer_by_name(id_map, (ID *)v3d->camera, USER_REAL));
           v3d->ob_center = static_cast<Object *>(
               restore_pointer_by_name(id_map, (ID *)v3d->ob_center, USER_REAL));
+
+          lib_link_restore_viewer_path(id_map, &v3d->viewer_path);
         }
         else if (sl->spacetype == SPACE_GRAPH) {
           SpaceGraph *sipo = (SpaceGraph *)sl;
@@ -2741,14 +2624,7 @@ static void lib_link_workspace_layout_restore(struct IDNameLib_Map *id_map,
         }
         else if (sl->spacetype == SPACE_SPREADSHEET) {
           SpaceSpreadsheet *sspreadsheet = (SpaceSpreadsheet *)sl;
-
-          LISTBASE_FOREACH (SpreadsheetContext *, context, &sspreadsheet->context_path) {
-            if (context->type == SPREADSHEET_CONTEXT_OBJECT) {
-              SpreadsheetContextObject *object_context = (SpreadsheetContextObject *)context;
-              object_context->object = static_cast<Object *>(
-                  restore_pointer_by_name(id_map, (ID *)object_context->object, USER_IGNORE));
-            }
-          }
+          lib_link_restore_viewer_path(id_map, &sspreadsheet->viewer_path);
         }
       }
     }
@@ -2761,8 +2637,7 @@ void blo_lib_link_restore(Main *oldmain,
                           Scene *curscene,
                           ViewLayer *cur_view_layer)
 {
-  struct IDNameLib_Map *id_map = BKE_main_idmap_create(
-      newmain, true, oldmain, MAIN_IDMAP_TYPE_NAME);
+  IDNameLib_Map *id_map = BKE_main_idmap_create(newmain, true, oldmain, MAIN_IDMAP_TYPE_NAME);
 
   LISTBASE_FOREACH (WorkSpace *, workspace, &newmain->workspaces) {
     LISTBASE_FOREACH (WorkSpaceLayout *, layout, &workspace->layouts) {
@@ -2770,6 +2645,7 @@ void blo_lib_link_restore(Main *oldmain,
     }
     workspace->pin_scene = static_cast<Scene *>(
         restore_pointer_by_name(id_map, (ID *)workspace->pin_scene, USER_IGNORE));
+    lib_link_restore_viewer_path(id_map, &workspace->viewer_path);
   }
 
   LISTBASE_FOREACH (wmWindow *, win, &curwm->windows) {
@@ -2880,7 +2756,7 @@ static void direct_link_library(FileData *fd, Library *lib, Main *main)
   id_us_ensure_real(&lib->id);
 }
 
-static void lib_link_library(BlendLibReader *UNUSED(reader), Library *UNUSED(lib))
+static void lib_link_library(BlendLibReader * /*reader*/, Library * /*lib*/)
 {
 }
 
@@ -2904,7 +2780,7 @@ static void fix_relpaths_library(const char *basepath, Main *main)
   else {
     LISTBASE_FOREACH (Library *, lib, &main->libraries) {
       /* Libraries store both relative and abs paths, recreate relative paths,
-       * relative to the blend file since indirectly linked libs will be
+       * relative to the blend file since indirectly linked libraries will be
        * relative to their direct linked library. */
       if (BLI_path_is_rel(lib->filepath)) { /* if this is relative to begin with? */
         BLI_strncpy(lib->filepath, lib->filepath_abs, sizeof(lib->filepath));
@@ -3109,7 +2985,7 @@ static BHead *read_data_into_datamap(FileData *fd, BHead *bhead, const char *all
       SDNA_Struct *sp = fd->filesdna->structs[bhead->SDNAnr];
       allocname = fd->filesdna->types[sp->type];
       size_t allocname_size = strlen(allocname) + 1;
-      char *allocname_buf = malloc(allocname_size);
+      char *allocname_buf = static_cast<char *>(malloc(allocname_size));
       memcpy(allocname_buf, allocname, allocname_size);
       allocname = allocname_buf;
     }
@@ -3151,7 +3027,7 @@ static bool read_libblock_is_identical(FileData *fd, BHead *bhead)
 /* For undo, restore matching library datablock from the old main. */
 static bool read_libblock_undo_restore_library(FileData *fd, Main *main, const ID *id)
 {
-  /* In undo case, most libs and linked data should be kept as is from previous state
+  /* In undo case, most libraries and linked data should be kept as is from previous state
    * (see BLO_read_from_memfile).
    * However, some needed by the snapshot being read may have been removed in previous one,
    * and would go missing.
@@ -3223,7 +3099,7 @@ static bool read_libblock_undo_restore_linked(FileData *fd, Main *main, const ID
 
 /* For undo, restore unchanged datablock from old main. */
 static void read_libblock_undo_restore_identical(
-    FileData *fd, Main *main, const ID *UNUSED(id), ID *id_old, const int tag)
+    FileData *fd, Main *main, const ID * /*id*/, ID *id_old, const int tag)
 {
   BLI_assert((fd->skip_flags & BLO_READ_SKIP_UNDO_OLD_MAIN) == 0);
   BLI_assert(id_old != nullptr);
@@ -3590,7 +3466,7 @@ static void link_global(FileData *fd, BlendFileData *bfd)
 /** \name Versioning
  * \{ */
 
-static void do_versions_userdef(FileData *UNUSED(fd), BlendFileData *bfd)
+static void do_versions_userdef(FileData * /*fd*/, BlendFileData *bfd)
 {
   UserDef *user = bfd->user;
 
@@ -4065,8 +3941,8 @@ struct BHeadSort {
 
 static int verg_bheadsort(const void *v1, const void *v2)
 {
-  const struct BHeadSort *x1 = static_cast<const BHeadSort *>(v1),
-                         *x2 = static_cast<const BHeadSort *>(v2);
+  const BHeadSort *x1 = static_cast<const BHeadSort *>(v1),
+                  *x2 = static_cast<const BHeadSort *>(v2);
 
   if (x1->old > x2->old) {
     return 1;
@@ -4080,7 +3956,7 @@ static int verg_bheadsort(const void *v1, const void *v2)
 static void sort_bhead_old_map(FileData *fd)
 {
   BHead *bhead;
-  struct BHeadSort *bhs;
+  BHeadSort *bhs;
   int tot = 0;
 
   for (bhead = blo_bhead_first(fd); bhead; bhead = blo_bhead_next(fd, bhead)) {
@@ -4093,14 +3969,14 @@ static void sort_bhead_old_map(FileData *fd)
   }
 
   bhs = fd->bheadmap = static_cast<BHeadSort *>(
-      MEM_malloc_arrayN(tot, sizeof(struct BHeadSort), "BHeadSort"));
+      MEM_malloc_arrayN(tot, sizeof(BHeadSort), "BHeadSort"));
 
   for (bhead = blo_bhead_first(fd); bhead; bhead = blo_bhead_next(fd, bhead), bhs++) {
     bhs->bhead = bhead;
     bhs->old = bhead->old;
   }
 
-  qsort(fd->bheadmap, tot, sizeof(struct BHeadSort), verg_bheadsort);
+  qsort(fd->bheadmap, tot, sizeof(BHeadSort), verg_bheadsort);
 }
 
 static BHead *find_previous_lib(FileData *fd, BHead *bhead)
@@ -4124,7 +4000,7 @@ static BHead *find_bhead(FileData *fd, void *old)
 #if 0
   BHead* bhead;
 #endif
-  struct BHeadSort *bhs, bhs_s;
+  BHeadSort *bhs, bhs_s;
 
   if (!old) {
     return nullptr;
@@ -4136,7 +4012,7 @@ static BHead *find_bhead(FileData *fd, void *old)
 
   bhs_s.old = old;
   bhs = static_cast<BHeadSort *>(
-      bsearch(&bhs_s, fd->bheadmap, fd->tot_bheadmap, sizeof(struct BHeadSort), verg_bheadsort));
+      bsearch(&bhs_s, fd->bheadmap, fd->tot_bheadmap, sizeof(BHeadSort), verg_bheadsort));
 
   if (bhs) {
     return bhs->bhead;
@@ -4471,7 +4347,7 @@ ID *BLO_library_link_named_part(Main *mainl,
                                 BlendHandle **bh,
                                 const short idcode,
                                 const char *name,
-                                const struct LibraryLink_Params *params)
+                                const LibraryLink_Params *params)
 {
   FileData *fd = (FileData *)(*bh);
   return link_named_part(mainl, fd, idcode, name, params->flag);
@@ -4511,8 +4387,8 @@ static Main *library_link_begin(Main *mainvar,
   return mainl;
 }
 
-void BLO_library_link_params_init(struct LibraryLink_Params *params,
-                                  struct Main *bmain,
+void BLO_library_link_params_init(LibraryLink_Params *params,
+                                  Main *bmain,
                                   const int flag,
                                   const int id_tag_extra)
 {
@@ -4522,14 +4398,14 @@ void BLO_library_link_params_init(struct LibraryLink_Params *params,
   params->id_tag_extra = id_tag_extra;
 }
 
-void BLO_library_link_params_init_with_context(struct LibraryLink_Params *params,
-                                               struct Main *bmain,
+void BLO_library_link_params_init_with_context(LibraryLink_Params *params,
+                                               Main *bmain,
                                                const int flag,
                                                const int id_tag_extra,
                                                /* Context arguments. */
-                                               struct Scene *scene,
-                                               struct ViewLayer *view_layer,
-                                               const struct View3D *v3d)
+                                               Scene *scene,
+                                               ViewLayer *view_layer,
+                                               const View3D *v3d)
 {
   BLO_library_link_params_init(params, bmain, flag, id_tag_extra);
   if (scene != nullptr) {
@@ -4541,7 +4417,7 @@ void BLO_library_link_params_init_with_context(struct LibraryLink_Params *params
 
 Main *BLO_library_link_begin(BlendHandle **bh,
                              const char *filepath,
-                             const struct LibraryLink_Params *params)
+                             const LibraryLink_Params *params)
 {
   FileData *fd = (FileData *)(*bh);
   return library_link_begin(params->bmain, &fd, filepath, params->id_tag_extra);
@@ -4586,7 +4462,7 @@ static void library_link_end(Main *mainl, FileData **fd, const int flag)
   /* make main consistent */
   BLO_expand_main(*fd, mainl);
 
-  /* do this when expand found other libs */
+  /* Do this when expand found other libraries. */
   read_libraries(*fd, (*fd)->mainlist);
 
   curlib = mainl->curlib;
@@ -4663,7 +4539,7 @@ static void library_link_end(Main *mainl, FileData **fd, const int flag)
   }
 }
 
-void BLO_library_link_end(Main *mainl, BlendHandle **bh, const struct LibraryLink_Params *params)
+void BLO_library_link_end(Main *mainl, BlendHandle **bh, const LibraryLink_Params *params)
 {
   FileData *fd = (FileData *)(*bh);
   library_link_end(mainl, &fd, params->flag);
@@ -5052,7 +4928,7 @@ void BLO_read_list_cb(BlendDataReader *reader, ListBase *list, BlendReadListFn c
   list->last = prev;
 }
 
-void BLO_read_list(BlendDataReader *reader, struct ListBase *list)
+void BLO_read_list(BlendDataReader *reader, ListBase *list)
 {
   BLO_read_list_cb(reader, list, nullptr);
 }
@@ -5104,17 +4980,17 @@ static void convert_pointer_array_64_to_32(BlendDataReader *reader,
     for (int i = 0; i < array_size; i++) {
       uint64_t ptr = src[i];
       BLI_endian_switch_uint64(&ptr);
-      dst[i] = (uint32_t)(ptr >> 3);
+      dst[i] = uint32_t(ptr >> 3);
     }
   }
   else {
     for (int i = 0; i < array_size; i++) {
-      dst[i] = (uint32_t)(src[i] >> 3);
+      dst[i] = uint32_t(src[i] >> 3);
     }
   }
 }
 
-static void convert_pointer_array_32_to_64(BlendDataReader *UNUSED(reader),
+static void convert_pointer_array_32_to_64(BlendDataReader * /*reader*/,
                                            uint array_size,
                                            const uint32_t *src,
                                            uint64_t *dst)

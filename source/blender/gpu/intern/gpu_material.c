@@ -54,8 +54,8 @@ typedef struct GPUSkyBuilder {
 } GPUSkyBuilder;
 
 struct GPUMaterial {
-  /* Contains GPUShader and source code for deferred compilation.
-   * Can be shared between similar material (i.e: sharing same nodetree topology). */
+  /* Contains #GPUShader and source code for deferred compilation.
+   * Can be shared between similar material (i.e: sharing same node-tree topology). */
   GPUPass *pass;
   /** UBOs for this material parameters. */
   GPUUniformBuf *ubo;
@@ -289,6 +289,12 @@ const GPUUniformAttrList *GPU_material_uniform_attributes(const GPUMaterial *mat
 {
   const GPUUniformAttrList *attrs = &material->graph.uniform_attrs;
   return attrs->count > 0 ? attrs : NULL;
+}
+
+const ListBase *GPU_material_layer_attributes(const GPUMaterial *material)
+{
+  const ListBase *attrs = &material->graph.layer_attrs;
+  return !BLI_listbase_is_empty(attrs) ? attrs : NULL;
 }
 
 #if 1 /* End of life code. */

@@ -219,7 +219,7 @@ static int wm_collada_export_exec(bContext *C, wmOperator *op)
   }
 
   char buff[100];
-  sprintf(buff, "Exported %d Objects", export_count);
+  BLI_snprintf(buff, sizeof(buff), "Exported %d Objects", export_count);
   BKE_report(op->reports, RPT_INFO, buff);
   return OPERATOR_FINISHED;
 }
@@ -770,13 +770,11 @@ void WM_OT_collada_import(wmOperatorType *ot)
   ot->name = "Import COLLADA";
   ot->description = "Load a Collada file";
   ot->idname = "WM_OT_collada_import";
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_PRESET;
 
   ot->invoke = WM_operator_filesel;
   ot->exec = wm_collada_import_exec;
   ot->poll = WM_operator_winactive;
-
-  // ot->flag = OPTYPE_PRESET;
 
   ot->ui = wm_collada_import_draw;
 

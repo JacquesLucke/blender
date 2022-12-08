@@ -27,21 +27,24 @@ using namespace blender;
 
 AssetMetaData *BKE_asset_metadata_create()
 {
-  AssetMetaData *asset_data = (AssetMetaData *)MEM_callocN(sizeof(*asset_data), __func__);
-  memcpy(asset_data, DNA_struct_default_get(AssetMetaData), sizeof(*asset_data));
-  return asset_data;
+  const AssetMetaData *default_metadata = DNA_struct_default_get(AssetMetaData);
+  return MEM_new<AssetMetaData>(__func__, *default_metadata);
 }
 
 void BKE_asset_metadata_free(AssetMetaData **asset_data)
 {
-  if ((*asset_data)->properties) {
-    IDP_FreeProperty((*asset_data)->properties);
-  }
-  MEM_SAFE_FREE((*asset_data)->author);
-  MEM_SAFE_FREE((*asset_data)->description);
-  BLI_freelistN(&(*asset_data)->tags);
+  MEM_delete(*asset_data);
+  *asset_data = nullptr;
+}
 
-  MEM_SAFE_FREE(*asset_data);
+AssetMetaData::~AssetMetaData()
+{
+  if (properties) {
+    IDP_FreeProperty(properties);
+  }
+  MEM_SAFE_FREE(author);
+  MEM_SAFE_FREE(description);
+  BLI_freelistN(&tags);
 }
 
 static AssetTag *asset_metadata_tag_add(AssetMetaData *asset_data, const char *const name)
@@ -143,7 +146,7 @@ IDProperty *BKE_asset_metadata_idprop_find(const AssetMetaData *asset_data, cons
 
 /* Queries -------------------------------------------- */
 
-PreviewImage *BKE_asset_metadata_preview_get_from_id(const AssetMetaData *UNUSED(asset_data),
+PreviewImage *BKE_asset_metadata_preview_get_from_id(const AssetMetaData * /*asset_data*/,
                                                      const ID *id)
 {
   return BKE_previewimg_id_get(id);

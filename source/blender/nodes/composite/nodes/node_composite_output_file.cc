@@ -11,6 +11,8 @@
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
+#include "BLT_translation.h"
+
 #include "BKE_context.h"
 #include "BKE_image_format.h"
 
@@ -231,9 +233,7 @@ static void free_output_file(bNode *node)
   MEM_freeN(node->storage);
 }
 
-static void copy_output_file(bNodeTree *UNUSED(dest_ntree),
-                             bNode *dest_node,
-                             const bNode *src_node)
+static void copy_output_file(bNodeTree * /*dst_ntree*/, bNode *dest_node, const bNode *src_node)
 {
   bNodeSocket *src_sock, *dest_sock;
 
@@ -282,7 +282,7 @@ static void update_output_file(bNodeTree *ntree, bNode *node)
   }
 }
 
-static void node_composit_buts_file_output(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_composit_buts_file_output(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   PointerRNA imfptr = RNA_pointer_get(ptr, "format");
   const bool multilayer = RNA_enum_get(&imfptr, "file_format") == R_IMF_IMTYPE_MULTILAYER;
@@ -449,6 +449,7 @@ class OutputFileOperation : public NodeOperation {
 
   void execute() override
   {
+    context().set_info_message("Viewport compositor setup not fully supported");
   }
 };
 
@@ -472,8 +473,10 @@ void register_node_type_cmp_output_file()
   ntype.flag |= NODE_PREVIEW;
   node_type_storage(
       &ntype, "NodeImageMultiFile", file_ns::free_output_file, file_ns::copy_output_file);
-  node_type_update(&ntype, file_ns::update_output_file);
+  ntype.updatefunc = file_ns::update_output_file;
   ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

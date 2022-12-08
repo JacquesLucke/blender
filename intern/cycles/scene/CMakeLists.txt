@@ -25,6 +25,7 @@ set(SRC
   integrator.cpp
   jitter.cpp
   light.cpp
+  light_tree.cpp
   mesh.cpp
   mesh_displace.cpp
   mesh_subdivision.cpp
@@ -63,6 +64,7 @@ set(SRC_HEADERS
   image_vdb.h
   integrator.h
   light.h
+  light_tree.h
   jitter.h
   mesh.h
   object.h
@@ -101,7 +103,7 @@ if(WITH_CYCLES_OSL)
     cycles_kernel_osl
   )
 
-  SET_PROPERTY(SOURCE osl.cpp PROPERTY COMPILE_FLAGS ${RTTI_DISABLE_FLAGS})
+  set_property(SOURCE osl.cpp PROPERTY COMPILE_FLAGS ${RTTI_DISABLE_FLAGS})
 endif()
 
 if(WITH_OPENCOLORIO)

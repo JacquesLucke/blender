@@ -120,9 +120,11 @@ set(SRC
   nodes/node_shader_wavelength.cc
   nodes/node_shader_wireframe.cc
 
+  node_shader_register.cc
   node_shader_tree.cc
   node_shader_util.cc
 
+  node_shader_register.hh
   node_shader_util.hh
 )
 
@@ -131,20 +133,6 @@ set(LIB
   bf_intern_sky
   bf_nodes
 )
-
-if(WITH_PYTHON)
-  list(APPEND INC
-    ../../python
-  )
-  list(APPEND INC_SYS
-    ${PYTHON_INCLUDE_DIRS}
-  )
-  list(APPEND LIB
-    ${PYTHON_LINKFLAGS}
-    ${PYTHON_LIBRARIES}
-  )
-  add_definitions(-DWITH_PYTHON)
-endif()
 
 if(WITH_FREESTYLE)
   add_definitions(-DWITH_FREESTYLE)

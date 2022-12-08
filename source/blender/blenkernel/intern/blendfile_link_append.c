@@ -61,7 +61,7 @@ static CLG_LogRef LOG = {"bke.blendfile_link_append"};
 typedef struct BlendfileLinkAppendContextItem {
   /** Name of the ID (without the heading two-chars IDcode). */
   char *name;
-  /** All libs (from BlendfileLinkAppendContext.libraries) to try to load this ID from. */
+  /** All libraries (from #BlendfileLinkAppendContext.libraries) to try to load this ID from. */
   BLI_bitmap *libraries;
   /** ID type. */
   short idcode;
@@ -1258,7 +1258,7 @@ void BKE_blendfile_link(BlendfileLinkAppendContext *lapp_context, ReportList *re
     }
 
     /* For each lib file, we try to link all items belonging to that lib,
-     * and tag those successful to not try to load them again with the other libs. */
+     * and tag those successful to not try to load them again with the other libraries. */
     for (item_idx = 0, itemlink = lapp_context->items.list; itemlink;
          item_idx++, itemlink = itemlink->next) {
       BlendfileLinkAppendContextItem *item = itemlink->link;
@@ -1272,7 +1272,7 @@ void BKE_blendfile_link(BlendfileLinkAppendContext *lapp_context, ReportList *re
           mainl, &blo_handle, item->idcode, item->name, lapp_context->params);
 
       if (new_id) {
-        /* If the link is successful, clear item's libs 'todo' flags.
+        /* If the link is successful, clear item's libraries 'todo' flags.
          * This avoids trying to link same item with other libraries to come. */
         BLI_bitmap_set_all(item->libraries, false, lapp_context->num_libraries);
         item->new_id = new_id;
@@ -1494,6 +1494,7 @@ void BKE_blendfile_library_relocate(BlendfileLinkAppendContext *lapp_context,
    * code is wrong, we need to redo it here after adding them back to main. */
   BKE_main_id_refcount_recompute(bmain, false);
 
+  BKE_layer_collection_resync_forbid();
   /* Note that in reload case, we also want to replace indirect usages. */
   const short remap_flags = ID_REMAP_SKIP_NEVER_NULL_USAGE |
                             (do_reload ? 0 : ID_REMAP_SKIP_INDIRECT_USAGE);
@@ -1523,6 +1524,8 @@ void BKE_blendfile_library_relocate(BlendfileLinkAppendContext *lapp_context,
       id_us_plus_no_lib(&old_key->id);
     }
   }
+  BKE_layer_collection_resync_allow();
+  BKE_main_collection_sync_remap(bmain);
 
   BKE_main_unlock(bmain);
 
@@ -1613,6 +1616,9 @@ void BKE_blendfile_library_relocate(BlendfileLinkAppendContext *lapp_context,
     if (ID_IS_LINKED(id) || !ID_IS_OVERRIDE_LIBRARY_REAL(id) ||
         (id->tag & LIB_TAG_PRE_EXISTING) == 0) {
       continue;
+    }
+    if ((id->override_library->reference->tag & LIB_TAG_MISSING) == 0) {
+      id->tag &= ~LIB_TAG_MISSING;
     }
     if ((id->override_library->reference->tag & LIB_TAG_PRE_EXISTING) == 0) {
       BKE_lib_override_library_update(bmain, id);

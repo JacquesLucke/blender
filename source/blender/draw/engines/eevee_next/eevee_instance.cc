@@ -106,6 +106,8 @@ void Instance::begin_sync()
 
   gpencil_engine_enabled = false;
 
+  scene_sync();
+
   depth_of_field.sync();
   motion_blur.sync();
   hiz_buffer.sync();
@@ -113,6 +115,21 @@ void Instance::begin_sync()
   main_view.sync();
   world.sync();
   film.sync();
+}
+
+void Instance::scene_sync()
+{
+  SceneHandle &sc_handle = sync.sync_scene(scene);
+
+  sc_handle.reset_recalc_flag();
+
+  /* This refers specifically to the Scene camera that can be accessed
+   * via View Layer Attribute nodes, rather than the actual render camera. */
+  if (scene->camera != nullptr) {
+    ObjectHandle &ob_handle = sync.sync_object(scene->camera);
+
+    ob_handle.reset_recalc_flag();
+  }
 }
 
 void Instance::object_sync(Object *ob)
@@ -320,7 +337,7 @@ void Instance::draw_viewport(DefaultFramebufferList *dfbl)
 
   if (materials.queued_shaders_count > 0) {
     std::stringstream ss;
-    ss << "Compiling Shaders " << materials.queued_shaders_count;
+    ss << "Compiling Shaders (" << materials.queued_shaders_count << " remaining)";
     info = ss.str();
   }
 }

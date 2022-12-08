@@ -417,6 +417,11 @@ bool ANIM_animdata_get_context(const bContext *C, bAnimContext *ac)
   return ANIM_animdata_context_getdata(ac);
 }
 
+bool ANIM_animdata_can_have_greasepencil(const eAnimCont_Types type)
+{
+  return ELEM(type, ANIMCONT_GPENCIL, ANIMCONT_DOPESHEET, ANIMCONT_TIMELINE);
+}
+
 /* ************************************************************ */
 /* Blender Data <-- Filter --> Channels to be operated on */
 
@@ -1122,7 +1127,7 @@ static bool skip_fcurve_selected_data(bDopeSheet *ads, FCurve *fcu, ID *owner_id
 
     /* Check for selected nodes. */
     if (fcu->rna_path &&
-        (BLI_str_quoted_substr(fcu->rna_path, "nodes[", node_name, sizeof(node_name)))) {
+        BLI_str_quoted_substr(fcu->rna_path, "nodes[", node_name, sizeof(node_name))) {
       /* Get strip name, and check if this strip is selected. */
       node = nodeFindNodebyName(ntree, node_name);
 
@@ -1341,7 +1346,7 @@ static size_t animfilter_fcurves(ListBase *anim_data,
    *    Back to step 2 :)
    */
   for (fcu = first;
-       ((fcu = animfilter_fcurve_next(ads, fcu, fcurve_type, filter_mode, owner, owner_id)));
+       (fcu = animfilter_fcurve_next(ads, fcu, fcurve_type, filter_mode, owner, owner_id));
        fcu = fcu->next) {
     if (UNLIKELY(fcurve_type == ANIMTYPE_NLACURVE)) {
       /* NLA Control Curve - Basically the same as normal F-Curves,
@@ -1602,7 +1607,7 @@ static size_t animfilter_nla_controls(
 
   /* add control curves from each NLA strip... */
   /* NOTE: ANIMTYPE_FCURVES are created here, to avoid duplicating the code needed */
-  BEGIN_ANIMFILTER_SUBCHANNELS (((adt->flag & ADT_NLA_SKEYS_COLLAPSED) == 0)) {
+  BEGIN_ANIMFILTER_SUBCHANNELS ((adt->flag & ADT_NLA_SKEYS_COLLAPSED) == 0) {
     NlaTrack *nlt;
     NlaStrip *strip;
 
@@ -1892,7 +1897,7 @@ static size_t animdata_filter_gpencil(bAnimContext *ac,
       }
 
       /* check selection and object type filters */
-      if ((ads->filterflag & ADS_FILTER_ONLYSEL) && !((base->flag & BASE_SELECTED))) {
+      if ((ads->filterflag & ADS_FILTER_ONLYSEL) && !(base->flag & BASE_SELECTED)) {
         /* only selected should be shown */
         continue;
       }
@@ -2000,23 +2005,23 @@ static size_t animdata_filter_ds_cachefile(
 /* Helper for Mask Editing - mask layers */
 static size_t animdata_filter_mask_data(ListBase *anim_data, Mask *mask, const int filter_mode)
 {
-  MaskLayer *masklay_act = BKE_mask_layer_active(mask);
-  MaskLayer *masklay;
+  const MaskLayer *masklay_act = BKE_mask_layer_active(mask);
   size_t items = 0;
 
-  /* loop over layers as the conditions are acceptable */
-  for (masklay = mask->masklayers.first; masklay; masklay = masklay->next) {
-    /* only if selected */
-    if (ANIMCHANNEL_SELOK(SEL_MASKLAY(masklay))) {
-      /* only if editable */
-      if (!(filter_mode & ANIMFILTER_FOREDIT) || EDITABLE_MASK(masklay)) {
-        /* active... */
-        if (!(filter_mode & ANIMFILTER_ACTIVE) || (masklay_act == masklay)) {
-          /* add to list */
-          ANIMCHANNEL_NEW_CHANNEL(masklay, ANIMTYPE_MASKLAYER, mask, NULL);
-        }
-      }
+  LISTBASE_FOREACH (MaskLayer *, masklay, &mask->masklayers) {
+    if (!ANIMCHANNEL_SELOK(SEL_MASKLAY(masklay))) {
+      continue;
     }
+
+    if ((filter_mode & ANIMFILTER_FOREDIT) && !EDITABLE_MASK(masklay)) {
+      continue;
+    }
+
+    if ((filter_mode & ANIMFILTER_ACTIVE) & (masklay_act != masklay)) {
+      continue;
+    }
+
+    ANIMCHANNEL_NEW_CHANNEL(masklay, ANIMTYPE_MASKLAYER, mask, NULL);
   }
 
   return items;
@@ -2028,12 +2033,11 @@ static size_t animdata_filter_mask(Main *bmain,
                                    void *UNUSED(data),
                                    int filter_mode)
 {
-  Mask *mask;
   size_t items = 0;
 
   /* For now, grab mask data-blocks directly from main. */
   /* XXX: this is not good... */
-  for (mask = bmain->masks.first; mask; mask = mask->id.next) {
+  LISTBASE_FOREACH (Mask *, mask, &bmain->masks) {
     ListBase tmp_data = {NULL, NULL};
     size_t tmp_items = 0;
 
@@ -2043,24 +2047,28 @@ static size_t animdata_filter_mask(Main *bmain,
     }
 
     /* add mask animation channels */
-    BEGIN_ANIMFILTER_SUBCHANNELS (EXPANDED_MASK(mask)) {
-      tmp_items += animdata_filter_mask_data(&tmp_data, mask, filter_mode);
+    if (!(filter_mode & ANIMFILTER_FCURVESONLY)) {
+      BEGIN_ANIMFILTER_SUBCHANNELS (EXPANDED_MASK(mask)) {
+        tmp_items += animdata_filter_mask_data(&tmp_data, mask, filter_mode);
+      }
+      END_ANIMFILTER_SUBCHANNELS;
     }
-    END_ANIMFILTER_SUBCHANNELS;
 
     /* did we find anything? */
-    if (tmp_items) {
-      /* include data-expand widget first */
-      if (filter_mode & ANIMFILTER_LIST_CHANNELS) {
-        /* add mask data-block as channel too (if for drawing, and it has layers) */
-        ANIMCHANNEL_NEW_CHANNEL(mask, ANIMTYPE_MASKDATABLOCK, NULL, NULL);
-      }
-
-      /* now add the list of collected channels */
-      BLI_movelisttolist(anim_data, &tmp_data);
-      BLI_assert(BLI_listbase_is_empty(&tmp_data));
-      items += tmp_items;
+    if (!tmp_items) {
+      continue;
     }
+
+    /* include data-expand widget first */
+    if (filter_mode & ANIMFILTER_LIST_CHANNELS) {
+      /* add mask data-block as channel too (if for drawing, and it has layers) */
+      ANIMCHANNEL_NEW_CHANNEL(mask, ANIMTYPE_MASKDATABLOCK, NULL, NULL);
+    }
+
+    /* now add the list of collected channels */
+    BLI_movelisttolist(anim_data, &tmp_data);
+    BLI_assert(BLI_listbase_is_empty(&tmp_data));
+    items += tmp_items;
   }
 
   /* return the number of items added to the list */
@@ -2821,7 +2829,7 @@ static size_t animdata_filter_dopesheet_ob(
     }
 
     /* object data */
-    if (ob->data) {
+    if ((ob->data) && (ob->type != OB_GPENCIL)) {
       tmp_items += animdata_filter_ds_obdata(ac, &tmp_data, ads, ob, filter_mode);
     }
 

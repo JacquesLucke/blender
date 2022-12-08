@@ -177,7 +177,7 @@ void rna_Image_generated_color_set(PointerRNA *ptr, const float values[4])
 {
   Image *ima = (Image *)(ptr->data);
   ImageTile *base_tile = BKE_image_get_tile(ima, 0);
-  for (unsigned int i = 0; i < 4; i++) {
+  for (uint i = 0; i < 4; i++) {
     base_tile->gen_color[i] = CLAMPIS(values[i], 0.0f, FLT_MAX);
   }
 }
@@ -625,7 +625,7 @@ static void rna_Image_pixels_get(PointerRNA *ptr, float *values)
     }
     else {
       for (i = 0; i < size; i++) {
-        values[i] = ((unsigned char *)ibuf->rect)[i] * (1.0f / 255.0f);
+        values[i] = ((uchar *)ibuf->rect)[i] * (1.0f / 255.0f);
       }
     }
   }
@@ -650,7 +650,7 @@ static void rna_Image_pixels_set(PointerRNA *ptr, const float *values)
     }
     else {
       for (i = 0; i < size; i++) {
-        ((unsigned char *)ibuf->rect)[i] = unit_float_to_uchar_clamp(values[i]);
+        ((uchar *)ibuf->rect)[i] = unit_float_to_uchar_clamp(values[i]);
       }
     }
 
@@ -1372,6 +1372,14 @@ static void rna_def_image(BlenderRNA *brna)
                            "Half Float Precision",
                            "Use 16 bits per channel to lower the memory usage during rendering");
   RNA_def_property_update(prop, NC_IMAGE | ND_DISPLAY, "rna_Image_gpu_texture_update");
+
+  prop = RNA_def_property(srna, "seam_margin", PROP_INT, PROP_NONE);
+  RNA_def_property_ui_text(
+      prop,
+      "Seam Margin",
+      "Margin to take into account when fixing UV seams during painting. Higher "
+      "number would improve seam-fixes for mipmaps, but decreases performance");
+  RNA_def_property_ui_range(prop, 1, 100, 1, 1);
 
   /* multiview */
   prop = RNA_def_property(srna, "views_format", PROP_ENUM, PROP_NONE);

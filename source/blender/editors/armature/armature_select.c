@@ -1601,8 +1601,8 @@ static const EnumPropertyItem prop_similar_types[] = {
 static float bone_length_squared_worldspace_get(Object *ob, EditBone *ebone)
 {
   float v1[3], v2[3];
-  mul_v3_mat3_m4v3(v1, ob->obmat, ebone->head);
-  mul_v3_mat3_m4v3(v2, ob->obmat, ebone->tail);
+  mul_v3_mat3_m4v3(v1, ob->object_to_world, ebone->head);
+  mul_v3_mat3_m4v3(v2, ob->object_to_world, ebone->tail);
   return len_squared_v3v3(v1, v2);
 }
 
@@ -1650,8 +1650,8 @@ static void bone_direction_worldspace_get(Object *ob, EditBone *ebone, float *r_
   copy_v3_v3(v1, ebone->head);
   copy_v3_v3(v2, ebone->tail);
 
-  mul_m4_v3(ob->obmat, v1);
-  mul_m4_v3(ob->obmat, v2);
+  mul_m4_v3(ob->object_to_world, v1);
+  mul_m4_v3(ob->object_to_world, v2);
 
   sub_v3_v3v3(r_dir, v1, v2);
   normalize_v3(r_dir);
@@ -2137,7 +2137,7 @@ static int armature_select_mirror_exec(bContext *C, wmOperator *op)
         int flag_new = extend ? EBONE_PREV_FLAG_GET(ebone) : 0;
 
         if ((ebone_mirror = ED_armature_ebone_get_mirrored(arm->edbo, ebone)) &&
-            (EBONE_VISIBLE(arm, ebone_mirror))) {
+            EBONE_VISIBLE(arm, ebone_mirror)) {
           const int flag_mirror = EBONE_PREV_FLAG_GET(ebone_mirror);
           flag_new |= flag_mirror;
 

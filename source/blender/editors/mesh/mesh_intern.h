@@ -18,6 +18,7 @@ struct BMElem;
 struct BMOperator;
 struct EnumPropertyItem;
 struct LinkNode;
+struct Object;
 struct bContext;
 struct wmKeyConfig;
 struct wmKeyMap;
@@ -177,6 +178,8 @@ void MESH_OT_knife_project(struct wmOperatorType *ot);
  * \param use_tag: When set, tag all faces inside the polylines.
  */
 void EDBM_mesh_knife(struct ViewContext *vc,
+                     struct Object **objects,
+                     int objects_len,
                      struct LinkNode *polys,
                      bool use_tag,
                      bool cut_through);
@@ -192,7 +195,7 @@ void MESH_OT_loopcut(struct wmOperatorType *ot);
 void MESH_OT_rip(struct wmOperatorType *ot);
 void MESH_OT_rip_edge(struct wmOperatorType *ot);
 
-/* *** editmesh_select.c *** */
+/* *** editmesh_select.cc *** */
 
 void MESH_OT_select_similar(struct wmOperatorType *ot);
 void MESH_OT_select_similar_region(struct wmOperatorType *ot);
@@ -319,6 +322,10 @@ void MESH_OT_customdata_bevel_weight_vertex_add(struct wmOperatorType *ot);
 void MESH_OT_customdata_bevel_weight_vertex_clear(struct wmOperatorType *ot);
 void MESH_OT_customdata_bevel_weight_edge_add(struct wmOperatorType *ot);
 void MESH_OT_customdata_bevel_weight_edge_clear(struct wmOperatorType *ot);
+void MESH_OT_customdata_crease_vertex_add(struct wmOperatorType *ot);
+void MESH_OT_customdata_crease_vertex_clear(struct wmOperatorType *ot);
+void MESH_OT_customdata_crease_edge_add(struct wmOperatorType *ot);
+void MESH_OT_customdata_crease_edge_clear(struct wmOperatorType *ot);
 
 #ifdef __cplusplus
 }

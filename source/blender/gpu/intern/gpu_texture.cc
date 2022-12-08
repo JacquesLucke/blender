@@ -132,6 +132,7 @@ bool Texture::init_buffer(GPUVertBuf *vbo, eGPUTextureFormat format)
 
 bool Texture::init_view(const GPUTexture *src_,
                         eGPUTextureFormat format,
+                        eGPUTextureType type,
                         int mip_start,
                         int mip_len,
                         int layer_start,
@@ -144,7 +145,7 @@ bool Texture::init_view(const GPUTexture *src_,
   d_ = src->d_;
   layer_start = min_ii(layer_start, src->layer_count() - 1);
   layer_len = min_ii(layer_len, (src->layer_count() - layer_start));
-  switch (src->type_) {
+  switch (type) {
     case GPU_TEXTURE_1D_ARRAY:
       h_ = layer_len;
       break;
@@ -163,8 +164,7 @@ bool Texture::init_view(const GPUTexture *src_,
   mipmaps_ = mip_len;
   format_ = format;
   format_flag_ = to_format_flag(format);
-  /* For now always copy the target. Target aliasing could be exposed later. */
-  type_ = src->type_;
+  type_ = type;
   if (cube_as_array) {
     BLI_assert(type_ & GPU_TEXTURE_CUBE);
     type_ = (type_ & ~GPU_TEXTURE_CUBE) | GPU_TEXTURE_2D_ARRAY;
@@ -404,7 +404,26 @@ GPUTexture *GPU_texture_create_view(const char *name,
   BLI_assert(mip_len > 0);
   BLI_assert(layer_len > 0);
   Texture *view = GPUBackend::get()->texture_alloc(name);
-  view->init_view(src, format, mip_start, mip_len, layer_start, layer_len, cube_as_array);
+  view->init_view(src,
+                  format,
+                  unwrap(src)->type_get(),
+                  mip_start,
+                  mip_len,
+                  layer_start,
+                  layer_len,
+                  cube_as_array);
+  return wrap(view);
+}
+
+GPUTexture *GPU_texture_create_single_layer_view(const char *name, const GPUTexture *src)
+{
+  eGPUTextureFormat format = unwrap(src)->format_get();
+  eGPUTextureType type = unwrap(src)->type_get();
+  BLI_assert(ELEM(type, GPU_TEXTURE_1D, GPU_TEXTURE_2D, GPU_TEXTURE_CUBE));
+  type |= GPU_TEXTURE_ARRAY;
+
+  Texture *view = GPUBackend::get()->texture_alloc(name);
+  view->init_view(src, format, type, 0, 9999, 0, 1, false);
   return wrap(view);
 }
 
@@ -436,6 +455,21 @@ void GPU_texture_update_sub(GPUTexture *tex,
   reinterpret_cast<Texture *>(tex)->update_sub(0, offset, extent, data_format, pixels);
 }
 
+void GPU_texture_update_sub_from_pixel_buffer(GPUTexture *tex,
+                                              eGPUDataFormat data_format,
+                                              GPUPixelBuffer *pix_buf,
+                                              int offset_x,
+                                              int offset_y,
+                                              int offset_z,
+                                              int width,
+                                              int height,
+                                              int depth)
+{
+  int offset[3] = {offset_x, offset_y, offset_z};
+  int extent[3] = {width, height, depth};
+  reinterpret_cast<Texture *>(tex)->update_sub(offset, extent, data_format, pix_buf);
+}
+
 void *GPU_texture_read(GPUTexture *tex_, eGPUDataFormat data_format, int miplvl)
 {
   Texture *tex = reinterpret_cast<Texture *>(tex_);
@@ -444,7 +478,7 @@ void *GPU_texture_read(GPUTexture *tex_, eGPUDataFormat data_format, int miplvl)
 
 void GPU_texture_clear(GPUTexture *tex, eGPUDataFormat data_format, const void *data)
 {
-  BLI_assert(data != nullptr); /* Do not accept NULL as parameter. */
+  BLI_assert(data != nullptr); /* Do not accept nullptr as parameter. */
   reinterpret_cast<Texture *>(tex)->clear(data_format, data);
 }
 
@@ -463,7 +497,7 @@ void GPU_unpack_row_length_set(uint len)
 void GPU_texture_bind_ex(GPUTexture *tex_,
                          eGPUSamplerState state,
                          int unit,
-                         const bool UNUSED(set_number))
+                         const bool /*set_number*/)
 {
   Texture *tex = reinterpret_cast<Texture *>(tex_);
   state = (state >= GPU_SAMPLER_MAX) ? tex->sampler_state : state;
@@ -801,6 +835,53 @@ int GPU_texture_opengl_bindcode(const GPUTexture *tex)
 void GPU_texture_get_mipmap_size(GPUTexture *tex, int lvl, int *r_size)
 {
   return reinterpret_cast<Texture *>(tex)->mip_size_get(lvl, r_size);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name GPU Pixel Buffer
+ *
+ * Pixel buffer utility functions.
+ * \{ */
+
+GPUPixelBuffer *GPU_pixel_buffer_create(uint size)
+{
+  /* Ensure buffer satisfies the alignment of 256 bytes for copying
+   * data between buffers and textures. As specified in:
+   * https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf
+   *
+   * Ensuring minimal size across all platforms handles cases for small-sized
+   * textures and avoids issues with zero-sized buffers. */
+  size = ceil_to_multiple_ul(size, 256);
+  PixelBuffer *pixbuf = GPUBackend::get()->pixelbuf_alloc(size);
+  return wrap(pixbuf);
+}
+
+void GPU_pixel_buffer_free(GPUPixelBuffer *pix_buf)
+{
+  PixelBuffer *handle = unwrap(pix_buf);
+  delete handle;
+}
+
+void *GPU_pixel_buffer_map(GPUPixelBuffer *pix_buf)
+{
+  return reinterpret_cast<PixelBuffer *>(pix_buf)->map();
+}
+
+void GPU_pixel_buffer_unmap(GPUPixelBuffer *pix_buf)
+{
+  reinterpret_cast<PixelBuffer *>(pix_buf)->unmap();
+}
+
+uint GPU_pixel_buffer_size(GPUPixelBuffer *pix_buf)
+{
+  return reinterpret_cast<PixelBuffer *>(pix_buf)->get_size();
+}
+
+int64_t GPU_pixel_buffer_get_native_handle(GPUPixelBuffer *pix_buf)
+{
+  return reinterpret_cast<PixelBuffer *>(pix_buf)->get_native_handle();
 }
 
 /** \} */

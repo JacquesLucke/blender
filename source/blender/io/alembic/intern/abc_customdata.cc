@@ -173,7 +173,6 @@ static void get_cols(const CDStreamConfig &config,
 {
   const float cscale = 1.0f / 255.0f;
   const MPoly *polys = config.mpoly;
-  const MLoop *mloops = config.mloop;
   const MCol *cfaces = static_cast<const MCol *>(cd_data);
 
   buffer.reserve(config.totvert);
@@ -184,11 +183,9 @@ static void get_cols(const CDStreamConfig &config,
   for (int i = 0; i < config.totpoly; i++) {
     const MPoly *p = &polys[i];
     const MCol *cface = &cfaces[p->loopstart + p->totloop];
-    const MLoop *mloop = &mloops[p->loopstart + p->totloop];
 
     for (int j = 0; j < p->totloop; j++) {
       cface--;
-      mloop--;
 
       col[0] = cface->a * cscale;
       col[1] = cface->r * cscale;
@@ -322,14 +319,14 @@ static void read_uvs(const CDStreamConfig &config,
   MLoop *mloops = config.mloop;
   MLoopUV *mloopuvs = static_cast<MLoopUV *>(data);
 
-  unsigned int uv_index, loop_index, rev_loop_index;
+  uint uv_index, loop_index, rev_loop_index;
 
   BLI_assert(uv_scope != ABC_UV_SCOPE_NONE);
   const bool do_uvs_per_loop = (uv_scope == ABC_UV_SCOPE_LOOP);
 
   for (int i = 0; i < config.totpoly; i++) {
     MPoly &poly = mpolys[i];
-    unsigned int rev_loop_offset = poly.loopstart + poly.totloop - 1;
+    uint rev_loop_offset = poly.loopstart + poly.totloop - 1;
 
     for (int f = 0; f < poly.totloop; f++) {
       rev_loop_index = rev_loop_offset - f;
