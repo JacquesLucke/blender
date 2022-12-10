@@ -269,7 +269,6 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
         std::move(input_dependencies));
     return *(Self *)this;
   }
-  /* TODO: Better method for implicit fields. */
   /* TODO: Handle geometry attribute propagation. */
 
   Self &dependent_field_reference_pass(Vector<int> input_dependencies)
@@ -299,7 +298,7 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
     else {
       this->field_source();
     }
-    decl_->reference_on_auto_ = true;
+    this->reference_on_auto();
     return *(Self *)this;
   }
 
@@ -325,6 +324,12 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
   Self &reference_on(Vector<int> indices)
   {
     decl_->reference_on_ = std::move(indices);
+    return *(Self *)this;
+  }
+
+  Self &reference_on_auto()
+  {
+    decl_->reference_on_auto_ = true;
     return *(Self *)this;
   }
 
