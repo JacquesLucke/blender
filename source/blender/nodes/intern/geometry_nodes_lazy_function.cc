@@ -808,8 +808,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   {
     MultiValueMap<const bNodeSocket *, const bNodeSocket *> propagated_map;
     MultiValueMap<const bNodeSocket *, const bNodeSocket *> reference_sources_map;
-    const Span<const bNode *> sorted_nodes = btree_.toposort_left_to_right();
-    for (const bNode *node : sorted_nodes) {
+    for (const bNode *node : btree_.toposort_left_to_right()) {
       for (const int i : node->input_sockets().index_range()) {
         const bNodeSocket &socket = node->input_socket(i);
         if (!socket.is_available()) {
@@ -853,10 +852,12 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           }
         }
         Vector<int> propagate_from = socket_decl.propagate_from_;
-        if (socket_decl.propagate_from_auto_ || node_declaration->is_function_node()) {
+        if (socket_decl.propagate_from_auto_) {
           for (const bNodeSocket *input : node->input_sockets()) {
             if (input->is_available()) {
-              propagate_from.append(input->index());
+              if (input->type == SOCK_GEOMETRY) {
+                propagate_from.append(input->index());
+              }
             }
           }
         }
@@ -873,6 +874,65 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         for (const int propagated_from_index : propagate_from) {
           propagated_map.add_multiple(
               &socket, propagated_map.lookup(&node->input_socket(propagated_from_index)));
+        }
+      }
+    }
+
+    MultiValueMap<const bNodeSocket *, const bNodeSocket *> required_references_map;
+    for (const bNode *node : btree_.toposort_right_to_left()) {
+      const NodeDeclaration *node_declaration = node->declaration();
+      if (node_declaration == nullptr) {
+        continue;
+      }
+      for (const int i : node->output_sockets().index_range()) {
+        const bNodeSocket &socket = node->output_socket(i);
+        if (!socket.is_available()) {
+          continue;
+        }
+        for (const bNodeLink *link : socket.directly_linked_links()) {
+          if (link->is_muted()) {
+            continue;
+          }
+          const bNodeSocket &target = *link->tosock;
+          required_references_map.add_multiple(&socket, required_references_map.lookup(&target));
+        }
+
+        const SocketDeclaration &socket_decl = *node_declaration->outputs()[socket.index()];
+        Vector<int> propagate_from = socket_decl.propagate_from_;
+        if (socket_decl.propagate_from_auto_) {
+          for (const bNodeSocket *input_socket : node->input_sockets()) {
+            if (input_socket->is_available()) {
+              if (input_socket->type == SOCK_GEOMETRY) {
+                propagate_from.append(input_socket->index());
+              }
+            }
+          }
+        }
+        for (const int propagate_from_index : propagate_from) {
+          const bNodeSocket &input_socket = node->input_socket(propagate_from_index);
+          required_references_map.add_multiple(&input_socket,
+                                               required_references_map.lookup(&socket));
+        }
+      }
+      for (const int i : node->input_sockets().index_range()) {
+        const bNodeSocket &socket = node->input_socket(i);
+        if (!socket.is_available()) {
+          continue;
+        }
+        const SocketDeclaration &socket_decl = *node_declaration->inputs()[socket.index()];
+        Vector<int> reference_on = socket_decl.reference_on_;
+        if (socket_decl.reference_on_auto_) {
+          for (const bNodeSocket *s : node->input_sockets()) {
+            if (s->is_available()) {
+              if (s->type == SOCK_GEOMETRY) {
+                reference_on.append(s->index());
+              }
+            }
+          }
+        }
+        for (const int reference_on_index : reference_on) {
+          required_references_map.add_multiple(&node->input_socket(reference_on_index),
+                                               reference_sources_map.lookup(&socket));
         }
       }
     }
@@ -899,6 +959,19 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
       std::cout << "  " << socket.owner_node().name << " -> " << socket.name << ":\n";
       for (const bNodeSocket *other_socket : sources) {
+        std::cout << "    " << other_socket->owner_node().name << " -> " << other_socket->name
+                  << "\n";
+      }
+    }
+    std::cout << "Required References:\n";
+    for (const auto item : required_references_map.items()) {
+      const bNodeSocket &socket = *item.key;
+      const Span<const bNodeSocket *> required = item.value;
+      if (required.is_empty()) {
+        continue;
+      }
+      std::cout << "  " << socket.owner_node().name << " -> " << socket.name << ":\n";
+      for (const bNodeSocket *other_socket : required) {
         std::cout << "    " << other_socket->owner_node().name << " -> " << other_socket->name
                   << "\n";
       }
