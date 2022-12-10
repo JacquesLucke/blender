@@ -19,26 +19,26 @@ namespace blender::nodes::node_geo_instance_on_points_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Points")).description(N_("Points to instance on"));
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).supports_field().hide_value();
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).field_on_auto().hide_value();
   b.add_input<decl::Geometry>(N_("Instance"))
       .description(N_("Geometry that is instanced on the points"));
   b.add_input<decl::Bool>(N_("Pick Instance"))
-      .supports_field()
+      .field_on_auto()
       .description(N_("Choose instances from the \"Instance\" input at each point instead of "
                       "instancing the entire geometry"));
   b.add_input<decl::Int>(N_("Instance Index"))
       .implicit_field(implicit_field_inputs::id_or_index)
-      .description(N_(
-          "Index of the instance used for each point. This is only used when Pick Instances "
-          "is on. By default the point index is used"));
+      .description(
+          N_("Index of the instance used for each point. This is only used when Pick Instances "
+             "is on. By default the point index is used"));
   b.add_input<decl::Vector>(N_("Rotation"))
       .subtype(PROP_EULER)
-      .supports_field()
+      .field_on_auto()
       .description(N_("Rotation of the instances"));
   b.add_input<decl::Vector>(N_("Scale"))
       .default_value({1.0f, 1.0f, 1.0f})
       .subtype(PROP_XYZ)
-      .supports_field()
+      .field_on_auto()
       .description(N_("Scale of the instances"));
 
   b.add_output<decl::Geometry>(N_("Instances"));

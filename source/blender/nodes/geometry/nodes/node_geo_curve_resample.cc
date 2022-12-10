@@ -16,12 +16,12 @@ NODE_STORAGE_FUNCS(NodeGeometryCurveResample)
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Curve")).supported_type(GEO_COMPONENT_TYPE_CURVE);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).supports_field().hide_value();
-  b.add_input<decl::Int>(N_("Count")).default_value(10).min(1).max(100000).supports_field();
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).field_on_auto().hide_value();
+  b.add_input<decl::Int>(N_("Count")).default_value(10).min(1).max(100000).field_on_auto();
   b.add_input<decl::Float>(N_("Length"))
       .default_value(0.1f)
       .min(0.01f)
-      .supports_field()
+      .field_on_auto()
       .subtype(PROP_DISTANCE);
   b.add_output<decl::Geometry>(N_("Curve"));
 }

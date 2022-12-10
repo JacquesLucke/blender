@@ -18,7 +18,7 @@ namespace blender::nodes::node_geo_triangulate_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Mesh")).supported_type(GEO_COMPONENT_TYPE_MESH);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).supports_field().hide_value();
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).field_on_auto().hide_value();
   b.add_input<decl::Int>(N_("Minimum Vertices")).default_value(4).min(4).max(10000);
   b.add_output<decl::Geometry>(N_("Mesh"));
 }

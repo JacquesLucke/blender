@@ -7,8 +7,8 @@ namespace blender::nodes::node_geo_set_id_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Geometry"));
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_input<decl::Int>(N_("ID")).implicit_field(implicit_field_inputs::index);
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().field_on_auto();
+  b.add_input<decl::Int>(N_("ID")).implicit_field(implicit_field_inputs::index).reference_on({0});
   b.add_output<decl::Geometry>(N_("Geometry"));
 }
 

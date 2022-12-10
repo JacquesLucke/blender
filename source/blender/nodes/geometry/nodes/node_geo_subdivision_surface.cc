@@ -28,13 +28,13 @@ static void node_declare(NodeDeclarationBuilder &b)
       .default_value(0.0f)
       .min(0.0f)
       .max(1.0f)
-      .supports_field()
+      .field_on_auto()
       .subtype(PROP_FACTOR);
   b.add_input<decl::Float>(N_("Vertex Crease"))
       .default_value(0.0f)
       .min(0.0f)
       .max(1.0f)
-      .supports_field()
+      .field_on_auto()
       .subtype(PROP_FACTOR);
   b.add_output<decl::Geometry>(N_("Mesh"));
 }

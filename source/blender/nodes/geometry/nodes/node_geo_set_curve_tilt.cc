@@ -9,8 +9,8 @@ namespace blender::nodes::node_geo_set_curve_tilt_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Curve")).supported_type(GEO_COMPONENT_TYPE_CURVE);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_input<decl::Float>(N_("Tilt")).subtype(PROP_ANGLE).supports_field();
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().field_on_auto();
+  b.add_input<decl::Float>(N_("Tilt")).subtype(PROP_ANGLE).field_on_auto();
   b.add_output<decl::Geometry>(N_("Curve"));
 }
 

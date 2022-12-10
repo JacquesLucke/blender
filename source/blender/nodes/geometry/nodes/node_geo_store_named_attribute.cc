@@ -21,11 +21,11 @@ static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Geometry"));
   b.add_input<decl::String>(N_("Name")).is_attribute_name();
-  b.add_input<decl::Vector>(N_("Value"), "Value_Vector").supports_field();
-  b.add_input<decl::Float>(N_("Value"), "Value_Float").supports_field();
-  b.add_input<decl::Color>(N_("Value"), "Value_Color").supports_field();
-  b.add_input<decl::Bool>(N_("Value"), "Value_Bool").supports_field();
-  b.add_input<decl::Int>(N_("Value"), "Value_Int").supports_field();
+  b.add_input<decl::Vector>(N_("Value"), "Value_Vector").field_on_auto();
+  b.add_input<decl::Float>(N_("Value"), "Value_Float").field_on_auto();
+  b.add_input<decl::Color>(N_("Value"), "Value_Color").field_on_auto();
+  b.add_input<decl::Bool>(N_("Value"), "Value_Bool").field_on_auto();
+  b.add_input<decl::Int>(N_("Value"), "Value_Int").field_on_auto();
 
   b.add_output<decl::Geometry>(N_("Geometry"));
 }

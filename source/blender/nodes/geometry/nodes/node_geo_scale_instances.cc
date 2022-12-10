@@ -11,13 +11,13 @@ namespace blender::nodes::node_geo_scale_instances_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Instances")).only_instances();
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().field_on_auto();
   b.add_input<decl::Vector>(N_("Scale"))
       .subtype(PROP_XYZ)
       .default_value({1, 1, 1})
-      .supports_field();
-  b.add_input<decl::Vector>(N_("Center")).subtype(PROP_TRANSLATION).supports_field();
-  b.add_input<decl::Bool>(N_("Local Space")).default_value(true).supports_field();
+      .field_on_auto();
+  b.add_input<decl::Vector>(N_("Center")).subtype(PROP_TRANSLATION).field_on_auto();
+  b.add_input<decl::Bool>(N_("Local Space")).default_value(true).field_on_auto();
   b.add_output<decl::Geometry>(N_("Instances"));
 }
 

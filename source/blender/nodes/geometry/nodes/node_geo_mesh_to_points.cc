@@ -23,13 +23,13 @@ NODE_STORAGE_FUNCS(NodeGeometryMeshToPoints)
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Mesh")).supported_type(GEO_COMPONENT_TYPE_MESH);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).supports_field().hide_value();
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).field_on_auto().hide_value();
   b.add_input<decl::Vector>(N_("Position")).implicit_field(implicit_field_inputs::position);
   b.add_input<decl::Float>(N_("Radius"))
       .default_value(0.05f)
       .min(0.0f)
       .subtype(PROP_DISTANCE)
-      .supports_field();
+      .field_on_auto();
   b.add_output<decl::Geometry>(N_("Points"));
 }
 

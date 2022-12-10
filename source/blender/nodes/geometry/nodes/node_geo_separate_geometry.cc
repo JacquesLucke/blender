@@ -15,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Bool>(N_("Selection"))
       .default_value(true)
       .hide_value()
-      .supports_field()
+      .field_on_auto()
       .description(N_("The parts of the geometry that go into the first output"));
   b.add_output<decl::Geometry>(N_("Selection"))
       .description(N_("The parts of the geometry in the selection"));

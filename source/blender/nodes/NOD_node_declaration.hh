@@ -89,6 +89,10 @@ class SocketDeclaration {
 
   InputSocketFieldType input_field_type_ = InputSocketFieldType::None;
   OutputFieldDependency output_field_dependency_;
+  bool reference_pass_all_ = false;
+  Vector<int> reference_pass_;
+  bool reference_on_auto_ = false;
+  Vector<int> reference_on_;
 
   /** The priority of the input for determining the domain of the node. See
    * realtime_compositor::InputDescriptor for more information. */
@@ -263,6 +267,64 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
   {
     decl_->output_field_dependency_ = OutputFieldDependency::ForPartiallyDependentField(
         std::move(input_dependencies));
+    return *(Self *)this;
+  }
+  /* TODO: Better method for implicit fields. */
+  /* TODO: Handle geometry attribute propagation. */
+
+  Self &dependent_field_reference_pass(Vector<int> input_dependencies)
+  {
+    this->dependent_field(input_dependencies);
+    this->reference_pass(std::move(input_dependencies));
+    return *(Self *)this;
+  }
+
+  Self &field_on(Vector<int> indices)
+  {
+    if (decl_->in_out_ == SOCK_IN) {
+      this->supports_field();
+    }
+    else {
+      this->field_source();
+    }
+    this->reference_on(std::move(indices));
+    return *(Self *)this;
+  }
+
+  Self &field_on_auto()
+  {
+    if (decl_->in_out_ == SOCK_IN) {
+      this->supports_field();
+    }
+    else {
+      this->field_source();
+    }
+    decl_->reference_on_auto_ = true;
+    return *(Self *)this;
+  }
+
+  Self &field_source_reference_all()
+  {
+    this->field_source();
+    this->reference_pass_all();
+    return *(Self *)this;
+  }
+
+  Self &reference_pass(Vector<int> input_indices)
+  {
+    decl_->reference_pass_ = std::move(input_indices);
+    return *(Self *)this;
+  }
+
+  Self &reference_pass_all()
+  {
+    decl_->reference_pass_all_ = true;
+    return *(Self *)this;
+  }
+
+  Self &reference_on(Vector<int> indices)
+  {
+    decl_->reference_on_ = std::move(indices);
     return *(Self *)this;
   }
 

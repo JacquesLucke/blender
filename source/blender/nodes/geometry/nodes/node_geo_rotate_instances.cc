@@ -11,10 +11,10 @@ namespace blender::nodes::node_geo_rotate_instances_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Instances")).only_instances();
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_input<decl::Vector>(N_("Rotation")).subtype(PROP_EULER).supports_field();
-  b.add_input<decl::Vector>(N_("Pivot Point")).subtype(PROP_TRANSLATION).supports_field();
-  b.add_input<decl::Bool>(N_("Local Space")).default_value(true).supports_field();
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().field_on_auto();
+  b.add_input<decl::Vector>(N_("Rotation")).subtype(PROP_EULER).field_on_auto();
+  b.add_input<decl::Vector>(N_("Pivot Point")).subtype(PROP_TRANSLATION).field_on_auto();
+  b.add_input<decl::Bool>(N_("Local Space")).default_value(true).field_on_auto();
   b.add_output<decl::Geometry>(N_("Instances"));
 }
 

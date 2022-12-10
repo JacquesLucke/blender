@@ -7,8 +7,8 @@ namespace blender::nodes::node_geo_set_material_index_cc {
 static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Geometry")).supported_type(GEO_COMPONENT_TYPE_MESH);
-  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().supports_field();
-  b.add_input<decl::Int>(N_("Material Index")).supports_field().min(0);
+  b.add_input<decl::Bool>(N_("Selection")).default_value(true).hide_value().field_on_auto();
+  b.add_input<decl::Int>(N_("Material Index")).field_on_auto().min(0);
   b.add_output<decl::Geometry>(N_("Geometry"));
 }
 
