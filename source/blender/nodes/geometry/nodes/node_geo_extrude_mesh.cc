@@ -31,7 +31,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .hide_value();
   b.add_input<decl::Float>(N_("Offset Scale")).default_value(1.0f).field_on_auto();
   b.add_input<decl::Bool>(N_("Individual")).default_value(true);
-  b.add_output<decl::Geometry>("Mesh");
+  b.add_output<decl::Geometry>("Mesh").propagate_from_auto();
   b.add_output<decl::Bool>(N_("Top")).field_on_auto();
   b.add_output<decl::Bool>(N_("Side")).field_on_auto();
 }

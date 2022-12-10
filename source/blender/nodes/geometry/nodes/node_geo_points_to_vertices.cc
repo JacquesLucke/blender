@@ -17,7 +17,7 @@ static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Points")).supported_type(GEO_COMPONENT_TYPE_POINT_CLOUD);
   b.add_input<decl::Bool>(N_("Selection")).default_value(true).field_on_auto().hide_value();
-  b.add_output<decl::Geometry>(N_("Mesh"));
+  b.add_output<decl::Geometry>(N_("Mesh")).propagate_from_auto();
 }
 
 /* One improvement would be to move the attribute arrays directly to the mesh when possible. */

@@ -1132,7 +1132,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .hide_value()
       .field_on_auto()
       .description(N_("The parts of the geometry to be deleted"));
-  b.add_output<decl::Geometry>(N_("Geometry"));
+  b.add_output<decl::Geometry>(N_("Geometry")).propagate_from_auto();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

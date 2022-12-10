@@ -34,7 +34,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .subtype(PROP_DISTANCE)
       .make_available(
           [](bNode &node) { node_storage(node).mode = GEO_NODE_CURVE_RESAMPLE_LENGTH; });
-  b.add_output<decl::Geometry>(N_("Points"));
+  b.add_output<decl::Geometry>(N_("Points")).propagate_from_auto();
   b.add_output<decl::Vector>(N_("Tangent")).field_on_auto();
   b.add_output<decl::Vector>(N_("Normal")).field_on_auto();
   b.add_output<decl::Vector>(N_("Rotation")).field_on_auto();

@@ -41,7 +41,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .field_on_auto()
       .description(N_("Scale of the instances"));
 
-  b.add_output<decl::Geometry>(N_("Instances"));
+  b.add_output<decl::Geometry>(N_("Instances")).propagate_from_auto();
 }
 
 static void add_instances_from_component(

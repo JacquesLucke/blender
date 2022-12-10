@@ -34,7 +34,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .field_on_auto()
       .description(N_("Direction in which to scale the element"))
       .make_available([](bNode &node) { node.custom2 = GEO_NODE_SCALE_ELEMENTS_SINGLE_AXIS; });
-  b.add_output<decl::Geometry>(N_("Geometry"));
+  b.add_output<decl::Geometry>(N_("Geometry")).propagate_from_auto();
 };
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

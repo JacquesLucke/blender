@@ -36,7 +36,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .max(1.0f)
       .field_on_auto()
       .subtype(PROP_FACTOR);
-  b.add_output<decl::Geometry>(N_("Mesh"));
+  b.add_output<decl::Geometry>(N_("Mesh")).propagate_from_auto();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

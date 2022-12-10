@@ -15,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .min(0.0f)
       .field_on_auto()
       .subtype(PROP_DISTANCE);
-  b.add_output<decl::Geometry>(N_("Points"));
+  b.add_output<decl::Geometry>(N_("Points")).propagate_from_auto();
 }
 
 static void set_radius_in_component(PointCloud &pointcloud,

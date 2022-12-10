@@ -15,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .default_value(0.005f)
       .supports_field()
       .subtype(PROP_DISTANCE);
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_output<decl::Geometry>(N_("Curve")).propagate_from_auto();
 }
 
 static void set_radius(bke::CurvesGeometry &curves,

@@ -29,7 +29,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Bool>(N_("Limit Radius"))
       .description(
           N_("Limit the maximum value of the radius in order to avoid overlapping fillets"));
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_output<decl::Geometry>(N_("Curve")).propagate_from_auto();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

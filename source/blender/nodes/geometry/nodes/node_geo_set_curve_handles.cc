@@ -26,7 +26,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       })
       .reference_on_auto();
   b.add_input<decl::Vector>(N_("Offset")).default_value(float3(0.0f, 0.0f, 0.0f)).field_on_auto();
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_output<decl::Geometry>(N_("Curve")).propagate_from_auto();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

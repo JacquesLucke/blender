@@ -57,7 +57,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .make_available(enable_poisson);
   b.add_input<decl::Int>(N_("Seed"));
 
-  b.add_output<decl::Geometry>(N_("Points"));
+  b.add_output<decl::Geometry>(N_("Points")).propagate_from_auto();
   b.add_output<decl::Vector>(N_("Normal")).field_on_auto();
   b.add_output<decl::Vector>(N_("Rotation")).subtype(PROP_EULER).field_on_auto();
 }

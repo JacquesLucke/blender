@@ -22,7 +22,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Bool>(N_("Value"), "Value_003").field_on_auto();
   b.add_input<decl::Int>(N_("Value"), "Value_004").field_on_auto();
 
-  b.add_output<decl::Geometry>(N_("Geometry"));
+  b.add_output<decl::Geometry>(N_("Geometry")).propagate_from_auto();
   b.add_output<decl::Vector>(N_("Attribute")).field_on_auto();
   b.add_output<decl::Float>(N_("Attribute"), "Attribute_001").field_on_auto();
   b.add_output<decl::Color>(N_("Attribute"), "Attribute_002").field_on_auto();

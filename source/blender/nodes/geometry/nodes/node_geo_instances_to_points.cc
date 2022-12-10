@@ -22,7 +22,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .min(0.0f)
       .subtype(PROP_DISTANCE)
       .field_on_auto();
-  b.add_output<decl::Geometry>(N_("Points"));
+  b.add_output<decl::Geometry>(N_("Points")).propagate_from_auto();
 }
 
 static void convert_instances_to_points(GeometrySet &geometry_set,

@@ -21,7 +21,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .field_on_auto()
       .description(
           N_("The number of control points to create on the segment following each point"));
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_output<decl::Geometry>(N_("Curve")).propagate_from_auto();
 }
 
 static void node_geo_exec(GeoNodeExecParams params)

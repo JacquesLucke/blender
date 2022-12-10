@@ -93,6 +93,8 @@ class SocketDeclaration {
   Vector<int> reference_pass_;
   bool reference_on_auto_ = false;
   Vector<int> reference_on_;
+  bool propagate_from_auto_ = false;
+  Vector<int> propagate_from_;
 
   /** The priority of the input for determining the domain of the node. See
    * realtime_compositor::InputDescriptor for more information. */
@@ -269,7 +271,6 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
         std::move(input_dependencies));
     return *(Self *)this;
   }
-  /* TODO: Handle geometry attribute propagation. */
 
   Self &dependent_field_reference_pass(Vector<int> input_dependencies)
   {
@@ -330,6 +331,18 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
   Self &reference_on_auto()
   {
     decl_->reference_on_auto_ = true;
+    return *(Self *)this;
+  }
+
+  Self &propagate_from(Vector<int> input_indices)
+  {
+    decl_->propagate_from_ = std::move(input_indices);
+    return *(Self *)this;
+  }
+
+  Self &propagate_from_auto()
+  {
+    decl_->propagate_from_auto_ = true;
     return *(Self *)this;
   }
 

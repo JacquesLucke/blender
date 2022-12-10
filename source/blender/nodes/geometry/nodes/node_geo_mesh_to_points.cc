@@ -30,7 +30,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .min(0.0f)
       .subtype(PROP_DISTANCE)
       .field_on_auto();
-  b.add_output<decl::Geometry>(N_("Points"));
+  b.add_output<decl::Geometry>(N_("Points")).propagate_from_auto();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

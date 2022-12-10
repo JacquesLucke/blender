@@ -46,7 +46,7 @@ static void geo_node_distribute_points_in_volume_declare(NodeDeclarationBuilder 
       .min(0.0f)
       .max(FLT_MAX)
       .description(N_("Minimum density of a volume cell to contain a grid point"));
-  b.add_output<decl::Geometry>(N_("Points"));
+  b.add_output<decl::Geometry>(N_("Points")).propagate_from_auto();
 }
 
 static void geo_node_distribute_points_in_volume_layout(uiLayout *layout,

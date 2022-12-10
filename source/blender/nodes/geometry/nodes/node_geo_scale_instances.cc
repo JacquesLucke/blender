@@ -18,7 +18,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .field_on_auto();
   b.add_input<decl::Vector>(N_("Center")).subtype(PROP_TRANSLATION).field_on_auto();
   b.add_input<decl::Bool>(N_("Local Space")).default_value(true).field_on_auto();
-  b.add_output<decl::Geometry>(N_("Instances"));
+  b.add_output<decl::Geometry>(N_("Instances")).propagate_from_auto();
 }
 
 static void scale_instances(GeoNodeExecParams &params, bke::Instances &instances)

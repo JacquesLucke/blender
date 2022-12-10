@@ -15,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Vector>(N_("Rotation")).subtype(PROP_EULER).field_on_auto();
   b.add_input<decl::Vector>(N_("Pivot Point")).subtype(PROP_TRANSLATION).field_on_auto();
   b.add_input<decl::Bool>(N_("Local Space")).default_value(true).field_on_auto();
-  b.add_output<decl::Geometry>(N_("Instances"));
+  b.add_output<decl::Geometry>(N_("Instances")).propagate_from_auto();
 }
 
 static void rotate_instances(GeoNodeExecParams &params, bke::Instances &instances)

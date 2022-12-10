@@ -11,7 +11,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Int>(N_("ID"))
       .implicit_field(implicit_field_inputs::index)
       .reference_on_auto();
-  b.add_output<decl::Geometry>(N_("Geometry"));
+  b.add_output<decl::Geometry>(N_("Geometry")).propagate_from_auto();
 }
 
 static void set_id_in_component(GeometryComponent &component,

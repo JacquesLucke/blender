@@ -15,7 +15,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Geometry>(N_("Mesh")).supported_type(GEO_COMPONENT_TYPE_MESH);
   b.add_input<decl::Bool>(N_("Start Vertices")).default_value(true).hide_value().field_on_auto();
   b.add_input<decl::Int>(N_("Next Vertex Index")).default_value(-1).hide_value().field_on_auto();
-  b.add_output<decl::Geometry>(N_("Curves"));
+  b.add_output<decl::Geometry>(N_("Curves")).propagate_from_auto();
 }
 
 static Curves *edge_paths_to_curves_convert(const Mesh &mesh,

@@ -27,7 +27,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Bool>(N_("Value"), "Value_Bool").field_on_auto();
   b.add_input<decl::Int>(N_("Value"), "Value_Int").field_on_auto();
 
-  b.add_output<decl::Geometry>(N_("Geometry"));
+  b.add_output<decl::Geometry>(N_("Geometry")).propagate_from_auto();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

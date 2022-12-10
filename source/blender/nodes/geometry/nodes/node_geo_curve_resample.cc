@@ -23,7 +23,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .min(0.01f)
       .field_on_auto()
       .subtype(PROP_DISTANCE);
-  b.add_output<decl::Geometry>(N_("Curve"));
+  b.add_output<decl::Geometry>(N_("Curve")).propagate_from_auto();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

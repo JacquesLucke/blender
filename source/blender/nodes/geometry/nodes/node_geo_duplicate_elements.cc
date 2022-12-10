@@ -36,6 +36,7 @@ static void node_declare(NodeDeclarationBuilder &b)
       .description(N_("The number of duplicates to create for each element"));
 
   b.add_output<decl::Geometry>(N_("Geometry"))
+      .propagate_from_auto()
       .description(N_("The duplicated geometry, not including the original geometry"));
   b.add_output<decl::Int>(N_("Duplicate Index"))
       .field_on_auto()

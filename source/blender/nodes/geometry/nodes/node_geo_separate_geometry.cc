@@ -18,8 +18,10 @@ static void node_declare(NodeDeclarationBuilder &b)
       .field_on_auto()
       .description(N_("The parts of the geometry that go into the first output"));
   b.add_output<decl::Geometry>(N_("Selection"))
+      .propagate_from_auto()
       .description(N_("The parts of the geometry in the selection"));
   b.add_output<decl::Geometry>(N_("Inverted"))
+      .propagate_from_auto()
       .description(N_("The parts of the geometry not in the selection"));
 }
 
