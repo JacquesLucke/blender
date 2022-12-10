@@ -72,6 +72,7 @@ using ImplicitInputValueFn = std::function<void(const bNode &node, void *r_value
  */
 class SocketDeclaration {
  protected:
+ public:
   std::string name_;
   std::string identifier_;
   std::string description_;

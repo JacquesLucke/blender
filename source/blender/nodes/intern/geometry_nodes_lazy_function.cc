@@ -747,6 +747,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->prepare_group_inputs();
     this->prepare_group_outputs();
     this->build_group_input_node();
+    this->analyze_references();
     this->handle_nodes();
     this->handle_links();
     this->add_default_inputs();
@@ -799,6 +800,107 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
       else {
         mapping_->group_input_sockets.append(&group_input_lf_node_->output(group_input_index));
+      }
+    }
+  }
+
+  void analyze_references()
+  {
+    MultiValueMap<const bNodeSocket *, const bNodeSocket *> propagated_map;
+    MultiValueMap<const bNodeSocket *, const bNodeSocket *> reference_sources_map;
+    const Span<const bNode *> sorted_nodes = btree_.toposort_left_to_right();
+    for (const bNode *node : sorted_nodes) {
+      for (const int i : node->input_sockets().index_range()) {
+        const bNodeSocket &socket = node->input_socket(i);
+        if (!socket.is_available()) {
+          continue;
+        }
+        for (const bNodeLink *link : socket.directly_linked_links()) {
+          if (link->is_muted()) {
+            continue;
+          }
+          const bNodeSocket &origin = *link->fromsock;
+          propagated_map.add_multiple(&socket, propagated_map.lookup(&origin));
+          reference_sources_map.add_multiple(&socket, reference_sources_map.lookup(&origin));
+        }
+      }
+      const NodeDeclaration *node_declaration = node->declaration();
+      if (node_declaration == nullptr) {
+        continue;
+      }
+      for (const int i : node->output_sockets().index_range()) {
+        const bNodeSocket &socket = node->output_socket(i);
+        if (!socket.is_available()) {
+          continue;
+        }
+        const SocketDeclaration &socket_decl = *node_declaration->outputs()[i];
+        Vector<int> reference_on = socket_decl.reference_on_;
+        if (socket_decl.reference_on_auto_) {
+          for (const bNodeSocket *other_output : node->output_sockets()) {
+            if (other_output->is_available()) {
+              if (other_output->type == SOCK_GEOMETRY) {
+                reference_on.append(other_output->index());
+              }
+            }
+          }
+        }
+        Vector<int> reference_pass = socket_decl.reference_pass_;
+        if (socket_decl.reference_pass_all_ || node_declaration->is_function_node()) {
+          for (const bNodeSocket *input : node->input_sockets()) {
+            if (input->is_available()) {
+              reference_pass.append(input->index());
+            }
+          }
+        }
+        Vector<int> propagate_from = socket_decl.propagate_from_;
+        if (socket_decl.propagate_from_auto_ || node_declaration->is_function_node()) {
+          for (const bNodeSocket *input : node->input_sockets()) {
+            if (input->is_available()) {
+              propagate_from.append(input->index());
+            }
+          }
+        }
+        if (!reference_on.is_empty()) {
+          reference_sources_map.add(&socket, &socket);
+        }
+        for (const int reference_on_index : reference_on) {
+          propagated_map.add(&node->output_socket(reference_on_index), &socket);
+        }
+        for (const int reference_pass_index : reference_pass) {
+          reference_sources_map.add_multiple(
+              &socket, reference_sources_map.lookup(&node->input_socket(reference_pass_index)));
+        }
+        for (const int propagated_from_index : propagate_from) {
+          propagated_map.add_multiple(
+              &socket, propagated_map.lookup(&node->input_socket(propagated_from_index)));
+        }
+      }
+    }
+
+    std::cout << "Propagated:\n";
+    for (const auto item : propagated_map.items()) {
+      const bNodeSocket &socket = *item.key;
+      const Span<const bNodeSocket *> propagated = item.value;
+      if (propagated.is_empty()) {
+        continue;
+      }
+      std::cout << "  " << socket.owner_node().name << " -> " << socket.name << ":\n";
+      for (const bNodeSocket *other_socket : propagated) {
+        std::cout << "    " << other_socket->owner_node().name << " -> " << other_socket->name
+                  << "\n";
+      }
+    }
+    std::cout << "Reference Sources:\n";
+    for (const auto item : reference_sources_map.items()) {
+      const bNodeSocket &socket = *item.key;
+      const Span<const bNodeSocket *> sources = item.value;
+      if (sources.is_empty()) {
+        continue;
+      }
+      std::cout << "  " << socket.owner_node().name << " -> " << socket.name << ":\n";
+      for (const bNodeSocket *other_socket : sources) {
+        std::cout << "    " << other_socket->owner_node().name << " -> " << other_socket->name
+                  << "\n";
       }
     }
   }
