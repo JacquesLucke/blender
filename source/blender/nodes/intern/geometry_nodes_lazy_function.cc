@@ -819,6 +819,9 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             continue;
           }
           const bNodeSocket &origin = *link->fromsock;
+          if (!origin.is_available()) {
+            continue;
+          }
           propagated_map.add_multiple(&socket, propagated_map.lookup(&origin));
           reference_sources_map.add_multiple(&socket, reference_sources_map.lookup(&origin));
         }
@@ -833,47 +836,29 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           continue;
         }
         const SocketDeclaration &socket_decl = *node_declaration->outputs()[i];
-        Vector<int> reference_on = socket_decl.reference_on_;
-        if (socket_decl.reference_on_auto_) {
-          for (const bNodeSocket *other_output : node->output_sockets()) {
-            if (other_output->is_available()) {
-              if (other_output->type == SOCK_GEOMETRY) {
-                reference_on.append(other_output->index());
-              }
-            }
+        bool found_reference_on = false;
+        for (const int reference_on_index : socket_decl.reference_on_) {
+          const bNodeSocket &other_socket = node->output_socket(reference_on_index);
+          if (other_socket.is_available()) {
+            propagated_map.add(&other_socket, &socket);
+            found_reference_on = true;
           }
         }
-        Vector<int> reference_pass = socket_decl.reference_pass_;
-        if (socket_decl.reference_pass_all_ || node_declaration->is_function_node()) {
-          for (const bNodeSocket *input : node->input_sockets()) {
-            if (input->is_available()) {
-              reference_pass.append(input->index());
-            }
-          }
-        }
-        Vector<int> propagate_from = socket_decl.propagate_from_;
-        if (socket_decl.propagate_from_auto_) {
-          for (const bNodeSocket *input : node->input_sockets()) {
-            if (input->is_available()) {
-              if (input->type == SOCK_GEOMETRY) {
-                propagate_from.append(input->index());
-              }
-            }
-          }
-        }
-        if (!reference_on.is_empty()) {
+        if (found_reference_on) {
           reference_sources_map.add(&socket, &socket);
         }
-        for (const int reference_on_index : reference_on) {
-          propagated_map.add(&node->output_socket(reference_on_index), &socket);
+        for (const int reference_pass_index : socket_decl.reference_pass_) {
+          const bNodeSocket &other_socket = node->input_socket(reference_pass_index);
+          if (other_socket.is_available()) {
+            reference_sources_map.add_multiple(&socket,
+                                               reference_sources_map.lookup(&other_socket));
+          }
         }
-        for (const int reference_pass_index : reference_pass) {
-          reference_sources_map.add_multiple(
-              &socket, reference_sources_map.lookup(&node->input_socket(reference_pass_index)));
-        }
-        for (const int propagated_from_index : propagate_from) {
-          propagated_map.add_multiple(
-              &socket, propagated_map.lookup(&node->input_socket(propagated_from_index)));
+        for (const int propagated_from_index : socket_decl.propagate_from_) {
+          const bNodeSocket &other_socket = node->input_socket(propagated_from_index);
+          if (other_socket.is_available()) {
+            propagated_map.add_multiple(&socket, propagated_map.lookup(&other_socket));
+          }
         }
       }
     }
@@ -894,24 +879,19 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             continue;
           }
           const bNodeSocket &target = *link->tosock;
+          if (!target.is_available()) {
+            continue;
+          }
           required_references_map.add_multiple(&socket, required_references_map.lookup(&target));
         }
 
         const SocketDeclaration &socket_decl = *node_declaration->outputs()[socket.index()];
-        Vector<int> propagate_from = socket_decl.propagate_from_;
-        if (socket_decl.propagate_from_auto_) {
-          for (const bNodeSocket *input_socket : node->input_sockets()) {
-            if (input_socket->is_available()) {
-              if (input_socket->type == SOCK_GEOMETRY) {
-                propagate_from.append(input_socket->index());
-              }
-            }
-          }
-        }
-        for (const int propagate_from_index : propagate_from) {
+        for (const int propagate_from_index : socket_decl.propagate_from_) {
           const bNodeSocket &input_socket = node->input_socket(propagate_from_index);
-          required_references_map.add_multiple(&input_socket,
-                                               required_references_map.lookup(&socket));
+          if (input_socket.is_available()) {
+            required_references_map.add_multiple(&input_socket,
+                                                 required_references_map.lookup(&socket));
+          }
         }
       }
       for (const int i : node->input_sockets().index_range()) {
@@ -920,19 +900,12 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           continue;
         }
         const SocketDeclaration &socket_decl = *node_declaration->inputs()[socket.index()];
-        Vector<int> reference_on = socket_decl.reference_on_;
-        if (socket_decl.reference_on_auto_) {
-          for (const bNodeSocket *s : node->input_sockets()) {
-            if (s->is_available()) {
-              if (s->type == SOCK_GEOMETRY) {
-                reference_on.append(s->index());
-              }
-            }
+        for (const int reference_on_index : socket_decl.reference_on_) {
+          const bNodeSocket &other_socket = node->input_socket(reference_on_index);
+          if (other_socket.is_available()) {
+            required_references_map.add_multiple(&other_socket,
+                                                 reference_sources_map.lookup(&socket));
           }
-        }
-        for (const int reference_on_index : reference_on) {
-          required_references_map.add_multiple(&node->input_socket(reference_on_index),
-                                               reference_sources_map.lookup(&socket));
         }
       }
     }

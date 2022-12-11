@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
 #include "NOD_node_declaration.hh"
+#include "NOD_socket_declarations.hh"
+#include "NOD_socket_declarations_geometry.hh"
 
 #include "BKE_geometry_fields.hh"
 #include "BKE_node.h"
@@ -17,13 +19,53 @@ void build_node_declaration(const bNodeType &typeinfo, NodeDeclaration &r_declar
 void NodeDeclarationBuilder::finalize()
 {
   if (is_function_node_) {
-    for (SocketDeclarationPtr &socket_decl : declaration_.inputs_) {
-      if (socket_decl->input_field_type_ != InputSocketFieldType::Implicit) {
-        socket_decl->input_field_type_ = InputSocketFieldType::IsSupported;
+    for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : input_builders_) {
+      SocketDeclaration &socket_decl = *socket_builder->declaration();
+      if (socket_decl.input_field_type_ != InputSocketFieldType::Implicit) {
+        socket_decl.input_field_type_ = InputSocketFieldType::IsSupported;
       }
     }
-    for (SocketDeclarationPtr &socket_decl : declaration_.outputs_) {
-      socket_decl->output_field_dependency_ = OutputFieldDependency::ForDependentField();
+    for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : output_builders_) {
+      SocketDeclaration &socket_decl = *socket_builder->declaration();
+      socket_decl.output_field_dependency_ = OutputFieldDependency::ForDependentField();
+      socket_builder->reference_pass_all_ = true;
+    }
+  }
+  for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : input_builders_) {
+    if (socket_builder->reference_on_auto_) {
+      SocketDeclaration &socket_decl = *socket_builder->declaration();
+      for (const int input_i : declaration_.inputs_.index_range()) {
+        SocketDeclaration &other_socket_decl = *declaration_.inputs_[input_i];
+        if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
+          socket_decl.reference_on_.append(input_i);
+        }
+      }
+    }
+  }
+  for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : output_builders_) {
+    if (socket_builder->reference_on_auto_) {
+      SocketDeclaration &socket_decl = *socket_builder->declaration();
+      for (const int output_i : declaration_.outputs_.index_range()) {
+        SocketDeclaration &other_socket_decl = *declaration_.outputs_[output_i];
+        if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
+          socket_decl.reference_on_.append(output_i);
+        }
+      }
+    }
+    if (socket_builder->reference_pass_all_) {
+      SocketDeclaration &socket_decl = *socket_builder->declaration();
+      for (const int input_i : declaration_.inputs_.index_range()) {
+        socket_decl.reference_pass_.append(input_i);
+      }
+    }
+    if (socket_builder->propagate_from_auto_) {
+      SocketDeclaration &socket_decl = *socket_builder->declaration();
+      for (const int input_i : declaration_.inputs_.index_range()) {
+        SocketDeclaration &other_socket_decl = *declaration_.inputs_[input_i];
+        if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
+          socket_decl.propagate_from_.append(input_i);
+        }
+      }
     }
   }
 }

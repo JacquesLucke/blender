@@ -90,11 +90,8 @@ class SocketDeclaration {
 
   InputSocketFieldType input_field_type_ = InputSocketFieldType::None;
   OutputFieldDependency output_field_dependency_;
-  bool reference_pass_all_ = false;
   Vector<int> reference_pass_;
-  bool reference_on_auto_ = false;
   Vector<int> reference_on_;
-  bool propagate_from_auto_ = false;
   Vector<int> propagate_from_;
 
   /** The priority of the input for determining the domain of the node. See
@@ -164,8 +161,18 @@ class SocketDeclaration {
 };
 
 class BaseSocketDeclarationBuilder {
+ protected:
+  bool reference_pass_all_ = false;
+  bool reference_on_auto_ = false;
+  bool propagate_from_auto_ = false;
+
+  friend class NodeDeclarationBuilder;
+
  public:
   virtual ~BaseSocketDeclarationBuilder() = default;
+
+ protected:
+  virtual SocketDeclaration *declaration() = 0;
 };
 
 /**
@@ -319,7 +326,7 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
 
   Self &reference_pass_all()
   {
-    decl_->reference_pass_all_ = true;
+    reference_pass_all_ = true;
     return *(Self *)this;
   }
 
@@ -331,7 +338,7 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
 
   Self &reference_on_auto()
   {
-    decl_->reference_on_auto_ = true;
+    reference_on_auto_ = true;
     return *(Self *)this;
   }
 
@@ -343,7 +350,7 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
 
   Self &propagate_from_auto()
   {
-    decl_->propagate_from_auto_ = true;
+    propagate_from_auto_ = true;
     return *(Self *)this;
   }
 
@@ -382,6 +389,12 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
     decl_->make_available_fn_ = std::move(fn);
     return *(Self *)this;
   }
+
+ protected:
+  SocketDeclaration *declaration() override
+  {
+    return decl_;
+  }
 };
 
 using SocketDeclarationPtr = std::unique_ptr<SocketDeclaration>;
@@ -406,7 +419,8 @@ class NodeDeclaration {
 class NodeDeclarationBuilder {
  private:
   NodeDeclaration &declaration_;
-  Vector<std::unique_ptr<BaseSocketDeclarationBuilder>> builders_;
+  Vector<std::unique_ptr<BaseSocketDeclarationBuilder>> input_builders_;
+  Vector<std::unique_ptr<BaseSocketDeclarationBuilder>> output_builders_;
   bool is_function_node_ = false;
 
  public:
@@ -630,7 +644,8 @@ inline typename DeclType::Builder &NodeDeclarationBuilder::add_socket(StringRef 
   socket_decl->in_out_ = in_out;
   declarations.append(std::move(socket_decl));
   Builder &socket_decl_builder_ref = *socket_decl_builder;
-  builders_.append(std::move(socket_decl_builder));
+  ((in_out == SOCK_IN) ? input_builders_ : output_builders_)
+      .append(std::move(socket_decl_builder));
   return socket_decl_builder_ref;
 }
 
