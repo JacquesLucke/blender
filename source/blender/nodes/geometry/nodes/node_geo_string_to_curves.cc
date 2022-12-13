@@ -249,7 +249,7 @@ static std::optional<TextLayout> get_text_layout(GeoNodeExecParams &params)
     }
   }
 
-  if (params.output_is_required("Line")) {
+  if (params.add_data_referenced_by_output("Line")) {
     layout.line_numbers.reinitialize(layout.positions.size());
     for (const int i : layout.positions.index_range()) {
       CharTrans &ct = chartransdata[i];
@@ -278,7 +278,7 @@ static Map<int, int> create_curve_instances(GeoNodeExecParams &params,
 {
   VFont *vfont = reinterpret_cast<VFont *>(params.node().id);
   Map<int, int> handles;
-  bool pivot_required = params.output_is_required("Pivot Point");
+  bool pivot_required = params.add_data_referenced_by_output("Pivot Point");
 
   for (int i : layout.char_codes.index_range()) {
     if (handles.contains(layout.char_codes[i])) {
@@ -341,8 +341,7 @@ static void create_attributes(GeoNodeExecParams &params,
 {
   MutableAttributeAccessor attributes = instances.attributes_for_write();
 
-  if (params.output_is_required("Line")) {
-    StrongAnonymousAttributeID line_id = StrongAnonymousAttributeID("Line");
+  if (StrongAnonymousAttributeID line_id = params.get_data_reference_if_needed("Line")) {
     SpanAttributeWriter<int> line_attribute = attributes.lookup_or_add_for_write_only_span<int>(
         line_id.get(), ATTR_DOMAIN_INSTANCE);
     line_attribute.span.copy_from(layout.line_numbers);
@@ -352,8 +351,7 @@ static void create_attributes(GeoNodeExecParams &params,
                                                                 params.attribute_producer_name()));
   }
 
-  if (params.output_is_required("Pivot Point")) {
-    StrongAnonymousAttributeID pivot_id = StrongAnonymousAttributeID("Pivot");
+  if (StrongAnonymousAttributeID pivot_id = params.get_data_reference_if_needed("Pivot")) {
     SpanAttributeWriter<float3> pivot_attribute =
         attributes.lookup_or_add_for_write_only_span<float3>(pivot_id.get(), ATTR_DOMAIN_INSTANCE);
 

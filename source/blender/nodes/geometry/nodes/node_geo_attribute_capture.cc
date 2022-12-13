@@ -142,8 +142,9 @@ static void node_geo_exec(GeoNodeExecParams params)
   const eAttrDomain domain = eAttrDomain(storage.domain);
 
   const std::string output_identifier = "Attribute" + identifier_suffix(data_type);
+  StrongAnonymousAttributeID attribute_id = params.get_data_reference_if_needed(output_identifier);
 
-  if (!params.output_is_required(output_identifier)) {
+  if (!attribute_id) {
     params.set_output("Geometry", geometry_set);
     return;
   }
@@ -171,7 +172,6 @@ static void node_geo_exec(GeoNodeExecParams params)
       break;
   }
 
-  WeakAnonymousAttributeID anonymous_id{"Attribute"};
   const CPPType &type = field.cpp_type();
 
   /* Run on the instances component separately to only affect the top level of instances. */
@@ -179,7 +179,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     if (geometry_set.has_instances()) {
       GeometryComponent &component = geometry_set.get_component_for_write(
           GEO_COMPONENT_TYPE_INSTANCES);
-      bke::try_capture_field_on_geometry(component, anonymous_id.get(), domain, field);
+      bke::try_capture_field_on_geometry(component, attribute_id.get(), domain, field);
     }
   }
   else {
@@ -190,14 +190,14 @@ static void node_geo_exec(GeoNodeExecParams params)
       for (const GeometryComponentType type : types) {
         if (geometry_set.has(type)) {
           GeometryComponent &component = geometry_set.get_component_for_write(type);
-          bke::try_capture_field_on_geometry(component, anonymous_id.get(), domain, field);
+          bke::try_capture_field_on_geometry(component, attribute_id.get(), domain, field);
         }
       }
     });
   }
 
   GField output_field{std::make_shared<bke::AnonymousAttributeFieldInput>(
-      std::move(anonymous_id), type, params.attribute_producer_name())};
+      std::move(attribute_id), type, params.attribute_producer_name())};
 
   switch (data_type) {
     case CD_PROP_FLOAT: {

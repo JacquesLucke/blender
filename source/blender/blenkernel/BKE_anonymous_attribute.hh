@@ -81,8 +81,10 @@ template<bool IsStrongReference> class OwnedAnonymousAttributeID {
   template<bool OtherIsStrong>
   OwnedAnonymousAttributeID &operator=(OwnedAnonymousAttributeID<OtherIsStrong> &&other)
   {
-    if (this == &other) {
-      return *this;
+    if constexpr (IsStrongReference == OtherIsStrong) {
+      if (this == &other) {
+        return *this;
+      }
     }
     this->~OwnedAnonymousAttributeID();
     new (this) OwnedAnonymousAttributeID(std::move(other));

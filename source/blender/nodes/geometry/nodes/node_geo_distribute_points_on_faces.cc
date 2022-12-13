@@ -518,12 +518,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   const Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
 
   AttributeOutputs attribute_outputs;
-  if (params.output_is_required("Normal")) {
-    attribute_outputs.normal_id = StrongAnonymousAttributeID("Normal");
-  }
-  if (params.output_is_required("Rotation")) {
-    attribute_outputs.rotation_id = StrongAnonymousAttributeID("Rotation");
-  }
+  attribute_outputs.normal_id = params.get_data_reference_if_needed("Normal");
+  attribute_outputs.rotation_id = params.get_data_reference_if_needed("Rotation");
 
   lazy_threading::send_hint();
 

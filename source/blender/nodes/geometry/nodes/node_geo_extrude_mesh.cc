@@ -1334,12 +1334,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   const Field<float3> final_offset{std::move(multiply_op)};
 
   AttributeOutputs attribute_outputs;
-  if (params.output_is_required("Top")) {
-    attribute_outputs.top_id = StrongAnonymousAttributeID("Top");
-  }
-  if (params.output_is_required("Side")) {
-    attribute_outputs.side_id = StrongAnonymousAttributeID("Side");
-  }
+  attribute_outputs.top_id = params.get_data_reference_if_needed("Top");
+  attribute_outputs.side_id = params.get_data_reference_if_needed("Side");
 
   const bool extrude_individual = mode == GEO_NODE_EXTRUDE_MESH_FACES &&
                                   params.extract_input<bool>("Individual");

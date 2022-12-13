@@ -1092,9 +1092,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   Field<int> count_field = params.extract_input<Field<int>>("Amount");
   Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
   IndexAttributes attribute_outputs;
-  if (params.output_is_required("Duplicate Index")) {
-    attribute_outputs.duplicate_index = StrongAnonymousAttributeID("duplicate_index");
-  }
+  attribute_outputs.duplicate_index = params.get_data_reference_if_needed("Duplicate Index");
 
   if (duplicate_domain == ATTR_DOMAIN_INSTANCE) {
     duplicate_instances(geometry_set, count_field, selection_field, attribute_outputs);

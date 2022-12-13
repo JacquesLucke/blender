@@ -245,6 +245,24 @@ class GeoNodeExecParams {
 
   void used_named_attribute(StringRef attribute_name, NamedAttributeUsage usage);
 
+  bool add_data_referenced_by_output(StringRef /*output_identifier*/)
+  {
+    return true;
+  }
+
+  WeakAnonymousAttributeID get_data_reference(StringRefNull name)
+  {
+    return WeakAnonymousAttributeID(name);
+  }
+
+  WeakAnonymousAttributeID get_data_reference_if_needed(StringRefNull output_identifier)
+  {
+    if (this->add_data_referenced_by_output(output_identifier)) {
+      return this->get_data_reference(output_identifier);
+    }
+    return {};
+  }
+
  private:
   /* Utilities for detecting common errors at when using this class. */
   void check_input_access(StringRef identifier, const CPPType *requested_type = nullptr) const;
