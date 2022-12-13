@@ -613,7 +613,8 @@ struct DensitySubtractOperationExecutor {
     }
     self_->deformed_root_positions_ = std::move(new_deformed_positions);
 
-    curves_->remove_curves(mask_to_delete);
+    bke::AnonymousAttributePropagationInfo propagation_info;
+    curves_->remove_curves(mask_to_delete, propagation_info);
     BLI_assert(curves_->curves_num() == self_->deformed_root_positions_.size());
 
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);

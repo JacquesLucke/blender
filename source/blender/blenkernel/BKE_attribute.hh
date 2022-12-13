@@ -46,10 +46,17 @@ class AttributeIDRef {
   bool is_anonymous() const;
   StringRef name() const;
   const AnonymousAttributeID &anonymous_id() const;
-  bool should_be_kept() const;
 
   friend bool operator==(const AttributeIDRef &a, const AttributeIDRef &b);
   friend std::ostream &operator<<(std::ostream &stream, const AttributeIDRef &attribute_id);
+};
+
+class AnonymousAttributePropagationInfo {
+ public:
+  bool propagate(const AnonymousAttributeID & /*anonymous_id*/) const
+  {
+    return true;
+  }
 };
 
 /**
@@ -749,6 +756,7 @@ Vector<AttributeTransferData> retrieve_attributes_for_transfer(
     const bke::AttributeAccessor src_attributes,
     bke::MutableAttributeAccessor dst_attributes,
     eAttrDomainMask domain_mask,
+    const AnonymousAttributePropagationInfo &propagation_info,
     const Set<std::string> &skip = {});
 
 /**
@@ -762,6 +770,7 @@ void copy_attribute_domain(AttributeAccessor src_attributes,
                            MutableAttributeAccessor dst_attributes,
                            IndexMask selection,
                            eAttrDomain domain,
+                           const AnonymousAttributePropagationInfo &propagation_info,
                            const Set<std::string> &skip = {});
 
 bool allow_procedural_attribute_access(StringRef attribute_name);
@@ -892,16 +901,6 @@ inline const AnonymousAttributeID &AttributeIDRef::anonymous_id() const
 {
   BLI_assert(this->is_anonymous());
   return *anonymous_id_;
-}
-
-/**
- * \return True if the attribute should not be removed automatically as an optimization during
- * processing or copying. Anonymous attributes can be removed when they no longer have any
- * references.
- */
-inline bool AttributeIDRef::should_be_kept() const
-{
-  return this->is_named() || BKE_anonymous_attribute_id_has_strong_references(anonymous_id_);
 }
 
 }  // namespace blender::bke

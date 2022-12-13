@@ -147,7 +147,8 @@ struct DeleteOperationExecutor {
     }
     self_->deformed_positions_ = std::move(new_deformed_positions);
 
-    curves_->remove_curves(mask_to_delete);
+    bke::AnonymousAttributePropagationInfo propagation_info;
+    curves_->remove_curves(mask_to_delete, propagation_info);
 
     DEG_id_tag_update(&curves_id_->id, ID_RECALC_GEOMETRY);
     WM_main_add_notifier(NC_GEOM | ND_DATA, &curves_id_->id);

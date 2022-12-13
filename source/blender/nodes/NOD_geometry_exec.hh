@@ -19,6 +19,7 @@ struct ModifierData;
 namespace blender::nodes {
 
 using bke::AnonymousAttributeFieldInput;
+using bke::AnonymousAttributePropagationInfo;
 using bke::AttributeAccessor;
 using bke::AttributeFieldInput;
 using bke::AttributeIDRef;
@@ -261,6 +262,13 @@ class GeoNodeExecParams {
       return this->get_data_reference(output_identifier);
     }
     return {};
+  }
+
+  const AnonymousAttributePropagationInfo &get_output_propagation_info(
+      StringRef /*output_identifier*/) const
+  {
+    static AnonymousAttributePropagationInfo info;
+    return info;
   }
 
  private:

@@ -968,6 +968,7 @@ Vector<AttributeTransferData> retrieve_attributes_for_transfer(
     const bke::AttributeAccessor src_attributes,
     bke::MutableAttributeAccessor dst_attributes,
     const eAttrDomainMask domain_mask,
+    const AnonymousAttributePropagationInfo &propagation_info,
     const Set<std::string> &skip)
 {
   Vector<AttributeTransferData> attributes;
@@ -979,7 +980,7 @@ Vector<AttributeTransferData> retrieve_attributes_for_transfer(
         if (id.is_named() && skip.contains(id.name())) {
           return true;
         }
-        if (!id.should_be_kept()) {
+        if (id.is_anonymous() && !propagation_info.propagate(id.anonymous_id())) {
           return true;
         }
 
@@ -999,6 +1000,7 @@ void copy_attribute_domain(const AttributeAccessor src_attributes,
                            MutableAttributeAccessor dst_attributes,
                            const IndexMask selection,
                            const eAttrDomain domain,
+                           const AnonymousAttributePropagationInfo &propagation_info,
                            const Set<std::string> &skip)
 {
   src_attributes.for_all(
@@ -1009,7 +1011,7 @@ void copy_attribute_domain(const AttributeAccessor src_attributes,
         if (id.is_named() && skip.contains(id.name())) {
           return true;
         }
-        if (!id.should_be_kept()) {
+        if (id.is_anonymous() && !propagation_info.propagate(id.anonymous_id())) {
           return true;
         }
 

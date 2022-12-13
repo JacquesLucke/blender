@@ -67,7 +67,8 @@ static void add_new_vertices(Mesh &mesh, const Span<int> new_to_old_verts_map)
 
 static void add_new_edges(Mesh &mesh,
                           const Span<MEdge> new_edges,
-                          const Span<int> new_to_old_edges_map)
+                          const Span<int> new_to_old_edges_map,
+                          const AnonymousAttributePropagationInfo &propagation_info)
 {
   MutableAttributeAccessor attributes = mesh.attributes_for_write();
 
@@ -79,7 +80,7 @@ static void add_new_edges(Mesh &mesh,
     if (attributes.lookup_meta_data(id)->domain != ATTR_DOMAIN_EDGE) {
       continue;
     }
-    if (!id.should_be_kept()) {
+    if (id.is_anonymous() && !propagation_info.propagate(id.anonymous_id())) {
       continue;
     }
     if (id.is_named()) {
@@ -355,7 +356,9 @@ static void split_edge_per_poly(const int edge_i,
   edge_to_loop_map[edge_i].resize(1);
 }
 
-static void mesh_edge_split(Mesh &mesh, const IndexMask mask)
+static void mesh_edge_split(Mesh &mesh,
+                            const IndexMask mask,
+                            const AnonymousAttributePropagationInfo &propagation_info)
 {
   /* Flag vertices that need to be split. */
   Array<bool> should_split_vert(mesh.totvert, false);
@@ -490,7 +493,7 @@ static void mesh_edge_split(Mesh &mesh, const IndexMask mask)
 
   /* Step 5: Resize the mesh to add the new vertices and rebuild the edges. */
   add_new_vertices(mesh, new_to_old_verts_map);
-  add_new_edges(mesh, new_edges, new_to_old_edges_map);
+  add_new_edges(mesh, new_edges, new_to_old_edges_map, propagation_info);
 
   BKE_mesh_tag_edges_split(&mesh);
 }
@@ -513,7 +516,8 @@ static void node_geo_exec(GeoNodeExecParams params)
         return;
       }
 
-      mesh_edge_split(*geometry_set.get_mesh_for_write(), mask);
+      mesh_edge_split(
+          *geometry_set.get_mesh_for_write(), mask, params.get_output_propagation_info("Mesh"));
     }
   });
 

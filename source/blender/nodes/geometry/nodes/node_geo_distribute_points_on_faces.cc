@@ -496,8 +496,11 @@ static void point_distribution_calculate(GeometrySet &geometry_set,
   geometry_set.replace_pointcloud(pointcloud);
 
   Map<AttributeIDRef, AttributeKind> attributes;
-  geometry_set.gather_attributes_for_propagation(
-      {GEO_COMPONENT_TYPE_MESH}, GEO_COMPONENT_TYPE_POINT_CLOUD, false, attributes);
+  geometry_set.gather_attributes_for_propagation({GEO_COMPONENT_TYPE_MESH},
+                                                 GEO_COMPONENT_TYPE_POINT_CLOUD,
+                                                 false,
+                                                 params.get_output_propagation_info("Points"),
+                                                 attributes);
 
   /* Position is set separately. */
   attributes.remove("position");

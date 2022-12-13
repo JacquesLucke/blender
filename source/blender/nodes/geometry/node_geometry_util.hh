@@ -79,6 +79,7 @@ void separate_geometry(GeometrySet &geometry_set,
                        eAttrDomain domain,
                        GeometryNodeDeleteGeometryMode mode,
                        const Field<bool> &selection_field,
+                       const AnonymousAttributePropagationInfo &propagation_info,
                        bool &r_is_error);
 
 void get_closest_in_bvhtree(BVHTreeFromMesh &tree_data,
