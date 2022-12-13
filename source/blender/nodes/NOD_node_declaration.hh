@@ -37,6 +37,21 @@ enum class OutputSocketFieldType {
   PartiallyDependent,
 };
 
+struct InputSocketReferenceInfo {
+  Vector<int> available_on;
+};
+
+struct OutputSocketReferenceInfo {
+  Vector<int> available_on;
+  Vector<int> propagate_from;
+  Vector<int> pass_from;
+};
+
+struct NodeReferenceInfo {
+  Vector<InputSocketReferenceInfo> inputs;
+  Vector<OutputSocketReferenceInfo> outputs;
+};
+
 /**
  * Contains information about how a node output's field state depends on inputs of the same node.
  */

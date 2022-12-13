@@ -804,67 +804,94 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     }
   }
 
+  NodeReferenceInfo get_node_reference_info(const bNode &node)
+  {
+    BLI_assert(!ELEM(node.type, NODE_GROUP_INPUT, NODE_GROUP_OUTPUT));
+    NodeReferenceInfo reference_info;
+    reference_info.inputs.append_n_times({}, node.input_sockets().size());
+    reference_info.outputs.append_n_times({}, node.output_sockets().size());
+    if (node.is_group()) {
+    }
+    else {
+      const NodeDeclaration *node_decl = node.declaration();
+      if (node_decl) {
+        for (const bNodeSocket *socket : node.input_sockets()) {
+          const SocketDeclaration &socket_decl = *node_decl->inputs()[socket->index()];
+          reference_info.inputs[socket->index()] = {socket_decl.reference_on_};
+        }
+        for (const bNodeSocket *socket : node.output_sockets()) {
+          const SocketDeclaration &socket_decl = *node_decl->outputs()[socket->index()];
+          reference_info.outputs[socket->index()] = {
+              socket_decl.reference_on_, socket_decl.propagate_from_, socket_decl.reference_pass_};
+        }
+      }
+    }
+    return reference_info;
+  }
+
   void analyze_references()
   {
     MultiValueMap<const bNodeSocket *, const bNodeSocket *> propagated_map;
     MultiValueMap<const bNodeSocket *, const bNodeSocket *> reference_sources_map;
     for (const bNode *node : btree_.toposort_left_to_right()) {
-      for (const int i : node->input_sockets().index_range()) {
-        const bNodeSocket &socket = node->input_socket(i);
-        if (!socket.is_available()) {
-          continue;
-        }
-        for (const bNodeLink *link : socket.directly_linked_links()) {
-          if (link->is_muted()) {
+      if (node->is_group_input()) {
+      }
+      else if (node->is_group_output()) {
+      }
+      else {
+        const NodeReferenceInfo reference_info = this->get_node_reference_info(*node);
+        for (const int i : node->input_sockets().index_range()) {
+          const bNodeSocket &socket = node->input_socket(i);
+          if (!socket.is_available()) {
             continue;
           }
-          const bNodeSocket &origin = *link->fromsock;
-          if (!origin.is_available()) {
-            continue;
-          }
-          propagated_map.add_multiple(
-              &socket, Vector<const bNodeSocket *>(propagated_map.lookup(&origin).as_span()));
-          reference_sources_map.add_multiple(
-              &socket,
-              Vector<const bNodeSocket *>(reference_sources_map.lookup(&origin).as_span()));
-        }
-      }
-      const NodeDeclaration *node_declaration = node->declaration();
-      if (node_declaration == nullptr) {
-        continue;
-      }
-      for (const int i : node->output_sockets().index_range()) {
-        const bNodeSocket &socket = node->output_socket(i);
-        if (!socket.is_available()) {
-          continue;
-        }
-        const SocketDeclaration &socket_decl = *node_declaration->outputs()[i];
-        bool found_reference_on = false;
-        for (const int reference_on_index : socket_decl.reference_on_) {
-          const bNodeSocket &other_socket = node->output_socket(reference_on_index);
-          if (other_socket.is_available()) {
-            propagated_map.add(&other_socket, &socket);
-            found_reference_on = true;
-          }
-        }
-        if (found_reference_on) {
-          reference_sources_map.add(&socket, &socket);
-        }
-        for (const int reference_pass_index : socket_decl.reference_pass_) {
-          const bNodeSocket &other_socket = node->input_socket(reference_pass_index);
-          if (other_socket.is_available()) {
+          for (const bNodeLink *link : socket.directly_linked_links()) {
+            if (link->is_muted()) {
+              continue;
+            }
+            const bNodeSocket &origin = *link->fromsock;
+            if (!origin.is_available()) {
+              continue;
+            }
+            propagated_map.add_multiple(
+                &socket, Vector<const bNodeSocket *>(propagated_map.lookup(&origin).as_span()));
             reference_sources_map.add_multiple(
                 &socket,
-                Vector<const bNodeSocket *>(
-                    reference_sources_map.lookup(&other_socket).as_span()));
+                Vector<const bNodeSocket *>(reference_sources_map.lookup(&origin).as_span()));
           }
         }
-        for (const int propagated_from_index : socket_decl.propagate_from_) {
-          const bNodeSocket &other_socket = node->input_socket(propagated_from_index);
-          if (other_socket.is_available()) {
-            propagated_map.add_multiple(
-                &socket,
-                Vector<const bNodeSocket *>(propagated_map.lookup(&other_socket).as_span()));
+        for (const int i : node->output_sockets().index_range()) {
+          const bNodeSocket &socket = node->output_socket(i);
+          if (!socket.is_available()) {
+            continue;
+          }
+          bool found_reference_on = false;
+          for (const int reference_on_index : reference_info.outputs[i].available_on) {
+            const bNodeSocket &other_socket = node->output_socket(reference_on_index);
+            if (other_socket.is_available()) {
+              propagated_map.add(&other_socket, &socket);
+              found_reference_on = true;
+            }
+          }
+          if (found_reference_on) {
+            reference_sources_map.add(&socket, &socket);
+          }
+          for (const int reference_pass_index : reference_info.outputs[i].pass_from) {
+            const bNodeSocket &other_socket = node->input_socket(reference_pass_index);
+            if (other_socket.is_available()) {
+              reference_sources_map.add_multiple(
+                  &socket,
+                  Vector<const bNodeSocket *>(
+                      reference_sources_map.lookup(&other_socket).as_span()));
+            }
+          }
+          for (const int propagated_from_index : reference_info.outputs[i].propagate_from) {
+            const bNodeSocket &other_socket = node->input_socket(propagated_from_index);
+            if (other_socket.is_available()) {
+              propagated_map.add_multiple(
+                  &socket,
+                  Vector<const bNodeSocket *>(propagated_map.lookup(&other_socket).as_span()));
+            }
           }
         }
       }
@@ -872,50 +899,51 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     MultiValueMap<const bNodeSocket *, const bNodeSocket *> required_references_map;
     for (const bNode *node : btree_.toposort_right_to_left()) {
-      const NodeDeclaration *node_declaration = node->declaration();
-      if (node_declaration == nullptr) {
-        continue;
+      if (node->is_group_input()) {
       }
-      for (const int i : node->output_sockets().index_range()) {
-        const bNodeSocket &socket = node->output_socket(i);
-        if (!socket.is_available()) {
-          continue;
-        }
-        for (const bNodeLink *link : socket.directly_linked_links()) {
-          if (link->is_muted()) {
+      else if (node->is_group_output()) {
+      }
+      else {
+        const NodeReferenceInfo reference_info = this->get_node_reference_info(*node);
+        for (const int i : node->output_sockets().index_range()) {
+          const bNodeSocket &socket = node->output_socket(i);
+          if (!socket.is_available()) {
             continue;
           }
-          const bNodeSocket &target = *link->tosock;
-          if (!target.is_available()) {
-            continue;
+          for (const bNodeLink *link : socket.directly_linked_links()) {
+            if (link->is_muted()) {
+              continue;
+            }
+            const bNodeSocket &target = *link->tosock;
+            if (!target.is_available()) {
+              continue;
+            }
+            required_references_map.add_multiple(
+                &socket,
+                Vector<const bNodeSocket *>(required_references_map.lookup(&target).as_span()));
           }
-          required_references_map.add_multiple(
-              &socket,
-              Vector<const bNodeSocket *>(required_references_map.lookup(&target).as_span()));
-        }
 
-        const SocketDeclaration &socket_decl = *node_declaration->outputs()[socket.index()];
-        for (const int propagate_from_index : socket_decl.propagate_from_) {
-          const bNodeSocket &input_socket = node->input_socket(propagate_from_index);
-          if (input_socket.is_available()) {
-            required_references_map.add_multiple(
-                &input_socket,
-                Vector<const bNodeSocket *>(required_references_map.lookup(&socket).as_span()));
+          for (const int propagate_from_index : reference_info.outputs[i].propagate_from) {
+            const bNodeSocket &input_socket = node->input_socket(propagate_from_index);
+            if (input_socket.is_available()) {
+              required_references_map.add_multiple(
+                  &input_socket,
+                  Vector<const bNodeSocket *>(required_references_map.lookup(&socket).as_span()));
+            }
           }
         }
-      }
-      for (const int i : node->input_sockets().index_range()) {
-        const bNodeSocket &socket = node->input_socket(i);
-        if (!socket.is_available()) {
-          continue;
-        }
-        const SocketDeclaration &socket_decl = *node_declaration->inputs()[socket.index()];
-        for (const int reference_on_index : socket_decl.reference_on_) {
-          const bNodeSocket &other_socket = node->input_socket(reference_on_index);
-          if (other_socket.is_available()) {
-            required_references_map.add_multiple(
-                &other_socket,
-                Vector<const bNodeSocket *>(reference_sources_map.lookup(&socket).as_span()));
+        for (const int i : node->input_sockets().index_range()) {
+          const bNodeSocket &socket = node->input_socket(i);
+          if (!socket.is_available()) {
+            continue;
+          }
+          for (const int reference_on_index : reference_info.inputs[i].available_on) {
+            const bNodeSocket &other_socket = node->input_socket(reference_on_index);
+            if (other_socket.is_available()) {
+              required_references_map.add_multiple(
+                  &other_socket,
+                  Vector<const bNodeSocket *>(reference_sources_map.lookup(&socket).as_span()));
+            }
           }
         }
       }
