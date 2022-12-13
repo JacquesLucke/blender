@@ -925,10 +925,21 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
           for (const int propagate_from_index : reference_info.outputs[i].propagate_from) {
             const bNodeSocket &input_socket = node->input_socket(propagate_from_index);
+            Vector<const bNodeSocket *> required_references =
+                required_references_map.lookup(&socket).as_span();
+            for (const bNodeSocket *other_output : node->output_sockets()) {
+              if (!other_output->is_available()) {
+                continue;
+              }
+              if (reference_info.outputs[other_output->index()].available_on.contains(
+                      socket.index())) {
+                if (required_references.contains(other_output)) {
+                  required_references.remove_first_occurrence_and_reorder(other_output);
+                }
+              }
+            }
             if (input_socket.is_available()) {
-              required_references_map.add_multiple(
-                  &input_socket,
-                  Vector<const bNodeSocket *>(required_references_map.lookup(&socket).as_span()));
+              required_references_map.add_multiple(&input_socket, required_references);
             }
           }
         }
