@@ -116,7 +116,7 @@ static void profiler_main_region_draw(const bContext *C, ARegion *region)
 static void profiler_main_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   switch (wmn->category) {
     case NC_SPACE: {
