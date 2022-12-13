@@ -822,8 +822,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           if (!origin.is_available()) {
             continue;
           }
-          propagated_map.add_multiple(&socket, propagated_map.lookup(&origin));
-          reference_sources_map.add_multiple(&socket, reference_sources_map.lookup(&origin));
+          propagated_map.add_multiple(
+              &socket, Vector<const bNodeSocket *>(propagated_map.lookup(&origin).as_span()));
+          reference_sources_map.add_multiple(
+              &socket,
+              Vector<const bNodeSocket *>(reference_sources_map.lookup(&origin).as_span()));
         }
       }
       const NodeDeclaration *node_declaration = node->declaration();
@@ -850,14 +853,18 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         for (const int reference_pass_index : socket_decl.reference_pass_) {
           const bNodeSocket &other_socket = node->input_socket(reference_pass_index);
           if (other_socket.is_available()) {
-            reference_sources_map.add_multiple(&socket,
-                                               reference_sources_map.lookup(&other_socket));
+            reference_sources_map.add_multiple(
+                &socket,
+                Vector<const bNodeSocket *>(
+                    reference_sources_map.lookup(&other_socket).as_span()));
           }
         }
         for (const int propagated_from_index : socket_decl.propagate_from_) {
           const bNodeSocket &other_socket = node->input_socket(propagated_from_index);
           if (other_socket.is_available()) {
-            propagated_map.add_multiple(&socket, propagated_map.lookup(&other_socket));
+            propagated_map.add_multiple(
+                &socket,
+                Vector<const bNodeSocket *>(propagated_map.lookup(&other_socket).as_span()));
           }
         }
       }
@@ -882,15 +889,18 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           if (!target.is_available()) {
             continue;
           }
-          required_references_map.add_multiple(&socket, required_references_map.lookup(&target));
+          required_references_map.add_multiple(
+              &socket,
+              Vector<const bNodeSocket *>(required_references_map.lookup(&target).as_span()));
         }
 
         const SocketDeclaration &socket_decl = *node_declaration->outputs()[socket.index()];
         for (const int propagate_from_index : socket_decl.propagate_from_) {
           const bNodeSocket &input_socket = node->input_socket(propagate_from_index);
           if (input_socket.is_available()) {
-            required_references_map.add_multiple(&input_socket,
-                                                 required_references_map.lookup(&socket));
+            required_references_map.add_multiple(
+                &input_socket,
+                Vector<const bNodeSocket *>(required_references_map.lookup(&socket).as_span()));
           }
         }
       }
@@ -903,8 +913,9 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         for (const int reference_on_index : socket_decl.reference_on_) {
           const bNodeSocket &other_socket = node->input_socket(reference_on_index);
           if (other_socket.is_available()) {
-            required_references_map.add_multiple(&other_socket,
-                                                 reference_sources_map.lookup(&socket));
+            required_references_map.add_multiple(
+                &other_socket,
+                Vector<const bNodeSocket *>(reference_sources_map.lookup(&socket).as_span()));
           }
         }
       }
