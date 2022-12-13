@@ -1284,7 +1284,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         continue;
       }
       std::cout << "  " << socket.owner_node().name << " -> " << socket.name << ":\n";
-      for (const bNodeSocket *other_socket : propagated) {
+      for (const bNodeSocket *other_socket : Set<const bNodeSocket *>(propagated)) {
         std::cout << "    " << other_socket->owner_node().name << " -> " << other_socket->name
                   << "\n";
       }
@@ -1297,7 +1297,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         continue;
       }
       std::cout << "  " << socket.owner_node().name << " -> " << socket.name << ":\n";
-      for (const bNodeSocket *other_socket : sources) {
+      for (const bNodeSocket *other_socket : Set<const bNodeSocket *>(sources)) {
         std::cout << "    " << other_socket->owner_node().name << " -> " << other_socket->name
                   << "\n";
       }
@@ -1310,7 +1310,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         continue;
       }
       std::cout << "  " << socket.owner_node().name << " -> " << socket.name << ":\n";
-      for (const bNodeSocket *other_socket : required) {
+      for (const bNodeSocket *other_socket : Set<const bNodeSocket *>(required)) {
         std::cout << "    " << other_socket->owner_node().name << " -> " << other_socket->name
                   << "\n";
       }
