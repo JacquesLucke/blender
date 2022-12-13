@@ -66,6 +66,12 @@ static PyStructSequence_Field app_cb_info_fields[] = {
     {"xr_session_start_pre", "on starting an xr session (before)"},
     {"annotation_pre", "on drawing an annotation (before)"},
     {"annotation_post", "on drawing an annotation (after)"},
+    {"object_bake_pre", "before starting a bake job"},
+    {"object_bake_complete", "on completing a bake job; will be called in the main thread"},
+    {"object_bake_cancel", "on canceling a bake job; will be called in the main thread"},
+    {"composite_pre", "on a compositing background job (before)"},
+    {"composite_post", "on a compositing background job (after)"},
+    {"composite_cancel", "on a compositing background job (cancel)"},
 
 /* sets the permanent tag */
 #define APP_CB_OTHER_FIELDS 1
@@ -126,7 +132,7 @@ static PyObject *bpy_app_handlers_persistent_new(PyTypeObject *UNUSED(type),
   return NULL;
 }
 
-/* dummy type because decorators can't be PyCFunctions */
+/** Dummy type because decorators can't be a #PyCFunction. */
 static PyTypeObject BPyPersistent_Type = {
 
 #if defined(_MSC_VER)
@@ -134,46 +140,54 @@ static PyTypeObject BPyPersistent_Type = {
 #else
     PyVarObject_HEAD_INIT(&PyType_Type, 0)
 #endif
-
-        "persistent", /* tp_name */
-    0,                /* tp_basicsize */
-    0,                /* tp_itemsize */
-    /* methods */
-    0,                                                             /* tp_dealloc */
-    0,                                                             /* tp_print */
-    0,                                                             /* tp_getattr */
-    0,                                                             /* tp_setattr */
-    0,                                                             /* tp_reserved */
-    0,                                                             /* tp_repr */
-    0,                                                             /* tp_as_number */
-    0,                                                             /* tp_as_sequence */
-    0,                                                             /* tp_as_mapping */
-    0,                                                             /* tp_hash */
-    0,                                                             /* tp_call */
-    0,                                                             /* tp_str */
-    0,                                                             /* tp_getattro */
-    0,                                                             /* tp_setattro */
-    0,                                                             /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_HAVE_GC | Py_TPFLAGS_BASETYPE, /* tp_flags */
-    0,                                                             /* tp_doc */
-    0,                                                             /* tp_traverse */
-    0,                                                             /* tp_clear */
-    0,                                                             /* tp_richcompare */
-    0,                                                             /* tp_weaklistoffset */
-    0,                                                             /* tp_iter */
-    0,                                                             /* tp_iternext */
-    0,                                                             /* tp_methods */
-    0,                                                             /* tp_members */
-    0,                                                             /* tp_getset */
-    0,                                                             /* tp_base */
-    0,                                                             /* tp_dict */
-    0,                                                             /* tp_descr_get */
-    0,                                                             /* tp_descr_set */
-    0,                                                             /* tp_dictoffset */
-    0,                                                             /* tp_init */
-    0,                                                             /* tp_alloc */
-    bpy_app_handlers_persistent_new,                               /* tp_new */
-    0,                                                             /* tp_free */
+    /*tp_name*/ "persistent",
+    /*tp_basicsize*/ 0,
+    /*tp_itemsize*/ 0,
+    /*tp_dealloc*/ NULL,
+    /*tp_vectorcall_offset*/ 0,
+    /*tp_getattr*/ NULL,
+    /*tp_setattr*/ NULL,
+    /*tp_as_async*/ NULL,
+    /*tp_repr*/ NULL,
+    /*tp_as_number*/ NULL,
+    /*tp_as_sequence*/ NULL,
+    /*tp_as_mapping*/ NULL,
+    /*tp_hash*/ NULL,
+    /*tp_call*/ NULL,
+    /*tp_str*/ NULL,
+    /*tp_getattro*/ NULL,
+    /*tp_setattro*/ NULL,
+    /*tp_as_buffer*/ NULL,
+    /*tp_flags*/ Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    /*tp_doc*/ NULL,
+    /*tp_traverse*/ NULL,
+    /*tp_clear*/ NULL,
+    /*tp_richcompare*/ NULL,
+    /*tp_weaklistoffset*/ 0,
+    /*tp_iter*/ NULL,
+    /*tp_iternext*/ NULL,
+    /*tp_methods*/ NULL,
+    /*tp_members*/ NULL,
+    /*tp_getset*/ NULL,
+    /*tp_base*/ NULL,
+    /*tp_dict*/ NULL,
+    /*tp_descr_get*/ NULL,
+    /*tp_descr_set*/ NULL,
+    /*tp_dictoffset*/ 0,
+    /*tp_init*/ NULL,
+    /*tp_alloc*/ NULL,
+    /*tp_new*/ bpy_app_handlers_persistent_new,
+    /*tp_free*/ NULL,
+    /*tp_is_gc*/ NULL,
+    /*tp_bases*/ NULL,
+    /*tp_mro*/ NULL,
+    /*tp_cache*/ NULL,
+    /*tp_subclasses*/ NULL,
+    /*tp_weaklist*/ NULL,
+    /*tp_del*/ NULL,
+    /*tp_version_tag*/ 0,
+    /*tp_finalize*/ NULL,
+    /*tp_vectorcall*/ NULL,
 };
 
 static PyObject *py_cb_array[BKE_CB_EVT_TOT] = {NULL};
@@ -244,7 +258,7 @@ PyObject *BPY_app_handlers_struct(void)
   return ret;
 }
 
-void BPY_app_handlers_reset(const short do_all)
+void BPY_app_handlers_reset(const bool do_all)
 {
   PyGILState_STATE gilstate;
   int pos = 0;
@@ -266,13 +280,18 @@ void BPY_app_handlers_reset(const short do_all)
       PyObject *ls = py_cb_array[pos];
       Py_ssize_t i;
 
-      PyObject *item;
-      PyObject **dict_ptr;
-
       for (i = PyList_GET_SIZE(ls) - 1; i >= 0; i--) {
+        PyObject *item = PyList_GET_ITEM(ls, i);
 
-        if (PyFunction_Check((item = PyList_GET_ITEM(ls, i))) &&
-            (dict_ptr = _PyObject_GetDictPtr(item)) && (*dict_ptr) &&
+        if (PyMethod_Check(item)) {
+          PyObject *item_test = PyMethod_GET_FUNCTION(item);
+          if (item_test) {
+            item = item_test;
+          }
+        }
+
+        PyObject **dict_ptr;
+        if (PyFunction_Check(item) && (dict_ptr = _PyObject_GetDictPtr(item)) && (*dict_ptr) &&
             (PyDict_GetItem(*dict_ptr, perm_id_str) != NULL)) {
           /* keep */
         }

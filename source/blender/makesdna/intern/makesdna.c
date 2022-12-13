@@ -43,92 +43,11 @@
 
 #define SDNA_MAX_FILENAME_LENGTH 255
 
-/* Included the path relative from /source/blender/ here,
- * so we can move headers around with more freedom. */
+/* The include file below is automatically generated from the `SRC_DNA_INC`
+ * variable in 'source/blender/CMakeLists.txt'. */
 static const char *includefiles[] = {
-    /* if you add files here, please add them at the end
-     * of makesdna.c (this file) as well */
-    "DNA_listBase.h",
-    "DNA_vec_types.h",
-    "DNA_ID.h",
-    "DNA_ipo_types.h",
-    "DNA_key_types.h",
-    "DNA_text_types.h",
-    "DNA_packedFile_types.h",
-    "DNA_gpu_types.h",
-    "DNA_camera_types.h",
-    "DNA_image_types.h",
-    "DNA_texture_types.h",
-    "DNA_light_types.h",
-    "DNA_material_types.h",
-    "DNA_vfont_types.h",
-    "DNA_meta_types.h",
-    "DNA_curve_types.h",
-    "DNA_mesh_types.h",
-    "DNA_meshdata_types.h",
-    "DNA_modifier_types.h",
-    "DNA_lineart_types.h",
-    "DNA_lattice_types.h",
-    "DNA_object_types.h",
-    "DNA_object_force_types.h",
-    "DNA_object_fluidsim_types.h",
-    "DNA_world_types.h",
-    "DNA_scene_types.h",
-    "DNA_view3d_types.h",
-    "DNA_view2d_types.h",
-    "DNA_space_types.h",
-    "DNA_userdef_types.h",
-    "DNA_screen_types.h",
-    "DNA_sdna_types.h",
-    "DNA_fileglobal_types.h",
-    "DNA_sequence_types.h",
-    "DNA_session_uuid_types.h",
-    "DNA_effect_types.h",
-    "DNA_outliner_types.h",
-    "DNA_sound_types.h",
-    "DNA_collection_types.h",
-    "DNA_armature_types.h",
-    "DNA_action_types.h",
-    "DNA_constraint_types.h",
-    "DNA_nla_types.h",
-    "DNA_node_types.h",
-    "DNA_color_types.h",
-    "DNA_brush_types.h",
-    "DNA_customdata_types.h",
-    "DNA_particle_types.h",
-    "DNA_cloth_types.h",
-    "DNA_gpencil_types.h",
-    "DNA_gpencil_modifier_types.h",
-    "DNA_shader_fx_types.h",
-    "DNA_windowmanager_types.h",
-    "DNA_anim_types.h",
-    "DNA_boid_types.h",
-    "DNA_fluid_types.h",
-    "DNA_speaker_types.h",
-    "DNA_movieclip_types.h",
-    "DNA_tracking_types.h",
-    "DNA_dynamicpaint_types.h",
-    "DNA_mask_types.h",
-    "DNA_rigidbody_types.h",
-    "DNA_freestyle_types.h",
-    "DNA_linestyle_types.h",
-    "DNA_cachefile_types.h",
-    "DNA_layer_types.h",
-    "DNA_workspace_types.h",
-    "DNA_lightprobe_types.h",
-    "DNA_curveprofile_types.h",
-    "DNA_xr_types.h",
-    "DNA_curves_types.h",
-    "DNA_pointcloud_types.h",
-    "DNA_volume_types.h",
-    "DNA_simulation_types.h",
-    "DNA_pointcache_types.h",
-    "DNA_uuid_types.h",
-    "DNA_asset_types.h",
-
-    /* see comment above before editing! */
-
-    /* empty string to indicate end of includefiles */
+#include "dna_includes_as_strings.h"
+    /* Empty string to indicate end of include files. */
     "",
 };
 
@@ -235,7 +154,7 @@ static int preprocess_include(char *maindata, const int maindata_len);
 /**
  * Scan this file for serializable types.
  */
-static int convert_include(const char *filename);
+static int convert_include(const char *filepath);
 
 /**
  * Determine how many bytes are needed for each struct.
@@ -474,10 +393,10 @@ static int add_name(const char *str)
     if (!isfuncptr) {
       /* multidimensional array pointer case */
       if (str[j] == 0) {
-        DEBUG_PRINTF(3, "offsetting for multidim array pointer\n");
+        DEBUG_PRINTF(3, "offsetting for multi-dimensional array pointer\n");
       }
       else {
-        printf("Error during tokening multidim array pointer\n");
+        printf("Error during tokenizing multi-dimensional array pointer\n");
       }
     }
     else if (str[j] == 0) {
@@ -512,7 +431,7 @@ static int add_name(const char *str)
      */
     buf[i] = 0;
     DEBUG_PRINTF(3, "Name before chomping: %s\n", buf);
-    if ((strncmp(buf, "(*headdraw", 10) == 0) || (strncmp(buf, "(*windraw", 9) == 0)) {
+    if ((strncmp(buf, "(*headdraw", 10) == 0) || strncmp(buf, "(*windraw", 9) == 0) {
       buf[i] = ')';
       buf[i + 1] = '(';
       buf[i + 2] = 'v';
@@ -587,6 +506,54 @@ static short *add_struct(int namecode)
   return sp;
 }
 
+/* Copied from `BLI_str_startswith` string.c
+ * to avoid complicating the compilation process of makesdna. */
+static bool str_startswith(const char *__restrict str, const char *__restrict start)
+{
+  for (; *str && *start; str++, start++) {
+    if (*str != *start) {
+      return false;
+    }
+  }
+
+  return (*start == '\0');
+}
+
+/**
+ * Check if `str` is a preprocessor string that starts with `start`.
+ * The `start` doesn't need the `#` prefix.
+ * `ifdef VALUE` will match `#ifdef VALUE` as well as `#  ifdef VALUE`.
+ */
+static bool match_preproc_prefix(const char *__restrict str, const char *__restrict start)
+{
+  if (*str != '#') {
+    return false;
+  }
+  str++;
+  while (*str == ' ') {
+    str++;
+  }
+  return str_startswith(str, start);
+}
+
+/**
+ * \return The point in `str` that starts with `start` or NULL when not found.
+ *
+ */
+static char *match_preproc_strstr(char *__restrict str, const char *__restrict start)
+{
+  while ((str = strchr(str, '#'))) {
+    str++;
+    while (*str == ' ') {
+      str++;
+    }
+    if (str_startswith(str, start)) {
+      return str;
+    }
+  }
+  return NULL;
+}
+
 static int preprocess_include(char *maindata, const int maindata_len)
 {
   /* NOTE: len + 1, last character is a dummy to prevent
@@ -613,6 +580,10 @@ static int preprocess_include(char *maindata, const int maindata_len)
     }
     cp++;
   }
+
+  /* No need for leading '#' character. */
+  const char *cpp_block_start = "ifdef __cplusplus";
+  const char *cpp_block_end = "endif";
 
   /* data from temp copy to maindata, remove comments and double spaces */
   cp = temp;
@@ -658,6 +629,18 @@ static int preprocess_include(char *maindata, const int maindata_len)
         skip_until_closing_brace = false;
       }
     }
+    else if (match_preproc_prefix(cp, cpp_block_start)) {
+      char *end_ptr = match_preproc_strstr(cp, cpp_block_end);
+
+      if (end_ptr == NULL) {
+        fprintf(stderr, "Error: '%s' block must end with '%s'\n", cpp_block_start, cpp_block_end);
+      }
+      else {
+        const int skip_offset = end_ptr - cp + strlen(cpp_block_end);
+        a -= skip_offset;
+        cp += skip_offset;
+      }
+    }
     else {
       md[0] = cp[0];
       md++;
@@ -670,12 +653,12 @@ static int preprocess_include(char *maindata, const int maindata_len)
   return newlen;
 }
 
-static void *read_file_data(const char *filename, int *r_len)
+static void *read_file_data(const char *filepath, int *r_len)
 {
 #ifdef WIN32
-  FILE *fp = fopen(filename, "rb");
+  FILE *fp = fopen(filepath, "rb");
 #else
-  FILE *fp = fopen(filename, "r");
+  FILE *fp = fopen(filepath, "r");
 #endif
   void *data;
 
@@ -711,17 +694,17 @@ static void *read_file_data(const char *filename, int *r_len)
   return data;
 }
 
-static int convert_include(const char *filename)
+static int convert_include(const char *filepath)
 {
   /* read include file, skip structs with a '#' before it.
    * store all data in temporal arrays.
    */
 
   int maindata_len;
-  char *maindata = read_file_data(filename, &maindata_len);
+  char *maindata = read_file_data(filepath, &maindata_len);
   char *md = maindata;
   if (maindata_len == -1) {
-    fprintf(stderr, "Can't read file %s\n", filename);
+    fprintf(stderr, "Can't read file %s\n", filepath);
     return 1;
   }
 
@@ -759,7 +742,7 @@ static int convert_include(const char *filename)
 
           const int strct = add_type(md1, 0);
           if (strct == -1) {
-            fprintf(stderr, "File '%s' contains struct we can't parse \"%s\"\n", filename, md1);
+            fprintf(stderr, "File '%s' contains struct we can't parse \"%s\"\n", filepath, md1);
             return 1;
           }
 
@@ -799,7 +782,7 @@ static int convert_include(const char *filename)
                   fprintf(stderr,
                           "File '%s' contains non white space character "
                           "\"%c\" after identifier \"%s\"\n",
-                          filename,
+                          filepath,
                           *md1,
                           md1_prev);
                   return 1;
@@ -812,7 +795,7 @@ static int convert_include(const char *filename)
               const int type = add_type(md1, 0);
               if (type == -1) {
                 fprintf(
-                    stderr, "File '%s' contains struct we can't parse \"%s\"\n", filename, md1);
+                    stderr, "File '%s' contains struct we can't parse \"%s\"\n", filepath, md1);
                 return 1;
               }
 
@@ -838,7 +821,7 @@ static int convert_include(const char *filename)
                     if (name == -1) {
                       fprintf(stderr,
                               "File '%s' contains struct with name that can't be added \"%s\"\n",
-                              filename,
+                              filepath,
                               md1);
                       return 1;
                     }
@@ -861,7 +844,7 @@ static int convert_include(const char *filename)
                   if (name == -1) {
                     fprintf(stderr,
                             "File '%s' contains struct with name that can't be added \"%s\"\n",
-                            filename,
+                            filepath,
                             md1);
                     return 1;
                   }
@@ -1617,82 +1600,9 @@ int main(int argc, char **argv)
 #  pragma GCC poison long
 #endif
 
-#include "DNA_ID.h"
-#include "DNA_action_types.h"
-#include "DNA_anim_types.h"
-#include "DNA_armature_types.h"
-#include "DNA_asset_types.h"
-#include "DNA_boid_types.h"
-#include "DNA_brush_types.h"
-#include "DNA_cachefile_types.h"
-#include "DNA_camera_types.h"
-#include "DNA_cloth_types.h"
-#include "DNA_collection_types.h"
-#include "DNA_color_types.h"
-#include "DNA_constraint_types.h"
-#include "DNA_curve_types.h"
-#include "DNA_curveprofile_types.h"
-#include "DNA_curves_types.h"
-#include "DNA_customdata_types.h"
-#include "DNA_dynamicpaint_types.h"
-#include "DNA_effect_types.h"
-#include "DNA_fileglobal_types.h"
-#include "DNA_fluid_types.h"
-#include "DNA_freestyle_types.h"
-#include "DNA_gpencil_modifier_types.h"
-#include "DNA_gpencil_types.h"
-#include "DNA_image_types.h"
-#include "DNA_ipo_types.h"
-#include "DNA_key_types.h"
-#include "DNA_lattice_types.h"
-#include "DNA_layer_types.h"
-#include "DNA_light_types.h"
-#include "DNA_lightprobe_types.h"
-#include "DNA_lineart_types.h"
-#include "DNA_linestyle_types.h"
-#include "DNA_listBase.h"
-#include "DNA_mask_types.h"
-#include "DNA_material_types.h"
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
-#include "DNA_meta_types.h"
-#include "DNA_modifier_types.h"
-#include "DNA_movieclip_types.h"
-#include "DNA_nla_types.h"
-#include "DNA_node_types.h"
-#include "DNA_object_fluidsim_types.h"
-#include "DNA_object_force_types.h"
-#include "DNA_object_types.h"
-#include "DNA_outliner_types.h"
-#include "DNA_packedFile_types.h"
-#include "DNA_particle_types.h"
-#include "DNA_pointcache_types.h"
-#include "DNA_pointcloud_types.h"
-#include "DNA_rigidbody_types.h"
-#include "DNA_scene_types.h"
-#include "DNA_screen_types.h"
-#include "DNA_sdna_types.h"
-#include "DNA_sequence_types.h"
-#include "DNA_session_uuid_types.h"
-#include "DNA_shader_fx_types.h"
-#include "DNA_simulation_types.h"
-#include "DNA_sound_types.h"
-#include "DNA_space_types.h"
-#include "DNA_speaker_types.h"
-#include "DNA_text_types.h"
-#include "DNA_texture_types.h"
-#include "DNA_tracking_types.h"
-#include "DNA_userdef_types.h"
-#include "DNA_uuid_types.h"
-#include "DNA_vec_types.h"
-#include "DNA_vfont_types.h"
-#include "DNA_view2d_types.h"
-#include "DNA_view3d_types.h"
-#include "DNA_volume_types.h"
-#include "DNA_windowmanager_types.h"
-#include "DNA_workspace_types.h"
-#include "DNA_world_types.h"
-#include "DNA_xr_types.h"
+/* The include file below is automatically generated from the `SRC_DNA_INC`
+ * variable in 'source/blender/CMakeLists.txt'. */
+#include "dna_includes_all.h"
 
 /* end of list */
 

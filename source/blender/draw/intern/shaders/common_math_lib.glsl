@@ -1,4 +1,8 @@
 
+/* WORKAROUND: to guard against double include in EEVEE. */
+#ifndef COMMON_MATH_LIB_GLSL
+#define COMMON_MATH_LIB_GLSL
+
 /* ---------------------------------------------------------------------- */
 /** \name Common Math Utilities
  * \{ */
@@ -13,6 +17,7 @@
 #define M_SQRT2 1.41421356237309504880   /* sqrt(2) */
 #define M_SQRT1_2 0.70710678118654752440 /* 1/sqrt(2) */
 #define FLT_MAX 3.402823e+38
+#define FLT_MIN 1.175494e-38
 
 vec3 mul(mat3 m, vec3 v)
 {
@@ -106,13 +111,14 @@ float len_squared(vec3 a) { return dot(a, a); }
 float len_squared(vec2 a) { return dot(a, a); }
 
 bool flag_test(uint flag, uint val) { return (flag & val) != 0u; }
+bool flag_test(int flag, uint val) { return flag_test(uint(flag), val); }
 bool flag_test(int flag, int val) { return (flag & val) != 0; }
 
 void set_flag_from_test(inout uint value, bool test, uint flag) { if (test) { value |= flag; } else { value &= ~flag; } }
 void set_flag_from_test(inout int value, bool test, int flag) { if (test) { value |= flag; } else { value &= ~flag; } }
 
-#define weighted_sum(val0, val1, val2, val3, weights) ((val0 * weights[0] + val1 * weights[1] + val2 * weights[2] + val3 * weights[3]) * safe_rcp(sum(weights)));
-#define weighted_sum_array(val, weights) ((val[0] * weights[0] + val[1] * weights[1] + val[2] * weights[2] + val[3] * weights[3]) * safe_rcp(sum(weights)));
+#define weighted_sum(val0, val1, val2, val3, weights) ((val0 * weights[0] + val1 * weights[1] + val2 * weights[2] + val3 * weights[3]) * safe_rcp(sum(weights)))
+#define weighted_sum_array(val, weights) ((val[0] * weights[0] + val[1] * weights[1] + val[2] * weights[2] + val[3] * weights[3]) * safe_rcp(sum(weights)))
 
 /* clang-format on */
 
@@ -125,12 +131,17 @@ void set_flag_from_test(inout int value, bool test, int flag) { if (test) { valu
 #define in_texture_range(texel, tex) \
   (all(greaterThanEqual(texel, ivec2(0))) && all(lessThan(texel, textureSize(tex, 0).xy)))
 
-uint divide_ceil_u(uint visible_count, uint divisor)
+uint divide_ceil(uint visible_count, uint divisor)
 {
   return (visible_count + (divisor - 1u)) / divisor;
 }
 
-int divide_ceil_i(int visible_count, int divisor)
+int divide_ceil(int visible_count, int divisor)
+{
+  return (visible_count + (divisor - 1)) / divisor;
+}
+
+ivec2 divide_ceil(ivec2 visible_count, ivec2 divisor)
 {
   return (visible_count + (divisor - 1)) / divisor;
 }
@@ -276,3 +287,5 @@ vec3 hue_gradient(float t)
   vec3 p = abs(fract(t + vec3(1.0, 2.0 / 3.0, 1.0 / 3.0)) * 6.0 - 3.0);
   return (clamp(p - 1.0, 0.0, 1.0));
 }
+
+#endif /* COMMON_MATH_LIB_GLSL */

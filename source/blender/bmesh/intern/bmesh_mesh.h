@@ -8,6 +8,10 @@
 
 #include "bmesh_class.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct BMAllocTemplate;
 struct BMLoopNorEditDataArray;
 struct BMPartialUpdate;
@@ -17,7 +21,7 @@ void BM_mesh_elem_toolflags_ensure(BMesh *bm);
 void BM_mesh_elem_toolflags_clear(BMesh *bm);
 
 struct BMeshCreateParams {
-  bool use_toolflags : true;
+  bool use_toolflags : 1;
 };
 
 /**
@@ -204,3 +208,7 @@ void BM_mesh_vert_coords_apply(BMesh *bm, const float (*vert_coords)[3]);
 void BM_mesh_vert_coords_apply_with_mat4(BMesh *bm,
                                          const float (*vert_coords)[3],
                                          const float mat[4][4]);
+
+#ifdef __cplusplus
+}
+#endif

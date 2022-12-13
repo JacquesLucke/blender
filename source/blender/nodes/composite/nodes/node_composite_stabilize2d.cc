@@ -5,11 +5,15 @@
  * \ingroup cmpnodes
  */
 
+#include "BLT_translation.h"
+
 #include "UI_interface.h"
 #include "UI_resources.h"
 
 #include "BKE_context.h"
 #include "BKE_lib_id.h"
+
+#include "COM_node_operation.hh"
 
 #include "node_composite_util.hh"
 
@@ -58,6 +62,24 @@ static void node_composit_buts_stabilize2d(uiLayout *layout, bContext *C, Pointe
   uiItemR(layout, ptr, "invert", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
 }
 
+using namespace blender::realtime_compositor;
+
+class Stabilize2DOperation : public NodeOperation {
+ public:
+  using NodeOperation::NodeOperation;
+
+  void execute() override
+  {
+    get_input("Image").pass_through(get_result("Image"));
+    context().set_info_message("Viewport compositor setup not fully supported");
+  }
+};
+
+static NodeOperation *get_compositor_operation(Context &context, DNode node)
+{
+  return new Stabilize2DOperation(context, node);
+}
+
 }  // namespace blender::nodes::node_composite_stabilize2d_cc
 
 void register_node_type_cmp_stabilize2d()
@@ -70,6 +92,9 @@ void register_node_type_cmp_stabilize2d()
   ntype.declare = file_ns::cmp_node_stabilize2d_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_stabilize2d;
   ntype.initfunc_api = file_ns::init;
+  ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

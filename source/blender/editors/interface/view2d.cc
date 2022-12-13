@@ -43,7 +43,7 @@
 #include "UI_interface.h"
 #include "UI_view2d.h"
 
-#include "interface_intern.h"
+#include "interface_intern.hh"
 
 static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize);
 
@@ -53,16 +53,16 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize);
 
 BLI_INLINE int clamp_float_to_int(const float f)
 {
-  const float min = (float)INT_MIN;
-  const float max = (float)INT_MAX;
+  const float min = float(INT_MIN);
+  const float max = float(INT_MAX);
 
   if (UNLIKELY(f < min)) {
     return min;
   }
   if (UNLIKELY(f > max)) {
-    return (int)max;
+    return int(max);
   }
-  return (int)f;
+  return int(f);
 }
 
 /**
@@ -87,11 +87,11 @@ BLI_INLINE void clamp_rctf_to_rcti(rcti *dst, const rctf *src)
  * \{ */
 
 /**
- * helper to allow scrollbars to dynamically hide
- * - returns a copy of the scrollbar settings with the flags to display
- *   horizontal/vertical scrollbars removed
- * - input scroll value is the v2d->scroll var
- * - hide flags are set per region at drawtime
+ * Helper to allow scroll-bars to dynamically hide:
+ * - Returns a copy of the scroll-bar settings with the flags to display
+ *   horizontal/vertical scroll-bars removed.
+ * - Input scroll value is the v2d->scroll var.
+ * - Hide flags are set per region at draw-time.
  */
 static int view2d_scroll_mapped(int scroll)
 {
@@ -115,7 +115,7 @@ void UI_view2d_mask_from_win(const View2D *v2d, rcti *r_mask)
 /**
  * Called each time #View2D.cur changes, to dynamically update masks.
  *
- * \param mask_scroll: Optionally clamp scrollbars by this region.
+ * \param mask_scroll: Optionally clamp scroll-bars by this region.
  */
 static void view2d_masks(View2D *v2d, const rcti *mask_scroll)
 {
@@ -149,7 +149,9 @@ static void view2d_masks(View2D *v2d, const rcti *mask_scroll)
     }
   }
 
-  scroll = view2d_scroll_mapped(v2d->scroll);
+  /* Do not use mapped scroll here because we want to update scroller rects
+   * even if they are not displayed. For initialization purposes. See T75003. */
+  scroll = v2d->scroll;
 
   /* Scrollers are based off region-size:
    * - they can only be on one to two edges of the region they define
@@ -158,7 +160,7 @@ static void view2d_masks(View2D *v2d, const rcti *mask_scroll)
   if (scroll) {
     float scroll_width, scroll_height;
 
-    UI_view2d_scroller_size_get(v2d, &scroll_width, &scroll_height);
+    UI_view2d_scroller_size_get(v2d, false, &scroll_width, &scroll_height);
 
     /* vertical scroller */
     if (scroll & V2D_SCROLL_LEFT) {
@@ -175,7 +177,7 @@ static void view2d_masks(View2D *v2d, const rcti *mask_scroll)
 
     /* Currently, all regions that have vertical scale handles,
      * also have the scrubbing area at the top.
-     * So the scrollbar has to move down a bit. */
+     * So the scroll-bar has to move down a bit. */
     if (scroll & V2D_SCROLL_VERTICAL_HANDLES) {
       v2d->vert.ymax -= UI_TIME_SCRUB_MARGIN_Y;
     }
@@ -242,8 +244,8 @@ void UI_view2d_region_reinit(View2D *v2d, short type, int winx, int winy)
       v2d->keeptot = V2D_KEEPTOT_BOUNDS;
       if (do_init) {
         v2d->tot.xmin = v2d->tot.ymin = 0.0f;
-        v2d->tot.xmax = (float)(winx - 1);
-        v2d->tot.ymax = (float)(winy - 1);
+        v2d->tot.xmax = float(winx - 1);
+        v2d->tot.ymax = float(winy - 1);
 
         v2d->cur = v2d->tot;
       }
@@ -295,8 +297,8 @@ void UI_view2d_region_reinit(View2D *v2d, short type, int winx, int winy)
         v2d->tot.ymax = winy;
         v2d->cur = v2d->tot;
 
-        v2d->min[0] = v2d->max[0] = (float)(winx - 1);
-        v2d->min[1] = v2d->max[1] = (float)(winy - 1);
+        v2d->min[0] = v2d->max[0] = float(winx - 1);
+        v2d->min[1] = v2d->max[1] = float(winy - 1);
       }
       /* tot rect has strictly regulated placement, and must only occur in +/+ quadrant */
       v2d->align = (V2D_ALIGN_NO_NEG_X | V2D_ALIGN_NO_NEG_Y);
@@ -385,9 +387,9 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize)
   rctf *cur, *tot;
 
   /* use mask as size of region that View2D resides in, as it takes into account
-   * scrollbars already - keep in sync with zoomx/zoomy in view_zoomstep_apply_ex! */
-  winx = (float)(BLI_rcti_size_x(&v2d->mask) + 1);
-  winy = (float)(BLI_rcti_size_y(&v2d->mask) + 1);
+   * scroll-bars already - keep in sync with zoomx/zoomy in #view_zoomstep_apply_ex! */
+  winx = float(BLI_rcti_size_x(&v2d->mask) + 1);
+  winy = float(BLI_rcti_size_y(&v2d->mask) + 1);
 
   /* get pointers to rcts for less typing */
   cur = &v2d->cur;
@@ -494,7 +496,7 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize)
 
   /* check if we should restore aspect ratio (if view size changed) */
   if (v2d->keepzoom & V2D_KEEPASPECT) {
-    bool do_x = false, do_y = false, do_cur /* , do_win */ /* UNUSED */;
+    bool do_x = false, do_y = false, do_cur;
     float curRatio, winRatio;
 
     /* when a window edge changes, the aspect ratio can't be used to
@@ -582,8 +584,8 @@ static void ui_view2d_curRect_validate_resize(View2D *v2d, bool resize)
     }
 
     /* store region size for next time */
-    v2d->oldwinx = (short)winx;
-    v2d->oldwiny = (short)winy;
+    v2d->oldwinx = short(winx);
+    v2d->oldwiny = short(winy);
   }
 
   /* Step 2: apply new sizes to cur rect,
@@ -914,8 +916,8 @@ void UI_view2d_curRect_reset(View2D *v2d)
   float width, height;
 
   /* assume width and height of 'cur' rect by default, should be same size as mask */
-  width = (float)(BLI_rcti_size_x(&v2d->mask) + 1);
-  height = (float)(BLI_rcti_size_y(&v2d->mask) + 1);
+  width = float(BLI_rcti_size_x(&v2d->mask) + 1);
+  height = float(BLI_rcti_size_y(&v2d->mask) + 1);
 
   /* handle width - posx and negx flags are mutually exclusive, so watch out */
   if ((v2d->align & V2D_ALIGN_NO_POS_X) && !(v2d->align & V2D_ALIGN_NO_NEG_X)) {
@@ -978,17 +980,17 @@ void UI_view2d_totRect_set_resize(View2D *v2d, int width, int height, bool resiz
   /* handle width - posx and negx flags are mutually exclusive, so watch out */
   if ((v2d->align & V2D_ALIGN_NO_POS_X) && !(v2d->align & V2D_ALIGN_NO_NEG_X)) {
     /* width is in negative-x half */
-    v2d->tot.xmin = (float)-width;
+    v2d->tot.xmin = float(-width);
     v2d->tot.xmax = 0.0f;
   }
   else if ((v2d->align & V2D_ALIGN_NO_NEG_X) && !(v2d->align & V2D_ALIGN_NO_POS_X)) {
     /* width is in positive-x half */
     v2d->tot.xmin = 0.0f;
-    v2d->tot.xmax = (float)width;
+    v2d->tot.xmax = float(width);
   }
   else {
     /* width is centered around (x == 0) */
-    const float dx = (float)width / 2.0f;
+    const float dx = float(width) / 2.0f;
 
     v2d->tot.xmin = -dx;
     v2d->tot.xmax = dx;
@@ -997,17 +999,17 @@ void UI_view2d_totRect_set_resize(View2D *v2d, int width, int height, bool resiz
   /* handle height - posx and negx flags are mutually exclusive, so watch out */
   if ((v2d->align & V2D_ALIGN_NO_POS_Y) && !(v2d->align & V2D_ALIGN_NO_NEG_Y)) {
     /* height is in negative-y half */
-    v2d->tot.ymin = (float)-height;
+    v2d->tot.ymin = float(-height);
     v2d->tot.ymax = 0.0f;
   }
   else if ((v2d->align & V2D_ALIGN_NO_NEG_Y) && !(v2d->align & V2D_ALIGN_NO_POS_Y)) {
     /* height is in positive-y half */
     v2d->tot.ymin = 0.0f;
-    v2d->tot.ymax = (float)height;
+    v2d->tot.ymax = float(height);
   }
   else {
     /* height is centered around (y == 0) */
-    const float dy = (float)height / 2.0f;
+    const float dy = float(height) / 2.0f;
 
     v2d->tot.ymin = -dy;
     v2d->tot.ymax = dy;
@@ -1060,17 +1062,17 @@ static void view2d_map_cur_using_mask(const View2D *v2d, rctf *r_curmasked)
       const float dy = BLI_rctf_size_y(&v2d->cur) / (sizey + 1);
 
       if (v2d->mask.xmin != 0) {
-        r_curmasked->xmin -= dx * (float)v2d->mask.xmin;
+        r_curmasked->xmin -= dx * float(v2d->mask.xmin);
       }
       if (v2d->mask.xmax + 1 != v2d->winx) {
-        r_curmasked->xmax += dx * (float)(v2d->winx - v2d->mask.xmax - 1);
+        r_curmasked->xmax += dx * float(v2d->winx - v2d->mask.xmax - 1);
       }
 
       if (v2d->mask.ymin != 0) {
-        r_curmasked->ymin -= dy * (float)v2d->mask.ymin;
+        r_curmasked->ymin -= dy * float(v2d->mask.ymin);
       }
       if (v2d->mask.ymax + 1 != v2d->winy) {
-        r_curmasked->ymax += dy * (float)(v2d->winy - v2d->mask.ymax - 1);
+        r_curmasked->ymax += dy * float(v2d->winy - v2d->mask.ymax - 1);
       }
     }
   }
@@ -1149,7 +1151,7 @@ void UI_view2d_view_restore(const bContext *C)
   const int width = BLI_rcti_size_x(&region->winrct) + 1;
   const int height = BLI_rcti_size_y(&region->winrct) + 1;
 
-  wmOrtho2(0.0f, (float)width, 0.0f, (float)height);
+  wmOrtho2(0.0f, float(width), 0.0f, float(height));
   GPU_matrix_identity_set();
 
   //  ED_region_pixelspace(CTX_wm_region(C));
@@ -1175,8 +1177,8 @@ void UI_view2d_multi_grid_draw(
 
   /* Make an estimate of at least how many vertices will be needed */
   uint vertex_count = 4;
-  vertex_count += 2 * ((int)((v2d->cur.xmax - v2d->cur.xmin) / lstep) + 1);
-  vertex_count += 2 * ((int)((v2d->cur.ymax - v2d->cur.ymin) / lstep) + 1);
+  vertex_count += 2 * (int((v2d->cur.xmax - v2d->cur.xmin) / lstep) + 1);
+  vertex_count += 2 * (int((v2d->cur.ymax - v2d->cur.ymin) / lstep) + 1);
 
   GPUVertFormat *format = immVertexFormat();
   const uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
@@ -1185,7 +1187,7 @@ void UI_view2d_multi_grid_draw(
 
   GPU_line_width(1.0f);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
   immBeginAtMost(GPU_PRIM_LINES, vertex_count);
 
   for (int level = 0; level < totlevels; level++) {
@@ -1193,7 +1195,7 @@ void UI_view2d_multi_grid_draw(
      * or high contrast grid lines. This only has an effect if colorid != TH_GRID. */
     UI_GetThemeColorBlendShade3ubv(colorid, TH_GRID, 0.25f, offset, grid_line_color);
 
-    int i = (int)(v2d->cur.xmin / lstep);
+    int i = int(v2d->cur.xmin / lstep);
     if (v2d->cur.xmin > 0.0f) {
       i++;
     }
@@ -1210,7 +1212,7 @@ void UI_view2d_multi_grid_draw(
       immVertex2f(pos, start, v2d->cur.ymax);
     }
 
-    i = (int)(v2d->cur.ymin / lstep);
+    i = int(v2d->cur.ymin / lstep);
     if (v2d->cur.ymin > 0.0f) {
       i++;
     }
@@ -1254,10 +1256,10 @@ static void grid_axis_start_and_count(
 {
   *r_start = min;
   if (*r_start < 0.0f) {
-    *r_start += -(float)fmod(min, step);
+    *r_start += -float(fmod(min, step));
   }
   else {
-    *r_start += step - (float)fabs(fmod(min, step));
+    *r_start += step - float(fabs(fmod(min, step)));
   }
 
   if (*r_start > max) {
@@ -1278,12 +1280,12 @@ void UI_view2d_dot_grid_draw(const View2D *v2d,
     return;
   }
 
-  const float zoom_x = (float)(BLI_rcti_size_x(&v2d->mask) + 1) / BLI_rctf_size_x(&v2d->cur);
+  const float zoom_x = float(BLI_rcti_size_x(&v2d->mask) + 1) / BLI_rctf_size_x(&v2d->cur);
 
   GPUVertFormat *format = immVertexFormat();
   const uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
   const uint color_id = GPU_vertformat_attr_add(format, "color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_FLAT_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_FLAT_COLOR);
 
   /* Scaling the dots fully with the zoom looks too busy, but a bit of size variation is nice. */
   const float min_point_size = 2.0f * UI_DPI_FAC;
@@ -1294,7 +1296,7 @@ void UI_view2d_dot_grid_draw(const View2D *v2d,
   const int subdivision_scale = 5;
 
   const float view_level = logf(min_step / zoom_x) / logf(subdivision_scale);
-  const int largest_visible_level = (int)view_level;
+  const int largest_visible_level = int(view_level);
 
   for (int level_offset = 0; level_offset <= grid_subdivisions; level_offset++) {
     const int level = largest_visible_level - level_offset;
@@ -1375,8 +1377,8 @@ struct View2DScrollers {
   /* focus bubbles */
   /* focus bubbles */
   /* focus bubbles */
-  int vert_min, vert_max; /* vertical scrollbar */
-  int hor_min, hor_max;   /* horizontal scrollbar */
+  int vert_min, vert_max; /* vertical scroll-bar */
+  int hor_min, hor_max;   /* horizontal scroll-bar */
 
   /** Exact size of slider backdrop. */
   rcti hor, vert;
@@ -1406,7 +1408,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
   vert.ymax -= UI_HEADER_OFFSET;
 
   /* width of sliders */
-  smaller = (int)(0.1f * U.widget_unit);
+  smaller = int(0.1f * U.widget_unit);
   if (scroll & V2D_SCROLL_BOTTOM) {
     hor.ymin += smaller;
   }
@@ -1429,7 +1431,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
   r_scrollers->hor = hor;
 
   /* scroller 'buttons':
-   * - These should always remain within the visible region of the scrollbar
+   * - These should always remain within the visible region of the scroll-bar
    * - They represent the region of 'tot' that is visible in 'cur'
    */
 
@@ -1437,7 +1439,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
   if (scroll & V2D_SCROLL_HORIZONTAL) {
     /* scroller 'button' extents */
     totsize = BLI_rctf_size_x(&v2d->tot);
-    scrollsize = (float)BLI_rcti_size_x(&hor);
+    scrollsize = float(BLI_rcti_size_x(&hor));
     if (totsize == 0.0f) {
       totsize = 1.0f; /* avoid divide by zero */
     }
@@ -1447,7 +1449,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
       r_scrollers->hor_min = hor.xmin;
     }
     else {
-      r_scrollers->hor_min = (int)(hor.xmin + (fac1 * scrollsize));
+      r_scrollers->hor_min = int(hor.xmin + (fac1 * scrollsize));
     }
 
     fac2 = (v2d->cur.xmax - v2d->tot.xmin) / totsize;
@@ -1455,7 +1457,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
       r_scrollers->hor_max = hor.xmax;
     }
     else {
-      r_scrollers->hor_max = (int)(hor.xmin + (fac2 * scrollsize));
+      r_scrollers->hor_max = int(hor.xmin + (fac2 * scrollsize));
     }
 
     /* prevent inverted sliders */
@@ -1475,7 +1477,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
   if (scroll & V2D_SCROLL_VERTICAL) {
     /* scroller 'button' extents */
     totsize = BLI_rctf_size_y(&v2d->tot);
-    scrollsize = (float)BLI_rcti_size_y(&vert);
+    scrollsize = float(BLI_rcti_size_y(&vert));
     if (totsize == 0.0f) {
       totsize = 1.0f; /* avoid divide by zero */
     }
@@ -1485,7 +1487,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
       r_scrollers->vert_min = vert.ymin;
     }
     else {
-      r_scrollers->vert_min = (int)(vert.ymin + (fac1 * scrollsize));
+      r_scrollers->vert_min = int(vert.ymin + (fac1 * scrollsize));
     }
 
     fac2 = (v2d->cur.ymax - v2d->tot.ymin) / totsize;
@@ -1493,7 +1495,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
       r_scrollers->vert_max = vert.ymax;
     }
     else {
-      r_scrollers->vert_max = (int)(vert.ymin + (fac2 * scrollsize));
+      r_scrollers->vert_max = int(vert.ymin + (fac2 * scrollsize));
     }
 
     /* prevent inverted sliders */
@@ -1510,7 +1512,7 @@ void UI_view2d_scrollers_calc(View2D *v2d,
   }
 }
 
-void UI_view2d_scrollers_draw(View2D *v2d, const rcti *mask_custom)
+void UI_view2d_scrollers_draw_ex(View2D *v2d, const rcti *mask_custom, bool use_full_hide)
 {
   View2DScrollers scrollers;
   UI_view2d_scrollers_calc(v2d, mask_custom, &scrollers);
@@ -1518,19 +1520,22 @@ void UI_view2d_scrollers_draw(View2D *v2d, const rcti *mask_custom)
   rcti vert, hor;
   const int scroll = view2d_scroll_mapped(v2d->scroll);
   const char emboss_alpha = btheme->tui.widget_emboss[3];
+  const float alpha_min = use_full_hide ? 0.0f : V2D_SCROLL_MIN_ALPHA;
+
   uchar scrollers_back_color[4];
 
-  /* Color for scrollbar backs */
+  /* Color for scroll-bar backs. */
   UI_GetThemeColor4ubv(TH_BACK, scrollers_back_color);
 
   /* make copies of rects for less typing */
   vert = scrollers.vert;
   hor = scrollers.hor;
 
-  /* horizontal scrollbar */
+  /* Horizontal scroll-bar. */
   if (scroll & V2D_SCROLL_HORIZONTAL) {
     uiWidgetColors wcol = btheme->tui.wcol_scroll;
-    const float alpha_fac = v2d->alpha_hor / 255.0f;
+    /* 0..255 -> min...1 */
+    const float alpha_fac = ((v2d->alpha_hor / 255.0f) * (1.0f - alpha_min)) + alpha_min;
     rcti slider;
     int state;
 
@@ -1543,8 +1548,8 @@ void UI_view2d_scrollers_draw(View2D *v2d, const rcti *mask_custom)
 
     wcol.inner[3] *= alpha_fac;
     wcol.item[3] *= alpha_fac;
-    wcol.outline[3] *= alpha_fac;
-    btheme->tui.widget_emboss[3] *= alpha_fac; /* will be reset later */
+    wcol.outline[3] = 0;
+    btheme->tui.widget_emboss[3] = 0; /* will be reset later */
 
     /* show zoom handles if:
      * - zooming on x-axis is allowed (no scroll otherwise)
@@ -1561,11 +1566,12 @@ void UI_view2d_scrollers_draw(View2D *v2d, const rcti *mask_custom)
     UI_draw_widget_scroll(&wcol, &hor, &slider, state);
   }
 
-  /* vertical scrollbar */
+  /* Vertical scroll-bar. */
   if (scroll & V2D_SCROLL_VERTICAL) {
     uiWidgetColors wcol = btheme->tui.wcol_scroll;
     rcti slider;
-    const float alpha_fac = v2d->alpha_vert / 255.0f;
+    /* 0..255 -> min...1 */
+    const float alpha_fac = ((v2d->alpha_vert / 255.0f) * (1.0f - alpha_min)) + alpha_min;
     int state;
 
     slider.xmin = vert.xmin;
@@ -1577,8 +1583,8 @@ void UI_view2d_scrollers_draw(View2D *v2d, const rcti *mask_custom)
 
     wcol.inner[3] *= alpha_fac;
     wcol.item[3] *= alpha_fac;
-    wcol.outline[3] *= alpha_fac;
-    btheme->tui.widget_emboss[3] *= alpha_fac; /* will be reset later */
+    wcol.outline[3] = 0;
+    btheme->tui.widget_emboss[3] = 0; /* will be reset later */
 
     /* show zoom handles if:
      * - zooming on y-axis is allowed (no scroll otherwise)
@@ -1597,6 +1603,11 @@ void UI_view2d_scrollers_draw(View2D *v2d, const rcti *mask_custom)
 
   /* Was changed above, so reset. */
   btheme->tui.widget_emboss[3] = emboss_alpha;
+}
+
+void UI_view2d_scrollers_draw(View2D *v2d, const rcti *mask_custom)
+{
+  UI_view2d_scrollers_draw_ex(v2d, mask_custom, false);
 }
 
 /** \} */
@@ -1662,8 +1673,8 @@ void UI_view2d_region_to_view(
 void UI_view2d_region_to_view_rctf(const View2D *v2d, const rctf *rect_src, rctf *rect_dst)
 {
   const float cur_size[2] = {BLI_rctf_size_x(&v2d->cur), BLI_rctf_size_y(&v2d->cur)};
-  const float mask_size[2] = {(float)BLI_rcti_size_x(&v2d->mask),
-                              (float)BLI_rcti_size_y(&v2d->mask)};
+  const float mask_size[2] = {float(BLI_rcti_size_x(&v2d->mask)),
+                              float(BLI_rcti_size_y(&v2d->mask))};
 
   rect_dst->xmin = (v2d->cur.xmin +
                     (cur_size[0] * (rect_src->xmin - v2d->mask.xmin) / mask_size[0]));
@@ -1695,8 +1706,8 @@ bool UI_view2d_view_to_region_clip(
 
   /* check if values are within bounds */
   if ((x >= 0.0f) && (x <= 1.0f) && (y >= 0.0f) && (y <= 1.0f)) {
-    *r_region_x = (int)(v2d->mask.xmin + (x * BLI_rcti_size_x(&v2d->mask)));
-    *r_region_y = (int)(v2d->mask.ymin + (y * BLI_rcti_size_y(&v2d->mask)));
+    *r_region_x = int(v2d->mask.xmin + (x * BLI_rcti_size_x(&v2d->mask)));
+    *r_region_y = int(v2d->mask.ymin + (y * BLI_rcti_size_y(&v2d->mask)));
 
     return true;
   }
@@ -1735,11 +1746,46 @@ void UI_view2d_view_to_region_fl(
   *r_region_y = v2d->mask.ymin + (y * BLI_rcti_size_y(&v2d->mask));
 }
 
+bool UI_view2d_view_to_region_segment_clip(const View2D *v2d,
+                                           const float xy_a[2],
+                                           const float xy_b[2],
+                                           int r_region_a[2],
+                                           int r_region_b[2])
+{
+  rctf rect_unit;
+  rect_unit.xmin = rect_unit.ymin = 0.0f;
+  rect_unit.xmax = rect_unit.ymax = 1.0f;
+
+  /* Express given coordinates as proportional values. */
+  const float s_a[2] = {
+      (xy_a[0] - v2d->cur.xmin) / BLI_rctf_size_x(&v2d->cur),
+      (xy_a[1] - v2d->cur.ymin) / BLI_rctf_size_y(&v2d->cur),
+  };
+  const float s_b[2] = {
+      (xy_b[0] - v2d->cur.xmin) / BLI_rctf_size_x(&v2d->cur),
+      (xy_b[1] - v2d->cur.ymin) / BLI_rctf_size_y(&v2d->cur),
+  };
+
+  /* Set initial value in case coordinates lie outside bounds. */
+  r_region_a[0] = r_region_b[0] = r_region_a[1] = r_region_b[1] = V2D_IS_CLIPPED;
+
+  if (BLI_rctf_isect_segment(&rect_unit, s_a, s_b)) {
+    r_region_a[0] = int(v2d->mask.xmin + (s_a[0] * BLI_rcti_size_x(&v2d->mask)));
+    r_region_a[1] = int(v2d->mask.ymin + (s_a[1] * BLI_rcti_size_y(&v2d->mask)));
+    r_region_b[0] = int(v2d->mask.xmin + (s_b[0] * BLI_rcti_size_x(&v2d->mask)));
+    r_region_b[1] = int(v2d->mask.ymin + (s_b[1] * BLI_rcti_size_y(&v2d->mask)));
+
+    return true;
+  }
+
+  return false;
+}
+
 void UI_view2d_view_to_region_rcti(const View2D *v2d, const rctf *rect_src, rcti *rect_dst)
 {
   const float cur_size[2] = {BLI_rctf_size_x(&v2d->cur), BLI_rctf_size_y(&v2d->cur)};
-  const float mask_size[2] = {(float)BLI_rcti_size_x(&v2d->mask),
-                              (float)BLI_rcti_size_y(&v2d->mask)};
+  const float mask_size[2] = {float(BLI_rcti_size_x(&v2d->mask)),
+                              float(BLI_rcti_size_y(&v2d->mask))};
   rctf rect_tmp;
 
   /* Step 1: express given coordinates as proportional values. */
@@ -1768,8 +1814,8 @@ void UI_view2d_view_to_region_m4(const View2D *v2d, float matrix[4][4])
 bool UI_view2d_view_to_region_rcti_clip(const View2D *v2d, const rctf *rect_src, rcti *rect_dst)
 {
   const float cur_size[2] = {BLI_rctf_size_x(&v2d->cur), BLI_rctf_size_y(&v2d->cur)};
-  const float mask_size[2] = {(float)BLI_rcti_size_x(&v2d->mask),
-                              (float)BLI_rcti_size_y(&v2d->mask)};
+  const float mask_size[2] = {float(BLI_rcti_size_x(&v2d->mask)),
+                              float(BLI_rcti_size_y(&v2d->mask))};
   rctf rect_tmp;
 
   BLI_assert(rect_src->xmin <= rect_src->xmax && rect_src->ymin <= rect_src->ymax);
@@ -1835,13 +1881,14 @@ View2D *UI_view2d_fromcontext_rwin(const bContext *C)
   return &(region->v2d);
 }
 
-void UI_view2d_scroller_size_get(const View2D *v2d, float *r_x, float *r_y)
+void UI_view2d_scroller_size_get(const View2D *v2d, bool mapped, float *r_x, float *r_y)
 {
-  const int scroll = view2d_scroll_mapped(v2d->scroll);
+  const int scroll = (mapped) ? view2d_scroll_mapped(v2d->scroll) : v2d->scroll;
 
   if (r_x) {
     if (scroll & V2D_SCROLL_VERTICAL) {
       *r_x = (scroll & V2D_SCROLL_VERTICAL_HANDLES) ? V2D_SCROLL_HANDLE_WIDTH : V2D_SCROLL_WIDTH;
+      *r_x = ((*r_x - V2D_SCROLL_MIN_WIDTH) * (v2d->alpha_vert / 255.0f)) + V2D_SCROLL_MIN_WIDTH;
     }
     else {
       *r_x = 0;
@@ -1851,6 +1898,7 @@ void UI_view2d_scroller_size_get(const View2D *v2d, float *r_x, float *r_y)
     if (scroll & V2D_SCROLL_HORIZONTAL) {
       *r_y = (scroll & V2D_SCROLL_HORIZONTAL_HANDLES) ? V2D_SCROLL_HANDLE_HEIGHT :
                                                         V2D_SCROLL_HEIGHT;
+      *r_y = ((*r_y - V2D_SCROLL_MIN_WIDTH) * (v2d->alpha_hor / 255.0f)) + V2D_SCROLL_MIN_WIDTH;
     }
     else {
       *r_y = 0;
@@ -2103,9 +2151,10 @@ void UI_view2d_text_cache_draw(ARegion *region)
       col_pack_prev = v2s->col.pack;
     }
 
-    if (v2s->rect.xmin >= v2s->rect.xmax) {
-      BLF_draw_default((float)(v2s->mval[0] + xofs),
-                       (float)(v2s->mval[1] + yofs),
+    /* Don't use clipping if `v2s->rect` is not set. */
+    if (BLI_rcti_size_x(&v2s->rect) == 0 && BLI_rcti_size_y(&v2s->rect) == 0) {
+      BLF_draw_default(float(v2s->mval[0] + xofs),
+                       float(v2s->mval[1] + yofs),
                        0.0,
                        v2s->str,
                        BLF_DRAW_STR_DUMMY_MAX);

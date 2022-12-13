@@ -28,6 +28,11 @@ struct wmOperatorType;
 
 #define WM_TOOLSYSTEM_SPACE_MASK \
   ((1 << SPACE_IMAGE) | (1 << SPACE_NODE) | (1 << SPACE_VIEW3D) | (1 << SPACE_SEQ))
+/**
+ * Space-types that define their own "mode" (as returned by #WM_toolsystem_mode_from_spacetype).
+ */
+#define WM_TOOLSYSTEM_SPACE_MASK_MODE_FROM_SPACE ((1 << SPACE_IMAGE) | (1 << SPACE_SEQ))
+
 /* Values that define a category of active tool. */
 typedef struct bToolKey {
   int space_type;
@@ -80,16 +85,19 @@ void WM_toolsystem_ref_sync_from_context(struct Main *bmain,
 
 void WM_toolsystem_init(struct bContext *C);
 
-int WM_toolsystem_mode_from_spacetype(struct ViewLayer *view_layer,
+int WM_toolsystem_mode_from_spacetype(const struct Scene *scene,
+                                      struct ViewLayer *view_layer,
                                       struct ScrArea *area,
                                       int space_type);
-bool WM_toolsystem_key_from_context(struct ViewLayer *view_layer,
+bool WM_toolsystem_key_from_context(const struct Scene *scene,
+                                    struct ViewLayer *view_layer,
                                     struct ScrArea *area,
                                     bToolKey *tkey);
 
 void WM_toolsystem_update_from_context_view3d(struct bContext *C);
 void WM_toolsystem_update_from_context(struct bContext *C,
                                        struct WorkSpace *workspace,
+                                       const struct Scene *scene,
                                        struct ViewLayer *view_layer,
                                        struct ScrArea *area);
 
@@ -140,6 +148,7 @@ void WM_toolsystem_ref_properties_init_for_keymap(struct bToolRef *tref,
 void WM_toolsystem_refresh_active(struct bContext *C);
 
 void WM_toolsystem_refresh_screen_area(struct WorkSpace *workspace,
+                                       const struct Scene *scene,
                                        struct ViewLayer *view_layer,
                                        struct ScrArea *area);
 void WM_toolsystem_refresh_screen_window(struct wmWindow *win);

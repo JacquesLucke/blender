@@ -17,6 +17,8 @@
 #include "COM_MemoryBuffer.h"
 #include "COM_MetaData.h"
 
+#include "BKE_node_runtime.hh"
+
 #include "clew.h"
 
 #include "DNA_node_types.h"
@@ -555,13 +557,13 @@ class NodeOperation {
 
   inline bool is_braked() const
   {
-    return btree_->test_break(btree_->tbh);
+    return btree_->runtime->test_break(btree_->runtime->tbh);
   }
 
   inline void update_draw()
   {
-    if (btree_->update_draw) {
-      btree_->update_draw(btree_->udh);
+    if (btree_->runtime->update_draw) {
+      btree_->runtime->update_draw(btree_->runtime->udh);
     }
   }
 
@@ -628,9 +630,9 @@ class NodeOperation {
   /**
    * Executes operation updating output memory buffer. Single-threaded calls.
    */
-  virtual void update_memory_buffer(MemoryBuffer *UNUSED(output),
-                                    const rcti &UNUSED(area),
-                                    Span<MemoryBuffer *> UNUSED(inputs))
+  virtual void update_memory_buffer(MemoryBuffer * /*output*/,
+                                    const rcti & /*area*/,
+                                    Span<MemoryBuffer *> /*inputs*/)
   {
   }
 

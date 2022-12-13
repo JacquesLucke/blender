@@ -21,9 +21,10 @@ TiledExecutionModel::TiledExecutionModel(CompositorContext &context,
     : ExecutionModel(context, operations), groups_(groups)
 {
   const bNodeTree *node_tree = context.get_bnodetree();
-  node_tree->stats_draw(node_tree->sdh, TIP_("Compositing | Determining resolution"));
+  node_tree->runtime->stats_draw(node_tree->runtime->sdh,
+                                 TIP_("Compositing | Determining resolution"));
 
-  unsigned int resolution[2];
+  uint resolution[2];
   for (ExecutionGroup *group : groups_) {
     resolution[0] = 0;
     resolution[1] = 0;
@@ -45,7 +46,7 @@ TiledExecutionModel::TiledExecutionModel(CompositorContext &context,
 
 static void update_read_buffer_offset(Span<NodeOperation *> operations)
 {
-  unsigned int order = 0;
+  uint order = 0;
   for (NodeOperation *operation : operations) {
     if (operation->get_flags().is_read_buffer_operation) {
       ReadBufferOperation *read_operation = (ReadBufferOperation *)operation;
@@ -100,7 +101,8 @@ void TiledExecutionModel::execute(ExecutionSystem &exec_system)
 {
   const bNodeTree *editingtree = this->context_.get_bnodetree();
 
-  editingtree->stats_draw(editingtree->sdh, TIP_("Compositing | Initializing execution"));
+  editingtree->runtime->stats_draw(editingtree->runtime->sdh,
+                                   TIP_("Compositing | Initializing execution"));
 
   update_read_buffer_offset(operations_);
 
@@ -118,7 +120,8 @@ void TiledExecutionModel::execute(ExecutionSystem &exec_system)
   WorkScheduler::finish();
   WorkScheduler::stop();
 
-  editingtree->stats_draw(editingtree->sdh, TIP_("Compositing | De-initializing execution"));
+  editingtree->runtime->stats_draw(editingtree->runtime->sdh,
+                                   TIP_("Compositing | De-initializing execution"));
 
   for (NodeOperation *operation : operations_) {
     operation->deinit_execution();

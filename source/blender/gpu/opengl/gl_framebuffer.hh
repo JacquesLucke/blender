@@ -11,8 +11,6 @@
 
 #include "MEM_guardedalloc.h"
 
-#include "glew-mx.h"
-
 #include "gpu_framebuffer_private.hh"
 
 namespace blender::gpu {
@@ -30,11 +28,11 @@ class GLFrameBuffer : public FrameBuffer {
   /** OpenGL handle. */
   GLuint fbo_id_ = 0;
   /** Context the handle is from. Frame-buffers are not shared across contexts. */
-  GLContext *context_ = NULL;
+  GLContext *context_ = nullptr;
   /** State Manager of the same contexts. */
-  GLStateManager *state_manager_ = NULL;
+  GLStateManager *state_manager_ = nullptr;
   /** Copy of the GL state. Contains ONLY color attachments enums for slot binding. */
-  GLenum gl_attachments_[GPU_FB_MAX_COLOR_ATTACHMENT];
+  GLenum gl_attachments_[GPU_FB_MAX_COLOR_ATTACHMENT] = {0};
   /** Internal frame-buffers are immutable. */
   bool immutable_;
   /** True is the frame-buffer has its first color target using the GPU_SRGB8_A8 format. */
@@ -76,6 +74,11 @@ class GLFrameBuffer : public FrameBuffer {
   void clear_attachment(GPUAttachmentType type,
                         eGPUDataFormat data_format,
                         const void *clear_value) override;
+
+  /* Attachment load-stores are currently no-op's in OpenGL. */
+  void attachment_set_loadstore_op(GPUAttachmentType /*type*/,
+                                   eGPULoadOp /*load_action*/,
+                                   eGPUStoreOp /*store_action*/) override{};
 
   void read(eGPUFrameBufferBits planes,
             eGPUDataFormat format,

@@ -5,8 +5,6 @@
  * \ingroup gpu
  */
 
-#include "BKE_global.h"
-
 #include "DNA_userdef_types.h"
 
 #include "GPU_capabilities.h"
@@ -42,6 +40,7 @@ GLTexture::~GLTexture()
   if (ctx != nullptr && is_bound_) {
     /* This avoid errors when the texture is still inside the bound texture array. */
     ctx->state_manager->texture_unbind(this);
+    ctx->state_manager->image_unbind(this);
   }
   GLContext::tex_free(tex_id_);
 }
@@ -72,7 +71,7 @@ bool GLTexture::init_internal()
   GLenum internal_format = to_gl_internal_format(format_);
   const bool is_cubemap = bool(type_ == GPU_TEXTURE_CUBE);
   const bool is_layered = bool(type_ & GPU_TEXTURE_ARRAY);
-  const bool is_compressed = bool(format_flag_ & GPU_TEXTURE_ARRAY);
+  const bool is_compressed = bool(format_flag_ & GPU_FORMAT_COMPRESSED);
   const int dimensions = (is_cubemap) ? 2 : this->dimensions_count();
   GLenum gl_format = to_gl_data_format(format_);
   GLenum gl_type = to_gl(to_data_format(format_));
@@ -304,6 +303,42 @@ void GLTexture::update_sub(
   has_pixels_ = true;
 }
 
+void GLTexture::update_sub(int offset[3],
+                           int extent[3],
+                           eGPUDataFormat format,
+                           GPUPixelBuffer *pixbuf)
+{
+  /* Update texture from pixel buffer. */
+  BLI_assert(validate_data_format(format_, format));
+  BLI_assert(pixbuf != nullptr);
+
+  const int dimensions = this->dimensions_count();
+  GLenum gl_format = to_gl_data_format(format_);
+  GLenum gl_type = to_gl(format);
+
+  /* Temporarily Bind texture. */
+  GLContext::state_manager_active_get()->texture_bind_temp(this);
+
+  /* Bind pixel buffer for source data. */
+  GLint pix_buf_handle = (GLint)GPU_pixel_buffer_get_native_handle(pixbuf);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pix_buf_handle);
+
+  switch (dimensions) {
+    default:
+    case 1:
+      glTexSubImage1D(target_, 0, offset[0], extent[0], gl_format, gl_type, 0);
+      break;
+    case 2:
+      glTexSubImage2D(target_, 0, UNPACK2(offset), UNPACK2(extent), gl_format, gl_type, 0);
+      break;
+    case 3:
+      glTexSubImage3D(target_, 0, UNPACK3(offset), UNPACK3(extent), gl_format, gl_type, 0);
+      break;
+  }
+
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+}
+
 /**
  * This will create the mipmap images and populate them with filtered data from base level.
  *
@@ -312,6 +347,12 @@ void GLTexture::update_sub(
  */
 void GLTexture::generate_mipmap()
 {
+  /* Allow users to provide mipmaps stored in compressed textures.
+   * Skip generating mipmaps to avoid overriding the existing ones. */
+  if (format_flag_ & GPU_FORMAT_COMPRESSED) {
+    return;
+  }
+
   /* Some drivers have bugs when using #glGenerateMipmap with depth textures (see T56789).
    * In this case we just create a complete texture with mipmaps manually without
    * down-sampling. You must initialize the texture levels using other methods like
@@ -598,7 +639,7 @@ bool GLTexture::proxy_check(int mip)
 {
   /* Manual validation first, since some implementation have issues with proxy creation. */
   int max_size = GPU_max_texture_size();
-  int max_3d_size = GLContext::max_texture_3d_size;
+  int max_3d_size = GPU_max_texture_3d_size();
   int max_cube_size = GLContext::max_cubemap_size;
   int size[3] = {1, 1, 1};
   this->mip_size_get(mip, size);
@@ -734,4 +775,63 @@ uint GLTexture::gl_bindcode_get() const
   return tex_id_;
 }
 
+/* -------------------------------------------------------------------- */
+/** \name Pixel Buffer
+ * \{ */
+
+GLPixelBuffer::GLPixelBuffer(uint size) : PixelBuffer(size)
+{
+  glGenBuffers(1, &gl_id_);
+  BLI_assert(gl_id_);
+
+  if (!gl_id_) {
+    return;
+  }
+
+  /* Ensure size is non-zero for pixel buffer backing storage creation. */
+  size = max_ii(size, 32);
+
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gl_id_);
+  glBufferData(GL_PIXEL_UNPACK_BUFFER, size, 0, GL_DYNAMIC_DRAW);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+}
+
+GLPixelBuffer::~GLPixelBuffer()
+{
+  if (!gl_id_) {
+    return;
+  }
+  glDeleteBuffers(1, &gl_id_);
+}
+
+void *GLPixelBuffer::map()
+{
+  if (!gl_id_) {
+    BLI_assert(false);
+    return nullptr;
+  }
+
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, gl_id_);
+  void *ptr = glMapBuffer(GL_PIXEL_UNPACK_BUFFER, GL_WRITE_ONLY);
+  BLI_assert(ptr);
+  return ptr;
+}
+
+void GLPixelBuffer::unmap()
+{
+  glUnmapBuffer(GL_PIXEL_UNPACK_BUFFER);
+  glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+}
+
+int64_t GLPixelBuffer::get_native_handle()
+{
+  return (int64_t)gl_id_;
+}
+
+uint GLPixelBuffer::get_size()
+{
+  return size_;
+}
+
+/** \} */
 }  // namespace blender::gpu

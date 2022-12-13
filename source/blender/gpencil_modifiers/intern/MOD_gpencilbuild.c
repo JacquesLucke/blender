@@ -7,14 +7,15 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "MEM_guardedalloc.h"
 
-#include "BLI_utildefines.h"
-
-#include "BLI_blenlib.h"
-#include "BLI_math.h"
+#include "BLI_listbase.h"
+#include "BLI_math_base.h"
+#include "BLI_math_vector.h"
 #include "BLI_sort.h"
+#include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
 
@@ -109,7 +110,7 @@ static void reduce_stroke_points(bGPdata *gpd,
                                  const int points_num,
                                  const eBuildGpencil_Transition transition)
 {
-  if (points_num == 0) {
+  if ((points_num == 0) || (gps->points == NULL)) {
     clear_stroke(gpf, gps);
     return;
   }
@@ -302,8 +303,8 @@ static void build_sequential(Object *ob,
     /* Compute distance to control object if set, and build according to that order. */
     if (mmd->object) {
       float sv1[3], sv2[3];
-      mul_v3_m4v3(sv1, ob->obmat, &gps->points[0].x);
-      mul_v3_m4v3(sv2, ob->obmat, &gps->points[gps->totpoints - 1].x);
+      mul_v3_m4v3(sv1, ob->object_to_world, &gps->points[0].x);
+      mul_v3_m4v3(sv2, ob->object_to_world, &gps->points[gps->totpoints - 1].x);
       float dist_l = len_v3v3(sv1, mmd->object->loc);
       float dist_r = len_v3v3(sv2, mmd->object->loc);
       if (dist_r < dist_l) {
@@ -876,7 +877,7 @@ static void updateDepsgraph(GpencilModifierData *md,
 /* ******************************************** */
 
 GpencilModifierTypeInfo modifierType_Gpencil_Build = {
-    /* name */ "Build",
+    /* name */ N_("Build"),
     /* structName */ "BuildGpencilModifierData",
     /* structSize */ sizeof(BuildGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

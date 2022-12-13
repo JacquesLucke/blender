@@ -375,6 +375,8 @@ set(ICON_NAMES
   small_caps
   modifier
   con_action
+  mod_envelope
+  mod_outline
   mod_length
   mod_dash
   mod_lineart
@@ -767,22 +769,28 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   ops.armature.extrude_cursor
   ops.armature.extrude_move
   ops.curve.draw
-  ops.curve.pen
   ops.curve.extrude_cursor
   ops.curve.extrude_move
+  ops.curve.pen
   ops.curve.radius
   ops.curve.vertex_random
   ops.curves.sculpt_add
   ops.curves.sculpt_comb
   ops.curves.sculpt_cut
   ops.curves.sculpt_delete
+  ops.curves.sculpt_density
   ops.curves.sculpt_grow_shrink
+  ops.curves.sculpt_pinch
+  ops.curves.sculpt_puff
+  ops.curves.sculpt_slide
+  ops.curves.sculpt_smooth
   ops.curves.sculpt_snake_hook
   ops.generic.cursor
   ops.generic.select
   ops.generic.select_box
   ops.generic.select_circle
   ops.generic.select_lasso
+  ops.generic.select_paint
   ops.gpencil.draw
   ops.gpencil.draw.eraser
   ops.gpencil.draw.line
@@ -848,8 +856,8 @@ set_property(GLOBAL PROPERTY ICON_GEOM_NAMES
   ops.sculpt.border_hide
   ops.sculpt.border_mask
   ops.sculpt.box_trim
-  ops.sculpt.color_filter
   ops.sculpt.cloth_filter
+  ops.sculpt.color_filter
   ops.sculpt.face_set_edit
   ops.sculpt.lasso_face_set
   ops.sculpt.lasso_mask
@@ -927,6 +935,7 @@ if(WITH_BLENDER)
     data_to_c_simple(../../../../release/datafiles/brushicons/mask.png SRC)
     data_to_c_simple(../../../../release/datafiles/brushicons/mix.png SRC)
     data_to_c_simple(../../../../release/datafiles/brushicons/nudge.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/paint_select.png SRC)
     data_to_c_simple(../../../../release/datafiles/brushicons/pinch.png SRC)
     data_to_c_simple(../../../../release/datafiles/brushicons/scrape.png SRC)
     data_to_c_simple(../../../../release/datafiles/brushicons/smear.png SRC)
@@ -963,6 +972,19 @@ if(WITH_BLENDER)
     data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_erase_soft.png SRC)
     data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_erase_hard.png SRC)
     data_to_c_simple(../../../../release/datafiles/brushicons/gp_brush_erase_stroke.png SRC)
+
+    # curve sculpt
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_add.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_comb.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_cut.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_delete.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_density.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_grow_shrink.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_pinch.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_puff.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_slide.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_smooth.png SRC)
+    data_to_c_simple(../../../../release/datafiles/brushicons/curves_sculpt_snake_hook.png SRC)
 
   endif()
 

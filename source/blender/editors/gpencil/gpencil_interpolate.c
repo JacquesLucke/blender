@@ -167,20 +167,20 @@ static bool gpencil_stroke_need_flip(Depsgraph *depsgraph,
 
   /* Line from start of strokes. */
   pt = &gps_from->points[0];
-  gpencil_point_to_parent_space(pt, diff_mat, &pt_dummy_ps);
+  gpencil_point_to_world_space(pt, diff_mat, &pt_dummy_ps);
   gpencil_point_to_xy_fl(gsc, gps_from, &pt_dummy_ps, &v_from_start[0], &v_from_start[1]);
 
   pt = &gps_to->points[0];
-  gpencil_point_to_parent_space(pt, diff_mat, &pt_dummy_ps);
+  gpencil_point_to_world_space(pt, diff_mat, &pt_dummy_ps);
   gpencil_point_to_xy_fl(gsc, gps_from, &pt_dummy_ps, &v_to_start[0], &v_to_start[1]);
 
   /* Line from end of strokes. */
   pt = &gps_from->points[gps_from->totpoints - 1];
-  gpencil_point_to_parent_space(pt, diff_mat, &pt_dummy_ps);
+  gpencil_point_to_world_space(pt, diff_mat, &pt_dummy_ps);
   gpencil_point_to_xy_fl(gsc, gps_from, &pt_dummy_ps, &v_from_end[0], &v_from_end[1]);
 
   pt = &gps_to->points[gps_to->totpoints - 1];
-  gpencil_point_to_parent_space(pt, diff_mat, &pt_dummy_ps);
+  gpencil_point_to_world_space(pt, diff_mat, &pt_dummy_ps);
   gpencil_point_to_xy_fl(gsc, gps_from, &pt_dummy_ps, &v_to_end[0], &v_to_end[1]);
 
   const bool isect_lines = (isect_seg_seg_v2(v_from_start, v_to_start, v_from_end, v_to_end) ==
@@ -412,15 +412,19 @@ static void gpencil_interpolate_update_strokes(bContext *C, tGPDinterpolate *tgp
 }
 
 /* Helper: Get previous keyframe (exclude breakdown type). */
-static bGPDframe *gpencil_get_previous_keyframe(bGPDlayer *gpl, int cfra)
+static bGPDframe *gpencil_get_previous_keyframe(bGPDlayer *gpl,
+                                                int cfra,
+                                                const bool exclude_breakdowns)
 {
-  if (gpl->actframe != NULL && gpl->actframe->framenum < cfra &&
-      gpl->actframe->key_type != BEZT_KEYTYPE_BREAKDOWN) {
-    return gpl->actframe;
+  if (gpl->actframe != NULL && gpl->actframe->framenum < cfra) {
+    if ((!exclude_breakdowns) ||
+        ((exclude_breakdowns) && (gpl->actframe->key_type != BEZT_KEYTYPE_BREAKDOWN))) {
+      return gpl->actframe;
+    }
   }
 
   LISTBASE_FOREACH_BACKWARD (bGPDframe *, gpf, &gpl->frames) {
-    if (gpf->key_type == BEZT_KEYTYPE_BREAKDOWN) {
+    if ((exclude_breakdowns) && (gpf->key_type == BEZT_KEYTYPE_BREAKDOWN)) {
       continue;
     }
     if (gpf->framenum >= cfra) {
@@ -433,10 +437,12 @@ static bGPDframe *gpencil_get_previous_keyframe(bGPDlayer *gpl, int cfra)
 }
 
 /* Helper: Get next keyframe (exclude breakdown type). */
-static bGPDframe *gpencil_get_next_keyframe(bGPDlayer *gpl, int cfra)
+static bGPDframe *gpencil_get_next_keyframe(bGPDlayer *gpl,
+                                            int cfra,
+                                            const bool exclude_breakdowns)
 {
   LISTBASE_FOREACH (bGPDframe *, gpf, &gpl->frames) {
-    if (gpf->key_type == BEZT_KEYTYPE_BREAKDOWN) {
+    if ((exclude_breakdowns) && (gpf->key_type == BEZT_KEYTYPE_BREAKDOWN)) {
       continue;
     }
     if (gpf->framenum <= cfra) {
@@ -455,6 +461,7 @@ static void gpencil_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
   bGPdata *gpd = tgpi->gpd;
   bGPDlayer *active_gpl = CTX_data_active_gpencil_layer(C);
   bGPDframe *actframe = active_gpl->actframe;
+  const bool exclude_breakdowns = (tgpi->flag & GP_TOOLFLAG_INTERPOLATE_EXCLUDE_BREAKDOWNS) != 0;
 
   /* save initial factor for active layer to define shift limits */
   tgpi->init_factor = (float)(tgpi->cframe - actframe->framenum) /
@@ -483,10 +490,16 @@ static void gpencil_interpolate_set_points(bContext *C, tGPDinterpolate *tgpi)
     tgpil = MEM_callocN(sizeof(tGPDinterpolate_layer), "GPencil Interpolate Layer");
 
     tgpil->gpl = gpl;
-    bGPDframe *gpf = gpencil_get_previous_keyframe(gpl, CFRA);
+    bGPDframe *gpf = gpencil_get_previous_keyframe(gpl, scene->r.cfra, exclude_breakdowns);
+    if (gpf == NULL) {
+      continue;
+    }
     tgpil->prevFrame = BKE_gpencil_frame_duplicate(gpf, true);
 
-    gpf = gpencil_get_next_keyframe(gpl, CFRA);
+    gpf = gpencil_get_next_keyframe(gpl, scene->r.cfra, exclude_breakdowns);
+    if (gpf == NULL) {
+      continue;
+    }
     tgpil->nextFrame = BKE_gpencil_frame_duplicate(gpf, true);
 
     BLI_addtail(&tgpi->ilayers, tgpil);
@@ -690,8 +703,11 @@ static bool gpencil_interpolate_set_init_values(bContext *C, wmOperator *op, tGP
       tgpi->flag, (RNA_enum_get(op->ptr, "layers") == 1), GP_TOOLFLAG_INTERPOLATE_ALL_LAYERS);
   SET_FLAG_FROM_TEST(
       tgpi->flag,
-      (GPENCIL_EDIT_MODE(tgpi->gpd) && (RNA_boolean_get(op->ptr, "interpolate_selected_only"))),
+      (GPENCIL_EDIT_MODE(tgpi->gpd) && RNA_boolean_get(op->ptr, "interpolate_selected_only")),
       GP_TOOLFLAG_INTERPOLATE_ONLY_SELECTED);
+  SET_FLAG_FROM_TEST(tgpi->flag,
+                     RNA_boolean_get(op->ptr, "exclude_breakdowns"),
+                     GP_TOOLFLAG_INTERPOLATE_EXCLUDE_BREAKDOWNS);
 
   tgpi->flipmode = RNA_enum_get(op->ptr, "flip");
 
@@ -750,9 +766,10 @@ static int gpencil_interpolate_invoke(bContext *C, wmOperator *op, const wmEvent
   tGPDinterpolate *tgpi = NULL;
 
   /* Cannot interpolate if not between 2 frames. */
-  int cfra = CFRA;
-  bGPDframe *gpf_prv = gpencil_get_previous_keyframe(gpl, cfra);
-  bGPDframe *gpf_next = gpencil_get_next_keyframe(gpl, cfra);
+  int cfra = scene->r.cfra;
+  const bool exclude_breakdowns = RNA_boolean_get(op->ptr, "exclude_breakdowns");
+  bGPDframe *gpf_prv = gpencil_get_previous_keyframe(gpl, cfra, exclude_breakdowns);
+  bGPDframe *gpf_next = gpencil_get_next_keyframe(gpl, cfra, exclude_breakdowns);
   if (ELEM(NULL, gpf_prv, gpf_next)) {
     BKE_report(
         op->reports,
@@ -971,6 +988,12 @@ void GPENCIL_OT_interpolate(wmOperatorType *ot)
                   0,
                   "Only Selected",
                   "Interpolate only selected strokes");
+
+  RNA_def_boolean(ot->srna,
+                  "exclude_breakdowns",
+                  false,
+                  "Exclude Breakdowns",
+                  "Exclude existing Breakdowns keyframes as interpolation extremes");
 
   RNA_def_enum(ot->srna,
                "flip",
@@ -1221,7 +1244,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
   GP_SpaceConversion gsc;
   gpencil_point_conversion_init(C, &gsc);
 
-  int cfra = CFRA;
+  int cfra = scene->r.cfra;
 
   GP_Interpolate_Settings *ipo_settings = &ts->gp_interpolate;
   const int step = RNA_int_get(op->ptr, "step");
@@ -1229,6 +1252,7 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
   const bool all_layers = (bool)(RNA_enum_get(op->ptr, "layers") == 1);
   const bool only_selected = (GPENCIL_EDIT_MODE(gpd) &&
                               (RNA_boolean_get(op->ptr, "interpolate_selected_only") != 0));
+  const bool exclude_breakdowns = RNA_boolean_get(op->ptr, "exclude_breakdowns");
 
   eGP_InterpolateFlipMode flipmode = RNA_enum_get(op->ptr, "flip");
 
@@ -1243,8 +1267,8 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
   BKE_curvemapping_init(ipo_settings->custom_ipo);
 
   /* Cannot interpolate if not between 2 frames. */
-  bGPDframe *gpf_prv = gpencil_get_previous_keyframe(active_gpl, cfra);
-  bGPDframe *gpf_next = gpencil_get_next_keyframe(active_gpl, cfra);
+  bGPDframe *gpf_prv = gpencil_get_previous_keyframe(active_gpl, cfra, exclude_breakdowns);
+  bGPDframe *gpf_next = gpencil_get_next_keyframe(active_gpl, cfra, exclude_breakdowns);
   if (ELEM(NULL, gpf_prv, gpf_next)) {
     BKE_report(
         op->reports,
@@ -1268,8 +1292,8 @@ static int gpencil_interpolate_seq_exec(bContext *C, wmOperator *op)
     if (!BKE_gpencil_layer_is_editable(gpl)) {
       continue;
     }
-    gpf_prv = gpencil_get_previous_keyframe(gpl, cfra);
-    gpf_next = gpencil_get_next_keyframe(gpl, cfra);
+    gpf_prv = gpencil_get_previous_keyframe(gpl, cfra, exclude_breakdowns);
+    gpf_next = gpencil_get_next_keyframe(gpl, cfra, exclude_breakdowns);
 
     /* Need a set of frames to interpolate. */
     if ((gpf_prv == NULL) || (gpf_next == NULL)) {
@@ -1434,6 +1458,9 @@ static void gpencil_interpolate_seq_ui(bContext *C, wmOperator *op)
   }
 
   row = uiLayoutRow(layout, true);
+  uiItemR(row, op->ptr, "exclude_breakdowns", 0, NULL, ICON_NONE);
+
+  row = uiLayoutRow(layout, true);
   uiItemR(row, op->ptr, "flip", 0, NULL, ICON_NONE);
 
   col = uiLayoutColumn(layout, true);
@@ -1482,8 +1509,9 @@ void GPENCIL_OT_interpolate_sequence(wmOperatorType *ot)
    * Changes here will likely apply there too.
    */
   static const EnumPropertyItem gpencil_interpolation_type_items[] = {
-      /* interpolation */
-      {0, "", 0, N_("Interpolation"), "Standard transitions between keyframes"},
+      /* Interpolation. */
+      RNA_ENUM_ITEM_HEADING(CTX_N_(BLT_I18NCONTEXT_ID_GPENCIL, "Interpolation"),
+                            N_("Standard transitions between keyframes")),
       {GP_IPO_LINEAR,
        "LINEAR",
        ICON_IPO_LINEAR,
@@ -1495,13 +1523,10 @@ void GPENCIL_OT_interpolate_sequence(wmOperatorType *ot)
        "Custom",
        "Custom interpolation defined using a curve map"},
 
-      /* easing */
-      {0,
-       "",
-       0,
-       N_("Easing (by strength)"),
-       "Predefined inertial transitions, useful for motion graphics (from least to most "
-       "''dramatic'')"},
+      /* Easing. */
+      RNA_ENUM_ITEM_HEADING(CTX_N_(BLT_I18NCONTEXT_ID_GPENCIL, "Easing (by strength)"),
+                            N_("Predefined inertial transitions, useful for motion graphics "
+                               "(from least to most \"dramatic\")")),
       {GP_IPO_SINE,
        "SINE",
        ICON_IPO_SINE,
@@ -1518,7 +1543,8 @@ void GPENCIL_OT_interpolate_sequence(wmOperatorType *ot)
        "Circular",
        "Circular easing (strongest and most dynamic)"},
 
-      {0, "", 0, N_("Dynamic Effects"), "Simple physics-inspired easing effects"},
+      RNA_ENUM_ITEM_HEADING(CTX_N_(BLT_I18NCONTEXT_ID_GPENCIL, "Dynamic Effects"),
+                            N_("Simple physics-inspired easing effects")),
       {GP_IPO_BACK, "BACK", ICON_IPO_BACK, "Back", "Cubic easing with overshoot and settle"},
       {GP_IPO_BOUNCE,
        "BOUNCE",
@@ -1572,6 +1598,7 @@ void GPENCIL_OT_interpolate_sequence(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Interpolate Sequence";
   ot->idname = "GPENCIL_OT_interpolate_sequence";
+  ot->translation_context = BLT_I18NCONTEXT_ID_GPENCIL;
   ot->description = "Generate 'in-betweens' to smoothly interpolate between Grease Pencil frames";
 
   /* api callbacks */
@@ -1601,6 +1628,12 @@ void GPENCIL_OT_interpolate_sequence(wmOperatorType *ot)
                   0,
                   "Only Selected",
                   "Interpolate only selected strokes");
+
+  RNA_def_boolean(ot->srna,
+                  "exclude_breakdowns",
+                  false,
+                  "Exclude Breakdowns",
+                  "Exclude existing Breakdowns keyframes as interpolation extremes");
 
   RNA_def_enum(ot->srna,
                "flip",

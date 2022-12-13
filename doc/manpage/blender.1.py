@@ -11,8 +11,6 @@ where <path-to-blender> is the path to the Blender executable,
 and <output-filename> is where to write the generated man page.
 '''
 
-# <pep8 compliant>
-
 import argparse
 import os
 import subprocess
@@ -103,10 +101,10 @@ blender \- a full-featured 3D application''')
 .PP
 .B blender
 is a full-featured 3D application. It supports the entirety of the 3D pipeline - '''
-'''modeling, rigging, animation, simulation, rendering, compositing, motion tracking, and video editing.
+             '''modeling, rigging, animation, simulation, rendering, compositing, motion tracking, and video editing.
 
 Use Blender to create 3D images and animations, films and commercials, content for games, '''
-r'''architectural and industrial visualizations, and scientific visualizations.
+             r'''architectural and industrial visualizations, and scientific visualizations.
 
 https://www.blender.org''')
 
@@ -141,7 +139,7 @@ https://www.blender.org''')
 
                 l = lines.pop(0)
                 if l:
-                    assert(l.startswith('\t'))
+                    assert l.startswith('\t')
                     l = l[1:]  # Remove first white-space (tab).
 
                 fh.write('%s\n' % man_format(l))

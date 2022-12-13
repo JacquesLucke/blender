@@ -881,34 +881,29 @@ static int calc_edge_subdivisions(const MVert *mvert,
 
 /* Take a Mesh and subdivide its edges to keep skin nodes
  * reasonably close. */
-static Mesh *subdivide_base(Mesh *orig)
+static Mesh *subdivide_base(const Mesh *orig)
 {
-  Mesh *result;
-  MVertSkin *orignode, *outnode;
-  MVert *origvert, *outvert;
-  MEdge *origedge, *outedge, *e;
-  MDeformVert *origdvert, *outdvert;
-  int orig_vert_num, orig_edge_num;
-  int subd_num, *degree, *edge_subd;
+  const MEdge *e;
+  int subd_num;
   int i, j, k, u, v;
   float radrat;
 
-  orignode = CustomData_get_layer(&orig->vdata, CD_MVERT_SKIN);
-  origvert = orig->mvert;
-  origedge = orig->medge;
-  origdvert = orig->dvert;
-  orig_vert_num = orig->totvert;
-  orig_edge_num = orig->totedge;
+  const MVertSkin *orignode = CustomData_get_layer(&orig->vdata, CD_MVERT_SKIN);
+  const MVert *origvert = BKE_mesh_verts(orig);
+  const MEdge *origedge = BKE_mesh_edges(orig);
+  const MDeformVert *origdvert = BKE_mesh_deform_verts(orig);
+  int orig_vert_num = orig->totvert;
+  int orig_edge_num = orig->totedge;
 
   /* Get degree of all vertices */
-  degree = MEM_calloc_arrayN(orig_vert_num, sizeof(int), "degree");
+  int *degree = MEM_calloc_arrayN(orig_vert_num, sizeof(int), "degree");
   for (i = 0; i < orig_edge_num; i++) {
     degree[origedge[i].v1]++;
     degree[origedge[i].v2]++;
   }
 
   /* Per edge, store how many subdivisions are needed */
-  edge_subd = MEM_calloc_arrayN((uint)orig_edge_num, sizeof(int), "edge_subd");
+  int *edge_subd = MEM_calloc_arrayN((uint)orig_edge_num, sizeof(int), "edge_subd");
   for (i = 0, subd_num = 0; i < orig_edge_num; i++) {
     edge_subd[i] += calc_edge_subdivisions(origvert, orignode, &origedge[i], degree);
     BLI_assert(edge_subd[i] >= 0);
@@ -918,13 +913,16 @@ static Mesh *subdivide_base(Mesh *orig)
   MEM_freeN(degree);
 
   /* Allocate output mesh */
-  result = BKE_mesh_new_nomain_from_template(
+  Mesh *result = BKE_mesh_new_nomain_from_template(
       orig, orig_vert_num + subd_num, orig_edge_num + subd_num, 0, 0, 0);
 
-  outvert = result->mvert;
-  outedge = result->medge;
-  outnode = CustomData_get_layer(&result->vdata, CD_MVERT_SKIN);
-  outdvert = result->dvert;
+  MVert *outvert = BKE_mesh_verts_for_write(result);
+  MEdge *outedge = BKE_mesh_edges_for_write(result);
+  MVertSkin *outnode = CustomData_get_layer(&result->vdata, CD_MVERT_SKIN);
+  MDeformVert *outdvert = NULL;
+  if (origdvert) {
+    outdvert = BKE_mesh_deform_verts_for_write(result);
+  }
 
   /* Copy original vertex data */
   CustomData_copy_data(&orig->vdata, &result->vdata, 0, 0, orig_vert_num);
@@ -1466,7 +1464,7 @@ static void quad_from_tris(BMEdge *e, BMFace *adj[2], BMVert *ndx[4])
     ndx[j] = tri[0][i];
     /* When the triangle edge cuts across our quad-to-be,
      * throw in the second triangle's vertex */
-    if ((ELEM(tri[0][i], e->v1, e->v2)) &&
+    if (ELEM(tri[0][i], e->v1, e->v2) &&
         (tri[0][(i + 1) % 3] == e->v1 || tri[0][(i + 1) % 3] == e->v2)) {
       j++;
       ndx[j] = opp;
@@ -1736,7 +1734,7 @@ static void skin_smooth_hulls(BMesh *bm,
     }
   }
 
-  /* Add temporary shapekey layer to store original coordinates */
+  /* Add temporary shape-key layer to store original coordinates. */
   BM_data_layer_add(bm, &bm->vdata, CD_SHAPEKEY);
   skey = CustomData_number_of_layers(&bm->vdata, CD_SHAPEKEY) - 1;
   BM_ITER_MESH (v, &iter, bm, BM_VERTS_OF_MESH) {
@@ -1833,7 +1831,7 @@ static BMesh *build_skin(SkinNode *skin_nodes,
                          }));
   so.mat_nr = 0;
 
-  /* BMESH_TODO: bumping up the stack level (see MOD_array.c) */
+  /* BMESH_TODO: bumping up the stack level (see MOD_array.cc) */
   BM_mesh_elem_toolflags_ensure(so.bm);
   BMO_push(so.bm, NULL);
   bmesh_edit_begin(so.bm, 0);
@@ -1893,7 +1891,7 @@ static void skin_set_orig_indices(Mesh *mesh)
   int *orig, totpoly;
 
   totpoly = mesh->totpoly;
-  orig = CustomData_add_layer(&mesh->pdata, CD_ORIGINDEX, CD_CALLOC, NULL, totpoly);
+  orig = CustomData_add_layer(&mesh->pdata, CD_ORIGINDEX, CD_CONSTRUCT, NULL, totpoly);
   copy_vn_i(orig, totpoly, ORIGINDEX_NONE);
 }
 
@@ -1912,17 +1910,17 @@ static Mesh *base_skin(Mesh *origmesh, SkinModifierData *smd, eSkinErrorFlag *r_
   SkinNode *skin_nodes;
   MeshElemMap *emap;
   int *emapmem;
-  MVert *mvert;
-  MEdge *medge;
-  MDeformVert *dvert;
+  const MVert *mvert;
+  const MEdge *medge;
+  const MDeformVert *dvert;
   int verts_num, edges_num;
   bool has_valid_root = false;
 
   nodes = CustomData_get_layer(&origmesh->vdata, CD_MVERT_SKIN);
 
-  mvert = origmesh->mvert;
-  dvert = origmesh->dvert;
-  medge = origmesh->medge;
+  mvert = BKE_mesh_verts(origmesh);
+  dvert = BKE_mesh_deform_verts(origmesh);
+  medge = BKE_mesh_edges(origmesh);
   verts_num = origmesh->totvert;
   edges_num = origmesh->totedge;
 
@@ -1949,8 +1947,6 @@ static Mesh *base_skin(Mesh *origmesh, SkinModifierData *smd, eSkinErrorFlag *r_
 
   result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, origmesh);
   BM_mesh_free(bm);
-
-  BKE_mesh_normals_tag_dirty(result);
 
   skin_set_orig_indices(result);
 
@@ -2011,9 +2007,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   return result;
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *UNUSED(md),
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *UNUSED(md), CustomData_MeshMasks *r_cddata_masks)
 {
   r_cddata_masks->vmask |= CD_MASK_MVERT_SKIN | CD_MASK_MDEFORMVERT;
 }
@@ -2076,7 +2070,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Skin = {
-    /* name */ "Skin",
+    /* name */ N_("Skin"),
     /* structName */ "SkinModifierData",
     /* structSize */ sizeof(SkinModifierData),
     /* srna */ &RNA_SkinModifier,

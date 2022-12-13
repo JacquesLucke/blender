@@ -50,6 +50,7 @@
 #include "BLI_math.h"
 #include "BLI_path_util.h"
 #include "BLI_string.h"
+#include "BLI_timeit.hh"
 
 #include "WM_api.h"
 #include "WM_types.h"
@@ -84,6 +85,16 @@ BLI_INLINE ArchiveReader *archive_from_handle(CacheArchiveHandle *handle)
 BLI_INLINE CacheArchiveHandle *handle_from_archive(ArchiveReader *archive)
 {
   return reinterpret_cast<CacheArchiveHandle *>(archive);
+}
+
+/* Add the object's path to list of object paths. No duplication is done, callers are
+ * responsible for ensuring that only unique paths are added to the list.
+ */
+static void add_object_path(ListBase *object_paths, const IObject &object)
+{
+  CacheObjectPath *abc_path = MEM_cnew<CacheObjectPath>("CacheObjectPath");
+  BLI_strncpy(abc_path->path, object.getFullName().c_str(), sizeof(abc_path->path));
+  BLI_addtail(object_paths, abc_path);
 }
 
 //#define USE_NURBS
@@ -133,11 +144,7 @@ static bool gather_objects_paths(const IObject &object, ListBase *object_paths)
   }
 
   if (get_path) {
-    void *abc_path_void = MEM_callocN(sizeof(CacheObjectPath), "CacheObjectPath");
-    CacheObjectPath *abc_path = static_cast<CacheObjectPath *>(abc_path_void);
-
-    BLI_strncpy(abc_path->path, object.getFullName().c_str(), sizeof(abc_path->path));
-    BLI_addtail(object_paths, abc_path);
+    add_object_path(object_paths, object);
   }
 
   return parent_is_part_of_this_object;
@@ -357,10 +364,7 @@ static std::pair<bool, AbcObjectReader *> visit_object(
     readers.push_back(reader);
     reader->incref();
 
-    CacheObjectPath *abc_path = static_cast<CacheObjectPath *>(
-        MEM_callocN(sizeof(CacheObjectPath), "CacheObjectPath"));
-    BLI_strncpy(abc_path->path, full_name.c_str(), sizeof(abc_path->path));
-    BLI_addtail(&settings.cache_file->object_paths, abc_path);
+    add_object_path(&settings.cache_file->object_paths, object);
 
     /* We can now assign this reader as parent for our children. */
     if (nonclaiming_child_readers.size() + assign_as_parent.size() > 0) {
@@ -426,17 +430,26 @@ struct ImportJobData {
   ArchiveReader *archive;
   std::vector<AbcObjectReader *> readers;
 
-  short *stop;
-  short *do_update;
+  bool *stop;
+  bool *do_update;
   float *progress;
 
   char error_code;
   bool was_cancelled;
   bool import_ok;
   bool is_background_job;
+  blender::timeit::TimePoint start_time;
 };
 
-static void import_startjob(void *user_data, short *stop, short *do_update, float *progress)
+static void report_job_duration(const ImportJobData *data)
+{
+  blender::timeit::Nanoseconds duration = blender::timeit::Clock::now() - data->start_time;
+  std::cout << "Alembic import of '" << data->filename << "' took ";
+  blender::timeit::print_duration(duration);
+  std::cout << '\n';
+}
+
+static void import_startjob(void *user_data, bool *stop, bool *do_update, float *progress)
 {
   SCOPE_TIMER("Alembic import, objects reading and creation");
 
@@ -445,6 +458,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
   data->stop = stop;
   data->do_update = do_update;
   data->progress = progress;
+  data->start_time = blender::timeit::Clock::now();
 
   WM_set_locked_interface(data->wm, true);
 
@@ -491,7 +505,7 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
 
   /* Create objects and set scene frame range. */
 
-  const float size = static_cast<float>(data->readers.size());
+  const float size = float(data->readers.size());
   size_t i = 0;
 
   chrono_t min_time = std::numeric_limits<chrono_t>::max();
@@ -526,14 +540,14 @@ static void import_startjob(void *user_data, short *stop, short *do_update, floa
     Scene *scene = data->scene;
 
     if (data->settings.is_sequence) {
-      SFRA = data->settings.sequence_offset;
-      EFRA = SFRA + (data->settings.sequence_len - 1);
-      CFRA = SFRA;
+      scene->r.sfra = data->settings.sequence_offset;
+      scene->r.efra = scene->r.sfra + (data->settings.sequence_len - 1);
+      scene->r.cfra = scene->r.sfra;
     }
     else if (min_time < max_time) {
-      SFRA = static_cast<int>(round(min_time * FPS));
-      EFRA = static_cast<int>(round(max_time * FPS));
-      CFRA = SFRA;
+      scene->r.sfra = int(round(min_time * FPS));
+      scene->r.efra = int(round(max_time * FPS));
+      scene->r.cfra = scene->r.sfra;
     }
   }
 
@@ -573,12 +587,10 @@ static void import_endjob(void *user_data)
 
   ImportJobData *data = static_cast<ImportJobData *>(user_data);
 
-  std::vector<AbcObjectReader *>::iterator iter;
-
   /* Delete objects on cancellation. */
   if (data->was_cancelled) {
-    for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
-      Object *ob = (*iter)->object();
+    for (AbcObjectReader *reader : data->readers) {
+      Object *ob = reader->object();
 
       /* It's possible that cancellation occurred between the creation of
        * the reader and the creation of the Blender object. */
@@ -590,20 +602,23 @@ static void import_endjob(void *user_data)
     }
   }
   else {
-    /* Add object to scene. */
     Base *base;
     LayerCollection *lc;
+    const Scene *scene = data->scene;
     ViewLayer *view_layer = data->view_layer;
 
-    BKE_view_layer_base_deselect_all(view_layer);
+    BKE_view_layer_base_deselect_all(scene, view_layer);
 
     lc = BKE_layer_collection_get_active(view_layer);
 
-    for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
-      Object *ob = (*iter)->object();
-
+    for (AbcObjectReader *reader : data->readers) {
+      Object *ob = reader->object();
       BKE_collection_object_add(data->bmain, lc->collection, ob);
-
+    }
+    /* Sync and do the view layer operations. */
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    for (AbcObjectReader *reader : data->readers) {
+      Object *ob = reader->object();
       base = BKE_view_layer_base_find(view_layer, ob);
       /* TODO: is setting active needed? */
       BKE_view_layer_base_select_and_set_active(view_layer, base);
@@ -625,8 +640,7 @@ static void import_endjob(void *user_data)
     }
   }
 
-  for (iter = data->readers.begin(); iter != data->readers.end(); ++iter) {
-    AbcObjectReader *reader = *iter;
+  for (AbcObjectReader *reader : data->readers) {
     reader->decref();
 
     if (reader->refcount() == 0) {
@@ -647,6 +661,7 @@ static void import_endjob(void *user_data)
   }
 
   WM_main_add_notifier(NC_SCENE | ND_FRAME, data->scene);
+  report_job_duration(data);
 }
 
 static void import_freejob(void *user_data)
@@ -658,13 +673,7 @@ static void import_freejob(void *user_data)
 
 bool ABC_import(bContext *C,
                 const char *filepath,
-                float scale,
-                bool is_sequence,
-                bool set_frame_range,
-                int sequence_len,
-                int offset,
-                bool validate_meshes,
-                bool always_add_cache_reader,
+                const AlembicImportParams *params,
                 bool as_background_job)
 {
   /* Using new here since MEM_* functions do not call constructor to properly initialize data. */
@@ -677,13 +686,13 @@ bool ABC_import(bContext *C,
   job->import_ok = false;
   BLI_strncpy(job->filename, filepath, 1024);
 
-  job->settings.scale = scale;
-  job->settings.is_sequence = is_sequence;
-  job->settings.set_frame_range = set_frame_range;
-  job->settings.sequence_len = sequence_len;
-  job->settings.sequence_offset = offset;
-  job->settings.validate_meshes = validate_meshes;
-  job->settings.always_add_cache_reader = always_add_cache_reader;
+  job->settings.scale = params->global_scale;
+  job->settings.is_sequence = params->is_sequence;
+  job->settings.set_frame_range = params->set_frame_range;
+  job->settings.sequence_len = params->sequence_len;
+  job->settings.sequence_offset = params->sequence_offset;
+  job->settings.validate_meshes = params->validate_meshes;
+  job->settings.always_add_cache_reader = params->always_add_cache_reader;
   job->error_code = ABC_NO_ERROR;
   job->was_cancelled = false;
   job->archive = nullptr;
@@ -709,7 +718,7 @@ bool ABC_import(bContext *C,
   }
   else {
     /* Fake a job context, so that we don't need NULL pointer checks while importing. */
-    short stop = 0, do_update = 0;
+    bool stop = false, do_update = false;
     float progress = 0.0f;
 
     import_startjob(job, &stop, &do_update, &progress);
@@ -785,20 +794,21 @@ static ISampleSelector sample_selector_for_time(chrono_t time)
 Mesh *ABC_read_mesh(CacheReader *reader,
                     Object *ob,
                     Mesh *existing_mesh,
-                    const double time,
-                    const char **err_str,
-                    const int read_flag,
-                    const char *velocity_name,
-                    const float velocity_scale)
+                    const ABCReadParams *params,
+                    const char **err_str)
 {
   AbcObjectReader *abc_reader = get_abc_reader(reader, ob, err_str);
   if (abc_reader == nullptr) {
     return nullptr;
   }
 
-  ISampleSelector sample_sel = sample_selector_for_time(time);
-  return abc_reader->read_mesh(
-      existing_mesh, sample_sel, read_flag, velocity_name, velocity_scale, err_str);
+  ISampleSelector sample_sel = sample_selector_for_time(params->time);
+  return abc_reader->read_mesh(existing_mesh,
+                               sample_sel,
+                               params->read_flags,
+                               params->velocity_name,
+                               params->velocity_scale,
+                               err_str);
 }
 
 bool ABC_mesh_topology_changed(CacheReader *reader,

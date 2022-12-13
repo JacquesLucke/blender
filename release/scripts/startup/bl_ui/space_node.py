@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 import bpy
 from bpy.types import Header, Menu, Panel
-from bpy.app.translations import pgettext_iface as iface_
-from bpy.app.translations import contexts as i18n_contexts
+from bpy.app.translations import (
+    pgettext_iface as iface_,
+    contexts as i18n_contexts,
+)
 from bl_ui.utils import PresetPanel
 from bl_ui.properties_grease_pencil_common import (
     AnnotationDataPanel,
@@ -149,7 +149,7 @@ class NODE_HT_header(Header):
                 active_modifier = ob.modifiers.active
                 if active_modifier and active_modifier.type == 'NODES':
                     if active_modifier.node_group:
-                        row.template_ID(active_modifier, "node_group", new="node.copy_geometry_node_group_assign")
+                        row.template_ID(active_modifier, "node_group", new="object.geometry_node_tree_copy_assign")
                     else:
                         row.template_ID(active_modifier, "node_group", new="node.new_geometry_node_group_assign")
                 else:
@@ -219,10 +219,14 @@ class NODE_MT_add(bpy.types.Menu):
         import nodeitems_utils
 
         layout = self.layout
+        layout.operator_context = 'INVOKE_REGION_WIN'
 
-        layout.operator_context = 'INVOKE_DEFAULT'
-
-        if nodeitems_utils.has_node_categories(context):
+        snode = context.space_data
+        if snode.tree_type == 'GeometryNodeTree':
+            props = layout.operator("node.add_search", text="Search...", icon='VIEWZOOM')
+            layout.separator()
+            layout.menu_contents("NODE_MT_geometry_node_add_all")
+        elif nodeitems_utils.has_node_categories(context):
             props = layout.operator("node.add_search", text="Search...", icon='VIEWZOOM')
             props.use_transform = True
 
@@ -303,8 +307,10 @@ class NODE_MT_select(Menu):
 class NODE_MT_node(Menu):
     bl_label = "Node"
 
-    def draw(self, _context):
+    def draw(self, context):
         layout = self.layout
+        snode = context.space_data
+        is_compositor = snode.tree_type == 'CompositorNodeTree'
 
         layout.operator("transform.translate")
         layout.operator("transform.rotate")
@@ -314,6 +320,7 @@ class NODE_MT_node(Menu):
         layout.operator("node.clipboard_copy", text="Copy")
         layout.operator("node.clipboard_paste", text="Paste")
         layout.operator("node.duplicate_move")
+        layout.operator("node.duplicate_move_linked")
         layout.operator("node.delete")
         layout.operator("node.delete_reconnect")
 
@@ -341,14 +348,16 @@ class NODE_MT_node(Menu):
 
         layout.operator("node.hide_toggle")
         layout.operator("node.mute_toggle")
-        layout.operator("node.preview_toggle")
+        if is_compositor:
+            layout.operator("node.preview_toggle")
         layout.operator("node.hide_socket_toggle")
         layout.operator("node.options_toggle")
         layout.operator("node.collapse_hide_unused_toggle")
 
-        layout.separator()
+        if is_compositor:
+            layout.separator()
 
-        layout.operator("node.read_viewlayers")
+            layout.operator("node.read_viewlayers")
 
 
 class NODE_MT_view_pie(Menu):
@@ -377,8 +386,8 @@ class NODE_PT_material_slots(Panel):
     def draw_header(self, context):
         ob = context.object
         self.bl_label = (
-            "Slot " + str(ob.active_material_index + 1) if ob.material_slots else
-            "Slot"
+            iface_("Slot %d") % (ob.active_material_index + 1) if ob.material_slots else
+            iface_("Slot")
         )
 
     # Duplicate part of 'EEVEE_MATERIAL_PT_context_material'.
@@ -428,36 +437,105 @@ class NODE_MT_node_color_context_menu(Menu):
         layout.operator("node.node_copy_color", icon='COPY_ID')
 
 
-class NODE_MT_context_menu(Menu):
-    bl_label = "Node Context Menu"
+class NODE_MT_context_menu_show_hide_menu(Menu):
+    bl_label = "Show/Hide"
+
+    def draw(self, context):
+        snode = context.space_data
+        is_compositor = snode.tree_type == 'CompositorNodeTree'
+
+        layout = self.layout
+
+        layout.operator("node.mute_toggle", text="Mute")
+
+        # Node previews are only available in the Compositor.
+        if is_compositor:
+            layout.operator("node.preview_toggle", text="Node Preview")
+
+        layout.operator("node.options_toggle", text="Node Options")
+
+        layout.separator()
+
+        layout.operator("node.hide_socket_toggle", text="Unconnected Sockets")
+        layout.operator("node.hide_toggle", text="Collapse")
+        layout.operator("node.collapse_hide_unused_toggle")
+
+
+class NODE_MT_context_menu_select_menu(Menu):
+    bl_label = "Select"
 
     def draw(self, context):
         layout = self.layout
 
-        selected_nodes_len = len(context.selected_nodes)
+        layout.operator("node.select_grouped", text="Select Grouped...").extend = False
 
-        # If nothing is selected
-        # (disabled for now until it can be made more useful).
-        '''
+        layout.separator()
+
+        layout.operator("node.select_linked_from")
+        layout.operator("node.select_linked_to")
+
+        layout.separator()
+
+        layout.operator("node.select_same_type_step", text="Activate Same Type Previous").prev = True
+        layout.operator("node.select_same_type_step", text="Activate Same Type Next").prev = False
+
+
+class NODE_MT_context_menu(Menu):
+    bl_label = "Node Context Menu"
+
+    def draw(self, context):
+        snode = context.space_data
+        is_nested = (len(snode.path) > 1)
+        is_geometrynodes = snode.tree_type == 'GeometryNodeTree'
+
+        selected_nodes_len = len(context.selected_nodes)
+        active_node = context.active_node
+
+        layout = self.layout
+
+        # If no nodes are selected.
         if selected_nodes_len == 0:
             layout.operator_context = 'INVOKE_DEFAULT'
-            layout.menu("NODE_MT_add")
-            layout.operator("node.clipboard_paste", text="Paste")
+            layout.menu("NODE_MT_add", icon="ADD")
+            layout.operator("node.clipboard_paste", text="Paste", icon="PASTEDOWN")
+
+            layout.separator()
+
+            layout.operator("node.find_node", text="Find...", icon="VIEWZOOM")
+
+            layout.separator()
+
+            if is_geometrynodes:
+                layout.operator_context = 'INVOKE_DEFAULT'
+                layout.operator("node.select", text="Clear Viewer", icon="HIDE_ON").clear_viewer = True
+
+            layout.operator("node.links_cut")
+            layout.operator("node.links_mute")
+
+            if is_nested:
+                layout.separator()
+
+                layout.operator("node.tree_path_parent", text="Exit Group", icon='FILE_PARENT')
+
             return
-        '''
 
-        # If something is selected
+        if is_geometrynodes:
+            layout.operator_context = 'INVOKE_DEFAULT'
+            layout.operator("node.link_viewer", text="Link to Viewer", icon="HIDE_OFF")
+
+            layout.separator()
+
+        layout.operator("node.clipboard_copy", text="Copy", icon="COPYDOWN")
+        layout.operator("node.clipboard_paste", text="Paste", icon="PASTEDOWN")
+
         layout.operator_context = 'INVOKE_DEFAULT'
-        layout.operator("node.duplicate_move")
-        props = layout.operator("wm.call_panel", text="Rename...")
-        props.name = "TOPBAR_PT_name"
-        props.keep_open = False
-        layout.operator("node.delete")
-        layout.operator("node.clipboard_copy", text="Copy")
-        layout.operator("node.clipboard_paste", text="Paste")
-        layout.operator_context = 'EXEC_REGION_WIN'
+        layout.operator("node.duplicate_move", icon="DUPLICATE")
 
-        layout.operator("node.delete_reconnect")
+        layout.separator()
+
+        layout.operator("node.delete", icon="X")
+        layout.operator_context = 'EXEC_REGION_WIN'
+        layout.operator("node.delete_reconnect", text="Dissolve")
 
         if selected_nodes_len > 1:
             layout.separator()
@@ -466,21 +544,33 @@ class NODE_MT_context_menu(Menu):
             layout.operator("node.link_make", text="Make and Replace Links").replace = True
             layout.operator("node.links_detach")
 
-            layout.separator()
+        layout.separator()
 
-            layout.operator("node.group_make", text="Group")
+        layout.operator("node.group_make", text="Make Group", icon="NODETREE")
+        layout.operator("node.group_insert", text="Insert Into Group")
 
-        layout.operator("node.group_ungroup", text="Ungroup")
-        layout.operator("node.group_edit").exit = False
+        if active_node and active_node.type == 'GROUP':
+            layout.operator("node.group_edit", text="Edit").exit = False
+            layout.operator("node.group_ungroup", text="Ungroup")
+
+            if is_nested:
+                layout.operator("node.tree_path_parent", text="Exit Group", icon='FILE_PARENT')
 
         layout.separator()
 
-        layout.operator("node.hide_toggle")
-        layout.operator("node.mute_toggle")
-        layout.operator("node.preview_toggle")
-        layout.operator("node.hide_socket_toggle")
-        layout.operator("node.options_toggle")
-        layout.operator("node.collapse_hide_unused_toggle")
+        layout.operator("node.join", text="Join in New Frame")
+        layout.operator("node.detach", text="Remove from Frame")
+
+        layout.separator()
+
+        props = layout.operator("wm.call_panel", text="Rename...")
+        props.name = "TOPBAR_PT_name"
+        props.keep_open = False
+
+        layout.separator()
+
+        layout.menu("NODE_MT_context_menu_select_menu")
+        layout.menu("NODE_MT_context_menu_show_hide_menu")
 
 
 class NODE_PT_active_node_generic(Panel):
@@ -709,6 +799,7 @@ class NODE_PT_overlay(Panel):
         if snode.tree_type == 'GeometryNodeTree':
             col.separator()
             col.prop(overlay, "show_timing", text="Timings")
+            col.prop(overlay, "show_named_attributes", text="Named Attributes")
 
 
 class NODE_UL_interface_sockets(bpy.types.UIList):
@@ -726,7 +817,20 @@ class NODE_UL_interface_sockets(bpy.types.UIList):
             layout.template_node_socket(color=color)
 
 
-class NodeTreeInterfacePanel:
+class NodeTreeInterfacePanel(Panel):
+
+    @classmethod
+    def poll(cls, context):
+        snode = context.space_data
+        if snode is None:
+            return False
+        tree = snode.edit_tree
+        if tree is None:
+            return False
+        if tree.is_embedded_data:
+            return False
+        return True
+
     def draw_socket_list(self, context, in_out, sockets_propname, active_socket_propname):
         layout = self.layout
 
@@ -775,7 +879,7 @@ class NodeTreeInterfacePanel:
                 "node.tree_socket_change_type",
                 "socket_type",
                 text=active_socket.bl_label if active_socket.bl_label else active_socket.bl_idname
-                )
+            )
             props.in_out = in_out
 
             layout.use_property_split = True
@@ -796,35 +900,28 @@ class NodeTreeInterfacePanel:
                     active_socket.bl_socket_idname.startswith(prefix)
                     for prefix in field_socket_prefixes
                 )
-                if in_out == 'OUT' and is_field_type:
-                    layout.prop(active_socket, "attribute_domain")
+                if is_field_type:
+                    if in_out == 'OUT':
+                        layout.prop(active_socket, "attribute_domain")
+                    layout.prop(active_socket, "default_attribute_name")
             active_socket.draw(context, layout)
 
 
-class NODE_PT_node_tree_interface_inputs(NodeTreeInterfacePanel, Panel):
+class NODE_PT_node_tree_interface_inputs(NodeTreeInterfacePanel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
     bl_category = "Group"
     bl_label = "Inputs"
 
-    @classmethod
-    def poll(cls, context):
-        snode = context.space_data
-        return snode.edit_tree is not None
-
     def draw(self, context):
         self.draw_socket_list(context, "IN", "inputs", "active_input")
 
-class NODE_PT_node_tree_interface_outputs(NodeTreeInterfacePanel, Panel):
+
+class NODE_PT_node_tree_interface_outputs(NodeTreeInterfacePanel):
     bl_space_type = 'NODE_EDITOR'
     bl_region_type = 'UI'
     bl_category = "Group"
     bl_label = "Outputs"
-
-    @classmethod
-    def poll(cls, context):
-        snode = context.space_data
-        return snode.edit_tree is not None
 
     def draw(self, context):
         self.draw_socket_list(context, "OUT", "outputs", "active_output")
@@ -876,6 +973,8 @@ classes = (
     NODE_MT_select,
     NODE_MT_node,
     NODE_MT_node_color_context_menu,
+    NODE_MT_context_menu_show_hide_menu,
+    NODE_MT_context_menu_select_menu,
     NODE_MT_context_menu,
     NODE_MT_view_pie,
     NODE_PT_material_slots,

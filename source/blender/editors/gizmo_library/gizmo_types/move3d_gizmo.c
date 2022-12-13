@@ -93,12 +93,13 @@ static void move_geom_draw(const wmGizmo *gz,
 #else
   const int draw_style = RNA_enum_get(gz->ptr, "draw_style");
   const bool filled = (draw_style != ED_GIZMO_MOVE_STYLE_CROSS_2D) &&
-                      ((draw_options & (select ? (ED_GIZMO_MOVE_DRAW_FLAG_FILL |
-                                                  ED_GIZMO_MOVE_DRAW_FLAG_FILL_SELECT) :
-                                                 ED_GIZMO_MOVE_DRAW_FLAG_FILL)));
+                      (draw_options & (select ? (ED_GIZMO_MOVE_DRAW_FLAG_FILL |
+                                                 ED_GIZMO_MOVE_DRAW_FLAG_FILL_SELECT) :
+                                                ED_GIZMO_MOVE_DRAW_FLAG_FILL));
 
   GPUVertFormat *format = immVertexFormat();
-  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+  /* NOTE(Metal): Prefer using 3D coordinates with 3D shader, even if rendering 2D gizmo's. */
+  uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
 
   immBindBuiltinProgram(filled ? GPU_SHADER_3D_UNIFORM_COLOR :
                                  GPU_SHADER_3D_POLYLINE_UNIFORM_COLOR);
@@ -115,20 +116,20 @@ static void move_geom_draw(const wmGizmo *gz,
 
   if (draw_style == ED_GIZMO_MOVE_STYLE_RING_2D) {
     if (filled) {
-      imm_draw_circle_fill_2d(pos, 0, 0, radius, DIAL_RESOLUTION);
+      imm_draw_circle_fill_3d(pos, 0.0f, 0.0f, radius, DIAL_RESOLUTION);
     }
     else {
-      imm_draw_circle_wire_2d(pos, 0, 0, radius, DIAL_RESOLUTION);
+      imm_draw_circle_wire_3d(pos, 0.0f, 0.0f, radius, DIAL_RESOLUTION);
     }
   }
   else if (draw_style == ED_GIZMO_MOVE_STYLE_CROSS_2D) {
     const float radius_diag = M_SQRT1_2 * radius;
     immBegin(GPU_PRIM_LINES, 4);
-    immVertex2f(pos, radius_diag, radius_diag);
-    immVertex2f(pos, -radius_diag, -radius_diag);
+    immVertex3f(pos, radius_diag, radius_diag, 0.0f);
+    immVertex3f(pos, -radius_diag, -radius_diag, 0.0f);
 
-    immVertex2f(pos, -radius_diag, radius_diag);
-    immVertex2f(pos, radius_diag, -radius_diag);
+    immVertex3f(pos, -radius_diag, radius_diag, 0.0f);
+    immVertex3f(pos, radius_diag, -radius_diag, 0.0f);
     immEnd();
   }
   else {
@@ -277,12 +278,13 @@ static int gizmo_move_modal(bContext *C,
               CTX_data_ensure_evaluated_depsgraph(C),
               region,
               CTX_wm_view3d(C),
-              (SCE_SNAP_MODE_VERTEX | SCE_SNAP_MODE_EDGE | SCE_SNAP_MODE_FACE),
+              (SCE_SNAP_MODE_VERTEX | SCE_SNAP_MODE_EDGE | SCE_SNAP_MODE_FACE_RAYCAST),
               &(const struct SnapObjectParams){
-                  .snap_select = SNAP_ALL,
+                  .snap_target_select = SCE_SNAP_TARGET_ALL,
                   .edit_mode_type = SNAP_GEOM_EDIT,
                   .use_occlusion_test = true,
               },
+              NULL,
               mval_fl,
               NULL,
               &dist_px,

@@ -13,6 +13,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "DNA_armature_types.h"
+#include "DNA_camera_types.h"
 #include "DNA_constraint_types.h"
 #include "DNA_gpencil_modifier_types.h"
 #include "DNA_gpencil_types.h"
@@ -109,13 +110,10 @@ static void constraint_bone_name_fix(Object *ob,
   bConstraintTarget *ct;
 
   for (curcon = conlist->first; curcon; curcon = curcon->next) {
-    const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(curcon);
     ListBase targets = {NULL, NULL};
 
     /* constraint targets */
-    if (cti && cti->get_constraint_targets) {
-      cti->get_constraint_targets(curcon, &targets);
-
+    if (BKE_constraint_targets_get(curcon, &targets)) {
       for (ct = targets.first; ct; ct = ct->next) {
         if (ct->tar == ob) {
           if (STREQ(ct->subtarget, oldname)) {
@@ -124,9 +122,7 @@ static void constraint_bone_name_fix(Object *ob,
         }
       }
 
-      if (cti->flush_constraint_targets) {
-        cti->flush_constraint_targets(curcon, &targets, 0);
-      }
+      BKE_constraint_targets_flush(curcon, &targets, 0);
     }
 
     /* action constraints */
@@ -286,6 +282,17 @@ void ED_armature_bone_rename(Main *bmain,
         }
       }
 
+      /* fix camera focus */
+      if (ob->type == OB_CAMERA) {
+        Camera *cam = (Camera *)ob->data;
+        if ((cam->dof.focus_object != NULL) && (cam->dof.focus_object->data == arm)) {
+          if (STREQ(cam->dof.focus_subtarget, oldname)) {
+            BLI_strncpy(cam->dof.focus_subtarget, newname, MAXBONENAME);
+            DEG_id_tag_update(&cam->id, ID_RECALC_COPY_ON_WRITE);
+          }
+        }
+      }
+
       /* fix grease pencil modifiers and vertex groups */
       if (ob->type == OB_GPENCIL) {
 
@@ -422,6 +429,7 @@ void ED_armature_bones_flip_names(Main *bmain,
 static int armature_flip_names_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Object *ob_active = CTX_data_edit_object(C);
 
@@ -429,7 +437,7 @@ static int armature_flip_names_exec(bContext *C, wmOperator *op)
 
   uint objects_len = 0;
   Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-      view_layer, CTX_wm_view3d(C), &objects_len);
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
   for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
     Object *ob = objects[ob_index];
     bArmature *arm = ob->data;
@@ -509,6 +517,7 @@ void ARMATURE_OT_flip_names(wmOperatorType *ot)
 
 static int armature_autoside_names_exec(bContext *C, wmOperator *op)
 {
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Main *bmain = CTX_data_main(C);
   char newname[MAXBONENAME];
@@ -517,7 +526,7 @@ static int armature_autoside_names_exec(bContext *C, wmOperator *op)
 
   uint objects_len = 0;
   Object **objects = BKE_view_layer_array_from_objects_in_edit_mode_unique_data(
-      view_layer, CTX_wm_view3d(C), &objects_len);
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
   for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
     Object *ob = objects[ob_index];
     bArmature *arm = ob->data;

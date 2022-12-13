@@ -57,7 +57,9 @@ enum {
   ID_REMAP_FORCE_NEVER_NULL_USAGE = 1 << 3,
   /** Do not remap library override pointers. */
   ID_REMAP_SKIP_OVERRIDE_LIBRARY = 1 << 5,
-  /** Don't touch the user count (use for low level actions such as swapping pointers). */
+  /** Don't touch the special user counts (use when the 'old' remapped ID remains in use):
+   * - Do not transfer 'fake user' status from old to new ID.
+   * - Do not clear 'extra user' from old ID. */
   ID_REMAP_SKIP_USER_CLEAR = 1 << 6,
   /**
    * Force internal ID runtime pointers (like `ID.newid`, `ID.orig_id` etc.) to also be processed.
@@ -93,11 +95,11 @@ typedef enum eIDRemapType {
  */
 void BKE_libblock_remap_multiple_locked(struct Main *bmain,
                                         struct IDRemapper *mappings,
-                                        const short remap_flags);
+                                        short remap_flags);
 
 void BKE_libblock_remap_multiple(struct Main *bmain,
                                  struct IDRemapper *mappings,
-                                 const short remap_flags);
+                                 short remap_flags);
 
 /**
  * Replace all references in given Main to \a old_id by \a new_id
@@ -140,9 +142,9 @@ void BKE_libblock_relink_ex(struct Main *bmain,
  */
 void BKE_libblock_relink_multiple(struct Main *bmain,
                                   struct LinkNode *ids,
-                                  const eIDRemapType remap_type,
+                                  eIDRemapType remap_type,
                                   struct IDRemapper *id_remapper,
-                                  const short remap_flags);
+                                  short remap_flags);
 
 /**
  * Remaps ID usages of given ID to their `id->newid` pointer if not None, and proceeds recursively
@@ -178,20 +180,27 @@ typedef enum IDRemapperApplyResult {
 
 typedef enum IDRemapperApplyOptions {
   /**
-   * Update the user count of the old and new ID datablock.
+   * Update the user count of the old and new ID data-block.
    *
    * For remapping the old ID users will be decremented and the new ID users will be
    * incremented. When un-assigning the old ID users will be decremented.
+   *
+   * NOTE: Currently unused by main remapping code, since user-count is handled by
+   * `foreach_libblock_remap_callback_apply` there, depending on whether the remapped pointer does
+   * use it or not. Need for rare cases in UI handling though (see e.g. `image_id_remap` in
+   * `space_image.c`).
    */
   ID_REMAP_APPLY_UPDATE_REFCOUNT = (1 << 0),
 
   /**
-   * Make sure that the new ID datablock will have a 'real' user.
+   * Make sure that the new ID data-block will have a 'real' user.
+   *
+   * NOTE: See Note for #ID_REMAP_APPLY_UPDATE_REFCOUNT above.
    */
   ID_REMAP_APPLY_ENSURE_REAL = (1 << 1),
 
   /**
-   * Unassign in stead of remap when the new ID datablock would become id_self.
+   * Unassign in stead of remap when the new ID data-block would become id_self.
    *
    * To use this option 'BKE_id_remapper_apply_ex' must be used with a not-null id_self parameter.
    */

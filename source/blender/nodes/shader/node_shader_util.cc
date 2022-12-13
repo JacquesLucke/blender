@@ -7,13 +7,15 @@
 
 #include "DNA_node_types.h"
 
+#include "BKE_node_runtime.hh"
+
 #include "node_shader_util.hh"
 
 #include "NOD_socket_search_link.hh"
 
 #include "node_exec.h"
 
-bool sh_node_poll_default(bNodeType *UNUSED(ntype), bNodeTree *ntree, const char **r_disabled_hint)
+bool sh_node_poll_default(bNodeType * /*ntype*/, bNodeTree *ntree, const char **r_disabled_hint)
 {
   if (!STREQ(ntree->idname, "ShaderNodeTree")) {
     *r_disabled_hint = TIP_("Not a shader node tree");
@@ -22,7 +24,7 @@ bool sh_node_poll_default(bNodeType *UNUSED(ntype), bNodeTree *ntree, const char
   return true;
 }
 
-static bool sh_fn_poll_default(bNodeType *UNUSED(ntype),
+static bool sh_fn_poll_default(bNodeType * /*ntype*/,
                                bNodeTree *ntree,
                                const char **r_disabled_hint)
 {
@@ -185,7 +187,7 @@ static bNode *node_get_active(bNodeTree *ntree, int sub_activity)
     return nullptr;
   }
 
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     if (node->flag & sub_activity) {
       activetexnode = node;
       /* if active we can return immediately */
@@ -221,7 +223,7 @@ static bNode *node_get_active(bNodeTree *ntree, int sub_activity)
 
   if (hasgroup) {
     /* node active texture node in this tree, look inside groups */
-    LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+    for (bNode *node : ntree->all_nodes()) {
       if (node->type == NODE_GROUP) {
         bNode *tnode = node_get_active((bNodeTree *)node->id, sub_activity);
         if (tnode && ((tnode->flag & sub_activity) || !inactivenode)) {
@@ -284,26 +286,15 @@ void ntreeExecGPUNodes(bNodeTreeExec *exec, GPUMaterial *mat, bNode *output_node
   }
 }
 
-void node_shader_gpu_bump_tex_coord(GPUMaterial *mat, bNode *node, GPUNodeLink **link)
+void node_shader_gpu_bump_tex_coord(GPUMaterial *mat, bNode * /*node*/, GPUNodeLink **link)
 {
-  if (node->branch_tag == 1) {
-    /* Add one time the value for derivative to the input vector. */
-    GPU_link(mat, "dfdx_v3", *link, link);
-  }
-  else if (node->branch_tag == 2) {
-    /* Add one time the value for derivative to the input vector. */
-    GPU_link(mat, "dfdy_v3", *link, link);
-  }
-  else {
-    /* nothing to do, reference center value. */
-  }
+  GPU_link(mat, "differentiate_texco", *link, link);
 }
 
 void node_shader_gpu_default_tex_coord(GPUMaterial *mat, bNode *node, GPUNodeLink **link)
 {
   if (!*link) {
     *link = GPU_attribute(mat, CD_ORCO, "");
-    GPU_link(mat, "generated_texco", GPU_builtin(GPU_VIEW_POSITION), *link, link);
     node_shader_gpu_bump_tex_coord(mat, node, link);
   }
 }
@@ -311,7 +302,7 @@ void node_shader_gpu_default_tex_coord(GPUMaterial *mat, bNode *node, GPUNodeLin
 void node_shader_gpu_tex_mapping(GPUMaterial *mat,
                                  bNode *node,
                                  GPUNodeStack *in,
-                                 GPUNodeStack *UNUSED(out))
+                                 GPUNodeStack * /*out*/)
 {
   NodeTexBase *base = (NodeTexBase *)node->storage;
   TexMapping *texmap = &base->tex_mapping;
@@ -340,7 +331,7 @@ void node_shader_gpu_tex_mapping(GPUMaterial *mat,
 
 void get_XYZ_to_RGB_for_gpu(XYZ_to_RGB *data)
 {
-  const float *xyz_to_rgb = IMB_colormanagement_get_xyz_to_rgb();
+  const float *xyz_to_rgb = IMB_colormanagement_get_xyz_to_scene_linear();
   data->r[0] = xyz_to_rgb[0];
   data->r[1] = xyz_to_rgb[3];
   data->r[2] = xyz_to_rgb[6];

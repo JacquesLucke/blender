@@ -34,6 +34,7 @@ struct float3;
 enum ShadingSystem { SHADINGSYSTEM_OSL, SHADINGSYSTEM_SVM };
 
 /* Keep those in sync with the python-defined enum. */
+
 enum VolumeSampling {
   VOLUME_SAMPLING_DISTANCE = 0,
   VOLUME_SAMPLING_EQUIANGULAR = 1,
@@ -73,7 +74,7 @@ class Shader : public Node {
   NODE_SOCKET_API(int, pass_id)
 
   /* sampling */
-  NODE_SOCKET_API(bool, use_mis)
+  NODE_SOCKET_API(EmissionSampling, emission_sampling_method)
   NODE_SOCKET_API(bool, use_transparent_shadow)
   NODE_SOCKET_API(bool, heterogeneous_volume)
   NODE_SOCKET_API(VolumeSampling, volume_sampling_method)
@@ -101,7 +102,6 @@ class Shader : public Node {
 
   /* information about shader after compiling */
   bool has_surface;
-  bool has_surface_emission;
   bool has_surface_transparent;
   bool has_surface_raytrace;
   bool has_volume;
@@ -113,6 +113,10 @@ class Shader : public Node {
   bool has_volume_spatial_varying;
   bool has_volume_attribute_dependency;
   bool has_integrator_dependency;
+
+  float3 emission_estimate;
+  EmissionSampling emission_sampling;
+  bool emission_is_constant;
 
   /* requested mesh attributes */
   AttributeRequestSet attributes;
@@ -131,11 +135,12 @@ class Shader : public Node {
   Shader();
   ~Shader();
 
-  /* Checks whether the shader consists of just a emission node with fixed inputs that's connected
-   * directly to the output.
-   * If yes, it sets the content of emission to the constant value (color * strength), which is
-   * then used for speeding up light evaluation. */
-  bool is_constant_emission(float3 *emission);
+  /* Estimate emission of this shader based on the shader graph. This works only in very simple
+   * cases. But it helps improve light importance sampling in common cases.
+   *
+   * If the emission is fully constant, returns true, so that shader evaluation can be skipped
+   * entirely for a light. */
+  void estimate_emission();
 
   void set_graph(ShaderGraph *graph);
   void tag_update(Scene *scene);
@@ -170,7 +175,7 @@ class ShaderManager {
     UPDATE_NONE = 0u,
   };
 
-  static ShaderManager *create(int shadingsystem);
+  static ShaderManager *create(int shadingsystem, Device *device);
   virtual ~ShaderManager();
 
   virtual void reset(Scene *scene) = 0;
@@ -192,8 +197,8 @@ class ShaderManager {
   void device_free_common(Device *device, DeviceScene *dscene, Scene *scene);
 
   /* get globally unique id for a type of attribute */
-  uint get_attribute_id(ustring name);
-  uint get_attribute_id(AttributeStandard std);
+  virtual uint64_t get_attribute_id(ustring name);
+  virtual uint64_t get_attribute_id(AttributeStandard std);
 
   /* get shader id for mesh faces */
   int get_shader_id(Shader *shader, bool smooth = false);
@@ -208,6 +213,7 @@ class ShaderManager {
   static void free_memory();
 
   float linear_rgb_to_gray(float3 c);
+  float3 rec709_to_scene_linear(float3 c);
 
   string get_cryptomatte_materials(Scene *scene);
 
@@ -222,7 +228,7 @@ class ShaderManager {
 
   uint32_t update_flags;
 
-  typedef unordered_map<ustring, uint, ustringHash> AttributeIDMap;
+  typedef unordered_map<ustring, uint64_t, ustringHash> AttributeIDMap;
   AttributeIDMap unique_attribute_id;
 
   static thread_mutex lookup_table_mutex;
@@ -239,6 +245,10 @@ class ShaderManager {
   float3 xyz_to_g;
   float3 xyz_to_b;
   float3 rgb_to_y;
+  float3 rec709_to_r;
+  float3 rec709_to_g;
+  float3 rec709_to_b;
+  bool is_rec709;
 };
 
 CCL_NAMESPACE_END

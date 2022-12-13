@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 set(SNDFILE_EXTRA_ARGS)
-set(SNDFILE_ENV PKG_CONFIG_PATH=${mingw_LIBDIR}/ogg/lib/pkgconfig:${mingw_LIBDIR}/vorbis/lib/pkgconfig:${mingw_LIBDIR}/flac/lib/pkgconfig:${mingw_LIBDIR})
+set(SNDFILE_ENV)
 
 if(WIN32)
+  set(SNDFILE_ENV PKG_CONFIG_PATH=${mingw_LIBDIR}/ogg/lib/pkgconfig:${mingw_LIBDIR}/vorbis/lib/pkgconfig:${mingw_LIBDIR}/flac/lib/pkgconfig:${mingw_LIBDIR}/opus/lib/pkgconfig:${mingw_LIBDIR})
   set(SNDFILE_ENV set ${SNDFILE_ENV} &&)
   # Shared for windows because static libs will drag in a libgcc dependency.
   set(SNDFILE_OPTIONS --disable-static --enable-shared )
@@ -11,10 +12,14 @@ else()
   set(SNDFILE_OPTIONS --enable-static --disable-shared )
 endif()
 
-if(UNIX)
-  set(SNDFILE_PATCH_CMD ${PATCH_CMD} --verbose -p 0 -d ${BUILD_DIR}/sndfile/src/external_sndfile < ${PATCH_DIR}/sndfile.diff)
-else()
-  set(SNDFILE_PATCH_CMD)
+if(UNIX AND NOT APPLE)
+  # NOTE(@campbellbarton): For some reason OPUS is alone in referencing the sub-directory,
+  # manipulate the package-config file to prevent this from happening.
+  # There is no problem with applying this change multiple times.
+  #
+  # Replace: Cflags: -I${includedir}/opus
+  # With:    Cflags: -I${includedir}
+  set(SNDFILE_ENV sed -i s/{includedir}\\/opus/{includedir}/g ${LIBDIR}/opus/lib/pkgconfig/opus.pc && ${SNDFILE_ENV})
 endif()
 
 ExternalProject_Add(external_sndfile
@@ -22,7 +27,6 @@ ExternalProject_Add(external_sndfile
   DOWNLOAD_DIR ${DOWNLOAD_DIR}
   URL_HASH ${SNDFILE_HASH_TYPE}=${SNDFILE_HASH}
   PREFIX ${BUILD_DIR}/sndfile
-  PATCH_COMMAND ${SNDFILE_PATCH_CMD}
   CONFIGURE_COMMAND ${CONFIGURE_ENV} && cd ${BUILD_DIR}/sndfile/src/external_sndfile/ && ${SNDFILE_ENV} ${CONFIGURE_COMMAND} ${SNDFILE_OPTIONS} --prefix=${mingw_LIBDIR}/sndfile
   BUILD_COMMAND ${CONFIGURE_ENV} && cd ${BUILD_DIR}/sndfile/src/external_sndfile/ && make -j${MAKE_THREADS}
   INSTALL_COMMAND ${CONFIGURE_ENV} && cd ${BUILD_DIR}/sndfile/src/external_sndfile/ && make install
@@ -37,6 +41,7 @@ add_dependencies(
   external_sndfile
   external_ogg
   external_vorbis
+  external_opus
 )
 if(UNIX)
   add_dependencies(

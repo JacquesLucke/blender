@@ -30,11 +30,13 @@
 
 #include "ED_datafiles.h"
 
-#include "interface_intern.h"
+#include "interface_intern.hh"
 
 #ifdef WIN32
 #  include "BLI_math_base.h" /* M_PI */
 #endif
+
+static void fontstyle_set_ex(const uiFontStyle *fs, const float dpi_fac);
 
 /* style + theme + layout-engine = UI */
 
@@ -161,7 +163,7 @@ void UI_fontstyle_draw_ex(const uiFontStyle *fs,
   }
   else {
     /* Draw from bound-box center. */
-    const float height = BLF_ascender(fs->uifont_id) + BLF_descender(fs->uifont_id);
+    const int height = BLF_ascender(fs->uifont_id) + BLF_descender(fs->uifont_id);
     yofs = ceil(0.5f * (BLI_rcti_size_y(rect) - height));
   }
 
@@ -279,9 +281,9 @@ void UI_fontstyle_draw_simple_backdrop(const uiFontStyle *fs,
   UI_fontstyle_set(fs);
 
   {
-    const float width = BLF_width(fs->uifont_id, str, BLF_DRAW_STR_DUMMY_MAX);
-    const float height = BLF_height_max(fs->uifont_id);
-    const float decent = BLF_descender(fs->uifont_id);
+    const int width = BLF_width(fs->uifont_id, str, BLF_DRAW_STR_DUMMY_MAX);
+    const int height = BLF_height_max(fs->uifont_id);
+    const int decent = BLF_descender(fs->uifont_id);
     const float margin = height / 4.0f;
 
     rctf rect;
@@ -319,20 +321,20 @@ const uiStyle *UI_style_get_dpi(void)
 
   _style = *style;
 
-  _style.paneltitle.shadx = (short)(UI_DPI_FAC * _style.paneltitle.shadx);
-  _style.paneltitle.shady = (short)(UI_DPI_FAC * _style.paneltitle.shady);
-  _style.grouplabel.shadx = (short)(UI_DPI_FAC * _style.grouplabel.shadx);
-  _style.grouplabel.shady = (short)(UI_DPI_FAC * _style.grouplabel.shady);
-  _style.widgetlabel.shadx = (short)(UI_DPI_FAC * _style.widgetlabel.shadx);
-  _style.widgetlabel.shady = (short)(UI_DPI_FAC * _style.widgetlabel.shady);
+  _style.paneltitle.shadx = short(UI_DPI_FAC * _style.paneltitle.shadx);
+  _style.paneltitle.shady = short(UI_DPI_FAC * _style.paneltitle.shady);
+  _style.grouplabel.shadx = short(UI_DPI_FAC * _style.grouplabel.shadx);
+  _style.grouplabel.shady = short(UI_DPI_FAC * _style.grouplabel.shady);
+  _style.widgetlabel.shadx = short(UI_DPI_FAC * _style.widgetlabel.shadx);
+  _style.widgetlabel.shady = short(UI_DPI_FAC * _style.widgetlabel.shady);
 
-  _style.columnspace = (short)(UI_DPI_FAC * _style.columnspace);
-  _style.templatespace = (short)(UI_DPI_FAC * _style.templatespace);
-  _style.boxspace = (short)(UI_DPI_FAC * _style.boxspace);
-  _style.buttonspacex = (short)(UI_DPI_FAC * _style.buttonspacex);
-  _style.buttonspacey = (short)(UI_DPI_FAC * _style.buttonspacey);
-  _style.panelspace = (short)(UI_DPI_FAC * _style.panelspace);
-  _style.panelouter = (short)(UI_DPI_FAC * _style.panelouter);
+  _style.columnspace = short(UI_DPI_FAC * _style.columnspace);
+  _style.templatespace = short(UI_DPI_FAC * _style.templatespace);
+  _style.boxspace = short(UI_DPI_FAC * _style.boxspace);
+  _style.buttonspacex = short(UI_DPI_FAC * _style.buttonspacex);
+  _style.buttonspacey = short(UI_DPI_FAC * _style.buttonspacey);
+  _style.panelspace = short(UI_DPI_FAC * _style.panelspace);
+  _style.panelouter = short(UI_DPI_FAC * _style.panelouter);
 
   return &_style;
 }
@@ -340,28 +342,17 @@ const uiStyle *UI_style_get_dpi(void)
 int UI_fontstyle_string_width(const uiFontStyle *fs, const char *str)
 {
   UI_fontstyle_set(fs);
-  return (int)BLF_width(fs->uifont_id, str, BLF_DRAW_STR_DUMMY_MAX);
+  return int(BLF_width(fs->uifont_id, str, BLF_DRAW_STR_DUMMY_MAX));
 }
 
 int UI_fontstyle_string_width_with_block_aspect(const uiFontStyle *fs,
                                                 const char *str,
                                                 const float aspect)
 {
-  uiFontStyle fs_buf;
-  if (aspect != 1.0f) {
-    fs_buf = *fs;
-    ui_fontscale(&fs_buf.points, aspect);
-    fs = &fs_buf;
-  }
-
-  int width = UI_fontstyle_string_width(fs, str);
-
-  if (aspect != 1.0f) {
-    /* While in most cases rounding up isn't important, it can make a difference
-     * with small fonts (3px or less), zooming out in the node-editor for e.g. */
-    width = (int)ceilf(width * aspect);
-  }
-  return width;
+  /* FIXME(@campbellbarton): the final scale of the font is rounded which should be accounted for.
+   * Failing to do so causes bad alignment when zoomed out very far in the node-editor. */
+  fontstyle_set_ex(fs, U.dpi_fac / aspect);
+  return int(BLF_width(fs->uifont_id, str, BLF_DRAW_STR_DUMMY_MAX) * aspect);
 }
 
 int UI_fontstyle_height_max(const uiFontStyle *fs)
@@ -376,25 +367,14 @@ void uiStyleInit(void)
 {
   const uiStyle *style = static_cast<uiStyle *>(U.uistyles.first);
 
-  /* recover from uninitialized dpi */
+  /* Recover from uninitialized DPI. */
   if (U.dpi == 0) {
     U.dpi = 72;
   }
   CLAMP(U.dpi, 48, 144);
 
-  LISTBASE_FOREACH (uiFont *, font, &U.uifonts) {
-    BLF_unload_id(font->blf_id);
-  }
-
-  if (blf_mono_font != -1) {
-    BLF_unload_id(blf_mono_font);
-    blf_mono_font = -1;
-  }
-
-  if (blf_mono_font_render != -1) {
-    BLF_unload_id(blf_mono_font_render);
-    blf_mono_font_render = -1;
-  }
+  /* Needed so that custom fonts are always first. */
+  BLF_unload_all();
 
   uiFont *font_first = static_cast<uiFont *>(U.uifonts.first);
 
@@ -498,11 +478,19 @@ void uiStyleInit(void)
     const bool unique = true;
     blf_mono_font_render = BLF_load_mono_default(unique);
   }
+
+  /* Load the fallback fonts last. */
+  BLF_load_font_stack();
+}
+
+static void fontstyle_set_ex(const uiFontStyle *fs, const float dpi_fac)
+{
+  uiFont *font = uifont_to_blfont(fs->uifont_id);
+
+  BLF_size(font->blf_id, fs->points * dpi_fac);
 }
 
 void UI_fontstyle_set(const uiFontStyle *fs)
 {
-  uiFont *font = uifont_to_blfont(fs->uifont_id);
-
-  BLF_size(font->blf_id, fs->points * U.pixelsize, U.dpi);
+  fontstyle_set_ex(fs, U.dpi_fac);
 }

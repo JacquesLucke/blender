@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 # Currently this script only generates images from different modifier
 # combinations and does not validate they work correctly,
 # this is because we don't get 1:1 match with bmesh.
@@ -57,8 +55,8 @@ def render_gl(context, filepath, shade):
 
 def render_gl_all_modes(context, obj, filepath=""):
 
-    assert(obj is not None)
-    assert(filepath != "")
+    assert obj is not None
+    assert filepath != ""
 
     scene = context.scene
 
@@ -93,7 +91,7 @@ def render_gl_all_modes(context, obj, filepath=""):
 
     render_gl(context, filepath + "_wp_wire", shade='WIREFRAME')
 
-    assert(1)
+    assert 1
 
     bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
 

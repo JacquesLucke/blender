@@ -5,13 +5,14 @@
 # to more easily highlight code-paths in other libraries that need to be refactored,
 # bf_gpu is allowed to have opengl regardless of this option.
 
-if(NOT WITH_OPENGL AND NOT WITH_METAL_BACKEND)
+if(NOT WITH_OPENGL AND NOT WITH_METAL_BACKEND AND NOT WITH_HEADLESS)
   add_definitions(-DWITH_OPENGL)
 endif()
 
 set(INC
   .
   intern
+  vulkan
   metal
   opengl
   ../blenkernel
@@ -21,32 +22,36 @@ set(INC
   ../imbuf
   ../makesdna
   ../makesrna
-  ../windowmanager
 
+  # For theme color access.
   ../editors/include
 
-  # For node muting stuff...
-  ../nodes
-  ../nodes/intern
+  # For *_info.hh includes.
+  ../compositor/realtime_compositor
+  ../draw/engines/eevee_next
+  ../draw/intern
 
+  # For node muting stuff.
+  ../nodes
+
+  ../../../intern/atomic
   ../../../intern/clog
   ../../../intern/ghost
-  ../../../intern/glew-mx
   ../../../intern/guardedalloc
   ../../../intern/mantaflow/extern
 )
 
 set(INC_SYS
-  ${GLEW_INCLUDE_PATH}
+  ${Epoxy_INCLUDE_DIRS}
+  ${VULKAN_INCLUDE_DIRS}
 )
 
 set(SRC
   intern/gpu_batch.cc
   intern/gpu_batch_presets.c
   intern/gpu_batch_utils.c
-  intern/gpu_buffers.c
   intern/gpu_capabilities.cc
-  intern/gpu_codegen.c
+  intern/gpu_codegen.cc
   intern/gpu_compute.cc
   intern/gpu_context.cc
   intern/gpu_debug.cc
@@ -57,9 +62,8 @@ set(SRC
   intern/gpu_index_buffer.cc
   intern/gpu_init_exit.c
   intern/gpu_material.c
-  intern/gpu_material_library.c
   intern/gpu_matrix.cc
-  intern/gpu_node_graph.c
+  intern/gpu_node_graph.cc
   intern/gpu_platform.cc
   intern/gpu_query.cc
   intern/gpu_select.c
@@ -82,20 +86,18 @@ set(SRC
   GPU_batch.h
   GPU_batch_presets.h
   GPU_batch_utils.h
-  GPU_buffers.h
   GPU_capabilities.h
   GPU_common.h
+  GPU_common_types.h
   GPU_compute.h
   GPU_context.h
   GPU_debug.h
   GPU_drawlist.h
   GPU_framebuffer.h
-  GPU_glew.h
   GPU_immediate.h
   GPU_immediate_util.h
   GPU_index_buffer.h
   GPU_init_exit.h
-  GPU_legacy_stubs.h
   GPU_material.h
   GPU_matrix.h
   GPU_platform.h
@@ -185,11 +187,84 @@ set(OPENGL_SRC
   opengl/gl_vertex_buffer.hh
 )
 
+set(VULKAN_SRC
+  vulkan/vk_backend.cc
+  vulkan/vk_batch.cc
+  vulkan/vk_context.cc
+  vulkan/vk_drawlist.cc
+  vulkan/vk_fence.cc
+  vulkan/vk_framebuffer.cc
+  vulkan/vk_index_buffer.cc
+  vulkan/vk_pixel_buffer.cc
+  vulkan/vk_query.cc
+  vulkan/vk_shader.cc
+  vulkan/vk_shader_log.cc
+  vulkan/vk_storage_buffer.cc
+  vulkan/vk_texture.cc
+  vulkan/vk_uniform_buffer.cc
+  vulkan/vk_vertex_buffer.cc
+
+  vulkan/vk_backend.hh
+  vulkan/vk_batch.hh
+  vulkan/vk_context.hh
+  vulkan/vk_drawlist.hh
+  vulkan/vk_fence.hh
+  vulkan/vk_framebuffer.hh
+  vulkan/vk_index_buffer.hh
+  vulkan/vk_pixel_buffer.hh
+  vulkan/vk_query.hh
+  vulkan/vk_shader.hh
+  vulkan/vk_shader_log.hh
+  vulkan/vk_storage_buffer.hh
+  vulkan/vk_texture.hh
+  vulkan/vk_uniform_buffer.hh
+  vulkan/vk_vertex_buffer.hh
+)
+
 set(METAL_SRC
   metal/mtl_backend.mm
+  metal/mtl_batch.mm
+  metal/mtl_command_buffer.mm
+  metal/mtl_context.mm
+  metal/mtl_debug.mm
+  metal/mtl_drawlist.mm
+  metal/mtl_framebuffer.mm
+  metal/mtl_immediate.mm
+  metal/mtl_index_buffer.mm
+  metal/mtl_memory.mm
+  metal/mtl_query.mm
+  metal/mtl_shader.mm
+  metal/mtl_shader_generator.mm
+  metal/mtl_shader_interface.mm
+  metal/mtl_state.mm
+  metal/mtl_texture.mm
+  metal/mtl_texture_util.mm
+  metal/mtl_uniform_buffer.mm
+  metal/mtl_vertex_buffer.mm
 
   metal/mtl_backend.hh
+  metal/mtl_batch.hh
   metal/mtl_capabilities.hh
+  metal/mtl_common.hh
+  metal/mtl_context.hh
+  metal/mtl_debug.hh
+  metal/mtl_drawlist.hh
+  metal/mtl_framebuffer.hh
+  metal/mtl_immediate.hh
+  metal/mtl_index_buffer.hh
+  metal/mtl_memory.hh
+  metal/mtl_primitive.hh
+  metal/mtl_pso_descriptor_state.hh
+  metal/mtl_query.hh
+  metal/mtl_shader.hh
+  metal/mtl_shader_generator.hh
+  metal/mtl_shader_interface.hh
+  metal/mtl_shader_interface_type.hh
+  metal/mtl_shader_shared.h
+  metal/mtl_state.hh
+  metal/mtl_texture.hh
+  metal/mtl_uniform_buffer.hh
+  metal/mtl_vertex_buffer.hh
 )
 
 # Select Backend source based on availability
@@ -202,14 +277,41 @@ if(WITH_METAL_BACKEND)
 endif()
 
 set(LIB
-  ${BLENDER_GL_LIBRARIES}
+  ${Epoxy_LIBRARIES}
+  ${VULKAN_LIBRARIES}
 )
 
-if(NOT WITH_SYSTEM_GLEW)
+if(WITH_VULKAN_BACKEND)
+  list(APPEND SRC ${VULKAN_SRC})
+
+  add_definitions(-DWITH_VULKAN_BACKEND)
+
+  list(APPEND INC_SYS
+    ${VULKAN_INCLUDE_DIRS}
+  )
+
+  list(APPEND INC
+    ../../../extern/vulkan_memory_allocator/
+  )
+
   list(APPEND LIB
-    ${BLENDER_GLEW_LIBRARIES}
+    extern_vulkan_memory_allocator
   )
 endif()
+
+set(MSL_SRC
+  shaders/metal/mtl_shader_defines.msl
+  shaders/metal/mtl_shader_common.msl
+
+  metal/kernels/compute_texture_update.msl
+  metal/kernels/compute_texture_read.msl
+  metal/kernels/depth_2d_update_float_frag.glsl
+  metal/kernels/depth_2d_update_int24_frag.glsl
+  metal/kernels/depth_2d_update_int32_frag.glsl
+  metal/kernels/depth_2d_update_vert.glsl
+  metal/kernels/gpu_shader_fullscreen_blit_vert.glsl
+  metal/kernels/gpu_shader_fullscreen_blit_frag.glsl
+)
 
 set(GLSL_SRC
   GPU_shader_shared.h
@@ -232,19 +334,16 @@ set(GLSL_SRC
   shaders/gpu_shader_2D_widget_shadow_frag.glsl
   shaders/gpu_shader_2D_nodelink_frag.glsl
   shaders/gpu_shader_2D_nodelink_vert.glsl
-  shaders/gpu_shader_2D_flat_color_vert.glsl
-  shaders/gpu_shader_2D_line_dashed_uniform_color_vert.glsl
   shaders/gpu_shader_2D_line_dashed_frag.glsl
-  shaders/gpu_shader_2D_smooth_color_vert.glsl
-  shaders/gpu_shader_2D_smooth_color_frag.glsl
   shaders/gpu_shader_2D_image_vert.glsl
   shaders/gpu_shader_2D_image_rect_vert.glsl
   shaders/gpu_shader_2D_image_multi_rect_vert.glsl
+  shaders/gpu_shader_icon_frag.glsl
+  shaders/gpu_shader_icon_vert.glsl
   shaders/gpu_shader_image_frag.glsl
   shaders/gpu_shader_image_desaturate_frag.glsl
   shaders/gpu_shader_image_overlays_merge_frag.glsl
   shaders/gpu_shader_image_overlays_stereo_merge_frag.glsl
-  shaders/gpu_shader_image_modulate_alpha_frag.glsl
   shaders/gpu_shader_image_shuffle_color_frag.glsl
   shaders/gpu_shader_image_color_frag.glsl
   shaders/gpu_shader_image_varying_color_frag.glsl
@@ -256,6 +355,7 @@ set(GLSL_SRC
   shaders/gpu_shader_3D_polyline_frag.glsl
   shaders/gpu_shader_3D_polyline_geom.glsl
   shaders/gpu_shader_3D_polyline_vert.glsl
+  shaders/gpu_shader_3D_polyline_vert_no_geom.glsl
   shaders/gpu_shader_3D_smooth_color_vert.glsl
   shaders/gpu_shader_3D_smooth_color_frag.glsl
   shaders/gpu_shader_3D_passthrough_vert.glsl
@@ -281,7 +381,13 @@ set(GLSL_SRC
 
   shaders/gpu_shader_codegen_lib.glsl
 
-  shaders/gpu_shader_geometry.glsl
+  shaders/common/gpu_shader_common_color_ramp.glsl
+  shaders/common/gpu_shader_common_color_utils.glsl
+  shaders/common/gpu_shader_common_curves.glsl
+  shaders/common/gpu_shader_common_hash.glsl
+  shaders/common/gpu_shader_common_math.glsl
+  shaders/common/gpu_shader_common_math_utils.glsl
+  shaders/common/gpu_shader_common_mix_rgb.glsl
 
   shaders/material/gpu_shader_material_add_shader.glsl
   shaders/material/gpu_shader_material_ambient_occlusion.glsl
@@ -295,8 +401,7 @@ set(GLSL_SRC
   shaders/material/gpu_shader_material_bump.glsl
   shaders/material/gpu_shader_material_camera.glsl
   shaders/material/gpu_shader_material_clamp.glsl
-  shaders/material/gpu_shader_material_color_ramp.glsl
-  shaders/material/gpu_shader_material_color_util.glsl
+  shaders/material/gpu_shader_material_combine_color.glsl
   shaders/material/gpu_shader_material_combine_hsv.glsl
   shaders/material/gpu_shader_material_combine_rgb.glsl
   shaders/material/gpu_shader_material_combine_xyz.glsl
@@ -304,7 +409,6 @@ set(GLSL_SRC
   shaders/material/gpu_shader_material_displacement.glsl
   shaders/material/gpu_shader_material_eevee_specular.glsl
   shaders/material/gpu_shader_material_emission.glsl
-  shaders/material/gpu_shader_material_float_curve.glsl
   shaders/material/gpu_shader_material_fractal_noise.glsl
   shaders/material/gpu_shader_material_fresnel.glsl
   shaders/material/gpu_shader_material_gamma.glsl
@@ -312,7 +416,7 @@ set(GLSL_SRC
   shaders/material/gpu_shader_material_glass.glsl
   shaders/material/gpu_shader_material_glossy.glsl
   shaders/material/gpu_shader_material_hair_info.glsl
-  shaders/material/gpu_shader_material_hash.glsl
+  shaders/material/gpu_shader_material_hair.glsl
   shaders/material/gpu_shader_material_holdout.glsl
   shaders/material/gpu_shader_material_hue_sat_val.glsl
   shaders/material/gpu_shader_material_invert.glsl
@@ -321,9 +425,7 @@ set(GLSL_SRC
   shaders/material/gpu_shader_material_light_path.glsl
   shaders/material/gpu_shader_material_mapping.glsl
   shaders/material/gpu_shader_material_map_range.glsl
-  shaders/material/gpu_shader_material_math.glsl
-  shaders/material/gpu_shader_material_math_util.glsl
-  shaders/material/gpu_shader_material_mix_rgb.glsl
+  shaders/material/gpu_shader_material_mix_color.glsl
   shaders/material/gpu_shader_material_mix_shader.glsl
   shaders/material/gpu_shader_material_noise.glsl
   shaders/material/gpu_shader_material_normal.glsl
@@ -336,8 +438,8 @@ set(GLSL_SRC
   shaders/material/gpu_shader_material_point_info.glsl
   shaders/material/gpu_shader_material_principled.glsl
   shaders/material/gpu_shader_material_refraction.glsl
-  shaders/material/gpu_shader_material_rgb_curves.glsl
   shaders/material/gpu_shader_material_rgb_to_bw.glsl
+  shaders/material/gpu_shader_material_separate_color.glsl
   shaders/material/gpu_shader_material_separate_hsv.glsl
   shaders/material/gpu_shader_material_separate_rgb.glsl
   shaders/material/gpu_shader_material_separate_xyz.glsl
@@ -360,17 +462,16 @@ set(GLSL_SRC
   shaders/material/gpu_shader_material_tex_wave.glsl
   shaders/material/gpu_shader_material_tex_white_noise.glsl
   shaders/material/gpu_shader_material_toon.glsl
+  shaders/material/gpu_shader_material_transform_utils.glsl
   shaders/material/gpu_shader_material_translucent.glsl
   shaders/material/gpu_shader_material_transparent.glsl
   shaders/material/gpu_shader_material_uv_map.glsl
-  shaders/material/gpu_shader_material_vector_curves.glsl
   shaders/material/gpu_shader_material_vector_displacement.glsl
   shaders/material/gpu_shader_material_vector_math.glsl
   shaders/material/gpu_shader_material_vector_rotate.glsl
   shaders/material/gpu_shader_material_velvet.glsl
   shaders/material/gpu_shader_material_vertex_color.glsl
   shaders/material/gpu_shader_material_volume_absorption.glsl
-  shaders/material/gpu_shader_material_volume_info.glsl
   shaders/material/gpu_shader_material_volume_principled.glsl
   shaders/material/gpu_shader_material_volume_scatter.glsl
   shaders/material/gpu_shader_material_wireframe.glsl
@@ -383,17 +484,47 @@ set(GLSL_SRC
   shaders/gpu_shader_cfg_world_clip_lib.glsl
   shaders/gpu_shader_colorspace_lib.glsl
 
-  shaders/gpu_shader_common_obinfos_lib.glsl
-
   GPU_shader_shared_utils.h
 )
+
+set(MTL_BACKEND_GLSL_SRC
+  metal/kernels/compute_texture_update.msl
+  metal/kernels/compute_texture_read.msl
+  metal/kernels/depth_2d_update_float_frag.glsl
+  metal/kernels/depth_2d_update_int24_frag.glsl
+  metal/kernels/depth_2d_update_int32_frag.glsl
+  metal/kernels/depth_2d_update_vert.glsl
+  metal/kernels/gpu_shader_fullscreen_blit_vert.glsl
+  metal/kernels/gpu_shader_fullscreen_blit_frag.glsl
+)
+
+set(MSL_SRC
+  shaders/metal/mtl_shader_defines.msl
+  shaders/metal/mtl_shader_common.msl
+  metal/mtl_shader_shared.h
+)
+
+if(WITH_METAL_BACKEND)
+  list(APPEND GLSL_SRC ${MTL_BACKEND_GLSL_SRC})
+
+  set(MSL_C)
+  foreach(MSL_FILE ${MSL_SRC})
+    data_to_c_simple(${MSL_FILE} MSL_C)
+  endforeach()
+endif()
 
 set(GLSL_C)
 foreach(GLSL_FILE ${GLSL_SRC})
   data_to_c_simple(${GLSL_FILE} GLSL_C)
 endforeach()
 
-blender_add_lib(bf_gpu_shaders "${GLSL_C}" "" "" "")
+set(SHADER_C)
+list(APPEND SHADER_C ${GLSL_C})
+if(WITH_METAL_BACKEND)
+  list(APPEND SHADER_C ${MSL_C})
+endif()
+
+blender_add_lib(bf_gpu_shaders "${SHADER_C}" "" "" "")
 
 list(APPEND LIB
   bf_gpu_shaders
@@ -412,10 +543,31 @@ list(APPEND SRC ${glsl_source_list_file})
 list(APPEND INC ${CMAKE_CURRENT_BINARY_DIR})
 
 set(SRC_SHADER_CREATE_INFOS
+  ../draw/engines/basic/shaders/infos/basic_depth_info.hh
+  ../draw/engines/eevee_next/shaders/infos/eevee_depth_of_field_info.hh
+  ../draw/engines/eevee_next/shaders/infos/eevee_film_info.hh
+  ../draw/engines/eevee_next/shaders/infos/eevee_hiz_info.hh
+  ../draw/engines/eevee_next/shaders/infos/eevee_light_culling_info.hh
+  ../draw/engines/eevee_next/shaders/infos/eevee_material_info.hh
+  ../draw/engines/eevee_next/shaders/infos/eevee_motion_blur_info.hh
+  ../draw/engines/eevee_next/shaders/infos/eevee_velocity_info.hh
   ../draw/engines/gpencil/shaders/infos/gpencil_info.hh
   ../draw/engines/gpencil/shaders/infos/gpencil_vfx_info.hh
-  ../draw/engines/overlay/shaders/infos/armature_info.hh
-  ../draw/engines/overlay/shaders/infos/edit_mode_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_antialiasing_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_armature_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_background_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_edit_mode_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_extra_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_facing_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_grid_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_outline_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_paint_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_sculpt_curves_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_sculpt_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_viewer_attribute_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_volume_info.hh
+  ../draw/engines/overlay/shaders/infos/overlay_wireframe_info.hh
+  ../draw/engines/select/shaders/infos/select_id_info.hh
   ../draw/engines/workbench/shaders/infos/workbench_composite_info.hh
   ../draw/engines/workbench/shaders/infos/workbench_effect_antialiasing_info.hh
   ../draw/engines/workbench/shaders/infos/workbench_effect_cavity_info.hh
@@ -426,7 +578,19 @@ set(SRC_SHADER_CREATE_INFOS
   ../draw/engines/workbench/shaders/infos/workbench_shadow_info.hh
   ../draw/engines/workbench/shaders/infos/workbench_transparent_resolve_info.hh
   ../draw/engines/workbench/shaders/infos/workbench_volume_info.hh
+
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_common_info.hh
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_bloom_info.hh
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_lightprobe_info.hh
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_effects_info.hh
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_dof_info.hh
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_volume_info.hh
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_shadow_info.hh
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_material_info.hh
+  ../draw/engines/eevee/shaders/infos/eevee_legacy_motion_blur_info.hh
+
   ../draw/engines/image/shaders/infos/engine_image_info.hh
+  ../draw/intern/shaders/draw_debug_info.hh
   ../draw/intern/shaders/draw_fullscreen_info.hh
   ../draw/intern/shaders/draw_hair_refine_info.hh
   ../draw/intern/shaders/draw_object_infos_info.hh
@@ -436,8 +600,6 @@ set(SRC_SHADER_CREATE_INFOS
   shaders/infos/gpu_shader_2D_area_borders_info.hh
   shaders/infos/gpu_shader_2D_checker_info.hh
   shaders/infos/gpu_shader_2D_diag_stripes_info.hh
-  shaders/infos/gpu_shader_2D_flat_color_info.hh
-  shaders/infos/gpu_shader_2D_image_color_info.hh
   shaders/infos/gpu_shader_2D_image_desaturate_color_info.hh
   shaders/infos/gpu_shader_2D_image_info.hh
   shaders/infos/gpu_shader_2D_image_multi_rect_color_info.hh
@@ -449,21 +611,33 @@ set(SRC_SHADER_CREATE_INFOS
   shaders/infos/gpu_shader_2D_point_uniform_size_uniform_color_aa_info.hh
   shaders/infos/gpu_shader_2D_point_uniform_size_uniform_color_outline_aa_info.hh
   shaders/infos/gpu_shader_2D_point_varying_size_varying_color_info.hh
-  shaders/infos/gpu_shader_2D_smooth_color_info.hh
-  shaders/infos/gpu_shader_2D_uniform_color_info.hh
+  shaders/infos/gpu_shader_2D_widget_info.hh
   shaders/infos/gpu_shader_3D_depth_only_info.hh
   shaders/infos/gpu_shader_3D_flat_color_info.hh
-  shaders/infos/gpu_shader_3D_image_modulate_alpha_info.hh
+  shaders/infos/gpu_shader_3D_image_info.hh
   shaders/infos/gpu_shader_3D_point_info.hh
+  shaders/infos/gpu_shader_3D_polyline_info.hh
   shaders/infos/gpu_shader_3D_smooth_color_info.hh
   shaders/infos/gpu_shader_3D_uniform_color_info.hh
   shaders/infos/gpu_shader_gpencil_stroke_info.hh
+  shaders/infos/gpu_shader_icon_info.hh
   shaders/infos/gpu_shader_instance_varying_color_varying_size_info.hh
   shaders/infos/gpu_shader_keyframe_shape_info.hh
+  shaders/infos/gpu_shader_line_dashed_uniform_color_info.hh
   shaders/infos/gpu_shader_simple_lighting_info.hh
   shaders/infos/gpu_shader_text_info.hh
   shaders/infos/gpu_srgb_to_framebuffer_space_info.hh
 )
+
+set(SRC_SHADER_CREATE_INFOS_MTL
+  metal/kernels/depth_2d_update_info.hh
+  metal/kernels/gpu_shader_fullscreen_blit_info.hh
+)
+
+if(WITH_METAL_BACKEND)
+  list(APPEND SRC_SHADER_CREATE_INFOS ${SRC_SHADER_CREATE_INFOS_MTL})
+endif()
+
 
 set(SHADER_CREATE_INFOS_CONTENT "")
 foreach(DESCRIPTOR_FILE ${SRC_SHADER_CREATE_INFOS})
@@ -477,8 +651,6 @@ if(WITH_MOD_FLUID)
   add_definitions(-DWITH_FLUID)
 endif()
 
-add_definitions(${GL_DEFINITIONS})
-
 if(WITH_IMAGE_DDS)
   add_definitions(-DWITH_DDS)
 endif()
@@ -489,6 +661,7 @@ endif()
 
 blender_add_lib(bf_gpu "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 target_link_libraries(bf_gpu PUBLIC
+  bf_compositor_shaders
   bf_draw_shaders
   bf_gpu_shaders
 )
@@ -504,33 +677,39 @@ endif()
 
 
 
-if(WITH_GPU_SHADER_BUILDER)
+if(WITH_GPU_BUILDTIME_SHADER_BUILDER)
   # TODO(@fclem) Fix this mess.
   if(APPLE)
     add_executable(shader_builder
       intern/gpu_shader_builder.cc
+      intern/gpu_shader_builder_stubs.cc
       ${shader_create_info_list_file}
       )
 
     setup_platform_linker_flags(shader_builder)
-
-    target_link_libraries(shader_builder PUBLIC
-      bf_blenkernel
-      buildinfoobj
-    )
+    target_link_libraries(shader_builder PUBLIC buildinfoobj)
   else()
+    if(WIN32)
+      # We can re-use the manifest from tests.exe here since it's
+      # rather generic and just selects the appropriate common
+      # controls version.
+      set(MANIFEST "${CMAKE_BINARY_DIR}/tests.exe.manifest")
+    endif()
     add_executable(shader_builder
       intern/gpu_shader_builder.cc
       intern/gpu_shader_builder_stubs.cc
       ${shader_create_info_list_file}
+      ${MANIFEST}
     )
 
-    target_link_libraries(shader_builder PUBLIC
-      bf_blenkernel
-      ${PLATFORM_LINKLIBS}
-    )
   endif()
-
+  target_link_libraries(shader_builder PUBLIC
+    bf_gpu
+    bf_intern_clog
+    bf_blenlib
+    bf_intern_ghost
+    ${PLATFORM_LINKLIBS}
+  )
   target_include_directories(shader_builder PRIVATE ${INC} ${CMAKE_CURRENT_BINARY_DIR})
 
   set(SRC_BAKED_CREATE_INFOS_FILE ${CMAKE_CURRENT_BINARY_DIR}/shader_baked.hh)

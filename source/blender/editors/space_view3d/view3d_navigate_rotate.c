@@ -37,7 +37,7 @@ void viewrotate_modal_keymap(wmKeyConfig *keyconf)
 
   wmKeyMap *keymap = WM_modalkeymap_find(keyconf, "View3D Rotate Modal");
 
-  /* this function is called for each spacetype, only needs to add map once */
+  /* This function is called for each space-type, only needs to add map once. */
   if (keymap && keymap->modal_items) {
     return;
   }
@@ -162,10 +162,8 @@ static void viewrotate_apply_snap(ViewOpsData *vod)
 
     if (found) {
       /* lock 'quat_best' to an axis view if we can */
-      ED_view3d_quat_to_axis_view(quat_best, 0.01f, &rv3d->view, &rv3d->view_axis_roll);
-      if (rv3d->view != RV3D_VIEW_USER) {
-        ED_view3d_quat_from_axis_view(rv3d->view, rv3d->view_axis_roll, quat_best);
-      }
+      ED_view3d_quat_to_axis_view_and_reset_quat(
+          quat_best, 0.01f, &rv3d->view, &rv3d->view_axis_roll);
     }
     else {
       copy_qt_qt(quat_best, viewquat_align);
@@ -184,7 +182,7 @@ static void viewrotate_apply_snap(ViewOpsData *vod)
     }
   }
   else if (U.uiflag & USER_AUTOPERSP) {
-    rv3d->persp = vod->init.persp;
+    rv3d->persp = vod->init.persp_with_auto_persp_applied;
   }
 }
 
@@ -329,11 +327,8 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
   bool use_autokey = false;
   int ret = OPERATOR_RUNNING_MODAL;
 
-  /* execute the events */
-  if (event->type == MOUSEMOVE) {
-    event_code = VIEW_APPLY;
-  }
-  else if (event->type == EVT_MODAL_MAP) {
+  /* Execute the events. */
+  if (event->type == EVT_MODAL_MAP) {
     switch (event->val) {
       case VIEW_MODAL_CONFIRM:
         event_code = VIEW_CONFIRM;
@@ -343,7 +338,7 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
         event_code = VIEW_APPLY;
         break;
       case VIEWROT_MODAL_AXIS_SNAP_DISABLE:
-        vod->rv3d->persp = vod->init.persp;
+        vod->rv3d->persp = vod->init.persp_with_auto_persp_applied;
         vod->axis_snap = false;
         event_code = VIEW_APPLY;
         break;
@@ -357,26 +352,64 @@ static int viewrotate_modal(bContext *C, wmOperator *op, const wmEvent *event)
         break;
     }
   }
-  else if (event->type == vod->init.event_type && event->val == KM_RELEASE) {
-    event_code = VIEW_CONFIRM;
-  }
-
-  if (event_code == VIEW_APPLY) {
-    viewrotate_apply(vod, event->xy);
-    if (ED_screen_animation_playing(CTX_wm_manager(C))) {
-      use_autokey = true;
+  else {
+    if (event->type == MOUSEMOVE) {
+      event_code = VIEW_APPLY;
+    }
+    else if (event->type == vod->init.event_type) {
+      if (event->val == KM_RELEASE) {
+        event_code = VIEW_CONFIRM;
+      }
+    }
+    else if (ELEM(event->type, EVT_ESCKEY, RIGHTMOUSE)) {
+      if (event->val == KM_PRESS) {
+        event_code = VIEW_CANCEL;
+      }
     }
   }
-  else if (event_code == VIEW_CONFIRM) {
-    use_autokey = true;
-    ret = OPERATOR_FINISHED;
+
+  switch (event_code) {
+    case VIEW_APPLY: {
+      viewrotate_apply(vod, event->xy);
+      if (ED_screen_animation_playing(CTX_wm_manager(C))) {
+        use_autokey = true;
+      }
+      break;
+    }
+    case VIEW_CONFIRM: {
+      use_autokey = true;
+      ret = OPERATOR_FINISHED;
+      break;
+    }
+    case VIEW_CANCEL: {
+      /* Note this does not remove auto-keys on locked cameras. */
+      copy_qt_qt(vod->rv3d->viewquat, vod->init.quat);
+      /* The offset may have change when rotating around objects or last-brush. */
+      copy_v3_v3(vod->rv3d->ofs, vod->init.ofs);
+      /* The dist may have changed when orbiting from a camera view.
+       * In this case the `dist` is calculated based on the camera relative to the `ofs`. */
+      vod->rv3d->dist = vod->init.dist;
+
+      vod->rv3d->persp = vod->init.persp;
+      vod->rv3d->view = vod->init.view;
+      vod->rv3d->view_axis_roll = vod->init.view_axis_roll;
+
+      /* NOTE: there is no need to restore "last" values (as set by #ED_view3d_lastview_store). */
+
+      ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, vod->rv3d);
+      ret = OPERATOR_CANCELLED;
+      break;
+    }
   }
 
   if (use_autokey) {
     ED_view3d_camera_lock_autokey(vod->v3d, vod->rv3d, C, true, true);
   }
 
-  if (ret & OPERATOR_FINISHED) {
+  if ((ret & OPERATOR_RUNNING_MODAL) == 0) {
+    if (ret & OPERATOR_FINISHED) {
+      ED_view3d_camera_lock_undo_push(op->type->name, vod->v3d, vod->rv3d, C);
+    }
     viewops_data_free(C, op->customdata);
     op->customdata = NULL;
   }

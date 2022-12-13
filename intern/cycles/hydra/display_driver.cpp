@@ -11,7 +11,7 @@
 #include "hydra/render_buffer.h"
 #include "hydra/session.h"
 
-#include <GL/glew.h>
+#include <epoxy/gl.h>
 #include <pxr/imaging/hgiGL/texture.h>
 
 HDCYCLES_NAMESPACE_OPEN_SCOPE
@@ -19,31 +19,6 @@ HDCYCLES_NAMESPACE_OPEN_SCOPE
 HdCyclesDisplayDriver::HdCyclesDisplayDriver(HdCyclesSession *renderParam, Hgi *hgi)
     : _renderParam(renderParam), _hgi(hgi)
 {
-#ifdef _WIN32
-  hdc_ = GetDC(CreateWindowA("STATIC",
-                             "HdCycles",
-                             WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
-                             0,
-                             0,
-                             64,
-                             64,
-                             NULL,
-                             NULL,
-                             GetModuleHandle(NULL),
-                             NULL));
-
-  int pixelFormat = GetPixelFormat(wglGetCurrentDC());
-  PIXELFORMATDESCRIPTOR pfd = {sizeof(pfd)};
-  DescribePixelFormat((HDC)hdc_, pixelFormat, sizeof(pfd), &pfd);
-  SetPixelFormat((HDC)hdc_, pixelFormat, &pfd);
-
-  TF_VERIFY(gl_context_ = wglCreateContext((HDC)hdc_));
-  TF_VERIFY(wglShareLists(wglGetCurrentContext(), (HGLRC)gl_context_));
-#endif
-
-  glewInit();
-
-  glGenBuffers(1, &gl_pbo_id_);
 }
 
 HdCyclesDisplayDriver::~HdCyclesDisplayDriver()
@@ -52,11 +27,88 @@ HdCyclesDisplayDriver::~HdCyclesDisplayDriver()
     _hgi->DestroyTexture(&texture_);
   }
 
-  glDeleteBuffers(1, &gl_pbo_id_);
+  if (gl_pbo_id_) {
+    glDeleteBuffers(1, &gl_pbo_id_);
+  }
 
+  gl_context_dispose();
+}
+
+void HdCyclesDisplayDriver::gl_context_create()
+{
 #ifdef _WIN32
-  TF_VERIFY(wglDeleteContext((HGLRC)gl_context_));
-  DestroyWindow(WindowFromDC((HDC)hdc_));
+  if (!gl_context_) {
+    hdc_ = GetDC(CreateWindowA("STATIC",
+                               "HdCycles",
+                               WS_OVERLAPPEDWINDOW | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+                               0,
+                               0,
+                               64,
+                               64,
+                               NULL,
+                               NULL,
+                               GetModuleHandle(NULL),
+                               NULL));
+
+    int pixelFormat = GetPixelFormat(wglGetCurrentDC());
+    PIXELFORMATDESCRIPTOR pfd = {sizeof(pfd)};
+    DescribePixelFormat((HDC)hdc_, pixelFormat, sizeof(pfd), &pfd);
+    SetPixelFormat((HDC)hdc_, pixelFormat, &pfd);
+
+    TF_VERIFY(gl_context_ = wglCreateContext((HDC)hdc_));
+    TF_VERIFY(wglShareLists(wglGetCurrentContext(), (HGLRC)gl_context_));
+  }
+  if (!gl_context_) {
+    return;
+  }
+#endif
+
+  if (!gl_pbo_id_) {
+    glGenBuffers(1, &gl_pbo_id_);
+  }
+}
+
+bool HdCyclesDisplayDriver::gl_context_enable()
+{
+#ifdef _WIN32
+  if (!hdc_ || !gl_context_) {
+    return false;
+  }
+
+  mutex_.lock();
+
+  // Do not change context if this is called in the main thread
+  if (wglGetCurrentContext() == nullptr) {
+    if (!TF_VERIFY(wglMakeCurrent((HDC)hdc_, (HGLRC)gl_context_))) {
+      mutex_.unlock();
+      return false;
+    }
+  }
+
+  return true;
+#else
+  return false;
+#endif
+}
+
+void HdCyclesDisplayDriver::gl_context_disable()
+{
+#ifdef _WIN32
+  if (wglGetCurrentContext() == gl_context_) {
+    TF_VERIFY(wglMakeCurrent(nullptr, nullptr));
+  }
+
+  mutex_.unlock();
+#endif
+}
+
+void HdCyclesDisplayDriver::gl_context_dispose()
+{
+#ifdef _WIN32
+  if (gl_context_) {
+    TF_VERIFY(wglDeleteContext((HGLRC)gl_context_));
+    DestroyWindow(WindowFromDC((HDC)hdc_));
+  }
 #endif
 }
 
@@ -68,13 +120,9 @@ bool HdCyclesDisplayDriver::update_begin(const Params &params,
                                          int texture_width,
                                          int texture_height)
 {
-#ifdef _WIN32
-  if (!hdc_ || !gl_context_) {
+  if (!gl_context_enable()) {
     return false;
   }
-#endif
-
-  graphics_interop_activate();
 
   if (gl_render_sync_) {
     glWaitSync((GLsync)gl_render_sync_, 0, GL_TIMEOUT_IGNORED);
@@ -99,15 +147,14 @@ bool HdCyclesDisplayDriver::update_begin(const Params &params,
 void HdCyclesDisplayDriver::update_end()
 {
   gl_upload_sync_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-
   glFlush();
 
-  graphics_interop_deactivate();
+  gl_context_disable();
 }
 
 void HdCyclesDisplayDriver::flush()
 {
-  graphics_interop_activate();
+  gl_context_enable();
 
   if (gl_upload_sync_) {
     glWaitSync((GLsync)gl_upload_sync_, 0, GL_TIMEOUT_IGNORED);
@@ -117,7 +164,7 @@ void HdCyclesDisplayDriver::flush()
     glWaitSync((GLsync)gl_render_sync_, 0, GL_TIMEOUT_IGNORED);
   }
 
-  graphics_interop_deactivate();
+  gl_context_disable();
 }
 
 half4 *HdCyclesDisplayDriver::map_texture_buffer()
@@ -157,25 +204,12 @@ DisplayDriver::GraphicsInterop HdCyclesDisplayDriver::graphics_interop_get()
 
 void HdCyclesDisplayDriver::graphics_interop_activate()
 {
-  mutex_.lock();
-
-#ifdef _WIN32
-  // Do not change context if this is called in the main thread
-  if (wglGetCurrentContext() == nullptr) {
-    TF_VERIFY(wglMakeCurrent((HDC)hdc_, (HGLRC)gl_context_));
-  }
-#endif
+  gl_context_enable();
 }
 
 void HdCyclesDisplayDriver::graphics_interop_deactivate()
 {
-#ifdef _WIN32
-  if (wglGetCurrentContext() == gl_context_) {
-    TF_VERIFY(wglMakeCurrent(nullptr, nullptr));
-  }
-#endif
-
-  mutex_.unlock();
+  gl_context_disable();
 }
 
 void HdCyclesDisplayDriver::clear()
@@ -191,6 +225,12 @@ void HdCyclesDisplayDriver::draw(const Params &params)
       (renderBuffer->GetWidth() != params.size.x || renderBuffer->GetHeight() != params.size.y)) {
     return;
   }
+
+  if (!renderBuffer->IsResourceUsed()) {
+    return;
+  }
+
+  gl_context_create();
 
   // Cycles 'DisplayDriver' only supports 'half4' format
   TF_VERIFY(renderBuffer->GetFormat() == HdFormatFloat16Vec4);
@@ -231,7 +271,6 @@ void HdCyclesDisplayDriver::draw(const Params &params)
   glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
 
   gl_render_sync_ = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-
   glFlush();
 
   need_update_ = false;

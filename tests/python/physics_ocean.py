@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import os
 import sys
 
@@ -15,7 +13,7 @@ def main():
     test = [
         # World coordinates of test and expected object should be same.
         SpecMeshTest("PlaneOcean", "testObjPlaneOcean", "expObjPlaneOcean",
-                 [ModifierSpec('Ocean', 'OCEAN', {})]),
+                     [ModifierSpec('Ocean', 'OCEAN', {})]),
     ]
     ocean_test = RunTest(test)
 

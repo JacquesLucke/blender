@@ -161,11 +161,11 @@ static void motionpaths_calc_bake_targets(ListBase *targets, int cframe)
       }
 
       /* Result must be in world-space. */
-      mul_m4_v3(ob_eval->obmat, mpv->co);
+      mul_m4_v3(ob_eval->object_to_world, mpv->co);
     }
     else {
       /* World-space object location. */
-      copy_v3_v3(mpv->co, ob_eval->obmat[3]);
+      copy_v3_v3(mpv->co, ob_eval->object_to_world[3]);
     }
 
     float mframe = (float)(cframe);
@@ -340,6 +340,51 @@ static void motionpath_free_free_tree_data(ListBase *targets)
   }
 }
 
+void animviz_motionpath_compute_range(Object *ob, Scene *scene)
+{
+  bAnimVizSettings *avs = ob->mode == OB_MODE_POSE ? &ob->pose->avs : &ob->avs;
+
+  if (avs->path_range == MOTIONPATH_RANGE_MANUAL) {
+    /* Don't touch manually-determined ranges.  */
+    return;
+  }
+
+  const bool has_action = ob->adt && ob->adt->action;
+  if (avs->path_range == MOTIONPATH_RANGE_SCENE || !has_action ||
+      BLI_listbase_is_empty(&ob->adt->action->curves)) {
+    /* Default to the scene (preview) range if there is no animation data to
+     * find selected keys in. */
+    avs->path_sf = PSFRA;
+    avs->path_ef = PEFRA;
+    return;
+  }
+
+  struct AnimKeylist *keylist = ED_keylist_create();
+  LISTBASE_FOREACH (FCurve *, fcu, &ob->adt->action->curves) {
+    fcurve_to_keylist(ob->adt, fcu, keylist, 0);
+  }
+
+  Range2f frame_range;
+  switch (avs->path_range) {
+    case MOTIONPATH_RANGE_KEYS_SELECTED:
+      if (ED_keylist_selected_keys_frame_range(keylist, &frame_range)) {
+        break;
+      }
+      ATTR_FALLTHROUGH;  // Fall through if there were no selected keys found.
+    case MOTIONPATH_RANGE_KEYS_ALL:
+      ED_keylist_all_keys_frame_range(keylist, &frame_range);
+      break;
+    case MOTIONPATH_RANGE_MANUAL:
+    case MOTIONPATH_RANGE_SCENE:
+      BLI_assert_msg(false, "This should not happen, function should have exited earlier.");
+  };
+
+  avs->path_sf = frame_range.min;
+  avs->path_ef = frame_range.max;
+
+  ED_keylist_free(keylist);
+}
+
 void animviz_calc_motionpaths(Depsgraph *depsgraph,
                               Main *bmain,
                               Scene *scene,
@@ -354,7 +399,7 @@ void animviz_calc_motionpaths(Depsgraph *depsgraph,
     return;
   }
 
-  const int cfra = CFRA;
+  const int cfra = scene->r.cfra;
   int sfra = INT_MAX, efra = INT_MIN;
   switch (range) {
     case ANIMVIZ_CALC_RANGE_CURRENT_FRAME:
@@ -448,7 +493,7 @@ void animviz_calc_motionpaths(Depsgraph *depsgraph,
             sfra,
             efra,
             efra - sfra + 1);
-  for (CFRA = sfra; CFRA <= efra; CFRA++) {
+  for (scene->r.cfra = sfra; scene->r.cfra <= efra; scene->r.cfra++) {
     if (range == ANIMVIZ_CALC_RANGE_CURRENT_FRAME) {
       /* For current frame, only update tagged. */
       BKE_scene_graph_update_tagged(depsgraph, bmain);
@@ -459,14 +504,14 @@ void animviz_calc_motionpaths(Depsgraph *depsgraph,
     }
 
     /* perform baking for targets */
-    motionpaths_calc_bake_targets(targets, CFRA);
+    motionpaths_calc_bake_targets(targets, scene->r.cfra);
   }
 
   /* reset original environment */
   /* NOTE: We don't always need to reevaluate the main scene, as the depsgraph
    * may be a temporary one that works on a subset of the data.
    * We always have to restore the current frame though. */
-  CFRA = cfra;
+  scene->r.cfra = cfra;
   if (range != ANIMVIZ_CALC_RANGE_CURRENT_FRAME && restore) {
     motionpaths_calc_update_scene(depsgraph);
   }

@@ -27,12 +27,12 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Mesh"));
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "mode", UI_ITEM_R_EXPAND, nullptr, ICON_NONE);
 }
 
-static void node_init(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeGeometryCurveFill *data = MEM_cnew<NodeGeometryCurveFill>(__func__);
 
@@ -48,20 +48,18 @@ static meshintersect::CDT_result<double> do_cdt(const bke::CurvesGeometry &curve
   input.vert.reinitialize(curves.evaluated_points_num());
   input.face.reinitialize(curves.curves_num());
 
-  VArray<bool> cyclic = curves.cyclic();
   Span<float3> positions = curves.evaluated_positions();
 
   for (const int i_curve : curves.curves_range()) {
     const IndexRange points = curves.evaluated_points_for_curve(i_curve);
-    const int segment_size = bke::curves::curve_segment_size(points.size(), cyclic[i_curve]);
 
     for (const int i : points) {
       input.vert[i] = double2(positions[i].x, positions[i].y);
     }
 
-    input.face[i_curve].resize(segment_size);
+    input.face[i_curve].resize(points.size());
     MutableSpan<int> face_verts = input.face[i_curve];
-    for (const int i : IndexRange(segment_size)) {
+    for (const int i : face_verts.index_range()) {
       face_verts[i] = points[i];
     }
   }
@@ -81,18 +79,18 @@ static Mesh *cdt_to_mesh(const meshintersect::CDT_result<double> &result)
   }
 
   Mesh *mesh = BKE_mesh_new_nomain(vert_len, edge_len, 0, loop_len, poly_len);
-  MutableSpan<MVert> verts{mesh->mvert, mesh->totvert};
-  MutableSpan<MEdge> edges{mesh->medge, mesh->totedge};
-  MutableSpan<MLoop> loops{mesh->mloop, mesh->totloop};
-  MutableSpan<MPoly> polys{mesh->mpoly, mesh->totpoly};
+  MutableSpan<MVert> verts = mesh->verts_for_write();
+  MutableSpan<MEdge> edges = mesh->edges_for_write();
+  MutableSpan<MPoly> polys = mesh->polys_for_write();
+  MutableSpan<MLoop> loops = mesh->loops_for_write();
 
   for (const int i : IndexRange(result.vert.size())) {
-    copy_v3_v3(verts[i].co, float3((float)result.vert[i].x, (float)result.vert[i].y, 0.0f));
+    copy_v3_v3(verts[i].co, float3(float(result.vert[i].x), float(result.vert[i].y), 0.0f));
   }
   for (const int i : IndexRange(result.edge.size())) {
     edges[i].v1 = result.edge[i].first;
     edges[i].v2 = result.edge[i].second;
-    edges[i].flag = ME_EDGEDRAW | ME_EDGERENDER;
+    edges[i].flag = ME_EDGEDRAW;
   }
   int i_loop = 0;
   for (const int i : IndexRange(result.face.size())) {
@@ -157,7 +155,7 @@ void register_node_type_geo_curve_fill()
 
   geo_node_type_base(&ntype, GEO_NODE_FILL_CURVE, "Fill Curve", NODE_CLASS_GEOMETRY);
 
-  node_type_init(&ntype, file_ns::node_init);
+  ntype.initfunc = file_ns::node_init;
   node_type_storage(
       &ntype, "NodeGeometryCurveFill", node_free_standard_storage, node_copy_standard_storage);
   ntype.declare = file_ns::node_declare;

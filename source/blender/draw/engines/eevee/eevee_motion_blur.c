@@ -64,17 +64,17 @@ int EEVEE_motion_blur_init(EEVEE_ViewLayerData *UNUSED(sldata), EEVEE_Data *veda
         1 + ((int)fs_size[0] / EEVEE_VELOCITY_TILE_SIZE),
         1 + ((int)fs_size[1] / EEVEE_VELOCITY_TILE_SIZE),
     };
-
-    effects->velocity_tiles_x_tx = DRW_texture_pool_query_2d(
-        tx_size[0], fs_size[1], GPU_RGBA16, &draw_engine_eevee_type);
+    eGPUTextureUsage usage = GPU_TEXTURE_USAGE_SHADER_READ | GPU_TEXTURE_USAGE_ATTACHMENT;
+    effects->velocity_tiles_x_tx = DRW_texture_pool_query_2d_ex(
+        tx_size[0], fs_size[1], GPU_RGBA16, usage, &draw_engine_eevee_type);
     GPU_framebuffer_ensure_config(&fbl->velocity_tiles_fb[0],
                                   {
                                       GPU_ATTACHMENT_NONE,
                                       GPU_ATTACHMENT_TEXTURE(effects->velocity_tiles_x_tx),
                                   });
 
-    effects->velocity_tiles_tx = DRW_texture_pool_query_2d(
-        tx_size[0], tx_size[1], GPU_RGBA16, &draw_engine_eevee_type);
+    effects->velocity_tiles_tx = DRW_texture_pool_query_2d_ex(
+        tx_size[0], tx_size[1], GPU_RGBA16, usage, &draw_engine_eevee_type);
     GPU_framebuffer_ensure_config(&fbl->velocity_tiles_fb[1],
                                   {
                                       GPU_ATTACHMENT_NONE,
@@ -226,7 +226,8 @@ void EEVEE_motion_blur_hair_cache_populate(EEVEE_ViewLayerData *UNUSED(sldata),
   }
 
   /* For now we assume hair objects are always moving. */
-  EEVEE_ObjectMotionData *mb_data = EEVEE_motion_blur_object_data_get(&effects->motion_blur, ob);
+  EEVEE_ObjectMotionData *mb_data = EEVEE_motion_blur_object_data_get(
+      &effects->motion_blur, ob, true);
 
   if (mb_data) {
     int mb_step = effects->motion_blur_step;
@@ -270,6 +271,58 @@ void EEVEE_motion_blur_hair_cache_populate(EEVEE_ViewLayerData *UNUSED(sldata),
   }
 }
 
+void EEVEE_motion_blur_curves_cache_populate(EEVEE_ViewLayerData *UNUSED(sldata),
+                                             EEVEE_Data *vedata,
+                                             Object *ob)
+{
+  EEVEE_PassList *psl = vedata->psl;
+  EEVEE_StorageList *stl = vedata->stl;
+  EEVEE_EffectsInfo *effects = stl->effects;
+
+  if (!DRW_state_is_scene_render() || psl->velocity_hair == NULL) {
+    return;
+  }
+
+  /* For now we assume curves objects are always moving. */
+  EEVEE_ObjectMotionData *mb_data = EEVEE_motion_blur_object_data_get(
+      &effects->motion_blur, ob, false);
+  if (mb_data == NULL) {
+    return;
+  }
+
+  int mb_step = effects->motion_blur_step;
+  /* Store transform. */
+  copy_m4_m4(mb_data->obmat[mb_step], ob->object_to_world);
+
+  EEVEE_HairMotionData *mb_curves = EEVEE_motion_blur_curves_data_get(mb_data);
+
+  if (mb_step == MB_CURR) {
+    /* Fill missing matrices if the object was hidden in previous or next frame. */
+    if (is_zero_m4(mb_data->obmat[MB_PREV])) {
+      copy_m4_m4(mb_data->obmat[MB_PREV], mb_data->obmat[MB_CURR]);
+    }
+    if (is_zero_m4(mb_data->obmat[MB_NEXT])) {
+      copy_m4_m4(mb_data->obmat[MB_NEXT], mb_data->obmat[MB_CURR]);
+    }
+
+    GPUTexture *tex_prev = mb_curves->psys[0].step_data[MB_PREV].hair_pos_tx;
+    GPUTexture *tex_next = mb_curves->psys[0].step_data[MB_NEXT].hair_pos_tx;
+
+    DRWShadingGroup *grp = DRW_shgroup_curves_create_sub(ob, effects->motion_blur.hair_grp, NULL);
+    DRW_shgroup_uniform_mat4(grp, "prevModelMatrix", mb_data->obmat[MB_PREV]);
+    DRW_shgroup_uniform_mat4(grp, "currModelMatrix", mb_data->obmat[MB_CURR]);
+    DRW_shgroup_uniform_mat4(grp, "nextModelMatrix", mb_data->obmat[MB_NEXT]);
+    DRW_shgroup_uniform_texture(grp, "prvBuffer", tex_prev);
+    DRW_shgroup_uniform_texture(grp, "nxtBuffer", tex_next);
+    DRW_shgroup_uniform_bool(grp, "useDeform", &mb_curves->use_deform, 1);
+  }
+  else {
+    /* Store vertex position buffer. */
+    mb_curves->psys[0].step_data[mb_step].hair_pos = DRW_curves_pos_buffer_get(ob);
+    mb_curves->use_deform = true;
+  }
+}
+
 void EEVEE_motion_blur_cache_populate(EEVEE_ViewLayerData *UNUSED(sldata),
                                       EEVEE_Data *vedata,
                                       Object *ob)
@@ -303,12 +356,13 @@ void EEVEE_motion_blur_cache_populate(EEVEE_ViewLayerData *UNUSED(sldata),
     return;
   }
 
-  EEVEE_ObjectMotionData *mb_data = EEVEE_motion_blur_object_data_get(&effects->motion_blur, ob);
+  EEVEE_ObjectMotionData *mb_data = EEVEE_motion_blur_object_data_get(
+      &effects->motion_blur, ob, false);
 
   if (mb_data) {
     int mb_step = effects->motion_blur_step;
     /* Store transform. */
-    copy_m4_m4(mb_data->obmat[mb_step], ob->obmat);
+    copy_m4_m4(mb_data->obmat[mb_step], ob->object_to_world);
 
     EEVEE_GeometryMotionData *mb_geom = EEVEE_motion_blur_geometry_data_get(mb_data);
 
@@ -389,9 +443,9 @@ void EEVEE_motion_blur_cache_finish(EEVEE_Data *vedata)
     DRW_render_instance_buffer_finish();
 
     /* Need to be called after #DRW_render_instance_buffer_finish() */
-    /* Also we weed to have a correct FBO bound for #DRW_hair_update. */
+    /* Also we weed to have a correct FBO bound for #DRW_curves_update. */
     GPU_framebuffer_bind(vedata->fbl->main_fb);
-    DRW_hair_update();
+    DRW_curves_update();
 
     DRW_cache_restart();
   }

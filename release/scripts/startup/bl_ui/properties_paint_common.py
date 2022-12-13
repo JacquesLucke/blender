@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 from bpy.types import Menu
 
 
@@ -405,7 +403,13 @@ class FalloffPanel(BrushPanel):
         if not super().poll(context):
             return False
         settings = cls.paint_settings(context)
-        return (settings and settings.brush and settings.brush.curve)
+        if not (settings and settings.brush and settings.brush.curve):
+            return False
+        if cls.get_brush_mode(context) == 'SCULPT_CURVES':
+            brush = settings.brush
+            if brush.curves_sculpt_tool in {'ADD', 'DELETE'}:
+                return False
+        return True
 
     def draw(self, context):
         layout = self.layout
@@ -432,7 +436,13 @@ class FalloffPanel(BrushPanel):
             row.operator("brush.curve_preset", icon='LINCURVE', text="").shape = 'LINE'
             row.operator("brush.curve_preset", icon='NOCURVE', text="").shape = 'MAX'
 
+        show_fallof_shape = False
         if mode in {'SCULPT', 'PAINT_VERTEX', 'PAINT_WEIGHT'} and brush.sculpt_tool != 'POSE':
+            show_fallof_shape = True
+        if not show_fallof_shape and mode == 'SCULPT_CURVES' and context.space_data.type == 'PROPERTIES':
+            show_fallof_shape = True
+
+        if show_fallof_shape:
             col.separator()
             row = col.row(align=True)
             row.use_property_split = True
@@ -769,6 +779,25 @@ def brush_settings(layout, context, brush, popover=False):
             elif brush.color_type == 'GRADIENT':
                 layout.row().prop(brush, "gradient_fill_mode", expand=True)
 
+    elif mode == 'SCULPT_CURVES':
+        if brush.curves_sculpt_tool == 'ADD':
+            layout.prop(brush.curves_sculpt_settings, "add_amount")
+            col = layout.column(heading="Interpolate", align=True)
+            col.prop(brush.curves_sculpt_settings, "interpolate_length", text="Length")
+            col.prop(brush.curves_sculpt_settings, "interpolate_shape", text="Shape")
+            col.prop(brush.curves_sculpt_settings, "interpolate_point_count", text="Point Count")
+
+            col = layout.column()
+            col.active = not brush.curves_sculpt_settings.interpolate_length
+            col.prop(brush.curves_sculpt_settings, "curve_length")
+
+            col = layout.column()
+            col.active = not brush.curves_sculpt_settings.interpolate_point_count
+            col.prop(brush.curves_sculpt_settings, "points_per_curve")
+        elif brush.curves_sculpt_tool == 'GROW_SHRINK':
+            layout.prop(brush.curves_sculpt_settings, "scale_uniform")
+            layout.prop(brush.curves_sculpt_settings, "minimum_length")
+
 
 def brush_shared_settings(layout, context, brush, popover=False):
     """ Draw simple brush settings that are shared between different paint modes. """
@@ -822,6 +851,12 @@ def brush_shared_settings(layout, context, brush, popover=False):
     if mode == 'UV_SCULPT':
         size = True
         strength = True
+
+    # Sculpt Curves #
+    if mode == 'SCULPT_CURVES':
+        size = True
+        strength = True
+        direction = brush.curves_sculpt_tool in {'GROW_SHRINK', 'SELECTION_PAINT'}
 
     ### Draw settings. ###
     ups = context.scene.tool_settings.unified_paint_settings
@@ -893,29 +928,81 @@ def brush_settings_advanced(layout, context, brush, popover=False):
     use_frontface = False
 
     if mode == 'SCULPT':
+        sculpt = context.tool_settings.sculpt
         capabilities = brush.sculpt_capabilities
         use_accumulate = capabilities.has_accumulate
         use_frontface = True
 
         col = layout.column(heading="Auto-Masking", align=True)
 
-        # topology automasking
+        col = layout.column(align=True)
         col.prop(brush, "use_automasking_topology", text="Topology")
-
-        # face masks automasking
         col.prop(brush, "use_automasking_face_sets", text="Face Sets")
 
-        # boundary edges/face sets automasking
+        layout.separator()
+
+        col = layout.column(align=True)
         col.prop(brush, "use_automasking_boundary_edges", text="Mesh Boundary")
         col.prop(brush, "use_automasking_boundary_face_sets", text="Face Sets Boundary")
-        col.prop(brush, "automasking_boundary_edges_propagation_steps")
+
+        if brush.use_automasking_boundary_edges or brush.use_automasking_boundary_face_sets:
+            col = layout.column()
+            col.use_property_split = False
+            split = col.split(factor=0.4)
+            col = split.column()
+            split.prop(brush, "automasking_boundary_edges_propagation_steps")
+
+        layout.separator()
+
+        col = layout.column(align=True)
+        row = col.row()
+        row.prop(brush, "use_automasking_cavity", text="Cavity")
+
+        is_cavity_active = brush.use_automasking_cavity or brush.use_automasking_cavity_inverted
+
+        if is_cavity_active:
+            props = row.operator("sculpt.mask_from_cavity", text="Create Mask")
+            props.settings_source = "BRUSH"
+
+        col.prop(brush, "use_automasking_cavity_inverted", text="Cavity (inverted)")
+
+        if is_cavity_active:
+            col = layout.column(align=True)
+            col.prop(brush, "automasking_cavity_factor", text="Factor")
+            col.prop(brush, "automasking_cavity_blur_steps", text="Blur")
+
+            col = layout.column()
+            col.prop(brush, "use_automasking_custom_cavity_curve", text="Custom Curve")
+
+            if brush.use_automasking_custom_cavity_curve:
+                col.template_curve_mapping(brush, "automasking_cavity_curve")
+
+        layout.separator()
+
+        col = layout.column(align=True)
+        col.prop(brush, "use_automasking_view_normal", text="View Normal")
+
+        if brush.use_automasking_view_normal:
+            col.prop(brush, "use_automasking_view_occlusion", text="Occlusion")
+            subcol = col.column(align=True)
+            subcol.active = not brush.use_automasking_view_occlusion
+            subcol.prop(sculpt, "automasking_view_normal_limit", text="Limit")
+            subcol.prop(sculpt, "automasking_view_normal_falloff", text="Falloff")
+
+        col = layout.column()
+        col.prop(brush, "use_automasking_start_normal", text="Area Normal")
+
+        if brush.use_automasking_start_normal:
+            col = layout.column(align=True)
+            col.prop(sculpt, "automasking_start_normal_limit", text="Limit")
+            col.prop(sculpt, "automasking_start_normal_falloff", text="Falloff")
 
         layout.separator()
 
         # sculpt plane settings
         if capabilities.has_sculpt_plane:
             layout.prop(brush, "sculpt_plane")
-            col = layout.column(heading="Use Original", align=True)
+            col = layout.column(heading="Original", align=True)
             col.prop(brush, "use_original_normal", text="Normal")
             col.prop(brush, "use_original_plane", text="Plane")
             layout.separator()
@@ -1280,7 +1367,11 @@ def brush_basic_gpencil_paint_settings(layout, context, brush, *, compact=False)
 
 
 def brush_basic_gpencil_sculpt_settings(layout, _context, brush, *, compact=False):
+    if brush is None:
+        return
     gp_settings = brush.gpencil_settings
+    if gp_settings is None:
+        return
     tool = brush.gpencil_sculpt_tool
 
     row = layout.row(align=True)

@@ -46,6 +46,7 @@ EffectsExporter::EffectsExporter(COLLADASW::StreamWriter *sw,
 
 bool EffectsExporter::hasEffects(Scene *sce)
 {
+  bool result = false;
   FOREACH_SCENE_OBJECT_BEGIN (sce, ob) {
     int a;
     for (a = 0; a < ob->totcol; a++) {
@@ -56,11 +57,12 @@ bool EffectsExporter::hasEffects(Scene *sce)
         continue;
       }
 
-      return true;
+      result = true;
+      break;
     }
   }
   FOREACH_SCENE_OBJECT_END;
-  return false;
+  return result;
 }
 
 void EffectsExporter::exportEffects(bContext *C, Scene *sce)
@@ -215,7 +217,7 @@ void EffectsExporter::operator()(Material *ma, Object *ob)
   create_image_samplers(ep, material_image_map, active_uv);
 
 #if 0
-  unsigned int a, b;
+  uint a, b;
   for (a = 0, b = 0; a < tex_indices.size(); a++) {
     MTex *t = ma->mtex[tex_indices[a]];
     Image *ima = t->tex->ima;

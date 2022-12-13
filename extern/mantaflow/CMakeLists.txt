@@ -25,7 +25,8 @@ set(MANTAVERSION "0.13")
 add_definitions(-DWITH_FLUID=1)
 
 # Compile Mantaflow dependencies too (e.g. cnpy for numpy file IO).
-# Make sure that dependencies exist before enabling this option by updating the source files in extern/
+# Make sure that dependencies exist before enabling this option
+# by updating the source files in `extern/`.
 set(WITH_MANTA_DEPENDENCIES 0)
 
 # Enable Mantaflow numpy support
@@ -259,3 +260,10 @@ set(LIB
 )
 
 blender_add_lib(extern_mantaflow "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
+
+# The VDB libs above are only added to as INTERFACE libs by blender_add_lib,
+# meaning extern_mantaflow itself actually does not have a dependency on the
+# openvdb libraries, and CMAKE is free to link the vdb libs before
+# extern_mantaflow causing linker errors on linux. By explicitly declaring
+# a dependency here, cmake will do the right thing.
+target_link_libraries(extern_mantaflow PRIVATE ${OPENVDB_LIBRARIES})

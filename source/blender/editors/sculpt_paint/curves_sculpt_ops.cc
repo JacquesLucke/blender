@@ -1,47 +1,52 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_kdtree.h"
+#include "BLI_rand.hh"
 #include "BLI_utildefines.h"
+#include "BLI_vector_set.hh"
 
-#include "BKE_attribute_math.hh"
 #include "BKE_brush.h"
 #include "BKE_bvhutils.h"
 #include "BKE_context.h"
 #include "BKE_curves.hh"
-#include "BKE_geometry_set.hh"
-#include "BKE_lib_id.h"
-#include "BKE_mesh.h"
-#include "BKE_mesh_runtime.h"
+#include "BKE_modifier.h"
+#include "BKE_object.h"
 #include "BKE_paint.h"
-#include "BKE_spline.hh"
 
 #include "WM_api.h"
+#include "WM_message.h"
 #include "WM_toolsystem.h"
 
+#include "ED_curves.h"
 #include "ED_curves_sculpt.h"
+#include "ED_image.h"
 #include "ED_object.h"
 #include "ED_screen.h"
+#include "ED_space_api.h"
 #include "ED_view3d.h"
 
 #include "DEG_depsgraph.h"
+#include "DEG_depsgraph_query.h"
 
 #include "DNA_brush_types.h"
 #include "DNA_curves_types.h"
-#include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
 #include "DNA_screen_types.h"
 
 #include "RNA_access.h"
-
-#include "BLI_index_mask_ops.hh"
-#include "BLI_kdtree.h"
-#include "BLI_math_vector.hh"
-#include "BLI_rand.hh"
-
-#include "PIL_time.h"
+#include "RNA_define.h"
+#include "RNA_enum_types.h"
 
 #include "curves_sculpt_intern.h"
 #include "curves_sculpt_intern.hh"
 #include "paint_intern.h"
+
+#include "UI_interface.h"
+#include "UI_resources.h"
+
+#include "GPU_immediate.h"
+#include "GPU_immediate_util.h"
+#include "GPU_matrix.h"
+#include "GPU_state.h"
 
 /* -------------------------------------------------------------------- */
 /** \name Poll Functions
@@ -49,7 +54,7 @@
 
 bool CURVES_SCULPT_mode_poll(bContext *C)
 {
-  Object *ob = CTX_data_active_object(C);
+  const Object *ob = CTX_data_active_object(C);
   return ob && ob->mode & OB_MODE_SCULPT_CURVES;
 }
 
@@ -71,442 +76,47 @@ namespace blender::ed::sculpt_paint {
 using blender::bke::CurvesGeometry;
 
 /* -------------------------------------------------------------------- */
-/** \name * SCULPT_CURVES_OT_brush_stroke
+/** \name Brush Stroke Operator
  * \{ */
 
-class DensityAddOperation : public CurvesSculptStrokeOperation {
- private:
-  /** Contains the root points of the curves that existed before this operation started. */
-  KDTree_3d *old_kdtree_ = nullptr;
-  /** Number of points in the kdtree above. */
-  int old_kdtree_size_ = 0;
-
-  /**
-   * Indicates that the corresponding curve has already been created and can't be changed by this
-   * operation anymore.
-   */
-  static constexpr int ExistsAlreadyIndex = INT32_MAX;
-
-  struct NewPointsData {
-    Vector<float3> bary_coords;
-    Vector<int> looptri_indices;
-    Vector<float3> positions;
-    Vector<float3> normals;
-  };
-
- public:
-  ~DensityAddOperation() override
-  {
-    if (old_kdtree_ != nullptr) {
-      BLI_kdtree_3d_free(old_kdtree_);
-    }
-  }
-
-  void on_stroke_extended(bContext *C, const StrokeExtension &stroke_extension) override
-  {
-    Depsgraph &depsgraph = *CTX_data_depsgraph_pointer(C);
-    Scene &scene = *CTX_data_scene(C);
-    Object &object = *CTX_data_active_object(C);
-    ARegion *region = CTX_wm_region(C);
-    View3D *v3d = CTX_wm_view3d(C);
-
-    Curves &curves_id = *static_cast<Curves *>(object.data);
-    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
-
-    if (curves_id.surface == nullptr || curves_id.surface->type != OB_MESH) {
-      return;
-    }
-
-    const Object &surface_ob = *curves_id.surface;
-    const Mesh &surface = *static_cast<const Mesh *>(surface_ob.data);
-    const float4x4 surface_ob_mat = surface_ob.obmat;
-    const float4x4 surface_ob_imat = surface_ob_mat.inverted();
-
-    ToolSettings &tool_settings = *scene.toolsettings;
-    CurvesSculpt &curves_sculpt = *tool_settings.curves_sculpt;
-    Brush &brush = *BKE_paint_brush(&curves_sculpt.paint);
-    const float brush_radius_screen = BKE_brush_size_get(&scene, &brush);
-    const float strength = BKE_brush_alpha_get(&scene, &brush);
-    const float minimum_distance = curves_sculpt.distance;
-
-    /* This is the main ray that is used to determine the brush position in 3D space. */
-    float3 ray_start, ray_end;
-    ED_view3d_win_to_segment_clipped(
-        &depsgraph, region, v3d, stroke_extension.mouse_position, ray_start, ray_end, true);
-    ray_start = surface_ob_imat * ray_start;
-    ray_end = surface_ob_imat * ray_end;
-    const float3 ray_direction = math::normalize(ray_end - ray_start);
-
-    /* This ray is used to determine the brush radius in 3d space. */
-    float3 offset_ray_start, offset_ray_end;
-    ED_view3d_win_to_segment_clipped(&depsgraph,
-                                     region,
-                                     v3d,
-                                     stroke_extension.mouse_position +
-                                         float2(0, brush_radius_screen),
-                                     offset_ray_start,
-                                     offset_ray_end,
-                                     true);
-    offset_ray_start = surface_ob_imat * offset_ray_start;
-    offset_ray_end = surface_ob_imat * offset_ray_end;
-
-    float4x4 ob_imat;
-    invert_m4_m4(ob_imat.values, object.obmat);
-
-    const float4x4 transform = ob_imat * surface_ob_mat;
-
-    BVHTreeFromMesh bvhtree;
-    BKE_bvhtree_from_mesh_get(&bvhtree, &surface, BVHTREE_FROM_LOOPTRI, 2);
-
-    /* Do a raycast against the surface object to find the brush position. */
-    BVHTreeRayHit ray_hit;
-    ray_hit.dist = FLT_MAX;
-    ray_hit.index = -1;
-    BLI_bvhtree_ray_cast(bvhtree.tree,
-                         ray_start,
-                         ray_direction,
-                         0.0f,
-                         &ray_hit,
-                         bvhtree.raycast_callback,
-                         &bvhtree);
-
-    if (ray_hit.index == -1) {
-      /* The ray did not hit the surface. */
-      free_bvhtree_from_mesh(&bvhtree);
-      return;
-    }
-    /* Brush position in the space of the surface object. */
-    const float3 brush_pos_3d_surface = ray_hit.co;
-    const float brush_radius_3d_surface = dist_to_line_v3(
-        brush_pos_3d_surface, offset_ray_start, offset_ray_end);
-
-    /* Brush position in the space of the curves object. */
-    const float3 brush_pos_3d_curves = transform * brush_pos_3d_surface;
-    const float brush_radius_3d_curves = dist_to_line_v3(
-        brush_pos_3d_curves, transform * offset_ray_start, transform * offset_ray_end);
-
-    Vector<int> looptri_indices = this->find_looptri_indices_to_consider(
-        bvhtree, brush_pos_3d_surface, brush_radius_3d_surface);
-
-    free_bvhtree_from_mesh(&bvhtree);
-
-    if (old_kdtree_ == nullptr && minimum_distance > 0.0f) {
-      old_kdtree_ = this->kdtree_from_curve_roots_and_positions(curves, curves.curves_range(), {});
-      old_kdtree_size_ = curves.curves_num();
-    }
-
-    float density;
-    if (minimum_distance > 0.0f) {
-      /* Estimate the sampling density based on the target minimum distance. */
-      density = strength * pow2f(1.0f / minimum_distance);
-    }
-    else {
-      /* Sample a somewhat constant amount of points based on the strength. */
-      const float brush_circle_area_3d = M_PI * pow2f(brush_radius_3d_curves);
-      density = strength * 100.0f / brush_circle_area_3d;
-    }
-
-    NewPointsData new_points = this->sample_new_points(density,
-                                                       minimum_distance,
-                                                       brush_radius_3d_curves,
-                                                       brush_pos_3d_curves,
-                                                       looptri_indices,
-                                                       transform,
-                                                       surface);
-    if (minimum_distance > 0.0f) {
-      this->eliminate_too_close_points(new_points, curves, minimum_distance);
-    }
-    this->insert_new_curves(new_points, curves);
-
-    DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
-    ED_region_tag_redraw(region);
-  }
-
- private:
-  Vector<int> find_looptri_indices_to_consider(BVHTreeFromMesh &bvhtree,
-                                               const float3 &brush_pos,
-                                               const float brush_radius_3d)
-  {
-    Vector<int> looptri_indices;
-
-    struct RangeQueryUserData {
-      Vector<int> &indices;
-    } range_query_user_data = {looptri_indices};
-
-    BLI_bvhtree_range_query(
-        bvhtree.tree,
-        brush_pos,
-        brush_radius_3d,
-        [](void *userdata, int index, const float co[3], float dist_sq) {
-          UNUSED_VARS(co, dist_sq);
-          RangeQueryUserData &data = *static_cast<RangeQueryUserData *>(userdata);
-          data.indices.append(index);
-        },
-        &range_query_user_data);
-
-    return looptri_indices;
-  }
-
-  KDTree_3d *kdtree_from_curve_roots_and_positions(const CurvesGeometry &curves,
-                                                   const IndexRange curves_range,
-                                                   Span<float3> extra_positions)
-  {
-    const int tot_points = curves_range.size() + extra_positions.size();
-    KDTree_3d *kdtree = BLI_kdtree_3d_new(tot_points);
-    for (const int curve_i : curves_range) {
-      const int first_point_i = curves.offsets()[curve_i];
-      const float3 root_position = curves.positions()[first_point_i];
-      BLI_kdtree_3d_insert(kdtree, ExistsAlreadyIndex, root_position);
-    }
-    for (const int i : extra_positions.index_range()) {
-      BLI_kdtree_3d_insert(kdtree, i, extra_positions[i]);
-    }
-    BLI_kdtree_3d_balance(kdtree);
-    return kdtree;
-  }
-
-  bool is_too_close_to_existing_point(const float3 position, const float minimum_distance) const
-  {
-    if (old_kdtree_ == nullptr) {
-      return false;
-    }
-    KDTreeNearest_3d nearest;
-    nearest.index = -1;
-    BLI_kdtree_3d_find_nearest(old_kdtree_, position, &nearest);
-    if (nearest.index >= 0 && nearest.dist < minimum_distance) {
-      return true;
-    }
-    return false;
-  }
-
-  NewPointsData sample_new_points(const float density,
-                                  const float minimum_distance,
-                                  const float brush_radius_3d,
-                                  const float3 &brush_pos,
-                                  const Span<int> looptri_indices,
-                                  const float4x4 &transform,
-                                  const Mesh &surface)
-  {
-    const float brush_radius_3d_sq = brush_radius_3d * brush_radius_3d;
-    const float area_threshold = M_PI * brush_radius_3d_sq;
-
-    const Span<MLoopTri> looptris{BKE_mesh_runtime_looptri_ensure(&surface),
-                                  BKE_mesh_runtime_looptri_len(&surface)};
-
-    threading::EnumerableThreadSpecific<NewPointsData> new_points_per_thread;
-
-    const double time = PIL_check_seconds_timer();
-    const uint64_t time_as_int = *reinterpret_cast<const uint64_t *>(&time);
-    const uint32_t rng_base_seed = time_as_int ^ (time_as_int >> 32);
-
-    RandomNumberGenerator rng{rng_base_seed};
-
-    threading::parallel_for(looptri_indices.index_range(), 512, [&](const IndexRange range) {
-      RandomNumberGenerator looptri_rng{rng_base_seed + (uint32_t)range.start()};
-
-      for (const int looptri_index : looptri_indices.slice(range)) {
-        const MLoopTri &looptri = looptris[looptri_index];
-        const float3 &v0 = transform * float3(surface.mvert[surface.mloop[looptri.tri[0]].v].co);
-        const float3 &v1 = transform * float3(surface.mvert[surface.mloop[looptri.tri[1]].v].co);
-        const float3 &v2 = transform * float3(surface.mvert[surface.mloop[looptri.tri[2]].v].co);
-        const float looptri_area = area_tri_v3(v0, v1, v2);
-
-        float3 normal;
-        normal_tri_v3(normal, v0, v1, v2);
-
-        /* Use a different sampling strategy depending on whether the triangle is large or small
-         * compared to the brush size. When the triangle is small, points are distributed within
-         * the triangle directly. If the triangle is larger than the brush, distribute new points
-         * in a circle on the triangle plane. */
-        if (looptri_area < area_threshold) {
-          const int amount = looptri_rng.round_probabilistic(looptri_area * density);
-
-          threading::parallel_for(IndexRange(amount), 512, [&](const IndexRange amount_range) {
-            RandomNumberGenerator point_rng{rng_base_seed + looptri_index * 1000 +
-                                            (uint32_t)amount_range.start()};
-            NewPointsData &new_points = new_points_per_thread.local();
-
-            for ([[maybe_unused]] const int i : amount_range) {
-              const float3 bary_coord = point_rng.get_barycentric_coordinates();
-              const float3 point_pos = attribute_math::mix3(bary_coord, v0, v1, v2);
-
-              if (math::distance(point_pos, brush_pos) > brush_radius_3d) {
-                continue;
-              }
-              if (minimum_distance > 0.0f &&
-                  this->is_too_close_to_existing_point(point_pos, minimum_distance)) {
-                continue;
-              }
-
-              new_points.bary_coords.append(bary_coord);
-              new_points.looptri_indices.append(looptri_index);
-              new_points.positions.append(point_pos);
-              new_points.normals.append(normal);
-            }
-          });
-        }
-        else {
-          float3 hit_pos_proj = brush_pos;
-          project_v3_plane(hit_pos_proj, normal, v0);
-          const float proj_distance_sq = math::distance_squared(hit_pos_proj, brush_pos);
-          const float brush_radius_factor_sq = 1.0f -
-                                               std::min(1.0f,
-                                                        proj_distance_sq / brush_radius_3d_sq);
-          const float radius_proj_sq = brush_radius_3d_sq * brush_radius_factor_sq;
-          const float radius_proj = std::sqrt(radius_proj_sq);
-          const float circle_area = M_PI * radius_proj_sq;
-
-          const int amount = rng.round_probabilistic(circle_area * density);
-
-          const float3 axis_1 = math::normalize(v1 - v0) * radius_proj;
-          const float3 axis_2 = math::normalize(
-                                    math::cross(axis_1, math::cross(axis_1, v2 - v0))) *
-                                radius_proj;
-
-          threading::parallel_for(IndexRange(amount), 512, [&](const IndexRange amount_range) {
-            RandomNumberGenerator point_rng{rng_base_seed + looptri_index * 1000 +
-                                            (uint32_t)amount_range.start()};
-            NewPointsData &new_points = new_points_per_thread.local();
-
-            for ([[maybe_unused]] const int i : amount_range) {
-              const float r = std::sqrt(rng.get_float());
-              const float angle = rng.get_float() * 2 * M_PI;
-              const float x = r * std::cos(angle);
-              const float y = r * std::sin(angle);
-
-              const float3 point_pos = hit_pos_proj + axis_1 * x + axis_2 * y;
-
-              if (!isect_point_tri_prism_v3(point_pos, v0, v1, v2)) {
-                continue;
-              }
-              if (minimum_distance > 0.0f &&
-                  this->is_too_close_to_existing_point(point_pos, minimum_distance)) {
-                continue;
-              }
-
-              float3 bary_coord;
-              interp_weights_tri_v3(bary_coord, v0, v1, v2, point_pos);
-
-              new_points.bary_coords.append(bary_coord);
-              new_points.looptri_indices.append(looptri_index);
-              new_points.positions.append(point_pos);
-              new_points.normals.append(normal);
-            }
-          });
-        }
-      }
-    });
-
-    NewPointsData new_points;
-    for (const NewPointsData &local_new_points : new_points_per_thread) {
-      new_points.bary_coords.extend(local_new_points.bary_coords);
-      new_points.looptri_indices.extend(local_new_points.looptri_indices);
-      new_points.positions.extend(local_new_points.positions);
-      new_points.normals.extend(local_new_points.normals);
-    }
-    return new_points;
-  }
-
-  void eliminate_too_close_points(NewPointsData &points,
-                                  const CurvesGeometry &curves,
-                                  const float minimum_distance)
-  {
-    Array<bool> elimination_mask(points.positions.size(), false);
-
-    const int curves_added_previously = curves.curves_num() - old_kdtree_size_;
-    KDTree_3d *new_points_kdtree = this->kdtree_from_curve_roots_and_positions(
-        curves, IndexRange(old_kdtree_size_, curves_added_previously), points.positions);
-
-    Array<Vector<int>> points_in_range(points.positions.size());
-    threading::parallel_for(points.positions.index_range(), 256, [&](const IndexRange range) {
-      for (const int point_i : range) {
-        const float3 query_position = points.positions[point_i];
-
-        struct CallbackData {
-          int point_i;
-          Vector<int> &found_indices;
-          MutableSpan<bool> elimination_mask;
-        } callback_data = {point_i, points_in_range[point_i], elimination_mask};
-
-        BLI_kdtree_3d_range_search_cb(
-            new_points_kdtree,
-            query_position,
-            minimum_distance,
-            [](void *user_data, int index, const float *UNUSED(co), float UNUSED(dist_sq)) {
-              CallbackData &data = *static_cast<CallbackData *>(user_data);
-              if (index == data.point_i) {
-                /* Ignore self. */
-                return true;
-              }
-              if (index == ExistsAlreadyIndex) {
-                /* An already existing point is too close, so this new point will be eliminated. */
-                data.elimination_mask[data.point_i] = true;
-                return false;
-              }
-              data.found_indices.append(index);
-              return true;
-            },
-            &callback_data);
-      }
-    });
-
-    for (const int point_i : points.positions.index_range()) {
-      if (elimination_mask[point_i]) {
-        /* Point is eliminated already. */
-        continue;
-      }
-
-      for (const int other_point_i : points_in_range[point_i]) {
-        elimination_mask[other_point_i] = true;
-      }
-    }
-
-    BLI_kdtree_3d_free(new_points_kdtree);
-    for (int i = points.positions.size() - 1; i >= 0; i--) {
-      if (elimination_mask[i]) {
-        points.positions.remove_and_reorder(i);
-        points.bary_coords.remove_and_reorder(i);
-        points.looptri_indices.remove_and_reorder(i);
-        points.normals.remove_and_reorder(i);
-      }
-    }
-  }
-
-  void insert_new_curves(const NewPointsData &new_points, CurvesGeometry &curves)
-  {
-    const int tot_new_curves = new_points.positions.size();
-
-    const int points_per_curve = 8;
-    curves.resize(curves.points_num() + tot_new_curves * points_per_curve,
-                  curves.curves_num() + tot_new_curves);
-
-    MutableSpan<int> offsets = curves.offsets_for_write();
-    MutableSpan<float3> positions = curves.positions_for_write();
-
-    for (const int i : IndexRange(tot_new_curves)) {
-      const int curve_i = curves.curves_num() - tot_new_curves + i;
-      const int first_point_i = offsets[curve_i];
-      offsets[curve_i + 1] = offsets[curve_i] + points_per_curve;
-
-      const float3 root = new_points.positions[i];
-      const float3 tip = root + 0.1f * new_points.normals[i];
-
-      for (const int j : IndexRange(points_per_curve)) {
-        positions[first_point_i + j] = math::interpolate(
-            root, tip, j / (float)(points_per_curve - 1));
-      }
-    }
-  }
-};
-
-static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bContext *C,
-                                                                          wmOperator *op)
+float brush_radius_factor(const Brush &brush, const StrokeExtension &stroke_extension)
 {
-  const BrushStrokeMode mode = static_cast<BrushStrokeMode>(RNA_enum_get(op->ptr, "mode"));
+  if (BKE_brush_use_size_pressure(&brush)) {
+    return stroke_extension.pressure;
+  }
+  return 1.0f;
+}
 
-  Scene &scene = *CTX_data_scene(C);
-  CurvesSculpt &curves_sculpt = *scene.toolsettings->curves_sculpt;
-  Brush &brush = *BKE_paint_brush(&curves_sculpt.paint);
+float brush_radius_get(const Scene &scene,
+                       const Brush &brush,
+                       const StrokeExtension &stroke_extension)
+{
+  return BKE_brush_size_get(&scene, &brush) * brush_radius_factor(brush, stroke_extension);
+}
+
+float brush_strength_factor(const Brush &brush, const StrokeExtension &stroke_extension)
+{
+  if (BKE_brush_use_alpha_pressure(&brush)) {
+    return stroke_extension.pressure;
+  }
+  return 1.0f;
+}
+
+float brush_strength_get(const Scene &scene,
+                         const Brush &brush,
+                         const StrokeExtension &stroke_extension)
+{
+  return BKE_brush_alpha_get(&scene, &brush) * brush_strength_factor(brush, stroke_extension);
+}
+
+static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(
+    bContext &C, wmOperator &op, const StrokeExtension &stroke_start)
+{
+  const BrushStrokeMode mode = static_cast<BrushStrokeMode>(RNA_enum_get(op.ptr, "mode"));
+
+  const Scene &scene = *CTX_data_scene(&C);
+  const CurvesSculpt &curves_sculpt = *scene.toolsettings->curves_sculpt;
+  const Brush &brush = *BKE_paint_brush_for_read(&curves_sculpt.paint);
   switch (brush.curves_sculpt_tool) {
     case CURVES_SCULPT_TOOL_COMB:
       return new_comb_operation();
@@ -518,8 +128,18 @@ static std::unique_ptr<CurvesSculptStrokeOperation> start_brush_operation(bConte
       return new_add_operation();
     case CURVES_SCULPT_TOOL_GROW_SHRINK:
       return new_grow_shrink_operation(mode, C);
-    case CURVES_SCULPT_TOOL_TEST1:
-      return std::make_unique<DensityAddOperation>();
+    case CURVES_SCULPT_TOOL_SELECTION_PAINT:
+      return new_selection_paint_operation(mode, C);
+    case CURVES_SCULPT_TOOL_PINCH:
+      return new_pinch_operation(mode, C);
+    case CURVES_SCULPT_TOOL_SMOOTH:
+      return new_smooth_operation();
+    case CURVES_SCULPT_TOOL_PUFF:
+      return new_puff_operation();
+    case CURVES_SCULPT_TOOL_DENSITY:
+      return new_density_operation(mode, C, stroke_start);
+    case CURVES_SCULPT_TOOL_SLIDE:
+      return new_slide_operation();
   }
   BLI_assert_unreachable();
   return {};
@@ -530,7 +150,10 @@ struct SculptCurvesBrushStrokeData {
   PaintStroke *stroke;
 };
 
-static bool stroke_get_location(bContext *C, float out[3], const float mouse[2])
+static bool stroke_get_location(bContext *C,
+                                float out[3],
+                                const float mouse[2],
+                                bool /*force_original*/)
 {
   out[0] = mouse[0];
   out[1] = mouse[1];
@@ -547,7 +170,7 @@ static bool stroke_test_start(bContext *C, struct wmOperator *op, const float mo
 
 static void stroke_update_step(bContext *C,
                                wmOperator *op,
-                               PaintStroke *UNUSED(stroke),
+                               PaintStroke * /*stroke*/,
                                PointerRNA *stroke_element)
 {
   SculptCurvesBrushStrokeData *op_data = static_cast<SculptCurvesBrushStrokeData *>(
@@ -555,17 +178,19 @@ static void stroke_update_step(bContext *C,
 
   StrokeExtension stroke_extension;
   RNA_float_get_array(stroke_element, "mouse", stroke_extension.mouse_position);
+  stroke_extension.pressure = RNA_float_get(stroke_element, "pressure");
+  stroke_extension.reports = op->reports;
 
   if (!op_data->operation) {
     stroke_extension.is_first = true;
-    op_data->operation = start_brush_operation(C, op);
+    op_data->operation = start_brush_operation(*C, *op, stroke_extension);
   }
   else {
     stroke_extension.is_first = false;
   }
 
   if (op_data->operation) {
-    op_data->operation->on_stroke_extended(C, stroke_extension);
+    op_data->operation->on_stroke_extended(*C, stroke_extension);
   }
 }
 
@@ -576,6 +201,12 @@ static void stroke_done(const bContext *C, PaintStroke *stroke)
 
 static int sculpt_curves_stroke_invoke(bContext *C, wmOperator *op, const wmEvent *event)
 {
+  const Paint *paint = BKE_paint_get_active_from_context(C);
+  const Brush *brush = BKE_paint_brush_for_read(paint);
+  if (brush == nullptr) {
+    return OPERATOR_CANCELLED;
+  }
+
   SculptCurvesBrushStrokeData *op_data = MEM_new<SculptCurvesBrushStrokeData>(__func__);
   op_data->stroke = paint_stroke_new(C,
                                      op,
@@ -589,8 +220,10 @@ static int sculpt_curves_stroke_invoke(bContext *C, wmOperator *op, const wmEven
 
   int return_value = op->type->modal(C, op, event);
   if (return_value == OPERATOR_FINISHED) {
-    paint_stroke_free(C, op, op_data->stroke);
-    MEM_delete(op_data);
+    if (op->customdata != nullptr) {
+      paint_stroke_free(C, op, op_data->stroke);
+      MEM_delete(op_data);
+    }
     return OPERATOR_FINISHED;
   }
 
@@ -605,16 +238,19 @@ static int sculpt_curves_stroke_modal(bContext *C, wmOperator *op, const wmEvent
   int return_value = paint_stroke_modal(C, op, event, &op_data->stroke);
   if (ELEM(return_value, OPERATOR_FINISHED, OPERATOR_CANCELLED)) {
     MEM_delete(op_data);
+    op->customdata = nullptr;
   }
   return return_value;
 }
 
 static void sculpt_curves_stroke_cancel(bContext *C, wmOperator *op)
 {
-  SculptCurvesBrushStrokeData *op_data = static_cast<SculptCurvesBrushStrokeData *>(
-      op->customdata);
-  paint_stroke_cancel(C, op, op_data->stroke);
-  MEM_delete(op_data);
+  if (op->customdata != nullptr) {
+    SculptCurvesBrushStrokeData *op_data = static_cast<SculptCurvesBrushStrokeData *>(
+        op->customdata);
+    paint_stroke_cancel(C, op, op_data->stroke);
+    MEM_delete(op_data);
+  }
 }
 
 static void SCULPT_CURVES_OT_brush_stroke(struct wmOperatorType *ot)
@@ -635,34 +271,25 @@ static void SCULPT_CURVES_OT_brush_stroke(struct wmOperatorType *ot)
 /** \} */
 
 /* -------------------------------------------------------------------- */
-/** \name * CURVES_OT_sculptmode_toggle
+/** \name Toggle Sculpt Mode
  * \{ */
-
-static bool curves_sculptmode_toggle_poll(bContext *C)
-{
-  Object *ob = CTX_data_active_object(C);
-  if (ob == nullptr) {
-    return false;
-  }
-  if (ob->type != OB_CURVES) {
-    return false;
-  }
-  return true;
-}
 
 static void curves_sculptmode_enter(bContext *C)
 {
   Scene *scene = CTX_data_scene(C);
+  wmMsgBus *mbus = CTX_wm_message_bus(C);
+
   Object *ob = CTX_data_active_object(C);
   BKE_paint_ensure(scene->toolsettings, (Paint **)&scene->toolsettings->curves_sculpt);
   CurvesSculpt *curves_sculpt = scene->toolsettings->curves_sculpt;
 
   ob->mode = OB_MODE_SCULPT_CURVES;
 
-  paint_cursor_start(&curves_sculpt->paint, CURVES_SCULPT_mode_poll_view3d);
+  ED_paint_cursor_start(&curves_sculpt->paint, CURVES_SCULPT_mode_poll_view3d);
 
-  /* Update for mode change. */
+  /* Necessary to change the object mode on the evaluated object. */
   DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
+  WM_msg_publish_rna_prop(mbus, &ob->id, ob, Object, mode);
   WM_event_add_notifier(C, NC_SCENE | ND_MODE, nullptr);
 }
 
@@ -675,6 +302,8 @@ static void curves_sculptmode_exit(bContext *C)
 static int curves_sculptmode_toggle_exec(bContext *C, wmOperator *op)
 {
   Object *ob = CTX_data_active_object(C);
+  wmMsgBus *mbus = CTX_wm_message_bus(C);
+
   const bool is_mode_set = ob->mode == OB_MODE_SCULPT_CURVES;
 
   if (is_mode_set) {
@@ -691,6 +320,10 @@ static int curves_sculptmode_toggle_exec(bContext *C, wmOperator *op)
   }
 
   WM_toolsystem_update_from_context_view3d(C);
+
+  /* Necessary to change the object mode on the evaluated object. */
+  DEG_id_tag_update(&ob->id, ID_RECALC_COPY_ON_WRITE);
+  WM_msg_publish_rna_prop(mbus, &ob->id, ob, Object, mode);
   WM_event_add_notifier(C, NC_SCENE | ND_MODE, nullptr);
   return OPERATOR_FINISHED;
 }
@@ -702,17 +335,935 @@ static void CURVES_OT_sculptmode_toggle(wmOperatorType *ot)
   ot->description = "Enter/Exit sculpt mode for curves";
 
   ot->exec = curves_sculptmode_toggle_exec;
-  ot->poll = curves_sculptmode_toggle_poll;
+  ot->poll = curves::curves_poll;
 
   ot->flag = OPTYPE_UNDO | OPTYPE_REGISTER;
 }
 
 /** \} */
 
+namespace select_random {
+
+static int select_random_exec(bContext *C, wmOperator *op)
+{
+  VectorSet<Curves *> unique_curves = curves::get_unique_editable_curves(*C);
+
+  const int seed = RNA_int_get(op->ptr, "seed");
+  RandomNumberGenerator rng{uint32_t(seed)};
+
+  const bool partial = RNA_boolean_get(op->ptr, "partial");
+  const bool constant_per_curve = RNA_boolean_get(op->ptr, "constant_per_curve");
+  const float probability = RNA_float_get(op->ptr, "probability");
+  const float min_value = RNA_float_get(op->ptr, "min");
+  const auto next_partial_random_value = [&]() {
+    return rng.get_float() * (1.0f - min_value) + min_value;
+  };
+  const auto next_bool_random_value = [&]() { return rng.get_float() <= probability; };
+
+  for (Curves *curves_id : unique_curves) {
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    const bool was_anything_selected = curves::has_anything_selected(*curves_id);
+    switch (curves_id->selection_domain) {
+      case ATTR_DOMAIN_POINT: {
+        MutableSpan<float> selection = curves.selection_point_float_for_write();
+        if (!was_anything_selected) {
+          selection.fill(1.0f);
+        }
+        if (partial) {
+          if (constant_per_curve) {
+            for (const int curve_i : curves.curves_range()) {
+              const float random_value = next_partial_random_value();
+              const IndexRange points = curves.points_for_curve(curve_i);
+              for (const int point_i : points) {
+                selection[point_i] *= random_value;
+              }
+            }
+          }
+          else {
+            for (const int point_i : selection.index_range()) {
+              const float random_value = next_partial_random_value();
+              selection[point_i] *= random_value;
+            }
+          }
+        }
+        else {
+          if (constant_per_curve) {
+            for (const int curve_i : curves.curves_range()) {
+              const bool random_value = next_bool_random_value();
+              const IndexRange points = curves.points_for_curve(curve_i);
+              if (!random_value) {
+                selection.slice(points).fill(0.0f);
+              }
+            }
+          }
+          else {
+            for (const int point_i : selection.index_range()) {
+              const bool random_value = next_bool_random_value();
+              if (!random_value) {
+                selection[point_i] = 0.0f;
+              }
+            }
+          }
+        }
+        break;
+      }
+      case ATTR_DOMAIN_CURVE: {
+        MutableSpan<float> selection = curves.selection_curve_float_for_write();
+        if (!was_anything_selected) {
+          selection.fill(1.0f);
+        }
+        if (partial) {
+          for (const int curve_i : curves.curves_range()) {
+            const float random_value = next_partial_random_value();
+            selection[curve_i] *= random_value;
+          }
+        }
+        else {
+          for (const int curve_i : curves.curves_range()) {
+            const bool random_value = next_bool_random_value();
+            if (!random_value) {
+              selection[curve_i] = 0.0f;
+            }
+          }
+        }
+        break;
+      }
+    }
+    MutableSpan<float> selection = curves_id->selection_domain == ATTR_DOMAIN_POINT ?
+                                       curves.selection_point_float_for_write() :
+                                       curves.selection_curve_float_for_write();
+    const bool was_any_selected = std::any_of(
+        selection.begin(), selection.end(), [](const float v) { return v > 0.0f; });
+    if (was_any_selected) {
+      for (float &v : selection) {
+        v *= rng.get_float();
+      }
+    }
+    else {
+      for (float &v : selection) {
+        v = rng.get_float();
+      }
+    }
+
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+  }
+  return OPERATOR_FINISHED;
+}
+
+static void select_random_ui(bContext * /*C*/, wmOperator *op)
+{
+  uiLayout *layout = op->layout;
+
+  uiItemR(layout, op->ptr, "seed", 0, nullptr, ICON_NONE);
+  uiItemR(layout, op->ptr, "constant_per_curve", 0, nullptr, ICON_NONE);
+  uiItemR(layout, op->ptr, "partial", 0, nullptr, ICON_NONE);
+
+  if (RNA_boolean_get(op->ptr, "partial")) {
+    uiItemR(layout, op->ptr, "min", UI_ITEM_R_SLIDER, "Min", ICON_NONE);
+  }
+  else {
+    uiItemR(layout, op->ptr, "probability", UI_ITEM_R_SLIDER, "Probability", ICON_NONE);
+  }
+}
+
+}  // namespace select_random
+
+static void SCULPT_CURVES_OT_select_random(wmOperatorType *ot)
+{
+  ot->name = "Select Random";
+  ot->idname = __func__;
+  ot->description = "Randomizes existing selection or create new random selection";
+
+  ot->exec = select_random::select_random_exec;
+  ot->poll = curves::editable_curves_poll;
+  ot->ui = select_random::select_random_ui;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  RNA_def_int(ot->srna,
+              "seed",
+              0,
+              INT32_MIN,
+              INT32_MAX,
+              "Seed",
+              "Source of randomness",
+              INT32_MIN,
+              INT32_MAX);
+  RNA_def_boolean(
+      ot->srna, "partial", false, "Partial", "Allow points or curves to be selected partially");
+  RNA_def_float(ot->srna,
+                "probability",
+                0.5f,
+                0.0f,
+                1.0f,
+                "Probability",
+                "Chance of every point or curve being included in the selection",
+                0.0f,
+                1.0f);
+  RNA_def_float(ot->srna,
+                "min",
+                0.0f,
+                0.0f,
+                1.0f,
+                "Min",
+                "Minimum value for the random selection",
+                0.0f,
+                1.0f);
+  RNA_def_boolean(ot->srna,
+                  "constant_per_curve",
+                  true,
+                  "Constant per Curve",
+                  "The generated random number is the same for every control point of a curve");
+}
+
+namespace select_end {
+static bool select_end_poll(bContext *C)
+{
+  if (!curves::editable_curves_poll(C)) {
+    return false;
+  }
+  const Curves *curves_id = static_cast<const Curves *>(CTX_data_active_object(C)->data);
+  if (curves_id->selection_domain != ATTR_DOMAIN_POINT) {
+    CTX_wm_operator_poll_msg_set(C, "Only available in point selection mode");
+    return false;
+  }
+  return true;
+}
+
+static int select_end_exec(bContext *C, wmOperator *op)
+{
+  VectorSet<Curves *> unique_curves = curves::get_unique_editable_curves(*C);
+  const bool end_points = RNA_boolean_get(op->ptr, "end_points");
+  const int amount = RNA_int_get(op->ptr, "amount");
+
+  for (Curves *curves_id : unique_curves) {
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id->geometry);
+    const bool was_anything_selected = curves::has_anything_selected(*curves_id);
+    MutableSpan<float> selection = curves.selection_point_float_for_write();
+    if (!was_anything_selected) {
+      selection.fill(1.0f);
+    }
+    threading::parallel_for(curves.curves_range(), 256, [&](const IndexRange range) {
+      for (const int curve_i : range) {
+        const IndexRange points = curves.points_for_curve(curve_i);
+        if (end_points) {
+          selection.slice(points.drop_back(amount)).fill(0.0f);
+        }
+        else {
+          selection.slice(points.drop_front(amount)).fill(0.0f);
+        }
+      }
+    });
+
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id->id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, curves_id);
+  }
+
+  return OPERATOR_FINISHED;
+}
+}  // namespace select_end
+
+static void SCULPT_CURVES_OT_select_end(wmOperatorType *ot)
+{
+  ot->name = "Select End";
+  ot->idname = __func__;
+  ot->description = "Select end points of curves";
+
+  ot->exec = select_end::select_end_exec;
+  ot->poll = select_end::select_end_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  RNA_def_boolean(ot->srna,
+                  "end_points",
+                  true,
+                  "End Points",
+                  "Select points at the end of the curve as opposed to the beginning");
+  RNA_def_int(
+      ot->srna, "amount", 1, 0, INT32_MAX, "Amount", "Number of points to select", 0, INT32_MAX);
+}
+
+namespace select_grow {
+
+struct GrowOperatorDataPerCurve : NonCopyable, NonMovable {
+  Curves *curves_id;
+  Vector<int> selected_points;
+  Vector<int> unselected_points;
+  Array<float> distances_to_selected;
+  Array<float> distances_to_unselected;
+
+  Array<float> original_selection;
+  float pixel_to_distance_factor;
+};
+
+struct GrowOperatorData {
+  int initial_mouse_x;
+  Vector<std::unique_ptr<GrowOperatorDataPerCurve>> per_curve;
+};
+
+static void update_points_selection(const GrowOperatorDataPerCurve &data,
+                                    const float distance,
+                                    MutableSpan<float> points_selection)
+{
+  if (distance > 0.0f) {
+    threading::parallel_for(
+        data.unselected_points.index_range(), 256, [&](const IndexRange range) {
+          for (const int i : range) {
+            const int point_i = data.unselected_points[i];
+            const float distance_to_selected = data.distances_to_selected[i];
+            const float selection = distance_to_selected <= distance ? 1.0f : 0.0f;
+            points_selection[point_i] = selection;
+          }
+        });
+    threading::parallel_for(data.selected_points.index_range(), 512, [&](const IndexRange range) {
+      for (const int point_i : data.selected_points.as_span().slice(range)) {
+        points_selection[point_i] = 1.0f;
+      }
+    });
+  }
+  else {
+    threading::parallel_for(data.selected_points.index_range(), 256, [&](const IndexRange range) {
+      for (const int i : range) {
+        const int point_i = data.selected_points[i];
+        const float distance_to_unselected = data.distances_to_unselected[i];
+        const float selection = distance_to_unselected <= -distance ? 0.0f : 1.0f;
+        points_selection[point_i] = selection;
+      }
+    });
+    threading::parallel_for(
+        data.unselected_points.index_range(), 512, [&](const IndexRange range) {
+          for (const int point_i : data.unselected_points.as_span().slice(range)) {
+            points_selection[point_i] = 0.0f;
+          }
+        });
+  }
+}
+
+static int select_grow_update(bContext *C, wmOperator *op, const float mouse_diff_x)
+{
+  GrowOperatorData &op_data = *static_cast<GrowOperatorData *>(op->customdata);
+
+  for (std::unique_ptr<GrowOperatorDataPerCurve> &curve_op_data : op_data.per_curve) {
+    Curves &curves_id = *curve_op_data->curves_id;
+    CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+    const float distance = curve_op_data->pixel_to_distance_factor * mouse_diff_x;
+
+    /* Grow or shrink selection based on precomputed distances. */
+    switch (curves_id.selection_domain) {
+      case ATTR_DOMAIN_POINT: {
+        MutableSpan<float> points_selection = curves.selection_point_float_for_write();
+        update_points_selection(*curve_op_data, distance, points_selection);
+        break;
+      }
+      case ATTR_DOMAIN_CURVE: {
+        Array<float> new_points_selection(curves.points_num());
+        update_points_selection(*curve_op_data, distance, new_points_selection);
+        /* Propagate grown point selection to the curve selection. */
+        MutableSpan<float> curves_selection = curves.selection_curve_float_for_write();
+        for (const int curve_i : curves.curves_range()) {
+          const IndexRange points = curves.points_for_curve(curve_i);
+          const Span<float> points_selection = new_points_selection.as_span().slice(points);
+          const float max_selection = *std::max_element(points_selection.begin(),
+                                                        points_selection.end());
+          curves_selection[curve_i] = max_selection;
+        }
+        break;
+      }
+    }
+
+    /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+     * attribute for now. */
+    DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
+    WM_event_add_notifier(C, NC_GEOM | ND_DATA, &curves_id);
+  }
+
+  return OPERATOR_FINISHED;
+}
+
+static void select_grow_invoke_per_curve(Curves &curves_id,
+                                         Object &curves_ob,
+                                         const ARegion &region,
+                                         const View3D &v3d,
+                                         const RegionView3D &rv3d,
+                                         GrowOperatorDataPerCurve &curve_op_data)
+{
+  curve_op_data.curves_id = &curves_id;
+  CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+  const Span<float3> positions = curves.positions();
+
+  /* Find indices of selected and unselected points. */
+  switch (curves_id.selection_domain) {
+    case ATTR_DOMAIN_POINT: {
+      const VArray<float> points_selection = curves.selection_point_float();
+      curve_op_data.original_selection.reinitialize(points_selection.size());
+      points_selection.materialize(curve_op_data.original_selection);
+      for (const int point_i : points_selection.index_range()) {
+        const float point_selection = points_selection[point_i];
+        if (point_selection > 0.0f) {
+          curve_op_data.selected_points.append(point_i);
+        }
+        else {
+          curve_op_data.unselected_points.append(point_i);
+        }
+      }
+
+      break;
+    }
+    case ATTR_DOMAIN_CURVE: {
+      const VArray<float> curves_selection = curves.selection_curve_float();
+      curve_op_data.original_selection.reinitialize(curves_selection.size());
+      curves_selection.materialize(curve_op_data.original_selection);
+      for (const int curve_i : curves_selection.index_range()) {
+        const float curve_selection = curves_selection[curve_i];
+        const IndexRange points = curves.points_for_curve(curve_i);
+        if (curve_selection > 0.0f) {
+          for (const int point_i : points) {
+            curve_op_data.selected_points.append(point_i);
+          }
+        }
+        else {
+          for (const int point_i : points) {
+            curve_op_data.unselected_points.append(point_i);
+          }
+        }
+      }
+      break;
+    }
+  }
+
+  threading::parallel_invoke(
+      1024 < curve_op_data.selected_points.size() + curve_op_data.unselected_points.size(),
+      [&]() {
+        /* Build KD-tree for the selected points. */
+        KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data.selected_points.size());
+        BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
+        for (const int point_i : curve_op_data.selected_points) {
+          const float3 &position = positions[point_i];
+          BLI_kdtree_3d_insert(kdtree, point_i, position);
+        }
+        BLI_kdtree_3d_balance(kdtree);
+
+        /* For each unselected point, compute the distance to the closest selected point. */
+        curve_op_data.distances_to_selected.reinitialize(curve_op_data.unselected_points.size());
+        threading::parallel_for(
+            curve_op_data.unselected_points.index_range(), 256, [&](const IndexRange range) {
+              for (const int i : range) {
+                const int point_i = curve_op_data.unselected_points[i];
+                const float3 &position = positions[point_i];
+                KDTreeNearest_3d nearest;
+                BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
+                curve_op_data.distances_to_selected[i] = nearest.dist;
+              }
+            });
+      },
+      [&]() {
+        /* Build KD-tree for the unselected points. */
+        KDTree_3d *kdtree = BLI_kdtree_3d_new(curve_op_data.unselected_points.size());
+        BLI_SCOPED_DEFER([&]() { BLI_kdtree_3d_free(kdtree); });
+        for (const int point_i : curve_op_data.unselected_points) {
+          const float3 &position = positions[point_i];
+          BLI_kdtree_3d_insert(kdtree, point_i, position);
+        }
+        BLI_kdtree_3d_balance(kdtree);
+
+        /* For each selected point, compute the distance to the closest unselected point. */
+        curve_op_data.distances_to_unselected.reinitialize(curve_op_data.selected_points.size());
+        threading::parallel_for(
+            curve_op_data.selected_points.index_range(), 256, [&](const IndexRange range) {
+              for (const int i : range) {
+                const int point_i = curve_op_data.selected_points[i];
+                const float3 &position = positions[point_i];
+                KDTreeNearest_3d nearest;
+                BLI_kdtree_3d_find_nearest(kdtree, position, &nearest);
+                curve_op_data.distances_to_unselected[i] = nearest.dist;
+              }
+            });
+      });
+
+  float4x4 curves_to_world_mat = curves_ob.object_to_world;
+  float4x4 world_to_curves_mat = curves_to_world_mat.inverted();
+
+  float4x4 projection;
+  ED_view3d_ob_project_mat_get(&rv3d, &curves_ob, projection.values);
+
+  /* Compute how mouse movements in screen space are converted into grow/shrink distances in
+   * object space. */
+  curve_op_data.pixel_to_distance_factor = threading::parallel_reduce(
+      curve_op_data.selected_points.index_range(),
+      256,
+      FLT_MAX,
+      [&](const IndexRange range, float pixel_to_distance_factor) {
+        for (const int i : range) {
+          const int point_i = curve_op_data.selected_points[i];
+          const float3 &pos_cu = positions[point_i];
+
+          float2 pos_re;
+          ED_view3d_project_float_v2_m4(&region, pos_cu, pos_re, projection.values);
+          if (pos_re.x < 0 || pos_re.y < 0 || pos_re.x > region.winx || pos_re.y > region.winy) {
+            continue;
+          }
+          /* Compute how far this point moves in curve space when it moves one unit in screen
+           * space. */
+          const float2 pos_offset_re = pos_re + float2(1, 0);
+          float3 pos_offset_wo;
+          ED_view3d_win_to_3d(
+              &v3d, &region, curves_to_world_mat * pos_cu, pos_offset_re, pos_offset_wo);
+          const float3 pos_offset_cu = world_to_curves_mat * pos_offset_wo;
+          const float dist_cu = math::distance(pos_cu, pos_offset_cu);
+          const float dist_re = math::distance(pos_re, pos_offset_re);
+          const float factor = dist_cu / dist_re;
+          math::min_inplace(pixel_to_distance_factor, factor);
+        }
+        return pixel_to_distance_factor;
+      },
+      [](const float a, const float b) { return std::min(a, b); });
+}
+
+static int select_grow_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  Object *active_ob = CTX_data_active_object(C);
+  ARegion *region = CTX_wm_region(C);
+  View3D *v3d = CTX_wm_view3d(C);
+  RegionView3D *rv3d = CTX_wm_region_view3d(C);
+
+  GrowOperatorData *op_data = MEM_new<GrowOperatorData>(__func__);
+  op->customdata = op_data;
+
+  op_data->initial_mouse_x = event->xy[0];
+
+  Curves &curves_id = *static_cast<Curves *>(active_ob->data);
+  auto curve_op_data = std::make_unique<GrowOperatorDataPerCurve>();
+  select_grow_invoke_per_curve(curves_id, *active_ob, *region, *v3d, *rv3d, *curve_op_data);
+  op_data->per_curve.append(std::move(curve_op_data));
+
+  WM_event_add_modal_handler(C, op);
+  return OPERATOR_RUNNING_MODAL;
+}
+
+static int select_grow_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  GrowOperatorData &op_data = *static_cast<GrowOperatorData *>(op->customdata);
+  const int mouse_x = event->xy[0];
+  const int mouse_diff_x = mouse_x - op_data.initial_mouse_x;
+  switch (event->type) {
+    case MOUSEMOVE: {
+      select_grow_update(C, op, mouse_diff_x);
+      break;
+    }
+    case LEFTMOUSE: {
+      MEM_delete(&op_data);
+      return OPERATOR_FINISHED;
+    }
+    case EVT_ESCKEY:
+    case RIGHTMOUSE: {
+      /* Undo operator by resetting the selection to the original value. */
+      for (std::unique_ptr<GrowOperatorDataPerCurve> &curve_op_data : op_data.per_curve) {
+        Curves &curves_id = *curve_op_data->curves_id;
+        CurvesGeometry &curves = CurvesGeometry::wrap(curves_id.geometry);
+        switch (curves_id.selection_domain) {
+          case ATTR_DOMAIN_POINT: {
+            MutableSpan<float> points_selection = curves.selection_point_float_for_write();
+            points_selection.copy_from(curve_op_data->original_selection);
+            break;
+          }
+          case ATTR_DOMAIN_CURVE: {
+            MutableSpan<float> curves_seletion = curves.selection_curve_float_for_write();
+            curves_seletion.copy_from(curve_op_data->original_selection);
+            break;
+          }
+        }
+
+        /* Use #ID_RECALC_GEOMETRY instead of #ID_RECALC_SELECT because it is handled as a generic
+         * attribute for now. */
+        DEG_id_tag_update(&curves_id.id, ID_RECALC_GEOMETRY);
+        WM_event_add_notifier(C, NC_GEOM | ND_DATA, &curves_id);
+      }
+      MEM_delete(&op_data);
+      return OPERATOR_CANCELLED;
+    }
+  }
+  return OPERATOR_RUNNING_MODAL;
+}
+
+}  // namespace select_grow
+
+static void SCULPT_CURVES_OT_select_grow(wmOperatorType *ot)
+{
+  ot->name = "Select Grow";
+  ot->idname = __func__;
+  ot->description = "Select curves which are close to curves that are selected already";
+
+  ot->invoke = select_grow::select_grow_invoke;
+  ot->modal = select_grow::select_grow_modal;
+  ot->poll = curves::editable_curves_poll;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+
+  PropertyRNA *prop;
+  prop = RNA_def_float(ot->srna,
+                       "distance",
+                       0.1f,
+                       -FLT_MAX,
+                       FLT_MAX,
+                       "Distance",
+                       "By how much to grow the selection",
+                       -10.0f,
+                       10.0f);
+  RNA_def_property_subtype(prop, PROP_DISTANCE);
+}
+
+namespace min_distance_edit {
+
+static bool min_distance_edit_poll(bContext *C)
+{
+  if (!curves::curves_with_surface_poll(C)) {
+    return false;
+  }
+  Scene *scene = CTX_data_scene(C);
+  const Brush *brush = BKE_paint_brush_for_read(&scene->toolsettings->curves_sculpt->paint);
+  if (brush == nullptr) {
+    return false;
+  }
+  if (brush->curves_sculpt_tool != CURVES_SCULPT_TOOL_DENSITY) {
+    return false;
+  }
+  return true;
+}
+
+struct MinDistanceEditData {
+  /** Brush whose minimum distance is modified. */
+  Brush *brush;
+  float4x4 curves_to_world_mat;
+
+  /** Where the preview is drawn. */
+  float3 pos_cu;
+  float3 normal_cu;
+
+  int2 initial_mouse;
+  float initial_minimum_distance;
+
+  /** The operator uses a new cursor, but the existing cursors should be restored afterwards. */
+  ListBase orig_paintcursors;
+  void *cursor;
+
+  /** Store the viewport region in case the operator was called from the header. */
+  ARegion *region;
+  RegionView3D *rv3d;
+};
+
+static int calculate_points_per_side(bContext *C, MinDistanceEditData &op_data)
+{
+  Scene *scene = CTX_data_scene(C);
+  ARegion *region = op_data.region;
+
+  const float min_distance = op_data.brush->curves_sculpt_settings->minimum_distance;
+  const float brush_radius = BKE_brush_size_get(scene, op_data.brush);
+
+  float3 tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 0, 1});
+  if (math::is_zero(tangent_x_cu)) {
+    tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 1, 0});
+  }
+  tangent_x_cu = math::normalize(tangent_x_cu);
+  const float3 tangent_y_cu = math::normalize(math::cross(op_data.normal_cu, tangent_x_cu));
+
+  /* Sample a few points to get a good estimate of how large the grid has to be. */
+  Vector<float3> points_wo;
+  points_wo.append(op_data.pos_cu + min_distance * tangent_x_cu);
+  points_wo.append(op_data.pos_cu + min_distance * tangent_y_cu);
+  points_wo.append(op_data.pos_cu - min_distance * tangent_x_cu);
+  points_wo.append(op_data.pos_cu - min_distance * tangent_y_cu);
+
+  Vector<float2> points_re;
+  for (const float3 &pos_wo : points_wo) {
+    float2 pos_re;
+    ED_view3d_project_v2(region, pos_wo, pos_re);
+    points_re.append(pos_re);
+  }
+
+  float2 origin_re;
+  ED_view3d_project_v2(region, op_data.pos_cu, origin_re);
+
+  int needed_points = 0;
+  for (const float2 &pos_re : points_re) {
+    const float distance = math::length(pos_re - origin_re);
+    const int needed_points_iter = (brush_radius * 2.0f) / distance;
+
+    if (needed_points_iter > needed_points) {
+      needed_points = needed_points_iter;
+    }
+  }
+
+  /* Limit to a hard-coded number since it only adds noise at some point. */
+  return std::min(300, needed_points);
+}
+
+static void min_distance_edit_draw(bContext *C, int /*x*/, int /*y*/, void *customdata)
+{
+  Scene *scene = CTX_data_scene(C);
+  MinDistanceEditData &op_data = *static_cast<MinDistanceEditData *>(customdata);
+
+  const float min_distance = op_data.brush->curves_sculpt_settings->minimum_distance;
+
+  float3 tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 0, 1});
+  if (math::is_zero(tangent_x_cu)) {
+    tangent_x_cu = math::cross(op_data.normal_cu, float3{0, 1, 0});
+  }
+  tangent_x_cu = math::normalize(tangent_x_cu);
+  const float3 tangent_y_cu = math::normalize(math::cross(op_data.normal_cu, tangent_x_cu));
+
+  const int points_per_side = calculate_points_per_side(C, op_data);
+  const int points_per_axis_num = 2 * points_per_side + 1;
+
+  Vector<float3> points_wo;
+  for (const int x_i : IndexRange(points_per_axis_num)) {
+    for (const int y_i : IndexRange(points_per_axis_num)) {
+      const float x_iter = min_distance * (x_i - (points_per_axis_num - 1) / 2.0f);
+      const float y_iter = min_distance * (y_i - (points_per_axis_num - 1) / 2.0f);
+
+      const float3 point_pos_cu = op_data.pos_cu + op_data.normal_cu * 0.0001f +
+                                  x_iter * tangent_x_cu + y_iter * tangent_y_cu;
+      const float3 point_pos_wo = op_data.curves_to_world_mat * point_pos_cu;
+      points_wo.append(point_pos_wo);
+    }
+  }
+
+  float4 circle_col = float4(op_data.brush->add_col);
+  float circle_alpha = op_data.brush->cursor_overlay_alpha;
+  float brush_radius_re = BKE_brush_size_get(scene, op_data.brush);
+
+  /* Draw the grid. */
+  GPU_matrix_push();
+  GPU_matrix_push_projection();
+  GPU_blend(GPU_BLEND_ALPHA);
+
+  ARegion *region = op_data.region;
+  RegionView3D *rv3d = op_data.rv3d;
+  wmWindow *win = CTX_wm_window(C);
+
+  /* It does the same as: `view3d_operator_needs_opengl(C);`. */
+  wmViewport(&region->winrct);
+  GPU_matrix_projection_set(rv3d->winmat);
+  GPU_matrix_set(rv3d->viewmat);
+
+  GPUVertFormat *format3d = immVertexFormat();
+
+  const uint pos3d = GPU_vertformat_attr_add(format3d, "pos", GPU_COMP_F32, 3, GPU_FETCH_FLOAT);
+  const uint col3d = GPU_vertformat_attr_add(format3d, "color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
+
+  immBindBuiltinProgram(GPU_SHADER_3D_POINT_FIXED_SIZE_VARYING_COLOR);
+
+  GPU_point_size(3.0f);
+  immBegin(GPU_PRIM_POINTS, points_wo.size());
+
+  float3 brush_origin_wo = op_data.curves_to_world_mat * op_data.pos_cu;
+  float2 brush_origin_re;
+  ED_view3d_project_v2(region, brush_origin_wo, brush_origin_re);
+
+  /* Smooth alpha transition until the brush edge. */
+  const int alpha_border_re = 20;
+  const float dist_to_inner_border_re = brush_radius_re - alpha_border_re;
+
+  for (const float3 &pos_wo : points_wo) {
+    float2 pos_re;
+    ED_view3d_project_v2(region, pos_wo, pos_re);
+
+    const float dist_to_point_re = math::distance(pos_re, brush_origin_re);
+    const float alpha = 1.0f - ((dist_to_point_re - dist_to_inner_border_re) / alpha_border_re);
+
+    immAttr4f(col3d, 0.9f, 0.9f, 0.9f, alpha);
+    immVertex3fv(pos3d, pos_wo);
+  }
+  immEnd();
+  immUnbindProgram();
+
+  /* Reset the drawing settings. */
+  GPU_point_size(1.0f);
+  GPU_matrix_pop_projection();
+  GPU_matrix_pop();
+
+  int4 scissor;
+  GPU_scissor_get(scissor);
+  wmWindowViewport(win);
+  GPU_scissor(scissor[0], scissor[1], scissor[2], scissor[3]);
+
+  /* Draw the brush circle. */
+  GPU_matrix_translate_2f(float(op_data.initial_mouse.x), float(op_data.initial_mouse.y));
+
+  GPUVertFormat *format = immVertexFormat();
+  uint pos2d = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
+
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
+
+  immUniformColor3fvAlpha(circle_col, circle_alpha);
+  imm_draw_circle_wire_2d(pos2d, 0.0f, 0.0f, brush_radius_re, 80);
+
+  immUnbindProgram();
+  GPU_blend(GPU_BLEND_NONE);
+}
+
+static int min_distance_edit_invoke(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  Depsgraph *depsgraph = CTX_data_depsgraph_pointer(C);
+  ARegion *region = CTX_wm_region(C);
+  View3D *v3d = CTX_wm_view3d(C);
+  Scene *scene = CTX_data_scene(C);
+
+  Object &curves_ob_orig = *CTX_data_active_object(C);
+  Curves &curves_id_orig = *static_cast<Curves *>(curves_ob_orig.data);
+  Object &surface_ob_orig = *curves_id_orig.surface;
+  Object *surface_ob_eval = DEG_get_evaluated_object(depsgraph, &surface_ob_orig);
+  if (surface_ob_eval == nullptr) {
+    return OPERATOR_CANCELLED;
+  }
+  Mesh *surface_me_eval = BKE_object_get_evaluated_mesh(surface_ob_eval);
+  if (surface_me_eval == nullptr) {
+    return OPERATOR_CANCELLED;
+  }
+
+  BVHTreeFromMesh surface_bvh_eval;
+  BKE_bvhtree_from_mesh_get(&surface_bvh_eval, surface_me_eval, BVHTREE_FROM_LOOPTRI, 2);
+  BLI_SCOPED_DEFER([&]() { free_bvhtree_from_mesh(&surface_bvh_eval); });
+
+  const int2 mouse_pos_int_re{event->mval};
+  const float2 mouse_pos_re{mouse_pos_int_re};
+
+  float3 ray_start_wo, ray_end_wo;
+  ED_view3d_win_to_segment_clipped(
+      depsgraph, region, v3d, mouse_pos_re, ray_start_wo, ray_end_wo, true);
+
+  const CurvesSurfaceTransforms transforms{curves_ob_orig, &surface_ob_orig};
+
+  const float3 ray_start_su = transforms.world_to_surface * ray_start_wo;
+  const float3 ray_end_su = transforms.world_to_surface * ray_end_wo;
+  const float3 ray_direction_su = math::normalize(ray_end_su - ray_start_su);
+
+  BVHTreeRayHit ray_hit;
+  ray_hit.dist = FLT_MAX;
+  ray_hit.index = -1;
+  BLI_bvhtree_ray_cast(surface_bvh_eval.tree,
+                       ray_start_su,
+                       ray_direction_su,
+                       0.0f,
+                       &ray_hit,
+                       surface_bvh_eval.raycast_callback,
+                       &surface_bvh_eval);
+  if (ray_hit.index == -1) {
+    WM_report(RPT_ERROR, "Cursor must be over the surface mesh");
+    return OPERATOR_CANCELLED;
+  }
+
+  const float3 hit_pos_su = ray_hit.co;
+  const float3 hit_normal_su = ray_hit.no;
+
+  const float3 hit_pos_cu = transforms.surface_to_curves * hit_pos_su;
+  const float3 hit_normal_cu = math::normalize(transforms.surface_to_curves_normal *
+                                               hit_normal_su);
+
+  MinDistanceEditData *op_data = MEM_new<MinDistanceEditData>(__func__);
+  op_data->curves_to_world_mat = transforms.curves_to_world;
+  op_data->normal_cu = hit_normal_cu;
+  op_data->pos_cu = hit_pos_cu;
+  op_data->initial_mouse = event->xy;
+  op_data->brush = BKE_paint_brush(&scene->toolsettings->curves_sculpt->paint);
+  op_data->initial_minimum_distance = op_data->brush->curves_sculpt_settings->minimum_distance;
+
+  if (op_data->initial_minimum_distance <= 0.0f) {
+    op_data->initial_minimum_distance = 0.01f;
+  }
+
+  op->customdata = op_data;
+
+  /* Temporarily disable other paint cursors. */
+  wmWindowManager *wm = CTX_wm_manager(C);
+  op_data->orig_paintcursors = wm->paintcursors;
+  BLI_listbase_clear(&wm->paintcursors);
+
+  /* Add minimum distance paint cursor. */
+  op_data->cursor = WM_paint_cursor_activate(
+      SPACE_TYPE_ANY, RGN_TYPE_ANY, op->type->poll, min_distance_edit_draw, op_data);
+
+  op_data->region = CTX_wm_region(C);
+  op_data->rv3d = CTX_wm_region_view3d(C);
+
+  WM_event_add_modal_handler(C, op);
+  ED_region_tag_redraw(region);
+  return OPERATOR_RUNNING_MODAL;
+}
+
+static int min_distance_edit_modal(bContext *C, wmOperator *op, const wmEvent *event)
+{
+  ARegion *region = CTX_wm_region(C);
+  MinDistanceEditData &op_data = *static_cast<MinDistanceEditData *>(op->customdata);
+
+  auto finish = [&]() {
+    wmWindowManager *wm = CTX_wm_manager(C);
+
+    /* Remove own cursor. */
+    WM_paint_cursor_end(static_cast<wmPaintCursor *>(op_data.cursor));
+    /* Restore original paint cursors. */
+    wm->paintcursors = op_data.orig_paintcursors;
+
+    ED_region_tag_redraw(region);
+    MEM_freeN(&op_data);
+  };
+
+  switch (event->type) {
+    case MOUSEMOVE: {
+      const int2 mouse_pos_int_re{event->xy};
+      const float2 mouse_pos_re{mouse_pos_int_re};
+
+      const float mouse_diff_x = mouse_pos_int_re.x - op_data.initial_mouse.x;
+      const float factor = powf(2, mouse_diff_x / UI_UNIT_X / 10.0f);
+      op_data.brush->curves_sculpt_settings->minimum_distance = op_data.initial_minimum_distance *
+                                                                factor;
+
+      ED_region_tag_redraw(region);
+      WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, nullptr);
+      break;
+    }
+    case LEFTMOUSE: {
+      if (event->val == KM_PRESS) {
+        finish();
+        return OPERATOR_FINISHED;
+      }
+      break;
+    }
+    case RIGHTMOUSE:
+    case EVT_ESCKEY: {
+      op_data.brush->curves_sculpt_settings->minimum_distance = op_data.initial_minimum_distance;
+      finish();
+      WM_main_add_notifier(NC_SCENE | ND_TOOLSETTINGS, nullptr);
+      return OPERATOR_CANCELLED;
+    }
+  }
+
+  return OPERATOR_RUNNING_MODAL;
+}
+
+}  // namespace min_distance_edit
+
+static void SCULPT_CURVES_OT_min_distance_edit(wmOperatorType *ot)
+{
+  ot->name = "Edit Minimum Distance";
+  ot->idname = __func__;
+  ot->description = "Change the minimum distance used by the density brush";
+
+  ot->poll = min_distance_edit::min_distance_edit_poll;
+  ot->invoke = min_distance_edit::min_distance_edit_invoke;
+  ot->modal = min_distance_edit::min_distance_edit_modal;
+
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_DEPENDS_ON_CURSOR;
+}
+
 }  // namespace blender::ed::sculpt_paint
 
 /* -------------------------------------------------------------------- */
-/** \name * Registration
+/** \name Registration
  * \{ */
 
 void ED_operatortypes_sculpt_curves()
@@ -720,6 +1271,10 @@ void ED_operatortypes_sculpt_curves()
   using namespace blender::ed::sculpt_paint;
   WM_operatortype_append(SCULPT_CURVES_OT_brush_stroke);
   WM_operatortype_append(CURVES_OT_sculptmode_toggle);
+  WM_operatortype_append(SCULPT_CURVES_OT_select_random);
+  WM_operatortype_append(SCULPT_CURVES_OT_select_end);
+  WM_operatortype_append(SCULPT_CURVES_OT_select_grow);
+  WM_operatortype_append(SCULPT_CURVES_OT_min_distance_edit);
 }
 
 /** \} */

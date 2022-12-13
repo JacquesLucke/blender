@@ -18,23 +18,22 @@ namespace blender::nodes {
 static void calculate_uvs(
     Mesh *mesh, Span<MVert> verts, Span<MLoop> loops, const float size_x, const float size_y)
 {
-  MeshComponent mesh_component;
-  mesh_component.replace(mesh, GeometryOwnershipType::Editable);
-  OutputAttribute_Typed<float2> uv_attribute =
-      mesh_component.attribute_try_get_for_output_only<float2>("uv_map", ATTR_DOMAIN_CORNER);
-  MutableSpan<float2> uvs = uv_attribute.as_span();
+  MutableAttributeAccessor attributes = mesh->attributes_for_write();
+
+  SpanAttributeWriter<float2> uv_attribute = attributes.lookup_or_add_for_write_only_span<float2>(
+      "uv_map", ATTR_DOMAIN_CORNER);
 
   const float dx = (size_x == 0.0f) ? 0.0f : 1.0f / size_x;
   const float dy = (size_y == 0.0f) ? 0.0f : 1.0f / size_y;
   threading::parallel_for(loops.index_range(), 1024, [&](IndexRange range) {
     for (const int i : range) {
       const float3 &co = verts[loops[i].v].co;
-      uvs[i].x = (co.x + size_x * 0.5f) * dx;
-      uvs[i].y = (co.y + size_y * 0.5f) * dy;
+      uv_attribute.span[i].x = (co.x + size_x * 0.5f) * dx;
+      uv_attribute.span[i].y = (co.y + size_y * 0.5f) * dy;
     }
   });
 
-  uv_attribute.save();
+  uv_attribute.finish();
 }
 
 Mesh *create_grid_mesh(const int verts_x,
@@ -50,10 +49,10 @@ Mesh *create_grid_mesh(const int verts_x,
                                    0,
                                    edges_x * edges_y * 4,
                                    edges_x * edges_y);
-  MutableSpan<MVert> verts{mesh->mvert, mesh->totvert};
-  MutableSpan<MLoop> loops{mesh->mloop, mesh->totloop};
-  MutableSpan<MEdge> edges{mesh->medge, mesh->totedge};
-  MutableSpan<MPoly> polys{mesh->mpoly, mesh->totpoly};
+  MutableSpan<MVert> verts = mesh->verts_for_write();
+  MutableSpan<MEdge> edges = mesh->edges_for_write();
+  MutableSpan<MPoly> polys = mesh->polys_for_write();
+  MutableSpan<MLoop> loops = mesh->loops_for_write();
 
   {
     const float dx = edges_x == 0 ? 0.0f : size_x / edges_x;
@@ -77,8 +76,6 @@ Mesh *create_grid_mesh(const int verts_x,
 
   const int y_edges_start = 0;
   const int x_edges_start = verts_x * edges_y;
-  const short edge_flag = (edges_x == 0 || edges_y == 0) ? ME_LOOSEEDGE :
-                                                           ME_EDGEDRAW | ME_EDGERENDER;
 
   /* Build the horizontal edges in the X direction. */
   threading::parallel_for(IndexRange(verts_x), 512, [&](IndexRange x_range) {
@@ -91,7 +88,7 @@ Mesh *create_grid_mesh(const int verts_x,
           MEdge &edge = edges[y_edge_offset + y];
           edge.v1 = vert_index;
           edge.v2 = vert_index + 1;
-          edge.flag = edge_flag;
+          edge.flag = ME_EDGEDRAW;
         }
       });
     }
@@ -107,7 +104,7 @@ Mesh *create_grid_mesh(const int verts_x,
           MEdge &edge = edges[x_edge_offset + x];
           edge.v1 = vert_index;
           edge.v2 = vert_index + verts_y;
-          edge.flag = edge_flag;
+          edge.flag = ME_EDGEDRAW;
         }
       });
     }
@@ -145,6 +142,8 @@ Mesh *create_grid_mesh(const int verts_x,
   if (mesh->totpoly != 0) {
     calculate_uvs(mesh, verts, loops, size_x, size_y);
   }
+
+  mesh->loose_edges_tag_none();
 
   return mesh;
 }

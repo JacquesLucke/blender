@@ -64,10 +64,10 @@ class Array {
   int64_t size_;
 
   /** Used for allocations when the inline buffer is too small. */
-  Allocator allocator_;
+  BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
 
   /** A placeholder buffer that will remain uninitialized until it is used. */
-  TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
+  BLI_NO_UNIQUE_ADDRESS TypedBuffer<T, InlineBufferCapacity> inline_buffer_;
 
  public:
   /**
@@ -424,8 +424,7 @@ class Array {
 
   T *allocate(int64_t size)
   {
-    return static_cast<T *>(
-        allocator_.allocate(static_cast<size_t>(size) * sizeof(T), alignof(T), AT));
+    return static_cast<T *>(allocator_.allocate(size_t(size) * sizeof(T), alignof(T), AT));
   }
 
   void deallocate_if_not_inline(T *ptr)

@@ -1,12 +1,9 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8-80 compliant>
-
 # Originally written by Matt Ebb
 
 import bpy
 from bpy.types import Operator
-
 from bpy.app.translations import pgettext_tip as tip_
 
 

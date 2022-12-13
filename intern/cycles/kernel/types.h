@@ -19,10 +19,6 @@
 
 #include "kernel/svm/types.h"
 
-#ifndef __KERNEL_GPU__
-#  define __KERNEL_CPU__
-#endif
-
 CCL_NAMESPACE_BEGIN
 
 /* Constants */
@@ -51,69 +47,62 @@ CCL_NAMESPACE_BEGIN
 #define INTEGRATOR_SHADOW_ISECT_SIZE_CPU 1024U
 #define INTEGRATOR_SHADOW_ISECT_SIZE_GPU 4U
 
-#ifdef __KERNEL_CPU__
-#  define INTEGRATOR_SHADOW_ISECT_SIZE INTEGRATOR_SHADOW_ISECT_SIZE_CPU
-#else
+#ifdef __KERNEL_GPU__
 #  define INTEGRATOR_SHADOW_ISECT_SIZE INTEGRATOR_SHADOW_ISECT_SIZE_GPU
+#else
+#  define INTEGRATOR_SHADOW_ISECT_SIZE INTEGRATOR_SHADOW_ISECT_SIZE_CPU
 #endif
 
 /* Kernel features */
-#define __SOBOL__
-#define __DPDU__
-#define __BACKGROUND__
-#define __CAUSTICS_TRICKS__
-#define __VISIBILITY_FLAG__
-#define __RAY_DIFFERENTIALS__
-#define __CAMERA_CLIPPING__
-#define __INTERSECTION_REFINE__
-#define __CLAMP_SAMPLE__
-#define __PATCH_EVAL__
-#define __SHADOW_CATCHER__
-#define __DENOISING_FEATURES__
-#define __SHADER_RAYTRACE__
 #define __AO__
-#define __PASSES__
+#define __CAUSTICS_TRICKS__
+#define __CLAMP_SAMPLE__
+#define __DENOISING_FEATURES__
+#define __DPDU__
 #define __HAIR__
-#define __POINTCLOUD__
-#define __SVM__
-#define __EMISSION__
-#define __HOLDOUT__
-#define __TRANSPARENT_SHADOWS__
-#define __BACKGROUND_MIS__
-#define __LAMP_MIS__
-#define __CAMERA_MOTION__
+#define __LIGHT_TREE__
 #define __OBJECT_MOTION__
-#define __BAKING__
-#define __PRINCIPLED__
-#define __SUBSURFACE__
-#define __VOLUME__
-#define __CMJ__
+#define __PASSES__
+#define __PATCH_EVAL__
+#define __POINTCLOUD__
+#define __RAY_DIFFERENTIALS__
+#define __SHADER_RAYTRACE__
+#define __SHADOW_CATCHER__
 #define __SHADOW_RECORD_ALL__
-#define __BRANCHED_PATH__
+#define __SUBSURFACE__
+#define __SVM__
+#define __TRANSPARENT_SHADOWS__
+#define __VISIBILITY_FLAG__
+#define __VOLUME__
+
+/* TODO: solve internal compiler errors and enable light tree on HIP. */
+#ifdef __KERNEL_HIP__
+#  undef __LIGHT_TREE__
+#endif
 
 /* Device specific features */
-#ifdef __KERNEL_CPU__
-#  ifdef WITH_OSL
-#    define __OSL__
+#ifdef WITH_OSL
+#  define __OSL__
+#  ifdef __KERNEL_OPTIX__
+/* Kernels with OSL support are built separately in OptiX and don't need SVM. */
+#    undef __SVM__
+#  endif
+#endif
+#ifndef __KERNEL_GPU__
+#  ifdef WITH_PATH_GUIDING
+#    define __PATH_GUIDING__
 #  endif
 #  define __VOLUME_RECORD_ALL__
-#endif /* __KERNEL_CPU__ */
+#endif /* !__KERNEL_GPU__ */
 
-#ifdef __KERNEL_GPU_RAYTRACING__
-#  undef __BAKING__
-#endif /* __KERNEL_GPU_RAYTRACING__ */
-
-/* MNEE currently causes "Compute function exceeds available temporary registers"
- * on Metal, disabled for now. */
-#ifndef __KERNEL_METAL__
+/* MNEE caused "Compute function exceeds available temporary registers" in macOS < 13 due to a bug
+ * in spill buffer allocation sizing. */
+#if !defined(__KERNEL_METAL__) || (__KERNEL_METAL_MACOS__ >= 13)
 #  define __MNEE__
 #endif
 
 /* Scene-based selective features compilation. */
 #ifdef __KERNEL_FEATURES__
-#  if !(__KERNEL_FEATURES & KERNEL_FEATURE_CAMERA_MOTION)
-#    undef __CAMERA_MOTION__
-#  endif
 #  if !(__KERNEL_FEATURES & KERNEL_FEATURE_OBJECT_MOTION)
 #    undef __OBJECT_MOTION__
 #  endif
@@ -129,9 +118,6 @@ CCL_NAMESPACE_BEGIN
 #  if !(__KERNEL_FEATURES & KERNEL_FEATURE_SUBSURFACE)
 #    undef __SUBSURFACE__
 #  endif
-#  if !(__KERNEL_FEATURES & KERNEL_FEATURE_BAKING)
-#    undef __BAKING__
-#  endif
 #  if !(__KERNEL_FEATURES & KERNEL_FEATURE_PATCH_EVALUATION)
 #    undef __PATCH_EVAL__
 #  endif
@@ -140,9 +126,6 @@ CCL_NAMESPACE_BEGIN
 #  endif
 #  if !(__KERNEL_FEATURES & KERNEL_FEATURE_SHADOW_CATCHER)
 #    undef __SHADOW_CATCHER__
-#  endif
-#  if !(__KERNEL_FEATURES & KERNEL_FEATURE_PRINCIPLED)
-#    undef __PRINCIPLED__
 #  endif
 #  if !(__KERNEL_FEATURES & KERNEL_FEATURE_DENOISING)
 #    undef __DENOISING_FEATURES__
@@ -159,36 +142,51 @@ CCL_NAMESPACE_BEGIN
 #  define __BVH_LOCAL__
 #endif
 
-/* Path Tracing
- * note we need to keep the u/v pairs at even values */
+/* Sampling Patterns */
 
+/* Unique numbers for sampling patterns in each bounce. */
 enum PathTraceDimension {
-  PRNG_FILTER_U = 0,
-  PRNG_FILTER_V = 1,
-  PRNG_LENS_U = 2,
-  PRNG_LENS_V = 3,
-  PRNG_TIME = 4,
-  PRNG_UNUSED_0 = 5,
-  PRNG_UNUSED_1 = 6, /* for some reason (6, 7) is a bad sobol pattern */
-  PRNG_UNUSED_2 = 7, /* with a low number of samples (< 64) */
-  PRNG_BASE_NUM = 10,
+  /* Init bounce */
+  PRNG_FILTER = 0,
+  PRNG_LENS = 1,
+  PRNG_TIME = 2,
 
-  PRNG_BSDF_U = 0,
-  PRNG_BSDF_V = 1,
-  PRNG_LIGHT_U = 2,
-  PRNG_LIGHT_V = 3,
-  PRNG_LIGHT_TERMINATE = 4,
-  PRNG_TERMINATE = 5,
-  PRNG_PHASE_CHANNEL = 6,
-  PRNG_SCATTER_DISTANCE = 7,
-  PRNG_BOUNCE_NUM = 8,
+  /* Shade bounce */
+  PRNG_TERMINATE = 0,
+  PRNG_LIGHT = 1,
+  PRNG_LIGHT_TERMINATE = 2,
+  /* Surface */
+  PRNG_SURFACE_BSDF = 3,
+  PRNG_SURFACE_AO = 4,
+  PRNG_SURFACE_BEVEL = 5,
+  PRNG_SURFACE_BSDF_GUIDING = 6,
+  /* Volume */
+  PRNG_VOLUME_PHASE = 3,
+  PRNG_VOLUME_PHASE_CHANNEL = 4,
+  PRNG_VOLUME_SCATTER_DISTANCE = 5,
+  PRNG_VOLUME_OFFSET = 6,
+  PRNG_VOLUME_SHADE_OFFSET = 7,
+  PRNG_VOLUME_PHASE_GUIDING_DISTANCE = 8,
+  PRNG_VOLUME_PHASE_GUIDING_EQUIANGULAR = 9,
 
-  PRNG_BEVEL_U = 6, /* reuse volume dimension, correlation won't harm */
-  PRNG_BEVEL_V = 7,
+  /* Subsurface random walk bounces */
+  PRNG_SUBSURFACE_BSDF = 0,
+  PRNG_SUBSURFACE_PHASE_CHANNEL = 1,
+  PRNG_SUBSURFACE_SCATTER_DISTANCE = 2,
+  PRNG_SUBSURFACE_GUIDE_STRATEGY = 3,
+  PRNG_SUBSURFACE_GUIDE_DIRECTION = 4,
+
+  /* Subsurface disk bounce */
+  PRNG_SUBSURFACE_DISK = 0,
+  PRNG_SUBSURFACE_DISK_RESAMPLE = 1,
+
+  /* High enough number so we don't need to change it when adding new dimensions,
+   * low enough so there is no uint16_t overflow with many bounces. */
+  PRNG_BOUNCE_NUM = 16,
 };
 
 enum SamplingPattern {
-  SAMPLING_PATTERN_SOBOL = 0,
+  SAMPLING_PATTERN_SOBOL_BURLEY = 0,
   SAMPLING_PATTERN_PMJ = 1,
 
   SAMPLING_NUM_PATTERNS,
@@ -217,20 +215,25 @@ enum PathRayFlag : uint32_t {
   PATH_RAY_SHADOW_TRANSPARENT = (1U << 9U),
   PATH_RAY_SHADOW = (PATH_RAY_SHADOW_OPAQUE | PATH_RAY_SHADOW_TRANSPARENT),
 
-  /* Special flag to tag unaligned BVH nodes.
-   * Only set and used in BVH nodes to distinguish how to interpret bounding box information stored
-   * in the node (either it should be intersected as AABB or as OBBU). */
-  PATH_RAY_NODE_UNALIGNED = (1U << 10U),
-
   /* Subset of flags used for ray visibility for intersection.
    *
    * NOTE: SHADOW_CATCHER macros below assume there are no more than
    * 16 visibility bits. */
-  PATH_RAY_ALL_VISIBILITY = ((1U << 11U) - 1U),
+  PATH_RAY_ALL_VISIBILITY = ((1U << 10U) - 1U),
+
+  /* Special flag to tag unaligned BVH nodes.
+   * Only set and used in BVH nodes to distinguish how to interpret bounding box information stored
+   * in the node (either it should be intersected as AABB or as OBBU).
+   * So this can overlap with path flags. */
+  PATH_RAY_NODE_UNALIGNED = (1U << 10U),
 
   /* --------------------------------------------------------------------
    * Path flags.
    */
+
+  /* Surface had transmission component at previous bounce. Used for light tree
+   * traversal and culling to be consistent with MIS PDF at the next bounce. */
+  PATH_RAY_MIS_HAD_TRANSMISSION = (1U << 10U),
 
   /* Don't apply multiple importance sampling weights to emission from
    * lamp or surface hits, because they were not direct light sampled. */
@@ -351,7 +354,6 @@ typedef enum PassType {
   PASS_EMISSION,
   PASS_BACKGROUND,
   PASS_AO,
-  PASS_SHADOW,
   PASS_DIFFUSE,
   PASS_DIFFUSE_DIRECT,
   PASS_DIFFUSE_INDIRECT,
@@ -405,6 +407,14 @@ typedef enum PassType {
   PASS_SHADOW_CATCHER_SAMPLE_COUNT,
   PASS_SHADOW_CATCHER_MATTE,
 
+  /* Guiding related debug rendering passes */
+  /* The estimated sample color from the PathSegmentStorage. If everything is integrated correctly
+   * the output should be similar to PASS_COMBINED. */
+  PASS_GUIDING_COLOR,
+  /* The guiding probability at the first bounce. */
+  PASS_GUIDING_PROBABILITY,
+  /* The avg. roughness at the first bounce. */
+  PASS_GUIDING_AVG_ROUGHNESS,
   PASS_CATEGORY_DATA_END = 63,
 
   PASS_BAKE_PRIMITIVE,
@@ -425,9 +435,9 @@ typedef enum CryptomatteType {
 } CryptomatteType;
 
 typedef struct BsdfEval {
-  float3 diffuse;
-  float3 glossy;
-  float3 sum;
+  Spectrum diffuse;
+  Spectrum glossy;
+  Spectrum sum;
 } BsdfEval;
 
 /* Closure Filter */
@@ -462,6 +472,16 @@ typedef enum ShaderFlag {
                   SHADER_EXCLUDE_ANY)
 } ShaderFlag;
 
+enum EmissionSampling {
+  EMISSION_SAMPLING_NONE = 0,
+  EMISSION_SAMPLING_AUTO = 1,
+  EMISSION_SAMPLING_FRONT = 2,
+  EMISSION_SAMPLING_BACK = 3,
+  EMISSION_SAMPLING_FRONT_BACK = 4,
+
+  EMISSION_SAMPLING_NUM
+};
+
 /* Light Type */
 
 typedef enum LightType {
@@ -472,6 +492,16 @@ typedef enum LightType {
   LIGHT_SPOT,
   LIGHT_TRIANGLE
 } LightType;
+
+/* Guiding Distribution Type */
+
+typedef enum GuidingDistributionType {
+  GUIDING_TYPE_PARALLAX_AWARE_VMM = 0,
+  GUIDING_TYPE_DIRECTIONAL_QUAD_TREE = 1,
+  GUIDING_TYPE_VMM = 2,
+
+  GUIDING_NUM_TYPES,
+} GuidingDistributionType;
 
 /* Camera Type */
 
@@ -485,8 +515,21 @@ enum PanoramaType {
   PANORAMA_FISHEYE_EQUISOLID = 2,
   PANORAMA_MIRRORBALL = 3,
   PANORAMA_FISHEYE_LENS_POLYNOMIAL = 4,
+  PANORAMA_EQUIANGULAR_CUBEMAP_FACE = 5,
 
   PANORAMA_NUM_TYPES,
+};
+
+/* Specifies an offset for the shutter's time interval. */
+enum MotionPosition {
+  /* Shutter opens at the current frame. */
+  MOTION_POSITION_START = 0,
+  /* Shutter is fully open at the current frame. */
+  MOTION_POSITION_CENTER = 1,
+  /* Shutter closes at the current frame. */
+  MOTION_POSITION_END = 2,
+
+  MOTION_NUM_POSITIONS,
 };
 
 /* Direct Light Sampling */
@@ -523,7 +566,8 @@ typedef struct RaySelfPrimitives {
 typedef struct Ray {
   float3 P;   /* origin */
   float3 D;   /* direction */
-  float t;    /* length of the ray */
+  float tmin; /* start distance */
+  float tmax; /* end distance */
   float time; /* time (for motion blur) */
 
   RaySelfPrimitives self;
@@ -635,6 +679,9 @@ typedef enum AttributeStandard {
   ATTR_STD_VOLUME_HEAT,
   ATTR_STD_VOLUME_TEMPERATURE,
   ATTR_STD_VOLUME_VELOCITY,
+  ATTR_STD_VOLUME_VELOCITY_X,
+  ATTR_STD_VOLUME_VELOCITY_Y,
+  ATTR_STD_VOLUME_VELOCITY_Z,
   ATTR_STD_POINTINESS,
   ATTR_STD_RANDOM_PER_ISLAND,
   ATTR_STD_SHADOW_TRANSPARENCY,
@@ -654,6 +701,15 @@ typedef struct AttributeDescriptor {
   uint flags; /* see enum AttributeFlag */
   int offset;
 } AttributeDescriptor;
+
+/* For looking up attributes on objects and geometry. */
+typedef struct AttributeMap {
+  uint64_t id;      /* Global unique identifier. */
+  int offset;       /* Offset into __attributes global arrays. */
+  uint16_t element; /* AttributeElement. */
+  uint8_t type;     /* NodeAttributeType. */
+  uint8_t flags;    /* AttributeFlag. */
+} AttributeMap;
 
 /* Closure data */
 
@@ -695,7 +751,7 @@ typedef struct AttributeDescriptor {
  * padded to be 16 bytes, while it's only 12 bytes on the GPU. */
 
 #define SHADER_CLOSURE_BASE \
-  float3 weight; \
+  Spectrum weight; \
   ClosureType type; \
   float sample_weight; \
   float3 N
@@ -704,10 +760,9 @@ typedef struct ccl_align(16) ShaderClosure
 {
   SHADER_CLOSURE_BASE;
 
-#ifdef __KERNEL_CPU__
-  float pad[2];
-#endif
-  float data[10];
+  /* Extra space for closures to store data, somewhat arbitrary but closures
+   * assert that their size fits. */
+  char pad[sizeof(Spectrum) * 2 + sizeof(float) * 4];
 }
 ShaderClosure;
 
@@ -740,14 +795,16 @@ enum ShaderDataFlag {
   SD_TRANSPARENT = (1 << 9),
   /* BSDF requires LCG for evaluation. */
   SD_BSDF_NEEDS_LCG = (1 << 10),
+  /* BSDF has a transmissive component. */
+  SD_BSDF_HAS_TRANSMISSION = (1 << 11),
 
   SD_CLOSURE_FLAGS = (SD_EMISSION | SD_BSDF | SD_BSDF_HAS_EVAL | SD_BSSRDF | SD_HOLDOUT |
-                      SD_EXTINCTION | SD_SCATTER | SD_BSDF_NEEDS_LCG),
+                      SD_EXTINCTION | SD_SCATTER | SD_BSDF_NEEDS_LCG | SD_BSDF_HAS_TRANSMISSION),
 
   /* Shader flags. */
 
-  /* direct light sample */
-  SD_USE_MIS = (1 << 16),
+  /* Use front side for direct light sampling. */
+  SD_MIS_FRONT = (1 << 16),
   /* Has transparent shadow. */
   SD_HAS_TRANSPARENT_SHADOW = (1 << 17),
   /* Has volume shader. */
@@ -776,12 +833,14 @@ enum ShaderDataFlag {
   SD_HAS_EMISSION = (1 << 29),
   /* Shader has raytracing */
   SD_HAS_RAYTRACE = (1 << 30),
+  /* Use back side for direct light sampling. */
+  SD_MIS_BACK = (1 << 31),
 
-  SD_SHADER_FLAGS = (SD_USE_MIS | SD_HAS_TRANSPARENT_SHADOW | SD_HAS_VOLUME | SD_HAS_ONLY_VOLUME |
-                     SD_HETEROGENEOUS_VOLUME | SD_HAS_BSSRDF_BUMP | SD_VOLUME_EQUIANGULAR |
-                     SD_VOLUME_MIS | SD_VOLUME_CUBIC | SD_HAS_BUMP | SD_HAS_DISPLACEMENT |
-                     SD_HAS_CONSTANT_EMISSION | SD_NEED_VOLUME_ATTRIBUTES | SD_HAS_EMISSION |
-                     SD_HAS_RAYTRACE)
+  SD_SHADER_FLAGS = (SD_MIS_FRONT | SD_HAS_TRANSPARENT_SHADOW | SD_HAS_VOLUME |
+                     SD_HAS_ONLY_VOLUME | SD_HETEROGENEOUS_VOLUME | SD_HAS_BSSRDF_BUMP |
+                     SD_VOLUME_EQUIANGULAR | SD_VOLUME_MIS | SD_VOLUME_CUBIC | SD_HAS_BUMP |
+                     SD_HAS_DISPLACEMENT | SD_HAS_CONSTANT_EMISSION | SD_NEED_VOLUME_ATTRIBUTES |
+                     SD_HAS_EMISSION | SD_HAS_RAYTRACE | SD_MIS_BACK)
 };
 
 /* Object flags. */
@@ -808,6 +867,8 @@ enum ShaderDataObjectFlag {
   SD_OBJECT_CAUSTICS_CASTER = (1 << 9),
   /* object is caustics receiver */
   SD_OBJECT_CAUSTICS_RECEIVER = (1 << 10),
+  /* object has attribute for volume motion */
+  SD_OBJECT_HAS_VOLUME_MOTION = (1 << 11),
 
   /* object is using caustics */
   SD_OBJECT_CAUSTICS = (SD_OBJECT_CAUSTICS_CASTER | SD_OBJECT_CAUSTICS_RECEIVER),
@@ -815,7 +876,8 @@ enum ShaderDataObjectFlag {
   SD_OBJECT_FLAGS = (SD_OBJECT_HOLDOUT_MASK | SD_OBJECT_MOTION | SD_OBJECT_TRANSFORM_APPLIED |
                      SD_OBJECT_NEGATIVE_SCALE_APPLIED | SD_OBJECT_HAS_VOLUME |
                      SD_OBJECT_INTERSECTS_VOLUME | SD_OBJECT_SHADOW_CATCHER |
-                     SD_OBJECT_HAS_VOLUME_ATTRIBUTES | SD_OBJECT_CAUSTICS)
+                     SD_OBJECT_HAS_VOLUME_ATTRIBUTES | SD_OBJECT_CAUSTICS |
+                     SD_OBJECT_HAS_VOLUME_MOTION)
 };
 
 typedef struct ccl_align(16) ShaderData
@@ -857,10 +919,10 @@ typedef struct ccl_align(16) ShaderData
   float ray_length;
 
 #ifdef __RAY_DIFFERENTIALS__
-  /* differential of P. these are orthogonal to Ng, not N */
-  differential3 dP;
-  /* differential of I */
-  differential3 dI;
+  /* Radius of differential of P. */
+  float dP;
+  /* Radius of differential of I. */
+  float dI;
   /* differential of u, v */
   differential du;
   differential dv;
@@ -884,9 +946,13 @@ typedef struct ccl_align(16) ShaderData
   float ray_dP;
 
 #ifdef __OSL__
+#  ifdef __KERNEL_GPU__
+  ccl_private uint8_t *osl_closure_pool;
+#  else
   const struct KernelGlobalsCPU *osl_globals;
   const struct IntegratorStateCPU *osl_path_state;
   const struct IntegratorShadowStateCPU *osl_shadow_path_state;
+#  endif
 #endif
 
   /* LCG state for closures that require additional random numbers. */
@@ -895,12 +961,12 @@ typedef struct ccl_align(16) ShaderData
   /* Closure data, we store a fixed array of closures */
   int num_closure;
   int num_closure_left;
-  float3 svm_closure_weight;
+  Spectrum svm_closure_weight;
 
   /* Closure weights summed directly, so we can evaluate
    * emission and shadow transparency with MAX_CLOSURE 0. */
-  float3 closure_emission_background;
-  float3 closure_transparent_extinction;
+  Spectrum closure_emission_background;
+  Spectrum closure_transparent_extinction;
 
   /* At the end so we can adjust size in ShaderDataTinyStorage. */
   struct ShaderClosure closure[MAX_CLOSURE];
@@ -931,7 +997,7 @@ ShaderDataCausticsStorage;
  * Used for decoupled direct/indirect light closure storage. */
 
 typedef struct ShaderVolumeClosure {
-  float3 weight;
+  Spectrum weight;
   float sample_weight;
   float g;
 } ShaderVolumeClosure;
@@ -1040,92 +1106,9 @@ typedef struct KernelCamera {
   int rolling_shutter_type;
   float rolling_shutter_duration;
 
-  int pad;
+  int motion_position;
 } KernelCamera;
 static_assert_align(KernelCamera, 16);
-
-typedef struct KernelFilm {
-  float exposure;
-  int pass_flag;
-
-  int light_pass_flag;
-  int pass_stride;
-
-  int pass_combined;
-  int pass_depth;
-  int pass_position;
-  int pass_normal;
-  int pass_roughness;
-  int pass_motion;
-
-  int pass_motion_weight;
-  int pass_uv;
-  int pass_object_id;
-  int pass_material_id;
-
-  int pass_diffuse_color;
-  int pass_glossy_color;
-  int pass_transmission_color;
-
-  int pass_diffuse_indirect;
-  int pass_glossy_indirect;
-  int pass_transmission_indirect;
-  int pass_volume_indirect;
-
-  int pass_diffuse_direct;
-  int pass_glossy_direct;
-  int pass_transmission_direct;
-  int pass_volume_direct;
-
-  int pass_emission;
-  int pass_background;
-  int pass_ao;
-  float pass_alpha_threshold;
-
-  int pass_shadow;
-  float pass_shadow_scale;
-
-  int pass_shadow_catcher;
-  int pass_shadow_catcher_sample_count;
-  int pass_shadow_catcher_matte;
-
-  int filter_table_offset;
-
-  int cryptomatte_passes;
-  int cryptomatte_depth;
-  int pass_cryptomatte;
-
-  int pass_adaptive_aux_buffer;
-  int pass_sample_count;
-
-  int pass_mist;
-  float mist_start;
-  float mist_inv_depth;
-  float mist_falloff;
-
-  int pass_denoising_normal;
-  int pass_denoising_albedo;
-  int pass_denoising_depth;
-
-  int pass_aov_color;
-  int pass_aov_value;
-  int pass_lightgroup;
-
-  /* XYZ to rendering color space transform. float4 instead of float3 to
-   * ensure consistent padding/alignment across devices. */
-  float4 xyz_to_r;
-  float4 xyz_to_g;
-  float4 xyz_to_b;
-  float4 rgb_to_y;
-
-  int pass_bake_primitive;
-  int pass_bake_differential;
-
-  int use_approximate_shadow_catcher;
-
-  int pad1, pad2;
-} KernelFilm;
-static_assert_align(KernelFilm, 16);
 
 typedef struct KernelFilmConvert {
   int pass_offset;
@@ -1168,108 +1151,6 @@ typedef struct KernelFilmConvert {
 } KernelFilmConvert;
 static_assert_align(KernelFilmConvert, 16);
 
-typedef struct KernelBackground {
-  /* only shader index */
-  int surface_shader;
-  int volume_shader;
-  float volume_step_size;
-  int transparent;
-  float transparent_roughness_squared_threshold;
-
-  /* portal sampling */
-  float portal_weight;
-  int num_portals;
-  int portal_offset;
-
-  /* sun sampling */
-  float sun_weight;
-  /* xyz store direction, w the angle. float4 instead of float3 is used
-   * to ensure consistent padding/alignment across devices. */
-  float4 sun;
-
-  /* map sampling */
-  float map_weight;
-  int map_res_x;
-  int map_res_y;
-
-  int use_mis;
-
-  int lightgroup;
-
-  /* Padding */
-  int pad1, pad2;
-} KernelBackground;
-static_assert_align(KernelBackground, 16);
-
-typedef struct KernelIntegrator {
-  /* emission */
-  int use_direct_light;
-  int num_distribution;
-  int num_all_lights;
-  float pdf_triangles;
-  float pdf_lights;
-  float light_inv_rr_threshold;
-
-  /* bounces */
-  int min_bounce;
-  int max_bounce;
-
-  int max_diffuse_bounce;
-  int max_glossy_bounce;
-  int max_transmission_bounce;
-  int max_volume_bounce;
-
-  /* AO bounces */
-  int ao_bounces;
-  float ao_bounces_distance;
-  float ao_bounces_factor;
-  float ao_additive_factor;
-
-  /* transparent */
-  int transparent_min_bounce;
-  int transparent_max_bounce;
-  int transparent_shadows;
-
-  /* caustics */
-  int caustics_reflective;
-  int caustics_refractive;
-  float filter_glossy;
-
-  /* seed */
-  int seed;
-
-  /* clamp */
-  float sample_clamp_direct;
-  float sample_clamp_indirect;
-
-  /* mis */
-  int use_lamp_mis;
-
-  /* caustics */
-  int use_caustics;
-
-  /* sampler */
-  int sampling_pattern;
-
-  /* volume render */
-  int use_volumes;
-  int volume_max_steps;
-  float volume_step_rate;
-
-  int has_shadow_catcher;
-  float scrambling_distance;
-
-  /* Closure filter. */
-  int filter_closures;
-
-  /* MIS debugging. */
-  int direct_light_sampling_type;
-
-  /* padding */
-  int pad1;
-} KernelIntegrator;
-static_assert_align(KernelIntegrator, 16);
-
 typedef enum KernelBVHLayout {
   BVH_LAYOUT_NONE = 0,
 
@@ -1287,36 +1168,25 @@ typedef enum KernelBVHLayout {
   BVH_LAYOUT_ALL = BVH_LAYOUT_BVH2 | BVH_LAYOUT_EMBREE | BVH_LAYOUT_OPTIX | BVH_LAYOUT_METAL,
 } KernelBVHLayout;
 
-typedef struct KernelBVH {
-  /* Own BVH */
-  int root;
-  int have_motion;
-  int have_curves;
-  int bvh_layout;
-  int use_bvh_steps;
-  int curve_subdivisions;
+/* Specialized struct that can become constants in dynamic compilation. */
+#define KERNEL_STRUCT_BEGIN(name, parent) struct name {
+#define KERNEL_STRUCT_END(name) \
+  } \
+  ; \
+  static_assert_align(name, 16);
 
-  /* Custom BVH */
-#ifdef __KERNEL_OPTIX__
-  OptixTraversableHandle scene;
-#elif defined __METALRT__
-  metalrt_as_type scene;
+#ifdef __KERNEL_USE_DATA_CONSTANTS__
+#  define KERNEL_STRUCT_MEMBER(parent, type, name) type __unused_##name;
 #else
-#  ifdef __EMBREE__
-  RTCScene scene;
-#    ifndef __KERNEL_64_BIT__
-  int pad2;
-#    endif
-#  else
-  int scene, pad2;
-#  endif
+#  define KERNEL_STRUCT_MEMBER(parent, type, name) type name;
 #endif
-} KernelBVH;
-static_assert_align(KernelBVH, 16);
+
+#include "kernel/data_template.h"
 
 typedef struct KernelTables {
   int beckmann_offset;
-  int pad1, pad2, pad3;
+  int filter_table_offset;
+  int pad1, pad2;
 } KernelTables;
 static_assert_align(KernelTables, 16);
 
@@ -1324,23 +1194,42 @@ typedef struct KernelBake {
   int use;
   int object_index;
   int tri_offset;
-  int pad1;
+  int use_camera;
 } KernelBake;
 static_assert_align(KernelBake, 16);
 
 typedef struct KernelData {
+  /* Features and limits. */
   uint kernel_features;
   uint max_closures;
   uint max_shaders;
   uint volume_stack_size;
 
+  /* Always dynamic data members. */
   KernelCamera cam;
-  KernelFilm film;
-  KernelBackground background;
-  KernelIntegrator integrator;
-  KernelBVH bvh;
-  KernelTables tables;
   KernelBake bake;
+  KernelTables tables;
+
+  /* Potentially specialized data members. */
+#define KERNEL_STRUCT_BEGIN(name, parent) name parent;
+#include "kernel/data_template.h"
+
+  /* Device specific BVH. */
+#ifdef __KERNEL_OPTIX__
+  OptixTraversableHandle device_bvh;
+#elif defined __METALRT__
+  metalrt_as_type device_bvh;
+#else
+#  ifdef __EMBREE__
+  RTCScene device_bvh;
+#    ifndef __KERNEL_64_BIT__
+  int pad1;
+#    endif
+#  else
+  int device_bvh, pad1;
+#  endif
+#endif
+  int pad2, pad3;
 } KernelData;
 static_assert_align(KernelData, 16);
 
@@ -1381,7 +1270,8 @@ typedef struct KernelObject {
   uint visibility;
   int primitive_type;
 
-  int pad1;
+  /* Volume velocity scale. */
+  float velocity_scale;
 } KernelObject;
 static_assert_align(KernelObject, 16);
 
@@ -1402,21 +1292,24 @@ static_assert_align(KernelCurveSegment, 8);
 typedef struct KernelSpotLight {
   float radius;
   float invarea;
-  float spot_angle;
+  float cos_half_spot_angle;
   float spot_smooth;
-  float dir[3];
+  packed_float3 dir;
   float pad;
 } KernelSpotLight;
 
 /* PointLight is SpotLight with only radius and invarea being used. */
 
 typedef struct KernelAreaLight {
-  float axisu[3];
+  packed_float3 axis_u;
+  float len_u;
+  packed_float3 axis_v;
+  float len_v;
+  packed_float3 dir;
   float invarea;
-  float axisv[3];
-  float tan_spread;
-  float dir[3];
+  float tan_half_spread;
   float normalize_spread;
+  float pad[2];
 } KernelAreaLight;
 
 typedef struct KernelDistantLight {
@@ -1428,7 +1321,7 @@ typedef struct KernelDistantLight {
 
 typedef struct KernelLight {
   int type;
-  float co[3];
+  packed_float3 co;
   int shader_id;
   float max_bounces;
   float random;
@@ -1445,21 +1338,71 @@ typedef struct KernelLight {
 } KernelLight;
 static_assert_align(KernelLight, 16);
 
+using MeshLight = struct MeshLight {
+  int shader_flag;
+  int object_id;
+};
+
 typedef struct KernelLightDistribution {
   float totarea;
   int prim;
-  union {
-    struct {
-      int shader_flag;
-      int object_id;
-    } mesh_light;
-    struct {
-      float pad;
-      float size;
-    } lamp;
-  };
+  MeshLight mesh_light;
 } KernelLightDistribution;
 static_assert_align(KernelLightDistribution, 16);
+
+/* Bounding box. */
+using BoundingBox = struct BoundingBox {
+  packed_float3 min;
+  packed_float3 max;
+};
+
+using BoundingCone = struct BoundingCone {
+  packed_float3 axis;
+  float theta_o;
+  float theta_e;
+};
+
+typedef struct KernelLightTreeNode {
+  /* Bounding box. */
+  BoundingBox bbox;
+
+  /* Bounding cone. */
+  BoundingCone bcone;
+
+  /* Energy. */
+  float energy;
+
+  /* If this is 0 or less, we're at a leaf node
+   * and the negative value indexes into the first child of the light array.
+   * Otherwise, it's an index to the node's second child. */
+  int child_index;
+  int num_prims; /* leaf nodes need to know the number of primitives stored. */
+
+  /* Bit trail. */
+  uint bit_trail;
+
+  /* Padding. */
+  int pad;
+} KernelLightTreeNode;
+static_assert_align(KernelLightTreeNode, 16);
+
+typedef struct KernelLightTreeEmitter {
+  /* Bounding cone. */
+  float theta_o;
+  float theta_e;
+
+  /* Energy. */
+  float energy;
+
+  /* prim_id denotes the location in the lights or triangles array. */
+  int prim;
+  MeshLight mesh_light;
+  EmissionSampling emission_sampling;
+
+  /* Parent. */
+  int parent_index;
+} KernelLightTreeEmitter;
+static_assert_align(KernelLightTreeEmitter, 16);
 
 typedef struct KernelParticle {
   int index;
@@ -1523,10 +1466,15 @@ typedef struct KernelShaderEvalInput {
 } KernelShaderEvalInput;
 static_assert_align(KernelShaderEvalInput, 16);
 
-/* Pre-computed sample table sizes for PMJ02 sampler. */
-#define NUM_PMJ_DIVISIONS 32
-#define NUM_PMJ_SAMPLES ((NUM_PMJ_DIVISIONS) * (NUM_PMJ_DIVISIONS))
-#define NUM_PMJ_PATTERNS 1
+/* Pre-computed sample table sizes for PMJ02 sampler.
+ *
+ * NOTE: min and max samples *must* be a power of two, and patterns
+ * ideally should be as well.
+ */
+#define MIN_PMJ_SAMPLES 256
+#define MAX_PMJ_SAMPLES 8192
+#define NUM_PMJ_DIMENSIONS 2
+#define NUM_PMJ_PATTERNS 256
 
 /* Device kernels.
  *
@@ -1537,7 +1485,7 @@ static_assert_align(KernelShaderEvalInput, 16);
  * If the kernel uses shared CUDA memory, `CUDADeviceQueue::enqueue` is to be modified.
  * The path iteration kernels are handled in `PathTraceWorkGPU::enqueue_path_iteration`. */
 
-typedef enum DeviceKernel {
+typedef enum DeviceKernel : int {
   DEVICE_KERNEL_INTEGRATOR_INIT_FROM_CAMERA = 0,
   DEVICE_KERNEL_INTEGRATOR_INIT_FROM_BAKE,
   DEVICE_KERNEL_INTEGRATOR_INTERSECT_CLOSEST,
@@ -1548,6 +1496,7 @@ typedef enum DeviceKernel {
   DEVICE_KERNEL_INTEGRATOR_SHADE_LIGHT,
   DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE,
   DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE,
+  DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE,
   DEVICE_KERNEL_INTEGRATOR_SHADE_VOLUME,
   DEVICE_KERNEL_INTEGRATOR_SHADE_SHADOW,
   DEVICE_KERNEL_INTEGRATOR_MEGAKERNEL,
@@ -1632,39 +1581,41 @@ enum KernelFeatureFlag : uint32_t {
   KERNEL_FEATURE_HAIR = (1U << 12U),
   KERNEL_FEATURE_HAIR_THICK = (1U << 13U),
   KERNEL_FEATURE_OBJECT_MOTION = (1U << 14U),
-  KERNEL_FEATURE_CAMERA_MOTION = (1U << 15U),
 
   /* Denotes whether baking functionality is needed. */
-  KERNEL_FEATURE_BAKING = (1U << 16U),
+  KERNEL_FEATURE_BAKING = (1U << 15U),
 
   /* Use subsurface scattering materials. */
-  KERNEL_FEATURE_SUBSURFACE = (1U << 17U),
+  KERNEL_FEATURE_SUBSURFACE = (1U << 16U),
 
   /* Use volume materials. */
-  KERNEL_FEATURE_VOLUME = (1U << 18U),
+  KERNEL_FEATURE_VOLUME = (1U << 17U),
 
   /* Use OpenSubdiv patch evaluation */
-  KERNEL_FEATURE_PATCH_EVALUATION = (1U << 19U),
+  KERNEL_FEATURE_PATCH_EVALUATION = (1U << 18U),
 
   /* Use Transparent shadows */
-  KERNEL_FEATURE_TRANSPARENT = (1U << 20U),
+  KERNEL_FEATURE_TRANSPARENT = (1U << 19U),
 
   /* Use shadow catcher. */
-  KERNEL_FEATURE_SHADOW_CATCHER = (1U << 21U),
-
-  /* Per-uber shader usage flags. */
-  KERNEL_FEATURE_PRINCIPLED = (1U << 22U),
+  KERNEL_FEATURE_SHADOW_CATCHER = (1U << 29U),
 
   /* Light render passes. */
-  KERNEL_FEATURE_LIGHT_PASSES = (1U << 23U),
-
-  /* Shadow render pass. */
-  KERNEL_FEATURE_SHADOW_PASS = (1U << 24U),
+  KERNEL_FEATURE_LIGHT_PASSES = (1U << 21U),
 
   /* AO. */
-  KERNEL_FEATURE_AO_PASS = (1U << 25U),
-  KERNEL_FEATURE_AO_ADDITIVE = (1U << 26U),
+  KERNEL_FEATURE_AO_PASS = (1U << 22U),
+  KERNEL_FEATURE_AO_ADDITIVE = (1U << 23U),
   KERNEL_FEATURE_AO = (KERNEL_FEATURE_AO_PASS | KERNEL_FEATURE_AO_ADDITIVE),
+
+  /* MNEE. */
+  KERNEL_FEATURE_MNEE = (1U << 24U),
+
+  /* Path guiding. */
+  KERNEL_FEATURE_PATH_GUIDING = (1U << 25U),
+
+  /* OSL. */
+  KERNEL_FEATURE_OSL = (1U << 26U),
 };
 
 /* Shader node feature mask, to specialize shader evaluation for kernels. */
@@ -1672,6 +1623,8 @@ enum KernelFeatureFlag : uint32_t {
 #define KERNEL_FEATURE_NODE_MASK_SURFACE_LIGHT \
   (KERNEL_FEATURE_NODE_EMISSION | KERNEL_FEATURE_NODE_VORONOI_EXTRA | \
    KERNEL_FEATURE_NODE_LIGHT_PATH)
+#define KERNEL_FEATURE_NODE_MASK_SURFACE_BACKGROUND \
+  (KERNEL_FEATURE_NODE_MASK_SURFACE_LIGHT | KERNEL_FEATURE_NODE_AOV)
 #define KERNEL_FEATURE_NODE_MASK_SURFACE_SHADOW \
   (KERNEL_FEATURE_NODE_BSDF | KERNEL_FEATURE_NODE_EMISSION | KERNEL_FEATURE_NODE_VOLUME | \
    KERNEL_FEATURE_NODE_BUMP | KERNEL_FEATURE_NODE_BUMP_STATE | \
@@ -1689,12 +1642,15 @@ enum KernelFeatureFlag : uint32_t {
 /* Must be constexpr on the CPU to avoid compile errors because the state types
  * are different depending on the main, shadow or null path. For GPU we don't have
  * C++17 everywhere so can't use it. */
-#ifdef __KERNEL_CPU__
-#  define IF_KERNEL_NODES_FEATURE(feature) \
-    if constexpr ((node_feature_mask & (KERNEL_FEATURE_NODE_##feature)) != 0U)
-#else
+#ifdef __KERNEL_GPU__
+#  define IF_KERNEL_FEATURE(feature) if ((node_feature_mask & (KERNEL_FEATURE_##feature)) != 0U)
 #  define IF_KERNEL_NODES_FEATURE(feature) \
     if ((node_feature_mask & (KERNEL_FEATURE_NODE_##feature)) != 0U)
+#else
+#  define IF_KERNEL_FEATURE(feature) \
+    if constexpr ((node_feature_mask & (KERNEL_FEATURE_##feature)) != 0U)
+#  define IF_KERNEL_NODES_FEATURE(feature) \
+    if constexpr ((node_feature_mask & (KERNEL_FEATURE_NODE_##feature)) != 0U)
 #endif
 
 CCL_NAMESPACE_END

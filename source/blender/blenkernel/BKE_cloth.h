@@ -79,7 +79,7 @@ typedef struct Cloth {
   int last_frame;
   float initial_mesh_volume;      /* Initial volume of the mesh. Used for pressure */
   float average_acceleration[3];  /* Moving average of overall acceleration. */
-  struct MEdge *edges;            /* Used for hair collisions. */
+  const struct MEdge *edges;      /* Used for hair collisions. */
   struct EdgeSet *sew_edge_graph; /* Sewing edges represented using a GHash */
 } Cloth;
 
@@ -216,9 +216,9 @@ int cloth_bvh_collision(struct Depsgraph *depsgraph,
                         float dt);
 
 /* -------------------------------------------------------------------- */
-/* cloth.c */
+/* cloth.cc */
 
-/* Needed for modifier.c */
+/* Needed for modifier.cc */
 /** Frees all. */
 void cloth_free_modifier_extern(struct ClothModifierData *clmd);
 /** Frees all. */

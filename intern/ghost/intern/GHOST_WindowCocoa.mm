@@ -8,6 +8,10 @@
 
 #include "GHOST_ContextCGL.h"
 
+#ifdef WITH_VULKAN_BACKEND
+#  include "GHOST_ContextVK.h"
+#endif
+
 #include <Cocoa/Cocoa.h>
 #include <Metal/Metal.h>
 #include <QuartzCore/QuartzCore.h>
@@ -426,8 +430,8 @@ GHOST_WindowCocoa::~GHOST_WindowCocoa()
     [m_window close];
   }
 
-  // Check for other blender opened windows and make the frontmost key
-  // Note: for some reason the closed window is still in the list
+  /* Check for other blender opened windows and make the front-most key
+   * NOTE: for some reason the closed window is still in the list. */
   NSArray *windowsList = [NSApp orderedWindows];
   for (int a = 0; a < [windowsList count]; a++) {
     if (m_window != (CocoaWindow *)[windowsList objectAtIndex:a]) {
@@ -719,7 +723,7 @@ void GHOST_WindowCocoa::setNativePixelSize(void)
 }
 
 /**
- * \note Fullscreen switch is not actual fullscreen with display capture.
+ * \note Full-screen switch is not actual fullscreen with display capture.
  * As this capture removes all OS X window manager features.
  *
  * Instead, the menu bar and the dock are hidden, and the window is made border-less and enlarged.
@@ -803,10 +807,23 @@ GHOST_TSuccess GHOST_WindowCocoa::setOrder(GHOST_TWindowOrder order)
 
 GHOST_Context *GHOST_WindowCocoa::newDrawingContext(GHOST_TDrawingContextType type)
 {
-  if (type == GHOST_kDrawingContextTypeOpenGL) {
+#ifdef WITH_VULKAN_BACKEND
+  if (type == GHOST_kDrawingContextTypeVulkan) {
+    GHOST_Context *context = new GHOST_ContextVK(m_wantStereoVisual, m_metalLayer, 1, 0, true);
+
+    if (!context->initializeDrawingContext()) {
+      delete context;
+      return NULL;
+    }
+
+    return context;
+  }
+#endif
+
+  if (type == GHOST_kDrawingContextTypeOpenGL || type == GHOST_kDrawingContextTypeMetal) {
 
     GHOST_Context *context = new GHOST_ContextCGL(
-        m_wantStereoVisual, m_metalView, m_metalLayer, m_openGLView);
+        m_wantStereoVisual, m_metalView, m_metalLayer, m_openGLView, type);
 
     if (context->initializeDrawingContext())
       return context;

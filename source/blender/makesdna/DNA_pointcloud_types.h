@@ -10,6 +10,24 @@
 #include "DNA_customdata_types.h"
 
 #ifdef __cplusplus
+#  include "BLI_math_vec_types.hh"
+#endif
+
+#ifdef __cplusplus
+namespace blender {
+template<typename T> class Span;
+namespace bke {
+class AttributeAccessor;
+class MutableAttributeAccessor;
+struct PointCloudRuntime;
+}  // namespace bke
+}  // namespace blender
+using PointCloudRuntimeHandle = blender::bke::PointCloudRuntime;
+#else
+typedef struct PointCloudRuntimeHandle PointCloudRuntimeHandle;
+#endif
+
+#ifdef __cplusplus
 extern "C" {
 #endif
 
@@ -18,13 +36,9 @@ typedef struct PointCloud {
   struct AnimData *adt; /* animation data (must be immediately after id) */
 
   int flag;
-  int _pad1[1];
 
   /* Geometry */
-  float (*co)[3];
-  float *radius;
   int totpoint;
-  int _pad2[1];
 
   /* Custom Data */
   struct CustomData pdata;
@@ -35,6 +49,18 @@ typedef struct PointCloud {
   struct Material **mat;
   short totcol;
   short _pad3[3];
+
+#ifdef __cplusplus
+  blender::bke::AttributeAccessor attributes() const;
+  blender::bke::MutableAttributeAccessor attributes_for_write();
+
+  void tag_positions_changed();
+  void tag_radii_changed();
+
+  bool bounds_min_max(blender::float3 &min, blender::float3 &max) const;
+#endif
+
+  PointCloudRuntimeHandle *runtime;
 
   /* Draw Cache */
   void *batch_cache;

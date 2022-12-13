@@ -45,6 +45,8 @@
 #include "ED_mask.h"
 #include "ED_screen.h"
 
+#include "DEG_depsgraph.h"
+
 #include "WM_api.h"
 #include "WM_types.h"
 
@@ -167,7 +169,7 @@ static bool action_new_poll(bContext *C)
     SpaceAction *saction = (SpaceAction *)CTX_wm_space_data(C);
     Object *ob = CTX_data_active_object(C);
 
-    /* For now, actions are only for the active object, and on object and shapekey levels... */
+    /* For now, actions are only for the active object, and on object and shape-key levels... */
     if (saction->mode == SACTCONT_ACTION) {
       /* XXX: This assumes that actions are assigned to the active object in this mode */
       if (ob) {
@@ -335,6 +337,13 @@ static int action_pushdown_exec(bContext *C, wmOperator *op)
     /* action can be safely added */
     BKE_nla_action_pushdown(adt, ID_IS_OVERRIDE_LIBRARY(adt_id_owner));
 
+    struct Main *bmain = CTX_data_main(C);
+    DEG_id_tag_update_ex(bmain, adt_id_owner, ID_RECALC_ANIMATION);
+
+    /* The action needs updating too, as FCurve modifiers are to be reevaluated. They won't extend
+     * beyond the NLA strip after pushing down to the NLA. */
+    DEG_id_tag_update_ex(bmain, &adt->action->id, ID_RECALC_ANIMATION);
+
     /* Stop displaying this action in this editor
      * NOTE: The editor itself doesn't set a user...
      */
@@ -451,7 +460,8 @@ static bool action_stash_create_poll(bContext *C)
       Scene *scene = CTX_data_scene(C);
 
       if (!(scene->flag & SCE_NLA_EDIT_ON)) {
-        /* For now, actions are only for the active object, and on object and shapekey levels... */
+        /* For now, actions are only for the active object, and on object and shape-key levels...
+         */
         return ELEM(saction->mode, SACTCONT_ACTION, SACTCONT_SHAPEKEY);
       }
     }

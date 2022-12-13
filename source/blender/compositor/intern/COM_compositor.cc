@@ -6,6 +6,7 @@
 #include "BLT_translation.h"
 
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 #include "BKE_scene.h"
 
 #include "COM_ExecutionSystem.h"
@@ -25,15 +26,15 @@ static void compositor_init_node_previews(const RenderData *render_data, bNodeTr
   /* We fit the aspect into COM_PREVIEW_SIZE x COM_PREVIEW_SIZE image to avoid
    * insane preview resolution, which might even overflow preview dimensions. */
   const float aspect = render_data->xsch > 0 ?
-                           (float)render_data->ysch / (float)render_data->xsch :
+                           float(render_data->ysch) / float(render_data->xsch) :
                            1.0f;
   int preview_width, preview_height;
   if (aspect < 1.0f) {
     preview_width = blender::compositor::COM_PREVIEW_SIZE;
-    preview_height = (int)(blender::compositor::COM_PREVIEW_SIZE * aspect);
+    preview_height = int(blender::compositor::COM_PREVIEW_SIZE * aspect);
   }
   else {
-    preview_width = (int)(blender::compositor::COM_PREVIEW_SIZE / aspect);
+    preview_width = int(blender::compositor::COM_PREVIEW_SIZE / aspect);
     preview_height = blender::compositor::COM_PREVIEW_SIZE;
   }
   BKE_node_preview_init_tree(node_tree, preview_width, preview_height);
@@ -41,8 +42,8 @@ static void compositor_init_node_previews(const RenderData *render_data, bNodeTr
 
 static void compositor_reset_node_tree_status(bNodeTree *node_tree)
 {
-  node_tree->progress(node_tree->prh, 0.0);
-  node_tree->stats_draw(node_tree->sdh, IFACE_("Compositing"));
+  node_tree->runtime->progress(node_tree->runtime->prh, 0.0);
+  node_tree->runtime->stats_draw(node_tree->runtime->sdh, IFACE_("Compositing"));
 }
 
 void COM_execute(RenderData *render_data,
@@ -61,7 +62,7 @@ void COM_execute(RenderData *render_data,
 
   BLI_mutex_lock(&g_compositor.mutex);
 
-  if (node_tree->test_break(node_tree->tbh)) {
+  if (node_tree->runtime->test_break(node_tree->runtime->tbh)) {
     /* During editing multiple compositor executions can be triggered.
      * Make sure this is the most recent one. */
     BLI_mutex_unlock(&g_compositor.mutex);
@@ -82,7 +83,7 @@ void COM_execute(RenderData *render_data,
         render_data, scene, node_tree, rendering, true, view_name);
     fast_pass.execute();
 
-    if (node_tree->test_break(node_tree->tbh)) {
+    if (node_tree->runtime->test_break(node_tree->runtime->tbh)) {
       BLI_mutex_unlock(&g_compositor.mutex);
       return;
     }

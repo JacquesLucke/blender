@@ -54,10 +54,14 @@
 #include "NOD_multi_function.hh"
 #include "NOD_shader.h"
 #include "NOD_socket_declarations.hh"
+
+#include "node_shader_register.hh"
 #include "node_util.h"
 
 #include "RE_pipeline.h"
 #include "RE_texture.h"
+
+#include "RNA_access.h"
 
 bool sh_node_poll_default(struct bNodeType *ntype,
                           struct bNodeTree *ntree,

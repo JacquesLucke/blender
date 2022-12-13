@@ -7,9 +7,6 @@
  * Screen-Space Raytracing functions.
  */
 
-uniform sampler2D maxzBuffer;
-uniform sampler2DArray planarDepth;
-
 struct Ray {
   vec3 origin;
   /* Ray direction premultiplied by its maximum length. */
@@ -51,7 +48,8 @@ void raytrace_screenspace_ray_finalize(inout ScreenSpaceRay ray)
   }
   float ray_len_sqr = len_squared(ray.direction.xyz);
   /* Make ray.direction cover one pixel. */
-  bool is_more_vertical = abs(ray.direction.x) < abs(ray.direction.y);
+  bool is_more_vertical = abs(ray.direction.x / ssrPixelSize.x) <
+                          abs(ray.direction.y / ssrPixelSize.y);
   ray.direction /= (is_more_vertical) ? abs(ray.direction.y) : abs(ray.direction.x);
   ray.direction *= (is_more_vertical) ? ssrPixelSize.y : ssrPixelSize.x;
   /* Clip to segment's end. */

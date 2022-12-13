@@ -6,6 +6,8 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "BKE_node_runtime.hh"
+
 namespace blender::nodes::node_shader_subsurface_scattering_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
@@ -25,15 +27,16 @@ static void node_declare(NodeDeclarationBuilder &b)
       .max(1.0f)
       .subtype(PROP_FACTOR);
   b.add_input<decl::Vector>(N_("Normal")).hide_value();
+  b.add_input<decl::Float>(N_("Weight")).unavailable();
   b.add_output<decl::Shader>(N_("BSSRDF"));
 }
 
-static void node_shader_buts_subsurface(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_subsurface(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "falloff", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
 }
 
-static void node_shader_init_subsurface_scattering(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_subsurface_scattering(bNodeTree * /*ntree*/, bNode *node)
 {
   node->custom1 = SHD_SUBSURFACE_RANDOM_WALK;
   node->custom2 = true;
@@ -41,7 +44,7 @@ static void node_shader_init_subsurface_scattering(bNodeTree *UNUSED(ntree), bNo
 
 static int node_shader_gpu_subsurface_scattering(GPUMaterial *mat,
                                                  bNode *node,
-                                                 bNodeExecData *UNUSED(execdata),
+                                                 bNodeExecData * /*execdata*/,
                                                  GPUNodeStack *in,
                                                  GPUNodeStack *out)
 {
@@ -49,19 +52,16 @@ static int node_shader_gpu_subsurface_scattering(GPUMaterial *mat,
     GPU_link(mat, "world_normals_get", &in[5].link);
   }
 
-  if (node->sss_id > 0) {
-    bNodeSocket *socket = (bNodeSocket *)BLI_findlink(&node->original->inputs, 2);
-    bNodeSocketValueRGBA *socket_data = (bNodeSocketValueRGBA *)socket->default_value;
-    /* For some reason it seems that the socket value is in ARGB format. */
-    GPU_material_sss_profile_create(mat, &socket_data->value[1]);
+  bNodeSocket *socket = (bNodeSocket *)BLI_findlink(&node->runtime->original->inputs, 2);
+  bNodeSocketValueRGBA *socket_data = (bNodeSocketValueRGBA *)socket->default_value;
+  /* For some reason it seems that the socket value is in ARGB format. */
+  bool use_subsurf = GPU_material_sss_profile_create(mat, &socket_data->value[1]);
 
-    /* sss_id is 0 only the node is not connected to any output.
-     * In this case flagging the material would trigger a bug (see T68736). */
-    GPU_material_flag_set(mat, (eGPUMatFlag)(GPU_MATFLAG_DIFFUSE | GPU_MATFLAG_SSS));
-  }
+  float use_sss = (use_subsurf) ? 1.0f : 0.0f;
 
-  return GPU_stack_link(
-      mat, node, "node_subsurface_scattering", in, out, GPU_constant(&node->sss_id));
+  GPU_material_flag_set(mat, GPU_MATFLAG_DIFFUSE | GPU_MATFLAG_SUBSURFACE);
+
+  return GPU_stack_link(mat, node, "node_subsurface_scattering", in, out, GPU_uniform(&use_sss));
 }
 
 static void node_shader_update_subsurface_scattering(bNodeTree *ntree, bNode *node)
@@ -89,9 +89,9 @@ void register_node_type_sh_subsurface_scattering()
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_subsurface;
   node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
-  node_type_init(&ntype, file_ns::node_shader_init_subsurface_scattering);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_subsurface_scattering);
-  node_type_update(&ntype, file_ns::node_shader_update_subsurface_scattering);
+  ntype.initfunc = file_ns::node_shader_init_subsurface_scattering;
+  ntype.gpu_fn = file_ns::node_shader_gpu_subsurface_scattering;
+  ntype.updatefunc = file_ns::node_shader_update_subsurface_scattering;
 
   nodeRegisterType(&ntype);
 }

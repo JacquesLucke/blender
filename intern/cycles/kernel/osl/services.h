@@ -22,11 +22,8 @@ class PtexCache;
 
 CCL_NAMESPACE_BEGIN
 
-class Object;
 class Scene;
-class Shader;
 struct ShaderData;
-struct float3;
 struct KernelGlobalsCPU;
 
 /* OSL Texture Handle
@@ -39,18 +36,26 @@ struct KernelGlobalsCPU;
  * with additional data.
  *
  * These are stored in a concurrent hash map, because OSL can compile multiple
- * shaders in parallel. */
+ * shaders in parallel.
+ *
+ * NOTE: The svm_slots array contains a compressed mapping of tile to svm_slot pairs
+ * stored as follows: x:tile_a, y:svm_slot_a, z:tile_b, w:svm_slot_b etc. */
 
 struct OSLTextureHandle : public OIIO::RefCnt {
   enum Type { OIIO, SVM, IES, BEVEL, AO };
 
+  OSLTextureHandle(Type type, const vector<int4> &svm_slots)
+      : type(type), svm_slots(svm_slots), oiio_handle(NULL), processor(NULL)
+  {
+  }
+
   OSLTextureHandle(Type type = OIIO, int svm_slot = -1)
-      : type(type), svm_slot(svm_slot), oiio_handle(NULL), processor(NULL)
+      : OSLTextureHandle(type, {make_int4(0, svm_slot, -1, -1)})
   {
   }
 
   Type type;
-  int svm_slot;
+  vector<int4> svm_slots;
   OSL::TextureSystem::TextureHandle *oiio_handle;
   ColorSpaceProcessor *processor;
 };
@@ -65,8 +70,12 @@ typedef OIIO::unordered_map_concurrent<ustring, OSLTextureHandleRef, ustringHash
 
 class OSLRenderServices : public OSL::RendererServices {
  public:
-  OSLRenderServices(OSL::TextureSystem *texture_system);
+  OSLRenderServices(OSL::TextureSystem *texture_system, int device_type);
   ~OSLRenderServices();
+
+  static void register_closures(OSL::ShadingSystem *ss);
+
+  int supports(string_view feature) const override;
 
   bool get_matrix(OSL::ShaderGlobals *sg,
                   OSL::Matrix44 &result,
@@ -313,8 +322,10 @@ class OSLRenderServices : public OSL::RendererServices {
    * globals to be shared between different render sessions. This saves memory,
    * and is required because texture handles are cached as part of the shared
    * shading system. */
-  OSL::TextureSystem *texture_system;
   OSLTextureHandleMap textures;
+
+ private:
+  int device_type_;
 };
 
 CCL_NAMESPACE_END

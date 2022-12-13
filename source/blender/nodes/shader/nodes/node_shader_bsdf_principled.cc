@@ -6,6 +6,8 @@
 #include "UI_interface.h"
 #include "UI_resources.h"
 
+#include "BKE_node_runtime.hh"
+
 namespace blender::nodes::node_shader_bsdf_principled_cc {
 
 static void node_declare(NodeDeclarationBuilder &b)
@@ -103,16 +105,17 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_input<decl::Vector>(N_("Normal")).hide_value();
   b.add_input<decl::Vector>(N_("Clearcoat Normal")).hide_value();
   b.add_input<decl::Vector>(N_("Tangent")).hide_value();
+  b.add_input<decl::Float>(N_("Weight")).unavailable();
   b.add_output<decl::Shader>(N_("BSDF"));
 }
 
-static void node_shader_buts_principled(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_shader_buts_principled(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "distribution", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
   uiItemR(layout, ptr, "subsurface_method", UI_ITEM_R_SPLIT_EMPTY_NAME, "", ICON_NONE);
 }
 
-static void node_shader_init_principled(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_principled(bNodeTree * /*ntree*/, bNode *node)
 {
   node->custom1 = SHD_GLOSSY_GGX;
   node->custom2 = SHD_SUBSURFACE_RANDOM_WALK;
@@ -124,12 +127,10 @@ static void node_shader_init_principled(bNodeTree *UNUSED(ntree), bNode *node)
 
 static int node_shader_gpu_bsdf_principled(GPUMaterial *mat,
                                            bNode *node,
-                                           bNodeExecData *UNUSED(execdata),
+                                           bNodeExecData * /*execdata*/,
                                            GPUNodeStack *in,
                                            GPUNodeStack *out)
 {
-  GPUNodeLink *sss_scale;
-
   /* Normals */
   if (!in[22].link) {
     GPU_link(mat, "world_normals_get", &in[22].link);
@@ -145,36 +146,17 @@ static int node_shader_gpu_bsdf_principled(GPUMaterial *mat,
   if (!in[24].link) {
     GPUNodeLink *orco = GPU_attribute(CD_ORCO, "");
     GPU_link(mat, "tangent_orco_z", orco, &in[24].link);
-    GPU_link(mat,
-             "node_tangent",
-             GPU_builtin(GPU_WORLD_NORMAL),
-             in[24].link,
-             GPU_builtin(GPU_OBJECT_MATRIX),
-             &in[24].link);
+    GPU_link(mat, "node_tangent", in[24].link, &in[24].link);
   }
 #endif
 
   bool use_diffuse = socket_not_one(6) && socket_not_one(17);
-  bool use_subsurf = socket_not_zero(1) && use_diffuse && node->sss_id > 0;
+  bool use_subsurf = socket_not_zero(1) && use_diffuse;
   bool use_refract = socket_not_one(6) && socket_not_zero(17);
+  bool use_transparency = socket_not_one(21);
   bool use_clear = socket_not_zero(14);
 
-  /* SSS Profile */
-  if (use_subsurf) {
-    bNodeSocket *socket = (bNodeSocket *)BLI_findlink(&node->original->inputs, 2);
-    bNodeSocketValueRGBA *socket_data = (bNodeSocketValueRGBA *)socket->default_value;
-    /* For some reason it seems that the socket value is in ARGB format. */
-    GPU_material_sss_profile_create(mat, &socket_data->value[1]);
-  }
-
-  if (in[2].link) {
-    sss_scale = in[2].link;
-  }
-  else {
-    GPU_link(mat, "set_rgb_one", &sss_scale);
-  }
-
-  uint flag = GPU_MATFLAG_GLOSSY;
+  eGPUMaterialFlag flag = GPU_MATFLAG_GLOSSY;
   if (use_diffuse) {
     flag |= GPU_MATFLAG_DIFFUSE;
   }
@@ -182,28 +164,58 @@ static int node_shader_gpu_bsdf_principled(GPUMaterial *mat,
     flag |= GPU_MATFLAG_REFRACT;
   }
   if (use_subsurf) {
-    flag |= GPU_MATFLAG_SSS;
+    flag |= GPU_MATFLAG_SUBSURFACE;
+  }
+  if (use_transparency) {
+    flag |= GPU_MATFLAG_TRANSPARENT;
+  }
+  if (use_clear) {
+    flag |= GPU_MATFLAG_CLEARCOAT;
   }
 
-  float f_use_diffuse = use_diffuse ? 1.0f : 0.0f;
-  float f_use_clearcoat = use_clear ? 1.0f : 0.0f;
-  float f_use_refraction = use_refract ? 1.0f : 0.0f;
-  float use_multi_scatter = (node->custom1 == SHD_GLOSSY_MULTI_GGX) ? 1.0f : 0.0f;
+  /* Ref. T98190: Defines are optimizations for old compilers.
+   * Might become unnecessary with EEVEE-Next. */
+  if (use_diffuse == false && use_refract == false && use_clear == true) {
+    flag |= GPU_MATFLAG_PRINCIPLED_CLEARCOAT;
+  }
+  else if (use_diffuse == false && use_refract == false && use_clear == false) {
+    flag |= GPU_MATFLAG_PRINCIPLED_METALLIC;
+  }
+  else if (use_diffuse == true && use_refract == false && use_clear == false) {
+    flag |= GPU_MATFLAG_PRINCIPLED_DIELECTRIC;
+  }
+  else if (use_diffuse == false && use_refract == true && use_clear == false) {
+    flag |= GPU_MATFLAG_PRINCIPLED_GLASS;
+  }
+  else {
+    flag |= GPU_MATFLAG_PRINCIPLED_ANY;
+  }
 
-  GPU_material_flag_set(mat, (eGPUMatFlag)flag);
+  if (use_subsurf) {
+    bNodeSocket *socket = (bNodeSocket *)BLI_findlink(&node->runtime->original->inputs, 2);
+    bNodeSocketValueRGBA *socket_data = (bNodeSocketValueRGBA *)socket->default_value;
+    /* For some reason it seems that the socket value is in ARGB format. */
+    use_subsurf = GPU_material_sss_profile_create(mat, &socket_data->value[1]);
+  }
+
+  float use_multi_scatter = (node->custom1 == SHD_GLOSSY_MULTI_GGX) ? 1.0f : 0.0f;
+  float use_sss = (use_subsurf) ? 1.0f : 0.0f;
+  float use_diffuse_f = (use_diffuse) ? 1.0f : 0.0f;
+  float use_clear_f = (use_clear) ? 1.0f : 0.0f;
+  float use_refract_f = (use_refract) ? 1.0f : 0.0f;
+
+  GPU_material_flag_set(mat, flag);
 
   return GPU_stack_link(mat,
                         node,
                         "node_bsdf_principled",
                         in,
                         out,
-                        GPU_constant(&f_use_diffuse),
-                        GPU_constant(&f_use_clearcoat),
-                        GPU_constant(&f_use_refraction),
+                        GPU_constant(&use_diffuse_f),
+                        GPU_constant(&use_clear_f),
+                        GPU_constant(&use_refract_f),
                         GPU_constant(&use_multi_scatter),
-                        GPU_constant(&node->ssr_id),
-                        GPU_constant(&node->sss_id),
-                        sss_scale);
+                        GPU_uniform(&use_sss));
 }
 
 static void node_shader_update_principled(bNodeTree *ntree, bNode *node)
@@ -235,9 +247,9 @@ void register_node_type_sh_bsdf_principled()
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_principled;
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
-  node_type_init(&ntype, file_ns::node_shader_init_principled);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_bsdf_principled);
-  node_type_update(&ntype, file_ns::node_shader_update_principled);
+  ntype.initfunc = file_ns::node_shader_init_principled;
+  ntype.gpu_fn = file_ns::node_shader_gpu_bsdf_principled;
+  ntype.updatefunc = file_ns::node_shader_update_principled;
 
   nodeRegisterType(&ntype);
 }

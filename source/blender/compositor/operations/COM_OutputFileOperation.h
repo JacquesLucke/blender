@@ -35,7 +35,7 @@ class OutputSingleLayerOperation : public MultiThreadedOperation {
                              const RenderData *rd,
                              const bNodeTree *tree,
                              DataType datatype,
-                             ImageFormatData *format,
+                             const ImageFormatData *format,
                              const char *path,
                              const char *view_name,
                              bool save_as_render);
@@ -71,7 +71,7 @@ struct OutputOpenExrLayer {
   SocketReader *image_input;
 };
 
-/* Writes inputs into OpenEXR multilayer channels. */
+/* Writes inputs into OpenEXR multi-layer channels. */
 class OutputOpenExrMultiLayerOperation : public MultiThreadedOperation {
  protected:
   const Scene *scene_;

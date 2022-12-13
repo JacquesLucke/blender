@@ -4,6 +4,7 @@ set(INC
   ../include
   ../../blenkernel
   ../../blenlib
+  ../../blenloader
   ../../blentranslation
   ../../depsgraph
   ../../gpu
@@ -13,8 +14,10 @@ set(INC
   ../../sequencer
   ../../windowmanager
   ../../../../intern/clog
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
+
+  # dna_type_offsets.h
+  ${CMAKE_CURRENT_BINARY_DIR}/../../makesdna/intern
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
@@ -27,6 +30,7 @@ set(SRC
   outliner_draw.cc
   outliner_edit.cc
   outliner_ops.cc
+  outliner_query.cc
   outliner_select.cc
   outliner_sync.cc
   outliner_tools.cc
@@ -38,8 +42,8 @@ set(SRC
   tree/tree_display_data.cc
   tree/tree_display_libraries.cc
   tree/tree_display_orphaned.cc
-  tree/tree_display_override_library_properties.cc
   tree/tree_display_override_library_hierarchies.cc
+  tree/tree_display_override_library_properties.cc
   tree/tree_display_scenes.cc
   tree/tree_display_sequencer.cc
   tree/tree_display_view_layer.cc
@@ -51,12 +55,14 @@ set(SRC
   tree/tree_element_id.cc
   tree/tree_element_id_library.cc
   tree/tree_element_id_scene.cc
+  tree/tree_element_label.cc
   tree/tree_element_nla.cc
   tree/tree_element_overrides.cc
   tree/tree_element_rna.cc
   tree/tree_element_scene_objects.cc
   tree/tree_element_seq.cc
   tree/tree_element_view_layer.cc
+  tree/tree_iterator.cc
 
   outliner_intern.hh
   tree/common.hh
@@ -69,12 +75,14 @@ set(SRC
   tree/tree_element_id.hh
   tree/tree_element_id_library.hh
   tree/tree_element_id_scene.hh
+  tree/tree_element_label.hh
   tree/tree_element_nla.hh
   tree/tree_element_overrides.hh
   tree/tree_element_rna.hh
   tree/tree_element_scene_objects.hh
   tree/tree_element_seq.hh
   tree/tree_element_view_layer.hh
+  tree/tree_iterator.hh
 )
 
 set(LIB
@@ -86,5 +94,5 @@ set(LIB
 
 blender_add_lib(bf_editor_space_outliner "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 
-# RNA_prototypes.h
+# RNA_prototypes.h dna_type_offsets.h
 add_dependencies(bf_editor_space_outliner bf_rna)

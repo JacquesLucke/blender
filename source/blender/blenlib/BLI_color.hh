@@ -79,7 +79,7 @@ enum class eSpace {
 };
 std::ostream &operator<<(std::ostream &stream, const eSpace &space);
 
-/** Template class to store RGBA values with different precision, space and alpha association. */
+/** Template class to store RGBA values with different precision, space, and alpha association. */
 template<typename ChannelStorageType, eSpace Space, eAlpha Alpha> class ColorRGBA {
  public:
   ChannelStorageType r, g, b, a;
@@ -167,7 +167,7 @@ class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Al
   }
 
   /**
-   * Convert to its byte encoded counter space.
+   * Convert to its byte encoded counterpart.
    */
   ColorSceneLinearByteEncoded4b<Alpha> encode() const
   {
@@ -179,7 +179,7 @@ class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Al
   /**
    * Convert color and alpha association to premultiplied alpha.
    *
-   * Does nothing when color has already a premultiplied alpha.
+   * Does nothing when color already has a premultiplied alpha.
    */
   ColorSceneLinear4f<eAlpha::Premultiplied> premultiply_alpha() const
   {
@@ -196,7 +196,7 @@ class ColorSceneLinear4f final : public ColorRGBA<float, eSpace::SceneLinear, Al
   /**
    * Convert color and alpha association to straight alpha.
    *
-   * Does nothing when color has straighten alpha.
+   * Does nothing when color has straight alpha.
    */
   ColorSceneLinear4f<eAlpha::Straight> unpremultiply_alpha() const
   {
@@ -228,7 +228,7 @@ class ColorSceneLinearByteEncoded4b final
   }
 
   /**
-   * Convert to back to float color.
+   * Convert to a float color.
    */
   ColorSceneLinear4f<Alpha> decode() const
   {
@@ -345,5 +345,7 @@ BLI_color_convert_to_theme4b(const ColorSceneLinear4f<eAlpha::Straight> &scene_l
 
 using ColorGeometry4f = ColorSceneLinear4f<eAlpha::Premultiplied>;
 using ColorGeometry4b = ColorSceneLinearByteEncoded4b<eAlpha::Premultiplied>;
+using ColorPaint4f = ColorSceneLinear4f<eAlpha::Straight>;
+using ColorPaint4b = ColorSceneLinearByteEncoded4b<eAlpha::Straight>;
 
 }  // namespace blender

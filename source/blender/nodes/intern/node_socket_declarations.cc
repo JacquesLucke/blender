@@ -4,6 +4,7 @@
 #include "NOD_socket_declarations_geometry.hh"
 
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 
 #include "BLI_math_vector.h"
 
@@ -33,14 +34,14 @@ static bool sockets_can_connect(const SocketDeclaration &socket_decl,
     return false;
   }
 
-  if (other_socket.declaration) {
+  if (other_socket.runtime->declaration) {
     if (socket_decl.in_out() == SOCK_IN) {
-      if (!field_types_are_compatible(socket_decl, *other_socket.declaration)) {
+      if (!field_types_are_compatible(socket_decl, *other_socket.runtime->declaration)) {
         return false;
       }
     }
     else {
-      if (!field_types_are_compatible(*other_socket.declaration, socket_decl)) {
+      if (!field_types_are_compatible(*other_socket.runtime->declaration, socket_decl)) {
         return false;
       }
     }
@@ -49,7 +50,7 @@ static bool sockets_can_connect(const SocketDeclaration &socket_decl,
   return true;
 }
 
-static bool basic_types_can_connect(const SocketDeclaration &UNUSED(socket_decl),
+static bool basic_types_can_connect(const SocketDeclaration & /*socket_decl*/,
                                     const bNodeSocket &other_socket)
 {
   return ELEM(other_socket.type, SOCK_FLOAT, SOCK_INT, SOCK_BOOLEAN, SOCK_VECTOR, SOCK_RGBA);

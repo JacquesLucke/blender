@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import os
 import sys
 
@@ -15,7 +13,7 @@ def main():
     test = [
 
         SpecMeshTest("ClothSimple", "testClothPlane", "expectedClothPlane",
-                 [ModifierSpec('Cloth', 'CLOTH', {'settings': {'quality': 5}}, 15)], threshold=1e-3),
+                     [ModifierSpec('Cloth', 'CLOTH', {'settings': {'quality': 5}}, 15)], threshold=1e-3),
 
         # Not reproducible
         # SpecMeshTest("ClothPressure", "testObjClothPressure", "expObjClothPressure",
@@ -27,7 +25,7 @@ def main():
         #           [ModifierSpec('Cloth', 'CLOTH', {'collision_settings': {'use_self_collision': True}}, 67)]),
 
         SpecMeshTest("ClothSpring", "testTorusClothSpring", "expTorusClothSpring",
-                 [ModifierSpec('Cloth2', 'CLOTH', {'settings': {'use_internal_springs': True}}, 10)], threshold=1e-3),
+                     [ModifierSpec('Cloth2', 'CLOTH', {'settings': {'use_internal_springs': True}}, 10)], threshold=1e-3),
 
     ]
     cloth_test = RunTest(test)

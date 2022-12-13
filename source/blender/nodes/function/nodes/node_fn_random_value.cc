@@ -14,7 +14,7 @@ namespace blender::nodes::node_fn_random_value_cc {
 
 NODE_STORAGE_FUNCS(NodeRandomValue)
 
-static void fn_node_random_value_declare(NodeDeclarationBuilder &b)
+static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Vector>(N_("Min")).supports_field();
   b.add_input<decl::Vector>(N_("Max")).default_value({1.0f, 1.0f, 1.0f}).supports_field();
@@ -33,7 +33,7 @@ static void fn_node_random_value_declare(NodeDeclarationBuilder &b)
       .subtype(PROP_FACTOR)
       .supports_field()
       .make_available([](bNode &node) { node_storage(node).data_type = CD_PROP_BOOL; });
-  b.add_input<decl::Int>(N_("ID")).implicit_field();
+  b.add_input<decl::Int>(N_("ID")).implicit_field(implicit_field_inputs::id_or_index);
   b.add_input<decl::Int>(N_("Seed")).default_value(0).min(-10000).max(10000).supports_field();
 
   b.add_output<decl::Vector>(N_("Value")).dependent_field();
@@ -42,12 +42,12 @@ static void fn_node_random_value_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Bool>(N_("Value"), "Value_003").dependent_field();
 }
 
-static void fn_node_random_value_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
 }
 
-static void fn_node_random_value_init(bNodeTree *UNUSED(tree), bNode *node)
+static void fn_node_random_value_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeRandomValue *data = MEM_cnew<NodeRandomValue>(__func__);
   data->data_type = CD_PROP_FLOAT;
@@ -57,7 +57,7 @@ static void fn_node_random_value_init(bNodeTree *UNUSED(tree), bNode *node)
 static void fn_node_random_value_update(bNodeTree *ntree, bNode *node)
 {
   const NodeRandomValue &storage = node_storage(*node);
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
 
   bNodeSocket *sock_min_vector = (bNodeSocket *)node->inputs.first;
   bNodeSocket *sock_max_vector = sock_min_vector->next;
@@ -86,7 +86,7 @@ static void fn_node_random_value_update(bNodeTree *ntree, bNode *node)
   nodeSetSocketAvailability(ntree, sock_out_bool, data_type == CD_PROP_BOOL);
 }
 
-static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
+static std::optional<eCustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
 {
   switch (socket.type) {
     case SOCK_FLOAT:
@@ -103,10 +103,10 @@ static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSock
   }
 }
 
-static void fn_node_random_value_gather_link_search(GatherLinkSearchOpParams &params)
+static void node_gather_link_search_ops(GatherLinkSearchOpParams &params)
 {
   const NodeDeclaration &declaration = *params.node_type().fixed_declaration;
-  const std::optional<CustomDataType> type = node_type_from_other_socket(params.other_socket());
+  const std::optional<eCustomDataType> type = node_type_from_other_socket(params.other_socket());
   if (!type) {
     return;
   }
@@ -134,185 +134,71 @@ static void fn_node_random_value_gather_link_search(GatherLinkSearchOpParams &pa
   }
 }
 
-class RandomVectorFunction : public fn::MultiFunction {
- public:
-  RandomVectorFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Random Value"};
-    signature.single_input<float3>("Min");
-    signature.single_input<float3>("Max");
-    signature.single_input<int>("ID");
-    signature.single_input<int>("Seed");
-    signature.single_output<float3>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float3> &min_values = params.readonly_single_input<float3>(0, "Min");
-    const VArray<float3> &max_values = params.readonly_single_input<float3>(1, "Max");
-    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
-    MutableSpan<float3> values = params.uninitialized_single_output<float3>(4, "Value");
-
-    for (int64_t i : mask) {
-      const float3 min_value = min_values[i];
-      const float3 max_value = max_values[i];
-      const int seed = seeds[i];
-      const int id = ids[i];
-
-      const float x = noise::hash_to_float(seed, id, 0);
-      const float y = noise::hash_to_float(seed, id, 1);
-      const float z = noise::hash_to_float(seed, id, 2);
-
-      values[i] = float3(x, y, z) * (max_value - min_value) + min_value;
-    }
-  }
-};
-
-class RandomFloatFunction : public fn::MultiFunction {
- public:
-  RandomFloatFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Random Value"};
-    signature.single_input<float>("Min");
-    signature.single_input<float>("Max");
-    signature.single_input<int>("ID");
-    signature.single_input<int>("Seed");
-    signature.single_output<float>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float> &min_values = params.readonly_single_input<float>(0, "Min");
-    const VArray<float> &max_values = params.readonly_single_input<float>(1, "Max");
-    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
-    MutableSpan<float> values = params.uninitialized_single_output<float>(4, "Value");
-
-    for (int64_t i : mask) {
-      const float min_value = min_values[i];
-      const float max_value = max_values[i];
-      const int seed = seeds[i];
-      const int id = ids[i];
-
-      const float value = noise::hash_to_float(seed, id);
-      values[i] = value * (max_value - min_value) + min_value;
-    }
-  }
-};
-
-class RandomIntFunction : public fn::MultiFunction {
- public:
-  RandomIntFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Random Value"};
-    signature.single_input<int>("Min");
-    signature.single_input<int>("Max");
-    signature.single_input<int>("ID");
-    signature.single_input<int>("Seed");
-    signature.single_output<int>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<int> &min_values = params.readonly_single_input<int>(0, "Min");
-    const VArray<int> &max_values = params.readonly_single_input<int>(1, "Max");
-    const VArray<int> &ids = params.readonly_single_input<int>(2, "ID");
-    const VArray<int> &seeds = params.readonly_single_input<int>(3, "Seed");
-    MutableSpan<int> values = params.uninitialized_single_output<int>(4, "Value");
-
-    /* Add one to the maximum and use floor to produce an even
-     * distribution for the first and last values (See T93591). */
-    for (int64_t i : mask) {
-      const float min_value = min_values[i];
-      const float max_value = max_values[i] + 1.0f;
-      const int seed = seeds[i];
-      const int id = ids[i];
-
-      const float value = noise::hash_to_float(id, seed);
-      values[i] = floor(value * (max_value - min_value) + min_value);
-    }
-  }
-};
-
-class RandomBoolFunction : public fn::MultiFunction {
- public:
-  RandomBoolFunction()
-  {
-    static fn::MFSignature signature = create_signature();
-    this->set_signature(&signature);
-  }
-
-  static fn::MFSignature create_signature()
-  {
-    fn::MFSignatureBuilder signature{"Random Value"};
-    signature.single_input<float>("Probability");
-    signature.single_input<int>("ID");
-    signature.single_input<int>("Seed");
-    signature.single_output<bool>("Value");
-    return signature.build();
-  }
-
-  void call(IndexMask mask, fn::MFParams params, fn::MFContext UNUSED(context)) const override
-  {
-    const VArray<float> &probabilities = params.readonly_single_input<float>(0, "Probability");
-    const VArray<int> &ids = params.readonly_single_input<int>(1, "ID");
-    const VArray<int> &seeds = params.readonly_single_input<int>(2, "Seed");
-    MutableSpan<bool> values = params.uninitialized_single_output<bool>(3, "Value");
-
-    for (int64_t i : mask) {
-      const int seed = seeds[i];
-      const int id = ids[i];
-      const float probability = probabilities[i];
-      values[i] = noise::hash_to_float(id, seed) <= probability;
-    }
-  }
-};
-
-static void fn_node_random_value_build_multi_function(NodeMultiFunctionBuilder &builder)
+static void node_build_multi_function(NodeMultiFunctionBuilder &builder)
 {
   const NodeRandomValue &storage = node_storage(builder.node());
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
+  const eCustomDataType data_type = static_cast<eCustomDataType>(storage.data_type);
 
   switch (data_type) {
     case CD_PROP_FLOAT3: {
-      static RandomVectorFunction fn;
+      static fn::CustomMF<fn::MFParamTag<fn::MFParamCategory::SingleInput, float3>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, float3>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleOutput, float3>>
+          fn{"Random Vector",
+             [](float3 min_value, float3 max_value, int id, int seed, float3 *r_value) {
+               const float x = noise::hash_to_float(seed, id, 0);
+               const float y = noise::hash_to_float(seed, id, 1);
+               const float z = noise::hash_to_float(seed, id, 2);
+               *r_value = float3(x, y, z) * (max_value - min_value) + min_value;
+             },
+             fn::CustomMF_presets::SomeSpanOrSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }
     case CD_PROP_FLOAT: {
-      static RandomFloatFunction fn;
+      static fn::CustomMF<fn::MFParamTag<fn::MFParamCategory::SingleInput, float>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, float>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleOutput, float>>
+          fn{"Random Float",
+             [](float min_value, float max_value, int id, int seed, float *r_value) {
+               const float value = noise::hash_to_float(seed, id);
+               *r_value = value * (max_value - min_value) + min_value;
+             },
+             fn::CustomMF_presets::SomeSpanOrSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }
     case CD_PROP_INT32: {
-      static RandomIntFunction fn;
+      static fn::CustomMF<fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleOutput, int>>
+          fn{"Random Int",
+             [](int min_value, int max_value, int id, int seed, int *r_value) {
+               const float value = noise::hash_to_float(id, seed);
+               /* Add one to the maximum and use floor to produce an even
+                * distribution for the first and last values (See T93591). */
+               *r_value = floor(value * (max_value + 1 - min_value) + min_value);
+             },
+             fn::CustomMF_presets::SomeSpanOrSingle<2>()};
       builder.set_matching_fn(fn);
       break;
     }
     case CD_PROP_BOOL: {
-      static RandomBoolFunction fn;
+      static fn::CustomMF<fn::MFParamTag<fn::MFParamCategory::SingleInput, float>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleInput, int>,
+                          fn::MFParamTag<fn::MFParamCategory::SingleOutput, bool>>
+          fn{"Random Bool",
+             [](float probability, int id, int seed, bool *r_value) {
+               *r_value = noise::hash_to_float(id, seed) <= probability;
+             },
+             fn::CustomMF_presets::SomeSpanOrSingle<1>()};
       builder.set_matching_fn(fn);
       break;
     }
@@ -332,12 +218,12 @@ void register_node_type_fn_random_value()
   static bNodeType ntype;
 
   fn_node_type_base(&ntype, FN_NODE_RANDOM_VALUE, "Random Value", NODE_CLASS_CONVERTER);
-  node_type_init(&ntype, file_ns::fn_node_random_value_init);
-  node_type_update(&ntype, file_ns::fn_node_random_value_update);
-  ntype.draw_buttons = file_ns::fn_node_random_value_layout;
-  ntype.declare = file_ns::fn_node_random_value_declare;
-  ntype.build_multi_function = file_ns::fn_node_random_value_build_multi_function;
-  ntype.gather_link_search_ops = file_ns::fn_node_random_value_gather_link_search;
+  ntype.initfunc = file_ns::fn_node_random_value_init;
+  ntype.updatefunc = file_ns::fn_node_random_value_update;
+  ntype.draw_buttons = file_ns::node_layout;
+  ntype.declare = file_ns::node_declare;
+  ntype.build_multi_function = file_ns::node_build_multi_function;
+  ntype.gather_link_search_ops = file_ns::node_gather_link_search_ops;
   node_type_storage(
       &ntype, "NodeRandomValue", node_free_standard_storage, node_copy_standard_storage);
   nodeRegisterType(&ntype);

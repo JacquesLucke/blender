@@ -8,6 +8,8 @@ set(OIDN_EXTRA_ARGS
   -DOIDN_STATIC_LIB=ON
   -DOIDN_STATIC_RUNTIME=OFF
   -DISPC_EXECUTABLE=${LIBDIR}/ispc/bin/ispc
+  -DOIDN_FILTER_RTLIGHTMAP=OFF
+  -DPYTHON_EXECUTABLE=${PYTHON_BINARY}
 )
 
 if(WIN32)
@@ -37,6 +39,7 @@ add_dependencies(
   external_openimagedenoise
   external_tbb
   external_ispc
+  external_python
 )
 
 if(WIN32)

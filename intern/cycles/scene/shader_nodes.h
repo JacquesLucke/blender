@@ -907,8 +907,6 @@ class GeometryNode : public ShaderNode {
     return true;
   }
   int get_group();
-
-  NODE_SOCKET_API(float3, normal_osl)
 };
 
 class TextureCoordinateNode : public ShaderNode {
@@ -924,7 +922,6 @@ class TextureCoordinateNode : public ShaderNode {
     return true;
   }
 
-  NODE_SOCKET_API(float3, normal_osl)
   NODE_SOCKET_API(bool, from_dupli)
   NODE_SOCKET_API(bool, use_transform)
   NODE_SOCKET_API(Transform, ob_tfm)
@@ -1101,6 +1098,63 @@ class MixNode : public ShaderNode {
   NODE_SOCKET_API(float, fac)
 };
 
+class MixColorNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(MixColorNode)
+  void constant_fold(const ConstantFolder &folder);
+
+  NODE_SOCKET_API(float3, a)
+  NODE_SOCKET_API(float3, b)
+  NODE_SOCKET_API(float, fac)
+  NODE_SOCKET_API(bool, use_clamp)
+  NODE_SOCKET_API(bool, use_clamp_result)
+  NODE_SOCKET_API(NodeMix, blend_type)
+};
+
+class MixFloatNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(MixFloatNode)
+  void constant_fold(const ConstantFolder &folder);
+
+  NODE_SOCKET_API(float, a)
+  NODE_SOCKET_API(float, b)
+  NODE_SOCKET_API(float, fac)
+  NODE_SOCKET_API(bool, use_clamp)
+};
+
+class MixVectorNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(MixVectorNode)
+  void constant_fold(const ConstantFolder &folder);
+
+  NODE_SOCKET_API(float3, a)
+  NODE_SOCKET_API(float3, b)
+  NODE_SOCKET_API(float, fac)
+  NODE_SOCKET_API(bool, use_clamp)
+};
+
+class MixVectorNonUniformNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(MixVectorNonUniformNode)
+  void constant_fold(const ConstantFolder &folder);
+
+  NODE_SOCKET_API(float3, a)
+  NODE_SOCKET_API(float3, b)
+  NODE_SOCKET_API(float3, fac)
+  NODE_SOCKET_API(bool, use_clamp)
+};
+
+class CombineColorNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(CombineColorNode)
+  void constant_fold(const ConstantFolder &folder);
+
+  NODE_SOCKET_API(NodeCombSepColorType, color_type)
+  NODE_SOCKET_API(float, r)
+  NODE_SOCKET_API(float, g)
+  NODE_SOCKET_API(float, b)
+};
+
 class CombineRGBNode : public ShaderNode {
  public:
   SHADER_NODE_CLASS(CombineRGBNode)
@@ -1148,6 +1202,15 @@ class BrightContrastNode : public ShaderNode {
   NODE_SOCKET_API(float3, color)
   NODE_SOCKET_API(float, bright)
   NODE_SOCKET_API(float, contrast)
+};
+
+class SeparateColorNode : public ShaderNode {
+ public:
+  SHADER_NODE_CLASS(SeparateColorNode)
+  void constant_fold(const ConstantFolder &folder);
+
+  NODE_SOCKET_API(NodeCombSepColorType, color_type)
+  NODE_SOCKET_API(float3, color)
 };
 
 class SeparateRGBNode : public ShaderNode {
@@ -1462,10 +1525,15 @@ class OSLNode final : public ShaderNode {
   ShaderNode *clone(ShaderGraph *graph) const;
 
   char *input_default_value();
-  void add_input(ustring name, SocketType::Type type);
+  void add_input(ustring name, SocketType::Type type, const int flags = 0);
   void add_output(ustring name, SocketType::Type type);
 
   SHADER_NODE_NO_CLONE_CLASS(OSLNode)
+
+  bool has_surface_emission()
+  {
+    return has_emission;
+  }
 
   /* Ideally we could better detect this, but we can't query this now. */
   bool has_spatial_varying()
@@ -1476,6 +1544,10 @@ class OSLNode final : public ShaderNode {
   {
     return true;
   }
+  virtual int get_feature()
+  {
+    return ShaderNode::get_feature() | KERNEL_FEATURE_NODE_RAYTRACE;
+  }
 
   virtual bool equals(const ShaderNode & /*other*/)
   {
@@ -1484,6 +1556,7 @@ class OSLNode final : public ShaderNode {
 
   string filepath;
   string bytecode_hash;
+  bool has_emission;
 };
 
 class NormalMapNode : public ShaderNode {
@@ -1503,7 +1576,6 @@ class NormalMapNode : public ShaderNode {
   NODE_SOCKET_API(ustring, attribute)
   NODE_SOCKET_API(float, strength)
   NODE_SOCKET_API(float3, color)
-  NODE_SOCKET_API(float3, normal_osl)
 };
 
 class TangentNode : public ShaderNode {
@@ -1522,7 +1594,6 @@ class TangentNode : public ShaderNode {
   NODE_SOCKET_API(NodeTangentDirectionType, direction_type)
   NODE_SOCKET_API(NodeTangentAxis, axis)
   NODE_SOCKET_API(ustring, attribute)
-  NODE_SOCKET_API(float3, normal_osl)
 };
 
 class BevelNode : public ShaderNode {

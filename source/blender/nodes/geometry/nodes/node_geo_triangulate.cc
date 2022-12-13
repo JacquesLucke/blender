@@ -23,13 +23,13 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Mesh"));
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "quad_method", 0, "", ICON_NONE);
   uiItemR(layout, ptr, "ngon_method", 0, "", ICON_NONE);
 }
 
-static void geo_triangulate_init(bNodeTree *UNUSED(ntree), bNode *node)
+static void geo_triangulate_init(bNodeTree * /*tree*/, bNode *node)
 {
   node->custom1 = GEO_NODE_TRIANGULATE_QUAD_SHORTEDGE;
   node->custom2 = GEO_NODE_TRIANGULATE_NGON_BEAUTY;
@@ -47,9 +47,6 @@ static Mesh *triangulate_mesh_selection(const Mesh &mesh,
   BMeshFromMeshParams from_mesh_params{};
   from_mesh_params.calc_face_normal = true;
   from_mesh_params.calc_vert_normal = true;
-  from_mesh_params.add_key_index = true;
-  from_mesh_params.use_shapekey = true;
-  from_mesh_params.active_shapekey = 1;
   from_mesh_params.cd_mask_extra = cd_mask_extra;
   BMesh *bm = BKE_mesh_to_bmesh_ex(&mesh, &create_params, &from_mesh_params);
 
@@ -62,7 +59,6 @@ static Mesh *triangulate_mesh_selection(const Mesh &mesh,
   BM_mesh_triangulate(bm, quad_method, ngon_method, min_vertices, true, nullptr, nullptr, nullptr);
   Mesh *result = BKE_mesh_from_bmesh_for_eval_nomain(bm, &cd_mask_extra, &mesh);
   BM_mesh_free(bm);
-  BKE_mesh_normals_tag_dirty(result);
   return result;
 }
 
@@ -72,21 +68,17 @@ static void node_geo_exec(GeoNodeExecParams params)
   Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
   const int min_vertices = std::max(params.extract_input<int>("Minimum Vertices"), 4);
 
-  GeometryNodeTriangulateQuads quad_method = static_cast<GeometryNodeTriangulateQuads>(
-      params.node().custom1);
-  GeometryNodeTriangulateNGons ngon_method = static_cast<GeometryNodeTriangulateNGons>(
-      params.node().custom2);
+  GeometryNodeTriangulateQuads quad_method = GeometryNodeTriangulateQuads(params.node().custom1);
+  GeometryNodeTriangulateNGons ngon_method = GeometryNodeTriangulateNGons(params.node().custom2);
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     if (!geometry_set.has_mesh()) {
       return;
     }
-    GeometryComponent &component = geometry_set.get_component_for_write<MeshComponent>();
     const Mesh &mesh_in = *geometry_set.get_mesh_for_read();
 
-    const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_FACE);
-    GeometryComponentFieldContext context{component, ATTR_DOMAIN_FACE};
-    FieldEvaluator evaluator{context, domain_size};
+    bke::MeshFieldContext context{mesh_in, ATTR_DOMAIN_FACE};
+    FieldEvaluator evaluator{context, mesh_in.totpoly};
     evaluator.add(selection_field);
     evaluator.evaluate();
     const IndexMask selection = evaluator.get_evaluated_as_mask(0);
@@ -108,7 +100,7 @@ void register_node_type_geo_triangulate()
 
   geo_node_type_base(&ntype, GEO_NODE_TRIANGULATE, "Triangulate", NODE_CLASS_GEOMETRY);
   ntype.declare = file_ns::node_declare;
-  node_type_init(&ntype, file_ns::geo_triangulate_init);
+  ntype.initfunc = file_ns::geo_triangulate_init;
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.draw_buttons = file_ns::node_layout;
   nodeRegisterType(&ntype);

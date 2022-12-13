@@ -39,6 +39,7 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 #include "RNA_enum_types.h"
+#include "RNA_path.h"
 
 #include "anim_intern.h"
 
@@ -119,7 +120,7 @@ void ANIM_OT_keying_set_add(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Add Empty Keying Set";
   ot->idname = "ANIM_OT_keying_set_add";
-  ot->description = "Add a new (empty) Keying Set to the active Scene";
+  ot->description = "Add a new (empty) keying set to the active Scene";
 
   /* callbacks */
   ot->exec = add_default_keyingset_exec;
@@ -167,7 +168,7 @@ void ANIM_OT_keying_set_remove(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Remove Active Keying Set";
   ot->idname = "ANIM_OT_keying_set_remove";
-  ot->description = "Remove the active Keying Set";
+  ot->description = "Remove the active keying set";
 
   /* callbacks */
   ot->exec = remove_active_keyingset_exec;
@@ -210,7 +211,7 @@ void ANIM_OT_keying_set_path_add(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Add Empty Keying Set Path";
   ot->idname = "ANIM_OT_keying_set_path_add";
-  ot->description = "Add empty path to active Keying Set";
+  ot->description = "Add empty path to active keying set";
 
   /* callbacks */
   ot->exec = add_empty_ks_path_exec;
@@ -253,7 +254,7 @@ void ANIM_OT_keying_set_path_remove(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Remove Active Keying Set Path";
   ot->idname = "ANIM_OT_keying_set_path_remove";
-  ot->description = "Remove active Path from active Keying Set";
+  ot->description = "Remove active Path from active keying set";
 
   /* callbacks */
   ot->exec = remove_active_ks_path_exec;
@@ -428,7 +429,7 @@ static int remove_keyingset_button_exec(bContext *C, wmOperator *op)
     WM_event_add_notifier(C, NC_SCENE | ND_KEYINGSET, NULL);
 
     /* show warning */
-    BKE_report(op->reports, RPT_INFO, "Property removed from Keying Set");
+    BKE_report(op->reports, RPT_INFO, "Property removed from keying set");
   }
 
   return (changed) ? OPERATOR_FINISHED : OPERATOR_CANCELLED;
@@ -490,7 +491,7 @@ void ANIM_OT_keying_set_active_set(wmOperatorType *ot)
   /* identifiers */
   ot->name = "Set Active Keying Set";
   ot->idname = "ANIM_OT_keying_set_active_set";
-  ot->description = "Select a new keying set as the active one";
+  ot->description = "Set a new active keying set";
 
   /* callbacks */
   ot->invoke = keyingset_active_menu_invoke;
@@ -588,7 +589,7 @@ void ANIM_keyingset_info_unregister(Main *bmain, KeyingSetInfo *ksi)
 
   /* find relevant builtin KeyingSets which use this, and remove them */
   /* TODO: this isn't done now, since unregister is really only used at the moment when we
-   * reload the scripts, which kindof defeats the purpose of "builtin"? */
+   * reload the scripts, which kind of defeats the purpose of "builtin"? */
   for (ks = builtin_keyingsets.first; ks; ks = ksn) {
     ksn = ks->next;
 
@@ -708,6 +709,72 @@ KeyingSet *ANIM_get_keyingset_for_autokeying(const Scene *scene, const char *tra
   return ANIM_builtin_keyingset_get_named(NULL, transformKSName);
 }
 
+static void anim_keyingset_visit_for_search_impl(const bContext *C,
+                                                 StringPropertySearchVisitFunc visit_fn,
+                                                 void *visit_user_data,
+                                                 const bool use_poll)
+{
+  /* Poll requires context. */
+  if (use_poll && (C == NULL)) {
+    return;
+  }
+
+  Scene *scene = C ? CTX_data_scene(C) : NULL;
+  KeyingSet *ks;
+
+  /* Active Keying Set. */
+  if (!use_poll || (scene && scene->active_keyingset)) {
+    StringPropertySearchVisitParams visit_params = {NULL};
+    visit_params.text = "__ACTIVE__";
+    visit_params.info = "Active Keying Set";
+    visit_fn(visit_user_data, &visit_params);
+  }
+
+  /* User-defined Keying Sets. */
+  if (scene && scene->keyingsets.first) {
+    for (ks = scene->keyingsets.first; ks; ks = ks->next) {
+      if (use_poll && !ANIM_keyingset_context_ok_poll((bContext *)C, ks)) {
+        continue;
+      }
+      StringPropertySearchVisitParams visit_params = {NULL};
+      visit_params.text = ks->idname;
+      visit_params.info = ks->name;
+      visit_fn(visit_user_data, &visit_params);
+    }
+  }
+
+  /* Builtin Keying Sets. */
+  for (ks = builtin_keyingsets.first; ks; ks = ks->next) {
+    if (use_poll && !ANIM_keyingset_context_ok_poll((bContext *)C, ks)) {
+      continue;
+    }
+    StringPropertySearchVisitParams visit_params = {NULL};
+    visit_params.text = ks->idname;
+    visit_params.info = ks->name;
+    visit_fn(visit_user_data, &visit_params);
+  }
+}
+
+void ANIM_keyingset_visit_for_search(const bContext *C,
+                                     PointerRNA *UNUSED(ptr),
+                                     PropertyRNA *UNUSED(prop),
+                                     const char *UNUSED(edit_text),
+                                     StringPropertySearchVisitFunc visit_fn,
+                                     void *visit_user_data)
+{
+  anim_keyingset_visit_for_search_impl(C, visit_fn, visit_user_data, false);
+}
+
+void ANIM_keyingset_visit_for_search_no_poll(const bContext *C,
+                                             PointerRNA *UNUSED(ptr),
+                                             PropertyRNA *UNUSED(prop),
+                                             const char *UNUSED(edit_text),
+                                             StringPropertySearchVisitFunc visit_fn,
+                                             void *visit_user_data)
+{
+  anim_keyingset_visit_for_search_impl(C, visit_fn, visit_user_data, true);
+}
+
 /* Menu of All Keying Sets ----------------------------- */
 
 const EnumPropertyItem *ANIM_keying_sets_enum_itemf(bContext *C,
@@ -821,7 +888,7 @@ bool ANIM_keyingset_context_ok_poll(bContext *C, KeyingSet *ks)
     /* TODO: check for missing callbacks! */
 
     /* check if it can be used in the current context */
-    return (ksi->poll(ksi, C));
+    return ksi->poll(ksi, C);
   }
 
   return true;

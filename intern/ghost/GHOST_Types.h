@@ -11,6 +11,12 @@
 
 #ifdef WITH_CXX_GUARDEDALLOC
 #  include "MEM_guardedalloc.h"
+#else
+/* Convenience unsigned abbreviations (#WITH_CXX_GUARDEDALLOC defines these). */
+typedef unsigned int uint;
+typedef unsigned short ushort;
+typedef unsigned long ulong;
+typedef unsigned char uchar;
 #endif
 
 #if defined(WITH_CXX_GUARDEDALLOC) && defined(__cplusplus)
@@ -42,14 +48,21 @@ GHOST_DECLARE_HANDLE(GHOST_EventConsumerHandle);
 GHOST_DECLARE_HANDLE(GHOST_ContextHandle);
 GHOST_DECLARE_HANDLE(GHOST_XrContextHandle);
 
+typedef void (*GHOST_TBacktraceFn)(void *file_handle);
+
+/**
+ * A reference to cursor bitmap data.
+ */
 typedef struct {
-  int flags;
-} GHOST_GLSettings;
+  /** `RGBA` bytes. */
+  const uint8_t *data;
+  int data_size[2];
+  int hot_spot[2];
+} GHOST_CursorBitmapRef;
 
 typedef enum {
   GHOST_glStereoVisual = (1 << 0),
   GHOST_glDebugContext = (1 << 1),
-  GHOST_glAlphaBackground = (1 << 2),
 } GHOST_GLFlags;
 
 typedef enum GHOST_DialogOptions {
@@ -110,9 +123,10 @@ typedef enum {
   GHOST_kModifierKeyRightAlt,
   GHOST_kModifierKeyLeftControl,
   GHOST_kModifierKeyRightControl,
-  GHOST_kModifierKeyOS,
-  GHOST_kModifierKeyNumMasks
-} GHOST_TModifierKeyMask;
+  GHOST_kModifierKeyLeftOS,
+  GHOST_kModifierKeyRightOS,
+  GHOST_kModifierKeyNum
+} GHOST_TModifierKey;
 
 typedef enum {
   GHOST_kWindowStateNormal = 0,
@@ -139,6 +153,12 @@ typedef enum {
 #ifdef WIN32
   GHOST_kDrawingContextTypeD3D,
 #endif
+#ifdef __APPLE__
+  GHOST_kDrawingContextTypeMetal,
+#endif
+#ifdef WITH_VULKAN_BACKEND
+  GHOST_kDrawingContextTypeVulkan,
+#endif
 } GHOST_TDrawingContextType;
 
 typedef enum {
@@ -151,8 +171,8 @@ typedef enum {
   /* Trackballs and programmable buttons. */
   GHOST_kButtonMaskButton6,
   GHOST_kButtonMaskButton7,
-  GHOST_kButtonNumMasks
-} GHOST_TButtonMask;
+  GHOST_kButtonNum
+} GHOST_TButton;
 
 typedef enum {
   GHOST_kEventUnknown = 0,
@@ -309,13 +329,18 @@ typedef enum {
   GHOST_kKeyBackslash = 0x5C,
   GHOST_kKeyAccentGrave = '`',
 
+#define _GHOST_KEY_MODIFIER_MIN GHOST_kKeyLeftShift
+  /* Modifiers: See #GHOST_KEY_MODIFIER_CHECK. */
   GHOST_kKeyLeftShift = 0x100,
   GHOST_kKeyRightShift,
   GHOST_kKeyLeftControl,
   GHOST_kKeyRightControl,
   GHOST_kKeyLeftAlt,
   GHOST_kKeyRightAlt,
-  GHOST_kKeyOS,     /* Command key on Apple, Windows key(s) on Windows. */
+  GHOST_kKeyLeftOS, /* Command key on Apple, Windows key(s) on Windows. */
+  GHOST_kKeyRightOS,
+#define _GHOST_KEY_MODIFIER_MAX GHOST_kKeyRightOS
+
   GHOST_kKeyGrLess, /* German PC only! */
   GHOST_kKeyApp,    /* Also known as menu key. */
 
@@ -389,6 +414,12 @@ typedef enum {
   GHOST_kKeyMediaLast
 } GHOST_TKey;
 
+#define GHOST_KEY_MODIFIER_NUM ((_GHOST_KEY_MODIFIER_MAX - _GHOST_KEY_MODIFIER_MIN) + 1)
+#define GHOST_KEY_MODIFIER_TO_INDEX(key) ((unsigned int)(key)-_GHOST_KEY_MODIFIER_MIN)
+#define GHOST_KEY_MODIFIER_FROM_INDEX(key) \
+  (GHOST_TKey)(((unsigned int)(key) + _GHOST_KEY_MODIFIER_MIN))
+#define GHOST_KEY_MODIFIER_CHECK(key) (GHOST_KEY_MODIFIER_TO_INDEX(key) < GHOST_KEY_MODIFIER_NUM)
+
 typedef enum {
   /** Grab not set. */
   GHOST_kGrabDisable = 0,
@@ -403,11 +434,13 @@ typedef enum {
   GHOST_kGrabHide,
 } GHOST_TGrabCursorMode;
 
+#define GHOST_GRAB_NEEDS_SOFTWARE_CURSOR_FOR_WARP(grab) ((grab) == GHOST_kGrabWrap)
+
 typedef enum {
   /** Axis that cursor grab will wrap. */
-  GHOST_kGrabAxisNone = 0,
+  GHOST_kAxisNone = 0,
   GHOST_kAxisX = (1 << 0),
-  GHOST_kGrabAxisY = (1 << 1),
+  GHOST_kAxisY = (1 << 1),
 } GHOST_TAxisFlag;
 
 typedef void *GHOST_TEventDataPtr;
@@ -423,7 +456,7 @@ typedef struct {
 
 typedef struct {
   /** The mask of the mouse button. */
-  GHOST_TButtonMask button;
+  GHOST_TButton button;
   /** Associated tablet data. */
   GHOST_TabletData tablet;
 } GHOST_TEventButtonData;
@@ -495,7 +528,7 @@ typedef struct {
 } GHOST_TStringArray;
 
 typedef enum {
-  GHOST_kNotStarted,
+  GHOST_kNotStarted = 0,
   GHOST_kStarting,
   GHOST_kInProgress,
   GHOST_kFinishing,
@@ -521,7 +554,7 @@ typedef struct {
 } GHOST_TEventNDOFMotionData;
 
 typedef enum { GHOST_kPress, GHOST_kRelease } GHOST_TButtonAction;
-/* Good for mouse or other buttons too, hmmm? */
+/* Good for mouse or other buttons too? */
 
 typedef struct {
   GHOST_TButtonAction action;
@@ -533,21 +566,15 @@ typedef struct {
   /** The key code. */
   GHOST_TKey key;
 
-  /* ascii / utf8: both should always be set when possible,
-   * - ascii may be '\0' however if the user presses a non ascii key
-   * - unicode may not be set if the system has no unicode support
-   *
-   * These values are intended to be used as follows.
-   * For text input use unicode when available, fallback to ascii.
-   * For areas where unicode is not needed, number input for example, always
-   * use ascii, unicode is ignored - campbell.
-   */
-  /** The ascii code for the key event ('\0' if none). */
-  char ascii;
   /** The unicode character. if the length is 6, not NULL terminated if all 6 are set. */
   char utf8_buf[6];
 
-  /** Generated by auto-repeat. */
+  /**
+   * Enabled when the key is held (auto-repeat).
+   * In this case press events are sent without a corresponding release/up event.
+   *
+   * All back-ends must set this variable for correct behavior regarding repeatable keys.
+   */
   char is_repeat;
 } GHOST_TEventKeyData;
 
@@ -573,6 +600,21 @@ typedef struct {
   uint32_t frequency;
 } GHOST_DisplaySetting;
 
+typedef struct {
+  int flags;
+  GHOST_TDrawingContextType context_type;
+} GHOST_GLSettings;
+
+typedef enum {
+  /** Axis that cursor grab will wrap. */
+  GHOST_kDebugDefault = (1 << 1),
+  GHOST_kDebugWintab = (1 << 2),
+} GHOST_TDebugFlags;
+
+typedef struct {
+  int flags;
+} GHOST_Debug;
+
 #ifdef _WIN32
 typedef void *GHOST_TEmbedderWindowID;
 #endif  // _WIN32
@@ -586,7 +628,7 @@ typedef int GHOST_TEmbedderWindowID;
 /**
  * A timer task callback routine.
  * \param task: The timer task object.
- * \param time: The current time.
+ * \param time: Time since this timer started (in milliseconds).
  */
 #ifdef __cplusplus
 class GHOST_ITimerTask;

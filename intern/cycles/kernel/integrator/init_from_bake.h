@@ -5,8 +5,8 @@
 
 #include "kernel/camera/camera.h"
 
-#include "kernel/film/accumulate.h"
 #include "kernel/film/adaptive_sampling.h"
+#include "kernel/film/light_passes.h"
 
 #include "kernel/integrator/path_state.h"
 
@@ -49,7 +49,8 @@ ccl_device const float2 bake_offset_towards_center(KernelGlobals kg,
   const float3 to_center = center - P;
 
   const float3 offset_P = P + normalize(to_center) *
-                                  min(len(to_center), max(max3(fabs(P)), 1.0f) * position_offset);
+                                  min(len(to_center),
+                                      max(reduce_max(fabs(P)), 1.0f) * position_offset);
 
   /* Compute barycentric coordinates at new position. */
   const float3 v1 = tri_verts[1] - tri_verts[0];
@@ -91,18 +92,18 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
   path_state_init(state, tile, x, y);
 
   /* Check whether the pixel has converged and should not be sampled anymore. */
-  if (!kernel_need_sample_pixel(kg, state, render_buffer)) {
+  if (!film_need_sample_pixel(kg, state, render_buffer)) {
     return false;
   }
 
   /* Always count the sample, even if the camera sample will reject the ray. */
-  const int sample = kernel_accum_sample(
+  const int sample = film_write_sample(
       kg, state, render_buffer, scheduled_sample, tile->sample_offset);
 
   /* Setup render buffers. */
   const int index = INTEGRATOR_STATE(state, path, render_pixel_index);
   const int pass_stride = kernel_data.film.pass_stride;
-  ccl_global float *buffer = render_buffer + index * pass_stride;
+  ccl_global float *buffer = render_buffer + (uint64_t)index * pass_stride;
 
   ccl_global float *primitive = buffer + kernel_data.film.pass_bake_primitive;
   ccl_global float *differential = buffer + kernel_data.film.pass_bake_differential;
@@ -111,8 +112,8 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
   int prim = __float_as_uint(primitive[1]);
   if (prim == -1) {
     /* Accumulate transparency for empty pixels. */
-    kernel_accum_transparent(kg, state, 0, 1.0f, buffer);
-    return false;
+    film_write_transparent(kg, state, 0, 1.0f, buffer);
+    return true;
   }
 
   prim += kernel_data.bake.tri_offset;
@@ -120,13 +121,8 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
   /* Random number generator. */
   const uint rng_hash = hash_uint(seed) ^ kernel_data.integrator.seed;
 
-  float filter_x, filter_y;
-  if (sample == 0) {
-    filter_x = filter_y = 0.5f;
-  }
-  else {
-    path_rng_2D(kg, rng_hash, sample, PRNG_FILTER_U, &filter_x, &filter_y);
-  }
+  const float2 rand_filter = (sample == 0) ? make_float2(0.5f, 0.5f) :
+                                             path_rng_2D(kg, rng_hash, sample, PRNG_FILTER);
 
   /* Initialize path state for path integration. */
   path_state_init_integrator(kg, state, sample, rng_hash);
@@ -149,10 +145,23 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
 
   /* Sub-pixel offset. */
   if (sample > 0) {
-    u = bake_clamp_mirror_repeat(u + dudx * (filter_x - 0.5f) + dudy * (filter_y - 0.5f), 1.0f);
-    v = bake_clamp_mirror_repeat(v + dvdx * (filter_x - 0.5f) + dvdy * (filter_y - 0.5f),
+    u = bake_clamp_mirror_repeat(u + dudx * (rand_filter.x - 0.5f) + dudy * (rand_filter.y - 0.5f),
+                                 1.0f);
+    v = bake_clamp_mirror_repeat(v + dvdx * (rand_filter.x - 0.5f) + dvdy * (rand_filter.y - 0.5f),
                                  1.0f - u);
   }
+
+  /* Convert from Blender to Cycles/Embree/OptiX barycentric convention. */
+  const float tmp = u;
+  u = v;
+  v = 1.0f - tmp - v;
+
+  const float tmpdx = dudx;
+  const float tmpdy = dudy;
+  dudx = dvdx;
+  dudy = dvdy;
+  dvdx = -tmpdx - dvdx;
+  dvdy = -tmpdy - dvdy;
 
   /* Position and normal on triangle. */
   const int object = kernel_data.bake.object_index;
@@ -160,7 +169,7 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
   int shader;
   triangle_point_normal(kg, object, prim, u, v, &P, &Ng, &shader);
 
-  const int object_flag = kernel_tex_fetch(__object_flag, object);
+  const int object_flag = kernel_data_fetch(object_flag, object);
   if (!(object_flag & SD_OBJECT_TRANSFORM_APPLIED)) {
     Transform tfm = object_fetch_transform(kg, object, OBJECT_TRANSFORM);
     P = transform_point_auto(&tfm, P);
@@ -173,14 +182,15 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
     Ray ray ccl_optional_struct_init;
     ray.P = zero_float3();
     ray.D = normalize(P);
-    ray.t = FLT_MAX;
+    ray.tmin = 0.0f;
+    ray.tmax = FLT_MAX;
     ray.time = 0.5f;
     ray.dP = differential_zero_compact();
     ray.dD = differential_zero_compact();
     integrator_state_write_ray(kg, state, &ray);
 
     /* Setup next kernel to execute. */
-    INTEGRATOR_PATH_INIT(DEVICE_KERNEL_INTEGRATOR_SHADE_BACKGROUND);
+    integrator_path_init(kg, state, DEVICE_KERNEL_INTEGRATOR_SHADE_BACKGROUND);
   }
   else {
     /* Surface baking. */
@@ -192,11 +202,68 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
       Ng = normalize(transform_direction_transposed(&itfm, Ng));
     }
 
+    const int shader_index = shader & SHADER_MASK;
+    const int shader_flags = kernel_data_fetch(shaders, shader_index).flags;
+
+    /* Fast path for position and normal passes not affected by shaders. */
+    if (kernel_data.film.pass_position != PASS_UNUSED) {
+      film_write_pass_float3(buffer + kernel_data.film.pass_position, P);
+      return true;
+    }
+    else if (kernel_data.film.pass_normal != PASS_UNUSED && !(shader_flags & SD_HAS_BUMP)) {
+      film_write_pass_float3(buffer + kernel_data.film.pass_normal, N);
+      return true;
+    }
+
     /* Setup ray. */
     Ray ray ccl_optional_struct_init;
-    ray.P = P + N;
-    ray.D = -N;
-    ray.t = FLT_MAX;
+
+    if (kernel_data.bake.use_camera) {
+      float3 D = camera_direction_from_point(kg, P);
+
+      const float DN = dot(D, N);
+
+      /* Nudge camera direction, so that the faces facing away from the camera still have
+       * somewhat usable shading. (Otherwise, glossy faces would be simply black.)
+       *
+       * The surface normal offset affects smooth surfaces. Lower values will make
+       * smooth surfaces more faceted, but higher values may show up from the camera
+       * at grazing angles.
+       *
+       * This value can actually be pretty high before it's noticeably wrong. */
+      const float surface_normal_offset = 0.2f;
+
+      /* Keep the ray direction at least `surface_normal_offset` "above" the smooth normal. */
+      if (DN <= surface_normal_offset) {
+        D -= N * (DN - surface_normal_offset);
+        D = normalize(D);
+      }
+
+      /* On the backside, just lerp towards the surface normal for the ray direction,
+       * as DN goes from 0.0 to -1.0. */
+      if (DN <= 0.0f) {
+        D = normalize(mix(D, N, -DN));
+      }
+
+      /* We don't want to bake the back face, so make sure the ray direction never
+       * goes behind the geometry (flat) normal. This is a fail-safe, and should rarely happen. */
+      const float true_normal_epsilon = 0.00001f;
+
+      if (dot(D, Ng) <= true_normal_epsilon) {
+        D -= Ng * (dot(D, Ng) - true_normal_epsilon);
+        D = normalize(D);
+      }
+
+      ray.P = P + D;
+      ray.D = -D;
+    }
+    else {
+      ray.P = P + N;
+      ray.D = -N;
+    }
+
+    ray.tmin = 0.0f;
+    ray.tmax = FLT_MAX;
     ray.time = 0.5f;
 
     /* Setup differentials. */
@@ -228,17 +295,20 @@ ccl_device bool integrator_init_from_bake(KernelGlobals kg,
     integrator_state_write_isect(kg, state, &isect);
 
     /* Setup next kernel to execute. */
-    const int shader_index = shader & SHADER_MASK;
-    const int shader_flags = kernel_tex_fetch(__shaders, shader_index).flags;
     const bool use_caustics = kernel_data.integrator.use_caustics &&
                               (object_flag & SD_OBJECT_CAUSTICS);
-    const bool use_raytrace_kernel = (shader_flags & SD_HAS_RAYTRACE) || use_caustics;
+    const bool use_raytrace_kernel = (shader_flags & SD_HAS_RAYTRACE);
 
-    if (use_raytrace_kernel) {
-      INTEGRATOR_PATH_INIT_SORTED(DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE, shader_index);
+    if (use_caustics) {
+      integrator_path_init_sorted(
+          kg, state, DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_MNEE, shader_index);
+    }
+    else if (use_raytrace_kernel) {
+      integrator_path_init_sorted(
+          kg, state, DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE_RAYTRACE, shader_index);
     }
     else {
-      INTEGRATOR_PATH_INIT_SORTED(DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE, shader_index);
+      integrator_path_init_sorted(kg, state, DEVICE_KERNEL_INTEGRATOR_SHADE_SURFACE, shader_index);
     }
   }
 

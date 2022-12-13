@@ -16,7 +16,7 @@
   (dof_aperturesize * (dof_distance / zdepth - 1.0) * dof_invsensorsize)
 
 #define linear_depth(z) \
-  ((ProjectionMatrix[3][3] == 0.0) ? \
+  ((drw_view.winmat[3][3] == 0.0) ? \
        (nearFar.x * nearFar.y) / (z * (nearFar.x - nearFar.y) + nearFar.y) : \
        (z * 2.0 - 1.0) * nearFar.y)
 
@@ -89,7 +89,7 @@ void main()
   texel = (texel - 0.5) / vec4(textureSize(sceneColorTex, 0).xyxy);
 
   /* Using texelFetch can bypass the mip range setting on some platform.
-   * Using texture Lod fix this issue. Note that we need to disable filtering to get the right
+   * Using texture LOD fixes this issue. Note that we need to disable filtering to get the right
    * texel values. */
   vec4 color1 = textureLod(sceneColorTex, texel.xy, 0.0);
   vec4 color2 = textureLod(sceneColorTex, texel.zw, 0.0);
@@ -200,7 +200,7 @@ void main()
 
 vec2 get_random_vector(float offset)
 {
-  /* Interlieved gradient noise by Jorge Jimenez
+  /* Interleaved gradient noise by Jorge Jimenez
    * http://www.iryoku.com/next-generation-post-processing-in-call-of-duty-advanced-warfare */
   float ign = fract(offset +
                     52.9829189 * fract(0.06711056 * gl_FragCoord.x + 0.00583715 * gl_FragCoord.y));

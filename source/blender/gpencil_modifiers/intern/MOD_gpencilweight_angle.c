@@ -8,8 +8,10 @@
 #include <stdio.h>
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
+
+#include "BLT_translation.h"
 
 #include "DNA_defaults.h"
 #include "DNA_gpencil_modifier_types.h"
@@ -18,7 +20,6 @@
 #include "DNA_object_types.h"
 #include "DNA_screen_types.h"
 
-#include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_gpencil.h"
@@ -29,7 +30,6 @@
 
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_build.h"
-#include "DEG_depsgraph_query.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -97,7 +97,7 @@ static void deformStroke(GpencilModifierData *md,
 
   /* Apply the rotation of the object. */
   if (mmd->space == GP_SPACE_LOCAL) {
-    mul_mat3_m4_v3(ob->obmat, vec_ref);
+    mul_mat3_m4_v3(ob->object_to_world, vec_ref);
   }
 
   /* Ensure there is a vertex group. */
@@ -122,8 +122,8 @@ static void deformStroke(GpencilModifierData *md,
     bGPDspoint *pt1 = (i > 0) ? &gps->points[i] : &gps->points[i + 1];
     bGPDspoint *pt2 = (i > 0) ? &gps->points[i - 1] : &gps->points[i];
     float fpt1[3], fpt2[3];
-    mul_v3_m4v3(fpt1, ob->obmat, &pt1->x);
-    mul_v3_m4v3(fpt2, ob->obmat, &pt2->x);
+    mul_v3_m4v3(fpt1, ob->object_to_world, &pt1->x);
+    mul_v3_m4v3(fpt2, ob->object_to_world, &pt2->x);
 
     float vec[3];
     sub_v3_v3v3(vec, fpt1, fpt2);
@@ -211,7 +211,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_WeightAngle = {
-    /* name */ "Vertex Weight Angle",
+    /* name */ N_("Vertex Weight Angle"),
     /* structName */ "WeightAngleGpencilModifierData",
     /* structSize */ sizeof(WeightAngleGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

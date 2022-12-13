@@ -13,8 +13,6 @@
 
 #include <Python.h>
 
-#include "MEM_guardedalloc.h"
-
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
@@ -31,7 +29,6 @@
 #include "GPU_texture.h"
 #include "GPU_viewport.h"
 
-#include "ED_view3d.h"
 #include "ED_view3d_offscreen.h"
 
 #include "../mathutils/mathutils.h"
@@ -214,8 +211,6 @@ static PyObject *pygpu_offscreen__tp_new(PyTypeObject *UNUSED(self),
                                          PyObject *args,
                                          PyObject *kwds)
 {
-  BPYGPU_IS_INIT_OR_ERROR_OBJ;
-
   GPUOffScreen *ofs = NULL;
   int width, height;
   struct PyC_StringEnum pygpu_textureformat = {pygpu_framebuffer_color_texture_formats, GPU_RGBA8};

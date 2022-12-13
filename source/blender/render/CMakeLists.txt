@@ -17,6 +17,7 @@ set(INC
   ../nodes
   ../sequencer
   ../simulation
+  ../windowmanager
   ../../../intern/atomic
   ../../../intern/guardedalloc
   ../../../intern/mikktspace
@@ -25,12 +26,12 @@ set(INC
 
 
 set(SRC
-  intern/bake.c
-  intern/engine.c
-  intern/initrender.c
-  intern/multires_bake.c
-  intern/pipeline.c
-  intern/render_result.c
+  intern/bake.cc
+  intern/engine.cc
+  intern/initrender.cc
+  intern/multires_bake.cc
+  intern/pipeline.cc
+  intern/render_result.cc
   intern/texture_image.c
   intern/texture_margin.cc
   intern/texture_pointdensity.c

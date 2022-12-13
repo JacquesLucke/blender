@@ -38,6 +38,11 @@ class HdCyclesDisplayDriver final : public CCL_NS::DisplayDriver {
 
   void draw(const Params &params) override;
 
+  void gl_context_create();
+  bool gl_context_enable();
+  void gl_context_disable();
+  void gl_context_dispose();
+
   HdCyclesSession *const _renderParam;
   Hgi *const _hgi;
 
@@ -45,7 +50,6 @@ class HdCyclesDisplayDriver final : public CCL_NS::DisplayDriver {
   void *hdc_ = nullptr;
   void *gl_context_ = nullptr;
 #endif
-
   CCL_NS::thread_mutex mutex_;
 
   PXR_NS::HgiTextureHandle texture_;

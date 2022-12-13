@@ -287,7 +287,7 @@ void ED_masklayer_frames_duplicate(MaskLayer *mask_layer)
 static bool snap_mask_layer_nearest(MaskLayerShape *mask_layer_shape, Scene *UNUSED(scene))
 {
   if (mask_layer_shape->flag & MASK_SHAPE_SELECT) {
-    mask_layer_shape->frame = (int)(floor(mask_layer_shape->frame + 0.5));
+    mask_layer_shape->frame = (int)floor(mask_layer_shape->frame + 0.5);
   }
   return false;
 }
@@ -304,7 +304,7 @@ static bool snap_mask_layer_nearestsec(MaskLayerShape *mask_layer_shape, Scene *
 static bool snap_mask_layer_cframe(MaskLayerShape *mask_layer_shape, Scene *scene)
 {
   if (mask_layer_shape->flag & MASK_SHAPE_SELECT) {
-    mask_layer_shape->frame = (int)CFRA;
+    mask_layer_shape->frame = (int)scene->r.cfra;
   }
   return false;
 }

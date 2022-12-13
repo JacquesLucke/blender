@@ -24,15 +24,17 @@
 #include "BKE_lib_query.h"
 #include "BKE_main.h"
 #include "BKE_main_idmap.h"
+#include "BKE_main_namemap.h"
 
 #include "IMB_imbuf.h"
 #include "IMB_imbuf_types.h"
 
-Main *BKE_main_new(void)
+Main *BKE_main_new()
 {
   Main *bmain = MEM_callocN(sizeof(Main), "new main");
   bmain->lock = MEM_mallocN(sizeof(SpinLock), "main lock");
   BLI_spin_init((SpinLock *)bmain->lock);
+  bmain->is_global_main = false;
   return bmain;
 }
 
@@ -182,6 +184,10 @@ void BKE_main_free(Main *mainvar)
 
   if (mainvar->id_map) {
     BKE_main_idmap_destroy(mainvar->id_map);
+  }
+
+  if (mainvar->name_map) {
+    BKE_main_namemap_destroy(&mainvar->name_map);
   }
 
   BLI_spin_end((SpinLock *)mainvar->lock);
@@ -502,13 +508,13 @@ BlendThumbnail *BKE_main_thumbnail_from_imbuf(Main *bmain, ImBuf *img)
   }
 
   if (img) {
-    const size_t sz = BLEN_THUMB_MEMSIZE(img->x, img->y);
-    data = MEM_mallocN(sz, __func__);
+    const size_t data_size = BLEN_THUMB_MEMSIZE(img->x, img->y);
+    data = MEM_mallocN(data_size, __func__);
 
     IMB_rect_from_float(img); /* Just in case... */
     data->width = img->x;
     data->height = img->y;
-    memcpy(data->rect, img->rect, sz - sizeof(*data));
+    memcpy(data->rect, img->rect, data_size - sizeof(*data));
   }
 
   if (bmain) {

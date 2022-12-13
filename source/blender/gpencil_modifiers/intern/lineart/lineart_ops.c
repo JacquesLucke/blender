@@ -102,12 +102,12 @@ static bool bake_strokes(Object *ob,
   }
   LineartCache *local_lc = *lc;
   if (!(*lc)) {
-    MOD_lineart_compute_feature_lines(dg, lmd, lc, (!(ob->dtx & OB_DRAW_IN_FRONT)));
+    MOD_lineart_compute_feature_lines(dg, lmd, lc, !(ob->dtx & OB_DRAW_IN_FRONT));
     MOD_lineart_destroy_render_data(lmd);
   }
   else {
-    if (is_first || (!(lmd->flags & LRT_GPENCIL_USE_CACHE))) {
-      MOD_lineart_compute_feature_lines(dg, lmd, &local_lc, (!(ob->dtx & OB_DRAW_IN_FRONT)));
+    if (is_first || !(lmd->flags & LRT_GPENCIL_USE_CACHE)) {
+      MOD_lineart_compute_feature_lines(dg, lmd, &local_lc, !(ob->dtx & OB_DRAW_IN_FRONT));
       MOD_lineart_destroy_render_data(lmd);
     }
     MOD_lineart_chain_clear_picked_flag(local_lc);
@@ -132,6 +132,8 @@ static bool bake_strokes(Object *ob,
       lmd->intersection_mask,
       lmd->thickness,
       lmd->opacity,
+      lmd->shadow_selection,
+      lmd->silhouette_selection,
       lmd->source_vertex_group,
       lmd->vgname,
       lmd->flags);
@@ -141,8 +143,8 @@ static bool bake_strokes(Object *ob,
     if (!is_first) {
       MOD_lineart_clear_cache(&local_lc);
     }
-    /* Restore the original cache pointer so the modifiers below still have access to the
-     * "global" cache. */
+    /* Restore the original cache pointer so the modifiers below still have access to the "global"
+     * cache. */
     lmd->cache = gpd->runtime.lineart_cache;
   }
 
@@ -152,7 +154,7 @@ static bool bake_strokes(Object *ob,
 typedef struct LineartBakeJob {
   wmWindowManager *wm;
   void *owner;
-  short *stop, *do_update;
+  bool *stop, *do_update;
   float *progress;
 
   /* C or ob must have one != NULL. */
@@ -216,8 +218,8 @@ static void lineart_gpencil_guard_modifiers(LineartBakeJob *bj)
 }
 
 static void lineart_gpencil_bake_startjob(void *customdata,
-                                          short *stop,
-                                          short *do_update,
+                                          bool *stop,
+                                          bool *do_update,
                                           float *progress)
 {
   LineartBakeJob *bj = (LineartBakeJob *)customdata;
@@ -335,7 +337,7 @@ static int lineart_gpencil_bake_common(bContext *C,
   }
 
   float pseduo_progress;
-  short pseduo_do_update;
+  bool pseduo_do_update;
   lineart_gpencil_bake_startjob(bj, NULL, &pseduo_do_update, &pseduo_progress);
 
   BLI_linklist_free(bj->objects, NULL);

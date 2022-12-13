@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import bpy
 from bpy.types import Menu, UIList, Operator
 from bpy.app.translations import pgettext_iface as iface_
@@ -41,17 +39,7 @@ class AnnotationDrawingToolsPanel:
         row.prop_enum(tool_settings, "annotation_stroke_placement_view2d", 'IMAGE', text="Image")
 
 
-class GreasePencilSculptOptionsPanel:
-    bl_label = "Sculpt Strokes"
-
-    @classmethod
-    def poll(cls, context):
-        tool_settings = context.scene.tool_settings
-        settings = tool_settings.gpencil_sculpt_paint
-        brush = settings.brush
-        tool = brush.gpencil_sculpt_tool
-
-        return bool(tool in {'SMOOTH', 'RANDOMIZE'})
+class GreasePencilSculptAdvancedPanel:
 
     def draw(self, context):
         layout = self.layout
@@ -59,17 +47,16 @@ class GreasePencilSculptOptionsPanel:
         layout.use_property_decorate = False
 
         tool_settings = context.scene.tool_settings
-        settings = tool_settings.gpencil_sculpt_paint
-        brush = settings.brush
-        gp_settings = brush.gpencil_settings
+        brush = tool_settings.gpencil_sculpt_paint.brush
         tool = brush.gpencil_sculpt_tool
+        gp_settings = brush.gpencil_settings
 
         if tool in {'SMOOTH', 'RANDOMIZE'}:
-            layout.prop(gp_settings, "use_edit_position", text="Affect Position")
-            layout.prop(gp_settings, "use_edit_strength", text="Affect Strength")
-            layout.prop(gp_settings, "use_edit_thickness", text="Affect Thickness")
-
-            layout.prop(gp_settings, "use_edit_uv", text="Affect UV")
+            col = layout.column(heading="Affect", align=True)
+            col.prop(gp_settings, "use_edit_position", text="Position")
+            col.prop(gp_settings, "use_edit_strength", text="Strength")
+            col.prop(gp_settings, "use_edit_thickness", text="Thickness")
+            col.prop(gp_settings, "use_edit_uv", text="UV")
 
 
 # GP Object Tool Settings
@@ -242,6 +229,11 @@ class GPENCIL_MT_move_to_layer(Menu):
         layout = self.layout
         gpd = context.gpencil_data
         if gpd:
+            layout.operator_context = 'INVOKE_REGION_WIN'
+            layout.operator("gpencil.move_to_layer", text="New Layer", icon='ADD').layer = -1
+
+            layout.separator()
+
             gpl_active = context.active_gpencil_layer
             tot_layers = len(gpd.layers)
             i = tot_layers - 1
@@ -251,12 +243,8 @@ class GPENCIL_MT_move_to_layer(Menu):
                     icon = 'GREASEPENCIL'
                 else:
                     icon = 'NONE'
-                layout.operator("gpencil.move_to_layer", text=gpl.info, icon=icon).layer = i
+                layout.operator("gpencil.move_to_layer", text=gpl.info, icon=icon, translate=False).layer = i
                 i -= 1
-
-            layout.separator()
-
-        layout.operator("gpencil.move_to_layer", text="New Layer", icon='ADD').layer = -1
 
 
 class GPENCIL_MT_layer_active(Menu):
@@ -268,6 +256,10 @@ class GPENCIL_MT_layer_active(Menu):
 
         gpd = context.gpencil_data
         if gpd:
+            layout.operator("gpencil.layer_add", text="New Layer", icon='ADD')
+
+            layout.separator()
+
             gpl_active = context.active_gpencil_layer
             tot_layers = len(gpd.layers)
             i = tot_layers - 1
@@ -279,10 +271,6 @@ class GPENCIL_MT_layer_active(Menu):
                     icon = 'NONE'
                 layout.operator("gpencil.layer_active", text=gpl.info, icon=icon).layer = i
                 i -= 1
-
-            layout.separator()
-
-        layout.operator("gpencil.layer_add", text="New Layer", icon='ADD')
 
 
 class GPENCIL_MT_material_active(Menu):
@@ -303,7 +291,8 @@ class GPENCIL_MT_material_active(Menu):
 
         for slot in ob.material_slots:
             mat = slot.material
-            if mat:
+            mat.id_data.preview_ensure()
+            if mat and mat.id_data and mat.id_data.preview:
                 icon = mat.id_data.preview.icon_id
                 layout.operator("gpencil.material_set", text=mat.name, icon_value=icon).slot = mat.name
 
@@ -362,8 +351,7 @@ class GPENCIL_UL_annotation_layer(UIList):
 
             row = layout.row(align=True)
 
-            icon_xray = 'XRAY' if gpl.show_in_front else 'FACESEL'
-            row.prop(gpl, "show_in_front", text="", icon=icon_xray, emboss=False)
+            row.prop(gpl, "show_in_front", text="", icon='XRAY' if gpl.show_in_front else 'FACESEL', emboss=False)
 
             row.prop(gpl, "annotation_hide", text="", emboss=False)
         elif self.layout_type == 'GRID':

@@ -5,10 +5,14 @@
  * \ingroup cmpnodes
  */
 
+#include "BLT_translation.h"
+
 #include "DNA_mask_types.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
+
+#include "COM_node_operation.hh"
 
 #include "node_composite_util.hh"
 
@@ -21,7 +25,7 @@ static void cmp_node_mask_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Float>(N_("Mask"));
 }
 
-static void node_composit_init_mask(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_composit_init_mask(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeMask *data = MEM_cnew<NodeMask>(__func__);
   data->size_x = data->size_y = 256;
@@ -31,7 +35,7 @@ static void node_composit_init_mask(bNodeTree *UNUSED(ntree), bNode *node)
   node->custom3 = 0.5f; /* shutter */
 }
 
-static void node_mask_label(const bNodeTree *UNUSED(ntree),
+static void node_mask_label(const bNodeTree * /*ntree*/,
                             const bNode *node,
                             char *label,
                             int maxlen)
@@ -74,6 +78,24 @@ static void node_composit_buts_mask(uiLayout *layout, bContext *C, PointerRNA *p
   }
 }
 
+using namespace blender::realtime_compositor;
+
+class MaskOperation : public NodeOperation {
+ public:
+  using NodeOperation::NodeOperation;
+
+  void execute() override
+  {
+    get_result("Mask").allocate_invalid();
+    context().set_info_message("Viewport compositor setup not fully supported");
+  }
+};
+
+static NodeOperation *get_compositor_operation(Context &context, DNode node)
+{
+  return new MaskOperation(context, node);
+}
+
 }  // namespace blender::nodes::node_composite_mask_cc
 
 void register_node_type_cmp_mask()
@@ -85,8 +107,11 @@ void register_node_type_cmp_mask()
   cmp_node_type_base(&ntype, CMP_NODE_MASK, "Mask", NODE_CLASS_INPUT);
   ntype.declare = file_ns::cmp_node_mask_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_mask;
-  node_type_init(&ntype, file_ns::node_composit_init_mask);
+  ntype.initfunc = file_ns::node_composit_init_mask;
   ntype.labelfunc = file_ns::node_mask_label;
+  ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   node_type_storage(&ntype, "NodeMask", node_free_standard_storage, node_copy_standard_storage);
 

@@ -6,10 +6,11 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
 #include "BLI_hash.h"
 #include "BLI_listbase.h"
-#include "BLI_math.h"
+#include "BLI_math_base.h"
 #include "BLI_rand.h"
 #include "BLI_utildefines.h"
 
@@ -137,7 +138,7 @@ static void applyLength(GpencilModifierData *md,
     seed += BLI_hash_string(md->name);
 
     if (lmd->flag & GP_LENGTH_USE_RANDOM) {
-      seed += ((int)DEG_get_ctime(depsgraph)) / lmd->step;
+      seed += (int)DEG_get_ctime(depsgraph) / lmd->step;
     }
 
     float rand_offset = BLI_hash_int_01(seed);
@@ -354,7 +355,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Length = {
-    /* name */ "Length",
+    /* name */ N_("Length"),
     /* structName */ "LengthGpencilModifierData",
     /* structSize */ sizeof(LengthGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

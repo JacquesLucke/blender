@@ -11,8 +11,6 @@
  * https://media.contentapi.ea.com/content/dam/ea/seed/presentations/dd18-seed-raytracing-in-hybrid-real-time-rendering.pdf
  */
 
-uniform ivec2 halfresOffset;
-
 struct HitData {
   /** Hit direction scaled by intersection time. */
   vec3 hit_dir;
@@ -47,7 +45,7 @@ HitData decode_hit_data(vec4 hit_data, float hit_depth)
   return data;
 }
 
-/* Blue noise categorised into 4 sets of samples.
+/* Blue noise categorized into 4 sets of samples.
  * See "Stochastic all the things" presentation slide 32-37. */
 const int resolve_samples_count = 9;
 const vec2 resolve_sample_offsets[36] = vec2[36](

@@ -160,7 +160,7 @@ static void seq_convert_transform_crop(const Scene *scene,
   const uint32_t use_transform_flag = (1 << 16);
   const uint32_t use_crop_flag = (1 << 17);
 
-  const StripElem *s_elem = SEQ_render_give_stripelem(seq, seq->start);
+  const StripElem *s_elem = seq->strip->stripdata;
   if (s_elem != NULL) {
     image_size_x = s_elem->orig_width;
     image_size_y = s_elem->orig_height;
@@ -285,7 +285,7 @@ static void seq_convert_transform_crop_2(const Scene *scene,
                                          Sequence *seq,
                                          const eSpaceSeq_Proxy_RenderSize render_size)
 {
-  const StripElem *s_elem = SEQ_render_give_stripelem(seq, seq->start);
+  const StripElem *s_elem = seq->strip->stripdata;
   if (s_elem == NULL) {
     return;
   }
@@ -347,8 +347,10 @@ static void seq_convert_transform_crop_lb_2(const Scene *scene,
   }
 }
 
-static void seq_update_meta_disp_range(Editing *ed)
+static void seq_update_meta_disp_range(Scene *scene)
 {
+  Editing *ed = SEQ_editing_get(scene);
+
   if (ed == NULL) {
     return;
   }
@@ -356,13 +358,13 @@ static void seq_update_meta_disp_range(Editing *ed)
   LISTBASE_FOREACH_BACKWARD (MetaStack *, ms, &ed->metastack) {
     /* Update ms->disp_range from meta. */
     if (ms->disp_range[0] == ms->disp_range[1]) {
-      copy_v2_v2_int(ms->disp_range, &ms->parseq->startdisp);
+      ms->disp_range[0] = SEQ_time_left_handle_frame_get(scene, ms->parseq);
+      ms->disp_range[1] = SEQ_time_right_handle_frame_get(scene, ms->parseq);
     }
 
     /* Update meta strip endpoints. */
-    SEQ_transform_set_left_handle_frame(ms->parseq, ms->disp_range[0]);
-    SEQ_transform_set_right_handle_frame(ms->parseq, ms->disp_range[1]);
-    SEQ_transform_fix_single_image_seq_offsets(ms->parseq);
+    SEQ_time_left_handle_frame_set(scene, ms->parseq, ms->disp_range[0]);
+    SEQ_time_right_handle_frame_set(scene, ms->parseq, ms->disp_range[1]);
 
     /* Recalculate effects using meta strip. */
     LISTBASE_FOREACH (Sequence *, seq, ms->oldbasep) {
@@ -647,7 +649,7 @@ void do_versions_after_linking_290(Main *bmain, ReportList *UNUSED(reports))
 
   if (!MAIN_VERSION_ATLEAST(bmain, 293, 16)) {
     LISTBASE_FOREACH (Scene *, scene, &bmain->scenes) {
-      seq_update_meta_disp_range(SEQ_editing_get(scene));
+      seq_update_meta_disp_range(scene);
     }
 
     /* Add a separate socket for Grid node X and Y size. */
@@ -816,21 +818,21 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
   if (MAIN_VERSION_ATLEAST(bmain, 290, 2) && MAIN_VERSION_OLDER(bmain, 291, 1)) {
     /* In this range, the extrude manifold could generate meshes with degenerated face. */
     LISTBASE_FOREACH (Mesh *, me, &bmain->meshes) {
-      for (MPoly *mp = me->mpoly, *mp_end = mp + me->totpoly; mp < mp_end; mp++) {
+      for (const MPoly *mp = BKE_mesh_polys(me), *mp_end = mp + me->totpoly; mp < mp_end; mp++) {
         if (mp->totloop == 2) {
           bool changed;
           BKE_mesh_validate_arrays(me,
-                                   me->mvert,
+                                   BKE_mesh_verts_for_write(me),
                                    me->totvert,
-                                   me->medge,
+                                   BKE_mesh_edges_for_write(me),
                                    me->totedge,
-                                   me->mface,
+                                   (MFace *)CustomData_get_layer(&me->fdata, CD_MFACE),
                                    me->totface,
-                                   me->mloop,
+                                   BKE_mesh_loops_for_write(me),
                                    me->totloop,
-                                   me->mpoly,
+                                   BKE_mesh_polys_for_write(me),
                                    me->totpoly,
-                                   me->dvert,
+                                   BKE_mesh_deform_verts_for_write(me),
                                    false,
                                    true,
                                    &changed);
@@ -846,7 +848,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
       short id_codes[] = {ID_BR, ID_PAL};
       for (int i = 0; i < ARRAY_SIZE(id_codes); i++) {
         ListBase *lb = which_libbase(bmain, id_codes[i]);
-        BKE_main_id_repair_duplicate_names_listbase(lb);
+        BKE_main_id_repair_duplicate_names_listbase(bmain, lb);
       }
     }
 
@@ -923,7 +925,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
       for (Object *object = bmain->objects.first; object != NULL; object = object->id.next) {
         LISTBASE_FOREACH (ModifierData *, md, &object->modifiers) {
           if (md->mode & eModifierMode_Expanded_DEPRECATED) {
-            md->ui_expand_flag = 1;
+            md->ui_expand_flag = UI_PANEL_DATA_EXPAND_ROOT;
           }
           else {
             md->ui_expand_flag = 0;
@@ -951,7 +953,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
       for (Object *object = bmain->objects.first; object != NULL; object = object->id.next) {
         LISTBASE_FOREACH (bConstraint *, con, &object->constraints) {
           if (con->flag & CONSTRAINT_EXPAND_DEPRECATED) {
-            con->ui_expand_flag = 1;
+            con->ui_expand_flag = UI_PANEL_DATA_EXPAND_ROOT;
           }
           else {
             con->ui_expand_flag = 0;
@@ -965,7 +967,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
       for (Object *object = bmain->objects.first; object != NULL; object = object->id.next) {
         LISTBASE_FOREACH (GpencilModifierData *, md, &object->greasepencil_modifiers) {
           if (md->mode & eGpencilModifierMode_Expanded_DEPRECATED) {
-            md->ui_expand_flag = 1;
+            md->ui_expand_flag = UI_PANEL_DATA_EXPAND_ROOT;
           }
           else {
             md->ui_expand_flag = 0;
@@ -979,7 +981,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
       for (Object *object = bmain->objects.first; object != NULL; object = object->id.next) {
         LISTBASE_FOREACH (ShaderFxData *, fx, &object->shader_fx) {
           if (fx->mode & eShaderFxMode_Expanded_DEPRECATED) {
-            fx->ui_expand_flag = 1;
+            fx->ui_expand_flag = UI_PANEL_DATA_EXPAND_ROOT;
           }
           else {
             fx->ui_expand_flag = 0;
@@ -1446,7 +1448,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
         view_layer->eevee.render_passes &= ~EEVEE_RENDER_PASS_UNUSED_8;
       }
 
-      /* Rename Renderlayer Socket `VolumeScatterCol` to `VolumeDir` */
+      /* Rename Render-layer Socket `VolumeScatterCol` to `VolumeDir`. */
       if (scene->nodetree) {
         LISTBASE_FOREACH (bNode *, node, &scene->nodetree->nodes) {
           if (node->type == CMP_NODE_R_LAYERS) {
@@ -1608,8 +1610,8 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
     }
   }
 
-  if ((!MAIN_VERSION_ATLEAST(bmain, 292, 14)) ||
-      ((bmain->versionfile == 293) && (!MAIN_VERSION_ATLEAST(bmain, 293, 1)))) {
+  if (!MAIN_VERSION_ATLEAST(bmain, 292, 14) ||
+      ((bmain->versionfile == 293) && !MAIN_VERSION_ATLEAST(bmain, 293, 1))) {
     FOREACH_NODETREE_BEGIN (bmain, ntree, id) {
       if (ntree->type != NTREE_GEOMETRY) {
         continue;
@@ -1666,13 +1668,8 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
     LISTBASE_FOREACH (bScreen *, screen, &bmain->screens) {
       LISTBASE_FOREACH (ScrArea *, area, &screen->areabase) {
         LISTBASE_FOREACH (SpaceLink *, space, &area->spacedata) {
-          /* UV/Image Max resolution images in image editor. */
-          if (space->spacetype == SPACE_IMAGE) {
-            SpaceImage *sima = (SpaceImage *)space;
-            sima->iuser.flag |= IMA_SHOW_MAX_RESOLUTION;
-          }
           /* Enable Outliner render visibility column. */
-          else if (space->spacetype == SPACE_OUTLINER) {
+          if (space->spacetype == SPACE_OUTLINER) {
             SpaceOutliner *space_outliner = (SpaceOutliner *)space;
             space_outliner->show_restrict_flags |= SO_RESTRICT_RENDER;
           }
@@ -1699,7 +1696,7 @@ void blo_do_versions_290(FileData *fd, Library *UNUSED(lib), Main *bmain)
       }
     }
 
-    /* Add subpanels for FModifiers, which requires a field to store expansion. */
+    /* Add sub-panels for FModifiers, which requires a field to store expansion. */
     if (!DNA_struct_elem_find(fd->filesdna, "FModifier", "short", "ui_expand_flag")) {
       LISTBASE_FOREACH (bAction *, act, &bmain->actions) {
         LISTBASE_FOREACH (FCurve *, fcu, &act->curves) {

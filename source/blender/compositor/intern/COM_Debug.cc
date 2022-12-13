@@ -305,7 +305,7 @@ bool DebugInfo::graphviz_system(const ExecutionSystem *system, char *str, int ma
 
     for (NodeOperation *operation : group->operations_) {
 
-      sprintf(strbuf, "_%p", group);
+      BLI_snprintf(strbuf, sizeof(strbuf), "_%p", group);
       op_groups[operation].push_back(std::string(strbuf));
 
       len += graphviz_operation(
@@ -420,7 +420,7 @@ void DebugInfo::graphviz(const ExecutionSystem *system, StringRefNull name)
   char *str = (char *)MEM_mallocN(max_textlength, __func__);
   if (graphviz_system(system, str, max_textlength - 1)) {
     char basename[FILE_MAX];
-    char filename[FILE_MAX];
+    char filepath[FILE_MAX];
 
     if (name.is_empty()) {
       BLI_snprintf(basename, sizeof(basename), "compositor_%d.dot", file_index_);
@@ -428,12 +428,12 @@ void DebugInfo::graphviz(const ExecutionSystem *system, StringRefNull name)
     else {
       BLI_strncpy(basename, (name + ".dot").c_str(), sizeof(basename));
     }
-    BLI_join_dirfile(filename, sizeof(filename), BKE_tempdir_session(), basename);
+    BLI_path_join(filepath, sizeof(filepath), BKE_tempdir_session(), basename);
     file_index_++;
 
-    std::cout << "Writing compositor debug to: " << filename << "\n";
+    std::cout << "Writing compositor debug to: " << filepath << "\n";
 
-    FILE *fp = BLI_fopen(filename, "wb");
+    FILE *fp = BLI_fopen(filepath, "wb");
     fputs(str, fp);
     fclose(fp);
   }

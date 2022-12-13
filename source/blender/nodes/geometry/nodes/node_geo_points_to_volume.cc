@@ -6,6 +6,8 @@
 #  include <openvdb/tools/ParticlesToLevelSet.h>
 #endif
 
+#include "BLI_bounds.hh"
+
 #include "node_geometry_util.hh"
 
 #include "BKE_lib_id.h"
@@ -43,14 +45,14 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Volume"));
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiLayoutSetPropSep(layout, true);
   uiLayoutSetPropDecorate(layout, false);
   uiItemR(layout, ptr, "resolution_mode", 0, IFACE_("Resolution"), ICON_NONE);
 }
 
-static void node_init(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeGeometryPointsToVolume *data = MEM_cnew<NodeGeometryPointsToVolume>(__func__);
   data->resolution_mode = GEO_NODE_POINTS_TO_VOLUME_RESOLUTION_MODE_AMOUNT;
@@ -83,7 +85,7 @@ struct ParticleList {
 
   size_t size() const
   {
-    return (size_t)positions.size();
+    return size_t(positions.size());
   }
 
   void getPos(size_t n, openvdb::Vec3R &xyz) const
@@ -142,9 +144,7 @@ static float compute_voxel_size(const GeoNodeExecParams &params,
     return 0.0f;
   }
 
-  float3 min, max;
-  INIT_MINMAX(min, max);
-  minmax_v3v3_v3_array(min, max, (float(*)[3])positions.data(), positions.size());
+  const Bounds<float3> bounds = *bounds::min_max(positions);
 
   const float voxel_amount = params.get_input<float>("Voxel Amount");
   if (voxel_amount <= 1) {
@@ -152,7 +152,7 @@ static float compute_voxel_size(const GeoNodeExecParams &params,
   }
 
   /* The voxel size adapts to the final size of the volume. */
-  const float diagonal = math::distance(min, max);
+  const float diagonal = math::distance(bounds.min, bounds.max);
   const float extended_diagonal = diagonal + 2.0f * radius;
   const float voxel_size = extended_diagonal / voxel_amount;
   return voxel_size;
@@ -163,19 +163,22 @@ static void gather_point_data_from_component(GeoNodeExecParams &params,
                                              Vector<float3> &r_positions,
                                              Vector<float> &r_radii)
 {
-  VArray<float3> positions = component.attribute_get_for_read<float3>(
+  if (component.is_empty()) {
+    return;
+  }
+  VArray<float3> positions = component.attributes()->lookup_or_default<float3>(
       "position", ATTR_DOMAIN_POINT, {0, 0, 0});
 
   Field<float> radius_field = params.get_input<Field<float>>("Radius");
-  GeometryComponentFieldContext field_context{component, ATTR_DOMAIN_POINT};
-  const int domain_size = component.attribute_domain_size(ATTR_DOMAIN_POINT);
+  bke::GeometryFieldContext field_context{component, ATTR_DOMAIN_POINT};
+  const int domain_num = component.attribute_domain_size(ATTR_DOMAIN_POINT);
 
-  r_positions.resize(r_positions.size() + domain_size);
-  positions.materialize(r_positions.as_mutable_span().take_back(domain_size));
+  r_positions.resize(r_positions.size() + domain_num);
+  positions.materialize(r_positions.as_mutable_span().take_back(domain_num));
 
-  r_radii.resize(r_radii.size() + domain_size);
-  fn::FieldEvaluator evaluator{field_context, domain_size};
-  evaluator.add_with_destination(radius_field, r_radii.as_mutable_span().take_back(domain_size));
+  r_radii.resize(r_radii.size() + domain_num);
+  fn::FieldEvaluator evaluator{field_context, domain_num};
+  evaluator.add_with_destination(radius_field, r_radii.as_mutable_span().take_back(domain_num));
   evaluator.evaluate();
 }
 
@@ -206,13 +209,18 @@ static void initialize_volume_component_from_points(GeoNodeExecParams &params,
     }
   }
 
-  const float max_radius = *std::max_element(radii.begin(), radii.end());
-  const float voxel_size = compute_voxel_size(params, positions, max_radius);
-  if (voxel_size == 0.0f || positions.is_empty()) {
+  if (positions.is_empty()) {
     return;
   }
 
-  Volume *volume = (Volume *)BKE_id_new_nomain(ID_VO, nullptr);
+  const float max_radius = *std::max_element(radii.begin(), radii.end());
+  const float voxel_size = compute_voxel_size(params, positions, max_radius);
+  const double determinant = std::pow(double(voxel_size), 3.0);
+  if (!BKE_volume_grid_determinant_valid(determinant)) {
+    return;
+  }
+
+  Volume *volume = reinterpret_cast<Volume *>(BKE_id_new_nomain(ID_VO, nullptr));
   BKE_volume_init_grids(volume);
 
   const float density = params.get_input<float>("Density");
@@ -221,24 +229,23 @@ static void initialize_volume_component_from_points(GeoNodeExecParams &params,
   new_grid->transform().postScale(voxel_size);
   BKE_volume_grid_add_vdb(*volume, "density", std::move(new_grid));
 
-  r_geometry_set.keep_only({GEO_COMPONENT_TYPE_VOLUME, GEO_COMPONENT_TYPE_INSTANCES});
+  r_geometry_set.keep_only_during_modify({GEO_COMPONENT_TYPE_VOLUME});
   r_geometry_set.replace_volume(volume);
 }
 #endif
 
 static void node_geo_exec(GeoNodeExecParams params)
 {
-  GeometrySet geometry_set = params.extract_input<GeometrySet>("Points");
-
 #ifdef WITH_OPENVDB
+  GeometrySet geometry_set = params.extract_input<GeometrySet>("Points");
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     initialize_volume_component_from_points(params, geometry_set);
   });
   params.set_output("Volume", std::move(geometry_set));
 #else
+  params.set_default_remaining_outputs();
   params.error_message_add(NodeWarningType::Error,
                            TIP_("Disabled, Blender was compiled without OpenVDB"));
-  params.set_default_remaining_outputs();
 #endif
 }
 
@@ -256,8 +263,8 @@ void register_node_type_geo_points_to_volume()
                     node_free_standard_storage,
                     node_copy_standard_storage);
   node_type_size(&ntype, 170, 120, 700);
-  node_type_init(&ntype, file_ns::node_init);
-  node_type_update(&ntype, file_ns::node_update);
+  ntype.initfunc = file_ns::node_init;
+  ntype.updatefunc = file_ns::node_update;
   ntype.declare = file_ns::node_declare;
   ntype.geometry_node_execute = file_ns::node_geo_exec;
   ntype.draw_buttons = file_ns::node_layout;

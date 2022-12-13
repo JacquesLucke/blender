@@ -9,11 +9,13 @@
 
 #include "DNA_defs.h"
 
-/* XXX(campbell): temp feature. */
+/* XXX(@campbellbarton): temp feature. */
 #define DURIAN_CAMERA_SWITCH
 
-/* check for cyclic set-scene,
- * libs can cause this case which is normally prevented, see (T#####) */
+/**
+ * Check for cyclic set-scene.
+ * Libraries can cause this case which is normally prevented, see (T42009).
+ */
 #define USE_SETSCENE_CHECK
 
 #include "DNA_ID.h"
@@ -304,6 +306,10 @@ typedef enum eScenePassType {
 #define RE_PASSNAME_BLOOM "BloomCol"
 #define RE_PASSNAME_VOLUME_LIGHT "VolumeDir"
 
+#define RE_PASSNAME_CRYPTOMATTE_OBJECT "CryptoObject"
+#define RE_PASSNAME_CRYPTOMATTE_ASSET "CryptoAsset"
+#define RE_PASSNAME_CRYPTOMATTE_MATERIAL "CryptoMaterial"
+
 /** View - MultiView. */
 typedef struct SceneRenderView {
   struct SceneRenderView *next, *prev;
@@ -397,12 +403,12 @@ typedef struct ImageFormatData {
 
   /** R_IMF_PLANES_BW, R_IMF_PLANES_RGB, R_IMF_PLANES_RGBA. */
   char planes;
-  /** Generic options for all image types, alpha zbuffer. */
+  /** Generic options for all image types, alpha Z-buffer. */
   char flag;
 
-  /** (0 - 100), eg: jpeg quality. */
+  /** (0 - 100), eg: JPEG quality. */
   char quality;
-  /** (0 - 100), eg: png compression. */
+  /** (0 - 100), eg: PNG compression. */
   char compress;
 
   /* --- format specific --- */
@@ -466,6 +472,7 @@ typedef struct ImageFormatData {
 #define R_IMF_IMTYPE_THEORA 33
 #define R_IMF_IMTYPE_PSD 34
 #define R_IMF_IMTYPE_WEBP 35
+#define R_IMF_IMTYPE_AV1 36
 
 #define R_IMF_IMTYPE_INVALID 255
 
@@ -553,7 +560,8 @@ typedef struct BakeData {
   char target;
   char save_mode;
   char margin_type;
-  char _pad[5];
+  char view_from;
+  char _pad[4];
 
   struct Object *cage_object;
 } BakeData;
@@ -585,6 +593,12 @@ typedef enum eBakeSaveMode {
   R_BAKE_SAVE_INTERNAL = 0,
   R_BAKE_SAVE_EXTERNAL = 1,
 } eBakeSaveMode;
+
+/** #BakeData.view_from (char) */
+typedef enum eBakeViewFrom {
+  R_BAKE_VIEW_FROM_ABOVE_SURFACE = 0,
+  R_BAKE_VIEW_FROM_ACTIVE_CAMERA = 1,
+} eBakeViewFrom;
 
 /** #BakeData.pass_filter */
 typedef enum eBakePassFilter {
@@ -820,6 +834,7 @@ typedef struct RenderProfile {
 /** #ToolSettings.uv_relax_method */
 #define UV_SCULPT_TOOL_RELAX_LAPLACIAN 1
 #define UV_SCULPT_TOOL_RELAX_HC 2
+#define UV_SCULPT_TOOL_RELAX_COTAN 3
 
 /* Stereo Flags */
 #define STEREO_RIGHT_NAME "right"
@@ -939,6 +954,7 @@ typedef struct PaintModeSettings {
 
   /** Selected image when canvas_source=PAINT_CANVAS_SOURCE_IMAGE. */
   Image *canvas_image;
+  ImageUser image_user;
 
 } PaintModeSettings;
 
@@ -990,6 +1006,9 @@ typedef struct Sculpt {
   // float pivot[3]; XXX not used?
   int flags;
 
+  /* Transform tool. */
+  int transform_mode;
+
   int automasking_flags;
 
   /* Control tablet input */
@@ -1010,26 +1029,20 @@ typedef struct Sculpt {
   float constant_detail;
   float detail_percent;
 
+  int automasking_cavity_blur_steps;
+  float automasking_cavity_factor;
+  char _pad[4];
+
+  float automasking_start_normal_limit, automasking_start_normal_falloff;
+  float automasking_view_normal_limit, automasking_view_normal_falloff;
+
+  struct CurveMapping *automasking_cavity_curve;
+  struct CurveMapping *automasking_cavity_curve_op; /* For use by operators */
   struct Object *gravity_object;
 } Sculpt;
 
-typedef enum CurvesSculptFlag {
-  CURVES_SCULPT_FLAG_INTERPOLATE_LENGTH = (1 << 0),
-  CURVES_SCULPT_FLAG_INTERPOLATE_SHAPE = (1 << 1),
-} CurvesSculptFlag;
-
 typedef struct CurvesSculpt {
   Paint paint;
-  /** Minimum distance between newly added curves on a surface. */
-  float distance;
-
-  /** CurvesSculptFlag. */
-  uint32_t flag;
-
-  /** Length of newly added curves when it is not interpolated from other curves. */
-  float curve_length;
-
-  char _pad[4];
 } CurvesSculpt;
 
 typedef struct UvSculpt {
@@ -1142,6 +1155,16 @@ typedef enum eGP_Sculpt_SettingsFlag {
   GP_SCULPT_SETT_FLAG_PRIMITIVE_CURVE = (1 << 1),
   /** Scale thickness. */
   GP_SCULPT_SETT_FLAG_SCALE_THICKNESS = (1 << 3),
+  /* Stroke Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_STROKE = (1 << 4),
+  /* Stroke Layer Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_STROKE = (1 << 5),
+  /* Stroke Material Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_STROKE = (1 << 6),
+  /* Active Layer Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_LAYER_ACTIVE = (1 << 7),
+  /* Active Material Auto-Masking for sculpt. */
+  GP_SCULPT_SETT_FLAG_AUTOMASK_MATERIAL_ACTIVE = (1 << 8),
 } eGP_Sculpt_SettingsFlag;
 
 /** #GP_Sculpt_Settings.gpencil_selectmode_sculpt */
@@ -1176,6 +1199,8 @@ typedef enum eGP_Interpolate_SettingsFlag {
   GP_TOOLFLAG_INTERPOLATE_ALL_LAYERS = (1 << 0),
   /* apply interpolation to only selected */
   GP_TOOLFLAG_INTERPOLATE_ONLY_SELECTED = (1 << 1),
+  /* Exclude breakdown keyframe type as extreme */
+  GP_TOOLFLAG_INTERPOLATE_EXCLUDE_BREAKDOWNS = (1 << 2),
 } eGP_Interpolate_SettingsFlag;
 
 /** #GP_Interpolate_Settings.type */
@@ -1269,8 +1294,7 @@ typedef struct UnifiedPaintSettings {
    * In case of anchored brushes contains the anchored radius */
   float pixel_radius;
   float initial_pixel_radius;
-
-  char _pad[4];
+  float start_pixel_radius;
 
   /* drawing pressure */
   float size_pressure_value;
@@ -1505,19 +1529,25 @@ typedef struct ToolSettings {
   /* Transform */
   char transform_pivot_point;
   char transform_flag;
-  /** Snap elements (per spacetype). */
-  char snap_mode;
+  /** Snap elements (per space-type), #eSnapMode. */
+  char _pad1[1];
+  short snap_mode;
   char snap_node_mode;
   char snap_uv_mode;
-  /** Generic flags (per spacetype). */
-  char snap_flag;
-  char snap_flag_node;
-  char snap_flag_seq;
-  char snap_uv_flag;
-  /** Default snap source. */
+  /** Generic flags (per space-type), #eSnapFlag. */
+  short snap_flag;
+  short snap_flag_node;
+  short snap_flag_seq;
+  short snap_uv_flag;
+  /** Default snap source, #eSnapSourceSelect. */
+  /* TODO(@gfxcoder): Rename `snap_target` to `snap_source` to avoid previous ambiguity of
+   * "target" (now, "source" is geometry to be moved and "target" is geometry to which moved
+   * geometry is snapped). */
   char snap_target;
-  /** Snap mask for transform modes. */
+  /** Snap mask for transform modes, #eSnapTransformMode. */
   char snap_transform_mode_flag;
+  /** Steps to break transformation into with face nearest snapping */
+  short snap_face_nearest_steps;
 
   char proportional_edit, prop_mode;
   /** Proportional edit, object mode. */
@@ -1744,6 +1774,8 @@ typedef struct Scene {
   ID id;
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt;
+  /* runtime (must be immediately after id for utilities to use it). */
+  DrawDataList drawdata;
 
   struct Object *camera;
   struct World *world;
@@ -2041,27 +2073,15 @@ extern const char *RE_engine_id_CYCLES;
   (BASE_EDITABLE(v3d, base) && (((base)->flag & BASE_SELECTED) != 0))
 
 /* deprecate this! */
-#define FIRSTBASE(_view_layer) ((_view_layer)->object_bases.first)
-#define LASTBASE(_view_layer) ((_view_layer)->object_bases.last)
-#define BASACT(_view_layer) ((_view_layer)->basact)
-#define OBACT(_view_layer) (BASACT(_view_layer) ? BASACT(_view_layer)->object : NULL)
-
-#define OBEDIT_FROM_WORKSPACE(workspace, _view_layer) \
-  (((workspace)->object_mode & OD_MODE_EDIT) ? OBACT(_view_layer) : NULL)
 #define OBEDIT_FROM_OBACT(ob) ((ob) ? (((ob)->mode & OB_MODE_EDIT) ? ob : NULL) : NULL)
 #define OBPOSE_FROM_OBACT(ob) ((ob) ? (((ob)->mode & OB_MODE_POSE) ? ob : NULL) : NULL)
 #define OBWEIGHTPAINT_FROM_OBACT(ob) \
   ((ob) ? (((ob)->mode & OB_MODE_WEIGHT_PAINT) ? ob : NULL) : NULL)
-#define OBEDIT_FROM_VIEW_LAYER(view_layer) OBEDIT_FROM_OBACT(OBACT(view_layer))
 
 #define V3D_CAMERA_LOCAL(v3d) ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : NULL)
 #define V3D_CAMERA_SCENE(scene, v3d) \
   ((!(v3d)->scenelock && (v3d)->camera) ? (v3d)->camera : (scene)->camera)
 
-#define CFRA (scene->r.cfra)
-#define SUBFRA (scene->r.subframe)
-#define SFRA (scene->r.sfra)
-#define EFRA (scene->r.efra)
 #define PRVRANGEON (scene->r.flag & SCER_PRV_RANGE)
 #define PSFRA ((PRVRANGEON) ? (scene->r.psfra) : (scene->r.sfra))
 #define PEFRA ((PRVRANGEON) ? (scene->r.pefra) : (scene->r.efra))
@@ -2090,30 +2110,76 @@ enum {
 };
 
 /** #ToolSettings.snap_flag */
-#define SCE_SNAP (1 << 0)
-#define SCE_SNAP_ROTATE (1 << 1)
-#define SCE_SNAP_PEEL_OBJECT (1 << 2)
-#define SCE_SNAP_PROJECT (1 << 3)
-#define SCE_SNAP_NO_SELF (1 << 4)
-#define SCE_SNAP_ABS_GRID (1 << 5)
-#define SCE_SNAP_BACKFACE_CULLING (1 << 6)
+typedef enum eSnapFlag {
+  SCE_SNAP = (1 << 0),
+  SCE_SNAP_ROTATE = (1 << 1),
+  SCE_SNAP_PEEL_OBJECT = (1 << 2),
+  SCE_SNAP_PROJECT = (1 << 3),       /* Project individual elements instead of whole object. */
+  SCE_SNAP_NOT_TO_ACTIVE = (1 << 4), /* Was `SCE_SNAP_NO_SELF`, but self should be active. */
+  SCE_SNAP_ABS_GRID = (1 << 5),
+  SCE_SNAP_BACKFACE_CULLING = (1 << 6),
+  SCE_SNAP_KEEP_ON_SAME_OBJECT = (1 << 7),
+  /* see #eSnapTargetSelect */
+  SCE_SNAP_TO_INCLUDE_EDITED = (1 << 8),
+  SCE_SNAP_TO_INCLUDE_NONEDITED = (1 << 9),
+  SCE_SNAP_TO_ONLY_SELECTABLE = (1 << 10),
+} eSnapFlag;
+/* Due to dependency conflicts with Cycles, header cannot directly include `BLI_utildefines.h`. */
+/* TODO: move this macro to a more general place. */
+#ifdef ENUM_OPERATORS
+ENUM_OPERATORS(eSnapFlag, SCE_SNAP_BACKFACE_CULLING)
+#endif
 
-/** #ToolSettings.snap_target */
-#define SCE_SNAP_TARGET_CLOSEST 0
-#define SCE_SNAP_TARGET_CENTER 1
-#define SCE_SNAP_TARGET_MEDIAN 2
-#define SCE_SNAP_TARGET_ACTIVE 3
+/** See #ToolSettings.snap_target (to be renamed `snap_source`) and #TransSnap.source_select */
+typedef enum eSnapSourceSelect {
+  SCE_SNAP_SOURCE_CLOSEST = 0,
+  SCE_SNAP_SOURCE_CENTER = 1,
+  SCE_SNAP_SOURCE_MEDIAN = 2,
+  SCE_SNAP_SOURCE_ACTIVE = 3,
+} eSnapSourceSelect;
+
+ENUM_OPERATORS(eSnapSourceSelect, SCE_SNAP_SOURCE_ACTIVE)
+
+/** #TransSnap.target_select and #ToolSettings.snap_flag (#SCE_SNAP_NOT_TO_ACTIVE,
+ * #SCE_SNAP_TO_INCLUDE_EDITED, #SCE_SNAP_TO_INCLUDE_NONEDITED, #SCE_SNAP_TO_ONLY_SELECTABLE) */
+typedef enum eSnapTargetSelect {
+  SCE_SNAP_TARGET_ALL = 0,
+  SCE_SNAP_TARGET_NOT_SELECTED = (1 << 0),
+  SCE_SNAP_TARGET_NOT_ACTIVE = (1 << 1),
+  SCE_SNAP_TARGET_NOT_EDITED = (1 << 2),
+  SCE_SNAP_TARGET_ONLY_SELECTABLE = (1 << 3),
+  SCE_SNAP_TARGET_NOT_NONEDITED = (1 << 4),
+} eSnapTargetSelect;
+ENUM_OPERATORS(eSnapTargetSelect, SCE_SNAP_TARGET_NOT_NONEDITED)
 
 /** #ToolSettings.snap_mode */
-#define SCE_SNAP_MODE_VERTEX (1 << 0)
-#define SCE_SNAP_MODE_EDGE (1 << 1)
-#define SCE_SNAP_MODE_FACE (1 << 2)
-#define SCE_SNAP_MODE_VOLUME (1 << 3)
-#define SCE_SNAP_MODE_EDGE_MIDPOINT (1 << 4)
-#define SCE_SNAP_MODE_EDGE_PERPENDICULAR (1 << 5)
-#define SCE_SNAP_MODE_GEOM \
-  (SCE_SNAP_MODE_VERTEX | SCE_SNAP_MODE_EDGE | SCE_SNAP_MODE_FACE | \
-   SCE_SNAP_MODE_EDGE_PERPENDICULAR | SCE_SNAP_MODE_EDGE_MIDPOINT)
+typedef enum eSnapMode {
+  SCE_SNAP_MODE_NONE = 0,
+  SCE_SNAP_MODE_VERTEX = (1 << 0),
+  SCE_SNAP_MODE_EDGE = (1 << 1),
+  SCE_SNAP_MODE_FACE_RAYCAST = (1 << 2),
+  SCE_SNAP_MODE_VOLUME = (1 << 3),
+  SCE_SNAP_MODE_EDGE_MIDPOINT = (1 << 4),
+  SCE_SNAP_MODE_EDGE_PERPENDICULAR = (1 << 5),
+  SCE_SNAP_MODE_FACE_NEAREST = (1 << 8),
+
+  SCE_SNAP_MODE_GEOM = (SCE_SNAP_MODE_VERTEX | SCE_SNAP_MODE_EDGE | SCE_SNAP_MODE_FACE_RAYCAST |
+                        SCE_SNAP_MODE_EDGE_PERPENDICULAR | SCE_SNAP_MODE_EDGE_MIDPOINT |
+                        SCE_SNAP_MODE_FACE_NEAREST),
+
+  /** #ToolSettings.snap_node_mode */
+  SCE_SNAP_MODE_NODE_X = (1 << 0),
+  SCE_SNAP_MODE_NODE_Y = (1 << 1),
+
+  /** #ToolSettings.snap_mode and #ToolSettings.snap_node_mode and #ToolSettings.snap_uv_mode */
+  SCE_SNAP_MODE_INCREMENT = (1 << 6),
+  SCE_SNAP_MODE_GRID = (1 << 7),
+} eSnapMode;
+/* Due to dependency conflicts with Cycles, header cannot directly include `BLI_utildefines.h`. */
+/* TODO: move this macro to a more general place. */
+#ifdef ENUM_OPERATORS
+ENUM_OPERATORS(eSnapMode, SCE_SNAP_MODE_GRID)
+#endif
 
 /** #SequencerToolSettings.snap_mode */
 #define SEQ_SNAP_TO_STRIPS (1 << 0)
@@ -2125,22 +2191,12 @@ enum {
 #define SEQ_SNAP_IGNORE_SOUND (1 << 1)
 #define SEQ_SNAP_CURRENT_FRAME_TO_STRIPS (1 << 2)
 
-/** #ToolSettings.snap_node_mode */
-#define SCE_SNAP_MODE_NODE_X (1 << 0)
-#define SCE_SNAP_MODE_NODE_Y (1 << 1)
-
-/**
- * #ToolSettings.snap_mode and #ToolSettings.snap_node_mode
- */
-#define SCE_SNAP_MODE_INCREMENT (1 << 6)
-#define SCE_SNAP_MODE_GRID (1 << 7)
-
 /** #ToolSettings.snap_transform_mode_flag */
-enum {
+typedef enum eSnapTransformMode {
   SCE_SNAP_TRANSFORM_MODE_TRANSLATE = (1 << 0),
   SCE_SNAP_TRANSFORM_MODE_ROTATE = (1 << 1),
   SCE_SNAP_TRANSFORM_MODE_SCALE = (1 << 2),
-};
+} eSnapTransformMode;
 
 /** #ToolSettings.selectmode */
 #define SCE_SELECT_VERTEX (1 << 0) /* for mesh */
@@ -2184,7 +2240,7 @@ enum {
   OB_DRAW_GROUPUSER_ALL = 2,
 };
 
-/* object_vgroup.c */
+/* object_vgroup.cc */
 
 /** #ToolSettings.vgroupsubset */
 typedef enum eVGroupSelect {
@@ -2251,6 +2307,7 @@ typedef enum ePaintSymmetryFlags {
   PAINT_TILE_Y = (1 << 5),
   PAINT_TILE_Z = (1 << 6),
 } ePaintSymmetryFlags;
+ENUM_OPERATORS(ePaintSymmetryFlags, PAINT_TILE_Z);
 
 #define PAINT_SYMM_AXIS_ALL (PAINT_SYMM_X | PAINT_SYMM_Y | PAINT_SYMM_Z)
 
@@ -2293,6 +2350,12 @@ typedef enum eSculptFlags {
   /* Don't display face sets in viewport. */
   SCULPT_HIDE_FACE_SETS = (1 << 17),
 } eSculptFlags;
+
+/* Sculpt.transform_mode */
+typedef enum eSculptTransformMode {
+  SCULPT_TRANSFORM_MODE_ALL_VERTICES = 0,
+  SCULPT_TRANSFORM_MODE_RADIUS_ELASTIC = 1,
+} eSculptTrasnformMode;
 
 /** PaintModeSettings.mode */
 typedef enum ePaintCanvasSource {

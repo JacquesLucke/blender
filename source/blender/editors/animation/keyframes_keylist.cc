@@ -132,7 +132,7 @@ static void ED_keylist_runtime_init_listbase(AnimKeylist *keylist)
     return;
   }
 
-  keylist->runtime.list_wrapper.first = &keylist->runtime.key_columns[0];
+  keylist->runtime.list_wrapper.first = keylist->runtime.key_columns.data();
   keylist->runtime.list_wrapper.last = &keylist->runtime.key_columns[keylist->column_len - 1];
 }
 
@@ -304,7 +304,21 @@ const struct ListBase *ED_keylist_listbase(const AnimKeylist *keylist)
   return &keylist->key_columns;
 }
 
-bool ED_keylist_frame_range(const struct AnimKeylist *keylist, Range2f *r_frame_range)
+static void keylist_first_last(const struct AnimKeylist *keylist,
+                               const struct ActKeyColumn **first_column,
+                               const struct ActKeyColumn **last_column)
+{
+  if (keylist->is_runtime_initialized) {
+    *first_column = keylist->runtime.key_columns.data();
+    *last_column = &keylist->runtime.key_columns[keylist->column_len - 1];
+  }
+  else {
+    *first_column = static_cast<const ActKeyColumn *>(keylist->key_columns.first);
+    *last_column = static_cast<const ActKeyColumn *>(keylist->key_columns.last);
+  }
+}
+
+bool ED_keylist_all_keys_frame_range(const struct AnimKeylist *keylist, Range2f *r_frame_range)
 {
   BLI_assert(r_frame_range);
 
@@ -314,13 +328,33 @@ bool ED_keylist_frame_range(const struct AnimKeylist *keylist, Range2f *r_frame_
 
   const ActKeyColumn *first_column;
   const ActKeyColumn *last_column;
-  if (keylist->is_runtime_initialized) {
-    first_column = &keylist->runtime.key_columns[0];
-    last_column = &keylist->runtime.key_columns[keylist->column_len - 1];
+  keylist_first_last(keylist, &first_column, &last_column);
+  r_frame_range->min = first_column->cfra;
+  r_frame_range->max = last_column->cfra;
+
+  return true;
+}
+
+bool ED_keylist_selected_keys_frame_range(const struct AnimKeylist *keylist,
+                                          Range2f *r_frame_range)
+{
+  BLI_assert(r_frame_range);
+
+  if (ED_keylist_is_empty(keylist)) {
+    return false;
   }
-  else {
-    first_column = static_cast<const ActKeyColumn *>(keylist->key_columns.first);
-    last_column = static_cast<const ActKeyColumn *>(keylist->key_columns.last);
+
+  const ActKeyColumn *first_column;
+  const ActKeyColumn *last_column;
+  keylist_first_last(keylist, &first_column, &last_column);
+  while (first_column && !(first_column->sel & SELECT)) {
+    first_column = first_column->next;
+  }
+  while (last_column && !(last_column->sel & SELECT)) {
+    last_column = last_column->prev;
+  }
+  if (!first_column || !last_column || first_column == last_column) {
+    return false;
   }
   r_frame_range->min = first_column->cfra;
   r_frame_range->max = last_column->cfra;
@@ -909,7 +943,8 @@ void scene_to_keylist(bDopeSheet *ads, Scene *sce, AnimKeylist *keylist, const i
   ac.datatype = ANIMCONT_CHANNEL;
 
   /* get F-Curves to take keyframes from */
-  const eAnimFilter_Flags filter = ANIMFILTER_DATA_VISIBLE; /* curves only */
+  const eAnimFilter_Flags filter = ANIMFILTER_DATA_VISIBLE | ANIMFILTER_FCURVESONLY;
+
   ANIM_animdata_filter(
       &ac, &anim_data, filter, ac.data, static_cast<eAnimCont_Types>(ac.datatype));
 
@@ -946,7 +981,7 @@ void ob_to_keylist(bDopeSheet *ads, Object *ob, AnimKeylist *keylist, const int 
   ac.datatype = ANIMCONT_CHANNEL;
 
   /* get F-Curves to take keyframes from */
-  const eAnimFilter_Flags filter = ANIMFILTER_DATA_VISIBLE; /* curves only */
+  const eAnimFilter_Flags filter = ANIMFILTER_DATA_VISIBLE | ANIMFILTER_FCURVESONLY;
   ANIM_animdata_filter(
       &ac, &anim_data, filter, ac.data, static_cast<eAnimCont_Types>(ac.datatype));
 
@@ -981,7 +1016,7 @@ void cachefile_to_keylist(bDopeSheet *ads,
 
   /* get F-Curves to take keyframes from */
   ListBase anim_data = {nullptr, nullptr};
-  const eAnimFilter_Flags filter = ANIMFILTER_DATA_VISIBLE; /* curves only */
+  const eAnimFilter_Flags filter = ANIMFILTER_DATA_VISIBLE | ANIMFILTER_FCURVESONLY;
   ANIM_animdata_filter(
       &ac, &anim_data, filter, ac.data, static_cast<eAnimCont_Types>(ac.datatype));
 
@@ -1075,7 +1110,7 @@ void gpencil_to_keylist(bDopeSheet *ads, bGPdata *gpd, AnimKeylist *keylist, con
   }
 }
 
-void gpl_to_keylist(bDopeSheet *UNUSED(ads), bGPDlayer *gpl, AnimKeylist *keylist)
+void gpl_to_keylist(bDopeSheet * /*ads*/, bGPDlayer *gpl, AnimKeylist *keylist)
 {
   if (gpl && keylist) {
     ED_keylist_reset_last_accessed(keylist);
@@ -1089,7 +1124,7 @@ void gpl_to_keylist(bDopeSheet *UNUSED(ads), bGPDlayer *gpl, AnimKeylist *keylis
   }
 }
 
-void mask_to_keylist(bDopeSheet *UNUSED(ads), MaskLayer *masklay, AnimKeylist *keylist)
+void mask_to_keylist(bDopeSheet * /*ads*/, MaskLayer *masklay, AnimKeylist *keylist)
 {
   if (masklay && keylist) {
     ED_keylist_reset_last_accessed(keylist);

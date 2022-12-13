@@ -87,6 +87,10 @@ typedef enum eGPDbrush_Flag {
   GP_BRUSH_OCCLUDE_ERASER = (1 << 15),
   /* Post process trim stroke */
   GP_BRUSH_TRIM_STROKE = (1 << 16),
+  /* Post process convert to outline stroke */
+  GP_BRUSH_OUTLINE_STROKE = (1 << 17),
+  /* Collide with stroke. */
+  GP_BRUSH_FILL_STROKE_COLLIDE = (1 << 18),
 } eGPDbrush_Flag;
 
 typedef enum eGPDbrush_Flag2 {
@@ -116,12 +120,18 @@ typedef enum eGPDbrush_Flag2 {
   GP_BRUSH_USE_UV_RAND_PRESS = (1 << 11),
 } eGPDbrush_Flag2;
 
-/* BrushGpencilSettings->gp_fill_draw_mode */
+/* BrushGpencilSettings->fill_draw_mode */
 typedef enum eGP_FillDrawModes {
   GP_FILL_DMODE_BOTH = 0,
   GP_FILL_DMODE_STROKE = 1,
   GP_FILL_DMODE_CONTROL = 2,
 } eGP_FillDrawModes;
+
+/* BrushGpencilSettings->fill_extend_mode */
+typedef enum eGP_FillExtendModes {
+  GP_FILL_EMODE_EXTEND = 0,
+  GP_FILL_EMODE_RADIUS = 1,
+} eGP_FillExtendModes;
 
 /* BrushGpencilSettings->fill_layer_mode */
 typedef enum eGP_FillLayerModes {
@@ -312,6 +322,17 @@ typedef enum eAutomasking_flag {
   BRUSH_AUTOMASKING_FACE_SETS = (1 << 1),
   BRUSH_AUTOMASKING_BOUNDARY_EDGES = (1 << 2),
   BRUSH_AUTOMASKING_BOUNDARY_FACE_SETS = (1 << 3),
+  BRUSH_AUTOMASKING_CAVITY_NORMAL = (1 << 4),
+
+  /* NOTE: normal and inverted are mutually exclusive,
+   * inverted has priority if both bits are set. */
+  BRUSH_AUTOMASKING_CAVITY_INVERTED = (1 << 5),
+  BRUSH_AUTOMASKING_CAVITY_ALL = (1 << 4) | (1 << 5),
+  BRUSH_AUTOMASKING_CAVITY_USE_CURVE = (1 << 6),
+  /* (1 << 7) - unused. */
+  BRUSH_AUTOMASKING_BRUSH_NORMAL = (1 << 8),
+  BRUSH_AUTOMASKING_VIEW_NORMAL = (1 << 9),
+  BRUSH_AUTOMASKING_VIEW_OCCLUSION = (1 << 10),
 } eAutomasking_flag;
 
 typedef enum ePaintBrush_flag {
@@ -462,7 +483,12 @@ typedef enum eBrushCurvesSculptTool {
   CURVES_SCULPT_TOOL_SNAKE_HOOK = 2,
   CURVES_SCULPT_TOOL_ADD = 3,
   CURVES_SCULPT_TOOL_GROW_SHRINK = 4,
-  CURVES_SCULPT_TOOL_TEST1 = 5,
+  CURVES_SCULPT_TOOL_SELECTION_PAINT = 5,
+  CURVES_SCULPT_TOOL_PINCH = 6,
+  CURVES_SCULPT_TOOL_SMOOTH = 7,
+  CURVES_SCULPT_TOOL_PUFF = 8,
+  CURVES_SCULPT_TOOL_DENSITY = 9,
+  CURVES_SCULPT_TOOL_SLIDE = 10,
 } eBrushCurvesSculptTool;
 
 /** When #BRUSH_ACCUMULATE is used */
@@ -611,7 +637,16 @@ typedef enum eBrushFalloffShape {
 typedef enum eBrushCurvesSculptFlag {
   BRUSH_CURVES_SCULPT_FLAG_SCALE_UNIFORM = (1 << 0),
   BRUSH_CURVES_SCULPT_FLAG_GROW_SHRINK_INVERT = (1 << 1),
+  BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_LENGTH = (1 << 2),
+  BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_SHAPE = (1 << 3),
+  BRUSH_CURVES_SCULPT_FLAG_INTERPOLATE_POINT_COUNT = (1 << 4),
 } eBrushCurvesSculptFlag;
+
+typedef enum eBrushCurvesSculptDensityMode {
+  BRUSH_CURVES_SCULPT_DENSITY_MODE_AUTO = 0,
+  BRUSH_CURVES_SCULPT_DENSITY_MODE_ADD = 1,
+  BRUSH_CURVES_SCULPT_DENSITY_MODE_REMOVE = 2,
+} eBrushCurvesSculptDensityMode;
 
 #define MAX_BRUSH_PIXEL_RADIUS 500
 #define GP_MAX_BRUSH_PIXEL_RADIUS 1000

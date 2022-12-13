@@ -15,8 +15,10 @@
 
 #include "BLI_threads.h"
 
+struct BakeTargets;
 struct BakePixel;
 struct Depsgraph;
+struct GPUContext;
 struct Main;
 struct Object;
 struct Render;
@@ -140,9 +142,10 @@ typedef struct RenderEngine {
   struct ReportList *reports;
 
   struct {
+    const struct BakeTargets *targets;
     const struct BakePixel *pixels;
     float *result;
-    int width, height, depth;
+    int image_id;
     int object_id;
   } bake;
 
@@ -155,10 +158,13 @@ typedef struct RenderEngine {
   update_render_passes_cb_t update_render_passes_cb;
   void *update_render_passes_data;
 
-  rctf last_viewplane;
-  rcti last_disprect;
-  float last_viewmat[4][4];
-  int last_winx, last_winy;
+  /* GPU context. */
+  void *wm_gpu_context; /* WindowManager GPU context -> GHOSTContext. */
+  ThreadMutex gpu_context_mutex;
+  bool use_drw_render_context;
+  struct GPUContext *gpu_context;
+  /* Whether to restore DRWState after RenderEngine display pass. */
+  bool gpu_restore_context;
 } RenderEngine;
 
 RenderEngine *RE_engine_create(RenderEngineType *type);
@@ -244,11 +250,17 @@ struct RenderEngine *RE_engine_get(const struct Render *re);
 bool RE_engine_draw_acquire(struct Render *re);
 void RE_engine_draw_release(struct Render *re);
 
-/* NOTE: Only used for Cycles's BLenderGPUDisplay integration with the draw manager. A subject
- * for re-consideration. Do not use this functionality. */
-bool RE_engine_has_render_context(struct RenderEngine *engine);
-void RE_engine_render_context_enable(struct RenderEngine *engine);
-void RE_engine_render_context_disable(struct RenderEngine *engine);
+/* GPU context for engine to create and update GPU resources in its own thread,
+ * without blocking the main thread. Used by Cycles' display driver to create
+ * display textures. */
+bool RE_engine_gpu_context_create(struct RenderEngine *engine);
+void RE_engine_gpu_context_destroy(struct RenderEngine *engine);
+
+bool RE_engine_gpu_context_enable(struct RenderEngine *engine);
+void RE_engine_gpu_context_disable(struct RenderEngine *engine);
+
+void RE_engine_gpu_context_lock(struct RenderEngine *engine);
+void RE_engine_gpu_context_unlock(struct RenderEngine *engine);
 
 /* Engine Types */
 

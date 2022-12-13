@@ -3,16 +3,42 @@
 
 # message(STATUS "Configuring makesdna")
 
-add_definitions(-DWITH_DNA_GHASH)
-
-blender_include_dirs(
-  ../../../../intern/atomic
-  ../../../../intern/guardedalloc
+set(INC
+  ..
   ../../blenlib
   ../../imbuf
-  ..
+  ../../../../intern/atomic
+  ../../../../intern/guardedalloc
+  ${CMAKE_CURRENT_BINARY_DIR}
 )
 
+set(INC_SYS
+
+)
+
+set(LIB
+)
+
+add_definitions(-DWITH_DNA_GHASH)
+
+# Needed for `mallocn.c`.
+if(HAVE_MALLOC_STATS_H)
+  add_definitions(-DHAVE_MALLOC_STATS_H)
+endif()
+
+set(dna_header_include_file "${CMAKE_CURRENT_BINARY_DIR}/dna_includes_all.h")
+set(dna_header_string_file "${CMAKE_CURRENT_BINARY_DIR}/dna_includes_as_strings.h")
+
+set(DNA_INCLUDE_TEXT "/* Do not edit manually, changes will be overwritten. */\n")
+set(DNA_FILE_LIST "/* Do not edit manually, changes will be overwritten. */\n")
+foreach(header ${SRC_DNA_INC})
+  get_filename_component(dna_header_file ${header} NAME)
+  string(APPEND DNA_INCLUDE_TEXT "#include \"${header}\"\n")
+  string(APPEND DNA_FILE_LIST "\t\"${dna_header_file}\",\n")
+endforeach()
+
+file(GENERATE OUTPUT ${dna_header_include_file} CONTENT "${DNA_INCLUDE_TEXT}")
+file(GENERATE OUTPUT ${dna_header_string_file} CONTENT "${DNA_FILE_LIST}")
 
 # -----------------------------------------------------------------------------
 # Build makesdna executable
@@ -29,6 +55,8 @@ set(SRC
   ../../../../intern/guardedalloc/intern/mallocn.c
   ../../../../intern/guardedalloc/intern/mallocn_guarded_impl.c
   ../../../../intern/guardedalloc/intern/mallocn_lockfree_impl.c
+  ${dna_header_include_file}
+  ${dna_header_string_file}
 )
 
 # SRC_DNA_INC is defined in the parent dir
@@ -37,6 +65,8 @@ add_cc_flags_custom_test(makesdna)
 
 add_executable(makesdna ${SRC} ${SRC_DNA_INC})
 setup_platform_linker_flags(makesdna)
+blender_target_include_dirs(makesdna ${INC})
+blender_target_include_dirs_sys(makesdna ${INC_SYS})
 
 if(WIN32 AND NOT UNIX)
   target_link_libraries(makesdna ${PTHREADS_LIBRARIES})
@@ -60,14 +90,6 @@ add_custom_command(
 
 # -----------------------------------------------------------------------------
 # Build bf_dna library
-set(INC
-  ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-set(INC_SYS
-
-)
-
 set(SRC
   dna_defaults.c
   dna_genfile.c
@@ -79,9 +101,6 @@ set(SRC
   ${CMAKE_CURRENT_BINARY_DIR}/dna_type_offsets.h
   dna_rename_defs.h
   dna_utils.h
-)
-
-set(LIB
 )
 
 set_source_files_properties(
@@ -97,7 +116,10 @@ blender_add_lib(bf_dna "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 # -----------------------------------------------------------------------------
 # Build bf_dna_blenlib library
 set(INC
-
+  ..
+  ../../blenlib
+  ../../../../intern/atomic
+  ../../../../intern/guardedalloc
 )
 
 set(INC_SYS
@@ -115,40 +137,7 @@ set(SRC
   ../../blenlib/intern/hash_mm2a.c
   ../../blenlib/intern/listbase.c
 
-  ../DNA_armature_defaults.h
-  ../DNA_asset_defaults.h
-  ../DNA_brush_defaults.h
-  ../DNA_cachefile_defaults.h
-  ../DNA_camera_defaults.h
-  ../DNA_collection_defaults.h
-  ../DNA_curve_defaults.h
-  ../DNA_curves_defaults.h
-  ../DNA_defaults.h
-  ../DNA_fluid_defaults.h
-  ../DNA_gpencil_modifier_defaults.h
-  ../DNA_image_defaults.h
-  ../DNA_lattice_defaults.h
-  ../DNA_light_defaults.h
-  ../DNA_lightprobe_defaults.h
-  ../DNA_linestyle_defaults.h
-  ../DNA_material_defaults.h
-  ../DNA_mesh_defaults.h
-  ../DNA_meta_defaults.h
-  ../DNA_modifier_defaults.h
-  ../DNA_modifier_types.h
-  ../DNA_movieclip_defaults.h
-  ../DNA_object_defaults.h
-  ../DNA_particle_defaults.h
-  ../DNA_pointcloud_defaults.h
-  ../DNA_scene_defaults.h
-  ../DNA_simulation_defaults.h
-  ../DNA_space_defaults.h
-  ../DNA_speaker_defaults.h
-  ../DNA_texture_defaults.h
-  ../DNA_vec_defaults.h
-  ../DNA_view3d_defaults.h
-  ../DNA_volume_defaults.h
-  ../DNA_world_defaults.h
+  ${SRC_DNA_DEFAULTS_INC}
 )
 
 set(LIB

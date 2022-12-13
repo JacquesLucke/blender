@@ -70,13 +70,13 @@ static void node_declare(NodeDeclarationBuilder &b)
       .description(N_(total_out_description));
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
   uiItemR(layout, ptr, "domain", 0, "", ICON_NONE);
 }
 
-static void node_init(bNodeTree *UNUSED(tree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeAccumulateField *data = MEM_cnew<NodeAccumulateField>(__func__);
   data->data_type = CD_PROP_FLOAT;
@@ -87,13 +87,13 @@ static void node_init(bNodeTree *UNUSED(tree), bNode *node)
 static void node_update(bNodeTree *ntree, bNode *node)
 {
   const NodeAccumulateField &storage = node_storage(*node);
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
+  const eCustomDataType data_type = eCustomDataType(storage.data_type);
 
-  bNodeSocket *sock_in_vector = (bNodeSocket *)node->inputs.first;
+  bNodeSocket *sock_in_vector = static_cast<bNodeSocket *>(node->inputs.first);
   bNodeSocket *sock_in_float = sock_in_vector->next;
   bNodeSocket *sock_in_int = sock_in_float->next;
 
-  bNodeSocket *sock_out_vector = (bNodeSocket *)node->outputs.first;
+  bNodeSocket *sock_out_vector = static_cast<bNodeSocket *>(node->outputs.first);
   bNodeSocket *sock_out_float = sock_out_vector->next;
   bNodeSocket *sock_out_int = sock_out_float->next;
 
@@ -123,7 +123,7 @@ static void node_update(bNodeTree *ntree, bNode *node)
 
 enum class AccumulationMode { Leading = 0, Trailing = 1 };
 
-static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
+static std::optional<eCustomDataType> node_type_from_other_socket(const bNodeSocket &socket)
 {
   switch (socket.type) {
     case SOCK_FLOAT:
@@ -141,7 +141,7 @@ static std::optional<CustomDataType> node_type_from_other_socket(const bNodeSock
 
 static void node_gather_link_searches(GatherLinkSearchOpParams &params)
 {
-  const std::optional<CustomDataType> type = node_type_from_other_socket(params.other_socket());
+  const std::optional<eCustomDataType> type = node_type_from_other_socket(params.other_socket());
   if (!type) {
     return;
   }
@@ -192,19 +192,19 @@ static void node_gather_link_searches(GatherLinkSearchOpParams &params)
   }
 }
 
-template<typename T> class AccumulateFieldInput final : public GeometryFieldInput {
+template<typename T> class AccumulateFieldInput final : public bke::GeometryFieldInput {
  private:
   Field<T> input_;
   Field<int> group_index_;
-  AttributeDomain source_domain_;
+  eAttrDomain source_domain_;
   AccumulationMode accumulation_mode_;
 
  public:
-  AccumulateFieldInput(const AttributeDomain source_domain,
+  AccumulateFieldInput(const eAttrDomain source_domain,
                        Field<T> input,
                        Field<int> group_index,
                        AccumulationMode accumulation_mode)
-      : GeometryFieldInput(CPPType::get<T>(), "Accumulation"),
+      : bke::GeometryFieldInput(CPPType::get<T>(), "Accumulation"),
         input_(input),
         group_index_(group_index),
         source_domain_(source_domain),
@@ -212,19 +212,23 @@ template<typename T> class AccumulateFieldInput final : public GeometryFieldInpu
   {
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
-                                 IndexMask UNUSED(mask)) const final
+  GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
+                                 const IndexMask /*mask*/) const final
   {
-    const GeometryComponentFieldContext field_context{component, source_domain_};
-    const int domain_size = component.attribute_domain_size(field_context.domain());
+    const AttributeAccessor attributes = *context.attributes();
+    const int domain_size = attributes.domain_size(source_domain_);
+    if (domain_size == 0) {
+      return {};
+    }
 
-    fn::FieldEvaluator evaluator{field_context, domain_size};
+    const bke::GeometryFieldContext source_context{
+        context.geometry(), context.type(), source_domain_};
+    fn::FieldEvaluator evaluator{source_context, domain_size};
     evaluator.add(input_);
     evaluator.add(group_index_);
     evaluator.evaluate();
-    const VArray<T> &values = evaluator.get_evaluated<T>(0);
-    const VArray<int> &group_indices = evaluator.get_evaluated<int>(1);
+    const VArray<T> values = evaluator.get_evaluated<T>(0);
+    const VArray<int> group_indices = evaluator.get_evaluated<int>(1);
 
     Array<T> accumulations_out(domain_size);
 
@@ -261,8 +265,8 @@ template<typename T> class AccumulateFieldInput final : public GeometryFieldInpu
       }
     }
 
-    return component.attribute_try_adapt_domain<T>(
-        VArray<T>::ForContainer(std::move(accumulations_out)), source_domain_, domain);
+    return attributes.adapt_domain<T>(
+        VArray<T>::ForContainer(std::move(accumulations_out)), source_domain_, context.domain());
   }
 
   uint64_t hash() const override
@@ -281,36 +285,46 @@ template<typename T> class AccumulateFieldInput final : public GeometryFieldInpu
     }
     return false;
   }
+
+  std::optional<eAttrDomain> preferred_domain(
+      const GeometryComponent & /*component*/) const override
+  {
+    return source_domain_;
+  }
 };
 
-template<typename T> class TotalFieldInput final : public GeometryFieldInput {
+template<typename T> class TotalFieldInput final : public bke::GeometryFieldInput {
  private:
   Field<T> input_;
   Field<int> group_index_;
-  AttributeDomain source_domain_;
+  eAttrDomain source_domain_;
 
  public:
-  TotalFieldInput(const AttributeDomain source_domain, Field<T> input, Field<int> group_index)
-      : GeometryFieldInput(CPPType::get<T>(), "Total Value"),
+  TotalFieldInput(const eAttrDomain source_domain, Field<T> input, Field<int> group_index)
+      : bke::GeometryFieldInput(CPPType::get<T>(), "Total Value"),
         input_(input),
         group_index_(group_index),
         source_domain_(source_domain)
   {
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
-                                 IndexMask UNUSED(mask)) const final
+  GVArray get_varray_for_context(const bke::GeometryFieldContext &context,
+                                 IndexMask /*mask*/) const final
   {
-    const GeometryComponentFieldContext field_context{component, source_domain_};
-    const int domain_size = component.attribute_domain_size(field_context.domain());
+    const AttributeAccessor attributes = *context.attributes();
+    const int domain_size = attributes.domain_size(source_domain_);
+    if (domain_size == 0) {
+      return {};
+    }
 
-    fn::FieldEvaluator evaluator{field_context, domain_size};
+    const bke::GeometryFieldContext source_context{
+        context.geometry(), context.type(), source_domain_};
+    fn::FieldEvaluator evaluator{source_context, domain_size};
     evaluator.add(input_);
     evaluator.add(group_index_);
     evaluator.evaluate();
-    const VArray<T> &values = evaluator.get_evaluated<T>(0);
-    const VArray<int> &group_indices = evaluator.get_evaluated<int>(1);
+    const VArray<T> values = evaluator.get_evaluated<T>(0);
+    const VArray<int> group_indices = evaluator.get_evaluated<int>(1);
 
     if (group_indices.is_single()) {
       T accumulation = T();
@@ -330,8 +344,8 @@ template<typename T> class TotalFieldInput final : public GeometryFieldInput {
       accumulations_out[i] = accumulations.lookup(group_indices[i]);
     }
 
-    return component.attribute_try_adapt_domain<T>(
-        VArray<T>::ForContainer(std::move(accumulations_out)), source_domain_, domain);
+    return attributes.adapt_domain<T>(
+        VArray<T>::ForContainer(std::move(accumulations_out)), source_domain_, context.domain());
   }
 
   uint64_t hash() const override
@@ -346,6 +360,12 @@ template<typename T> class TotalFieldInput final : public GeometryFieldInput {
              source_domain_ == other_field->source_domain_;
     }
     return false;
+  }
+
+  std::optional<eAttrDomain> preferred_domain(
+      const GeometryComponent & /*component*/) const override
+  {
+    return source_domain_;
   }
 };
 
@@ -365,8 +385,8 @@ template<typename T> std::string identifier_suffix()
 static void node_geo_exec(GeoNodeExecParams params)
 {
   const NodeAccumulateField &storage = node_storage(params.node());
-  const CustomDataType data_type = static_cast<CustomDataType>(storage.data_type);
-  const AttributeDomain source_domain = static_cast<AttributeDomain>(storage.domain);
+  const eCustomDataType data_type = eCustomDataType(storage.data_type);
+  const eAttrDomain source_domain = eAttrDomain(storage.domain);
 
   Field<int> group_index_field = params.extract_input<Field<int>>("Group Index");
   attribute_math::convert_to_static_type(data_type, [&](auto dummy) {
@@ -405,8 +425,8 @@ void register_node_type_geo_accumulate_field()
 
   geo_node_type_base(&ntype, GEO_NODE_ACCUMULATE_FIELD, "Accumulate Field", NODE_CLASS_CONVERTER);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
-  node_type_init(&ntype, file_ns::node_init);
-  node_type_update(&ntype, file_ns::node_update);
+  ntype.initfunc = file_ns::node_init;
+  ntype.updatefunc = file_ns::node_update;
   ntype.draw_buttons = file_ns::node_layout;
   ntype.declare = file_ns::node_declare;
   ntype.gather_link_search_ops = file_ns::node_gather_link_searches;

@@ -9,6 +9,10 @@
 struct LinkNode;
 struct MemArena;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 void BM_loop_interp_multires_ex(BMesh *bm,
                                 BMLoop *l_dst,
                                 const BMFace *f_src,
@@ -59,6 +63,10 @@ void BM_data_interp_face_vert_edge(
 void BM_data_layer_add(BMesh *bm, CustomData *data, int type);
 void BM_data_layer_add_named(BMesh *bm, CustomData *data, int type, const char *name);
 void BM_data_layer_free(BMesh *bm, CustomData *data, int type);
+/**
+ * Remove a named custom data layer, if it existed. Return true if the layer was removed.
+ */
+bool BM_data_layer_free_named(BMesh *bm, CustomData *data, const char *name);
 void BM_data_layer_free_n(BMesh *bm, CustomData *data, int type, int n);
 void BM_data_layer_copy(BMesh *bm, CustomData *data, int type, int src_n, int dst_n);
 
@@ -109,3 +117,7 @@ void BM_vert_loop_groups_data_layer_merge_weights(BMesh *bm,
                                                   struct LinkNode *groups,
                                                   int layer_n,
                                                   const float *loop_weights);
+
+#ifdef __cplusplus
+}
+#endif

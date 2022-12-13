@@ -29,7 +29,7 @@ ccl_device_inline float3 volume_normalized_position(KernelGlobals kg,
   object_inverse_position_transform(kg, sd, &P);
 
   if (desc.offset != ATTR_STD_NOT_FOUND) {
-    Transform tfm = primitive_attribute_matrix(kg, sd, desc);
+    Transform tfm = primitive_attribute_matrix(kg, desc);
     P = transform_point(&tfm, P);
   }
 
@@ -62,7 +62,7 @@ ccl_device float4 volume_attribute_float4(KernelGlobals kg,
                                           const AttributeDescriptor desc)
 {
   if (desc.element & (ATTR_ELEMENT_OBJECT | ATTR_ELEMENT_MESH)) {
-    return kernel_tex_fetch(__attributes_float4, desc.offset);
+    return kernel_data_fetch(attributes_float4, desc.offset);
   }
   else if (desc.element == ATTR_ELEMENT_VOXEL) {
     /* todo: optimize this so we don't have to transform both here and in

@@ -49,6 +49,20 @@ template<typename T, int Size> inline bool is_any_zero(const vec_base<T, Size> &
   return false;
 }
 
+template<typename T, int Size>
+inline bool almost_equal_relative(const vec_base<T, Size> &a,
+                                  const vec_base<T, Size> &b,
+                                  const T &epsilon_factor)
+{
+  for (int i = 0; i < Size; i++) {
+    const float epsilon = epsilon_factor * math::abs(a[i]);
+    if (math::distance(a[i], b[i]) > epsilon) {
+      return false;
+    }
+  }
+  return true;
+}
+
 template<typename T, int Size> inline vec_base<T, Size> abs(const vec_base<T, Size> &a)
 {
   vec_base<T, Size> result;
@@ -141,6 +155,39 @@ inline T safe_mod(const vec_base<T, Size> &a, const T &b)
   vec_base<T, Size> result;
   for (int i = 0; i < Size; i++) {
     result[i] = std::fmod(a[i], b);
+  }
+  return result;
+}
+
+/**
+ * Returns \a a if it is a multiple of \a b or the next multiple or \a b after \b a .
+ * In other words, it is equivalent to `divide_ceil(a, b) * b`.
+ * It is undefined if \a a is negative or \b b is not strictly positive.
+ */
+template<typename T, int Size, BLI_ENABLE_IF((is_math_integral_type<T>))>
+inline vec_base<T, Size> ceil_to_multiple(const vec_base<T, Size> &a, const vec_base<T, Size> &b)
+{
+  vec_base<T, Size> result;
+  for (int i = 0; i < Size; i++) {
+    BLI_assert(a[i] >= 0);
+    BLI_assert(b[i] > 0);
+    result[i] = ((a[i] + b[i] - 1) / b[i]) * b[i];
+  }
+  return result;
+}
+
+/**
+ * Integer division that returns the ceiling, instead of flooring like normal C division.
+ * It is undefined if \a a is negative or \b b is not strictly positive.
+ */
+template<typename T, int Size, BLI_ENABLE_IF((is_math_integral_type<T>))>
+inline vec_base<T, Size> divide_ceil(const vec_base<T, Size> &a, const vec_base<T, Size> &b)
+{
+  vec_base<T, Size> result;
+  for (int i = 0; i < Size; i++) {
+    BLI_assert(a[i] >= 0);
+    BLI_assert(b[i] > 0);
+    result[i] = (a[i] + b[i] - 1) / b[i];
   }
   return result;
 }
@@ -310,16 +357,16 @@ inline vec_base<T, 3> cross(const vec_base<T, 3> &a, const vec_base<T, 3> &b)
 inline vec_base<float, 3> cross_high_precision(const vec_base<float, 3> &a,
                                                const vec_base<float, 3> &b)
 {
-  return {(float)((double)a.y * b.z - (double)a.z * b.y),
-          (float)((double)a.z * b.x - (double)a.x * b.z),
-          (float)((double)a.x * b.y - (double)a.y * b.x)};
+  return {float(double(a.y) * double(b.z) - double(a.z) * double(b.y)),
+          float(double(a.z) * double(b.x) - double(a.x) * double(b.z)),
+          float(double(a.x) * double(b.y) - double(a.y) * double(b.x))};
 }
 
 template<typename T, BLI_ENABLE_IF((is_math_float_type<T>))>
 inline vec_base<T, 3> cross_poly(Span<vec_base<T, 3>> poly)
 {
   /* Newell's Method. */
-  int nv = static_cast<int>(poly.size());
+  int nv = int(poly.size());
   if (nv < 3) {
     return vec_base<T, 3>(0, 0, 0);
   }
@@ -365,6 +412,45 @@ template<typename T> inline int dominant_axis(const vec_base<T, 3> &a)
 {
   vec_base<T, 3> b = abs(a);
   return ((b.x > b.y) ? ((b.x > b.z) ? 0 : 2) : ((b.y > b.z) ? 1 : 2));
+}
+
+/**
+ * Calculates a perpendicular vector to \a v.
+ * \note Returned vector can be in any perpendicular direction.
+ * \note Returned vector might not the same length as \a v.
+ */
+template<typename T> inline vec_base<T, 3> orthogonal(const vec_base<T, 3> &v)
+{
+  const int axis = dominant_axis(v);
+  switch (axis) {
+    case 0:
+      return {-v.y - v.z, v.x, v.x};
+    case 1:
+      return {v.y, -v.x - v.z, v.y};
+    case 2:
+      return {v.z, v.z, -v.x - v.y};
+  }
+  return v;
+}
+
+/**
+ * Calculates a perpendicular vector to \a v.
+ * \note Returned vector can be in any perpendicular direction.
+ */
+template<typename T> inline vec_base<T, 2> orthogonal(const vec_base<T, 2> &v)
+{
+  return {-v.y, v.x};
+}
+
+template<typename T, int Size>
+inline bool compare(const vec_base<T, Size> &a, const vec_base<T, Size> &b, const T limit)
+{
+  for (int i = 0; i < Size; i++) {
+    if (std::abs(a[i] - b[i]) > limit) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /** Intersections. */

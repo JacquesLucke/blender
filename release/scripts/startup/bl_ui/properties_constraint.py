@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 from bpy.types import Panel
 
 
@@ -1161,6 +1159,7 @@ class ConstraintButtonsSubPanel:
         template_func(con, "cache_file")
 
 # Child Of Constraint
+
 
 class OBJECT_PT_bChildOfConstraint(ObjectConstraintPanel, ConstraintButtonsPanel, Panel):
     def draw(self, context):

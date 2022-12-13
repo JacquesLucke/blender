@@ -74,6 +74,19 @@ macro(cycles_add_library target library_deps)
 endmacro()
 
 macro(cycles_external_libraries_append libraries)
+  if(APPLE)
+    list(APPEND ${libraries} "-framework Foundation")
+    if(WITH_USD)
+      list(APPEND ${libraries} "-framework CoreVideo -framework Cocoa")
+    endif()
+    if(WITH_CYCLES_STANDALONE_GUI OR WITH_USD)
+      list(APPEND ${libraries} "-framework OpenGL")
+    endif()
+  elseif(UNIX)
+    if(WITH_USD)
+      list(APPEND ${libraries} "X11")
+    endif()
+  endif()
   if(WITH_CYCLES_LOGGING)
     list(APPEND ${libraries} ${GLOG_LIBRARIES} ${GFLAGS_LIBRARIES})
   endif()
@@ -90,6 +103,7 @@ macro(cycles_external_libraries_append libraries)
     list(APPEND ${libraries} ${OPENCOLORIO_LIBRARIES})
     if(APPLE)
       list(APPEND ${libraries} "-framework IOKit")
+      list(APPEND ${libraries} "-framework Carbon")
     endif()
   endif()
   if(WITH_OPENVDB)
@@ -104,6 +118,9 @@ macro(cycles_external_libraries_append libraries)
   if(WITH_ALEMBIC)
     list(APPEND ${libraries} ${ALEMBIC_LIBRARIES})
   endif()
+  if(WITH_PATH_GUIDING)
+    target_link_libraries(${target} ${OPENPGL_LIBRARIES})
+  endif()
 
   list(APPEND ${libraries}
     ${OPENIMAGEIO_LIBRARIES}
@@ -116,6 +133,7 @@ macro(cycles_external_libraries_append libraries)
     ${OPENEXR_LIBRARIES} # For circular dependencies between libs.
     ${PUGIXML_LIBRARIES}
     ${BOOST_LIBRARIES}
+    ${PYTHON_LIBRARIES}
     ${ZLIB_LIBRARIES}
     ${CMAKE_DL_LIBS}
     ${PTHREADS_LIBRARIES}
@@ -155,13 +173,13 @@ macro(cycles_install_libraries target)
         FILES
         ${TBB_ROOT_DIR}/bin/tbb_debug${CMAKE_SHARED_LIBRARY_SUFFIX}
         ${OPENVDB_ROOT_DIR}/bin/openvdb_d${CMAKE_SHARED_LIBRARY_SUFFIX}
-        DESTINATION $<TARGET_FILE_DIR:${target}>)
+        DESTINATION ${CMAKE_INSTALL_PREFIX})
     else()
       install(
         FILES
         ${TBB_ROOT_DIR}/bin/tbb${CMAKE_SHARED_LIBRARY_SUFFIX}
         ${OPENVDB_ROOT_DIR}/bin/openvdb${CMAKE_SHARED_LIBRARY_SUFFIX}
-        DESTINATION $<TARGET_FILE_DIR:${target}>)
+        DESTINATION ${CMAKE_INSTALL_PREFIX})
     endif()
   endif()
 endmacro()

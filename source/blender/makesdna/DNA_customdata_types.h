@@ -81,7 +81,7 @@ typedef struct CustomData {
 } CustomData;
 
 /** #CustomData.type */
-typedef enum CustomDataType {
+typedef enum eCustomDataType {
   /* Used by GLSL attributes in the cases when we need a delayed CD type
    * assignment (in the cases when we don't know in advance which layer
    * we are addressing).
@@ -113,10 +113,10 @@ typedef enum CustomDataType {
   CD_MTEXPOLY = 15, /* deprecated */
 #endif
   CD_MLOOPUV = 16,
-  CD_MLOOPCOL = 17,
+  CD_PROP_BYTE_COLOR = 17,
   CD_TANGENT = 18,
   CD_MDISPS = 19,
-  CD_PREVIEW_MCOL = 20,           /* for displaying weightpaint colors */
+  CD_PREVIEW_MCOL = 20,           /* For displaying weight-paint colors. */
                                   /*  CD_ID_MCOL          = 21, */
   /* CD_TEXTURE_MLOOPCOL = 22, */ /* UNUSED */
   CD_CLOTH_ORCO = 23,
@@ -127,12 +127,7 @@ typedef enum CustomDataType {
   CD_SHAPE_KEYINDEX = 27,
   CD_SHAPEKEY = 28,
   CD_BWEIGHT = 29,
-  /**
-   * Usage of #CD_CREASE depends on where on the Mesh the layer is added:
-   * - For vertex creasing, this is persistent data across all modes and is stored in the file.
-   * - For edge creasing, it is runtime data which is only used in edit-mode before being copied
-   *   to #MEdge when exiting edit-mode.
-   */
+  /** Subdivision sharpness data per edge or per vertex. */
   CD_CREASE = 30,
   CD_ORIGSPACE_MLOOP = 31,
   CD_PREVIEW_MLOOPCOL = 32,
@@ -161,9 +156,9 @@ typedef enum CustomDataType {
   CD_HAIRLENGTH = 51,
 
   CD_NUMTYPES = 52,
-} CustomDataType;
+} eCustomDataType;
 
-/* Bits for CustomDataMask */
+/* Bits for eCustomDataMask */
 #define CD_MASK_MVERT (1 << CD_MVERT)
 // #define CD_MASK_MSTICKY      (1 << CD_MSTICKY)  /* DEPRECATED */
 #define CD_MASK_MDEFORMVERT (1 << CD_MDEFORMVERT)
@@ -181,7 +176,7 @@ typedef enum CustomDataType {
 #define CD_MASK_ORCO (1 << CD_ORCO)
 // #define CD_MASK_MTEXPOLY (1 << CD_MTEXPOLY)  /* DEPRECATED */
 #define CD_MASK_MLOOPUV (1 << CD_MLOOPUV)
-#define CD_MASK_MLOOPCOL (1 << CD_MLOOPCOL)
+#define CD_MASK_PROP_BYTE_COLOR (1 << CD_PROP_BYTE_COLOR)
 #define CD_MASK_TANGENT (1 << CD_TANGENT)
 #define CD_MASK_MDISPS (1 << CD_MDISPS)
 #define CD_MASK_PREVIEW_MCOL (1 << CD_PREVIEW_MCOL)
@@ -206,7 +201,6 @@ typedef enum CustomDataType {
 #define CD_MASK_MLOOPTANGENT (1LL << CD_MLOOPTANGENT)
 #define CD_MASK_TESSLOOPNORMAL (1LL << CD_TESSLOOPNORMAL)
 #define CD_MASK_CUSTOMLOOPNORMAL (1LL << CD_CUSTOMLOOPNORMAL)
-#define CD_MASK_SCULPT_FACE_SETS (1LL << CD_SCULPT_FACE_SETS)
 #define CD_MASK_PROP_COLOR (1ULL << CD_PROP_COLOR)
 #define CD_MASK_PROP_FLOAT3 (1ULL << CD_PROP_FLOAT3)
 #define CD_MASK_PROP_FLOAT2 (1ULL << CD_PROP_FLOAT2)
@@ -215,7 +209,7 @@ typedef enum CustomDataType {
 
 #define CD_MASK_HAIRLENGTH (1ULL << CD_HAIRLENGTH)
 
-/** Multires loop data. */
+/** Multi-resolution loop data. */
 #define CD_MASK_MULTIRES_GRIDS (CD_MASK_MDISPS | CD_GRID_PAINT_MASK)
 
 /* All data layers. */
@@ -224,11 +218,11 @@ typedef enum CustomDataType {
 /* All generic attributes. */
 #define CD_MASK_PROP_ALL \
   (CD_MASK_PROP_FLOAT | CD_MASK_PROP_FLOAT2 | CD_MASK_PROP_FLOAT3 | CD_MASK_PROP_INT32 | \
-   CD_MASK_PROP_COLOR | CD_MASK_PROP_STRING | CD_MASK_MLOOPCOL | CD_MASK_PROP_BOOL | \
+   CD_MASK_PROP_COLOR | CD_MASK_PROP_STRING | CD_MASK_PROP_BYTE_COLOR | CD_MASK_PROP_BOOL | \
    CD_MASK_PROP_INT8)
 
 /* All color attributes */
-#define CD_MASK_COLOR_ALL (CD_MASK_PROP_COLOR | CD_MASK_MLOOPCOL)
+#define CD_MASK_COLOR_ALL (CD_MASK_PROP_COLOR | CD_MASK_PROP_BYTE_COLOR)
 
 typedef struct CustomData_MeshMasks {
   uint64_t vmask;
@@ -256,11 +250,8 @@ enum {
 
 /* Limits */
 #define MAX_MTFACE 8
-#define MAX_MCOL 8
 
 #define DYNTOPO_NODE_NONE -1
-
-#define CD_TEMP_CHUNK_SIZE 128
 
 #ifdef __cplusplus
 }

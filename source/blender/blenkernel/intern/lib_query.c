@@ -391,8 +391,7 @@ uint64_t BKE_library_id_can_use_filter_id(const ID *id_owner)
 
   switch ((ID_Type)id_type_owner) {
     case ID_LI:
-      /* ID_LI doesn't exist as filter_id. */
-      return 0;
+      return FILTER_ID_LI;
     case ID_SCE:
       return FILTER_ID_OB | FILTER_ID_WO | FILTER_ID_SCE | FILTER_ID_MC | FILTER_ID_MA |
              FILTER_ID_GR | FILTER_ID_TXT | FILTER_ID_LS | FILTER_ID_MSK | FILTER_ID_SO |
@@ -472,6 +471,8 @@ uint64_t BKE_library_id_can_use_filter_id(const ID *id_owner)
       /* Deprecated... */
       return 0;
   }
+
+  BLI_assert_unreachable();
   return 0;
 }
 
@@ -683,6 +684,15 @@ static void lib_query_unused_ids_tag_recurse(Main *bmain,
     return;
   }
 
+  if (ELEM(GS(id->name), ID_IM)) {
+    /* Images which have a 'viewer' source (e.g. render results) should not be considered as
+     * orphaned/unused data. */
+    Image *image = (Image *)id;
+    if (image->source == IMA_SRC_VIEWER) {
+      return;
+    }
+  }
+
   /* An ID user is 'valid' (i.e. may affect the 'used'/'not used' status of the ID it uses) if it
    * does not match `ignored_usages`, and does match `required_usages`. */
   const int ignored_usages = (IDWALK_CB_LOOPBACK | IDWALK_CB_EMBEDDED);
@@ -693,6 +703,12 @@ static void lib_query_unused_ids_tag_recurse(Main *bmain,
    * First recursively check all its valid users, if all of them can be tagged as
    * unused, then we can tag this ID as such too. */
   bool has_valid_from_users = false;
+  /* Preemptively consider this ID as unused. That way if there is a loop of dependency leading
+   * back to it, it won't create a fake 'valid user' detection.
+   * NOTE: there are some cases (like when fake user is set, or some ID types) which are never
+   * 'indirectly unused'. However, these have already been checked and early-returned above, so any
+   * ID reaching this point of the function can be tagged. */
+  id->tag |= tag;
   for (MainIDRelationsEntryItem *id_from_item = id_relations->from_ids; id_from_item != NULL;
        id_from_item = id_from_item->next) {
     if ((id_from_item->usage_flag & ignored_usages) != 0 ||
@@ -703,9 +719,8 @@ static void lib_query_unused_ids_tag_recurse(Main *bmain,
     ID *id_from = id_from_item->id_pointer.from;
     if ((id_from->flag & LIB_EMBEDDED_DATA) != 0) {
       /* Directly 'by-pass' to actual real ID owner. */
-      const IDTypeInfo *type_info_from = BKE_idtype_get_info_from_id(id_from);
-      BLI_assert(type_info_from->owner_get != NULL);
-      id_from = type_info_from->owner_get(bmain, id_from);
+      id_from = BKE_id_owner_get(id_from);
+      BLI_assert(id_from != NULL);
     }
 
     lib_query_unused_ids_tag_recurse(
@@ -715,9 +730,12 @@ static void lib_query_unused_ids_tag_recurse(Main *bmain,
       break;
     }
   }
-  if (!has_valid_from_users) {
-    /* This ID has no 'valid' users, tag it as unused. */
-    id->tag |= tag;
+  if (has_valid_from_users) {
+    /* This ID has 'valid' users, clear the 'tag as unused' preemptively set above. */
+    id->tag &= ~tag;
+  }
+  else {
+    /* This ID has no 'valid' users, its 'unused' tag preemptively set above can be kept. */
     if (r_num_tagged != NULL) {
       r_num_tagged[INDEX_ID_NULL]++;
       r_num_tagged[BKE_idtype_idcode_to_index(GS(id->name))]++;

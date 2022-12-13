@@ -102,7 +102,6 @@ Mesh *doEdgeSplit(const Mesh *mesh, EdgeSplitModifierData *emd)
   result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, mesh);
   BM_mesh_free(bm);
 
-  BKE_mesh_normals_tag_dirty(result);
   return result;
 }
 
@@ -155,7 +154,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_EdgeSplit = {
-    /* name */ "EdgeSplit",
+    /* name */ N_("EdgeSplit"),
     /* structName */ "EdgeSplitModifierData",
     /* structSize */ sizeof(EdgeSplitModifierData),
     /* srna */ &RNA_EdgeSplitModifier,

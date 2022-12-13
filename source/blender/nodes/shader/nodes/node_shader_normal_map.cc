@@ -4,6 +4,7 @@
 #include "node_shader_util.hh"
 
 #include "BKE_context.h"
+#include "BKE_node_runtime.hh"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
@@ -34,7 +35,7 @@ static void node_shader_buts_normal_map(uiLayout *layout, bContext *C, PointerRN
   }
 }
 
-static void node_shader_init_normal_map(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_normal_map(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeShaderNormalMap *attr = MEM_cnew<NodeShaderNormalMap>("NodeShaderNormalMap");
   node->storage = attr;
@@ -42,7 +43,7 @@ static void node_shader_init_normal_map(bNodeTree *UNUSED(ntree), bNode *node)
 
 static int gpu_shader_normal_map(GPUMaterial *mat,
                                  bNode *node,
-                                 bNodeExecData *UNUSED(execdata),
+                                 bNodeExecData * /*execdata*/,
                                  GPUNodeStack *in,
                                  GPUNodeStack *out)
 {
@@ -52,8 +53,9 @@ static int gpu_shader_normal_map(GPUMaterial *mat,
   if (in[0].link) {
     strength = in[0].link;
   }
-  else if (node->original) {
-    bNodeSocket *socket = static_cast<bNodeSocket *>(BLI_findlink(&node->original->inputs, 0));
+  else if (node->runtime->original) {
+    bNodeSocket *socket = static_cast<bNodeSocket *>(
+        BLI_findlink(&node->runtime->original->inputs, 0));
     bNodeSocketValueFloat *socket_data = static_cast<bNodeSocketValueFloat *>(
         socket->default_value);
     strength = GPU_uniform(&socket_data->value);
@@ -66,8 +68,9 @@ static int gpu_shader_normal_map(GPUMaterial *mat,
   if (in[1].link) {
     newnormal = in[1].link;
   }
-  else if (node->original) {
-    bNodeSocket *socket = static_cast<bNodeSocket *>(BLI_findlink(&node->original->inputs, 1));
+  else if (node->runtime->original) {
+    bNodeSocket *socket = static_cast<bNodeSocket *>(
+        BLI_findlink(&node->runtime->original->inputs, 1));
     bNodeSocketValueRGBA *socket_data = static_cast<bNodeSocketValueRGBA *>(socket->default_value);
     newnormal = GPU_uniform(socket_data->value);
   }
@@ -83,18 +86,16 @@ static int gpu_shader_normal_map(GPUMaterial *mat,
   GPU_link(mat, color_to_normal_fnc_name, newnormal, &newnormal);
   switch (nm->space) {
     case SHD_SPACE_TANGENT:
+      GPU_material_flag_set(mat, GPU_MATFLAG_OBJECT_INFO);
       GPU_link(mat,
                "node_normal_map",
-               GPU_builtin(GPU_OBJECT_INFO),
                GPU_attribute(mat, CD_TANGENT, nm->uv_map),
-               GPU_builtin(GPU_WORLD_NORMAL),
                newnormal,
                &newnormal);
       break;
     case SHD_SPACE_OBJECT:
     case SHD_SPACE_BLENDER_OBJECT:
-      GPU_link(
-          mat, "direction_transform_m4v3", newnormal, GPU_builtin(GPU_OBJECT_MATRIX), &newnormal);
+      GPU_link(mat, "normal_transform_object_to_world", newnormal, &newnormal);
       break;
     case SHD_SPACE_WORLD:
     case SHD_SPACE_BLENDER_WORLD:
@@ -102,8 +103,7 @@ static int gpu_shader_normal_map(GPUMaterial *mat,
       break;
   }
 
-  GPUNodeLink *oldnormal = GPU_builtin(GPU_WORLD_NORMAL);
-  GPU_link(mat, "node_normal_map_mix", strength, newnormal, oldnormal, &out[0].link);
+  GPU_link(mat, "node_normal_map_mix", strength, newnormal, &out[0].link);
 
   return true;
 }
@@ -121,10 +121,10 @@ void register_node_type_sh_normal_map()
   ntype.declare = file_ns::node_declare;
   ntype.draw_buttons = file_ns::node_shader_buts_normal_map;
   node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
-  node_type_init(&ntype, file_ns::node_shader_init_normal_map);
+  ntype.initfunc = file_ns::node_shader_init_normal_map;
   node_type_storage(
       &ntype, "NodeShaderNormalMap", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, file_ns::gpu_shader_normal_map);
+  ntype.gpu_fn = file_ns::gpu_shader_normal_map;
 
   nodeRegisterType(&ntype);
 }

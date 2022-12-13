@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8-80 compliant>
-
 from _bpy import types as bpy_types
 
 StructRNA = bpy_types.bpy_struct
@@ -57,6 +55,21 @@ class Context(StructRNA):
 
         if value is None:
             return value
+
+        # If the attribute is a list property, apply subscripting.
+        if isinstance(value, list) and path_rest.startswith("["):
+            index_str, div, index_tail = path_rest[1:].partition("]")
+            if not div:
+                raise ValueError("Path index is not terminated: %s%s" % (attr, path_rest))
+            try:
+                index = int(index_str)
+            except ValueError:
+                raise ValueError("Path index is invalid: %s[%s]" % (attr, index_str))
+            if 0 <= index < len(value):
+                path_rest = index_tail
+                value = value[index]
+            else:
+                raise IndexError("Path index out of range: %s[%s]" % (attr, index_str))
 
         # Resolve the rest of the path if necessary.
         if path_rest:
@@ -371,13 +384,8 @@ class _GenericBone:
         """
         return (self.tail - self.head)
 
-    @property
-    def children(self):
-        """A list of all the bones children.
-
-        .. note:: Takes ``O(len(bones))`` time."""
-        return [child for child in self._other_bones if child.parent == self]
-
+    # NOTE: each bone type is responsible for implementing `children`.
+    # This is done since `Bone` has direct access to this data in RNA.
     @property
     def children_recursive(self):
         """A list of all children from this bone.
@@ -457,9 +465,18 @@ class PoseBone(StructRNA, _GenericBone, metaclass=StructMetaPropGroup):
 class Bone(StructRNA, _GenericBone, metaclass=StructMetaPropGroup):
     __slots__ = ()
 
+    # NOTE: `children` is implemented in RNA.
+
 
 class EditBone(StructRNA, _GenericBone, metaclass=StructMetaPropGroup):
     __slots__ = ()
+
+    @property
+    def children(self):
+        """A list of all the bones children.
+
+        .. note:: Takes ``O(len(bones))`` time."""
+        return [child for child in self._other_bones if child.parent == self]
 
     def align_orientation(self, other):
         """
@@ -725,7 +742,6 @@ class Gizmo(StructRNA):
             matrix = self.matrix_world
 
         batch, shader = shape
-        shader.bind()
 
         if select_id is not None:
             gpu.select.load_id(select_id)
@@ -776,7 +792,7 @@ class Gizmo(StructRNA):
         vbo = GPUVertBuf(len=len(verts), format=fmt)
         vbo.attr_fill(id=pos_id, data=verts)
         batch = GPUBatch(type=type, buf=vbo)
-        shader = gpu.shader.from_builtin('3D_UNIFORM_COLOR' if dims == 3 else '2D_UNIFORM_COLOR')
+        shader = gpu.shader.from_builtin('UNIFORM_COLOR')
         batch.program_set(shader)
         return (batch, shader)
 
@@ -1057,6 +1073,7 @@ class Menu(StructRNA, _GenericUI, metaclass=RNAMeta):
         - preset_operator_defaults (dict of keyword args)
         """
         import bpy
+        from bpy.app.translations import pgettext_iface as iface_
         ext_valid = getattr(self, "preset_extensions", {".py", ".xml"})
         props_default = getattr(self, "preset_operator_defaults", None)
         add_operator = getattr(self, "preset_add_operator", None)
@@ -1066,7 +1083,8 @@ class Menu(StructRNA, _GenericUI, metaclass=RNAMeta):
             props_default=props_default,
             filter_ext=lambda ext: ext.lower() in ext_valid,
             add_operator=add_operator,
-            display_name=lambda name: bpy.path.display_name(name, title_case=False)
+            display_name=lambda name: iface_(
+                bpy.path.display_name(name, title_case=False))
         )
 
     @classmethod
@@ -1141,3 +1159,11 @@ class TextureNode(NodeInternal):
     @classmethod
     def poll(cls, ntree):
         return ntree.bl_idname == 'TextureNodeTree'
+
+
+class GeometryNode(NodeInternal):
+    __slots__ = ()
+
+    @classmethod
+    def poll(cls, ntree):
+        return ntree.bl_idname == 'GeometryNodeTree'

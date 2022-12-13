@@ -25,6 +25,7 @@ struct PreviewImage;
 struct Tex;
 
 typedef struct MTex {
+  DNA_DEFINE_CXX_METHODS(MTex)
 
   short texco, mapto, maptoneg, blendtype;
   struct Object *object;
@@ -96,6 +97,8 @@ typedef struct ColorBand {
 } ColorBand;
 
 typedef struct PointDensity {
+  DNA_DEFINE_CXX_METHODS(PointDensity)
+
   short flag;
 
   short falloff_type;
@@ -112,7 +115,7 @@ typedef struct PointDensity {
 
   /** for 'Object' or 'Particle system' type - source object */
   struct Object *object;
-  /** `index + 1` in ob.particlesystem, non-ID pointer not allowed */
+  /** `index + 1` in ob.particle-system, non-ID pointer not allowed. */
   int psys;
   /** cache points in world-space, object space, ... ? */
   short psys_cache_space;
@@ -143,6 +146,8 @@ typedef struct PointDensity {
 } PointDensity;
 
 typedef struct Tex {
+  DNA_DEFINE_CXX_METHODS(Tex)
+
   ID id;
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt;
@@ -392,8 +397,7 @@ typedef struct ColorMapping {
 
 /* return value */
 #define TEX_INT 0
-#define TEX_RGB (1 << 0)
-#define TEX_NOR (1 << 1)
+#define TEX_RGB 1
 
 /* pr_texture in material, world, light. */
 #define TEX_PR_TEXTURE 0

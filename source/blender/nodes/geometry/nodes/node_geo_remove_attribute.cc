@@ -13,21 +13,16 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Geometry"));
 }
 
-static void node_gather_link_searches(GatherLinkSearchOpParams &params)
-{
-  if (U.experimental.use_named_attribute_nodes == 0) {
-    return;
-  }
-  const NodeDeclaration &declaration = *params.node_type().fixed_declaration;
-  search_link_ops_for_declarations(params, declaration.inputs());
-  search_link_ops_for_declarations(params, declaration.outputs());
-}
-
 static void node_geo_exec(GeoNodeExecParams params)
 {
   GeometrySet geometry_set = params.extract_input<GeometrySet>("Geometry");
   const std::string name = params.extract_input<std::string>("Name");
-  if (name.empty() || !U.experimental.use_named_attribute_nodes) {
+  if (name.empty()) {
+    params.set_output("Geometry", std::move(geometry_set));
+    return;
+  }
+  if (!bke::allow_procedural_attribute_access(name)) {
+    params.error_message_add(NodeWarningType::Info, TIP_(bke::no_procedural_access_message));
     params.set_output("Geometry", std::move(geometry_set));
     return;
   }
@@ -44,7 +39,7 @@ static void node_geo_exec(GeoNodeExecParams params)
         /* First check if the attribute exists before getting write access,
          * to avoid potentially expensive unnecessary copies. */
         const GeometryComponent &read_only_component = *geometry_set.get_component_for_read(type);
-        if (read_only_component.attribute_exists(name)) {
+        if (read_only_component.attributes()->contains(name)) {
           attribute_exists = true;
         }
         else {
@@ -52,20 +47,24 @@ static void node_geo_exec(GeoNodeExecParams params)
         }
 
         GeometryComponent &component = geometry_set.get_component_for_write(type);
-        if (!component.attribute_try_delete(name)) {
+        if (!component.attributes_for_write()->remove(name)) {
           cannot_delete = true;
         }
       }
     }
   });
 
+  if (attribute_exists && !cannot_delete) {
+    params.used_named_attribute(name, NamedAttributeUsage::Remove);
+  }
+
   if (!attribute_exists) {
     params.error_message_add(NodeWarningType::Info,
                              TIP_("Attribute does not exist: \"") + name + "\"");
   }
   if (cannot_delete) {
-    params.error_message_add(NodeWarningType::Info,
-                             TIP_("Cannot delete attribute with name \"") + name + "\"");
+    params.error_message_add(NodeWarningType::Warning,
+                             TIP_("Cannot delete built-in attribute with name \"") + name + "\"");
   }
 
   params.set_output("Geometry", std::move(geometry_set));
@@ -79,9 +78,10 @@ void register_node_type_geo_remove_attribute()
 
   static bNodeType ntype;
 
-  geo_node_type_base(&ntype, GEO_NODE_REMOVE_ATTRIBUTE, "Remove Attribute", NODE_CLASS_ATTRIBUTE);
+  geo_node_type_base(
+      &ntype, GEO_NODE_REMOVE_ATTRIBUTE, "Remove Named Attribute", NODE_CLASS_ATTRIBUTE);
   ntype.declare = file_ns::node_declare;
+  node_type_size(&ntype, 170, 100, 700);
   ntype.geometry_node_execute = file_ns::node_geo_exec;
-  ntype.gather_link_search_ops = file_ns::node_gather_link_searches;
   nodeRegisterType(&ntype);
 }

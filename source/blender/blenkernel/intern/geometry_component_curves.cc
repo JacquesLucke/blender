@@ -5,14 +5,14 @@
 #include "DNA_ID_enums.h"
 #include "DNA_curve_types.h"
 
-#include "BKE_attribute_access.hh"
 #include "BKE_attribute_math.hh"
 #include "BKE_curve.h"
 #include "BKE_curves.hh"
 #include "BKE_geometry_fields.hh"
 #include "BKE_geometry_set.hh"
 #include "BKE_lib_id.h"
-#include "BKE_spline.hh"
+
+#include "FN_multi_function_builder.hh"
 
 #include "attribute_access_intern.hh"
 
@@ -135,11 +135,11 @@ const Curve *CurveComponent::get_curve_for_render() const
 
 /** \} */
 
+namespace blender::bke {
+
 /* -------------------------------------------------------------------- */
 /** \name Curve Normals Access
  * \{ */
-
-namespace blender::bke {
 
 static Array<float3> curve_normal_point_domain(const bke::CurvesGeometry &curves)
 {
@@ -208,18 +208,11 @@ static Array<float3> curve_normal_point_domain(const bke::CurvesGeometry &curves
   return results;
 }
 
-VArray<float3> curve_normals_varray(const CurveComponent &component, const AttributeDomain domain)
+VArray<float3> curve_normals_varray(const CurvesGeometry &curves, const eAttrDomain domain)
 {
-  if (!component.has_curves()) {
-    return {};
-  }
-
-  const Curves &curves_id = *component.get_for_read();
-  const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
-
   const VArray<int8_t> types = curves.curve_types();
   if (curves.is_single_type(CURVE_TYPE_POLY)) {
-    return component.attribute_try_adapt_domain<float3>(
+    return curves.adapt_domain<float3>(
         VArray<float3>::ForSpan(curves.evaluated_normals()), ATTR_DOMAIN_POINT, domain);
   }
 
@@ -230,81 +223,108 @@ VArray<float3> curve_normals_varray(const CurveComponent &component, const Attri
   }
 
   if (domain == ATTR_DOMAIN_CURVE) {
-    return component.attribute_try_adapt_domain<float3>(
+    return curves.adapt_domain<float3>(
         VArray<float3>::ForContainer(std::move(normals)), ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE);
   }
 
   return nullptr;
 }
 
-}  // namespace blender::bke
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Curve Length Field Input
+ * \{ */
+
+static VArray<float> construct_curve_length_gvarray(const CurvesGeometry &curves,
+                                                    const eAttrDomain domain)
+{
+  curves.ensure_evaluated_lengths();
+
+  VArray<bool> cyclic = curves.cyclic();
+  VArray<float> lengths = VArray<float>::ForFunc(
+      curves.curves_num(), [&curves, cyclic = std::move(cyclic)](int64_t index) {
+        return curves.evaluated_length_total_for_curve(index, cyclic[index]);
+      });
+
+  if (domain == ATTR_DOMAIN_CURVE) {
+    return lengths;
+  }
+
+  if (domain == ATTR_DOMAIN_POINT) {
+    return curves.adapt_domain<float>(std::move(lengths), ATTR_DOMAIN_CURVE, ATTR_DOMAIN_POINT);
+  }
+
+  return {};
+}
+
+CurveLengthFieldInput::CurveLengthFieldInput()
+    : CurvesFieldInput(CPPType::get<float>(), "Spline Length node")
+{
+  category_ = Category::Generated;
+}
+
+GVArray CurveLengthFieldInput::get_varray_for_context(const CurvesGeometry &curves,
+                                                      const eAttrDomain domain,
+                                                      const IndexMask /*mask*/) const
+{
+  return construct_curve_length_gvarray(curves, domain);
+}
+
+uint64_t CurveLengthFieldInput::hash() const
+{
+  /* Some random constant hash. */
+  return 3549623580;
+}
+
+bool CurveLengthFieldInput::is_equal_to(const fn::FieldNode &other) const
+{
+  return dynamic_cast<const CurveLengthFieldInput *>(&other) != nullptr;
+}
+
+std::optional<eAttrDomain> CurveLengthFieldInput::preferred_domain(
+    const bke::CurvesGeometry & /*curves*/) const
+{
+  return ATTR_DOMAIN_CURVE;
+}
 
 /** \} */
+
+}  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */
 /** \name Attribute Access Helper Functions
  * \{ */
 
-int CurveComponent::attribute_domain_size(const AttributeDomain domain) const
+static void tag_component_topology_changed(void *owner)
 {
-  if (curves_ == nullptr) {
-    return 0;
-  }
-  const blender::bke::CurvesGeometry &geometry = blender::bke::CurvesGeometry::wrap(
-      curves_->geometry);
-  if (domain == ATTR_DOMAIN_POINT) {
-    return geometry.points_num();
-  }
-  if (domain == ATTR_DOMAIN_CURVE) {
-    return geometry.curves_num();
-  }
-  return 0;
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.tag_topology_changed();
 }
 
-GVArray CurveComponent::attribute_try_adapt_domain_impl(const GVArray &varray,
-                                                        const AttributeDomain from_domain,
-                                                        const AttributeDomain to_domain) const
+static void tag_component_curve_types_changed(void *owner)
 {
-  return blender::bke::CurvesGeometry::wrap(curves_->geometry)
-      .adapt_domain(varray, from_domain, to_domain);
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.update_curve_types();
+  curves.tag_topology_changed();
 }
 
-static Curves *get_curves_from_component_for_write(GeometryComponent &component)
+static void tag_component_positions_changed(void *owner)
 {
-  BLI_assert(component.type() == GEO_COMPONENT_TYPE_CURVE);
-  CurveComponent &curve_component = static_cast<CurveComponent &>(component);
-  return curve_component.get_for_write();
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.tag_positions_changed();
 }
 
-static const Curves *get_curves_from_component_for_read(const GeometryComponent &component)
+static void tag_component_radii_changed(void *owner)
 {
-  BLI_assert(component.type() == GEO_COMPONENT_TYPE_CURVE);
-  const CurveComponent &curve_component = static_cast<const CurveComponent &>(component);
-  return curve_component.get_for_read();
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.tag_radii_changed();
 }
 
-static void tag_component_topology_changed(GeometryComponent &component)
+static void tag_component_normals_changed(void *owner)
 {
-  Curves *curves = get_curves_from_component_for_write(component);
-  if (curves) {
-    blender::bke::CurvesGeometry::wrap(curves->geometry).tag_topology_changed();
-  }
-}
-
-static void tag_component_positions_changed(GeometryComponent &component)
-{
-  Curves *curves = get_curves_from_component_for_write(component);
-  if (curves) {
-    blender::bke::CurvesGeometry::wrap(curves->geometry).tag_positions_changed();
-  }
-}
-
-static void tag_component_normals_changed(GeometryComponent &component)
-{
-  Curves *curves = get_curves_from_component_for_write(component);
-  if (curves) {
-    blender::bke::CurvesGeometry::wrap(curves->geometry).tag_normals_changed();
-  }
+  blender::bke::CurvesGeometry &curves = *static_cast<blender::bke::CurvesGeometry *>(owner);
+  curves.tag_normals_changed();
 }
 
 /** \} */
@@ -322,34 +342,30 @@ namespace blender::bke {
 static ComponentAttributeProviders create_attribute_providers_for_curve()
 {
   static CustomDataAccessInfo curve_access = {
-      [](GeometryComponent &component) -> CustomData * {
-        Curves *curves = get_curves_from_component_for_write(component);
-        return curves ? &curves->geometry.curve_data : nullptr;
+      [](void *owner) -> CustomData * {
+        CurvesGeometry &curves = *static_cast<CurvesGeometry *>(owner);
+        return &curves.curve_data;
       },
-      [](const GeometryComponent &component) -> const CustomData * {
-        const Curves *curves = get_curves_from_component_for_read(component);
-        return curves ? &curves->geometry.curve_data : nullptr;
+      [](const void *owner) -> const CustomData * {
+        const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+        return &curves.curve_data;
       },
-      [](GeometryComponent &component) {
-        Curves *curves = get_curves_from_component_for_write(component);
-        if (curves) {
-          blender::bke::CurvesGeometry::wrap(curves->geometry).update_customdata_pointers();
-        }
+      [](const void *owner) -> int {
+        const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+        return curves.curves_num();
       }};
   static CustomDataAccessInfo point_access = {
-      [](GeometryComponent &component) -> CustomData * {
-        Curves *curves = get_curves_from_component_for_write(component);
-        return curves ? &curves->geometry.point_data : nullptr;
+      [](void *owner) -> CustomData * {
+        CurvesGeometry &curves = *static_cast<CurvesGeometry *>(owner);
+        return &curves.point_data;
       },
-      [](const GeometryComponent &component) -> const CustomData * {
-        const Curves *curves = get_curves_from_component_for_read(component);
-        return curves ? &curves->geometry.point_data : nullptr;
+      [](const void *owner) -> const CustomData * {
+        const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+        return &curves.point_data;
       },
-      [](GeometryComponent &component) {
-        Curves *curves = get_curves_from_component_for_write(component);
-        if (curves) {
-          blender::bke::CurvesGeometry::wrap(curves->geometry).update_customdata_pointers();
-        }
+      [](const void *owner) -> int {
+        const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+        return curves.points_num();
       }};
 
   static BuiltinCustomDataLayerProvider position("position",
@@ -374,7 +390,7 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                point_access,
                                                make_array_read_attribute<float>,
                                                make_array_write_attribute<float>,
-                                               nullptr);
+                                               tag_component_radii_changed);
 
   static BuiltinCustomDataLayerProvider id("id",
                                            ATTR_DOMAIN_POINT,
@@ -424,6 +440,12 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                     make_array_write_attribute<float3>,
                                                     tag_component_positions_changed);
 
+  static const fn::CustomMF_SI_SO<int8_t, int8_t> handle_type_clamp{
+      "Handle Type Validate",
+      [](int8_t value) {
+        return std::clamp<int8_t>(value, BEZIER_HANDLE_FREE, BEZIER_HANDLE_ALIGN);
+      },
+      fn::CustomMF_presets::AllSpanOrSingle()};
   static BuiltinCustomDataLayerProvider handle_type_right("handle_type_right",
                                                           ATTR_DOMAIN_POINT,
                                                           CD_PROP_INT8,
@@ -434,7 +456,8 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                           point_access,
                                                           make_array_read_attribute<int8_t>,
                                                           make_array_write_attribute<int8_t>,
-                                                          tag_component_topology_changed);
+                                                          tag_component_topology_changed,
+                                                          AttributeValidator{&handle_type_clamp});
 
   static BuiltinCustomDataLayerProvider handle_type_left("handle_type_left",
                                                          ATTR_DOMAIN_POINT,
@@ -446,7 +469,8 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                          point_access,
                                                          make_array_read_attribute<int8_t>,
                                                          make_array_write_attribute<int8_t>,
-                                                         tag_component_topology_changed);
+                                                         tag_component_topology_changed,
+                                                         AttributeValidator{&handle_type_clamp});
 
   static BuiltinCustomDataLayerProvider nurbs_weight("nurbs_weight",
                                                      ATTR_DOMAIN_POINT,
@@ -460,18 +484,29 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                      make_array_write_attribute<float>,
                                                      tag_component_positions_changed);
 
+  static const fn::CustomMF_SI_SO<int8_t, int8_t> nurbs_order_clamp{
+      "NURBS Order Validate",
+      [](int8_t value) { return std::max<int8_t>(value, 0); },
+      fn::CustomMF_presets::AllSpanOrSingle()};
   static BuiltinCustomDataLayerProvider nurbs_order("nurbs_order",
                                                     ATTR_DOMAIN_CURVE,
-                                                    CD_PROP_INT32,
-                                                    CD_PROP_INT32,
+                                                    CD_PROP_INT8,
+                                                    CD_PROP_INT8,
                                                     BuiltinAttributeProvider::Creatable,
                                                     BuiltinAttributeProvider::Writable,
                                                     BuiltinAttributeProvider::Deletable,
                                                     curve_access,
-                                                    make_array_read_attribute<int>,
-                                                    make_array_write_attribute<int>,
-                                                    tag_component_topology_changed);
+                                                    make_array_read_attribute<int8_t>,
+                                                    make_array_write_attribute<int8_t>,
+                                                    tag_component_topology_changed,
+                                                    AttributeValidator{&nurbs_order_clamp});
 
+  static const fn::CustomMF_SI_SO<int8_t, int8_t> normal_mode_clamp{
+      "Normal Mode Validate",
+      [](int8_t value) {
+        return std::clamp<int8_t>(value, NORMAL_MODE_MINIMUM_TWIST, NORMAL_MODE_Z_UP);
+      },
+      fn::CustomMF_presets::AllSpanOrSingle()};
   static BuiltinCustomDataLayerProvider normal_mode("normal_mode",
                                                     ATTR_DOMAIN_CURVE,
                                                     CD_PROP_INT8,
@@ -482,8 +517,15 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                     curve_access,
                                                     make_array_read_attribute<int8_t>,
                                                     make_array_write_attribute<int8_t>,
-                                                    tag_component_normals_changed);
+                                                    tag_component_normals_changed,
+                                                    AttributeValidator{&normal_mode_clamp});
 
+  static const fn::CustomMF_SI_SO<int8_t, int8_t> knots_mode_clamp{
+      "Knots Mode Validate",
+      [](int8_t value) {
+        return std::clamp<int8_t>(value, NURBS_KNOT_MODE_NORMAL, NURBS_KNOT_MODE_ENDPOINT_BEZIER);
+      },
+      fn::CustomMF_presets::AllSpanOrSingle()};
   static BuiltinCustomDataLayerProvider nurbs_knots_mode("knots_mode",
                                                          ATTR_DOMAIN_CURVE,
                                                          CD_PROP_INT8,
@@ -494,8 +536,15 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                          curve_access,
                                                          make_array_read_attribute<int8_t>,
                                                          make_array_write_attribute<int8_t>,
-                                                         tag_component_topology_changed);
+                                                         tag_component_topology_changed,
+                                                         AttributeValidator{&knots_mode_clamp});
 
+  static const fn::CustomMF_SI_SO<int8_t, int8_t> curve_type_clamp{
+      "Curve Type Validate",
+      [](int8_t value) {
+        return std::clamp<int8_t>(value, CURVE_TYPE_CATMULL_ROM, CURVE_TYPES_NUM);
+      },
+      fn::CustomMF_presets::AllSpanOrSingle()};
   static BuiltinCustomDataLayerProvider curve_type("curve_type",
                                                    ATTR_DOMAIN_CURVE,
                                                    CD_PROP_INT8,
@@ -506,8 +555,13 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                    curve_access,
                                                    make_array_read_attribute<int8_t>,
                                                    make_array_write_attribute<int8_t>,
-                                                   tag_component_topology_changed);
+                                                   tag_component_curve_types_changed,
+                                                   AttributeValidator{&curve_type_clamp});
 
+  static const fn::CustomMF_SI_SO<int, int> resolution_clamp{
+      "Resolution Validate",
+      [](int value) { return std::max<int>(value, 1); },
+      fn::CustomMF_presets::AllSpanOrSingle()};
   static BuiltinCustomDataLayerProvider resolution("resolution",
                                                    ATTR_DOMAIN_CURVE,
                                                    CD_PROP_INT32,
@@ -518,7 +572,8 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                                    curve_access,
                                                    make_array_read_attribute<int>,
                                                    make_array_write_attribute<int>,
-                                                   tag_component_topology_changed);
+                                                   tag_component_topology_changed,
+                                                   AttributeValidator{&resolution_clamp});
 
   static BuiltinCustomDataLayerProvider cyclic("cyclic",
                                                ATTR_DOMAIN_CURVE,
@@ -545,6 +600,7 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
                                       &handle_type_left,
                                       &normal_mode,
                                       &nurbs_order,
+                                      &nurbs_knots_mode,
                                       &nurbs_weight,
                                       &curve_type,
                                       &resolution,
@@ -554,11 +610,68 @@ static ComponentAttributeProviders create_attribute_providers_for_curve()
 
 /** \} */
 
+static AttributeAccessorFunctions get_curves_accessor_functions()
+{
+  static const ComponentAttributeProviders providers = create_attribute_providers_for_curve();
+  AttributeAccessorFunctions fn =
+      attribute_accessor_functions::accessor_functions_for_providers<providers>();
+  fn.domain_size = [](const void *owner, const eAttrDomain domain) {
+    if (owner == nullptr) {
+      return 0;
+    }
+    const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+    switch (domain) {
+      case ATTR_DOMAIN_POINT:
+        return curves.points_num();
+      case ATTR_DOMAIN_CURVE:
+        return curves.curves_num();
+      default:
+        return 0;
+    }
+  };
+  fn.domain_supported = [](const void * /*owner*/, const eAttrDomain domain) {
+    return ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE);
+  };
+  fn.adapt_domain = [](const void *owner,
+                       const blender::GVArray &varray,
+                       const eAttrDomain from_domain,
+                       const eAttrDomain to_domain) -> GVArray {
+    if (owner == nullptr) {
+      return {};
+    }
+    const CurvesGeometry &curves = *static_cast<const CurvesGeometry *>(owner);
+    return curves.adapt_domain(varray, from_domain, to_domain);
+  };
+  return fn;
+}
+
+static const AttributeAccessorFunctions &get_curves_accessor_functions_ref()
+{
+  static const AttributeAccessorFunctions fn = get_curves_accessor_functions();
+  return fn;
+}
+
+AttributeAccessor CurvesGeometry::attributes() const
+{
+  return AttributeAccessor(this, get_curves_accessor_functions_ref());
+}
+
+MutableAttributeAccessor CurvesGeometry::attributes_for_write()
+{
+  return MutableAttributeAccessor(this, get_curves_accessor_functions_ref());
+}
+
 }  // namespace blender::bke
 
-const blender::bke::ComponentAttributeProviders *CurveComponent::get_attribute_providers() const
+std::optional<blender::bke::AttributeAccessor> CurveComponent::attributes() const
 {
-  static blender::bke::ComponentAttributeProviders providers =
-      blender::bke::create_attribute_providers_for_curve();
-  return &providers;
+  return blender::bke::AttributeAccessor(curves_ ? &curves_->geometry : nullptr,
+                                         blender::bke::get_curves_accessor_functions_ref());
+}
+
+std::optional<blender::bke::MutableAttributeAccessor> CurveComponent::attributes_for_write()
+{
+  Curves *curves = this->get_for_write();
+  return blender::bke::MutableAttributeAccessor(curves ? &curves->geometry : nullptr,
+                                                blender::bke::get_curves_accessor_functions_ref());
 }

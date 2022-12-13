@@ -1,8 +1,13 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright 2006 Blender Foundation. All rights reserved.
 
+if(HAVE_EXECINFO_H)
+  add_definitions(-DHAVE_EXECINFO_H)
+endif()
+
 set(INC
   .
+  ..
   # ../blenkernel  # don't add this back!
   ../makesdna
   ../../../intern/atomic
@@ -19,7 +24,6 @@ set(INC_SYS
 )
 
 set(SRC
-  intern/BLI_args.c
   intern/BLI_array.c
   intern/BLI_assert.c
   intern/BLI_color.cc
@@ -44,13 +48,17 @@ set(SRC
   intern/array_store.c
   intern/array_store_utils.c
   intern/array_utils.c
+  intern/array_utils.cc
   intern/astar.c
+  intern/atomic_disjoint_set.cc
   intern/bitmap.c
   intern/bitmap_draw_2d.c
   intern/boxpack_2d.c
   intern/buffer.c
+  intern/cache_mutex.cc
+  intern/compute_context.cc
   intern/convexhull_2d.c
-  intern/cpp_type.cc
+  intern/cpp_types.cc
   intern/delaunay_2d.cc
   intern/dot_export.cc
   intern/dynlib.c
@@ -79,8 +87,9 @@ set(SRC
   intern/kdtree_3d.c
   intern/kdtree_4d.c
   intern/lasso_2d.c
-  intern/listbase.c
+  intern/lazy_threading.cc
   intern/length_parameterize.cc
+  intern/listbase.c
   intern/math_base.c
   intern/math_base_inline.c
   intern/math_base_safe_inline.c
@@ -94,6 +103,7 @@ set(SRC
   intern/math_interp.c
   intern/math_matrix.c
   intern/math_rotation.c
+  intern/math_rotation.cc
   intern/math_solvers.c
   intern/math_statistics.c
   intern/math_time.c
@@ -155,30 +165,39 @@ set(SRC
   BLI_alloca.h
   BLI_allocator.hh
   BLI_any.hh
-  BLI_args.h
   BLI_array.h
   BLI_array.hh
   BLI_array_store.h
   BLI_array_store_utils.h
   BLI_array_utils.h
+  BLI_array_utils.hh
   BLI_asan.h
   BLI_assert.h
   BLI_astar.h
+  BLI_atomic_disjoint_set.hh
+  BLI_bit_vector.hh
   BLI_bitmap.h
   BLI_bitmap_draw_2d.h
   BLI_blenlib.h
   BLI_bounds.hh
+  BLI_bounds_types.hh
   BLI_boxpack_2d.h
   BLI_buffer.h
+  BLI_cache_mutex.hh
   BLI_color.hh
+  BLI_color_mix.hh
   BLI_compiler_attrs.h
   BLI_compiler_compat.h
   BLI_compiler_typecheck.h
+  BLI_compute_context.hh
   BLI_console.h
   BLI_convexhull_2d.h
   BLI_cpp_type.hh
   BLI_cpp_type_make.hh
+  BLI_cpp_types.hh
+  BLI_cpp_types_make.hh
   BLI_delaunay_2d.h
+  BLI_devirtualize_parameters.hh
   BLI_dial_2d.h
   BLI_disjoint_set.hh
   BLI_dlrbTree.h
@@ -197,6 +216,7 @@ set(SRC
   BLI_fileops.hh
   BLI_fileops_types.h
   BLI_filereader.h
+  BLI_float3x3.hh
   BLI_float4x4.hh
   BLI_fnmatch.h
   BLI_function_ref.hh
@@ -227,6 +247,7 @@ set(SRC
   BLI_kdtree.h
   BLI_kdtree_impl.h
   BLI_lasso_2d.h
+  BLI_lazy_threading.hh
   BLI_length_parameterize.hh
   BLI_linear_allocator.hh
   BLI_link_utils.h
@@ -252,6 +273,7 @@ set(SRC
   BLI_math_matrix.h
   BLI_math_mpq.hh
   BLI_math_rotation.h
+  BLI_math_rotation_legacy.hh
   BLI_math_solvers.h
   BLI_math_statistics.h
   BLI_math_time.h
@@ -271,9 +293,11 @@ set(SRC
   BLI_multi_value_map.hh
   BLI_noise.h
   BLI_noise.hh
+  BLI_parameter_pack_utils.hh
   BLI_path_util.h
   BLI_polyfill_2d.h
   BLI_polyfill_2d_beautify.h
+  BLI_pool.hh
   BLI_probing_strategies.hh
   BLI_profile.h
   BLI_profile.hh
@@ -289,6 +313,7 @@ set(SRC
   BLI_session_uuid.h
   BLI_set.hh
   BLI_set_slots.hh
+  BLI_shared_cache.hh
   BLI_simd.h
   BLI_single_producer_chunk_consumer.hh
   BLI_smallhash.h
@@ -322,7 +347,7 @@ set(SRC
   BLI_uuid.h
   BLI_uvproject.h
   BLI_vector.hh
-  BLI_vector_adaptor.hh
+  BLI_vector_list.hh
   BLI_vector_set.hh
   BLI_vector_set_slots.hh
   BLI_virtual_array.hh
@@ -345,6 +370,14 @@ set(LIB
   ${ZLIB_LIBRARIES}
   ${ZSTD_LIBRARIES}
 )
+
+if(NOT WITH_PYTHON_MODULE)
+  list(APPEND SRC
+    intern/BLI_args.c
+
+    BLI_args.h
+  )
+endif()
 
 if(WITH_MEM_VALGRIND)
   add_definitions(-DWITH_MEM_VALGRIND)
@@ -423,6 +456,8 @@ if(WITH_GTESTS)
     tests/BLI_array_store_test.cc
     tests/BLI_array_test.cc
     tests/BLI_array_utils_test.cc
+    tests/BLI_bit_vector_test.cc
+    tests/BLI_bitmap_test.cc
     tests/BLI_bounds_test.cc
     tests/BLI_color_test.cc
     tests/BLI_cpp_type_test.cc
@@ -431,6 +466,7 @@ if(WITH_GTESTS)
     tests/BLI_edgehash_test.cc
     tests/BLI_expr_pylike_eval_test.cc
     tests/BLI_fileops_test.cc
+    tests/BLI_float3x3_test.cc
     tests/BLI_function_ref_test.cc
     tests/BLI_generic_array_test.cc
     tests/BLI_generic_span_test.cc
@@ -443,6 +479,7 @@ if(WITH_GTESTS)
     tests/BLI_index_range_test.cc
     tests/BLI_inplace_priority_queue_test.cc
     tests/BLI_kdopbvh_test.cc
+    tests/BLI_kdtree_test.cc
     tests/BLI_length_parameterize_test.cc
     tests/BLI_linear_allocator_test.cc
     tests/BLI_linklist_lockfree_test.cc
@@ -466,6 +503,7 @@ if(WITH_GTESTS)
     tests/BLI_multi_value_map_test.cc
     tests/BLI_path_util_test.cc
     tests/BLI_polyfill_2d_test.cc
+    tests/BLI_pool_test.cc
     tests/BLI_ressource_strings.h
     tests/BLI_serialize_test.cc
     tests/BLI_session_uuid_test.cc

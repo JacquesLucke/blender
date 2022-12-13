@@ -9,21 +9,21 @@
 
 #include "bmesh.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 struct CustomData_MeshMasks;
 struct Main;
 struct Mesh;
 
-void BM_mesh_cd_flag_ensure(BMesh *bm, struct Mesh *mesh, char cd_flag);
-void BM_mesh_cd_flag_apply(BMesh *bm, char cd_flag);
-char BM_mesh_cd_flag_from_bmesh(BMesh *bm);
-
 struct BMeshFromMeshParams {
-  bool calc_face_normal : true;
-  bool calc_vert_normal : true;
+  bool calc_face_normal;
+  bool calc_vert_normal;
   /* add a vertex CD_SHAPE_KEYINDEX layer */
-  bool add_key_index : true;
+  bool add_key_index;
   /* set vertex coordinates from the shapekey */
-  bool use_shapekey : true;
+  bool use_shapekey;
   /* define the active shape key (index + 1) */
   int active_shapekey;
   struct CustomData_MeshMasks cd_mask_extra;
@@ -43,7 +43,7 @@ void BM_mesh_bm_from_me(BMesh *bm, const struct Mesh *me, const struct BMeshFrom
 
 struct BMeshToMeshParams {
   /** Update object hook indices & vertex parents. */
-  bool calc_object_remap : true;
+  bool calc_object_remap;
   /**
    * This re-assigns shape-key indices. Only do if the BMesh will have continued use
    * to update the mesh & shape key in the future.
@@ -53,16 +53,16 @@ struct BMeshToMeshParams {
    * so a second flush or edit-mode exit doesn't run with indices
    * that have become invalid from updating the shape-key, see T71865.
    */
-  bool update_shapekey_indices : true;
+  bool update_shapekey_indices;
   /**
    * Instead of copying the basis shape-key into the #MVert array,
    * copy the #BMVert.co directly to #MVert.co (used for reading undo data).
    */
-  bool active_shapekey_to_mvert : true;
+  bool active_shapekey_to_mvert;
   struct CustomData_MeshMasks cd_mask_extra;
 };
+
 /**
- *
  * \param bmain: May be NULL in case \a calc_object_remap parameter option is not set.
  */
 void BM_mesh_bm_to_me(struct Main *bmain,
@@ -91,3 +91,7 @@ void BM_mesh_bm_to_me_for_eval(BMesh *bm,
                                struct Mesh *me,
                                const struct CustomData_MeshMasks *cd_mask_extra)
     ATTR_NONNULL(1, 2);
+
+#ifdef __cplusplus
+}
+#endif

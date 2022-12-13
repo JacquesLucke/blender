@@ -122,11 +122,11 @@ class AbstractTileData {
  */
 class NoTileData : AbstractTileData {
  public:
-  NoTileData(Image *UNUSED(image), ImageUser *UNUSED(image_user))
+  NoTileData(Image * /*image*/, ImageUser * /*image_user*/)
   {
   }
 
-  void init_data(TileNumber UNUSED(new_tile_number)) override
+  void init_data(TileNumber /*new_tile_number*/) override
   {
   }
 
@@ -171,6 +171,11 @@ class ImageTileData : AbstractTileData {
   {
     if (image_user != nullptr) {
       this->image_user = *image_user;
+    }
+    else {
+      /* When no image user is given the lastframe of the image should be used. This reflect the
+       * same logic when using a stencil image in the clone tool. */
+      this->image_user.framenr = image->lastframe;
     }
   }
 

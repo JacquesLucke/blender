@@ -28,6 +28,7 @@ typedef unsigned long long uint64_t;
 /* Qualifiers */
 
 #define ccl_device __device__ __inline__
+#define ccl_device_extern extern "C" __device__
 #define ccl_device_inline __device__ __inline__
 #define ccl_device_forceinline __device__ __forceinline__
 #define ccl_device_noinline __device__ __noinline__
@@ -62,7 +63,7 @@ typedef unsigned long long uint64_t;
 #define ccl_gpu_block_idx_x (blockIdx.x)
 #define ccl_gpu_grid_dim_x (gridDim.x)
 #define ccl_gpu_warp_size (warpSize)
-#define ccl_gpu_thread_mask(thread_warp) uint64_t(0xFFFFFFFFFFFFFFFF >> (64 - thread_warp))
+#define ccl_gpu_thread_mask(thread_warp) uint64_t((1ull << thread_warp) - 1)
 
 #define ccl_gpu_global_id_x() (ccl_gpu_block_idx_x * ccl_gpu_block_dim_x + ccl_gpu_thread_idx_x)
 #define ccl_gpu_global_size_x() (ccl_gpu_grid_dim_x * ccl_gpu_block_dim_x)

@@ -9,6 +9,7 @@
 #include "BLI_map.hh"
 #include "BLI_math_vec_types.hh"
 #include "BLI_set.hh"
+#include "BLI_sort.hh"
 #include "BLI_string_ref.hh"
 
 #include "BKE_layer.h"
@@ -18,6 +19,7 @@
 
 #include "DNA_collection_types.h"
 
+#include "obj_export_mtl.hh"
 #include "obj_import_file_reader.hh"
 #include "obj_import_mesh.hh"
 #include "obj_import_nurbs.hh"
@@ -29,19 +31,29 @@ namespace blender::io::obj {
 /**
  * Make Blender Mesh, Curve etc from Geometry and add them to the import collection.
  */
-static void geometry_to_blender_objects(
-    Main *bmain,
-    Scene *scene,
-    ViewLayer *view_layer,
-    const OBJImportParams &import_params,
-    Vector<std::unique_ptr<Geometry>> &all_geometries,
-    const GlobalVertices &global_vertices,
-    const Map<std::string, std::unique_ptr<MTLMaterial>> &materials,
-    Map<std::string, Material *> &created_materials)
+static void geometry_to_blender_objects(Main *bmain,
+                                        Scene *scene,
+                                        ViewLayer *view_layer,
+                                        const OBJImportParams &import_params,
+                                        Vector<std::unique_ptr<Geometry>> &all_geometries,
+                                        const GlobalVertices &global_vertices,
+                                        Map<std::string, std::unique_ptr<MTLMaterial>> &materials,
+                                        Map<std::string, Material *> &created_materials)
 {
-  BKE_view_layer_base_deselect_all(view_layer);
   LayerCollection *lc = BKE_layer_collection_get_active(view_layer);
 
+  /* Sort objects by name: creating many objects is much faster if the creation
+   * order is sorted by name. */
+  blender::parallel_sort(
+      all_geometries.begin(), all_geometries.end(), [](const auto &a, const auto &b) {
+        const char *na = a ? a->geometry_name_.c_str() : "";
+        const char *nb = b ? b->geometry_name_.c_str() : "";
+        return BLI_strcasecmp(na, nb) < 0;
+      });
+
+  /* Create all the objects. */
+  Vector<Object *> objects;
+  objects.reserve(all_geometries.size());
   for (const std::unique_ptr<Geometry> &geometry : all_geometries) {
     Object *obj = nullptr;
     if (geometry->geom_type_ == GEOM_MESH) {
@@ -54,17 +66,22 @@ static void geometry_to_blender_objects(
     }
     if (obj != nullptr) {
       BKE_collection_object_add(bmain, lc->collection, obj);
-      Base *base = BKE_view_layer_base_find(view_layer, obj);
-      /* TODO: is setting active needed? */
-      BKE_view_layer_base_select_and_set_active(view_layer, base);
-
-      DEG_id_tag_update(&lc->collection->id, ID_RECALC_COPY_ON_WRITE);
-      DEG_id_tag_update_ex(bmain,
-                           &obj->id,
-                           ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION |
-                               ID_RECALC_BASE_FLAGS);
+      objects.append(obj);
     }
   }
+
+  /* Do object selections in a separate loop (allows just one view layer sync). */
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  for (Object *obj : objects) {
+    Base *base = BKE_view_layer_base_find(view_layer, obj);
+    BKE_view_layer_base_select_and_set_active(view_layer, base);
+
+    DEG_id_tag_update(&lc->collection->id, ID_RECALC_COPY_ON_WRITE);
+    int flags = ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY | ID_RECALC_ANIMATION |
+                ID_RECALC_BASE_FLAGS;
+    DEG_id_tag_update_ex(bmain, &obj->id, flags);
+  }
+
   DEG_id_tag_update(&scene->id, ID_RECALC_BASE_FLAGS);
   DEG_relations_tag_update(bmain);
 }
@@ -75,13 +92,13 @@ void importer_main(bContext *C, const OBJImportParams &import_params)
   Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   importer_main(bmain, scene, view_layer, import_params);
-  static_cast<void>(CTX_data_ensure_evaluated_depsgraph(C));
 }
 
 void importer_main(Main *bmain,
                    Scene *scene,
                    ViewLayer *view_layer,
-                   const OBJImportParams &import_params)
+                   const OBJImportParams &import_params,
+                   size_t read_buffer_size)
 {
   /* List of Geometry instances to be parsed from OBJ file. */
   Vector<std::unique_ptr<Geometry>> all_geometries;
@@ -91,14 +108,17 @@ void importer_main(Main *bmain,
   Map<std::string, std::unique_ptr<MTLMaterial>> materials;
   Map<std::string, Material *> created_materials;
 
-  OBJParser obj_parser{import_params};
+  OBJParser obj_parser{import_params, read_buffer_size};
   obj_parser.parse(all_geometries, global_vertices);
 
-  for (StringRef mtl_library : obj_parser.mtl_libraries()) {
+  for (StringRefNull mtl_library : obj_parser.mtl_libraries()) {
     MTLParser mtl_parser{mtl_library, import_params.filepath};
     mtl_parser.parse_and_store(materials);
   }
 
+  if (import_params.clear_selection) {
+    BKE_view_layer_base_deselect_all(scene, view_layer);
+  }
   geometry_to_blender_objects(bmain,
                               scene,
                               view_layer,

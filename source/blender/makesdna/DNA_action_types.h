@@ -104,12 +104,14 @@ typedef struct bAnimVizSettings {
   short path_type;
   /** Number of frames between points indicated on the paths. */
   short path_step;
+  /** #eMotionPath_Ranges. */
+  short path_range;
 
   /** #eMotionPaths_ViewFlag. */
   short path_viewflag;
   /** #eMotionPaths_BakeFlag. */
   short path_bakeflag;
-  char _pad[6];
+  char _pad[4];
 
   /** Start and end frames of path-calculation range. */
   int path_sf, path_ef;
@@ -130,6 +132,15 @@ typedef enum eMotionPaths_Types {
   /* only show the parts of the paths around the current frame */
   MOTIONPATH_TYPE_ACFRA = 1,
 } eMotionPath_Types;
+
+/* bAnimVizSettings->path_range */
+typedef enum eMotionPath_Ranges {
+  /* Default is scene */
+  MOTIONPATH_RANGE_SCENE = 0,
+  MOTIONPATH_RANGE_KEYS_SELECTED = 1,
+  MOTIONPATH_RANGE_KEYS_ALL = 2,
+  MOTIONPATH_RANGE_MANUAL = 3,
+} eMotionPath_Ranges;
 
 /* bAnimVizSettings->path_viewflag */
 typedef enum eMotionPaths_ViewFlag {
@@ -241,12 +252,18 @@ typedef struct bPoseChannel {
 
   /** Motion path cache for this bone. */
   bMotionPath *mpath;
-  /** Draws custom object instead of default bone shape. */
+  /**
+   * Draws custom object instead of default bone shape.
+   *
+   * \note For the purpose of user interaction (selection, display etc),
+   * it's important this value is treated as NULL when #ARM_NO_CUSTOM is set.
+   */
   struct Object *custom;
   /**
-   * Odd feature, display with another bones transform.
-   * needed in rare cases for advanced rigs,
-   * since the alternative is highly complicated - campbell
+   * This is a specific feature to display with another bones transform.
+   * Needed in rare cases for advanced rigs, since alternative solutions are highly complicated.
+   *
+   * \note This depends #bPoseChannel.custom being set and the #ARM_NO_CUSTOM flag being unset.
    */
   struct bPoseChannel *custom_tx;
   float custom_scale; /* Deprecated */

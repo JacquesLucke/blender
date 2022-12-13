@@ -393,7 +393,14 @@ static StructRNA *rna_Panel_register(Main *bmain,
 
   if (parent) {
     pt->parent = parent;
-    BLI_addtail(&parent->children, BLI_genericNodeN(pt));
+    LinkData *pt_child_iter = parent->children.last;
+    for (; pt_child_iter; pt_child_iter = pt_child_iter->prev) {
+      PanelType *pt_child = pt_child_iter->data;
+      if (pt_child->order <= pt->order) {
+        break;
+      }
+    }
+    BLI_insertlinkafter(&parent->children, pt_child_iter, BLI_genericNodeN(pt));
   }
 
   {
@@ -433,7 +440,7 @@ static PointerRNA rna_Panel_custom_data_get(PointerRNA *ptr)
 }
 
 /* UIList */
-static unsigned int rna_UIList_filter_const_FILTER_ITEM_get(PointerRNA *UNUSED(ptr))
+static int rna_UIList_filter_const_FILTER_ITEM_get(PointerRNA *UNUSED(ptr))
 {
   return UILST_FLT_ITEM;
 }
@@ -466,7 +473,7 @@ static int rna_UIList_list_id_length(PointerRNA *ptr)
 }
 
 static void uilist_draw_item(uiList *ui_list,
-                             bContext *C,
+                             const bContext *C,
                              uiLayout *layout,
                              PointerRNA *dataptr,
                              PointerRNA *itemptr,
@@ -500,7 +507,7 @@ static void uilist_draw_item(uiList *ui_list,
   RNA_parameter_list_free(&list);
 }
 
-static void uilist_draw_filter(uiList *ui_list, bContext *C, uiLayout *layout)
+static void uilist_draw_filter(uiList *ui_list, const bContext *C, uiLayout *layout)
 {
   extern FunctionRNA rna_UIList_draw_filter_func;
 
@@ -520,7 +527,7 @@ static void uilist_draw_filter(uiList *ui_list, bContext *C, uiLayout *layout)
 }
 
 static void uilist_filter_items(uiList *ui_list,
-                                bContext *C,
+                                const bContext *C,
                                 PointerRNA *dataptr,
                                 const char *propname)
 {

@@ -23,12 +23,12 @@ static void node_declare(NodeDeclarationBuilder &b)
       .description(N_("The parts of the geometry not in the selection"));
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "domain", 0, "", ICON_NONE);
 }
 
-static void node_init(bNodeTree *UNUSED(tree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeGeometrySeparateGeometry *data = MEM_cnew<NodeGeometrySeparateGeometry>(__func__);
   data->domain = ATTR_DOMAIN_POINT;
@@ -43,38 +43,31 @@ static void node_geo_exec(GeoNodeExecParams params)
   const Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
 
   const NodeGeometrySeparateGeometry &storage = node_storage(params.node());
-  const AttributeDomain domain = static_cast<AttributeDomain>(storage.domain);
+  const eAttrDomain domain = eAttrDomain(storage.domain);
 
-  auto separate_geometry_maybe_recursively = [&](GeometrySet &geometry_set, bool invert) {
+  auto separate_geometry_maybe_recursively = [&](GeometrySet &geometry_set,
+                                                 const Field<bool> &selection) {
     bool is_error;
     if (domain == ATTR_DOMAIN_INSTANCE) {
       /* Only delete top level instances. */
-      separate_geometry(geometry_set,
-                        domain,
-                        GEO_NODE_DELETE_GEOMETRY_MODE_ALL,
-                        selection_field,
-                        invert,
-                        is_error);
+      separate_geometry(
+          geometry_set, domain, GEO_NODE_DELETE_GEOMETRY_MODE_ALL, selection, is_error);
     }
     else {
       geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-        separate_geometry(geometry_set,
-                          domain,
-                          GEO_NODE_DELETE_GEOMETRY_MODE_ALL,
-                          selection_field,
-                          invert,
-                          is_error);
+        separate_geometry(
+            geometry_set, domain, GEO_NODE_DELETE_GEOMETRY_MODE_ALL, selection, is_error);
       });
     }
   };
 
   GeometrySet second_set(geometry_set);
   if (params.output_is_required("Selection")) {
-    separate_geometry_maybe_recursively(geometry_set, false);
+    separate_geometry_maybe_recursively(geometry_set, selection_field);
     params.set_output("Selection", std::move(geometry_set));
   }
   if (params.output_is_required("Inverted")) {
-    separate_geometry_maybe_recursively(second_set, true);
+    separate_geometry_maybe_recursively(second_set, fn::invert_boolean_field(selection_field));
     params.set_output("Inverted", std::move(second_set));
   }
 }
@@ -94,7 +87,7 @@ void register_node_type_geo_separate_geometry()
                     node_free_standard_storage,
                     node_copy_standard_storage);
 
-  node_type_init(&ntype, file_ns::node_init);
+  ntype.initfunc = file_ns::node_init;
 
   ntype.declare = file_ns::node_declare;
   ntype.geometry_node_execute = file_ns::node_geo_exec;

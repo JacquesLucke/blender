@@ -14,12 +14,13 @@ static void node_declare(NodeDeclarationBuilder &b)
       .max(1.0f)
       .subtype(PROP_FACTOR);
   b.add_input<decl::Vector>(N_("Normal")).hide_value();
+  b.add_input<decl::Float>(N_("Weight")).unavailable();
   b.add_output<decl::Shader>(N_("BSDF"));
 }
 
 static int node_shader_gpu_bsdf_diffuse(GPUMaterial *mat,
                                         bNode *node,
-                                        bNodeExecData *UNUSED(execdata),
+                                        bNodeExecData * /*execdata*/,
                                         GPUNodeStack *in,
                                         GPUNodeStack *out)
 {
@@ -44,7 +45,7 @@ void register_node_type_sh_bsdf_diffuse()
   sh_node_type_base(&ntype, SH_NODE_BSDF_DIFFUSE, "Diffuse BSDF", NODE_CLASS_SHADER);
   ntype.declare = file_ns::node_declare;
   node_type_size_preset(&ntype, NODE_SIZE_MIDDLE);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_bsdf_diffuse);
+  ntype.gpu_fn = file_ns::node_shader_gpu_bsdf_diffuse;
 
   nodeRegisterType(&ntype);
 }

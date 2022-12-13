@@ -60,6 +60,23 @@ static wmOperatorType *ot_lookup_from_py_string(PyObject *value, const char *py_
   return ot;
 }
 
+static void op_context_override_deprecated_warning(const char *action, const char *opname)
+{
+  if (PyErr_WarnFormat(
+          PyExc_DeprecationWarning,
+          /* Use stack level 2 as this call is wrapped by `release/scripts/modules/bpy/ops.py`,
+           * An extra stack level is needed to show the warning in the authors script. */
+          2,
+          "Passing in context overrides is deprecated in favor of "
+          "Context.temp_override(..), %s \"%s\"",
+          action,
+          opname) < 0) {
+    /* The function has no return value, the exception cannot
+     * be reported to the caller, so just log it. */
+    PyErr_WriteUnraisable(NULL);
+  }
+}
+
 static PyObject *pyop_poll(PyObject *UNUSED(self), PyObject *args)
 {
   wmOperatorType *ot;
@@ -113,7 +130,10 @@ static PyObject *pyop_poll(PyObject *UNUSED(self), PyObject *args)
   if (ELEM(context_dict, NULL, Py_None)) {
     context_dict = NULL;
   }
-  else if (!PyDict_Check(context_dict)) {
+  else if (PyDict_Check(context_dict)) {
+    op_context_override_deprecated_warning("polling", opname);
+  }
+  else {
     PyErr_Format(PyExc_TypeError,
                  "Calling operator \"bpy.ops.%s.poll\" error, "
                  "custom context expected a dict or None, got a %.200s",
@@ -218,7 +238,10 @@ static PyObject *pyop_call(PyObject *UNUSED(self), PyObject *args)
   if (ELEM(context_dict, NULL, Py_None)) {
     context_dict = NULL;
   }
-  else if (!PyDict_Check(context_dict)) {
+  else if (PyDict_Check(context_dict)) {
+    op_context_override_deprecated_warning("calling", opname);
+  }
+  else {
     PyErr_Format(PyExc_TypeError,
                  "Calling operator \"bpy.ops.%s\" error, "
                  "custom context expected a dict or None, got a %.200s",
@@ -266,7 +289,7 @@ static PyObject *pyop_call(PyObject *UNUSED(self), PyObject *args)
       reports = MEM_mallocN(sizeof(ReportList), "wmOperatorReportList");
 
       /* Own so these don't move into global reports. */
-      BKE_reports_init(reports, RPT_STORE | RPT_OP_HOLD);
+      BKE_reports_init(reports, RPT_STORE | RPT_OP_HOLD | RPT_PRINT_HANDLED_BY_OWNER);
 
 #ifdef BPY_RELEASE_GIL
       /* release GIL, since a thread could be started from an operator
@@ -470,14 +493,14 @@ static struct PyMethodDef bpy_ops_methods[] = {
 
 static struct PyModuleDef bpy_ops_module = {
     PyModuleDef_HEAD_INIT,
-    "_bpy.ops",
-    NULL,
-    -1, /* multiple "initialization" just copies the module dict. */
-    bpy_ops_methods,
-    NULL,
-    NULL,
-    NULL,
-    NULL,
+    /*m_name*/ "_bpy.ops",
+    /*m_doc*/ NULL,
+    /*m_size*/ -1, /* multiple "initialization" just copies the module dict. */
+    /*m_methods*/ bpy_ops_methods,
+    /*m_slots*/ NULL,
+    /*m_traverse*/ NULL,
+    /*m_clear*/ NULL,
+    /*m_free*/ NULL,
 };
 
 PyObject *BPY_operator_module(void)

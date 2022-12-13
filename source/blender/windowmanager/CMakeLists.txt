@@ -5,6 +5,7 @@ set(INC
   .
   gizmo
   gizmo/intern
+  ../asset_system
   ../blenfont
   ../blenkernel
   ../blenlib
@@ -23,9 +24,9 @@ set(INC
   ../sequencer
   ../../../intern/clog
   ../../../intern/ghost
-  ../../../intern/glew-mx
   ../../../intern/guardedalloc
   ../../../intern/memutil
+  ../bmesh
 
   # for writefile.c: dna_type_offsets.h
   ${CMAKE_BINARY_DIR}/source/blender/makesdna/intern
@@ -36,10 +37,10 @@ set(INC
 set(SRC
   intern/wm.c
   intern/wm_cursors.c
-  intern/wm_dragdrop.c
+  intern/wm_dragdrop.cc
   intern/wm_draw.c
   intern/wm_event_query.c
-  intern/wm_event_system.c
+  intern/wm_event_system.cc
   intern/wm_files.c
   intern/wm_files_link.c
   intern/wm_gesture.c
@@ -120,6 +121,10 @@ if(WITH_CYCLES)
   add_definitions(-DWITH_CYCLES)
 endif()
 
+if(WITH_VULKAN_BACKEND)
+  add_definitions(-DWITH_VULKAN_BACKEND)
+endif()
+
 if(WITH_OPENCOLLADA)
   add_definitions(-DWITH_COLLADA)
 endif()
@@ -164,11 +169,11 @@ if(WIN32 OR APPLE)
   endif()
 endif()
 
-if(WITH_COMPOSITOR)
+if(WITH_COMPOSITOR_CPU)
   list(APPEND LIB
     bf_compositor
   )
-  add_definitions(-DWITH_COMPOSITOR)
+  add_definitions(-DWITH_COMPOSITOR_CPU)
 endif()
 
 if(WITH_XR_OPENXR)

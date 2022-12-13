@@ -4,18 +4,6 @@
 #pragma BLENDER_REQUIRE(common_math_geom_lib.glsl)
 #pragma BLENDER_REQUIRE(irradiance_lib.glsl)
 
-uniform samplerCube probeHdr;
-uniform int probeSize;
-uniform float lodFactor;
-uniform float lodMax;
-uniform float intensityFac;
-
-uniform float sampleCount;
-
-in vec3 worldPosition;
-
-out vec4 FragColor;
-
 #define M_4PI 12.5663706143591729
 
 const mat3 CUBE_ROTATIONS[6] = mat3[](
@@ -100,7 +88,7 @@ void main()
           coef = 0.315392 * (3.0 * cubevec.y * cubevec.y - 1.0) * 1.0 / 4.0;
         }
         else if (comp == 7) {
-          coef = 1.092548 * cubevec.x * cubevec.y * 1.0 / 4.0;
+          coef = -1.092548 * cubevec.x * cubevec.y * 1.0 / 4.0;
         }
         else { /* (comp == 8) */
           coef = 0.546274 * (cubevec.x * cubevec.x - cubevec.z * cubevec.z) * 1.0 / 4.0;

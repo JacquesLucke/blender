@@ -8,6 +8,7 @@
 
 #include <atomic>
 #include <iostream>
+#include <mutex>
 
 #include "BLI_float4x4.hh"
 #include "BLI_function_ref.hh"
@@ -19,13 +20,12 @@
 #include "BLI_vector_set.hh"
 
 #include "BKE_anonymous_attribute.hh"
-#include "BKE_attribute_access.hh"
+#include "BKE_attribute.hh"
 #include "BKE_geometry_set.h"
 
 struct Curves;
 struct Collection;
 struct Curve;
-struct CurveEval;
 struct Mesh;
 struct Object;
 struct PointCloud;
@@ -42,7 +42,9 @@ enum class GeometryOwnershipType {
 
 namespace blender::bke {
 class ComponentAttributeProviders;
-}
+class CurvesEditHints;
+class Instances;
+}  // namespace blender::bke
 
 class GeometryComponent;
 
@@ -63,6 +65,15 @@ class GeometryComponent {
   virtual ~GeometryComponent() = default;
   static GeometryComponent *create(GeometryComponentType component_type);
 
+  int attribute_domain_size(eAttrDomain domain) const;
+
+  /**
+   * Get access to the attributes in this geometry component. May return none if the geometry does
+   * not support the attribute system.
+   */
+  virtual std::optional<blender::bke::AttributeAccessor> attributes() const;
+  virtual std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write();
+
   /* The returned component should be of the same type as the type this is called on. */
   virtual GeometryComponent *copy() const = 0;
 
@@ -78,197 +89,7 @@ class GeometryComponent {
 
   GeometryComponentType type() const;
 
-  /**
-   * Return true when any attribute with this name exists, including built in attributes.
-   */
-  bool attribute_exists(const blender::bke::AttributeIDRef &attribute_id) const;
-
-  /**
-   * Return the data type and domain of an attribute with the given name if it exists.
-   */
-  std::optional<AttributeMetaData> attribute_get_meta_data(
-      const blender::bke::AttributeIDRef &attribute_id) const;
-
-  /**
-   * Return true when the geometry component supports this attribute domain.
-   * \note Conceptually this function is static, the result is always the same for different
-   * instances of the same geometry component type.
-   */
-  bool attribute_domain_supported(AttributeDomain domain) const;
-  /**
-   * Return the length of a specific domain, or 0 if the domain is not supported.
-   */
-  virtual int attribute_domain_size(AttributeDomain domain) const;
-
-  /**
-   * Return true if the attribute name corresponds to a built-in attribute with a hardcoded domain
-   * and data type.
-   */
-  bool attribute_is_builtin(const blender::StringRef attribute_name) const;
-  bool attribute_is_builtin(const blender::bke::AttributeIDRef &attribute_id) const;
-
-  /**
-   * Get read-only access to an attribute with the given name or id, on the highest priority domain
-   * if there is a name collision.
-   * \return null if the attribute does not exist.
-   */
-  blender::bke::ReadAttributeLookup attribute_try_get_for_read(
-      const blender::bke::AttributeIDRef &attribute_id) const;
-
-  /**
-   * Get read and write access to an attribute with the given name or id, on the highest priority
-   * domain if there is a name collision.
-   * \note #WriteAttributeLookup.tag_modified_fn must be called after modifying data.
-   * \return null if the attribute does not exist
-   */
-  blender::bke::WriteAttributeLookup attribute_try_get_for_write(
-      const blender::bke::AttributeIDRef &attribute_id);
-
-  /**
-   * Get a read-only attribute for the domain based on the given attribute. This can be used to
-   * interpolate from one domain to another.
-   * \return null if the interpolation is not implemented.
-   */
-  blender::GVArray attribute_try_adapt_domain(const blender::GVArray &varray,
-                                              const AttributeDomain from_domain,
-                                              const AttributeDomain to_domain) const
-  {
-    return this->attribute_try_adapt_domain_impl(varray, from_domain, to_domain);
-  }
-  /* Use instead of the method above when the type is known at compile time for type safety. */
-  template<typename T>
-  blender::VArray<T> attribute_try_adapt_domain(const blender::VArray<T> &varray,
-                                                const AttributeDomain from_domain,
-                                                const AttributeDomain to_domain) const
-  {
-    return this->attribute_try_adapt_domain_impl(varray, from_domain, to_domain)
-        .template typed<T>();
-  }
-
-  /** Returns true when the attribute has been deleted. */
-  bool attribute_try_delete(const blender::bke::AttributeIDRef &attribute_id);
-
-  /** Returns true when the attribute has been created. */
-  bool attribute_try_create(const blender::bke::AttributeIDRef &attribute_id,
-                            AttributeDomain domain,
-                            const CustomDataType data_type,
-                            const AttributeInit &initializer);
-
-  /**
-   * Try to create the builtin attribute with the given name. No data type or domain has to be
-   * provided, because those are fixed for builtin attributes.
-   */
-  bool attribute_try_create_builtin(const blender::StringRef attribute_name,
-                                    const AttributeInit &initializer);
-
-  blender::Set<blender::bke::AttributeIDRef> attribute_ids() const;
-  /**
-   * \return False if the callback explicitly returned false at any point, otherwise true,
-   * meaning the callback made it all the way through.
-   */
-  bool attribute_foreach(const AttributeForeachCallback callback) const;
-
   virtual bool is_empty() const;
-
-  /**
-   * Get a virtual array that refers to the data of an attribute, interpolated to the given domain
-   * and converted to the data type. Returns null when the attribute does not exist or cannot be
-   * interpolated or converted.
-   */
-  blender::GVArray attribute_try_get_for_read(const blender::bke::AttributeIDRef &attribute_id,
-                                              AttributeDomain domain,
-                                              const CustomDataType data_type) const;
-
-  /**
-   * Get a virtual array that refers to the data of an attribute, interpolated to the given domain.
-   * The data type is left unchanged. Returns null when the attribute does not exist or cannot be
-   * interpolated.
-   */
-  blender::GVArray attribute_try_get_for_read(const blender::bke::AttributeIDRef &attribute_id,
-                                              AttributeDomain domain) const;
-
-  /**
-   * Get a virtual array that refers to the data of an attribute converted to the given data type.
-   * The attribute's domain is left unchanged. Returns null when the attribute does not exist or
-   * cannot be converted.
-   */
-  blender::bke::ReadAttributeLookup attribute_try_get_for_read(
-      const blender::bke::AttributeIDRef &attribute_id, const CustomDataType data_type) const;
-
-  /**
-   * Get a virtual array that refers to the data of an attribute, interpolated to the given domain
-   * and converted to the data type. If that is not possible, the returned virtual array will
-   * contain a default value. This never returns null.
-   */
-  blender::GVArray attribute_get_for_read(const blender::bke::AttributeIDRef &attribute_id,
-                                          AttributeDomain domain,
-                                          const CustomDataType data_type,
-                                          const void *default_value = nullptr) const;
-  /* Use instead of the method above when the type is known at compile time for type safety. */
-  template<typename T>
-  blender::VArray<T> attribute_get_for_read(const blender::bke::AttributeIDRef &attribute_id,
-                                            const AttributeDomain domain,
-                                            const T &default_value) const
-  {
-    const blender::CPPType &cpp_type = blender::CPPType::get<T>();
-    const CustomDataType type = blender::bke::cpp_type_to_custom_data_type(cpp_type);
-    return this->attribute_get_for_read(attribute_id, domain, type, &default_value)
-        .template typed<T>();
-  }
-
-  /**
-   * Returns an "output attribute", which is essentially a mutable virtual array with some commonly
-   * used convince features. The returned output attribute might be empty if requested attribute
-   * cannot exist on the geometry.
-   *
-   * The included convenience features are:
-   * - Implicit type conversion when writing to builtin attributes.
-   * - If the attribute name exists already, but has a different type/domain, a temporary attribute
-   *   is created that will overwrite the existing attribute in the end.
-   */
-  blender::bke::OutputAttribute attribute_try_get_for_output(
-      const blender::bke::AttributeIDRef &attribute_id,
-      AttributeDomain domain,
-      const CustomDataType data_type,
-      const void *default_value = nullptr);
-  /* Use instead of the method above when the type is known at compile time for type safety. */
-  template<typename T>
-  blender::bke::OutputAttribute_Typed<T> attribute_try_get_for_output(
-      const blender::bke::AttributeIDRef &attribute_id,
-      const AttributeDomain domain,
-      const T default_value)
-  {
-    const blender::CPPType &cpp_type = blender::CPPType::get<T>();
-    const CustomDataType data_type = blender::bke::cpp_type_to_custom_data_type(cpp_type);
-    return this->attribute_try_get_for_output(attribute_id, domain, data_type, &default_value);
-  }
-
-  /**
-   * Same as #attribute_try_get_for_output, but should be used when the original values in the
-   * attributes are not read, i.e. the attribute is used only for output. The can be faster because
-   * it can avoid interpolation and conversion of existing values. Since values are not read from
-   * this attribute, no default value is necessary.
-   */
-  blender::bke::OutputAttribute attribute_try_get_for_output_only(
-      const blender::bke::AttributeIDRef &attribute_id,
-      AttributeDomain domain,
-      const CustomDataType data_type);
-  /* Use instead of the method above when the type is known at compile time for type safety. */
-  template<typename T>
-  blender::bke::OutputAttribute_Typed<T> attribute_try_get_for_output_only(
-      const blender::bke::AttributeIDRef &attribute_id, const AttributeDomain domain)
-  {
-    const blender::CPPType &cpp_type = blender::CPPType::get<T>();
-    const CustomDataType data_type = blender::bke::cpp_type_to_custom_data_type(cpp_type);
-    return this->attribute_try_get_for_output_only(attribute_id, domain, data_type);
-  }
-
- private:
-  virtual const blender::bke::ComponentAttributeProviders *get_attribute_providers() const;
-
-  virtual blender::GVArray attribute_try_adapt_domain_impl(const blender::GVArray &varray,
-                                                           AttributeDomain from_domain,
-                                                           AttributeDomain to_domain) const;
 };
 
 template<typename T>
@@ -348,6 +169,12 @@ struct GeometrySet {
    * Remove all geometry components with types that are not in the provided list.
    */
   void keep_only(const blender::Span<GeometryComponentType> component_types);
+  /**
+   * Keeps the provided geometry types, but also instances and edit data.
+   * Instances must not be removed while using #modify_geometry_sets.
+   */
+  void keep_only_during_modify(const blender::Span<GeometryComponentType> component_types);
+  void remove_geometry_during_modify();
 
   void add(const GeometryComponent &component);
 
@@ -375,7 +202,7 @@ struct GeometrySet {
 
   using AttributeForeachCallback =
       blender::FunctionRef<void(const blender::bke::AttributeIDRef &attribute_id,
-                                const AttributeMetaData &meta_data,
+                                const blender::bke::AttributeMetaData &meta_data,
                                 const GeometryComponent &component)>;
 
   void attribute_foreach(blender::Span<GeometryComponentType> component_types,
@@ -386,7 +213,7 @@ struct GeometrySet {
       blender::Span<GeometryComponentType> component_types,
       GeometryComponentType dst_component_type,
       bool include_instances,
-      blender::Map<blender::bke::AttributeIDRef, AttributeKind> &r_attributes) const;
+      blender::Map<blender::bke::AttributeIDRef, blender::bke::AttributeKind> &r_attributes) const;
 
   blender::Vector<GeometryComponentType> gather_component_types(bool include_instances,
                                                                 bool ignore_empty) const;
@@ -406,6 +233,11 @@ struct GeometrySet {
   static GeometrySet create_with_mesh(
       Mesh *mesh, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
   /**
+   * Create a new geometry set that only contains the given volume.
+   */
+  static GeometrySet create_with_volume(
+      Volume *volume, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
+  /**
    * Create a new geometry set that only contains the given point cloud.
    */
   static GeometrySet create_with_pointcloud(
@@ -415,6 +247,12 @@ struct GeometrySet {
    */
   static GeometrySet create_with_curves(
       Curves *curves, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
+  /**
+   * Create a new geometry set that only contains the given instances.
+   */
+  static GeometrySet create_with_instances(
+      blender::bke::Instances *instances,
+      GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
 
   /* Utility methods for access. */
   /**
@@ -462,6 +300,14 @@ struct GeometrySet {
    * Returns a read-only curves data-block or null.
    */
   const Curves *get_curves_for_read() const;
+  /**
+   * Returns read-only instances or null.
+   */
+  const blender::bke::Instances *get_instances_for_read() const;
+  /**
+   * Returns read-only curve edit hints or null.
+   */
+  const blender::bke::CurvesEditHints *get_curve_edit_hints_for_read() const;
 
   /**
    * Returns a mutable mesh or null. No ownership is transferred.
@@ -479,6 +325,14 @@ struct GeometrySet {
    * Returns a mutable curves data-block or null. No ownership is transferred.
    */
   Curves *get_curves_for_write();
+  /**
+   * Returns mutable instances or null. No ownership is transferred.
+   */
+  blender::bke::Instances *get_instances_for_write();
+  /**
+   * Returns mutable curve edit hints or null.
+   */
+  blender::bke::CurvesEditHints *get_curve_edit_hints_for_write();
 
   /* Utility methods for replacement. */
   /**
@@ -500,6 +354,11 @@ struct GeometrySet {
    */
   void replace_curves(Curves *curves,
                       GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
+  /**
+   * Clear the existing instances and replace them with the given one.
+   */
+  void replace_instances(blender::bke::Instances *instances,
+                         GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
 
  private:
   /**
@@ -515,11 +374,11 @@ struct GeometrySet {
 };
 
 /**
- * A geometry component that can store a mesh, storing the #Mesh data structure.
+ * A geometry component that can store a mesh, using the #Mesh data-block.
  *
- * Attributes are stored in the mesh itself, on any of the four attribute domains. Generic
- * attributes are stored in contiguous arrays, but often built-in attributes are stored in an
- * array of structs fashion for historical reasons, requiring more complex attribute access.
+ * Attributes are stored, on any of the four attribute domains. Generic attributes are stored in
+ * contiguous arrays, but often built-in attributes are stored in an array of structs fashion for
+ * historical reasons, requiring more complex attribute access.
  */
 class MeshComponent : public GeometryComponent {
  private:
@@ -554,8 +413,6 @@ class MeshComponent : public GeometryComponent {
    */
   Mesh *get_for_write();
 
-  int attribute_domain_size(AttributeDomain domain) const final;
-
   bool is_empty() const final;
 
   bool owns_direct_data() const override;
@@ -563,12 +420,8 @@ class MeshComponent : public GeometryComponent {
 
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_MESH;
 
- private:
-  const blender::bke::ComponentAttributeProviders *get_attribute_providers() const final;
-
-  blender::GVArray attribute_try_adapt_domain_impl(const blender::GVArray &varray,
-                                                   AttributeDomain from_domain,
-                                                   AttributeDomain to_domain) const final;
+  std::optional<blender::bke::AttributeAccessor> attributes() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write() final;
 };
 
 /**
@@ -617,67 +470,23 @@ class PointCloudComponent : public GeometryComponent {
    */
   PointCloud *get_for_write();
 
-  int attribute_domain_size(AttributeDomain domain) const final;
-
   bool is_empty() const final;
 
   bool owns_direct_data() const override;
   void ensure_owns_direct_data() override;
+
+  std::optional<blender::bke::AttributeAccessor> attributes() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write() final;
 
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_POINT_CLOUD;
 
  private:
-  const blender::bke::ComponentAttributeProviders *get_attribute_providers() const final;
 };
 
 /**
- * Legacy runtime-only curves type.
- * These curves are stored differently than other geometry components, because the data structure
- * used here does not correspond exactly to the #Curve DNA data structure. A #CurveEval is stored
- * here instead, though the component does give access to a #Curve for interfacing with render
- * engines and other areas of Blender that expect to use a data-block with an #ID.
- */
-class CurveComponentLegacy : public GeometryComponent {
- private:
-  CurveEval *curve_ = nullptr;
-  GeometryOwnershipType ownership_ = GeometryOwnershipType::Owned;
-
- public:
-  CurveComponentLegacy();
-  ~CurveComponentLegacy();
-  GeometryComponent *copy() const override;
-
-  void clear();
-  bool has_curve() const;
-  /**
-   * Clear the component and replace it with the new curve.
-   */
-  void replace(CurveEval *curve, GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
-  CurveEval *release();
-
-  const CurveEval *get_for_read() const;
-  CurveEval *get_for_write();
-
-  int attribute_domain_size(AttributeDomain domain) const final;
-
-  bool is_empty() const final;
-
-  bool owns_direct_data() const override;
-  void ensure_owns_direct_data() override;
-
-  static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_CURVE;
-
- private:
-  const blender::bke::ComponentAttributeProviders *get_attribute_providers() const final;
-
-  blender::GVArray attribute_try_adapt_domain_impl(const blender::GVArray &varray,
-                                                   AttributeDomain from_domain,
-                                                   AttributeDomain to_domain) const final;
-};
-
-/**
- * A geometry component that stores a group of curves, corresponding the #Curves and
- * #CurvesGeometry types.
+ * A geometry component that stores a group of curves, corresponding the #Curves data-block
+ * and the #CurvesGeometry type. Attributes are stored on the control point domain and the
+ * curve domain.
  */
 class CurveComponent : public GeometryComponent {
  private:
@@ -685,10 +494,9 @@ class CurveComponent : public GeometryComponent {
   GeometryOwnershipType ownership_ = GeometryOwnershipType::Owned;
 
   /**
-   * Curve data necessary to hold the draw cache for rendering, consistent over multiple redraws.
-   * This is necessary because Blender assumes that objects evaluate to an object data type, and
-   * we use #CurveEval rather than #Curve here. It also allows us to mostly reuse the same
-   * batch cache implementation.
+   * Because rendering #Curves isn't fully working yet, we must provide a #Curve for the render
+   * engine and depsgraph object iterator in some cases. This allows using the old curve rendering
+   * even when the new curve data structure is used.
    */
   mutable Curve *curve_for_render_ = nullptr;
   mutable std::mutex curve_for_render_mutex_;
@@ -709,8 +517,6 @@ class CurveComponent : public GeometryComponent {
   const Curves *get_for_read() const;
   Curves *get_for_write();
 
-  int attribute_domain_size(AttributeDomain domain) const final;
-
   bool is_empty() const final;
 
   bool owns_direct_data() const override;
@@ -722,255 +528,42 @@ class CurveComponent : public GeometryComponent {
    */
   const Curve *get_curve_for_render() const;
 
+  std::optional<blender::bke::AttributeAccessor> attributes() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write() final;
+
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_CURVE;
-
- private:
-  const blender::bke::ComponentAttributeProviders *get_attribute_providers() const final;
-
-  blender::GVArray attribute_try_adapt_domain_impl(const blender::GVArray &varray,
-                                                   AttributeDomain from_domain,
-                                                   AttributeDomain to_domain) const final;
 };
 
 /**
- * Holds a reference to conceptually unique geometry or a pointer to object/collection data
- * that is instanced with a transform in #InstancesComponent.
- */
-class InstanceReference {
- public:
-  enum class Type {
-    /**
-     * An empty instance. This allows an `InstanceReference` to be default constructed without
-     * being in an invalid state. There might also be other use cases that we haven't explored much
-     * yet (such as changing the instance later on, and "disabling" some instances).
-     */
-    None,
-    Object,
-    Collection,
-    GeometrySet,
-  };
-
- private:
-  Type type_ = Type::None;
-  /** Depending on the type this is either null, an Object or Collection pointer. */
-  void *data_ = nullptr;
-  std::unique_ptr<GeometrySet> geometry_set_;
-
- public:
-  InstanceReference() = default;
-
-  InstanceReference(Object &object) : type_(Type::Object), data_(&object)
-  {
-  }
-
-  InstanceReference(Collection &collection) : type_(Type::Collection), data_(&collection)
-  {
-  }
-
-  InstanceReference(GeometrySet geometry_set)
-      : type_(Type::GeometrySet),
-        geometry_set_(std::make_unique<GeometrySet>(std::move(geometry_set)))
-  {
-  }
-
-  InstanceReference(const InstanceReference &other) : type_(other.type_), data_(other.data_)
-  {
-    if (other.geometry_set_) {
-      geometry_set_ = std::make_unique<GeometrySet>(*other.geometry_set_);
-    }
-  }
-
-  InstanceReference(InstanceReference &&other)
-      : type_(other.type_), data_(other.data_), geometry_set_(std::move(other.geometry_set_))
-  {
-    other.type_ = Type::None;
-    other.data_ = nullptr;
-  }
-
-  InstanceReference &operator=(const InstanceReference &other)
-  {
-    if (this == &other) {
-      return *this;
-    }
-    this->~InstanceReference();
-    new (this) InstanceReference(other);
-    return *this;
-  }
-
-  InstanceReference &operator=(InstanceReference &&other)
-  {
-    if (this == &other) {
-      return *this;
-    }
-    this->~InstanceReference();
-    new (this) InstanceReference(std::move(other));
-    return *this;
-  }
-
-  Type type() const
-  {
-    return type_;
-  }
-
-  Object &object() const
-  {
-    BLI_assert(type_ == Type::Object);
-    return *(Object *)data_;
-  }
-
-  Collection &collection() const
-  {
-    BLI_assert(type_ == Type::Collection);
-    return *(Collection *)data_;
-  }
-
-  const GeometrySet &geometry_set() const
-  {
-    BLI_assert(type_ == Type::GeometrySet);
-    return *geometry_set_;
-  }
-
-  bool owns_direct_data() const
-  {
-    if (type_ != Type::GeometrySet) {
-      /* The object and collection instances are not direct data. */
-      return true;
-    }
-    return geometry_set_->owns_direct_data();
-  }
-
-  void ensure_owns_direct_data()
-  {
-    if (type_ != Type::GeometrySet) {
-      return;
-    }
-    geometry_set_->ensure_owns_direct_data();
-  }
-
-  uint64_t hash() const
-  {
-    return blender::get_default_hash_2(data_, geometry_set_.get());
-  }
-
-  friend bool operator==(const InstanceReference &a, const InstanceReference &b)
-  {
-    return a.data_ == b.data_ && a.geometry_set_.get() == b.geometry_set_.get();
-  }
-};
-
-/**
- * A geometry component that stores instances. The instance data can be any type described by
- * #InstanceReference. Geometry instances can even contain instances themselves, for nested
- * instancing. Each instance has an index into an array of unique instance data, and a transform.
- * The component can also store generic attributes for each instance.
- *
- * The component works differently from other geometry components in that it stores
- * data about instancing directly, rather than owning a pointer to a separate data structure.
- *
- * This component is not responsible for handling the interface to a render engine, or other
- * areas that work with all visible geometry, that is handled by the dependency graph iterator
- * (see `DEG_depsgraph_query.h`).
+ * A geometry component that stores #Instances.
  */
 class InstancesComponent : public GeometryComponent {
  private:
-  /**
-   * Indexed set containing information about the data that is instanced.
-   * Actual instances store an index ("handle") into this set.
-   */
-  blender::VectorSet<InstanceReference> references_;
-
-  /** Index into `references_`. Determines what data is instanced. */
-  blender::Vector<int> instance_reference_handles_;
-  /** Transformation of the instances. */
-  blender::Vector<blender::float4x4> instance_transforms_;
-
-  /* These almost unique ids are generated based on the `id` attribute, which might not contain
-   * unique ids at all. They are *almost* unique, because under certain very unlikely
-   * circumstances, they are not unique. Code using these ids should not crash when they are not
-   * unique but can generally expect them to be unique. */
-  mutable std::mutex almost_unique_ids_mutex_;
-  mutable blender::Array<int> almost_unique_ids_;
-
-  blender::bke::CustomDataAttributes attributes_;
+  blender::bke::Instances *instances_ = nullptr;
+  GeometryOwnershipType ownership_ = GeometryOwnershipType::Owned;
 
  public:
   InstancesComponent();
-  ~InstancesComponent() = default;
+  ~InstancesComponent();
   GeometryComponent *copy() const override;
 
   void clear();
 
-  void reserve(int min_capacity);
-  /**
-   * Resize the transform, handles, and attributes to the specified capacity.
-   *
-   * \note This function should be used carefully, only when it's guaranteed
-   * that the data will be filled.
-   */
-  void resize(int capacity);
+  const blender::bke::Instances *get_for_read() const;
+  blender::bke::Instances *get_for_write();
 
-  /**
-   * Returns a handle for the given reference.
-   * If the reference exists already, the handle of the existing reference is returned.
-   * Otherwise a new handle is added.
-   */
-  int add_reference(const InstanceReference &reference);
-  /**
-   * Add a reference to the instance reference with an index specified by the #instance_handle
-   * argument. For adding many instances, using #resize and accessing the transform array directly
-   * is preferred.
-   */
-  void add_instance(int instance_handle, const blender::float4x4 &transform);
-
-  blender::Span<InstanceReference> references() const;
-  void remove_unused_references();
-
-  /**
-   * If references have a collection or object type, convert them into geometry instances
-   * recursively. After that, the geometry sets can be edited. There may still be instances of
-   * other types of they can't be converted to geometry sets.
-   */
-  void ensure_geometry_instances();
-  /**
-   * With write access to the instances component, the data in the instanced geometry sets can be
-   * changed. This is a function on the component rather than each reference to ensure `const`
-   * correctness for that reason.
-   */
-  GeometrySet &geometry_set_from_reference(int reference_index);
-
-  blender::Span<int> instance_reference_handles() const;
-  blender::MutableSpan<int> instance_reference_handles();
-  blender::MutableSpan<blender::float4x4> instance_transforms();
-  blender::Span<blender::float4x4> instance_transforms() const;
-
-  int instances_amount() const;
-  int references_amount() const;
-
-  /**
-   * Remove the indices that are not contained in the mask input, and remove unused instance
-   * references afterwards.
-   */
-  void remove_instances(const blender::IndexMask mask);
-
-  blender::Span<int> almost_unique_ids() const;
-
-  blender::bke::CustomDataAttributes &attributes();
-  const blender::bke::CustomDataAttributes &attributes() const;
-
-  int attribute_domain_size(AttributeDomain domain) const final;
-
-  void foreach_referenced_geometry(
-      blender::FunctionRef<void(const GeometrySet &geometry_set)> callback) const;
+  void replace(blender::bke::Instances *instances,
+               GeometryOwnershipType ownership = GeometryOwnershipType::Owned);
 
   bool is_empty() const final;
 
   bool owns_direct_data() const override;
   void ensure_owns_direct_data() override;
 
-  static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_INSTANCES;
+  std::optional<blender::bke::AttributeAccessor> attributes() const final;
+  std::optional<blender::bke::MutableAttributeAccessor> attributes_for_write() final;
 
- private:
-  const blender::bke::ComponentAttributeProviders *get_attribute_providers() const final;
+  static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_INSTANCES;
 };
 
 /**
@@ -1016,4 +609,38 @@ class VolumeComponent : public GeometryComponent {
   void ensure_owns_direct_data() override;
 
   static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_VOLUME;
+};
+
+/**
+ * When the original data is in some edit mode, we want to propagate some additional information
+ * through object evaluation. This information can be used by edit modes to support working on
+ * evaluated data.
+ *
+ * This component is added at the beginning of modifier evaluation.
+ */
+class GeometryComponentEditData final : public GeometryComponent {
+ public:
+  /**
+   * Information about how original curves are manipulated during evaluation. This data is used so
+   * that curve sculpt tools can work on evaluated data. It is not stored in #CurveComponent
+   * because the data remains valid even when there is no actual curves geometry anymore, for
+   * example, when the curves have been converted to a mesh.
+   */
+  std::unique_ptr<blender::bke::CurvesEditHints> curves_edit_hints_;
+
+  GeometryComponentEditData();
+
+  GeometryComponent *copy() const final;
+  bool owns_direct_data() const final;
+  void ensure_owns_direct_data() final;
+
+  /**
+   * The first node that does topology changing operations on curves should store the curve point
+   * positions it retrieved as input. Without this, information about the deformed positions is
+   * lost, which would make curves sculpt mode fall back to using original curve positions instead
+   * of deformed ones.
+   */
+  static void remember_deformed_curve_positions_if_necessary(GeometrySet &geometry);
+
+  static constexpr inline GeometryComponentType static_type = GEO_COMPONENT_TYPE_EDIT;
 };

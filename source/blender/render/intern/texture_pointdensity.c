@@ -24,6 +24,7 @@
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
 #include "DNA_particle_types.h"
+#include "DNA_scene_types.h"
 #include "DNA_texture_types.h"
 
 #include "BKE_colorband.h"
@@ -39,7 +40,6 @@
 #include "DEG_depsgraph.h"
 #include "DEG_depsgraph_query.h"
 
-#include "render_types.h"
 #include "texture_common.h"
 
 #include "RE_texture.h"
@@ -174,11 +174,11 @@ static void pointdensity_cache_psys(
   sim.psys = psys;
   sim.psmd = psys_get_modifier(ob, psys);
 
-  /* in case ob->imat isn't up-to-date */
-  invert_m4_m4(ob->imat, ob->obmat);
+  /* in case ob->world_to_object isn't up-to-date */
+  invert_m4_m4(ob->world_to_object, ob->object_to_world);
 
   total_particles = psys->totpart + psys->totchild;
-  psys->lattice_deform_data = psys_create_lattice_deform_data(&sim);
+  psys_sim_data_init(&sim);
 
   pd->point_tree = BLI_bvhtree_new(total_particles, 0.0, 4, 6);
   pd->totpoints = total_particles;
@@ -235,7 +235,7 @@ static void pointdensity_cache_psys(
     copy_v3_v3(partco, state.co);
 
     if (pd->psys_cache_space == TEX_PD_OBJECTSPACE) {
-      mul_m4_v3(ob->imat, partco);
+      mul_m4_v3(ob->world_to_object, partco);
     }
     else if (pd->psys_cache_space == TEX_PD_OBJECTLOC) {
       sub_v3_v3(partco, ob->loc);
@@ -258,10 +258,7 @@ static void pointdensity_cache_psys(
 
   BLI_bvhtree_balance(pd->point_tree);
 
-  if (psys->lattice_deform_data) {
-    BKE_lattice_deform_data_destroy(psys->lattice_deform_data);
-    psys->lattice_deform_data = NULL;
-  }
+  psys_sim_data_free(&sim);
 }
 
 static void pointdensity_cache_vertex_color(PointDensity *pd,
@@ -269,19 +266,19 @@ static void pointdensity_cache_vertex_color(PointDensity *pd,
                                             Mesh *mesh,
                                             float *data_color)
 {
-  const MLoop *mloop = mesh->mloop;
+  const MLoop *mloop = BKE_mesh_loops(mesh);
   const int totloop = mesh->totloop;
-  const MLoopCol *mcol;
   char layername[MAX_CUSTOMDATA_LAYER_NAME];
   int i;
 
   BLI_assert(data_color);
 
-  if (!CustomData_has_layer(&mesh->ldata, CD_MLOOPCOL)) {
+  if (!CustomData_has_layer(&mesh->ldata, CD_PROP_BYTE_COLOR)) {
     return;
   }
-  CustomData_validate_layer_name(&mesh->ldata, CD_MLOOPCOL, pd->vertex_attribute_name, layername);
-  mcol = CustomData_get_layer_named(&mesh->ldata, CD_MLOOPCOL, layername);
+  CustomData_validate_layer_name(
+      &mesh->ldata, CD_PROP_BYTE_COLOR, pd->vertex_attribute_name, layername);
+  const MLoopCol *mcol = CustomData_get_layer_named(&mesh->ldata, CD_PROP_BYTE_COLOR, layername);
   if (!mcol) {
     return;
   }
@@ -322,13 +319,12 @@ static void pointdensity_cache_vertex_weight(PointDensity *pd,
                                              float *data_color)
 {
   const int totvert = mesh->totvert;
-  const MDeformVert *mdef, *dv;
   int mdef_index;
   int i;
 
   BLI_assert(data_color);
 
-  mdef = CustomData_get_layer(&mesh->vdata, CD_MDEFORMVERT);
+  const MDeformVert *mdef = CustomData_get_layer(&mesh->vdata, CD_MDEFORMVERT);
   if (!mdef) {
     return;
   }
@@ -340,6 +336,7 @@ static void pointdensity_cache_vertex_weight(PointDensity *pd,
     return;
   }
 
+  const MDeformVert *dv;
   for (i = 0, dv = mdef; i < totvert; i++, dv++, data_color += 3) {
     MDeformWeight *dw;
     int j;
@@ -364,7 +361,7 @@ static void pointdensity_cache_object(PointDensity *pd, Object *ob)
 {
   float *data_color;
   int i;
-  MVert *mvert = NULL, *mv;
+  const MVert *mvert = NULL, *mv;
   Mesh *mesh = ob->data;
 
 #if 0 /* UNUSED */
@@ -372,7 +369,7 @@ static void pointdensity_cache_object(PointDensity *pd, Object *ob)
   mask.fmask |= CD_MASK_MTFACE | CD_MASK_MCOL;
   switch (pd->ob_color_source) {
     case TEX_PD_COLOR_VERTCOL:
-      mask.lmask |= CD_MASK_MLOOPCOL;
+      mask.lmask |= CD_MASK_PROP_BYTE_COLOR;
       break;
     case TEX_PD_COLOR_VERTWEIGHT:
       mask.vmask |= CD_MASK_MDEFORMVERT;
@@ -380,7 +377,7 @@ static void pointdensity_cache_object(PointDensity *pd, Object *ob)
   }
 #endif
 
-  mvert = mesh->mvert; /* local object space */
+  mvert = BKE_mesh_verts(mesh); /* local object space */
   pd->totpoints = mesh->totvert;
   if (pd->totpoints == 0) {
     return;
@@ -399,12 +396,12 @@ static void pointdensity_cache_object(PointDensity *pd, Object *ob)
       case TEX_PD_OBJECTSPACE:
         break;
       case TEX_PD_OBJECTLOC:
-        mul_m4_v3(ob->obmat, co);
+        mul_m4_v3(ob->object_to_world, co);
         sub_v3_v3(co, ob->loc);
         break;
       case TEX_PD_WORLDSPACE:
       default:
-        mul_m4_v3(ob->obmat, co);
+        mul_m4_v3(ob->object_to_world, co);
         break;
     }
 
@@ -778,9 +775,9 @@ static void particle_system_minmax(Depsgraph *depsgraph,
   sim.psys = psys;
   sim.psmd = psys_get_modifier(object, psys);
 
-  invert_m4_m4(imat, object->obmat);
+  invert_m4_m4(imat, object->object_to_world);
   total_particles = psys->totpart + psys->totchild;
-  psys->lattice_deform_data = psys_create_lattice_deform_data(&sim);
+  psys_sim_data_init(&sim);
 
   for (i = 0, pa = psys->particles; i < total_particles; i++, pa++) {
     float co_object[3], co_min[3], co_max[3];
@@ -796,10 +793,7 @@ static void particle_system_minmax(Depsgraph *depsgraph,
     minmax_v3v3_v3(min, max, co_max);
   }
 
-  if (psys->lattice_deform_data) {
-    BKE_lattice_deform_data_destroy(psys->lattice_deform_data);
-    psys->lattice_deform_data = NULL;
-  }
+  psys_sim_data_free(&sim);
 }
 
 void RE_point_density_cache(struct Depsgraph *depsgraph, PointDensity *pd)

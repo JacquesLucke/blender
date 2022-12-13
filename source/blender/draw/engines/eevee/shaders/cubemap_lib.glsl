@@ -60,7 +60,14 @@ vec3 cubemap_adj_xy(float face)
   }
 }
 
+#  ifdef GPU_METAL
+template<typename T>
+vec4 cubemap_seamless(thread _mtl_combined_image_sampler_2d_array<T, access::sample> *tex,
+                      vec4 cubevec,
+                      float lod)
+#  else
 vec4 cubemap_seamless(sampler2DArray tex, vec4 cubevec, float lod)
+#  endif
 {
   /* Manual Cube map Layer indexing. */
   float face = cubemap_face_index(cubevec.xyz);
@@ -96,7 +103,7 @@ vec4 cubemap_seamless(sampler2DArray tex, vec4 cubevec, float lod)
     /* Mix all colors to get the corner color. */
     vec4 col3 = (col + col1 + col2) / 3.0;
 
-    vec2 mix_fac = uv_border * 0.5;
+    vec2 mix_fac = saturate(uv_border * 0.5);
     return mix(mix(col, col2, mix_fac.x), mix(col1, col3, mix_fac.x), mix_fac.y);
   }
   else if (any(border)) {
@@ -108,7 +115,7 @@ vec4 cubemap_seamless(sampler2DArray tex, vec4 cubevec, float lod)
     uv = cubemap_face_coord(cubevec.xyz, face);
     coord = vec3(uv, cubevec.w * 6.0 + face);
 
-    float mix_fac = max(uv_border.x, uv_border.y) * 0.5;
+    float mix_fac = saturate(max(uv_border.x, uv_border.y) * 0.5);
     return mix(col, textureLod(tex, coord, lod), mix_fac);
   }
   else {
@@ -116,7 +123,14 @@ vec4 cubemap_seamless(sampler2DArray tex, vec4 cubevec, float lod)
   }
 }
 
+#  ifdef GPU_METAL
+template<typename T, access A>
+vec4 textureLod_cubemapArray(thread _mtl_combined_image_sampler_2d_array<T, A> tex,
+                             vec4 cubevec,
+                             float lod)
+#  else
 vec4 textureLod_cubemapArray(sampler2DArray tex, vec4 cubevec, float lod)
+#  endif
 {
   float lod1 = floor(lod);
   float lod2 = ceil(lod);

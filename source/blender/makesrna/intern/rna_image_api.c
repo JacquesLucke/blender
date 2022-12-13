@@ -26,6 +26,7 @@
 
 #  include "BKE_image.h"
 #  include "BKE_image_format.h"
+#  include "BKE_image_save.h"
 #  include "BKE_main.h"
 #  include "BKE_scene.h"
 #  include <errno.h>
@@ -47,80 +48,60 @@ static void rna_ImagePackedFile_save(ImagePackedFile *imapf, Main *bmain, Report
   }
 }
 
-static void rna_Image_save_render(
-    Image *image, bContext *C, ReportList *reports, const char *path, Scene *scene)
+static void rna_Image_save_render(Image *image,
+                                  bContext *C,
+                                  ReportList *reports,
+                                  const char *path,
+                                  Scene *scene,
+                                  const int quality)
 {
-  ImBuf *ibuf;
+  Main *bmain = CTX_data_main(C);
 
   if (scene == NULL) {
     scene = CTX_data_scene(C);
   }
 
-  if (scene) {
-    ImageUser iuser = {NULL};
-    void *lock;
+  ImageSaveOptions opts;
 
-    iuser.scene = scene;
-
-    ibuf = BKE_image_acquire_ibuf(image, &iuser, &lock);
-
-    if (ibuf == NULL) {
-      BKE_report(reports, RPT_ERROR, "Could not acquire buffer from image");
-    }
-    else {
-      ImBuf *write_ibuf;
-
-      ImageFormatData image_format;
-      BKE_image_format_init_for_write(&image_format, scene, NULL);
-
-      write_ibuf = IMB_colormanagement_imbuf_for_write(ibuf, true, true, &image_format);
-
-      write_ibuf->planes = image_format.planes;
-      write_ibuf->dither = scene->r.dither_intensity;
-
-      if (!BKE_imbuf_write(write_ibuf, path, &image_format)) {
-        BKE_reportf(reports, RPT_ERROR, "Could not write image: %s, '%s'", strerror(errno), path);
-      }
-
-      if (write_ibuf != ibuf) {
-        IMB_freeImBuf(write_ibuf);
-      }
-
-      BKE_image_format_free(&image_format);
+  if (BKE_image_save_options_init(&opts, bmain, scene, image, NULL, false, true)) {
+    opts.save_copy = true;
+    STRNCPY(opts.filepath, path);
+    if (quality != 0) {
+      opts.im_format.quality = clamp_i(quality, 0, 100);
     }
 
-    BKE_image_release_ibuf(image, ibuf, lock);
+    if (!BKE_image_save(reports, bmain, image, NULL, &opts)) {
+      BKE_reportf(
+          reports, RPT_ERROR, "Image '%s' could not be saved to '%s'", image->id.name + 2, path);
+    }
   }
   else {
-    BKE_report(reports, RPT_ERROR, "Scene not in context, could not get save parameters");
+    BKE_reportf(reports, RPT_ERROR, "Image '%s' does not have any image data", image->id.name + 2);
   }
+
+  BKE_image_save_options_free(&opts);
+
+  WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, image);
 }
 
-static void rna_Image_save(Image *image, Main *bmain, bContext *C, ReportList *reports)
+static void rna_Image_save(Image *image,
+                           Main *bmain,
+                           bContext *C,
+                           ReportList *reports,
+                           const char *path,
+                           const int quality)
 {
-  void *lock;
+  Scene *scene = CTX_data_scene(C);
+  ImageSaveOptions opts;
 
-  ImBuf *ibuf = BKE_image_acquire_ibuf(image, NULL, &lock);
-  if (ibuf) {
-    char filepath[FILE_MAX];
-    BLI_strncpy(filepath, image->filepath, sizeof(filepath));
-    BLI_path_abs(filepath, ID_BLEND_PATH(bmain, &image->id));
-
-    /* NOTE: we purposefully ignore packed files here,
-     * developers need to explicitly write them via 'packed_files' */
-
-    if (IMB_saveiff(ibuf, filepath, ibuf->flags)) {
-      image->type = IMA_TYPE_IMAGE;
-
-      if (image->source == IMA_SRC_GENERATED) {
-        image->source = IMA_SRC_FILE;
-      }
-
-      IMB_colormanagement_colorspace_from_ibuf_ftype(&image->colorspace_settings, ibuf);
-
-      ibuf->userflags &= ~IB_BITMAPDIRTY;
+  if (BKE_image_save_options_init(&opts, bmain, scene, image, NULL, false, false)) {
+    if (path && path[0]) {
+      STRNCPY(opts.filepath, path);
     }
-    else {
+    if (quality != 0) {
+      opts.im_format.quality = clamp_i(quality, 0, 100);
+    }
+    if (!BKE_image_save(reports, bmain, image, NULL, &opts)) {
       BKE_reportf(reports,
                   RPT_ERROR,
                   "Image '%s' could not be saved to '%s'",
@@ -132,7 +113,8 @@ static void rna_Image_save(Image *image, Main *bmain, bContext *C, ReportList *r
     BKE_reportf(reports, RPT_ERROR, "Image '%s' does not have any image data", image->id.name + 2);
   }
 
-  BKE_image_release_ibuf(image, ibuf, lock);
+  BKE_image_save_options_free(&opts);
+
   WM_event_add_notifier(C, NC_IMAGE | NA_EDITED, image);
 }
 
@@ -161,9 +143,8 @@ static void rna_Image_unpack(Image *image, Main *bmain, ReportList *reports, int
   if (!BKE_image_has_packedfile(image)) {
     BKE_report(reports, RPT_ERROR, "Image not packed");
   }
-  else if (BKE_image_has_multiple_ibufs(image)) {
-    BKE_report(
-        reports, RPT_ERROR, "Unpacking movies, image sequences or tiled images not supported");
+  else if (ELEM(image->source, IMA_SRC_MOVIE, IMA_SRC_SEQUENCE)) {
+    BKE_report(reports, RPT_ERROR, "Unpacking movies or image sequences not supported");
     return;
   }
   else {
@@ -192,6 +173,7 @@ static void rna_Image_update(Image *image, ReportList *reports)
   }
 
   ibuf->userflags |= IB_DISPLAY_BUFFER_INVALID;
+  BKE_image_partial_update_mark_full_update(image);
 
   BKE_image_release_ibuf(image, ibuf, NULL);
 }
@@ -200,7 +182,10 @@ static void rna_Image_scale(Image *image, ReportList *reports, int width, int he
 {
   if (!BKE_image_scale(image, width, height)) {
     BKE_reportf(reports, RPT_ERROR, "Image '%s' does not have any image data", image->id.name + 2);
+    return;
   }
+  BKE_image_partial_update_mark_full_update(image);
+  WM_main_add_notifier(NC_IMAGE | NA_EDITED, image);
 }
 
 static int rna_Image_gl_load(
@@ -233,7 +218,7 @@ static int rna_Image_gl_touch(
 
   BKE_image_tag_time(image);
 
-  if (image->gputexture[TEXTARGET_2D][0][IMA_TEXTURE_RESOLUTION_FULL] == NULL) {
+  if (image->gputexture[TEXTARGET_2D][0] == NULL) {
     error = rna_Image_gl_load(image, reports, frame, layer_index, pass_index);
   }
 
@@ -278,13 +263,39 @@ void RNA_api_image(StructRNA *srna)
   RNA_def_function_ui_description(func,
                                   "Save image to a specific path using a scenes render settings");
   RNA_def_function_flag(func, FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
-  parm = RNA_def_string_file_path(func, "filepath", NULL, 0, "", "Save path");
+  parm = RNA_def_string_file_path(func, "filepath", NULL, 0, "", "Output path");
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);
   RNA_def_pointer(func, "scene", "Scene", "", "Scene to take image parameters from");
+  RNA_def_int(func,
+              "quality",
+              0,
+              0,
+              100,
+              "Quality",
+              "Quality for image formats that support lossy compression, uses default quality if "
+              "not specified",
+              0,
+              100);
 
   func = RNA_def_function(srna, "save", "rna_Image_save");
-  RNA_def_function_ui_description(func, "Save image to its source path");
+  RNA_def_function_ui_description(func, "Save image");
   RNA_def_function_flag(func, FUNC_USE_MAIN | FUNC_USE_CONTEXT | FUNC_USE_REPORTS);
+  RNA_def_string_file_path(func,
+                           "filepath",
+                           NULL,
+                           0,
+                           "",
+                           "Output path, uses image data-block filepath if not specified");
+  RNA_def_int(func,
+              "quality",
+              0,
+              0,
+              100,
+              "Quality",
+              "Quality for image formats that support lossy compression, uses default quality if "
+              "not specified",
+              0,
+              100);
 
   func = RNA_def_function(srna, "pack", "rna_Image_pack");
   RNA_def_function_ui_description(func, "Pack an image as embedded data into the .blend file");
@@ -316,7 +327,7 @@ void RNA_api_image(StructRNA *srna)
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
 
   func = RNA_def_function(srna, "scale", "rna_Image_scale");
-  RNA_def_function_ui_description(func, "Scale the image in pixels");
+  RNA_def_function_ui_description(func, "Scale the buffer of the image, in pixels");
   RNA_def_function_flag(func, FUNC_USE_REPORTS);
   parm = RNA_def_int(func, "width", 1, 1, INT_MAX, "", "Width", 1, INT_MAX);
   RNA_def_parameter_flags(parm, 0, PARM_REQUIRED);

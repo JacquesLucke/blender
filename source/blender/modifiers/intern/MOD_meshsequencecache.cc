@@ -5,8 +5,9 @@
  */
 
 #include <cstring>
+#include <limits>
 
-#include "BLI_math_vector.h"
+#include "BLI_math_vector.hh"
 #include "BLI_string.h"
 #include "BLI_utildefines.h"
 
@@ -15,7 +16,6 @@
 #include "DNA_cachefile_types.h"
 #include "DNA_defaults.h"
 #include "DNA_mesh_types.h"
-#include "DNA_meshdata_types.h"
 #include "DNA_modifier_types.h"
 #include "DNA_object_types.h"
 #include "DNA_scene_types.h"
@@ -42,6 +42,8 @@
 #include "DEG_depsgraph_build.h"
 #include "DEG_depsgraph_query.h"
 
+#include "GEO_mesh_primitive_cuboid.hh"
+
 #include "MOD_modifiertypes.h"
 #include "MOD_ui_common.h"
 
@@ -57,6 +59,8 @@
 #ifdef WITH_USD
 #  include "usd.h"
 #endif
+
+using blender::Span;
 
 static void initData(ModifierData *md)
 {
@@ -94,9 +98,7 @@ static void freeData(ModifierData *md)
   }
 }
 
-static bool isDisabled(const struct Scene *UNUSED(scene),
-                       ModifierData *md,
-                       bool UNUSED(useRenderParams))
+static bool isDisabled(const struct Scene * /*scene*/, ModifierData *md, bool /*useRenderParams*/)
 {
   MeshSeqCacheModifierData *mcmd = reinterpret_cast<MeshSeqCacheModifierData *>(md);
 
@@ -104,43 +106,61 @@ static bool isDisabled(const struct Scene *UNUSED(scene),
   return (mcmd->cache_file == nullptr) || (mcmd->object_path[0] == '\0');
 }
 
-static Mesh *generate_bounding_box_mesh(Object *object, Mesh *org_mesh)
+#if defined(WITH_USD) || defined(WITH_ALEMBIC)
+
+/* Return true if the modifier evaluation is for the ORCO mesh and the mesh hasn't changed
+ * topology.
+ */
+static bool can_use_mesh_for_orco_evaluation(MeshSeqCacheModifierData *mcmd,
+                                             const ModifierEvalContext *ctx,
+                                             const Mesh *mesh,
+                                             const float time,
+                                             const char **err_str)
 {
-  const BoundBox *bb = BKE_object_boundbox_get(object);
-  Mesh *result = BKE_mesh_new_nomain_from_template(org_mesh, 8, 0, 0, 24, 6);
-
-  MVert *mvert = result->mvert;
-  for (int i = 0; i < 8; ++i) {
-    copy_v3_v3(mvert[i].co, bb->vec[i]);
+  if ((ctx->flag & MOD_APPLY_ORCO) == 0) {
+    return false;
   }
 
-  /* See DNA_object_types.h for the diagram showing the order of the vertices for a BoundBox. */
-  static unsigned int loops_v[6][4] = {
-      {0, 4, 5, 1},
-      {4, 7, 6, 5},
-      {7, 3, 2, 6},
-      {3, 0, 1, 2},
-      {1, 5, 6, 2},
-      {3, 7, 4, 0},
-  };
+  CacheFile *cache_file = mcmd->cache_file;
 
-  MLoop *mloop = result->mloop;
-  for (int i = 0; i < 6; ++i) {
-    for (int j = 0; j < 4; ++j, ++mloop) {
-      mloop->v = loops_v[i][j];
-    }
+  switch (cache_file->type) {
+    case CACHEFILE_TYPE_ALEMBIC:
+#  ifdef WITH_ALEMBIC
+      if (!ABC_mesh_topology_changed(mcmd->reader, ctx->object, mesh, time, err_str)) {
+        return true;
+      }
+#  endif
+      break;
+    case CACHEFILE_TYPE_USD:
+#  ifdef WITH_USD
+      if (!USD_mesh_topology_changed(mcmd->reader, ctx->object, mesh, time, err_str)) {
+        return true;
+      }
+#  endif
+      break;
+    case CACHE_FILE_TYPE_INVALID:
+      break;
   }
 
-  MPoly *mpoly = result->mpoly;
-  for (int i = 0; i < 6; ++i) {
-    mpoly[i].loopstart = i * 4;
-    mpoly[i].totloop = 4;
+  return false;
+}
+
+static Mesh *generate_bounding_box_mesh(const Mesh *org_mesh)
+{
+  using namespace blender;
+  float3 min(std::numeric_limits<float>::max());
+  float3 max(-std::numeric_limits<float>::max());
+  if (!BKE_mesh_minmax(org_mesh, min, max)) {
+    return nullptr;
   }
 
-  BKE_mesh_calc_edges(result, false, false);
+  Mesh *result = geometry::create_cuboid_mesh(max - min, 2, 2, 2);
+  BKE_mesh_translate(result, math::midpoint(min, max), false);
 
   return result;
 }
+
+#endif
 
 static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *mesh)
 {
@@ -154,7 +174,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   Scene *scene = DEG_get_evaluated_scene(ctx->depsgraph);
   CacheFile *cache_file = mcmd->cache_file;
   const float frame = DEG_get_ctime(ctx->depsgraph);
-  const double time = BKE_cachefile_time_offset(cache_file, (double)frame, FPS);
+  const double time = BKE_cachefile_time_offset(cache_file, double(frame), FPS);
   const char *err_str = nullptr;
 
   if (!mcmd->reader || !STREQ(mcmd->reader_object_path, mcmd->object_path)) {
@@ -170,40 +190,28 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   /* Do not process data if using a render procedural, return a box instead for displaying in the
    * viewport. */
   if (BKE_cache_file_uses_render_procedural(cache_file, scene)) {
-    return generate_bounding_box_mesh(ctx->object, org_mesh);
+    return generate_bounding_box_mesh(org_mesh);
   }
 
   /* If this invocation is for the ORCO mesh, and the mesh hasn't changed topology, we
    * must return the mesh as-is instead of deforming it. */
-  if (ctx->flag & MOD_APPLY_ORCO) {
-    switch (cache_file->type) {
-      case CACHEFILE_TYPE_ALEMBIC:
-#  ifdef WITH_ALEMBIC
-        if (!ABC_mesh_topology_changed(mcmd->reader, ctx->object, mesh, time, &err_str)) {
-          return mesh;
-        }
-#  endif
-        break;
-      case CACHEFILE_TYPE_USD:
-#  ifdef WITH_USD
-        if (!USD_mesh_topology_changed(mcmd->reader, ctx->object, mesh, time, &err_str)) {
-          return mesh;
-        }
-#  endif
-        break;
-      case CACHE_FILE_TYPE_INVALID:
-        break;
-    }
+  if (can_use_mesh_for_orco_evaluation(mcmd, ctx, mesh, time, &err_str)) {
+    return mesh;
   }
 
   if (me != nullptr) {
-    MVert *mvert = mesh->mvert;
-    MEdge *medge = mesh->medge;
-    MPoly *mpoly = mesh->mpoly;
+    const Span<MVert> mesh_verts = mesh->verts();
+    const Span<MEdge> mesh_edges = mesh->edges();
+    const Span<MPoly> mesh_polys = mesh->polys();
+    const Span<MVert> me_verts = me->verts();
+    const Span<MEdge> me_edges = me->edges();
+    const Span<MPoly> me_polys = me->polys();
 
     /* TODO(sybren+bastien): possibly check relevant custom data layers (UV/color depending on
-     * flags) and duplicate those too. */
-    if ((me->mvert == mvert) || (me->medge == medge) || (me->mpoly == mpoly)) {
+     * flags) and duplicate those too.
+     * XXX(Hans): This probably isn't true anymore with various CoW improvements, etc. */
+    if ((me_verts.data() == mesh_verts.data()) || (me_edges.data() == mesh_edges.data()) ||
+        (me_polys.data() == mesh_polys.data())) {
       /* We need to duplicate data here, otherwise we'll modify org mesh, see T51701. */
       mesh = reinterpret_cast<Mesh *>(
           BKE_id_copy_ex(nullptr,
@@ -226,14 +234,13 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
         velocity_scale *= FPS;
       }
 
-      result = ABC_read_mesh(mcmd->reader,
-                             ctx->object,
-                             mesh,
-                             time,
-                             &err_str,
-                             mcmd->read_flag,
-                             mcmd->cache_file->velocity_name,
-                             velocity_scale);
+      ABCReadParams params = {};
+      params.time = time;
+      params.read_flags = mcmd->read_flag;
+      params.velocity_name = mcmd->cache_file->velocity_name;
+      params.velocity_scale = velocity_scale;
+
+      result = ABC_read_mesh(mcmd->reader, ctx->object, mesh, &params, &err_str);
 #  endif
       break;
     }
@@ -258,7 +265,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
 
   return result ? result : mesh;
 #else
-  UNUSED_VARS(ctx, md, generate_bounding_box_mesh);
+  UNUSED_VARS(ctx, md);
   return mesh;
 #endif
 }
@@ -320,7 +327,7 @@ static void panel_draw(const bContext *C, Panel *panel)
   modifier_panel_end(layout, ptr);
 }
 
-static void velocity_panel_draw(const bContext *UNUSED(C), Panel *panel)
+static void velocity_panel_draw(const bContext * /*C*/, Panel *panel)
 {
   uiLayout *layout = panel->layout;
 
@@ -337,7 +344,7 @@ static void velocity_panel_draw(const bContext *UNUSED(C), Panel *panel)
   uiItemR(layout, ptr, "velocity_scale", 0, nullptr, ICON_NONE);
 }
 
-static void time_panel_draw(const bContext *UNUSED(C), Panel *panel)
+static void time_panel_draw(const bContext * /*C*/, Panel *panel)
 {
   uiLayout *layout = panel->layout;
 
@@ -406,7 +413,7 @@ static void panelRegister(ARegionType *region_type)
                              panel_type);
 }
 
-static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
+static void blendRead(BlendDataReader * /*reader*/, ModifierData *md)
 {
   MeshSeqCacheModifierData *msmcd = reinterpret_cast<MeshSeqCacheModifierData *>(md);
   msmcd->reader = nullptr;
@@ -414,7 +421,7 @@ static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
 }
 
 ModifierTypeInfo modifierType_MeshSequenceCache = {
-    /* name */ "MeshSequenceCache",
+    /* name */ N_("MeshSequenceCache"),
     /* structName */ "MeshSeqCacheModifierData",
     /* structSize */ sizeof(MeshSeqCacheModifierData),
     /* srna */ &RNA_MeshSequenceCacheModifier,

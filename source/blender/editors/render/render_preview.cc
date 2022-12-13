@@ -104,7 +104,7 @@ static void icon_copy_rect(ImBuf *ibuf, uint w, uint h, uint *rect);
 struct ShaderPreview {
   /* from wmJob */
   void *owner;
-  short *stop, *do_update;
+  bool *stop, *do_update;
 
   Scene *scene;
   ID *id, *id_copy;
@@ -307,7 +307,8 @@ static void switch_preview_floor_visibility(Main *pr_main,
                                             const ePreviewRenderMethod pr_method)
 {
   /* Hide floor for icon renders. */
-  LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
     if (STREQ(base->object->id.name + 2, "Floor")) {
       base->object->visibility_flag &= ~OB_HIDE_RENDER;
       if (pr_method == PR_ICON_RENDER) {
@@ -533,8 +534,8 @@ static Scene *preview_prepare_scene(
       else {
         sce->display.render_aa = SCE_DISPLAY_AA_OFF;
       }
-
-      LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+      BKE_view_layer_synced_ensure(sce, view_layer);
+      LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
         if (base->object->id.name[2] == 'p') {
           /* copy over object color, in case material uses it */
           copy_v4_v4(base->object->color, sp->color);
@@ -550,7 +551,7 @@ static Scene *preview_prepare_scene(
             }
           }
           else if (base->object->type == OB_LAMP) {
-            base->flag |= BASE_VISIBLE_DEPSGRAPH;
+            base->flag |= BASE_ENABLED_AND_MAYBE_VISIBLE_IN_VIEWPORT;
           }
         }
       }
@@ -586,7 +587,8 @@ static Scene *preview_prepare_scene(
         sce->world->horb = 0.0f;
       }
 
-      LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+      BKE_view_layer_synced_ensure(sce, view_layer);
+      LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
         if (base->object->id.name[2] == 'p') {
           if (base->object->type == OB_LAMP) {
             base->object->data = la;
@@ -628,10 +630,10 @@ static bool ed_preview_draw_rect(ScrArea *area, int split, int first, rcti *rect
   bool ok = false;
 
   if (!split || first) {
-    sprintf(name, "Preview %p", (void *)area);
+    BLI_snprintf(name, sizeof(name), "Preview %p", (void *)area);
   }
   else {
-    sprintf(name, "SecondPreview %p", (void *)area);
+    BLI_snprintf(name, sizeof(name), "SecondPreview %p", (void *)area);
   }
 
   if (split) {
@@ -679,7 +681,7 @@ static bool ed_preview_draw_rect(ScrArea *area, int split, int first, rcti *rect
         /* material preview only needs monoscopy (view 0) */
         RE_AcquiredResultGet32(re, &rres, (uint *)rect_byte, 0);
 
-        IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_2D_IMAGE_COLOR);
+        IMMDrawPixelsTexState state = immDrawPixelsTexSetup(GPU_SHADER_3D_IMAGE_COLOR);
         immDrawPixelsTexTiled(&state,
                               fx,
                               fy,
@@ -713,7 +715,8 @@ void ED_preview_draw(const bContext *C, void *idp, void *parentp, void *slotp, r
     ID *parent = (ID *)parentp;
     MTex *slot = (MTex *)slotp;
     SpaceProperties *sbuts = CTX_wm_space_properties(C);
-    ShaderPreview *sp = static_cast<ShaderPreview *>(WM_jobs_customdata(wm, area));
+    ShaderPreview *sp = static_cast<ShaderPreview *>(
+        WM_jobs_customdata_from_type(wm, area, WM_JOB_TYPE_LOAD_PREVIEW));
     rcti newrect;
     bool ok;
     int newx = BLI_rcti_size_x(rect);
@@ -774,14 +777,15 @@ static bool object_preview_is_type_supported(const Object *ob)
 }
 
 static Object *object_preview_camera_create(Main *preview_main,
+                                            Scene *scene,
                                             ViewLayer *view_layer,
                                             Object *preview_object)
 {
-  Object *camera = BKE_object_add(preview_main, view_layer, OB_CAMERA, "Preview Camera");
+  Object *camera = BKE_object_add(preview_main, scene, view_layer, OB_CAMERA, "Preview Camera");
 
   float rotmat[3][3];
   float dummyscale[3];
-  mat4_to_loc_rot_size(camera->loc, rotmat, dummyscale, preview_object->obmat);
+  mat4_to_loc_rot_size(camera->loc, rotmat, dummyscale, preview_object->object_to_world);
 
   /* Camera is Y up, so needs additional rotations to obliquely face the front. */
   float drotmat[3][3];
@@ -804,7 +808,7 @@ static Scene *object_preview_scene_create(const struct ObjectPreviewData *previe
   Scene *scene = BKE_scene_add(preview_data->pr_main, "Object preview scene");
   /* Preview need to be in the current frame to get a thumbnail similar of what
    * viewport displays. */
-  CFRA = preview_data->cfra;
+  scene->r.cfra = preview_data->cfra;
 
   ViewLayer *view_layer = static_cast<ViewLayer *>(scene->view_layers.first);
   Depsgraph *depsgraph = DEG_graph_new(
@@ -816,13 +820,14 @@ static Scene *object_preview_scene_create(const struct ObjectPreviewData *previe
   BKE_collection_object_add(preview_data->pr_main, scene->master_collection, preview_data->object);
 
   Object *camera_object = object_preview_camera_create(
-      preview_data->pr_main, view_layer, preview_data->object);
+      preview_data->pr_main, scene, view_layer, preview_data->object);
 
   scene->camera = camera_object;
   scene->r.xsch = preview_data->sizex;
   scene->r.ysch = preview_data->sizey;
   scene->r.size = 100;
 
+  BKE_view_layer_synced_ensure(scene, view_layer);
   Base *preview_base = BKE_view_layer_base_find(view_layer, preview_data->object);
   /* For 'view selected' below. */
   preview_base->flag |= BASE_SELECTED;
@@ -1034,7 +1039,7 @@ static void action_preview_render(IconPreview *preview, IconPreviewSize *preview
  * \{ */
 
 /* inside thread, called by renderer, sets job update value */
-static void shader_preview_update(void *spv, RenderResult *UNUSED(rr), struct rcti *UNUSED(rect))
+static void shader_preview_update(void *spv, RenderResult * /*rr*/, struct rcti * /*rect*/)
 {
   ShaderPreview *sp = static_cast<ShaderPreview *>(spv);
 
@@ -1042,14 +1047,14 @@ static void shader_preview_update(void *spv, RenderResult *UNUSED(rr), struct rc
 }
 
 /* called by renderer, checks job value */
-static int shader_preview_break(void *spv)
+static bool shader_preview_break(void *spv)
 {
   ShaderPreview *sp = static_cast<ShaderPreview *>(spv);
 
   return *(sp->stop);
 }
 
-static void shader_preview_updatejob(void *UNUSED(spv))
+static void shader_preview_updatejob(void * /*spv*/)
 {
 }
 
@@ -1083,10 +1088,10 @@ static void shader_preview_texture(ShaderPreview *sp, Tex *tex, Scene *sce, Rend
 
   for (int y = 0; y < height; y++) {
     /* Tex coords between -1.0f and 1.0f. */
-    tex_coord[1] = ((float)y / (float)height) * 2.0f - 1.0f;
+    tex_coord[1] = (float(y) / float(height)) * 2.0f - 1.0f;
 
     for (int x = 0; x < width; x++) {
-      tex_coord[0] = ((float)x / (float)height) * 2.0f - 1.0f;
+      tex_coord[0] = (float(x) / float(height)) * 2.0f - 1.0f;
 
       /* Evaluate texture at tex_coord. */
       TexResult texres = {0};
@@ -1147,10 +1152,10 @@ static void shader_preview_render(ShaderPreview *sp, ID *id, int split, int firs
   }
 
   if (!split || first) {
-    sprintf(name, "Preview %p", sp->owner);
+    BLI_snprintf(name, sizeof(name), "Preview %p", sp->owner);
   }
   else {
-    sprintf(name, "SecondPreview %p", sp->owner);
+    BLI_snprintf(name, sizeof(name), "SecondPreview %p", sp->owner);
   }
   re = RE_GetRender(name);
 
@@ -1181,7 +1186,7 @@ static void shader_preview_render(ShaderPreview *sp, ID *id, int split, int firs
   /* lens adjust */
   oldlens = ((Camera *)sce->camera->data)->lens;
   if (sizex > sp->sizey) {
-    ((Camera *)sce->camera->data)->lens *= (float)sp->sizey / (float)sizex;
+    ((Camera *)sce->camera->data)->lens *= float(sp->sizey) / float(sizex);
   }
 
   /* entire cycle for render engine */
@@ -1218,7 +1223,7 @@ static void shader_preview_render(ShaderPreview *sp, ID *id, int split, int firs
 }
 
 /* runs inside thread for material and icons */
-static void shader_preview_startjob(void *customdata, short *stop, short *do_update)
+static void shader_preview_startjob(void *customdata, bool *stop, bool *do_update)
 {
   ShaderPreview *sp = static_cast<ShaderPreview *>(customdata);
 
@@ -1303,40 +1308,32 @@ static void shader_preview_free(void *customdata)
 
 static ImBuf *icon_preview_imbuf_from_brush(Brush *brush)
 {
-  static const int flags = IB_rect | IB_multilayer | IB_metadata;
+  if (!brush->icon_imbuf && (brush->flag & BRUSH_CUSTOM_ICON) && brush->icon_filepath[0]) {
+    const int flags = IB_rect | IB_multilayer | IB_metadata;
 
-  char path[FILE_MAX];
-  const char *folder;
+    /* First use the path directly to try and load the file. */
+    char filepath[FILE_MAX];
 
-  if (!(brush->icon_imbuf)) {
-    if (brush->flag & BRUSH_CUSTOM_ICON) {
+    BLI_strncpy(filepath, brush->icon_filepath, sizeof(brush->icon_filepath));
+    BLI_path_abs(filepath, ID_BLEND_PATH_FROM_GLOBAL(&brush->id));
 
-      if (brush->icon_filepath[0]) {
-        /* First use the path directly to try and load the file. */
+    /* Use default color-spaces for brushes. */
+    brush->icon_imbuf = IMB_loadiffname(filepath, flags, nullptr);
 
-        BLI_strncpy(path, brush->icon_filepath, sizeof(brush->icon_filepath));
-        BLI_path_abs(path, ID_BLEND_PATH_FROM_GLOBAL(&brush->id));
+    /* Otherwise lets try to find it in other directories. */
+    if (!(brush->icon_imbuf)) {
+      const char *brushicons_dir = BKE_appdir_folder_id(BLENDER_DATAFILES, "brushicons");
+      /* Expected to be found, but don't crash if it's not. */
+      if (brushicons_dir) {
+        BLI_path_join(filepath, sizeof(filepath), brushicons_dir, brush->icon_filepath);
 
-        /* Use default color-spaces for brushes. */
-        brush->icon_imbuf = IMB_loadiffname(path, flags, nullptr);
-
-        /* otherwise lets try to find it in other directories */
-        if (!(brush->icon_imbuf)) {
-          folder = BKE_appdir_folder_id(BLENDER_DATAFILES, "brushicons");
-
-          BLI_make_file_string(
-              BKE_main_blendfile_path_from_global(), path, folder, brush->icon_filepath);
-
-          if (path[0]) {
-            /* Use default color spaces. */
-            brush->icon_imbuf = IMB_loadiffname(path, flags, nullptr);
-          }
-        }
-
-        if (brush->icon_imbuf) {
-          BKE_icon_changed(BKE_icon_id_ensure(&brush->id));
-        }
+        /* Use default color spaces. */
+        brush->icon_imbuf = IMB_loadiffname(filepath, flags, nullptr);
       }
+    }
+
+    if (brush->icon_imbuf) {
+      BKE_icon_changed(BKE_icon_id_ensure(&brush->id));
     }
   }
 
@@ -1367,17 +1364,17 @@ static void icon_copy_rect(ImBuf *ibuf, uint w, uint h, uint *rect)
   }
 
   if (ima->x > ima->y) {
-    scaledx = (float)w;
-    scaledy = ((float)ima->y / (float)ima->x) * (float)w;
+    scaledx = float(w);
+    scaledy = (float(ima->y) / float(ima->x)) * float(w);
   }
   else {
-    scaledx = ((float)ima->x / (float)ima->y) * (float)h;
-    scaledy = (float)h;
+    scaledx = (float(ima->x) / float(ima->y)) * float(h);
+    scaledy = float(h);
   }
 
   /* Scaling down must never assign zero width/height, see: T89868. */
-  ex = MAX2(1, (short)scaledx);
-  ey = MAX2(1, (short)scaledy);
+  ex = MAX2(1, short(scaledx));
+  ey = MAX2(1, short(scaledy));
 
   dx = (w - ex) / 2;
   dy = (h - ey) / 2;
@@ -1411,7 +1408,7 @@ static void set_alpha(char *cp, int sizex, int sizey, char alpha)
   }
 }
 
-static void icon_preview_startjob(void *customdata, short *stop, short *do_update)
+static void icon_preview_startjob(void *customdata, bool *stop, bool *do_update)
 {
   ShaderPreview *sp = static_cast<ShaderPreview *>(customdata);
 
@@ -1491,9 +1488,9 @@ static void icon_preview_startjob(void *customdata, short *stop, short *do_updat
  * does not run two of them at the same time. */
 
 static void common_preview_startjob(void *customdata,
-                                    short *stop,
-                                    short *do_update,
-                                    float *UNUSED(progress))
+                                    bool *stop,
+                                    bool *do_update,
+                                    float * /*progress*/)
 {
   ShaderPreview *sp = static_cast<ShaderPreview *>(customdata);
 
@@ -1512,8 +1509,8 @@ static void common_preview_startjob(void *customdata,
 static void other_id_types_preview_render(IconPreview *ip,
                                           IconPreviewSize *cur_size,
                                           const ePreviewRenderMethod pr_method,
-                                          short *stop,
-                                          short *do_update,
+                                          bool *stop,
+                                          bool *do_update,
                                           float *progress)
 {
   ShaderPreview *sp = MEM_cnew<ShaderPreview>("Icon ShaderPreview");
@@ -1573,8 +1570,8 @@ static int icon_previewimg_size_index_get(const IconPreviewSize *icon_size,
 }
 
 static void icon_preview_startjob_all_sizes(void *customdata,
-                                            short *stop,
-                                            short *do_update,
+                                            bool *stop,
+                                            bool *do_update,
                                             float *progress)
 {
   IconPreview *ip = (IconPreview *)customdata;
@@ -1605,6 +1602,14 @@ static void icon_preview_startjob_all_sizes(void *customdata,
     const bool use_solid_render_mode = (ip->id != nullptr) && ELEM(GS(ip->id->name), ID_OB, ID_AC);
     if (!use_solid_render_mode && preview_method_is_render(pr_method) &&
         !check_engine_supports_preview(ip->scene)) {
+      continue;
+    }
+
+    /* Workaround: Skip preview renders for linked IDs. Preview rendering can be slow and even
+     * freeze the UI (e.g. on Eevee shader compilation). And since the result will never be stored
+     * in a file, it's done every time the file is reloaded, so this becomes a frequent annoyance.
+     */
+    if (!use_solid_render_mode && ip->id && ID_IS_LINKED(ip->id)) {
       continue;
     }
 
@@ -1738,7 +1743,7 @@ class PreviewLoadJob {
   void push_load_request(PreviewImage *preview, eIconSizes icon_size);
 
  private:
-  static void run_fn(void *customdata, short *stop, short *do_update, float *progress);
+  static void run_fn(void *customdata, bool *stop, bool *do_update, float *progress);
   static void update_fn(void *customdata);
   static void end_fn(void *customdata);
   static void free_fn(void *customdata);
@@ -1758,7 +1763,8 @@ PreviewLoadJob::~PreviewLoadJob()
 
 PreviewLoadJob &PreviewLoadJob::ensure_job(wmWindowManager *wm, wmWindow *win)
 {
-  wmJob *wm_job = WM_jobs_get(wm, win, nullptr, "Load Previews", 0, WM_JOB_TYPE_LOAD_PREVIEW);
+  wmJob *wm_job = WM_jobs_get(
+      wm, win, nullptr, "Load Previews", eWM_JobFlag(0), WM_JOB_TYPE_LOAD_PREVIEW);
 
   if (!WM_jobs_is_running(wm_job)) {
     PreviewLoadJob *job_data = MEM_new<PreviewLoadJob>("PreviewLoadJobData");
@@ -1770,7 +1776,7 @@ PreviewLoadJob &PreviewLoadJob::ensure_job(wmWindowManager *wm, wmWindow *win)
     WM_jobs_start(wm, wm_job);
   }
 
-  return *reinterpret_cast<PreviewLoadJob *>(WM_jobs_customdata_get(wm_job));
+  return *static_cast<PreviewLoadJob *>(WM_jobs_customdata_get(wm_job));
 }
 
 void PreviewLoadJob::load_jobless(PreviewImage *preview, const eIconSizes icon_size)
@@ -1779,7 +1785,7 @@ void PreviewLoadJob::load_jobless(PreviewImage *preview, const eIconSizes icon_s
 
   job_data.push_load_request(preview, icon_size);
 
-  short stop = 0, do_update = 0;
+  bool stop = false, do_update = false;
   float progress = 0;
   run_fn(&job_data, &stop, &do_update, &progress);
   update_fn(&job_data);
@@ -1801,16 +1807,13 @@ void PreviewLoadJob::push_load_request(PreviewImage *preview, const eIconSizes i
   BLI_thread_queue_push(todo_queue_, &requested_previews_.back());
 }
 
-void PreviewLoadJob::run_fn(void *customdata,
-                            short *stop,
-                            short *do_update,
-                            float *UNUSED(progress))
+void PreviewLoadJob::run_fn(void *customdata, bool *stop, bool *do_update, float * /*progress*/)
 {
-  PreviewLoadJob *job_data = reinterpret_cast<PreviewLoadJob *>(customdata);
+  PreviewLoadJob *job_data = static_cast<PreviewLoadJob *>(customdata);
 
   IMB_thumb_locks_acquire();
 
-  while (RequestedPreview *request = reinterpret_cast<RequestedPreview *>(
+  while (RequestedPreview *request = static_cast<RequestedPreview *>(
              BLI_thread_queue_pop_timeout(job_data->todo_queue_, 100))) {
     if (*stop) {
       break;
@@ -1820,13 +1823,13 @@ void PreviewLoadJob::run_fn(void *customdata,
 
     const char *deferred_data = static_cast<char *>(PRV_DEFERRED_DATA(preview));
     const ThumbSource source = static_cast<ThumbSource>(deferred_data[0]);
-    const char *path = &deferred_data[1];
+    const char *filepath = &deferred_data[1];
 
-    //    printf("loading deferred %d×%d preview for %s\n", request->sizex, request->sizey, path);
+    // printf("loading deferred %d×%d preview for %s\n", request->sizex, request->sizey, filepath);
 
-    IMB_thumb_path_lock(path);
-    ImBuf *thumb = IMB_thumb_manage(path, THB_LARGE, source);
-    IMB_thumb_path_unlock(path);
+    IMB_thumb_path_lock(filepath);
+    ImBuf *thumb = IMB_thumb_manage(filepath, THB_LARGE, source);
+    IMB_thumb_path_unlock(filepath);
 
     if (thumb) {
       /* PreviewImage assumes premultiplied alpha... */
@@ -1863,7 +1866,7 @@ void PreviewLoadJob::finish_request(RequestedPreview &request)
 
 void PreviewLoadJob::update_fn(void *customdata)
 {
-  PreviewLoadJob *job_data = reinterpret_cast<PreviewLoadJob *>(customdata);
+  PreviewLoadJob *job_data = static_cast<PreviewLoadJob *>(customdata);
 
   for (auto request_it = job_data->requested_previews_.begin();
        request_it != job_data->requested_previews_.end();) {
@@ -1883,7 +1886,7 @@ void PreviewLoadJob::update_fn(void *customdata)
 
 void PreviewLoadJob::end_fn(void *customdata)
 {
-  PreviewLoadJob *job_data = reinterpret_cast<PreviewLoadJob *>(customdata);
+  PreviewLoadJob *job_data = static_cast<PreviewLoadJob *>(customdata);
 
   /* Finish any possibly remaining queued previews. */
   for (RequestedPreview &request : job_data->requested_previews_) {
@@ -1894,7 +1897,7 @@ void PreviewLoadJob::end_fn(void *customdata)
 
 void PreviewLoadJob::free_fn(void *customdata)
 {
-  MEM_delete(reinterpret_cast<PreviewLoadJob *>(customdata));
+  MEM_delete(static_cast<PreviewLoadJob *>(customdata));
 }
 
 static void icon_preview_free(void *customdata)
@@ -1942,7 +1945,7 @@ void ED_preview_icon_render(
   }
 
   IconPreview ip = {nullptr};
-  short stop = false, update = false;
+  bool stop = false, update = false;
   float progress = 0.0f;
 
   ED_preview_ensure_dbase();
@@ -2112,7 +2115,7 @@ void ED_preview_shader_job(const bContext *C,
   WM_jobs_start(CTX_wm_manager(C), wm_job);
 }
 
-void ED_preview_kill_jobs(wmWindowManager *wm, Main *UNUSED(bmain))
+void ED_preview_kill_jobs(wmWindowManager *wm, Main * /*bmain*/)
 {
   if (wm) {
     /* This is called to stop all preview jobs before scene data changes, to

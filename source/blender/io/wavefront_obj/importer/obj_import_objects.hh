@@ -8,9 +8,11 @@
 
 #include "BKE_lib_id.h"
 
+#include "BLI_map.hh"
+#include "BLI_math_base.hh"
 #include "BLI_math_vec_types.hh"
+#include "BLI_set.hh"
 #include "BLI_vector.hh"
-#include "BLI_vector_set.hh"
 
 #include "DNA_meshdata_types.h"
 #include "DNA_object_types.h"
@@ -18,34 +20,24 @@
 namespace blender::io::obj {
 
 /**
- * List of all vertex and UV vertex coordinates in an OBJ file accessible to any
- * Geometry instance at any time.
+ * All vertex positions, normals, UVs, colors in the OBJ file.
  */
 struct GlobalVertices {
   Vector<float3> vertices;
   Vector<float2> uv_vertices;
   Vector<float3> vertex_normals;
-};
 
-/**
- * Keeps track of the vertices that belong to other Geometries.
- * Needed only for MLoop.v and MEdge.v1 which needs vertex indices ranging from (0 to total
- * vertices in the mesh) as opposed to the other OBJ indices ranging from (0 to total vertices
- * in the global list).
- */
-struct VertexIndexOffset {
- private:
-  int offset_ = 0;
-
- public:
-  void set_index_offset(const int64_t total_vertices)
-  {
-    offset_ = total_vertices;
-  }
-  int64_t get_index_offset() const
-  {
-    return offset_;
-  }
+  /**
+   * Vertex colors might not be present in the file at all, or only
+   * provided for some meshes. Store them in chunks as they are
+   * spelled out in the file, e.g. if there are 10 vertices in sequence, all
+   * with `xyzrgb` colors, they will be one block.
+   */
+  struct VertexColorsBlock {
+    Vector<float3> colors;
+    int start_vertex_index;
+  };
+  Vector<VertexColorsBlock> vertex_colors;
 };
 
 /**
@@ -61,10 +53,11 @@ struct PolyCorner {
 };
 
 struct PolyElem {
-  std::string vertex_group;
-  std::string material_name;
+  int vertex_group_index = -1;
+  int material_index = -1;
   bool shaded_smooth = false;
-  Vector<PolyCorner> face_corners;
+  int start_index_ = 0;
+  int corner_count_ = 0;
 };
 
 /**
@@ -93,19 +86,47 @@ enum eGeometryType {
 struct Geometry {
   eGeometryType geom_type_ = GEOM_MESH;
   std::string geometry_name_;
-  VectorSet<std::string> material_names_;
-  /**
-   * Indices in the vector range from zero to total vertices in a geometry.
-   * Values range from zero to total coordinates in the global list.
-   */
-  Vector<int> vertex_indices_;
-  /** Edges written in the file in addition to (or even without polygon) elements. */
+  Map<std::string, int> group_indices_;
+  Vector<std::string> group_order_;
+  Map<std::string, int> material_indices_;
+  Vector<std::string> material_order_;
+
+  int vertex_index_min_ = INT_MAX;
+  int vertex_index_max_ = -1;
+  /* Global vertex indices used by this geometry. */
+  Set<int> vertices_;
+  /* Mapping from global vertex index to geometry-local vertex index. */
+  Map<int, int> global_to_local_vertices_;
+  /* Loose edges in the file. */
   Vector<MEdge> edges_;
+
+  Vector<PolyCorner> face_corners_;
   Vector<PolyElem> face_elements_;
-  bool has_vertex_normals_ = false;
-  bool use_vertex_groups_ = false;
+
+  bool has_invalid_polys_ = false;
+  bool has_vertex_groups_ = false;
   NurbsElement nurbs_element_;
   int total_loops_ = 0;
+
+  int get_vertex_count() const
+  {
+    return int(vertices_.size());
+  }
+  void track_vertex_index(int index)
+  {
+    vertices_.add(index);
+    math::min_inplace(vertex_index_min_, index);
+    math::max_inplace(vertex_index_max_, index);
+  }
+  void track_all_vertices(int count)
+  {
+    vertices_.reserve(count);
+    for (int i = 0; i < count; ++i) {
+      vertices_.add(i);
+    }
+    vertex_index_min_ = 0;
+    vertex_index_max_ = count - 1;
+  }
 };
 
 }  // namespace blender::io::obj

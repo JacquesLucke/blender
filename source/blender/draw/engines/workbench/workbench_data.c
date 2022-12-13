@@ -163,7 +163,6 @@ void workbench_private_data_init(WORKBENCH_PrivateData *wpd)
   wpd->taa_sample_len = workbench_antialiasing_sample_count_get(wpd);
 
   wpd->volumes_do = false;
-  BLI_listbase_clear(&wpd->smoke_domains);
 
   /* FIXME: This reproduce old behavior when workbench was separated in 2 engines.
    * But this is a workaround for a missing update tagging. */
@@ -174,7 +173,7 @@ void workbench_private_data_init(WORKBENCH_PrivateData *wpd)
 
   if (!v3d || (v3d->shading.type == OB_RENDER && BKE_scene_uses_blender_workbench(scene))) {
     short shading_flag = scene->display.shading.flag;
-    if (XRAY_FLAG_ENABLED((&scene->display))) {
+    if (XRAY_FLAG_ENABLED(&scene->display)) {
       /* Disable shading options that aren't supported in transparency mode. */
       shading_flag &= ~(V3D_SHADING_SHADOW | V3D_SHADING_CAVITY | V3D_SHADING_DEPTH_OF_FIELD);
     }
@@ -188,8 +187,8 @@ void workbench_private_data_init(WORKBENCH_PrivateData *wpd)
 
     wpd->shading = scene->display.shading;
     wpd->shading.flag = shading_flag;
-    if (XRAY_FLAG_ENABLED((&scene->display))) {
-      wpd->shading.xray_alpha = XRAY_ALPHA((&scene->display));
+    if (XRAY_FLAG_ENABLED(&scene->display)) {
+      wpd->shading.xray_alpha = XRAY_ALPHA(&scene->display);
     }
     else {
       wpd->shading.xray_alpha = 1.0f;

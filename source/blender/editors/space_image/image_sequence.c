@@ -58,18 +58,18 @@ static void image_sequence_get_frame_ranges(wmOperator *op, ListBase *ranges)
     frame->framenr = BLI_path_sequence_decode(filename, head, tail, &digits);
 
     /* still in the same sequence */
-    if (do_frame_range && (range != NULL) && (STREQLEN(base_head, head, FILE_MAX)) &&
-        (STREQLEN(base_tail, tail, FILE_MAX))) {
+    if (do_frame_range && (range != NULL) && STREQLEN(base_head, head, FILE_MAX) &&
+        STREQLEN(base_tail, tail, FILE_MAX)) {
       /* Set filepath to first frame in the range. */
       if (frame->framenr < range_first_frame) {
-        BLI_join_dirfile(range->filepath, sizeof(range->filepath), dir, filename);
+        BLI_path_join(range->filepath, sizeof(range->filepath), dir, filename);
         range_first_frame = frame->framenr;
       }
     }
     else {
       /* start a new frame range */
       range = MEM_callocN(sizeof(*range), __func__);
-      BLI_join_dirfile(range->filepath, sizeof(range->filepath), dir, filename);
+      BLI_path_join(range->filepath, sizeof(range->filepath), dir, filename);
       BLI_addtail(ranges, range);
 
       BLI_strncpy(base_head, head, sizeof(base_head));
@@ -107,10 +107,10 @@ static void image_detect_frame_range(ImageFrameRange *range, const bool detect_u
   /* UDIM */
   if (detect_udim) {
     int udim_start, udim_range;
-    bool result = BKE_image_get_tile_info(
+    range->udims_detected = BKE_image_get_tile_info(
         range->filepath, &range->udim_tiles, &udim_start, &udim_range);
 
-    if (result) {
+    if (range->udims_detected) {
       range->offset = udim_start;
       range->length = udim_range;
       return;

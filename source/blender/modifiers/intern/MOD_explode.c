@@ -5,6 +5,8 @@
  * \ingroup modifiers
  */
 
+#define DNA_DEPRECATED_ALLOW /* For #ME_FACE_SEL. */
+
 #include "BLI_utildefines.h"
 
 #include "BLI_edgehash.h"
@@ -26,6 +28,7 @@
 #include "BKE_lattice.h"
 #include "BKE_lib_id.h"
 #include "BKE_mesh.h"
+#include "BKE_mesh_legacy_convert.h"
 #include "BKE_modifier.h"
 #include "BKE_particle.h"
 #include "BKE_scene.h"
@@ -75,9 +78,7 @@ static bool dependsOnTime(struct Scene *UNUSED(scene), ModifierData *UNUSED(md))
 {
   return true;
 }
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   ExplodeModifierData *emd = (ExplodeModifierData *)md;
 
@@ -99,8 +100,8 @@ static void createFacepa(ExplodeModifierData *emd, ParticleSystemModifierData *p
   int i, p, v1, v2, v3, v4 = 0;
   const bool invert_vgroup = (emd->flag & eExplodeFlag_INVERT_VGROUP) != 0;
 
-  mvert = mesh->mvert;
-  mface = mesh->mface;
+  mvert = BKE_mesh_verts_for_write(mesh);
+  mface = (MFace *)CustomData_get_layer(&mesh->fdata, CD_MFACE);
   totvert = mesh->totvert;
   totface = mesh->totface;
   totpart = psmd->psys->totpart;
@@ -124,7 +125,7 @@ static void createFacepa(ExplodeModifierData *emd, ParticleSystemModifierData *p
 
   /* set protected verts */
   if (emd->vgroup) {
-    MDeformVert *dvert = CustomData_get_layer(&mesh->vdata, CD_MDEFORMVERT);
+    const MDeformVert *dvert = CustomData_get_layer(&mesh->vdata, CD_MDEFORMVERT);
     if (dvert) {
       const int defgrp_index = emd->vgroup - 1;
       for (i = 0; i < totvert; i++, dvert++) {
@@ -215,7 +216,8 @@ static const short add_faces[24] = {
 
 static MFace *get_dface(Mesh *mesh, Mesh *split, int cur, int i, MFace *mf)
 {
-  MFace *df = &split->mface[cur];
+  MFace *mfaces = CustomData_get_layer(&split->fdata, CD_MFACE);
+  MFace *df = &mfaces[cur];
   CustomData_copy_data(&mesh->fdata, &split->fdata, i, cur, 1);
   *df = *mf;
   return df;
@@ -638,7 +640,7 @@ static Mesh *cutEdges(ExplodeModifierData *emd, Mesh *mesh)
 {
   Mesh *split_m;
   MFace *mf = NULL, *df1 = NULL;
-  MFace *mface = mesh->mface;
+  MFace *mface = CustomData_get_layer(&mesh->fdata, CD_MFACE);
   MVert *dupve, *mv;
   EdgeHash *edgehash;
   EdgeHashIterator *ehi;
@@ -728,12 +730,15 @@ static Mesh *cutEdges(ExplodeModifierData *emd, Mesh *mesh)
 
   layers_num = CustomData_number_of_layers(&split_m->fdata, CD_MTFACE);
 
+  const MVert *mesh_verts = BKE_mesh_verts(mesh);
+  MVert *split_m_verts = BKE_mesh_verts_for_write(split_m);
+
   /* copy new faces & verts (is it really this painful with custom data??) */
   for (i = 0; i < totvert; i++) {
     MVert source;
     MVert *dest;
-    source = mesh->mvert[i];
-    dest = &split_m->mvert[i];
+    source = mesh_verts[i];
+    dest = &split_m_verts[i];
 
     CustomData_copy_data(&mesh->vdata, &split_m->vdata, i, i, 1);
     *dest = source;
@@ -741,7 +746,7 @@ static Mesh *cutEdges(ExplodeModifierData *emd, Mesh *mesh)
 
   /* override original facepa (original pointer is saved in caller function) */
 
-  /* TODO(campbell): `(totfsplit * 2)` over allocation is used since the quads are
+  /* TODO(@campbellbarton): `(totfsplit * 2)` over allocation is used since the quads are
    * later interpreted as tri's, for this to work right I think we probably
    * have to stop using tessface. */
 
@@ -754,14 +759,14 @@ static Mesh *cutEdges(ExplodeModifierData *emd, Mesh *mesh)
   for (; !BLI_edgehashIterator_isDone(ehi); BLI_edgehashIterator_step(ehi)) {
     BLI_edgehashIterator_getKey(ehi, &ed_v1, &ed_v2);
     esplit = POINTER_AS_INT(BLI_edgehashIterator_getValue(ehi));
-    mv = &split_m->mvert[ed_v2];
-    dupve = &split_m->mvert[esplit];
+    mv = &split_m_verts[ed_v2];
+    dupve = &split_m_verts[esplit];
 
     CustomData_copy_data(&split_m->vdata, &split_m->vdata, ed_v2, esplit, 1);
 
     *dupve = *mv;
 
-    mv = &split_m->mvert[ed_v1];
+    mv = &split_m_verts[ed_v1];
 
     mid_v3_v3v3(dupve->co, dupve->co, mv->co);
   }
@@ -771,7 +776,7 @@ static Mesh *cutEdges(ExplodeModifierData *emd, Mesh *mesh)
   curdupface = 0;  //=totface;
   // curdupin=totesplit;
   for (i = 0, fs = facesplit; i < totface; i++, fs++) {
-    mf = &mesh->mface[i];
+    mf = &mface[i];
 
     switch (*fs) {
       case 3:
@@ -875,8 +880,9 @@ static Mesh *cutEdges(ExplodeModifierData *emd, Mesh *mesh)
     curdupface += add_faces[*fs] + 1;
   }
 
+  MFace *split_mface = CustomData_get_layer(&split_m->fdata, CD_MFACE);
   for (i = 0; i < curdupface; i++) {
-    mf = &split_m->mface[i];
+    mf = &split_mface[i];
     BKE_mesh_mface_index_validate(mf, &split_m->fdata, i, ((mf->flag & ME_FACE_SEL) ? 4 : 3));
   }
 
@@ -897,7 +903,7 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
 {
   Mesh *explode, *mesh = to_explode;
   MFace *mf = NULL, *mface;
-  /* ParticleSettings *part=psmd->psys->part; */ /* UNUSED */
+  // ParticleSettings *part=psmd->psys->part; /* UNUSED */
   ParticleSimulationData sim = {NULL};
   ParticleData *pa = NULL, *pars = psmd->psys->particles;
   ParticleKey state, birth;
@@ -906,16 +912,15 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
   float *vertco = NULL, imat[4][4];
   float rot[4];
   float ctime;
-  /* float timestep; */
+  // float timestep;
   const int *facepa = emd->facepa;
   int totdup = 0, totvert = 0, totface = 0, totpart = 0, delface = 0;
   int i, v, u;
   uint ed_v1, ed_v2, mindex = 0;
-  MTFace *mtface = NULL, *mtf;
 
   totface = mesh->totface;
   totvert = mesh->totvert;
-  mface = mesh->mface;
+  mface = CustomData_get_layer(&mesh->fdata, CD_MFACE);
   totpart = psmd->psys->totpart;
 
   sim.depsgraph = ctx->depsgraph;
@@ -924,7 +929,7 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
   sim.psys = psmd->psys;
   sim.psmd = psmd;
 
-  /* timestep = psys_get_timestep(&sim); */
+  // timestep = psys_get_timestep(&sim);
 
   ctime = BKE_scene_ctime_get(scene);
 
@@ -977,12 +982,15 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
   /* the final duplicated vertices */
   explode = BKE_mesh_new_nomain_from_template(mesh, totdup, 0, totface - delface, 0, 0);
 
-  mtface = CustomData_get_layer_named(&explode->fdata, CD_MTFACE, emd->uvname);
+  MTFace *mtface = CustomData_get_layer_named(&explode->fdata, CD_MTFACE, emd->uvname);
 
   /* getting back to object space */
-  invert_m4_m4(imat, ctx->object->obmat);
+  invert_m4_m4(imat, ctx->object->object_to_world);
 
-  psmd->psys->lattice_deform_data = psys_create_lattice_deform_data(&sim);
+  psys_sim_data_init(&sim);
+
+  const MVert *mesh_verts = BKE_mesh_verts(mesh);
+  MVert *explode_verts = BKE_mesh_verts_for_write(explode);
 
   /* duplicate & displace vertices */
   ehi = BLI_edgehashIterator_new(vertpahash);
@@ -995,8 +1003,8 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
     ed_v2 -= totvert;
     v = POINTER_AS_INT(BLI_edgehashIterator_getValue(ehi));
 
-    source = mesh->mvert[ed_v1];
-    dest = &explode->mvert[v];
+    source = mesh_verts[ed_v1];
+    dest = &explode_verts[v];
 
     CustomData_copy_data(&mesh->vdata, &explode->vdata, ed_v1, v, 1);
 
@@ -1011,8 +1019,8 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
       state.time = ctime;
       psys_get_particle_state(&sim, ed_v2, &state, 1);
 
-      vertco = explode->mvert[v].co;
-      mul_m4_v3(ctx->object->obmat, vertco);
+      vertco = explode_verts[v].co;
+      mul_m4_v3(ctx->object->object_to_world, vertco);
 
       sub_v3_v3(vertco, birth.co);
 
@@ -1035,6 +1043,7 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
   BLI_edgehashIterator_free(ehi);
 
   /* Map new vertices to faces. */
+  MFace *explode_mface = CustomData_get_layer(&explode->fdata, CD_MFACE);
   for (i = 0, u = 0; i < totface; i++) {
     MFace source;
     int orig_v4;
@@ -1056,8 +1065,8 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
       pa = NULL;
     }
 
-    source = mesh->mface[i];
-    mf = &explode->mface[u];
+    source = mface[i];
+    mf = &explode_mface[u];
 
     orig_v4 = source.v4;
 
@@ -1086,7 +1095,7 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
       /* Clamp to this range to avoid flipping to the other side of the coordinates. */
       CLAMP(age, 0.001f, 0.999f);
 
-      mtf = mtface + u;
+      MTFace *mtf = mtface + u;
 
       mtf->uv[0][0] = mtf->uv[1][0] = mtf->uv[2][0] = mtf->uv[3][0] = age;
       mtf->uv[0][1] = mtf->uv[1][1] = mtf->uv[2][1] = mtf->uv[3][1] = 0.5f;
@@ -1102,12 +1111,8 @@ static Mesh *explodeMesh(ExplodeModifierData *emd,
   /* finalization */
   BKE_mesh_calc_edges_tessface(explode);
   BKE_mesh_convert_mfaces_to_mpolys(explode);
-  BKE_mesh_normals_tag_dirty(explode);
 
-  if (psmd->psys->lattice_deform_data) {
-    BKE_lattice_deform_data_destroy(psmd->psys->lattice_deform_data);
-    psmd->psys->lattice_deform_data = NULL;
-  }
+  psys_sim_data_free(&sim);
 
   return explode;
 }
@@ -1225,7 +1230,7 @@ static void blendRead(BlendDataReader *UNUSED(reader), ModifierData *md)
 }
 
 ModifierTypeInfo modifierType_Explode = {
-    /* name */ "Explode",
+    /* name */ N_("Explode"),
     /* structName */ "ExplodeModifierData",
     /* structSize */ sizeof(ExplodeModifierData),
     /* srna */ &RNA_ExplodeModifier,

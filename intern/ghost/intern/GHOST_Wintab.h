@@ -13,6 +13,7 @@
 #pragma once
 
 #include <memory>
+#include <stdio.h>
 #include <vector>
 #include <wtypes.h>
 
@@ -24,6 +25,14 @@
   (PK_BUTTONS | PK_NORMAL_PRESSURE | PK_ORIENTATION | PK_CURSOR | PK_X | PK_Y | PK_TIME)
 #define PACKETMODE 0
 #include <pktdef.h>
+
+#define WINTAB_PRINTF(x, ...) \
+  { \
+    if (GHOST_Wintab::getDebug()) { \
+      printf(x, __VA_ARGS__); \
+    } \
+  } \
+  (void)0
 
 /* Typedefs for Wintab functions to allow dynamic loading. */
 typedef UINT(API *GHOST_WIN32_WTInfo)(UINT, UINT, LPVOID);
@@ -45,7 +54,7 @@ struct GHOST_WintabInfoWin32 {
   int32_t x = 0;
   int32_t y = 0;
   GHOST_TEventType type = GHOST_kEventCursorMove;
-  GHOST_TButtonMask button = GHOST_kButtonMaskNone;
+  GHOST_TButton button = GHOST_kButtonMaskNone;
   uint64_t time = 0;
   GHOST_TabletData tabletData = GHOST_TABLET_DATA_NONE;
 };
@@ -55,8 +64,11 @@ class GHOST_Wintab {
   /**
    * Loads Wintab if available.
    * \param hwnd: Window to attach Wintab context to.
+   * \return Pointer to the initialized GHOST_Wintab object, or null if initialization failed.
    */
   static GHOST_Wintab *loadWintab(HWND hwnd);
+
+  ~GHOST_Wintab();
 
   /**
    * Enables Wintab context.
@@ -146,6 +158,16 @@ class GHOST_Wintab {
    */
   GHOST_TabletData getLastTabletData();
 
+  /* Sets Wintab debugging.
+   * \param debug: True to enable Wintab debugging.
+   */
+  static void setDebug(bool debug);
+
+  /* Returns whether Wintab logging should occur.
+   * \return True if Wintab logging should occur.
+   */
+  static bool getDebug();
+
  private:
   /** Wintab DLL handle. */
   unique_hmodule m_handle;
@@ -165,7 +187,7 @@ class GHOST_Wintab {
   bool m_focused = false;
 
   /** Pressed button map. */
-  uint8_t m_buttons = 0;
+  DWORD m_buttons = 0;
 
   /** Range of a coordinate space. */
   struct Range {
@@ -200,6 +222,9 @@ class GHOST_Wintab {
   /** Most recently received tablet data, or none if pen is not in range. */
   GHOST_TabletData m_lastTabletData = GHOST_TABLET_DATA_NONE;
 
+  /** Whether Wintab logging is enabled. */
+  static bool m_debug;
+
   GHOST_Wintab(unique_hmodule handle,
                GHOST_WIN32_WTInfo info,
                GHOST_WIN32_WTGet get,
@@ -218,7 +243,7 @@ class GHOST_Wintab {
    * \param physicalButton: The physical button ID to inspect.
    * \return The system mapped button.
    */
-  GHOST_TButtonMask mapWintabToGhostButton(UINT cursor, WORD physicalButton);
+  GHOST_TButton mapWintabToGhostButton(UINT cursor, WORD physicalButton);
 
   /**
    * Applies common modifications to Wintab context.
@@ -233,4 +258,7 @@ class GHOST_Wintab {
    * \param system: System coordinates.
    */
   static void extractCoordinates(LOGCONTEXT &lc, Coord &tablet, Coord &system);
+
+  /* Prints Wintab Context information. */
+  void printContextDebugInfo();
 };

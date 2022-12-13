@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 from __future__ import annotations
 
 # support reloading sub-modules
@@ -34,6 +32,7 @@ _modules = [
     "userpref",
     "uvcalc_follow_active",
     "uvcalc_lightmap",
+    "uvcalc_transform",
     "vertexpaint_dirt",
     "view3d",
     "wm",

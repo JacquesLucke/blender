@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 # Dynamically create a keymap which is used by the popup toolbar
 # for accelerator key access.
 
@@ -175,7 +173,7 @@ def generate(context, space_type, *, use_fallback_keys=True, use_reset=True):
                     mode = context.active_object.mode
                     # See: BKE_paint_get_tool_prop_id_from_paintmode
                     if space_type == 'IMAGE_EDITOR':
-                        if context.space_data.ui_mode == 'PAINT':
+                        if context.space_data.mode == 'PAINT':
                             attr = "image_tool"
                         else:
                             attr = None
@@ -202,7 +200,7 @@ def generate(context, space_type, *, use_fallback_keys=True, use_reset=True):
                             properties=kmi_hack_brush_select_properties,
                             include={'KEYBOARD'},
                         )[1]
-                    elif mode in {'PARTICLE_EDIT', 'SCULPT_GPENCIL'}:
+                    elif mode in {'EDIT', 'PARTICLE_EDIT', 'SCULPT_GPENCIL'}:
                         # Doesn't use brushes
                         pass
                     else:
@@ -391,7 +389,7 @@ def generate(context, space_type, *, use_fallback_keys=True, use_reset=True):
                 if key is not None:
                     kmi_args["type"] = key
                     kmi_tuple = dict_as_tuple(kmi_args)
-                    if not kmi_tuple in kmi_unique_args:
+                    if kmi_tuple not in kmi_unique_args:
                         kmi = keymap.keymap_items.new(idname="wm.tool_set_by_id", value='PRESS', **kmi_args)
                         kmi.properties.name = item.idname
                         kmi_unique_args.add(kmi_tuple)

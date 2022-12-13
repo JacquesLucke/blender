@@ -121,7 +121,8 @@ void ED_pose_bone_select(Object *ob, bPoseChannel *pchan, bool select)
   }
 }
 
-bool ED_armature_pose_select_pick_bone(ViewLayer *view_layer,
+bool ED_armature_pose_select_pick_bone(const Scene *scene,
+                                       ViewLayer *view_layer,
                                        View3D *v3d,
                                        Object *ob,
                                        Bone *bone,
@@ -144,7 +145,7 @@ bool ED_armature_pose_select_pick_bone(ViewLayer *view_layer,
       /* Deselect everything. */
       /* Don't use 'BKE_object_pose_base_array_get_unique'
        * because we may be selecting from object mode. */
-      FOREACH_VISIBLE_BASE_BEGIN (view_layer, v3d, base_iter) {
+      FOREACH_VISIBLE_BASE_BEGIN (scene, view_layer, v3d, base_iter) {
         Object *ob_iter = base_iter->object;
         if ((ob_iter->type == OB_ARMATURE) && (ob_iter->mode & OB_MODE_POSE)) {
           if (ED_pose_deselect_all(ob_iter, SEL_DESELECT, true)) {
@@ -158,15 +159,16 @@ bool ED_armature_pose_select_pick_bone(ViewLayer *view_layer,
   }
 
   if (found) {
-    Object *ob_act = OBACT(view_layer);
-    BLI_assert(OBEDIT_FROM_VIEW_LAYER(view_layer) == NULL);
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    Object *ob_act = BKE_view_layer_active_object_get(view_layer);
+    BLI_assert(BKE_view_layer_edit_object_get(view_layer) == NULL);
 
     /* If the bone cannot be affected, don't do anything. */
     bArmature *arm = ob->data;
 
     /* Since we do unified select, we don't shift+select a bone if the
      * armature object was not active yet.
-     * NOTE(campbell): special exception for armature mode so we can do multi-select
+     * NOTE(@campbellbarton): special exception for armature mode so we can do multi-select
      * we could check for multi-select explicitly but think its fine to
      * always give predictable behavior in weight paint mode. */
     if ((ob_act == NULL) || ((ob_act != ob) && (ob_act->mode & OB_MODE_ALL_WEIGHT_PAINT) == 0)) {
@@ -243,7 +245,8 @@ bool ED_armature_pose_select_pick_bone(ViewLayer *view_layer,
   return changed || found;
 }
 
-bool ED_armature_pose_select_pick_with_buffer(ViewLayer *view_layer,
+bool ED_armature_pose_select_pick_with_buffer(const Scene *scene,
+                                              ViewLayer *view_layer,
                                               View3D *v3d,
                                               Base *base,
                                               const struct GPUSelectResult *buffer,
@@ -263,13 +266,16 @@ bool ED_armature_pose_select_pick_with_buffer(ViewLayer *view_layer,
   nearBone = ED_armature_pick_bone_from_selectbuffer(
       &base, 1, buffer, hits, 1, do_nearest, &base_dummy);
 
-  return ED_armature_pose_select_pick_bone(view_layer, v3d, ob, nearBone, params);
+  return ED_armature_pose_select_pick_bone(scene, view_layer, v3d, ob, nearBone, params);
 }
 
-void ED_armature_pose_select_in_wpaint_mode(ViewLayer *view_layer, Base *base_select)
+void ED_armature_pose_select_in_wpaint_mode(const Scene *scene,
+                                            ViewLayer *view_layer,
+                                            Base *base_select)
 {
   BLI_assert(base_select && (base_select->object->type == OB_ARMATURE));
-  Object *ob_active = OBACT(view_layer);
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  Object *ob_active = BKE_view_layer_active_object_get(view_layer);
   BLI_assert(ob_active && (ob_active->mode & OB_MODE_ALL_WEIGHT_PAINT));
 
   if (ob_active->type == OB_GPENCIL) {
@@ -401,7 +407,8 @@ bool ED_pose_deselect_all_multi(bContext *C, int select_mode, const bool ignore_
   ED_view3d_viewcontext_init(C, &vc, depsgraph);
   uint bases_len = 0;
 
-  Base **bases = BKE_object_pose_base_array_get_unique(vc.view_layer, vc.v3d, &bases_len);
+  Base **bases = BKE_object_pose_base_array_get_unique(
+      vc.scene, vc.view_layer, vc.v3d, &bases_len);
   bool changed_multi = ED_pose_deselect_all_multi_ex(
       bases, bases_len, select_mode, ignore_visibility);
   MEM_freeN(bases);
@@ -680,13 +687,10 @@ static int pose_select_constraint_target_exec(bContext *C, wmOperator *UNUSED(op
   CTX_DATA_BEGIN (C, bPoseChannel *, pchan, visible_pose_bones) {
     if (pchan->bone->flag & BONE_SELECTED) {
       for (con = pchan->constraints.first; con; con = con->next) {
-        const bConstraintTypeInfo *cti = BKE_constraint_typeinfo_get(con);
         ListBase targets = {NULL, NULL};
         bConstraintTarget *ct;
 
-        if (cti && cti->get_constraint_targets) {
-          cti->get_constraint_targets(con, &targets);
-
+        if (BKE_constraint_targets_get(con, &targets)) {
           for (ct = targets.first; ct; ct = ct->next) {
             Object *ob = ct->tar;
 
@@ -702,9 +706,7 @@ static int pose_select_constraint_target_exec(bContext *C, wmOperator *UNUSED(op
             }
           }
 
-          if (cti->flush_constraint_targets) {
-            cti->flush_constraint_targets(con, &targets, 1);
-          }
+          BKE_constraint_targets_flush(con, &targets, 1);
         }
       }
     }
@@ -849,6 +851,7 @@ typedef enum ePose_SelectSame_Mode {
 
 static bool pose_select_same_group(bContext *C, bool extend)
 {
+  Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   bool *group_flags_array;
   bool *group_flags = NULL;
@@ -858,7 +861,8 @@ static bool pose_select_same_group(bContext *C, bool extend)
   uint ob_index;
 
   uint objects_len = 0;
-  Object **objects = BKE_object_pose_array_get_unique(view_layer, CTX_wm_view3d(C), &objects_len);
+  Object **objects = BKE_object_pose_array_get_unique(
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
 
   for (ob_index = 0; ob_index < objects_len; ob_index++) {
     Object *ob = BKE_object_pose_armature_get(objects[ob_index]);
@@ -952,6 +956,7 @@ static bool pose_select_same_group(bContext *C, bool extend)
 
 static bool pose_select_same_layer(bContext *C, bool extend)
 {
+  Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   int *layers_array, *layers = NULL;
   Object *ob_prev = NULL;
@@ -959,7 +964,8 @@ static bool pose_select_same_layer(bContext *C, bool extend)
   bool changed = false;
 
   uint objects_len = 0;
-  Object **objects = BKE_object_pose_array_get_unique(view_layer, CTX_wm_view3d(C), &objects_len);
+  Object **objects = BKE_object_pose_array_get_unique(
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
 
   for (ob_index = 0; ob_index < objects_len; ob_index++) {
     Object *ob = objects[ob_index];
@@ -1037,6 +1043,7 @@ cleanup:
 
 static bool pose_select_same_keyingset(bContext *C, ReportList *reports, bool extend)
 {
+  Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   bool changed_multi = false;
   KeyingSet *ks = ANIM_scene_get_active_keyingset(CTX_data_scene(C));
@@ -1073,7 +1080,8 @@ static bool pose_select_same_keyingset(bContext *C, ReportList *reports, bool ex
   }
 
   uint objects_len = 0;
-  Object **objects = BKE_object_pose_array_get_unique(view_layer, CTX_wm_view3d(C), &objects_len);
+  Object **objects = BKE_object_pose_array_get_unique(
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
 
   for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
     Object *ob = BKE_object_pose_armature_get(objects[ob_index]);
@@ -1201,6 +1209,7 @@ void POSE_OT_select_grouped(wmOperatorType *ot)
  */
 static int pose_select_mirror_exec(bContext *C, wmOperator *op)
 {
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   Object *ob_active = CTX_data_active_object(C);
 
@@ -1209,7 +1218,8 @@ static int pose_select_mirror_exec(bContext *C, wmOperator *op)
   const bool extend = RNA_boolean_get(op->ptr, "extend");
 
   uint objects_len = 0;
-  Object **objects = BKE_object_pose_array_get_unique(view_layer, CTX_wm_view3d(C), &objects_len);
+  Object **objects = BKE_object_pose_array_get_unique(
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
 
   for (uint ob_index = 0; ob_index < objects_len; ob_index++) {
     Object *ob = objects[ob_index];
@@ -1227,7 +1237,7 @@ static int pose_select_mirror_exec(bContext *C, wmOperator *op)
         int flag_new = extend ? PBONE_PREV_FLAG_GET(pchan) : 0;
 
         if ((pchan_mirror = BKE_pose_channel_get_mirrored(ob->pose, pchan->name)) &&
-            (PBONE_VISIBLE(arm, pchan_mirror->bone))) {
+            PBONE_VISIBLE(arm, pchan_mirror->bone)) {
           const int flag_mirror = PBONE_PREV_FLAG_GET(pchan_mirror);
           flag_new |= flag_mirror;
 

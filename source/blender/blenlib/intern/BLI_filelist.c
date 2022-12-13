@@ -93,7 +93,7 @@ static int bli_compare(struct direntry *entry1, struct direntry *entry2)
     return 1;
   }
 
-  return (BLI_strcasecmp_natural(entry1->relname, entry2->relname));
+  return BLI_strcasecmp_natural(entry1->relname, entry2->relname);
 }
 
 struct BuildDirCtx {
@@ -174,10 +174,10 @@ static void bli_builddir(struct BuildDirCtx *dir_ctx, const char *dirname)
         struct direntry *file = &dir_ctx->files[dir_ctx->files_num];
         while (dlink) {
           char fullname[PATH_MAX];
+          BLI_path_join(fullname, sizeof(fullname), dirname, dlink->name);
           memset(file, 0, sizeof(struct direntry));
           file->relname = dlink->name;
-          file->path = BLI_strdupcat(dirname, dlink->name);
-          BLI_join_dirfile(fullname, sizeof(fullname), dirname, dlink->name);
+          file->path = BLI_strdup(fullname);
           if (BLI_stat(fullname, &file->s) != -1) {
             file->type = file->s.st_mode;
           }
@@ -215,7 +215,7 @@ static void bli_builddir(struct BuildDirCtx *dir_ctx, const char *dirname)
   }
 }
 
-unsigned int BLI_filelist_dir_contents(const char *dirname, struct direntry **r_filelist)
+uint BLI_filelist_dir_contents(const char *dirname, struct direntry **r_filelist)
 {
   struct BuildDirCtx dir_ctx;
 
@@ -237,7 +237,7 @@ unsigned int BLI_filelist_dir_contents(const char *dirname, struct direntry **r_
 }
 
 void BLI_filelist_entry_size_to_string(const struct stat *st,
-                                       const uint64_t sz,
+                                       const uint64_t st_size_fallback,
                                        /* Used to change MB -> M, etc. - is that really useful? */
                                        const bool UNUSED(compact),
                                        char r_size[FILELIST_DIRENTRY_SIZE_LEN])
@@ -247,7 +247,7 @@ void BLI_filelist_entry_size_to_string(const struct stat *st,
    * will buy us some time until files get bigger than 4GB or until
    * everyone starts using __USE_FILE_OFFSET64 or equivalent.
    */
-  double size = (double)(st ? st->st_size : sz);
+  double size = (double)(st ? st->st_size : st_size_fallback);
 #ifdef WIN32
   BLI_str_format_byte_unit(r_size, size, false);
 #else
@@ -395,9 +395,9 @@ void BLI_filelist_entry_duplicate(struct direntry *dst, const struct direntry *s
 
 void BLI_filelist_duplicate(struct direntry **dest_filelist,
                             struct direntry *const src_filelist,
-                            const unsigned int nrentries)
+                            const uint nrentries)
 {
-  unsigned int i;
+  uint i;
 
   *dest_filelist = MEM_mallocN(sizeof(**dest_filelist) * (size_t)(nrentries), __func__);
   for (i = 0; i < nrentries; i++) {
@@ -417,9 +417,9 @@ void BLI_filelist_entry_free(struct direntry *entry)
   }
 }
 
-void BLI_filelist_free(struct direntry *filelist, const unsigned int nrentries)
+void BLI_filelist_free(struct direntry *filelist, const uint nrentries)
 {
-  unsigned int i;
+  uint i;
   for (i = 0; i < nrentries; i++) {
     BLI_filelist_entry_free(&filelist[i]);
   }

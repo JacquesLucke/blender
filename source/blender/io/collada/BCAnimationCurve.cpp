@@ -1,6 +1,8 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later
  * Copyright 2008 Blender Foundation. All rights reserved. */
 
+#include "RNA_path.h"
+
 #include "BCAnimationCurve.h"
 
 BCAnimationCurve::BCAnimationCurve()
@@ -96,7 +98,7 @@ void BCAnimationCurve::create_bezt(float frame, float output)
   bez.f1 = bez.f2 = bez.f3 = SELECT;
   bez.h1 = bez.h2 = HD_AUTO;
   insert_bezt_fcurve(fcu, &bez, INSERTKEY_NOFLAGS);
-  calchandles_fcurve(fcu);
+  BKE_fcurve_handles_recalc(fcu);
 }
 
 BCAnimationCurve::~BCAnimationCurve()
@@ -327,8 +329,7 @@ bool BCAnimationCurve::is_transform_curve() const
 bool BCAnimationCurve::is_rotation_curve() const
 {
   std::string channel_type = this->get_channel_type();
-  return (channel_type == "rotation" || channel_type == "rotation_euler" ||
-          channel_type == "rotation_quaternion");
+  return ELEM(channel_type, "rotation", "rotation_euler", "rotation_quaternion");
 }
 
 float BCAnimationCurve::get_value(const float frame)
@@ -424,10 +425,10 @@ bool BCAnimationCurve::add_value_from_rna(const int frame_index)
       if ((array_index >= 0) && (array_index < RNA_property_array_length(&ptr, prop))) {
         switch (RNA_property_type(prop)) {
           case PROP_BOOLEAN:
-            value = (float)RNA_property_boolean_get_index(&ptr, prop, array_index);
+            value = float(RNA_property_boolean_get_index(&ptr, prop, array_index));
             break;
           case PROP_INT:
-            value = (float)RNA_property_int_get_index(&ptr, prop, array_index);
+            value = float(RNA_property_int_get_index(&ptr, prop, array_index));
             break;
           case PROP_FLOAT:
             value = RNA_property_float_get_index(&ptr, prop, array_index);
@@ -447,16 +448,16 @@ bool BCAnimationCurve::add_value_from_rna(const int frame_index)
       /* not an array */
       switch (RNA_property_type(prop)) {
         case PROP_BOOLEAN:
-          value = (float)RNA_property_boolean_get(&ptr, prop);
+          value = float(RNA_property_boolean_get(&ptr, prop));
           break;
         case PROP_INT:
-          value = (float)RNA_property_int_get(&ptr, prop);
+          value = float(RNA_property_int_get(&ptr, prop));
           break;
         case PROP_FLOAT:
           value = RNA_property_float_get(&ptr, prop);
           break;
         case PROP_ENUM:
-          value = (float)RNA_property_enum_get(&ptr, prop);
+          value = float(RNA_property_enum_get(&ptr, prop));
           break;
         default:
           fprintf(stderr,

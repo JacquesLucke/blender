@@ -8,8 +8,10 @@
 /* From http://libnoise.sourceforge.net/noisegen/index.html */
 float integer_noise(int n)
 {
-  n = (n >> 13) ^ n;
-  int nn = (n * (n * n * 60493 + 19990303) + 1376312589) & 0x7fffffff;
+  /* Integer bit-shifts cause precision issues due to overflow
+   * in a number of workbench tests. Use uint instead. */
+  uint nn = (uint(n) >> 13u) ^ uint(n);
+  nn = (nn * (nn * nn * 60493u + 19990303u) + 1376312589u) & 0x7fffffffu;
   return (float(nn) / 1073741824.0);
 }
 
@@ -41,13 +43,13 @@ void workbench_hair_random_material(float rand,
 
 void main()
 {
-  bool is_persp = (ProjectionMatrix[3][3] == 0.0);
+  bool is_persp = (drw_view.winmat[3][3] == 0.0);
   float time, thick_time, thickness;
   vec3 world_pos, tan, binor;
   hair_get_pos_tan_binor_time(is_persp,
                               ModelMatrixInverse,
-                              ViewMatrixInverse[3].xyz,
-                              ViewMatrixInverse[2].xyz,
+                              drw_view.viewinv[3].xyz,
+                              drw_view.viewinv[2].xyz,
                               world_pos,
                               tan,
                               binor,

@@ -41,6 +41,7 @@
 #include "ED_asset.h"
 #include "ED_keyframing.h"
 #include "ED_screen.h"
+#include "ED_util.h"
 
 #include "armature_intern.h"
 
@@ -58,10 +59,8 @@ typedef struct PoseBlendData {
 
   struct {
     bool use_release_confirm;
-    int drag_start_xy[2];
     int init_event_type;
 
-    bool cursor_wrap_enabled;
   } release_confirm_info;
 
   /* For temp-loading the Action from the pose library. */
@@ -77,6 +76,8 @@ typedef struct PoseBlendData {
 
   Scene *scene;  /* For auto-keying. */
   ScrArea *area; /* For drawing status text. */
+
+  struct tSlider *slider; /* Slider UI and event handling. */
 
   /** Info-text to print in header. */
   char headerstr[UI_MAX_DRAW_STR];
@@ -134,7 +135,7 @@ static void poselib_keytag_pose(bContext *C, Scene *scene, PoseBlendData *pbd)
   }
 
   /* Perform actual auto-keying. */
-  ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, (float)CFRA);
+  ANIM_apply_keyingset(C, &dsources, NULL, ks, MODIFYKEY_MODE_INSERT, (float)scene->r.cfra);
   BLI_freelistN(&dsources);
 
   /* send notifiers for this */
@@ -145,22 +146,6 @@ static void poselib_keytag_pose(bContext *C, Scene *scene, PoseBlendData *pbd)
 static void poselib_blend_apply(bContext *C, wmOperator *op)
 {
   PoseBlendData *pbd = (PoseBlendData *)op->customdata;
-
-  if (pbd->state == POSE_BLEND_BLENDING) {
-    BLI_snprintf(pbd->headerstr,
-                 sizeof(pbd->headerstr),
-                 TIP_("PoseLib blending: \"%s\" at %3.0f%%"),
-                 pbd->act->id.name + 2,
-                 pbd->blend_factor * 100);
-    ED_area_status_text(pbd->area, pbd->headerstr);
-
-    ED_workspace_status_text(
-        C, TIP_("Tab: show original pose; Horizontal mouse movement: change blend percentage"));
-  }
-  else {
-    ED_area_status_text(pbd->area, TIP_("PoseLib showing original pose"));
-    ED_workspace_status_text(C, TIP_("Tab: show blended pose"));
-  }
 
   if (!pbd->needs_redraw) {
     return;
@@ -192,27 +177,16 @@ static void poselib_blend_set_factor(PoseBlendData *pbd, const float new_factor)
   pbd->needs_redraw = true;
 }
 
-static void poselib_slide_mouse_update_blendfactor(PoseBlendData *pbd, const wmEvent *event)
-{
-  if (pbd->release_confirm_info.use_release_confirm) {
-    /* Release confirm calculates factor based on where the dragging was started from. */
-    const float range = 300 * U.pixelsize;
-    const float new_factor = (event->xy[0] - pbd->release_confirm_info.drag_start_xy[0]) / range;
-    poselib_blend_set_factor(pbd, new_factor);
-  }
-  else {
-    const float new_factor = (event->xy[0] - pbd->area->v1->vec.x) / ((float)pbd->area->winx);
-    poselib_blend_set_factor(pbd, new_factor);
-  }
-}
-
 /* Return operator return value. */
 static int poselib_blend_handle_event(bContext *UNUSED(C), wmOperator *op, const wmEvent *event)
 {
   PoseBlendData *pbd = op->customdata;
 
+  ED_slider_modal(pbd->slider, event);
+  const float factor = ED_slider_factor_get(pbd->slider);
+  poselib_blend_set_factor(pbd, factor);
+
   if (event->type == MOUSEMOVE) {
-    poselib_slide_mouse_update_blendfactor(pbd, event);
     return OPERATOR_RUNNING_MODAL;
   }
 
@@ -257,18 +231,6 @@ static int poselib_blend_handle_event(bContext *UNUSED(C), wmOperator *op, const
   return OPERATOR_RUNNING_MODAL;
 }
 
-static void poselib_blend_cursor_update(bContext *C, wmOperator *op)
-{
-  PoseBlendData *pbd = op->customdata;
-
-  /* Ensure cursor-grab (continuous grabbing) is enabled when using release-confirm. */
-  if (pbd->release_confirm_info.use_release_confirm &&
-      !pbd->release_confirm_info.cursor_wrap_enabled) {
-    WM_cursor_grab_enable(CTX_wm_window(C), WM_CURSOR_WRAP_XY, true, NULL);
-    pbd->release_confirm_info.cursor_wrap_enabled = true;
-  }
-}
-
 /* ---------------------------- */
 
 static Object *get_poselib_object(bContext *C)
@@ -287,16 +249,15 @@ static void poselib_tempload_exit(PoseBlendData *pbd)
 static bAction *poselib_blend_init_get_action(bContext *C, wmOperator *op)
 {
   bool asset_handle_valid;
-  const AssetLibraryReference *asset_library_ref = CTX_wm_asset_library_ref(C);
   const AssetHandle asset_handle = CTX_wm_asset_handle(C, &asset_handle_valid);
   /* Poll callback should check. */
-  BLI_assert((asset_library_ref != NULL) && asset_handle_valid);
+  BLI_assert(asset_handle_valid);
 
   PoseBlendData *pbd = op->customdata;
 
   pbd->temp_id_consumer = ED_asset_temp_id_consumer_create(&asset_handle);
   return (bAction *)ED_asset_temp_id_consumer_ensure_local_id(
-      pbd->temp_id_consumer, C, asset_library_ref, ID_AC, CTX_data_main(C), op->reports);
+      pbd->temp_id_consumer, ID_AC, CTX_data_main(C), op->reports);
 }
 
 static bAction *flip_pose(bContext *C, Object *ob, bAction *action)
@@ -363,11 +324,14 @@ static bool poselib_blend_init_data(bContext *C, wmOperator *op, const wmEvent *
     pbd->release_confirm_info.use_release_confirm = (release_confirm_prop != NULL) &&
                                                     RNA_property_boolean_get(op->ptr,
                                                                              release_confirm_prop);
+    pbd->slider = ED_slider_create(C);
+    ED_slider_init(pbd->slider, event);
+    ED_slider_factor_set(pbd->slider, pbd->blend_factor);
+    ED_slider_allow_overshoot_set(pbd->slider, false);
   }
 
   if (pbd->release_confirm_info.use_release_confirm) {
     BLI_assert(event != NULL);
-    copy_v2_v2_int(pbd->release_confirm_info.drag_start_xy, event->xy);
     pbd->release_confirm_info.init_event_type = WM_userdef_event_type_from_keymap_type(
         event->type);
   }
@@ -390,6 +354,10 @@ static void poselib_blend_cleanup(bContext *C, wmOperator *op)
   /* Redraw the header so that it doesn't show any of our stuff anymore. */
   ED_area_status_text(pbd->area, NULL);
   ED_workspace_status_text(C, NULL);
+
+  if (pbd->slider) {
+    ED_slider_destroy(C, pbd->slider);
+  }
 
   /* This signals the depsgraph to unlock and reevaluate the pose on the next evaluation. */
   bPose *pose = pbd->ob->pose;
@@ -417,11 +385,6 @@ static void poselib_blend_cleanup(bContext *C, wmOperator *op)
       break;
   }
 
-  if (pbd->release_confirm_info.cursor_wrap_enabled) {
-    WM_cursor_grab_disable(win, pbd->release_confirm_info.drag_start_xy);
-    pbd->release_confirm_info.cursor_wrap_enabled = false;
-  }
-
   DEG_id_tag_update(&pbd->ob->id, ID_RECALC_GEOMETRY);
   WM_event_add_notifier(C, NC_OBJECT | ND_POSE, pbd->ob);
   /* Update mouse-hover highlights. */
@@ -442,9 +405,6 @@ static void poselib_blend_free(wmOperator *op)
   }
   poselib_tempload_exit(pbd);
 
-  /* Must have been dealt with before! */
-  BLI_assert(pbd->release_confirm_info.cursor_wrap_enabled == false);
-
   /* Free temp data for operator */
   ED_pose_backup_free(pbd->pose_backup);
   pbd->pose_backup = NULL;
@@ -459,6 +419,9 @@ static int poselib_blend_exit(bContext *C, wmOperator *op)
 
   poselib_blend_cleanup(C, op);
   poselib_blend_free(op);
+
+  wmWindow *win = CTX_wm_window(C);
+  WM_cursor_modal_restore(win);
 
   if (exit_state == POSE_BLEND_CANCEL) {
     return OPERATOR_CANCELLED;
@@ -479,14 +442,28 @@ static int poselib_blend_modal(bContext *C, wmOperator *op, const wmEvent *event
 {
   const int operator_result = poselib_blend_handle_event(C, op, event);
 
-  poselib_blend_cursor_update(C, op);
-
   const PoseBlendData *pbd = op->customdata;
   if (ELEM(pbd->state, POSE_BLEND_CONFIRM, POSE_BLEND_CANCEL)) {
     return poselib_blend_exit(C, op);
   }
 
   if (pbd->needs_redraw) {
+    char status_string[UI_MAX_DRAW_STR];
+    char slider_string[UI_MAX_DRAW_STR];
+    char tab_string[50];
+
+    ED_slider_status_string_get(pbd->slider, slider_string, sizeof(slider_string));
+
+    if (pbd->state == POSE_BLEND_BLENDING) {
+      strcpy(tab_string, TIP_("[Tab] - Show original pose"));
+    }
+    else {
+      strcpy(tab_string, TIP_("[Tab] - Show blended pose"));
+    }
+
+    BLI_snprintf(status_string, sizeof(status_string), "%s | %s", tab_string, slider_string);
+    ED_workspace_status_text(C, status_string);
+
     poselib_blend_apply(C, op);
   }
 
@@ -500,6 +477,9 @@ static int poselib_blend_invoke(bContext *C, wmOperator *op, const wmEvent *even
     poselib_blend_free(op);
     return OPERATOR_CANCELLED;
   }
+
+  wmWindow *win = CTX_wm_window(C);
+  WM_cursor_modal_set(win, WM_CURSOR_EW_SCROLL);
 
   /* Do initial apply to have something to look at. */
   poselib_blend_apply(C, op);
@@ -527,11 +507,9 @@ static bool poselib_asset_in_context(bContext *C)
 {
   bool asset_handle_valid;
   /* Check whether the context provides the asset data needed to add a pose. */
-  const AssetLibraryReference *asset_library_ref = CTX_wm_asset_library_ref(C);
-  AssetHandle asset_handle = CTX_wm_asset_handle(C, &asset_handle_valid);
+  const AssetHandle asset_handle = CTX_wm_asset_handle(C, &asset_handle_valid);
 
-  return (asset_library_ref != NULL) && asset_handle_valid &&
-         (ED_asset_handle_get_id_type(&asset_handle) == ID_AC);
+  return asset_handle_valid && (ED_asset_handle_get_id_type(&asset_handle) == ID_AC);
 }
 
 /* Poll callback for operators that require existing PoseLib data (with poses) to work. */
@@ -594,7 +572,7 @@ void POSELIB_OT_blend_pose_asset(wmOperatorType *ot)
   ot->poll = poselib_blend_poll;
 
   /* Flags: */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING;
+  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO | OPTYPE_BLOCKING | OPTYPE_GRAB_CURSOR_X;
 
   /* Properties: */
   prop = RNA_def_float_factor(ot->srna,

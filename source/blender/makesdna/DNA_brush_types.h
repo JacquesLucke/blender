@@ -58,11 +58,10 @@ typedef struct BrushGpencilSettings {
 
   /** Factor for transparency. */
   float fill_threshold;
-  /** Number of pixel to consider the leak is too small (x 2). */
-  short fill_leak;
+  char _pad2[2];
   /* Type of caps: eGPDstroke_Caps. */
   int8_t caps_type;
-  char _pad;
+  char _pad[5];
 
   int flag2;
 
@@ -70,6 +69,8 @@ typedef struct BrushGpencilSettings {
   int fill_simplylvl;
   /** Type of control lines drawing mode. */
   int fill_draw_mode;
+  /** Type of gap filling extension to use. */
+  int fill_extend_mode;
   /** Icon identifier. */
   int icon_id;
 
@@ -97,7 +98,7 @@ typedef struct BrushGpencilSettings {
   /** Simplify adaptive factor */
   float simplify_f;
 
-  /** Mix colorfactor */
+  /** Mix color-factor. */
   float vertex_factor;
   int vertex_mode;
 
@@ -132,18 +133,35 @@ typedef struct BrushGpencilSettings {
   struct CurveMapping *curve_rand_saturation;
   struct CurveMapping *curve_rand_value;
 
+  /** Factor for external line thickness conversion to outline. */
+  float outline_fac;
+  char _pad1[4];
+
   /* optional link of material to replace default in context */
   /** Material. */
   struct Material *material;
+  /** Material Alternative for secondary operations. */
+  struct Material *material_alt;
 } BrushGpencilSettings;
 
 typedef struct BrushCurvesSculptSettings {
   /** Number of curves added by the add brush. */
   int add_amount;
+  /** Number of control points in new curves added by the add brush. */
+  int points_per_curve;
   /* eBrushCurvesSculptFlag. */
   uint32_t flag;
   /** When shrinking curves, they shouldn't become shorter than this length. */
   float minimum_length;
+  /** Length of newly added curves when it is not interpolated from other curves. */
+  float curve_length;
+  /** Minimum distance between curve root points used by the Density brush. */
+  float minimum_distance;
+  /** How often the Density brush tries to add a new curve. */
+  int density_add_attempts;
+  /** #eBrushCurvesSculptDensityMode. */
+  uint8_t density_mode;
+  char _pad[7];
 } BrushCurvesSculptSettings;
 
 typedef struct Brush {
@@ -370,6 +388,11 @@ typedef struct Brush {
 
   struct BrushGpencilSettings *gpencil_settings;
   struct BrushCurvesSculptSettings *curves_sculpt_settings;
+
+  int automasking_cavity_blur_steps;
+  float automasking_cavity_factor;
+
+  struct CurveMapping *automasking_cavity_curve;
 } Brush;
 
 /* Struct to hold palette colors for sorting. */

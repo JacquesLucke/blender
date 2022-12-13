@@ -106,7 +106,7 @@ static void transdata_elem_bend(const TransInfo *t,
   }
 
   if (t->options & CTX_GPENCIL_STROKES) {
-    /* grease pencil multiframe falloff */
+    /* Grease pencil multi-frame falloff. */
     bGPDstroke *gps = (bGPDstroke *)td->extra;
     if (gps != NULL) {
       fac_scaled = fac * td->factor * gps->runtime.multi_frame_falloff;
@@ -262,7 +262,7 @@ static void Bend(TransInfo *t, const int UNUSED(mval[2]))
                  +values.scale * shell_angle_to_dist((float)M_PI_2 + values.angle));
   }
 
-  /* TODO(campbell): xform, compensate object center. */
+  /* TODO(@campbellbarton): xform, compensate object center. */
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
 
     float warp_sta_local[3];

@@ -173,7 +173,7 @@ MFVariable &MFProcedure::new_variable(MFDataType data_type, std::string name)
   MFVariable &variable = *allocator_.construct<MFVariable>().release();
   variable.name_ = std::move(name);
   variable.data_type_ = data_type;
-  variable.id_ = variables_.size();
+  variable.index_in_graph_ = variables_.size();
   variables_.append(&variable);
   return variable;
 }
@@ -314,7 +314,7 @@ bool MFProcedure::validate_all_params_provided() const
     const MultiFunction &fn = instruction->fn();
     for (const int param_index : fn.param_indices()) {
       const MFParamType param_type = fn.param_type(param_index);
-      if (param_type.category() == MFParamType::SingleOutput) {
+      if (param_type.category() == MFParamCategory::SingleOutput) {
         /* Single outputs are optional. */
         continue;
       }
@@ -753,7 +753,7 @@ class MFProcedureDotExport {
       ss << "null";
     }
     else {
-      ss << "$" << variable->id();
+      ss << "$" << variable->index_in_procedure();
       if (!variable->name().is_empty()) {
         ss << "(" << variable->name() << ")";
       }
@@ -801,12 +801,12 @@ class MFProcedureDotExport {
     variable_to_string(instruction.variable(), ss);
   }
 
-  void instruction_to_string(const MFDummyInstruction &UNUSED(instruction), std::stringstream &ss)
+  void instruction_to_string(const MFDummyInstruction & /*instruction*/, std::stringstream &ss)
   {
     instruction_name_format("Dummy ", ss);
   }
 
-  void instruction_to_string(const MFReturnInstruction &UNUSED(instruction), std::stringstream &ss)
+  void instruction_to_string(const MFReturnInstruction & /*instruction*/, std::stringstream &ss)
   {
     instruction_name_format("Return ", ss);
 

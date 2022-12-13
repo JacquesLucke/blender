@@ -120,7 +120,7 @@ Utilities
      Updates git and all submodules but not svn.
 
    * format:
-     Format source code using clang (uses PATHS if passed in). For example::
+     Format source code using clang-format & autopep8 (uses PATHS if passed in). For example::
 
         make format PATHS="source/blender/blenlib source/blender/blenkernel"
 
@@ -130,6 +130,7 @@ Environment Variables
    * BUILD_DIR:             Override default build path.
    * PYTHON:                Use this for the Python command (used for checking tools).
    * NPROCS:                Number of processes to use building (auto-detect when omitted).
+   * AUTOPEP8:              Command used for Python code-formatting (used for the format target).
 
 Documentation Targets
    Not associated with building Blender.
@@ -161,6 +162,7 @@ CPU:=$(shell uname -m)
 # Source and Build DIR's
 BLENDER_DIR:=$(shell pwd -P)
 BUILD_TYPE:=Release
+BLENDER_IS_PYTHON_MODULE:=
 
 # CMake arguments, assigned to local variable to make it mutable.
 CMAKE_CONFIG_ARGS := $(BUILD_CMAKE_ARGS)
@@ -206,10 +208,40 @@ ifeq ($(OS_NCASE),darwin)
 	endif
 endif
 
-# -----------------------------------------------------------------------------
-# additional targets for the build configuration
+# Set the LIBDIR, an empty string when not found.
+LIBDIR:=$(wildcard ../lib/${OS_NCASE}_${CPU})
+ifeq (, $(LIBDIR))
+	LIBDIR:=$(wildcard ../lib/${OS_NCASE}_centos7_${CPU})
+endif
+ifeq (, $(LIBDIR))
+	LIBDIR:=$(wildcard ../lib/${OS_NCASE})
+endif
 
-# support 'make debug'
+# Use the autopep8 module in ../lib/ (which can be executed via Python directly).
+# Otherwise the "autopep8" command can be used.
+ifndef AUTOPEP8
+	ifneq (, $(LIBDIR))
+		AUTOPEP8:=$(wildcard $(LIBDIR)/python/lib/python3.10/site-packages/autopep8.py)
+	endif
+	ifeq (, $(AUTOPEP8))
+		AUTOPEP8:=autopep8
+	endif
+endif
+
+
+# -----------------------------------------------------------------------------
+# Additional targets for the build configuration
+
+# NOTE: These targets can be combined and are applied in reverse order listed here.
+# So it's important that `bpy` comes before `release` (for example)
+# `make bpy release` first loads `release` configuration, then `bpy`.
+# This is important as `bpy` will turn off some settings enabled by release.
+
+ifneq "$(findstring bpy, $(MAKECMDGOALS))" ""
+	BUILD_DIR:=$(BUILD_DIR)_bpy
+	CMAKE_CONFIG_ARGS:=-C"$(BLENDER_DIR)/build_files/cmake/config/bpy_module.cmake" $(CMAKE_CONFIG_ARGS)
+	BLENDER_IS_PYTHON_MODULE:=1
+endif
 ifneq "$(findstring debug, $(MAKECMDGOALS))" ""
 	BUILD_DIR:=$(BUILD_DIR)_debug
 	BUILD_TYPE:=Debug
@@ -233,10 +265,6 @@ endif
 ifneq "$(findstring headless, $(MAKECMDGOALS))" ""
 	BUILD_DIR:=$(BUILD_DIR)_headless
 	CMAKE_CONFIG_ARGS:=-C"$(BLENDER_DIR)/build_files/cmake/config/blender_headless.cmake" $(CMAKE_CONFIG_ARGS)
-endif
-ifneq "$(findstring bpy, $(MAKECMDGOALS))" ""
-	BUILD_DIR:=$(BUILD_DIR)_bpy
-	CMAKE_CONFIG_ARGS:=-C"$(BLENDER_DIR)/build_files/cmake/config/bpy_module.cmake" $(CMAKE_CONFIG_ARGS)
 endif
 
 ifneq "$(findstring developer, $(MAKECMDGOALS))" ""
@@ -275,8 +303,10 @@ endif
 # use the default build path can still use utility helpers.
 ifeq ($(OS), Darwin)
 	BLENDER_BIN?="$(BUILD_DIR)/bin/Blender.app/Contents/MacOS/Blender"
+	BLENDER_BIN_DIR?="$(BUILD_DIR)/bin/Blender.app/Contents/MacOS/Blender"
 else
 	BLENDER_BIN?="$(BUILD_DIR)/bin/blender"
+	BLENDER_BIN_DIR?="$(BUILD_DIR)/bin"
 endif
 
 
@@ -333,8 +363,12 @@ all: .FORCE
 	@echo Building Blender ...
 	$(BUILD_COMMAND) -C "$(BUILD_DIR)" -j $(NPROCS) install
 	@echo
-	@echo edit build configuration with: "$(BUILD_DIR)/CMakeCache.txt" run make again to rebuild.
-	@echo Blender successfully built, run from: $(BLENDER_BIN)
+	@echo Edit build configuration with: \"$(BUILD_DIR)/CMakeCache.txt\" run make again to rebuild.
+	@if test -z "$(BLENDER_IS_PYTHON_MODULE)"; then \
+		echo Blender successfully built, run from: $(BLENDER_BIN); \
+	else \
+		echo Blender successfully built as a Python module, \"bpy\" can be imported from: $(BLENDER_BIN_DIR); \
+	fi
 	@echo
 
 debug: all
@@ -527,8 +561,8 @@ update_code: .FORCE
 	@$(PYTHON) ./build_files/utils/make_update.py --no-libraries
 
 format: .FORCE
-	@PATH="../lib/${OS_NCASE}_${CPU}/llvm/bin/:../lib/${OS_NCASE}_centos7_${CPU}/llvm/bin/:../lib/${OS_NCASE}/llvm/bin/:$(PATH)" \
-	    $(PYTHON) source/tools/utils_maintenance/clang_format_paths.py $(PATHS)
+	@PATH="${LIBDIR}/llvm/bin/:$(PATH)" $(PYTHON) source/tools/utils_maintenance/clang_format_paths.py $(PATHS)
+	@$(PYTHON) source/tools/utils_maintenance/autopep8_format_paths.py --autopep8-command="$(AUTOPEP8)" $(PATHS)
 
 
 # -----------------------------------------------------------------------------

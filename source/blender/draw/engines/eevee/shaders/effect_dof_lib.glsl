@@ -2,8 +2,6 @@
 #pragma BLENDER_REQUIRE(common_view_lib.glsl)
 #pragma BLENDER_REQUIRE(common_math_lib.glsl)
 
-uniform vec4 cocParams;
-
 #define cocMul cocParams[0]  /* distance * aperturesize * invsensorsize */
 #define cocBias cocParams[1] /* aperturesize * invsensorsize */
 #define cocNear cocParams[2] /* Near view depths value. */
@@ -334,7 +332,15 @@ struct DofGatherData {
   float layer_opacity;
 };
 
-#define GATHER_DATA_INIT DofGatherData(vec4(0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+#ifdef GPU_METAL
+/* C++ struct initialization. */
+#  define GATHER_DATA_INIT \
+    { \
+      vec4(0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0 \
+    }
+#else
+#  define GATHER_DATA_INIT DofGatherData(vec4(0.0), 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+#endif
 
 void dof_gather_ammend_weight(inout DofGatherData sample_data, float weight)
 {

@@ -67,7 +67,10 @@ static Scene *scene_add(Main *bmain, Scene *scene_old, eSceneCopyMethod method)
 }
 
 /** Add a new scene in the sequence editor. */
-static Scene *ED_scene_sequencer_add(Main *bmain, bContext *C, eSceneCopyMethod method)
+Scene *ED_scene_sequencer_add(Main *bmain,
+                              bContext *C,
+                              eSceneCopyMethod method,
+                              const bool assign_strip)
 {
   Sequence *seq = NULL;
   Scene *scene_active = CTX_data_scene(C);
@@ -87,6 +90,11 @@ static Scene *ED_scene_sequencer_add(Main *bmain, bContext *C, eSceneCopyMethod 
   }
 
   Scene *scene_new = scene_add(bmain, scene_strip, method);
+
+  /* If don't need assign the scene to the strip, nothing else to do. */
+  if (!assign_strip) {
+    return scene_new;
+  }
 
   /* As the scene is created in sequencer, do not set the new scene as active.
    * This is useful for story-boarding where we want to keep actual scene active.
@@ -221,7 +229,7 @@ bool ED_scene_view_layer_delete(Main *bmain, Scene *scene, ViewLayer *layer, Rep
 
   BKE_view_layer_free(layer);
 
-  DEG_id_tag_update(&scene->id, 0);
+  DEG_id_tag_update(&scene->id, ID_RECALC_BASE_FLAGS);
   DEG_relations_tag_update(bmain);
   WM_main_add_notifier(NC_SCENE | ND_LAYER | NA_REMOVED, scene);
 
@@ -278,6 +286,7 @@ static void SCENE_OT_new(wmOperatorType *ot)
 
   /* properties */
   ot->prop = RNA_def_enum(ot->srna, "type", scene_new_items, SCE_COPY_NEW, "Type", "");
+  RNA_def_property_translation_context(ot->prop, BLT_I18NCONTEXT_ID_SCENE);
 }
 
 /** \} */
@@ -291,7 +300,7 @@ static int scene_new_sequencer_exec(bContext *C, wmOperator *op)
   Main *bmain = CTX_data_main(C);
   int type = RNA_enum_get(op->ptr, "type");
 
-  if (ED_scene_sequencer_add(bmain, C, type) == NULL) {
+  if (ED_scene_sequencer_add(bmain, C, type, true) == NULL) {
     return OPERATOR_CANCELLED;
   }
 
@@ -325,7 +334,7 @@ static const EnumPropertyItem *scene_new_sequencer_enum_itemf(bContext *C,
   else {
     Scene *scene = CTX_data_scene(C);
     Sequence *seq = SEQ_select_active_get(scene);
-    if ((seq && (seq->type == SEQ_TYPE_SCENE) && (seq->scene != NULL))) {
+    if (seq && (seq->type == SEQ_TYPE_SCENE) && (seq->scene != NULL)) {
       has_scene_or_no_context = true;
     }
   }

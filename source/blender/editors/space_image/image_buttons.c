@@ -654,7 +654,7 @@ static void uiblock_layer_pass_buttons(uiLayout *layout,
 
     /* view */
     if (BLI_listbase_count_at_most(&rr->views, 2) > 1 &&
-        ((!show_stereo) || (!RE_RenderResult_is_stereo(rr)))) {
+        ((!show_stereo) || !RE_RenderResult_is_stereo(rr))) {
       rview = BLI_findlink(&rr->views, iuser->view);
       display_name = rview ? rview->name : "";
 
@@ -845,7 +845,10 @@ void uiTemplateImage(uiLayout *layout,
 
     row = uiLayoutRow(row, true);
     uiLayoutSetEnabled(row, is_packed == false);
-    uiItemR(row, &imaptr, "filepath", 0, "", ICON_NONE);
+
+    prop = RNA_struct_find_property(&imaptr, "filepath");
+    uiDefAutoButR(block, &imaptr, prop, -1, "", ICON_NONE, 0, 0, 200, UI_UNIT_Y);
+    uiItemO(row, "", ICON_FILEBROWSER, "image.file_browse");
     uiItemO(row, "", ICON_FILE_REFRESH, "image.reload");
   }
 
@@ -866,7 +869,8 @@ void uiTemplateImage(uiLayout *layout,
     uiItemS(col);
 
     uiItemR(col, &imaptr, "generated_type", UI_ITEM_R_EXPAND, IFACE_("Type"), ICON_NONE);
-    if (ima->gen_type == IMA_GENTYPE_BLANK) {
+    ImageTile *base_tile = BKE_image_get_tile(ima, 0);
+    if (base_tile->gen_type == IMA_GENTYPE_BLANK) {
       uiItemR(col, &imaptr, "generated_color", 0, NULL, ICON_NONE);
     }
   }
@@ -918,7 +922,7 @@ void uiTemplateImage(uiLayout *layout,
     }
   }
 
-  /* Colorspace and alpha */
+  /* Color-space and alpha. */
   {
     uiItemS(layout);
 
@@ -948,6 +952,7 @@ void uiTemplateImage(uiLayout *layout,
       }
 
       uiItemR(col, &imaptr, "use_view_as_render", 0, NULL, ICON_NONE);
+      uiItemR(col, &imaptr, "seam_margin", 0, NULL, ICON_NONE);
     }
   }
 
@@ -970,8 +975,16 @@ void uiTemplateImageSettings(uiLayout *layout, PointerRNA *imfptr, bool color_ma
   uiLayoutSetPropDecorate(col, false);
 
   uiItemR(col, imfptr, "file_format", 0, NULL, ICON_NONE);
-  uiItemR(
-      uiLayoutRow(col, true), imfptr, "color_mode", UI_ITEM_R_EXPAND, IFACE_("Color"), ICON_NONE);
+
+  /* Multi-layer always saves raw unmodified channels. */
+  if (imf->imtype != R_IMF_IMTYPE_MULTILAYER) {
+    uiItemR(uiLayoutRow(col, true),
+            imfptr,
+            "color_mode",
+            UI_ITEM_R_EXPAND,
+            IFACE_("Color"),
+            ICON_NONE);
+  }
 
   /* only display depth setting if multiple depths can be used */
   if (ELEM(depth_ok,
@@ -1208,6 +1221,11 @@ void uiTemplateImageInfo(uiLayout *layout, bContext *C, Image *ima, ImageUser *i
       ofs += BLI_strncpy_rlen(str + ofs, TIP_(" + Z"), len - ofs);
     }
 
+    eGPUTextureFormat texture_format = IMB_gpu_get_texture_format(
+        ibuf, ima->flag & IMA_HIGH_BITDEPTH, ibuf->planes >= 8);
+    const char *texture_format_description = GPU_texture_format_description(texture_format);
+    ofs += BLI_snprintf_rlen(str + ofs, len - ofs, TIP_(",  %s"), texture_format_description);
+
     uiItemL(col, str, ICON_NONE);
   }
 
@@ -1215,7 +1233,7 @@ void uiTemplateImageInfo(uiLayout *layout, bContext *C, Image *ima, ImageUser *i
   if (ELEM(ima->source, IMA_SRC_SEQUENCE, IMA_SRC_MOVIE)) {
     /* don't use iuser->framenr directly because it may not be updated if auto-refresh is off */
     Scene *scene = CTX_data_scene(C);
-    const int framenr = BKE_image_user_frame_get(iuser, CFRA, NULL);
+    const int framenr = BKE_image_user_frame_get(iuser, scene->r.cfra, NULL);
     char str[MAX_IMAGE_INFO_LEN];
     int duration = 0;
 

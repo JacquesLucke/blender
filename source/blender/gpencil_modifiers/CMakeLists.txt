@@ -47,6 +47,7 @@ set(SRC
   intern/MOD_gpencilnoise.c
   intern/MOD_gpenciloffset.c
   intern/MOD_gpencilopacity.c
+  intern/MOD_gpenciloutline.c
   intern/MOD_gpencilshrinkwrap.c
   intern/MOD_gpencilsimplify.c
   intern/MOD_gpencilsmooth.c
@@ -65,19 +66,34 @@ set(SRC
 
   # Lineart code
   intern/lineart/lineart_chain.c
-  intern/lineart/lineart_cpu.c
+  intern/lineart/lineart_cpp_bridge.cc
+  intern/lineart/lineart_cpu.cc
   intern/lineart/lineart_ops.c
+  intern/lineart/lineart_shadow.c
   intern/lineart/lineart_util.c
 
   intern/lineart/MOD_lineart.h
   intern/lineart/lineart_intern.h
-
 )
+
+if(WITH_TBB)
+add_definitions(-DWITH_TBB)
+if(WIN32)
+  # TBB includes Windows.h which will define min/max macros
+  # that will collide with the stl versions.
+  add_definitions(-DNOMINMAX)
+endif()
+list(APPEND INC_SYS
+  ${TBB_INCLUDE_DIRS}
+)
+
+list(APPEND LIB
+  ${TBB_LIBRARIES}
+)
+endif()
 
 set(LIB
 )
-
-add_definitions(${GL_DEFINITIONS})
 
 blender_add_lib(bf_gpencil_modifiers "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")
 

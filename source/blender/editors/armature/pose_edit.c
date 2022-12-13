@@ -222,16 +222,15 @@ static int pose_calculate_paths_invoke(bContext *C, wmOperator *op, const wmEven
     bAnimVizSettings *avs = &ob->pose->avs;
     PointerRNA avs_ptr;
 
-    RNA_int_set(op->ptr, "start_frame", avs->path_sf);
-    RNA_int_set(op->ptr, "end_frame", avs->path_ef);
-
     RNA_pointer_create(NULL, &RNA_AnimVizMotionPaths, avs, &avs_ptr);
+    RNA_enum_set(op->ptr, "display_type", RNA_enum_get(&avs_ptr, "type"));
+    RNA_enum_set(op->ptr, "range", RNA_enum_get(&avs_ptr, "range"));
     RNA_enum_set(op->ptr, "bake_location", RNA_enum_get(&avs_ptr, "bake_location"));
   }
 
   /* show popup dialog to allow editing of range... */
   /* FIXME: hard-coded dimensions here are just arbitrary. */
-  return WM_operator_props_dialog_popup(C, op, 200);
+  return WM_operator_props_dialog_popup(C, op, 270);
 }
 
 /* For the object with pose/action: create path curves for selected bones
@@ -251,8 +250,9 @@ static int pose_calculate_paths_exec(bContext *C, wmOperator *op)
     bAnimVizSettings *avs = &ob->pose->avs;
     PointerRNA avs_ptr;
 
-    avs->path_sf = RNA_int_get(op->ptr, "start_frame");
-    avs->path_ef = RNA_int_get(op->ptr, "end_frame");
+    avs->path_type = RNA_enum_get(op->ptr, "display_type");
+    avs->path_range = RNA_enum_get(op->ptr, "range");
+    animviz_motionpath_compute_range(ob, scene);
 
     RNA_pointer_create(NULL, &RNA_AnimVizMotionPaths, avs, &avs_ptr);
     RNA_enum_set(&avs_ptr, "bake_location", RNA_enum_get(op->ptr, "bake_location"));
@@ -299,24 +299,18 @@ void POSE_OT_paths_calculate(wmOperatorType *ot)
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
 
   /* properties */
-  RNA_def_int(ot->srna,
-              "start_frame",
-              1,
-              MINAFRAME,
-              MAXFRAME,
-              "Start",
-              "First frame to calculate bone paths on",
-              MINFRAME,
-              MAXFRAME / 2.0);
-  RNA_def_int(ot->srna,
-              "end_frame",
-              250,
-              MINAFRAME,
-              MAXFRAME,
-              "End",
-              "Last frame to calculate bone paths on",
-              MINFRAME,
-              MAXFRAME / 2.0);
+  RNA_def_enum(ot->srna,
+               "display_type",
+               rna_enum_motionpath_display_type_items,
+               MOTIONPATH_TYPE_RANGE,
+               "Display type",
+               "");
+  RNA_def_enum(ot->srna,
+               "range",
+               rna_enum_motionpath_range_items,
+               MOTIONPATH_RANGE_SCENE,
+               "Computation Range",
+               "");
 
   RNA_def_enum(ot->srna,
                "bake_location",
@@ -338,7 +332,7 @@ static bool pose_update_paths_poll(bContext *C)
   return false;
 }
 
-static int pose_update_paths_exec(bContext *C, wmOperator *UNUSED(op))
+static int pose_update_paths_exec(bContext *C, wmOperator *op)
 {
   Object *ob = BKE_object_pose_armature_get(CTX_data_active_object(C));
   Scene *scene = CTX_data_scene(C);
@@ -346,6 +340,13 @@ static int pose_update_paths_exec(bContext *C, wmOperator *UNUSED(op))
   if (ELEM(NULL, ob, scene)) {
     return OPERATOR_CANCELLED;
   }
+  animviz_motionpath_compute_range(ob, scene);
+
+  /* set up path data for bones being calculated */
+  CTX_DATA_BEGIN (C, bPoseChannel *, pchan, selected_pose_bones_from_active_object) {
+    animviz_verify_motionpaths(op->reports, scene, ob, pchan);
+  }
+  CTX_DATA_END;
 
   /* Calculate the bones that now have motion-paths. */
   /* TODO: only make for the selected bones? */
@@ -498,11 +499,12 @@ void POSE_OT_paths_range_update(wmOperatorType *ot)
 static int pose_flip_names_exec(bContext *C, wmOperator *op)
 {
   Main *bmain = CTX_data_main(C);
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   View3D *v3d = CTX_wm_view3d(C);
   const bool do_strip_numbers = RNA_boolean_get(op->ptr, "do_strip_numbers");
 
-  FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob) {
+  FOREACH_OBJECT_IN_MODE_BEGIN (scene, view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob) {
     bArmature *arm = ob->data;
     ListBase bones_names = {NULL};
 
@@ -690,7 +692,7 @@ static int pose_armature_layers_showall_exec(bContext *C, wmOperator *op)
   Object *ob = CTX_data_active_object(C);
   bArmature *arm = armature_layers_get_data(&ob);
   PointerRNA ptr;
-  int maxLayers = (RNA_boolean_get(op->ptr, "all")) ? 32 : 16;
+  int maxLayers = RNA_boolean_get(op->ptr, "all") ? 32 : 16;
   /* hardcoded for now - we can only have 32 armature layers, so this should be fine... */
   bool layers[32] = {false};
 
@@ -855,9 +857,10 @@ static int pose_bone_layers_exec(bContext *C, wmOperator *op)
   struct Main *bmain = CTX_data_main(C);
   wmWindow *win = CTX_wm_window(C);
   View3D *v3d = CTX_wm_view3d(C); /* This may be NULL in a lot of cases. */
+  const Scene *scene = WM_window_get_active_scene(win);
   ViewLayer *view_layer = WM_window_get_active_view_layer(win);
 
-  FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob_iter) {
+  FOREACH_OBJECT_IN_MODE_BEGIN (scene, view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob_iter) {
     bArmature *arm = ob_iter->data;
     BKE_pose_ensure(bmain, ob_iter, arm, true);
   }
@@ -951,6 +954,7 @@ static int armature_bone_layers_exec(bContext *C, wmOperator *op)
 
   /* NOTE: notifier might evolve. */
   WM_event_add_notifier(C, NC_OBJECT | ND_POSE, ob);
+  DEG_id_tag_update((ID *)ob->data, ID_RECALC_PARAMETERS);
 
   return OPERATOR_FINISHED;
 }
@@ -1000,9 +1004,11 @@ static int hide_pose_bone_fn(Object *ob, Bone *bone, void *ptr)
 /* active object is armature in posemode, poll checked */
 static int pose_hide_exec(bContext *C, wmOperator *op)
 {
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   uint objects_len;
-  Object **objects = BKE_object_pose_array_get_unique(view_layer, CTX_wm_view3d(C), &objects_len);
+  Object **objects = BKE_object_pose_array_get_unique(
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
   bool changed_multi = false;
 
   const int hide_select = !RNA_boolean_get(op->ptr, "unselected");
@@ -1065,9 +1071,11 @@ static int show_pose_bone_cb(Object *ob, Bone *bone, void *data)
 /* active object is armature in posemode, poll checked */
 static int pose_reveal_exec(bContext *C, wmOperator *op)
 {
+  const Scene *scene = CTX_data_scene(C);
   ViewLayer *view_layer = CTX_data_view_layer(C);
   uint objects_len;
-  Object **objects = BKE_object_pose_array_get_unique(view_layer, CTX_wm_view3d(C), &objects_len);
+  Object **objects = BKE_object_pose_array_get_unique(
+      scene, view_layer, CTX_wm_view3d(C), &objects_len);
   bool changed_multi = false;
   const bool select = RNA_boolean_get(op->ptr, "select");
   void *select_p = POINTER_FROM_INT(select);
@@ -1117,7 +1125,7 @@ static int pose_flip_quats_exec(bContext *C, wmOperator *UNUSED(op))
 
   ViewLayer *view_layer = CTX_data_view_layer(C);
   View3D *v3d = CTX_wm_view3d(C);
-  FOREACH_OBJECT_IN_MODE_BEGIN (view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob_iter) {
+  FOREACH_OBJECT_IN_MODE_BEGIN (scene, view_layer, v3d, OB_ARMATURE, OB_MODE_POSE, ob_iter) {
     bool changed = false;
     /* loop through all selected pchans, flipping and keying (as needed) */
     FOREACH_PCHAN_SELECTED_IN_OBJECT_BEGIN (ob_iter, pchan) {

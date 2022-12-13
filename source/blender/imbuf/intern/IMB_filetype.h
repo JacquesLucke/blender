@@ -36,14 +36,19 @@ typedef struct ImFileType {
                         char colorspace[IM_MAX_SPACE]);
   /** Load an image from a file. */
   struct ImBuf *(*load_filepath)(const char *filepath, int flags, char colorspace[IM_MAX_SPACE]);
+  /**
+   * Load/Create a thumbnail image from a filepath. `max_thumb_size` is maximum size of either
+   * dimension, so can return less on either or both. Should, if possible and performant, return
+   * dimensions of the full-size image in r_width & r_height.
+   */
+  struct ImBuf *(*load_filepath_thumbnail)(const char *filepath,
+                                           int flags,
+                                           size_t max_thumb_size,
+                                           char colorspace[IM_MAX_SPACE],
+                                           size_t *r_width,
+                                           size_t *r_height);
   /** Save to a file (or memory if #IB_mem is set in `flags` and the format supports it). */
   bool (*save)(struct ImBuf *ibuf, const char *filepath, int flags);
-  void (*load_tile)(struct ImBuf *ibuf,
-                    const unsigned char *mem,
-                    size_t size,
-                    int tx,
-                    int ty,
-                    unsigned int *rect);
 
   int flag;
 
@@ -61,15 +66,6 @@ const ImFileType *IMB_file_type_from_ibuf(const struct ImBuf *ibuf);
 
 void imb_filetypes_init(void);
 void imb_filetypes_exit(void);
-
-void imb_tile_cache_init(void);
-void imb_tile_cache_exit(void);
-
-void imb_loadtile(struct ImBuf *ibuf, int tx, int ty, unsigned int *rect);
-/**
- * External free.
- */
-void imb_tile_cache_tile_free(struct ImBuf *ibuf, int tx, int ty);
 
 /** \} */
 
@@ -143,6 +139,12 @@ struct ImBuf *imb_load_jpeg(const unsigned char *buffer,
                             size_t size,
                             int flags,
                             char colorspace[IM_MAX_SPACE]);
+struct ImBuf *imb_thumbnail_jpeg(const char *filepath,
+                                 int flags,
+                                 size_t max_thumb_size,
+                                 char colorspace[IM_MAX_SPACE],
+                                 size_t *r_width,
+                                 size_t *r_height);
 
 /** \} */
 
@@ -218,16 +220,13 @@ struct ImBuf *imb_loadtiff(const unsigned char *mem,
                            size_t size,
                            int flags,
                            char colorspace[IM_MAX_SPACE]);
-void imb_loadtiletiff(
-    struct ImBuf *ibuf, const unsigned char *mem, size_t size, int tx, int ty, unsigned int *rect);
 /**
  * Saves a TIFF file.
  *
- * #ImBuf structures with 1, 3 or 4 bytes per pixel (GRAY, RGB, RGBA
- * respectively) are accepted, and interpreted correctly.  Note that the TIFF
- * convention is to use pre-multiplied alpha, which can be achieved within
- * Blender by setting "Premul" alpha handling.  Other alpha conventions are
- * not strictly correct, but are permitted anyhow.
+ * #ImBuf structures with 1, 3 or 4 bytes per pixel (GRAY, RGB, RGBA respectively)
+ * are accepted, and interpreted correctly. Note that the TIFF convention is to use
+ * pre-multiplied alpha, which can be achieved within Blender by setting `premul` alpha handling.
+ * Other alpha conventions are not strictly correct, but are permitted anyhow.
  *
  * \param ibuf: Image buffer.
  * \param filepath: Name of the TIFF file to create.
@@ -248,6 +247,12 @@ struct ImBuf *imb_loadwebp(const unsigned char *mem,
                            size_t size,
                            int flags,
                            char colorspace[IM_MAX_SPACE]);
+struct ImBuf *imb_load_filepath_thumbnail_webp(const char *filepath,
+                                               const int flags,
+                                               const size_t max_thumb_size,
+                                               char colorspace[],
+                                               size_t *r_width,
+                                               size_t *r_height);
 bool imb_savewebp(struct ImBuf *ibuf, const char *name, int flags);
 
 /** \} */

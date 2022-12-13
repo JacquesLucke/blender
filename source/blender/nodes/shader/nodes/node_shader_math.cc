@@ -61,8 +61,9 @@ static void sh_node_math_gather_link_searches(GatherLinkSearchOpParams &params)
            ELEM(item->value, NODE_MATH_COMPARE, NODE_MATH_GREATER_THAN, NODE_MATH_LESS_THAN)) ?
               -1 :
               weight;
-      params.add_item(
-          IFACE_(item->name), SocketSearchOp{"Value", (NodeMathOperation)item->value}, gn_weight);
+      params.add_item(CTX_IFACE_(BLT_I18NCONTEXT_ID_NODETREE, item->name),
+                      SocketSearchOp{"Value", (NodeMathOperation)item->value},
+                      gn_weight);
     }
   }
 }
@@ -81,7 +82,7 @@ static const char *gpu_shader_get_name(int mode)
 
 static int gpu_shader_math(GPUMaterial *mat,
                            bNode *node,
-                           bNodeExecData *UNUSED(execdata),
+                           bNodeExecData * /*execdata*/,
                            GPUNodeStack *in,
                            GPUNodeStack *out)
 {
@@ -101,33 +102,35 @@ static int gpu_shader_math(GPUMaterial *mat,
   return 0;
 }
 
-static const fn::MultiFunction *get_base_multi_function(bNode &node)
+static const fn::MultiFunction *get_base_multi_function(const bNode &node)
 {
   const int mode = node.custom1;
   const fn::MultiFunction *base_fn = nullptr;
 
-  try_dispatch_float_math_fl_to_fl(mode, [&](auto function, const FloatMathOperationInfo &info) {
-    static fn::CustomMF_SI_SO<float, float> fn{info.title_case_name.c_str(), function};
-    base_fn = &fn;
-  });
+  try_dispatch_float_math_fl_to_fl(
+      mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
+        static fn::CustomMF_SI_SO<float, float> fn{
+            info.title_case_name.c_str(), function, devi_fn};
+        base_fn = &fn;
+      });
   if (base_fn != nullptr) {
     return base_fn;
   }
 
-  try_dispatch_float_math_fl_fl_to_fl(mode,
-                                      [&](auto function, const FloatMathOperationInfo &info) {
-                                        static fn::CustomMF_SI_SI_SO<float, float, float> fn{
-                                            info.title_case_name.c_str(), function};
-                                        base_fn = &fn;
-                                      });
+  try_dispatch_float_math_fl_fl_to_fl(
+      mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
+        static fn::CustomMF_SI_SI_SO<float, float, float> fn{
+            info.title_case_name.c_str(), function, devi_fn};
+        base_fn = &fn;
+      });
   if (base_fn != nullptr) {
     return base_fn;
   }
 
   try_dispatch_float_math_fl_fl_fl_to_fl(
-      mode, [&](auto function, const FloatMathOperationInfo &info) {
+      mode, [&](auto devi_fn, auto function, const FloatMathOperationInfo &info) {
         static fn::CustomMF_SI_SI_SI_SO<float, float, float, float> fn{
-            info.title_case_name.c_str(), function};
+            info.title_case_name.c_str(), function, devi_fn};
         base_fn = &fn;
       });
   if (base_fn != nullptr) {
@@ -187,8 +190,8 @@ void register_node_type_sh_math()
   sh_fn_node_type_base(&ntype, SH_NODE_MATH, "Math", NODE_CLASS_CONVERTER);
   ntype.declare = file_ns::sh_node_math_declare;
   ntype.labelfunc = node_math_label;
-  node_type_gpu(&ntype, file_ns::gpu_shader_math);
-  node_type_update(&ntype, node_math_update);
+  ntype.gpu_fn = file_ns::gpu_shader_math;
+  ntype.updatefunc = node_math_update;
   ntype.build_multi_function = file_ns::sh_node_math_build_multi_function;
   ntype.gather_link_search_ops = file_ns::sh_node_math_gather_link_searches;
 

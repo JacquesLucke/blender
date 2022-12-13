@@ -101,6 +101,7 @@ typedef enum eFileAttributes {
   FILE_ATTR_MOUNT_POINT = 1 << 14,    /* Volume mounted as a folder. */
   FILE_ATTR_HARDLINK = 1 << 15,       /* Duplicated directory entry. */
 } eFileAttributes;
+ENUM_OPERATORS(eFileAttributes, FILE_ATTR_HARDLINK);
 
 #define FILE_ATTR_ANY_LINK \
   (FILE_ATTR_ALIAS | FILE_ATTR_REPARSE_POINT | FILE_ATTR_SYMLINK | FILE_ATTR_JUNCTION_POINT | \
@@ -178,7 +179,7 @@ void BLI_filelist_free(struct direntry *filelist, unsigned int nrentries);
  * Convert given entry's size into human-readable strings.
  */
 void BLI_filelist_entry_size_to_string(const struct stat *st,
-                                       uint64_t sz,
+                                       uint64_t st_size_fallback,
                                        bool compact,
                                        char r_size[FILELIST_DIRENTRY_SIZE_LEN]);
 /**
@@ -215,10 +216,10 @@ void BLI_filelist_entry_datetime_to_string(const struct stat *st,
 /** \name Files
  * \{ */
 
-FILE *BLI_fopen(const char *filename, const char *mode) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-void *BLI_gzopen(const char *filename, const char *mode) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-int BLI_open(const char *filename, int oflag, int pmode) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
-int BLI_access(const char *filename, int mode) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+FILE *BLI_fopen(const char *filepath, const char *mode) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+void *BLI_gzopen(const char *filepath, const char *mode) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+int BLI_open(const char *filepath, int oflag, int pmode) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+int BLI_access(const char *filepath, int mode) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 
 /**
  * Returns true if the file with the specified name can be written.
@@ -226,7 +227,7 @@ int BLI_access(const char *filename, int mode) ATTR_WARN_UNUSED_RESULT ATTR_NONN
  * to the real UID and GID of the process, not its effective UID and GID.
  * This shouldn't matter for Blender, which is not going to run privileged anyway.
  */
-bool BLI_file_is_writable(const char *file) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
+bool BLI_file_is_writable(const char *filepath) ATTR_WARN_UNUSED_RESULT ATTR_NONNULL();
 /**
  * Creates the file with nothing in it, or updates its last-modified date if it already exists.
  * Returns true if successful (like the unix touch command).
@@ -319,7 +320,7 @@ const char *BLI_expand_tilde(const char *path_with_tilde);
 #    define O_BINARY 0
 #  endif
 #else
-void BLI_get_short_name(char short_name[256], const char *filename);
+void BLI_get_short_name(char short_name[256], const char *filepath);
 #endif
 
 /** \} */

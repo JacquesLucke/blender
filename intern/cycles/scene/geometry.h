@@ -216,12 +216,10 @@ class GeometryManager {
  protected:
   bool displace(Device *device, Scene *scene, Mesh *mesh, Progress &progress);
 
-  void create_volume_mesh(Volume *volume, Progress &progress);
+  void create_volume_mesh(const Scene *scene, Volume *volume, Progress &progress);
 
   /* Attributes */
-  void update_osl_attributes(Device *device,
-                             Scene *scene,
-                             vector<AttributeRequestSet> &geom_attributes);
+  void update_osl_globals(Device *device, Scene *scene);
   void update_svm_attributes(Device *device,
                              DeviceScene *dscene,
                              Scene *scene,

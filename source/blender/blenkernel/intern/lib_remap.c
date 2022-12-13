@@ -27,6 +27,7 @@
 #include "BKE_modifier.h"
 #include "BKE_multires.h"
 #include "BKE_node.h"
+#include "BKE_node_tree_update.h"
 #include "BKE_object.h"
 
 #include "DEG_depsgraph.h"
@@ -75,6 +76,7 @@ static void foreach_libblock_remap_callback_skip(const ID *UNUSED(id_owner),
 {
   ID *id = *id_ptr;
   BLI_assert(id != NULL);
+
   if (is_indirect) {
     id->runtime.remap.skipped_indirect++;
   }
@@ -82,8 +84,9 @@ static void foreach_libblock_remap_callback_skip(const ID *UNUSED(id_owner),
     id->runtime.remap.skipped_direct++;
   }
   else {
-    BLI_assert(0);
+    BLI_assert_unreachable();
   }
+
   if (cb_flag & IDWALK_CB_USER) {
     id->runtime.remap.skipped_refcounted++;
   }
@@ -115,6 +118,11 @@ static void foreach_libblock_remap_callback_apply(ID *id_owner,
                            id_owner,
                            ID_RECALC_COPY_ON_WRITE | ID_RECALC_TRANSFORM | ID_RECALC_GEOMETRY);
     }
+    if (GS(id_owner->name) == ID_NT) {
+      /* Make sure that the node tree is updated after a property in it changed. Ideally, we would
+       * know which nodes property was changed so that only this node is tagged. */
+      BKE_ntree_update_tag_all((bNodeTree *)id_owner);
+    }
   }
   /* Get the new_id pointer. When the mapping is violating never null we should use a NULL
    * pointer otherwise the incorrect users are decreased and increased on the same instance. */
@@ -131,8 +139,8 @@ static void foreach_libblock_remap_callback_apply(ID *id_owner,
       id_us_min(old_id);
     }
     if (new_id != NULL && (force_user_refcount || (new_id->tag & LIB_TAG_NO_MAIN) == 0)) {
-      /* We do not want to handle LIB_TAG_INDIRECT/LIB_TAG_EXTERN here. */
-      new_id->us++;
+      /* Do not handle LIB_TAG_INDIRECT/LIB_TAG_EXTERN here. */
+      id_us_plus_no_lib(new_id);
     }
   }
   else if (cb_flag & IDWALK_CB_USER_ONE) {
@@ -181,7 +189,7 @@ static int foreach_libblock_remap_callback(LibraryIDLinkCallbackData *cb_data)
 
   /* Better remap to NULL than not remapping at all,
    * then we can handle it as a regular remap-to-NULL case. */
-  if ((cb_flag & IDWALK_CB_NEVER_SELF)) {
+  if (cb_flag & IDWALK_CB_NEVER_SELF) {
     id_remapper_options |= ID_REMAP_APPLY_UNMAP_WHEN_REMAPPING_TO_SELF;
   }
 
@@ -317,7 +325,8 @@ static void libblock_remap_data_preprocess(ID *id_owner,
  */
 static void libblock_remap_data_postprocess_object_update(Main *bmain,
                                                           Object *old_ob,
-                                                          Object *new_ob)
+                                                          Object *new_ob,
+                                                          const bool do_sync_collection)
 {
   if (new_ob == NULL) {
     /* In case we unlinked old_ob (new_ob is NULL), the object has already
@@ -331,7 +340,9 @@ static void libblock_remap_data_postprocess_object_update(Main *bmain,
     BKE_collections_object_remove_duplicates(bmain);
   }
 
-  BKE_main_collection_sync_remap(bmain);
+  if (do_sync_collection) {
+    BKE_main_collection_sync_remap(bmain);
+  }
 
   if (old_ob == NULL) {
     for (Object *ob = bmain->objects.first; ob != NULL; ob = ob->id.next) {
@@ -406,7 +417,7 @@ static void libblock_remap_data_update_tags(ID *old_id, ID *new_id, void *user_d
     /* XXX We may not want to always 'transfer' fake-user from old to new id...
      *     Think for now it's desired behavior though,
      *     we can always add an option (flag) to control this later if needed. */
-    if (old_id && (old_id->flag & LIB_FAKEUSER)) {
+    if (old_id != NULL && (old_id->flag & LIB_FAKEUSER) && new_id != NULL) {
       id_fake_user_clear(old_id);
       id_fake_user_set(new_id);
     }
@@ -414,7 +425,7 @@ static void libblock_remap_data_update_tags(ID *old_id, ID *new_id, void *user_d
     id_us_clear_real(old_id);
   }
 
-  if (new_id && (new_id->tag & LIB_TAG_INDIRECT) &&
+  if (new_id != NULL && (new_id->tag & LIB_TAG_INDIRECT) &&
       (new_id->runtime.remap.status & ID_REMAP_IS_LINKED_DIRECT)) {
     new_id->tag &= ~LIB_TAG_INDIRECT;
     new_id->flag &= ~LIB_INDIRECT_WEAK_LINK;
@@ -423,10 +434,13 @@ static void libblock_remap_data_update_tags(ID *old_id, ID *new_id, void *user_d
 }
 
 static void libblock_remap_reset_remapping_status_callback(ID *old_id,
-                                                           ID *UNUSED(new_id),
+                                                           ID *new_id,
                                                            void *UNUSED(user_data))
 {
   BKE_libblock_runtime_reset_remapping_status(old_id);
+  if (new_id != NULL) {
+    BKE_libblock_runtime_reset_remapping_status(new_id);
+  }
 }
 
 /**
@@ -449,7 +463,7 @@ static void libblock_remap_reset_remapping_status_callback(ID *old_id,
  * \param old_id: the data-block to dereference (may be NULL if \a id is non-NULL).
  * \param new_id: the new data-block to replace \a old_id references with (may be NULL).
  * \param r_id_remap_data: if non-NULL, the IDRemap struct to use
- * (uselful to retrieve info about remapping process).
+ * (useful to retrieve info about remapping process).
  */
 ATTR_NONNULL(1)
 static void libblock_remap_data(Main *bmain,
@@ -550,7 +564,6 @@ static void libblock_remap_foreach_idpair_cb(ID *old_id, ID *new_id, void *user_
                new_id ? new_id->name : "<NULL>",
                new_id,
                old_id->us - skipped_refcounted);
-    BLI_assert(0);
   }
 
   const int skipped_direct = old_id->runtime.remap.skipped_direct;
@@ -567,7 +580,8 @@ static void libblock_remap_foreach_idpair_cb(ID *old_id, ID *new_id, void *user_
    * Maybe we should do a per-ID callback for this instead? */
   switch (GS(old_id->name)) {
     case ID_OB:
-      libblock_remap_data_postprocess_object_update(bmain, (Object *)old_id, (Object *)new_id);
+      libblock_remap_data_postprocess_object_update(
+          bmain, (Object *)old_id, (Object *)new_id, true);
       break;
     case ID_GR:
       libblock_remap_data_postprocess_collection_update(
@@ -719,7 +733,7 @@ static void libblock_relink_foreach_idpair_cb(ID *old_id, ID *new_id, void *user
           case ID_OB:
             if (!is_object_update_processed) {
               libblock_remap_data_postprocess_object_update(
-                  bmain, (Object *)old_id, (Object *)new_id);
+                  bmain, (Object *)old_id, (Object *)new_id, true);
               is_object_update_processed = true;
             }
             break;
@@ -781,11 +795,14 @@ void BKE_libblock_relink_multiple(Main *bmain,
                                                (Collection *)id_iter :
                                                ((Scene *)id_iter)->master_collection;
             /* No choice but to check whole objects once, and all children collections. */
-            libblock_remap_data_postprocess_collection_update(bmain, owner_collection, NULL, NULL);
             if (!is_object_update_processed) {
-              libblock_remap_data_postprocess_object_update(bmain, NULL, NULL);
+              /* We only want to affect Object pointers here, not Collection ones, LayerCollections
+               * will be resynced as part of the call to
+               * `libblock_remap_data_postprocess_collection_update` below. */
+              libblock_remap_data_postprocess_object_update(bmain, NULL, NULL, false);
               is_object_update_processed = true;
             }
+            libblock_remap_data_postprocess_collection_update(bmain, owner_collection, NULL, NULL);
             break;
           }
           default:
@@ -806,7 +823,7 @@ void BKE_libblock_relink_ex(
     Main *bmain, void *idv, void *old_idv, void *new_idv, const short remap_flags)
 {
 
-  /* Should be able to replace all _relink() funcs (constraints, rigidbody, etc.) ? */
+  /* Should be able to replace all _relink() functions (constraints, rigidbody, etc.) ? */
 
   ID *id = idv;
   ID *old_id = old_idv;

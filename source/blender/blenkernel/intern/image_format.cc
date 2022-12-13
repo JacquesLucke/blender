@@ -201,6 +201,7 @@ bool BKE_imtype_is_movie(const char imtype)
     case R_IMF_IMTYPE_H264:
     case R_IMF_IMTYPE_THEORA:
     case R_IMF_IMTYPE_XVID:
+    case R_IMF_IMTYPE_AV1:
       return true;
   }
   return false;
@@ -272,7 +273,7 @@ char BKE_imtype_valid_channels(const char imtype, bool write_file)
     case R_IMF_IMTYPE_JP2:
     case R_IMF_IMTYPE_DPX:
     case R_IMF_IMTYPE_WEBP:
-      chan_flag |= IMA_CHAN_FLAG_ALPHA;
+      chan_flag |= IMA_CHAN_FLAG_RGBA;
       break;
   }
 
@@ -433,7 +434,8 @@ static bool do_add_image_extension(char *string,
                 R_IMF_IMTYPE_FFMPEG,
                 R_IMF_IMTYPE_H264,
                 R_IMF_IMTYPE_THEORA,
-                R_IMF_IMTYPE_XVID)) {
+                R_IMF_IMTYPE_XVID,
+                R_IMF_IMTYPE_AV1)) {
     if (!BLI_path_extension_check(string, extension_test = ".png")) {
       extension = extension_test;
     }
@@ -514,12 +516,13 @@ static bool do_add_image_extension(char *string,
 #endif
 #ifdef WITH_WEBP
   else if (imtype == R_IMF_IMTYPE_WEBP) {
-    if (!BLI_path_extension_check(string, extension_test = ".webp"))
+    if (!BLI_path_extension_check(string, extension_test = ".webp")) {
       extension = extension_test;
+    }
   }
 #endif
   else {  //   R_IMF_IMTYPE_AVIRAW, R_IMF_IMTYPE_AVIJPEG, R_IMF_IMTYPE_JPEG90 etc
-    if (!(BLI_path_extension_check_n(string, extension_test = ".jpg", ".jpeg", nullptr))) {
+    if (!BLI_path_extension_check_n(string, extension_test = ".jpg", ".jpeg", nullptr)) {
       extension = extension_test;
     }
   }
@@ -626,7 +629,8 @@ void BKE_image_format_to_imbuf(ImBuf *ibuf, const ImageFormatData *imf)
                 R_IMF_IMTYPE_FFMPEG,
                 R_IMF_IMTYPE_H264,
                 R_IMF_IMTYPE_THEORA,
-                R_IMF_IMTYPE_XVID)) {
+                R_IMF_IMTYPE_XVID,
+                R_IMF_IMTYPE_AV1)) {
     ibuf->ftype = IMB_FTYPE_PNG;
 
     if (imtype == R_IMF_IMTYPE_PNG) {
@@ -908,6 +912,11 @@ void BKE_image_format_from_imbuf(ImageFormatData *im_format, const ImBuf *imbuf)
 
   /* planes */
   im_format->planes = imbuf->planes;
+}
+
+bool BKE_image_format_is_byte(const ImageFormatData *imf)
+{
+  return (imf->depth == R_IMF_CHAN_DEPTH_8) && (BKE_imtype_valid_depths(imf->imtype) & imf->depth);
 }
 
 /* Color Management */

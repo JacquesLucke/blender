@@ -41,13 +41,12 @@ typedef struct DDSData {
 
 /**
  * \ingroup imbuf
- * This is the abstraction of an image.  ImBuf is the basic type used for all
- * imbuf operations.
+ * This is the abstraction of an image. ImBuf is the basic type used for all imbuf operations.
  *
  * Also; add new variables to the end to save pain!
  */
 
-/* Warning: Keep explicit value assignments here,
+/* WARNING: Keep explicit value assignments here,
  * this file is included in areas where not all format defines are set
  * (e.g. intern/dds only get WITH_DDS, even if TIFF, HDR etc are also defined).
  * See T46524. */
@@ -126,7 +125,7 @@ enum eImbFileType {
 
 typedef struct ImbFormatOptions {
   short flag;
-  /** quality serves dual purpose as quality number for jpeg or compression amount for png */
+  /** Quality serves dual purpose as quality number for JPEG or compression amount for PNG. */
   char quality;
 } ImbFormatOptions;
 
@@ -145,8 +144,7 @@ typedef enum eImBufFlags {
   IB_multilayer = 1 << 7,
   IB_metadata = 1 << 8,
   IB_animdeinterlace = 1 << 9,
-  IB_tiles = 1 << 10,
-  IB_tilecache = 1 << 11,
+
   /** indicates whether image on disk have premul alpha */
   IB_alphamode_premul = 1 << 12,
   /** if this flag is set, alpha mode would be guessed from file */
@@ -167,8 +165,6 @@ typedef enum eImBufFlags {
  * \{ */
 
 typedef struct ImBuf {
-  struct ImBuf *next, *prev; /** < allow lists of #ImBufs, for caches or flip-books. */
-
   /* dimensions */
   /** Width and Height of our image buffer.
    * Should be 'unsigned int' since most formats use this.
@@ -176,7 +172,7 @@ typedef struct ImBuf {
    * avoid problems and use int. - campbell */
   int x, y;
 
-  /** Active amount of bits/bitplanes */
+  /** Active amount of bits/bit-planes. */
   unsigned char planes;
   /** Number of channels in `rect_float` (0 = 4 channel default) */
   int channels;
@@ -204,11 +200,6 @@ typedef struct ImBuf {
 
   /** Resolution in pixels per meter. Multiply by `0.0254` for DPI. */
   double ppm[2];
-
-  /* tiled pixel storage */
-  int tilex, tiley;
-  int xtiles, ytiles;
-  unsigned int **tiles;
 
   /* zbuffer */
   /** z buffer data, original zbuffer */
@@ -242,8 +233,6 @@ typedef struct ImBuf {
   ImbFormatOptions foptions;
   /** filename associated with this image */
   char name[IMB_FILENAME_SIZE];
-  /** full filename used for reading from cache */
-  char cachename[IMB_FILENAME_SIZE];
 
   /* memory cache limiter */
   /** handle for cache limiter */
@@ -252,11 +241,11 @@ typedef struct ImBuf {
   int refcounter;
 
   /* some parameters to pass along for packing images */
-  /** Compressed image only used with png and exr currently */
+  /** Compressed image only used with PNG and EXR currently. */
   unsigned char *encodedbuffer;
-  /** Size of data written to encodedbuffer */
+  /** Size of data written to `encodedbuffer`. */
   unsigned int encodedsize;
-  /** Size of encodedbuffer */
+  /** Size of `encodedbuffer` */
   unsigned int encodedbuffersize;
 
   /* color management */
@@ -276,7 +265,7 @@ typedef struct ImBuf {
 } ImBuf;
 
 /**
- * \brief userflags: Flags used internally by blender for imagebuffers
+ * \brief userflags: Flags used internally by blender for image-buffers.
  */
 
 enum {

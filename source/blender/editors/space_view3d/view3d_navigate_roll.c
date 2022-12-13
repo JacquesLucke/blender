@@ -15,6 +15,8 @@
 #include "RNA_access.h"
 #include "RNA_define.h"
 
+#include "DEG_depsgraph_query.h"
+
 #include "ED_screen.h"
 
 #include "view3d_intern.h"
@@ -48,11 +50,7 @@ static void view_roll_angle(ARegion *region,
   normalize_qt(quat);
 
   if (use_axis_view && RV3D_VIEW_IS_AXIS(rv3d->view) && (fabsf(angle) == (float)M_PI_2)) {
-    if (ED_view3d_quat_to_axis_view(quat, 0.01f, &rv3d->view, &rv3d->view_axis_roll)) {
-      if (rv3d->view != RV3D_VIEW_USER) {
-        ED_view3d_quat_from_axis_view(rv3d->view, rv3d->view_axis_roll, quat_mul);
-      }
-    }
+    ED_view3d_quat_to_axis_view_and_reset_quat(quat, 0.01f, &rv3d->view, &rv3d->view_axis_roll);
   }
   else {
     rv3d->view = RV3D_VIEW_USER;
@@ -89,11 +87,8 @@ static int viewroll_modal(bContext *C, wmOperator *op, const wmEvent *event)
   bool use_autokey = false;
   int ret = OPERATOR_RUNNING_MODAL;
 
-  /* execute the events */
-  if (event->type == MOUSEMOVE) {
-    event_code = VIEW_APPLY;
-  }
-  else if (event->type == EVT_MODAL_MAP) {
+  /* Execute the events. */
+  if (event->type == EVT_MODAL_MAP) {
     switch (event->val) {
       case VIEW_MODAL_CONFIRM:
         event_code = VIEW_CONFIRM;
@@ -108,34 +103,51 @@ static int viewroll_modal(bContext *C, wmOperator *op, const wmEvent *event)
         break;
     }
   }
-  else if (ELEM(event->type, EVT_ESCKEY, RIGHTMOUSE)) {
-    /* Note this does not remove auto-keys on locked cameras. */
-    copy_qt_qt(vod->rv3d->viewquat, vod->init.quat);
-    ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, vod->rv3d);
-    viewops_data_free(C, op->customdata);
-    op->customdata = NULL;
-    return OPERATOR_CANCELLED;
-  }
-  else if (event->type == vod->init.event_type && event->val == KM_RELEASE) {
-    event_code = VIEW_CONFIRM;
-  }
-
-  if (event_code == VIEW_APPLY) {
-    viewroll_apply(vod, event->xy[0], event->xy[1]);
-    if (ED_screen_animation_playing(CTX_wm_manager(C))) {
-      use_autokey = true;
+  else {
+    if (event->type == MOUSEMOVE) {
+      event_code = VIEW_APPLY;
+    }
+    else if (event->type == vod->init.event_type) {
+      /* Check `vod->init.event_type` first in case RMB was used to invoke.
+       * in this case confirming takes precedence over canceling, see: T102937. */
+      if (event->val == KM_RELEASE) {
+        event_code = VIEW_CONFIRM;
+      }
+    }
+    else if (ELEM(event->type, EVT_ESCKEY, RIGHTMOUSE)) {
+      if (event->val == KM_PRESS) {
+        event_code = VIEW_CANCEL;
+      }
     }
   }
-  else if (event_code == VIEW_CONFIRM) {
-    use_autokey = true;
-    ret = OPERATOR_FINISHED;
+
+  switch (event_code) {
+    case VIEW_APPLY: {
+      viewroll_apply(vod, event->xy[0], event->xy[1]);
+      if (ED_screen_animation_playing(CTX_wm_manager(C))) {
+        use_autokey = true;
+      }
+      break;
+    }
+    case VIEW_CONFIRM: {
+      use_autokey = true;
+      ret = OPERATOR_FINISHED;
+      break;
+    }
+    case VIEW_CANCEL: {
+      /* Note this does not remove auto-keys on locked cameras. */
+      copy_qt_qt(vod->rv3d->viewquat, vod->init.quat);
+      ED_view3d_camera_lock_sync(vod->depsgraph, vod->v3d, vod->rv3d);
+      ret = OPERATOR_CANCELLED;
+      break;
+    }
   }
 
   if (use_autokey) {
     ED_view3d_camera_lock_autokey(vod->v3d, vod->rv3d, C, true, false);
   }
 
-  if (ret & OPERATOR_FINISHED) {
+  if ((ret & OPERATOR_RUNNING_MODAL) == 0) {
     viewops_data_free(C, op->customdata);
     op->customdata = NULL;
   }
@@ -171,7 +183,13 @@ static int viewroll_exec(bContext *C, wmOperator *op)
   }
 
   rv3d = region->regiondata;
-  if ((rv3d->persp != RV3D_CAMOB) || ED_view3d_camera_lock_check(v3d, rv3d)) {
+
+  const bool is_camera_lock = ED_view3d_camera_lock_check(v3d, rv3d);
+  if ((rv3d->persp != RV3D_CAMOB) || is_camera_lock) {
+    if (is_camera_lock) {
+      const Depsgraph *depsgraph = CTX_data_ensure_evaluated_depsgraph(C);
+      ED_view3d_camera_lock_init(depsgraph, v3d, rv3d);
+    }
 
     ED_view3d_smooth_view_force_finish(C, v3d, region);
 
@@ -206,6 +224,9 @@ static int viewroll_exec(bContext *C, wmOperator *op)
                           &(const V3D_SmoothParams){
                               .quat = quat_new,
                               .dyn_ofs = dyn_ofs_pt,
+                              /* Group as successive roll may run by holding a key. */
+                              .undo_str = op->type->name,
+                              .undo_grouped = true,
                           });
 
     viewops_data_free(C, op->customdata);

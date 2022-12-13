@@ -75,7 +75,7 @@ static Array<float> curve_length_point_domain(const bke::CurvesGeometry &curves)
         case CURVE_TYPE_CATMULL_ROM: {
           const int resolution = resolutions[i_curve];
           for (const int i : IndexRange(points.size()).drop_back(1)) {
-            lengths[i + 1] = evaluated_lengths[resolution * i - 1];
+            lengths[i + 1] = evaluated_lengths[resolution * (i + 1) - 1];
           }
           break;
         }
@@ -106,8 +106,8 @@ static Array<float> curve_length_point_domain(const bke::CurvesGeometry &curves)
 }
 
 static VArray<float> construct_curve_parameter_varray(const bke::CurvesGeometry &curves,
-                                                      const IndexMask UNUSED(mask),
-                                                      const AttributeDomain domain)
+                                                      const IndexMask /*mask*/,
+                                                      const eAttrDomain domain)
 {
   VArray<bool> cyclic = curves.cyclic();
 
@@ -117,12 +117,25 @@ static VArray<float> construct_curve_parameter_varray(const bke::CurvesGeometry 
 
     threading::parallel_for(curves.curves_range(), 1024, [&](IndexRange range) {
       for (const int i_curve : range) {
-        const float total_length = curves.evaluated_length_total_for_curve(i_curve,
-                                                                           cyclic[i_curve]);
-        const float factor = total_length == 0.0f ? 0.0f : 1.0f / total_length;
         MutableSpan<float> curve_lengths = lengths.slice(curves.points_for_curve(i_curve));
-        for (float &value : curve_lengths) {
-          value *= factor;
+        const float total_length = curve_lengths.last();
+        if (total_length > 0.0f) {
+          const float factor = 1.0f / total_length;
+          for (float &value : curve_lengths) {
+            value *= factor;
+          }
+        }
+        else if (curve_lengths.size() == 1) {
+          /* The curve is a single point. */
+          curve_lengths[0] = 0.0f;
+        }
+        else {
+          /* It is arbitrary what to do in those rare cases when all the points are
+           * in the same position. In this case we are just arbitrarily giving a valid
+           * value in the range based on the point index. */
+          for (const int i : curve_lengths.index_range()) {
+            curve_lengths[i] = i / (curve_lengths.size() - 1.0f);
+          }
         }
       }
     });
@@ -133,20 +146,30 @@ static VArray<float> construct_curve_parameter_varray(const bke::CurvesGeometry 
     Array<float> lengths = accumulated_lengths_curve_domain(curves);
 
     const int last_index = curves.curves_num() - 1;
-    const int total_length = lengths.last() + curves.evaluated_length_total_for_curve(
-                                                  last_index, cyclic[last_index]);
-    const float factor = total_length == 0.0f ? 0.0f : 1.0f / total_length;
-    for (float &value : lengths) {
-      value *= factor;
+    const float total_length = lengths.last() + curves.evaluated_length_total_for_curve(
+                                                    last_index, cyclic[last_index]);
+    if (total_length > 0.0f) {
+      const float factor = 1.0f / total_length;
+      for (float &value : lengths) {
+        value *= factor;
+      }
+    }
+    else {
+      /* It is arbitrary what to do in those rare cases when all the points are
+       * in the same position. In this case we are just arbitrarily giving a valid
+       * value in the range based on the curve index. */
+      for (const int i : lengths.index_range()) {
+        lengths[i] = i / (lengths.size() - 1.0f);
+      }
     }
     return VArray<float>::ForContainer(std::move(lengths));
   }
   return {};
 }
 
-static VArray<float> construct_curve_length_varray(const bke::CurvesGeometry &curves,
-                                                   const IndexMask UNUSED(mask),
-                                                   const AttributeDomain domain)
+static VArray<float> construct_curve_length_parameter_varray(const bke::CurvesGeometry &curves,
+                                                             const IndexMask /*mask*/,
+                                                             const eAttrDomain domain)
 {
   curves.ensure_evaluated_lengths();
 
@@ -164,8 +187,8 @@ static VArray<float> construct_curve_length_varray(const bke::CurvesGeometry &cu
 }
 
 static VArray<int> construct_index_on_spline_varray(const bke::CurvesGeometry &curves,
-                                                    const IndexMask UNUSED(mask),
-                                                    const AttributeDomain domain)
+                                                    const IndexMask /*mask*/,
+                                                    const eAttrDomain domain)
 {
   if (domain == ATTR_DOMAIN_POINT) {
     Array<int> result(curves.points_num());
@@ -183,26 +206,18 @@ static VArray<int> construct_index_on_spline_varray(const bke::CurvesGeometry &c
   return {};
 }
 
-class CurveParameterFieldInput final : public GeometryFieldInput {
+class CurveParameterFieldInput final : public bke::CurvesFieldInput {
  public:
-  CurveParameterFieldInput() : GeometryFieldInput(CPPType::get<float>(), "Curve Parameter node")
+  CurveParameterFieldInput() : bke::CurvesFieldInput(CPPType::get<float>(), "Curve Parameter node")
   {
     category_ = Category::Generated;
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
+  GVArray get_varray_for_context(const bke::CurvesGeometry &curves,
+                                 const eAttrDomain domain,
                                  IndexMask mask) const final
   {
-    if (component.type() == GEO_COMPONENT_TYPE_CURVE) {
-      const CurveComponent &curve_component = static_cast<const CurveComponent &>(component);
-      if (curve_component.has_curves()) {
-        const Curves &curves_id = *curve_component.get_for_read();
-        const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
-        return construct_curve_parameter_varray(curves, mask, domain);
-      }
-    }
-    return {};
+    return construct_curve_parameter_varray(curves, mask, domain);
   }
 
   uint64_t hash() const override
@@ -217,26 +232,19 @@ class CurveParameterFieldInput final : public GeometryFieldInput {
   }
 };
 
-class CurveLengthFieldInput final : public GeometryFieldInput {
+class CurveLengthParameterFieldInput final : public bke::CurvesFieldInput {
  public:
-  CurveLengthFieldInput() : GeometryFieldInput(CPPType::get<float>(), "Curve Length node")
+  CurveLengthParameterFieldInput()
+      : bke::CurvesFieldInput(CPPType::get<float>(), "Curve Length node")
   {
     category_ = Category::Generated;
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
+  GVArray get_varray_for_context(const bke::CurvesGeometry &curves,
+                                 const eAttrDomain domain,
                                  IndexMask mask) const final
   {
-    if (component.type() == GEO_COMPONENT_TYPE_CURVE) {
-      const CurveComponent &curve_component = static_cast<const CurveComponent &>(component);
-      if (curve_component.has_curves()) {
-        const Curves &curves_id = *curve_component.get_for_read();
-        const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
-        return construct_curve_length_varray(curves, mask, domain);
-      }
-    }
-    return {};
+    return construct_curve_length_parameter_varray(curves, mask, domain);
   }
 
   uint64_t hash() const override
@@ -247,30 +255,22 @@ class CurveLengthFieldInput final : public GeometryFieldInput {
 
   bool is_equal_to(const fn::FieldNode &other) const override
   {
-    return dynamic_cast<const CurveLengthFieldInput *>(&other) != nullptr;
+    return dynamic_cast<const CurveLengthParameterFieldInput *>(&other) != nullptr;
   }
 };
 
-class IndexOnSplineFieldInput final : public GeometryFieldInput {
+class IndexOnSplineFieldInput final : public bke::CurvesFieldInput {
  public:
-  IndexOnSplineFieldInput() : GeometryFieldInput(CPPType::get<int>(), "Spline Index")
+  IndexOnSplineFieldInput() : bke::CurvesFieldInput(CPPType::get<int>(), "Spline Index")
   {
     category_ = Category::Generated;
   }
 
-  GVArray get_varray_for_context(const GeometryComponent &component,
-                                 const AttributeDomain domain,
+  GVArray get_varray_for_context(const bke::CurvesGeometry &curves,
+                                 const eAttrDomain domain,
                                  IndexMask mask) const final
   {
-    if (component.type() == GEO_COMPONENT_TYPE_CURVE) {
-      const CurveComponent &curve_component = static_cast<const CurveComponent &>(component);
-      if (curve_component.has_curves()) {
-        const Curves &curves_id = *curve_component.get_for_read();
-        const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
-        return construct_index_on_spline_varray(curves, mask, domain);
-      }
-    }
-    return {};
+    return construct_index_on_spline_varray(curves, mask, domain);
   }
 
   uint64_t hash() const override
@@ -283,12 +283,17 @@ class IndexOnSplineFieldInput final : public GeometryFieldInput {
   {
     return dynamic_cast<const IndexOnSplineFieldInput *>(&other) != nullptr;
   }
+
+  std::optional<eAttrDomain> preferred_domain(const CurvesGeometry & /*curves*/) const
+  {
+    return ATTR_DOMAIN_POINT;
+  }
 };
 
 static void node_geo_exec(GeoNodeExecParams params)
 {
   Field<float> parameter_field{std::make_shared<CurveParameterFieldInput>()};
-  Field<float> length_field{std::make_shared<CurveLengthFieldInput>()};
+  Field<float> length_field{std::make_shared<CurveLengthParameterFieldInput>()};
   Field<int> index_on_spline_field{std::make_shared<IndexOnSplineFieldInput>()};
   params.set_output("Factor", std::move(parameter_field));
   params.set_output("Length", std::move(length_field));

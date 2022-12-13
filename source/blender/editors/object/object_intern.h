@@ -36,6 +36,7 @@ void OBJECT_OT_scale_clear(struct wmOperatorType *ot);
 void OBJECT_OT_origin_clear(struct wmOperatorType *ot);
 void OBJECT_OT_visual_transform_apply(struct wmOperatorType *ot);
 void OBJECT_OT_transform_apply(struct wmOperatorType *ot);
+void OBJECT_OT_parent_inverse_apply(wmOperatorType *ot);
 void OBJECT_OT_transform_axis_target(struct wmOperatorType *ot);
 void OBJECT_OT_origin_set(struct wmOperatorType *ot);
 
@@ -48,10 +49,14 @@ void OBJECT_OT_vertex_parent_set(struct wmOperatorType *ot);
 void OBJECT_OT_track_set(struct wmOperatorType *ot);
 void OBJECT_OT_track_clear(struct wmOperatorType *ot);
 void OBJECT_OT_make_local(struct wmOperatorType *ot);
-void OBJECT_OT_make_override_library(struct wmOperatorType *ot);
 void OBJECT_OT_make_single_user(struct wmOperatorType *ot);
 void OBJECT_OT_make_links_scene(struct wmOperatorType *ot);
 void OBJECT_OT_make_links_data(struct wmOperatorType *ot);
+
+void OBJECT_OT_make_override_library(struct wmOperatorType *ot);
+void OBJECT_OT_reset_override_library(struct wmOperatorType *ot);
+void OBJECT_OT_clear_override_library(struct wmOperatorType *ot);
+
 /**
  * Used for drop-box.
  * Assigns to object under cursor, only first material slot.
@@ -76,7 +81,6 @@ void OBJECT_OT_shade_flat(struct wmOperatorType *ot);
 void OBJECT_OT_paths_calculate(struct wmOperatorType *ot);
 void OBJECT_OT_paths_update(struct wmOperatorType *ot);
 void OBJECT_OT_paths_clear(struct wmOperatorType *ot);
-void OBJECT_OT_paths_range_update(struct wmOperatorType *ot);
 void OBJECT_OT_paths_update_visible(struct wmOperatorType *ot);
 void OBJECT_OT_forcefield_toggle(struct wmOperatorType *ot);
 
@@ -200,6 +204,7 @@ void OBJECT_OT_skin_armature_create(struct wmOperatorType *ot);
 void OBJECT_OT_laplaciandeform_bind(struct wmOperatorType *ot);
 void OBJECT_OT_surfacedeform_bind(struct wmOperatorType *ot);
 void OBJECT_OT_geometry_nodes_input_attribute_toggle(struct wmOperatorType *ot);
+void OBJECT_OT_geometry_node_tree_copy_assign(struct wmOperatorType *ot);
 
 /* object_gpencil_modifiers.c */
 
@@ -215,6 +220,10 @@ void OBJECT_OT_gpencil_modifier_copy_to_selected(struct wmOperatorType *ot);
 void GPENCIL_OT_segment_add(struct wmOperatorType *ot);
 void GPENCIL_OT_segment_remove(struct wmOperatorType *ot);
 void GPENCIL_OT_segment_move(struct wmOperatorType *ot);
+
+void GPENCIL_OT_time_segment_add(struct wmOperatorType *ot);
+void GPENCIL_OT_time_segment_remove(struct wmOperatorType *ot);
+void GPENCIL_OT_time_segment_move(struct wmOperatorType *ot);
 
 /* object_shader_fx.c */
 
@@ -258,7 +267,7 @@ void CONSTRAINT_OT_objectsolver_set_inverse(struct wmOperatorType *ot);
 void CONSTRAINT_OT_objectsolver_clear_inverse(struct wmOperatorType *ot);
 void CONSTRAINT_OT_followpath_path_animate(struct wmOperatorType *ot);
 
-/* object_vgroup.c */
+/* object_vgroup.cc */
 
 void OBJECT_OT_vertex_group_add(struct wmOperatorType *ot);
 void OBJECT_OT_vertex_group_remove(struct wmOperatorType *ot);

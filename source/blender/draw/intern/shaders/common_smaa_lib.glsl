@@ -569,7 +569,7 @@ SamplerState PointSampler
 #    define SMAAGather(tex, coord) tex.Gather(LinearSampler, coord, 0)
 #  endif
 #endif
-#if defined(SMAA_GLSL_3) || defined(SMAA_GLSL_4)
+#if defined(SMAA_GLSL_3) || defined(SMAA_GLSL_4) || defined(GPU_METAL) || defined(GPU_VULKAN)
 #  define SMAATexture2D(tex) sampler2D tex
 #  define SMAATexturePass2D(tex) tex
 #  define SMAASampleLevelZero(tex, coord) textureLod(tex, coord, 0.0)
@@ -583,20 +583,43 @@ SamplerState PointSampler
 #  define lerp(a, b, t) mix(a, b, t)
 #  define saturate(a) clamp(a, 0.0, 1.0)
 #  if defined(SMAA_GLSL_4)
-#    define mad(a, b, c) fma(a, b, c)
 #    define SMAAGather(tex, coord) textureGather(tex, coord)
+#  endif
+#  if defined(SMAA_GLSL_4)
+#    define mad(a, b, c) fma(a, b, c)
+#  elif defined(GPU_VULKAN)
+/* NOTE(Vulkan) mad macro doesn't work, define each override as work-around. */
+vec4 mad(vec4 a, vec4 b, vec4 c)
+{
+  return fma(a, b, c);
+}
+vec3 mad(vec3 a, vec3 b, vec3 c)
+{
+  return fma(a, b, c);
+}
+vec2 mad(vec2 a, vec2 b, vec2 c)
+{
+  return fma(a, b, c);
+}
+float mad(float a, float b, float c)
+{
+  return fma(a, b, c);
+}
 #  else
 #    define mad(a, b, c) (a * b + c)
 #  endif
-#  define float2 vec2
-#  define float3 vec3
-#  define float4 vec4
-#  define int2 ivec2
-#  define int3 ivec3
-#  define int4 ivec4
-#  define bool2 bvec2
-#  define bool3 bvec3
-#  define bool4 bvec4
+/* NOTE(Metal): Types already natively declared in MSL. */
+#  ifndef GPU_METAL
+#    define float2 vec2
+#    define float3 vec3
+#    define float4 vec4
+#    define int2 ivec2
+#    define int3 ivec3
+#    define int4 ivec4
+#    define bool2 bvec2
+#    define bool3 bvec3
+#    define bool4 bvec4
+#  endif
 #endif
 
 /* clang-format off */
@@ -641,14 +664,14 @@ float2 SMAACalculatePredicatedThreshold(float2 texcoord,
  */
 void SMAAMovc(bool2 cond, inout float2 variable, float2 value)
 {
-  SMAA_FLATTEN if (cond.x) variable.x = value.x;
-  SMAA_FLATTEN if (cond.y) variable.y = value.y;
+  /* Use select function (select(genType A, genType B, genBType cond)). */
+  variable = select(variable, value, cond);
 }
 
 void SMAAMovc(bool4 cond, inout float4 variable, float4 value)
 {
-  SMAAMovc(cond.xy, variable.xy, value.xy);
-  SMAAMovc(cond.zw, variable.zw, value.zw);
+  /* Use select function (select(genType A, genType B, genBType cond)). */
+  variable = select(variable, value, cond);
 }
 
 #if SMAA_INCLUDE_VS
@@ -658,7 +681,14 @@ void SMAAMovc(bool4 cond, inout float4 variable, float4 value)
 /**
  * Edge Detection Vertex Shader
  */
+#  ifdef GPU_METAL
+/* NOTE: Metal API requires explicit address space qualifiers for pointer types.
+ * Arrays in functions are passed as pointers, and thus require explicit address
+ * space. */
+void SMAAEdgeDetectionVS(float2 texcoord, thread float4 *offset)
+#  else
 void SMAAEdgeDetectionVS(float2 texcoord, out float4 offset[3])
+#  endif
 {
   offset[0] = mad(SMAA_RT_METRICS.xyxy, float4(-1.0, 0.0, 0.0, -1.0), texcoord.xyxy);
   offset[1] = mad(SMAA_RT_METRICS.xyxy, float4(1.0, 0.0, 0.0, 1.0), texcoord.xyxy);
@@ -668,7 +698,16 @@ void SMAAEdgeDetectionVS(float2 texcoord, out float4 offset[3])
 /**
  * Blend Weight Calculation Vertex Shader
  */
+#  ifdef GPU_METAL
+/* NOTE: Metal API requires explicit address space qualifiers for pointer types.
+ * Arrays in functions are passed as pointers, and thus require explicit address
+ * space. */
+void SMAABlendingWeightCalculationVS(float2 texcoord,
+                                     thread float2 &pixcoord,
+                                     thread float4 *offset)
+#  else
 void SMAABlendingWeightCalculationVS(float2 texcoord, out float2 pixcoord, out float4 offset[3])
+#  endif
 {
   pixcoord = texcoord * SMAA_RT_METRICS.zw;
 
@@ -1281,7 +1320,15 @@ float4 SMAABlendingWeightCalculationPS(float2 texcoord,
 
       // Fix corners:
       coords.y = texcoord.y;
-      SMAADetectHorizontalCornerPattern(SMAATexturePass2D(edgesTex), weights.rg, coords.xyzy, d);
+
+#  ifdef GPU_METAL
+      /* Partial vector references are unsupported in MSL. */
+      vec2 _weights = weights.rg;
+      SMAADetectHorizontalCornerPattern(SMAATexturePass2D(edgesTex), _weights, coords.xyzy, d);
+      weights.rg = _weights;
+#  else
+    SMAADetectHorizontalCornerPattern(SMAATexturePass2D(edgesTex), weights.rg, coords.xyzy, d);
+#  endif
 
 #  if !defined(SMAA_DISABLE_DIAG_DETECTION)
     }
@@ -1324,7 +1371,15 @@ float4 SMAABlendingWeightCalculationPS(float2 texcoord,
 
     // Fix corners:
     coords.x = texcoord.x;
+
+#  ifdef GPU_METAL
+    /* Partial vector references are unsupported in MSL. */
+    vec2 _weights = weights.ba;
+    SMAADetectVerticalCornerPattern(SMAATexturePass2D(edgesTex), _weights, coords.xyxz, d);
+    weights.ba = _weights;
+#  else
     SMAADetectVerticalCornerPattern(SMAATexturePass2D(edgesTex), weights.ba, coords.xyxz, d);
+#  endif
   }
 
   return weights;

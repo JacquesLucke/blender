@@ -21,6 +21,7 @@
 #include "WM_types.h"
 
 #include "ED_clip.h" /* frame remapping functions */
+#include "ED_mask.h"
 #include "ED_screen.h"
 
 #include "mask_intern.h" /* own include */
@@ -61,7 +62,7 @@ void MASK_OT_parent_clear(wmOperatorType *ot)
   /* api callbacks */
   ot->exec = mask_parent_clear_exec;
 
-  ot->poll = ED_maskedit_mask_poll;
+  ot->poll = ED_maskedit_mask_visible_splines_poll;
 
   /* flags */
   ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
@@ -74,7 +75,6 @@ static int mask_parent_set_exec(bContext *C, wmOperator *UNUSED(op))
   /* parent info */
   SpaceClip *sc = CTX_wm_space_clip(C);
   MovieClip *clip = ED_space_clip_get_clip(sc);
-  MovieTracking *tracking;
   MovieTrackingTrack *track;
   MovieTrackingPlaneTrack *plane_track;
   MovieTrackingObject *tracking_object;
@@ -90,14 +90,13 @@ static int mask_parent_set_exec(bContext *C, wmOperator *UNUSED(op))
 
   framenr = ED_space_clip_get_clip_frame_number(sc);
 
-  tracking = &clip->tracking;
   tracking_object = BKE_tracking_object_get_active(&clip->tracking);
 
   if (tracking_object == NULL) {
     return OPERATOR_CANCELLED;
   }
 
-  if ((track = BKE_tracking_track_get_active(tracking)) != NULL) {
+  if ((track = tracking_object->active_track) != NULL) {
     MovieTrackingMarker *marker = BKE_tracking_marker_get(track, framenr);
     float marker_pos_ofs[2];
 
@@ -109,7 +108,7 @@ static int mask_parent_set_exec(bContext *C, wmOperator *UNUSED(op))
     parent_type = MASK_PARENT_POINT_TRACK;
     memset(orig_corners, 0, sizeof(orig_corners));
   }
-  else if ((plane_track = BKE_tracking_plane_track_get_active(tracking)) != NULL) {
+  else if ((plane_track = tracking_object->active_plane_track) != NULL) {
     MovieTrackingPlaneMarker *plane_marker = BKE_tracking_plane_marker_get(plane_track, framenr);
 
     zero_v2(parmask_pos);

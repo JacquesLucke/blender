@@ -102,6 +102,16 @@ bool ED_space_clip_maskedit_poll(bContext *C)
   return false;
 }
 
+bool ED_space_clip_maskedit_visible_splines_poll(bContext *C)
+{
+  if (!ED_space_clip_maskedit_poll(C)) {
+    return false;
+  }
+
+  const SpaceClip *space_clip = CTX_wm_space_clip(C);
+  return space_clip->mask_info.draw_flag & MASK_DRAWFLAG_SPLINE;
+}
+
 bool ED_space_clip_maskedit_mask_poll(bContext *C)
 {
   if (ED_space_clip_maskedit_poll(C)) {
@@ -115,6 +125,16 @@ bool ED_space_clip_maskedit_mask_poll(bContext *C)
   }
 
   return false;
+}
+
+bool ED_space_clip_maskedit_mask_visible_splines_poll(bContext *C)
+{
+  if (!ED_space_clip_maskedit_mask_poll(C)) {
+    return false;
+  }
+
+  const SpaceClip *space_clip = CTX_wm_space_clip(C);
+  return space_clip->mask_info.draw_flag & MASK_DRAWFLAG_SPLINE;
 }
 
 /** \} */
@@ -272,7 +292,7 @@ bool ED_space_clip_get_position(struct SpaceClip *sc,
   return true;
 }
 
-bool ED_space_clip_color_sample(SpaceClip *sc, ARegion *region, int mval[2], float r_col[3])
+bool ED_space_clip_color_sample(SpaceClip *sc, ARegion *region, const int mval[2], float r_col[3])
 {
   ImBuf *ibuf;
   float fx, fy, co[2];
@@ -354,30 +374,27 @@ bool ED_clip_view_selection(const bContext *C, ARegion *UNUSED(region), bool fit
 void ED_clip_select_all(SpaceClip *sc, int action, bool *r_has_selection)
 {
   MovieClip *clip = ED_space_clip_get_clip(sc);
+  const MovieTrackingObject *tracking_object = BKE_tracking_object_get_active(&clip->tracking);
   const int framenr = ED_space_clip_get_clip_frame_number(sc);
-  MovieTracking *tracking = &clip->tracking;
-  MovieTrackingTrack *track = NULL;            /* selected track */
-  MovieTrackingPlaneTrack *plane_track = NULL; /* selected plane track */
-  MovieTrackingMarker *marker;
-  ListBase *tracksbase = BKE_tracking_get_active_tracks(tracking);
-  ListBase *plane_tracks_base = BKE_tracking_get_active_plane_tracks(tracking);
   bool has_selection = false;
 
   if (action == SEL_TOGGLE) {
     action = SEL_SELECT;
 
-    for (track = tracksbase->first; track; track = track->next) {
-      if (TRACK_VIEW_SELECTED(sc, track)) {
-        marker = BKE_tracking_marker_get(track, framenr);
+    LISTBASE_FOREACH (MovieTrackingTrack *, track, &tracking_object->tracks) {
+      if (!TRACK_VIEW_SELECTED(sc, track)) {
+        continue;
+      }
 
-        if (MARKER_VISIBLE(sc, track, marker)) {
-          action = SEL_DESELECT;
-          break;
-        }
+      const MovieTrackingMarker *marker = BKE_tracking_marker_get(track, framenr);
+
+      if (ED_space_clip_marker_is_visible(sc, tracking_object, track, marker)) {
+        action = SEL_DESELECT;
+        break;
       }
     }
 
-    for (plane_track = plane_tracks_base->first; plane_track; plane_track = plane_track->next) {
+    LISTBASE_FOREACH (MovieTrackingPlaneTrack *, plane_track, &tracking_object->plane_tracks) {
       if (PLANE_TRACK_VIEW_SELECTED(plane_track)) {
         action = SEL_DESELECT;
         break;
@@ -385,28 +402,30 @@ void ED_clip_select_all(SpaceClip *sc, int action, bool *r_has_selection)
     }
   }
 
-  for (track = tracksbase->first; track; track = track->next) {
-    if ((track->flag & TRACK_HIDDEN) == 0) {
-      marker = BKE_tracking_marker_get(track, framenr);
+  LISTBASE_FOREACH (MovieTrackingTrack *, track, &tracking_object->tracks) {
+    if (track->flag & TRACK_HIDDEN) {
+      continue;
+    }
 
-      if (MARKER_VISIBLE(sc, track, marker)) {
-        switch (action) {
-          case SEL_SELECT:
-            track->flag |= SELECT;
-            track->pat_flag |= SELECT;
-            track->search_flag |= SELECT;
-            break;
-          case SEL_DESELECT:
-            track->flag &= ~SELECT;
-            track->pat_flag &= ~SELECT;
-            track->search_flag &= ~SELECT;
-            break;
-          case SEL_INVERT:
-            track->flag ^= SELECT;
-            track->pat_flag ^= SELECT;
-            track->search_flag ^= SELECT;
-            break;
-        }
+    const MovieTrackingMarker *marker = BKE_tracking_marker_get(track, framenr);
+
+    if (ED_space_clip_marker_is_visible(sc, tracking_object, track, marker)) {
+      switch (action) {
+        case SEL_SELECT:
+          track->flag |= SELECT;
+          track->pat_flag |= SELECT;
+          track->search_flag |= SELECT;
+          break;
+        case SEL_DESELECT:
+          track->flag &= ~SELECT;
+          track->pat_flag &= ~SELECT;
+          track->search_flag &= ~SELECT;
+          break;
+        case SEL_INVERT:
+          track->flag ^= SELECT;
+          track->pat_flag ^= SELECT;
+          track->search_flag ^= SELECT;
+          break;
       }
     }
 
@@ -415,22 +434,24 @@ void ED_clip_select_all(SpaceClip *sc, int action, bool *r_has_selection)
     }
   }
 
-  for (plane_track = plane_tracks_base->first; plane_track; plane_track = plane_track->next) {
-    if ((plane_track->flag & PLANE_TRACK_HIDDEN) == 0) {
-      switch (action) {
-        case SEL_SELECT:
-          plane_track->flag |= SELECT;
-          break;
-        case SEL_DESELECT:
-          plane_track->flag &= ~SELECT;
-          break;
-        case SEL_INVERT:
-          plane_track->flag ^= SELECT;
-          break;
-      }
-      if (plane_track->flag & SELECT) {
-        has_selection = true;
-      }
+  LISTBASE_FOREACH (MovieTrackingPlaneTrack *, plane_track, &tracking_object->plane_tracks) {
+    if (plane_track->flag & PLANE_TRACK_HIDDEN) {
+      continue;
+    }
+
+    switch (action) {
+      case SEL_SELECT:
+        plane_track->flag |= SELECT;
+        break;
+      case SEL_DESELECT:
+        plane_track->flag &= ~SELECT;
+        break;
+      case SEL_INVERT:
+        plane_track->flag ^= SELECT;
+        break;
+    }
+    if (plane_track->flag & SELECT) {
+      has_selection = true;
     }
   }
 
@@ -656,8 +677,8 @@ typedef struct PrefetchQueue {
 
   SpinLock spin;
 
-  short *stop;
-  short *do_update;
+  bool *stop;
+  bool *do_update;
   float *progress;
 } PrefetchQueue;
 
@@ -799,7 +820,7 @@ static uchar *prefetch_thread_next_frame(PrefetchQueue *queue,
                            (queue->initial_frame - queue->current_frame);
       }
 
-      *queue->do_update = 1;
+      *queue->do_update = true;
       *queue->progress = (float)frames_processed / (queue->end_frame - queue->start_frame);
     }
   }
@@ -848,7 +869,7 @@ static void prefetch_task_func(TaskPool *__restrict pool, void *task_data)
 
     if (!result) {
       /* no more space in the cache, stop reading frames */
-      *queue->stop = 1;
+      *queue->stop = true;
       break;
     }
   }
@@ -860,8 +881,8 @@ static void start_prefetch_threads(MovieClip *clip,
                                    int end_frame,
                                    short render_size,
                                    short render_flag,
-                                   short *stop,
-                                   short *do_update,
+                                   bool *stop,
+                                   bool *do_update,
                                    float *progress)
 {
   int tot_thread = BLI_task_scheduler_num_threads();
@@ -898,7 +919,7 @@ static bool prefetch_movie_frame(MovieClip *clip,
                                  int frame,
                                  short render_size,
                                  short render_flag,
-                                 short *stop)
+                                 bool *stop)
 {
   MovieClipUser user = *DNA_struct_default_get(MovieClipUser);
 
@@ -920,14 +941,14 @@ static bool prefetch_movie_frame(MovieClip *clip,
 
       if (!result) {
         /* no more space in the cache, we could stop prefetching here */
-        *stop = 1;
+        *stop = true;
       }
 
       IMB_freeImBuf(ibuf);
     }
     else {
       /* error reading frame, fair enough stop attempting further reading */
-      *stop = 1;
+      *stop = true;
     }
   }
 
@@ -941,8 +962,8 @@ static void do_prefetch_movie(MovieClip *clip,
                               int end_frame,
                               short render_size,
                               short render_flag,
-                              short *stop,
-                              short *do_update,
+                              bool *stop,
+                              bool *do_update,
                               float *progress)
 {
   int frame;
@@ -956,7 +977,7 @@ static void do_prefetch_movie(MovieClip *clip,
 
     frames_processed++;
 
-    *do_update = 1;
+    *do_update = true;
     *progress = (float)frames_processed / (end_frame - start_frame);
   }
 
@@ -968,12 +989,12 @@ static void do_prefetch_movie(MovieClip *clip,
 
     frames_processed++;
 
-    *do_update = 1;
+    *do_update = true;
     *progress = (float)frames_processed / (end_frame - start_frame);
   }
 }
 
-static void prefetch_startjob(void *pjv, short *stop, short *do_update, float *progress)
+static void prefetch_startjob(void *pjv, bool *stop, bool *do_update, float *progress)
 {
   PrefetchJob *pj = pjv;
 
@@ -1026,7 +1047,7 @@ static int prefetch_get_start_frame(const bContext *C)
 {
   Scene *scene = CTX_data_scene(C);
 
-  return SFRA;
+  return scene->r.sfra;
 }
 
 static int prefetch_get_final_frame(const bContext *C)
@@ -1037,10 +1058,10 @@ static int prefetch_get_final_frame(const bContext *C)
   int end_frame;
 
   /* check whether all the frames from prefetch range are cached */
-  end_frame = EFRA;
+  end_frame = scene->r.efra;
 
   if (clip->len) {
-    end_frame = min_ii(end_frame, SFRA + clip->len - 1);
+    end_frame = min_ii(end_frame, scene->r.sfra + clip->len - 1);
   }
 
   return end_frame;

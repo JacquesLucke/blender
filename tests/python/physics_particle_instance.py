@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import os
 import sys
 
@@ -15,8 +13,8 @@ def main():
     test = [
 
         SpecMeshTest("ParticleInstanceSimple", "testParticleInstance", "expectedParticleInstance",
-                 [ModifierSpec('ParticleInstance', 'PARTICLE_INSTANCE', {'object': bpy.data.objects['Cube']})],
-                 threshold=1e-3),
+                     [ModifierSpec('ParticleInstance', 'PARTICLE_INSTANCE', {'object': bpy.data.objects['Cube']})],
+                     threshold=1e-3),
 
     ]
     particle_instance_test = RunTest(test)

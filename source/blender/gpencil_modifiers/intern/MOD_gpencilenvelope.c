@@ -8,8 +8,8 @@
 #include <stdio.h>
 
 #include "BLI_listbase.h"
-#include "BLI_math.h"
 #include "BLI_math_geom.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
 
 #include "BLT_translation.h"
@@ -22,7 +22,6 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 
-#include "BKE_colortools.h"
 #include "BKE_context.h"
 #include "BKE_deform.h"
 #include "BKE_gpencil.h"
@@ -152,8 +151,12 @@ static float calc_radius_limit(
   return radius_limit;
 }
 
-static void apply_stroke_envelope(
-    bGPDstroke *gps, int spread, const int def_nr, const bool invert_vg, const float thickness)
+static void apply_stroke_envelope(bGPDstroke *gps,
+                                  int spread,
+                                  const int def_nr,
+                                  const bool invert_vg,
+                                  const float thickness,
+                                  const float pixfactor)
 {
   const bool is_cyclic = (gps->flag & GP_STROKE_CYCLIC) != 0;
   if (is_cyclic) {
@@ -282,9 +285,7 @@ static void apply_stroke_envelope(
     }
 
     float fac = use_dist * weight;
-    /* The 50 is an internal constant for the default pixel size. The result can be messed up if
-     * #bGPdata.pixfactor is not default, but I think modifiers shouldn't access that. */
-    point->pressure += fac * 50.0f * GP_DEFAULT_PIX_FACTOR;
+    point->pressure += fac * pixfactor;
     interp_v3_v3v3(&point->x, &point->x, new_center, fac / len_v3v3(closest, closest2));
   }
 
@@ -326,8 +327,14 @@ static void deformStroke(GpencilModifierData *md,
     return;
   }
 
-  apply_stroke_envelope(
-      gps, mmd->spread, def_nr, (mmd->flag & GP_ENVELOPE_INVERT_VGROUP) != 0, mmd->thickness);
+  bGPdata *gpd = (bGPdata *)ob->data;
+  const float pixfactor = 1000.0f / ((gps->thickness + gpl->line_change) * gpd->pixfactor);
+  apply_stroke_envelope(gps,
+                        mmd->spread,
+                        def_nr,
+                        (mmd->flag & GP_ENVELOPE_INVERT_VGROUP) != 0,
+                        mmd->thickness,
+                        pixfactor);
 }
 
 static void add_stroke(Object *ob,
@@ -344,6 +351,7 @@ static void add_stroke(Object *ob,
   const int size = size1 + size2;
   bGPdata *gpd = ob->data;
   bGPDstroke *gps_dst = BKE_gpencil_stroke_new(mat_nr, size, gps->thickness);
+  gps_dst->runtime.gps_orig = gps->runtime.gps_orig;
 
   memcpy(&gps_dst->points[0], &gps->points[connection_index], size1 * sizeof(bGPDspoint));
   memcpy(&gps_dst->points[size1], &gps->points[point_index], size2 * sizeof(bGPDspoint));
@@ -351,7 +359,6 @@ static void add_stroke(Object *ob,
   for (int i = 0; i < size; i++) {
     gps_dst->points[i].pressure *= thickness;
     gps_dst->points[i].strength *= strength;
-    memset(&gps_dst->points[i].runtime, 0, sizeof(bGPDspoint_Runtime));
   }
 
   if (gps->dvert != NULL) {
@@ -378,6 +385,8 @@ static void add_stroke_cyclic(Object *ob,
 {
   bGPdata *gpd = ob->data;
   bGPDstroke *gps_dst = BKE_gpencil_stroke_new(mat_nr, size * 2, gps->thickness);
+  gps_dst->runtime.gps_orig = gps->runtime.gps_orig;
+
   if (gps->dvert != NULL) {
     gps_dst->dvert = MEM_malloc_arrayN(size * 2, sizeof(MDeformVert), __func__);
   }
@@ -387,7 +396,16 @@ static void add_stroke_cyclic(Object *ob,
     int b = (point_index + i) % gps->totpoints;
 
     gps_dst->points[i] = gps->points[a];
+    bGPDspoint *pt_dst = &gps_dst->points[i];
+    bGPDspoint *pt_orig = &gps->points[a];
+    pt_dst->runtime.pt_orig = pt_orig->runtime.pt_orig;
+    pt_dst->runtime.idx_orig = pt_orig->runtime.idx_orig;
+
     gps_dst->points[size + i] = gps->points[b];
+    pt_dst = &gps_dst->points[size + i];
+    pt_orig = &gps->points[b];
+    pt_dst->runtime.pt_orig = pt_orig->runtime.pt_orig;
+    pt_dst->runtime.idx_orig = pt_orig->runtime.idx_orig;
 
     if (gps->dvert != NULL) {
       BKE_defvert_array_copy(&gps_dst->dvert[i], &gps->dvert[a], 1);
@@ -417,15 +435,23 @@ static void add_stroke_simple(Object *ob,
 {
   bGPdata *gpd = ob->data;
   bGPDstroke *gps_dst = BKE_gpencil_stroke_new(mat_nr, 2, gps->thickness);
+  gps_dst->runtime.gps_orig = gps->runtime.gps_orig;
 
   gps_dst->points[0] = gps->points[connection_index];
   gps_dst->points[0].pressure *= thickness;
   gps_dst->points[0].strength *= strength;
-  memset(&gps_dst->points[0].runtime, 0, sizeof(bGPDspoint_Runtime));
+  bGPDspoint *pt_dst = &gps_dst->points[0];
+  bGPDspoint *pt_orig = &gps->points[connection_index];
+  pt_dst->runtime.pt_orig = pt_orig->runtime.pt_orig;
+  pt_dst->runtime.idx_orig = pt_orig->runtime.idx_orig;
+
   gps_dst->points[1] = gps->points[point_index];
   gps_dst->points[1].pressure *= thickness;
   gps_dst->points[1].strength *= strength;
-  memset(&gps_dst->points[1].runtime, 0, sizeof(bGPDspoint_Runtime));
+  pt_dst = &gps_dst->points[1];
+  pt_orig = &gps->points[point_index];
+  pt_dst->runtime.pt_orig = pt_orig->runtime.pt_orig;
+  pt_dst->runtime.idx_orig = pt_orig->runtime.idx_orig;
 
   if (gps->dvert != NULL) {
     gps_dst->dvert = MEM_malloc_arrayN(2, sizeof(MDeformVert), __func__);
@@ -619,7 +645,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Envelope = {
-    /* name */ "Envelope",
+    /* name */ N_("Envelope"),
     /* structName */ "EnvelopeGpencilModifierData",
     /* structSize */ sizeof(EnvelopeGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

@@ -31,6 +31,7 @@
 #endif
 
 #include "BLI_index_range.hh"
+#include "BLI_lazy_threading.hh"
 #include "BLI_utildefines.h"
 
 namespace blender::threading {
@@ -56,6 +57,7 @@ void parallel_for(IndexRange range, int64_t grain_size, const Function &function
 #ifdef WITH_TBB
   /* Invoking tbb for small workloads has a large overhead. */
   if (range.size() >= grain_size) {
+    lazy_threading::send_hint();
     tbb::parallel_for(
         tbb::blocked_range<int64_t>(range.first(), range.one_after_last(), grain_size),
         [&](const tbb::blocked_range<int64_t> &subrange) {
@@ -77,17 +79,20 @@ Value parallel_reduce(IndexRange range,
                       const Reduction &reduction)
 {
 #ifdef WITH_TBB
-  return tbb::parallel_reduce(
-      tbb::blocked_range<int64_t>(range.first(), range.one_after_last(), grain_size),
-      identity,
-      [&](const tbb::blocked_range<int64_t> &subrange, const Value &ident) {
-        return function(IndexRange(subrange.begin(), subrange.size()), ident);
-      },
-      reduction);
+  if (range.size() >= grain_size) {
+    lazy_threading::send_hint();
+    return tbb::parallel_reduce(
+        tbb::blocked_range<int64_t>(range.first(), range.one_after_last(), grain_size),
+        identity,
+        [&](const tbb::blocked_range<int64_t> &subrange, const Value &ident) {
+          return function(IndexRange(subrange.begin(), subrange.size()), ident);
+        },
+        reduction);
+  }
 #else
   UNUSED_VARS(grain_size, reduction);
-  return function(range, identity);
 #endif
+  return function(range, identity);
 }
 
 /**
@@ -103,10 +108,28 @@ template<typename... Functions> void parallel_invoke(Functions &&...functions)
 #endif
 }
 
+/**
+ * Same #parallel_invoke, but allows disabling threading dynamically. This is useful because when
+ * the individual functions do very little work, there is a lot of overhead from starting parallel
+ * tasks.
+ */
+template<typename... Functions>
+void parallel_invoke(const bool use_threading, Functions &&...functions)
+{
+  if (use_threading) {
+    lazy_threading::send_hint();
+    parallel_invoke(std::forward<Functions>(functions)...);
+  }
+  else {
+    (functions(), ...);
+  }
+}
+
 /** See #BLI_task_isolate for a description of what isolating a task means. */
 template<typename Function> void isolate_task(const Function &function)
 {
 #ifdef WITH_TBB
+  lazy_threading::ReceiverIsolation isolation;
   tbb::this_task_arena::isolate(function);
 #else
   function();

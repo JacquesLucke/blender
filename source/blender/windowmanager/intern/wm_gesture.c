@@ -122,7 +122,7 @@ static void wm_gesture_draw_line_active_side(rcti *rect, const bool flip)
   uint shdr_col = GPU_vertformat_attr_add(format, "color", GPU_COMP_F32, 4, GPU_FETCH_FLOAT);
 
   GPU_blend(GPU_BLEND_ALPHA);
-  immBindBuiltinProgram(GPU_SHADER_2D_SMOOTH_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_SMOOTH_COLOR);
 
   const float gradient_length = 150.0f * U.pixelsize;
   float line_dir[2];
@@ -175,17 +175,17 @@ static void wm_gesture_draw_line(wmGesture *gt)
   uint shdr_pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
   float viewport_size[4];
   GPU_viewport_size_get_f(viewport_size);
   immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
   immUniform1i("colors_len", 2); /* "advanced" mode */
-  immUniformArray4fv(
-      "colors", (float *)(float[][4]){{0.4f, 0.4f, 0.4f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}}, 2);
+  immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
+  immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 8.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   float xmin = (float)rect->xmin;
   float ymin = (float)rect->ymin;
@@ -207,7 +207,7 @@ static void wm_gesture_draw_rect(wmGesture *gt)
 
   GPU_blend(GPU_BLEND_ALPHA);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformColor4f(1.0f, 1.0f, 1.0f, 0.05f);
 
   immRecti(shdr_pos, rect->xmin, rect->ymin, rect->xmax, rect->ymax);
@@ -218,17 +218,17 @@ static void wm_gesture_draw_rect(wmGesture *gt)
 
   shdr_pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
   float viewport_size[4];
   GPU_viewport_size_get_f(viewport_size);
   immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
   immUniform1i("colors_len", 2); /* "advanced" mode */
-  immUniformArray4fv(
-      "colors", (float *)(float[][4]){{0.4f, 0.4f, 0.4f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}}, 2);
+  immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
+  immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 8.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   imm_draw_box_wire_2d(
       shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, (float)rect->ymax);
@@ -248,7 +248,7 @@ static void wm_gesture_draw_circle(wmGesture *gt)
   const uint shdr_pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   immUniformColor4f(1.0f, 1.0f, 1.0f, 0.05f);
   imm_draw_circle_fill_2d(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
@@ -257,17 +257,17 @@ static void wm_gesture_draw_circle(wmGesture *gt)
 
   GPU_blend(GPU_BLEND_NONE);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
   float viewport_size[4];
   GPU_viewport_size_get_f(viewport_size);
   immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
   immUniform1i("colors_len", 2); /* "advanced" mode */
-  immUniformArray4fv(
-      "colors", (float *)(float[][4]){{0.4f, 0.4f, 0.4f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}}, 2);
+  immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
+  immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 4.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   imm_draw_circle_wire_2d(shdr_pos, (float)rect->xmin, (float)rect->ymin, (float)rect->xmax, 40);
 
@@ -275,14 +275,14 @@ static void wm_gesture_draw_circle(wmGesture *gt)
 }
 
 struct LassoFillData {
-  unsigned char *px;
+  uchar *px;
   int width;
 };
 
 static void draw_filled_lasso_px_cb(int x, int x_end, int y, void *user_data)
 {
   struct LassoFillData *data = user_data;
-  unsigned char *col = &(data->px[(y * data->width) + x]);
+  uchar *col = &(data->px[(y * data->width) + x]);
   memset(col, 0x10, x_end - x);
 }
 
@@ -310,7 +310,7 @@ static void draw_filled_lasso(wmGesture *gt)
   if (BLI_rcti_is_empty(&rect) == false) {
     const int w = BLI_rcti_size_x(&rect);
     const int h = BLI_rcti_size_y(&rect);
-    unsigned char *pixel_buf = MEM_callocN(sizeof(*pixel_buf) * w * h, __func__);
+    uchar *pixel_buf = MEM_callocN(sizeof(*pixel_buf) * w * h, __func__);
     struct LassoFillData lasso_fill_data = {pixel_buf, w};
 
     BLI_bitmap_draw_2d_poly_v2i_n(rect.xmin,
@@ -361,17 +361,17 @@ static void wm_gesture_draw_lasso(wmGesture *gt, bool filled)
   const uint shdr_pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
   float viewport_size[4];
   GPU_viewport_size_get_f(viewport_size);
   immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
   immUniform1i("colors_len", 2); /* "advanced" mode */
-  immUniformArray4fv(
-      "colors", (float *)(float[][4]){{0.4f, 0.4f, 0.4f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}}, 2);
+  immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
+  immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 2.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   immBegin((gt->type == WM_GESTURE_LASSO) ? GPU_PRIM_LINE_LOOP : GPU_PRIM_LINE_STRIP, numverts);
 
@@ -395,17 +395,17 @@ static void wm_gesture_draw_cross(wmWindow *win, wmGesture *gt)
   const uint shdr_pos = GPU_vertformat_attr_add(
       immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
-  immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
 
   float viewport_size[4];
   GPU_viewport_size_get_f(viewport_size);
   immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
 
   immUniform1i("colors_len", 2); /* "advanced" mode */
-  immUniformArray4fv(
-      "colors", (float *)(float[][4]){{0.4f, 0.4f, 0.4f, 1.0f}, {1.0f, 1.0f, 1.0f, 1.0f}}, 2);
+  immUniform4f("color", 0.4f, 0.4f, 0.4f, 1.0f);
+  immUniform4f("color2", 1.0f, 1.0f, 1.0f, 1.0f);
   immUniform1f("dash_width", 8.0f);
-  immUniform1f("dash_factor", 0.5f);
+  immUniform1f("udash_factor", 0.5f);
 
   immBegin(GPU_PRIM_LINES, 4);
 

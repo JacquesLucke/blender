@@ -78,7 +78,7 @@ static float icon_width_get(const SeqChannelDrawContext *context)
 
 static float widget_y_offset(const SeqChannelDrawContext *context)
 {
-  return (((context->channel_height / context->scale) - icon_width_get(context))) / 2;
+  return ((context->channel_height / context->scale) - icon_width_get(context)) / 2;
 }
 
 static float channel_index_y_min(const SeqChannelDrawContext *context, const int index)
@@ -97,7 +97,7 @@ static void displayed_channel_range_get(const SeqChannelDrawContext *context,
 
   rctf strip_boundbox;
   BLI_rctf_init(&strip_boundbox, 0.0f, 0.0f, 1.0f, r_channel_range[1]);
-  SEQ_timeline_expand_boundbox(context->seqbase, &strip_boundbox);
+  SEQ_timeline_expand_boundbox(context->scene, context->seqbase, &strip_boundbox);
   CLAMP(r_channel_range[0], strip_boundbox.ymin, strip_boundbox.ymax);
   CLAMP(r_channel_range[1], strip_boundbox.ymin, MAXSEQ);
 }
@@ -200,7 +200,7 @@ static float text_size_get(const SeqChannelDrawContext *context)
   return UI_fontstyle_height_max(&style->widget) * 1.5f * context->scale;
 }
 
-/* Todo: decide what gets priority - label or buttons */
+/* TODO: decide what gets priority - label or buttons. */
 static rctf label_rect_init(const SeqChannelDrawContext *context,
                             const int channel_index,
                             const float used_width)
@@ -286,7 +286,7 @@ static void draw_channel_labels(const SeqChannelDrawContext *context,
   }
 }
 
-/* Todo: different text/buttons alignment */
+/* TODO: different text/buttons alignment. */
 static void draw_channel_header(const SeqChannelDrawContext *context,
                                 uiBlock *block,
                                 const int channel_index)
@@ -347,6 +347,8 @@ void channel_draw_context_init(const bContext *C,
 
 void draw_channels(const bContext *C, ARegion *region)
 {
+  draw_background();
+
   Editing *ed = SEQ_editing_get(CTX_data_scene(C));
   if (ed == NULL) {
     return;
@@ -355,9 +357,12 @@ void draw_channels(const bContext *C, ARegion *region)
   SeqChannelDrawContext context;
   channel_draw_context_init(C, region, &context);
 
+  if (round_fl_to_int(context.channel_height) == 0) {
+    return;
+  }
+
   UI_view2d_view_ortho(context.v2d);
 
-  draw_background();
   draw_channel_headers(&context);
 
   UI_view2d_view_restore(C);

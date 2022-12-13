@@ -3,11 +3,13 @@
 import bpy
 from bpy.types import Operator
 
+from bpy.app.translations import pgettext_data as data_
+
 
 def geometry_node_group_empty_new():
-    group = bpy.data.node_groups.new("Geometry Nodes", 'GeometryNodeTree')
-    group.inputs.new('NodeSocketGeometry', "Geometry")
-    group.outputs.new('NodeSocketGeometry', "Geometry")
+    group = bpy.data.node_groups.new(data_("Geometry Nodes"), 'GeometryNodeTree')
+    group.inputs.new('NodeSocketGeometry', data_("Geometry"))
+    group.outputs.new('NodeSocketGeometry', data_("Geometry"))
     input_node = group.nodes.new('NodeGroupInput')
     output_node = group.nodes.new('NodeGroupOutput')
     output_node.is_active_output = True
@@ -26,8 +28,8 @@ def geometry_node_group_empty_new():
 def geometry_modifier_poll(context):
     ob = context.object
 
-    # Test object support for geometry node modifier (No curves object support yet)
-    if not ob or ob.type not in {'MESH', 'POINTCLOUD', 'VOLUME', 'CURVE', 'FONT'}:
+    # Test object support for geometry node modifier
+    if not ob or ob.type not in {'MESH', 'POINTCLOUD', 'VOLUME', 'CURVE', 'FONT', 'CURVES'}:
         return False
 
     return True
@@ -45,7 +47,7 @@ class NewGeometryNodesModifier(Operator):
         return geometry_modifier_poll(context)
 
     def execute(self, context):
-        modifier = context.object.modifiers.new("GeometryNodes", "NODES")
+        modifier = context.object.modifiers.new(data_("GeometryNodes"), "NODES")
 
         if not modifier:
             return {'CANCELLED'}
@@ -82,32 +84,7 @@ class NewGeometryNodeTreeAssign(Operator):
         return {'FINISHED'}
 
 
-class CopyGeometryNodeTreeAssign(Operator):
-    """Copy the active geometry node group and assign it to the active modifier"""
-
-    bl_idname = "node.copy_geometry_node_group_assign"
-    bl_label = "Copy Geometry Node Group"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return geometry_modifier_poll(context)
-
-    def execute(self, context):
-        modifier = context.object.modifiers.active
-        if modifier is None:
-            return {'CANCELLED'}
-
-        group = modifier.node_group
-        if group is None:
-            return {'CANCELLED'}
-
-        modifier.node_group = group.copy()
-        return {'FINISHED'}
-
-
 classes = (
     NewGeometryNodesModifier,
     NewGeometryNodeTreeAssign,
-    CopyGeometryNodeTreeAssign,
 )

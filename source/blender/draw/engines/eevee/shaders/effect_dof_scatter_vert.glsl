@@ -1,27 +1,6 @@
 
 #pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
 
-uniform vec2 targetTexelSize;
-uniform int spritePerRow;
-uniform vec2 bokehAnisotropy;
-
-uniform sampler2D colorBuffer;
-uniform sampler2D cocBuffer;
-
-/* Scatter pass, calculate a triangle covering the CoC.
- * We render to a half resolution target with double width so we can
- * separate near and far fields. We also generate only one triangle per group of 4 pixels
- * to limit overdraw. */
-
-flat out vec4 color1;
-flat out vec4 color2;
-flat out vec4 color3;
-flat out vec4 color4;
-flat out vec4 weights;
-flat out vec4 cocs;
-flat out vec2 spritepos;
-flat out float spritesize;
-
 /* Load 4 Circle of confusion values. texel_co is centered around the 4 taps. */
 vec4 fetch_cocs(vec2 texel_co)
 {
@@ -95,7 +74,11 @@ void main()
 
   weights = dof_layer_weight(cocs) * dof_sample_weight(cocs);
   /* Filter NaNs. */
-  weights = select(weights, vec4(0.0), equal(cocs, vec4(0.0)));
+  for (int i = 0; i < 4; i++) {
+    if (isnan(weights[i]) || isinf(weights[i])) {
+      weights[i] = 0.0;
+    }
+  }
 
   color1 = colors[0] * weights[0];
   color2 = colors[1] * weights[1];

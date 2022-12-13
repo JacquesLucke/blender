@@ -41,9 +41,7 @@ static void initData(ModifierData *md)
   MEMCPY_STRUCT_AFTER(wmd, DNA_struct_default_get(WireframeModifierData), modifier);
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   WireframeModifierData *wmd = (WireframeModifierData *)md;
 
@@ -96,8 +94,6 @@ static Mesh *WireframeModifier_do(WireframeModifierData *wmd, Object *ob, Mesh *
 
   result = BKE_mesh_from_bmesh_for_eval_nomain(bm, NULL, mesh);
   BM_mesh_free(bm);
-
-  BKE_mesh_normals_tag_dirty(result);
 
   return result;
 }
@@ -167,7 +163,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 ModifierTypeInfo modifierType_Wireframe = {
-    /* name */ "Wireframe",
+    /* name */ N_("Wireframe"),
     /* structName */ "WireframeModifierData",
     /* structSize */ sizeof(WireframeModifierData),
     /* srna */ &RNA_WireframeModifier,

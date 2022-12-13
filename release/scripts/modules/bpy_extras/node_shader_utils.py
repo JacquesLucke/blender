@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 from mathutils import Color, Vector
 
 __all__ = (
@@ -15,7 +13,7 @@ def _set_check(func):
     @wraps(func)
     def wrapper(self, *args, **kwargs):
         if self.is_readonly:
-            assert(not "Trying to set value to read-only shader!")
+            assert not "Trying to set value to read-only shader!"
             return
         return func(self, *args, **kwargs)
     return wrapper

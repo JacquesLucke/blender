@@ -14,7 +14,6 @@ set(INC
   ../../windowmanager
   ../../../../intern/clog
   ../../../../intern/eigen
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
@@ -34,7 +33,6 @@ set(SRC
   pose_backup.cc
   pose_edit.c
   pose_group.c
-  pose_lib.c
   pose_lib_2.c
   pose_select.c
   pose_slide.c

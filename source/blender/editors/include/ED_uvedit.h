@@ -24,6 +24,7 @@ struct Object;
 struct Scene;
 struct SpaceImage;
 struct ToolSettings;
+struct View2D;
 struct ViewLayer;
 struct bContext;
 struct bNode;
@@ -72,8 +73,8 @@ bool ED_object_get_active_image(struct Object *ob,
                                 int mat_nr,
                                 struct Image **r_ima,
                                 struct ImageUser **r_iuser,
-                                struct bNode **r_node,
-                                struct bNodeTree **r_ntree);
+                                const struct bNode **r_node,
+                                const struct bNodeTree **r_ntree);
 void ED_object_assign_active_image(struct Main *bmain,
                                    struct Object *ob,
                                    int mat_nr,
@@ -106,7 +107,7 @@ bool uvedit_uv_select_test(const struct Scene *scene, struct BMLoop *l, int cd_l
  * Changes selection state of a single UV Face.
  */
 void uvedit_face_select_set(const struct Scene *scene,
-                            struct BMEditMesh *em,
+                            struct BMesh *bm,
                             struct BMFace *efa,
                             bool select,
                             bool do_history,
@@ -117,7 +118,7 @@ void uvedit_face_select_set(const struct Scene *scene,
  * Changes selection state of a single UV Edge.
  */
 void uvedit_edge_select_set(const struct Scene *scene,
-                            struct BMEditMesh *em,
+                            struct BMesh *bm,
                             struct BMLoop *l,
                             bool select,
                             bool do_history,
@@ -128,7 +129,7 @@ void uvedit_edge_select_set(const struct Scene *scene,
  * Changes selection state of a single UV vertex.
  */
 void uvedit_uv_select_set(const struct Scene *scene,
-                          struct BMEditMesh *em,
+                          struct BMesh *bm,
                           struct BMLoop *l,
                           bool select,
                           bool do_history,
@@ -138,30 +139,30 @@ void uvedit_uv_select_set(const struct Scene *scene,
  * use. */
 
 void uvedit_face_select_enable(const struct Scene *scene,
-                               struct BMEditMesh *em,
+                               struct BMesh *bm,
                                struct BMFace *efa,
                                bool do_history,
                                int cd_loop_uv_offset);
 void uvedit_face_select_disable(const struct Scene *scene,
-                                struct BMEditMesh *em,
+                                struct BMesh *bm,
                                 struct BMFace *efa,
                                 int cd_loop_uv_offset);
 void uvedit_edge_select_enable(const struct Scene *scene,
-                               struct BMEditMesh *em,
+                               struct BMesh *bm,
                                struct BMLoop *l,
                                bool do_history,
                                int cd_loop_uv_offset);
 void uvedit_edge_select_disable(const struct Scene *scene,
-                                struct BMEditMesh *em,
+                                struct BMesh *bm,
                                 struct BMLoop *l,
                                 int cd_loop_uv_offset);
 void uvedit_uv_select_enable(const struct Scene *scene,
-                             struct BMEditMesh *em,
+                             struct BMesh *bm,
                              struct BMLoop *l,
                              bool do_history,
                              int cd_loop_uv_offset);
 void uvedit_uv_select_disable(const struct Scene *scene,
-                              struct BMEditMesh *em,
+                              struct BMesh *bm,
                               struct BMLoop *l,
                               int cd_loop_uv_offset);
 
@@ -178,13 +179,13 @@ void uvedit_edge_select_set_with_sticky(const struct Scene *scene,
                                         struct BMLoop *l,
                                         bool select,
                                         bool do_history,
-                                        uint cd_loop_uv_offset);
+                                        int cd_loop_uv_offset);
 void uvedit_uv_select_set_with_sticky(const struct Scene *scene,
                                       struct BMEditMesh *em,
                                       struct BMLoop *l,
                                       bool select,
                                       bool do_history,
-                                      uint cd_loop_uv_offset);
+                                      int cd_loop_uv_offset);
 
 /* Low level functions for sticky element selection (sticky mode independent). Type of sticky
  * selection is specified explicitly (using sticky_flag, except for face selection). */
@@ -242,15 +243,12 @@ void uvedit_deselect_flush(const struct Scene *scene, struct BMEditMesh *em);
  */
 void uvedit_select_flush(const struct Scene *scene, struct BMEditMesh *em);
 
-bool ED_uvedit_nearest_uv(const struct Scene *scene,
-                          struct Object *obedit,
-                          const float co[2],
-                          float *dist_sq,
-                          float r_uv[2]);
-bool ED_uvedit_nearest_uv_multi(const struct Scene *scene,
+bool ED_uvedit_nearest_uv_multi(const struct View2D *v2d,
+                                const struct Scene *scene,
                                 struct Object **objects,
                                 uint objects_len,
-                                const float co[2],
+                                const int mval[2],
+                                const bool ignore_selected,
                                 float *dist_sq,
                                 float r_uv[2]);
 
@@ -268,6 +266,10 @@ struct BMLoop **ED_uvedit_selected_verts(const struct Scene *scene,
                                          int *r_verts_len);
 
 void ED_uvedit_get_aspect(struct Object *obedit, float *r_aspx, float *r_aspy);
+void ED_uvedit_get_aspect_from_material(Object *ob,
+                                        const int material_index,
+                                        float *r_aspx,
+                                        float *r_aspy);
 
 void ED_uvedit_active_vert_loop_set(struct BMesh *bm, struct BMLoop *l);
 struct BMLoop *ED_uvedit_active_vert_loop_get(struct BMesh *bm);
@@ -303,25 +305,53 @@ void ED_uvedit_buttons_register(struct ARegionType *art);
 
 /* uvedit_islands.c */
 
+struct FaceIsland {
+  struct FaceIsland *next;
+  struct FaceIsland *prev;
+  struct BMFace **faces;
+  int faces_len;
+  rctf bounds_rect;
+  /**
+   * \note While this is duplicate information,
+   * it allows islands from multiple meshes to be stored in the same list.
+   */
+  int cd_loop_uv_offset;
+  float aspect_y;
+};
+
+int bm_mesh_calc_uv_islands(const Scene *scene,
+                            struct BMesh *bm,
+                            ListBase *island_list,
+                            const bool only_selected_faces,
+                            const bool only_selected_uvs,
+                            const bool use_seams,
+                            const float aspect_y,
+                            const int cd_loop_uv_offset);
+
 struct UVMapUDIM_Params {
   const struct Image *image;
   /** Copied from #SpaceImage.tile_grid_shape */
   int grid_shape[2];
-  bool use_target_udim;
-  int target_udim;
 };
-bool ED_uvedit_udim_params_from_image_space(const struct SpaceImage *sima,
-                                            bool use_active,
-                                            struct UVMapUDIM_Params *udim_params);
 
+typedef enum {
+  ED_UVPACK_MARGIN_SCALED = 0, /* Use scale of existing UVs to multiply margin. */
+  ED_UVPACK_MARGIN_ADD,        /* Just add the margin, ignoring any UV scale. */
+  ED_UVPACK_MARGIN_FRACTION,   /* Specify a precise fraction of final UV output. */
+} eUVPackIsland_MarginMethod;
+
+/** See also #UnwrapOptions. */
 struct UVPackIsland_Params {
   uint rotate : 1;
-  /** -1 not to align to axis, otherwise 0,1 for X,Y. */
-  int rotate_align_axis : 2;
   uint only_selected_uvs : 1;
   uint only_selected_faces : 1;
   uint use_seams : 1;
   uint correct_aspect : 1;
+  bool ignore_pinned;                       /* Ignore islands which have any pinned UVs. */
+  bool pin_unselected;                      /* Treat unselected UVs as if they were pinned. */
+  eUVPackIsland_MarginMethod margin_method; /* Which formula to use when scaling island margin. */
+  float margin;                             /* Additional space to add around each island. */
+  float udim_base_offset[2];                /* Additional translation for bottom left corner. */
 };
 
 /**
@@ -330,10 +360,25 @@ struct UVPackIsland_Params {
 bool uv_coords_isect_udim(const struct Image *image,
                           const int udim_grid[2],
                           const float coords[2]);
+
+/**
+ * Pack UV islands from multiple objects.
+ *
+ * \param scene: Scene containing the objects to be packed.
+ * \param objects: Array of Objects to pack.
+ * \param objects_len: Length of `objects` array.
+ * \param bmesh_override: BMesh array aligned with `objects`.
+ * Optional, when non-null this overrides object's BMesh.
+ * This is needed to perform UV packing on objects that aren't in edit-mode.
+ * \param udim_params: Parameters to specify UDIM target and UDIM source image.
+ * \param params: Parameters and options to pass to the packing engine.
+ *
+ */
 void ED_uvedit_pack_islands_multi(const struct Scene *scene,
                                   Object **objects,
                                   uint objects_len,
-                                  const struct UVMapUDIM_Params *udim_params,
+                                  struct BMesh **bmesh_override,
+                                  const struct UVMapUDIM_Params *closest_udim,
                                   const struct UVPackIsland_Params *params);
 
 #ifdef __cplusplus

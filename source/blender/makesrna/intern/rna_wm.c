@@ -24,6 +24,7 @@
 
 #include "rna_internal.h"
 
+#include "WM_api.h"
 #include "WM_types.h"
 
 #ifdef RNA_RUNTIME
@@ -36,16 +37,16 @@ static const EnumPropertyItem event_mouse_type_items[] = {
     {BUTTON5MOUSE, "BUTTON5MOUSE", 0, "Button5", ""},
     {BUTTON6MOUSE, "BUTTON6MOUSE", 0, "Button6", ""},
     {BUTTON7MOUSE, "BUTTON7MOUSE", 0, "Button7", ""},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {TABLET_STYLUS, "PEN", 0, "Pen", ""},
     {TABLET_ERASER, "ERASER", 0, "Eraser", ""},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {MOUSEMOVE, "MOUSEMOVE", 0, "Move", ""},
     {MOUSEPAN, "TRACKPADPAN", 0, "Mouse/Trackpad Pan", ""},
     {MOUSEZOOM, "TRACKPADZOOM", 0, "Mouse/Trackpad Zoom", ""},
     {MOUSEROTATE, "MOUSEROTATE", 0, "Mouse/Trackpad Rotate", ""},
     {MOUSESMARTZOOM, "MOUSESMARTZOOM", 0, "Mouse/Trackpad Smart Zoom", ""},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {WHEELUPMOUSE, "WHEELUPMOUSE", 0, "Wheel Up", ""},
     {WHEELDOWNMOUSE, "WHEELDOWNMOUSE", 0, "Wheel Down", ""},
     {WHEELINMOUSE, "WHEELINMOUSE", 0, "Wheel In", ""},
@@ -98,13 +99,10 @@ static const EnumPropertyItem event_ndof_type_items[] = {
     {NDOF_BUTTON_DOMINANT, "NDOF_BUTTON_DOMINANT", 0, "Dominant", ""},
     {NDOF_BUTTON_PLUS, "NDOF_BUTTON_PLUS", 0, "Plus", ""},
     {NDOF_BUTTON_MINUS, "NDOF_BUTTON_MINUS", 0, "Minus", ""},
-#  if 0 /* Never used (converted to keyboard events by GHOST). */
-    /* keyboard emulation */
-    {NDOF_BUTTON_ESC, "NDOF_BUTTON_ESC", 0, "Esc"},
-    {NDOF_BUTTON_ALT, "NDOF_BUTTON_ALT", 0, "Alt"},
-    {NDOF_BUTTON_SHIFT, "NDOF_BUTTON_SHIFT", 0, "Shift"},
-    {NDOF_BUTTON_CTRL, "NDOF_BUTTON_CTRL", 0, "Ctrl"},
-#  endif
+    /* View buttons. */
+    {NDOF_BUTTON_V1, "NDOF_BUTTON_V1", 0, "View 1", ""},
+    {NDOF_BUTTON_V2, "NDOF_BUTTON_V2", 0, "View 2", ""},
+    {NDOF_BUTTON_V3, "NDOF_BUTTON_V3", 0, "View 3", ""},
     /* general-purpose buttons */
     {NDOF_BUTTON_1, "NDOF_BUTTON_1", 0, "Button 1", ""},
     {NDOF_BUTTON_2, "NDOF_BUTTON_2", 0, "Button 2", ""},
@@ -119,9 +117,38 @@ static const EnumPropertyItem event_ndof_type_items[] = {
     {NDOF_BUTTON_A, "NDOF_BUTTON_A", 0, "Button A", ""},
     {NDOF_BUTTON_B, "NDOF_BUTTON_B", 0, "Button B", ""},
     {NDOF_BUTTON_C, "NDOF_BUTTON_C", 0, "Button C", ""},
+#  if 0 /* Never used (converted to keyboard events by GHOST). */
+    /* keyboard emulation */
+    {NDOF_BUTTON_ESC, "NDOF_BUTTON_ESC", 0, "Esc"},
+    {NDOF_BUTTON_ENTER, "NDOF_BUTTON_ENTER", 0, "Enter"},
+    {NDOF_BUTTON_DELETE, "NDOF_BUTTON_DELETE", 0, "Delete"},
+    {NDOF_BUTTON_TAB, "NDOF_BUTTON_TAB", 0, "Tab"},
+    {NDOF_BUTTON_SPACE, "NDOF_BUTTON_SPACE", 0, "Space"},
+    {NDOF_BUTTON_ALT, "NDOF_BUTTON_ALT", 0, "Alt"},
+    {NDOF_BUTTON_SHIFT, "NDOF_BUTTON_SHIFT", 0, "Shift"},
+    {NDOF_BUTTON_CTRL, "NDOF_BUTTON_CTRL", 0, "Ctrl"},
+#  endif
     {0, NULL, 0, NULL, NULL},
 };
 #endif /* RNA_RUNTIME */
+
+/**
+ * Job types for use in the `bpy.app.is_job_running(job_type)` call.
+ *
+ * This is a subset of the `WM_JOB_TYPE_...` anonymous enum defined in `WM_api.h`. It is
+ * intentionally kept as a subset, such that by default how jobs are handled is kept as an
+ * "internal implementation detail" of Blender, rather than a public, reliable part of the API.
+ *
+ * This array can be expanded on a case-by-case basis, when there is a clear and testable use case.
+ */
+const EnumPropertyItem rna_enum_wm_job_type_items[] = {
+    {WM_JOB_TYPE_RENDER, "RENDER", 0, "Regular rendering", ""},
+    {WM_JOB_TYPE_RENDER_PREVIEW, "RENDER_PREVIEW", 0, "Rendering previews", ""},
+    {WM_JOB_TYPE_OBJECT_BAKE, "OBJECT_BAKE", 0, "Object Baking", ""},
+    {WM_JOB_TYPE_COMPOSITE, "COMPOSITE", 0, "Compositing", ""},
+    {WM_JOB_TYPE_SHADER_COMPILATION, "SHADER_COMPILATION", 0, "Shader compilation", ""},
+    {0, NULL, 0, NULL, NULL},
+};
 
 const EnumPropertyItem rna_enum_event_type_items[] = {
     /* - Note we abuse 'tooltip' message here to store a 'compact' form of some (too) long names.
@@ -135,22 +162,22 @@ const EnumPropertyItem rna_enum_event_type_items[] = {
     {BUTTON5MOUSE, "BUTTON5MOUSE", 0, "Button5 Mouse", "MB5"},
     {BUTTON6MOUSE, "BUTTON6MOUSE", 0, "Button6 Mouse", "MB6"},
     {BUTTON7MOUSE, "BUTTON7MOUSE", 0, "Button7 Mouse", "MB7"},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {TABLET_STYLUS, "PEN", 0, "Pen", ""},
     {TABLET_ERASER, "ERASER", 0, "Eraser", ""},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {MOUSEMOVE, "MOUSEMOVE", 0, "Mouse Move", "MsMov"},
     {INBETWEEN_MOUSEMOVE, "INBETWEEN_MOUSEMOVE", 0, "In-between Move", "MsSubMov"},
     {MOUSEPAN, "TRACKPADPAN", 0, "Mouse/Trackpad Pan", "MsPan"},
     {MOUSEZOOM, "TRACKPADZOOM", 0, "Mouse/Trackpad Zoom", "MsZoom"},
     {MOUSEROTATE, "MOUSEROTATE", 0, "Mouse/Trackpad Rotate", "MsRot"},
     {MOUSESMARTZOOM, "MOUSESMARTZOOM", 0, "Mouse/Trackpad Smart Zoom", "MsSmartZoom"},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {WHEELUPMOUSE, "WHEELUPMOUSE", 0, "Wheel Up", "WhUp"},
     {WHEELDOWNMOUSE, "WHEELDOWNMOUSE", 0, "Wheel Down", "WhDown"},
     {WHEELINMOUSE, "WHEELINMOUSE", 0, "Wheel In", "WhIn"},
     {WHEELOUTMOUSE, "WHEELOUTMOUSE", 0, "Wheel Out", "WhOut"},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {EVT_AKEY, "A", 0, "A", ""},
     {EVT_BKEY, "B", 0, "B", ""},
     {EVT_CKEY, "C", 0, "C", ""},
@@ -177,7 +204,7 @@ const EnumPropertyItem rna_enum_event_type_items[] = {
     {EVT_XKEY, "X", 0, "X", ""},
     {EVT_YKEY, "Y", 0, "Y", ""},
     {EVT_ZKEY, "Z", 0, "Z", ""},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {EVT_ZEROKEY, "ZERO", 0, "0", ""},
     {EVT_ONEKEY, "ONE", 0, "1", ""},
     {EVT_TWOKEY, "TWO", 0, "2", ""},
@@ -188,14 +215,14 @@ const EnumPropertyItem rna_enum_event_type_items[] = {
     {EVT_SEVENKEY, "SEVEN", 0, "7", ""},
     {EVT_EIGHTKEY, "EIGHT", 0, "8", ""},
     {EVT_NINEKEY, "NINE", 0, "9", ""},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {EVT_LEFTCTRLKEY, "LEFT_CTRL", 0, "Left Ctrl", "CtrlL"},
     {EVT_LEFTALTKEY, "LEFT_ALT", 0, "Left Alt", "AltL"},
     {EVT_LEFTSHIFTKEY, "LEFT_SHIFT", 0, "Left Shift", "ShiftL"},
     {EVT_RIGHTALTKEY, "RIGHT_ALT", 0, "Right Alt", "AltR"},
     {EVT_RIGHTCTRLKEY, "RIGHT_CTRL", 0, "Right Ctrl", "CtrlR"},
     {EVT_RIGHTSHIFTKEY, "RIGHT_SHIFT", 0, "Right Shift", "ShiftR"},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {EVT_OSKEY, "OSKEY", 0, "OS Key", "Cmd"},
     {EVT_APPKEY, "APP", 0, "Application", "App"},
     {EVT_GRLESSKEY, "GRLESS", 0, "Grless", ""},
@@ -268,14 +295,14 @@ const EnumPropertyItem rna_enum_event_type_items[] = {
     {EVT_PAGEUPKEY, "PAGE_UP", 0, "Page Up", "PgUp"},
     {EVT_PAGEDOWNKEY, "PAGE_DOWN", 0, "Page Down", "PgDown"},
     {EVT_ENDKEY, "END", 0, "End", ""},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {EVT_MEDIAPLAY, "MEDIA_PLAY", 0, "Media Play/Pause", ">/||"},
     {EVT_MEDIASTOP, "MEDIA_STOP", 0, "Media Stop", "Stop"},
     {EVT_MEDIAFIRST, "MEDIA_FIRST", 0, "Media First", "|<<"},
     {EVT_MEDIALAST, "MEDIA_LAST", 0, "Media Last", ">>|"},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {KM_TEXTINPUT, "TEXTINPUT", 0, "Text Input", "TxtIn"},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {WINDEACTIVATE, "WINDOW_DEACTIVATE", 0, "Window Deactivate", ""},
     {TIMER, "TIMER", 0, "Timer", "Tmr"},
     {TIMER0, "TIMER0", 0, "Timer 0", "Tmr0"},
@@ -285,7 +312,7 @@ const EnumPropertyItem rna_enum_event_type_items[] = {
     {TIMERAUTOSAVE, "TIMER_AUTOSAVE", 0, "Timer Autosave", "TmrSave"},
     {TIMERREPORT, "TIMER_REPORT", 0, "Timer Report", "TmrReport"},
     {TIMERREGION, "TIMERREGION", 0, "Timer Region", "TmrReg"},
-    {0, "", 0, NULL, NULL},
+    RNA_ENUM_ITEM_SEPR,
     {NDOF_MOTION, "NDOF_MOTION", 0, "NDOF Motion", "NdofMov"},
     /* buttons on all 3dconnexion devices */
     {NDOF_BUTTON_MENU, "NDOF_BUTTON_MENU", 0, "NDOF Menu", "NdofMenu"},
@@ -320,6 +347,10 @@ const EnumPropertyItem rna_enum_event_type_items[] = {
     {NDOF_BUTTON_SHIFT, "NDOF_BUTTON_SHIFT", 0, "NDOF Shift", "NdofShift"},
     {NDOF_BUTTON_CTRL, "NDOF_BUTTON_CTRL", 0, "NDOF Ctrl", "NdofCtrl"},
 #endif
+    /* View buttons. */
+    {NDOF_BUTTON_V1, "NDOF_BUTTON_V1", 0, "NDOF View 1", ""},
+    {NDOF_BUTTON_V2, "NDOF_BUTTON_V2", 0, "NDOF View 2", ""},
+    {NDOF_BUTTON_V3, "NDOF_BUTTON_V3", 0, "NDOF View 3", ""},
     /* general-purpose buttons */
     {NDOF_BUTTON_1, "NDOF_BUTTON_1", 0, "NDOF Button 1", "NdofB1"},
     {NDOF_BUTTON_2, "NDOF_BUTTON_2", 0, "NDOF Button 2", "NdofB2"},
@@ -588,14 +619,14 @@ static PointerRNA rna_OperatorMacro_properties_get(PointerRNA *ptr)
 static void rna_Event_ascii_get(PointerRNA *ptr, char *value)
 {
   const wmEvent *event = ptr->data;
-  value[0] = event->ascii;
+  value[0] = WM_event_utf8_to_ascii(event);
   value[1] = '\0';
 }
 
 static int rna_Event_ascii_length(PointerRNA *ptr)
 {
   const wmEvent *event = ptr->data;
-  return (event->ascii) ? 1 : 0;
+  return WM_event_utf8_to_ascii(event) ? 1 : 0;
 }
 
 static void rna_Event_unicode_get(PointerRNA *ptr, char *value)
@@ -845,6 +876,21 @@ static void rna_Window_view_layer_set(PointerRNA *ptr,
   WM_window_set_active_view_layer(win, view_layer);
 }
 
+static void rna_KeyMap_modal_event_values_items_begin(CollectionPropertyIterator *iter,
+                                                      PointerRNA *ptr)
+{
+  wmKeyMap *km = ptr->data;
+
+  const EnumPropertyItem *items = rna_enum_keymap_propvalue_items;
+  if ((km->flag & KEYMAP_MODAL) != 0 && km->modal_items != NULL) {
+    items = km->modal_items;
+  }
+
+  const int totitem = RNA_enum_items_count(items);
+
+  rna_iterator_array_begin(iter, (void *)items, sizeof(EnumPropertyItem), totitem, false, NULL);
+}
+
 static PointerRNA rna_KeyMapItem_properties_get(PointerRNA *ptr)
 {
   wmKeyMapItem *kmi = ptr->data;
@@ -896,8 +942,10 @@ static void rna_wmKeyMapItem_map_type_set(PointerRNA *ptr, int value)
   }
 }
 
-/* assumes value to be an enum from rna_enum_event_type_items */
-/* function makes sure keymodifiers are only valid keys, ESC keeps it unaltered */
+/**
+ * Assumes value to be an enum from rna_enum_event_type_items.
+ * Function makes sure key-modifiers are only valid keys, ESC keeps it unaltered.
+ */
 static void rna_wmKeyMapItem_keymodifier_set(PointerRNA *ptr, int value)
 {
   wmKeyMapItem *kmi = ptr->data;
@@ -1155,9 +1203,7 @@ static int rna_wmKeyMapItem_idname_length(PointerRNA *ptr)
 {
   wmKeyMapItem *kmi = ptr->data;
   char pyname[OP_MAX_TYPENAME];
-
-  WM_operator_py_idname(pyname, kmi->idname);
-  return strlen(pyname);
+  return WM_operator_py_idname(pyname, kmi->idname);
 }
 
 static void rna_wmKeyMapItem_idname_set(PointerRNA *ptr, const char *value)
@@ -1610,12 +1656,7 @@ static StructRNA *rna_MacroOperator_register(Main *bmain,
     return NULL;
   }
 
-  if (strlen(identifier) >= sizeof(dummyop.idname)) {
-    BKE_reportf(reports,
-                RPT_ERROR,
-                "Registering operator class: '%s' is too long, maximum length is %d",
-                identifier,
-                (int)sizeof(dummyop.idname));
+  if (!WM_operator_py_idname_ok_or_report(reports, identifier, dummyot.idname)) {
     return NULL;
   }
 
@@ -1625,10 +1666,6 @@ static StructRNA *rna_MacroOperator_register(Main *bmain,
     if (ot && ot->rna_ext.srna) {
       rna_Operator_unregister(bmain, ot->rna_ext.srna);
     }
-  }
-
-  if (!WM_operator_py_idname_ok_or_report(reports, identifier, dummyot.idname)) {
-    return NULL;
   }
 
   char idname_conv[sizeof(dummyop.idname)];
@@ -1833,8 +1870,9 @@ static void rna_def_operator_common(StructRNA *srna)
   /* Registration */
   prop = RNA_def_property(srna, "bl_idname", PROP_STRING, PROP_NONE);
   RNA_def_property_string_sdna(prop, NULL, "type->idname");
-  /* Without setting the length the pointer size would be used. -3 because `.` -> `_OT_`. */
-  RNA_def_property_string_maxlength(prop, OP_MAX_TYPENAME - 3);
+  /* String stored here is the 'BL' identifier (`OPMODULE_OT_my_op`),
+   * not the 'python' identifier (`opmodule.my_op`). */
+  RNA_def_property_string_maxlength(prop, OP_MAX_TYPENAME);
   RNA_def_property_string_funcs(prop, NULL, NULL, "rna_Operator_bl_idname_set");
   // RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_flag(prop, PROP_REGISTER);
@@ -2047,12 +2085,25 @@ static void rna_def_event(BlenderRNA *brna)
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Value", "The type of event, only applies to some");
 
+  prop = RNA_def_property(srna, "value_prev", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "prev_val");
+  RNA_def_property_enum_items(prop, rna_enum_event_value_items);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Previous Value", "The type of event, only applies to some");
+
   prop = RNA_def_property(srna, "type", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "type");
   RNA_def_property_enum_items(prop, rna_enum_event_type_items);
   RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_UI_EVENTS);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);
   RNA_def_property_ui_text(prop, "Type", "");
+
+  prop = RNA_def_property(srna, "type_prev", PROP_ENUM, PROP_NONE);
+  RNA_def_property_enum_sdna(prop, NULL, "prev_type");
+  RNA_def_property_enum_items(prop, rna_enum_event_type_items);
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_UI_EVENTS);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_ui_text(prop, "Previous Type", "");
 
   prop = RNA_def_property(srna, "direction", PROP_ENUM, PROP_NONE);
   RNA_def_property_enum_sdna(prop, NULL, "direction");
@@ -2310,6 +2361,7 @@ static void rna_def_window(BlenderRNA *brna)
                                  "rna_Window_screen_set",
                                  NULL,
                                  "rna_Window_screen_assign_poll");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_SCREEN);
   RNA_def_property_flag(prop, PROP_NEVER_NULL | PROP_EDITABLE | PROP_CONTEXT_UPDATE);
   RNA_def_property_update(prop, 0, "rna_workspace_screen_update");
 
@@ -2585,6 +2637,23 @@ static void rna_def_keyconfig(BlenderRNA *brna)
   RNA_def_property_ui_text(prop, "Children Expanded", "Children expanded in the user interface");
   RNA_def_property_ui_icon(prop, ICON_DISCLOSURE_TRI_RIGHT, 1);
 
+  prop = RNA_def_property(srna, "modal_event_values", PROP_COLLECTION, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_struct_type(prop, "EnumPropertyItem");
+  RNA_def_property_collection_funcs(prop,
+                                    "rna_KeyMap_modal_event_values_items_begin",
+                                    "rna_iterator_array_next",
+                                    "rna_iterator_array_end",
+                                    "rna_iterator_array_get",
+                                    NULL,
+                                    NULL,
+                                    NULL,
+                                    NULL);
+  RNA_def_property_ui_text(prop,
+                           "Modal Events",
+                           "Give access to the possible event values of this modal keymap's items "
+                           "(#KeyMapItem.propvalue), for API introspection");
+
   RNA_api_keymap(srna);
 
   /* KeyMapItem */
@@ -2599,6 +2668,9 @@ static void rna_def_keyconfig(BlenderRNA *brna)
                                 "rna_wmKeyMapItem_idname_get",
                                 "rna_wmKeyMapItem_idname_length",
                                 "rna_wmKeyMapItem_idname_set");
+  RNA_def_property_string_search_func(prop,
+                                      "WM_operatortype_idname_visit_for_search",
+                                      PROP_STRING_SEARCH_SORT | PROP_STRING_SEARCH_SUGGESTION);
   RNA_def_struct_name_property(srna, prop);
   RNA_def_property_update(prop, 0, "rna_KeyMapItem_update");
 
@@ -2739,6 +2811,7 @@ static void rna_def_keyconfig(BlenderRNA *brna)
   RNA_def_property_enum_funcs(prop, NULL, NULL, "rna_KeyMapItem_propvalue_itemf");
   RNA_def_property_ui_text(
       prop, "Property Value", "The value this event translates to in a modal keymap");
+  RNA_def_property_translation_context(prop, BLT_I18NCONTEXT_ID_WINDOWMANAGER);
   RNA_def_property_update(prop, 0, "rna_KeyMapItem_update");
 
   prop = RNA_def_property(srna, "active", PROP_BOOLEAN, PROP_NONE);

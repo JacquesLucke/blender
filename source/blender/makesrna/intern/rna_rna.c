@@ -50,56 +50,85 @@ const EnumPropertyItem rna_enum_property_type_items[] = {
     {0, NULL, 0, NULL, NULL},
 };
 
-/* Keep in sync with RNA_types.h PropertySubType and bpy_props.c's property_subtype_xxx_items */
+/* Wraps multiple enums onto a single line in a way that is difficult to read.
+ * NOTE: these enums are split up based on their use in `bpy.props` Python module. */
+
+/* clang-format off */
+#define RNA_ENUM_PROPERTY_SUBTYPE_STRING_ITEMS \
+  {PROP_FILEPATH, "FILE_PATH", 0, "File Path", ""}, \
+  {PROP_DIRPATH, "DIR_PATH", 0, "Directory Path", ""}, \
+  {PROP_FILENAME, "FILE_NAME", 0, "File Name", ""}, \
+  {PROP_BYTESTRING, "BYTE_STRING", 0, "Byte String", ""}, \
+  {PROP_PASSWORD, "PASSWORD", 0, "Password", "A string that is displayed hidden ('********')"}
+
+#define RNA_ENUM_PROPERTY_SUBTYPE_NUMBER_ITEMS \
+  {PROP_PIXEL, "PIXEL", 0, "Pixel", ""}, \
+  {PROP_UNSIGNED, "UNSIGNED", 0, "Unsigned", ""}, \
+  {PROP_PERCENTAGE, "PERCENTAGE", 0, "Percentage", ""}, \
+  {PROP_FACTOR, "FACTOR", 0, "Factor", ""}, \
+  {PROP_ANGLE, "ANGLE", 0, "Angle", ""}, \
+  {PROP_TIME, "TIME", 0, "Time (Scene Relative)", \
+   "Time specified in frames, converted to seconds based on scene frame rate"}, \
+  {PROP_TIME_ABSOLUTE, "TIME_ABSOLUTE", 0, "Time (Absolute)", \
+   "Time specified in seconds, independent of the scene"}, \
+  {PROP_DISTANCE, "DISTANCE", 0, "Distance", ""}, \
+  {PROP_DISTANCE_CAMERA, "DISTANCE_CAMERA", 0, "Camera Distance", ""}, \
+  {PROP_POWER, "POWER", 0, "Power", ""}, \
+  {PROP_TEMPERATURE, "TEMPERATURE", 0, "Temperature", ""}
+
+#define RNA_ENUM_PROPERTY_SUBTYPE_NUMBER_ARRAY_ITEMS \
+  {PROP_COLOR, "COLOR", 0, "Color", ""}, \
+  {PROP_TRANSLATION, "TRANSLATION", 0, "Translation", ""}, \
+  {PROP_DIRECTION, "DIRECTION", 0, "Direction", ""}, \
+  {PROP_VELOCITY, "VELOCITY", 0, "Velocity", ""}, \
+  {PROP_ACCELERATION, "ACCELERATION", 0, "Acceleration", ""}, \
+  {PROP_MATRIX, "MATRIX", 0, "Matrix", ""}, \
+  {PROP_EULER, "EULER", 0, "Euler Angles", ""}, \
+  {PROP_QUATERNION, "QUATERNION", 0, "Quaternion", ""}, \
+  {PROP_AXISANGLE, "AXISANGLE", 0, "Axis-Angle", ""}, \
+  {PROP_XYZ, "XYZ", 0, "XYZ", ""}, \
+  {PROP_XYZ_LENGTH, "XYZ_LENGTH", 0, "XYZ Length", ""}, \
+  {PROP_COLOR_GAMMA, "COLOR_GAMMA", 0, "Color", ""}, \
+  {PROP_COORDS, "COORDINATES", 0, "Coordinates", ""}, \
+  /* Boolean. */ \
+  {PROP_LAYER, "LAYER", 0, "Layer", ""}, \
+  {PROP_LAYER_MEMBER, "LAYER_MEMBER", 0, "Layer Member", ""}
+
+/* clang-format on */
+
+const EnumPropertyItem rna_enum_property_subtype_string_items[] = {
+    RNA_ENUM_PROPERTY_SUBTYPE_STRING_ITEMS,
+
+    {PROP_NONE, "NONE", 0, "None", ""},
+    {0, NULL, 0, NULL, NULL},
+};
+
+const EnumPropertyItem rna_enum_property_subtype_number_items[] = {
+    RNA_ENUM_PROPERTY_SUBTYPE_NUMBER_ITEMS,
+
+    {PROP_NONE, "NONE", 0, "None", ""},
+    {0, NULL, 0, NULL, NULL},
+};
+
+const EnumPropertyItem rna_enum_property_subtype_number_array_items[] = {
+    RNA_ENUM_PROPERTY_SUBTYPE_NUMBER_ARRAY_ITEMS,
+
+    {PROP_NONE, "NONE", 0, "None", ""},
+    {0, NULL, 0, NULL, NULL},
+};
+
 const EnumPropertyItem rna_enum_property_subtype_items[] = {
     {PROP_NONE, "NONE", 0, "None", ""},
 
-    /* strings */
-    {PROP_FILEPATH, "FILEPATH", 0, "File Path", ""},
-    {PROP_DIRPATH, "DIRPATH", 0, "Directory Path", ""},
-    {PROP_FILENAME, "FILENAME", 0, "File Name", ""},
-    {PROP_BYTESTRING, "BYTESTRING", 0, "Byte String", ""},
-    {PROP_PASSWORD, "PASSWORD", 0, "Password", "A string that is displayed hidden ('********')"},
+    /* String. */
+    RNA_ENUM_PROPERTY_SUBTYPE_STRING_ITEMS,
 
-    /* numbers */
-    {PROP_PIXEL, "PIXEL", 0, "Pixel", ""},
-    {PROP_UNSIGNED, "UNSIGNED", 0, "Unsigned", ""},
-    {PROP_PERCENTAGE, "PERCENTAGE", 0, "Percentage", ""},
-    {PROP_FACTOR, "FACTOR", 0, "Factor", ""},
-    {PROP_ANGLE, "ANGLE", 0, "Angle", ""},
-    {PROP_TIME,
-     "TIME",
-     0,
-     "Time (Scene Relative)",
-     "Time specified in frames, converted to seconds based on scene frame rate"},
-    {PROP_TIME_ABSOLUTE,
-     "TIME_ABSOLUTE",
-     0,
-     "Time (Absolute)",
-     "Time specified in seconds, independent of the scene"},
-    {PROP_DISTANCE, "DISTANCE", 0, "Distance", ""},
-    {PROP_DISTANCE_CAMERA, "DISTANCE_CAMERA", 0, "Camera Distance", ""},
-    {PROP_POWER, "POWER", 0, "Power", ""},
-    {PROP_TEMPERATURE, "TEMPERATURE", 0, "Temperature", ""},
+    /* Number. */
+    RNA_ENUM_PROPERTY_SUBTYPE_NUMBER_ITEMS,
 
-    /* number arrays */
-    {PROP_COLOR, "COLOR", 0, "Color", ""},
-    {PROP_TRANSLATION, "TRANSLATION", 0, "Translation", ""},
-    {PROP_DIRECTION, "DIRECTION", 0, "Direction", ""},
-    {PROP_VELOCITY, "VELOCITY", 0, "Velocity", ""},
-    {PROP_ACCELERATION, "ACCELERATION", 0, "Acceleration", ""},
-    {PROP_MATRIX, "MATRIX", 0, "Matrix", ""},
-    {PROP_EULER, "EULER", 0, "Euler Angles", ""},
-    {PROP_QUATERNION, "QUATERNION", 0, "Quaternion", ""},
-    {PROP_AXISANGLE, "AXISANGLE", 0, "Axis-Angle", ""},
-    {PROP_XYZ, "XYZ", 0, "XYZ", ""},
-    {PROP_XYZ_LENGTH, "XYZ_LENGTH", 0, "XYZ Length", ""},
-    {PROP_COLOR_GAMMA, "COLOR_GAMMA", 0, "Color", ""},
-    {PROP_COORDS, "COORDS", 0, "Coordinates", ""},
+    /* Number array. */
+    RNA_ENUM_PROPERTY_SUBTYPE_NUMBER_ARRAY_ITEMS,
 
-    /* booleans */
-    {PROP_LAYER, "LAYER", 0, "Layer", ""},
-    {PROP_LAYER_MEMBER, "LAYER_MEMBER", 0, "Layer Member", ""},
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -117,6 +146,70 @@ const EnumPropertyItem rna_enum_property_unit_items[] = {
     {PROP_UNIT_CAMERA, "CAMERA", 0, "Camera", ""},
     {PROP_UNIT_POWER, "POWER", 0, "Power", ""},
     {PROP_UNIT_TEMPERATURE, "TEMPERATURE", 0, "Temperature", ""},
+    {0, NULL, 0, NULL, NULL},
+};
+
+const EnumPropertyItem rna_enum_property_flag_items[] = {
+    {PROP_HIDDEN, "HIDDEN", 0, "Hidden", ""},
+    {PROP_SKIP_SAVE, "SKIP_SAVE", 0, "Skip Save", ""},
+    {PROP_ANIMATABLE, "ANIMATABLE", 0, "Animatable", ""},
+    {PROP_LIB_EXCEPTION, "LIBRARY_EDITABLE", 0, "Library Editable", ""},
+    {PROP_PROPORTIONAL, "PROPORTIONAL", 0, "Adjust values proportionally to each other", ""},
+    {PROP_TEXTEDIT_UPDATE,
+     "TEXTEDIT_UPDATE",
+     0,
+     "Update on every keystroke in textedit 'mode'",
+     ""},
+    {PROP_PATH_OUTPUT, "OUTPUT_PATH", 0, "Output Path", ""},
+    {0, NULL, 0, NULL, NULL},
+};
+
+/** Only for enum type properties. */
+const EnumPropertyItem rna_enum_property_flag_enum_items[] = {
+    {PROP_HIDDEN, "HIDDEN", 0, "Hidden", ""},
+    {PROP_SKIP_SAVE, "SKIP_SAVE", 0, "Skip Save", ""},
+    {PROP_ANIMATABLE, "ANIMATABLE", 0, "Animatable", ""},
+    {PROP_LIB_EXCEPTION, "LIBRARY_EDITABLE", 0, "Library Editable", ""},
+    {PROP_ENUM_FLAG, "ENUM_FLAG", 0, "Enum Flag", ""},
+    {0, NULL, 0, NULL, NULL},
+};
+
+const EnumPropertyItem rna_enum_property_override_flag_items[] = {
+    {PROPOVERRIDE_OVERRIDABLE_LIBRARY,
+     "LIBRARY_OVERRIDABLE",
+     0,
+     "Library Overridable",
+     "Make that property editable in library overrides of linked data-blocks"},
+    {0, NULL, 0, NULL, NULL},
+};
+
+const EnumPropertyItem rna_enum_property_override_flag_collection_items[] = {
+    {PROPOVERRIDE_OVERRIDABLE_LIBRARY,
+     "LIBRARY_OVERRIDABLE",
+     0,
+     "Library Overridable",
+     "Make that property editable in library overrides of linked data-blocks"},
+    {PROPOVERRIDE_NO_PROP_NAME,
+     "NO_PROPERTY_NAME",
+     0,
+     "No Name",
+     "Do not use the names of the items, only their indices in the collection"},
+    {PROPOVERRIDE_LIBRARY_INSERTION,
+     "USE_INSERTION",
+     0,
+     "Use Insertion",
+     "Allow users to add new items in that collection in library overrides"},
+    {0, NULL, 0, NULL, NULL},
+};
+
+const EnumPropertyItem rna_enum_property_string_search_flag_items[] = {
+    {PROP_STRING_SEARCH_SORT, "SORT", 0, "Sort Search Results", ""},
+    {PROP_STRING_SEARCH_SUGGESTION,
+     "SUGGESTION",
+     0,
+     "Suggestion",
+     "Search results are suggestions (other values may be entered)"},
+
     {0, NULL, 0, NULL, NULL},
 };
 
@@ -372,7 +465,7 @@ static void rna_Struct_property_tags_begin(CollectionPropertyIterator *iter, Poi
   /* here ptr->data should always be the same as iter->parent.type */
   StructRNA *srna = (StructRNA *)ptr->data;
   const EnumPropertyItem *tag_defines = RNA_struct_property_tag_defines(srna);
-  unsigned int tag_count = tag_defines ? RNA_enum_items_count(tag_defines) : 0;
+  uint tag_count = tag_defines ? RNA_enum_items_count(tag_defines) : 0;
 
   rna_iterator_array_begin(
       iter, (void *)tag_defines, sizeof(EnumPropertyItem), tag_count, 0, NULL);
@@ -637,6 +730,12 @@ static bool rna_Property_is_library_editable_flag_get(PointerRNA *ptr)
   return (prop->flag & PROP_LIB_EXCEPTION) != 0;
 }
 
+static bool rna_Property_is_path_output_flag_get(PointerRNA *ptr)
+{
+  PropertyRNA *prop = (PropertyRNA *)ptr->data;
+  return (prop->flag & PROP_PATH_OUTPUT) != 0;
+}
+
 static int rna_Property_tags_get(PointerRNA *ptr)
 {
   return RNA_property_tags(ptr->data);
@@ -721,7 +820,7 @@ static int rna_IntProperty_default_get(PointerRNA *ptr)
   return ((IntPropertyRNA *)prop)->defaultvalue;
 }
 /* int/float/bool */
-static int rna_NumberProperty_default_array_get_length(PointerRNA *ptr,
+static int rna_NumberProperty_default_array_get_length(const PointerRNA *ptr,
                                                        int length[RNA_MAX_ARRAY_DIMENSION])
 {
   PropertyRNA *prop = (PropertyRNA *)ptr->data;
@@ -941,17 +1040,29 @@ static int rna_EnumPropertyItem_identifier_length(PointerRNA *ptr)
 
 static void rna_EnumPropertyItem_name_get(PointerRNA *ptr, char *value)
 {
-  strcpy(value, ((EnumPropertyItem *)ptr->data)->name);
+  const EnumPropertyItem *eprop = ptr->data;
+  /* Name can be NULL in the case of separators
+   * which are exposed via `_bpy.rna_enum_items_static`. */
+  if (eprop->name) {
+    strcpy(value, eprop->name);
+  }
+  else {
+    value[0] = '\0';
+  }
 }
 
 static int rna_EnumPropertyItem_name_length(PointerRNA *ptr)
 {
-  return strlen(((EnumPropertyItem *)ptr->data)->name);
+  const EnumPropertyItem *eprop = ptr->data;
+  if (eprop->name) {
+    return strlen(eprop->name);
+  }
+  return 0;
 }
 
 static void rna_EnumPropertyItem_description_get(PointerRNA *ptr, char *value)
 {
-  EnumPropertyItem *eprop = (EnumPropertyItem *)ptr->data;
+  const EnumPropertyItem *eprop = ptr->data;
 
   if (eprop->description) {
     strcpy(value, eprop->description);
@@ -968,9 +1079,7 @@ static int rna_EnumPropertyItem_description_length(PointerRNA *ptr)
   if (eprop->description) {
     return strlen(eprop->description);
   }
-  else {
-    return 0;
-  }
+  return 0;
 }
 
 static int rna_EnumPropertyItem_value_get(PointerRNA *ptr)
@@ -1043,7 +1152,7 @@ static bool rna_Function_no_self_get(PointerRNA *ptr)
   return !(func->flag & FUNC_NO_SELF);
 }
 
-static int rna_Function_use_self_type_get(PointerRNA *ptr)
+static bool rna_Function_use_self_type_get(PointerRNA *ptr)
 {
   FunctionRNA *func = (FunctionRNA *)ptr->data;
   return 0 != (func->flag & FUNC_USE_SELF_TYPE);
@@ -1474,6 +1583,11 @@ static int rna_property_override_diff_propptr(Main *bmain,
     (is_array ? RNA_property_##_typename##_set_index((_ptr), (_prop), (_index), (_value)) : \
                 RNA_property_##_typename##_set((_ptr), (_prop), (_value)))
 
+/**
+ * \return `0` is matching, `-1` if `prop_a < prop_b`, `1` if `prop_a > prop_b`. Note that for
+ * unquantifiable properties (e.g. pointers or collections), return value should be interpreted as
+ * a boolean (false == matching, true == not matching).
+ */
 int rna_property_override_diff_default(Main *bmain,
                                        PropertyRNAOrID *prop_a,
                                        PropertyRNAOrID *prop_b,
@@ -1932,25 +2046,25 @@ int rna_property_override_diff_default(Main *bmain,
           }
           else if (is_id || is_valid_for_diffing) {
             if (equals || do_create) {
-              const int eq = rna_property_override_diff_propptr(bmain,
-                                                                ptr_a->owner_id,
-                                                                ptr_b->owner_id,
-                                                                &iter_a.ptr,
-                                                                &iter_b.ptr,
-                                                                mode,
-                                                                no_ownership,
-                                                                no_prop_name,
-                                                                override,
-                                                                rna_path,
-                                                                rna_path_len,
-                                                                PROP_COLLECTION,
-                                                                propname_a,
-                                                                propname_b,
-                                                                idx_a,
-                                                                idx_b,
-                                                                flags,
-                                                                r_override_changed);
-              equals = equals && eq;
+              const int comp = rna_property_override_diff_propptr(bmain,
+                                                                  ptr_a->owner_id,
+                                                                  ptr_b->owner_id,
+                                                                  &iter_a.ptr,
+                                                                  &iter_b.ptr,
+                                                                  mode,
+                                                                  no_ownership,
+                                                                  no_prop_name,
+                                                                  override,
+                                                                  rna_path,
+                                                                  rna_path_len,
+                                                                  PROP_COLLECTION,
+                                                                  propname_a,
+                                                                  propname_b,
+                                                                  idx_a,
+                                                                  idx_b,
+                                                                  flags,
+                                                                  r_override_changed);
+              equals = equals && (comp == 0);
             }
           }
 
@@ -2596,10 +2710,11 @@ bool rna_property_override_apply_default(Main *bmain,
             int item_index_src, item_index_ref;
             if (RNA_property_collection_lookup_string_index(
                     ptr_src, prop_src, opop->subitem_local_name, &item_ptr_src, &item_index_src) &&
-                RNA_property_collection_lookup_int(
-                    ptr_src, prop_src, item_index_src + 1, &item_ptr_src) &&
-                RNA_property_collection_lookup_string_index(
-                    ptr_dst, prop_dst, opop->subitem_local_name, &item_ptr_ref, &item_index_ref)) {
+                RNA_property_collection_lookup_string_index(ptr_dst,
+                                                            prop_dst,
+                                                            opop->subitem_reference_name,
+                                                            &item_ptr_ref,
+                                                            &item_index_ref)) {
               is_valid = true;
               item_index_dst = item_index_ref + 1;
             }
@@ -2607,10 +2722,10 @@ bool rna_property_override_apply_default(Main *bmain,
           if (!is_valid && opop->subitem_local_index >= 0) {
             /* Find from index. */
             if (RNA_property_collection_lookup_int(
-                    ptr_src, prop_src, opop->subitem_local_index + 1, &item_ptr_src) &&
+                    ptr_src, prop_src, opop->subitem_local_index, &item_ptr_src) &&
                 RNA_property_collection_lookup_int(
-                    ptr_dst, prop_dst, opop->subitem_local_index, &item_ptr_ref)) {
-              item_index_dst = opop->subitem_local_index + 1;
+                    ptr_dst, prop_dst, opop->subitem_reference_index, &item_ptr_ref)) {
+              item_index_dst = opop->subitem_reference_index + 1;
               is_valid = true;
             }
           }
@@ -2649,7 +2764,7 @@ bool rna_property_override_apply_default(Main *bmain,
       break;
     }
     default:
-      BLI_assert(0);
+      BLI_assert_unreachable();
       return false;
   }
 
@@ -2914,6 +3029,12 @@ static void rna_def_property(BlenderRNA *brna)
   RNA_def_property_boolean_funcs(prop, "rna_Property_is_library_editable_flag_get", NULL);
   RNA_def_property_ui_text(
       prop, "Library Editable", "Property is editable from linked instances (changes not saved)");
+
+  prop = RNA_def_property(srna, "is_path_output", PROP_BOOLEAN, PROP_NONE);
+  RNA_def_property_clear_flag(prop, PROP_EDITABLE);
+  RNA_def_property_boolean_funcs(prop, "rna_Property_is_path_output_flag_get", NULL);
+  RNA_def_property_ui_text(
+      prop, "Path Output", "Property is a filename, filepath or directory output");
 
   prop = RNA_def_property(srna, "tags", PROP_ENUM, PROP_NONE);
   RNA_def_property_clear_flag(prop, PROP_EDITABLE);

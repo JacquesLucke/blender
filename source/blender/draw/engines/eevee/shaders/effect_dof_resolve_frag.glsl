@@ -10,28 +10,6 @@
 #pragma BLENDER_REQUIRE(common_utiltex_lib.glsl)
 #pragma BLENDER_REQUIRE(effect_dof_lib.glsl)
 
-uniform sampler2D fullResColorBuffer;
-uniform sampler2D fullResDepthBuffer;
-
-uniform sampler2D bgColorBuffer;
-uniform sampler2D bgWeightBuffer;
-uniform sampler2D bgTileBuffer;
-
-uniform sampler2D fgColorBuffer;
-uniform sampler2D fgWeightBuffer;
-uniform sampler2D fgTileBuffer;
-
-uniform sampler2D holefillColorBuffer;
-uniform sampler2D holefillWeightBuffer;
-
-uniform sampler2D bokehLut;
-
-uniform float bokehMaxSize;
-
-in vec4 uvcoordsvar;
-
-out vec4 fragColor;
-
 void dof_slight_focus_gather(float radius, out vec4 out_color, out float out_weight)
 {
   /* offset coord to avoid correlation with sampling pattern. */
@@ -124,7 +102,7 @@ void dof_slight_focus_gather(float radius, out vec4 out_color, out float out_wei
   dof_gather_accumulate_resolve(total_sample_count, bg_accum, bg_col, bg_weight, unused_occlusion);
   dof_gather_accumulate_resolve(total_sample_count, fg_accum, fg_col, fg_weight, unused_occlusion);
 
-  /* Fix weighting issues on perfectly focus > slight focus transitionning areas. */
+  /* Fix weighting issues on perfectly focus > slight focus transitioning areas. */
   if (abs(center_data.coc) < 0.5) {
     bg_col = center_data.color;
     bg_weight = 1.0;

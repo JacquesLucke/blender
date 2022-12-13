@@ -32,6 +32,7 @@ typedef enum {
   NODE_LEFT = 4,
   NODE_RIGHT = 8,
 } NodeBorder;
+ENUM_OPERATORS(NodeBorder, NODE_RIGHT)
 
 #define NODE_GRID_STEP_SIZE U.widget_unit /* Based on the grid nodes snap to. */
 #define NODE_EDGE_PAN_INSIDE_PAD 2
@@ -86,17 +87,6 @@ void ED_node_tree_update(const struct bContext *C);
 void ED_node_tag_update_id(struct ID *id);
 
 float ED_node_grid_size(void);
-
-/* node_relationships.cc */
-
-/**
- * Test == 0, clear all intersect flags.
- */
-void ED_node_link_intersect_test(struct ScrArea *area, int test);
-/**
- * Assumes link with #NODE_LINKFLAG_HILITE set.
- */
-void ED_node_link_insert(struct Main *bmain, struct ScrArea *area);
 
 /* node_edit.cc */
 

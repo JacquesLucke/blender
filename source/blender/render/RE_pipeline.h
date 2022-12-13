@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "DEG_depsgraph.h"
+#include "DNA_ID.h"
 #include "DNA_listBase.h"
 #include "DNA_vec_types.h"
 
@@ -74,10 +74,12 @@ typedef struct RenderPass {
   int pad;
 } RenderPass;
 
-/* a renderlayer is a full image, but with all passes and samples */
-/* size of the rects is defined in RenderResult */
-/* after render, the Combined pass is in combined,
- * for renderlayers read from files it is a real pass */
+/**
+ * - A render-layer is a full image, but with all passes and samples.
+ * - The size of the rects is defined in #RenderResult.
+ * - After render, the Combined pass is in combined,
+ *   for render-layers read from files it is a real pass.
+ */
 typedef struct RenderLayer {
   struct RenderLayer *next, *prev;
 
@@ -99,7 +101,6 @@ typedef struct RenderResult {
 
   /* target image size */
   int rectx, recty;
-  short sample_nr;
 
   /* The following rect32, rectf and rectz buffers are for temporary storage only,
    * for RenderResult structs created in #RE_AcquireResultImage - which do not have RenderView */
@@ -122,8 +123,7 @@ typedef struct RenderResult {
   /* multiView maps to a StringVector in OpenEXR */
   ListBase views; /* RenderView */
 
-  /* allowing live updates: */
-  rcti renrect;
+  /* Render layer to display. */
   RenderLayer *renlay;
 
   /* for render results in Image, verify validity for sequences */
@@ -247,15 +247,15 @@ void RE_render_result_full_channel_name(char *fullname,
                                         const char *passname,
                                         const char *viewname,
                                         const char *chan_id,
-                                        const int channel);
+                                        int channel);
 
 struct ImBuf *RE_render_result_rect_to_ibuf(struct RenderResult *rr,
                                             const struct ImageFormatData *imf,
                                             const float dither,
-                                            const int view_id);
+                                            int view_id);
 void RE_render_result_rect_from_ibuf(struct RenderResult *rr,
                                      const struct ImBuf *ibuf,
-                                     const int view_id);
+                                     int view_id);
 
 struct RenderLayer *RE_GetRenderLayer(struct RenderResult *rr, const char *name);
 float *RE_RenderLayerGetPass(struct RenderLayer *rl, const char *name, const char *viewname);
@@ -398,7 +398,7 @@ void RE_display_update_cb(struct Render *re,
 void RE_stats_draw_cb(struct Render *re, void *handle, void (*f)(void *handle, RenderStats *rs));
 void RE_progress_cb(struct Render *re, void *handle, void (*f)(void *handle, float));
 void RE_draw_lock_cb(struct Render *re, void *handle, void (*f)(void *handle, bool lock));
-void RE_test_break_cb(struct Render *re, void *handle, int (*f)(void *handle));
+void RE_test_break_cb(struct Render *re, void *handle, bool (*f)(void *handle));
 void RE_current_scene_update_cb(struct Render *re,
                                 void *handle,
                                 void (*f)(void *handle, struct Scene *scene));
@@ -459,9 +459,9 @@ bool RE_allow_render_generic_object(struct Object *ob);
 
 /******* defined in render_result.c *********/
 
-bool RE_HasCombinedLayer(const RenderResult *res);
-bool RE_HasFloatPixels(const RenderResult *res);
-bool RE_RenderResult_is_stereo(const RenderResult *res);
+bool RE_HasCombinedLayer(const RenderResult *result);
+bool RE_HasFloatPixels(const RenderResult *result);
+bool RE_RenderResult_is_stereo(const RenderResult *result);
 struct RenderView *RE_RenderViewGetById(struct RenderResult *rr, int view_id);
 struct RenderView *RE_RenderViewGetByName(struct RenderResult *rr, const char *viewname);
 

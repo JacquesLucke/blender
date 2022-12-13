@@ -18,8 +18,10 @@ class Context;
 
 class Batch;
 class DrawList;
+class Fence;
 class FrameBuffer;
 class IndexBuf;
+class PixelBuffer;
 class QueryPool;
 class Shader;
 class Texture;
@@ -30,6 +32,7 @@ class VertBuf;
 class GPUBackend {
  public:
   virtual ~GPUBackend() = default;
+  virtual void delete_resources() = 0;
 
   static GPUBackend *get();
 
@@ -37,12 +40,14 @@ class GPUBackend {
   virtual void compute_dispatch(int groups_x_len, int groups_y_len, int groups_z_len) = 0;
   virtual void compute_dispatch_indirect(StorageBuf *indirect_buf) = 0;
 
-  virtual Context *context_alloc(void *ghost_window) = 0;
+  virtual Context *context_alloc(void *ghost_window, void *ghost_context) = 0;
 
   virtual Batch *batch_alloc() = 0;
   virtual DrawList *drawlist_alloc(int list_length) = 0;
+  virtual Fence *fence_alloc() = 0;
   virtual FrameBuffer *framebuffer_alloc(const char *name) = 0;
   virtual IndexBuf *indexbuf_alloc() = 0;
+  virtual PixelBuffer *pixelbuf_alloc(uint size) = 0;
   virtual QueryPool *querypool_alloc() = 0;
   virtual Shader *shader_alloc(const char *name) = 0;
   virtual Texture *texture_alloc(const char *name) = 0;

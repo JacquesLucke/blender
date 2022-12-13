@@ -7,10 +7,14 @@
 
 #include <climits>
 
+#include "BLT_translation.h"
+
 #include "RNA_access.h"
 
 #include "UI_interface.h"
 #include "UI_resources.h"
+
+#include "COM_node_operation.hh"
 
 #include "node_composite_util.hh"
 
@@ -25,7 +29,7 @@ static void cmp_node_defocus_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Color>(N_("Image"));
 }
 
-static void node_composit_init_defocus(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_composit_init_defocus(bNodeTree * /*ntree*/, bNode *node)
 {
   /* defocus node */
   NodeDefocus *nbd = MEM_cnew<NodeDefocus>(__func__);
@@ -81,6 +85,24 @@ static void node_composit_buts_defocus(uiLayout *layout, bContext *C, PointerRNA
   uiItemR(sub, ptr, "z_scale", UI_ITEM_R_SPLIT_EMPTY_NAME, nullptr, ICON_NONE);
 }
 
+using namespace blender::realtime_compositor;
+
+class DefocusOperation : public NodeOperation {
+ public:
+  using NodeOperation::NodeOperation;
+
+  void execute() override
+  {
+    get_input("Image").pass_through(get_result("Image"));
+    context().set_info_message("Viewport compositor setup not fully supported");
+  }
+};
+
+static NodeOperation *get_compositor_operation(Context &context, DNode node)
+{
+  return new DefocusOperation(context, node);
+}
+
 }  // namespace blender::nodes::node_composite_defocus_cc
 
 void register_node_type_cmp_defocus()
@@ -92,8 +114,11 @@ void register_node_type_cmp_defocus()
   cmp_node_type_base(&ntype, CMP_NODE_DEFOCUS, "Defocus", NODE_CLASS_OP_FILTER);
   ntype.declare = file_ns::cmp_node_defocus_declare;
   ntype.draw_buttons = file_ns::node_composit_buts_defocus;
-  node_type_init(&ntype, file_ns::node_composit_init_defocus);
+  ntype.initfunc = file_ns::node_composit_init_defocus;
   node_type_storage(&ntype, "NodeDefocus", node_free_standard_storage, node_copy_standard_storage);
+  ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

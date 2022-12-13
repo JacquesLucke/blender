@@ -116,12 +116,12 @@ void transform_draw_cursor_draw(bContext *UNUSED(C), int x, int y, void *customd
   /* Dashed lines first. */
   if (ELEM(t->helpline, HLP_SPRING, HLP_ANGLE)) {
     GPU_line_width(DASH_WIDTH);
-    immBindBuiltinProgram(GPU_SHADER_2D_LINE_DASHED_UNIFORM_COLOR);
+    immBindBuiltinProgram(GPU_SHADER_3D_LINE_DASHED_UNIFORM_COLOR);
     immUniform2f("viewport_size", viewport_size[2], viewport_size[3]);
     immUniform1i("colors_len", 0); /* "simple" mode */
     immUniformThemeColor3(TH_VIEW_OVERLAY);
     immUniform1f("dash_width", DASH_LENGTH);
-    immUniform1f("dash_factor", 0.5f);
+    immUniform1f("udash_factor", 0.5f);
     immBegin(GPU_PRIM_LINES, 2);
     immVertex2fv(pos_id, cent);
     immVertex2f(pos_id, tmval[0], tmval[1]);

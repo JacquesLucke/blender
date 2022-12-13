@@ -65,8 +65,8 @@ const EnumPropertyItem rna_gpencil_reproject_type_items[] = {
 };
 
 /* Check frame_end is always > start frame! */
-static void gpencil_bake_set_frame_end(struct Main *UNUSED(main),
-                                       struct Scene *UNUSED(scene),
+static void gpencil_bake_set_frame_end(struct Main * /*main*/,
+                                       struct Scene * /*scene*/,
                                        struct PointerRNA *ptr)
 {
   int frame_start = RNA_int_get(ptr, "frame_start");
@@ -86,7 +86,7 @@ static bool gpencil_bake_grease_pencil_animation_poll(bContext *C)
   }
 
   /* Check if grease pencil or empty for dupli groups. */
-  if ((obact == nullptr) || (!ELEM(obact->type, OB_GPENCIL, OB_EMPTY))) {
+  if ((obact == nullptr) || !ELEM(obact->type, OB_GPENCIL, OB_EMPTY)) {
     return false;
   }
 
@@ -119,7 +119,7 @@ static void animdata_keyframe_list_get(ListBase *ob_list,
         /* Keyframe number is x value of point. */
         if ((bezt->f2 & SELECT) || (!only_selected)) {
           /* Insert only one key for each keyframe number. */
-          int key = (int)bezt->vec[1][0];
+          int key = int(bezt->vec[1][0]);
           if (!BLI_ghash_haskey(r_keyframes, POINTER_FROM_INT(key))) {
             BLI_ghash_insert(r_keyframes, POINTER_FROM_INT(key), POINTER_FROM_INT(key));
           }
@@ -222,7 +222,7 @@ static int gpencil_bake_grease_pencil_animation_exec(bContext *C, wmOperator *op
   ushort local_view_bits = (v3d && v3d->localvd) ? v3d->local_view_uuid : 0;
   ob_gpencil = ED_gpencil_add_object(C, scene->cursor.location, local_view_bits);
   float invmat[4][4];
-  invert_m4_m4(invmat, ob_gpencil->obmat);
+  invert_m4_m4(invmat, ob_gpencil->object_to_world);
 
   bGPdata *gpd_dst = (bGPdata *)ob_gpencil->data;
   gpd_dst->draw_mode = GP_DRAWMODE_2D;
@@ -243,7 +243,7 @@ static int gpencil_bake_grease_pencil_animation_exec(bContext *C, wmOperator *op
   }
 
   /* Loop all frame range. */
-  int oldframe = (int)DEG_get_ctime(depsgraph);
+  int oldframe = int(DEG_get_ctime(depsgraph));
   int key = -1;
 
   /* Get list of keyframes. */
@@ -260,12 +260,12 @@ static int gpencil_bake_grease_pencil_animation_exec(bContext *C, wmOperator *op
     }
 
     /* Check if frame is in the list of frames to be exported. */
-    if ((only_selected) && (!BLI_ghash_haskey(keyframe_list, POINTER_FROM_INT(i)))) {
+    if ((only_selected) && !BLI_ghash_haskey(keyframe_list, POINTER_FROM_INT(i))) {
       continue;
     }
 
     /* Move scene to new frame. */
-    CFRA = i;
+    scene->r.cfra = i;
     BKE_scene_graph_update_for_newframe(depsgraph);
 
     /* Loop all objects in the list. */
@@ -283,13 +283,9 @@ static int gpencil_bake_grease_pencil_animation_exec(bContext *C, wmOperator *op
         }
         MEM_freeN(layer_name);
 
-        /* Layer Transform matrix. */
-        float matrix[4][4];
-        BKE_gpencil_layer_transform_matrix_get(depsgraph, elem->ob, gpl_src, matrix);
-
         /* Apply time modifier. */
         int remap_cfra = BKE_gpencil_time_modifier_cfra(
-            depsgraph, scene, elem->ob, gpl_src, CFRA, false);
+            depsgraph, scene, elem->ob, gpl_src, scene->r.cfra, false);
         /* Duplicate frame. */
         bGPDframe *gpf_src = BKE_gpencil_layer_frame_get(
             gpl_src, remap_cfra, GP_GETFRAME_USE_PREV);
@@ -297,11 +293,12 @@ static int gpencil_bake_grease_pencil_animation_exec(bContext *C, wmOperator *op
           continue;
         }
         bGPDframe *gpf_dst = BKE_gpencil_frame_duplicate(gpf_src, true);
-        gpf_dst->framenum = CFRA + frame_offset;
+        gpf_dst->framenum = scene->r.cfra + frame_offset;
         gpf_dst->flag &= ~GP_FRAME_SELECT;
         BLI_addtail(&gpl_dst->frames, gpf_dst);
 
         LISTBASE_FOREACH (bGPDstroke *, gps, &gpf_dst->strokes) {
+          gps->runtime.gps_orig = nullptr;
           /* Create material of the stroke. */
           Material *ma_src = BKE_object_material_get(elem->ob, gps->mat_nr + 1);
           bool found = false;
@@ -324,14 +321,16 @@ static int gpencil_bake_grease_pencil_animation_exec(bContext *C, wmOperator *op
           /* Update point location to new object space. */
           for (int j = 0; j < gps->totpoints; j++) {
             bGPDspoint *pt = &gps->points[j];
-            mul_m4_v3(matrix, &pt->x);
+            pt->runtime.idx_orig = 0;
+            pt->runtime.pt_orig = nullptr;
+            mul_m4_v3(ob_eval->object_to_world, &pt->x);
             mul_m4_v3(invmat, &pt->x);
           }
 
           /* Reproject stroke. */
           if (project_type != GP_REPROJECT_KEEP) {
             ED_gpencil_stroke_reproject(
-                depsgraph, &gsc, sctx, gpl_dst, gpf_dst, gps, project_type, false);
+                depsgraph, &gsc, sctx, gpl_dst, gpf_dst, gps, project_type, false, 0.0f);
           }
           else {
             BKE_gpencil_stroke_geometry_update(gpd_dst, gps);
@@ -341,7 +340,7 @@ static int gpencil_bake_grease_pencil_animation_exec(bContext *C, wmOperator *op
     }
   }
   /* Return scene frame state and DB to original state. */
-  CFRA = oldframe;
+  scene->r.cfra = oldframe;
   BKE_scene_graph_update_for_newframe(depsgraph);
 
   /* Free memory. */
@@ -370,7 +369,7 @@ static int gpencil_bake_grease_pencil_animation_exec(bContext *C, wmOperator *op
 
 static int gpencil_bake_grease_pencil_animation_invoke(bContext *C,
                                                        wmOperator *op,
-                                                       const wmEvent *UNUSED(event))
+                                                       const wmEvent * /*event*/)
 {
   PropertyRNA *prop;
   Scene *scene = CTX_data_scene(C);

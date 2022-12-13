@@ -22,6 +22,7 @@
 #include "bpy_library.h"
 #include "bpy_rna.h"
 #include "bpy_rna_callback.h"
+#include "bpy_rna_context.h"
 #include "bpy_rna_data.h"
 #include "bpy_rna_id_collection.h"
 #include "bpy_rna_text.h"
@@ -97,6 +98,8 @@ static struct PyMethodDef pyrna_text_methods[] = {
     {NULL, NULL, 0, NULL},
 };
 
+/** \} */
+
 /* -------------------------------------------------------------------- */
 /** \name Window Manager Clipboard Property
  *
@@ -104,6 +107,7 @@ static struct PyMethodDef pyrna_text_methods[] = {
  * and creating the buffer, causing writes past the allocated length.
  * \{ */
 
+PyDoc_STRVAR(pyrna_WindowManager_clipboard_doc, "Clipboard text storage.\n\n:type: string");
 static PyObject *pyrna_WindowManager_clipboard_get(PyObject *UNUSED(self), void *UNUSED(flag))
 {
   int text_len = 0;
@@ -151,9 +155,20 @@ static struct PyGetSetDef pyrna_windowmanager_getset[] = {
     {"clipboard",
      pyrna_WindowManager_clipboard_get,
      pyrna_WindowManager_clipboard_set,
-     NULL,
+     pyrna_WindowManager_clipboard_doc,
      NULL},
     {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
+};
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Context Type
+ * \{ */
+
+static struct PyMethodDef pyrna_context_methods[] = {
+    {NULL, NULL, 0, NULL}, /* #BPY_rna_context_temp_override_method_def */
+    {NULL, NULL, 0, NULL},
 };
 
 /** \} */
@@ -170,16 +185,16 @@ PyDoc_STRVAR(
     "   It will be called every time the specified region in the space type will be drawn.\n"
     "   Note: All arguments are positional only for now.\n"
     "\n"
-    "   :param callback:\n"
+    "   :arg callback:\n"
     "      A function that will be called when the region is drawn.\n"
     "      It gets the specified arguments as input.\n"
     "   :type callback: function\n"
-    "   :param args: Arguments that will be passed to the callback.\n"
+    "   :arg args: Arguments that will be passed to the callback.\n"
     "   :type args: tuple\n"
-    "   :param region_type: The region type the callback draws in; usually ``WINDOW``. "
+    "   :arg region_type: The region type the callback draws in; usually ``WINDOW``. "
     "(:class:`bpy.types.Region.type`)\n"
     "   :type region_type: str\n"
-    "   :param draw_type: Usually ``POST_PIXEL`` for 2D drawing and ``POST_VIEW`` for 3D drawing. "
+    "   :arg draw_type: Usually ``POST_PIXEL`` for 2D drawing and ``POST_VIEW`` for 3D drawing. "
     "In some cases ``PRE_VIEW`` can be used. ``BACKDROP`` can be used for backdrops in the node "
     "editor.\n"
     "   :type draw_type: str\n"
@@ -191,9 +206,9 @@ PyDoc_STRVAR(pyrna_draw_handler_remove_doc,
              "\n"
              "   Remove a draw handler that was added previously.\n"
              "\n"
-             "   :param handler: The draw handler that should be removed.\n"
+             "   :arg handler: The draw handler that should be removed.\n"
              "   :type handler: object\n"
-             "   :param region_type: Region type the callback was added to.\n"
+             "   :arg region_type: Region type the callback was added to.\n"
              "   :type region_type: str\n");
 
 static struct PyMethodDef pyrna_space_methods[] = {
@@ -254,6 +269,12 @@ void BPY_rna_types_extend_capi(void)
   /* WindowManager */
   pyrna_struct_type_extend_capi(
       &RNA_WindowManager, pyrna_windowmanager_methods, pyrna_windowmanager_getset);
+
+  /* Context */
+  bpy_rna_context_types_init();
+
+  ARRAY_SET_ITEMS(pyrna_context_methods, BPY_rna_context_temp_override_method_def);
+  pyrna_struct_type_extend_capi(&RNA_Context, pyrna_context_methods, NULL);
 }
 
 /** \} */

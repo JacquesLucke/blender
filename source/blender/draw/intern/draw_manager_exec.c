@@ -44,6 +44,7 @@ typedef struct DRWCommandsState {
   int obmats_loc;
   int obinfos_loc;
   int obattrs_loc;
+  int vlattrs_loc;
   int baseinst_loc;
   int chunkid_loc;
   int resourceid_loc;
@@ -318,6 +319,7 @@ void DRW_state_reset(void)
   DRW_state_reset_ex(DRW_STATE_DEFAULT);
 
   GPU_texture_unbind_all();
+  GPU_texture_image_unbind_all();
   GPU_uniformbuf_unbind_all();
   GPU_storagebuf_unbind_all();
 
@@ -681,6 +683,10 @@ static void draw_update_uniforms(DRWShadingGroup *shgroup,
                                                                uni->uniform_attrs);
           DRW_sparse_uniform_buffer_bind(state->obattrs_ubo, 0, uni->location);
           break;
+        case DRW_UNIFORM_BLOCK_VLATTRS:
+          state->vlattrs_loc = uni->location;
+          GPU_uniformbuf_bind(drw_ensure_layer_attribute_buffer(), uni->location);
+          break;
         case DRW_UNIFORM_RESOURCE_CHUNK:
           state->chunkid_loc = uni->location;
           GPU_shader_uniform_int(shgroup->shader, uni->location, 0);
@@ -692,6 +698,12 @@ static void draw_update_uniforms(DRWShadingGroup *shgroup,
           BLI_assert(uni->pvalue && (*use_tfeedback == false));
           *use_tfeedback = GPU_shader_transform_feedback_enable(shgroup->shader,
                                                                 ((GPUVertBuf *)uni->pvalue));
+          break;
+        case DRW_UNIFORM_VERTEX_BUFFER_AS_TEXTURE_REF:
+          GPU_vertbuf_bind_as_texture(*uni->vertbuf_ref, uni->location);
+          break;
+        case DRW_UNIFORM_VERTEX_BUFFER_AS_TEXTURE:
+          GPU_vertbuf_bind_as_texture(uni->vertbuf, uni->location);
           break;
         case DRW_UNIFORM_VERTEX_BUFFER_AS_STORAGE_REF:
           GPU_vertbuf_bind_as_ssbo(*uni->vertbuf_ref, uni->location);
@@ -868,6 +880,25 @@ static void draw_call_single_do(DRWShadingGroup *shgroup,
                         state->baseinst_loc);
 }
 
+/* Not to be mistaken with draw_indirect_call which does batch many drawcalls together. This one
+ * only execute an indirect drawcall with user indirect buffer. */
+static void draw_call_indirect(DRWShadingGroup *shgroup,
+                               DRWCommandsState *state,
+                               GPUBatch *batch,
+                               DRWResourceHandle handle,
+                               GPUStorageBuf *indirect_buf)
+{
+  draw_call_batching_flush(shgroup, state);
+  draw_call_resource_bind(state, &handle);
+
+  if (G.f & G_FLAG_PICKSEL) {
+    GPU_select_load_id(state->select_id);
+  }
+
+  GPU_batch_set_shader(batch, shgroup->shader);
+  GPU_batch_draw_indirect(batch, indirect_buf, 0);
+}
+
 static void draw_call_batching_start(DRWCommandsState *state)
 {
   state->neg_scale = false;
@@ -934,6 +965,9 @@ static void draw_call_batching_finish(DRWShadingGroup *shgroup, DRWCommandsState
   if (state->obattrs_loc != -1) {
     DRW_sparse_uniform_buffer_unbind(state->obattrs_ubo, state->resource_chunk);
   }
+  if (state->vlattrs_loc != -1) {
+    GPU_uniformbuf_unbind(DST.vmempool->vlattrs_ubo);
+  }
 }
 
 static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
@@ -944,6 +978,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
       .obmats_loc = -1,
       .obinfos_loc = -1,
       .obattrs_loc = -1,
+      .vlattrs_loc = -1,
       .baseinst_loc = -1,
       .chunkid_loc = -1,
       .resourceid_loc = -1,
@@ -964,6 +999,7 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
       /* Unbinding can be costly. Skip in normal condition. */
       if (G.debug & G_DEBUG_GPU) {
         GPU_texture_unbind_all();
+        GPU_texture_image_unbind_all();
         GPU_uniformbuf_unbind_all();
         GPU_storagebuf_unbind_all();
       }
@@ -990,12 +1026,13 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
     while ((cmd = draw_command_iter_step(&iter, &cmd_type))) {
 
       switch (cmd_type) {
+        case DRW_CMD_DRAW_PROCEDURAL:
         case DRW_CMD_DRWSTATE:
         case DRW_CMD_STENCIL:
           draw_call_batching_flush(shgroup, &state);
           break;
         case DRW_CMD_DRAW:
-        case DRW_CMD_DRAW_PROCEDURAL:
+        case DRW_CMD_DRAW_INDIRECT:
         case DRW_CMD_DRAW_INSTANCE:
           if (draw_call_is_culled(&cmd->instance.handle, DST.view_active)) {
             continue;
@@ -1048,6 +1085,13 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
                               0,
                               1,
                               true);
+          break;
+        case DRW_CMD_DRAW_INDIRECT:
+          draw_call_indirect(shgroup,
+                             &state,
+                             cmd->draw_indirect.batch,
+                             cmd->draw_indirect.handle,
+                             cmd->draw_indirect.indirect_buf);
           break;
         case DRW_CMD_DRAW_INSTANCE:
           draw_call_single_do(shgroup,
@@ -1111,15 +1155,11 @@ static void draw_shgroup(DRWShadingGroup *shgroup, DRWState pass_state)
   }
 }
 
-static void drw_update_view(const float viewport_size[2])
+static void drw_update_view(void)
 {
-  ViewInfos *storage = &DST.view_active->storage;
-  copy_v2_v2(storage->viewport_size, viewport_size);
-  copy_v2_v2(storage->viewport_size_inverse, viewport_size);
-  invert_v2(storage->viewport_size_inverse);
-
   /* TODO(fclem): update a big UBO and only bind ranges here. */
   GPU_uniformbuf_update(G_draw.view_ubo, &DST.view_active->storage);
+  GPU_uniformbuf_update(G_draw.clipping_ubo, &DST.view_active->clip_planes);
 
   /* TODO: get rid of this. */
   DST.view_storage_cpy = DST.view_active->storage;
@@ -1145,11 +1185,8 @@ static void drw_draw_pass_ex(DRWPass *pass,
   BLI_assert(DST.buffer_finish_called &&
              "DRW_render_instance_buffer_finish had not been called before drawing");
 
-  float viewport[4];
-  GPU_viewport_size_get_f(viewport);
-  if (DST.view_previous != DST.view_active || DST.view_active->is_dirty ||
-      !equals_v2v2(DST.view_active->storage.viewport_size, &viewport[2])) {
-    drw_update_view(&viewport[2]);
+  if (DST.view_previous != DST.view_active || DST.view_active->is_dirty) {
+    drw_update_view();
     DST.view_active->is_dirty = false;
     DST.view_previous = DST.view_active;
   }

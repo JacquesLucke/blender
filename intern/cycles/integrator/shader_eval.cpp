@@ -31,8 +31,8 @@ bool ShaderEval::eval(const ShaderEvalType type,
 
   device_->foreach_device([&](Device *device) {
     if (!first_device) {
-      LOG(ERROR) << "Multi-devices are not yet fully implemented, will evaluate shader on a "
-                    "single device.";
+      VLOG_WORK << "Multi-devices are not yet fully implemented, will evaluate shader on a "
+                   "single device.";
       return;
     }
     first_device = false;
@@ -92,7 +92,7 @@ bool ShaderEval::eval_cpu(Device *device,
 
   tbb::task_arena local_arena(device->info.cpu_threads);
   local_arena.execute([&]() {
-    tbb::parallel_for(int64_t(0), work_size, [&](int64_t work_index) {
+    parallel_for(int64_t(0), work_size, [&](int64_t work_index) {
       /* TODO: is this fast enough? */
       if (progress_.get_cancel()) {
         success = false;

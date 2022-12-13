@@ -4,7 +4,7 @@
 /** \file
  * \ingroup imbcineon
  *
- * Dpx image file format library routines.
+ * DPX image file format library routines.
  */
 
 #include "dpxlib.h"
@@ -18,6 +18,7 @@
 #include <time.h>
 
 #include "BLI_fileops.h"
+#include "BLI_string.h"
 #include "BLI_utildefines.h"
 
 #include "MEM_guardedalloc.h"
@@ -60,14 +61,12 @@ static void fillDpxMainHeader(LogImageFile *dpx,
   header->fileHeader.ind_hdr_size = swap_uint(sizeof(DpxFilmHeader) + sizeof(DpxTelevisionHeader),
                                               dpx->isMSB);
   header->fileHeader.user_data_size = DPX_UNDEFINED_U32;
-  strncpy(header->fileHeader.file_name, filename, 99);
-  header->fileHeader.file_name[99] = 0;
+  STRNCPY(header->fileHeader.file_name, filename);
   fileClock = time(NULL);
   fileTime = localtime(&fileClock);
   strftime(header->fileHeader.creation_date, 24, "%Y:%m:%d:%H:%M:%S%Z", fileTime);
   header->fileHeader.creation_date[23] = 0;
-  strncpy(header->fileHeader.creator, creator, 99);
-  header->fileHeader.creator[99] = 0;
+  STRNCPY(header->fileHeader.creator, creator);
   header->fileHeader.project[0] = 0;
   header->fileHeader.copyright[0] = 0;
   header->fileHeader.key = 0xFFFFFFFF;
@@ -120,11 +119,11 @@ static void fillDpxMainHeader(LogImageFile *dpx,
   header->televisionHeader.integration_times = swap_float(DPX_UNDEFINED_R32, dpx->isMSB);
 }
 
-LogImageFile *dpxOpen(const unsigned char *byteStuff, int fromMemory, size_t bufferSize)
+LogImageFile *dpxOpen(const uchar *byteStuff, int fromMemory, size_t bufferSize)
 {
   DpxMainHeader header;
   LogImageFile *dpx = (LogImageFile *)MEM_mallocN(sizeof(LogImageFile), __func__);
-  const char *filename = (const char *)byteStuff;
+  const char *filepath = (const char *)byteStuff;
   int i;
 
   if (dpx == NULL) {
@@ -141,11 +140,11 @@ LogImageFile *dpxOpen(const unsigned char *byteStuff, int fromMemory, size_t buf
   dpx->file = NULL;
 
   if (fromMemory == 0) {
-    /* byteStuff is then the filename */
-    dpx->file = BLI_fopen(filename, "rb");
+    /* byteStuff is then the filepath */
+    dpx->file = BLI_fopen(filepath, "rb");
     if (dpx->file == NULL) {
       if (verbose) {
-        printf("DPX: Failed to open file \"%s\".\n", filename);
+        printf("DPX: Failed to open file \"%s\".\n", filepath);
       }
       logImageClose(dpx);
       return NULL;
@@ -156,8 +155,8 @@ LogImageFile *dpxOpen(const unsigned char *byteStuff, int fromMemory, size_t buf
     dpx->memBufferSize = 0;
   }
   else {
-    dpx->memBuffer = (unsigned char *)byteStuff;
-    dpx->memCursor = (unsigned char *)byteStuff;
+    dpx->memBuffer = (uchar *)byteStuff;
+    dpx->memCursor = (uchar *)byteStuff;
     dpx->memBufferSize = bufferSize;
   }
 
@@ -321,7 +320,7 @@ LogImageFile *dpxOpen(const unsigned char *byteStuff, int fromMemory, size_t buf
         }
 
         if (dpx->element[i].refHighData == DPX_UNDEFINED_U32) {
-          dpx->element[i].refHighData = (unsigned int)dpx->element[i].maxValue;
+          dpx->element[i].refHighData = (uint)dpx->element[i].maxValue;
         }
 
         if (IS_DPX_UNDEFINED_R32(dpx->element[i].refLowQuantity)) {
@@ -406,7 +405,7 @@ LogImageFile *dpxOpen(const unsigned char *byteStuff, int fromMemory, size_t buf
   return dpx;
 }
 
-LogImageFile *dpxCreate(const char *filename,
+LogImageFile *dpxCreate(const char *filepath,
                         int width,
                         int height,
                         int bitsPerSample,
@@ -419,7 +418,7 @@ LogImageFile *dpxCreate(const char *filename,
 {
   DpxMainHeader header;
   const char *shortFilename = NULL;
-  unsigned char pad[6044];
+  uchar pad[6044];
 
   LogImageFile *dpx = (LogImageFile *)MEM_mallocN(sizeof(LogImageFile), __func__);
   if (dpx == NULL) {
@@ -502,19 +501,19 @@ LogImageFile *dpxCreate(const char *filename,
     dpx->gamma = 1.7f;
   }
 
-  shortFilename = strrchr(filename, '/');
+  shortFilename = strrchr(filepath, PATHSEP_CHAR);
   if (shortFilename == NULL) {
-    shortFilename = filename;
+    shortFilename = filepath;
   }
   else {
     shortFilename++;
   }
 
-  dpx->file = BLI_fopen(filename, "wb");
+  dpx->file = BLI_fopen(filepath, "wb");
 
   if (dpx->file == NULL) {
     if (verbose) {
-      printf("DPX: Couldn't open file %s\n", filename);
+      printf("DPX: Couldn't open file %s\n", filepath);
     }
     logImageClose(dpx);
     return NULL;

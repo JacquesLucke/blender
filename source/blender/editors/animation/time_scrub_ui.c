@@ -32,7 +32,7 @@
 #include "RNA_access.h"
 #include "RNA_prototypes.h"
 
-static void get_time_scrub_region_rect(const ARegion *region, rcti *rect)
+void ED_time_scrub_region_rect_get(const ARegion *region, rcti *rect)
 {
   rect->xmin = 0;
   rect->xmax = region->winx;
@@ -48,7 +48,7 @@ static int get_centered_text_y(const rcti *rect)
 static void draw_background(const rcti *rect)
 {
   uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   immUniformThemeColor(TH_TIME_SCRUB_BACKGROUND);
 
@@ -97,7 +97,7 @@ static void draw_current_frame(const Scene *scene,
   uint pos = GPU_vertformat_attr_add(format, "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
 
   GPU_blend(GPU_BLEND_ALPHA);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
 
   /* Outline. */
   immUniformThemeColorShadeAlpha(TH_BACK, -25, -100);
@@ -154,7 +154,7 @@ void ED_time_scrub_draw_current_frame(const ARegion *region,
   wmOrtho2_region_pixelspace(region);
 
   rcti scrub_region_rect;
-  get_time_scrub_region_rect(region, &scrub_region_rect);
+  ED_time_scrub_region_rect_get(region, &scrub_region_rect);
 
   draw_current_frame(scene, display_seconds, v2d, &scrub_region_rect, scene->r.cfra);
   GPU_matrix_pop_projection();
@@ -171,7 +171,7 @@ void ED_time_scrub_draw(const ARegion *region,
   wmOrtho2_region_pixelspace(region);
 
   rcti scrub_region_rect;
-  get_time_scrub_region_rect(region, &scrub_region_rect);
+  ED_time_scrub_region_rect_get(region, &scrub_region_rect);
 
   draw_background(&scrub_region_rect);
 
@@ -208,7 +208,7 @@ void ED_time_scrub_channel_search_draw(const bContext *C, ARegion *region, bDope
   rect.ymax = region->winy;
 
   uint pos = GPU_vertformat_attr_add(immVertexFormat(), "pos", GPU_COMP_F32, 2, GPU_FETCH_FLOAT);
-  immBindBuiltinProgram(GPU_SHADER_2D_UNIFORM_COLOR);
+  immBindBuiltinProgram(GPU_SHADER_3D_UNIFORM_COLOR);
   immUniformThemeColor(TH_BACK);
   immRectf(pos, rect.xmin, rect.ymin, rect.xmax, rect.ymax);
   immUnbindProgram();

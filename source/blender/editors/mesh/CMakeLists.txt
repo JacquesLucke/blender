@@ -17,14 +17,13 @@ set(INC
   ../../render
   ../../windowmanager
   ../../../../intern/clog
-  ../../../../intern/glew-mx
   ../../../../intern/guardedalloc
   # RNA_prototypes.h
   ${CMAKE_BINARY_DIR}/source/blender/makesrna
 )
 
 set(SRC
-  editface.c
+  editface.cc
   editmesh_add.c
   editmesh_add_gizmo.c
   editmesh_automerge.c
@@ -46,15 +45,15 @@ set(SRC
   editmesh_preselect_elem.c
   editmesh_rip.c
   editmesh_rip_edge.c
-  editmesh_select.c
+  editmesh_select.cc
   editmesh_select_similar.c
   editmesh_tools.c
-  editmesh_undo.c
+  editmesh_undo.cc
   editmesh_utils.c
-  mesh_data.c
+  mesh_data.cc
   mesh_mirror.c
   mesh_ops.c
-  meshtools.c
+  meshtools.cc
 
   mesh_intern.h
 )

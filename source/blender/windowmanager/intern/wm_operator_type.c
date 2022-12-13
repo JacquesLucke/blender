@@ -235,14 +235,35 @@ void WM_operatortype_last_properties_clear_all(void)
 {
   GHashIterator iter;
 
-  for (WM_operatortype_iter(&iter); (!BLI_ghashIterator_done(&iter));
-       (BLI_ghashIterator_step(&iter))) {
+  for (WM_operatortype_iter(&iter); !BLI_ghashIterator_done(&iter);
+       BLI_ghashIterator_step(&iter)) {
     wmOperatorType *ot = BLI_ghashIterator_getValue(&iter);
 
     if (ot->last_properties) {
       IDP_FreeProperty(ot->last_properties);
       ot->last_properties = NULL;
     }
+  }
+}
+
+void WM_operatortype_idname_visit_for_search(const bContext *UNUSED(C),
+                                             PointerRNA *UNUSED(ptr),
+                                             PropertyRNA *UNUSED(prop),
+                                             const char *UNUSED(edit_text),
+                                             StringPropertySearchVisitFunc visit_fn,
+                                             void *visit_user_data)
+{
+  GHashIterator gh_iter;
+  GHASH_ITER (gh_iter, global_ops_hash) {
+    wmOperatorType *ot = BLI_ghashIterator_getValue(&gh_iter);
+
+    char idname_py[OP_MAX_TYPENAME];
+    WM_operator_py_idname(idname_py, ot->idname);
+
+    StringPropertySearchVisitParams visit_params = {NULL};
+    visit_params.text = idname_py;
+    visit_params.info = ot->name;
+    visit_fn(visit_user_data, &visit_params);
   }
 }
 

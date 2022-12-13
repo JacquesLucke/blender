@@ -16,9 +16,11 @@
 #include "DNA_scene_types.h"
 #include "DNA_screen_types.h"
 
-#include "BLI_blenlib.h"
-#include "BLI_math.h"
+#include "BLI_listbase.h"
+#include "BLI_math_vector.h"
 #include "BLI_utildefines.h"
+
+#include "BLT_translation.h"
 
 #include "BKE_context.h"
 #include "BKE_gpencil.h"
@@ -107,7 +109,7 @@ static void duplicateStroke(Object *ob,
   float opacity_factor;
 
   /* Apply object scale to offset distance. */
-  offset *= mat4_to_scale(ob->obmat);
+  offset *= mat4_to_scale(ob->object_to_world);
 
   BKE_gpencil_stroke_normal(gps, stroke_normal);
   if (len_v3(stroke_normal) < FLT_EPSILON) {
@@ -311,7 +313,7 @@ static void panelRegister(ARegionType *region_type)
 }
 
 GpencilModifierTypeInfo modifierType_Gpencil_Multiply = {
-    /* name */ "MultipleStrokes",
+    /* name */ N_("MultipleStrokes"),
     /* structName */ "MultiplyGpencilModifierData",
     /* structSize */ sizeof(MultiplyGpencilModifierData),
     /* type */ eGpencilModifierTypeType_Gpencil,

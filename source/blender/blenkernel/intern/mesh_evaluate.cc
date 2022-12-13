@@ -18,132 +18,32 @@
 #include "BLI_alloca.h"
 #include "BLI_bitmap.h"
 #include "BLI_edgehash.h"
-
+#include "BLI_index_range.hh"
 #include "BLI_math.h"
+#include "BLI_span.hh"
 #include "BLI_utildefines.h"
+#include "BLI_virtual_array.hh"
 
 #include "BKE_customdata.h"
 
+#include "BKE_attribute.hh"
 #include "BKE_mesh.h"
 #include "BKE_multires.h"
+
+using blender::MutableSpan;
+using blender::Span;
+using blender::VArray;
 
 /* -------------------------------------------------------------------- */
 /** \name Polygon Calculations
  * \{ */
-
-/*
- * COMPUTE POLY NORMAL
- *
- * Computes the normal of a planar
- * polygon See Graphics Gems for
- * computing newell normal.
- */
-static void mesh_calc_ngon_normal(const MPoly *mpoly,
-                                  const MLoop *loopstart,
-                                  const MVert *mvert,
-                                  float normal[3])
-{
-  const int nverts = mpoly->totloop;
-  const float *v_prev = mvert[loopstart[nverts - 1].v].co;
-  const float *v_curr;
-
-  zero_v3(normal);
-
-  /* Newell's Method */
-  for (int i = 0; i < nverts; i++) {
-    v_curr = mvert[loopstart[i].v].co;
-    add_newell_cross_v3_v3v3(normal, v_prev, v_curr);
-    v_prev = v_curr;
-  }
-
-  if (UNLIKELY(normalize_v3(normal) == 0.0f)) {
-    normal[2] = 1.0f; /* other axis set to 0.0 */
-  }
-}
-
-void BKE_mesh_calc_poly_normal(const MPoly *mpoly,
-                               const MLoop *loopstart,
-                               const MVert *mvarray,
-                               float r_no[3])
-{
-  if (mpoly->totloop > 4) {
-    mesh_calc_ngon_normal(mpoly, loopstart, mvarray, r_no);
-  }
-  else if (mpoly->totloop == 3) {
-    normal_tri_v3(
-        r_no, mvarray[loopstart[0].v].co, mvarray[loopstart[1].v].co, mvarray[loopstart[2].v].co);
-  }
-  else if (mpoly->totloop == 4) {
-    normal_quad_v3(r_no,
-                   mvarray[loopstart[0].v].co,
-                   mvarray[loopstart[1].v].co,
-                   mvarray[loopstart[2].v].co,
-                   mvarray[loopstart[3].v].co);
-  }
-  else { /* horrible, two sided face! */
-    r_no[0] = 0.0;
-    r_no[1] = 0.0;
-    r_no[2] = 1.0;
-  }
-}
-/* duplicate of function above _but_ takes coords rather than mverts */
-static void mesh_calc_ngon_normal_coords(const MPoly *mpoly,
-                                         const MLoop *loopstart,
-                                         const float (*vertex_coords)[3],
-                                         float r_normal[3])
-{
-  const int nverts = mpoly->totloop;
-  const float *v_prev = vertex_coords[loopstart[nverts - 1].v];
-  const float *v_curr;
-
-  zero_v3(r_normal);
-
-  /* Newell's Method */
-  for (int i = 0; i < nverts; i++) {
-    v_curr = vertex_coords[loopstart[i].v];
-    add_newell_cross_v3_v3v3(r_normal, v_prev, v_curr);
-    v_prev = v_curr;
-  }
-
-  if (UNLIKELY(normalize_v3(r_normal) == 0.0f)) {
-    r_normal[2] = 1.0f; /* other axis set to 0.0 */
-  }
-}
-
-void BKE_mesh_calc_poly_normal_coords(const MPoly *mpoly,
-                                      const MLoop *loopstart,
-                                      const float (*vertex_coords)[3],
-                                      float r_no[3])
-{
-  if (mpoly->totloop > 4) {
-    mesh_calc_ngon_normal_coords(mpoly, loopstart, vertex_coords, r_no);
-  }
-  else if (mpoly->totloop == 3) {
-    normal_tri_v3(r_no,
-                  vertex_coords[loopstart[0].v],
-                  vertex_coords[loopstart[1].v],
-                  vertex_coords[loopstart[2].v]);
-  }
-  else if (mpoly->totloop == 4) {
-    normal_quad_v3(r_no,
-                   vertex_coords[loopstart[0].v],
-                   vertex_coords[loopstart[1].v],
-                   vertex_coords[loopstart[2].v],
-                   vertex_coords[loopstart[3].v]);
-  }
-  else { /* horrible, two sided face! */
-    r_no[0] = 0.0;
-    r_no[1] = 0.0;
-    r_no[2] = 1.0;
-  }
-}
 
 static void mesh_calc_ngon_center(const MPoly *mpoly,
                                   const MLoop *loopstart,
                                   const MVert *mvert,
                                   float cent[3])
 {
-  const float w = 1.0f / (float)mpoly->totloop;
+  const float w = 1.0f / float(mpoly->totloop);
 
   zero_v3(cent);
 
@@ -183,7 +83,7 @@ float BKE_mesh_calc_poly_area(const MPoly *mpoly, const MLoop *loopstart, const 
   }
 
   const MLoop *l_iter = loopstart;
-  float(*vertexcos)[3] = (float(*)[3])BLI_array_alloca(vertexcos, (size_t)mpoly->totloop);
+  float(*vertexcos)[3] = (float(*)[3])BLI_array_alloca(vertexcos, size_t(mpoly->totloop));
 
   /* pack vertex cos into an array for area_poly_v3 */
   for (int i = 0; i < mpoly->totloop; i++, l_iter++) {
@@ -191,25 +91,20 @@ float BKE_mesh_calc_poly_area(const MPoly *mpoly, const MLoop *loopstart, const 
   }
 
   /* finally calculate the area */
-  float area = area_poly_v3((const float(*)[3])vertexcos, (uint)mpoly->totloop);
+  float area = area_poly_v3((const float(*)[3])vertexcos, uint(mpoly->totloop));
 
   return area;
 }
 
 float BKE_mesh_calc_area(const Mesh *me)
 {
-  MVert *mvert = me->mvert;
-  MLoop *mloop = me->mloop;
-  MPoly *mpoly = me->mpoly;
+  const Span<MVert> verts = me->verts();
+  const Span<MPoly> polys = me->polys();
+  const Span<MLoop> loops = me->loops();
 
-  MPoly *mp;
-  int i = me->totpoly;
-  float total_area = 0;
-
-  for (mp = mpoly; i--; mp++) {
-    MLoop *ml_start = &mloop[mp->loopstart];
-
-    total_area += BKE_mesh_calc_poly_area(mp, ml_start, mvert);
+  float total_area = 0.0f;
+  for (const MPoly &poly : polys) {
+    total_area += BKE_mesh_calc_poly_area(&poly, &loops[poly.loopstart], verts.data());
   }
   return total_area;
 }
@@ -219,7 +114,7 @@ float BKE_mesh_calc_poly_uv_area(const MPoly *mpoly, const MLoopUV *uv_array)
 
   int i, l_iter = mpoly->loopstart;
   float area;
-  float(*vertexcos)[2] = (float(*)[2])BLI_array_alloca(vertexcos, (size_t)mpoly->totloop);
+  float(*vertexcos)[2] = (float(*)[2])BLI_array_alloca(vertexcos, size_t(mpoly->totloop));
 
   /* pack vertex cos into an array for area_poly_v2 */
   for (i = 0; i < mpoly->totloop; i++, l_iter++) {
@@ -227,7 +122,7 @@ float BKE_mesh_calc_poly_uv_area(const MPoly *mpoly, const MLoopUV *uv_array)
   }
 
   /* finally calculate the area */
-  area = area_poly_v2(vertexcos, (uint)mpoly->totloop);
+  area = area_poly_v2(vertexcos, uint(mpoly->totloop));
 
   return area;
 }
@@ -398,37 +293,35 @@ void BKE_mesh_poly_edgebitmap_insert(uint *edge_bitmap, const MPoly *mp, const M
 
 bool BKE_mesh_center_median(const Mesh *me, float r_cent[3])
 {
-  int i = me->totvert;
-  const MVert *mvert;
+  const Span<MVert> verts = me->verts();
   zero_v3(r_cent);
-  for (mvert = me->mvert; i--; mvert++) {
-    add_v3_v3(r_cent, mvert->co);
+  for (const MVert &vert : verts) {
+    add_v3_v3(r_cent, vert.co);
   }
   /* otherwise we get NAN for 0 verts */
   if (me->totvert) {
-    mul_v3_fl(r_cent, 1.0f / (float)me->totvert);
+    mul_v3_fl(r_cent, 1.0f / float(me->totvert));
   }
   return (me->totvert != 0);
 }
 
 bool BKE_mesh_center_median_from_polys(const Mesh *me, float r_cent[3])
 {
-  int i = me->totpoly;
   int tot = 0;
-  const MPoly *mpoly = me->mpoly;
-  const MLoop *mloop = me->mloop;
-  const MVert *mvert = me->mvert;
+  const Span<MVert> verts = me->verts();
+  const Span<MPoly> polys = me->polys();
+  const Span<MLoop> loops = me->loops();
   zero_v3(r_cent);
-  for (; i--; mpoly++) {
-    int loopend = mpoly->loopstart + mpoly->totloop;
-    for (int j = mpoly->loopstart; j < loopend; j++) {
-      add_v3_v3(r_cent, mvert[mloop[j].v].co);
+  for (const MPoly &poly : polys) {
+    int loopend = poly.loopstart + poly.totloop;
+    for (int j = poly.loopstart; j < loopend; j++) {
+      add_v3_v3(r_cent, verts[loops[j].v].co);
     }
-    tot += mpoly->totloop;
+    tot += poly.totloop;
   }
   /* otherwise we get NAN for 0 verts */
   if (me->totpoly) {
-    mul_v3_fl(r_cent, 1.0f / (float)tot);
+    mul_v3_fl(r_cent, 1.0f / float(tot));
   }
   return (me->totpoly != 0);
 }
@@ -448,17 +341,19 @@ bool BKE_mesh_center_bounds(const Mesh *me, float r_cent[3])
 bool BKE_mesh_center_of_surface(const Mesh *me, float r_cent[3])
 {
   int i = me->totpoly;
-  MPoly *mpoly;
+  const MPoly *mpoly;
   float poly_area;
   float total_area = 0.0f;
   float poly_cent[3];
+  const MVert *verts = BKE_mesh_verts(me);
+  const MPoly *polys = BKE_mesh_polys(me);
+  const MLoop *loops = BKE_mesh_loops(me);
 
   zero_v3(r_cent);
 
   /* calculate a weighted average of polygon centroids */
-  for (mpoly = me->mpoly; i--; mpoly++) {
-    poly_area = mesh_calc_poly_area_centroid(
-        mpoly, me->mloop + mpoly->loopstart, me->mvert, poly_cent);
+  for (mpoly = polys; i--; mpoly++) {
+    poly_area = mesh_calc_poly_area_centroid(mpoly, loops + mpoly->loopstart, verts, poly_cent);
 
     madd_v3_v3fl(r_cent, poly_cent, poly_area);
     total_area += poly_area;
@@ -479,10 +374,13 @@ bool BKE_mesh_center_of_surface(const Mesh *me, float r_cent[3])
 bool BKE_mesh_center_of_volume(const Mesh *me, float r_cent[3])
 {
   int i = me->totpoly;
-  MPoly *mpoly;
+  const MPoly *mpoly;
   float poly_volume;
   float total_volume = 0.0f;
   float poly_cent[3];
+  const MVert *verts = BKE_mesh_verts(me);
+  const MPoly *polys = BKE_mesh_polys(me);
+  const MLoop *loops = BKE_mesh_loops(me);
 
   /* Use an initial center to avoid numeric instability of geometry far away from the center. */
   float init_cent[3];
@@ -491,9 +389,9 @@ bool BKE_mesh_center_of_volume(const Mesh *me, float r_cent[3])
   zero_v3(r_cent);
 
   /* calculate a weighted average of polyhedron centroids */
-  for (mpoly = me->mpoly; i--; mpoly++) {
+  for (mpoly = polys; i--; mpoly++) {
     poly_volume = mesh_calc_poly_volume_centroid_with_reference_center(
-        mpoly, me->mloop + mpoly->loopstart, me->mvert, init_cent, poly_cent);
+        mpoly, loops + mpoly->loopstart, verts, init_cent, poly_cent);
 
     /* poly_cent is already volume-weighted, so no need to multiply by the volume */
     add_v3_v3(r_cent, poly_cent);
@@ -523,7 +421,7 @@ bool BKE_mesh_center_of_volume(const Mesh *me, float r_cent[3])
  * \{ */
 
 static bool mesh_calc_center_centroid_ex(const MVert *mverts,
-                                         int UNUSED(mverts_num),
+                                         int /*mverts_num*/,
                                          const MLoopTri *looptri,
                                          int looptri_num,
                                          const MLoop *mloop,
@@ -627,285 +525,13 @@ void BKE_mesh_calc_volume(const MVert *mverts,
 
 /** \} */
 
-/* -------------------------------------------------------------------- */
-/** \name NGon Tessellation (NGon to MFace Conversion)
- * \{ */
-
-static void bm_corners_to_loops_ex(ID *id,
-                                   CustomData *fdata,
-                                   CustomData *ldata,
-                                   MFace *mface,
-                                   int totloop,
-                                   int findex,
-                                   int loopstart,
-                                   int numTex,
-                                   int numCol)
-{
-  MFace *mf = mface + findex;
-
-  for (int i = 0; i < numTex; i++) {
-    MTFace *texface = (MTFace *)CustomData_get_n(fdata, CD_MTFACE, findex, i);
-
-    MLoopUV *mloopuv = (MLoopUV *)CustomData_get_n(ldata, CD_MLOOPUV, loopstart, i);
-    copy_v2_v2(mloopuv->uv, texface->uv[0]);
-    mloopuv++;
-    copy_v2_v2(mloopuv->uv, texface->uv[1]);
-    mloopuv++;
-    copy_v2_v2(mloopuv->uv, texface->uv[2]);
-    mloopuv++;
-
-    if (mf->v4) {
-      copy_v2_v2(mloopuv->uv, texface->uv[3]);
-      mloopuv++;
-    }
-  }
-
-  for (int i = 0; i < numCol; i++) {
-    MLoopCol *mloopcol = (MLoopCol *)CustomData_get_n(ldata, CD_MLOOPCOL, loopstart, i);
-    MCol *mcol = (MCol *)CustomData_get_n(fdata, CD_MCOL, findex, i);
-
-    MESH_MLOOPCOL_FROM_MCOL(mloopcol, &mcol[0]);
-    mloopcol++;
-    MESH_MLOOPCOL_FROM_MCOL(mloopcol, &mcol[1]);
-    mloopcol++;
-    MESH_MLOOPCOL_FROM_MCOL(mloopcol, &mcol[2]);
-    mloopcol++;
-    if (mf->v4) {
-      MESH_MLOOPCOL_FROM_MCOL(mloopcol, &mcol[3]);
-      mloopcol++;
-    }
-  }
-
-  if (CustomData_has_layer(fdata, CD_TESSLOOPNORMAL)) {
-    float(*lnors)[3] = (float(*)[3])CustomData_get(ldata, loopstart, CD_NORMAL);
-    short(*tlnors)[3] = (short(*)[3])CustomData_get(fdata, findex, CD_TESSLOOPNORMAL);
-    const int max = mf->v4 ? 4 : 3;
-
-    for (int i = 0; i < max; i++, lnors++, tlnors++) {
-      normal_short_to_float_v3(*lnors, *tlnors);
-    }
-  }
-
-  if (CustomData_has_layer(fdata, CD_MDISPS)) {
-    MDisps *ld = (MDisps *)CustomData_get(ldata, loopstart, CD_MDISPS);
-    MDisps *fd = (MDisps *)CustomData_get(fdata, findex, CD_MDISPS);
-    float(*disps)[3] = fd->disps;
-    int tot = mf->v4 ? 4 : 3;
-    int corners;
-
-    if (CustomData_external_test(fdata, CD_MDISPS)) {
-      if (id && fdata->external) {
-        CustomData_external_add(ldata, id, CD_MDISPS, totloop, fdata->external->filepath);
-      }
-    }
-
-    corners = multires_mdisp_corners(fd);
-
-    if (corners == 0) {
-      /* Empty #MDisp layers appear in at least one of the `sintel.blend` files.
-       * Not sure why this happens, but it seems fine to just ignore them here.
-       * If `corners == 0` for a non-empty layer though, something went wrong. */
-      BLI_assert(fd->totdisp == 0);
-    }
-    else {
-      const int side = (int)sqrtf((float)(fd->totdisp / corners));
-      const int side_sq = side * side;
-
-      for (int i = 0; i < tot; i++, disps += side_sq, ld++) {
-        ld->totdisp = side_sq;
-        ld->level = (int)(logf((float)side - 1.0f) / (float)M_LN2) + 1;
-
-        if (ld->disps) {
-          MEM_freeN(ld->disps);
-        }
-
-        ld->disps = (float(*)[3])MEM_malloc_arrayN(
-            (size_t)side_sq, sizeof(float[3]), "converted loop mdisps");
-        if (fd->disps) {
-          memcpy(ld->disps, disps, (size_t)side_sq * sizeof(float[3]));
-        }
-        else {
-          memset(ld->disps, 0, (size_t)side_sq * sizeof(float[3]));
-        }
-      }
-    }
-  }
-}
-
-void BKE_mesh_convert_mfaces_to_mpolys(Mesh *mesh)
-{
-  BKE_mesh_convert_mfaces_to_mpolys_ex(&mesh->id,
-                                       &mesh->fdata,
-                                       &mesh->ldata,
-                                       &mesh->pdata,
-                                       mesh->totedge,
-                                       mesh->totface,
-                                       mesh->totloop,
-                                       mesh->totpoly,
-                                       mesh->medge,
-                                       mesh->mface,
-                                       &mesh->totloop,
-                                       &mesh->totpoly,
-                                       &mesh->mloop,
-                                       &mesh->mpoly);
-
-  BKE_mesh_update_customdata_pointers(mesh, true);
-}
-
-void BKE_mesh_do_versions_convert_mfaces_to_mpolys(Mesh *mesh)
-{
-  BKE_mesh_convert_mfaces_to_mpolys_ex(&mesh->id,
-                                       &mesh->fdata,
-                                       &mesh->ldata,
-                                       &mesh->pdata,
-                                       mesh->totedge,
-                                       mesh->totface,
-                                       mesh->totloop,
-                                       mesh->totpoly,
-                                       mesh->medge,
-                                       mesh->mface,
-                                       &mesh->totloop,
-                                       &mesh->totpoly,
-                                       &mesh->mloop,
-                                       &mesh->mpoly);
-
-  CustomData_bmesh_do_versions_update_active_layers(&mesh->fdata, &mesh->ldata);
-
-  BKE_mesh_update_customdata_pointers(mesh, true);
-}
-
-void BKE_mesh_convert_mfaces_to_mpolys_ex(ID *id,
-                                          CustomData *fdata,
-                                          CustomData *ldata,
-                                          CustomData *pdata,
-                                          int totedge_i,
-                                          int totface_i,
-                                          int totloop_i,
-                                          int totpoly_i,
-                                          MEdge *medge,
-                                          MFace *mface,
-                                          int *r_totloop,
-                                          int *r_totpoly,
-                                          MLoop **r_mloop,
-                                          MPoly **r_mpoly)
-{
-  MFace *mf;
-  MLoop *ml, *mloop;
-  MPoly *mp, *mpoly;
-  MEdge *me;
-  EdgeHash *eh;
-  int numTex, numCol;
-  int i, j, totloop, totpoly, *polyindex;
-
-  /* old flag, clear to allow for reuse */
-#define ME_FGON (1 << 3)
-
-  /* just in case some of these layers are filled in (can happen with python created meshes) */
-  CustomData_free(ldata, totloop_i);
-  CustomData_free(pdata, totpoly_i);
-
-  totpoly = totface_i;
-  mpoly = (MPoly *)MEM_calloc_arrayN((size_t)totpoly, sizeof(MPoly), "mpoly converted");
-  CustomData_add_layer(pdata, CD_MPOLY, CD_ASSIGN, mpoly, totpoly);
-
-  numTex = CustomData_number_of_layers(fdata, CD_MTFACE);
-  numCol = CustomData_number_of_layers(fdata, CD_MCOL);
-
-  totloop = 0;
-  mf = mface;
-  for (i = 0; i < totface_i; i++, mf++) {
-    totloop += mf->v4 ? 4 : 3;
-  }
-
-  mloop = (MLoop *)MEM_calloc_arrayN((size_t)totloop, sizeof(MLoop), "mloop converted");
-
-  CustomData_add_layer(ldata, CD_MLOOP, CD_ASSIGN, mloop, totloop);
-
-  CustomData_to_bmeshpoly(fdata, ldata, totloop);
-
-  if (id) {
-    /* ensure external data is transferred */
-    /* TODO(sergey): Use multiresModifier_ensure_external_read(). */
-    CustomData_external_read(fdata, id, CD_MASK_MDISPS, totface_i);
-  }
-
-  eh = BLI_edgehash_new_ex(__func__, (uint)totedge_i);
-
-  /* build edge hash */
-  me = medge;
-  for (i = 0; i < totedge_i; i++, me++) {
-    BLI_edgehash_insert(eh, me->v1, me->v2, POINTER_FROM_UINT(i));
-
-    /* unrelated but avoid having the FGON flag enabled,
-     * so we can reuse it later for something else */
-    me->flag &= ~ME_FGON;
-  }
-
-  polyindex = (int *)CustomData_get_layer(fdata, CD_ORIGINDEX);
-
-  j = 0; /* current loop index */
-  ml = mloop;
-  mf = mface;
-  mp = mpoly;
-  for (i = 0; i < totface_i; i++, mf++, mp++) {
-    mp->loopstart = j;
-
-    mp->totloop = mf->v4 ? 4 : 3;
-
-    mp->mat_nr = mf->mat_nr;
-    mp->flag = mf->flag;
-
-#define ML(v1, v2) \
-  { \
-    ml->v = mf->v1; \
-    ml->e = POINTER_AS_UINT(BLI_edgehash_lookup(eh, mf->v1, mf->v2)); \
-    ml++; \
-    j++; \
-  } \
-  (void)0
-
-    ML(v1, v2);
-    ML(v2, v3);
-    if (mf->v4) {
-      ML(v3, v4);
-      ML(v4, v1);
-    }
-    else {
-      ML(v3, v1);
-    }
-
-#undef ML
-
-    bm_corners_to_loops_ex(id, fdata, ldata, mface, totloop, i, mp->loopstart, numTex, numCol);
-
-    if (polyindex) {
-      *polyindex = i;
-      polyindex++;
-    }
-  }
-
-  /* NOTE: we don't convert NGons at all, these are not even real ngons,
-   * they have their own UV's, colors etc - its more an editing feature. */
-
-  BLI_edgehash_free(eh, nullptr);
-
-  *r_totpoly = totpoly;
-  *r_totloop = totloop;
-  *r_mpoly = mpoly;
-  *r_mloop = mloop;
-
-#undef ME_FGON
-}
-
-/** \} */
-
 void BKE_mesh_mdisp_flip(MDisps *md, const bool use_loop_mdisp_flip)
 {
   if (UNLIKELY(!md->totdisp || !md->disps)) {
     return;
   }
 
-  const int sides = (int)sqrt(md->totdisp);
+  const int sides = int(sqrt(md->totdisp));
   float(*co)[3] = md->disps;
 
   for (int x = 0; x < sides; x++) {
@@ -935,7 +561,7 @@ void BKE_mesh_mdisp_flip(MDisps *md, const bool use_loop_mdisp_flip)
   }
 }
 
-void BKE_mesh_polygon_flip_ex(MPoly *mpoly,
+void BKE_mesh_polygon_flip_ex(const MPoly *mpoly,
                               MLoop *mloop,
                               CustomData *ldata,
                               float (*lnors)[3],
@@ -978,16 +604,16 @@ void BKE_mesh_polygon_flip_ex(MPoly *mpoly,
   }
 }
 
-void BKE_mesh_polygon_flip(MPoly *mpoly, MLoop *mloop, CustomData *ldata)
+void BKE_mesh_polygon_flip(const MPoly *mpoly, MLoop *mloop, CustomData *ldata)
 {
   MDisps *mdisp = (MDisps *)CustomData_get_layer(ldata, CD_MDISPS);
   BKE_mesh_polygon_flip_ex(mpoly, mloop, ldata, nullptr, mdisp, true);
 }
 
-void BKE_mesh_polygons_flip(MPoly *mpoly, MLoop *mloop, CustomData *ldata, int totpoly)
+void BKE_mesh_polys_flip(const MPoly *mpoly, MLoop *mloop, CustomData *ldata, int totpoly)
 {
   MDisps *mdisp = (MDisps *)CustomData_get_layer(ldata, CD_MDISPS);
-  MPoly *mp;
+  const MPoly *mp;
   int i;
 
   for (mp = mpoly, i = 0; i < totpoly; mp++, i++) {
@@ -999,172 +625,174 @@ void BKE_mesh_polygons_flip(MPoly *mpoly, MLoop *mloop, CustomData *ldata, int t
 /** \name Mesh Flag Flushing
  * \{ */
 
-void BKE_mesh_flush_hidden_from_verts_ex(const MVert *mvert,
-                                         const MLoop *mloop,
-                                         MEdge *medge,
-                                         const int totedge,
-                                         MPoly *mpoly,
-                                         const int totpoly)
-{
-  int i, j;
-
-  for (i = 0; i < totedge; i++) {
-    MEdge *e = &medge[i];
-    if (mvert[e->v1].flag & ME_HIDE || mvert[e->v2].flag & ME_HIDE) {
-      e->flag |= ME_HIDE;
-    }
-    else {
-      e->flag &= ~ME_HIDE;
-    }
-  }
-  for (i = 0; i < totpoly; i++) {
-    MPoly *p = &mpoly[i];
-    p->flag &= (char)~ME_HIDE;
-    for (j = 0; j < p->totloop; j++) {
-      if (mvert[mloop[p->loopstart + j].v].flag & ME_HIDE) {
-        p->flag |= ME_HIDE;
-      }
-    }
-  }
-}
 void BKE_mesh_flush_hidden_from_verts(Mesh *me)
 {
-  BKE_mesh_flush_hidden_from_verts_ex(
-      me->mvert, me->mloop, me->medge, me->totedge, me->mpoly, me->totpoly);
+  using namespace blender;
+  using namespace blender::bke;
+  MutableAttributeAccessor attributes = me->attributes_for_write();
+
+  const VArray<bool> hide_vert = attributes.lookup_or_default<bool>(
+      ".hide_vert", ATTR_DOMAIN_POINT, false);
+  if (hide_vert.is_single() && !hide_vert.get_internal_single()) {
+    attributes.remove(".hide_edge");
+    attributes.remove(".hide_poly");
+    return;
+  }
+  const VArraySpan<bool> hide_vert_span{hide_vert};
+  const Span<MEdge> edges = me->edges();
+  const Span<MPoly> polys = me->polys();
+  const Span<MLoop> loops = me->loops();
+
+  /* Hide edges when either of their vertices are hidden. */
+  SpanAttributeWriter<bool> hide_edge = attributes.lookup_or_add_for_write_only_span<bool>(
+      ".hide_edge", ATTR_DOMAIN_EDGE);
+  for (const int i : edges.index_range()) {
+    const MEdge &edge = edges[i];
+    hide_edge.span[i] = hide_vert_span[edge.v1] || hide_vert_span[edge.v2];
+  }
+  hide_edge.finish();
+
+  /* Hide polygons when any of their vertices are hidden. */
+  SpanAttributeWriter<bool> hide_poly = attributes.lookup_or_add_for_write_only_span<bool>(
+      ".hide_poly", ATTR_DOMAIN_FACE);
+  for (const int i : polys.index_range()) {
+    const MPoly &poly = polys[i];
+    const Span<MLoop> poly_loops = loops.slice(poly.loopstart, poly.totloop);
+    hide_poly.span[i] = std::any_of(poly_loops.begin(), poly_loops.end(), [&](const MLoop &loop) {
+      return hide_vert_span[loop.v];
+    });
+  }
+  hide_poly.finish();
 }
 
-void BKE_mesh_flush_hidden_from_polys_ex(MVert *mvert,
-                                         const MLoop *mloop,
-                                         MEdge *medge,
-                                         const int UNUSED(totedge),
-                                         const MPoly *mpoly,
-                                         const int totpoly)
-{
-  int i = totpoly;
-  for (const MPoly *mp = mpoly; i--; mp++) {
-    if (mp->flag & ME_HIDE) {
-      const MLoop *ml;
-      int j = mp->totloop;
-      for (ml = &mloop[mp->loopstart]; j--; ml++) {
-        mvert[ml->v].flag |= ME_HIDE;
-        medge[ml->e].flag |= ME_HIDE;
-      }
-    }
-  }
-
-  i = totpoly;
-  for (const MPoly *mp = mpoly; i--; mp++) {
-    if ((mp->flag & ME_HIDE) == 0) {
-      const MLoop *ml;
-      int j = mp->totloop;
-      for (ml = &mloop[mp->loopstart]; j--; ml++) {
-        mvert[ml->v].flag &= (char)~ME_HIDE;
-        medge[ml->e].flag &= (short)~ME_HIDE;
-      }
-    }
-  }
-}
 void BKE_mesh_flush_hidden_from_polys(Mesh *me)
 {
-  BKE_mesh_flush_hidden_from_polys_ex(
-      me->mvert, me->mloop, me->medge, me->totedge, me->mpoly, me->totpoly);
-}
+  using namespace blender;
+  using namespace blender::bke;
+  MutableAttributeAccessor attributes = me->attributes_for_write();
 
-void BKE_mesh_flush_select_from_polys_ex(MVert *mvert,
-                                         const int totvert,
-                                         const MLoop *mloop,
-                                         MEdge *medge,
-                                         const int totedge,
-                                         const MPoly *mpoly,
-                                         const int totpoly)
-{
-  MVert *mv;
-  MEdge *med;
-  const MPoly *mp;
-
-  int i = totvert;
-  for (mv = mvert; i--; mv++) {
-    mv->flag &= (char)~SELECT;
+  const VArray<bool> hide_poly = attributes.lookup_or_default<bool>(
+      ".hide_poly", ATTR_DOMAIN_FACE, false);
+  if (hide_poly.is_single() && !hide_poly.get_internal_single()) {
+    attributes.remove(".hide_vert");
+    attributes.remove(".hide_edge");
+    return;
   }
+  const VArraySpan<bool> hide_poly_span{hide_poly};
+  const Span<MPoly> polys = me->polys();
+  const Span<MLoop> loops = me->loops();
+  SpanAttributeWriter<bool> hide_vert = attributes.lookup_or_add_for_write_only_span<bool>(
+      ".hide_vert", ATTR_DOMAIN_POINT);
+  SpanAttributeWriter<bool> hide_edge = attributes.lookup_or_add_for_write_only_span<bool>(
+      ".hide_edge", ATTR_DOMAIN_EDGE);
 
-  i = totedge;
-  for (med = medge; i--; med++) {
-    med->flag &= ~SELECT;
-  }
-
-  i = totpoly;
-  for (mp = mpoly; i--; mp++) {
-    /* Assume if its selected its not hidden and none of its verts/edges are hidden
-     * (a common assumption). */
-    if (mp->flag & ME_FACE_SEL) {
-      const MLoop *ml;
-      int j;
-      j = mp->totloop;
-      for (ml = &mloop[mp->loopstart]; j--; ml++) {
-        mvert[ml->v].flag |= SELECT;
-        medge[ml->e].flag |= SELECT;
+  /* Hide all edges or vertices connected to hidden polygons. */
+  for (const int i : polys.index_range()) {
+    if (hide_poly_span[i]) {
+      const MPoly &poly = polys[i];
+      for (const MLoop &loop : loops.slice(poly.loopstart, poly.totloop)) {
+        hide_vert.span[loop.v] = true;
+        hide_edge.span[loop.e] = true;
       }
     }
   }
+  /* Unhide vertices and edges connected to visible polygons. */
+  for (const int i : polys.index_range()) {
+    if (!hide_poly_span[i]) {
+      const MPoly &poly = polys[i];
+      for (const MLoop &loop : loops.slice(poly.loopstart, poly.totloop)) {
+        hide_vert.span[loop.v] = false;
+        hide_edge.span[loop.e] = false;
+      }
+    }
+  }
+
+  hide_vert.finish();
+  hide_edge.finish();
 }
+
 void BKE_mesh_flush_select_from_polys(Mesh *me)
 {
-  BKE_mesh_flush_select_from_polys_ex(
-      me->mvert, me->totvert, me->mloop, me->medge, me->totedge, me->mpoly, me->totpoly);
+  using namespace blender::bke;
+  MutableAttributeAccessor attributes = me->attributes_for_write();
+  const VArray<bool> select_poly = attributes.lookup_or_default<bool>(
+      ".select_poly", ATTR_DOMAIN_FACE, false);
+  if (select_poly.is_single() && !select_poly.get_internal_single()) {
+    attributes.remove(".select_vert");
+    attributes.remove(".select_edge");
+    return;
+  }
+  SpanAttributeWriter<bool> select_vert = attributes.lookup_or_add_for_write_only_span<bool>(
+      ".select_vert", ATTR_DOMAIN_POINT);
+  SpanAttributeWriter<bool> select_edge = attributes.lookup_or_add_for_write_only_span<bool>(
+      ".select_edge", ATTR_DOMAIN_EDGE);
+
+  /* Use generic domain interpolation to read the polygon attribute on the other domains.
+   * Assume selected faces are not hidden and none of their vertices/edges are hidden. */
+  attributes.lookup_or_default<bool>(".select_poly", ATTR_DOMAIN_POINT, false)
+      .materialize(select_vert.span);
+  attributes.lookup_or_default<bool>(".select_poly", ATTR_DOMAIN_EDGE, false)
+      .materialize(select_edge.span);
+
+  select_vert.finish();
+  select_edge.finish();
 }
 
-void BKE_mesh_flush_select_from_verts_ex(const MVert *mvert,
-                                         const int UNUSED(totvert),
-                                         const MLoop *mloop,
-                                         MEdge *medge,
-                                         const int totedge,
-                                         MPoly *mpoly,
-                                         const int totpoly)
+static void mesh_flush_select_from_verts(const Span<MEdge> edges,
+                                         const Span<MPoly> polys,
+                                         const Span<MLoop> loops,
+                                         const VArray<bool> &hide_edge,
+                                         const VArray<bool> &hide_poly,
+                                         const VArray<bool> &select_vert,
+                                         MutableSpan<bool> select_edge,
+                                         MutableSpan<bool> select_poly)
 {
-  MEdge *med;
-  MPoly *mp;
-
-  /* edges */
-  int i = totedge;
-  for (med = medge; i--; med++) {
-    if ((med->flag & ME_HIDE) == 0) {
-      if ((mvert[med->v1].flag & SELECT) && (mvert[med->v2].flag & SELECT)) {
-        med->flag |= SELECT;
-      }
-      else {
-        med->flag &= ~SELECT;
-      }
+  /* Select visible edges that have both of their vertices selected. */
+  for (const int i : edges.index_range()) {
+    if (!hide_edge[i]) {
+      const MEdge &edge = edges[i];
+      select_edge[i] = select_vert[edge.v1] && select_vert[edge.v2];
     }
   }
 
-  /* polys */
-  i = totpoly;
-  for (mp = mpoly; i--; mp++) {
-    if ((mp->flag & ME_HIDE) == 0) {
-      bool ok = true;
-      const MLoop *ml;
-      int j;
-      j = mp->totloop;
-      for (ml = &mloop[mp->loopstart]; j--; ml++) {
-        if ((mvert[ml->v].flag & SELECT) == 0) {
-          ok = false;
-          break;
-        }
-      }
-
-      if (ok) {
-        mp->flag |= ME_FACE_SEL;
-      }
-      else {
-        mp->flag &= (char)~ME_FACE_SEL;
-      }
+  /* Select visible faces that have all of their vertices selected. */
+  for (const int i : polys.index_range()) {
+    if (!hide_poly[i]) {
+      const MPoly &poly = polys[i];
+      const Span<MLoop> poly_loops = loops.slice(poly.loopstart, poly.totloop);
+      select_poly[i] = std::all_of(poly_loops.begin(), poly_loops.end(), [&](const MLoop &loop) {
+        return select_vert[loop.v];
+      });
     }
   }
 }
+
 void BKE_mesh_flush_select_from_verts(Mesh *me)
 {
-  BKE_mesh_flush_select_from_verts_ex(
-      me->mvert, me->totvert, me->mloop, me->medge, me->totedge, me->mpoly, me->totpoly);
+  using namespace blender::bke;
+  MutableAttributeAccessor attributes = me->attributes_for_write();
+  const VArray<bool> select_vert = attributes.lookup_or_default<bool>(
+      ".select_vert", ATTR_DOMAIN_POINT, false);
+  if (select_vert.is_single() && !select_vert.get_internal_single()) {
+    attributes.remove(".select_edge");
+    attributes.remove(".select_poly");
+    return;
+  }
+  SpanAttributeWriter<bool> select_edge = attributes.lookup_or_add_for_write_only_span<bool>(
+      ".select_edge", ATTR_DOMAIN_EDGE);
+  SpanAttributeWriter<bool> select_poly = attributes.lookup_or_add_for_write_only_span<bool>(
+      ".select_poly", ATTR_DOMAIN_FACE);
+  mesh_flush_select_from_verts(
+      me->edges(),
+      me->polys(),
+      me->loops(),
+      attributes.lookup_or_default<bool>(".hide_edge", ATTR_DOMAIN_EDGE, false),
+      attributes.lookup_or_default<bool>(".hide_poly", ATTR_DOMAIN_FACE, false),
+      select_vert,
+      select_edge.span,
+      select_poly.span);
+  select_edge.finish();
+  select_poly.finish();
 }
 
 /** \} */
@@ -1187,9 +815,9 @@ void BKE_mesh_calc_relative_deform(const MPoly *mpoly,
   const MPoly *mp;
   int i;
 
-  int *vert_accum = (int *)MEM_calloc_arrayN((size_t)totvert, sizeof(*vert_accum), __func__);
+  int *vert_accum = (int *)MEM_calloc_arrayN(size_t(totvert), sizeof(*vert_accum), __func__);
 
-  memset(vert_cos_new, '\0', sizeof(*vert_cos_new) * (size_t)totvert);
+  memset(vert_cos_new, '\0', sizeof(*vert_cos_new) * size_t(totvert));
 
   for (i = 0, mp = mpoly; i < totpoly; i++, mp++) {
     const MLoop *loopstart = mloop + mp->loopstart;
@@ -1217,7 +845,7 @@ void BKE_mesh_calc_relative_deform(const MPoly *mpoly,
 
   for (i = 0; i < totvert; i++) {
     if (vert_accum[i]) {
-      mul_v3_fl(vert_cos_new[i], 1.0f / (float)vert_accum[i]);
+      mul_v3_fl(vert_cos_new[i], 1.0f / float(vert_accum[i]));
     }
     else {
       copy_v3_v3(vert_cos_new[i], vert_cos_org[i]);

@@ -2,9 +2,31 @@
 
 #include "NOD_node_declaration.hh"
 
+#include "BKE_geometry_fields.hh"
 #include "BKE_node.h"
 
 namespace blender::nodes {
+
+void build_node_declaration(const bNodeType &typeinfo, NodeDeclaration &r_declaration)
+{
+  NodeDeclarationBuilder node_decl_builder{r_declaration};
+  typeinfo.declare(node_decl_builder);
+  node_decl_builder.finalize();
+}
+
+void NodeDeclarationBuilder::finalize()
+{
+  if (is_function_node_) {
+    for (SocketDeclarationPtr &socket_decl : declaration_.inputs_) {
+      if (socket_decl->input_field_type_ != InputSocketFieldType::Implicit) {
+        socket_decl->input_field_type_ = InputSocketFieldType::IsSupported;
+      }
+    }
+    for (SocketDeclarationPtr &socket_decl : declaration_.outputs_) {
+      socket_decl->output_field_dependency_ = OutputFieldDependency::ForDependentField();
+    }
+  }
+}
 
 bool NodeDeclaration::matches(const bNode &node) const
 {
@@ -80,5 +102,31 @@ bool SocketDeclaration::matches_common_data(const bNodeSocket &socket) const
   }
   return true;
 }
+
+namespace implicit_field_inputs {
+
+void position(const bNode & /*node*/, void *r_value)
+{
+  new (r_value) fn::ValueOrField<float3>(bke::AttributeFieldInput::Create<float3>("position"));
+}
+
+void normal(const bNode & /*node*/, void *r_value)
+{
+  new (r_value)
+      fn::ValueOrField<float3>(fn::Field<float3>(std::make_shared<bke::NormalFieldInput>()));
+}
+
+void index(const bNode & /*node*/, void *r_value)
+{
+  new (r_value) fn::ValueOrField<int>(fn::Field<int>(std::make_shared<fn::IndexFieldInput>()));
+}
+
+void id_or_index(const bNode & /*node*/, void *r_value)
+{
+  new (r_value)
+      fn::ValueOrField<int>(fn::Field<int>(std::make_shared<bke::IDAttributeFieldInput>()));
+}
+
+}  // namespace implicit_field_inputs
 
 }  // namespace blender::nodes

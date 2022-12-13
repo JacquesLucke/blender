@@ -17,8 +17,12 @@ struct UndoType;
 struct ViewContext;
 struct bContext;
 struct rcti;
+struct wmMsgSubscribeKey;
+struct wmMsgSubscribeValue;
+struct wmRegionMessageSubscribeParams;
+struct wmOperator;
 
-/* sculpt.c */
+/* sculpt.cc */
 
 void ED_operatortypes_sculpt(void);
 void ED_sculpt_redraw_planes_get(float planes[4][4], struct ARegion *region, struct Object *ob);
@@ -30,7 +34,10 @@ bool ED_sculpt_mask_box_select(struct bContext *C,
 /* sculpt_transform.c */
 
 void ED_sculpt_update_modal_transform(struct bContext *C, struct Object *ob);
-void ED_sculpt_init_transform(struct bContext *C, struct Object *ob);
+void ED_sculpt_init_transform(struct bContext *C,
+                              struct Object *ob,
+                              const int mval[2],
+                              const char *undo_name);
 void ED_sculpt_end_transform(struct bContext *C, struct Object *ob);
 
 /* sculpt_undo.c */
@@ -38,7 +45,13 @@ void ED_sculpt_end_transform(struct bContext *C, struct Object *ob);
 /** Export for ED_undo_sys. */
 void ED_sculpt_undosys_type(struct UndoType *ut);
 
-void ED_sculpt_undo_geometry_begin(struct Object *ob, const char *name);
+/**
+ * Pushes an undo step using the operator name. This is necessary for
+ * redo panels to work; operators that do not support that may use
+ * #ED_sculpt_undo_geometry_begin_ex instead if so desired.
+ */
+void ED_sculpt_undo_geometry_begin(struct Object *ob, const struct wmOperator *op);
+void ED_sculpt_undo_geometry_begin_ex(struct Object *ob, const char *name);
 void ED_sculpt_undo_geometry_end(struct Object *ob);
 
 /* Face sets. */
@@ -48,7 +61,7 @@ void ED_sculpt_face_sets_initialize_none_to_id(struct Mesh *mesh, int new_id);
 
 int ED_sculpt_face_sets_active_update_and_get(struct bContext *C,
                                               struct Object *ob,
-                                              const float mval[2]);
+                                              const float mval_fl[2]);
 
 /* Undo for changes happening on a base mesh for multires sculpting.
  * if there is no multi-res sculpt active regular undo is used. */

@@ -19,6 +19,7 @@
 #include "BKE_image.h"
 #include "BKE_main.h"
 #include "BKE_report.h"
+#include "BKE_scene.h"
 #include "BKE_screen.h"
 
 #include "BLT_translation.h"
@@ -73,7 +74,7 @@ static ScrArea *find_area_showing_r_result(bContext *C, Scene *scene, wmWindow *
   ScrArea *area = nullptr;
   SpaceImage *sima;
 
-  /* find an imagewindow showing render result */
+  /* find an image-window showing render result */
   for (*win = static_cast<wmWindow *>(wm->windows.first); *win; *win = (*win)->next) {
     if (WM_window_get_active_scene(*win) == scene) {
       const bScreen *screen = WM_window_get_active_screen(*win);
@@ -101,7 +102,7 @@ static ScrArea *find_area_image_empty(bContext *C)
   ScrArea *area;
   SpaceImage *sima;
 
-  /* find an imagewindow showing render result */
+  /* find an image-window showing render result */
   for (area = static_cast<ScrArea *>(screen->areabase.first); area; area = area->next) {
     if (area->spacetype == SPACE_IMAGE) {
       sima = static_cast<SpaceImage *>(area->spacedata.first);
@@ -130,8 +131,11 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
   }
 
   if (U.render_display_type == USER_RENDER_DISPLAY_WINDOW) {
-    int sizex = 30 * UI_DPI_FAC + (scene->r.xsch * scene->r.size) / 100;
-    int sizey = 60 * UI_DPI_FAC + (scene->r.ysch * scene->r.size) / 100;
+    int sizex, sizey;
+    BKE_render_resolution(&scene->r, false, &sizex, &sizey);
+
+    sizex += 30 * UI_DPI_FAC;
+    sizey += 60 * UI_DPI_FAC;
 
     /* arbitrary... miniature image window views don't make much sense */
     if (sizex < 320) {
@@ -252,7 +256,7 @@ ScrArea *render_view_open(bContext *C, int mx, int my, ReportList *reports)
 
 /*************************** cancel render viewer **********************/
 
-static int render_view_cancel_exec(bContext *C, wmOperator *UNUSED(op))
+static int render_view_cancel_exec(bContext *C, wmOperator * /*op*/)
 {
   wmWindow *win = CTX_wm_window(C);
   ScrArea *area = CTX_wm_area(C);

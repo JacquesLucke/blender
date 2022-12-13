@@ -79,6 +79,7 @@
 #include "BKE_main.h"
 #include "BKE_mask.h"
 #include "BKE_node.h"
+#include "BKE_node_runtime.hh"
 #include "BKE_object.h"
 #include "BKE_paint.h"
 #include "BKE_pointcache.h"
@@ -114,6 +115,32 @@
 
 #include "bmesh.h"
 
+CurveMapping *BKE_sculpt_default_cavity_curve()
+
+{
+  CurveMapping *cumap = BKE_curvemapping_add(1, 0, 0, 1, 1);
+
+  cumap->flag &= ~CUMA_EXTEND_EXTRAPOLATE;
+  cumap->preset = CURVE_PRESET_LINE;
+
+  BKE_curvemap_reset(cumap->cm, &cumap->clipr, cumap->preset, CURVEMAP_SLOPE_POSITIVE);
+  BKE_curvemapping_changed(cumap, false);
+  BKE_curvemapping_init(cumap);
+
+  return cumap;
+}
+
+void BKE_sculpt_check_cavity_curves(Sculpt *sd)
+{
+  if (!sd->automasking_cavity_curve) {
+    sd->automasking_cavity_curve = BKE_sculpt_default_cavity_curve();
+  }
+
+  if (!sd->automasking_cavity_curve_op) {
+    sd->automasking_cavity_curve_op = BKE_sculpt_default_cavity_curve();
+  }
+}
+
 static void scene_init_data(ID *id)
 {
   Scene *scene = (Scene *)id;
@@ -137,7 +164,7 @@ static void scene_init_data(ID *id)
 
   scene->toolsettings = DNA_struct_default_alloc(ToolSettings);
 
-  scene->toolsettings->autokey_mode = (uchar)U.autokey_mode;
+  scene->toolsettings->autokey_mode = uchar(U.autokey_mode);
 
   /* Grease pencil multi-frame falloff curve. */
   scene->toolsettings->gp_sculpt.cur_falloff = BKE_curvemapping_add(1, 0.0f, 0.0f, 1.0f, 1.0f);
@@ -156,11 +183,11 @@ static void scene_init_data(ID *id)
 
   scene->unit.system = USER_UNIT_METRIC;
   scene->unit.scale_length = 1.0f;
-  scene->unit.length_unit = (uchar)BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_LENGTH);
-  scene->unit.mass_unit = (uchar)BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_MASS);
-  scene->unit.time_unit = (uchar)BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_TIME);
-  scene->unit.temperature_unit = (uchar)BKE_unit_base_of_type_get(USER_UNIT_METRIC,
-                                                                  B_UNIT_TEMPERATURE);
+  scene->unit.length_unit = uchar(BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_LENGTH));
+  scene->unit.mass_unit = uchar(BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_MASS));
+  scene->unit.time_unit = uchar(BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_TIME));
+  scene->unit.temperature_unit = uchar(
+      BKE_unit_base_of_type_get(USER_UNIT_METRIC, B_UNIT_TEMPERATURE));
 
   /* Anti-Aliasing threshold. */
   scene->grease_pencil_settings.smaa_threshold = 1.0f;
@@ -216,9 +243,9 @@ static void scene_init_data(ID *id)
   }
 
   /* Master Collection */
-  scene->master_collection = BKE_collection_master_add();
+  scene->master_collection = BKE_collection_master_add(scene);
 
-  BKE_view_layer_add(scene, "ViewLayer", nullptr, VIEWLAYER_ADD_NEW);
+  BKE_view_layer_add(scene, DATA_("ViewLayer"), nullptr, VIEWLAYER_ADD_NEW);
 }
 
 static void scene_copy_markers(Scene *scene_dst, const Scene *scene_src, const int flag)
@@ -235,7 +262,7 @@ static void scene_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
 {
   Scene *scene_dst = (Scene *)id_dst;
   const Scene *scene_src = (const Scene *)id_src;
-  /* We never handle usercount here for own data. */
+  /* We never handle user-count here for own data. */
   const int flag_subdata = flag | LIB_ID_CREATE_NO_USER_REFCOUNT;
   /* We always need allocation of our private ID data. */
   const int flag_private_id_data = flag & ~LIB_ID_CREATE_NO_ALLOCATE;
@@ -250,9 +277,13 @@ static void scene_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
                    (ID *)scene_src->master_collection,
                    (ID **)&scene_dst->master_collection,
                    flag_private_id_data);
+    scene_dst->master_collection->owner_id = &scene_dst->id;
   }
 
   /* View Layers */
+  LISTBASE_FOREACH (ViewLayer *, view_layer, &scene_src->view_layers) {
+    BKE_view_layer_synced_ensure(scene_src, view_layer);
+  }
   BLI_duplicatelist(&scene_dst->view_layers, &scene_src->view_layers);
   for (ViewLayer *view_layer_src = static_cast<ViewLayer *>(scene_src->view_layers.first),
                  *view_layer_dst = static_cast<ViewLayer *>(scene_dst->view_layers.first);
@@ -274,7 +305,8 @@ static void scene_copy_data(Main *bmain, ID *id_dst, const ID *id_src, const int
                            scene_dst->nodetree,
                            (void *)(&scene_src->id),
                            &scene_dst->id,
-                           ID_REMAP_SKIP_NEVER_NULL_USAGE);
+                           ID_REMAP_SKIP_NEVER_NULL_USAGE | ID_REMAP_SKIP_USER_CLEAR);
+    scene_dst->nodetree->owner_id = &scene_dst->id;
   }
 
   if (scene_src->rigidbody_world) {
@@ -429,7 +461,7 @@ static void scene_free_data(ID *id)
   BLI_assert(scene->layer_properties == nullptr);
 }
 
-static void scene_foreach_rigidbodyworldSceneLooper(struct RigidBodyWorld *UNUSED(rbw),
+static void scene_foreach_rigidbodyworldSceneLooper(struct RigidBodyWorld * /*rbw*/,
                                                     ID **id_pointer,
                                                     void *user_data,
                                                     int cb_flag)
@@ -730,7 +762,7 @@ static void scene_foreach_layer_collection(LibraryForeachIDData *data, ListBase 
                          (lc->collection->id.flag & LIB_EMBEDDED_DATA) != 0) ?
                             IDWALK_CB_EMBEDDED :
                             IDWALK_CB_NOP;
-    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, lc->collection, cb_flag);
+    BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, lc->collection, cb_flag | IDWALK_CB_DIRECT_WEAK_LINK);
     scene_foreach_layer_collection(data, &lc->layer_collections);
   }
 }
@@ -743,7 +775,7 @@ static bool seq_foreach_member_id_cb(Sequence *seq, void *user_data)
   { \
     CHECK_TYPE(&((_id_super)->id), ID *); \
     BKE_lib_query_foreachid_process((_data), (ID **)&(_id_super), (_cb_flag)); \
-    if (BKE_lib_query_foreachid_iter_stop((_data))) { \
+    if (BKE_lib_query_foreachid_iter_stop(_data)) { \
       return false; \
     } \
   } \
@@ -801,10 +833,12 @@ static void scene_foreach_id(ID *id, LibraryForeachIDData *data)
 
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
     BKE_LIB_FOREACHID_PROCESS_IDSUPER(data, view_layer->mat_override, IDWALK_CB_USER);
-
-    LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
       BKE_LIB_FOREACHID_PROCESS_IDSUPER(
-          data, base->object, IDWALK_CB_NOP | IDWALK_CB_OVERRIDE_LIBRARY_NOT_OVERRIDABLE);
+          data,
+          base->object,
+          IDWALK_CB_NOP | IDWALK_CB_OVERRIDE_LIBRARY_NOT_OVERRIDABLE | IDWALK_CB_DIRECT_WEAK_LINK);
     }
 
     BKE_LIB_FOREACHID_PROCESS_FUNCTION_CALL(
@@ -878,8 +912,8 @@ static bool seq_foreach_path_callback(Sequence *seq, void *user_data)
     }
     else if ((seq->type == SEQ_TYPE_IMAGE) && se) {
       /* NOTE: An option not to loop over all strips could be useful? */
-      unsigned int len = (unsigned int)MEM_allocN_len(se) / (unsigned int)sizeof(*se);
-      unsigned int i;
+      uint len = uint(MEM_allocN_len(se)) / uint(sizeof(*se));
+      uint i;
 
       if (bpath_data->flag & BKE_BPATH_FOREACH_PATH_SKIP_MULTIFILE) {
         /* only operate on one path */
@@ -938,6 +972,13 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   }
   if (tos->sculpt) {
     BLO_write_struct(writer, Sculpt, tos->sculpt);
+    if (tos->sculpt->automasking_cavity_curve) {
+      BKE_curvemapping_blend_write(writer, tos->sculpt->automasking_cavity_curve);
+    }
+    if (tos->sculpt->automasking_cavity_curve_op) {
+      BKE_curvemapping_blend_write(writer, tos->sculpt->automasking_cavity_curve_op);
+    }
+
     BKE_paint_blend_write(writer, &tos->sculpt->paint);
   }
   if (tos->uvsculpt) {
@@ -1003,10 +1044,10 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   if (sce->r.avicodecdata) {
     BLO_write_struct(writer, AviCodecData, sce->r.avicodecdata);
     if (sce->r.avicodecdata->lpFormat) {
-      BLO_write_raw(writer, (size_t)sce->r.avicodecdata->cbFormat, sce->r.avicodecdata->lpFormat);
+      BLO_write_raw(writer, size_t(sce->r.avicodecdata->cbFormat), sce->r.avicodecdata->lpFormat);
     }
     if (sce->r.avicodecdata->lpParms) {
-      BLO_write_raw(writer, (size_t)sce->r.avicodecdata->cbParms, sce->r.avicodecdata->lpParms);
+      BLO_write_raw(writer, size_t(sce->r.avicodecdata->cbParms), sce->r.avicodecdata->lpParms);
     }
   }
 
@@ -1054,7 +1095,7 @@ static void scene_blend_write(BlendWriter *writer, ID *id, const void *id_addres
   BKE_curvemapping_curves_blend_write(writer, &sce->r.mblur_shutter_curve);
 
   LISTBASE_FOREACH (ViewLayer *, view_layer, &sce->view_layers) {
-    BKE_view_layer_blend_write(writer, view_layer);
+    BKE_view_layer_blend_write(writer, sce, view_layer);
   }
 
   if (sce->master_collection) {
@@ -1151,6 +1192,24 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
     sce->toolsettings->particle.object = nullptr;
     sce->toolsettings->gp_sculpt.paintcursor = nullptr;
 
+    if (sce->toolsettings->sculpt) {
+      BLO_read_data_address(reader, &sce->toolsettings->sculpt->automasking_cavity_curve);
+      BLO_read_data_address(reader, &sce->toolsettings->sculpt->automasking_cavity_curve_op);
+
+      if (sce->toolsettings->sculpt->automasking_cavity_curve) {
+        BKE_curvemapping_blend_read(reader, sce->toolsettings->sculpt->automasking_cavity_curve);
+        BKE_curvemapping_init(sce->toolsettings->sculpt->automasking_cavity_curve);
+      }
+
+      if (sce->toolsettings->sculpt->automasking_cavity_curve_op) {
+        BKE_curvemapping_blend_read(reader,
+                                    sce->toolsettings->sculpt->automasking_cavity_curve_op);
+        BKE_curvemapping_init(sce->toolsettings->sculpt->automasking_cavity_curve_op);
+      }
+
+      BKE_sculpt_check_cavity_curves(sce->toolsettings->sculpt);
+    }
+
     /* Relink grease pencil interpolation curves. */
     BLO_read_data_address(reader, &sce->toolsettings->gp_interpolate.custom_ipo);
     if (sce->toolsettings->gp_interpolate.custom_ipo) {
@@ -1173,6 +1232,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
       BKE_curveprofile_blend_read(reader, sce->toolsettings->custom_bevel_profile_preset);
     }
 
+    BLO_read_data_address(reader, &sce->toolsettings->paint_mode.canvas_image);
     BLO_read_data_address(reader, &sce->toolsettings->sequencer_tool_settings);
   }
 
@@ -1204,8 +1264,8 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
       intptr_t seqbase_offset;
       intptr_t channels_offset;
 
-      seqbase_offset = ((intptr_t) & (temp.seqbase)) - ((intptr_t)&temp);
-      channels_offset = ((intptr_t) & (temp.channels)) - ((intptr_t)&temp);
+      seqbase_offset = intptr_t(&(temp).seqbase) - intptr_t(&temp);
+      channels_offset = intptr_t(&(temp).channels) - intptr_t(&temp);
 
       /* seqbase root pointer */
       if (ed->seqbasep == old_seqbasep) {
@@ -1225,7 +1285,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
       }
 
       /* Active channels root pointer. */
-      if (ed->displayed_channels == old_displayed_channels || ed->displayed_channels == nullptr) {
+      if (ELEM(ed->displayed_channels, old_displayed_channels, nullptr)) {
         ed->displayed_channels = &ed->channels;
       }
       else {
@@ -1260,7 +1320,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
           }
         }
 
-        if (ms->old_channels == old_displayed_channels || ms->old_channels == nullptr) {
+        if (ELEM(ms->old_channels, old_displayed_channels, nullptr)) {
           ms->old_channels = &ed->channels;
         }
         else {
@@ -1323,7 +1383,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->pointcache) {
-        rbw->ltime = (float)rbw->pointcache->startframe;
+        rbw->ltime = float(rbw->pointcache->startframe);
       }
     }
     else {
@@ -1337,7 +1397,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
 
       /* make sure simulation starts from the beginning after loading file */
       if (rbw->shared->pointcache) {
-        rbw->ltime = (float)rbw->shared->pointcache->startframe;
+        rbw->ltime = float(rbw->shared->pointcache->startframe);
       }
     }
     rbw->objects = nullptr;
@@ -1390,7 +1450,7 @@ static void scene_blend_read_data(BlendDataReader *reader, ID *id)
 /* patch for missing scene IDs, can't be in do-versions */
 static void composite_patch(bNodeTree *ntree, Scene *scene)
 {
-  LISTBASE_FOREACH (bNode *, node, &ntree->nodes) {
+  for (bNode *node : ntree->all_nodes()) {
     if (node->id == nullptr &&
         ((node->type == CMP_NODE_R_LAYERS) ||
          (node->type == CMP_NODE_CRYPTOMATTE && node->custom1 == CMP_CRYPTOMATTE_SRC_RENDER))) {
@@ -1480,7 +1540,7 @@ static void scene_blend_read_lib(BlendLibReader *reader, ID *id)
   }
 
   LISTBASE_FOREACH (TimeMarker *, marker, &sce->markers) {
-    IDP_BlendReadLib(reader, marker->prop);
+    IDP_BlendReadLib(reader, sce->id.lib, marker->prop);
 
     if (marker->camera) {
       BLO_read_id_address(reader, sce->id.lib, &marker->camera);
@@ -1637,7 +1697,7 @@ static void scene_undo_preserve(BlendLibReader *reader, ID *id_new, ID *id_old)
   }
 }
 
-static void scene_lib_override_apply_post(ID *id_dst, ID *UNUSED(id_src))
+static void scene_lib_override_apply_post(ID *id_dst, ID * /*id_src*/)
 {
   Scene *scene = (Scene *)id_dst;
 
@@ -1672,7 +1732,7 @@ constexpr IDTypeInfo get_type_info()
   info.foreach_id = scene_foreach_id;
   info.foreach_cache = scene_foreach_cache;
   info.foreach_path = scene_foreach_path;
-  info.owner_get = nullptr;
+  info.owner_pointer_get = nullptr;
 
   info.blend_write = scene_blend_write;
   info.blend_read_data = scene_blend_read_data;
@@ -1737,6 +1797,18 @@ ToolSettings *BKE_toolsettings_copy(ToolSettings *toolsettings, const int flag)
   if (ts->sculpt) {
     ts->sculpt = static_cast<Sculpt *>(MEM_dupallocN(ts->sculpt));
     BKE_paint_copy(&ts->sculpt->paint, &ts->sculpt->paint, flag);
+
+    if (ts->sculpt->automasking_cavity_curve) {
+      ts->sculpt->automasking_cavity_curve = BKE_curvemapping_copy(
+          ts->sculpt->automasking_cavity_curve);
+      BKE_curvemapping_init(ts->sculpt->automasking_cavity_curve);
+    }
+
+    if (ts->sculpt->automasking_cavity_curve_op) {
+      ts->sculpt->automasking_cavity_curve_op = BKE_curvemapping_copy(
+          ts->sculpt->automasking_cavity_curve_op);
+      BKE_curvemapping_init(ts->sculpt->automasking_cavity_curve_op);
+    }
   }
   if (ts->uvsculpt) {
     ts->uvsculpt = static_cast<UvSculpt *>(MEM_dupallocN(ts->uvsculpt));
@@ -1794,6 +1866,13 @@ void BKE_toolsettings_free(ToolSettings *toolsettings)
     MEM_freeN(toolsettings->wpaint);
   }
   if (toolsettings->sculpt) {
+    if (toolsettings->sculpt->automasking_cavity_curve) {
+      BKE_curvemapping_free(toolsettings->sculpt->automasking_cavity_curve);
+    }
+    if (toolsettings->sculpt->automasking_cavity_curve_op) {
+      BKE_curvemapping_free(toolsettings->sculpt->automasking_cavity_curve_op);
+    }
+
     BKE_paint_free(&toolsettings->sculpt->paint);
     MEM_freeN(toolsettings->sculpt);
   }
@@ -2047,7 +2126,8 @@ Scene *BKE_scene_add(Main *bmain, const char *name)
 bool BKE_scene_object_find(Scene *scene, Object *ob)
 {
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
-    if (BLI_findptr(&view_layer->object_bases, ob, offsetof(Base, object))) {
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    if (BLI_findptr(BKE_view_layer_object_bases_get(view_layer), ob, offsetof(Base, object))) {
       return true;
     }
   }
@@ -2057,7 +2137,8 @@ bool BKE_scene_object_find(Scene *scene, Object *ob)
 Object *BKE_scene_object_find_by_name(const Scene *scene, const char *name)
 {
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
-    LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
       if (STREQ(base->object->id.name + 2, name)) {
         return base->object;
       }
@@ -2078,7 +2159,8 @@ void BKE_scene_set_background(Main *bmain, Scene *scene)
 
   /* copy layers and flags from bases to objects */
   LISTBASE_FOREACH (ViewLayer *, view_layer, &scene->view_layers) {
-    LISTBASE_FOREACH (Base *, base, &view_layer->object_bases) {
+    BKE_view_layer_synced_ensure(scene, view_layer);
+    LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
       /* collection patch... */
       BKE_scene_object_base_flag_sync_from_base(base);
     }
@@ -2121,7 +2203,8 @@ int BKE_scene_base_iter_next(
       if (iter->phase == F_START) {
         ViewLayer *view_layer = (depsgraph) ? DEG_get_evaluated_view_layer(depsgraph) :
                                               BKE_view_layer_context_active_PLACEHOLDER(*scene);
-        *base = static_cast<Base *>(view_layer->object_bases.first);
+        BKE_view_layer_synced_ensure(*scene, view_layer);
+        *base = static_cast<Base *>(BKE_view_layer_object_bases_get(view_layer)->first);
         if (*base) {
           *ob = (*base)->object;
           iter->phase = F_SCENE;
@@ -2131,8 +2214,10 @@ int BKE_scene_base_iter_next(
           while ((*scene)->set) {
             (*scene) = (*scene)->set;
             ViewLayer *view_layer_set = BKE_view_layer_default_render(*scene);
-            if (view_layer_set->object_bases.first) {
-              *base = static_cast<Base *>(view_layer_set->object_bases.first);
+            BKE_view_layer_synced_ensure(*scene, view_layer_set);
+            ListBase *object_bases = BKE_view_layer_object_bases_get(view_layer_set);
+            if (object_bases->first) {
+              *base = static_cast<Base *>(object_bases->first);
               *ob = (*base)->object;
               iter->phase = F_SCENE;
               break;
@@ -2152,8 +2237,10 @@ int BKE_scene_base_iter_next(
               while ((*scene)->set) {
                 (*scene) = (*scene)->set;
                 ViewLayer *view_layer_set = BKE_view_layer_default_render(*scene);
-                if (view_layer_set->object_bases.first) {
-                  *base = static_cast<Base *>(view_layer_set->object_bases.first);
+                BKE_view_layer_synced_ensure(*scene, view_layer_set);
+                ListBase *object_bases = BKE_view_layer_object_bases_get(view_layer_set);
+                if (object_bases->first) {
+                  *base = static_cast<Base *>(object_bases->first);
                   *ob = (*base)->object;
                   break;
                 }
@@ -2194,13 +2281,13 @@ int BKE_scene_base_iter_next(
           if (iter->dupli_refob != *ob) {
             if (iter->dupli_refob) {
               /* Restore previous object's real matrix. */
-              copy_m4_m4(iter->dupli_refob->obmat, iter->omat);
+              copy_m4_m4(iter->dupli_refob->object_to_world, iter->omat);
             }
             /* Backup new object's real matrix. */
             iter->dupli_refob = *ob;
-            copy_m4_m4(iter->omat, iter->dupli_refob->obmat);
+            copy_m4_m4(iter->omat, iter->dupli_refob->object_to_world);
           }
-          copy_m4_m4((*ob)->obmat, iter->dupob->mat);
+          copy_m4_m4((*ob)->object_to_world, iter->dupob->mat);
 
           iter->dupob = iter->dupob->next;
         }
@@ -2210,7 +2297,7 @@ int BKE_scene_base_iter_next(
 
           if (iter->dupli_refob) {
             /* Restore last object's real matrix. */
-            copy_m4_m4(iter->dupli_refob->obmat, iter->omat);
+            copy_m4_m4(iter->dupli_refob->object_to_world, iter->omat);
             iter->dupli_refob = nullptr;
           }
 
@@ -2250,7 +2337,7 @@ Object *BKE_scene_camera_switch_find(Scene *scene)
     return nullptr;
   }
 
-  const int ctime = (int)BKE_scene_ctime_get(scene);
+  const int ctime = int(BKE_scene_ctime_get(scene));
   int frame = -(MAXFRAME + 1);
   int min_frame = MAXFRAME + 1;
   Object *camera = nullptr;
@@ -2414,8 +2501,8 @@ float BKE_scene_frame_get(const Scene *scene)
 void BKE_scene_frame_set(Scene *scene, float frame)
 {
   double intpart;
-  scene->r.subframe = modf((double)frame, &intpart);
-  scene->r.cfra = (int)intpart;
+  scene->r.subframe = modf(double(frame), &intpart);
+  scene->r.cfra = int(intpart);
 }
 
 /* -------------------------------------------------------------------- */
@@ -2500,9 +2587,11 @@ static bool check_rendered_viewport_visible(Main *bmain)
   return false;
 }
 
-/* TODO(campbell): shouldn't we be able to use 'DEG_get_view_layer' here?
+/* TODO(@campbellbarton): shouldn't we be able to use 'DEG_get_view_layer' here?
  * Currently this is nullptr on load, so don't. */
-static void prepare_mesh_for_viewport_render(Main *bmain, const ViewLayer *view_layer)
+static void prepare_mesh_for_viewport_render(Main *bmain,
+                                             const Scene *scene,
+                                             ViewLayer *view_layer)
 {
   /* This is needed to prepare mesh to be used by the render
    * engine from the viewport rendering. We do loading here
@@ -2512,8 +2601,8 @@ static void prepare_mesh_for_viewport_render(Main *bmain, const ViewLayer *view_
    * This makes it so viewport render engine doesn't need to
    * call loading of the edit data for the mesh objects.
    */
-
-  Object *obedit = OBEDIT_FROM_VIEW_LAYER(view_layer);
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  Object *obedit = BKE_view_layer_edit_object_get(view_layer);
   if (obedit) {
     Mesh *mesh = static_cast<Mesh *>(obedit->data);
     if ((obedit->type == OB_MESH) &&
@@ -2554,7 +2643,7 @@ void BKE_scene_update_sound(Depsgraph *depsgraph, Main *bmain)
   BKE_sound_update_scene(depsgraph, scene);
 }
 
-void BKE_scene_update_tag_audio_volume(Depsgraph *UNUSED(depsgraph), Scene *scene)
+void BKE_scene_update_tag_audio_volume(Depsgraph * /*depsgraph*/, Scene *scene)
 {
   BLI_assert(DEG_is_evaluated_id(&scene->id));
   /* The volume is actually updated in BKE_scene_update_sound(), from either
@@ -2589,8 +2678,8 @@ static void scene_graph_update_tagged(Depsgraph *depsgraph, Main *bmain, bool on
     /* Uncomment this to check if graph was properly tagged for update. */
     // DEG_debug_graph_relations_validate(depsgraph, bmain, scene);
     /* Flush editing data if needed. */
-    prepare_mesh_for_viewport_render(bmain, view_layer);
-    /* Update all objects: drivers, matrices, #DispList, etc. flags set
+    prepare_mesh_for_viewport_render(bmain, scene, view_layer);
+    /* Update all objects: drivers, matrices, etc. flags set
      * by depsgraph or manual, no layer check here, gets correct flushed. */
     DEG_evaluate_on_refresh(depsgraph);
     /* Update sound system. */
@@ -2665,7 +2754,7 @@ void BKE_scene_graph_update_for_newframe_ex(Depsgraph *depsgraph, const bool cle
     BKE_image_editors_update_frame(bmain, scene->r.cfra);
     BKE_sound_set_cfra(scene->r.cfra);
     DEG_graph_relations_update(depsgraph);
-    /* Update all objects: drivers, matrices, #DispList, etc. flags set
+    /* Update all objects: drivers, matrices, etc. flags set
      * by depsgraph or manual, no layer check here, gets correct flushed.
      *
      * NOTE: Only update for new frame on first iteration. Second iteration is for ensuring user
@@ -2789,10 +2878,10 @@ int get_render_child_particle_number(const RenderData *r, int child_num, bool fo
 {
   if (r->mode & R_SIMPLIFY) {
     if (for_render) {
-      return (int)(r->simplify_particles_render * child_num);
+      return int(r->simplify_particles_render * child_num);
     }
 
-    return (int)(r->simplify_particles * child_num);
+    return int(r->simplify_particles * child_num);
   }
 
   return child_num;
@@ -2807,8 +2896,10 @@ Base *_setlooper_base_step(Scene **sce_iter, ViewLayer *view_layer, Base *base)
   if ((base == nullptr) && (view_layer != nullptr)) {
     /* First time looping, return the scenes first base. */
     /* For the first loop we should get the layer from workspace when available. */
-    if (view_layer->object_bases.first) {
-      return (Base *)view_layer->object_bases.first;
+    BKE_view_layer_synced_ensure(*sce_iter, view_layer);
+    ListBase *object_bases = BKE_view_layer_object_bases_get(view_layer);
+    if (object_bases->first) {
+      return static_cast<Base *>(object_bases->first);
     }
     /* No base on this scene layer. */
     goto next_set;
@@ -2818,7 +2909,7 @@ Base *_setlooper_base_step(Scene **sce_iter, ViewLayer *view_layer, Base *base)
     /* Reached the end, get the next base in the set. */
     while ((*sce_iter = (*sce_iter)->set)) {
       ViewLayer *view_layer_set = BKE_view_layer_default_render(*sce_iter);
-      base = (Base *)view_layer_set->object_bases.first;
+      base = (Base *)BKE_view_layer_object_bases_get(view_layer_set)->first;
 
       if (base) {
         return base;
@@ -2877,13 +2968,11 @@ bool BKE_scene_uses_cycles_experimental_features(Scene *scene)
   return RNA_enum_get(&cycles_ptr, "feature_set") == CYCLES_FEATURES_EXPERIMENTAL;
 }
 
-void BKE_scene_base_flag_to_objects(ViewLayer *view_layer)
+void BKE_scene_base_flag_to_objects(const Scene *scene, ViewLayer *view_layer)
 {
-  Base *base = static_cast<Base *>(view_layer->object_bases.first);
-
-  while (base) {
+  BKE_view_layer_synced_ensure(scene, view_layer);
+  LISTBASE_FOREACH (Base *, base, BKE_view_layer_object_bases_get(view_layer)) {
     BKE_scene_object_base_flag_sync_from_base(base);
-    base = base->next;
   }
 }
 
@@ -2951,6 +3040,20 @@ int BKE_scene_num_threads(const Scene *scene)
   return BKE_render_num_threads(&scene->r);
 }
 
+void BKE_render_resolution(const struct RenderData *r,
+                           const bool use_crop,
+                           int *r_width,
+                           int *r_height)
+{
+  *r_width = (r->xsch * r->size) / 100;
+  *r_height = (r->ysch * r->size) / 100;
+
+  if (use_crop && (r->mode & R_BORDER) && (r->mode & R_CROP)) {
+    *r_width *= BLI_rctf_size_x(&r->border);
+    *r_height *= BLI_rctf_size_y(&r->border);
+  }
+}
+
 int BKE_render_preview_pixel_size(const RenderData *r)
 {
   if (r->preview_pixel_size == 0) {
@@ -2970,7 +3073,7 @@ double BKE_scene_unit_scale(const UnitSettings *unit, const int unit_type, doubl
     case B_UNIT_LENGTH:
     case B_UNIT_VELOCITY:
     case B_UNIT_ACCELERATION:
-      return value * (double)unit->scale_length;
+      return value * double(unit->scale_length);
     case B_UNIT_AREA:
     case B_UNIT_POWER:
       return value * pow(unit->scale_length, 2);
@@ -3215,26 +3318,25 @@ void BKE_scene_multiview_view_prefix_get(Scene *scene,
                                          char *r_prefix,
                                          const char **r_ext)
 {
-  size_t index_act;
-  const char *suf_act;
+  const char *unused;
   const char delims[] = {'.', '\0'};
 
   r_prefix[0] = '\0';
 
-  /* begin of extension */
-  index_act = BLI_str_rpartition(name, delims, r_ext, &suf_act);
+  /* Split filename into base name and extension. */
+  const size_t basename_len = BLI_str_rpartition(name, delims, r_ext, &unused);
   if (*r_ext == nullptr) {
     return;
   }
-  BLI_assert(index_act > 0);
-  UNUSED_VARS_NDEBUG(index_act);
+  BLI_assert(basename_len > 0);
 
+  /* Split base name into prefix and known suffix. */
   LISTBASE_FOREACH (SceneRenderView *, srv, &scene->r.views) {
     if (BKE_scene_multiview_is_render_view_active(&scene->r, srv)) {
-      const size_t len = strlen(srv->suffix);
-      const size_t ext_len = strlen(*r_ext);
-      if (ext_len >= len && STREQLEN(*r_ext - len, srv->suffix, len)) {
-        BLI_strncpy(r_prefix, name, strlen(name) - ext_len - len + 1);
+      const size_t suffix_len = strlen(srv->suffix);
+      if (basename_len >= suffix_len &&
+          STREQLEN(name + basename_len - suffix_len, srv->suffix, suffix_len)) {
+        BLI_strncpy(r_prefix, name, basename_len - suffix_len + 1);
         break;
       }
     }
@@ -3289,10 +3391,10 @@ struct DepsgraphKey {
    */
 };
 
-static unsigned int depsgraph_key_hash(const void *key_v)
+static uint depsgraph_key_hash(const void *key_v)
 {
   const DepsgraphKey *key = static_cast<const DepsgraphKey *>(key_v);
-  unsigned int hash = BLI_ghashutil_ptrhash(key->view_layer);
+  uint hash = BLI_ghashutil_ptrhash(key->view_layer);
   /* TODO(sergey): Include hash from other fields in the key. */
   return hash;
 }

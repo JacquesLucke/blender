@@ -39,7 +39,6 @@
 
 #include "BLO_read_write.h"
 
-#include "BKE_curveprofile.h"
 #include "bmesh.h"
 #include "bmesh_tools.h"
 
@@ -65,15 +64,17 @@ static void copyData(const ModifierData *md_src, ModifierData *md_dst, const int
   bmd_dst->custom_profile = BKE_curveprofile_copy(bmd_src->custom_profile);
 }
 
-static void requiredDataMask(Object *UNUSED(ob),
-                             ModifierData *md,
-                             CustomData_MeshMasks *r_cddata_masks)
+static void requiredDataMask(ModifierData *md, CustomData_MeshMasks *r_cddata_masks)
 {
   BevelModifierData *bmd = (BevelModifierData *)md;
 
   /* ask for vertexgroups if we need them */
   if (bmd->defgrp_name[0] != '\0') {
     r_cddata_masks->vmask |= CD_MASK_MDEFORMVERT;
+  }
+  if (bmd->lim_flags & MOD_BEVEL_WEIGHT) {
+    r_cddata_masks->vmask |= CD_MASK_BWEIGHT;
+    r_cddata_masks->emask |= CD_MASK_BWEIGHT;
   }
 }
 
@@ -89,7 +90,7 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   BMVert *v;
   float weight, weight2;
   int vgroup = -1;
-  MDeformVert *dvert = NULL;
+  const MDeformVert *dvert = NULL;
   BevelModifierData *bmd = (BevelModifierData *)md;
   const float threshold = cosf(bmd->bevel_angle + 0.000000175f);
   const bool do_clamp = !(bmd->flags & MOD_BEVEL_OVERLAP_OK);
@@ -228,8 +229,6 @@ static Mesh *modifyMesh(ModifierData *md, const ModifierEvalContext *ctx, Mesh *
   BLI_assert(bm->vtoolflagpool == NULL && bm->etoolflagpool == NULL && bm->ftoolflagpool == NULL);
 
   BM_mesh_free(bm);
-
-  BKE_mesh_normals_tag_dirty(result);
 
   return result;
 }
@@ -398,9 +397,11 @@ static void panelRegister(ARegionType *region_type)
       region_type, "shading", "Shading", NULL, shading_panel_draw, panel_type);
 }
 
-static void blendWrite(BlendWriter *writer, const ModifierData *md)
+static void blendWrite(BlendWriter *writer, const ID *UNUSED(id_owner), const ModifierData *md)
 {
   const BevelModifierData *bmd = (const BevelModifierData *)md;
+
+  BLO_write_struct(writer, BevelModifierData, bmd);
 
   if (bmd->custom_profile) {
     BKE_curveprofile_blend_write(writer, bmd->custom_profile);
@@ -418,7 +419,7 @@ static void blendRead(BlendDataReader *reader, ModifierData *md)
 }
 
 ModifierTypeInfo modifierType_Bevel = {
-    /* name */ "Bevel",
+    /* name */ N_("Bevel"),
     /* structName */ "BevelModifierData",
     /* structSize */ sizeof(BevelModifierData),
     /* srna */ &RNA_BevelModifier,

@@ -22,7 +22,7 @@
 /** \name Meta Elements Transform Creation
  * \{ */
 
-void createTransMBallVerts(TransInfo *t)
+static void createTransMBallVerts(bContext *UNUSED(C), TransInfo *t)
 {
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     MetaBall *mb = (MetaBall *)tc->obedit->data;
@@ -44,7 +44,8 @@ void createTransMBallVerts(TransInfo *t)
       }
     }
 
-    /* Support other objects using PET to adjust these, unless connected is enabled. */
+    /* Support other objects using proportional editing to adjust these, unless connected is
+     * enabled. */
     if (((is_prop_edit && !is_prop_connected) ? count : countsel) == 0) {
       tc->data_len = 0;
       continue;
@@ -61,7 +62,7 @@ void createTransMBallVerts(TransInfo *t)
     tx = tc->data_ext = MEM_callocN(tc->data_len * sizeof(TransDataExtension),
                                     "MetaElement_TransExtension");
 
-    copy_m3_m4(mtx, tc->obedit->obmat);
+    copy_m3_m4(mtx, tc->obedit->object_to_world);
     pseudoinverse_m3_m3(smtx, mtx, PSEUDOINVERSE_EPSILON);
 
     for (ml = mb->editelems->first; ml; ml = ml->next) {
@@ -119,10 +120,10 @@ void createTransMBallVerts(TransInfo *t)
 /** \name Recalc Meta Ball
  * \{ */
 
-void recalcData_mball(TransInfo *t)
+static void recalcData_mball(TransInfo *t)
 {
   if (t->state != TRANS_CANCEL) {
-    applyProject(t);
+    applySnappingIndividual(t);
   }
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
     if (tc->data_len) {
@@ -132,3 +133,10 @@ void recalcData_mball(TransInfo *t)
 }
 
 /** \} */
+
+TransConvertTypeInfo TransConvertType_MBall = {
+    /* flags */ (T_EDIT | T_POINTS),
+    /* createTransData */ createTransMBallVerts,
+    /* recalcData */ recalcData_mball,
+    /* special_aftertrans_update */ NULL,
+};

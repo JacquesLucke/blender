@@ -1,28 +1,18 @@
 
 #pragma BLENDER_REQUIRE(common_view_lib.glsl)
 
-uniform float sphere_size;
-uniform int offset;
-uniform ivec3 grid_resolution;
-uniform vec3 corner;
-uniform vec3 increment_x;
-uniform vec3 increment_y;
-uniform vec3 increment_z;
-uniform vec3 screen_vecs[2];
-
-flat out int cellOffset;
-out vec2 quadCoord;
-
-const vec2 pos[6] = vec2[6](vec2(-1.0, -1.0),
-                            vec2(1.0, -1.0),
-                            vec2(-1.0, 1.0),
-
-                            vec2(1.0, -1.0),
-                            vec2(1.0, 1.0),
-                            vec2(-1.0, 1.0));
-
 void main()
 {
+  /* Constant array moved inside function scope.
+   * Minimises local register allocation in MSL. */
+  const vec2 pos[6] = vec2[6](vec2(-1.0, -1.0),
+                              vec2(1.0, -1.0),
+                              vec2(-1.0, 1.0),
+
+                              vec2(1.0, -1.0),
+                              vec2(1.0, 1.0),
+                              vec2(-1.0, 1.0));
+
   int cell_id = gl_VertexID / 6;
   int vert_id = gl_VertexID % 6;
 
@@ -39,9 +29,10 @@ void main()
                            increment_z * ls_cell_location.z);
 
   quadCoord = pos[vert_id];
-  vec3 screen_pos = screen_vecs[0] * quadCoord.x + screen_vecs[1] * quadCoord.y;
+  vec3 screen_pos = ViewMatrixInverse[0].xyz * quadCoord.x +
+                    ViewMatrixInverse[1].xyz * quadCoord.y;
   ws_cell_location += screen_pos * sphere_size;
 
-  gl_Position = ViewProjectionMatrix * vec4(ws_cell_location, 1.0);
+  gl_Position = ProjectionMatrix * (ViewMatrix * vec4(ws_cell_location, 1.0));
   gl_Position.z += 0.0001; /* Small bias to let the icon draw without zfighting */
 }

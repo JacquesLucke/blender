@@ -3,17 +3,19 @@
 
 #include "node_shader_util.hh"
 
+#include "BKE_node_runtime.hh"
+
 namespace blender::nodes::node_shader_tex_image_cc {
 
 static void sh_node_tex_image_declare(NodeDeclarationBuilder &b)
 {
   b.is_function_node();
-  b.add_input<decl::Vector>(N_("Vector")).implicit_field();
+  b.add_input<decl::Vector>(N_("Vector")).implicit_field(implicit_field_inputs::position);
   b.add_output<decl::Color>(N_("Color")).no_muted_links();
   b.add_output<decl::Float>(N_("Alpha")).no_muted_links();
 }
 
-static void node_shader_init_tex_image(bNodeTree *UNUSED(ntree), bNode *node)
+static void node_shader_init_tex_image(bNodeTree * /*ntree*/, bNode *node)
 {
   NodeTexImage *tex = MEM_cnew<NodeTexImage>(__func__);
   BKE_texture_mapping_default(&tex->base.tex_mapping, TEXMAP_TYPE_POINT);
@@ -25,7 +27,7 @@ static void node_shader_init_tex_image(bNodeTree *UNUSED(ntree), bNode *node)
 
 static int node_shader_gpu_tex_image(GPUMaterial *mat,
                                      bNode *node,
-                                     bNodeExecData *UNUSED(execdata),
+                                     bNodeExecData * /*execdata*/,
                                      GPUNodeStack *in,
                                      GPUNodeStack *out)
 {
@@ -34,7 +36,7 @@ static int node_shader_gpu_tex_image(GPUMaterial *mat,
 
   /* We get the image user from the original node, since GPU image keeps
    * a pointer to it and the dependency refreshes the original. */
-  bNode *node_original = node->original ? node->original : node;
+  bNode *node_original = node->runtime->original ? node->runtime->original : node;
   NodeTexImage *tex_original = (NodeTexImage *)node_original->storage;
   ImageUser *iuser = &tex_original->iuser;
 
@@ -44,7 +46,7 @@ static int node_shader_gpu_tex_image(GPUMaterial *mat,
 
   GPUNodeLink **texco = &in[0].link;
   if (!*texco) {
-    *texco = GPU_attribute(mat, CD_MTFACE, "");
+    *texco = GPU_attribute(mat, CD_AUTO_FROM_NAME, "");
     node_shader_gpu_bump_tex_coord(mat, node, texco);
   }
 
@@ -74,7 +76,7 @@ static int node_shader_gpu_tex_image(GPUMaterial *mat,
     const char *gpu_node_name = use_cubic ? "node_tex_tile_cubic" : "node_tex_tile_linear";
     GPUNodeLink *gpu_image = GPU_image_tiled(mat, ima, iuser, sampler_state);
     GPUNodeLink *gpu_image_tile_mapping = GPU_image_tiled_mapping(mat, ima, iuser);
-    /* UDIM tiles needs a samper2DArray and sampler1DArray for tile mapping. */
+    /* UDIM tiles needs a `sampler2DArray` and `sampler1DArray` for tile mapping. */
     GPU_stack_link(mat, node, gpu_node_name, in, out, gpu_image, gpu_image_tile_mapping);
   }
   else {
@@ -88,13 +90,11 @@ static int node_shader_gpu_tex_image(GPUMaterial *mat,
       }
       case SHD_PROJ_BOX: {
         gpu_node_name = use_cubic ? "tex_box_sample_cubic" : "tex_box_sample_linear";
-        GPUNodeLink *wnor, *col1, *col2, *col3;
-        GPUNodeLink *vnor = GPU_builtin(GPU_WORLD_NORMAL);
-        GPUNodeLink *ob_mat = GPU_builtin(GPU_OBJECT_MATRIX);
+        GPUNodeLink *vnor, *wnor, *col1, *col2, *col3;
         GPUNodeLink *blend = GPU_uniform(&tex->projection_blend);
         GPUNodeLink *gpu_image = GPU_image(mat, ima, iuser, sampler_state);
-        /* equivalent to normal_world_to_object */
-        GPU_link(mat, "normal_transform_transposed_m4v3", vnor, ob_mat, &wnor);
+        GPU_link(mat, "world_normals_get", &vnor);
+        GPU_link(mat, "normal_transform_world_to_object", vnor, &wnor);
         GPU_link(mat, gpu_node_name, in[0].link, wnor, gpu_image, &col1, &col2, &col3);
         GPU_link(mat, "tex_box_blend", wnor, col1, col2, col3, blend, &out[0].link, &out[1].link);
         break;
@@ -165,10 +165,10 @@ void register_node_type_sh_tex_image()
 
   sh_node_type_base(&ntype, SH_NODE_TEX_IMAGE, "Image Texture", NODE_CLASS_TEXTURE);
   ntype.declare = file_ns::sh_node_tex_image_declare;
-  node_type_init(&ntype, file_ns::node_shader_init_tex_image);
+  ntype.initfunc = file_ns::node_shader_init_tex_image;
   node_type_storage(
       &ntype, "NodeTexImage", node_free_standard_storage, node_copy_standard_storage);
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_tex_image);
+  ntype.gpu_fn = file_ns::node_shader_gpu_tex_image;
   ntype.labelfunc = node_image_label;
   node_type_size_preset(&ntype, NODE_SIZE_LARGE);
 

@@ -102,6 +102,7 @@ typedef enum {
   /** Accepts #BMesh input (without conversion). */
   eModifierTypeFlag_AcceptsBMesh = (1 << 11),
 } ModifierTypeFlag;
+ENUM_OPERATORS(ModifierTypeFlag, eModifierTypeFlag_AcceptsBMesh)
 
 typedef void (*IDWalkFunc)(void *userData, struct Object *ob, struct ID **idpoin, int cb_flag);
 typedef void (*TexWalkFunc)(void *userData,
@@ -113,7 +114,7 @@ typedef enum ModifierApplyFlag {
   /** Render time. */
   MOD_APPLY_RENDER = 1 << 0,
   /** Result of evaluation will be cached, so modifier might
-   * want to cache data for quick updates (used by subsurf) */
+   * want to cache data for quick updates (used by subdivision-surface) */
   MOD_APPLY_USECACHE = 1 << 1,
   /** Modifier evaluated for undeformed texture coordinates */
   MOD_APPLY_ORCO = 1 << 2,
@@ -126,6 +127,7 @@ typedef enum ModifierApplyFlag {
    * See `OBJECT_OT_modifier_apply` operator. */
   MOD_APPLY_TO_BASE_MESH = 1 << 4,
 } ModifierApplyFlag;
+ENUM_OPERATORS(ModifierApplyFlag, MOD_APPLY_TO_BASE_MESH);
 
 typedef struct ModifierUpdateDepsgraphContext {
   struct Scene *scene;
@@ -264,9 +266,7 @@ typedef struct ModifierTypeInfo {
    *
    * This function is optional.
    */
-  void (*requiredDataMask)(struct Object *ob,
-                           struct ModifierData *md,
-                           struct CustomData_MeshMasks *r_cddata_masks);
+  void (*requiredDataMask)(struct ModifierData *md, struct CustomData_MeshMasks *r_cddata_masks);
 
   /**
    * Free internal modifier data variables, this function should
@@ -363,7 +363,9 @@ typedef struct ModifierTypeInfo {
    * This method should write any additional arrays and referenced structs that should be
    * stored in the file.
    */
-  void (*blendWrite)(struct BlendWriter *writer, const struct ModifierData *md);
+  void (*blendWrite)(struct BlendWriter *writer,
+                     const struct ID *id_owner,
+                     const struct ModifierData *md);
 
   /**
    * Is called when the modifier is read from a file.
@@ -443,10 +445,22 @@ bool BKE_modifier_is_enabled(const struct Scene *scene,
  */
 bool BKE_modifier_is_nonlocal_in_liboverride(const struct Object *ob,
                                              const struct ModifierData *md);
+
+/* Set modifier execution error.
+ * The message will be shown in the interface and will be logged as an error to the console. */
 void BKE_modifier_set_error(const struct Object *ob,
                             struct ModifierData *md,
                             const char *format,
                             ...) ATTR_PRINTF_FORMAT(3, 4);
+
+/* Set modifier execution warning, which does not prevent the modifier from being applied but which
+ * might need an attention. The message will only be shown in the interface, but will not appear in
+ * the logs. */
+void BKE_modifier_set_warning(const struct Object *ob,
+                              struct ModifierData *md,
+                              const char *format,
+                              ...) ATTR_PRINTF_FORMAT(3, 4);
+
 bool BKE_modifier_is_preview(struct ModifierData *md);
 
 void BKE_modifiers_foreach_ID_link(struct Object *ob, IDWalkFunc walk, void *userData);
@@ -491,7 +505,6 @@ struct Object *BKE_modifiers_is_deformed_by_lattice(struct Object *ob);
 struct Object *BKE_modifiers_is_deformed_by_curve(struct Object *ob);
 bool BKE_modifiers_uses_multires(struct Object *ob);
 bool BKE_modifiers_uses_armature(struct Object *ob, struct bArmature *arm);
-bool BKE_modifiers_uses_subsurf_facedots(const struct Scene *scene, struct Object *ob);
 bool BKE_modifiers_is_correctable_deformed(const struct Scene *scene, struct Object *ob);
 void BKE_modifier_free_temporary_data(struct ModifierData *md);
 
@@ -507,7 +520,6 @@ typedef struct CDMaskLink {
  * final_datamask is required at the end of the stack.
  */
 struct CDMaskLink *BKE_modifier_calc_data_masks(const struct Scene *scene,
-                                                struct Object *ob,
                                                 struct ModifierData *md,
                                                 struct CustomData_MeshMasks *final_datamask,
                                                 int required_mode,
@@ -584,16 +596,14 @@ void BKE_modifier_deform_vertsEM(ModifierData *md,
  * e.g. second operand for boolean modifier.
  * Note that modifiers in stack always get fully evaluated COW ID pointers,
  * never original ones. Makes things simpler.
- *
- * \param get_cage_mesh: Return evaluated mesh with only deforming modifiers applied
- * (i.e. mesh topology remains the same as original one, a.k.a. 'cage' mesh).
  */
-struct Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(struct Object *ob_eval,
-                                                                   bool get_cage_mesh);
+struct Mesh *BKE_modifier_get_evaluated_mesh_from_evaluated_object(struct Object *ob_eval);
 
 void BKE_modifier_check_uuids_unique_and_report(const struct Object *object);
 
-void BKE_modifier_blend_write(struct BlendWriter *writer, struct ListBase *modbase);
+void BKE_modifier_blend_write(struct BlendWriter *writer,
+                              const struct ID *id_owner,
+                              struct ListBase *modbase);
 void BKE_modifier_blend_read_data(struct BlendDataReader *reader,
                                   struct ListBase *lb,
                                   struct Object *ob);

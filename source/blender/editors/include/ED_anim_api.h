@@ -101,16 +101,16 @@ typedef struct bAnimContext {
 /* Main Data container types */
 typedef enum eAnimCont_Types {
   ANIMCONT_NONE = 0,      /* invalid or no data */
-  ANIMCONT_ACTION = 1,    /* action (bAction) */
-  ANIMCONT_SHAPEKEY = 2,  /* shapekey (Key) */
+  ANIMCONT_ACTION = 1,    /* action (#bAction) */
+  ANIMCONT_SHAPEKEY = 2,  /* shape-key (#Key) */
   ANIMCONT_GPENCIL = 3,   /* grease pencil (screen) */
-  ANIMCONT_DOPESHEET = 4, /* dopesheet (bDopesheet) */
-  ANIMCONT_FCURVES = 5,   /* animation F-Curves (bDopesheet) */
-  ANIMCONT_DRIVERS = 6,   /* drivers (bDopesheet) */
-  ANIMCONT_NLA = 7,       /* nla (bDopesheet) */
-  ANIMCONT_CHANNEL = 8,   /* animation channel (bAnimListElem) */
-  ANIMCONT_MASK = 9,      /* mask dopesheet */
-  ANIMCONT_TIMELINE = 10, /* "timeline" editor (bDopeSheet) */
+  ANIMCONT_DOPESHEET = 4, /* dope-sheet (#bDopesheet) */
+  ANIMCONT_FCURVES = 5,   /* animation F-Curves (#bDopesheet) */
+  ANIMCONT_DRIVERS = 6,   /* drivers (#bDopesheet) */
+  ANIMCONT_NLA = 7,       /* NLA (#bDopesheet) */
+  ANIMCONT_CHANNEL = 8,   /* animation channel (#bAnimListElem) */
+  ANIMCONT_MASK = 9,      /* mask dope-sheet */
+  ANIMCONT_TIMELINE = 10, /* "timeline" editor (#bDopeSheet) */
 } eAnimCont_Types;
 
 /** \} */
@@ -324,12 +324,17 @@ typedef enum eAnimFilter_Flags {
   /** duplicate entries for animation data attached to multi-user blocks must not occur */
   ANIMFILTER_NODUPLIS = (1 << 11),
 
+  /** avoid channel that does not have any F-curve data */
+  ANIMFILTER_FCURVESONLY = (1 << 12),
+
   /** for checking if we should keep some collapsed channel around (internal use only!) */
   ANIMFILTER_TMP_PEEK = (1 << 30),
 
   /** Ignore ONLYSEL flag from #bDopeSheet.filterflag (internal use only!) */
   ANIMFILTER_TMP_IGNORE_ONLYSEL = (1u << 31),
+
 } eAnimFilter_Flags;
+ENUM_OPERATORS(eAnimFilter_Flags, ANIMFILTER_TMP_IGNORE_ONLYSEL);
 
 /** \} */
 
@@ -514,6 +519,11 @@ void ANIM_animdata_update(bAnimContext *ac, ListBase *anim_data);
 
 void ANIM_animdata_freelist(ListBase *anim_data);
 
+/**
+ * Check if the given animation container can contain grease pencil layer keyframes.
+ */
+bool ANIM_animdata_can_have_greasepencil(const eAnimCont_Types type);
+
 /* ************************************************ */
 /* ANIMATION CHANNELS LIST */
 /* anim_channels_*.c */
@@ -549,7 +559,7 @@ typedef enum eAnimChannels_SetFlag {
 /* types of settings for AnimChannels */
 typedef enum eAnimChannel_Settings {
   ACHANNEL_SETTING_SELECT = 0,
-  /** warning: for drawing UI's, need to check if this is off (maybe inverse this later) */
+  /** WARNING: for drawing UI's, need to check if this is off (maybe inverse this later). */
   ACHANNEL_SETTING_PROTECT = 1,
   ACHANNEL_SETTING_MUTE = 2,
   ACHANNEL_SETTING_EXPAND = 3,
@@ -1042,6 +1052,8 @@ void ED_keymap_anim(struct wmKeyConfig *keyconf);
 void ED_operatormacros_graph(void);
 /* space_action */
 void ED_operatormacros_action(void);
+/* space_nla*/
+void ED_operatormacros_nla(void);
 
 /** \} */
 
@@ -1095,6 +1107,15 @@ void animviz_calc_motionpaths(struct Depsgraph *depsgraph,
                               ListBase *targets,
                               eAnimvizCalcRange range,
                               bool restore);
+
+/**
+ * Update motion path computation range (in `ob.avs` or `armature.avs`) from user choice in
+ * `ob.avs.path_range` or `arm.avs.path_range`, depending on active user mode.
+ *
+ * \param ob: Object to compute range for (must be provided)
+ * \param scene: Used when scene range is chosen.
+ */
+void animviz_motionpath_compute_range(struct Object *ob, struct Scene *scene);
 
 /**
  * Get list of motion paths to be baked for the given object.

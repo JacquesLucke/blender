@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import bpy
 from bpy.types import (
     Operator,
@@ -12,6 +10,7 @@ from bpy.props import (
     CollectionProperty,
     StringProperty,
 )
+from bpy.app.translations import pgettext_tip as tip_
 
 # ########## Datablock previews... ##########
 
@@ -125,7 +124,7 @@ class WM_OT_previews_batch_generate(Operator):
             if not self.use_backups:
                 cmd.append("--no_backups")
             if subprocess.call(cmd):
-                self.report({'ERROR'}, "Previews generation process failed for file '%s'!" % blen_path)
+                self.report({'ERROR'}, tip_("Previews generation process failed for file '%s'!") % blen_path)
                 context.window_manager.progress_end()
                 return {'CANCELLED'}
             context.window_manager.progress_update(i + 1)
@@ -236,7 +235,7 @@ class WM_OT_previews_batch_clear(Operator):
             if not self.use_backups:
                 cmd.append("--no_backups")
             if subprocess.call(cmd):
-                self.report({'ERROR'}, "Previews clear process failed for file '%s'!" % blen_path)
+                self.report({'ERROR'}, tip_("Previews clear process failed for file '%s'!") % blen_path)
                 context.window_manager.progress_end()
                 return {'CANCELLED'}
             context.window_manager.progress_update(i + 1)
@@ -247,7 +246,7 @@ class WM_OT_previews_batch_clear(Operator):
 
 class WM_OT_blend_strings_utf8_validate(Operator):
     """Check and fix all strings in current .blend file to be valid UTF-8 Unicode """ \
-    """(needed for some old, 2.4x area files)"""
+        """(needed for some old, 2.4x area files)"""
     bl_idname = "wm.blend_strings_utf8_validate"
     bl_label = "Validate .blend strings"
     bl_options = {'REGISTER'}

@@ -1,7 +1,5 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
-# <pep8 compliant>
-
 import bpy
 
 from bpy.types import Header, Panel, Menu, UIList
@@ -568,6 +566,21 @@ class FILEBROWSER_MT_context_menu(FileBrowserMenu, Menu):
         layout.prop_menu_enum(params, "sort_method")
 
 
+class FILEBROWSER_MT_view_pie(Menu):
+    bl_label = "View"
+    bl_idname = "FILEBROWSER_MT_view_pie"
+
+    def draw(self, context):
+        layout = self.layout
+
+        pie = layout.menu_pie()
+        view = context.space_data
+
+        pie.prop_enum(view.params, "display_type", value='LIST_VERTICAL')
+        pie.prop_enum(view.params, "display_type", value='LIST_HORIZONTAL')
+        pie.prop_enum(view.params, "display_type", value='THUMBNAIL')
+
+
 class ASSETBROWSER_PT_display(asset_utils.AssetBrowserPanel, Panel):
     bl_region_type = 'HEADER'
     bl_label = "Display Settings"  # Shows as tooltip in popover
@@ -696,11 +709,12 @@ class ASSETBROWSER_PT_metadata(asset_utils.AssetBrowserPanel, Panel):
 
         prefs = context.preferences
         show_asset_debug_info = prefs.view.show_developer_ui and prefs.experimental.show_asset_debug_info
+        is_local_asset = bool(asset_file_handle.local_id)
 
         layout.use_property_split = True
         layout.use_property_decorate = False  # No animation.
 
-        if asset_file_handle.local_id:
+        if is_local_asset:
             # If the active file is an ID, use its name directly so renaming is possible from right here.
             layout.prop(asset_file_handle.local_id, "name")
 
@@ -720,7 +734,7 @@ class ASSETBROWSER_PT_metadata(asset_utils.AssetBrowserPanel, Panel):
                 col.prop(asset_file_handle.asset_data, "catalog_simple_name", text="Simple Name")
 
         row = layout.row(align=True)
-        row.prop(wm, "asset_path_dummy", text="Source")
+        row.prop(wm, "asset_path_dummy", text="Source", icon='CURRENT_FILE' if is_local_asset else 'NONE')
         row.operator("asset.open_containing_blend_file", text="", icon='TOOL_SETTINGS')
 
         layout.prop(asset_file_handle.asset_data, "description")
@@ -824,6 +838,7 @@ classes = (
     FILEBROWSER_MT_view,
     FILEBROWSER_MT_select,
     FILEBROWSER_MT_context_menu,
+    FILEBROWSER_MT_view_pie,
     ASSETBROWSER_PT_display,
     ASSETBROWSER_PT_filter,
     ASSETBROWSER_MT_editor_menus,
@@ -838,6 +853,7 @@ classes = (
     ASSETBROWSER_MT_context_menu,
 )
 
+
 def asset_path_str_get(_self):
     asset_file_handle = bpy.context.asset_file_handle
     if asset_file_handle is None:
@@ -846,8 +862,7 @@ def asset_path_str_get(_self):
     if asset_file_handle.local_id:
         return "Current File"
 
-    asset_library_ref = bpy.context.asset_library_ref
-    return bpy.types.AssetHandle.get_full_library_path(asset_file_handle, asset_library_ref)
+    return bpy.types.AssetHandle.get_full_library_path(asset_file_handle)
 
 
 def register_props():

@@ -9,16 +9,18 @@ static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Color>(N_("Color")).default_value({1.0f, 1.0f, 1.0f, 1.0f});
   b.add_input<decl::Float>(N_("Strength")).default_value(1.0f).min(0.0f).max(1000000.0f);
+  b.add_input<decl::Float>(N_("Weight")).unavailable();
   b.add_output<decl::Shader>(N_("Emission"));
 }
 
 static int node_shader_gpu_emission(GPUMaterial *mat,
                                     bNode *node,
-                                    bNodeExecData *UNUSED(execdata),
+                                    bNodeExecData * /*execdata*/,
                                     GPUNodeStack *in,
                                     GPUNodeStack *out)
 {
-  return GPU_stack_link(mat, node, "node_emission", in, out, GPU_builtin(GPU_VIEW_NORMAL));
+  GPU_material_flag_set(mat, GPU_MATFLAG_EMISSION);
+  return GPU_stack_link(mat, node, "node_emission", in, out);
 }
 
 }  // namespace blender::nodes::node_shader_emission_cc
@@ -32,7 +34,7 @@ void register_node_type_sh_emission()
 
   sh_node_type_base(&ntype, SH_NODE_EMISSION, "Emission", NODE_CLASS_SHADER);
   ntype.declare = file_ns::node_declare;
-  node_type_gpu(&ntype, file_ns::node_shader_gpu_emission);
+  ntype.gpu_fn = file_ns::node_shader_gpu_emission;
 
   nodeRegisterType(&ntype);
 }

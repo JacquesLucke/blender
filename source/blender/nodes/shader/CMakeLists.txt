@@ -67,6 +67,7 @@ set(SRC
   nodes/node_shader_map_range.cc
   nodes/node_shader_mapping.cc
   nodes/node_shader_math.cc
+  nodes/node_shader_mix.cc
   nodes/node_shader_mix_rgb.cc
   nodes/node_shader_mix_shader.cc
   nodes/node_shader_normal.cc
@@ -82,6 +83,7 @@ set(SRC
   nodes/node_shader_rgb.cc
   nodes/node_shader_rgb_to_bw.cc
   nodes/node_shader_script.cc
+  nodes/node_shader_sepcomb_color.cc
   nodes/node_shader_sepcomb_hsv.cc
   nodes/node_shader_sepcomb_rgb.cc
   nodes/node_shader_sepcomb_xyz.cc
@@ -118,9 +120,11 @@ set(SRC
   nodes/node_shader_wavelength.cc
   nodes/node_shader_wireframe.cc
 
+  node_shader_register.cc
   node_shader_tree.cc
   node_shader_util.cc
 
+  node_shader_register.hh
   node_shader_util.hh
 )
 
@@ -130,22 +134,24 @@ set(LIB
   bf_nodes
 )
 
-if(WITH_PYTHON)
-  list(APPEND INC
-    ../../python
-  )
-  list(APPEND INC_SYS
-    ${PYTHON_INCLUDE_DIRS}
-  )
-  list(APPEND LIB
-    ${PYTHON_LINKFLAGS}
-    ${PYTHON_LIBRARIES}
-  )
-  add_definitions(-DWITH_PYTHON)
-endif()
-
 if(WITH_FREESTYLE)
   add_definitions(-DWITH_FREESTYLE)
+endif()
+
+if(WITH_TBB)
+  add_definitions(-DWITH_TBB)
+  if(WIN32)
+    # TBB includes Windows.h which will define min/max macros
+    # that will collide with the stl versions.
+    add_definitions(-DNOMINMAX)
+  endif()
+  list(APPEND INC_SYS
+    ${TBB_INCLUDE_DIRS}
+  )
+
+  list(APPEND LIB
+    ${TBB_LIBRARIES}
+  )
 endif()
 
 blender_add_lib(bf_nodes_shader "${SRC}" "${INC}" "${INC_SYS}" "${LIB}")

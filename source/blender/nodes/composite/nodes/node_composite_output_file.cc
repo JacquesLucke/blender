@@ -11,6 +11,8 @@
 #include "BLI_string_utils.h"
 #include "BLI_utildefines.h"
 
+#include "BLT_translation.h"
+
 #include "BKE_context.h"
 #include "BKE_image_format.h"
 
@@ -23,6 +25,8 @@
 #include "WM_api.h"
 
 #include "IMB_openexr.h"
+
+#include "COM_node_operation.hh"
 
 #include "node_composite_util.hh"
 
@@ -114,7 +118,7 @@ void ntreeCompositOutputFileUniqueLayer(ListBase *list,
 bNodeSocket *ntreeCompositOutputFileAddSocket(bNodeTree *ntree,
                                               bNode *node,
                                               const char *name,
-                                              ImageFormatData *im_format)
+                                              const ImageFormatData *im_format)
 {
   NodeImageMultiFile *nimf = (NodeImageMultiFile *)node->storage;
   bNodeSocket *sock = nodeAddStaticSocket(
@@ -130,7 +134,8 @@ bNodeSocket *ntreeCompositOutputFileAddSocket(bNodeTree *ntree,
   ntreeCompositOutputFileUniqueLayer(&node->inputs, sock, name, '_');
 
   if (im_format) {
-    sockdata->format = *im_format;
+    BKE_image_format_copy(&sockdata->format, im_format);
+    sockdata->format.color_management = R_IMF_COLOR_MANAGEMENT_FOLLOW_SCENE;
     if (BKE_imtype_is_movie(sockdata->format.imtype)) {
       sockdata->format.imtype = R_IMF_IMTYPE_OPENEXR;
     }
@@ -198,7 +203,8 @@ static void init_output_file(const bContext *C, PointerRNA *ptr)
     RenderData *rd = &scene->r;
 
     BLI_strncpy(nimf->base_path, rd->pic, sizeof(nimf->base_path));
-    nimf->format = rd->im_format;
+    BKE_image_format_copy(&nimf->format, &rd->im_format);
+    nimf->format.color_management = R_IMF_COLOR_MANAGEMENT_FOLLOW_SCENE;
     if (BKE_imtype_is_movie(nimf->format.imtype)) {
       nimf->format.imtype = R_IMF_IMTYPE_OPENEXR;
     }
@@ -227,9 +233,7 @@ static void free_output_file(bNode *node)
   MEM_freeN(node->storage);
 }
 
-static void copy_output_file(bNodeTree *UNUSED(dest_ntree),
-                             bNode *dest_node,
-                             const bNode *src_node)
+static void copy_output_file(bNodeTree * /*dst_ntree*/, bNode *dest_node, const bNode *src_node)
 {
   bNodeSocket *src_sock, *dest_sock;
 
@@ -278,7 +282,7 @@ static void update_output_file(bNodeTree *ntree, bNode *node)
   }
 }
 
-static void node_composit_buts_file_output(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_composit_buts_file_output(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   PointerRNA imfptr = RNA_pointer_get(ptr, "format");
   const bool multilayer = RNA_enum_get(&imfptr, "file_format") == R_IMF_IMTYPE_MULTILAYER;
@@ -437,6 +441,23 @@ static void node_composit_buts_file_output_ex(uiLayout *layout, bContext *C, Poi
   }
 }
 
+using namespace blender::realtime_compositor;
+
+class OutputFileOperation : public NodeOperation {
+ public:
+  using NodeOperation::NodeOperation;
+
+  void execute() override
+  {
+    context().set_info_message("Viewport compositor setup not fully supported");
+  }
+};
+
+static NodeOperation *get_compositor_operation(Context &context, DNode node)
+{
+  return new OutputFileOperation(context, node);
+}
+
 }  // namespace blender::nodes::node_composite_output_file_cc
 
 void register_node_type_cmp_output_file()
@@ -452,7 +473,10 @@ void register_node_type_cmp_output_file()
   ntype.flag |= NODE_PREVIEW;
   node_type_storage(
       &ntype, "NodeImageMultiFile", file_ns::free_output_file, file_ns::copy_output_file);
-  node_type_update(&ntype, file_ns::update_output_file);
+  ntype.updatefunc = file_ns::update_output_file;
+  ntype.get_compositor_operation = file_ns::get_compositor_operation;
+  ntype.realtime_compositor_unsupported_message = N_(
+      "Node not supported in the Viewport compositor");
 
   nodeRegisterType(&ntype);
 }

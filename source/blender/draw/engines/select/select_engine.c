@@ -33,11 +33,6 @@ static struct {
   uint runtime_new_objects;
 } e_data = {NULL}; /* Engine data */
 
-/* Shaders */
-extern char datatoc_common_view_lib_glsl[];
-extern char datatoc_selection_id_3D_vert_glsl[];
-extern char datatoc_selection_id_frag_glsl[];
-
 /* -------------------------------------------------------------------- */
 /** \name Utils
  * \{ */
@@ -64,8 +59,9 @@ static void select_engine_framebuffer_setup(void)
   GPU_framebuffer_texture_attach(e_data.framebuffer_select_id, dtxl->depth, 0, 0);
 
   if (e_data.texture_u32 == NULL) {
-    e_data.texture_u32 = GPU_texture_create_2d(
-        "select_buf_ids", size[0], size[1], 1, GPU_R32UI, NULL);
+    eGPUTextureUsage usage = GPU_TEXTURE_USAGE_SHADER_READ | GPU_TEXTURE_USAGE_ATTACHMENT;
+    e_data.texture_u32 = GPU_texture_create_2d_ex(
+        "select_buf_ids", size[0], size[1], 1, GPU_R32UI, usage, NULL);
     GPU_framebuffer_texture_attach(e_data.framebuffer_select_id, e_data.texture_u32, 0, 0);
 
     GPU_framebuffer_check_valid(e_data.framebuffer_select_id, NULL);
@@ -88,26 +84,12 @@ static void select_engine_init(void *vedata)
 
   /* Prepass */
   if (!sh_data->select_id_flat) {
-    const GPUShaderConfigData *sh_cfg_data = &GPU_shader_cfg_data[sh_cfg];
-    sh_data->select_id_flat = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg_data->lib,
-                                 datatoc_common_view_lib_glsl,
-                                 datatoc_selection_id_3D_vert_glsl,
-                                 NULL},
-        .frag = (const char *[]){datatoc_selection_id_frag_glsl, NULL},
-        .defs = (const char *[]){sh_cfg_data->def, NULL},
-    });
+    sh_data->select_id_flat = GPU_shader_create_from_info_name(
+        sh_cfg == GPU_SHADER_CFG_CLIPPED ? "select_id_flat_clipped" : "select_id_flat");
   }
   if (!sh_data->select_id_uniform) {
-    const GPUShaderConfigData *sh_cfg_data = &GPU_shader_cfg_data[sh_cfg];
-    sh_data->select_id_uniform = GPU_shader_create_from_arrays({
-        .vert = (const char *[]){sh_cfg_data->lib,
-                                 datatoc_common_view_lib_glsl,
-                                 datatoc_selection_id_3D_vert_glsl,
-                                 NULL},
-        .frag = (const char *[]){datatoc_selection_id_frag_glsl, NULL},
-        .defs = (const char *[]){sh_cfg_data->def, "#define UNIFORM_ID\n", NULL},
-    });
+    sh_data->select_id_uniform = GPU_shader_create_from_info_name(
+        sh_cfg == GPU_SHADER_CFG_CLIPPED ? "select_id_uniform_clipped" : "select_id_uniform");
   }
 
   if (!stl->g_data) {
@@ -220,11 +202,11 @@ static void select_cache_populate(void *vedata, Object *ob)
 
   if (!e_data.context.is_dirty && sel_data && sel_data->is_drawn) {
     /* The object indices have already been drawn. Fill depth pass.
-     * Opti: Most of the time this depth pass is not used. */
+     * Optimization: Most of the time this depth pass is not used. */
     struct Mesh *me = ob->data;
     if (e_data.context.select_mode & SCE_SELECT_FACE) {
       struct GPUBatch *geom_faces = DRW_mesh_batch_cache_get_triangles_with_select_id(me);
-      DRW_shgroup_call_obmat(stl->g_data->shgrp_depth_only, geom_faces, ob->obmat);
+      DRW_shgroup_call_obmat(stl->g_data->shgrp_depth_only, geom_faces, ob->object_to_world);
     }
     else if (ob->dt >= OB_SOLID) {
 #ifdef USE_CAGE_OCCLUSION
@@ -232,17 +214,17 @@ static void select_cache_populate(void *vedata, Object *ob)
 #else
       struct GPUBatch *geom_faces = DRW_mesh_batch_cache_get_surface(me);
 #endif
-      DRW_shgroup_call_obmat(stl->g_data->shgrp_depth_only, geom_faces, ob->obmat);
+      DRW_shgroup_call_obmat(stl->g_data->shgrp_depth_only, geom_faces, ob->object_to_world);
     }
 
     if (e_data.context.select_mode & SCE_SELECT_EDGE) {
       struct GPUBatch *geom_edges = DRW_mesh_batch_cache_get_edges_with_select_id(me);
-      DRW_shgroup_call_obmat(stl->g_data->shgrp_depth_only, geom_edges, ob->obmat);
+      DRW_shgroup_call_obmat(stl->g_data->shgrp_depth_only, geom_edges, ob->object_to_world);
     }
 
     if (e_data.context.select_mode & SCE_SELECT_VERTEX) {
       struct GPUBatch *geom_verts = DRW_mesh_batch_cache_get_verts_with_select_id(me);
-      DRW_shgroup_call_obmat(stl->g_data->shgrp_depth_only, geom_verts, ob->obmat);
+      DRW_shgroup_call_obmat(stl->g_data->shgrp_depth_only, geom_verts, ob->object_to_world);
     }
     return;
   }
@@ -250,7 +232,7 @@ static void select_cache_populate(void *vedata, Object *ob)
   float min[3], max[3];
   select_id_object_min_max(ob, min, max);
 
-  if (DRW_culling_min_max_test(stl->g_data->view_subregion, ob->obmat, min, max)) {
+  if (DRW_culling_min_max_test(stl->g_data->view_subregion, ob->object_to_world, min, max)) {
     if (sel_data == NULL) {
       sel_data = (SELECTID_ObjectData *)DRW_drawdata_ensure(
           &ob->id, &draw_engine_select_type, sizeof(SELECTID_ObjectData), NULL, NULL);

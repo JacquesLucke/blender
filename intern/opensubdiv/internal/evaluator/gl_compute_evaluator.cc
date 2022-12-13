@@ -22,9 +22,23 @@
 //   language governing permissions and limitations under the Apache License.
 //
 
-#include "gl_compute_evaluator.h"
+#include <epoxy/gl.h>
 
-#include <GL/glew.h>
+/* There are few aspects here:
+ *   - macOS is strict about including both gl.h and gl3.h
+ *   - libepoxy only pretends to be a replacement for gl.h
+ *   - OpenSubdiv internally uses `OpenGL/gl3.h` on macOS
+ *
+ * In order to silence the warning pretend that gl3 has been included, fully relying on symbols
+ * from the epoxy.
+ *
+ * This works differently from how OpenSubdiv internally will use `OpenGL/gl3.h` without epoxy.
+ * Sounds fragile, but so far things seems to work. */
+#if defined(__APPLE__)
+#  define __gl3_h_
+#endif
+
+#include "gl_compute_evaluator.h"
 
 #include <opensubdiv/far/error.h>
 #include <opensubdiv/far/patchDescriptor.h>
@@ -57,7 +71,7 @@ template<class T> GLuint createSSBO(std::vector<T> const &src)
   GLuint devicePtr = 0;
 
 #if defined(GL_ARB_direct_state_access)
-  if (GLEW_ARB_direct_state_access) {
+  if (epoxy_has_gl_extension("GL_ARB_direct_state_access")) {
     glCreateBuffers(1, &devicePtr);
     glNamedBufferData(devicePtr, src.size() * sizeof(T), &src.at(0), GL_STATIC_DRAW);
   }
@@ -396,6 +410,8 @@ bool GLComputeEvaluator::EvalStencils(GLuint srcBuffer,
   if (dvvWeightsBuffer)
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 15, dvvWeightsBuffer);
 
+  GLint activeProgram;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &activeProgram);
   glUseProgram(_stencilKernel.program);
 
   glUniform1i(_stencilKernel.uniformStart, start);
@@ -420,7 +436,7 @@ bool GLComputeEvaluator::EvalStencils(GLuint srcBuffer,
 
   DispatchCompute(count);
 
-  glUseProgram(0);
+  glUseProgram(activeProgram);
 
   glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
   for (int i = 0; i < 16; ++i) {
@@ -501,6 +517,8 @@ bool GLComputeEvaluator::EvalPatches(GLuint srcBuffer,
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 6, patchIndexBuffer);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 7, patchParamsBuffer);
 
+  GLint activeProgram;
+  glGetIntegerv(GL_CURRENT_PROGRAM, &activeProgram);
   glUseProgram(_patchKernel.program);
 
   glUniform1i(_patchKernel.uniformSrcOffset, srcDesc.offset);
@@ -534,7 +552,7 @@ bool GLComputeEvaluator::EvalPatches(GLuint srcBuffer,
 
   DispatchCompute(numPatchCoords);
 
-  glUseProgram(0);
+  glUseProgram(activeProgram);
 
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
   glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, 0);

@@ -324,10 +324,6 @@ typedef struct WORKBENCH_PrivateData {
   /** Index of current material inside the material chunk. Only for material coloring mode. */
   int material_index;
 
-  /* Volumes */
-  /** List of smoke domain textures to free after drawing. */
-  ListBase smoke_domains;
-
   /* Depth of Field */
   /** Depth of field temp buffers. */
   struct GPUTexture *dof_blur_tx;
@@ -515,6 +511,11 @@ DRWShadingGroup *workbench_image_setup_ex(WORKBENCH_PrivateData *wpd,
 #define workbench_image_hair_setup(wpd, ob, mat_nr, ima, iuser, interp) \
   workbench_image_setup_ex(wpd, ob, mat_nr, ima, iuser, interp, WORKBENCH_DATATYPE_HAIR)
 
+#define workbench_material_ptcloud_setup(wpd, ob, mat_nr, color_type) \
+  workbench_material_setup_ex(wpd, ob, mat_nr, color_type, WORKBENCH_DATATYPE_POINTCLOUD, 0)
+#define workbench_image_ptcloud_setup(wpd, ob, mat_nr, ima, iuser, interp) \
+  workbench_image_setup_ex(wpd, ob, mat_nr, ima, iuser, interp, WORKBENCH_DATATYPE_POINTCLOUD)
+
 /* workbench_data.c */
 
 void workbench_private_data_alloc(WORKBENCH_StorageList *stl);
@@ -533,7 +534,6 @@ void workbench_volume_cache_populate(WORKBENCH_Data *vedata,
                                      struct ModifierData *md,
                                      eV3DShadingColorType color_type);
 void workbench_volume_draw_pass(WORKBENCH_Data *vedata);
-void workbench_volume_draw_finish(WORKBENCH_Data *vedata);
 
 /* workbench_engine.c */
 

@@ -76,7 +76,7 @@ class GHOST_System : public GHOST_ISystem {
   GHOST_ITimerTask *installTimer(uint64_t delay,
                                  uint64_t interval,
                                  GHOST_TimerProcPtr timerProc,
-                                 GHOST_TUserDataPtr userData = NULL);
+                                 GHOST_TUserDataPtr userData = nullptr);
 
   /**
    * Removes a timer.
@@ -120,11 +120,10 @@ class GHOST_System : public GHOST_ISystem {
    */
   GHOST_TSuccess beginFullScreen(const GHOST_DisplaySetting &setting,
                                  GHOST_IWindow **window,
-                                 const bool stereoVisual,
-                                 const bool alphaBackground);
+                                 const bool stereoVisual);
 
   /**
-   * Updates the resolution while in fullscreen mode.
+   * Updates the resolution while in full-screen mode.
    * \param setting: The new setting of the display.
    * \param window: Window displayed in full screen.
    *
@@ -151,10 +150,14 @@ class GHOST_System : public GHOST_ISystem {
   bool useNativePixel(void);
   bool m_nativePixel;
 
+  bool supportsCursorWarp(void);
+  bool supportsWindowPosition(void);
+
   /**
    * Focus window after opening, or put them in the background.
    */
   void useWindowFocus(const bool use_focus);
+
   bool m_windowFocus;
 
   /**
@@ -199,6 +202,15 @@ class GHOST_System : public GHOST_ISystem {
    * Cursor management functionality
    ***************************************************************************************/
 
+  /* Client relative functions use a default implementation
+   * that converts from screen-coordinates to client coordinates.
+   * Implementations may override. */
+
+  GHOST_TSuccess getCursorPositionClientRelative(const GHOST_IWindow *window,
+                                                 int32_t &x,
+                                                 int32_t &y) const;
+  GHOST_TSuccess setCursorPositionClientRelative(GHOST_IWindow *window, int32_t x, int32_t y);
+
   /**
    * Inherited from GHOST_ISystem but left pure virtual
    * <pre>
@@ -217,7 +229,7 @@ class GHOST_System : public GHOST_ISystem {
    * \param isDown: The state of a modifier key (true == pressed).
    * \return Indication of success.
    */
-  GHOST_TSuccess getModifierKeyState(GHOST_TModifierKeyMask mask, bool &isDown) const;
+  GHOST_TSuccess getModifierKeyState(GHOST_TModifierKey mask, bool &isDown) const;
 
   /**
    * Returns the state of a mouse button (outside the message queue).
@@ -225,7 +237,13 @@ class GHOST_System : public GHOST_ISystem {
    * \param isDown: Button state.
    * \return Indication of success.
    */
-  GHOST_TSuccess getButtonState(GHOST_TButtonMask mask, bool &isDown) const;
+  GHOST_TSuccess getButtonState(GHOST_TButton mask, bool &isDown) const;
+
+  /**
+   * Enable multi-touch gestures if supported.
+   * \param use: Enable or disable.
+   */
+  void setMultitouchGestures(const bool use);
 
   /**
    * Set which tablet API to use. Only affects Windows, other platforms have a single API.
@@ -334,8 +352,9 @@ class GHOST_System : public GHOST_ISystem {
 
   /**
    * Specify whether debug messages are to be shown.
+   * \param debug: Flag for systems to debug.
    */
-  virtual void initDebug(bool is_debug_enabled);
+  virtual void initDebug(GHOST_Debug debug);
 
   /**
    * Check whether debug messages are to be shown.
@@ -356,14 +375,13 @@ class GHOST_System : public GHOST_ISystem {
   virtual GHOST_TSuccess exit();
 
   /**
-   * Creates a fullscreen window.
+   * Creates a full-screen window.
    * \param window: The window created.
    * \return Indication of success.
    */
   GHOST_TSuccess createFullScreenWindow(GHOST_Window **window,
                                         const GHOST_DisplaySetting &settings,
-                                        const bool stereoVisual,
-                                        const bool alphaBackground = 0);
+                                        const bool stereoVisual);
 
   /** The display manager (platform dependent). */
   GHOST_DisplayManager *m_displayManager;
@@ -387,8 +405,11 @@ class GHOST_System : public GHOST_ISystem {
   GHOST_EventPrinter *m_eventPrinter;
 #endif  // WITH_GHOST_DEBUG
 
-  /** Settings of the display before the display went fullscreen. */
+  /** Settings of the display before the display went full-screen. */
   GHOST_DisplaySetting m_preFullScreenSetting;
+
+  /* Use multi-touch gestures? */
+  bool m_multitouchGestures;
 
   /** Which tablet API to use. */
   GHOST_TTabletAPI m_tabletAPI;

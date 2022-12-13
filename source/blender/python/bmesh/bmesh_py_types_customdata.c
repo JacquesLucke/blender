@@ -193,7 +193,7 @@ static PyGetSetDef bpy_bmlayeraccess_vert_getseters[] = {
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__color_doc,
-     (void *)CD_MLOOPCOL},
+     (void *)CD_PROP_BYTE_COLOR},
     {"string",
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
@@ -254,7 +254,7 @@ static PyGetSetDef bpy_bmlayeraccess_edge_getseters[] = {
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__color_doc,
-     (void *)CD_MLOOPCOL},
+     (void *)CD_PROP_BYTE_COLOR},
     {"string",
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
@@ -307,7 +307,7 @@ static PyGetSetDef bpy_bmlayeraccess_face_getseters[] = {
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__color_doc,
-     (void *)CD_MLOOPCOL},
+     (void *)CD_PROP_BYTE_COLOR},
     {"string",
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
@@ -365,7 +365,7 @@ static PyGetSetDef bpy_bmlayeraccess_loop_getseters[] = {
      (getter)bpy_bmlayeraccess_collection_get,
      (setter)NULL,
      bpy_bmlayeraccess_collection__color_doc,
-     (void *)CD_MLOOPCOL},
+     (void *)CD_PROP_BYTE_COLOR},
 
     {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
@@ -740,7 +740,8 @@ static PyObject *bpy_bmlayercollection_subscript_str(BPy_BMLayerCollection *self
   return NULL;
 }
 
-static PyObject *bpy_bmlayercollection_subscript_int(BPy_BMLayerCollection *self, int keynum)
+static PyObject *bpy_bmlayercollection_subscript_int(BPy_BMLayerCollection *self,
+                                                     Py_ssize_t keynum)
 {
   Py_ssize_t len;
   BPY_BM_CHECK_OBJ(self);
@@ -871,23 +872,23 @@ static int bpy_bmlayercollection_contains(BPy_BMLayerCollection *self, PyObject 
 }
 
 static PySequenceMethods bpy_bmlayercollection_as_sequence = {
-    (lenfunc)bpy_bmlayercollection_length, /* sq_length */
-    NULL,                                  /* sq_concat */
-    NULL,                                  /* sq_repeat */
-    (ssizeargfunc)bpy_bmlayercollection_subscript_int,
-    /* sq_item */          /* Only set this so PySequence_Check() returns True */
-    NULL,                  /* sq_slice */
-    (ssizeobjargproc)NULL, /* sq_ass_item */
-    NULL,                  /* *was* sq_ass_slice */
-    (objobjproc)bpy_bmlayercollection_contains, /* sq_contains */
-    (binaryfunc)NULL,                           /* sq_inplace_concat */
-    (ssizeargfunc)NULL,                         /* sq_inplace_repeat */
+    /*sq_length*/ (lenfunc)bpy_bmlayercollection_length,
+    /*sq_concat*/ NULL,
+    /*sq_repeat*/ NULL,
+    /* Only set this so `PySequence_Check()` returns True. */
+    /*sq_item*/ (ssizeargfunc)bpy_bmlayercollection_subscript_int,
+    /*was_sq_slice*/ NULL, /* DEPRECATED. */
+    /*sq_ass_item*/ NULL,
+    /*was_sq_ass_slice*/ NULL, /* DEPRECATED. */
+    /*sq_contains*/ (objobjproc)bpy_bmlayercollection_contains,
+    /*sq_inplace_concat*/ NULL,
+    /*sq_inplace_repeat*/ NULL,
 };
 
 static PyMappingMethods bpy_bmlayercollection_as_mapping = {
-    (lenfunc)bpy_bmlayercollection_length,       /* mp_length */
-    (binaryfunc)bpy_bmlayercollection_subscript, /* mp_subscript */
-    (objobjargproc)NULL,                         /* mp_ass_subscript */
+    /*mp_len*/ (lenfunc)bpy_bmlayercollection_length,
+    /*mp_subscript*/ (binaryfunc)bpy_bmlayercollection_subscript,
+    /*mp_ass_subscript*/ (objobjargproc)NULL,
 };
 
 /* Iterator
@@ -1134,7 +1135,7 @@ PyObject *BPy_BMLayerItem_GetItem(BPy_BMElem *py_ele, BPy_BMLayerItem *py_layer)
       ret = BPy_BMLoopUV_CreatePyObject(value);
       break;
     }
-    case CD_MLOOPCOL: {
+    case CD_PROP_BYTE_COLOR: {
       ret = BPy_BMLoopColor_CreatePyObject(value);
       break;
     }
@@ -1236,7 +1237,7 @@ int BPy_BMLayerItem_SetItem(BPy_BMElem *py_ele, BPy_BMLayerItem *py_layer, PyObj
       ret = BPy_BMLoopUV_AssignPyObject(value, py_value);
       break;
     }
-    case CD_MLOOPCOL: {
+    case CD_PROP_BYTE_COLOR: {
       ret = BPy_BMLoopColor_AssignPyObject(value, py_value);
       break;
     }

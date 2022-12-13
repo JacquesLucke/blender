@@ -24,6 +24,8 @@ struct Ipo;
 struct bNodeTree;
 
 typedef struct Light {
+  DNA_DEFINE_CXX_METHODS(Light)
+
   ID id;
   /** Animation data (must be immediately after id for utilities to use it). */
   struct AnimData *adt;
@@ -118,7 +120,7 @@ typedef struct Light {
 /* #define LA_NO_DIFF       (1 << 11) */ /* not used anywhere */
 /* #define LA_NO_SPEC       (1 << 12) */ /* not used anywhere */
 /* #define LA_SHAD_RAY      (1 << 13) */ /* not used anywhere - cleaned */
-/* yafray: light shadowbuffer flag, softlight */
+/* YAFRAY: light shadow-buffer flag, soft-light. */
 /* Since it is used with LOCAL light, can't use LA_SHAD */
 /* #define LA_YF_SOFT       (1 << 14) */ /* not used anymore */
 /* #define LA_LAYER_SHADOW  (1 << 15) */ /* not used anymore */

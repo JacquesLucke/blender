@@ -48,16 +48,16 @@ static const std::string propNameOriginalCoordinates("Pref");
 static void get_uvs(const CDStreamConfig &config,
                     std::vector<Imath::V2f> &uvs,
                     std::vector<uint32_t> &uvidx,
-                    void *cd_data)
+                    const void *cd_data)
 {
-  MLoopUV *mloopuv_array = static_cast<MLoopUV *>(cd_data);
+  const MLoopUV *mloopuv_array = static_cast<const MLoopUV *>(cd_data);
 
   if (!mloopuv_array) {
     return;
   }
 
   const int num_poly = config.totpoly;
-  MPoly *polygons = config.mpoly;
+  MPoly *mpoly = config.mpoly;
   MLoop *mloop = config.mloop;
 
   if (!config.pack_uvs) {
@@ -67,8 +67,8 @@ static void get_uvs(const CDStreamConfig &config,
 
     /* Iterate in reverse order to match exported polygons. */
     for (int i = 0; i < num_poly; i++) {
-      MPoly &current_poly = polygons[i];
-      MLoopUV *loopuv = mloopuv_array + current_poly.loopstart + current_poly.totloop;
+      MPoly &current_poly = mpoly[i];
+      const MLoopUV *loopuv = mloopuv_array + current_poly.loopstart + current_poly.totloop;
 
       for (int j = 0; j < current_poly.totloop; j++, count++) {
         loopuv--;
@@ -85,9 +85,9 @@ static void get_uvs(const CDStreamConfig &config,
     int idx_count = 0;
 
     for (int i = 0; i < num_poly; i++) {
-      MPoly &current_poly = polygons[i];
+      MPoly &current_poly = mpoly[i];
       MLoop *looppoly = mloop + current_poly.loopstart + current_poly.totloop;
-      MLoopUV *loopuv = mloopuv_array + current_poly.loopstart + current_poly.totloop;
+      const MLoopUV *loopuv = mloopuv_array + current_poly.loopstart + current_poly.totloop;
 
       for (int j = 0; j < current_poly.totloop; j++) {
         looppoly--;
@@ -125,7 +125,7 @@ const char *get_uv_sample(UVSample &sample, const CDStreamConfig &config, Custom
     return "";
   }
 
-  void *cd_data = CustomData_get_layer_n(data, CD_MLOOPUV, active_uvlayer);
+  const void *cd_data = CustomData_get_layer_n(data, CD_MLOOPUV, active_uvlayer);
 
   get_uvs(config, sample.uvs, sample.indices, cd_data);
 
@@ -139,7 +139,7 @@ const char *get_uv_sample(UVSample &sample, const CDStreamConfig &config, Custom
  */
 static void write_uv(const OCompoundProperty &prop,
                      CDStreamConfig &config,
-                     void *data,
+                     const void *data,
                      const char *name)
 {
   std::vector<uint32_t> indices;
@@ -169,12 +169,11 @@ static void write_uv(const OCompoundProperty &prop,
 static void get_cols(const CDStreamConfig &config,
                      std::vector<Imath::C4f> &buffer,
                      std::vector<uint32_t> &uvidx,
-                     void *cd_data)
+                     const void *cd_data)
 {
   const float cscale = 1.0f / 255.0f;
-  MPoly *polys = config.mpoly;
-  MLoop *mloops = config.mloop;
-  MCol *cfaces = static_cast<MCol *>(cd_data);
+  const MPoly *polys = config.mpoly;
+  const MCol *cfaces = static_cast<const MCol *>(cd_data);
 
   buffer.reserve(config.totvert);
   uvidx.reserve(config.totvert);
@@ -182,13 +181,11 @@ static void get_cols(const CDStreamConfig &config,
   Imath::C4f col;
 
   for (int i = 0; i < config.totpoly; i++) {
-    MPoly *p = &polys[i];
-    MCol *cface = &cfaces[p->loopstart + p->totloop];
-    MLoop *mloop = &mloops[p->loopstart + p->totloop];
+    const MPoly *p = &polys[i];
+    const MCol *cface = &cfaces[p->loopstart + p->totloop];
 
     for (int j = 0; j < p->totloop; j++) {
       cface--;
-      mloop--;
 
       col[0] = cface->a * cscale;
       col[1] = cface->r * cscale;
@@ -207,7 +204,7 @@ static void get_cols(const CDStreamConfig &config,
  */
 static void write_mcol(const OCompoundProperty &prop,
                        CDStreamConfig &config,
-                       void *data,
+                       const void *data,
                        const char *name)
 {
   std::vector<uint32_t> indices;
@@ -257,7 +254,7 @@ void write_generated_coordinates(const OCompoundProperty &prop, CDStreamConfig &
   /* ORCOs are always stored in the normalized 0..1 range in Blender, but Alembic stores them
    * unnormalized, so we need to unnormalize (invert transform) them. */
   BKE_mesh_orco_verts_transform(
-      mesh, reinterpret_cast<float(*)[3]>(&coords[0]), mesh->totvert, true);
+      mesh, reinterpret_cast<float(*)[3]>(coords.data()), mesh->totvert, true);
 
   if (!config.abc_orco.valid()) {
     /* Create the Alembic property and keep a reference so future frames can reuse it. */
@@ -273,7 +270,7 @@ void write_custom_data(const OCompoundProperty &prop,
                        CustomData *data,
                        int data_type)
 {
-  CustomDataType cd_data_type = static_cast<CustomDataType>(data_type);
+  eCustomDataType cd_data_type = static_cast<eCustomDataType>(data_type);
 
   if (!CustomData_has_layer(data, cd_data_type)) {
     return;
@@ -283,7 +280,7 @@ void write_custom_data(const OCompoundProperty &prop,
   const int tot_layers = CustomData_number_of_layers(data, cd_data_type);
 
   for (int i = 0; i < tot_layers; i++) {
-    void *cd_data = CustomData_get_layer_n(data, cd_data_type, i);
+    const void *cd_data = CustomData_get_layer_n(data, cd_data_type, i);
     const char *name = CustomData_get_layer_name(data, cd_data_type, i);
 
     if (cd_data_type == CD_MLOOPUV) {
@@ -294,7 +291,7 @@ void write_custom_data(const OCompoundProperty &prop,
 
       write_uv(prop, config, cd_data, name);
     }
-    else if (cd_data_type == CD_MLOOPCOL) {
+    else if (cd_data_type == CD_PROP_BYTE_COLOR) {
       write_mcol(prop, config, cd_data, name);
     }
   }
@@ -322,14 +319,14 @@ static void read_uvs(const CDStreamConfig &config,
   MLoop *mloops = config.mloop;
   MLoopUV *mloopuvs = static_cast<MLoopUV *>(data);
 
-  unsigned int uv_index, loop_index, rev_loop_index;
+  uint uv_index, loop_index, rev_loop_index;
 
   BLI_assert(uv_scope != ABC_UV_SCOPE_NONE);
   const bool do_uvs_per_loop = (uv_scope == ABC_UV_SCOPE_LOOP);
 
   for (int i = 0; i < config.totpoly; i++) {
     MPoly &poly = mpolys[i];
-    unsigned int rev_loop_offset = poly.loopstart + poly.totloop - 1;
+    uint rev_loop_offset = poly.loopstart + poly.totloop - 1;
 
     for (int f = 0; f < poly.totloop; f++) {
       rev_loop_index = rev_loop_offset - f;
@@ -412,7 +409,7 @@ static void read_custom_data_mcols(const std::string &iobject_full_name,
 
   /* Read the vertex colors */
   void *cd_data = config.add_customdata_cb(
-      config.mesh, prop_header.getName().c_str(), CD_MLOOPCOL);
+      config.mesh, prop_header.getName().c_str(), CD_PROP_BYTE_COLOR);
   MCol *cfaces = static_cast<MCol *>(cd_data);
   MPoly *mpolys = config.mpoly;
   MLoop *mloops = config.mloop;
@@ -540,7 +537,7 @@ void read_generated_coordinates(const ICompoundProperty &prop,
     cd_data = CustomData_get_layer(&mesh->vdata, CD_ORCO);
   }
   else {
-    cd_data = CustomData_add_layer(&mesh->vdata, CD_ORCO, CD_CALLOC, nullptr, totvert);
+    cd_data = CustomData_add_layer(&mesh->vdata, CD_ORCO, CD_CONSTRUCT, nullptr, totvert);
   }
 
   float(*orcodata)[3] = static_cast<float(*)[3]>(cd_data);
@@ -564,7 +561,6 @@ void read_custom_data(const std::string &iobject_full_name,
   }
 
   int num_uvs = 0;
-  int num_colors = 0;
 
   const size_t num_props = prop.getNumProperties();
 
@@ -583,10 +579,6 @@ void read_custom_data(const std::string &iobject_full_name,
 
     /* Read vertex colors according to convention. */
     if (IC3fGeomParam::matches(prop_header) || IC4fGeomParam::matches(prop_header)) {
-      if (++num_colors > MAX_MCOL) {
-        continue;
-      }
-
       read_custom_data_mcols(iobject_full_name, prop, prop_header, config, iss);
       continue;
     }

@@ -11,6 +11,7 @@
 
 #include "BKE_animsys.h"
 #include "BKE_context.h"
+#include "BKE_layer.h"
 #include "BKE_object.h"
 #include "BKE_report.h"
 
@@ -29,7 +30,7 @@
  *
  * \{ */
 
-void createTransTexspace(TransInfo *t)
+static void createTransTexspace(bContext *UNUSED(C), TransInfo *t)
 {
   ViewLayer *view_layer = t->view_layer;
   TransData *td;
@@ -37,7 +38,8 @@ void createTransTexspace(TransInfo *t)
   ID *id;
   char *texflag;
 
-  ob = OBACT(view_layer);
+  BKE_view_layer_synced_ensure(t->scene, t->view_layer);
+  ob = BKE_view_layer_active_object_get(view_layer);
 
   if (ob == NULL) { /* Shouldn't logically happen, but still. */
     return;
@@ -65,8 +67,8 @@ void createTransTexspace(TransInfo *t)
   td->flag = TD_SELECTED;
   td->ob = ob;
 
-  copy_m3_m4(td->mtx, ob->obmat);
-  copy_m3_m4(td->axismtx, ob->obmat);
+  copy_m3_m4(td->mtx, ob->object_to_world);
+  copy_m3_m4(td->axismtx, ob->object_to_world);
   normalize_m3(td->axismtx);
   pseudoinverse_m3_m3(td->smtx, td->mtx, PSEUDOINVERSE_EPSILON);
 
@@ -86,11 +88,11 @@ void createTransTexspace(TransInfo *t)
 /** \name Recalc Data object
  * \{ */
 
-void recalcData_texspace(TransInfo *t)
+static void recalcData_texspace(TransInfo *t)
 {
 
   if (t->state != TRANS_CANCEL) {
-    applyProject(t);
+    applySnappingIndividual(t);
   }
 
   FOREACH_TRANS_DATA_CONTAINER (t, tc) {
@@ -106,3 +108,10 @@ void recalcData_texspace(TransInfo *t)
 }
 
 /** \} */
+
+TransConvertTypeInfo TransConvertType_ObjectTexSpace = {
+    /* flags */ 0,
+    /* createTransData */ createTransTexspace,
+    /* recalcData */ recalcData_texspace,
+    /* special_aftertrans_update */ NULL,
+};

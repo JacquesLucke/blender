@@ -14,6 +14,7 @@
 #include "MEM_guardedalloc.h"
 
 #include "BLI_blenlib.h"
+#include "BLI_math_base.h"
 
 #include "BKE_context.h"
 #include "BKE_nla.h"
@@ -85,7 +86,7 @@ static void deselect_nla_strips(bAnimContext *ac, short test, short sel)
 
   /* determine type-based settings */
   /* FIXME: double check whether ANIMFILTER_LIST_VISIBLE is needed! */
-  filter = (ANIMFILTER_DATA_VISIBLE);
+  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_FCURVESONLY);
 
   /* filter data */
   ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
@@ -223,7 +224,8 @@ static void box_select_nla_strips(bAnimContext *ac, rcti rect, short mode, short
   UI_view2d_region_to_view(v2d, rect.xmax, rect.ymax - 2, &rectf.xmax, &rectf.ymax);
 
   /* filter data */
-  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS);
+  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS |
+            ANIMFILTER_FCURVESONLY);
   ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
 
   /* convert selection modes to selection modes */
@@ -278,26 +280,42 @@ static void nlaedit_strip_at_region_position(
       0, NLACHANNEL_STEP(snla), 0, NLACHANNEL_FIRST_TOP(ac), view_x, view_y, NULL, &channel_index);
 
   ListBase anim_data = {NULL, NULL};
-  int filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS);
+  int filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_LIST_CHANNELS |
+                ANIMFILTER_FCURVESONLY);
   ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
 
   /* x-range to check is +/- 7 (in screen/region-space) on either side of mouse click
    * (that is the size of keyframe icons, so user should be expecting similar tolerances)
    */
-  float xmin = UI_view2d_region_to_view_x(v2d, region_x - 7);
-  float xmax = UI_view2d_region_to_view_x(v2d, region_x + 7);
+  const float mouse_x = UI_view2d_region_to_view_x(v2d, region_x);
+  const float xmin = UI_view2d_region_to_view_x(v2d, region_x - 7);
+  const float xmax = UI_view2d_region_to_view_x(v2d, region_x + 7);
 
   bAnimListElem *ale = BLI_findlink(&anim_data, channel_index);
   if (ale != NULL) {
     if (ale->type == ANIMTYPE_NLATRACK) {
       NlaTrack *nlt = (NlaTrack *)ale->data;
+      float best_distance = MAXFRAMEF;
 
       LISTBASE_FOREACH (NlaStrip *, strip, &nlt->strips) {
         if (BKE_nlastrip_within_bounds(strip, xmin, xmax)) {
+          const float distance = BKE_nlastrip_distance_to_frame(strip, mouse_x);
+
+          /* Skip if strip is further away from mouse cursor than any previous strip. */
+          if (distance > best_distance) {
+            continue;
+          }
+
           *r_ale = ale;
           *r_strip = strip;
+          best_distance = distance;
 
           BLI_remlink(&anim_data, ale);
+
+          /* Mouse cursor was directly on strip, no need to check other strips. */
+          if (distance == 0.0f) {
+            break;
+          }
         }
       }
     }
@@ -399,7 +417,7 @@ void NLA_OT_select_box(wmOperatorType *ot)
   ot->poll = nlaop_poll_tweakmode_off;
 
   /* flags */
-  ot->flag = OPTYPE_REGISTER | OPTYPE_UNDO;
+  ot->flag = OPTYPE_UNDO;
 
   /* properties */
   RNA_def_boolean(ot->srna, "axis_range", 0, "Axis Range", "");
@@ -455,17 +473,17 @@ static void nlaedit_select_leftright(bContext *C,
   /* get range, and get the right flag-setting mode */
   if (leftright == NLAEDIT_LRSEL_LEFT) {
     xmin = MINAFRAMEF;
-    xmax = (float)(CFRA + 0.1f);
+    xmax = (float)(scene->r.cfra + 0.1f);
   }
   else {
-    xmin = (float)(CFRA - 0.1f);
+    xmin = (float)(scene->r.cfra - 0.1f);
     xmax = MAXFRAMEF;
   }
 
   select_mode = selmodes_to_flagmodes(select_mode);
 
   /* filter data */
-  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE);
+  filter = (ANIMFILTER_DATA_VISIBLE | ANIMFILTER_LIST_VISIBLE | ANIMFILTER_FCURVESONLY);
   ANIM_animdata_filter(ac, &anim_data, filter, ac->data, ac->datatype);
 
   /* select strips on the side where most data occurs */
@@ -540,7 +558,7 @@ static int nlaedit_select_leftright_invoke(bContext *C, wmOperator *op, const wm
 
     /* determine which side of the current frame mouse is on */
     x = UI_view2d_region_to_view_x(v2d, event->mval[0]);
-    if (x < CFRA) {
+    if (x < scene->r.cfra) {
       RNA_enum_set(op->ptr, "mode", NLAEDIT_LRSEL_LEFT);
     }
     else {

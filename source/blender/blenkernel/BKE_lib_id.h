@@ -77,19 +77,19 @@ void BKE_libblock_runtime_reset_remapping_status(struct ID *id) ATTR_NONNULL(1);
 /* *** ID's session_uuid management. *** */
 
 /**
- * When an ID's uuid is of that value, it is unset/invalid (e.g. for runtime IDs, etc.).
+ * When an ID's UUID is of that value, it is unset/invalid (e.g. for runtime IDs, etc.).
  */
 #define MAIN_ID_SESSION_UUID_UNSET 0
 
 /**
- * Generate a session-wise uuid for the given \a id.
+ * Generate a session-wise UUID for the given \a id.
  *
  * \note "session-wise" here means while editing a given .blend file. Once a new .blend file is
- * loaded or created, undo history is cleared/reset, and so is the uuid counter.
+ * loaded or created, undo history is cleared/reset, and so is the UUID counter.
  */
 void BKE_lib_libblock_session_uuid_ensure(struct ID *id);
 /**
- * Re-generate a new session-wise uuid for the given \a id.
+ * Re-generate a new session-wise UUID for the given \a id.
  *
  * \warning This has a few very specific use-cases, no other usage is expected currently:
  *   - To handle UI-related data-blocks that are kept across new file reading, when we do keep
@@ -117,14 +117,14 @@ void *BKE_id_new_nomain(short type, const char *name);
  */
 enum {
   /* *** Generic options (should be handled by all ID types copying, ID creation, etc.). *** */
-  /** Create datablock outside of any main database -
+  /** Create data-block outside of any main database -
    * similar to 'localize' functions of materials etc. */
   LIB_ID_CREATE_NO_MAIN = 1 << 0,
-  /** Do not affect user refcount of datablocks used by new one
-   * (which also gets zero usercount then).
+  /** Do not affect user refcount of data-blocks used by new one
+   * (which also gets zero user-count then).
    * Implies LIB_ID_CREATE_NO_MAIN. */
   LIB_ID_CREATE_NO_USER_REFCOUNT = 1 << 1,
-  /** Assume given 'newid' already points to allocated memory for whole datablock
+  /** Assume given 'newid' already points to allocated memory for whole data-block
    * (ID + data) - USE WITH CAUTION!
    * Implies LIB_ID_CREATE_NO_MAIN. */
   LIB_ID_CREATE_NO_ALLOCATE = 1 << 2,
@@ -150,7 +150,7 @@ enum {
   LIB_ID_COPY_NO_PREVIEW = 1 << 17,
   /** Copy runtime data caches. */
   LIB_ID_COPY_CACHES = 1 << 18,
-  /** Don't copy id->adt, used by ID data-block localization routines. */
+  /** Don't copy `id->adt`, used by ID data-block localization routines. */
   LIB_ID_COPY_NO_ANIMDATA = 1 << 19,
   /** Mesh: Reference CD data layers instead of doing real copy - USE WITH CAUTION! */
   LIB_ID_COPY_CD_REFERENCE = 1 << 20,
@@ -239,12 +239,12 @@ enum {
   /** Do not try to remove freed ID from given Main (passed Main may be NULL). */
   LIB_ID_FREE_NO_MAIN = 1 << 0,
   /**
-   * Do not affect user refcount of datablocks used by freed one.
+   * Do not affect user refcount of data-blocks used by freed one.
    * Implies LIB_ID_FREE_NO_MAIN.
    */
   LIB_ID_FREE_NO_USER_REFCOUNT = 1 << 1,
   /**
-   * Assume freed ID datablock memory is managed elsewhere, do not free it
+   * Assume freed ID data-block memory is managed elsewhere, do not free it
    * (still calls relevant ID type's freeing function though) - USE WITH CAUTION!
    * Implies LIB_ID_FREE_NO_MAIN.
    */
@@ -254,6 +254,8 @@ enum {
   LIB_ID_FREE_NO_DEG_TAG = 1 << 8,
   /** Do not attempt to remove freed ID from UI data/notifiers/... */
   LIB_ID_FREE_NO_UI_USER = 1 << 9,
+  /** Do not remove freed ID's name from a potential runtime name-map. */
+  LIB_ID_FREE_NO_NAMEMAP_REMOVE = 1 << 10,
 };
 
 void BKE_libblock_free_datablock(struct ID *id, int flag) ATTR_NONNULL();
@@ -281,7 +283,7 @@ void BKE_libblock_free_data_py(struct ID *id);
  * \param idv: Pointer to ID to be freed.
  * \param flag: Set of \a LIB_ID_FREE_... flags controlling/overriding usual freeing process,
  * 0 to get default safe behavior.
- * \param use_flag_from_idtag: Still use freeing info flags from given #ID datablock,
+ * \param use_flag_from_idtag: Still use freeing info flags from given #ID data-block,
  * even if some overriding ones are passed in \a flag parameter.
  */
 void BKE_id_free_ex(struct Main *bmain, void *idv, int flag, bool use_flag_from_idtag);
@@ -298,7 +300,7 @@ void BKE_id_free(struct Main *bmain, void *idv);
 
 /**
  * Not really a freeing function by itself,
- * it decrements usercount of given id, and only frees it if it reaches 0.
+ * it decrements user-count of given id, and only frees it if it reaches 0.
  */
 void BKE_id_free_us(struct Main *bmain, void *idv) ATTR_NONNULL();
 
@@ -314,12 +316,12 @@ void BKE_id_delete(struct Main *bmain, void *idv) ATTR_NONNULL();
  *
  * \warning Considered experimental for now, seems to be working OK but this is
  * risky code in a complicated area.
- * \return Number of deleted datablocks.
+ * \return Number of deleted data-blocks.
  */
 size_t BKE_id_multi_tagged_delete(struct Main *bmain) ATTR_NONNULL();
 
 /**
- * Add a 'NO_MAIN' data-block to given main (also sets usercounts of its IDs if needed).
+ * Add a 'NO_MAIN' data-block to given main (also sets user-counts of its IDs if needed).
  */
 void BKE_libblock_management_main_add(struct Main *bmain, void *idv);
 /** Remove a data-block from given main (set it to 'NO_MAIN' status). */
@@ -398,12 +400,9 @@ bool id_single_user(struct bContext *C,
                     struct ID *id,
                     struct PointerRNA *ptr,
                     struct PropertyRNA *prop);
+
+/** Test whether given `id` can be copied or not. */
 bool BKE_id_copy_is_allowed(const struct ID *id);
-/**
- * Invokes the appropriate copy method for the block and returns the result in
- * #ID.newid, unless test. Returns true if the block can be copied.
- */
-struct ID *BKE_id_copy(struct Main *bmain, const struct ID *id);
 /**
  * Generic entry point for copying a data-block (new API).
  *
@@ -428,13 +427,38 @@ struct ID *BKE_id_copy(struct Main *bmain, const struct ID *id);
  */
 struct ID *BKE_id_copy_ex(struct Main *bmain, const struct ID *id, struct ID **r_newid, int flag);
 /**
- * Invokes the appropriate copy method for the block and returns the result in
- * newid, unless test. Returns true if the block can be copied.
+ * Invoke the appropriate copy method for the block and return the new id as result.
+ *
+ * See #BKE_id_copy_ex for details.
+ */
+struct ID *BKE_id_copy(struct Main *bmain, const struct ID *id);
+
+/**
+ * Invoke the appropriate copy method for the block and return the new id as result.
+ *
+ * Unlike #BKE_id_copy, it does set the #ID.newid pointer of the given `id` to the copied one.
+ *
+ * It is designed as a basic common helper for the higher-level 'duplicate' operations (aka 'deep
+ * copy' of data-blocks and some of their dependency ones), see e.g. #BKE_object_duplicate.
+ *
+ * Currently, it only handles the given ID, and their shape keys and actions if any, according to
+ * the given `duplicate_flags`.
+ *
+ * \param duplicate_flags: is of type #eDupli_ID_Flags, see #UserDef.dupflag. Currently only
+ * `USER_DUP_LINKED_ID` and `USER_DUP_ACT` have an effect here.
+ * \param copy_flags: flags passed to #BKE_id_copy_ex.
  */
 struct ID *BKE_id_copy_for_duplicate(struct Main *bmain,
                                      struct ID *id,
                                      uint duplicate_flags,
                                      int copy_flags);
+
+/**
+ * Special version of #BKE_id_copy which is safe from using evaluated id as source with a copy
+ * result appearing in the main database.
+ * Takes care of the referenced data-blocks consistency.
+ */
+struct ID *BKE_id_copy_for_use_in_bmain(struct Main *bmain, const struct ID *id);
 
 /**
  * Does a mere memory swap over the whole IDs data (including type-specific memory).
@@ -478,10 +502,12 @@ void BKE_lib_id_expand_local(struct Main *bmain, struct ID *id, int flags);
  *
  * \return true if a new name had to be created.
  */
-bool BKE_id_new_name_validate(struct ListBase *lb,
+bool BKE_id_new_name_validate(struct Main *bmain,
+                              struct ListBase *lb,
                               struct ID *id,
                               const char *name,
-                              bool do_linked_data) ATTR_NONNULL(1, 2);
+                              bool do_linked_data) ATTR_NONNULL(1, 2, 3);
+
 /**
  * Pull an ID out of a library (make it local). Only call this for IDs that
  * don't have other library users.
@@ -526,7 +552,7 @@ void BKE_main_lib_objects_recalc_all(struct Main *bmain);
 /**
  * Only for repairing files via versioning, avoid for general use.
  */
-void BKE_main_id_repair_duplicate_names_listbase(struct ListBase *lb);
+void BKE_main_id_repair_duplicate_names_listbase(struct Main *bmain, struct ListBase *lb);
 
 #define MAX_ID_FULL_NAME (64 + 64 + 3 + 1)         /* 64 is MAX_ID_NAME - 2 */
 #define MAX_ID_FULL_NAME_UI (MAX_ID_FULL_NAME + 3) /* Adds 'keycode' two letters at beginning. */
@@ -594,6 +620,13 @@ bool BKE_id_is_in_global_main(struct ID *id);
 
 bool BKE_id_can_be_asset(const struct ID *id);
 
+/**
+ * Return the owner ID of the given `id`, if any.
+ *
+ * \note This will only return non-NULL for embedded IDs (master collections etc.), and shape-keys.
+ */
+struct ID *BKE_id_owner_get(struct ID *id);
+
 /** Check if that ID can be considered as editable from a high-level (editor) perspective.
  *
  * NOTE: This used to be done with a check on whether ID was linked or not, but now with system
@@ -603,7 +636,7 @@ bool BKE_id_can_be_asset(const struct ID *id);
  * we should either cache that status info also in virtual override IDs, or address the
  * long-standing TODO of getting an efficient 'owner_id' access for all embedded ID types.
  */
-bool BKE_id_is_editable(struct Main *bmain, struct ID *id);
+bool BKE_id_is_editable(const struct Main *bmain, const struct ID *id);
 
 /**
  * Returns ordered list of data-blocks for display in the UI.

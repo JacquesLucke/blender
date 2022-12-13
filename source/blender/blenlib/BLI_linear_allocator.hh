@@ -18,9 +18,9 @@ namespace blender {
 
 template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopyable, NonMovable {
  private:
-  Allocator allocator_;
-  Vector<void *, 4, Allocator> owned_buffers_;
-  Vector<Span<char>, 1, Allocator> unused_borrowed_buffers_;
+  BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
+  Vector<void *> owned_buffers_;
+  Vector<Span<char>> unused_borrowed_buffers_;
 
   uintptr_t current_begin_;
   uintptr_t current_end_;
@@ -183,7 +183,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
     void *pointer_buffer = this->allocate(element_amount * sizeof(void *), alignof(void *));
     void *elements_buffer = this->allocate(element_amount * element_size, element_alignment);
 
-    MutableSpan<void *> pointers((void **)pointer_buffer, element_amount);
+    MutableSpan<void *> pointers(static_cast<void **>(pointer_buffer), element_amount);
     void *next_element_buffer = elements_buffer;
     for (int64_t i : IndexRange(element_amount)) {
       pointers[i] = next_element_buffer;
@@ -229,8 +229,8 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
       Span<char> buffer = unused_borrowed_buffers_[i];
       if (buffer.size() >= min_allocation_size) {
         unused_borrowed_buffers_.remove_and_reorder(i);
-        current_begin_ = (uintptr_t)buffer.begin();
-        current_end_ = (uintptr_t)buffer.end();
+        current_begin_ = uintptr_t(buffer.begin());
+        current_end_ = uintptr_t(buffer.end());
         return;
       }
     }
@@ -248,7 +248,7 @@ template<typename Allocator = GuardedAllocator> class LinearAllocator : NonCopya
 
     void *buffer = allocator_.allocate(size_in_bytes, min_alignment, __func__);
     owned_buffers_.append(buffer);
-    current_begin_ = (uintptr_t)buffer;
+    current_begin_ = uintptr_t(buffer);
     current_end_ = current_begin_ + size_in_bytes;
   }
 

@@ -1,6 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
-
-# <pep8 compliant>
 import bpy
 from bpy.types import Menu, Panel, UIList
 from rna_prop_ui import PropertyPanel
@@ -20,7 +18,7 @@ class DataButtonsPanel:
 class DATA_PT_context_pointcloud(DataButtonsPanel, Panel):
     bl_label = ""
     bl_options = {'HIDE_HEADER'}
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
         layout = self.layout
@@ -67,6 +65,24 @@ class POINTCLOUD_MT_add_attribute(Menu):
 
 
 class POINTCLOUD_UL_attributes(UIList):
+    def filter_items(self, _context, data, property):
+        attributes = getattr(data, property)
+        flags = []
+        indices = [i for i in range(len(attributes))]
+
+        # Filtering by name
+        if self.filter_name:
+            flags = bpy.types.UI_UL_list.filter_items_by_name(
+                self.filter_name, self.bitflag_filter_item, attributes, "name", reverse=self.use_filter_invert)
+        if not flags:
+            flags = [self.bitflag_filter_item] * len(attributes)
+
+        # Filtering internal attributes
+        for idx, item in enumerate(attributes):
+            flags[idx] = 0 if item.is_internal else flags[idx]
+
+        return flags, indices
+
     def draw_item(self, _context, layout, _data, attribute, _icon, _active_data, _active_propname, _index):
         data_type = attribute.bl_rna.properties['data_type'].enum_items[attribute.data_type]
 
@@ -81,7 +97,7 @@ class POINTCLOUD_UL_attributes(UIList):
 
 class DATA_PT_pointcloud_attributes(DataButtonsPanel, Panel):
     bl_label = "Attributes"
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
 
     def draw(self, context):
         pointcloud = context.pointcloud
@@ -106,7 +122,7 @@ class DATA_PT_pointcloud_attributes(DataButtonsPanel, Panel):
 
 
 class DATA_PT_custom_props_pointcloud(DataButtonsPanel, PropertyPanel, Panel):
-    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_WORKBENCH'}
+    COMPAT_ENGINES = {'BLENDER_RENDER', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT', 'BLENDER_WORKBENCH'}
     _context_path = "object.data"
     _property_type = bpy.types.PointCloud if hasattr(bpy.types, "PointCloud") else None
 

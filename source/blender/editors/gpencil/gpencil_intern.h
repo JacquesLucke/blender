@@ -276,35 +276,35 @@ void gpencil_point_to_xy_fl(const GP_SpaceConversion *gsc,
                             float *r_y);
 
 /**
- * Convert point to parent space
+ * Convert point to world space
  *
  * \param pt: Original point
- * \param diff_mat: Matrix with the difference between original parent matrix
+ * \param diff_mat: Matrix with the transformation
  * \param[out] r_pt: Pointer to new point after apply matrix
  */
-void gpencil_point_to_parent_space(const bGPDspoint *pt,
-                                   const float diff_mat[4][4],
-                                   bGPDspoint *r_pt);
+void gpencil_point_to_world_space(const bGPDspoint *pt,
+                                  const float diff_mat[4][4],
+                                  bGPDspoint *r_pt);
 /**
  * Change points position relative to parent object
  */
 /**
  * Change position relative to parent object
  */
-void gpencil_apply_parent(struct Depsgraph *depsgraph,
-                          struct Object *obact,
-                          bGPDlayer *gpl,
-                          bGPDstroke *gps);
+void gpencil_world_to_object_space(struct Depsgraph *depsgraph,
+                                   struct Object *obact,
+                                   bGPDlayer *gpl,
+                                   bGPDstroke *gps);
 /**
  * Change point position relative to parent object
  */
 /**
  * Change point position relative to parent object
  */
-void gpencil_apply_parent_point(struct Depsgraph *depsgraph,
-                                struct Object *obact,
-                                bGPDlayer *gpl,
-                                bGPDspoint *pt);
+void gpencil_world_to_object_space_point(struct Depsgraph *depsgraph,
+                                         struct Object *obact,
+                                         bGPDlayer *gpl,
+                                         bGPDspoint *pt);
 
 /**
  * generic based on gpencil_point_to_xy_fl
@@ -593,6 +593,7 @@ void GPENCIL_OT_stroke_cyclical_set(struct wmOperatorType *ot);
  */
 void GPENCIL_OT_stroke_caps_set(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_join(struct wmOperatorType *ot);
+void GPENCIL_OT_stroke_start_set(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_flip(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_subdivide(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_simplify(struct wmOperatorType *ot);
@@ -608,6 +609,7 @@ void GPENCIL_OT_stroke_merge_by_distance(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_merge_material(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_reset_vertex_color(struct wmOperatorType *ot);
 void GPENCIL_OT_stroke_normalize(struct wmOperatorType *ot);
+void GPENCIL_OT_stroke_outline(struct wmOperatorType *ot);
 
 void GPENCIL_OT_material_to_vertex_color(struct wmOperatorType *ot);
 void GPENCIL_OT_extract_palette_vertex(struct wmOperatorType *ot);
@@ -726,16 +728,16 @@ struct GP_EditableStrokes_Iter {
   (void)0
 
 /**
- * Iterate over all editable editcurves in the current context,
- * stopping on each usable layer + stroke + curve pair (i.e. gpl, gps and gpc)
+ * Iterate over all editable edit-curves in the current context,
+ * stopping on each usable layer + stroke + curve pair (i.e. `gpl`, `gps` and `gpc`)
  * to perform some operations on the curve.
  *
  * \param gpl: The identifier to use for the layer of the stroke being processed.
- *                    Choose a suitable value to avoid name clashes.
+ *             Choose a suitable value to avoid name clashes.
  * \param gps: The identifier to use for current stroke being processed.
- *                    Choose a suitable value to avoid name clashes.
+ *             Choose a suitable value to avoid name clashes.
  * \param gpc: The identifier to use for current editcurve being processed.
- *                    Choose a suitable value to avoid name clashes.
+ *             Choose a suitable value to avoid name clashes.
  */
 #define GP_EDITABLE_CURVES_BEGIN(gpstroke_iter, C, gpl, gps, gpc) \
   { \

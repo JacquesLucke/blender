@@ -11,6 +11,7 @@
 
 /* Thread sync primitives used directly. */
 #include "BLI_threads.h"
+#include "BLI_utildefines.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -32,7 +33,7 @@ struct SubsurfModifierData;
 
 /**************************** External *****************************/
 
-typedef enum {
+typedef enum SubsurfFlags {
   SUBSURF_USE_RENDER_PARAMS = 1,
   SUBSURF_IS_FINAL_CALC = 2,
   SUBSURF_FOR_EDIT_MODE = 4,
@@ -41,6 +42,7 @@ typedef enum {
   SUBSURF_USE_GPU_BACKEND = 32,
   SUBSURF_IGNORE_SIMPLIFY = 64,
 } SubsurfFlags;
+ENUM_OPERATORS(SubsurfFlags, SUBSURF_IGNORE_SIMPLIFY);
 
 struct DerivedMesh *subsurf_make_derived_from_derived(struct DerivedMesh *dm,
                                                       struct SubsurfModifierData *smd,
@@ -60,27 +62,6 @@ int BKE_ccg_gridsize(int level);
  * of this function to convert to grid coordinates at 'high_level'.
  */
 int BKE_ccg_factor(int low_level, int high_level);
-
-/**
- * Translate #GridHidden into the #ME_HIDE flag for MVerts. Assumes
- * vertices are in the order output by #ccgDM_copyFinalVertArray.
- */
-void subsurf_copy_grid_hidden(struct DerivedMesh *dm,
-                              const struct MPoly *mpoly,
-                              struct MVert *mvert,
-                              const struct MDisps *mdisps);
-
-/**
- * Translate #GridPaintMask into vertex paint masks. Assumes vertices
- * are in the order output by #ccgDM_copyFinalVertArray.
- */
-void subsurf_copy_grid_paint_mask(struct DerivedMesh *dm,
-                                  const struct MPoly *mpoly,
-                                  float *paint_mask,
-                                  const struct GridPaintMask *grid_paint_mask);
-
-bool subsurf_has_edges(struct DerivedMesh *dm);
-bool subsurf_has_faces(struct DerivedMesh *dm);
 
 typedef enum MultiresModifiedFlags {
   /* indicates the grids have been sculpted on, so MDisps

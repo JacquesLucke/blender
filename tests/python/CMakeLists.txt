@@ -31,6 +31,9 @@ function(add_blender_test testname)
   set_tests_properties(${testname} PROPERTIES ENVIRONMENT
     LSAN_OPTIONS=exitcode=0:$ENV{LSAN_OPTIONS}
   )
+  if(PLATFORM_ENV_INSTALL)
+    set_tests_properties(${testname} PROPERTIES ENVIRONMENT "${PLATFORM_ENV_INSTALL}")
+  endif()
 endfunction()
 
 # Run Python script outside Blender.
@@ -41,11 +44,15 @@ function(add_python_test testname testscript)
 
   add_test(
     NAME ${testname}
-    COMMAND ${TEST_PYTHON_EXE} ${testscript} ${ARGN}
+    COMMAND ${TEST_PYTHON_EXE} ${TEST_PYTHON_EXE_EXTRA_ARGS} ${testscript} ${ARGN}
+    WORKING_DIRECTORY $<TARGET_FILE_DIR:blender>
   )
   set_tests_properties(${testname} PROPERTIES ENVIRONMENT
     LSAN_OPTIONS=exitcode=0:$ENV{LSAN_OPTIONS}
   )
+  if(PLATFORM_ENV_INSTALL)
+    set_tests_properties(${testname} PROPERTIES ENVIRONMENT "${PLATFORM_ENV_INSTALL}")
+  endif()
 endfunction()
 
 # ------------------------------------------------------------------------------
@@ -99,6 +106,11 @@ add_blender_test(
 add_blender_test(
   script_pyapi_mathutils
   --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_mathutils.py
+)
+
+add_blender_test(
+  script_pyapi_bpy_driver_secure_eval
+  --python ${CMAKE_CURRENT_LIST_DIR}/bl_pyapi_bpy_driver_secure_eval.py
 )
 
 add_blender_test(
@@ -329,7 +341,7 @@ add_blender_test(
   --run={'FINISHED'}&bpy.ops.export_scene.obj\(filepath='${TEST_OUT_DIR}/io_tests/export_obj_cube.obj',use_selection=False\)
   --md5_source=${TEST_OUT_DIR}/io_tests/export_obj_cube.obj
   --md5_source=${TEST_OUT_DIR}/io_tests/export_obj_cube.mtl
-  --md5=95832f81160f07101dc566cb286a9f76 --md5_method=FILE
+  --md5=e80660437ad9bfe082849641c361a233 --md5_method=FILE
 )
 
 add_blender_test(
@@ -625,15 +637,33 @@ add_blender_test(
 )
 endif()
 
+# SVG Import
+if(True)
+  set(_svg_render_tests complex path)
+
+  foreach(render_test ${_svg_render_tests})
+    add_python_test(
+      io_curve_svg_${render_test}
+      ${CMAKE_CURRENT_LIST_DIR}/bl_io_curve_svg_test.py
+      -blender "${TEST_BLENDER_EXE}"
+      -testdir "${TEST_SRC_DIR}/io_tests/svg/${render_test}"
+      -idiff "${OPENIMAGEIO_IDIFF}"
+      -outdir "${TEST_OUT_DIR}/io_curve_svg"
+    )
+  endforeach()
+
+  unset(_svg_render_tests)
+endif()
+
 if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
   if(NOT OPENIMAGEIO_IDIFF)
-    MESSAGE(STATUS "Disabling Cycles tests because OIIO idiff does not exist")
+    message(WARNING "Disabling render tests because OIIO idiff does not exist")
   elseif(NOT EXISTS "${TEST_SRC_DIR}/render/shader")
-    MESSAGE(STATUS "Disabling Cycles tests because tests folder does not exist at ${TEST_SRC_DIR}")
-  elseif(NOT WITH_COMPOSITOR)
-    MESSAGE(STATUS "Disabling Cycles tests because WITH_COMPOSITOR is disabled")
+    message(WARNING "Disabling render tests because tests folder does not exist at ${TEST_SRC_DIR}")
+  elseif(NOT WITH_COMPOSITOR_CPU)
+    message(WARNING "Disabling render tests because WITH_COMPOSITOR_CPU is disabled")
   elseif(NOT WITH_OPENCOLORIO)
-    MESSAGE(STATUS "Disabling Cycles tests because WITH_OPENCOLORIO is disabled")
+    message(WARNING "Disabling render tests because WITH_OPENCOLORIO is disabled")
   else()
     set(render_tests
       camera
@@ -671,6 +701,11 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
     if(WITH_OPENIMAGEDENOISE)
       list(APPEND render_tests denoise)
     endif()
+
+    # Disabled until new OpenGL version with deterministic results.
+    #if(WITH_CYCLES_PATH_GUIDING)
+    #  list(APPEND render_tests guiding)
+    #endif()
 
     if(WITH_OPENGL_RENDER_TESTS)
       list(APPEND render_tests grease_pencil)
@@ -730,7 +765,7 @@ if(WITH_CYCLES OR WITH_OPENGL_RENDER_TESTS)
   endif()
 endif()
 
-if(WITH_COMPOSITOR)
+if(WITH_COMPOSITOR_CPU)
   set(compositor_tests
     color
     converter
@@ -764,10 +799,13 @@ set(geo_node_tests
   curve_primitives
   curves
   geometry
+  instance
   mesh_primitives
   mesh
   mesh/extrude
+  mesh/split_edges
   points
+  texture
   utilities
   vector
 )
@@ -796,15 +834,15 @@ foreach(geo_node_test ${geo_node_tests})
       )
       endforeach()
   else()
-    MESSAGE(STATUS "Directory named ${TEST_SRC_DIR}/modeling/geometry_nodes/${geo_node_test}/ Not Found, disabling test.")
+    message(STATUS "Directory named ${TEST_SRC_DIR}/modeling/geometry_nodes/${geo_node_test}/ Not Found, disabling test.")
   endif()
 endforeach()
 
 if(WITH_OPENGL_DRAW_TESTS)
   if(NOT OPENIMAGEIO_IDIFF)
-    MESSAGE(STATUS "Disabling OpenGL draw tests because OIIO idiff does not exist")
+    message(STATUS "Disabling OpenGL draw tests because OIIO idiff does not exist")
   elseif(NOT EXISTS "${TEST_SRC_DIR}/opengl")
-    MESSAGE(STATUS "Disabling OpenGL draw tests because tests folder does not exist at ${TEST_SRC_DIR}")
+    message(STATUS "Disabling OpenGL draw tests because tests folder does not exist at ${TEST_SRC_DIR}")
   else()
     # Use all subdirectories of opengl folder.
     file(GLOB children RELATIVE ${TEST_SRC_DIR}/opengl ${TEST_SRC_DIR}/opengl/*)
@@ -876,7 +914,7 @@ endif()
 # SEQUENCER RENDER TESTS
 
 if(NOT OPENIMAGEIO_IDIFF)
-  MESSAGE(STATUS "Disabling sequencer render tests because OIIO idiff does not exist")
+  message(STATUS "Disabling sequencer render tests because OIIO idiff does not exist")
 else()
   set(render_tests
     transform

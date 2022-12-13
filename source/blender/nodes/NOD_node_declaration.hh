@@ -65,6 +65,8 @@ struct FieldInferencingInterface {
   Vector<OutputFieldDependency> outputs;
 };
 
+using ImplicitInputValueFn = std::function<void(const bNode &node, void *r_value)>;
+
 /**
  * Describes a single input or output socket. This is subclassed for different socket types.
  */
@@ -88,8 +90,24 @@ class SocketDeclaration {
   InputSocketFieldType input_field_type_ = InputSocketFieldType::None;
   OutputFieldDependency output_field_dependency_;
 
+  /** The priority of the input for determining the domain of the node. See
+   * realtime_compositor::InputDescriptor for more information. */
+  int compositor_domain_priority_ = 0;
+
+  /** This input shouldn't be realized on the operation domain of the node. See
+   * realtime_compositor::InputDescriptor for more information. */
+  bool compositor_skip_realization_ = false;
+
+  /** This input expects a single value and can't operate on non-single values. See
+   * realtime_compositor::InputDescriptor for more information. */
+  bool compositor_expects_single_value_ = false;
+
   /** Utility method to make the socket available if there is a straightforward way to do so. */
   std::function<void(bNode &)> make_available_fn_;
+
+  /** Some input sockets can have non-trivial values in the case when they are unlinked. This
+   * callback computes the default input of a values in geometry nodes when nothing is linked. */
+  std::unique_ptr<ImplicitInputValueFn> implicit_input_fn_;
 
   friend NodeDeclarationBuilder;
   template<typename SocketDecl> friend class SocketDeclarationBuilder;
@@ -123,6 +141,15 @@ class SocketDeclaration {
 
   InputSocketFieldType input_field_type() const;
   const OutputFieldDependency &output_field_dependency() const;
+
+  int compositor_domain_priority() const;
+  bool compositor_skip_realization() const;
+  bool compositor_expects_single_value() const;
+
+  const ImplicitInputValueFn *implicit_input_fn() const
+  {
+    return implicit_input_fn_.get();
+  }
 
  protected:
   void set_common_flags(bNodeSocket &socket) const;
@@ -209,10 +236,11 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
   }
 
   /** The input supports a field and is a field by default when nothing is connected. */
-  Self &implicit_field()
+  Self &implicit_field(ImplicitInputValueFn fn)
   {
     this->hide_value();
     decl_->input_field_type_ = InputSocketFieldType::Implicit;
+    decl_->implicit_input_fn_ = std::make_unique<ImplicitInputValueFn>(std::move(fn));
     return *(Self *)this;
   }
 
@@ -238,6 +266,30 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
     return *(Self *)this;
   }
 
+  /** The priority of the input for determining the domain of the node. See
+   * realtime_compositor::InputDescriptor for more information. */
+  Self &compositor_domain_priority(int priority)
+  {
+    decl_->compositor_domain_priority_ = priority;
+    return *(Self *)this;
+  }
+
+  /** This input shouldn't be realized on the operation domain of the node. See
+   * realtime_compositor::InputDescriptor for more information. */
+  Self &compositor_skip_realization(bool value = true)
+  {
+    decl_->compositor_skip_realization_ = value;
+    return *(Self *)this;
+  }
+
+  /** This input expects a single value and can't operate on non-single values. See
+   * realtime_compositor::InputDescriptor for more information. */
+  Self &compositor_expects_single_value(bool value = true)
+  {
+    decl_->compositor_expects_single_value_ = value;
+    return *(Self *)this;
+  }
+
   /**
    * Pass a function that sets properties on the node required to make the corresponding socket
    * available, if it is not available on the default state of the node. The function is allowed to
@@ -257,7 +309,6 @@ class NodeDeclaration {
  private:
   Vector<SocketDeclarationPtr> inputs_;
   Vector<SocketDeclarationPtr> outputs_;
-  bool is_function_node_ = false;
 
   friend NodeDeclarationBuilder;
 
@@ -268,11 +319,6 @@ class NodeDeclaration {
   Span<SocketDeclarationPtr> outputs() const;
   Span<SocketDeclarationPtr> sockets(eNodeSocketInOut in_out) const;
 
-  bool is_function_node() const
-  {
-    return is_function_node_;
-  }
-
   MEM_CXX_CLASS_ALLOC_FUNCS("NodeDeclaration")
 };
 
@@ -280,21 +326,21 @@ class NodeDeclarationBuilder {
  private:
   NodeDeclaration &declaration_;
   Vector<std::unique_ptr<BaseSocketDeclarationBuilder>> builders_;
+  bool is_function_node_ = false;
 
  public:
   NodeDeclarationBuilder(NodeDeclaration &declaration);
 
   /**
    * All inputs support fields, and all outputs are fields if any of the inputs is a field.
-   * Calling field status definitions on each socket is unnecessary. Must be called before adding
-   * any sockets.
+   * Calling field status definitions on each socket is unnecessary.
    */
-  void is_function_node(bool value = true)
+  void is_function_node()
   {
-    BLI_assert_msg(declaration_.inputs().is_empty() && declaration_.outputs().is_empty(),
-                   "is_function_node() must be called before any socket is created");
-    declaration_.is_function_node_ = value;
+    is_function_node_ = true;
   }
+
+  void finalize();
 
   template<typename DeclType>
   typename DeclType::Builder &add_input(StringRef name, StringRef identifier = "");
@@ -307,6 +353,15 @@ class NodeDeclarationBuilder {
                                          StringRef identifier,
                                          eNodeSocketInOut in_out);
 };
+
+namespace implicit_field_inputs {
+void position(const bNode &node, void *r_value);
+void normal(const bNode &node, void *r_value);
+void index(const bNode &node, void *r_value);
+void id_or_index(const bNode &node, void *r_value);
+}  // namespace implicit_field_inputs
+
+void build_node_declaration(const bNodeType &typeinfo, NodeDeclaration &r_declaration);
 
 /* -------------------------------------------------------------------- */
 /** \name #OutputFieldDependency Inline Methods
@@ -428,6 +483,21 @@ inline const OutputFieldDependency &SocketDeclaration::output_field_dependency()
   return output_field_dependency_;
 }
 
+inline int SocketDeclaration::compositor_domain_priority() const
+{
+  return compositor_domain_priority_;
+}
+
+inline bool SocketDeclaration::compositor_skip_realization() const
+{
+  return compositor_skip_realization_;
+}
+
+inline bool SocketDeclaration::compositor_expects_single_value() const
+{
+  return compositor_expects_single_value_;
+}
+
 inline void SocketDeclaration::make_available(bNode &node) const
 {
   if (make_available_fn_) {
@@ -477,10 +547,6 @@ inline typename DeclType::Builder &NodeDeclarationBuilder::add_socket(StringRef 
   socket_decl->name_ = name;
   socket_decl->identifier_ = identifier.is_empty() ? name : identifier;
   socket_decl->in_out_ = in_out;
-  if (declaration_.is_function_node()) {
-    socket_decl->input_field_type_ = InputSocketFieldType::IsSupported;
-    socket_decl->output_field_dependency_ = OutputFieldDependency::ForDependentField();
-  }
   declarations.append(std::move(socket_decl));
   Builder &socket_decl_builder_ref = *socket_decl_builder;
   builders_.append(std::move(socket_decl_builder));

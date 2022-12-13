@@ -77,6 +77,11 @@ const VolumeGrid *BKE_volume_grid_active_get_for_read(const struct Volume *volum
 /* Tries to find a grid with the given name. Make sure that the volume has been loaded. */
 const VolumeGrid *BKE_volume_grid_find_for_read(const struct Volume *volume, const char *name);
 
+/* Tries to set the name of the velocity field. If no such grid exists with the given base name,
+ * this will try common post-fixes in order to detect velocity fields split into multiple grids.
+ * Return false if neither finding with the base name nor with the post-fixes succeeded. */
+bool BKE_volume_set_velocity_grid_by_name(struct Volume *volume, const char *base_name);
+
 /* Grid
  *
  * By default only grid metadata is loaded, for access to the tree and voxels
@@ -109,6 +114,7 @@ int BKE_volume_grid_channels(const struct VolumeGrid *grid);
  * Transformation from index space to object space.
  */
 void BKE_volume_grid_transform_matrix(const struct VolumeGrid *grid, float mat[4][4]);
+void BKE_volume_grid_transform_matrix_set(struct VolumeGrid *volume_grid, const float mat[4][4]);
 
 /* Volume Editing
  *
@@ -127,6 +133,11 @@ struct VolumeGrid *BKE_volume_grid_add(struct Volume *volume,
                                        const char *name,
                                        VolumeGridType type);
 void BKE_volume_grid_remove(struct Volume *volume, struct VolumeGrid *grid);
+
+/**
+ * OpenVDB crashes when the determinant of the transform matrix becomes too small.
+ */
+bool BKE_volume_grid_determinant_valid(double determinant);
 
 /* Simplify */
 int BKE_volume_simplify_level(const struct Depsgraph *depsgraph);
@@ -180,6 +191,9 @@ openvdb::GridBase::ConstPtr BKE_volume_grid_openvdb_for_read(const struct Volume
 openvdb::GridBase::Ptr BKE_volume_grid_openvdb_for_write(const struct Volume *volume,
                                                          struct VolumeGrid *grid,
                                                          bool clear);
+
+void BKE_volume_grid_clear_tree(Volume &volume, VolumeGrid &volume_grid);
+void BKE_volume_grid_clear_tree(openvdb::GridBase &grid);
 
 VolumeGridType BKE_volume_grid_type_openvdb(const openvdb::GridBase &grid);
 

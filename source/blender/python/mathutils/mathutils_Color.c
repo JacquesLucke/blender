@@ -15,47 +15,23 @@
 #include "../generic/python_utildefines.h"
 
 #ifndef MATH_STANDALONE
+#  include "IMB_colormanagement.h"
+#endif
+
+#ifndef MATH_STANDALONE
 #  include "BLI_dynstr.h"
 #endif
 
 #define COLOR_SIZE 3
 
-/* ----------------------------------mathutils.Color() ------------------- */
-/* makes a new color for you to play with */
-static PyObject *Color_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
-{
-  float col[3] = {0.0f, 0.0f, 0.0f};
+/* -------------------------------------------------------------------- */
+/** \name Utilities
+ * \{ */
 
-  if (kwds && PyDict_Size(kwds)) {
-    PyErr_SetString(PyExc_TypeError,
-                    "mathutils.Color(): "
-                    "takes no keyword args");
-    return NULL;
-  }
-
-  switch (PyTuple_GET_SIZE(args)) {
-    case 0:
-      break;
-    case 1:
-      if ((mathutils_array_parse(
-              col, COLOR_SIZE, COLOR_SIZE, PyTuple_GET_ITEM(args, 0), "mathutils.Color()")) ==
-          -1) {
-        return NULL;
-      }
-      break;
-    default:
-      PyErr_SetString(PyExc_TypeError,
-                      "mathutils.Color(): "
-                      "more than a single arg given");
-      return NULL;
-  }
-  return Color_CreatePyObject(col, type);
-}
-
-/* -----------------------------METHODS---------------------------- */
-
-/* NOTE: BaseMath_ReadCallback must be called beforehand. */
-static PyObject *Color_ToTupleExt(ColorObject *self, int ndigits)
+/**
+ * \note #BaseMath_ReadCallback must be called beforehand.
+ */
+static PyObject *Color_to_tuple_ex(ColorObject *self, int ndigits)
 {
   PyObject *ret;
   int i;
@@ -75,6 +51,169 @@ static PyObject *Color_ToTupleExt(ColorObject *self, int ndigits)
 
   return ret;
 }
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: `__new__` / `mathutils.Color()`
+ * \{ */
+
+static PyObject *Color_new(PyTypeObject *type, PyObject *args, PyObject *kwds)
+{
+  float col[3] = {0.0f, 0.0f, 0.0f};
+
+  if (kwds && PyDict_Size(kwds)) {
+    PyErr_SetString(PyExc_TypeError,
+                    "mathutils.Color(): "
+                    "takes no keyword args");
+    return NULL;
+  }
+
+  switch (PyTuple_GET_SIZE(args)) {
+    case 0:
+      break;
+    case 1:
+      if (mathutils_array_parse(
+              col, COLOR_SIZE, COLOR_SIZE, PyTuple_GET_ITEM(args, 0), "mathutils.Color()") == -1) {
+        return NULL;
+      }
+      break;
+    default:
+      PyErr_SetString(PyExc_TypeError,
+                      "mathutils.Color(): "
+                      "more than a single arg given");
+      return NULL;
+  }
+  return Color_CreatePyObject(col, type);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Methods: Color Space Conversion
+ * \{ */
+
+#ifndef MATH_STANDALONE
+
+PyDoc_STRVAR(Color_from_scene_linear_to_srgb_doc,
+             ".. function:: from_scene_linear_to_srgb()\n"
+             "\n"
+             "   Convert from scene linear to sRGB color space.\n"
+             "\n"
+             "   :return: A color in sRGB color space.\n"
+             "   :rtype: :class:`Color`\n");
+static PyObject *Color_from_scene_linear_to_srgb(ColorObject *self)
+{
+  float col[3];
+  IMB_colormanagement_scene_linear_to_srgb_v3(col, self->col);
+  return Color_CreatePyObject(col, Py_TYPE(self));
+}
+
+PyDoc_STRVAR(Color_from_srgb_to_scene_linear_doc,
+             ".. function:: from_srgb_to_scene_linear()\n"
+             "\n"
+             "   Convert from sRGB to scene linear color space.\n"
+             "\n"
+             "   :return: A color in scene linear color space.\n"
+             "   :rtype: :class:`Color`\n");
+static PyObject *Color_from_srgb_to_scene_linear(ColorObject *self)
+{
+  float col[3];
+  IMB_colormanagement_srgb_to_scene_linear_v3(col, self->col);
+  return Color_CreatePyObject(col, Py_TYPE(self));
+}
+
+PyDoc_STRVAR(Color_from_scene_linear_to_xyz_d65_doc,
+             ".. function:: from_scene_linear_to_xyz_d65()\n"
+             "\n"
+             "   Convert from scene linear to CIE XYZ (Illuminant D65) color space.\n"
+             "\n"
+             "   :return: A color in XYZ color space.\n"
+             "   :rtype: :class:`Color`\n");
+static PyObject *Color_from_scene_linear_to_xyz_d65(ColorObject *self)
+{
+  float col[3];
+  IMB_colormanagement_scene_linear_to_xyz(col, self->col);
+  return Color_CreatePyObject(col, Py_TYPE(self));
+}
+
+PyDoc_STRVAR(Color_from_xyz_d65_to_scene_linear_doc,
+             ".. function:: from_xyz_d65_to_scene_linear()\n"
+             "\n"
+             "   Convert from CIE XYZ (Illuminant D65) to scene linear color space.\n"
+             "\n"
+             "   :return: A color in scene linear color space.\n"
+             "   :rtype: :class:`Color`\n");
+static PyObject *Color_from_xyz_d65_to_scene_linear(ColorObject *self)
+{
+  float col[3];
+  IMB_colormanagement_xyz_to_scene_linear(col, self->col);
+  return Color_CreatePyObject(col, Py_TYPE(self));
+}
+
+PyDoc_STRVAR(Color_from_scene_linear_to_aces_doc,
+             ".. function:: from_scene_linear_to_aces()\n"
+             "\n"
+             "   Convert from scene linear to ACES2065-1 linear color space.\n"
+             "\n"
+             "   :return: A color in ACES2065-1 linear color space.\n"
+             "   :rtype: :class:`Color`\n");
+static PyObject *Color_from_scene_linear_to_aces(ColorObject *self)
+{
+  float col[3];
+  IMB_colormanagement_scene_linear_to_aces(col, self->col);
+  return Color_CreatePyObject(col, Py_TYPE(self));
+}
+
+PyDoc_STRVAR(Color_from_aces_to_scene_linear_doc,
+             ".. function:: from_aces_to_scene_linear()\n"
+             "\n"
+             "   Convert from ACES2065-1 linear to scene linear color space.\n"
+             "\n"
+             "   :return: A color in scene linear color space.\n"
+             "   :rtype: :class:`Color`\n");
+static PyObject *Color_from_aces_to_scene_linear(ColorObject *self)
+{
+  float col[3];
+  IMB_colormanagement_aces_to_scene_linear(col, self->col);
+  return Color_CreatePyObject(col, Py_TYPE(self));
+}
+
+PyDoc_STRVAR(Color_from_scene_linear_to_rec709_linear_doc,
+             ".. function:: from_scene_linear_to_rec709_linear()\n"
+             "\n"
+             "   Convert from scene linear to Rec.709 linear color space.\n"
+             "\n"
+             "   :return: A color in Rec.709 linear color space.\n"
+             "   :rtype: :class:`Color`\n");
+static PyObject *Color_from_scene_linear_to_rec709_linear(ColorObject *self)
+{
+  float col[3];
+  IMB_colormanagement_scene_linear_to_rec709(col, self->col);
+  return Color_CreatePyObject(col, Py_TYPE(self));
+}
+
+PyDoc_STRVAR(Color_from_rec709_linear_to_scene_linear_doc,
+             ".. function:: from_rec709_linear_to_scene_linear()\n"
+             "\n"
+             "   Convert from Rec.709 linear color space to scene linear color space.\n"
+             "\n"
+             "   :return: A color in scene linear color space.\n"
+             "   :rtype: :class:`Color`\n");
+static PyObject *Color_from_rec709_linear_to_scene_linear(ColorObject *self)
+{
+  float col[3];
+  IMB_colormanagement_rec709_to_scene_linear(col, self->col);
+  return Color_CreatePyObject(col, Py_TYPE(self));
+}
+
+#endif /* MATH_STANDALONE */
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Methods: Color Copy/Deep-Copy
+ * \{ */
 
 PyDoc_STRVAR(Color_copy_doc,
              ".. function:: copy()\n"
@@ -102,8 +241,11 @@ static PyObject *Color_deepcopy(ColorObject *self, PyObject *args)
   return Color_copy(self);
 }
 
-/* ----------------------------print object (internal)-------------- */
-/* print the object to screen */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: `__repr__` & `__str__`
+ * \{ */
 
 static PyObject *Color_repr(ColorObject *self)
 {
@@ -113,7 +255,7 @@ static PyObject *Color_repr(ColorObject *self)
     return NULL;
   }
 
-  tuple = Color_ToTupleExt(self, -1);
+  tuple = Color_to_tuple_ex(self, -1);
 
   ret = PyUnicode_FromFormat("Color(%R)", tuple);
 
@@ -139,8 +281,12 @@ static PyObject *Color_str(ColorObject *self)
 }
 #endif
 
-/* ------------------------tp_richcmpr */
-/* returns -1 exception, 0 false, 1 true */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Rich Compare
+ * \{ */
+
 static PyObject *Color_richcmpr(PyObject *a, PyObject *b, int op)
 {
   PyObject *res;
@@ -179,6 +325,12 @@ static PyObject *Color_richcmpr(PyObject *a, PyObject *b, int op)
   return Py_INCREF_RET(res);
 }
 
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Hash (`__hash__`)
+ * \{ */
+
 static Py_hash_t Color_hash(ColorObject *self)
 {
   if (BaseMath_ReadCallback(self) == -1) {
@@ -192,16 +344,20 @@ static Py_hash_t Color_hash(ColorObject *self)
   return mathutils_array_hash(self->col, COLOR_SIZE);
 }
 
-/* ---------------------SEQUENCE PROTOCOLS------------------------ */
-/* ----------------------------len(object)------------------------ */
-/* sequence length */
-static int Color_len(ColorObject *UNUSED(self))
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Sequence & Mapping Protocols Implementation
+ * \{ */
+
+/** Sequence length: `len(object)`. */
+static Py_ssize_t Color_len(ColorObject *UNUSED(self))
 {
   return COLOR_SIZE;
 }
-/* ----------------------------object[]--------------------------- */
-/* sequence accessor (get) */
-static PyObject *Color_item(ColorObject *self, int i)
+
+/** Sequence accessor (get): `x = object[i]`. */
+static PyObject *Color_item(ColorObject *self, Py_ssize_t i)
 {
   if (i < 0) {
     i = COLOR_SIZE - i;
@@ -220,9 +376,9 @@ static PyObject *Color_item(ColorObject *self, int i)
 
   return PyFloat_FromDouble(self->col[i]);
 }
-/* ----------------------------object[]------------------------- */
-/* sequence accessor (set) */
-static int Color_ass_item(ColorObject *self, int i, PyObject *value)
+
+/** Sequence accessor (set): `object[i] = x`. */
+static int Color_ass_item(ColorObject *self, Py_ssize_t i, PyObject *value)
 {
   float f;
 
@@ -257,8 +413,8 @@ static int Color_ass_item(ColorObject *self, int i, PyObject *value)
 
   return 0;
 }
-/* ----------------------------object[z:y]------------------------ */
-/* sequence slice (get) */
+
+/** Sequence slice accessor (get): `x = object[i:j]`. */
 static PyObject *Color_slice(ColorObject *self, int begin, int end)
 {
   PyObject *tuple;
@@ -282,8 +438,8 @@ static PyObject *Color_slice(ColorObject *self, int begin, int end)
 
   return tuple;
 }
-/* ----------------------------object[z:y]------------------------ */
-/* sequence slice (set) */
+
+/** Sequence slice accessor (set): `object[i:j] = x`. */
 static int Color_ass_slice(ColorObject *self, int begin, int end, PyObject *seq)
 {
   int i, size;
@@ -320,6 +476,7 @@ static int Color_ass_slice(ColorObject *self, int begin, int end, PyObject *seq)
   return 0;
 }
 
+/** Sequence generic subscript (get): `x = object[...]`. */
 static PyObject *Color_subscript(ColorObject *self, PyObject *item)
 {
   if (PyIndex_Check(item)) {
@@ -356,6 +513,7 @@ static PyObject *Color_subscript(ColorObject *self, PyObject *item)
   return NULL;
 }
 
+/** Sequence generic subscript (set): `object[...] = x`. */
 static int Color_ass_subscript(ColorObject *self, PyObject *item, PyObject *value)
 {
   if (PyIndex_Check(item)) {
@@ -388,29 +546,13 @@ static int Color_ass_subscript(ColorObject *self, PyObject *item, PyObject *valu
   return -1;
 }
 
-/* -----------------PROTCOL DECLARATIONS-------------------------- */
-static PySequenceMethods Color_SeqMethods = {
-    (lenfunc)Color_len,              /* sq_length */
-    (binaryfunc)NULL,                /* sq_concat */
-    (ssizeargfunc)NULL,              /* sq_repeat */
-    (ssizeargfunc)Color_item,        /* sq_item */
-    NULL,                            /* sq_slice, deprecated */
-    (ssizeobjargproc)Color_ass_item, /* sq_ass_item */
-    NULL,                            /* sq_ass_slice, deprecated */
-    (objobjproc)NULL,                /* sq_contains */
-    (binaryfunc)NULL,                /* sq_inplace_concat */
-    (ssizeargfunc)NULL,              /* sq_inplace_repeat */
-};
+/** \} */
 
-static PyMappingMethods Color_AsMapping = {
-    (lenfunc)Color_len,
-    (binaryfunc)Color_subscript,
-    (objobjargproc)Color_ass_subscript,
-};
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Numeric Protocol Implementation
+ * \{ */
 
-/* numeric */
-
-/* addition: obj + obj */
+/** Addition: `object + object`. */
 static PyObject *Color_add(PyObject *v1, PyObject *v2)
 {
   ColorObject *color1 = NULL, *color2 = NULL;
@@ -436,7 +578,7 @@ static PyObject *Color_add(PyObject *v1, PyObject *v2)
   return Color_CreatePyObject(col, Py_TYPE(v1));
 }
 
-/* addition in-place: obj += obj */
+/** Addition in-place: `object += object`. */
 static PyObject *Color_iadd(PyObject *v1, PyObject *v2)
 {
   ColorObject *color1 = NULL, *color2 = NULL;
@@ -463,7 +605,7 @@ static PyObject *Color_iadd(PyObject *v1, PyObject *v2)
   return v1;
 }
 
-/* subtraction: obj - obj */
+/** Subtraction: `object - object`. */
 static PyObject *Color_sub(PyObject *v1, PyObject *v2)
 {
   ColorObject *color1 = NULL, *color2 = NULL;
@@ -489,7 +631,7 @@ static PyObject *Color_sub(PyObject *v1, PyObject *v2)
   return Color_CreatePyObject(col, Py_TYPE(v1));
 }
 
-/* subtraction in-place: obj -= obj */
+/** Subtraction in-place: `object -= object`. */
 static PyObject *Color_isub(PyObject *v1, PyObject *v2)
 {
   ColorObject *color1 = NULL, *color2 = NULL;
@@ -523,6 +665,7 @@ static PyObject *color_mul_float(ColorObject *color, const float scalar)
   return Color_CreatePyObject(tcol, Py_TYPE(color));
 }
 
+/** Multiplication: `object * object`. */
 static PyObject *Color_mul(PyObject *v1, PyObject *v2)
 {
   ColorObject *color1 = NULL, *color2 = NULL;
@@ -567,6 +710,7 @@ static PyObject *Color_mul(PyObject *v1, PyObject *v2)
   return NULL;
 }
 
+/** Division: `object / object`. */
 static PyObject *Color_div(PyObject *v1, PyObject *v2)
 {
   ColorObject *color1 = NULL;
@@ -600,7 +744,7 @@ static PyObject *Color_div(PyObject *v1, PyObject *v2)
   return NULL;
 }
 
-/* multiplication in-place: obj *= obj */
+/** Multiplication in-place: `object *= object`. */
 static PyObject *Color_imul(PyObject *v1, PyObject *v2)
 {
   ColorObject *color = (ColorObject *)v1;
@@ -628,7 +772,7 @@ static PyObject *Color_imul(PyObject *v1, PyObject *v2)
   return v1;
 }
 
-/* multiplication in-place: obj *= obj */
+/** Division in-place: `object *= object`. */
 static PyObject *Color_idiv(PyObject *v1, PyObject *v2)
 {
   ColorObject *color = (ColorObject *)v1;
@@ -661,8 +805,7 @@ static PyObject *Color_idiv(PyObject *v1, PyObject *v2)
   return v1;
 }
 
-/* -obj
- * returns the negative of this object */
+/** Negative (returns the negative of this object): `-object`. */
 static PyObject *Color_neg(ColorObject *self)
 {
   float tcol[COLOR_SIZE];
@@ -675,44 +818,78 @@ static PyObject *Color_neg(ColorObject *self)
   return Color_CreatePyObject(tcol, Py_TYPE(self));
 }
 
-static PyNumberMethods Color_NumMethods = {
-    (binaryfunc)Color_add, /*nb_add*/
-    (binaryfunc)Color_sub, /*nb_subtract*/
-    (binaryfunc)Color_mul, /*nb_multiply*/
-    NULL,                  /*nb_remainder*/
-    NULL,                  /*nb_divmod*/
-    NULL,                  /*nb_power*/
-    (unaryfunc)Color_neg,  /*nb_negative*/
-    (unaryfunc)Color_copy, /*tp_positive*/
-    (unaryfunc)NULL,       /*tp_absolute*/
-    (inquiry)NULL,         /*tp_bool*/
-    (unaryfunc)NULL,       /*nb_invert*/
-    NULL,                  /*nb_lshift*/
-    (binaryfunc)NULL,      /*nb_rshift*/
-    NULL,                  /*nb_and*/
-    NULL,                  /*nb_xor*/
-    NULL,                  /*nb_or*/
-    NULL,                  /*nb_int*/
-    NULL,                  /*nb_reserved*/
-    NULL,                  /*nb_float*/
-    Color_iadd,            /* nb_inplace_add */
-    Color_isub,            /* nb_inplace_subtract */
-    Color_imul,            /* nb_inplace_multiply */
-    NULL,                  /* nb_inplace_remainder */
-    NULL,                  /* nb_inplace_power */
-    NULL,                  /* nb_inplace_lshift */
-    NULL,                  /* nb_inplace_rshift */
-    NULL,                  /* nb_inplace_and */
-    NULL,                  /* nb_inplace_xor */
-    NULL,                  /* nb_inplace_or */
-    NULL,                  /* nb_floor_divide */
-    Color_div,             /* nb_true_divide */
-    NULL,                  /* nb_inplace_floor_divide */
-    Color_idiv,            /* nb_inplace_true_divide */
-    NULL,                  /* nb_index */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Protocol Declarations
+ * \{ */
+
+static PySequenceMethods Color_SeqMethods = {
+    /*sq_length*/ (lenfunc)Color_len,
+    /*sq_concat*/ NULL,
+    /*sq_repeat*/ NULL,
+    /*sq_item*/ (ssizeargfunc)Color_item,
+    /*was_sq_slice*/ NULL, /* DEPRECATED. */
+    /*sq_ass_item*/ (ssizeobjargproc)Color_ass_item,
+    /*was_sq_ass_slice*/ NULL, /* DEPRECATED. */
+    /*sq_contains*/ NULL,
+    /*sq_inplace_concat*/ NULL,
+    /*sq_inplace_repeat*/ NULL,
 };
 
-/* color channel, vector.r/g/b */
+static PyMappingMethods Color_AsMapping = {
+    /*mp_len*/ (lenfunc)Color_len,
+    /*mp_subscript*/ (binaryfunc)Color_subscript,
+    /*mp_ass_subscript*/ (objobjargproc)Color_ass_subscript,
+};
+
+static PyNumberMethods Color_NumMethods = {
+    /*nb_add*/ (binaryfunc)Color_add,
+    /*nb_subtract*/ (binaryfunc)Color_sub,
+    /*nb_multiply*/ (binaryfunc)Color_mul,
+    /*nb_remainder*/ NULL,
+    /*nb_divmod*/ NULL,
+    /*nb_power*/ NULL,
+    /*nb_negative*/ (unaryfunc)Color_neg,
+    /*tp_positive*/ (unaryfunc)Color_copy,
+    /*tp_absolute*/ NULL,
+    /*tp_bool*/ NULL,
+    /*nb_invert*/ NULL,
+    /*nb_lshift*/ NULL,
+    /*nb_rshift*/ NULL,
+    /*nb_and*/ NULL,
+    /*nb_xor*/ NULL,
+    /*nb_or*/ NULL,
+    /*nb_int*/ NULL,
+    /*nb_reserved*/ NULL,
+    /*nb_float*/ NULL,
+    /*nb_inplace_add*/ Color_iadd,
+    /*nb_inplace_subtract*/ Color_isub,
+    /*nb_inplace_multiply*/ Color_imul,
+    /*nb_inplace_remainder*/ NULL,
+    /*nb_inplace_power*/ NULL,
+    /*nb_inplace_lshift*/ NULL,
+    /*nb_inplace_rshift*/ NULL,
+    /*nb_inplace_and*/ NULL,
+    /*nb_inplace_xor*/ NULL,
+    /*nb_inplace_or*/ NULL,
+    /*nb_floor_divide*/ NULL,
+    /*nb_true_divide*/ Color_div,
+    /*nb_inplace_floor_divide*/ NULL,
+    /*nb_inplace_true_divide*/ Color_idiv,
+    /*nb_index*/ NULL,
+    /*nb_matrix_multiply*/ NULL,
+    /*nb_inplace_matrix_multiply*/ NULL,
+};
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Get/Set Item Implementation
+ * \{ */
+
+/* Color channel (RGB): `color.r/g/b`. */
+
 PyDoc_STRVAR(Color_channel_r_doc, "Red color channel.\n\n:type: float");
 PyDoc_STRVAR(Color_channel_g_doc, "Green color channel.\n\n:type: float");
 PyDoc_STRVAR(Color_channel_b_doc, "Blue color channel.\n\n:type: float");
@@ -727,7 +904,8 @@ static int Color_channel_set(ColorObject *self, PyObject *value, void *type)
   return Color_ass_item(self, POINTER_AS_INT(type), value);
 }
 
-/* color channel (HSV), color.h/s/v */
+/* Color channel (HSV): `color.h/s/v`. */
+
 PyDoc_STRVAR(Color_channel_hsv_h_doc, "HSV Hue component in [0, 1].\n\n:type: float");
 PyDoc_STRVAR(Color_channel_hsv_s_doc, "HSV Saturation component in [0, 1].\n\n:type: float");
 PyDoc_STRVAR(Color_channel_hsv_v_doc, "HSV Value component in [0, 1].\n\n:type: float");
@@ -775,8 +953,8 @@ static int Color_channel_hsv_set(ColorObject *self, PyObject *value, void *type)
   return 0;
 }
 
-/* color channel (HSV), color.h/s/v */
 PyDoc_STRVAR(Color_hsv_doc, "HSV Values in [0, 1].\n\n:type: float triplet");
+/** Color channel HSV (get): `x = color.hsv`. */
 static PyObject *Color_hsv_get(ColorObject *self, void *UNUSED(closure))
 {
   float hsv[3];
@@ -794,6 +972,7 @@ static PyObject *Color_hsv_get(ColorObject *self, void *UNUSED(closure))
   return ret;
 }
 
+/** Color channel HSV (set): `color.hsv = x`. */
 static int Color_hsv_set(ColorObject *self, PyObject *value, void *UNUSED(closure))
 {
   float hsv[3];
@@ -816,9 +995,12 @@ static int Color_hsv_set(ColorObject *self, PyObject *value, void *UNUSED(closur
   return 0;
 }
 
-/*****************************************************************************/
-/* Python attributes get/set structure:                                      */
-/*****************************************************************************/
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Get/Set Item Definitions
+ * \{ */
+
 static PyGetSetDef Color_getseters[] = {
     {"r", (getter)Color_channel_get, (setter)Color_channel_set, Color_channel_r_doc, (void *)0},
     {"g", (getter)Color_channel_get, (setter)Color_channel_set, Color_channel_g_doc, (void *)1},
@@ -861,7 +1043,12 @@ static PyGetSetDef Color_getseters[] = {
     {NULL, NULL, NULL, NULL, NULL} /* Sentinel */
 };
 
-/* -----------------------METHOD DEFINITIONS ---------------------- */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Method Definitions
+ * \{ */
+
 static struct PyMethodDef Color_methods[] = {
     {"copy", (PyCFunction)Color_copy, METH_NOARGS, Color_copy_doc},
     {"__copy__", (PyCFunction)Color_copy, METH_NOARGS, Color_copy_doc},
@@ -869,68 +1056,129 @@ static struct PyMethodDef Color_methods[] = {
 
     /* base-math methods */
     {"freeze", (PyCFunction)BaseMathObject_freeze, METH_NOARGS, BaseMathObject_freeze_doc},
+
+/* Color-space methods. */
+#ifndef MATH_STANDALONE
+    {"from_scene_linear_to_srgb",
+     (PyCFunction)Color_from_scene_linear_to_srgb,
+     METH_NOARGS,
+     Color_from_scene_linear_to_srgb_doc},
+    {"from_srgb_to_scene_linear",
+     (PyCFunction)Color_from_srgb_to_scene_linear,
+     METH_NOARGS,
+     Color_from_srgb_to_scene_linear_doc},
+    {"from_scene_linear_to_xyz_d65",
+     (PyCFunction)Color_from_scene_linear_to_xyz_d65,
+     METH_NOARGS,
+     Color_from_scene_linear_to_xyz_d65_doc},
+    {"from_xyz_d65_to_scene_linear",
+     (PyCFunction)Color_from_xyz_d65_to_scene_linear,
+     METH_NOARGS,
+     Color_from_xyz_d65_to_scene_linear_doc},
+    {"from_scene_linear_to_aces",
+     (PyCFunction)Color_from_scene_linear_to_aces,
+     METH_NOARGS,
+     Color_from_scene_linear_to_aces_doc},
+    {"from_aces_to_scene_linear",
+     (PyCFunction)Color_from_aces_to_scene_linear,
+     METH_NOARGS,
+     Color_from_aces_to_scene_linear_doc},
+    {"from_scene_linear_to_rec709_linear",
+     (PyCFunction)Color_from_scene_linear_to_rec709_linear,
+     METH_NOARGS,
+     Color_from_scene_linear_to_rec709_linear_doc},
+    {"from_rec709_linear_to_scene_linear",
+     (PyCFunction)Color_from_rec709_linear_to_scene_linear,
+     METH_NOARGS,
+     Color_from_rec709_linear_to_scene_linear_doc},
+#endif /* MATH_STANDALONE */
+
     {NULL, NULL, 0, NULL},
 };
 
-/* ------------------PY_OBECT DEFINITION-------------------------- */
-PyDoc_STRVAR(color_doc,
-             ".. class:: Color(rgb)\n"
-             "\n"
-             "   This object gives access to Colors in Blender.\n"
-             "\n"
-             "   :param rgb: (r, g, b) color values\n"
-             "   :type rgb: 3d vector\n");
-PyTypeObject color_Type = {
-    PyVarObject_HEAD_INIT(NULL, 0) "Color", /* tp_name */
-    sizeof(ColorObject),                    /* tp_basicsize */
-    0,                                      /* tp_itemsize */
-    (destructor)BaseMathObject_dealloc,     /* tp_dealloc */
-    (printfunc)NULL,                        /* tp_print */
-    NULL,                                   /* tp_getattr */
-    NULL,                                   /* tp_setattr */
-    NULL,                                   /* tp_compare */
-    (reprfunc)Color_repr,                   /* tp_repr */
-    &Color_NumMethods,                      /* tp_as_number */
-    &Color_SeqMethods,                      /* tp_as_sequence */
-    &Color_AsMapping,                       /* tp_as_mapping */
-    (hashfunc)Color_hash,                   /* tp_hash */
-    NULL,                                   /* tp_call */
-#ifndef MATH_STANDALONE
-    (reprfunc)Color_str, /* tp_str */
-#else
-    NULL, /* tp_str */
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: Python Object Definition
+ * \{ */
+
+#ifdef MATH_STANDALONE
+#  define Color_str NULL
 #endif
-    NULL,                                                          /* tp_getattro */
-    NULL,                                                          /* tp_setattro */
-    NULL,                                                          /* tp_as_buffer */
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC, /* tp_flags */
-    color_doc,                                                     /* tp_doc */
-    (traverseproc)BaseMathObject_traverse,                         /* tp_traverse */
-    (inquiry)BaseMathObject_clear,                                 /* tp_clear */
-    (richcmpfunc)Color_richcmpr,                                   /* tp_richcompare */
-    0,                                                             /* tp_weaklistoffset */
-    NULL,                                                          /* tp_iter */
-    NULL,                                                          /* tp_iternext */
-    Color_methods,                                                 /* tp_methods */
-    NULL,                                                          /* tp_members */
-    Color_getseters,                                               /* tp_getset */
-    NULL,                                                          /* tp_base */
-    NULL,                                                          /* tp_dict */
-    NULL,                                                          /* tp_descr_get */
-    NULL,                                                          /* tp_descr_set */
-    0,                                                             /* tp_dictoffset */
-    NULL,                                                          /* tp_init */
-    NULL,                                                          /* tp_alloc */
-    Color_new,                                                     /* tp_new */
-    NULL,                                                          /* tp_free */
-    NULL,                                                          /* tp_is_gc */
-    NULL,                                                          /* tp_bases */
-    NULL,                                                          /* tp_mro */
-    NULL,                                                          /* tp_cache */
-    NULL,                                                          /* tp_subclasses */
-    NULL,                                                          /* tp_weaklist */
-    NULL,                                                          /* tp_del */
+
+PyDoc_STRVAR(
+    color_doc,
+    ".. class:: Color(rgb)\n"
+    "\n"
+    "   This object gives access to Colors in Blender.\n"
+    "\n"
+    "   Most colors returned by Blender APIs are in scene linear color space, as defined by "
+    "   the OpenColorIO configuration. The notable exception is user interface theming colors, "
+    "   which are in sRGB color space.\n"
+    "\n"
+    "   :arg rgb: (r, g, b) color values\n"
+    "   :type rgb: 3d vector\n");
+PyTypeObject color_Type = {
+    PyVarObject_HEAD_INIT(NULL, 0)
+    /*tp_name*/ "Color",
+    /*tp_basicsize*/ sizeof(ColorObject),
+    /*tp_itemsize*/ 0,
+    /*tp_dealloc*/ (destructor)BaseMathObject_dealloc,
+    /*tp_vectorcall_offset*/ 0,
+    /*tp_getattr*/ NULL,
+    /*tp_setattr*/ NULL,
+    /*tp_as_async*/ NULL,
+    /*tp_repr*/ (reprfunc)Color_repr,
+    /*tp_as_number*/ &Color_NumMethods,
+    /*tp_as_sequence*/ &Color_SeqMethods,
+    /*tp_as_mapping*/ &Color_AsMapping,
+    /*tp_hash*/ (hashfunc)Color_hash,
+    /*tp_call*/ NULL,
+    /*tp_str*/ (reprfunc)Color_str,
+    /*tp_getattro*/ NULL,
+    /*tp_setattro*/ NULL,
+    /*tp_as_buffer*/ NULL,
+    /*tp_flags*/ Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HAVE_GC,
+    /*tp_doc*/ color_doc,
+    /*tp_traverse*/ (traverseproc)BaseMathObject_traverse,
+    /*tp_clear*/ (inquiry)BaseMathObject_clear,
+    /*tp_richcompare*/ (richcmpfunc)Color_richcmpr,
+    /*tp_weaklistoffset*/ 0,
+    /*tp_iter*/ NULL,
+    /*tp_iternext*/ NULL,
+    /*tp_methods*/ Color_methods,
+    /*tp_members*/ NULL,
+    /*tp_getset*/ Color_getseters,
+    /*tp_base*/ NULL,
+    /*tp_dict*/ NULL,
+    /*tp_descr_get*/ NULL,
+    /*tp_descr_set*/ NULL,
+    /*tp_dictoffset*/ 0,
+    /*tp_init*/ NULL,
+    /*tp_alloc*/ NULL,
+    /*tp_new*/ Color_new,
+    /*tp_free*/ NULL,
+    /*tp_is_gc*/ (inquiry)BaseMathObject_is_gc,
+    /*tp_bases*/ NULL,
+    /*tp_mro*/ NULL,
+    /*tp_cache*/ NULL,
+    /*tp_subclasses*/ NULL,
+    /*tp_weaklist*/ NULL,
+    /*tp_del*/ NULL,
+    /*tp_version_tag*/ 0,
+    /*tp_finalize*/ NULL,
+    /*tp_vectorcall*/ NULL,
 };
+
+#ifdef MATH_STANDALONE
+#  define Color_str
+#endif
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name Color Type: C/API Constructors
+ * \{ */
 
 PyObject *Color_CreatePyObject(const float col[3], PyTypeObject *base_type)
 {
@@ -996,8 +1244,11 @@ PyObject *Color_CreatePyObject_cb(PyObject *cb_user, uchar cb_type, uchar cb_sub
     self->cb_user = cb_user;
     self->cb_type = cb_type;
     self->cb_subtype = cb_subtype;
+    BLI_assert(!PyObject_GC_IsTracked((PyObject *)self));
     PyObject_GC_Track(self);
   }
 
   return (PyObject *)self;
 }
+
+/** \} */

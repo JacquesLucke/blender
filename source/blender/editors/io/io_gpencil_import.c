@@ -5,34 +5,38 @@
  * \ingroup editor/io
  */
 
-#include "BLI_path_util.h"
+#ifdef WITH_IO_GPENCIL
 
-#include "DNA_gpencil_types.h"
-#include "DNA_space_types.h"
+#  include "BLI_path_util.h"
 
-#include "BKE_context.h"
-#include "BKE_gpencil.h"
-#include "BKE_report.h"
+#  include "MEM_guardedalloc.h"
 
-#include "BLT_translation.h"
+#  include "DNA_gpencil_types.h"
+#  include "DNA_space_types.h"
 
-#include "RNA_access.h"
-#include "RNA_define.h"
+#  include "BKE_context.h"
+#  include "BKE_gpencil.h"
+#  include "BKE_report.h"
 
-#include "UI_interface.h"
-#include "UI_resources.h"
+#  include "BLT_translation.h"
 
-#include "WM_api.h"
-#include "WM_types.h"
+#  include "RNA_access.h"
+#  include "RNA_define.h"
 
-#include "DEG_depsgraph.h"
-#include "DEG_depsgraph_query.h"
+#  include "UI_interface.h"
+#  include "UI_resources.h"
 
-#include "ED_gpencil.h"
+#  include "WM_api.h"
+#  include "WM_types.h"
 
-#include "io_gpencil.h"
+#  include "DEG_depsgraph.h"
+#  include "DEG_depsgraph_query.h"
 
-#include "gpencil_io.h"
+#  include "ED_gpencil.h"
+
+#  include "io_gpencil.h"
+
+#  include "gpencil_io.h"
 
 /* <-------- SVG single frame import. --------> */
 static bool wm_gpencil_import_svg_common_check(bContext *UNUSED(C), wmOperator *op)
@@ -61,7 +65,8 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
 {
   Scene *scene = CTX_data_scene(C);
 
-  if (!RNA_struct_property_is_set(op->ptr, "filepath")) {
+  if (!RNA_struct_property_is_set_ex(op->ptr, "filepath", false) ||
+      !RNA_struct_find_property(op->ptr, "directory")) {
     BKE_report(op->reports, RPT_ERROR, "No filename given");
     return OPERATOR_CANCELLED;
   }
@@ -72,9 +77,6 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
     return OPERATOR_CANCELLED;
   }
   View3D *v3d = get_invoke_view3d(C);
-
-  char filename[FILE_MAX];
-  RNA_string_get(op->ptr, "filepath", filename);
 
   /* Set flags. */
   int flag = 0;
@@ -88,9 +90,9 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
       .v3d = v3d,
       .ob = NULL,
       .mode = GP_IMPORT_FROM_SVG,
-      .frame_start = CFRA,
-      .frame_end = CFRA,
-      .frame_cur = CFRA,
+      .frame_start = scene->r.cfra,
+      .frame_end = scene->r.cfra,
+      .frame_cur = scene->r.cfra,
       .flag = flag,
       .scale = scale,
       .select_mode = 0,
@@ -99,13 +101,31 @@ static int wm_gpencil_import_svg_exec(bContext *C, wmOperator *op)
       .resolution = resolution,
   };
 
-  /* Do Import. */
-  WM_cursor_wait(1);
-  const bool done = gpencil_io_import(filename, &params);
-  WM_cursor_wait(0);
+  /* Loop all selected files to import them. All SVG imported shared the same import
+   * parameters, but they are created in separated grease pencil objects. */
+  PropertyRNA *prop;
+  if ((prop = RNA_struct_find_property(op->ptr, "directory"))) {
+    char *directory = RNA_string_get_alloc(op->ptr, "directory", NULL, 0, NULL);
 
-  if (!done) {
-    BKE_report(op->reports, RPT_WARNING, "Unable to import SVG");
+    if ((prop = RNA_struct_find_property(op->ptr, "files"))) {
+      char file_path[FILE_MAX];
+      RNA_PROP_BEGIN (op->ptr, itemptr, prop) {
+        char *filename = RNA_string_get_alloc(&itemptr, "name", NULL, 0, NULL);
+        BLI_path_join(file_path, sizeof(file_path), directory, filename);
+        MEM_freeN(filename);
+
+        /* Do Import. */
+        WM_cursor_wait(1);
+        RNA_string_get(&itemptr, "name", params.filename);
+        const bool done = gpencil_io_import(file_path, &params);
+        WM_cursor_wait(0);
+        if (!done) {
+          BKE_reportf(op->reports, RPT_WARNING, "Unable to import '%s'", file_path);
+        }
+      }
+      RNA_PROP_END;
+    }
+    MEM_freeN(directory);
   }
 
   return OPERATOR_FINISHED;
@@ -147,10 +167,11 @@ void WM_OT_gpencil_import_svg(wmOperatorType *ot)
   ot->check = wm_gpencil_import_svg_common_check;
 
   WM_operator_properties_filesel(ot,
-                                 FILE_TYPE_OBJECT_IO,
+                                 FILE_TYPE_FOLDER | FILE_TYPE_OBJECT_IO,
                                  FILE_BLENDER,
                                  FILE_OPENFILE,
-                                 WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_SHOW_PROPS,
+                                 WM_FILESEL_FILEPATH | WM_FILESEL_RELPATH | WM_FILESEL_SHOW_PROPS |
+                                     WM_FILESEL_DIRECTORY | WM_FILESEL_FILES,
                                  FILE_DEFAULTDISPLAY,
                                  FILE_SORT_DEFAULT);
 
@@ -174,3 +195,5 @@ void WM_OT_gpencil_import_svg(wmOperatorType *ot)
                 0.001f,
                 100.0f);
 }
+
+#endif /* WITH_IO_GPENCIL */

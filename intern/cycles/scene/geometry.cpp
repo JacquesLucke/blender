@@ -217,8 +217,7 @@ void Geometry::compute_bvh(Device *device,
     if (bvh && !need_update_rebuild) {
       progress->set_status(msg, "Refitting BVH");
 
-      bvh->geometry = geometry;
-      bvh->objects = objects;
+      bvh->replace_geometry(geometry, objects);
 
       device->build_bvh(bvh, *progress, true);
     }
@@ -272,7 +271,7 @@ void Geometry::tag_update(Scene *scene, bool rebuild)
   else {
     foreach (Node *node, used_shaders) {
       Shader *shader = static_cast<Shader *>(node);
-      if (shader->has_surface_emission) {
+      if (shader->emission_sampling != EMISSION_SAMPLING_NONE) {
         scene->light_manager->tag_update(scene, LightManager::EMISSIVE_MESH_MODIFIED);
         break;
       }
@@ -303,155 +302,73 @@ GeometryManager::~GeometryManager()
 {
 }
 
-void GeometryManager::update_osl_attributes(Device *device,
-                                            Scene *scene,
-                                            vector<AttributeRequestSet> &geom_attributes)
+void GeometryManager::update_osl_globals(Device *device, Scene *scene)
 {
 #ifdef WITH_OSL
-  /* for OSL, a hash map is used to lookup the attribute by name. */
   OSLGlobals *og = (OSLGlobals *)device->get_cpu_osl_memory();
 
   og->object_name_map.clear();
-  og->attribute_map.clear();
   og->object_names.clear();
-
-  og->attribute_map.resize(scene->objects.size() * ATTR_PRIM_TYPES);
 
   for (size_t i = 0; i < scene->objects.size(); i++) {
     /* set object name to object index map */
     Object *object = scene->objects[i];
     og->object_name_map[object->name] = i;
     og->object_names.push_back(object->name);
-
-    /* set object attributes */
-    foreach (ParamValue &attr, object->attributes) {
-      OSLGlobals::Attribute osl_attr;
-
-      osl_attr.type = attr.type();
-      osl_attr.desc.element = ATTR_ELEMENT_OBJECT;
-      osl_attr.value = attr;
-      osl_attr.desc.offset = 0;
-      osl_attr.desc.flags = 0;
-
-      og->attribute_map[i * ATTR_PRIM_TYPES + ATTR_PRIM_GEOMETRY][attr.name()] = osl_attr;
-      og->attribute_map[i * ATTR_PRIM_TYPES + ATTR_PRIM_SUBD][attr.name()] = osl_attr;
-    }
-
-    /* find geometry attributes */
-    size_t j = object->geometry->index;
-    assert(j < scene->geometry.size() && scene->geometry[j] == object->geometry);
-
-    AttributeRequestSet &attributes = geom_attributes[j];
-
-    /* set mesh attributes */
-    foreach (AttributeRequest &req, attributes.requests) {
-      OSLGlobals::Attribute osl_attr;
-
-      if (req.desc.element != ATTR_ELEMENT_NONE) {
-        osl_attr.desc = req.desc;
-
-        if (req.type == TypeDesc::TypeFloat)
-          osl_attr.type = TypeDesc::TypeFloat;
-        else if (req.type == TypeDesc::TypeMatrix)
-          osl_attr.type = TypeDesc::TypeMatrix;
-        else if (req.type == TypeFloat2)
-          osl_attr.type = TypeFloat2;
-        else if (req.type == TypeRGBA)
-          osl_attr.type = TypeRGBA;
-        else
-          osl_attr.type = TypeDesc::TypeColor;
-
-        if (req.std != ATTR_STD_NONE) {
-          /* if standard attribute, add lookup by geom: name convention */
-          ustring stdname(string("geom:") + string(Attribute::standard_name(req.std)));
-          og->attribute_map[i * ATTR_PRIM_TYPES + ATTR_PRIM_GEOMETRY][stdname] = osl_attr;
-        }
-        else if (req.name != ustring()) {
-          /* add lookup by geometry attribute name */
-          og->attribute_map[i * ATTR_PRIM_TYPES + ATTR_PRIM_GEOMETRY][req.name] = osl_attr;
-        }
-      }
-
-      if (req.subd_desc.element != ATTR_ELEMENT_NONE) {
-        osl_attr.desc = req.subd_desc;
-
-        if (req.subd_type == TypeDesc::TypeFloat)
-          osl_attr.type = TypeDesc::TypeFloat;
-        else if (req.subd_type == TypeDesc::TypeMatrix)
-          osl_attr.type = TypeDesc::TypeMatrix;
-        else if (req.subd_type == TypeFloat2)
-          osl_attr.type = TypeFloat2;
-        else if (req.subd_type == TypeRGBA)
-          osl_attr.type = TypeRGBA;
-        else
-          osl_attr.type = TypeDesc::TypeColor;
-
-        if (req.std != ATTR_STD_NONE) {
-          /* if standard attribute, add lookup by geom: name convention */
-          ustring stdname(string("geom:") + string(Attribute::standard_name(req.std)));
-          og->attribute_map[i * ATTR_PRIM_TYPES + ATTR_PRIM_SUBD][stdname] = osl_attr;
-        }
-        else if (req.name != ustring()) {
-          /* add lookup by geometry attribute name */
-          og->attribute_map[i * ATTR_PRIM_TYPES + ATTR_PRIM_SUBD][req.name] = osl_attr;
-        }
-      }
-    }
   }
 #else
   (void)device;
   (void)scene;
-  (void)geom_attributes;
 #endif
 }
 
 /* Generate a normal attribute map entry from an attribute descriptor. */
-static void emit_attribute_map_entry(
-    uint4 *attr_map, int index, uint id, TypeDesc type, const AttributeDescriptor &desc)
+static void emit_attribute_map_entry(AttributeMap *attr_map,
+                                     size_t index,
+                                     uint64_t id,
+                                     TypeDesc type,
+                                     const AttributeDescriptor &desc)
 {
-  attr_map[index].x = id;
-  attr_map[index].y = desc.element;
-  attr_map[index].z = as_uint(desc.offset);
+  attr_map[index].id = id;
+  attr_map[index].element = desc.element;
+  attr_map[index].offset = as_uint(desc.offset);
 
   if (type == TypeDesc::TypeFloat)
-    attr_map[index].w = NODE_ATTR_FLOAT;
+    attr_map[index].type = NODE_ATTR_FLOAT;
   else if (type == TypeDesc::TypeMatrix)
-    attr_map[index].w = NODE_ATTR_MATRIX;
+    attr_map[index].type = NODE_ATTR_MATRIX;
   else if (type == TypeFloat2)
-    attr_map[index].w = NODE_ATTR_FLOAT2;
+    attr_map[index].type = NODE_ATTR_FLOAT2;
   else if (type == TypeFloat4)
-    attr_map[index].w = NODE_ATTR_FLOAT4;
+    attr_map[index].type = NODE_ATTR_FLOAT4;
   else if (type == TypeRGBA)
-    attr_map[index].w = NODE_ATTR_RGBA;
+    attr_map[index].type = NODE_ATTR_RGBA;
   else
-    attr_map[index].w = NODE_ATTR_FLOAT3;
+    attr_map[index].type = NODE_ATTR_FLOAT3;
 
-  attr_map[index].w |= desc.flags << 8;
+  attr_map[index].flags = desc.flags;
 }
 
 /* Generate an attribute map end marker, optionally including a link to another map.
  * Links are used to connect object attribute maps to mesh attribute maps. */
-static void emit_attribute_map_terminator(uint4 *attr_map, int index, bool chain, uint chain_link)
+static void emit_attribute_map_terminator(AttributeMap *attr_map,
+                                          size_t index,
+                                          bool chain,
+                                          uint chain_link)
 {
   for (int j = 0; j < ATTR_PRIM_TYPES; j++) {
-    attr_map[index + j].x = ATTR_STD_NONE;
-    attr_map[index + j].y = chain;                      /* link is valid flag */
-    attr_map[index + j].z = chain ? chain_link + j : 0; /* link to the correct sub-entry */
-    attr_map[index + j].w = 0;
+    attr_map[index + j].id = ATTR_STD_NONE;
+    attr_map[index + j].element = chain;                     /* link is valid flag */
+    attr_map[index + j].offset = chain ? chain_link + j : 0; /* link to the correct sub-entry */
+    attr_map[index + j].type = 0;
+    attr_map[index + j].flags = 0;
   }
 }
 
 /* Generate all necessary attribute map entries from the attribute request. */
 static void emit_attribute_mapping(
-    uint4 *attr_map, int index, Scene *scene, AttributeRequest &req, Geometry *geom)
+    AttributeMap *attr_map, size_t index, uint64_t id, AttributeRequest &req, Geometry *geom)
 {
-  uint id;
-
-  if (req.std == ATTR_STD_NONE)
-    id = scene->shader_manager->get_attribute_id(req.name);
-  else
-    id = scene->shader_manager->get_attribute_id(req.std);
-
   emit_attribute_map_entry(attr_map, index, id, req.type, req.desc);
 
   if (geom->is_mesh()) {
@@ -472,12 +389,26 @@ void GeometryManager::update_svm_attributes(Device *,
    * attribute, based on a unique shader attribute id. */
 
   /* compute array stride */
-  int attr_map_size = 0;
+  size_t attr_map_size = 0;
 
   for (size_t i = 0; i < scene->geometry.size(); i++) {
     Geometry *geom = scene->geometry[i];
     geom->attr_map_offset = attr_map_size;
-    attr_map_size += (geom_attributes[i].size() + 1) * ATTR_PRIM_TYPES;
+
+#ifdef WITH_OSL
+    size_t attr_count = 0;
+    foreach (AttributeRequest &req, geom_attributes[i].requests) {
+      if (req.std != ATTR_STD_NONE &&
+          scene->shader_manager->get_attribute_id(req.std) != (uint64_t)req.std)
+        attr_count += 2;
+      else
+        attr_count += 1;
+    }
+#else
+    const size_t attr_count = geom_attributes[i].size();
+#endif
+
+    attr_map_size += (attr_count + 1) * ATTR_PRIM_TYPES;
   }
 
   for (size_t i = 0; i < scene->objects.size(); i++) {
@@ -501,19 +432,34 @@ void GeometryManager::update_svm_attributes(Device *,
   }
 
   /* create attribute map */
-  uint4 *attr_map = dscene->attributes_map.alloc(attr_map_size);
-  memset(attr_map, 0, dscene->attributes_map.size() * sizeof(uint));
+  AttributeMap *attr_map = dscene->attributes_map.alloc(attr_map_size);
+  memset(attr_map, 0, dscene->attributes_map.size() * sizeof(*attr_map));
 
   for (size_t i = 0; i < scene->geometry.size(); i++) {
     Geometry *geom = scene->geometry[i];
     AttributeRequestSet &attributes = geom_attributes[i];
 
     /* set geometry attributes */
-    int index = geom->attr_map_offset;
+    size_t index = geom->attr_map_offset;
 
     foreach (AttributeRequest &req, attributes.requests) {
-      emit_attribute_mapping(attr_map, index, scene, req, geom);
+      uint64_t id;
+      if (req.std == ATTR_STD_NONE)
+        id = scene->shader_manager->get_attribute_id(req.name);
+      else
+        id = scene->shader_manager->get_attribute_id(req.std);
+
+      emit_attribute_mapping(attr_map, index, id, req, geom);
       index += ATTR_PRIM_TYPES;
+
+#ifdef WITH_OSL
+      /* Some standard attributes are explicitly referenced via their standard ID, so add those
+       * again in case they were added under a different attribute ID. */
+      if (req.std != ATTR_STD_NONE && id != (uint64_t)req.std) {
+        emit_attribute_mapping(attr_map, index, (uint64_t)req.std, req, geom);
+        index += ATTR_PRIM_TYPES;
+      }
+#endif
     }
 
     emit_attribute_map_terminator(attr_map, index, false, 0);
@@ -525,10 +471,16 @@ void GeometryManager::update_svm_attributes(Device *,
 
     /* set object attributes */
     if (attributes.size() > 0) {
-      int index = object->attr_map_offset;
+      size_t index = object->attr_map_offset;
 
       foreach (AttributeRequest &req, attributes.requests) {
-        emit_attribute_mapping(attr_map, index, scene, req, object->geometry);
+        uint64_t id;
+        if (req.std == ATTR_STD_NONE)
+          id = scene->shader_manager->get_attribute_id(req.name);
+        else
+          id = scene->shader_manager->get_attribute_id(req.std);
+
+        emit_attribute_mapping(attr_map, index, id, req, object->geometry);
         index += ATTR_PRIM_TYPES;
       }
 
@@ -618,6 +570,7 @@ void GeometryManager::update_attribute_element_offset(Geometry *geom,
         for (size_t k = 0; k < size; k++) {
           attr_uchar4[offset + k] = data[k];
         }
+        attr_uchar4.tag_modified();
       }
       attr_uchar4_offset += size;
     }
@@ -630,6 +583,7 @@ void GeometryManager::update_attribute_element_offset(Geometry *geom,
         for (size_t k = 0; k < size; k++) {
           attr_float[offset + k] = data[k];
         }
+        attr_float.tag_modified();
       }
       attr_float_offset += size;
     }
@@ -642,6 +596,7 @@ void GeometryManager::update_attribute_element_offset(Geometry *geom,
         for (size_t k = 0; k < size; k++) {
           attr_float2[offset + k] = data[k];
         }
+        attr_float2.tag_modified();
       }
       attr_float2_offset += size;
     }
@@ -654,6 +609,7 @@ void GeometryManager::update_attribute_element_offset(Geometry *geom,
         for (size_t k = 0; k < size * 3; k++) {
           attr_float4[offset + k] = (&tfm->x)[k];
         }
+        attr_float4.tag_modified();
       }
       attr_float4_offset += size * 3;
     }
@@ -666,6 +622,7 @@ void GeometryManager::update_attribute_element_offset(Geometry *geom,
         for (size_t k = 0; k < size; k++) {
           attr_float4[offset + k] = data[k];
         }
+        attr_float4.tag_modified();
       }
       attr_float4_offset += size;
     }
@@ -678,6 +635,7 @@ void GeometryManager::update_attribute_element_offset(Geometry *geom,
         for (size_t k = 0; k < size; k++) {
           attr_float3[offset + k] = data[k];
         }
+        attr_float3.tag_modified();
       }
       attr_float3_offset += size;
     }
@@ -973,7 +931,7 @@ void GeometryManager::device_update_attributes(Device *device,
 
   /* create attribute lookup maps */
   if (scene->shader_manager->use_osl())
-    update_osl_attributes(device, scene, geom_attributes);
+    update_osl_globals(device, scene);
 
   update_svm_attributes(device, dscene, scene, geom_attributes, object_attributes);
 
@@ -1282,7 +1240,7 @@ void GeometryManager::device_update_bvh(Device *device,
   bparams.bvh_type = scene->params.bvh_type;
   bparams.curve_subdivisions = scene->params.curve_subdivisions();
 
-  VLOG(1) << "Using " << bvh_layout_name(bparams.bvh_layout) << " layout.";
+  VLOG_INFO << "Using " << bvh_layout_name(bparams.bvh_layout) << " layout.";
 
   const bool can_refit = scene->bvh != nullptr &&
                          (bparams.bvh_layout == BVHLayout::BVH_LAYOUT_OPTIX ||
@@ -1352,7 +1310,7 @@ void GeometryManager::device_update_bvh(Device *device,
   dscene->data.bvh.use_bvh_steps = (scene->params.num_bvh_time_steps != 0);
   dscene->data.bvh.curve_subdivisions = scene->params.curve_subdivisions();
   /* The scene handle is set in 'CPUDevice::const_copy_to' and 'OptiXDevice::const_copy_to' */
-  dscene->data.bvh.scene = 0;
+  dscene->data.device_bvh = 0;
 }
 
 /* Set of flags used to help determining what data has been modified or needs reallocation, so we
@@ -1541,7 +1499,7 @@ void GeometryManager::device_update_preprocess(Device *device, Scene *scene, Pro
       }
 
       Volume *volume = static_cast<Volume *>(geom);
-      create_volume_mesh(volume, progress);
+      create_volume_mesh(scene, volume, progress);
 
       /* always reallocate when we have a volume, as we need to rebuild the BVH */
       device_update_flags |= DEVICE_MESH_DATA_NEEDS_REALLOC;
@@ -1793,7 +1751,7 @@ void GeometryManager::device_update(Device *device,
   if (!need_update())
     return;
 
-  VLOG(1) << "Total " << scene->geometry.size() << " meshes.";
+  VLOG_INFO << "Total " << scene->geometry.size() << " meshes.";
 
   bool true_displacement_used = false;
   bool curve_shadow_transparency_used = false;
@@ -1947,7 +1905,7 @@ void GeometryManager::device_update(Device *device,
 
   {
     /* Copy constant data needed by shader evaluation. */
-    device->const_copy_to("__data", &dscene->data, sizeof(dscene->data));
+    device->const_copy_to("data", &dscene->data, sizeof(dscene->data));
 
     scoped_callback_timer timer([scene](double time) {
       if (scene->update_stats) {
@@ -2032,7 +1990,7 @@ void GeometryManager::device_update(Device *device,
 
     TaskPool::Summary summary;
     pool.wait_work(&summary);
-    VLOG(2) << "Objects BVH build pool statistics:\n" << summary.full_report();
+    VLOG_WORK << "Objects BVH build pool statistics:\n" << summary.full_report();
   }
 
   foreach (Shader *shader, scene->shaders) {
@@ -2179,7 +2137,6 @@ void GeometryManager::device_free(Device *device, DeviceScene *dscene, bool forc
 
   if (og) {
     og->object_name_map.clear();
-    og->attribute_map.clear();
     og->object_names.clear();
   }
 #else

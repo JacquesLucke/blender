@@ -1,5 +1,9 @@
 /* SPDX-License-Identifier: GPL-2.0-or-later */
 
+#include "BLI_array_utils.hh"
+#include "BLI_task.hh"
+
+#include "DNA_mesh_types.h"
 #include "DNA_pointcloud_types.h"
 
 #include "BKE_attribute_math.hh"
@@ -20,7 +24,7 @@ static void node_declare(NodeDeclarationBuilder &b)
 {
   b.add_input<decl::Geometry>(N_("Mesh")).supported_type(GEO_COMPONENT_TYPE_MESH);
   b.add_input<decl::Bool>(N_("Selection")).default_value(true).supports_field().hide_value();
-  b.add_input<decl::Vector>(N_("Position")).implicit_field();
+  b.add_input<decl::Vector>(N_("Position")).implicit_field(implicit_field_inputs::position);
   b.add_input<decl::Float>(N_("Radius"))
       .default_value(0.05f)
       .min(0.0f)
@@ -29,45 +33,35 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Geometry>(N_("Points"));
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "mode", 0, "", ICON_NONE);
 }
 
-static void node_init(bNodeTree *UNUSED(tree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   NodeGeometryMeshToPoints *data = MEM_cnew<NodeGeometryMeshToPoints>(__func__);
   data->mode = GEO_NODE_MESH_TO_POINTS_VERTICES;
   node->storage = data;
 }
 
-template<typename T>
-static void copy_attribute_to_points(const VArray<T> &src,
-                                     const IndexMask mask,
-                                     MutableSpan<T> dst)
-{
-  for (const int i : mask.index_range()) {
-    dst[i] = src[mask[i]];
-  }
-}
-
 static void geometry_set_mesh_to_points(GeometrySet &geometry_set,
                                         Field<float3> &position_field,
                                         Field<float> &radius_field,
                                         Field<bool> &selection_field,
-                                        const AttributeDomain domain)
+                                        const eAttrDomain domain)
 {
-  const MeshComponent *mesh_component = geometry_set.get_component_for_read<MeshComponent>();
-  if (mesh_component == nullptr) {
-    geometry_set.keep_only({GEO_COMPONENT_TYPE_INSTANCES});
+  const Mesh *mesh = geometry_set.get_mesh_for_read();
+  if (mesh == nullptr) {
+    geometry_set.remove_geometry_during_modify();
     return;
   }
-  GeometryComponentFieldContext field_context{*mesh_component, domain};
-  const int domain_size = mesh_component->attribute_domain_size(domain);
+  const int domain_size = mesh->attributes().domain_size(domain);
   if (domain_size == 0) {
-    geometry_set.keep_only({GEO_COMPONENT_TYPE_INSTANCES});
+    geometry_set.remove_geometry_during_modify();
     return;
   }
+  bke::MeshFieldContext field_context{*mesh, domain};
   fn::FieldEvaluator evaluator{field_context, domain_size};
   evaluator.set_selection(selection_field);
   /* Evaluating directly into the point cloud doesn't work because we are not using the full
@@ -79,39 +73,39 @@ static void geometry_set_mesh_to_points(GeometrySet &geometry_set,
   const IndexMask selection = evaluator.get_evaluated_selection_as_mask();
 
   PointCloud *pointcloud = BKE_pointcloud_new_nomain(selection.size());
-  uninitialized_fill_n(pointcloud->radius, pointcloud->totpoint, 0.05f);
   geometry_set.replace_pointcloud(pointcloud);
-  PointCloudComponent &point_component =
-      geometry_set.get_component_for_write<PointCloudComponent>();
+  MutableAttributeAccessor dst_attributes = pointcloud->attributes_for_write();
 
-  copy_attribute_to_points(evaluator.get_evaluated<float3>(0),
-                           selection,
-                           {(float3 *)pointcloud->co, pointcloud->totpoint});
-  copy_attribute_to_points(
-      evaluator.get_evaluated<float>(1), selection, {pointcloud->radius, pointcloud->totpoint});
+  GSpanAttributeWriter position = dst_attributes.lookup_or_add_for_write_only_span(
+      "position", ATTR_DOMAIN_POINT, CD_PROP_FLOAT3);
+  array_utils::gather(evaluator.get_evaluated(0), selection, position.span);
+  position.finish();
+
+  GSpanAttributeWriter radius = dst_attributes.lookup_or_add_for_write_only_span(
+      "radius", ATTR_DOMAIN_POINT, CD_PROP_FLOAT);
+  array_utils::gather(evaluator.get_evaluated(1), selection, radius.span);
+  radius.finish();
 
   Map<AttributeIDRef, AttributeKind> attributes;
   geometry_set.gather_attributes_for_propagation(
       {GEO_COMPONENT_TYPE_MESH}, GEO_COMPONENT_TYPE_POINT_CLOUD, false, attributes);
   attributes.remove("position");
 
+  const AttributeAccessor src_attributes = mesh->attributes();
+
   for (Map<AttributeIDRef, AttributeKind>::Item entry : attributes.items()) {
     const AttributeIDRef attribute_id = entry.key;
-    const CustomDataType data_type = entry.value.data_type;
-    GVArray src = mesh_component->attribute_get_for_read(attribute_id, domain, data_type);
-    OutputAttribute dst = point_component.attribute_try_get_for_output_only(
+    const eCustomDataType data_type = entry.value.data_type;
+    GVArray src = src_attributes.lookup_or_default(attribute_id, domain, data_type);
+    GSpanAttributeWriter dst = dst_attributes.lookup_or_add_for_write_only_span(
         attribute_id, ATTR_DOMAIN_POINT, data_type);
     if (dst && src) {
-      attribute_math::convert_to_static_type(data_type, [&](auto dummy) {
-        using T = decltype(dummy);
-        VArray<T> src_typed = src.typed<T>();
-        copy_attribute_to_points(src_typed, selection, dst.as_span().typed<T>());
-      });
-      dst.save();
+      array_utils::gather(src, selection, dst.span);
+      dst.finish();
     }
   }
 
-  geometry_set.keep_only({GEO_COMPONENT_TYPE_POINT_CLOUD, GEO_COMPONENT_TYPE_INSTANCES});
+  geometry_set.keep_only_during_modify({GEO_COMPONENT_TYPE_POINT_CLOUD});
 }
 
 static void node_geo_exec(GeoNodeExecParams params)
@@ -124,7 +118,9 @@ static void node_geo_exec(GeoNodeExecParams params)
   /* Use another multi-function operation to make sure the input radius is greater than zero.
    * TODO: Use mutable multi-function once that is supported. */
   static fn::CustomMF_SI_SO<float, float> max_zero_fn(
-      __func__, [](float value) { return std::max(0.0f, value); });
+      __func__,
+      [](float value) { return std::max(0.0f, value); },
+      fn::CustomMF_presets::AllSpanOrSingle());
   auto max_zero_op = std::make_shared<FieldOperation>(
       FieldOperation(max_zero_fn, {std::move(radius)}));
   Field<float> positive_radius(std::move(max_zero_op), 0);
@@ -167,7 +163,7 @@ void register_node_type_geo_mesh_to_points()
   geo_node_type_base(&ntype, GEO_NODE_MESH_TO_POINTS, "Mesh to Points", NODE_CLASS_GEOMETRY);
   ntype.declare = file_ns::node_declare;
   ntype.geometry_node_execute = file_ns::node_geo_exec;
-  node_type_init(&ntype, file_ns::node_init);
+  ntype.initfunc = file_ns::node_init;
   ntype.draw_buttons = file_ns::node_layout;
   node_type_storage(
       &ntype, "NodeGeometryMeshToPoints", node_free_standard_storage, node_copy_standard_storage);

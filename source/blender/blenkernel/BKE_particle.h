@@ -291,7 +291,11 @@ void psys_set_current_num(struct Object *ob, int index);
 /* UNUSED */
 // struct Object *psys_find_object(struct Scene *scene, struct ParticleSystem *psys);
 
-struct LatticeDeformData *psys_create_lattice_deform_data(struct ParticleSimulationData *sim);
+/**
+ * Initialize/free data for particle simulation evaluation.
+ */
+void psys_sim_data_init(struct ParticleSimulationData *sim);
+void psys_sim_data_free(struct ParticleSimulationData *sim);
 
 /**
  * For a given evaluated particle system get its original.
@@ -391,12 +395,12 @@ void psys_cache_child_paths(struct ParticleSimulationData *sim,
                             float cfra,
                             bool editupdate,
                             bool use_render_params);
-int do_guides(struct Depsgraph *depsgraph,
-              struct ParticleSettings *part,
-              struct ListBase *effectors,
-              ParticleKey *state,
-              int index,
-              float time);
+bool do_guides(struct Depsgraph *depsgraph,
+               struct ParticleSettings *part,
+               struct ListBase *effectors,
+               ParticleKey *state,
+               int index,
+               float time);
 void precalc_guides(struct ParticleSimulationData *sim, struct ListBase *effectors);
 float psys_get_timestep(struct ParticleSimulationData *sim);
 float psys_get_child_time(struct ParticleSystem *psys,
@@ -416,7 +420,7 @@ void psys_get_particle_on_path(struct ParticleSimulationData *sim,
                                struct ParticleKey *state,
                                bool vel);
 /**
- * Gets particle's state at a time.
+ * Gets particle's state at a time. Must call psys_sim_data_init before this.
  * \return true if particle exists and can be seen and false if not.
  */
 bool psys_get_particle_state(struct ParticleSimulationData *sim,
@@ -579,11 +583,11 @@ void psys_get_texture(struct ParticleSimulationData *sim,
  * Interpolate a location on a face based on face coordinates.
  */
 void psys_interpolate_face(struct Mesh *mesh,
-                           struct MVert *mvert,
+                           const struct MVert *mvert,
                            const float (*vert_normals)[3],
                            struct MFace *mface,
                            struct MTFace *tface,
-                           float (*orcodata)[3],
+                           const float (*orcodata)[3],
                            float w[4],
                            float vec[3],
                            float nor[3],

@@ -30,6 +30,7 @@ struct BVHTree;
 struct MDeformVert;
 struct Mesh;
 struct ModifierEvalContext;
+struct MPoly;
 struct Object;
 struct ShrinkwrapGpencilModifierData;
 struct ShrinkwrapModifierData;
@@ -62,7 +63,7 @@ typedef struct ShrinkwrapBoundaryData {
 /**
  * Free boundary data for target project.
  */
-void BKE_shrinkwrap_discard_boundary_data(struct Mesh *mesh);
+void BKE_shrinkwrap_boundary_data_free(ShrinkwrapBoundaryData *data);
 void BKE_shrinkwrap_compute_boundary_data(struct Mesh *mesh);
 
 /* Information about a mesh and BVH tree. */
@@ -72,8 +73,10 @@ typedef struct ShrinkwrapTreeData {
   BVHTree *bvh;
   BVHTreeFromMesh treeData;
 
+  const struct MPoly *polys;
+  const float (*vert_normals)[3];
   const float (*pnors)[3];
-  float (*clnors)[3];
+  const float (*clnors)[3];
   ShrinkwrapBoundaryData *boundary;
 } ShrinkwrapTreeData;
 
@@ -104,7 +107,7 @@ void shrinkwrapModifier_deform(struct ShrinkwrapModifierData *smd,
                                struct Scene *scene,
                                struct Object *ob,
                                struct Mesh *mesh,
-                               struct MDeformVert *dvert,
+                               const struct MDeformVert *dvert,
                                int defgrp_index,
                                float (*vertexCos)[3],
                                int numVerts);

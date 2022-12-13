@@ -36,6 +36,8 @@
 #include "UI_resources.h"
 #include "UI_view2d.h"
 
+#include "BLO_read_write.h"
+
 #include "nla_intern.h" /* own include */
 
 /* ******************** default callbacks for nla space ***************** */
@@ -79,7 +81,6 @@ static SpaceLink *nla_create(const ScrArea *area, const Scene *scene)
   BLI_addtail(&snla->regionbase, region);
   region->regiontype = RGN_TYPE_UI;
   region->alignment = RGN_ALIGN_RIGHT;
-  region->flag = RGN_FLAG_HIDDEN;
 
   /* main region */
   region = MEM_callocN(sizeof(ARegion), "main region for nla");
@@ -87,9 +88,9 @@ static SpaceLink *nla_create(const ScrArea *area, const Scene *scene)
   BLI_addtail(&snla->regionbase, region);
   region->regiontype = RGN_TYPE_WINDOW;
 
-  region->v2d.tot.xmin = (float)(SFRA - 10);
+  region->v2d.tot.xmin = (float)(scene->r.sfra - 10);
   region->v2d.tot.ymin = (float)(-area->winy) / 3.0f;
-  region->v2d.tot.xmax = (float)(EFRA + 10);
+  region->v2d.tot.xmax = (float)(scene->r.efra + 10);
   region->v2d.tot.ymax = 0.0f;
 
   region->v2d.cur = region->v2d.tot;
@@ -235,7 +236,7 @@ static void nla_main_region_draw(const bContext *C, ARegion *region)
     /* strips and backdrops */
     draw_nla_main_data(&ac, snla, region);
 
-    /* text draw cached, in pixelspace now */
+    /* Text draw cached, in pixel-space now. */
     UI_view2d_text_cache_draw(region);
   }
 
@@ -304,7 +305,7 @@ static void nla_buttons_region_draw(const bContext *C, ARegion *region)
 static void nla_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -343,7 +344,7 @@ static void nla_region_listener(const wmRegionListenerParams *params)
 static void nla_main_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -437,7 +438,7 @@ static void nla_main_region_message_subscribe(const wmRegionMessageSubscribePara
 static void nla_channel_region_listener(const wmRegionListenerParams *params)
 {
   ARegion *region = params->region;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -513,7 +514,7 @@ static void nla_channel_region_message_subscribe(const wmRegionMessageSubscribeP
 static void nla_listener(const wmSpaceTypeListenerParams *params)
 {
   ScrArea *area = params->area;
-  wmNotifier *wmn = params->notifier;
+  const wmNotifier *wmn = params->notifier;
 
   /* context changes */
   switch (wmn->category) {
@@ -563,13 +564,40 @@ static void nla_id_remap(ScrArea *UNUSED(area),
   BKE_id_remapper_apply(mappings, (ID **)&snla->ads->source, ID_REMAP_APPLY_DEFAULT);
 }
 
+static void nla_blend_read_data(BlendDataReader *reader, SpaceLink *sl)
+{
+  SpaceNla *snla = (SpaceNla *)sl;
+  BLO_read_data_address(reader, &snla->ads);
+}
+
+static void nla_blend_read_lib(BlendLibReader *reader, ID *parent_id, SpaceLink *sl)
+{
+  SpaceNla *snla = (SpaceNla *)sl;
+  bDopeSheet *ads = snla->ads;
+
+  if (ads) {
+    BLO_read_id_address(reader, parent_id->lib, &ads->source);
+    BLO_read_id_address(reader, parent_id->lib, &ads->filter_grp);
+  }
+}
+
+static void nla_blend_write(BlendWriter *writer, SpaceLink *sl)
+{
+  SpaceNla *snla = (SpaceNla *)sl;
+
+  BLO_write_struct(writer, SpaceNla, snla);
+  if (snla->ads) {
+    BLO_write_struct(writer, bDopeSheet, snla->ads);
+  }
+}
+
 void ED_spacetype_nla(void)
 {
   SpaceType *st = MEM_callocN(sizeof(SpaceType), "spacetype nla");
   ARegionType *art;
 
   st->spaceid = SPACE_NLA;
-  strncpy(st->name, "NLA", BKE_ST_MAXNAME);
+  STRNCPY(st->name, "NLA");
 
   st->create = nla_create;
   st->free = nla_free;
@@ -579,6 +607,9 @@ void ED_spacetype_nla(void)
   st->listener = nla_listener;
   st->keymap = nla_keymap;
   st->id_remap = nla_id_remap;
+  st->blend_read_data = nla_blend_read_data;
+  st->blend_read_lib = nla_blend_read_lib;
+  st->blend_write = nla_blend_write;
 
   /* regions: main window */
   art = MEM_callocN(sizeof(ARegionType), "spacetype nla region");
@@ -628,6 +659,9 @@ void ED_spacetype_nla(void)
   BLI_addhead(&st->regiontypes, art);
 
   nla_buttons_register(art);
+
+  art = ED_area_type_hud(st->spaceid);
+  BLI_addhead(&st->regiontypes, art);
 
   BKE_spacetype_register(st);
 }

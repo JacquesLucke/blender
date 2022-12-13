@@ -37,7 +37,7 @@ class OBJCurve : NonCopyable {
   /**
    * Get coordinates of the vertex at the given index on the given spline.
    */
-  float3 vertex_coordinates(int spline_index, int vertex_index, float scaling_factor) const;
+  float3 vertex_coordinates(int spline_index, int vertex_index, float global_scale) const;
   /**
    * Get total control points of the NURBS spline at the given index. This is different than total
    * vertices of a spline.
@@ -56,7 +56,7 @@ class OBJCurve : NonCopyable {
   /**
    * Set the final transform after applying axes settings and an Object's world transform.
    */
-  void set_world_axes_transform(eTransformAxisForward forward, eTransformAxisUp up);
+  void set_world_axes_transform(eIOAxis forward, eIOAxis up);
 };
 
 }  // namespace blender::io::obj
