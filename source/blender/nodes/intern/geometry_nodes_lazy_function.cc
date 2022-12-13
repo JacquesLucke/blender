@@ -883,8 +883,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             continue;
           }
           const bNodeSocket &origin_socket = *link->fromsock;
-          if (pushed_sockets.add(&origin_socket)) {
-            sockets_to_check.push(&origin_socket);
+          if (origin_socket.is_available()) {
+            if (pushed_sockets.add(&origin_socket)) {
+              sockets_to_check.push(&origin_socket);
+            }
           }
         }
       }
@@ -892,8 +894,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         const NodeReferenceInfo reference_info = this->get_node_reference_info(node);
         for (const int input_index : reference_info.outputs[socket.index()].pass_from) {
           const bNodeSocket &input_socket = node.input_socket(input_index);
-          if (pushed_sockets.add(&input_socket)) {
-            sockets_to_check.push(&input_socket);
+          if (input_socket.is_available()) {
+            if (pushed_sockets.add(&input_socket)) {
+              sockets_to_check.push(&input_socket);
+            }
           }
         }
       }
@@ -997,6 +1001,110 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     return indices;
   }
 
+  std::optional<Vector<int>> get_outputs_that_referenced_data_is_available_on(
+      const bNodeTree &btree, const int output_index)
+  {
+    btree.ensure_topology_cache();
+    const bNode *output_node = btree.group_output_node();
+    if (output_node == nullptr) {
+      return {};
+    }
+    const bNodeSocket &group_output_socket = output_node->input_socket(output_index);
+    Set<const bNodeSocket *> found_sockets_where_reference_is_created;
+    Set<const bNodeSocket *> pushed_sockets;
+    Stack<const bNodeSocket *> sockets_to_check;
+    sockets_to_check.push(&group_output_socket);
+    pushed_sockets.add(&group_output_socket);
+
+    while (!sockets_to_check.is_empty()) {
+      const bNodeSocket &socket = *sockets_to_check.pop();
+      const bNode &node = socket.owner_node();
+      if (node.is_group_input()) {
+        continue;
+      }
+      if (socket.is_input()) {
+        for (const bNodeLink *link : socket.directly_linked_links()) {
+          if (link->is_muted()) {
+            continue;
+          }
+          const bNodeSocket &origin_socket = *link->fromsock;
+          if (origin_socket.is_available()) {
+            if (pushed_sockets.add(&origin_socket)) {
+              sockets_to_check.push(&origin_socket);
+            }
+          }
+        }
+      }
+      else {
+        const NodeReferenceInfo reference_info = this->get_node_reference_info(node);
+        for (const int input_index : reference_info.outputs[socket.index()].pass_from) {
+          const bNodeSocket &input_socket = node.input_socket(input_index);
+          if (input_socket.is_available()) {
+            if (pushed_sockets.add(&input_socket)) {
+              sockets_to_check.push(&input_socket);
+            }
+          }
+        }
+        if (reference_info.outputs[socket.index()].available_on.has_value()) {
+          for (const int output_index : *reference_info.outputs[socket.index()].available_on) {
+            const bNodeSocket &other_output = node.output_socket(output_index);
+            if (other_output.is_available()) {
+              found_sockets_where_reference_is_created.add(&other_output);
+            }
+          }
+        }
+      }
+    }
+
+    if (found_sockets_where_reference_is_created.is_empty()) {
+      return std::nullopt;
+    }
+
+    pushed_sockets.clear();
+    for (const bNodeSocket *socket : found_sockets_where_reference_is_created) {
+      pushed_sockets.add(socket);
+      sockets_to_check.push(socket);
+    }
+
+    Vector<int> indices;
+    while (!sockets_to_check.is_empty()) {
+      const bNodeSocket &socket = *sockets_to_check.pop();
+      const bNode &node = socket.owner_node();
+      if (node.is_group_output()) {
+        indices.append_non_duplicates(socket.index());
+        continue;
+      }
+      if (socket.is_input()) {
+        const NodeReferenceInfo reference_info = this->get_node_reference_info(node);
+        for (const bNodeSocket *output_socket : node.output_sockets()) {
+          if (!output_socket->is_available()) {
+            continue;
+          }
+          if (reference_info.outputs[output_socket->index()].propagate_from.contains(
+                  socket.index())) {
+            if (pushed_sockets.add(output_socket)) {
+              sockets_to_check.push(output_socket);
+            }
+          }
+        }
+      }
+      else {
+        for (const bNodeLink *link : socket.directly_linked_links()) {
+          if (link->is_muted()) {
+            continue;
+          }
+          const bNodeSocket &target_socket = *link->tosock;
+          if (target_socket.is_available()) {
+            if (pushed_sockets.add(&target_socket)) {
+              sockets_to_check.push(&target_socket);
+            }
+          }
+        }
+      }
+    }
+    return indices;
+  }
+
   NodeReferenceInfo get_node_reference_info(const bNode &node)
   {
     BLI_assert(!ELEM(node.type, NODE_GROUP_INPUT, NODE_GROUP_OUTPUT));
@@ -1016,6 +1124,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
               this->get_inputs_to_propagate_referenced_data_from(*group_btree, i);
           reference_info.outputs[i].pass_from = this->get_inputs_to_pass_references_from(
               *group_btree, i);
+          reference_info.outputs[i].available_on =
+              this->get_outputs_that_referenced_data_is_available_on(*group_btree, i);
         }
       }
     }
@@ -1024,12 +1134,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       if (node_decl) {
         for (const bNodeSocket *socket : node.input_sockets()) {
           const SocketDeclaration &socket_decl = *node_decl->inputs()[socket->index()];
-          reference_info.inputs[socket->index()] = {socket_decl.reference_on_};
+          reference_info.inputs[socket->index()] = socket_decl.input_reference_info_;
         }
         for (const bNodeSocket *socket : node.output_sockets()) {
           const SocketDeclaration &socket_decl = *node_decl->outputs()[socket->index()];
-          reference_info.outputs[socket->index()] = {
-              socket_decl.reference_on_, socket_decl.propagate_from_, socket_decl.reference_pass_};
+          reference_info.outputs[socket->index()] = socket_decl.output_reference_info_;
         }
       }
     }
@@ -1072,16 +1181,14 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           if (!socket.is_available()) {
             continue;
           }
-          bool found_reference_on = false;
-          for (const int reference_on_index : reference_info.outputs[i].available_on) {
-            const bNodeSocket &other_socket = node->output_socket(reference_on_index);
-            if (other_socket.is_available()) {
-              propagated_map.add(&other_socket, &socket);
-              found_reference_on = true;
-            }
-          }
-          if (found_reference_on) {
+          if (reference_info.outputs[i].available_on.has_value()) {
             reference_sources_map.add(&socket, &socket);
+            for (const int reference_on_index : *reference_info.outputs[i].available_on) {
+              const bNodeSocket &other_socket = node->output_socket(reference_on_index);
+              if (other_socket.is_available()) {
+                propagated_map.add(&other_socket, &socket);
+              }
+            }
           }
           for (const int reference_pass_index : reference_info.outputs[i].pass_from) {
             const bNodeSocket &other_socket = node->input_socket(reference_pass_index);
@@ -1138,10 +1245,12 @@ struct GeometryNodesLazyFunctionGraphBuilder {
               if (!other_output->is_available()) {
                 continue;
               }
-              if (reference_info.outputs[other_output->index()].available_on.contains(
-                      socket.index())) {
-                if (required_references.contains(other_output)) {
-                  required_references.remove_first_occurrence_and_reorder(other_output);
+              if (reference_info.outputs[other_output->index()].available_on.has_value()) {
+                if (reference_info.outputs[other_output->index()].available_on->contains(
+                        socket.index())) {
+                  if (required_references.contains(other_output)) {
+                    required_references.remove_first_occurrence_and_reorder(other_output);
+                  }
                 }
               }
             }

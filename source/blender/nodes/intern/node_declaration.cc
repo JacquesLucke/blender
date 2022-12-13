@@ -37,7 +37,7 @@ void NodeDeclarationBuilder::finalize()
       for (const int input_i : declaration_.inputs_.index_range()) {
         SocketDeclaration &other_socket_decl = *declaration_.inputs_[input_i];
         if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
-          socket_decl.reference_on_.append(input_i);
+          socket_decl.input_reference_info_.available_on.append(input_i);
         }
       }
     }
@@ -45,17 +45,18 @@ void NodeDeclarationBuilder::finalize()
   for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : output_builders_) {
     if (socket_builder->reference_on_auto_) {
       SocketDeclaration &socket_decl = *socket_builder->declaration();
+      socket_decl.output_reference_info_.available_on.emplace();
       for (const int output_i : declaration_.outputs_.index_range()) {
         SocketDeclaration &other_socket_decl = *declaration_.outputs_[output_i];
         if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
-          socket_decl.reference_on_.append(output_i);
+          socket_decl.output_reference_info_.available_on->append(output_i);
         }
       }
     }
     if (socket_builder->reference_pass_all_) {
       SocketDeclaration &socket_decl = *socket_builder->declaration();
       for (const int input_i : declaration_.inputs_.index_range()) {
-        socket_decl.reference_pass_.append(input_i);
+        socket_decl.output_reference_info_.pass_from.append(input_i);
       }
     }
     if (socket_builder->propagate_from_auto_) {
@@ -63,7 +64,7 @@ void NodeDeclarationBuilder::finalize()
       for (const int input_i : declaration_.inputs_.index_range()) {
         SocketDeclaration &other_socket_decl = *declaration_.inputs_[input_i];
         if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
-          socket_decl.propagate_from_.append(input_i);
+          socket_decl.output_reference_info_.propagate_from.append(input_i);
         }
       }
     }

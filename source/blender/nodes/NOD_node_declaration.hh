@@ -3,6 +3,7 @@
 #pragma once
 
 #include <functional>
+#include <optional>
 #include <type_traits>
 
 #include "BLI_string_ref.hh"
@@ -42,7 +43,7 @@ struct InputSocketReferenceInfo {
 };
 
 struct OutputSocketReferenceInfo {
-  Vector<int> available_on;
+  std::optional<Vector<int>> available_on;
   Vector<int> propagate_from;
   Vector<int> pass_from;
 };
@@ -105,9 +106,8 @@ class SocketDeclaration {
 
   InputSocketFieldType input_field_type_ = InputSocketFieldType::None;
   OutputFieldDependency output_field_dependency_;
-  Vector<int> reference_pass_;
-  Vector<int> reference_on_;
-  Vector<int> propagate_from_;
+  InputSocketReferenceInfo input_reference_info_;
+  OutputSocketReferenceInfo output_reference_info_;
 
   /** The priority of the input for determining the domain of the node. See
    * realtime_compositor::InputDescriptor for more information. */
@@ -335,7 +335,7 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
 
   Self &reference_pass(Vector<int> input_indices)
   {
-    decl_->reference_pass_ = std::move(input_indices);
+    decl_->output_reference_info_.pass_from = std::move(input_indices);
     return *(Self *)this;
   }
 
@@ -347,7 +347,12 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
 
   Self &reference_on(Vector<int> indices)
   {
-    decl_->reference_on_ = std::move(indices);
+    if (decl_->in_out == SOCK_IN) {
+      decl_->input_reference_info_.available_on = std::move(indices);
+    }
+    else {
+      decl_->output_reference_info_.available_on = std::move(indices);
+    }
     return *(Self *)this;
   }
 
@@ -359,7 +364,7 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
 
   Self &propagate_from(Vector<int> input_indices)
   {
-    decl_->propagate_from_ = std::move(input_indices);
+    decl_->output_reference_info_->propagate_from = std::move(input_indices);
     return *(Self *)this;
   }
 
