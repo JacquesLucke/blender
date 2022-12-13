@@ -851,6 +851,52 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     return indices;
   }
 
+  Vector<int> get_inputs_to_pass_references_from(const bNodeTree &btree, const int output_index)
+  {
+    btree.ensure_topology_cache();
+    const bNode *output_node = btree.group_output_node();
+    if (output_node == nullptr) {
+      return {};
+    }
+    const bNodeSocket &group_output_socket = output_node->input_socket(output_index);
+    Set<const bNodeSocket *> pushed_sockets;
+    Stack<const bNodeSocket *> sockets_to_check;
+    sockets_to_check.push(&group_output_socket);
+    pushed_sockets.add(&group_output_socket);
+
+    Vector<int> indices;
+
+    while (!sockets_to_check.is_empty()) {
+      const bNodeSocket &socket = *sockets_to_check.pop();
+      const bNode &node = socket.owner_node();
+      if (node.is_group_input()) {
+        indices.append_non_duplicates(socket.index());
+        continue;
+      }
+      if (socket.is_input()) {
+        for (const bNodeLink *link : socket.directly_linked_links()) {
+          if (link->is_muted()) {
+            continue;
+          }
+          const bNodeSocket &origin_socket = *link->fromsock;
+          if (pushed_sockets.add(&origin_socket)) {
+            sockets_to_check.push(&origin_socket);
+          }
+        }
+      }
+      else {
+        const NodeReferenceInfo reference_info = this->get_node_reference_info(node);
+        for (const int input_index : reference_info.outputs[socket.index()].pass_from) {
+          const bNodeSocket &input_socket = node.input_socket(input_index);
+          if (pushed_sockets.add(&input_socket)) {
+            sockets_to_check.push(&input_socket);
+          }
+        }
+      }
+    }
+    return indices;
+  }
+
   NodeReferenceInfo get_node_reference_info(const bNode &node)
   {
     BLI_assert(!ELEM(node.type, NODE_GROUP_INPUT, NODE_GROUP_OUTPUT));
@@ -863,6 +909,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         for (const int i : node.output_sockets().index_range()) {
           reference_info.outputs[i].propagate_from =
               this->get_inputs_to_propagate_referenced_data_from(*group_btree, i);
+          reference_info.outputs[i].pass_from = this->get_inputs_to_pass_references_from(
+              *group_btree, i);
         }
       }
     }
