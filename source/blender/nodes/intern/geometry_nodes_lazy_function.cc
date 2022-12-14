@@ -113,6 +113,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
  public:
   Map<StringRef, int> require_reference_map_;
   Map<StringRef, int> propagate_map_;
+  Map<const bNodeSocket *, int> contained_references_map_;
 
   LazyFunctionForGeometryNode(const bNode &node,
                               Vector<const bNodeSocket *> &r_used_inputs,
@@ -127,9 +128,16 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     for (const bNodeSocket *output_bsocket : node.output_sockets()) {
       const SocketDeclaration &socket_decl = *node_decl.outputs()[output_bsocket->index()];
       if (socket_decl.output_reference_info_.available_on.has_value()) {
-        const int lf_socket_index = inputs_.append_and_get_index_as("Required Attribute",
-                                                                    CPPType::get<bool>());
-        require_reference_map_.add(output_bsocket->identifier, lf_socket_index);
+        {
+          const int lf_socket_index = inputs_.append_and_get_index_as("Required Attribute",
+                                                                      CPPType::get<bool>());
+          require_reference_map_.add(output_bsocket->identifier, lf_socket_index);
+        }
+        {
+          const int lf_socket_index = outputs_.append_and_get_index_as(
+              "Contained Attributes", CPPType::get<bke::AnonymousAttributeSet>());
+          contained_references_map_.add(output_bsocket, lf_socket_index);
+        }
       }
       if (!socket_decl.output_reference_info_.propagate_from.is_empty()) {
         const int lf_socket_index = inputs_.append_and_get_index_as(
