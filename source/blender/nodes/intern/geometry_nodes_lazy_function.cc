@@ -113,7 +113,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
  public:
   Map<StringRef, int> require_reference_map_;
   Map<StringRef, int> propagate_map_;
-  Map<const bNodeSocket *, int> contained_references_map_;
+  Map<StringRef, int> contained_references_map_;
 
   LazyFunctionForGeometryNode(const bNode &node,
                               Vector<const bNodeSocket *> &r_used_inputs,
@@ -136,7 +136,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
         {
           const int lf_socket_index = outputs_.append_and_get_index_as(
               "Contained Attributes", CPPType::get<bke::AnonymousAttributeSet>());
-          contained_references_map_.add(output_bsocket, lf_socket_index);
+          contained_references_map_.add(output_bsocket->identifier, lf_socket_index);
         }
       }
       if (!socket_decl.output_reference_info_.propagate_from.is_empty()) {
@@ -163,6 +163,31 @@ class LazyFunctionForGeometryNode : public LazyFunction {
           *user_data->compute_context);
       tree_logger.node_execution_times.append({node_.identifier, start_time, end_time});
     }
+  }
+
+  std::string input_name(const int index) const override
+  {
+    for (const auto [identifier, input_index] : require_reference_map_.items()) {
+      if (input_index == index) {
+        return "Create '" + identifier + "'";
+      }
+    }
+    for (const auto [identifier, input_index] : propagate_map_.items()) {
+      if (input_index == index) {
+        return "Propagate to '" + identifier + "'";
+      }
+    }
+    return inputs_[index].debug_name;
+  }
+
+  std::string output_name(const int index) const override
+  {
+    for (const auto [identifier, output_index] : contained_references_map_.items()) {
+      if (output_index == index) {
+        return "Attributes in '" + identifier + "'";
+      }
+    }
+    return outputs_[index].debug_name;
   }
 };
 
