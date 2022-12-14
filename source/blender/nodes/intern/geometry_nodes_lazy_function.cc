@@ -112,6 +112,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
 
  public:
   Map<StringRef, int> require_reference_map_;
+  Map<StringRef, int> propagate_map_;
 
   LazyFunctionForGeometryNode(const bNode &node,
                               Vector<const bNodeSocket *> &r_used_inputs,
@@ -126,9 +127,14 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     for (const bNodeSocket *output_bsocket : node.output_sockets()) {
       const SocketDeclaration &socket_decl = *node_decl.outputs()[output_bsocket->index()];
       if (socket_decl.output_reference_info_.available_on.has_value()) {
-        const int lf_socket_index = inputs_.append_and_get_index_as("Require Output Reference",
+        const int lf_socket_index = inputs_.append_and_get_index_as("Required Attribute",
                                                                     CPPType::get<bool>());
         require_reference_map_.add(output_bsocket->identifier, lf_socket_index);
+      }
+      if (!socket_decl.output_reference_info_.propagate_from.is_empty()) {
+        const int lf_socket_index = inputs_.append_and_get_index_as(
+            "Attributes to Propagate", CPPType::get<bke::AnonymousAttributeSet>());
+        propagate_map_.add(output_bsocket->identifier, lf_socket_index);
       }
     }
   }
@@ -1539,6 +1545,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       static bool true_value = true;
       lf_socket.set_default_value(&true_value);
     }
+    for (const int input_index : lazy_function.propagate_map_.values()) {
+      lf::InputSocket &lf_socket = lf_node.input(input_index);
+      static bke::AnonymousAttributeSet attribute_set;
+      lf_socket.set_default_value(&attribute_set);
+    }
   }
 
   void handle_multi_function_node(const bNode &bnode, const NodeMultiFunctions::Item &fn_item)
@@ -1810,6 +1821,8 @@ const GeometryNodesLazyFunctionGraphInfo *ensure_geometry_nodes_lazy_function_gr
   auto lf_graph_info = std::make_unique<GeometryNodesLazyFunctionGraphInfo>();
   GeometryNodesLazyFunctionGraphBuilder builder{btree, *lf_graph_info};
   builder.build();
+
+  std::cout << "\n\n" << lf_graph_info->graph.to_dot() << "\n\n";
 
   lf_graph_info_ptr = std::move(lf_graph_info);
   return lf_graph_info_ptr.get();

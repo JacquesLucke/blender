@@ -51,6 +51,9 @@ class AttributeIDRef {
   friend std::ostream &operator<<(std::ostream &stream, const AttributeIDRef &attribute_id);
 };
 
+class AnonymousAttributeSet {
+};
+
 class AnonymousAttributePropagationInfo {
  public:
   bool propagate(const AnonymousAttributeID & /*anonymous_id*/) const
