@@ -111,6 +111,8 @@ class LazyFunctionForGeometryNode : public LazyFunction {
   const bNode &node_;
 
  public:
+  Map<StringRef, int> require_reference_map_;
+
   LazyFunctionForGeometryNode(const bNode &node,
                               Vector<const bNodeSocket *> &r_used_inputs,
                               Vector<const bNodeSocket *> &r_used_outputs)
@@ -119,6 +121,16 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     BLI_assert(node.typeinfo->geometry_node_execute != nullptr);
     debug_name_ = node.name;
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
+
+    const NodeDeclaration &node_decl = *node.declaration();
+    for (const bNodeSocket *output_bsocket : node.output_sockets()) {
+      const SocketDeclaration &socket_decl = *node_decl.outputs()[output_bsocket->index()];
+      if (socket_decl.output_reference_info_.available_on.has_value()) {
+        const int lf_socket_index = inputs_.append_and_get_index_as("Require Output Reference",
+                                                                    CPPType::get<bool>());
+        require_reference_map_.add(output_bsocket->identifier, lf_socket_index);
+      }
+    }
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
@@ -126,7 +138,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
 
-    GeoNodeExecParams geo_params{node_, params, context};
+    GeoNodeExecParams geo_params{node_, params, context, require_reference_map_};
 
     geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     node_.typeinfo->geometry_node_execute(geo_params);
@@ -1491,10 +1503,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   {
     Vector<const bNodeSocket *> used_inputs;
     Vector<const bNodeSocket *> used_outputs;
-    auto lazy_function = std::make_unique<LazyFunctionForGeometryNode>(
+    auto lazy_function_ptr = std::make_unique<LazyFunctionForGeometryNode>(
         bnode, used_inputs, used_outputs);
-    lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
-    lf_graph_info_->functions.append(std::move(lazy_function));
+    LazyFunctionForGeometryNode &lazy_function = *lazy_function_ptr;
+    lf::Node &lf_node = lf_graph_->add_function(lazy_function);
+    lf_graph_info_->functions.append(std::move(lazy_function_ptr));
 
     for (const int i : used_inputs.index_range()) {
       const bNodeSocket &bsocket = *used_inputs[i];
@@ -1520,6 +1533,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       lf::OutputSocket &lf_socket = lf_node.output(i);
       output_socket_map_.add_new(&bsocket, &lf_socket);
       mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
+    }
+    for (const int input_index : lazy_function.require_reference_map_.values()) {
+      lf::InputSocket &lf_socket = lf_node.input(input_index);
+      static bool true_value = true;
+      lf_socket.set_default_value(&true_value);
     }
   }
 

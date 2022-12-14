@@ -166,7 +166,7 @@ std::string Graph::to_dot() const
           value_string = type.to_string(default_value);
         }
         else {
-          value_string = "<" + type.name() + ">";
+          value_string = type.name();
         }
         dot::Node &default_value_dot_node = digraph.new_node(value_string);
         default_value_dot_node.set_shape(dot::Attr_shape::Ellipse);
