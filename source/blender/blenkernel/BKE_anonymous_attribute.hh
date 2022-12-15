@@ -96,6 +96,21 @@ template<bool IsStrongReference> class OwnedAnonymousAttributeID {
     return data_ != nullptr;
   }
 
+  uint64_t hash() const
+  {
+    return get_default_hash(data_);
+  }
+
+  friend bool operator==(const OwnedAnonymousAttributeID &a, const OwnedAnonymousAttributeID &b)
+  {
+    return a.data_ == b.data_;
+  }
+
+  friend bool operator!=(const OwnedAnonymousAttributeID &a, const OwnedAnonymousAttributeID &b)
+  {
+    return !(a == b);
+  }
+
   StringRefNull debug_name() const
   {
     BLI_assert(data_ != nullptr);

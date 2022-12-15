@@ -739,6 +739,30 @@ class LazyFunctionForGroupNode : public LazyFunction {
   }
 };
 
+class LazyFunctionForMergingAttributeSets : public LazyFunction {
+ public:
+  LazyFunctionForMergingAttributeSets(const int inputs_num)
+  {
+    debug_name_ = "Merge Anonymous Attribute Sets";
+    for ([[maybe_unused]] const int i : IndexRange(inputs_num)) {
+      inputs_.append_as("Input", CPPType::get<bke::AnonymousAttributeSet>());
+    }
+    outputs_.append_as("Output", CPPType::get<bke::AnonymousAttributeSet>());
+  }
+
+  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
+  {
+    bke::AnonymousAttributeSet result;
+    for (const int i : inputs_.index_range()) {
+      const bke::AnonymousAttributeSet &set = params.get_input<bke::AnonymousAttributeSet>(i);
+      for (const auto &attr : set.set) {
+        result.set.add(attr);
+      }
+    }
+    params.set_output(0, std::move(result));
+  }
+};
+
 static GMutablePointer get_socket_default_value(LinearAllocator<> &allocator,
                                                 const bNodeSocket &bsocket)
 {
@@ -766,6 +790,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   MultiValueMap<const bNodeSocket *, lf::InputSocket *> input_socket_map_;
   Map<const bNodeSocket *, lf::OutputSocket *> output_socket_map_;
   Map<const bNodeSocket *, lf::Node *> multi_input_socket_nodes_;
+  Map<const bNodeSocket *, lf::OutputSocket *> attribute_set_outputs_;
+  Map<const bNodeSocket *, lf::InputSocket *> propagate_attribute_set_inputs_;
   const bke::DataTypeConversions *conversions_;
 
   /**
@@ -803,9 +829,9 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->prepare_group_inputs();
     this->prepare_group_outputs();
     this->build_group_input_node();
-    this->analyze_references();
     this->handle_nodes();
     this->handle_links();
+    this->analyze_references();
     this->add_default_inputs();
 
     lf_graph_->update_node_indices();
@@ -1012,6 +1038,41 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             }
           }
         }
+      }
+    }
+
+    for (const auto item : required_references_map.items()) {
+      const bNodeSocket &bsocket = *item.key;
+      const Span<const bNodeSocket *> propagated_bsockets = item.value;
+      if (propagated_bsockets.is_empty()) {
+        continue;
+      }
+      if (bsocket.is_input()) {
+        continue;
+      }
+      VectorSet<lf::OutputSocket *> lf_attribute_set_sockets;
+      for (const bNodeSocket *propagated_bsocket : propagated_bsockets) {
+        if (&propagated_bsocket->owner_node() != &bsocket.owner_node()) {
+          lf_attribute_set_sockets.add(attribute_set_outputs_.lookup(propagated_bsocket));
+        }
+      }
+      if (lf_attribute_set_sockets.is_empty()) {
+        continue;
+      }
+      lf::InputSocket &lf_propagate_input_socket = *propagate_attribute_set_inputs_.lookup(
+          &bsocket);
+      if (lf_attribute_set_sockets.size() == 1) {
+        lf_graph_->add_link(*lf_attribute_set_sockets[0], lf_propagate_input_socket);
+      }
+      else {
+        auto lazy_function = std::make_unique<LazyFunctionForMergingAttributeSets>(
+            lf_attribute_set_sockets.size());
+        lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+        lf_graph_info_->functions.append(std::move(lazy_function));
+        for (const int i : lf_node.inputs().index_range()) {
+          lf_graph_->add_link(*lf_attribute_set_sockets[i], lf_node.input(i));
+        }
+        lf_graph_->add_link(lf_node.output(0), lf_propagate_input_socket);
       }
     }
 
@@ -1270,6 +1331,17 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       lf::InputSocket &lf_socket = lf_node.input(input_index);
       static bke::AnonymousAttributeSet attribute_set;
       lf_socket.set_default_value(&attribute_set);
+    }
+    for (const auto [identifier, lf_output_index] :
+         lazy_function.contained_references_map_.items()) {
+      lf::OutputSocket &lf_socket = lf_node.output(lf_output_index);
+      const bNodeSocket &bsocket = bnode.output_by_identifier(identifier);
+      attribute_set_outputs_.add(&bsocket, &lf_socket);
+    }
+    for (const auto [identifier, lf_input_index] : lazy_function.propagate_map_.items()) {
+      lf::InputSocket &lf_socket = lf_node.input(lf_input_index);
+      const bNodeSocket &bsocket = bnode.output_by_identifier(identifier);
+      propagate_attribute_set_inputs_.add(&bsocket, &lf_socket);
     }
   }
 
@@ -1543,7 +1615,7 @@ const GeometryNodesLazyFunctionGraphInfo *ensure_geometry_nodes_lazy_function_gr
   GeometryNodesLazyFunctionGraphBuilder builder{btree, *lf_graph_info};
   builder.build();
 
-  // std::cout << "\n\n" << lf_graph_info->graph.to_dot() << "\n\n";
+  std::cout << "\n\n" << lf_graph_info->graph.to_dot() << "\n\n";
 
   lf_graph_info_ptr = std::move(lf_graph_info);
   return lf_graph_info_ptr.get();

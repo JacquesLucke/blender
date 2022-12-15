@@ -52,6 +52,8 @@ class AttributeIDRef {
 };
 
 class AnonymousAttributeSet {
+ public:
+  Set<WeakAnonymousAttributeID> set;
 };
 
 class AnonymousAttributePropagationInfo {
