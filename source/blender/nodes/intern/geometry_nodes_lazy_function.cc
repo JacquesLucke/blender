@@ -126,6 +126,9 @@ class LazyFunctionForGeometryNode : public LazyFunction {
 
     const NodeDeclaration &node_decl = *node.declaration();
     for (const bNodeSocket *output_bsocket : node.output_sockets()) {
+      if (!output_bsocket->is_available()) {
+        continue;
+      }
       const SocketDeclaration &socket_decl = *node_decl.outputs()[output_bsocket->index()];
       if (socket_decl.output_reference_info_.available_on.has_value()) {
         {

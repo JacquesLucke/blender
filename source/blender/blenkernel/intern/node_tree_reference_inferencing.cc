@@ -366,17 +366,19 @@ bool update_reference_inferencing(const bNodeTree &tree)
   new_reference_info->inputs.resize(BLI_listbase_count(&tree.inputs));
   new_reference_info->outputs.resize(BLI_listbase_count(&tree.outputs));
 
-  for (const int input_index : new_reference_info->inputs.index_range()) {
-    new_reference_info->inputs[input_index].available_on =
-        get_inputs_that_referenced_data_is_expected_to_be_available_on(tree, input_index);
-  }
-  for (const int output_index : new_reference_info->outputs.index_range()) {
-    new_reference_info->outputs[output_index].available_on =
-        get_outputs_that_referenced_data_is_available_on(tree, output_index);
-    new_reference_info->outputs[output_index].pass_from = get_inputs_to_pass_references_from(
-        tree, output_index);
-    new_reference_info->outputs[output_index].propagate_from =
-        get_inputs_to_propagate_referenced_data_from(tree, output_index);
+  if (!tree.has_available_link_cycle()) {
+    for (const int input_index : new_reference_info->inputs.index_range()) {
+      new_reference_info->inputs[input_index].available_on =
+          get_inputs_that_referenced_data_is_expected_to_be_available_on(tree, input_index);
+    }
+    for (const int output_index : new_reference_info->outputs.index_range()) {
+      new_reference_info->outputs[output_index].available_on =
+          get_outputs_that_referenced_data_is_available_on(tree, output_index);
+      new_reference_info->outputs[output_index].pass_from = get_inputs_to_pass_references_from(
+          tree, output_index);
+      new_reference_info->outputs[output_index].propagate_from =
+          get_inputs_to_propagate_referenced_data_from(tree, output_index);
+    }
   }
 
   const bool group_interface_changed = !tree.runtime->reference_info ||
