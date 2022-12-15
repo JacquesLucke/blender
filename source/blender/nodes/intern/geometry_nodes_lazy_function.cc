@@ -792,7 +792,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   Map<const bNodeSocket *, lf::Node *> multi_input_socket_nodes_;
   Map<const bNodeSocket *, lf::OutputSocket *> attribute_set_outputs_;
   Map<const bNodeSocket *, lf::InputSocket *> propagate_attribute_set_inputs_;
+  Map<int, lf::OutputSocket *> group_create_reference_for_output_sockets_;
+  Map<int, lf::InputSocket *> group_attribute_set_in_output_;
+  Map<int, lf::OutputSocket *> group_propagate_to_output_sockets_;
   const bke::DataTypeConversions *conversions_;
+  const NodeReferenceInfo *tree_reference_info_;
 
   /**
    * All group input nodes are combined into one dummy node in the lazy-function graph.
@@ -824,11 +828,13 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     lf_graph_ = &lf_graph_info_->graph;
     mapping_ = &lf_graph_info_->mapping;
     conversions_ = &bke::get_implicit_type_conversions();
+    tree_reference_info_ = btree_.runtime->reference_info.get();
 
     this->prepare_node_multi_functions();
     this->prepare_group_inputs();
     this->prepare_group_outputs();
     this->build_group_input_node();
+    this->build_group_reference_sockets();
     this->handle_nodes();
     this->handle_links();
     this->analyze_references();
@@ -886,17 +892,42 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     }
   }
 
+  void build_group_reference_sockets()
+  {
+
+    for (const int i : tree_reference_info_->outputs.index_range()) {
+      if (group_input_indices_[i] == -1) {
+        continue;
+      }
+      const OutputSocketReferenceInfo &reference_info = tree_reference_info_->outputs[i];
+      if (reference_info.available_on.has_value()) {
+        {
+          lf::Node &lf_node = lf_graph_->add_dummy({}, {&CPPType::get<bool>()});
+          group_create_reference_for_output_sockets_.add(i, &lf_node.output(0));
+        }
+        {
+          lf::Node &lf_node = lf_graph_->add_dummy({&CPPType::get<bke::AnonymousAttributeSet>()},
+                                                   {});
+          group_attribute_set_in_output_.add(i, &lf_node.input(0));
+        }
+      }
+      if (!reference_info.propagate_from.is_empty()) {
+        lf::Node &lf_node = lf_graph_->add_dummy({},
+                                                 {&CPPType::get<bke::AnonymousAttributeSet>()});
+        group_propagate_to_output_sockets_.add(i, &lf_node.output(i));
+      }
+    }
+  }
+
   void analyze_references()
   {
-    const NodeReferenceInfo &tree_reference_info = *btree_.runtime->reference_info;
-
     MultiValueMap<const bNodeSocket *, const bNodeSocket *> propagated_map;
     MultiValueMap<const bNodeSocket *, const bNodeSocket *> reference_sources_map;
     for (const bNode *node : btree_.toposort_left_to_right()) {
       if (node->is_group_input()) {
         for (const bNodeSocket *socket : node->output_sockets().drop_back(1)) {
           for (const int available_on_index :
-               tree_reference_info.inputs[socket->index()].available_on) {
+               tree_reference_info_->inputs[socket->index()].available_on) {
             reference_sources_map.add(socket, socket);
             propagated_map.add(&node->output_socket(available_on_index), socket);
           }
@@ -970,7 +1001,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       else if (node->is_group_output()) {
         for (const bNodeSocket *socket : node->input_sockets().drop_back(1)) {
           for (const int available_on_index :
-               tree_reference_info.outputs[socket->index()].available_on.value_or(Vector<int>{})) {
+               tree_reference_info_->outputs[socket->index()].available_on.value_or(
+                   Vector<int>{})) {
             required_references_map.add_multiple(&node->input_socket(available_on_index),
                                                  reference_sources_map.lookup(socket));
           }
