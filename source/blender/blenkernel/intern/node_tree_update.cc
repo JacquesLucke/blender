@@ -473,6 +473,9 @@ class NodeTreeMainUpdater {
       if (node_field_inferencing::update_field_inferencing(ntree)) {
         result.interface_changed = true;
       }
+      if (node_reference_inferencing::update_reference_inferencing(ntree)) {
+        result.interface_changed = true;
+      }
     }
 
     result.output_changed = this->check_if_output_changed(ntree);

@@ -68,12 +68,33 @@ struct FieldInferencingInterface {
 
 struct InputSocketReferenceInfo {
   Vector<int> available_on;
+
+  friend bool operator==(const InputSocketReferenceInfo &a, const InputSocketReferenceInfo &b)
+  {
+    return a.available_on == b.available_on;
+  }
+
+  friend bool operator!=(const InputSocketReferenceInfo &a, const InputSocketReferenceInfo &b)
+  {
+    return !(a == b);
+  }
 };
 
 struct OutputSocketReferenceInfo {
   std::optional<Vector<int>> available_on;
   Vector<int> propagate_from;
   Vector<int> pass_from;
+
+  friend bool operator==(const OutputSocketReferenceInfo &a, const OutputSocketReferenceInfo &b)
+  {
+    return a.available_on == b.available_on && a.propagate_from == b.propagate_from &&
+           a.pass_from == b.pass_from;
+  }
+
+  friend bool operator!=(const OutputSocketReferenceInfo &a, const OutputSocketReferenceInfo &b)
+  {
+    return !(a == b);
+  }
 };
 
 struct NodeReferenceInfo {
@@ -548,6 +569,22 @@ inline bool operator==(const FieldInferencingInterface &a, const FieldInferencin
 }
 
 inline bool operator!=(const FieldInferencingInterface &a, const FieldInferencingInterface &b)
+{
+  return !(a == b);
+}
+
+/** \} */
+
+/* -------------------------------------------------------------------- */
+/** \name #NodeReferenceInfo Inline Methods
+ * \{ */
+
+inline bool operator==(const NodeReferenceInfo &a, const NodeReferenceInfo &b)
+{
+  return a.inputs == b.inputs && a.outputs == b.outputs;
+}
+
+inline bool operator!=(const NodeReferenceInfo &a, const NodeReferenceInfo &b)
 {
   return !(a == b);
 }

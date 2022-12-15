@@ -230,6 +230,7 @@ set(SRC
   intern/node.cc
   intern/node_runtime.cc
   intern/node_tree_field_inferencing.cc
+  intern/node_tree_reference_inferencing.cc
   intern/node_tree_update.cc
   intern/object.cc
   intern/object_deform.c
