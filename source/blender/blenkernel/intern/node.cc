@@ -208,6 +208,10 @@ static void ntree_copy_data(Main * /*bmain*/, ID *id_dst, const ID *id_src, cons
     dst_runtime.field_inferencing_interface = std::make_unique<FieldInferencingInterface>(
         *ntree_src->runtime->field_inferencing_interface);
   }
+  if (ntree_src->runtime->reference_info) {
+    dst_runtime.reference_info = std::make_unique<blender::nodes::NodeReferenceInfo>(
+        *ntree_src->runtime->reference_info);
+  }
 
   if (flag & LIB_ID_COPY_NO_PREVIEW) {
     ntree_dst->preview = nullptr;
