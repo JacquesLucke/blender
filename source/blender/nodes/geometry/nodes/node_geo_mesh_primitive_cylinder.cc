@@ -46,6 +46,7 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Bool>(N_("Top")).field_on_auto();
   b.add_output<decl::Bool>(N_("Side")).field_on_auto();
   b.add_output<decl::Bool>(N_("Bottom")).field_on_auto();
+  b.add_output<decl::Vector>(N_("UV Map")).field_on_auto();
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
@@ -109,6 +110,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   attribute_outputs.top_id = params.get_data_reference_if_needed("Top");
   attribute_outputs.bottom_id = params.get_data_reference_if_needed("Bottom");
   attribute_outputs.side_id = params.get_data_reference_if_needed("Side");
+  attribute_outputs.uv_map_id = params.get_data_reference_if_needed("UV Map");
 
   /* The cylinder is a special case of the cone mesh where the top and bottom radius are equal. */
   Mesh *mesh = create_cylinder_or_cone_mesh(radius,
@@ -135,6 +137,12 @@ static void node_geo_exec(GeoNodeExecParams params)
     params.set_output("Side",
                       AnonymousAttributeFieldInput::Create<bool>(
                           std::move(attribute_outputs.side_id), params.attribute_producer_name()));
+  }
+  if (attribute_outputs.uv_map_id) {
+    params.set_output(
+        "UV Map",
+        AnonymousAttributeFieldInput::Create<float3>(std::move(attribute_outputs.uv_map_id),
+                                                     params.attribute_producer_name()));
   }
 
   params.set_output("Mesh", GeometrySet::create_with_mesh(mesh));
