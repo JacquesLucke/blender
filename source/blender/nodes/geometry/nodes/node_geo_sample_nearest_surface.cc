@@ -31,11 +31,11 @@ static void node_declare(NodeDeclarationBuilder &b)
 
   b.add_input<decl::Vector>(N_("Sample Position")).implicit_field(implicit_field_inputs::position);
 
-  b.add_output<decl::Float>(N_("Value"), "Value_Float").dependent_field_reference_pass({6});
-  b.add_output<decl::Int>(N_("Value"), "Value_Int").dependent_field_reference_pass({6});
-  b.add_output<decl::Vector>(N_("Value"), "Value_Vector").dependent_field_reference_pass({6});
-  b.add_output<decl::Color>(N_("Value"), "Value_Color").dependent_field_reference_pass({6});
-  b.add_output<decl::Bool>(N_("Value"), "Value_Bool").dependent_field_reference_pass({6});
+  b.add_output<decl::Float>(N_("Value"), "Value_Float").dependent_field({6});
+  b.add_output<decl::Int>(N_("Value"), "Value_Int").dependent_field({6});
+  b.add_output<decl::Vector>(N_("Value"), "Value_Vector").dependent_field({6});
+  b.add_output<decl::Color>(N_("Value"), "Value_Color").dependent_field({6});
+  b.add_output<decl::Bool>(N_("Value"), "Value_Bool").dependent_field({6});
 }
 
 static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)

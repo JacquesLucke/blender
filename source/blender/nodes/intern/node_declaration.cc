@@ -31,45 +31,74 @@ void NodeDeclarationBuilder::finalize()
       socket_builder->reference_pass_all_ = true;
     }
   }
+
+  Vector<int> geometry_inputs;
+  for (const int i : declaration_.inputs_.index_range()) {
+    if (dynamic_cast<decl::Geometry *>(declaration_.inputs_[i].get())) {
+      geometry_inputs.append(i);
+    }
+  }
+  Vector<int> geometry_outputs;
+  for (const int i : declaration_.outputs_.index_range()) {
+    if (dynamic_cast<decl::Geometry *>(declaration_.outputs_[i].get())) {
+      geometry_outputs.append(i);
+    }
+  }
+
   for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : input_builders_) {
     if (socket_builder->reference_on_auto_) {
-      SocketDeclaration &socket_decl = *socket_builder->declaration();
-      for (const int input_i : declaration_.inputs_.index_range()) {
-        SocketDeclaration &other_socket_decl = *declaration_.inputs_[input_i];
-        if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
-          socket_decl.input_reference_info_.available_on.append(input_i);
-        }
+      aal::RelationsInNode &relations = this->get_anonymous_attribute_relations();
+      const int field_input = socket_builder->index_;
+      for (const int geometry_input : geometry_inputs) {
+        relations.eval_on_relations.append({field_input, geometry_input});
       }
     }
   }
   for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : output_builders_) {
     if (socket_builder->reference_on_auto_) {
-      SocketDeclaration &socket_decl = *socket_builder->declaration();
-      socket_decl.output_reference_info_.available_on.emplace();
-      for (const int output_i : declaration_.outputs_.index_range()) {
-        SocketDeclaration &other_socket_decl = *declaration_.outputs_[output_i];
-        if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
-          socket_decl.output_reference_info_.available_on->append(output_i);
-        }
+      aal::RelationsInNode &relations = this->get_anonymous_attribute_relations();
+      const int field_output = socket_builder->index_;
+      for (const int geometry_output : geometry_outputs) {
+        relations.available_on_relations.append({field_output, geometry_output});
       }
     }
     if (socket_builder->reference_pass_all_) {
-      SocketDeclaration &socket_decl = *socket_builder->declaration();
+      aal::RelationsInNode &relations = this->get_anonymous_attribute_relations();
+      const int field_output = socket_builder->index_;
       for (const int input_i : declaration_.inputs_.index_range()) {
-        socket_decl.output_reference_info_.pass_from.append(input_i);
+        SocketDeclaration &input_socket_decl = *declaration_.inputs_[input_i];
+        if (input_socket_decl.input_field_type_ != InputSocketFieldType::None) {
+          relations.pass_reference_relations.append({input_i, field_output});
+        }
       }
     }
     if (socket_builder->propagate_from_auto_) {
-      SocketDeclaration &socket_decl = *socket_builder->declaration();
-      for (const int input_i : declaration_.inputs_.index_range()) {
-        SocketDeclaration &other_socket_decl = *declaration_.inputs_[input_i];
-        if (dynamic_cast<decl::Geometry *>(&other_socket_decl)) {
-          socket_decl.output_reference_info_.propagate_from.append(input_i);
-        }
+      aal::RelationsInNode &relations = this->get_anonymous_attribute_relations();
+      const int geometry_output = socket_builder->index_;
+      for (const int geometry_input : geometry_inputs) {
+        relations.propagate_attribute_relations.append({geometry_input, geometry_output});
       }
     }
   }
 }
+
+namespace anonymous_attribute_lifetime {
+
+bool operator==(const RelationsInNode &a, const RelationsInNode &b)
+{
+  return a.propagate_attribute_relations == b.propagate_attribute_relations &&
+         a.pass_reference_relations == b.pass_reference_relations &&
+         a.eval_on_relations == b.eval_on_relations &&
+         a.available_on_relations == b.available_on_relations &&
+         a.available_on_none == b.available_on_none;
+}
+
+bool operator!=(const RelationsInNode &a, const RelationsInNode &b)
+{
+  return !(a == b);
+}
+
+}  // namespace anonymous_attribute_lifetime
 
 bool NodeDeclaration::matches(const bNode &node) const
 {
