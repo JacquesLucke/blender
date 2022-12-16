@@ -157,6 +157,12 @@ class Vector {
     this->increase_size_by_unchecked(size);
   }
 
+  template<typename U, BLI_ENABLE_IF((std::is_convertible_v<U, T>))>
+  explicit Vector(MutableSpan<U> values, Allocator allocator = {})
+      : Vector(values.as_span(), allocator)
+  {
+  }
+
   /**
    * Create a vector that contains copies of the values in the initialized list.
    *

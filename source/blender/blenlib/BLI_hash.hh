@@ -67,6 +67,7 @@
 #include "BLI_math_base.h"
 #include "BLI_string_ref.hh"
 #include "BLI_utildefines.h"
+#include "BLI_vector.hh"
 
 namespace blender {
 
@@ -270,6 +271,14 @@ template<typename T1, typename T2> struct DefaultHash<std::pair<T1, T2>> {
   uint64_t operator()(const std::pair<T1, T2> &value) const
   {
     return get_default_hash_2(value.first, value.second);
+  }
+};
+
+template<typename T, int64_t InlineBufferCapacity, typename Allocator>
+struct DefaultHash<Vector<T, InlineBufferCapacity, Allocator>> {
+  uint64_t operator()(const Span<T> value) const
+  {
+    return value.hash();
   }
 };
 

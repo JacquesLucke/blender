@@ -885,21 +885,27 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->handle_links();
     this->add_default_inputs();
 
-    auto or_socket_usages = [&](const Span<lf::OutputSocket *> usages) -> lf::OutputSocket * {
+    Map<Vector<lf::OutputSocket *>, lf::OutputSocket *> or_map;
+
+    auto or_socket_usages = [&](MutableSpan<lf::OutputSocket *> usages) -> lf::OutputSocket * {
       if (usages.is_empty()) {
         return nullptr;
       }
       if (usages.size() == 1) {
         return usages[0];
       }
-      auto logical_or_fn = std::make_unique<LazyFunctionForLogicalOr>(usages.size());
-      lf::Node &logical_or_node = lf_graph_->add_function(*logical_or_fn);
-      lf_graph_info_->functions.append(std::move(logical_or_fn));
 
-      for (const int i : usages.index_range()) {
-        lf_graph_->add_link(*usages[i], logical_or_node.input(i));
-      }
-      return &logical_or_node.output(0);
+      std::sort(usages.begin(), usages.end());
+      return or_map.lookup_or_add_cb_as(usages, [&]() {
+        auto logical_or_fn = std::make_unique<LazyFunctionForLogicalOr>(usages.size());
+        lf::Node &logical_or_node = lf_graph_->add_function(*logical_or_fn);
+        lf_graph_info_->functions.append(std::move(logical_or_fn));
+
+        for (const int i : usages.index_range()) {
+          lf_graph_->add_link(*usages[i], logical_or_node.input(i));
+        }
+        return &logical_or_node.output(0);
+      });
     };
 
     for (const bNode *bnode : btree_.toposort_right_to_left()) {

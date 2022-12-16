@@ -353,4 +353,15 @@ template<typename T> struct DefaultEquality<std::unique_ptr<T>> : public Pointer
 template<typename T> struct DefaultEquality<std::shared_ptr<T>> : public PointerComparison {
 };
 
+template<typename T> struct SpanComparison {
+  template<typename T1, typename T2> bool operator()(const T1 &a, const T2 &b) const
+  {
+    return Span<T>(a) == Span<T>(b);
+  }
+};
+
+template<typename T, int64_t InlineBufferCapacity, typename Allocator>
+struct DefaultEquality<Vector<T, InlineBufferCapacity, Allocator>> : public SpanComparison<T> {
+};
+
 }  // namespace blender
