@@ -1577,25 +1577,32 @@ class UsedSocketVisualizeOptions : public lf::Graph::ToDotOptions {
  private:
   const GeometryNodesLazyFunctionGraphBuilder &builder_;
   Map<const lf::Socket *, std::string> socket_font_colors_;
+  Map<const lf::Socket *, std::string> socket_name_suffixes_;
 
  public:
   UsedSocketVisualizeOptions(const GeometryNodesLazyFunctionGraphBuilder &builder)
       : builder_(builder)
   {
+    VectorSet<lf::OutputSocket *> found;
     for (const auto [bsocket, lf_used_socket] : builder_.socket_is_used_map_.items()) {
       const float hue = BLI_hash_int_01(uintptr_t(lf_used_socket));
       std::stringstream ss;
       ss << hue << " 0.9 0.5";
-      std::string color_str = ss.str();
+      const std::string color_str = ss.str();
+      const std::string suffix = " (" + std::to_string(found.index_of_or_add(lf_used_socket)) +
+                                 ")";
       socket_font_colors_.add(lf_used_socket, color_str);
+      socket_name_suffixes_.add(lf_used_socket, suffix);
 
       if (bsocket->is_input()) {
         for (const lf::InputSocket *lf_socket : builder_.input_socket_map_.lookup(bsocket)) {
           socket_font_colors_.add(lf_socket, color_str);
+          socket_name_suffixes_.add(lf_socket, suffix);
         }
       }
       else if (lf::OutputSocket *lf_socket = builder_.output_socket_map_.lookup(bsocket)) {
         socket_font_colors_.add(lf_socket, color_str);
+        socket_name_suffixes_.add(lf_socket, suffix);
       }
     }
   }
@@ -1606,6 +1613,11 @@ class UsedSocketVisualizeOptions : public lf::Graph::ToDotOptions {
       return *color;
     }
     return std::nullopt;
+  }
+
+  std::string socket_name(const lf::Socket &socket) const override
+  {
+    return socket.name() + socket_name_suffixes_.lookup_default(&socket, "");
   }
 };
 

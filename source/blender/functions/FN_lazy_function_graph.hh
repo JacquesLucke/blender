@@ -240,6 +240,7 @@ class Graph : NonCopyable, NonMovable {
 
   class ToDotOptions {
    public:
+    virtual std::string socket_name(const Socket &socket) const;
     virtual std::optional<std::string> socket_font_color(const Socket &socket) const;
   };
 
