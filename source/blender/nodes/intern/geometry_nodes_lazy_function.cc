@@ -857,8 +857,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   Map<const bNodeSocket *, lf::Node *> multi_input_socket_nodes_;
   const bke::DataTypeConversions *conversions_;
   Map<const bNodeSocket *, lf::OutputSocket *> socket_is_used_map_;
-  Map<int, lf::OutputSocket *> group_output_is_used_map_;
-  Map<int, lf::InputSocket *> group_input_is_used_map_;
 
   /**
    * All group input nodes are combined into one dummy node in the lazy-function graph.
@@ -914,12 +912,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     for (const int i : btree_.interface_outputs().index_range()) {
       const bNodeSocket &interface_bsocket = *btree_.interface_outputs()[i];
-      const CPPType *type = interface_bsocket.typeinfo->geometry_nodes_cpp_type;
       auto debug_info = std::make_unique<OutputIsUsedDebugInfo>();
       debug_info->name = interface_bsocket.name;
       lf::DummyNode &node = lf_graph_->add_dummy({}, {&CPPType::get<bool>()}, debug_info.get());
       lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
-      group_output_is_used_map_.add(i, &node.output(0));
+      mapping_->group_output_used_sockets.append(&node.output(0));
     }
 
     for (const bNode *bnode : btree_.toposort_right_to_left()) {
@@ -964,7 +961,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         case NODE_GROUP_OUTPUT: {
           for (const bNodeSocket *bsocket : bnode->input_sockets().drop_back(1)) {
             const int index = bsocket->index();
-            socket_is_used_map_.add_new(bsocket, group_output_is_used_map_.lookup(index));
+            socket_is_used_map_.add_new(bsocket, mapping_->group_output_used_sockets[index]);
           }
           break;
         }
@@ -1068,23 +1065,20 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
     }
 
-    {
-      int input_index;
-      LISTBASE_FOREACH_INDEX (
-          const bNodeSocket *, interface_bsocket, &btree_.inputs, input_index) {
-        lf::OutputSocket *lf_socket = or_socket_usages(inputs_used_map.lookup(input_index));
-        auto debug_info = std::make_unique<InputIsUsedDebugInfo>();
-        debug_info->name = interface_bsocket->name;
-        lf::DummyNode &node = lf_graph_->add_dummy({&CPPType::get<bool>()}, {}, debug_info.get());
-        lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
-        group_input_is_used_map_.add_new(input_index, &node.input(0));
-        if (lf_socket == nullptr) {
-          static const bool static_false = false;
-          node.input(0).set_default_value(&static_false);
-        }
-        else {
-          lf_graph_->add_link(*lf_socket, node.input(0));
-        }
+    for (const int i : btree_.interface_inputs().index_range()) {
+      const bNodeSocket &interface_bsocket = *btree_.interface_inputs()[i];
+      lf::OutputSocket *lf_socket = or_socket_usages(inputs_used_map.lookup(i));
+      auto debug_info = std::make_unique<InputIsUsedDebugInfo>();
+      debug_info->name = interface_bsocket.name;
+      lf::DummyNode &node = lf_graph_->add_dummy({&CPPType::get<bool>()}, {}, debug_info.get());
+      lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
+      mapping_->group_input_used_sockets.append({InputUsageType::Socket, &node.input(0)});
+      if (lf_socket == nullptr) {
+        static const bool static_false = false;
+        node.input(0).set_default_value(&static_false);
+      }
+      else {
+        lf_graph_->add_link(*lf_socket, node.input(0));
       }
     }
 

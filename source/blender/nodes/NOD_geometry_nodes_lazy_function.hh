@@ -66,6 +66,18 @@ struct GeoNodesLFUserData : public lf::UserData {
   const ComputeContext *compute_context = nullptr;
 };
 
+/* TODO: Figure out how to deal with side effect nodes. */
+enum class InputUsageType {
+  Never,
+  Any,
+  Socket,
+};
+
+struct InputUsage {
+  InputUsageType type = InputUsageType::Any;
+  const lf::InputSocket *socket = nullptr;
+};
+
 /**
  * Contains the mapping between the #bNodeTree and the corresponding lazy-function graph.
  * This is *not* a one-to-one mapping.
@@ -80,6 +92,8 @@ struct GeometryNodeLazyFunctionGraphMapping {
    * lazy-function graph.
    */
   Vector<lf::OutputSocket *> group_input_sockets;
+  Vector<lf::OutputSocket *> group_output_used_sockets;
+  Vector<InputUsage> group_input_used_sockets;
   /**
    * A mapping used for logging intermediate values.
    */
