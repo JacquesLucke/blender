@@ -21,9 +21,12 @@ struct bNodeType;
 
 namespace blender::nodes {
 struct FieldInferencingInterface;
-struct NodeReferenceInfo;
 class NodeDeclaration;
 struct GeometryNodesLazyFunctionGraphInfo;
+namespace anonymous_attribute_lifetime {
+struct RelationsInNode;
+}
+namespace aal = anonymous_attribute_lifetime;
 }  // namespace blender::nodes
 
 namespace blender {
@@ -107,7 +110,7 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   /** Information about how inputs and outputs of the node group interact with fields. */
   std::unique_ptr<nodes::FieldInferencingInterface> field_inferencing_interface;
   /** Information about usage of data references (anonymous attributes). */
-  std::unique_ptr<nodes::NodeReferenceInfo> reference_info;
+  std::unique_ptr<nodes::aal::RelationsInNode> anonymous_attribute_relations;
 
   /**
    * For geometry nodes, a lazy function graph with some additional info is cached. This is used to
@@ -328,11 +331,6 @@ inline bool topology_cache_is_available(const bNodeSocket &socket)
 namespace node_field_inferencing {
 bool update_field_inferencing(const bNodeTree &tree);
 }
-namespace node_reference_inferencing {
-nodes::NodeReferenceInfo get_node_reference_info(const bNode &node);
-bool update_reference_inferencing(const bNodeTree &tree);
-}  // namespace node_reference_inferencing
-
 }  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */

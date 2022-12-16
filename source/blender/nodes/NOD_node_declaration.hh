@@ -71,21 +71,42 @@ namespace anonymous_attribute_lifetime {
 struct PropagateAttributeRelation {
   int from_geometry_input;
   int to_geometry_output;
+
+  friend bool operator==(const PropagateAttributeRelation &a, const PropagateAttributeRelation &b)
+  {
+    return a.from_geometry_input == b.from_geometry_input &&
+           a.to_geometry_output == b.to_geometry_output;
+  }
 };
 
 struct PassReferenceRelation {
   int from_field_input;
   int to_field_output;
+
+  friend bool operator==(const PassReferenceRelation &a, const PassReferenceRelation &b)
+  {
+    return a.from_field_input == b.from_field_input && a.to_field_output == b.to_field_output;
+  }
 };
 
 struct EvalOnRelation {
   int field_input;
   int geometry_input;
+
+  friend bool operator==(const EvalOnRelation &a, const EvalOnRelation &b)
+  {
+    return a.field_input == b.field_input && a.geometry_input == b.geometry_input;
+  }
 };
 
 struct AvailableOnRelation {
   int field_output;
   int geometry_output;
+
+  friend bool operator==(const AvailableOnRelation &a, const AvailableOnRelation &b)
+  {
+    return a.field_output == b.field_output && a.geometry_output == b.geometry_output;
+  }
 };
 
 struct RelationsInNode {
@@ -347,14 +368,7 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
     return *(Self *)this;
   }
 
-  Self &reference_pass(Vector<int> input_indices)
-  {
-    aal::RelationsInNode &relations = node_decl_builder_->get_anonymous_attribute_relations();
-    for (const int from_input : input_indices) {
-      relations.pass_reference_relations.append({from_input, index_});
-    }
-    return *(Self *)this;
-  }
+  Self &reference_pass(Vector<int> input_indices);
 
   Self &reference_pass_all()
   {
@@ -487,6 +501,17 @@ void id_or_index(const bNode &node, void *r_value);
 }  // namespace implicit_field_inputs
 
 void build_node_declaration(const bNodeType &typeinfo, NodeDeclaration &r_declaration);
+
+template<typename SocketDecl>
+typename SocketDeclarationBuilder<SocketDecl>::Self &SocketDeclarationBuilder<
+    SocketDecl>::reference_pass(Vector<int> input_indices)
+{
+  aal::RelationsInNode &relations = node_decl_builder_->get_anonymous_attribute_relations();
+  for (const int from_input : input_indices) {
+    relations.pass_reference_relations.append({from_input, index_});
+  }
+  return *(Self *)this;
+}
 
 /* -------------------------------------------------------------------- */
 /** \name #OutputFieldDependency Inline Methods
