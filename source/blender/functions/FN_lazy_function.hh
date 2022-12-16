@@ -166,6 +166,7 @@ class Params {
    */
   template<typename T> T extract_input(int index);
   template<typename T> const T &get_input(int index) const;
+  template<typename T> const T *try_get_input_data_ptr(int index) const;
   template<typename T> T *try_get_input_data_ptr_or_request(int index);
   template<typename T> void set_output(int index, T &&value);
 
@@ -396,6 +397,12 @@ template<typename T> inline const T &Params::get_input(const int index) const
   const void *data = this->try_get_input_data_ptr(index);
   BLI_assert(data != nullptr);
   return *static_cast<const T *>(data);
+}
+
+template<typename T> inline const T *Params::try_get_input_data_ptr(const int index) const
+{
+  this->assert_valid_thread();
+  return static_cast<T *>(this->try_get_input_data_ptr(index));
 }
 
 template<typename T> inline T *Params::try_get_input_data_ptr_or_request(const int index)

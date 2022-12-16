@@ -248,15 +248,43 @@ class UndirectedEdge : public Edge {
 
 std::string color_attr_from_hsv(float h, float s, float v);
 
+struct NodeWithSockets {
+  struct Socket {
+    std::string name;
+    std::optional<std::string> fontcolor;
+  };
+  struct Input : public Socket {
+  };
+  struct Output : public Socket {
+  };
+
+  std::string node_name;
+  Vector<Input> inputs;
+  Vector<Output> outputs;
+
+  Input &add_input(std::string name)
+  {
+    this->inputs.append({});
+    Input &input = this->inputs.last();
+    input.name = std::move(name);
+    return input;
+  }
+
+  Output &add_output(std::string name)
+  {
+    this->outputs.append({});
+    Output &output = this->outputs.last();
+    output.name = std::move(name);
+    return output;
+  }
+};
+
 class NodeWithSocketsRef {
  private:
   Node *node_;
 
  public:
-  NodeWithSocketsRef(Node &node,
-                     StringRef name,
-                     Span<std::string> input_names,
-                     Span<std::string> output_names);
+  NodeWithSocketsRef(Node &node, const NodeWithSockets &data);
 
   Node &node()
   {

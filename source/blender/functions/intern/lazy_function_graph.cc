@@ -152,7 +152,12 @@ std::string DummyDebugInfo::output_name(const int /*i*/) const
   return fallback_name;
 }
 
-std::string Graph::to_dot() const
+std::optional<std::string> Graph::ToDotOptions::socket_font_color(const Socket & /*socket*/) const
+{
+  return std::nullopt;
+}
+
+std::string Graph::to_dot(const ToDotOptions &options) const
 {
   dot::DirectedGraph digraph;
   digraph.set_rankdir(dot::Attr_rankdir::LeftToRight);
@@ -168,17 +173,18 @@ std::string Graph::to_dot() const
       dot_node.set_background_color("white");
     }
 
-    Vector<std::string> input_names;
-    Vector<std::string> output_names;
+    dot::NodeWithSockets dot_node_with_sockets;
+    dot_node_with_sockets.node_name = node->name();
     for (const InputSocket *socket : node->inputs()) {
-      input_names.append(socket->name());
+      dot::NodeWithSockets::Input &dot_input = dot_node_with_sockets.add_input(socket->name());
+      dot_input.fontcolor = options.socket_font_color(*socket);
     }
     for (const OutputSocket *socket : node->outputs()) {
-      output_names.append(socket->name());
+      dot::NodeWithSockets::Output &dot_output = dot_node_with_sockets.add_output(socket->name());
+      dot_output.fontcolor = options.socket_font_color(*socket);
     }
 
-    dot_nodes.add_new(node,
-                      dot::NodeWithSocketsRef(dot_node, node->name(), input_names, output_names));
+    dot_nodes.add_new(node, dot::NodeWithSocketsRef(dot_node, dot_node_with_sockets));
   }
 
   for (const Node *node : nodes_) {

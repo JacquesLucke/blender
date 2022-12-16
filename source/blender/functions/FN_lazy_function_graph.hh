@@ -238,10 +238,15 @@ class Graph : NonCopyable, NonMovable {
    */
   bool node_indices_are_valid() const;
 
+  class ToDotOptions {
+   public:
+    virtual std::optional<std::string> socket_font_color(const Socket &socket) const;
+  };
+
   /**
    * Utility to generate a dot graph string for the graph. This can be used for debugging.
    */
-  std::string to_dot() const;
+  std::string to_dot(const ToDotOptions &options = {}) const;
 };
 
 /* -------------------------------------------------------------------- */
