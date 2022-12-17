@@ -1022,7 +1022,9 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         case NODE_GROUP_OUTPUT: {
           for (const bNodeSocket *bsocket : bnode->input_sockets().drop_back(1)) {
             const int index = bsocket->index();
-            socket_is_used_map_.add_new(bsocket, mapping_->group_output_used_sockets[index]);
+            socket_is_used_map_.add_new(
+                bsocket,
+                const_cast<lf::OutputSocket *>(mapping_->group_output_used_sockets[index]));
           }
           break;
         }
@@ -1097,10 +1099,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           if (group_lf_graph_info == nullptr) {
             break;
           }
-          const lf::FunctionNode &lf_group_node = *mapping_->group_node_map.lookup(bnode);
+          lf::FunctionNode &lf_group_node = const_cast<lf::FunctionNode &>(
+              *mapping_->group_node_map.lookup(bnode));
           const auto &fn = static_cast<const LazyFunctionForGroupNode &>(lf_group_node.function());
-          for (const bNodeSocket *input_socket : bnode->input_sockets()) {
-            const int input_index = input_socket->index();
+          for (const bNodeSocket *input_bsocket : bnode->input_sockets()) {
+            const int input_index = input_bsocket->index();
             const InputUsage &input_usage =
                 group_lf_graph_info->mapping.group_input_used_sockets[input_index];
             switch (input_usage.type) {
@@ -1115,9 +1118,21 @@ struct GeometryNodesLazyFunctionGraphBuilder {
               case InputUsageType::DynamicSocket: {
                 lf::OutputSocket &lf_input_is_used_socket = const_cast<lf::OutputSocket &>(
                     lf_group_node.output(fn.lf_output_by_bsocket_input_.lookup(input_index)));
-                socket_is_used_map_.add_new(input_socket, &lf_input_is_used_socket);
+                socket_is_used_map_.add_new(input_bsocket, &lf_input_is_used_socket);
                 break;
               }
+            }
+          }
+          for (const bNodeSocket *output_bsocket : bnode->output_sockets()) {
+            const int output_index = output_bsocket->index();
+            const int lf_input_index = fn.lf_input_by_bsocket_output_.lookup(output_index);
+            lf::InputSocket &lf_socket = lf_group_node.input(lf_input_index);
+            if (lf::OutputSocket *lf_output_is_used = socket_is_used_map_.lookup(output_bsocket)) {
+              lf_graph_->add_link(*lf_output_is_used, lf_socket);
+            }
+            else {
+              static const bool static_false = false;
+              lf_socket.set_default_value(&static_false);
             }
           }
           break;

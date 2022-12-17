@@ -93,9 +93,9 @@ struct GeometryNodeLazyFunctionGraphMapping {
    * The inputs sockets in the graph. Multiple group input nodes are combined into one in the
    * lazy-function graph.
    */
-  Vector<lf::OutputSocket *> group_input_sockets;
-  Vector<lf::InputSocket *> standard_group_output_sockets;
-  Vector<lf::OutputSocket *> group_output_used_sockets;
+  Vector<const lf::OutputSocket *> group_input_sockets;
+  Vector<const lf::InputSocket *> standard_group_output_sockets;
+  Vector<const lf::OutputSocket *> group_output_used_sockets;
   Vector<InputUsage> group_input_used_sockets;
   /**
    * A mapping used for logging intermediate values.
