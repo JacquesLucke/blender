@@ -66,15 +66,17 @@ struct GeoNodesLFUserData : public lf::UserData {
   const ComputeContext *compute_context = nullptr;
 };
 
-/* TODO: Figure out how to deal with side effect nodes. */
 enum class InputUsageType {
   Never,
-  Any,
-  Socket,
+  DependsOnOutput,
+  DynamicSocket,
 };
 
 struct InputUsage {
-  InputUsageType type = InputUsageType::Any;
+  InputUsageType type = InputUsageType::DependsOnOutput;
+  /** Used in depends-on-output mode. */
+  Vector<int> output_dependencies;
+  /** Used in dynamic-socket mode. */
   const lf::InputSocket *socket = nullptr;
 };
 
