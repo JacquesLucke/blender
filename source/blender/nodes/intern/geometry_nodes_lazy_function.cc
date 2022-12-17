@@ -615,9 +615,6 @@ class LazyFunctionForGroupNode : public LazyFunction {
     Vector<const bNodeSocket *> tmp_outputs;
     lazy_function_interface_from_node(group_node, tmp_inputs, tmp_outputs, inputs_, outputs_);
 
-    bNodeTree *group_btree = reinterpret_cast<bNodeTree *>(group_node_.id);
-    BLI_assert(group_btree != nullptr);
-
     has_many_nodes_ = lf_graph_info.num_inline_nodes_approximate > 1000;
 
     Vector<const lf::OutputSocket *> graph_inputs;
@@ -680,6 +677,13 @@ class LazyFunctionForGroupNode : public LazyFunction {
   void destruct_storage(void *storage) const override
   {
     graph_executor_->destruct_storage(storage);
+  }
+
+  std::string name() const override
+  {
+    std::stringstream ss;
+    ss << "Group '" << (group_node_.id->name + 2) << "'";
+    return ss.str();
   }
 
   std::string input_name(const int i) const override
