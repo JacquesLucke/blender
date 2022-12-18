@@ -86,6 +86,14 @@ void Graph::add_link(OutputSocket &from, InputSocket &to)
   from.targets_.append(&to);
 }
 
+void Graph::clear_origin(InputSocket &socket)
+{
+  if (socket.origin_ != nullptr) {
+    socket.origin_->targets_.remove_first_occurrence_and_reorder(&socket);
+    socket.origin_ = nullptr;
+  }
+}
+
 void Graph::update_node_indices()
 {
   for (const int i : nodes_.index_range()) {

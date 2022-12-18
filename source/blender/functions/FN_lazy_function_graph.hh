@@ -209,6 +209,7 @@ class Graph : NonCopyable, NonMovable {
    * Get all nodes in the graph. The index in the span corresponds to #Node::index_in_graph.
    */
   Span<const Node *> nodes() const;
+  Span<Node *> nodes();
 
   /**
    * Add a new function node with sockets that match the passed in #LazyFunction.
@@ -227,6 +228,8 @@ class Graph : NonCopyable, NonMovable {
    * This has undefined behavior when the input is linked to something else already.
    */
   void add_link(OutputSocket &from, InputSocket &to);
+
+  void clear_origin(InputSocket &socket);
 
   /**
    * Make sure that #Node::index_in_graph is up to date.
@@ -430,6 +433,11 @@ inline const LazyFunction &FunctionNode::function() const
  * \{ */
 
 inline Span<const Node *> Graph::nodes() const
+{
+  return nodes_;
+}
+
+inline Span<Node *> Graph::nodes()
 {
   return nodes_;
 }
