@@ -244,6 +244,9 @@ void NodePort::to_dot_string(std::stringstream &ss) const
   if (port_name_.has_value()) {
     ss << ":" << *port_name_;
   }
+  if (port_position_.has_value()) {
+    ss << ":" << *port_position_;
+  }
 }
 
 std::string color_attr_from_hsv(float h, float s, float v)

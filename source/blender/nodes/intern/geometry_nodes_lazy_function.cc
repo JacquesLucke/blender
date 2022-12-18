@@ -1127,7 +1127,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             const int output_index = output_bsocket->index();
             const int lf_input_index = fn.lf_input_by_bsocket_output_.lookup(output_index);
             lf::InputSocket &lf_socket = lf_group_node.input(lf_input_index);
-            if (lf::OutputSocket *lf_output_is_used = socket_is_used_map_.lookup(output_bsocket)) {
+            if (lf::OutputSocket *lf_output_is_used = socket_is_used_map_.lookup_default(
+                    output_bsocket, nullptr)) {
               lf_graph_->add_link(*lf_output_is_used, lf_socket);
             }
             else {
@@ -1706,6 +1707,7 @@ class UsedSocketVisualizeOptions : public lf::Graph::ToDotOptions {
     for (const auto [bsocket, lf_used_socket] : builder_.socket_is_used_map_.items()) {
       const float hue = BLI_hash_int_01(uintptr_t(lf_used_socket));
       std::stringstream ss;
+      ss.precision(3);
       ss << hue << " 0.9 0.5";
       const std::string color_str = ss.str();
       const std::string suffix = " (" + std::to_string(found.index_of_or_add(lf_used_socket)) +

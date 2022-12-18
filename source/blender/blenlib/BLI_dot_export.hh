@@ -184,10 +184,13 @@ class NodePort {
  private:
   Node *node_;
   std::optional<std::string> port_name_;
+  std::optional<std::string> port_position_;
 
  public:
-  NodePort(Node &node, std::optional<std::string> port_name = {})
-      : node_(&node), port_name_(std::move(port_name))
+  NodePort(Node &node,
+           std::optional<std::string> port_name = {},
+           std::optional<std::string> port_position = {})
+      : node_(&node), port_name_(std::move(port_name)), port_position_(std::move(port_position))
   {
   }
 
@@ -294,13 +297,13 @@ class NodeWithSocketsRef {
   NodePort input(int index) const
   {
     std::string port = "\"in" + std::to_string(index) + "\"";
-    return NodePort(*node_, port);
+    return NodePort(*node_, port, "w");
   }
 
   NodePort output(int index) const
   {
     std::string port = "\"out" + std::to_string(index) + "\"";
-    return NodePort(*node_, port);
+    return NodePort(*node_, port, "e");
   }
 };
 
