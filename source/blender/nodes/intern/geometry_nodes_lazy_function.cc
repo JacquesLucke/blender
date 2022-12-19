@@ -143,7 +143,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
 
-    GeoNodeExecParams geo_params{node_, params, context};
+    GeoNodeExecParams geo_params{node_, params, context, lf_input_for_output_};
 
     geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     node_.typeinfo->geometry_node_execute(geo_params);

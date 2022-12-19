@@ -49,10 +49,17 @@ class GeoNodeExecParams {
   const bNode &node_;
   lf::Params &params_;
   const lf::Context &lf_context_;
+  const Map<StringRef, int> &input_for_anonymous_attribute_output_;
 
  public:
-  GeoNodeExecParams(const bNode &node, lf::Params &params, const lf::Context &lf_context)
-      : node_(node), params_(params), lf_context_(lf_context)
+  GeoNodeExecParams(const bNode &node,
+                    lf::Params &params,
+                    const lf::Context &lf_context,
+                    const Map<StringRef, int> &input_for_anonymous_attribute_output)
+      : node_(node),
+        params_(params),
+        lf_context_(lf_context),
+        input_for_anonymous_attribute_output_(input_for_anonymous_attribute_output)
   {
   }
 
@@ -246,9 +253,10 @@ class GeoNodeExecParams {
 
   void used_named_attribute(StringRef attribute_name, NamedAttributeUsage usage);
 
-  bool add_data_referenced_by_output(StringRef /*output_identifier*/)
+  bool add_data_referenced_by_output(const StringRef output_identifier)
   {
-    return true;
+    const int lf_index = input_for_anonymous_attribute_output_.lookup(output_identifier);
+    return params_.get_input<bool>(lf_index);
   }
 
   WeakAnonymousAttributeID output_anonymous_attribute_is_needed(StringRefNull name)
