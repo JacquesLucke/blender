@@ -251,15 +251,16 @@ class GeoNodeExecParams {
     return true;
   }
 
-  WeakAnonymousAttributeID get_data_reference(StringRefNull name)
+  WeakAnonymousAttributeID output_anonymous_attribute_is_needed(StringRefNull name)
   {
     return WeakAnonymousAttributeID(name);
   }
 
-  WeakAnonymousAttributeID get_data_reference_if_needed(StringRefNull output_identifier)
+  WeakAnonymousAttributeID get_output_anonymous_attribute_id_if_needed(
+      StringRefNull output_identifier)
   {
     if (this->add_data_referenced_by_output(output_identifier)) {
-      return this->get_data_reference(output_identifier);
+      return this->output_anonymous_attribute_is_needed(output_identifier);
     }
     return {};
   }

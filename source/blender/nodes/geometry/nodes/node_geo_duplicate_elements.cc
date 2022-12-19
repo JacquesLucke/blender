@@ -1117,7 +1117,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   Field<int> count_field = params.extract_input<Field<int>>("Amount");
   Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
   IndexAttributes attribute_outputs;
-  attribute_outputs.duplicate_index = params.get_data_reference_if_needed("Duplicate Index");
+  attribute_outputs.duplicate_index = params.get_output_anonymous_attribute_id_if_needed(
+      "Duplicate Index");
 
   const AnonymousAttributePropagationInfo &propagation_info = params.get_output_propagation_info(
       "Geometry");

@@ -341,7 +341,8 @@ static void create_attributes(GeoNodeExecParams &params,
 {
   MutableAttributeAccessor attributes = instances.attributes_for_write();
 
-  if (StrongAnonymousAttributeID line_id = params.get_data_reference_if_needed("Line")) {
+  if (StrongAnonymousAttributeID line_id = params.get_output_anonymous_attribute_id_if_needed(
+          "Line")) {
     SpanAttributeWriter<int> line_attribute = attributes.lookup_or_add_for_write_only_span<int>(
         line_id.get(), ATTR_DOMAIN_INSTANCE);
     line_attribute.span.copy_from(layout.line_numbers);
@@ -351,7 +352,8 @@ static void create_attributes(GeoNodeExecParams &params,
                                                                 params.attribute_producer_name()));
   }
 
-  if (StrongAnonymousAttributeID pivot_id = params.get_data_reference_if_needed("Pivot")) {
+  if (StrongAnonymousAttributeID pivot_id = params.get_output_anonymous_attribute_id_if_needed(
+          "Pivot")) {
     SpanAttributeWriter<float3> pivot_attribute =
         attributes.lookup_or_add_for_write_only_span<float3>(pivot_id.get(), ATTR_DOMAIN_INSTANCE);
 

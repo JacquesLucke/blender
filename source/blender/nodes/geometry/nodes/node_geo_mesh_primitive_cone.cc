@@ -814,10 +814,10 @@ static void node_geo_exec(GeoNodeExecParams params)
   const float depth = params.extract_input<float>("Depth");
 
   ConeAttributeOutputs attribute_outputs;
-  attribute_outputs.top_id = params.get_data_reference_if_needed("Top");
-  attribute_outputs.bottom_id = params.get_data_reference_if_needed("Bottom");
-  attribute_outputs.side_id = params.get_data_reference_if_needed("Side");
-  attribute_outputs.uv_map_id = params.get_data_reference_if_needed("UV Map");
+  attribute_outputs.top_id = params.get_output_anonymous_attribute_id_if_needed("Top");
+  attribute_outputs.bottom_id = params.get_output_anonymous_attribute_id_if_needed("Bottom");
+  attribute_outputs.side_id = params.get_output_anonymous_attribute_id_if_needed("Side");
+  attribute_outputs.uv_map_id = params.get_output_anonymous_attribute_id_if_needed("UV Map");
 
   Mesh *mesh = create_cylinder_or_cone_mesh(radius_top,
                                             radius_bottom,

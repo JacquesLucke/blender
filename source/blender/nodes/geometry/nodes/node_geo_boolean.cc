@@ -125,7 +125,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   }
 
   AttributeOutputs attribute_outputs;
-  attribute_outputs.intersecting_edges_id = params.get_data_reference_if_needed(
+  attribute_outputs.intersecting_edges_id = params.get_output_anonymous_attribute_id_if_needed(
       "Intersecting Edges");
 
   Vector<int> intersecting_edges;

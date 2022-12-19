@@ -107,10 +107,10 @@ static void node_geo_exec(GeoNodeExecParams params)
   }
 
   ConeAttributeOutputs attribute_outputs;
-  attribute_outputs.top_id = params.get_data_reference_if_needed("Top");
-  attribute_outputs.bottom_id = params.get_data_reference_if_needed("Bottom");
-  attribute_outputs.side_id = params.get_data_reference_if_needed("Side");
-  attribute_outputs.uv_map_id = params.get_data_reference_if_needed("UV Map");
+  attribute_outputs.top_id = params.get_output_anonymous_attribute_id_if_needed("Top");
+  attribute_outputs.bottom_id = params.get_output_anonymous_attribute_id_if_needed("Bottom");
+  attribute_outputs.side_id = params.get_output_anonymous_attribute_id_if_needed("Side");
+  attribute_outputs.uv_map_id = params.get_output_anonymous_attribute_id_if_needed("UV Map");
 
   /* The cylinder is a special case of the cone mesh where the top and bottom radius are equal. */
   Mesh *mesh = create_cylinder_or_cone_mesh(radius,
