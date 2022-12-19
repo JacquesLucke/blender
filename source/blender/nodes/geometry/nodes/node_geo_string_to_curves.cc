@@ -353,7 +353,7 @@ static void create_attributes(GeoNodeExecParams &params,
   }
 
   if (StrongAnonymousAttributeID pivot_id = params.get_output_anonymous_attribute_id_if_needed(
-          "Pivot")) {
+          "Pivot Point")) {
     SpanAttributeWriter<float3> pivot_attribute =
         attributes.lookup_or_add_for_write_only_span<float3>(pivot_id.get(), ATTR_DOMAIN_INSTANCE);
 
