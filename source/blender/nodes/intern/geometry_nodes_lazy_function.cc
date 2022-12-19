@@ -942,7 +942,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   const bke::DataTypeConversions *conversions_;
   Map<const bNodeSocket *, lf::OutputSocket *> socket_is_used_map_;
   Map<const bNodeSocket *, lf::InputSocket *> use_anonymous_attributes_map_;
-  Set<lf::InputSocket *> linked_anonymous_attribute_used_inputs_;
+  Set<const lf::InputSocket *> linked_anonymous_attribute_used_inputs_;
 
   /**
    * All group input nodes are combined into one dummy node in the lazy-function graph.
