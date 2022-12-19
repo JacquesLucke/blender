@@ -36,6 +36,16 @@ void LazyFunction::destruct_storage(void *storage) const
   UNUSED_VARS_NDEBUG(storage);
 }
 
+void LazyFunction::possible_output_dependencies(const int output_index,
+                                                const FunctionRef<void(Span<int>)> fn) const
+{
+  Vector<int, 16> indices(inputs_.size());
+  for (const int i : inputs_.index_range()) {
+    indices[i] = i;
+  }
+  fn(indices);
+}
+
 bool LazyFunction::always_used_inputs_available(const Params &params) const
 {
   for (const int i : inputs_.index_range()) {

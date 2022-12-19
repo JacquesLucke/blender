@@ -39,6 +39,7 @@
  */
 
 #include "BLI_cpp_type.hh"
+#include "BLI_function_ref.hh"
 #include "BLI_generic_pointer.hh"
 #include "BLI_linear_allocator.hh"
 #include "BLI_vector.hh"
@@ -277,6 +278,9 @@ class LazyFunction {
    * Destruct the storage created in #init_storage.
    */
   virtual void destruct_storage(void *storage) const;
+
+  virtual void possible_output_dependencies(int output_index,
+                                            FunctionRef<void(Span<int>)> fn) const;
 
   /**
    * Inputs of the function.

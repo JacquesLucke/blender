@@ -1187,8 +1187,15 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       Set<lf::Socket *> lf_done_sockets;
       Stack<lf::Socket *> lf_sockets_to_check;
       for (lf::Node *lf_node : lf_graph_->nodes()) {
-        for (lf::OutputSocket *lf_socket : lf_node->outputs()) {
-          if (lf_socket->targets().is_empty()) {
+        if (lf_node->is_function()) {
+          for (lf::OutputSocket *lf_socket : lf_node->outputs()) {
+            if (lf_socket->targets().is_empty()) {
+              lf_sockets_to_check.push(lf_socket);
+            }
+          }
+        }
+        if (lf_node->outputs().is_empty()) {
+          for (lf::InputSocket *lf_socket : lf_node->inputs()) {
             lf_sockets_to_check.push(lf_socket);
           }
         }
@@ -1198,6 +1205,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       VectorSet<lf::Socket *> lf_socket_stack;
       while (!lf_sockets_to_check.is_empty()) {
         lf::Socket *lf_inout_socket = lf_sockets_to_check.peek();
+        lf::Node &lf_node = lf_inout_socket->node();
         lf_socket_stack.add(lf_inout_socket);
 
         Vector<lf::Socket *> lf_origin_sockets;
@@ -1209,8 +1217,15 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         }
         else {
           lf::OutputSocket &lf_output_socket = lf_inout_socket->as_output();
-          for (lf::InputSocket *lf_input_socket : lf_output_socket.node().inputs()) {
-            lf_origin_sockets.append(lf_input_socket);
+          if (lf_node.is_function()) {
+            lf::FunctionNode &lf_function_node = static_cast<lf::FunctionNode &>(lf_node);
+            const lf::LazyFunction &fn = lf_function_node.function();
+            fn.possible_output_dependencies(
+                lf_output_socket.index(), [&](const Span<int> input_indices) {
+                  for (const int input_index : input_indices) {
+                    lf_origin_sockets.append(&lf_node.input(input_index));
+                  }
+                });
           }
         }
 
