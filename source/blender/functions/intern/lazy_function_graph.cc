@@ -170,6 +170,12 @@ std::optional<std::string> Graph::ToDotOptions::socket_font_color(const Socket &
   return std::nullopt;
 }
 
+void Graph::ToDotOptions::add_edge_attributes(const OutputSocket & /*from*/,
+                                              const InputSocket & /*to*/,
+                                              dot::DirectedEdge & /*dot_edge*/) const
+{
+}
+
 std::string Graph::to_dot(const ToDotOptions &options) const
 {
   dot::DirectedGraph digraph;
@@ -209,7 +215,9 @@ std::string Graph::to_dot(const ToDotOptions &options) const
 
       if (const OutputSocket *origin = socket->origin()) {
         dot::NodeWithSocketsRef &from_dot_node = dot_nodes.lookup(&origin->node());
-        digraph.new_edge(from_dot_node.output(origin->index()), to_dot_port);
+        dot::DirectedEdge &dot_edge = digraph.new_edge(from_dot_node.output(origin->index()),
+                                                       to_dot_port);
+        options.add_edge_attributes(*origin, *socket, dot_edge);
       }
       else if (const void *default_value = socket->default_value()) {
         const CPPType &type = socket->type();

@@ -17,6 +17,7 @@
 #include "NOD_node_declaration.hh"
 
 #include "BLI_cpp_types.hh"
+#include "BLI_dot_export.hh"
 #include "BLI_hash.h"
 #include "BLI_lazy_threading.hh"
 #include "BLI_map.hh"
@@ -941,6 +942,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   const bke::DataTypeConversions *conversions_;
   Map<const bNodeSocket *, lf::OutputSocket *> socket_is_used_map_;
   Map<const bNodeSocket *, lf::InputSocket *> use_anonymous_attributes_map_;
+  Set<lf::InputSocket *> linked_anonymous_attribute_used_inputs_;
 
   /**
    * All group input nodes are combined into one dummy node in the lazy-function graph.
@@ -1192,6 +1194,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       if (lf::OutputSocket *lf_is_used = socket_is_used_map_.lookup_default(output_bsocket,
                                                                             nullptr)) {
         lf_graph_->add_link(*lf_is_used, *lf_input);
+        linked_anonymous_attribute_used_inputs_.add(lf_input);
       }
       else {
         static const bool static_false = false;
@@ -1275,7 +1278,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
             for (lf::Socket *lf_cycle_socket : cycle) {
               if (lf_cycle_socket->is_input() &&
-                  lf_cycle_socket->name().find("output is used") != std::string::npos) {
+                  (lf_cycle_socket->name().find("output is used") != std::string::npos ||
+                   lf_cycle_socket->name().find("Add '") != std::string::npos)) {
                 lf::InputSocket &lf_cycle_input_socket = lf_cycle_socket->as_input();
                 lf_graph_->clear_origin(lf_cycle_input_socket);
                 cleared_origins.append(&lf_cycle_input_socket);
@@ -1874,6 +1878,16 @@ class UsedSocketVisualizeOptions : public lf::Graph::ToDotOptions {
   std::string socket_name(const lf::Socket &socket) const override
   {
     return socket.name() + socket_name_suffixes_.lookup_default(&socket, "");
+  }
+
+  void add_edge_attributes(const lf::OutputSocket & /*from*/,
+                           const lf::InputSocket &to,
+                           dot::DirectedEdge &dot_edge) const
+  {
+    if (builder_.linked_anonymous_attribute_used_inputs_.contains_as(&to)) {
+      dot_edge.attributes.set("constraint", "false");
+      dot_edge.attributes.set("color", "#00000055");
+    }
   }
 };
 
