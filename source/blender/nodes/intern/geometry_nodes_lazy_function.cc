@@ -1278,8 +1278,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
             for (lf::Socket *lf_cycle_socket : cycle) {
               if (lf_cycle_socket->is_input() &&
-                  (lf_cycle_socket->name().find("output is used") != std::string::npos ||
-                   lf_cycle_socket->name().find("Add '") != std::string::npos)) {
+                  this->is_output_is_used_socket(lf_cycle_socket->as_input())) {
                 lf::InputSocket &lf_cycle_input_socket = lf_cycle_socket->as_input();
                 lf_graph_->clear_origin(lf_cycle_input_socket);
                 cleared_origins.append(&lf_cycle_input_socket);
@@ -1320,6 +1319,12 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     lf_graph_->update_node_indices();
     lf_graph_info_->num_inline_nodes_approximate += lf_graph_->nodes().size();
+  }
+
+  bool is_output_is_used_socket(const lf::InputSocket &lf_socket) const
+  {
+    return lf_socket.name().find("output is used") != std::string::npos ||
+           lf_socket.name().find("Add '") != std::string::npos;
   }
 
  private:
@@ -1885,7 +1890,7 @@ class UsedSocketVisualizeOptions : public lf::Graph::ToDotOptions {
                            dot::DirectedEdge &dot_edge) const
   {
     if (builder_.linked_anonymous_attribute_used_inputs_.contains_as(&to)) {
-      dot_edge.attributes.set("constraint", "false");
+      // dot_edge.attributes.set("constraint", "false");
       dot_edge.attributes.set("color", "#00000055");
     }
   }
