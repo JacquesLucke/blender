@@ -1228,7 +1228,16 @@ struct GeometryNodesLazyFunctionGraphBuilder {
                 break;
               }
               case InputUsageType::DependsOnOutput: {
-                /* TODO. */
+                Vector<lf::OutputSocket *> output_usages;
+                for (const int i : input_usage.output_dependencies) {
+                  if (lf::OutputSocket *lf_socket = socket_is_used_map_.lookup_default(
+                          &bnode->output_socket(i), nullptr)) {
+                    output_usages.append(lf_socket);
+                  }
+                }
+                if (lf::OutputSocket *lf_socket = or_socket_usages(output_usages)) {
+                  socket_is_used_map_.add_new(input_bsocket, lf_socket);
+                }
                 break;
               }
               case InputUsageType::DynamicSocket: {
@@ -1309,8 +1318,16 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
       else {
         lf_graph_->add_link(*lf_socket, node.input(0));
-        input_usage.type = InputUsageType::DynamicSocket;
-        input_usage.socket = &node.input(0);
+        if (lf_socket->node().is_dummy()) {
+          /* TODO: Support slightly more complex cases where it depends on more than one output. */
+          input_usage.type = InputUsageType::DependsOnOutput;
+          input_usage.output_dependencies = {
+              mapping_->group_output_used_sockets.first_index_of(lf_socket)};
+        }
+        else {
+          input_usage.type = InputUsageType::DynamicSocket;
+          input_usage.socket = &node.input(0);
+        }
       }
       lf_graph_info_->mapping.group_input_used_sockets.append(std::move(input_usage));
     }
