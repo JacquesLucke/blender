@@ -1083,7 +1083,9 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     for (const bNode *bnode : btree_.toposort_right_to_left()) {
       const bNodeType *node_type = bnode->typeinfo;
-      /* TODO: Handle case when node type is null. */
+      if (node_type == nullptr) {
+        continue;
+      }
 
       for (const bNodeSocket *socket : bnode->output_sockets()) {
         if (!socket->is_available()) {
