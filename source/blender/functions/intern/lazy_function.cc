@@ -36,7 +36,7 @@ void LazyFunction::destruct_storage(void *storage) const
   UNUSED_VARS_NDEBUG(storage);
 }
 
-void LazyFunction::possible_output_dependencies(const int output_index,
+void LazyFunction::possible_output_dependencies(const int /*output_index*/,
                                                 const FunctionRef<void(Span<int>)> fn) const
 {
   Vector<int, 16> indices(inputs_.size());

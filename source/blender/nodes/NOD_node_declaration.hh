@@ -438,7 +438,7 @@ class NodeDeclaration {
  private:
   Vector<SocketDeclarationPtr> inputs_;
   Vector<SocketDeclarationPtr> outputs_;
-  std::unique_ptr<aal::RelationsInNode> anonymous_attribute_relations;
+  std::unique_ptr<aal::RelationsInNode> anonymous_attribute_relations_;
 
   friend NodeDeclarationBuilder;
 
@@ -448,6 +448,11 @@ class NodeDeclaration {
   Span<SocketDeclarationPtr> inputs() const;
   Span<SocketDeclarationPtr> outputs() const;
   Span<SocketDeclarationPtr> sockets(eNodeSocketInOut in_out) const;
+
+  const aal::RelationsInNode *anonymous_attribute_relations() const
+  {
+    return anonymous_attribute_relations_.get();
+  }
 
   MEM_CXX_CLASS_ALLOC_FUNCS("NodeDeclaration")
 };
@@ -480,10 +485,10 @@ class NodeDeclarationBuilder {
 
   aal::RelationsInNode &get_anonymous_attribute_relations()
   {
-    if (!declaration_.anonymous_attribute_relations) {
-      declaration_.anonymous_attribute_relations = std::make_unique<aal::RelationsInNode>();
+    if (!declaration_.anonymous_attribute_relations_) {
+      declaration_.anonymous_attribute_relations_ = std::make_unique<aal::RelationsInNode>();
     }
-    return *declaration_.anonymous_attribute_relations;
+    return *declaration_.anonymous_attribute_relations_;
   }
 
  private:

@@ -112,6 +112,8 @@ class LazyFunctionForGeometryNode : public LazyFunction {
   const bNode &node_;
 
  public:
+  Map<StringRef, int> lf_input_for_output_;
+
   LazyFunctionForGeometryNode(const bNode &node,
                               Vector<const bNodeSocket *> &r_used_inputs,
                               Vector<const bNodeSocket *> &r_used_outputs)
@@ -120,6 +122,19 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     BLI_assert(node.typeinfo->geometry_node_execute != nullptr);
     debug_name_ = node.name;
     lazy_function_interface_from_node(node, r_used_inputs, r_used_outputs, inputs_, outputs_);
+
+    const NodeDeclaration &node_decl = *node.declaration();
+    if (const aal::RelationsInNode *relations = node_decl.anonymous_attribute_relations()) {
+      for (const aal::AvailableOnRelation &relation : relations->available_on_relations) {
+        const bNodeSocket &field_output_bsocket = node.output_socket(relation.field_output);
+        if (!field_output_bsocket.is_available()) {
+          continue;
+        }
+        const int lf_index = inputs_.append_and_get_index_as("Output Reference Required",
+                                                             CPPType::get<bool>());
+        lf_input_for_output_.add(field_output_bsocket.identifier, lf_index);
+      }
+    }
   }
 
   void execute_impl(lf::Params &params, const lf::Context &context) const override
@@ -138,6 +153,16 @@ class LazyFunctionForGeometryNode : public LazyFunction {
           *user_data->compute_context);
       tree_logger.node_execution_times.append({node_.identifier, start_time, end_time});
     }
+  }
+
+  std::string input_name(const int index) const override
+  {
+    for (const auto [identifier, lf_index] : lf_input_for_output_.items()) {
+      if (index == lf_index) {
+        return "Add '" + identifier + "'";
+      }
+    }
+    return inputs_[index].debug_name;
   }
 };
 
@@ -915,6 +940,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   Map<const bNodeSocket *, lf::Node *> multi_input_socket_nodes_;
   const bke::DataTypeConversions *conversions_;
   Map<const bNodeSocket *, lf::OutputSocket *> socket_is_used_map_;
+  Map<const bNodeSocket *, lf::InputSocket *> use_anonymous_attributes_map_;
 
   /**
    * All group input nodes are combined into one dummy node in the lazy-function graph.
@@ -1159,6 +1185,17 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           }
           break;
         }
+      }
+    }
+
+    for (const auto [output_bsocket, lf_input] : use_anonymous_attributes_map_.items()) {
+      if (lf::OutputSocket *lf_is_used = socket_is_used_map_.lookup_default(output_bsocket,
+                                                                            nullptr)) {
+        lf_graph_->add_link(*lf_is_used, *lf_input);
+      }
+      else {
+        static const bool static_false = false;
+        lf_input->set_default_value(&static_false);
       }
     }
 
@@ -1511,7 +1548,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     auto lazy_function = std::make_unique<LazyFunctionForGeometryNode>(
         bnode, used_inputs, used_outputs);
     lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
-    lf_graph_info_->functions.append(std::move(lazy_function));
 
     for (const int i : used_inputs.index_range()) {
       const bNodeSocket &bsocket = *used_inputs[i];
@@ -1538,6 +1574,13 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       output_socket_map_.add_new(&bsocket, &lf_socket);
       mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
+
+    for (const auto [identifier, lf_input_index] : lazy_function->lf_input_for_output_.items()) {
+      use_anonymous_attributes_map_.add_new(&bnode.output_by_identifier(identifier),
+                                            &lf_node.input(lf_input_index));
+    }
+
+    lf_graph_info_->functions.append(std::move(lazy_function));
   }
 
   void handle_multi_function_node(const bNode &bnode, const NodeMultiFunctions::Item &fn_item)
