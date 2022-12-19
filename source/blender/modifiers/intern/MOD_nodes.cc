@@ -884,12 +884,12 @@ static void find_side_effect_nodes_for_viewer_path(
 
   /* Not only mark the viewer node as having side effects, but also all group nodes it is contained
    * in. */
-  r_side_effect_nodes.add(compute_context_builder.hash(),
-                          &find_viewer_lf_node(*found_viewer_node));
+  r_side_effect_nodes.add_non_duplicates(compute_context_builder.hash(),
+                                         &find_viewer_lf_node(*found_viewer_node));
   compute_context_builder.pop();
   while (!compute_context_builder.is_empty()) {
-    r_side_effect_nodes.add(compute_context_builder.hash(),
-                            &find_group_lf_node(*group_node_stack.pop()));
+    r_side_effect_nodes.add_non_duplicates(compute_context_builder.hash(),
+                                           &find_group_lf_node(*group_node_stack.pop()));
     compute_context_builder.pop();
   }
 }

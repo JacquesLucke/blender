@@ -615,6 +615,32 @@ class LazyFunctionForViewerNode : public LazyFunction {
   }
 };
 
+class LazyFunctionForViewerInputUsage : public LazyFunction {
+ private:
+  const lf::FunctionNode &lf_viewer_node_;
+
+ public:
+  LazyFunctionForViewerInputUsage(const lf::FunctionNode &lf_viewer_node)
+      : lf_viewer_node_(lf_viewer_node)
+  {
+    debug_name_ = "Viewer Input Usage";
+    outputs_.append_as("Viewer is Used", CPPType::get<bool>());
+  }
+
+  void execute_impl(lf::Params &params, const lf::Context &context) const override
+  {
+    GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
+    BLI_assert(user_data != nullptr);
+    const ComputeContextHash &context_hash = user_data->compute_context->hash();
+    const GeoNodesModifierData &modifier_data = *user_data->modifier_data;
+    const Span<const lf::FunctionNode *> nodes_with_side_effects =
+        modifier_data.side_effect_nodes->lookup(context_hash);
+
+    const bool viewer_is_used = nodes_with_side_effects.contains(&lf_viewer_node_);
+    params.set_output(0, viewer_is_used);
+  }
+};
+
 /**
  * This lazy-function wraps a group node. Internally it just executes the lazy-function graph of
  * the referenced group.
@@ -1112,6 +1138,19 @@ struct GeometryNodesLazyFunctionGraphBuilder {
               else {
                 socket_is_used_map_.add(false_input_bsocket, output_is_used_socket);
               }
+            }
+          }
+          break;
+        }
+        case GEO_NODE_VIEWER: {
+          const lf::FunctionNode &lf_viewer_node = *mapping_->viewer_node_map.lookup(bnode);
+          auto lazy_function = std::make_unique<LazyFunctionForViewerInputUsage>(lf_viewer_node);
+          lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+          lf_graph_info_->functions.append(std::move(lazy_function));
+
+          for (const bNodeSocket *bsocket : bnode->input_sockets()) {
+            if (bsocket->is_available()) {
+              socket_is_used_map_.add_new(bsocket, &lf_node.output(0));
             }
           }
           break;
