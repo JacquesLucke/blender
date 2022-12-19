@@ -113,7 +113,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
   const bNode &node_;
 
  public:
-  Map<StringRef, int> lf_input_for_output_;
+  Map<StringRef, int> lf_input_for_output_attribute_usage_;
 
   LazyFunctionForGeometryNode(const bNode &node,
                               Vector<const bNodeSocket *> &r_used_inputs,
@@ -133,7 +133,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
         }
         const int lf_index = inputs_.append_and_get_index_as("Output Reference Required",
                                                              CPPType::get<bool>());
-        lf_input_for_output_.add(field_output_bsocket.identifier, lf_index);
+        lf_input_for_output_attribute_usage_.add(field_output_bsocket.identifier, lf_index);
       }
     }
   }
@@ -143,7 +143,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
 
-    GeoNodeExecParams geo_params{node_, params, context, lf_input_for_output_};
+    GeoNodeExecParams geo_params{node_, params, context, lf_input_for_output_attribute_usage_};
 
     geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     node_.typeinfo->geometry_node_execute(geo_params);
@@ -158,7 +158,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
 
   std::string input_name(const int index) const override
   {
-    for (const auto [identifier, lf_index] : lf_input_for_output_.items()) {
+    for (const auto [identifier, lf_index] : lf_input_for_output_attribute_usage_.items()) {
       if (index == lf_index) {
         return "Add '" + identifier + "'";
       }
@@ -1623,7 +1623,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       mapping_->bsockets_by_lf_socket_map.add(&lf_socket, &bsocket);
     }
 
-    for (const auto [identifier, lf_input_index] : lazy_function->lf_input_for_output_.items()) {
+    for (const auto [identifier, lf_input_index] : lazy_function->lf_input_for_output_attribute_usage_.items()) {
       use_anonymous_attributes_map_.add_new(&bnode.output_by_identifier(identifier),
                                             &lf_node.input(lf_input_index));
     }
