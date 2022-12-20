@@ -68,57 +68,58 @@ struct FieldInferencingInterface {
 
 namespace anonymous_attribute_lifetime {
 
-struct PropagateAttributeRelation {
+struct PropagateRelation {
   int from_geometry_input;
   int to_geometry_output;
 
-  friend bool operator==(const PropagateAttributeRelation &a, const PropagateAttributeRelation &b)
+  friend bool operator==(const PropagateRelation &a, const PropagateRelation &b)
   {
     return a.from_geometry_input == b.from_geometry_input &&
            a.to_geometry_output == b.to_geometry_output;
   }
 };
 
-struct PassReferenceRelation {
+struct ReferenceRelation {
   int from_field_input;
   int to_field_output;
 
-  friend bool operator==(const PassReferenceRelation &a, const PassReferenceRelation &b)
+  friend bool operator==(const ReferenceRelation &a, const ReferenceRelation &b)
   {
     return a.from_field_input == b.from_field_input && a.to_field_output == b.to_field_output;
   }
 };
 
-struct EvalOnRelation {
+struct EvalRelation {
   int field_input;
   int geometry_input;
 
-  friend bool operator==(const EvalOnRelation &a, const EvalOnRelation &b)
+  friend bool operator==(const EvalRelation &a, const EvalRelation &b)
   {
     return a.field_input == b.field_input && a.geometry_input == b.geometry_input;
   }
 };
 
-struct AvailableOnRelation {
+struct AvailableRelation {
   int field_output;
   int geometry_output;
 
-  friend bool operator==(const AvailableOnRelation &a, const AvailableOnRelation &b)
+  friend bool operator==(const AvailableRelation &a, const AvailableRelation &b)
   {
     return a.field_output == b.field_output && a.geometry_output == b.geometry_output;
   }
 };
 
 struct RelationsInNode {
-  Vector<PropagateAttributeRelation> propagate_attribute_relations;
-  Vector<PassReferenceRelation> pass_reference_relations;
-  Vector<EvalOnRelation> eval_on_relations;
-  Vector<AvailableOnRelation> available_on_relations;
+  Vector<PropagateRelation> propagate_relations;
+  Vector<ReferenceRelation> reference_relations;
+  Vector<EvalRelation> eval_relations;
+  Vector<AvailableRelation> available_relations;
   Vector<int> available_on_none;
 };
 
 bool operator==(const RelationsInNode &a, const RelationsInNode &b);
 bool operator!=(const RelationsInNode &a, const RelationsInNode &b);
+std::ostream &operator<<(std::ostream &stream, const RelationsInNode &relations);
 
 }  // namespace anonymous_attribute_lifetime
 namespace aal = anonymous_attribute_lifetime;
@@ -513,7 +514,7 @@ typename SocketDeclarationBuilder<SocketDecl>::Self &SocketDeclarationBuilder<
 {
   aal::RelationsInNode &relations = node_decl_builder_->get_anonymous_attribute_relations();
   for (const int from_input : input_indices) {
-    relations.pass_reference_relations.append({from_input, index_});
+    relations.reference_relations.append({from_input, index_});
   }
   return *(Self *)this;
 }

@@ -130,7 +130,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     if (const aal::RelationsInNode *relations = node_decl.anonymous_attribute_relations()) {
       {
         Vector<int> output_indices;
-        for (const aal::AvailableOnRelation &relation : relations->available_on_relations) {
+        for (const aal::AvailableRelation &relation : relations->available_relations) {
           const bNodeSocket &output_bsocket = node.output_socket(relation.field_output);
           if (output_bsocket.is_available()) {
             output_indices.append_non_duplicates(relation.field_output);
@@ -152,8 +152,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
       }
       {
         Vector<int> output_indices;
-        for (const aal::PropagateAttributeRelation &relation :
-             relations->propagate_attribute_relations) {
+        for (const aal::PropagateRelation &relation : relations->propagate_relations) {
           output_indices.append_non_duplicates(relation.to_geometry_output);
         }
         for (const int output_index : output_indices) {
@@ -1410,21 +1409,21 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         lf_socket_stack.pop();
       }
 
-      std::cout << "Cycles: " << lf_cycles.size() << "\n";
-      for (const Span<lf::Socket *> lf_cycle : lf_cycles) {
-        std::cout << "  ";
-        for (lf::Socket *lf_socket : lf_cycle) {
-          std::cout << lf_socket->node().name() << ":" << lf_socket->name() << " -> ";
-        }
-        std::cout << "\n";
-      }
-      std::cout << "Cleared origins: " << cleared_origins.size() << "\n";
-      for (const lf::Socket *lf_socket : cleared_origins) {
-        std::cout << "  " << lf_socket->node().name() << ":" << lf_socket->name() << "\n";
-      }
+      // std::cout << "Cycles: " << lf_cycles.size() << "\n";
+      // for (const Span<lf::Socket *> lf_cycle : lf_cycles) {
+      //   std::cout << "  ";
+      //   for (lf::Socket *lf_socket : lf_cycle) {
+      //     std::cout << lf_socket->node().name() << ":" << lf_socket->name() << " -> ";
+      //   }
+      //   std::cout << "\n";
+      // }
+      // std::cout << "Cleared origins: " << cleared_origins.size() << "\n";
+      // for (const lf::Socket *lf_socket : cleared_origins) {
+      //   std::cout << "  " << lf_socket->node().name() << ":" << lf_socket->name() << "\n";
+      // }
     }
 
-    this->print_graph();
+    // this->print_graph();
 
     lf_graph_->update_node_indices();
     lf_graph_info_->num_inline_nodes_approximate += lf_graph_->nodes().size();

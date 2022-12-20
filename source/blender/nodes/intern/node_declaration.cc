@@ -50,7 +50,7 @@ void NodeDeclarationBuilder::finalize()
       aal::RelationsInNode &relations = this->get_anonymous_attribute_relations();
       const int field_input = socket_builder->index_;
       for (const int geometry_input : geometry_inputs) {
-        relations.eval_on_relations.append({field_input, geometry_input});
+        relations.eval_relations.append({field_input, geometry_input});
       }
     }
   }
@@ -59,7 +59,7 @@ void NodeDeclarationBuilder::finalize()
       aal::RelationsInNode &relations = this->get_anonymous_attribute_relations();
       const int field_output = socket_builder->index_;
       for (const int geometry_output : geometry_outputs) {
-        relations.available_on_relations.append({field_output, geometry_output});
+        relations.available_relations.append({field_output, geometry_output});
       }
     }
     if (socket_builder->reference_pass_all_) {
@@ -68,7 +68,7 @@ void NodeDeclarationBuilder::finalize()
       for (const int input_i : declaration_.inputs_.index_range()) {
         SocketDeclaration &input_socket_decl = *declaration_.inputs_[input_i];
         if (input_socket_decl.input_field_type_ != InputSocketFieldType::None) {
-          relations.pass_reference_relations.append({input_i, field_output});
+          relations.reference_relations.append({input_i, field_output});
         }
       }
     }
@@ -76,7 +76,7 @@ void NodeDeclarationBuilder::finalize()
       aal::RelationsInNode &relations = this->get_anonymous_attribute_relations();
       const int geometry_output = socket_builder->index_;
       for (const int geometry_input : geometry_inputs) {
-        relations.propagate_attribute_relations.append({geometry_input, geometry_output});
+        relations.propagate_relations.append({geometry_input, geometry_output});
       }
     }
   }
@@ -86,16 +86,42 @@ namespace anonymous_attribute_lifetime {
 
 bool operator==(const RelationsInNode &a, const RelationsInNode &b)
 {
-  return a.propagate_attribute_relations == b.propagate_attribute_relations &&
-         a.pass_reference_relations == b.pass_reference_relations &&
-         a.eval_on_relations == b.eval_on_relations &&
-         a.available_on_relations == b.available_on_relations &&
+  return a.propagate_relations == b.propagate_relations &&
+         a.reference_relations == b.reference_relations && a.eval_relations == b.eval_relations &&
+         a.available_relations == b.available_relations &&
          a.available_on_none == b.available_on_none;
 }
 
 bool operator!=(const RelationsInNode &a, const RelationsInNode &b)
 {
   return !(a == b);
+}
+
+std::ostream &operator<<(std::ostream &stream, const RelationsInNode &relations)
+{
+  stream << "Propagate Relations: " << relations.propagate_relations.size() << "\n";
+  for (const PropagateRelation &relation : relations.propagate_relations) {
+    stream << "  " << relation.from_geometry_input << " -> " << relation.to_geometry_output
+           << "\n";
+  }
+  stream << "Reference Relations: " << relations.reference_relations.size() << "\n";
+  for (const ReferenceRelation &relation : relations.reference_relations) {
+    stream << "  " << relation.from_field_input << " -> " << relation.to_field_output << "\n";
+  }
+  stream << "Eval Relations: " << relations.eval_relations.size() << "\n";
+  for (const EvalRelation &relation : relations.eval_relations) {
+    stream << "  eval " << relation.field_input << " on " << relation.geometry_input << "\n";
+  }
+  stream << "Available Relations: " << relations.available_relations.size() << "\n";
+  for (const AvailableRelation &relation : relations.available_relations) {
+    stream << "  " << relation.field_output << " available on " << relation.geometry_output
+           << "\n";
+  }
+  stream << "Available on None: " << relations.available_on_none.size() << "\n";
+  for (const int i : relations.available_on_none) {
+    stream << "  output " << i << " available on none\n";
+  }
+  return stream;
 }
 
 }  // namespace anonymous_attribute_lifetime
