@@ -654,6 +654,11 @@ inline bool bNodeLink::is_available() const
   return this->fromsock->is_available() && this->tosock->is_available();
 }
 
+inline bool bNodeLink::is_used() const
+{
+  return !this->is_muted() && this->is_available();
+}
+
 /** \} */
 
 /* -------------------------------------------------------------------- */

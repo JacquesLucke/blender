@@ -15,6 +15,12 @@ using nodes::NodeDeclaration;
 
 static const aal::RelationsInNode &get_relations_in_node(const bNode &node, ResourceScope &scope)
 {
+  if (node.is_group()) {
+    if (const bNodeTree *group = reinterpret_cast<const bNodeTree *>(node.id)) {
+      BLI_assert(group->runtime->anonymous_attribute_relations);
+      return *group->runtime->anonymous_attribute_relations;
+    }
+  }
   if (const NodeDeclaration *node_decl = node.declaration()) {
     if (const aal::RelationsInNode *relations = node_decl->anonymous_attribute_relations()) {
       return *relations;
@@ -40,7 +46,7 @@ static Vector<int> find_linked_group_inputs(
     const bNodeSocket &socket = *sockets_to_check.pop();
     if (socket.is_input()) {
       for (const bNodeLink *link : socket.directly_linked_links()) {
-        if (!link->is_muted() && link->is_available()) {
+        if (link->is_used()) {
           const bNodeSocket &from_socket = *link->fromsock;
           if (found_sockets.add(&from_socket)) {
             sockets_to_check.push(&from_socket);
@@ -70,6 +76,106 @@ static Vector<int> find_linked_group_inputs(
   }
 
   return input_indices;
+}
+
+static std::optional<Vector<int>> find_available_on_outputs(
+    const bNodeSocket &initial_group_output_socket,
+    const bNode &group_output_node,
+    const Span<const aal::RelationsInNode *> relations_by_node)
+{
+  Set<const bNodeSocket *> geometry_sockets;
+
+  {
+    Set<const bNodeSocket *> found_sockets;
+    Stack<const bNodeSocket *> sockets_to_check;
+
+    found_sockets.add_new(&initial_group_output_socket);
+    sockets_to_check.push(&initial_group_output_socket);
+
+    while (!sockets_to_check.is_empty()) {
+      const bNodeSocket &socket = *sockets_to_check.pop();
+      if (socket.is_input()) {
+        for (const bNodeLink *link : socket.directly_linked_links()) {
+          if (link->is_used()) {
+            const bNodeSocket &from_socket = *link->fromsock;
+            if (found_sockets.add(&from_socket)) {
+              sockets_to_check.push(&from_socket);
+            }
+          }
+        }
+      }
+      else {
+        const bNode &node = socket.owner_node();
+        const aal::RelationsInNode &relations = *relations_by_node[node.index()];
+        for (const aal::AvailableRelation &relation : relations.available_relations) {
+          if (socket.index() == relation.field_output) {
+            const bNodeSocket &geometry_output = node.output_socket(relation.geometry_output);
+            if (geometry_output.is_available()) {
+              geometry_sockets.add(&geometry_output);
+            }
+          }
+        }
+        for (const aal::ReferenceRelation &relation : relations.reference_relations) {
+          if (socket.index() == relation.to_field_output) {
+            const bNodeSocket &field_input = node.input_socket(relation.from_field_input);
+            if (field_input.is_available()) {
+              if (found_sockets.add(&field_input)) {
+                sockets_to_check.push(&field_input);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (geometry_sockets.is_empty()) {
+    return std::nullopt;
+  }
+
+  Set<const bNodeSocket *> found_sockets;
+  Stack<const bNodeSocket *> sockets_to_check;
+
+  for (const bNodeSocket *socket : geometry_sockets) {
+    found_sockets.add_new(socket);
+    sockets_to_check.push(socket);
+  }
+
+  while (!sockets_to_check.is_empty()) {
+    const bNodeSocket &socket = *sockets_to_check.pop();
+    if (socket.is_input()) {
+      const bNode &node = socket.owner_node();
+      const aal::RelationsInNode &relations = *relations_by_node[node.index()];
+      for (const aal::PropagateRelation &relation : relations.propagate_relations) {
+        if (socket.index() == relation.from_geometry_input) {
+          const bNodeSocket &output_socket = node.output_socket(relation.to_geometry_output);
+          if (output_socket.is_available()) {
+            if (found_sockets.add(&output_socket)) {
+              sockets_to_check.push(&output_socket);
+            }
+          }
+        }
+      }
+    }
+    else {
+      for (const bNodeLink *link : socket.directly_linked_links()) {
+        if (link->is_used()) {
+          const bNodeSocket &to_socket = *link->tosock;
+          if (found_sockets.add(&to_socket)) {
+            sockets_to_check.push(&to_socket);
+          }
+        }
+      }
+    }
+  }
+
+  Vector<int> output_indices;
+  for (const bNodeSocket *socket : group_output_node.input_sockets().drop_back(1)) {
+    if (found_sockets.contains(socket)) {
+      output_indices.append(socket->index());
+    }
+  }
+  return output_indices;
 }
 
 bool update_anonymous_attribute_relations(const bNodeTree &tree)
@@ -106,32 +212,48 @@ bool update_anonymous_attribute_relations(const bNodeTree &tree)
             aal::PropagateRelation relation;
             relation.from_geometry_input = input_index;
             relation.to_geometry_output = group_output_socket->index();
-            BLI_assert(relation.from_geometry_input);
-            BLI_assert(relation.to_geometry_output);
             new_relations->propagate_relations.append(relation);
           }
         }
         if (ELEM(group_output_socket->display_shape,
                  SOCK_DISPLAY_SHAPE_DIAMOND,
                  SOCK_DISPLAY_SHAPE_DIAMOND_DOT)) {
-          const Vector<int> input_indices = find_linked_group_inputs(
-              tree, *group_output_socket, [&](const bNodeSocket &output_socket) {
-                Vector<int> indices;
-                for (const aal::ReferenceRelation &relation :
-                     relations_by_node[output_socket.owner_node().index()]->reference_relations) {
-                  if (relation.to_field_output == output_socket.index()) {
-                    indices.append(relation.from_field_input);
+          {
+            const Vector<int> input_indices = find_linked_group_inputs(
+                tree, *group_output_socket, [&](const bNodeSocket &output_socket) {
+                  Vector<int> indices;
+                  for (const aal::ReferenceRelation &relation :
+                       relations_by_node[output_socket.owner_node().index()]
+                           ->reference_relations) {
+                    if (relation.to_field_output == output_socket.index()) {
+                      indices.append(relation.from_field_input);
+                    }
                   }
+                  return indices;
+                });
+            for (const int input_index : input_indices) {
+              aal::ReferenceRelation relation;
+              relation.from_field_input = input_index;
+              relation.to_field_output = group_output_socket->index();
+              new_relations->reference_relations.append(relation);
+            }
+          }
+          {
+            const std::optional<Vector<int>> output_indices = find_available_on_outputs(
+                *group_output_socket, *group_output_node, relations_by_node);
+            if (output_indices.has_value()) {
+              if (output_indices->is_empty()) {
+                new_relations->available_on_none.append(group_output_socket->index());
+              }
+              else {
+                for (const int output_index : *output_indices) {
+                  aal::AvailableRelation relation;
+                  relation.field_output = group_output_socket->index();
+                  relation.geometry_output = output_index;
+                  new_relations->available_relations.append(relation);
                 }
-                return indices;
-              });
-          for (const int input_index : input_indices) {
-            aal::ReferenceRelation relation;
-            relation.from_field_input = input_index;
-            relation.to_field_output = group_output_socket->index();
-            BLI_assert(relation.from_field_input);
-            BLI_assert(relation.to_field_output);
-            new_relations->reference_relations.append(relation);
+              }
+            }
           }
         }
       }

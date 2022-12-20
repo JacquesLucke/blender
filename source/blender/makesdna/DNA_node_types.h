@@ -489,6 +489,7 @@ typedef struct bNodeLink {
 #ifdef __cplusplus
   bool is_muted() const;
   bool is_available() const;
+  bool is_used() const;
 #endif
 
 } bNodeLink;
