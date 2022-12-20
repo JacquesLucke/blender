@@ -375,8 +375,6 @@ bool update_anonymous_attribute_relations(const bNodeTree &tree)
     }
   }
 
-  std::cout << *new_relations << "\n";
-
   const bool group_interface_changed = !tree.runtime->anonymous_attribute_relations ||
                                        *tree.runtime->anonymous_attribute_relations !=
                                            *new_relations;
