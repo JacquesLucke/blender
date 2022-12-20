@@ -333,6 +333,9 @@ inline bool topology_cache_is_available(const bNodeSocket &socket)
 namespace node_field_inferencing {
 bool update_field_inferencing(const bNodeTree &tree);
 }
+namespace anonymous_attribute_inferencing {
+bool update_anonymous_attribute_relations(const bNodeTree &tree);
+}
 }  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */
