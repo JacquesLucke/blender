@@ -701,6 +701,9 @@ class LazyFunctionForGroupNode : public LazyFunction {
   Map<int, int> lf_output_by_bsocket_input_;
   Map<int, int> lf_input_by_bsocket_output_;
 
+  Map<int, int> lf_input_for_attribute_propagation_to_output_;
+  Map<int, int> lf_output_for_attributes_in_field_;
+
   LazyFunctionForGroupNode(const bNode &group_node,
                            const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
       : group_node_(group_node)
@@ -731,6 +734,21 @@ class LazyFunctionForGroupNode : public LazyFunction {
             i, graph_outputs.append_and_get_index(input_usage.socket));
         outputs_.append_as("Input is Used", CPPType::get<bool>());
       }
+    }
+
+    for (auto [output_index, lf_socket] :
+         lf_graph_info.mapping.attribute_set_by_geometry_output.items()) {
+      const int lf_index = inputs_.append_and_get_index_as(
+          "Attribute Set", CPPType::get<bke::AnonymousAttributeSet>(), lf::ValueUsage::Maybe);
+      graph_inputs.append(lf_socket);
+      lf_input_for_attribute_propagation_to_output_.add(output_index, lf_index);
+    }
+    for (auto [output_index, lf_socket] :
+         lf_graph_info.mapping.attribute_set_by_field_output.items()) {
+      const int lf_index = outputs_.append_and_get_index_as(
+          "Attribute Set", CPPType::get<bke::AnonymousAttributeSet>());
+      graph_outputs.append(lf_socket);
+      lf_output_for_attributes_in_field_.add(output_index, lf_index);
     }
 
     lf_logger_.emplace(lf_graph_info);
@@ -794,8 +812,15 @@ class LazyFunctionForGroupNode : public LazyFunction {
         return ss.str();
       }
     }
-    BLI_assert_unreachable();
-    return "";
+    for (const auto [bsocket_index, lf_index] :
+         lf_input_for_attribute_propagation_to_output_.items()) {
+      if (i == lf_index) {
+        std::stringstream ss;
+        ss << "Propagate to '" << group_node_.output_socket(bsocket_index).name << "'";
+        return ss.str();
+      }
+    }
+    return inputs_[i].debug_name;
   }
 
   std::string output_name(const int i) const override
@@ -810,8 +835,14 @@ class LazyFunctionForGroupNode : public LazyFunction {
         return ss.str();
       }
     }
-    BLI_assert_unreachable();
-    return "";
+    for (const auto [bsocket_index, lf_index] : lf_output_for_attributes_in_field_.items()) {
+      if (i == lf_index) {
+        std::stringstream ss;
+        ss << "Attributes in '" << group_node_.output_socket(bsocket_index).name << "'";
+        return ss.str();
+      }
+    }
+    return outputs_[i].debug_name;
   }
 };
 
@@ -885,6 +916,36 @@ class InputIsUsedDebugInfo : public lf::DummyDebugInfo {
   std::string input_name(const int /*i*/) const override
   {
     return this->name;
+  }
+};
+
+class AttributeSetInputDebugInfo : public lf::DummyDebugInfo {
+ public:
+  std::string name;
+
+  std::string node_name() const override
+  {
+    return "Attribute Set";
+  }
+
+  std::string output_name(const int /*i*/) const override
+  {
+    return name;
+  }
+};
+
+class AttributeSetOutputDebugInfo : public lf::DummyDebugInfo {
+ public:
+  std::string name;
+
+  std::string node_name() const override
+  {
+    return "Attribute Set";
+  }
+
+  std::string input_name(const int /*i*/) const override
+  {
+    return name;
   }
 };
 
@@ -1046,6 +1107,42 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->handle_nodes();
     this->handle_links();
     this->add_default_inputs();
+
+    {
+      const aal::RelationsInNode &relations = *btree_.runtime->anonymous_attribute_relations;
+      {
+        Vector<int> output_indices;
+        for (const aal::PropagateRelation &relation : relations.propagate_relations) {
+          output_indices.append_non_duplicates(relation.to_geometry_output);
+        }
+        for (const int output_index : output_indices) {
+          auto debug_info = std::make_unique<AttributeSetInputDebugInfo>();
+          debug_info->name = btree_.interface_outputs()[output_index]->name;
+          lf::Node &lf_node = lf_graph_->add_dummy(
+              {}, {&CPPType::get<bke::AnonymousAttributeSet>()}, debug_info.get());
+          lf_graph_info_->mapping.attribute_set_by_geometry_output.add(output_index,
+                                                                       &lf_node.output(0));
+          lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
+        }
+      }
+      {
+        Vector<int> output_indices;
+        for (const aal::AvailableRelation &relation : relations.available_relations) {
+          output_indices.append_non_duplicates(relation.field_output);
+        }
+        for (const int output_index : output_indices) {
+          auto debug_info = std::make_unique<AttributeSetOutputDebugInfo>();
+          debug_info->name = btree_.interface_outputs()[output_index]->name;
+          lf::Node &lf_node = lf_graph_->add_dummy(
+              {&CPPType::get<bke::AnonymousAttributeSet>()}, {}, debug_info.get());
+          lf_graph_info_->mapping.attribute_set_by_field_output.add(output_index,
+                                                                    &lf_node.input(0));
+          lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
+          static const bke::AnonymousAttributeSet empty_set;
+          lf_node.input(0).set_default_value(&empty_set);
+        }
+      }
+    }
 
     Map<Vector<lf::OutputSocket *>, lf::OutputSocket *> or_map;
     MultiValueMap<int, lf::OutputSocket *> inputs_used_map;
@@ -1423,7 +1520,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       // }
     }
 
-    // this->print_graph();
+    this->print_graph();
 
     lf_graph_->update_node_indices();
     lf_graph_info_->num_inline_nodes_approximate += lf_graph_->nodes().size();
@@ -1654,6 +1751,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     static const bool static_false = false;
     for (const int i : lazy_function->lf_input_by_bsocket_output_.values()) {
       lf_node.input(i).set_default_value(&static_false);
+    }
+    for (const int i : lazy_function->lf_input_for_attribute_propagation_to_output_.values()) {
+      static const bke::AnonymousAttributeSet empty_set;
+      lf_node.input(i).set_default_value(&empty_set);
     }
     lf_graph_info_->functions.append(std::move(lazy_function));
   }
