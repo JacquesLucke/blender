@@ -178,6 +178,110 @@ static std::optional<Vector<int>> find_available_on_outputs(
   return output_indices;
 }
 
+static Vector<int> find_eval_on_inputs(const bNodeTree &tree,
+                                       const int field_input_index,
+                                       const Span<const aal::RelationsInNode *> relations_by_node)
+{
+  const Span<const bNode *> group_input_nodes = tree.group_input_nodes();
+  Set<const bNodeSocket *> geometry_sockets;
+
+  {
+    Set<const bNodeSocket *> found_sockets;
+    Stack<const bNodeSocket *> sockets_to_check;
+
+    for (const bNode *node : group_input_nodes) {
+      const bNodeSocket &socket = node->output_socket(field_input_index);
+      found_sockets.add_new(&socket);
+      sockets_to_check.push(&socket);
+    }
+
+    while (!sockets_to_check.is_empty()) {
+      const bNodeSocket &socket = *sockets_to_check.pop();
+      if (socket.is_input()) {
+        const bNode &node = socket.owner_node();
+        const aal::RelationsInNode &relations = *relations_by_node[node.index()];
+        for (const aal::EvalRelation &relation : relations.eval_relations) {
+          if (socket.index() == relation.field_input) {
+            const bNodeSocket &geometry_input = node.input_socket(relation.geometry_input);
+            if (geometry_input.is_available()) {
+              geometry_sockets.add(&geometry_input);
+            }
+          }
+        }
+        for (const aal::ReferenceRelation &relation : relations.reference_relations) {
+          if (socket.index() == relation.from_field_input) {
+            const bNodeSocket &field_output = node.output_socket(relation.to_field_output);
+            if (field_output.is_available()) {
+              if (found_sockets.add(&field_output)) {
+                sockets_to_check.push(&field_output);
+              }
+            }
+          }
+        }
+      }
+      else {
+        for (const bNodeLink *link : socket.directly_linked_links()) {
+          if (link->is_used()) {
+            const bNodeSocket &to_socket = *link->tosock;
+            if (found_sockets.add(&to_socket)) {
+              sockets_to_check.push(&to_socket);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  if (geometry_sockets.is_empty()) {
+    return {};
+  }
+
+  Set<const bNodeSocket *> found_sockets;
+  Stack<const bNodeSocket *> sockets_to_check;
+
+  Vector<int> geometry_input_indices;
+
+  for (const bNodeSocket *socket : geometry_sockets) {
+    found_sockets.add_new(socket);
+    sockets_to_check.push(socket);
+  }
+
+  while (!sockets_to_check.is_empty()) {
+    const bNodeSocket &socket = *sockets_to_check.pop();
+    if (socket.is_input()) {
+      for (const bNodeLink *link : socket.directly_linked_links()) {
+        if (link->is_used()) {
+          const bNodeSocket &from_socket = *link->fromsock;
+          if (found_sockets.add(&from_socket)) {
+            sockets_to_check.push(&from_socket);
+          }
+        }
+      }
+    }
+    else {
+      const bNode &node = socket.owner_node();
+      if (node.is_group_input()) {
+        geometry_input_indices.append_non_duplicates(socket.index());
+      }
+      else {
+        const aal::RelationsInNode &relations = *relations_by_node[node.index()];
+        for (const aal::PropagateRelation &relation : relations.propagate_relations) {
+          if (socket.index() == relation.to_geometry_output) {
+            const bNodeSocket &input_socket = node.input_socket(relation.from_geometry_input);
+            if (input_socket.is_available()) {
+              if (found_sockets.add(&input_socket)) {
+                sockets_to_check.push(&input_socket);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  return geometry_input_indices;
+}
+
 bool update_anonymous_attribute_relations(const bNodeTree &tree)
 {
   tree.ensure_topology_cache();
@@ -256,6 +360,17 @@ bool update_anonymous_attribute_relations(const bNodeTree &tree)
             }
           }
         }
+      }
+    }
+
+    for (const int input_index : tree.interface_inputs().index_range()) {
+      const Vector<int> geometry_input_indices = find_eval_on_inputs(
+          tree, input_index, relations_by_node);
+      for (const int geometry_input : geometry_input_indices) {
+        aal::EvalRelation relation;
+        relation.field_input = input_index;
+        relation.geometry_input = geometry_input;
+        new_relations->eval_relations.append(std::move(relation));
       }
     }
   }
