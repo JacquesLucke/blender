@@ -1056,6 +1056,71 @@ class LazyFunctionForSwitchSocketUsage : public lf::LazyFunction {
   }
 };
 
+class LazyFunctionForExtractingAnonymousAttributeSet : public lf::LazyFunction {
+ private:
+  const ValueOrFieldCPPType &type_;
+
+ public:
+  LazyFunctionForExtractingAnonymousAttributeSet(const ValueOrFieldCPPType &type) : type_(type)
+  {
+    debug_name_ = "Extract Attribute Set";
+    inputs_.append_as("Field", type.self);
+    outputs_.append_as("Attributes", CPPType::get<bke::AnonymousAttributeSet>());
+  }
+
+  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
+  {
+    const void *value_or_field = params.try_get_input_data_ptr(0);
+    bke::AnonymousAttributeSet attributes;
+    if (type_.is_field(value_or_field)) {
+      const GField &field = *type_.get_field_ptr(value_or_field);
+      UNUSED_VARS(field);
+      /* TODO: Actually extract referenced anonymous attributes. */
+    }
+    params.set_output(0, std::move(attributes));
+  }
+};
+
+enum class AttributeReferenceKeyType {
+  Input,
+  Socket,
+};
+
+struct AttributeReferenceKey {
+  AttributeReferenceKeyType type;
+  /* Used when type is Input. */
+  int input_index = 0;
+  /* Used when type is Socket. */
+  const bNodeSocket *bsocket = nullptr;
+
+  uint64_t hash() const
+  {
+    return get_default_hash_3(this->type, this->bsocket, this->input_index);
+  }
+
+  friend bool operator==(const AttributeReferenceKey &a, const AttributeReferenceKey &b)
+  {
+    return a.type == b.type && a.bsocket == b.bsocket && a.input_index == b.input_index;
+  }
+
+  friend std::ostream &operator<<(std::ostream &stream, const AttributeReferenceKey &value)
+  {
+    if (value.type == AttributeReferenceKeyType::Input) {
+      stream << "Input: " << value.input_index;
+    }
+    else {
+      stream << "Socket: " << value.bsocket->owner_node().name << " -> " << value.bsocket->name;
+    }
+    return stream;
+  }
+};
+
+struct AttributeReferenceInfo {
+  lf::OutputSocket *lf_field_socket = nullptr;
+  lf::OutputSocket *lf_attribute_set_socket = nullptr;
+  Vector<const bNodeSocket *> initial_geometry_sockets;
+};
+
 /**
  * Utility class to build a lazy-function graph based on a geometry nodes tree.
  * This is mainly a separate class because it makes it easier to have variables that can be
@@ -1108,6 +1173,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->handle_links();
     this->add_default_inputs();
 
+    /* Create attribute set inputs and outputs for group. */
     {
       const aal::RelationsInNode &relations = *btree_.runtime->anonymous_attribute_relations;
       {
@@ -1144,6 +1210,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
     }
 
+    /* Create inputs used relations. */
     Map<Vector<lf::OutputSocket *>, lf::OutputSocket *> or_map;
     MultiValueMap<int, lf::OutputSocket *> inputs_used_map;
 
@@ -1399,6 +1466,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       lf_input->set_default_value(&empty_set);
     }
 
+    /* Create input used group outputs. */
     for (const int i : btree_.interface_inputs().index_range()) {
       const bNodeSocket &interface_bsocket = *btree_.interface_inputs()[i];
       lf::OutputSocket *lf_socket = or_socket_usages(inputs_used_map.lookup(i));
@@ -1428,6 +1496,153 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       lf_graph_info_->mapping.group_input_used_sockets.append(std::move(input_usage));
     }
 
+    /* Link attribute sets. */
+    {
+      ResourceScope scope;
+      const Array<const aal::RelationsInNode *> relations_by_node =
+          bke::anonymous_attribute_inferencing::get_relations_by_node(btree_, scope);
+
+      auto add_get_attributes_node = [&](lf::OutputSocket &lf_field_socket) -> lf::OutputSocket & {
+        const ValueOrFieldCPPType &type = *ValueOrFieldCPPType::get_from_self(
+            lf_field_socket.type());
+        auto lazy_function = std::make_unique<LazyFunctionForExtractingAnonymousAttributeSet>(
+            type);
+        lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+        lf_graph_->add_link(lf_field_socket, lf_node.input(0));
+        lf_graph_info_->functions.append(std::move(lazy_function));
+        return lf_node.output(0);
+      };
+
+      VectorSet<AttributeReferenceKey> attribute_reference_keys;
+      /* Indexed by reference key index. */
+      Vector<AttributeReferenceInfo> attribute_reference_infos;
+      for (const bNode *node : btree_.all_nodes()) {
+        const aal::RelationsInNode &relations = *relations_by_node[node->index()];
+        for (const aal::AvailableRelation &relation : relations.available_relations) {
+          const bNodeSocket &geometry_bsocket = node->output_socket(relation.geometry_output);
+          const bNodeSocket &field_bsocket = node->output_socket(relation.field_output);
+          if (field_bsocket.is_available()) {
+            AttributeReferenceKey key;
+            key.type = AttributeReferenceKeyType::Socket;
+            key.bsocket = &field_bsocket;
+            const int key_index = attribute_reference_keys.index_of_or_add(key);
+            if (key_index >= attribute_reference_infos.size()) {
+              AttributeReferenceInfo info;
+              info.lf_field_socket = output_socket_map_.lookup(&field_bsocket);
+              info.lf_attribute_set_socket = &add_get_attributes_node(*info.lf_field_socket);
+              attribute_reference_infos.append(info);
+            }
+            AttributeReferenceInfo &info = attribute_reference_infos[key_index];
+            if (geometry_bsocket.is_available()) {
+              info.initial_geometry_sockets.append(&geometry_bsocket);
+            }
+          }
+        }
+      }
+      const aal::RelationsInNode &tree_relations = *btree_.runtime->anonymous_attribute_relations;
+      Vector<int> attribute_reference_inputs;
+      for (const aal::EvalRelation &relation : tree_relations.eval_relations) {
+        AttributeReferenceKey key;
+        key.type = AttributeReferenceKeyType::Input;
+        key.input_index = relation.field_input;
+        attribute_reference_keys.add_new(key);
+        AttributeReferenceInfo info;
+        info.lf_field_socket = const_cast<lf::OutputSocket *>(
+            mapping_->group_input_sockets[relation.field_input]);
+        info.lf_attribute_set_socket = &add_get_attributes_node(*info.lf_field_socket);
+        for (const bNode *bnode : btree_.group_input_nodes()) {
+          info.initial_geometry_sockets.append(&bnode->output_socket(relation.geometry_input));
+        }
+        attribute_reference_infos.append(std::move(info));
+      }
+
+      std::cout << "Attribute Key: " << attribute_reference_keys.size() << "\n";
+      for (const AttributeReferenceKey &key : attribute_reference_keys) {
+        std::cout << "  " << key << "\n";
+      }
+
+      MultiValueMap<const bNodeSocket *, int> referenced_by_field_socket;
+      MultiValueMap<const bNodeSocket *, int> propagated_to_geometry_socket;
+      {
+        for (const int key_index : attribute_reference_keys.index_range()) {
+          const AttributeReferenceKey &key = attribute_reference_keys[key_index];
+          const AttributeReferenceInfo &info = attribute_reference_infos[key_index];
+          if (key.type == AttributeReferenceKeyType::Input) {
+            for (const bNode *bnode : btree_.group_input_nodes()) {
+              const bNodeSocket &bsocket = bnode->output_socket(key.input_index);
+              referenced_by_field_socket.add(&bsocket, key_index);
+            }
+          }
+          else {
+            referenced_by_field_socket.add(key.bsocket, key_index);
+          }
+          for (const bNodeSocket *geometry_bsocket : info.initial_geometry_sockets) {
+            propagated_to_geometry_socket.add(geometry_bsocket, key_index);
+          }
+        }
+        for (const bNode *bnode : btree_.toposort_left_to_right()) {
+          for (const bNodeSocket *bsocket : bnode->input_sockets()) {
+            if (bsocket->is_available()) {
+              Vector<int> referenced_keys;
+              Vector<int> propagated_keys;
+              for (const bNodeLink *blink : bsocket->directly_linked_links()) {
+                if (blink->is_used()) {
+                  referenced_keys.extend_non_duplicates(
+                      referenced_by_field_socket.lookup(blink->fromsock));
+                  propagated_keys.extend_non_duplicates(
+                      propagated_to_geometry_socket.lookup(blink->fromsock));
+                }
+              }
+              if (!referenced_keys.is_empty()) {
+                referenced_by_field_socket.add_multiple(bsocket, referenced_keys);
+              }
+              if (!propagated_keys.is_empty()) {
+                propagated_to_geometry_socket.add_multiple(bsocket, propagated_keys);
+              }
+            }
+          }
+          const aal::RelationsInNode &relations = *relations_by_node[bnode->index()];
+          for (const aal::ReferenceRelation &relation : relations.reference_relations) {
+            const bNodeSocket &input_bsocket = bnode->input_socket(relation.from_field_input);
+            const bNodeSocket &output_bsocket = bnode->output_socket(relation.to_field_output);
+            if (!input_bsocket.is_available() || !output_bsocket.is_available()) {
+              continue;
+            }
+            referenced_by_field_socket.add_multiple(
+                &output_bsocket, Vector<int>(referenced_by_field_socket.lookup(&input_bsocket)));
+          }
+          for (const aal::PropagateRelation &relation : relations.propagate_relations) {
+            const bNodeSocket &input_bsocket = bnode->input_socket(relation.from_geometry_input);
+            const bNodeSocket &output_bsocket = bnode->output_socket(relation.to_geometry_output);
+            if (!input_bsocket.is_available() || !output_bsocket.is_available()) {
+              continue;
+            }
+            propagated_to_geometry_socket.add_multiple(
+                &output_bsocket,
+                Vector<int>(propagated_to_geometry_socket.lookup(&input_bsocket)));
+          }
+        }
+
+        std::cout << "Referenced:\n";
+        for (const auto [bsocket, indices] : referenced_by_field_socket.items()) {
+          std::cout << "  " << bsocket->owner_node().name << " -> " << bsocket->name << " : ";
+          for (const int i : indices) {
+            std::cout << i << ", ";
+          }
+          std::cout << "\n";
+        }
+        std::cout << "Propagated:\n";
+        for (const auto [bsocket, indices] : propagated_to_geometry_socket.items()) {
+          std::cout << "  " << bsocket->owner_node().name << " -> " << bsocket->name << " : ";
+          for (const int i : indices) {
+            std::cout << i << ", ";
+          }
+          std::cout << "\n";
+        }
+      }
+    }
+
+    /* Fix link cycles. */
     {
       Set<lf::Socket *> lf_done_sockets;
       Stack<lf::Socket *> lf_sockets_to_check;
@@ -1520,7 +1735,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       // }
     }
 
-    // this->print_graph();
+    this->print_graph();
 
     lf_graph_->update_node_indices();
     lf_graph_info_->num_inline_nodes_approximate += lf_graph_->nodes().size();

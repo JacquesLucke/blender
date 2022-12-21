@@ -7,6 +7,7 @@
 
 #include "BLI_cache_mutex.hh"
 #include "BLI_multi_value_map.hh"
+#include "BLI_resource_scope.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 #include "BLI_vector_set.hh"
@@ -334,8 +335,10 @@ namespace node_field_inferencing {
 bool update_field_inferencing(const bNodeTree &tree);
 }
 namespace anonymous_attribute_inferencing {
+Array<const nodes::aal::RelationsInNode *> get_relations_by_node(const bNodeTree &tree,
+                                                                 ResourceScope &scope);
 bool update_anonymous_attribute_relations(const bNodeTree &tree);
-}
+}  // namespace anonymous_attribute_inferencing
 }  // namespace blender::bke
 
 /* -------------------------------------------------------------------- */

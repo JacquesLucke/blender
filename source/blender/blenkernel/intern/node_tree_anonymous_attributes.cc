@@ -282,17 +282,23 @@ static Vector<int> find_eval_on_inputs(const bNodeTree &tree,
   return geometry_input_indices;
 }
 
-bool update_anonymous_attribute_relations(const bNodeTree &tree)
+Array<const aal::RelationsInNode *> get_relations_by_node(const bNodeTree &tree,
+                                                          ResourceScope &scope)
 {
-  tree.ensure_topology_cache();
-
-  ResourceScope scope;
-
   const Span<const bNode *> nodes = tree.all_nodes();
   Array<const aal::RelationsInNode *> relations_by_node(nodes.size());
   for (const int i : nodes.index_range()) {
     relations_by_node[i] = &get_relations_in_node(*nodes[i], scope);
   }
+  return relations_by_node;
+}
+
+bool update_anonymous_attribute_relations(const bNodeTree &tree)
+{
+  tree.ensure_topology_cache();
+
+  ResourceScope scope;
+  Array<const aal::RelationsInNode *> relations_by_node = get_relations_by_node(tree, scope);
 
   std::unique_ptr<aal::RelationsInNode> new_relations = std::make_unique<aal::RelationsInNode>();
   const bNode *group_output_node = tree.group_output_node();
