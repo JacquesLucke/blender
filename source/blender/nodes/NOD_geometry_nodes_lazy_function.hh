@@ -98,7 +98,6 @@ struct GeometryNodeLazyFunctionGraphMapping {
   Vector<const lf::OutputSocket *> group_output_used_sockets;
   Vector<InputUsage> group_input_used_sockets;
   Map<int, const lf::OutputSocket *> attribute_set_by_geometry_output;
-  Map<int, const lf::InputSocket *> attribute_set_by_field_output;
   /**
    * A mapping used for logging intermediate values.
    */

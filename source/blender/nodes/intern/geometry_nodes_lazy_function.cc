@@ -115,7 +115,6 @@ class LazyFunctionForGeometryNode : public LazyFunction {
  public:
   Map<StringRef, int> lf_input_for_output_attribute_usage_;
   Map<StringRef, int> lf_input_for_attribute_propagation_to_output_;
-  Map<StringRef, int> lf_output_for_attributes_in_field_;
 
   LazyFunctionForGeometryNode(const bNode &node,
                               Vector<const bNodeSocket *> &r_used_inputs,
@@ -138,16 +137,9 @@ class LazyFunctionForGeometryNode : public LazyFunction {
         }
         for (const int output_index : output_indices) {
           const bNodeSocket &output_bsocket = node.output_socket(output_index);
-          {
-            const int lf_index = inputs_.append_and_get_index_as("Output Reference Required",
-                                                                 CPPType::get<bool>());
-            lf_input_for_output_attribute_usage_.add(output_bsocket.identifier, lf_index);
-          }
-          {
-            const int lf_index = outputs_.append_and_get_index_as(
-                "Attribute Set", CPPType::get<bke::AnonymousAttributeSet>());
-            lf_output_for_attributes_in_field_.add(output_bsocket.identifier, lf_index);
-          }
+          const int lf_index = inputs_.append_and_get_index_as("Output Reference Required",
+                                                               CPPType::get<bool>());
+          lf_input_for_output_attribute_usage_.add(output_bsocket.identifier, lf_index);
         }
       }
       {
@@ -202,11 +194,6 @@ class LazyFunctionForGeometryNode : public LazyFunction {
 
   std::string output_name(const int index) const override
   {
-    for (const auto [identifier, lf_index] : lf_output_for_attributes_in_field_.items()) {
-      if (index == lf_index) {
-        return "Attributes in '" + identifier + "'";
-      }
-    }
     return outputs_[index].debug_name;
   }
 };
@@ -702,7 +689,6 @@ class LazyFunctionForGroupNode : public LazyFunction {
   Map<int, int> lf_input_by_bsocket_output_;
 
   Map<int, int> lf_input_for_attribute_propagation_to_output_;
-  Map<int, int> lf_output_for_attributes_in_field_;
 
   LazyFunctionForGroupNode(const bNode &group_node,
                            const GeometryNodesLazyFunctionGraphInfo &lf_graph_info)
@@ -743,14 +729,6 @@ class LazyFunctionForGroupNode : public LazyFunction {
       graph_inputs.append(lf_socket);
       lf_input_for_attribute_propagation_to_output_.add(output_index, lf_index);
     }
-    for (auto [output_index, lf_socket] :
-         lf_graph_info.mapping.attribute_set_by_field_output.items()) {
-      const int lf_index = outputs_.append_and_get_index_as(
-          "Attribute Set", CPPType::get<bke::AnonymousAttributeSet>());
-      graph_outputs.append(lf_socket);
-      lf_output_for_attributes_in_field_.add(output_index, lf_index);
-    }
-
     lf_logger_.emplace(lf_graph_info);
     lf_side_effect_provider_.emplace();
     graph_executor_.emplace(lf_graph_info.graph,
@@ -832,13 +810,6 @@ class LazyFunctionForGroupNode : public LazyFunction {
       if (i == lf_socket_index) {
         std::stringstream ss;
         ss << "'" << group_node_.input_socket(bsocket_index).name << "' input is used";
-        return ss.str();
-      }
-    }
-    for (const auto [bsocket_index, lf_index] : lf_output_for_attributes_in_field_.items()) {
-      if (i == lf_index) {
-        std::stringstream ss;
-        ss << "Attributes in '" << group_node_.output_socket(bsocket_index).name << "'";
         return ss.str();
       }
     }
@@ -1189,7 +1160,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   Map<const bNodeSocket *, lf::OutputSocket *> socket_is_used_map_;
   Map<const bNodeSocket *, lf::InputSocket *> use_anonymous_attributes_map_;
   Map<const bNodeSocket *, lf::InputSocket *> attribute_set_propagation_map_;
-  Map<const bNodeSocket *, lf::OutputSocket *> attribute_set_outputs_map_;
   Set<const lf::InputSocket *> linked_anonymous_attribute_used_inputs_;
 
   /**
@@ -1226,37 +1196,19 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     /* Create attribute set inputs and outputs for group. */
     {
       const aal::RelationsInNode &relations = *btree_.runtime->anonymous_attribute_relations;
-      {
-        Vector<int> output_indices;
-        for (const aal::PropagateRelation &relation : relations.propagate_relations) {
-          output_indices.append_non_duplicates(relation.to_geometry_output);
-        }
-        for (const int output_index : output_indices) {
-          auto debug_info = std::make_unique<AttributeSetInputDebugInfo>();
-          debug_info->name = btree_.interface_outputs()[output_index]->name;
-          lf::Node &lf_node = lf_graph_->add_dummy(
-              {}, {&CPPType::get<bke::AnonymousAttributeSet>()}, debug_info.get());
-          lf_graph_info_->mapping.attribute_set_by_geometry_output.add(output_index,
-                                                                       &lf_node.output(0));
-          lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
-        }
+
+      Vector<int> output_indices;
+      for (const aal::PropagateRelation &relation : relations.propagate_relations) {
+        output_indices.append_non_duplicates(relation.to_geometry_output);
       }
-      {
-        Vector<int> output_indices;
-        for (const aal::AvailableRelation &relation : relations.available_relations) {
-          output_indices.append_non_duplicates(relation.field_output);
-        }
-        for (const int output_index : output_indices) {
-          auto debug_info = std::make_unique<AttributeSetOutputDebugInfo>();
-          debug_info->name = btree_.interface_outputs()[output_index]->name;
-          lf::Node &lf_node = lf_graph_->add_dummy(
-              {&CPPType::get<bke::AnonymousAttributeSet>()}, {}, debug_info.get());
-          lf_graph_info_->mapping.attribute_set_by_field_output.add(output_index,
-                                                                    &lf_node.input(0));
-          lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
-          static const bke::AnonymousAttributeSet empty_set;
-          lf_node.input(0).set_default_value(&empty_set);
-        }
+      for (const int output_index : output_indices) {
+        auto debug_info = std::make_unique<AttributeSetInputDebugInfo>();
+        debug_info->name = btree_.interface_outputs()[output_index]->name;
+        lf::Node &lf_node = lf_graph_->add_dummy(
+            {}, {&CPPType::get<bke::AnonymousAttributeSet>()}, debug_info.get());
+        lf_graph_info_->mapping.attribute_set_by_geometry_output.add(output_index,
+                                                                     &lf_node.output(0));
+        lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
       }
     }
 
@@ -2197,11 +2149,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
          lazy_function->lf_input_for_attribute_propagation_to_output_.items()) {
       attribute_set_propagation_map_.add(&bnode.output_by_identifier(identifier),
                                          &lf_node.input(lf_input_index));
-    }
-    for (const auto [identifier, lf_output_index] :
-         lazy_function->lf_output_for_attributes_in_field_.items()) {
-      attribute_set_outputs_map_.add(&bnode.output_by_identifier(identifier),
-                                     &lf_node.output(lf_output_index));
     }
 
     lf_graph_info_->functions.append(std::move(lazy_function));
