@@ -1081,6 +1081,56 @@ class LazyFunctionForExtractingAnonymousAttributeSet : public lf::LazyFunction {
   }
 };
 
+class LazyFunctionForJoiningAnonymousAttributeSets : public lf::LazyFunction {
+  const int amount_;
+
+ public:
+  LazyFunctionForJoiningAnonymousAttributeSets(const int amount) : amount_(amount)
+  {
+    debug_name_ = "Join Attribute Sets";
+    for ([[maybe_unused]] const int i : IndexRange(amount)) {
+      inputs_.append_as("Use", CPPType::get<bool>());
+      inputs_.append_as(
+          "Attribute Set", CPPType::get<bke::AnonymousAttributeSet>(), lf::ValueUsage::Maybe);
+    }
+    outputs_.append_as("Attribute Set", CPPType::get<bke::AnonymousAttributeSet>());
+  }
+
+  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
+  {
+    Vector<bke::AnonymousAttributeSet *> sets;
+    bool set_is_missing = false;
+    for (const int i : IndexRange(amount_)) {
+      if (params.get_input<bool>(this->get_use_input(i))) {
+        if (bke::AnonymousAttributeSet *set =
+                params.try_get_input_data_ptr_or_request<bke::AnonymousAttributeSet>(
+                    this->get_attribute_set_input(i))) {
+          sets.append(set);
+        }
+        else {
+          set_is_missing = true;
+        }
+      }
+    }
+    if (set_is_missing) {
+      return;
+    }
+    bke::AnonymousAttributeSet joined_set;
+    /* TODO: Actually join sets. */
+    params.set_output(0, std::move(joined_set));
+  }
+
+  int get_use_input(const int i) const
+  {
+    return 2 * i;
+  }
+
+  int get_attribute_set_input(const int i) const
+  {
+    return 2 * i + 1;
+  }
+};
+
 enum class AttributeReferenceKeyType {
   Input,
   Socket,
@@ -1625,6 +1675,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
         MultiValueMap<const bNodeSocket *, int> required_by_geometry_socket;
         MultiValueMap<const bNodeSocket *, int> linked_geometry_group_outputs;
+        MultiValueMap<const bNodeSocket *, int> required_propagated_to_geometry_socket;
 
         if (const bNode *group_output_bnode = btree_.group_output_node()) {
           for (const aal::PropagateRelation &relation : tree_relations.propagate_relations) {
@@ -1643,6 +1694,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         }
 
         for (const bNode *bnode : btree_.toposort_right_to_left()) {
+          const aal::RelationsInNode &relations = *relations_by_node[bnode->index()];
           for (const bNodeSocket *bsocket : bnode->output_sockets()) {
             if (!bsocket->is_available()) {
               continue;
@@ -1662,6 +1714,12 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             for (const int key_index : required_attributes) {
               if (available_attributes.contains(key_index)) {
                 required_by_geometry_socket.add(bsocket, key_index);
+
+                const AttributeReferenceKey &key = attribute_reference_keys[key_index];
+                if (key.type == AttributeReferenceKeyType::Input ||
+                    &key.bsocket->owner_node() != bnode) {
+                  required_propagated_to_geometry_socket.add(bsocket, key_index);
+                }
               }
             }
             if (!required_group_outputs.is_empty()) {
@@ -1669,7 +1727,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
               linked_geometry_group_outputs.add_multiple(bsocket, required_group_outputs);
             }
           }
-          const aal::RelationsInNode &relations = *relations_by_node[bnode->index()];
+
           for (const bNodeSocket *bsocket : bnode->input_sockets()) {
             if (!bsocket->is_available()) {
               continue;
@@ -1706,6 +1764,27 @@ struct GeometryNodesLazyFunctionGraphBuilder {
               linked_geometry_group_outputs.add_multiple(bsocket, required_group_outputs);
             }
           }
+        }
+
+        for (const auto [geometry_output_bsocket, lf_attribute_set_input] :
+             attribute_set_propagation_map_.items()) {
+          const Span<int> required = required_propagated_to_geometry_socket.lookup(
+              geometry_output_bsocket);
+          auto lazy_function = std::make_unique<LazyFunctionForJoiningAnonymousAttributeSets>(
+              required.size());
+          lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+          for (const int i : IndexRange(required.size())) {
+            lf::InputSocket &lf_use_input = lf_node.input(lazy_function->get_use_input(i));
+            lf::InputSocket &lf_attributes_input = lf_node.input(
+                lazy_function->get_attribute_set_input(i));
+            static const bool static_true = true;
+            lf_use_input.set_default_value(&static_true);
+            const int key_index = required[i];
+            const AttributeReferenceInfo &info = attribute_reference_infos[key_index];
+            lf_graph_->add_link(*info.lf_attribute_set_socket, lf_attributes_input);
+          }
+          lf_graph_->add_link(lf_node.output(0), *lf_attribute_set_input);
+          lf_graph_info_->functions.append(std::move(lazy_function));
         }
 
         std::cout << "Referenced:\n";
