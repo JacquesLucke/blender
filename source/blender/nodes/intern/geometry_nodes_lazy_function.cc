@@ -695,6 +695,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
       : group_node_(group_node)
   {
     debug_name_ = group_node.name;
+    allow_missing_requested_inputs_ = true;
 
     Vector<const bNodeSocket *> tmp_inputs;
     Vector<const bNodeSocket *> tmp_outputs;

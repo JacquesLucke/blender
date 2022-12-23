@@ -255,6 +255,10 @@ class LazyFunction {
   const char *debug_name_ = "<unknown>";
   Vector<Input> inputs_;
   Vector<Output> outputs_;
+  /**
+   * Allow executing the function even if previously requested values are not yet available.
+   */
+  bool allow_missing_requested_inputs_ = false;
 
  public:
   virtual ~LazyFunction() = default;
@@ -302,6 +306,11 @@ class LazyFunction {
    * Utility to check that the guarantee by #Input::usage is followed.
    */
   bool always_used_inputs_available(const Params &params) const;
+
+  bool allow_missing_requested_inputs() const
+  {
+    return allow_missing_requested_inputs_;
+  }
 
  private:
   /**
