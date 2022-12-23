@@ -1722,10 +1722,12 @@ struct GeometryNodesLazyFunctionGraphBuilder {
              attribute_set_propagation_map_.items()) {
           const Span<int> required = required_propagated_to_geometry_socket.lookup(
               geometry_output_bsocket);
+          const Span<int> linked_outputs = linked_geometry_group_outputs.lookup(
+              geometry_output_bsocket);
           auto lazy_function = std::make_unique<LazyFunctionForJoiningAnonymousAttributeSets>(
-              required.size());
+              required.size() + linked_outputs.size());
           lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
-          for (const int i : IndexRange(required.size())) {
+          for (const int i : required.index_range()) {
             lf::InputSocket &lf_use_input = lf_node.input(lazy_function->get_use_input(i));
             lf::InputSocket &lf_attributes_input = lf_node.input(
                 lazy_function->get_attribute_set_input(i));
@@ -1734,6 +1736,18 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             const int key_index = required[i];
             const AttributeReferenceInfo &info = attribute_reference_infos[key_index];
             lf_graph_->add_link(*info.lf_attribute_set_socket, lf_attributes_input);
+          }
+          for (const int i : linked_outputs.index_range()) {
+            const int output_index = linked_outputs[i];
+            lf::InputSocket &lf_use_input = lf_node.input(
+                lazy_function->get_use_input(required.size() + i));
+            lf::InputSocket &lf_attributes_input = lf_node.input(
+                lazy_function->get_attribute_set_input(required.size() + i));
+            static const bool static_true = true;
+            lf_use_input.set_default_value(&static_true);
+            lf::OutputSocket &attribute_set_source = *const_cast<lf::OutputSocket *>(
+                mapping_->attribute_set_by_geometry_output.lookup(output_index));
+            lf_graph_->add_link(attribute_set_source, lf_attributes_input);
           }
           lf_graph_->add_link(lf_node.output(0), *lf_attribute_set_input);
           lf_graph_info_->functions.append(std::move(lazy_function));

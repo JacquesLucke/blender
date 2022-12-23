@@ -1101,6 +1101,8 @@ static GeometrySet compute_geometry(
 
   Vector<const lf::OutputSocket *> graph_inputs = mapping.group_input_sockets;
   graph_inputs.extend(mapping.group_output_used_sockets);
+  graph_inputs.extend(mapping.attribute_set_by_geometry_output.values().begin(),
+                      mapping.attribute_set_by_geometry_output.values().end());
   Vector<const lf::InputSocket *> graph_outputs = mapping.standard_group_output_sockets;
 
   Array<GMutablePointer> param_inputs(graph_inputs.size());
@@ -1133,8 +1135,10 @@ static GeometrySet compute_geometry(
   blender::LinearAllocator<> allocator;
   Vector<GMutablePointer> inputs_to_destruct;
 
-  for (const int input_index : btree.interface_inputs().index_range()) {
-    const bNodeSocket &interface_socket = *btree.interface_inputs()[input_index];
+  int input_index = -1;
+  for (const int i : btree.interface_inputs().index_range()) {
+    input_index++;
+    const bNodeSocket &interface_socket = *btree.interface_inputs()[i];
     if (interface_socket.type == SOCK_GEOMETRY && input_index == 0) {
       param_inputs[input_index] = &input_geometry_set;
       continue;
@@ -1143,15 +1147,22 @@ static GeometrySet compute_geometry(
     const CPPType *type = interface_socket.typeinfo->geometry_nodes_cpp_type;
     BLI_assert(type != nullptr);
     void *value = allocator.allocate(type->size(), type->alignment());
-    initialize_group_input(*nmd, interface_socket, input_index, value);
+    initialize_group_input(*nmd, interface_socket, i, value);
     param_inputs[input_index] = {type, value};
     inputs_to_destruct.append({type, value});
   }
 
   Array<bool> output_used_inputs(btree.interface_outputs().size(), true);
   for (const int i : btree.interface_outputs().index_range()) {
-    const int input_index = btree.interface_inputs().size() + i;
+    input_index++;
     param_inputs[input_index] = &output_used_inputs[i];
+  }
+
+  Array<blender::bke::AnonymousAttributeSet> attributes_to_propagate(
+      mapping.attribute_set_by_geometry_output.size());
+  for (const int i : attributes_to_propagate.index_range()) {
+    input_index++;
+    param_inputs[input_index] = &attributes_to_propagate[i];
   }
 
   for (const int i : graph_outputs.index_range()) {
