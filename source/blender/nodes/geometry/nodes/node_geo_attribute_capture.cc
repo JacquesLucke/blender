@@ -142,7 +142,7 @@ static void node_geo_exec(GeoNodeExecParams params)
   const eAttrDomain domain = eAttrDomain(storage.domain);
 
   const std::string output_identifier = "Attribute" + identifier_suffix(data_type);
-  StrongAnonymousAttributeID attribute_id = params.get_output_anonymous_attribute_id_if_needed(
+  AutoAnonymousAttributeID attribute_id = params.get_output_anonymous_attribute_id_if_needed(
       output_identifier);
 
   if (!attribute_id) {
@@ -181,7 +181,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     if (geometry_set.has_instances()) {
       GeometryComponent &component = geometry_set.get_component_for_write(
           GEO_COMPONENT_TYPE_INSTANCES);
-      bke::try_capture_field_on_geometry(component, attribute_id.get(), domain, field);
+      bke::try_capture_field_on_geometry(component, *attribute_id, domain, field);
     }
   }
   else {
@@ -192,7 +192,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       for (const GeometryComponentType type : types) {
         if (geometry_set.has(type)) {
           GeometryComponent &component = geometry_set.get_component_for_write(type);
-          bke::try_capture_field_on_geometry(component, attribute_id.get(), domain, field);
+          bke::try_capture_field_on_geometry(component, *attribute_id, domain, field);
         }
       }
     });

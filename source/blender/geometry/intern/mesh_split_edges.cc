@@ -3,6 +3,7 @@
 #include "BLI_array_utils.hh"
 #include "BLI_devirtualize_parameters.hh"
 #include "BLI_index_mask.hh"
+#include "BLI_user_counter.hh"
 
 #include "BKE_attribute.hh"
 #include "BKE_attribute_math.hh"
@@ -67,7 +68,7 @@ static void add_new_edges(Mesh &mesh,
   /* Store a copy of the IDs locally since we will remove the existing attributes which
    * can also free the names, since the API does not provide pointer stability. */
   Vector<std::string> named_ids;
-  Vector<bke::WeakAnonymousAttributeID> anonymous_ids;
+  Vector<UserCounter<const bke::AnonymousAttributeID>> anonymous_ids;
   for (const bke::AttributeIDRef &id : attributes.all_ids()) {
     if (attributes.lookup_meta_data(id)->domain != ATTR_DOMAIN_EDGE) {
       continue;
@@ -75,20 +76,20 @@ static void add_new_edges(Mesh &mesh,
     if (id.is_anonymous() && !propagation_info.propagate(id.anonymous_id())) {
       continue;
     }
-    if (id.is_named()) {
+    if (!id.is_anonymous()) {
       named_ids.append(id.name());
     }
     else {
-      anonymous_ids.append(bke::WeakAnonymousAttributeID(&id.anonymous_id()));
-      BKE_anonymous_attribute_id_increment_weak(&id.anonymous_id());
+      anonymous_ids.append(&id.anonymous_id());
+      id.anonymous_id().user_add();
     }
   }
   Vector<bke::AttributeIDRef> local_edge_ids;
   for (const StringRef name : named_ids) {
     local_edge_ids.append(name);
   }
-  for (const bke::WeakAnonymousAttributeID &id : anonymous_ids) {
-    local_edge_ids.append(id.get());
+  for (const UserCounter<const bke::AnonymousAttributeID> &id : anonymous_ids) {
+    local_edge_ids.append(*id);
   }
 
   /* Build new arrays for the copied edge attributes. Unlike vertices, new edges aren't all at the

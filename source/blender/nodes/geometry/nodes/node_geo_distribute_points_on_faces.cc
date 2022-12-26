@@ -320,8 +320,8 @@ BLI_NOINLINE static void propagate_existing_attributes(
 
 namespace {
 struct AttributeOutputs {
-  StrongAnonymousAttributeID normal_id;
-  StrongAnonymousAttributeID rotation_id;
+  AutoAnonymousAttributeID normal_id;
+  AutoAnonymousAttributeID rotation_id;
 };
 }  // namespace
 

@@ -28,7 +28,7 @@ static Map<AttributeIDRef, AttributeMetaData> get_final_attribute_info(
   for (const GeometryComponent *component : components) {
     component->attributes()->for_all(
         [&](const bke::AttributeIDRef &attribute_id, const AttributeMetaData &meta_data) {
-          if (attribute_id.is_named() && ignored_attributes.contains(attribute_id.name())) {
+          if (ignored_attributes.contains(attribute_id.name())) {
             return true;
           }
           if (meta_data.data_type == CD_PROP_STRING) {

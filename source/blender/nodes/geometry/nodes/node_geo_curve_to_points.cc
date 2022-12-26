@@ -111,11 +111,11 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   GeometryComponentEditData::remember_deformed_curve_positions_if_necessary(geometry_set);
 
-  StrongAnonymousAttributeID tangent_anonymous_id =
+  AutoAnonymousAttributeID tangent_anonymous_id =
       params.get_output_anonymous_attribute_id_if_needed("Tangent");
-  StrongAnonymousAttributeID normal_anonymous_id =
+  AutoAnonymousAttributeID normal_anonymous_id =
       params.get_output_anonymous_attribute_id_if_needed("Normal");
-  StrongAnonymousAttributeID rotation_anonymous_id =
+  AutoAnonymousAttributeID rotation_anonymous_id =
       params.get_output_anonymous_attribute_id_if_needed("Rotation");
 
   geometry::ResampleCurvesOutputAttributeIDs resample_attributes;

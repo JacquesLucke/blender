@@ -1051,7 +1051,7 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
   GAttributeReader try_get_for_read(const void *owner,
                                     const AttributeIDRef &attribute_id) const final
   {
-    if (!attribute_id.is_named()) {
+    if (attribute_id.is_anonymous()) {
       return {};
     }
     const Mesh *mesh = static_cast<const Mesh *>(owner);
@@ -1075,7 +1075,7 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
 
   GAttributeWriter try_get_for_write(void *owner, const AttributeIDRef &attribute_id) const final
   {
-    if (!attribute_id.is_named()) {
+    if (attribute_id.is_anonymous()) {
       return {};
     }
     Mesh *mesh = static_cast<Mesh *>(owner);
@@ -1096,7 +1096,7 @@ class VertexGroupsAttributeProvider final : public DynamicAttributesProvider {
 
   bool try_delete(void *owner, const AttributeIDRef &attribute_id) const final
   {
-    if (!attribute_id.is_named()) {
+    if (attribute_id.is_anonymous()) {
       return false;
     }
     Mesh *mesh = static_cast<Mesh *>(owner);

@@ -341,10 +341,10 @@ static void create_attributes(GeoNodeExecParams &params,
 {
   MutableAttributeAccessor attributes = instances.attributes_for_write();
 
-  if (StrongAnonymousAttributeID line_id = params.get_output_anonymous_attribute_id_if_needed(
+  if (AutoAnonymousAttributeID line_id = params.get_output_anonymous_attribute_id_if_needed(
           "Line")) {
     SpanAttributeWriter<int> line_attribute = attributes.lookup_or_add_for_write_only_span<int>(
-        line_id.get(), ATTR_DOMAIN_INSTANCE);
+        *line_id, ATTR_DOMAIN_INSTANCE);
     line_attribute.span.copy_from(layout.line_numbers);
     line_attribute.finish();
     params.set_output("Line",
@@ -352,10 +352,10 @@ static void create_attributes(GeoNodeExecParams &params,
                                                                 params.attribute_producer_name()));
   }
 
-  if (StrongAnonymousAttributeID pivot_id = params.get_output_anonymous_attribute_id_if_needed(
+  if (AutoAnonymousAttributeID pivot_id = params.get_output_anonymous_attribute_id_if_needed(
           "Pivot Point")) {
     SpanAttributeWriter<float3> pivot_attribute =
-        attributes.lookup_or_add_for_write_only_span<float3>(pivot_id.get(), ATTR_DOMAIN_INSTANCE);
+        attributes.lookup_or_add_for_write_only_span<float3>(*pivot_id, ATTR_DOMAIN_INSTANCE);
 
     for (const int i : layout.char_codes.index_range()) {
       pivot_attribute.span[i] = layout.pivot_points.lookup(layout.char_codes[i]);

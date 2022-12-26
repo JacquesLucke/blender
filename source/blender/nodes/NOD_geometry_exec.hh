@@ -19,6 +19,7 @@ struct ModifierData;
 namespace blender::nodes {
 
 using bke::AnonymousAttributeFieldInput;
+using bke::AnonymousAttributeID;
 using bke::AnonymousAttributePropagationInfo;
 using bke::AttributeAccessor;
 using bke::AttributeFieldInput;
@@ -27,13 +28,12 @@ using bke::AttributeKind;
 using bke::AttributeMetaData;
 using bke::AttributeReader;
 using bke::AttributeWriter;
+using bke::AutoAnonymousAttributeID;
 using bke::GAttributeReader;
 using bke::GAttributeWriter;
 using bke::GSpanAttributeWriter;
 using bke::MutableAttributeAccessor;
 using bke::SpanAttributeWriter;
-using bke::StrongAnonymousAttributeID;
-using bke::WeakAnonymousAttributeID;
 using fn::Field;
 using fn::FieldContext;
 using fn::FieldEvaluator;
@@ -259,16 +259,11 @@ class GeoNodeExecParams {
     return params_.get_input<bool>(lf_index);
   }
 
-  WeakAnonymousAttributeID output_anonymous_attribute_is_needed(StringRefNull name)
-  {
-    return WeakAnonymousAttributeID(name);
-  }
-
-  WeakAnonymousAttributeID get_output_anonymous_attribute_id_if_needed(
-      StringRefNull output_identifier)
+  AutoAnonymousAttributeID get_output_anonymous_attribute_id_if_needed(
+      const StringRefNull output_identifier)
   {
     if (this->add_data_referenced_by_output(output_identifier)) {
-      return this->output_anonymous_attribute_is_needed(output_identifier);
+      return new bke::UniqueAnonymousAttributeID();
     }
     return {};
   }
@@ -276,6 +271,7 @@ class GeoNodeExecParams {
   const AnonymousAttributePropagationInfo &get_output_propagation_info(
       StringRef /*output_identifier*/) const
   {
+    /* TODO */
     static AnonymousAttributePropagationInfo info;
     return info;
   }

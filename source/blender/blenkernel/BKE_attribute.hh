@@ -11,7 +11,7 @@
 #include "BLI_math_vec_types.hh"
 #include "BLI_set.hh"
 
-#include "BKE_anonymous_attribute.hh"
+#include "BKE_anonymous_attribute_id.hh"
 #include "BKE_attribute.h"
 
 struct Mesh;
@@ -24,7 +24,7 @@ class GField;
 namespace blender::bke {
 
 /**
- * Identifies an attribute that is either named or anonymous.
+ * Identifies an attribute with optional anonymous attribute information.
  * It does not own the identifier, so it is just a reference.
  */
 class AttributeIDRef {
@@ -38,30 +38,17 @@ class AttributeIDRef {
   AttributeIDRef(StringRefNull name);
   AttributeIDRef(const char *name);
   AttributeIDRef(const std::string &name);
+  AttributeIDRef(const AnonymousAttributeID &anonymous_id);
   AttributeIDRef(const AnonymousAttributeID *anonymous_id);
 
   operator bool() const;
   uint64_t hash() const;
-  bool is_named() const;
   bool is_anonymous() const;
   StringRef name() const;
   const AnonymousAttributeID &anonymous_id() const;
 
   friend bool operator==(const AttributeIDRef &a, const AttributeIDRef &b);
   friend std::ostream &operator<<(std::ostream &stream, const AttributeIDRef &attribute_id);
-};
-
-class AnonymousAttributeSet {
- public:
-  Set<WeakAnonymousAttributeID> set;
-};
-
-class AnonymousAttributePropagationInfo {
- public:
-  bool propagate(const AnonymousAttributeID & /*anonymous_id*/) const
-  {
-    return true;
-  }
 };
 
 /**
@@ -866,29 +853,31 @@ inline AttributeIDRef::AttributeIDRef(const std::string &name) : name_(name)
 }
 
 /* The anonymous id is only borrowed, the caller has to keep a reference to it. */
-inline AttributeIDRef::AttributeIDRef(const AnonymousAttributeID *anonymous_id)
-    : anonymous_id_(anonymous_id)
+inline AttributeIDRef::AttributeIDRef(const AnonymousAttributeID &anonymous_id)
+    : AttributeIDRef(anonymous_id.name())
 {
+  anonymous_id_ = &anonymous_id;
+}
+
+inline AttributeIDRef::AttributeIDRef(const AnonymousAttributeID *anonymous_id)
+    : AttributeIDRef(anonymous_id ? anonymous_id->name() : "")
+{
+  anonymous_id_ = anonymous_id;
 }
 
 inline bool operator==(const AttributeIDRef &a, const AttributeIDRef &b)
 {
-  return a.anonymous_id_ == b.anonymous_id_ && a.name_ == b.name_;
+  return a.name_ == b.name_;
 }
 
 inline AttributeIDRef::operator bool() const
 {
-  return this->is_named() || this->is_anonymous();
+  return !name_.is_empty();
 }
 
 inline uint64_t AttributeIDRef::hash() const
 {
-  return get_default_hash_2(name_, anonymous_id_);
-}
-
-inline bool AttributeIDRef::is_named() const
-{
-  return !name_.is_empty();
+  return get_default_hash(name_);
 }
 
 inline bool AttributeIDRef::is_anonymous() const
@@ -898,7 +887,6 @@ inline bool AttributeIDRef::is_anonymous() const
 
 inline StringRef AttributeIDRef::name() const
 {
-  BLI_assert(this->is_named());
   return name_;
 }
 

@@ -19,7 +19,7 @@
 #include "BLI_user_counter.hh"
 #include "BLI_vector_set.hh"
 
-#include "BKE_anonymous_attribute.hh"
+#include "BKE_anonymous_attribute_id.hh"
 #include "BKE_attribute.hh"
 #include "BKE_geometry_set.h"
 

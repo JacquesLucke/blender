@@ -336,7 +336,7 @@ static bool should_add_attribute_to_mesh(const AttributeAccessor &curve_attribut
 {
 
   /* The position attribute has special non-generic evaluation. */
-  if (id.is_named() && id.name() == "position") {
+  if (id.name() == "position") {
     return false;
   }
   /* Don't propagate built-in curves attributes that are not built-in on meshes. */
