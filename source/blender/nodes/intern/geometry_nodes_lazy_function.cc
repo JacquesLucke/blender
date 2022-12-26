@@ -1770,16 +1770,18 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
           for (const int i : required.index_range()) {
             const int key_index = required[i];
+            const AttributeReferenceKey &key = attribute_reference_keys[key_index];
             const AttributeReferenceInfo &info = attribute_reference_infos[key_index];
             attribute_set_sockets.append(info.lf_attribute_set_socket);
-            used_sockets.append(nullptr);
+            used_sockets.append(socket_is_used_map_.lookup_default(key.bsocket, nullptr));
           }
           for (const int i : linked_outputs.index_range()) {
             const int output_index = linked_outputs[i];
             lf::OutputSocket &attribute_set_source = *const_cast<lf::OutputSocket *>(
                 mapping_->attribute_set_by_geometry_output.lookup(output_index));
             attribute_set_sockets.append(&attribute_set_source);
-            used_sockets.append(nullptr);
+            used_sockets.append(socket_is_used_map_.lookup_default(
+                &btree_.group_output_node()->input_socket(output_index), nullptr));
           }
           if (lf::OutputSocket *joined_attribute_set = get_joined_attribute_set(
                   attribute_set_sockets, used_sockets)) {
