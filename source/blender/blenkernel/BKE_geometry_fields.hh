@@ -284,6 +284,11 @@ class AnonymousAttributeFieldInput : public GeometryFieldInput {
     return fn::Field<T>{field_input};
   }
 
+  void for_each_expected_anonymous_attribute(FunctionRef<void(StringRef)> fn) const override
+  {
+    fn(anonymous_id_->name());
+  }
+
   GVArray get_varray_for_context(const GeometryFieldContext &context,
                                  IndexMask mask) const override;
 

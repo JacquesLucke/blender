@@ -50,16 +50,19 @@ class GeoNodeExecParams {
   lf::Params &params_;
   const lf::Context &lf_context_;
   const Map<StringRef, int> &input_for_anonymous_attribute_output_;
+  const Map<StringRef, int> &input_for_output_propagation_;
 
  public:
   GeoNodeExecParams(const bNode &node,
                     lf::Params &params,
                     const lf::Context &lf_context,
-                    const Map<StringRef, int> &input_for_anonymous_attribute_output)
+                    const Map<StringRef, int> &input_for_anonymous_attribute_output,
+                    const Map<StringRef, int> &input_for_output_propagation)
       : node_(node),
         params_(params),
         lf_context_(lf_context),
-        input_for_anonymous_attribute_output_(input_for_anonymous_attribute_output)
+        input_for_anonymous_attribute_output_(input_for_anonymous_attribute_output),
+        input_for_output_propagation_(input_for_output_propagation)
   {
   }
 
@@ -269,10 +272,12 @@ class GeoNodeExecParams {
   }
 
   const AnonymousAttributePropagationInfo &get_output_propagation_info(
-      StringRef /*output_identifier*/) const
+      const StringRef output_identifier) const
   {
-    /* TODO */
+    const int lf_index = input_for_output_propagation_.lookup(output_identifier);
+    bke::AnonymousAttributeSet set = params_.get_input<bke::AnonymousAttributeSet>(lf_index);
     static AnonymousAttributePropagationInfo info;
+    info.names = set.names;
     return info;
   }
 

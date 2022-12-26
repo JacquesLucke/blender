@@ -163,7 +163,11 @@ class LazyFunctionForGeometryNode : public LazyFunction {
     GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
     BLI_assert(user_data != nullptr);
 
-    GeoNodeExecParams geo_params{node_, params, context, lf_input_for_output_attribute_usage_};
+    GeoNodeExecParams geo_params{node_,
+                                 params,
+                                 context,
+                                 lf_input_for_output_attribute_usage_,
+                                 lf_input_for_attribute_propagation_to_output_};
 
     geo_eval_log::TimePoint start_time = geo_eval_log::Clock::now();
     node_.typeinfo->geometry_node_execute(geo_params);
@@ -1046,8 +1050,8 @@ class LazyFunctionForExtractingAnonymousAttributeSet : public lf::LazyFunction {
     bke::AnonymousAttributeSet attributes;
     if (type_.is_field(value_or_field)) {
       const GField &field = *type_.get_field_ptr(value_or_field);
-      UNUSED_VARS(field);
-      /* TODO: Actually extract referenced anonymous attributes. */
+      field.node().for_each_expected_anonymous_attribute(
+          [&](const StringRef name) { attributes.names.add_as(name); });
     }
     params.set_output(0, std::move(attributes));
   }
@@ -1088,7 +1092,11 @@ class LazyFunctionForJoiningAnonymousAttributeSets : public lf::LazyFunction {
       return;
     }
     bke::AnonymousAttributeSet joined_set;
-    /* TODO: Actually join sets. */
+    for (const bke::AnonymousAttributeSet *set : sets) {
+      for (const std::string &name : set->names) {
+        joined_set.names.add(name);
+      }
+    }
     params.set_output(0, std::move(joined_set));
   }
 

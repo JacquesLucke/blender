@@ -84,6 +84,8 @@ class FieldNode {
 
   virtual uint64_t hash() const;
   virtual bool is_equal_to(const FieldNode &other) const;
+
+  virtual void for_each_expected_anonymous_attribute(FunctionRef<void(StringRef)> fn) const;
 };
 
 /**
@@ -621,6 +623,17 @@ inline bool operator==(const FieldNode &a, const FieldNode &b)
 inline bool operator!=(const FieldNode &a, const FieldNode &b)
 {
   return !(a == b);
+}
+
+inline void FieldNode::for_each_expected_anonymous_attribute(FunctionRef<void(StringRef)> fn) const
+{
+  if (field_inputs_) {
+    for (const FieldInput &field_input : field_inputs_->deduplicated_nodes) {
+      if (&field_input != this) {
+        field_input.for_each_expected_anonymous_attribute(fn);
+      }
+    }
+  }
 }
 
 /** \} */
