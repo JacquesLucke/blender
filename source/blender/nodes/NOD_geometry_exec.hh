@@ -44,6 +44,16 @@ using fn::ValueOrField;
 using geo_eval_log::NamedAttributeUsage;
 using geo_eval_log::NodeWarningType;
 
+class NodeAnonymousAttributeID : public AnonymousAttributeID {
+  std::string long_name_;
+
+ public:
+  NodeAnonymousAttributeID(const Object &object,
+                           const ComputeContext &compute_context,
+                           const bNode &bnode,
+                           const StringRef identifier);
+};
+
 class GeoNodeExecParams {
  private:
   const bNode &node_;
@@ -266,7 +276,10 @@ class GeoNodeExecParams {
       const StringRefNull output_identifier)
   {
     if (this->add_data_referenced_by_output(output_identifier)) {
-      return new bke::UniqueAnonymousAttributeID();
+      const GeoNodesLFUserData &user_data = *this->user_data();
+      const ComputeContext &compute_context = *user_data.compute_context;
+      return new NodeAnonymousAttributeID(
+          *user_data.modifier_data->self_object, compute_context, node_, output_identifier);
     }
     return {};
   }
