@@ -686,6 +686,20 @@ inline int bNodeSocket::index_in_tree() const
   return this->runtime->index_in_all_sockets;
 }
 
+inline int bNodeSocket::index_in_all_inputs() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  BLI_assert(this->is_input());
+  return this->runtime->index_in_inout_sockets;
+}
+
+inline int bNodeSocket::index_in_all_outputs() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  BLI_assert(this->is_output());
+  return this->runtime->index_in_inout_sockets;
+}
+
 inline bool bNodeSocket::is_hidden() const
 {
   return (this->flag & SOCK_HIDDEN) != 0;
