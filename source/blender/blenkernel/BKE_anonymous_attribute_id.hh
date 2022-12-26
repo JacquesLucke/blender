@@ -55,10 +55,9 @@ class AnonymousAttributePropagationInfo {
  public:
   Set<std::string> names;
 
-  bool propagate(const AnonymousAttributeID & /*anonymous_id*/) const
+  bool propagate(const AnonymousAttributeID &anonymous_id) const
   {
-    return true;
-    // return this->names.contains_as(anonymous_id.name());
+    return this->names.contains_as(anonymous_id.name());
   }
 };
 

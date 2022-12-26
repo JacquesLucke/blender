@@ -2157,9 +2157,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     for (const int i : lazy_function->lf_input_by_bsocket_output_.values()) {
       lf_node.input(i).set_default_value(&static_false);
     }
-    for (const int i : lazy_function->lf_input_for_attribute_propagation_to_output_.values()) {
-      static const bke::AnonymousAttributeSet empty_set;
-      lf_node.input(i).set_default_value(&empty_set);
+    for (const auto [output_index, lf_input_index] :
+         lazy_function->lf_input_for_attribute_propagation_to_output_.items()) {
+      attribute_set_propagation_map_.add(&bnode.output_socket(output_index),
+                                         &lf_node.input(lf_input_index));
     }
     lf_graph_info_->functions.append(std::move(lazy_function));
   }
