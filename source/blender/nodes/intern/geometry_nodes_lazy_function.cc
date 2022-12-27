@@ -145,7 +145,9 @@ class LazyFunctionForGeometryNode : public LazyFunction {
       {
         Vector<int> required_output_propagations;
         for (const aal::PropagateRelation &relation : relations->propagate_relations) {
-          required_output_propagations.append_non_duplicates(relation.to_geometry_output);
+          if (node.output_socket(relation.to_geometry_output).is_available()) {
+            required_output_propagations.append_non_duplicates(relation.to_geometry_output);
+          }
         }
         for (const int output_index : required_output_propagations) {
           const bNodeSocket &output_geometry_bsocket = node.output_socket(output_index);
