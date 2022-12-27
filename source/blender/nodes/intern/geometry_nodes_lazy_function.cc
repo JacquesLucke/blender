@@ -869,66 +869,6 @@ class GroupOutputDebugInfo : public lf::DummyDebugInfo {
   }
 };
 
-class OutputIsUsedDebugInfo : public lf::DummyDebugInfo {
- public:
-  std::string name;
-
-  std::string node_name() const override
-  {
-    return "Output Is Used";
-  }
-
-  std::string output_name(const int /*i*/) const override
-  {
-    return this->name;
-  }
-};
-
-class InputIsUsedDebugInfo : public lf::DummyDebugInfo {
- public:
-  std::string name;
-
-  std::string node_name() const override
-  {
-    return "Input Is Used";
-  }
-
-  std::string input_name(const int /*i*/) const override
-  {
-    return this->name;
-  }
-};
-
-class AttributeSetInputDebugInfo : public lf::DummyDebugInfo {
- public:
-  std::string name;
-
-  std::string node_name() const override
-  {
-    return "Attribute Set";
-  }
-
-  std::string output_name(const int /*i*/) const override
-  {
-    return name;
-  }
-};
-
-class AttributeSetOutputDebugInfo : public lf::DummyDebugInfo {
- public:
-  std::string name;
-
-  std::string node_name() const override
-  {
-    return "Attribute Set";
-  }
-
-  std::string input_name(const int /*i*/) const override
-  {
-    return name;
-  }
-};
-
 class LazyFunctionForLogicalOr : public lf::LazyFunction {
  public:
   LazyFunctionForLogicalOr(const int inputs_num)
@@ -959,55 +899,6 @@ class LazyFunctionForLogicalOr : public lf::LazyFunction {
       return;
     }
     params.try_get_input_data_ptr_or_request(first_unavailable_input);
-  }
-};
-
-class LazyFunctionForLogicalAnd : public lf::LazyFunction {
- public:
-  LazyFunctionForLogicalAnd(const int inputs_num)
-  {
-    debug_name_ = "Logical And";
-    for ([[maybe_unused]] const int i : IndexRange(inputs_num)) {
-      inputs_.append_as("Input", CPPType::get<bool>(), lf::ValueUsage::Maybe);
-    }
-    outputs_.append_as("Output", CPPType::get<bool>());
-  }
-
-  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
-  {
-    int first_unavailable_input = -1;
-    for (const int i : inputs_.index_range()) {
-      if (const bool *value = params.try_get_input_data_ptr<bool>(i)) {
-        if (!*value) {
-          params.set_output(0, false);
-          return;
-        }
-      }
-      else {
-        first_unavailable_input = i;
-      }
-    }
-    if (first_unavailable_input == -1) {
-      params.set_output(0, true);
-      return;
-    }
-    params.try_get_input_data_ptr_or_request(first_unavailable_input);
-  }
-};
-
-class LazyFunctionForLogicalNot : public lf::LazyFunction {
- public:
-  LazyFunctionForLogicalNot()
-  {
-    debug_name_ = "Logical Not";
-    inputs_.append_as("Input", CPPType::get<bool>());
-    outputs_.append_as("Output", CPPType::get<bool>());
-  }
-
-  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
-  {
-    const bool value = params.get_input<bool>(0);
-    params.set_output(0, !value);
   }
 };
 
@@ -2127,7 +2018,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void link_output_used_sockets_for_builtin_nodes()
   {
-    for (const auto [output_bsocket, lf_input] : output_used_sockets_for_builtin_nodes_) {
+    for (const auto &[output_bsocket, lf_input] : output_used_sockets_for_builtin_nodes_) {
       if (lf::OutputSocket *lf_is_used = socket_is_used_map_[output_bsocket->index_in_tree()]) {
         lf_graph_->add_link(*lf_is_used, *lf_input);
       }
