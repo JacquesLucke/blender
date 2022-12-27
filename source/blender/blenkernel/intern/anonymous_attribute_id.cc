@@ -4,11 +4,9 @@
 
 namespace blender::bke {
 
-UniqueAnonymousAttributeID::UniqueAnonymousAttributeID()
+bool AnonymousAttributePropagationInfo::propagate(const AnonymousAttributeID &anonymous_id) const
 {
-  static std::atomic<int> counter = 0;
-  const int count = counter.fetch_add(1);
-  name_ = ".a_" + std::to_string(count);
+  return this->names && this->names->contains_as(anonymous_id.name());
 }
 
 }  // namespace blender::bke

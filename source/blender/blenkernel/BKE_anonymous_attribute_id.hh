@@ -10,12 +10,33 @@
 
 namespace blender::bke {
 
+/**
+ * An #AnonymousAttributeID contains information about a specific anonymous attribute.
+ * Like normal attributes, anonymous attributes are also identified by their name. So one should
+ * not have to compare #AnonymousAttributeID pointers.
+ *
+ * For the most part, anonymous attributes don't need additional information besides their name
+ * with few exceptions:
+ * - The name of anonymous attributes is generated automatically, so it is generally not human
+ *   readable (just random characters). #AnonymousAttributeID can provide more context as where a
+ *   specific anonymous attribute was created which can simplify debugging.
+ * - [Not yet supported.] When anonymous attributes are contained in on-disk caches, we have to map
+ *   those back to anonymous attributes at run-time. The issue is that (for various reasons) we
+ *   might change how anonymous attribute names are generated in the future, which would lead to a
+ *   mis-match between stored and new attribute names. To work around it, we should cache
+ *   additional information for anonymous attributes on disk (like which node created it). This
+ *   information can then be used to map stored attributes to their run-time counterpart.
+ *
+ * Once created, #AnonymousAttributeID is immutable. Also it is intrinsicly reference counted.
+ * If possible, the #AutoAnonymousAttributeID wrapper should be used to avoid manual reference
+ * counting.
+ */
 class AnonymousAttributeID {
- protected:
-  std::string name_;
-
  private:
   mutable std::atomic<int> users_ = 1;
+
+ protected:
+  std::string name_;
 
  public:
   virtual ~AnonymousAttributeID() = default;
@@ -39,26 +60,29 @@ class AnonymousAttributeID {
   }
 };
 
+/** Wrapper for #AnonymousAttributeID that avoids manual reference counting. */
 using AutoAnonymousAttributeID = UserCounter<const AnonymousAttributeID>;
 
-class UniqueAnonymousAttributeID : public AnonymousAttributeID {
- public:
-  UniqueAnonymousAttributeID();
-};
-
+/**
+ * A set of anonymous attribute names that is passed around in geometry nodes.
+ */
 class AnonymousAttributeSet {
  public:
-  Set<std::string> names;
+  std::shared_ptr<Set<std::string>> names;
 };
 
+/**
+ * Can be passed to algorithms which propagate attributes. It can tell the algorithm which
+ * anonymous attributes should be propagated and which should not.
+ */
 class AnonymousAttributePropagationInfo {
  public:
-  Set<std::string> names;
+  std::shared_ptr<Set<std::string>> names;
 
-  bool propagate(const AnonymousAttributeID &anonymous_id) const
-  {
-    return this->names.contains_as(anonymous_id.name());
-  }
+  /**
+   * Return true when the anonymous attribute should be propagated and false otherwise.
+   */
+  bool propagate(const AnonymousAttributeID &anonymous_id) const;
 };
 
 }  // namespace blender::bke

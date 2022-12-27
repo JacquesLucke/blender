@@ -945,8 +945,12 @@ class LazyFunctionForExtractingAnonymousAttributeSet : public lf::LazyFunction {
     bke::AnonymousAttributeSet attributes;
     if (type_.is_field(value_or_field)) {
       const GField &field = *type_.get_field_ptr(value_or_field);
-      field.node().for_each_expected_anonymous_attribute(
-          [&](const StringRef name) { attributes.names.add_as(name); });
+      field.node().for_each_expected_anonymous_attribute([&](const StringRef name) {
+        if (!attributes.names) {
+          attributes.names = std::make_shared<Set<std::string>>();
+        }
+        attributes.names->add_as(name);
+      });
     }
     params.set_output(0, std::move(attributes));
   }
@@ -987,9 +991,20 @@ class LazyFunctionForJoiningAnonymousAttributeSets : public lf::LazyFunction {
       return;
     }
     bke::AnonymousAttributeSet joined_set;
-    for (const bke::AnonymousAttributeSet *set : sets) {
-      for (const std::string &name : set->names) {
-        joined_set.names.add(name);
+    if (sets.is_empty()) {
+      /* Nothing to do. */
+    }
+    else if (sets.size() == 1) {
+      joined_set.names = std::move(sets[0]->names);
+    }
+    else {
+      joined_set.names = std::make_shared<Set<std::string>>();
+      for (const bke::AnonymousAttributeSet *set : sets) {
+        if (set->names) {
+          for (const std::string &name : *set->names) {
+            joined_set.names->add(name);
+          }
+        }
       }
     }
     params.set_output(0, std::move(joined_set));
