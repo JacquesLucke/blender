@@ -1242,7 +1242,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     }
 
     this->build_attribute_propagation_sets();
-    this->fix_link_cycles();
+    {
+      SCOPED_TIMER("fix link cycles");
+      this->fix_link_cycles();
+    }
 
     // this->print_graph();
 
