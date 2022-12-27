@@ -1183,7 +1183,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
    * This is indexed by `bNodeSocket::index_in_tree()`.
    */
   Array<lf::OutputSocket *> socket_is_used_map_;
-  Map<const bNodeSocket *, lf::InputSocket *> use_anonymous_attributes_map_;
+  Map<const bNodeSocket *, lf::InputSocket *> output_used_sockets_for_builtin_nodes;
   /** Maps from output geometry sockets to corresponding attribute set inputs. */
   Map<const bNodeSocket *, lf::InputSocket *> attribute_set_propagation_map_;
   /**
@@ -1230,16 +1230,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->build_output_usage_input_node();
     this->build_input_usage_output_node();
     this->build_socket_usages();
-
-    for (const auto [output_bsocket, lf_input] : use_anonymous_attributes_map_.items()) {
-      if (lf::OutputSocket *lf_is_used = socket_is_used_map_[output_bsocket->index_in_tree()]) {
-        lf_graph_->add_link(*lf_is_used, *lf_input);
-      }
-      else {
-        static const bool static_false = false;
-        lf_input->set_default_value(&static_false);
-      }
-    }
 
     this->build_attribute_propagation_sets();
     this->fix_link_cycles();
@@ -1515,8 +1505,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     for (const auto [identifier, lf_input_index] :
          lazy_function->lf_input_for_output_bsocket_usage_.items()) {
-      use_anonymous_attributes_map_.add_new(&bnode.output_by_identifier(identifier),
-                                            &lf_node.input(lf_input_index));
+      output_used_sockets_for_builtin_nodes.add_new(&bnode.output_by_identifier(identifier),
+                                                    &lf_node.input(lf_input_index));
       output_usage_inputs_.add_new(&lf_node.input(lf_input_index));
     }
     for (const auto [identifier, lf_input_index] :
@@ -1886,6 +1876,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     }
 
     this->build_group_input_usages(or_socket_usages_cache);
+    this->link_output_used_sockets_for_builtin_nodes();
   }
 
   using OrSocketUsagesCache = Map<Vector<lf::OutputSocket *>, lf::OutputSocket *>;
@@ -2125,6 +2116,19 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         }
       }
       lf_graph_info_->mapping.group_input_usage_hints.append(std::move(input_usage_hint));
+    }
+  }
+
+  void link_output_used_sockets_for_builtin_nodes()
+  {
+    for (const auto [output_bsocket, lf_input] : output_used_sockets_for_builtin_nodes.items()) {
+      if (lf::OutputSocket *lf_is_used = socket_is_used_map_[output_bsocket->index_in_tree()]) {
+        lf_graph_->add_link(*lf_is_used, *lf_input);
+      }
+      else {
+        static const bool static_false = false;
+        lf_input->set_default_value(&static_false);
+      }
     }
   }
 
