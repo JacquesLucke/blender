@@ -1244,7 +1244,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->build_attribute_propagation_sets();
     this->fix_link_cycles();
 
-    this->print_graph();
+    // this->print_graph();
 
     lf_graph_->update_node_indices();
     lf_graph_info_->num_inline_nodes_approximate += lf_graph_->nodes().size();
