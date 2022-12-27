@@ -1202,7 +1202,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->handle_links();
     this->add_default_inputs();
 
-    this->add_attribute_propagation_input_node();
+    this->build_attribute_propagation_input_node();
+    this->build_output_usage_input_node();
 
     /* Create inputs used relations. */
     Map<Vector<lf::OutputSocket *>, lf::OutputSocket *> or_map;
@@ -1228,15 +1229,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         return &logical_or_node.output(0);
       });
     };
-
-    for (const int i : btree_.interface_outputs().index_range()) {
-      const bNodeSocket &interface_bsocket = *btree_.interface_outputs()[i];
-      auto debug_info = std::make_unique<OutputIsUsedDebugInfo>();
-      debug_info->name = interface_bsocket.name;
-      lf::DummyNode &node = lf_graph_->add_dummy({}, {&CPPType::get<bool>()}, debug_info.get());
-      lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
-      mapping_->group_output_used_sockets.append(&node.output(0));
-    }
 
     for (const bNode *bnode : btree_.toposort_right_to_left()) {
       const bNodeType *node_type = bnode->typeinfo;
@@ -2387,7 +2379,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     return true;
   }
 
-  void add_attribute_propagation_input_node()
+  void build_attribute_propagation_input_node()
   {
     const aal::RelationsInNode &tree_relations = *btree_.runtime->anonymous_attribute_relations;
     Vector<int> output_indices;
@@ -2403,6 +2395,22 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       const int output_index = output_indices[i];
       mapping_->attribute_set_by_geometry_output.add(output_index, &lf_node.output(i));
       debug_info->output_names.append(btree_.interface_outputs()[output_index]->name);
+    }
+    lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
+  }
+
+  void build_output_usage_input_node()
+  {
+    const Span<const bNodeSocket *> interface_outputs = btree_.interface_outputs();
+
+    Vector<const CPPType *> cpp_types;
+    cpp_types.append_n_times(&CPPType::get<bool>(), interface_outputs.size());
+    auto debug_info = std::make_unique<lf::SimpleDummyDebugInfo>();
+    debug_info->name = "Output Socket Usage";
+    lf::Node &lf_node = lf_graph_->add_dummy({}, cpp_types, debug_info.get());
+    for (const int i : interface_outputs.index_range()) {
+      mapping_->group_output_used_sockets.append(&lf_node.output(i));
+      debug_info->output_names.append(interface_outputs[i]->name);
     }
     lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
   }
