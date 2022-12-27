@@ -66,18 +66,16 @@ struct GeoNodesLFUserData : public lf::UserData {
   const ComputeContext *compute_context = nullptr;
 };
 
-enum class InputUsageType {
+enum class InputUsageHintType {
   Never,
   DependsOnOutput,
   DynamicSocket,
 };
 
-struct InputUsage {
-  InputUsageType type = InputUsageType::DependsOnOutput;
+struct InputUsageHint {
+  InputUsageHintType type = InputUsageHintType::DependsOnOutput;
   /** Used in depends-on-output mode. */
   Vector<int> output_dependencies;
-  /** Used in dynamic-socket mode. */
-  const lf::InputSocket *socket = nullptr;
 };
 
 /**
@@ -96,7 +94,8 @@ struct GeometryNodeLazyFunctionGraphMapping {
   Vector<const lf::OutputSocket *> group_input_sockets;
   Vector<const lf::InputSocket *> standard_group_output_sockets;
   Vector<const lf::OutputSocket *> group_output_used_sockets;
-  Vector<InputUsage> group_input_used_sockets;
+  Vector<const lf::InputSocket *> group_input_usage_sockets;
+  Vector<InputUsageHint> group_input_usage_hints;
   Map<int, const lf::OutputSocket *> attribute_set_by_geometry_output;
   /**
    * A mapping used for logging intermediate values.

@@ -719,10 +719,10 @@ class LazyFunctionForGroupNode : public LazyFunction {
     Vector<const lf::InputSocket *> graph_outputs;
     graph_outputs.extend(lf_graph_info.mapping.standard_group_output_sockets);
     for (const int i : group_node.input_sockets().index_range()) {
-      const InputUsage &input_usage = lf_graph_info.mapping.group_input_used_sockets[i];
-      if (input_usage.type == InputUsageType::DynamicSocket) {
-        lf_output_by_bsocket_input_.add_new(
-            i, graph_outputs.append_and_get_index(input_usage.socket));
+      const InputUsageHint &input_usage_hint = lf_graph_info.mapping.group_input_usage_hints[i];
+      if (input_usage_hint.type == InputUsageHintType::DynamicSocket) {
+        const lf::InputSocket *lf_socket = lf_graph_info.mapping.group_input_usage_sockets[i];
+        lf_output_by_bsocket_input_.add_new(i, graph_outputs.append_and_get_index(lf_socket));
         outputs_.append_as("Input is Used", CPPType::get<bool>());
       }
     }
@@ -1204,6 +1204,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     this->build_attribute_propagation_input_node();
     this->build_output_usage_input_node();
+    this->build_input_usage_output_node();
 
     /* Create inputs used relations. */
     Map<Vector<lf::OutputSocket *>, lf::OutputSocket *> or_map;
@@ -1369,16 +1370,16 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           const auto &fn = static_cast<const LazyFunctionForGroupNode &>(lf_group_node.function());
           for (const bNodeSocket *input_bsocket : bnode->input_sockets()) {
             const int input_index = input_bsocket->index();
-            const InputUsage &input_usage =
-                group_lf_graph_info->mapping.group_input_used_sockets[input_index];
-            switch (input_usage.type) {
-              case InputUsageType::Never: {
+            const InputUsageHint &input_usage_hint =
+                group_lf_graph_info->mapping.group_input_usage_hints[input_index];
+            switch (input_usage_hint.type) {
+              case InputUsageHintType::Never: {
                 /* Nothing to do. */
                 break;
               }
-              case InputUsageType::DependsOnOutput: {
+              case InputUsageHintType::DependsOnOutput: {
                 Vector<lf::OutputSocket *> output_usages;
-                for (const int i : input_usage.output_dependencies) {
+                for (const int i : input_usage_hint.output_dependencies) {
                   if (lf::OutputSocket *lf_socket = socket_is_used_map_.lookup_default(
                           &bnode->output_socket(i), nullptr)) {
                     output_usages.append(lf_socket);
@@ -1389,7 +1390,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
                 }
                 break;
               }
-              case InputUsageType::DynamicSocket: {
+              case InputUsageHintType::DynamicSocket: {
                 lf::OutputSocket &lf_input_is_used_socket = const_cast<lf::OutputSocket &>(
                     lf_group_node.output(fn.lf_output_by_bsocket_input_.lookup(input_index)));
                 socket_is_used_map_.add_new(input_bsocket, &lf_input_is_used_socket);
@@ -1452,34 +1453,30 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       lf_input->set_default_value(&empty_set);
     }
 
-    /* Create input used group outputs. */
+    /* Link up input usages. */
     for (const int i : btree_.interface_inputs().index_range()) {
-      const bNodeSocket &interface_bsocket = *btree_.interface_inputs()[i];
       lf::OutputSocket *lf_socket = or_socket_usages(inputs_used_map.lookup(i));
-      auto debug_info = std::make_unique<InputIsUsedDebugInfo>();
-      debug_info->name = interface_bsocket.name;
-      lf::DummyNode &node = lf_graph_->add_dummy({&CPPType::get<bool>()}, {}, debug_info.get());
-      lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
-      InputUsage input_usage;
+      lf::InputSocket *lf_group_output = const_cast<lf::InputSocket *>(
+          mapping_->group_input_usage_sockets[i]);
+      InputUsageHint input_usage_hint;
       if (lf_socket == nullptr) {
         static const bool static_false = false;
-        node.input(0).set_default_value(&static_false);
-        input_usage.type = InputUsageType::Never;
+        lf_group_output->set_default_value(&static_false);
+        input_usage_hint.type = InputUsageHintType::Never;
       }
       else {
-        lf_graph_->add_link(*lf_socket, node.input(0));
+        lf_graph_->add_link(*lf_socket, *lf_group_output);
         if (lf_socket->node().is_dummy()) {
           /* TODO: Support slightly more complex cases where it depends on more than one output. */
-          input_usage.type = InputUsageType::DependsOnOutput;
-          input_usage.output_dependencies = {
+          input_usage_hint.type = InputUsageHintType::DependsOnOutput;
+          input_usage_hint.output_dependencies = {
               mapping_->group_output_used_sockets.first_index_of(lf_socket)};
         }
         else {
-          input_usage.type = InputUsageType::DynamicSocket;
-          input_usage.socket = &node.input(0);
+          input_usage_hint.type = InputUsageHintType::DynamicSocket;
         }
       }
-      lf_graph_info_->mapping.group_input_used_sockets.append(std::move(input_usage));
+      lf_graph_info_->mapping.group_input_usage_hints.append(std::move(input_usage_hint));
     }
 
     /* Link attribute sets. */
@@ -2411,6 +2408,22 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     for (const int i : interface_outputs.index_range()) {
       mapping_->group_output_used_sockets.append(&lf_node.output(i));
       debug_info->output_names.append(interface_outputs[i]->name);
+    }
+    lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
+  }
+
+  void build_input_usage_output_node()
+  {
+    const Span<const bNodeSocket *> interface_inputs = btree_.interface_inputs();
+
+    Vector<const CPPType *> cpp_types;
+    cpp_types.append_n_times(&CPPType::get<bool>(), interface_inputs.size());
+    auto debug_info = std::make_unique<lf::SimpleDummyDebugInfo>();
+    debug_info->name = "Input Socket Usage";
+    lf::Node &lf_node = lf_graph_->add_dummy(cpp_types, {}, debug_info.get());
+    for (const int i : interface_inputs.index_range()) {
+      mapping_->group_input_usage_sockets.append(&lf_node.input(i));
+      debug_info->input_names.append(interface_inputs[i]->name);
     }
     lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
   }
