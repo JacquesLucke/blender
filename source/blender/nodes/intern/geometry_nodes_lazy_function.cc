@@ -1815,8 +1815,17 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void build_socket_usages()
   {
-    MultiValueMap<int, lf::OutputSocket *> inputs_used_map;
     OrSocketUsagesCache or_socket_usages_cache;
+
+    if (const bNode *group_output_bnode = btree_.group_output_node()) {
+      /* Whether a group output is used is determined by a group input that has been created
+       * exactly for this purpose. */
+      for (const bNodeSocket *bsocket : group_output_bnode->input_sockets().drop_back(1)) {
+        const int index = bsocket->index();
+        socket_is_used_map_[bsocket->index_in_tree()] = const_cast<lf::OutputSocket *>(
+            mapping_->group_output_used_sockets[index]);
+      }
+    }
 
     /* Iterate over all nodes from right to left to determine when which sockets are used. */
     for (const bNode *bnode : btree_.toposort_right_to_left()) {
@@ -1854,28 +1863,17 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           break;
         }
         case NODE_REROUTE: {
+          /* The input is used exactly when the output is used. */
           socket_is_used_map_[bnode->input_socket(0).index_in_tree()] =
               socket_is_used_map_[bnode->output_socket(0).index_in_tree()];
           break;
         }
         case NODE_GROUP_OUTPUT: {
-          for (const bNodeSocket *bsocket : bnode->input_sockets().drop_back(1)) {
-            const int index = bsocket->index();
-            socket_is_used_map_[bsocket->index_in_tree()] = const_cast<lf::OutputSocket *>(
-                mapping_->group_output_used_sockets[index]);
-          }
+          /* Handled before this loop already. */
           break;
         }
         case NODE_GROUP_INPUT: {
-          for (const bNodeSocket *bsocket : bnode->output_sockets().drop_back(1)) {
-            if (lf::OutputSocket *lf_socket = socket_is_used_map_[bsocket->index_in_tree()]) {
-              const Span<lf::OutputSocket *> previous_lf_sockets = inputs_used_map.lookup(
-                  bsocket->index());
-              if (!previous_lf_sockets.contains(lf_socket)) {
-                inputs_used_map.add(bsocket->index(), lf_socket);
-              }
-            }
-          }
+          /* Handled after this loop. */
           break;
         }
         case GEO_NODE_SWITCH: {
@@ -2019,9 +2017,23 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
     }
 
+    /* For every group input, store which sockets depend on it. */
+    MultiValueMap<int, lf::OutputSocket *> group_input_target_usages;
+    for (const bNode *bnode : btree_.group_input_nodes()) {
+      for (const bNodeSocket *bsocket : bnode->output_sockets().drop_back(1)) {
+        if (lf::OutputSocket *lf_socket = socket_is_used_map_[bsocket->index_in_tree()]) {
+          const Span<lf::OutputSocket *> previous_lf_sockets = group_input_target_usages.lookup(
+              bsocket->index());
+          if (!previous_lf_sockets.contains(lf_socket)) {
+            group_input_target_usages.add(bsocket->index(), lf_socket);
+          }
+        }
+      }
+    }
+
     /* Link up input usages. */
     for (const int i : btree_.interface_inputs().index_range()) {
-      lf::OutputSocket *lf_socket = this->or_socket_usages(inputs_used_map.lookup(i),
+      lf::OutputSocket *lf_socket = this->or_socket_usages(group_input_target_usages.lookup(i),
                                                            or_socket_usages_cache);
       lf::InputSocket *lf_group_output = const_cast<lf::InputSocket *>(
           mapping_->group_input_usage_sockets[i]);
