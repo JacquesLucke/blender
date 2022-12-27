@@ -1116,7 +1116,9 @@ class LazyFunctionForJoiningAnonymousAttributeSets : public lf::LazyFunction {
 };
 
 enum class AttributeReferenceKeyType {
-  Input,
+  /** Attribute referenced by a field passed into the group. */
+  InputField,
+  /** Attribute referenced by a field created within the current group. */
   Socket,
 };
 
@@ -1139,7 +1141,7 @@ struct AttributeReferenceKey {
 
   friend std::ostream &operator<<(std::ostream &stream, const AttributeReferenceKey &value)
   {
-    if (value.type == AttributeReferenceKeyType::Input) {
+    if (value.type == AttributeReferenceKeyType::InputField) {
       stream << "Input: " << value.input_index;
     }
     else {
@@ -2198,7 +2200,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     const aal::RelationsInNode &tree_relations = *btree_.runtime->anonymous_attribute_relations;
     for (const aal::EvalRelation &relation : tree_relations.eval_relations) {
       AttributeReferenceKey key;
-      key.type = AttributeReferenceKeyType::Input;
+      key.type = AttributeReferenceKeyType::InputField;
       key.input_index = relation.field_input;
       r_attribute_reference_keys.add_new(key);
       AttributeReferenceInfo info;
@@ -2222,7 +2224,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     for (const int key_index : attribute_reference_keys.index_range()) {
       const AttributeReferenceKey &key = attribute_reference_keys[key_index];
       const AttributeReferenceInfo &info = attribute_reference_infos[key_index];
-      if (key.type == AttributeReferenceKeyType::Input) {
+      if (key.type == AttributeReferenceKeyType::InputField) {
         for (const bNode *bnode : btree_.group_input_nodes()) {
           const bNodeSocket &bsocket = bnode->output_socket(key.input_index);
           r_referenced_by_field_socket.add(&bsocket, key_index);
@@ -2327,7 +2329,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             r_required_by_geometry_socket.add(bsocket, key_index);
 
             const AttributeReferenceKey &key = attribute_reference_keys[key_index];
-            if (key.type == AttributeReferenceKeyType::Input ||
+            if (key.type == AttributeReferenceKeyType::InputField ||
                 &key.bsocket->owner_node() != bnode) {
               r_required_propagated_to_geometry_socket.add(bsocket, key_index);
             }
