@@ -184,7 +184,7 @@ class LazyFunctionForGeometryNode : public LazyFunction {
   {
     for (const auto [identifier, lf_index] : lf_input_for_output_bsocket_usage_.items()) {
       if (index == lf_index) {
-        return "Add '" + identifier + "'";
+        return "Use Output '" + identifier + "'";
       }
     }
     for (const auto [identifier, lf_index] :
@@ -1172,7 +1172,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   Map<const bNodeSocket *, lf::InputSocket *> use_anonymous_attributes_map_;
   /** Maps from output geometry sockets to corresponding attribute set inputs. */
   Map<const bNodeSocket *, lf::InputSocket *> attribute_set_propagation_map_;
-  Set<const lf::InputSocket *> weak_output_usage_inputs_;
+  /**
+   * Boolean inputs that tell a node that a specific output is used. If this socket is in a
+   * link-cycle, its input can become a constant true.
+   */
+  Set<const lf::InputSocket *> output_usage_inputs_;
 
   /**
    * All group input nodes are combined into one dummy node in the lazy-function graph.
@@ -1214,7 +1218,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       if (lf::OutputSocket *lf_is_used = socket_is_used_map_.lookup_default(output_bsocket,
                                                                             nullptr)) {
         lf_graph_->add_link(*lf_is_used, *lf_input);
-        weak_output_usage_inputs_.add(lf_input);
       }
       else {
         static const bool static_false = false;
@@ -1450,7 +1453,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     static const bool static_false = false;
     for (const int i : lazy_function->lf_input_for_output_bsocket_usage_.values()) {
       lf_node.input(i).set_default_value(&static_false);
-      weak_output_usage_inputs_.add(&lf_node.input(i));
+      output_usage_inputs_.add(&lf_node.input(i));
     }
     for (const auto [output_index, lf_input_index] :
          lazy_function->lf_input_for_attribute_propagation_to_output_.items()) {
@@ -1498,6 +1501,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
          lazy_function->lf_input_for_output_bsocket_usage_.items()) {
       use_anonymous_attributes_map_.add_new(&bnode.output_by_identifier(identifier),
                                             &lf_node.input(lf_input_index));
+      output_usage_inputs_.add_new(&lf_node.input(lf_input_index));
     }
     for (const auto [identifier, lf_input_index] :
          lazy_function->lf_input_for_attribute_propagation_to_output_.items()) {
@@ -2405,7 +2409,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
           for (lf::Socket *lf_cycle_socket : cycle) {
             if (lf_cycle_socket->is_input() &&
-                weak_output_usage_inputs_.contains(&lf_cycle_socket->as_input())) {
+                output_usage_inputs_.contains(&lf_cycle_socket->as_input())) {
               lf::InputSocket &lf_cycle_input_socket = lf_cycle_socket->as_input();
               lf_graph_->clear_origin(lf_cycle_input_socket);
               cleared_origins.append(&lf_cycle_input_socket);
@@ -2484,7 +2488,7 @@ class UsedSocketVisualizeOptions : public lf::Graph::ToDotOptions {
                            const lf::InputSocket &to,
                            dot::DirectedEdge &dot_edge) const
   {
-    if (builder_.weak_output_usage_inputs_.contains_as(&to)) {
+    if (builder_.output_usage_inputs_.contains_as(&to)) {
       // dot_edge.attributes.set("constraint", "false");
       dot_edge.attributes.set("color", "#00000055");
     }
