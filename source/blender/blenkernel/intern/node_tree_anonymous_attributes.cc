@@ -8,6 +8,7 @@
 #include "BLI_resource_scope.hh"
 #include "BLI_set.hh"
 #include "BLI_stack.hh"
+#include "BLI_timeit.hh"
 
 namespace blender::bke::anonymous_attribute_inferencing {
 namespace aal = nodes::aal;

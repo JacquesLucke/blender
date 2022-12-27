@@ -1567,11 +1567,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         attribute_reference_infos.append(std::move(info));
       }
 
-      std::cout << "Attribute Key: " << attribute_reference_keys.size() << "\n";
-      for (const AttributeReferenceKey &key : attribute_reference_keys) {
-        std::cout << "  " << key << "\n";
-      }
-
       MultiValueMap<const bNodeSocket *, int> referenced_by_field_socket;
       MultiValueMap<const bNodeSocket *, int> propagated_to_geometry_socket;
       {
@@ -1796,39 +1791,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             lf_graph_->add_link(*joined_attribute_set, *lf_attribute_set_input);
           }
         }
-
-        std::cout << "Referenced:\n";
-        for (const auto [bsocket, indices] : referenced_by_field_socket.items()) {
-          std::cout << "  " << bsocket->owner_node().name << " -> " << bsocket->name << " : ";
-          for (const int i : indices) {
-            std::cout << i << ", ";
-          }
-          std::cout << "\n";
-        }
-        std::cout << "Propagated:\n";
-        for (const auto [bsocket, indices] : propagated_to_geometry_socket.items()) {
-          std::cout << "  " << bsocket->owner_node().name << " -> " << bsocket->name << " : ";
-          for (const int i : indices) {
-            std::cout << i << ", ";
-          }
-          std::cout << "\n";
-        }
-        std::cout << "Required:\n";
-        for (const auto [bsocket, indices] : required_by_geometry_socket.items()) {
-          std::cout << "  " << bsocket->owner_node().name << " -> " << bsocket->name << " : ";
-          for (const int i : indices) {
-            std::cout << i << ", ";
-          }
-          std::cout << "\n";
-        }
-        std::cout << "Required Outputs:\n";
-        for (const auto [bsocket, indices] : linked_geometry_group_outputs.items()) {
-          std::cout << "  " << bsocket->owner_node().name << " -> " << bsocket->name << " : ";
-          for (const int i : indices) {
-            std::cout << i << ", ";
-          }
-          std::cout << "\n";
-        }
       }
     }
 
@@ -1910,19 +1872,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         lf_sockets_to_check.pop();
         lf_socket_stack.pop();
       }
-
-      // std::cout << "Cycles: " << lf_cycles.size() << "\n";
-      // for (const Span<lf::Socket *> lf_cycle : lf_cycles) {
-      //   std::cout << "  ";
-      //   for (lf::Socket *lf_socket : lf_cycle) {
-      //     std::cout << lf_socket->node().name() << ":" << lf_socket->name() << " -> ";
-      //   }
-      //   std::cout << "\n";
-      // }
-      // std::cout << "Cleared origins: " << cleared_origins.size() << "\n";
-      // for (const lf::Socket *lf_socket : cleared_origins) {
-      //   std::cout << "  " << lf_socket->node().name() << ":" << lf_socket->name() << "\n";
-      // }
     }
 
     this->print_graph();
