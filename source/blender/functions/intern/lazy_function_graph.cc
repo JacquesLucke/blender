@@ -96,9 +96,17 @@ void Graph::clear_origin(InputSocket &socket)
 
 void Graph::update_node_indices()
 {
+  int socket_counter = 0;
   for (const int i : nodes_.index_range()) {
     nodes_[i]->index_in_graph_ = i;
+    for (InputSocket *socket : nodes_[i]->inputs()) {
+      socket->index_in_graph_ = socket_counter++;
+    }
+    for (OutputSocket *socket : nodes_[i]->outputs()) {
+      socket->index_in_graph_ = socket_counter++;
+    }
   }
+  socket_num_ = socket_counter;
 }
 
 bool Graph::node_indices_are_valid() const

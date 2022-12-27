@@ -1242,10 +1242,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     }
 
     this->build_attribute_propagation_sets();
-    {
-      SCOPED_TIMER("fix link cycles");
-      this->fix_link_cycles();
-    }
+    this->fix_link_cycles();
 
     // this->print_graph();
 
@@ -2483,7 +2480,16 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void fix_link_cycles()
   {
-    Set<lf::Socket *> lf_done_sockets;
+    lf_graph_->update_node_indices();
+    const int sockets_num = lf_graph_->socket_index_in_graph_size();
+
+    struct SocketState {
+      bool done = false;
+      bool in_stack = false;
+    };
+
+    Array<SocketState> socket_states(sockets_num);
+
     Stack<lf::Socket *> lf_sockets_to_check;
     for (lf::Node *lf_node : lf_graph_->nodes()) {
       if (lf_node->is_function()) {
@@ -2499,15 +2505,15 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         }
       }
     }
-    Vector<lf::Socket *> cleared_origins;
-    Vector<Vector<lf::Socket *>> lf_cycles;
-    VectorSet<lf::Socket *> lf_socket_stack;
+    Vector<lf::Socket *> lf_socket_stack;
     while (!lf_sockets_to_check.is_empty()) {
       lf::Socket *lf_inout_socket = lf_sockets_to_check.peek();
       lf::Node &lf_node = lf_inout_socket->node();
-      lf_socket_stack.add(lf_inout_socket);
+      SocketState &state = socket_states[lf_inout_socket->index_in_graph()];
+      lf_socket_stack.append(lf_inout_socket);
+      state.in_stack = true;
 
-      Vector<lf::Socket *> lf_origin_sockets;
+      Vector<lf::Socket *, 16> lf_origin_sockets;
       if (lf_inout_socket->is_input()) {
         lf::InputSocket &lf_input_socket = lf_inout_socket->as_input();
         if (lf::OutputSocket *lf_origin_socket = lf_input_socket.origin()) {
@@ -2530,23 +2536,21 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
       bool pushed_socket = false;
       for (lf::Socket *lf_origin_socket : lf_origin_sockets) {
-        if (lf_socket_stack.contains(lf_origin_socket)) {
+        if (socket_states[lf_origin_socket->index_in_graph()].in_stack) {
           const Span<lf::Socket *> cycle = lf_socket_stack.as_span().drop_front(
-              lf_socket_stack.index_of(lf_origin_socket));
-          lf_cycles.append(cycle);
+              lf_socket_stack.first_index_of(lf_origin_socket));
 
           for (lf::Socket *lf_cycle_socket : cycle) {
             if (lf_cycle_socket->is_input() &&
                 output_usage_inputs_.contains(&lf_cycle_socket->as_input())) {
               lf::InputSocket &lf_cycle_input_socket = lf_cycle_socket->as_input();
               lf_graph_->clear_origin(lf_cycle_input_socket);
-              cleared_origins.append(&lf_cycle_input_socket);
               static const bool static_true = true;
               lf_cycle_input_socket.set_default_value(&static_true);
             }
           }
         }
-        else if (!lf_done_sockets.contains(lf_origin_socket)) {
+        else if (!socket_states[lf_origin_socket->index_in_graph()].done) {
           lf_sockets_to_check.push(lf_origin_socket);
           pushed_socket = true;
         }
@@ -2555,9 +2559,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         continue;
       }
 
-      lf_done_sockets.add(lf_inout_socket);
+      state.done = true;
+      state.in_stack = false;
       lf_sockets_to_check.pop();
-      lf_socket_stack.pop();
+      lf_socket_stack.pop_last();
     }
   }
 

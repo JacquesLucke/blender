@@ -53,6 +53,7 @@ class Socket : NonCopyable, NonMovable {
    * Index of the socket. E.g. 0 for the first input and the first output socket.
    */
   int index_in_node_;
+  int index_in_graph_;
 
   friend Graph;
 
@@ -61,6 +62,7 @@ class Socket : NonCopyable, NonMovable {
   bool is_output() const;
 
   int index() const;
+  int index_in_graph() const;
 
   InputSocket &as_input();
   OutputSocket &as_output();
@@ -217,6 +219,8 @@ class Graph : NonCopyable, NonMovable {
    */
   Vector<Node *> nodes_;
 
+  int socket_num_ = 0;
+
  public:
   ~Graph();
 
@@ -250,6 +254,8 @@ class Graph : NonCopyable, NonMovable {
    * Make sure that #Node::index_in_graph is up to date.
    */
   void update_node_indices();
+
+  int socket_index_in_graph_size() const;
 
   /**
    * Can be used to assert that #update_node_indices has been called.
@@ -288,6 +294,11 @@ inline bool Socket::is_output() const
 inline int Socket::index() const
 {
   return index_in_node_;
+}
+
+inline int Socket::index_in_graph() const
+{
+  return index_in_graph_;
 }
 
 inline InputSocket &Socket::as_input()
@@ -458,6 +469,11 @@ inline Span<const Node *> Graph::nodes() const
 inline Span<Node *> Graph::nodes()
 {
   return nodes_;
+}
+
+inline int Graph::socket_index_in_graph_size() const
+{
+  return socket_num_;
 }
 
 /** \} */
