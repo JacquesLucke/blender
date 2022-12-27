@@ -1808,29 +1808,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void build_socket_usages()
   {
-    Map<Vector<lf::OutputSocket *>, lf::OutputSocket *> or_map;
     MultiValueMap<int, lf::OutputSocket *> inputs_used_map;
-
-    auto or_socket_usages = [&](MutableSpan<lf::OutputSocket *> usages) -> lf::OutputSocket * {
-      if (usages.is_empty()) {
-        return nullptr;
-      }
-      if (usages.size() == 1) {
-        return usages[0];
-      }
-
-      std::sort(usages.begin(), usages.end());
-      return or_map.lookup_or_add_cb_as(usages, [&]() {
-        auto logical_or_fn = std::make_unique<LazyFunctionForLogicalOr>(usages.size());
-        lf::Node &logical_or_node = lf_graph_->add_function(*logical_or_fn);
-        lf_graph_info_->functions.append(std::move(logical_or_fn));
-
-        for (const int i : usages.index_range()) {
-          lf_graph_->add_link(*usages[i], logical_or_node.input(i));
-        }
-        return &logical_or_node.output(0);
-      });
-    };
+    OrSocketUsagesCache or_socket_usages_cache;
 
     for (const bNode *bnode : btree_.toposort_right_to_left()) {
       const bNodeType *node_type = bnode->typeinfo;
@@ -1856,7 +1835,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             target_usages.append_non_duplicates(is_used_socket);
           }
         }
-        if (lf::OutputSocket *usage = or_socket_usages(target_usages)) {
+        if (lf::OutputSocket *usage = this->or_socket_usages(target_usages,
+                                                             or_socket_usages_cache)) {
           socket_is_used_map_.add_new(socket, usage);
         }
       }
@@ -1986,7 +1966,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
                     output_usages.append(lf_socket);
                   }
                 }
-                if (lf::OutputSocket *lf_socket = or_socket_usages(output_usages)) {
+                if (lf::OutputSocket *lf_socket = this->or_socket_usages(output_usages,
+                                                                         or_socket_usages_cache)) {
                   socket_is_used_map_.add_new(input_bsocket, lf_socket);
                 }
                 break;
@@ -2030,7 +2011,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
                 output_usages.append_non_duplicates(is_used_socket);
               }
             }
-            if (lf::OutputSocket *usage = or_socket_usages(output_usages)) {
+            if (lf::OutputSocket *usage = this->or_socket_usages(output_usages,
+                                                                 or_socket_usages_cache)) {
               socket_is_used_map_.add_new(input_socket, usage);
             }
           }
@@ -2041,7 +2023,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     /* Link up input usages. */
     for (const int i : btree_.interface_inputs().index_range()) {
-      lf::OutputSocket *lf_socket = or_socket_usages(inputs_used_map.lookup(i));
+      lf::OutputSocket *lf_socket = this->or_socket_usages(inputs_used_map.lookup(i),
+                                                           or_socket_usages_cache);
       lf::InputSocket *lf_group_output = const_cast<lf::InputSocket *>(
           mapping_->group_input_usage_sockets[i]);
       InputUsageHint input_usage_hint;
@@ -2065,6 +2048,31 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
       lf_graph_info_->mapping.group_input_usage_hints.append(std::move(input_usage_hint));
     }
+  }
+
+  using OrSocketUsagesCache = Map<Vector<lf::OutputSocket *>, lf::OutputSocket *>;
+
+  lf::OutputSocket *or_socket_usages(MutableSpan<lf::OutputSocket *> usages,
+                                     OrSocketUsagesCache &cache)
+  {
+    if (usages.is_empty()) {
+      return nullptr;
+    }
+    if (usages.size() == 1) {
+      return usages[0];
+    }
+
+    std::sort(usages.begin(), usages.end());
+    return cache.lookup_or_add_cb_as(usages, [&]() {
+      auto logical_or_fn = std::make_unique<LazyFunctionForLogicalOr>(usages.size());
+      lf::Node &logical_or_node = lf_graph_->add_function(*logical_or_fn);
+      lf_graph_info_->functions.append(std::move(logical_or_fn));
+
+      for (const int i : usages.index_range()) {
+        lf_graph_->add_link(*usages[i], logical_or_node.input(i));
+      }
+      return &logical_or_node.output(0);
+    });
   }
 
   void build_attribute_propagation_sets()
