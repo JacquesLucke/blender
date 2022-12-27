@@ -1118,31 +1118,36 @@ class LazyFunctionForJoiningAnonymousAttributeSets : public lf::LazyFunction {
 enum class AttributeReferenceKeyType {
   /** Attribute referenced by a field passed into the group. */
   InputField,
+  /** Attributes referenced on the output geometry outside of the current group. */
+  OutputGeometry,
   /** Attribute referenced by a field created within the current group. */
   Socket,
 };
 
 struct AttributeReferenceKey {
   AttributeReferenceKeyType type;
-  /* Used when type is Input. */
-  int input_index = 0;
+  /* Used when type is InputField or OutputGeometry. */
+  int index = 0;
   /* Used when type is Socket. */
   const bNodeSocket *bsocket = nullptr;
 
   uint64_t hash() const
   {
-    return get_default_hash_3(this->type, this->bsocket, this->input_index);
+    return get_default_hash_3(this->type, this->bsocket, this->index);
   }
 
   friend bool operator==(const AttributeReferenceKey &a, const AttributeReferenceKey &b)
   {
-    return a.type == b.type && a.bsocket == b.bsocket && a.input_index == b.input_index;
+    return a.type == b.type && a.bsocket == b.bsocket && a.index == b.index;
   }
 
   friend std::ostream &operator<<(std::ostream &stream, const AttributeReferenceKey &value)
   {
     if (value.type == AttributeReferenceKeyType::InputField) {
-      stream << "Input: " << value.input_index;
+      stream << "Input Field: " << value.index;
+    }
+    else if (value.type == AttributeReferenceKeyType::OutputGeometry) {
+      stream << "Output Geometry: " << value.index;
     }
     else {
       stream << "Socket: " << value.bsocket->owner_node().name << " -> " << value.bsocket->name;
@@ -2144,19 +2149,16 @@ struct GeometryNodesLazyFunctionGraphBuilder {
                                                             propagated_to_geometry_socket);
 
     MultiValueMap<const bNodeSocket *, int> required_by_geometry_socket;
-    MultiValueMap<const bNodeSocket *, int> linked_geometry_group_outputs;
     MultiValueMap<const bNodeSocket *, int> required_propagated_to_geometry_socket;
     this->gather_required_propagated_data(relations_by_node,
                                           attribute_reference_keys,
                                           referenced_by_field_socket,
                                           propagated_to_geometry_socket,
                                           required_by_geometry_socket,
-                                          linked_geometry_group_outputs,
                                           required_propagated_to_geometry_socket);
 
     this->build_attribute_sets_to_propagate(attribute_reference_keys,
                                             attribute_reference_infos,
-                                            linked_geometry_group_outputs,
                                             required_propagated_to_geometry_socket);
   }
 
@@ -2201,7 +2203,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     for (const aal::EvalRelation &relation : tree_relations.eval_relations) {
       AttributeReferenceKey key;
       key.type = AttributeReferenceKeyType::InputField;
-      key.input_index = relation.field_input;
+      key.index = relation.field_input;
       r_attribute_reference_keys.add_new(key);
       AttributeReferenceInfo info;
       info.lf_field_socket = const_cast<lf::OutputSocket *>(
@@ -2211,6 +2213,22 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         info.initial_geometry_sockets.append(&bnode->output_socket(relation.geometry_input));
       }
       r_attribute_reference_infos.append(std::move(info));
+    }
+    for (const aal::PropagateRelation &relation : tree_relations.propagate_relations) {
+      AttributeReferenceKey key;
+      key.type = AttributeReferenceKeyType::OutputGeometry;
+      key.index = relation.to_geometry_output;
+      const int key_index = r_attribute_reference_keys.index_of_or_add(key);
+      if (key_index >= r_attribute_reference_infos.size()) {
+        AttributeReferenceInfo info;
+        info.lf_attribute_set_socket = const_cast<lf::OutputSocket *>(
+            mapping_->attribute_set_by_geometry_output.lookup(relation.to_geometry_output));
+        r_attribute_reference_infos.append(info);
+      }
+      AttributeReferenceInfo &info = r_attribute_reference_infos[key_index];
+      for (const bNode *bnode : btree_.group_input_nodes()) {
+        info.initial_geometry_sockets.append(&bnode->output_socket(relation.from_geometry_input));
+      }
     }
   }
 
@@ -2224,14 +2242,21 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     for (const int key_index : attribute_reference_keys.index_range()) {
       const AttributeReferenceKey &key = attribute_reference_keys[key_index];
       const AttributeReferenceInfo &info = attribute_reference_infos[key_index];
-      if (key.type == AttributeReferenceKeyType::InputField) {
-        for (const bNode *bnode : btree_.group_input_nodes()) {
-          const bNodeSocket &bsocket = bnode->output_socket(key.input_index);
-          r_referenced_by_field_socket.add(&bsocket, key_index);
+      switch (key.type) {
+        case AttributeReferenceKeyType::InputField: {
+          for (const bNode *bnode : btree_.group_input_nodes()) {
+            const bNodeSocket &bsocket = bnode->output_socket(key.index);
+            r_referenced_by_field_socket.add(&bsocket, key_index);
+          }
+          break;
         }
-      }
-      else {
-        r_referenced_by_field_socket.add(key.bsocket, key_index);
+        case AttributeReferenceKeyType::OutputGeometry: {
+          break;
+        }
+        case AttributeReferenceKeyType::Socket: {
+          r_referenced_by_field_socket.add(key.bsocket, key_index);
+          break;
+        }
       }
       for (const bNodeSocket *geometry_bsocket : info.initial_geometry_sockets) {
         r_propagated_to_geometry_socket.add(geometry_bsocket, key_index);
@@ -2282,20 +2307,22 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void gather_required_propagated_data(
       const Span<const aal::RelationsInNode *> relations_by_node,
-      const Span<AttributeReferenceKey> attribute_reference_keys,
+      const VectorSet<AttributeReferenceKey> &attribute_reference_keys,
       const MultiValueMap<const bNodeSocket *, int> &referenced_by_field_socket,
       const MultiValueMap<const bNodeSocket *, int> &propagated_to_geometry_socket,
       MultiValueMap<const bNodeSocket *, int> &r_required_by_geometry_socket,
-      MultiValueMap<const bNodeSocket *, int> &r_linked_geometry_group_outputs,
       MultiValueMap<const bNodeSocket *, int> &r_required_propagated_to_geometry_socket)
   {
     const aal::RelationsInNode &tree_relations = *btree_.runtime->anonymous_attribute_relations;
 
     if (const bNode *group_output_bnode = btree_.group_output_node()) {
       for (const aal::PropagateRelation &relation : tree_relations.propagate_relations) {
-        r_linked_geometry_group_outputs.add(
-            &group_output_bnode->input_socket(relation.to_geometry_output),
-            relation.to_geometry_output);
+        AttributeReferenceKey key;
+        key.type = AttributeReferenceKeyType::OutputGeometry;
+        key.index = relation.to_geometry_output;
+        const int key_index = attribute_reference_keys.index_of(key);
+        r_required_by_geometry_socket.add(
+            &group_output_bnode->input_socket(relation.to_geometry_output), key_index);
       }
       for (const aal::AvailableRelation &relation : tree_relations.available_relations) {
         const bNodeSocket &geometry_bsocket = group_output_bnode->input_socket(
@@ -2313,14 +2340,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           continue;
         }
         Vector<int> required_attributes;
-        Vector<int> required_group_outputs;
         for (const bNodeLink *blink : bsocket->directly_linked_links()) {
           if (blink->is_used()) {
             const bNodeSocket &to_socket = *blink->tosock;
             required_attributes.extend_non_duplicates(
                 r_required_by_geometry_socket.lookup(&to_socket));
-            required_group_outputs.extend_non_duplicates(
-                r_linked_geometry_group_outputs.lookup(&to_socket));
           }
         }
         const Span<int> available_attributes = propagated_to_geometry_socket.lookup(bsocket);
@@ -2329,15 +2353,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             r_required_by_geometry_socket.add(bsocket, key_index);
 
             const AttributeReferenceKey &key = attribute_reference_keys[key_index];
-            if (key.type == AttributeReferenceKeyType::InputField ||
+            if (key.type != AttributeReferenceKeyType::Socket ||
                 &key.bsocket->owner_node() != bnode) {
               r_required_propagated_to_geometry_socket.add(bsocket, key_index);
             }
           }
-        }
-        if (!required_group_outputs.is_empty()) {
-          /* TODO: Filter available. */
-          r_linked_geometry_group_outputs.add_multiple(bsocket, required_group_outputs);
         }
       }
 
@@ -2346,14 +2366,11 @@ struct GeometryNodesLazyFunctionGraphBuilder {
           continue;
         }
         Vector<int> required_attributes;
-        Vector<int> required_group_outputs;
         for (const aal::PropagateRelation &relation : relations.propagate_relations) {
           if (relation.from_geometry_input == bsocket->index()) {
             const bNodeSocket &output_bsocket = bnode->output_socket(relation.to_geometry_output);
             required_attributes.extend_non_duplicates(
                 r_required_by_geometry_socket.lookup(&output_bsocket));
-            required_group_outputs.extend_non_duplicates(
-                r_linked_geometry_group_outputs.lookup(&output_bsocket));
           }
         }
         for (const aal::EvalRelation &relation : relations.eval_relations) {
@@ -2371,10 +2388,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             r_required_by_geometry_socket.add(bsocket, key_index);
           }
         }
-        if (!required_group_outputs.is_empty()) {
-          /* TODO: Filter available. */
-          r_linked_geometry_group_outputs.add_multiple(bsocket, required_group_outputs);
-        }
       }
     }
   }
@@ -2382,7 +2395,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   void build_attribute_sets_to_propagate(
       const Span<AttributeReferenceKey> attribute_reference_keys,
       const Span<AttributeReferenceInfo> attribute_reference_infos,
-      const MultiValueMap<const bNodeSocket *, int> &linked_geometry_group_outputs,
       const MultiValueMap<const bNodeSocket *, int> &required_propagated_to_geometry_socket)
   {
     JoinAttibuteSetsCache join_attribute_sets_cache;
@@ -2390,8 +2402,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     for (const auto [geometry_output_bsocket, lf_attribute_set_input] :
          attribute_set_propagation_map_.items()) {
       const Span<int> required = required_propagated_to_geometry_socket.lookup(
-          geometry_output_bsocket);
-      const Span<int> linked_outputs = linked_geometry_group_outputs.lookup(
           geometry_output_bsocket);
 
       Vector<lf::OutputSocket *> attribute_set_sockets;
@@ -2402,21 +2412,20 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         const AttributeReferenceKey &key = attribute_reference_keys[key_index];
         const AttributeReferenceInfo &info = attribute_reference_infos[key_index];
         attribute_set_sockets.append(info.lf_attribute_set_socket);
-        if (key.type == AttributeReferenceKeyType::Socket) {
-          used_sockets.append(socket_is_used_map_[key.bsocket->index_in_tree()]);
+        switch (key.type) {
+          case AttributeReferenceKeyType::InputField: {
+            used_sockets.append(nullptr);
+            break;
+          }
+          case AttributeReferenceKeyType::OutputGeometry: {
+            used_sockets.append(nullptr);
+            break;
+          }
+          case AttributeReferenceKeyType::Socket: {
+            used_sockets.append(socket_is_used_map_[key.bsocket->index_in_tree()]);
+            break;
+          }
         }
-        else {
-          used_sockets.append(nullptr);
-        }
-      }
-      for (const int i : linked_outputs.index_range()) {
-        const int output_index = linked_outputs[i];
-        lf::OutputSocket &attribute_set_source = *const_cast<lf::OutputSocket *>(
-            mapping_->attribute_set_by_geometry_output.lookup(output_index));
-        attribute_set_sockets.append(&attribute_set_source);
-        used_sockets.append(
-            socket_is_used_map_
-                [btree_.group_output_node()->input_socket(output_index).index_in_tree()]);
       }
       if (lf::OutputSocket *joined_attribute_set = this->join_attribute_sets(
               attribute_set_sockets, used_sockets, join_attribute_sets_cache)) {
