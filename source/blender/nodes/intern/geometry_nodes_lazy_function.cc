@@ -2017,24 +2017,19 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
     }
 
-    /* For every group input, store which sockets depend on it. */
-    MultiValueMap<int, lf::OutputSocket *> group_input_target_usages;
-    for (const bNode *bnode : btree_.group_input_nodes()) {
-      for (const bNodeSocket *bsocket : bnode->output_sockets().drop_back(1)) {
-        if (lf::OutputSocket *lf_socket = socket_is_used_map_[bsocket->index_in_tree()]) {
-          const Span<lf::OutputSocket *> previous_lf_sockets = group_input_target_usages.lookup(
-              bsocket->index());
-          if (!previous_lf_sockets.contains(lf_socket)) {
-            group_input_target_usages.add(bsocket->index(), lf_socket);
-          }
-        }
-      }
-    }
+    const Span<const bNode *> group_input_nodes = btree_.group_input_nodes();
 
     /* Link up input usages. */
     for (const int i : btree_.interface_inputs().index_range()) {
-      lf::OutputSocket *lf_socket = this->or_socket_usages(group_input_target_usages.lookup(i),
-                                                           or_socket_usages_cache);
+      Vector<lf::OutputSocket *> target_usages;
+      for (const bNode *group_input_node : group_input_nodes) {
+        if (lf::OutputSocket *lf_socket =
+                socket_is_used_map_[group_input_node->output_socket(i).index_in_tree()]) {
+          target_usages.append_non_duplicates(lf_socket);
+        }
+      }
+
+      lf::OutputSocket *lf_socket = this->or_socket_usages(target_usages, or_socket_usages_cache);
       lf::InputSocket *lf_group_output = const_cast<lf::InputSocket *>(
           mapping_->group_input_usage_sockets[i]);
       InputUsageHint input_usage_hint;
