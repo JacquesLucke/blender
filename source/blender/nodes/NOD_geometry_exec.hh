@@ -59,20 +59,20 @@ class GeoNodeExecParams {
   const bNode &node_;
   lf::Params &params_;
   const lf::Context &lf_context_;
-  const Map<StringRef, int> &input_for_anonymous_attribute_output_;
-  const Map<StringRef, int> &input_for_output_propagation_;
+  const Map<StringRef, int> &lf_input_for_output_bsocket_usage_;
+  const Map<StringRef, int> &lf_input_for_attribute_propagation_to_output_;
 
  public:
   GeoNodeExecParams(const bNode &node,
                     lf::Params &params,
                     const lf::Context &lf_context,
-                    const Map<StringRef, int> &input_for_anonymous_attribute_output,
-                    const Map<StringRef, int> &input_for_output_propagation)
+                    const Map<StringRef, int> &lf_input_for_output_bsocket_usage,
+                    const Map<StringRef, int> &lf_input_for_attribute_propagation_to_output)
       : node_(node),
         params_(params),
         lf_context_(lf_context),
-        input_for_anonymous_attribute_output_(input_for_anonymous_attribute_output),
-        input_for_output_propagation_(input_for_output_propagation)
+        lf_input_for_output_bsocket_usage_(lf_input_for_output_bsocket_usage),
+        lf_input_for_attribute_propagation_to_output_(lf_input_for_attribute_propagation_to_output)
   {
   }
 
@@ -268,7 +268,7 @@ class GeoNodeExecParams {
 
   bool add_data_referenced_by_output(const StringRef output_identifier)
   {
-    const int lf_index = input_for_anonymous_attribute_output_.lookup(output_identifier);
+    const int lf_index = lf_input_for_output_bsocket_usage_.lookup(output_identifier);
     return params_.get_input<bool>(lf_index);
   }
 
@@ -287,7 +287,7 @@ class GeoNodeExecParams {
   const AnonymousAttributePropagationInfo &get_output_propagation_info(
       const StringRef output_identifier) const
   {
-    const int lf_index = input_for_output_propagation_.lookup(output_identifier);
+    const int lf_index = lf_input_for_attribute_propagation_to_output_.lookup(output_identifier);
     bke::AnonymousAttributeSet set = params_.get_input<bke::AnonymousAttributeSet>(lf_index);
     static AnonymousAttributePropagationInfo info;
     info.names = set.names;
