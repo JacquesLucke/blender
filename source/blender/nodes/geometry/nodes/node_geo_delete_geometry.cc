@@ -306,7 +306,8 @@ static void copy_masked_polys_to_new_mesh(const Mesh &src_mesh,
 
 static void delete_curves_selection(GeometrySet &geometry_set,
                                     const Field<bool> &selection_field,
-                                    const eAttrDomain selection_domain)
+                                    const eAttrDomain selection_domain,
+                                    const bke::AnonymousAttributePropagationInfo &propagation_info)
 {
   const Curves &src_curves_id = *geometry_set.get_curves_for_read();
   const bke::CurvesGeometry &src_curves = bke::CurvesGeometry::wrap(src_curves_id.geometry);
@@ -328,8 +329,6 @@ static void delete_curves_selection(GeometrySet &geometry_set,
   CurveComponent &component = geometry_set.get_component_for_write<CurveComponent>();
   Curves &curves_id = *component.get_for_write();
   bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
-
-  bke::AnonymousAttributePropagationInfo propagation_info;
 
   if (selection_domain == ATTR_DOMAIN_POINT) {
     curves.remove_points(selection, propagation_info);
@@ -1118,7 +1117,7 @@ void separate_geometry(GeometrySet &geometry_set,
   if (geometry_set.has_curves()) {
     if (ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE)) {
       file_ns::delete_curves_selection(
-          geometry_set, fn::invert_boolean_field(selection_field), domain);
+          geometry_set, fn::invert_boolean_field(selection_field), domain, propagation_info);
       some_valid_domain = true;
     }
   }
