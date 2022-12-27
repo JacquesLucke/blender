@@ -1858,6 +1858,14 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
 
       switch (node_type->type) {
+        case NODE_GROUP_OUTPUT: {
+          /* Handled before this loop already. */
+          break;
+        }
+        case NODE_GROUP_INPUT: {
+          /* Handled after this loop. */
+          break;
+        }
         case NODE_FRAME: {
           /* Ignored. */
           break;
@@ -1868,150 +1876,21 @@ struct GeometryNodesLazyFunctionGraphBuilder {
               socket_is_used_map_[bnode->output_socket(0).index_in_tree()];
           break;
         }
-        case NODE_GROUP_OUTPUT: {
-          /* Handled before this loop already. */
-          break;
-        }
-        case NODE_GROUP_INPUT: {
-          /* Handled after this loop. */
-          break;
-        }
         case GEO_NODE_SWITCH: {
-          const bNodeSocket *switch_input_bsocket;
-          const bNodeSocket *false_input_bsocket;
-          const bNodeSocket *true_input_bsocket;
-          const bNodeSocket *output_bsocket;
-          for (const bNodeSocket *socket : bnode->input_sockets()) {
-            if (!socket->is_available()) {
-              continue;
-            }
-            if (socket->name == StringRef("Switch")) {
-              switch_input_bsocket = socket;
-            }
-            else if (socket->name == StringRef("False")) {
-              false_input_bsocket = socket;
-            }
-            else if (socket->name == StringRef("True")) {
-              true_input_bsocket = socket;
-            }
-          }
-          for (const bNodeSocket *socket : bnode->output_sockets()) {
-            if (socket->is_available()) {
-              output_bsocket = socket;
-              break;
-            }
-          }
-          if (lf::OutputSocket *output_is_used_socket =
-                  socket_is_used_map_[output_bsocket->index_in_tree()]) {
-            socket_is_used_map_[switch_input_bsocket->index_in_tree()] = output_is_used_socket;
-            lf::InputSocket *lf_switch_input = input_socket_map_.lookup(switch_input_bsocket)[0];
-            if (lf::OutputSocket *lf_switch_origin = lf_switch_input->origin()) {
-              static const LazyFunctionForSwitchSocketUsage switch_socket_usage_fn;
-              lf::Node &lf_node = lf_graph_->add_function(switch_socket_usage_fn);
-              lf_graph_->add_link(*lf_switch_origin, lf_node.input(0));
-              socket_is_used_map_[false_input_bsocket->index_in_tree()] = &lf_node.output(0);
-              socket_is_used_map_[true_input_bsocket->index_in_tree()] = &lf_node.output(1);
-            }
-            else {
-              if (switch_input_bsocket->default_value_typed<bNodeSocketValueBoolean>()->value) {
-                socket_is_used_map_[true_input_bsocket->index_in_tree()] = output_is_used_socket;
-              }
-              else {
-                socket_is_used_map_[false_input_bsocket->index_in_tree()] = output_is_used_socket;
-              }
-            }
-          }
+          this->build_switch_node_socket_usage(*bnode);
           break;
         }
         case GEO_NODE_VIEWER: {
-          const lf::FunctionNode &lf_viewer_node = *mapping_->viewer_node_map.lookup(bnode);
-          auto lazy_function = std::make_unique<LazyFunctionForViewerInputUsage>(lf_viewer_node);
-          lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
-          lf_graph_info_->functions.append(std::move(lazy_function));
-
-          for (const bNodeSocket *bsocket : bnode->input_sockets()) {
-            if (bsocket->is_available()) {
-              socket_is_used_map_[bsocket->index_in_tree()] = &lf_node.output(0);
-            }
-          }
+          this->build_viewer_node_socket_usage(*bnode);
           break;
         }
         case NODE_GROUP:
         case NODE_CUSTOM_GROUP: {
-          const bNodeTree *bgroup = reinterpret_cast<const bNodeTree *>(bnode->id);
-          if (bgroup == nullptr) {
-            break;
-          }
-          const GeometryNodesLazyFunctionGraphInfo *group_lf_graph_info =
-              ensure_geometry_nodes_lazy_function_graph(*bgroup);
-          if (group_lf_graph_info == nullptr) {
-            break;
-          }
-          lf::FunctionNode &lf_group_node = const_cast<lf::FunctionNode &>(
-              *mapping_->group_node_map.lookup(bnode));
-          const auto &fn = static_cast<const LazyFunctionForGroupNode &>(lf_group_node.function());
-          for (const bNodeSocket *input_bsocket : bnode->input_sockets()) {
-            const int input_index = input_bsocket->index();
-            const InputUsageHint &input_usage_hint =
-                group_lf_graph_info->mapping.group_input_usage_hints[input_index];
-            switch (input_usage_hint.type) {
-              case InputUsageHintType::Never: {
-                /* Nothing to do. */
-                break;
-              }
-              case InputUsageHintType::DependsOnOutput: {
-                Vector<lf::OutputSocket *> output_usages;
-                for (const int i : input_usage_hint.output_dependencies) {
-                  if (lf::OutputSocket *lf_socket =
-                          socket_is_used_map_[bnode->output_socket(i).index_in_tree()]) {
-                    output_usages.append(lf_socket);
-                  }
-                }
-                socket_is_used_map_[input_bsocket->index_in_tree()] = this->or_socket_usages(
-                    output_usages, or_socket_usages_cache);
-                break;
-              }
-              case InputUsageHintType::DynamicSocket: {
-                socket_is_used_map_[input_bsocket->index_in_tree()] =
-                    &const_cast<lf::OutputSocket &>(lf_group_node.output(
-                        fn.lf_output_for_input_bsocket_usage_.lookup(input_index)));
-                break;
-              }
-            }
-          }
-          for (const bNodeSocket *output_bsocket : bnode->output_sockets()) {
-            const int output_index = output_bsocket->index();
-            const int lf_input_index = fn.lf_input_for_output_bsocket_usage_.lookup(output_index);
-            lf::InputSocket &lf_socket = lf_group_node.input(lf_input_index);
-            if (lf::OutputSocket *lf_output_is_used =
-                    socket_is_used_map_[output_bsocket->index_in_tree()]) {
-              lf_graph_->add_link(*lf_output_is_used, lf_socket);
-            }
-            else {
-              static const bool static_false = false;
-              lf_socket.set_default_value(&static_false);
-            }
-          }
+          this->build_group_node_socket_usage(*bnode, or_socket_usages_cache);
           break;
         }
         default: {
-          for (const bNodeSocket *input_socket : bnode->input_sockets()) {
-            if (!input_socket->is_available()) {
-              continue;
-            }
-            Vector<lf::OutputSocket *> output_usages;
-            for (const bNodeSocket *output_socket : bnode->output_sockets()) {
-              if (!output_socket->is_available()) {
-                continue;
-              }
-              if (lf::OutputSocket *is_used_socket =
-                      socket_is_used_map_[output_socket->index_in_tree()]) {
-                output_usages.append_non_duplicates(is_used_socket);
-              }
-            }
-            socket_is_used_map_[input_socket->index_in_tree()] = this->or_socket_usages(
-                output_usages, or_socket_usages_cache);
-          }
+          this->build_standard_node_socket_usage(*bnode, or_socket_usages_cache);
           break;
         }
       }
@@ -2078,6 +1957,158 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
       return &logical_or_node.output(0);
     });
+  }
+
+  void build_switch_node_socket_usage(const bNode &bnode)
+  {
+    const bNodeSocket *switch_input_bsocket = nullptr;
+    const bNodeSocket *false_input_bsocket = nullptr;
+    const bNodeSocket *true_input_bsocket = nullptr;
+    const bNodeSocket *output_bsocket = nullptr;
+    for (const bNodeSocket *socket : bnode.input_sockets()) {
+      if (!socket->is_available()) {
+        continue;
+      }
+      if (socket->name == StringRef("Switch")) {
+        switch_input_bsocket = socket;
+      }
+      else if (socket->name == StringRef("False")) {
+        false_input_bsocket = socket;
+      }
+      else if (socket->name == StringRef("True")) {
+        true_input_bsocket = socket;
+      }
+    }
+    for (const bNodeSocket *socket : bnode.output_sockets()) {
+      if (socket->is_available()) {
+        output_bsocket = socket;
+        break;
+      }
+    }
+    if (lf::OutputSocket *output_is_used_socket =
+            socket_is_used_map_[output_bsocket->index_in_tree()]) {
+      socket_is_used_map_[switch_input_bsocket->index_in_tree()] = output_is_used_socket;
+      lf::InputSocket *lf_switch_input = input_socket_map_.lookup(switch_input_bsocket)[0];
+      if (lf::OutputSocket *lf_switch_origin = lf_switch_input->origin()) {
+        static const LazyFunctionForSwitchSocketUsage switch_socket_usage_fn;
+        lf::Node &lf_node = lf_graph_->add_function(switch_socket_usage_fn);
+        lf_graph_->add_link(*lf_switch_origin, lf_node.input(0));
+        socket_is_used_map_[false_input_bsocket->index_in_tree()] = &lf_node.output(0);
+        socket_is_used_map_[true_input_bsocket->index_in_tree()] = &lf_node.output(1);
+      }
+      else {
+        if (switch_input_bsocket->default_value_typed<bNodeSocketValueBoolean>()->value) {
+          socket_is_used_map_[true_input_bsocket->index_in_tree()] = output_is_used_socket;
+        }
+        else {
+          socket_is_used_map_[false_input_bsocket->index_in_tree()] = output_is_used_socket;
+        }
+      }
+    }
+  }
+
+  void build_viewer_node_socket_usage(const bNode &bnode)
+  {
+    const lf::FunctionNode &lf_viewer_node = *mapping_->viewer_node_map.lookup(&bnode);
+    auto lazy_function = std::make_unique<LazyFunctionForViewerInputUsage>(lf_viewer_node);
+    lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+    lf_graph_info_->functions.append(std::move(lazy_function));
+
+    for (const bNodeSocket *bsocket : bnode.input_sockets()) {
+      if (bsocket->is_available()) {
+        socket_is_used_map_[bsocket->index_in_tree()] = &lf_node.output(0);
+      }
+    }
+  }
+
+  void build_group_node_socket_usage(const bNode &bnode,
+                                     OrSocketUsagesCache &or_socket_usages_cache)
+  {
+    const bNodeTree *bgroup = reinterpret_cast<const bNodeTree *>(bnode.id);
+    if (bgroup == nullptr) {
+      return;
+    }
+    const GeometryNodesLazyFunctionGraphInfo *group_lf_graph_info =
+        ensure_geometry_nodes_lazy_function_graph(*bgroup);
+    if (group_lf_graph_info == nullptr) {
+      return;
+    }
+    lf::FunctionNode &lf_group_node = const_cast<lf::FunctionNode &>(
+        *mapping_->group_node_map.lookup(&bnode));
+    const auto &fn = static_cast<const LazyFunctionForGroupNode &>(lf_group_node.function());
+
+    for (const bNodeSocket *input_bsocket : bnode.input_sockets()) {
+      const int input_index = input_bsocket->index();
+      const InputUsageHint &input_usage_hint =
+          group_lf_graph_info->mapping.group_input_usage_hints[input_index];
+      switch (input_usage_hint.type) {
+        case InputUsageHintType::Never: {
+          /* Nothing to do. */
+          break;
+        }
+        case InputUsageHintType::DependsOnOutput: {
+          Vector<lf::OutputSocket *> output_usages;
+          for (const int i : input_usage_hint.output_dependencies) {
+            if (lf::OutputSocket *lf_socket =
+                    socket_is_used_map_[bnode.output_socket(i).index_in_tree()]) {
+              output_usages.append(lf_socket);
+            }
+          }
+          socket_is_used_map_[input_bsocket->index_in_tree()] = this->or_socket_usages(
+              output_usages, or_socket_usages_cache);
+          break;
+        }
+        case InputUsageHintType::DynamicSocket: {
+          socket_is_used_map_[input_bsocket->index_in_tree()] = &const_cast<lf::OutputSocket &>(
+              lf_group_node.output(fn.lf_output_for_input_bsocket_usage_.lookup(input_index)));
+          break;
+        }
+      }
+    }
+
+    for (const bNodeSocket *output_bsocket : bnode.output_sockets()) {
+      const int output_index = output_bsocket->index();
+      const int lf_input_index = fn.lf_input_for_output_bsocket_usage_.lookup(output_index);
+      lf::InputSocket &lf_socket = lf_group_node.input(lf_input_index);
+      if (lf::OutputSocket *lf_output_is_used =
+              socket_is_used_map_[output_bsocket->index_in_tree()]) {
+        lf_graph_->add_link(*lf_output_is_used, lf_socket);
+      }
+      else {
+        static const bool static_false = false;
+        lf_socket.set_default_value(&static_false);
+      }
+    }
+  }
+
+  void build_standard_node_socket_usage(const bNode &bnode,
+                                        OrSocketUsagesCache &or_socket_usages_cache)
+  {
+    if (bnode.input_sockets().is_empty()) {
+      return;
+    }
+
+    Vector<lf::OutputSocket *> output_usages;
+    for (const bNodeSocket *output_socket : bnode.output_sockets()) {
+      if (!output_socket->is_available()) {
+        continue;
+      }
+      if (lf::OutputSocket *is_used_socket = socket_is_used_map_[output_socket->index_in_tree()]) {
+        output_usages.append_non_duplicates(is_used_socket);
+      }
+    }
+
+    /* Assume every input is used when any output is used. */
+    lf::OutputSocket *lf_usage = this->or_socket_usages(output_usages, or_socket_usages_cache);
+    if (lf_usage == nullptr) {
+      return;
+    }
+
+    for (const bNodeSocket *input_socket : bnode.input_sockets()) {
+      if (input_socket->is_available()) {
+        socket_is_used_map_[input_socket->index_in_tree()] = lf_usage;
+      }
+    }
   }
 
   void build_attribute_propagation_sets()
