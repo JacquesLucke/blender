@@ -1510,85 +1510,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
     }
 
-    /* Fix link cycles. */
-    {
-      Set<lf::Socket *> lf_done_sockets;
-      Stack<lf::Socket *> lf_sockets_to_check;
-      for (lf::Node *lf_node : lf_graph_->nodes()) {
-        if (lf_node->is_function()) {
-          for (lf::OutputSocket *lf_socket : lf_node->outputs()) {
-            if (lf_socket->targets().is_empty()) {
-              lf_sockets_to_check.push(lf_socket);
-            }
-          }
-        }
-        if (lf_node->outputs().is_empty()) {
-          for (lf::InputSocket *lf_socket : lf_node->inputs()) {
-            lf_sockets_to_check.push(lf_socket);
-          }
-        }
-      }
-      Vector<lf::Socket *> cleared_origins;
-      Vector<Vector<lf::Socket *>> lf_cycles;
-      VectorSet<lf::Socket *> lf_socket_stack;
-      while (!lf_sockets_to_check.is_empty()) {
-        lf::Socket *lf_inout_socket = lf_sockets_to_check.peek();
-        lf::Node &lf_node = lf_inout_socket->node();
-        lf_socket_stack.add(lf_inout_socket);
-
-        Vector<lf::Socket *> lf_origin_sockets;
-        if (lf_inout_socket->is_input()) {
-          lf::InputSocket &lf_input_socket = lf_inout_socket->as_input();
-          if (lf::OutputSocket *lf_origin_socket = lf_input_socket.origin()) {
-            lf_origin_sockets.append(lf_origin_socket);
-          }
-        }
-        else {
-          lf::OutputSocket &lf_output_socket = lf_inout_socket->as_output();
-          if (lf_node.is_function()) {
-            lf::FunctionNode &lf_function_node = static_cast<lf::FunctionNode &>(lf_node);
-            const lf::LazyFunction &fn = lf_function_node.function();
-            fn.possible_output_dependencies(
-                lf_output_socket.index(), [&](const Span<int> input_indices) {
-                  for (const int input_index : input_indices) {
-                    lf_origin_sockets.append(&lf_node.input(input_index));
-                  }
-                });
-          }
-        }
-
-        bool pushed_socket = false;
-        for (lf::Socket *lf_origin_socket : lf_origin_sockets) {
-          if (lf_socket_stack.contains(lf_origin_socket)) {
-            const Span<lf::Socket *> cycle = lf_socket_stack.as_span().drop_front(
-                lf_socket_stack.index_of(lf_origin_socket));
-            lf_cycles.append(cycle);
-
-            for (lf::Socket *lf_cycle_socket : cycle) {
-              if (lf_cycle_socket->is_input() &&
-                  weak_output_usage_inputs_.contains(&lf_cycle_socket->as_input())) {
-                lf::InputSocket &lf_cycle_input_socket = lf_cycle_socket->as_input();
-                lf_graph_->clear_origin(lf_cycle_input_socket);
-                cleared_origins.append(&lf_cycle_input_socket);
-                static const bool static_true = true;
-                lf_cycle_input_socket.set_default_value(&static_true);
-              }
-            }
-          }
-          else if (!lf_done_sockets.contains(lf_origin_socket)) {
-            lf_sockets_to_check.push(lf_origin_socket);
-            pushed_socket = true;
-          }
-        }
-        if (pushed_socket) {
-          continue;
-        }
-
-        lf_done_sockets.add(lf_inout_socket);
-        lf_sockets_to_check.pop();
-        lf_socket_stack.pop();
-      }
-    }
+    this->fix_link_cycles();
 
     this->print_graph();
 
@@ -2424,6 +2346,86 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         }
       }
       lf_graph_info_->mapping.group_input_usage_hints.append(std::move(input_usage_hint));
+    }
+  }
+
+  void fix_link_cycles()
+  {
+    Set<lf::Socket *> lf_done_sockets;
+    Stack<lf::Socket *> lf_sockets_to_check;
+    for (lf::Node *lf_node : lf_graph_->nodes()) {
+      if (lf_node->is_function()) {
+        for (lf::OutputSocket *lf_socket : lf_node->outputs()) {
+          if (lf_socket->targets().is_empty()) {
+            lf_sockets_to_check.push(lf_socket);
+          }
+        }
+      }
+      if (lf_node->outputs().is_empty()) {
+        for (lf::InputSocket *lf_socket : lf_node->inputs()) {
+          lf_sockets_to_check.push(lf_socket);
+        }
+      }
+    }
+    Vector<lf::Socket *> cleared_origins;
+    Vector<Vector<lf::Socket *>> lf_cycles;
+    VectorSet<lf::Socket *> lf_socket_stack;
+    while (!lf_sockets_to_check.is_empty()) {
+      lf::Socket *lf_inout_socket = lf_sockets_to_check.peek();
+      lf::Node &lf_node = lf_inout_socket->node();
+      lf_socket_stack.add(lf_inout_socket);
+
+      Vector<lf::Socket *> lf_origin_sockets;
+      if (lf_inout_socket->is_input()) {
+        lf::InputSocket &lf_input_socket = lf_inout_socket->as_input();
+        if (lf::OutputSocket *lf_origin_socket = lf_input_socket.origin()) {
+          lf_origin_sockets.append(lf_origin_socket);
+        }
+      }
+      else {
+        lf::OutputSocket &lf_output_socket = lf_inout_socket->as_output();
+        if (lf_node.is_function()) {
+          lf::FunctionNode &lf_function_node = static_cast<lf::FunctionNode &>(lf_node);
+          const lf::LazyFunction &fn = lf_function_node.function();
+          fn.possible_output_dependencies(
+              lf_output_socket.index(), [&](const Span<int> input_indices) {
+                for (const int input_index : input_indices) {
+                  lf_origin_sockets.append(&lf_node.input(input_index));
+                }
+              });
+        }
+      }
+
+      bool pushed_socket = false;
+      for (lf::Socket *lf_origin_socket : lf_origin_sockets) {
+        if (lf_socket_stack.contains(lf_origin_socket)) {
+          const Span<lf::Socket *> cycle = lf_socket_stack.as_span().drop_front(
+              lf_socket_stack.index_of(lf_origin_socket));
+          lf_cycles.append(cycle);
+
+          for (lf::Socket *lf_cycle_socket : cycle) {
+            if (lf_cycle_socket->is_input() &&
+                weak_output_usage_inputs_.contains(&lf_cycle_socket->as_input())) {
+              lf::InputSocket &lf_cycle_input_socket = lf_cycle_socket->as_input();
+              lf_graph_->clear_origin(lf_cycle_input_socket);
+              cleared_origins.append(&lf_cycle_input_socket);
+              static const bool static_true = true;
+              lf_cycle_input_socket.set_default_value(&static_true);
+            }
+          }
+        }
+        else if (!lf_done_sockets.contains(lf_origin_socket)) {
+          lf_sockets_to_check.push(lf_origin_socket);
+          pushed_socket = true;
+        }
+      }
+      if (pushed_socket) {
+        continue;
+      }
+
+      lf_done_sockets.add(lf_inout_socket);
+      lf_sockets_to_check.pop();
+      lf_socket_stack.pop();
     }
   }
 
