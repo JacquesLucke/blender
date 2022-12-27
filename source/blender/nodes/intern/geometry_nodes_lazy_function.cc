@@ -1187,7 +1187,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
    * Some built-in nodes get additional boolean inputs that indicate whether certain outputs are
    * used (field output sockets that contain new anonymous attribute references).
    */
-  Vector<std::pair<const bNodeSocket *, lf::InputSocket *>> output_used_sockets_for_builtin_nodes;
+  Vector<std::pair<const bNodeSocket *, lf::InputSocket *>> output_used_sockets_for_builtin_nodes_;
   /**
    * Maps from output geometry sockets to corresponding attribute set inputs.
    */
@@ -1511,8 +1511,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     for (const auto [identifier, lf_input_index] :
          lazy_function->lf_input_for_output_bsocket_usage_.items()) {
-      output_used_sockets_for_builtin_nodes.append_as(&bnode.output_by_identifier(identifier),
-                                                      &lf_node.input(lf_input_index));
+      output_used_sockets_for_builtin_nodes_.append_as(&bnode.output_by_identifier(identifier),
+                                                       &lf_node.input(lf_input_index));
       output_usage_inputs_.add_new(&lf_node.input(lf_input_index));
     }
     for (const auto [identifier, lf_input_index] :
@@ -2127,7 +2127,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void link_output_used_sockets_for_builtin_nodes()
   {
-    for (const auto [output_bsocket, lf_input] : output_used_sockets_for_builtin_nodes) {
+    for (const auto [output_bsocket, lf_input] : output_used_sockets_for_builtin_nodes_) {
       if (lf::OutputSocket *lf_is_used = socket_is_used_map_[output_bsocket->index_in_tree()]) {
         lf_graph_->add_link(*lf_is_used, *lf_input);
       }
