@@ -1202,24 +1202,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     this->handle_links();
     this->add_default_inputs();
 
-    /* Create attribute set inputs and outputs for group. */
-    {
-      const aal::RelationsInNode &relations = *btree_.runtime->anonymous_attribute_relations;
-
-      Vector<int> output_indices;
-      for (const aal::PropagateRelation &relation : relations.propagate_relations) {
-        output_indices.append_non_duplicates(relation.to_geometry_output);
-      }
-      for (const int output_index : output_indices) {
-        auto debug_info = std::make_unique<AttributeSetInputDebugInfo>();
-        debug_info->name = btree_.interface_outputs()[output_index]->name;
-        lf::Node &lf_node = lf_graph_->add_dummy(
-            {}, {&CPPType::get<bke::AnonymousAttributeSet>()}, debug_info.get());
-        lf_graph_info_->mapping.attribute_set_by_geometry_output.add(output_index,
-                                                                     &lf_node.output(0));
-        lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
-      }
-    }
+    this->add_attribute_propagation_input_node();
 
     /* Create inputs used relations. */
     Map<Vector<lf::OutputSocket *>, lf::OutputSocket *> or_map;
@@ -2402,6 +2385,26 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     lf_graph_info_->functions.append(std::move(lazy_function));
     lf_graph_->add_link(lf_node.output(0), input_lf_socket);
     return true;
+  }
+
+  void add_attribute_propagation_input_node()
+  {
+    const aal::RelationsInNode &tree_relations = *btree_.runtime->anonymous_attribute_relations;
+    Vector<int> output_indices;
+    for (const aal::PropagateRelation &relation : tree_relations.propagate_relations) {
+      output_indices.append_non_duplicates(relation.to_geometry_output);
+    }
+    Vector<const CPPType *> cpp_types;
+    auto debug_info = std::make_unique<lf::SimpleDummyDebugInfo>();
+    debug_info->name = "Attributes to Propagate to Output";
+    cpp_types.append_n_times(&CPPType::get<bke::AnonymousAttributeSet>(), output_indices.size());
+    lf::Node &lf_node = lf_graph_->add_dummy({}, cpp_types, debug_info.get());
+    for (const int i : output_indices.index_range()) {
+      const int output_index = output_indices[i];
+      mapping_->attribute_set_by_geometry_output.add(output_index, &lf_node.output(i));
+      debug_info->output_names.append(btree_.interface_outputs()[output_index]->name);
+    }
+    lf_graph_info_->dummy_debug_infos_.append(std::move(debug_info));
   }
 
   void print_graph();

@@ -179,6 +179,17 @@ class DummyDebugInfo {
   virtual std::string output_name(const int i) const;
 };
 
+class SimpleDummyDebugInfo : public DummyDebugInfo {
+ public:
+  std::string name;
+  Vector<std::string> input_names;
+  Vector<std::string> output_names;
+
+  std::string node_name() const override;
+  std::string input_name(const int i) const override;
+  std::string output_name(const int i) const override;
+};
+
 /**
  * A #Node that does *not* correspond to a #LazyFunction. Instead it can be used to indicate inputs
  * and outputs of the entire graph. It can have an arbitrary number of inputs and outputs.

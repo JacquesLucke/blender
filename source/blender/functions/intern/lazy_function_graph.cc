@@ -160,6 +160,21 @@ std::string DummyDebugInfo::output_name(const int /*i*/) const
   return fallback_name;
 }
 
+std::string SimpleDummyDebugInfo::node_name() const
+{
+  return this->name;
+}
+
+std::string SimpleDummyDebugInfo::input_name(const int i) const
+{
+  return this->input_names[i];
+}
+
+std::string SimpleDummyDebugInfo::output_name(const int i) const
+{
+  return this->output_names[i];
+}
+
 std::string Graph::ToDotOptions::socket_name(const Socket &socket) const
 {
   return socket.name();
