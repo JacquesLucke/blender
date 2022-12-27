@@ -1835,27 +1835,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         continue;
       }
 
-      /* Output sockets are used when any of their linked inputs are used. */
-      for (const bNodeSocket *socket : bnode->output_sockets()) {
-        if (!socket->is_available()) {
-          continue;
-        }
-        /* Determine when linked target sockets are used. */
-        Vector<lf::OutputSocket *> target_usages;
-        for (const bNodeLink *link : socket->directly_linked_links()) {
-          if (!link->is_used()) {
-            continue;
-          }
-          const bNodeSocket &target_socket = *link->tosock;
-          if (lf::OutputSocket *is_used_socket =
-                  socket_is_used_map_[target_socket.index_in_tree()]) {
-            target_usages.append_non_duplicates(is_used_socket);
-          }
-        }
-        /* Combine target socket usages into the usage of the current socket. */
-        socket_is_used_map_[socket->index_in_tree()] = this->or_socket_usages(
-            target_usages, or_socket_usages_cache);
-      }
+      this->build_output_socket_usages(*bnode, or_socket_usages_cache);
 
       switch (node_type->type) {
         case NODE_GROUP_OUTPUT: {
@@ -1896,42 +1876,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
     }
 
-    const Span<const bNode *> group_input_nodes = btree_.group_input_nodes();
-
-    /* Link up input usages. */
-    for (const int i : btree_.interface_inputs().index_range()) {
-      Vector<lf::OutputSocket *> target_usages;
-      for (const bNode *group_input_node : group_input_nodes) {
-        if (lf::OutputSocket *lf_socket =
-                socket_is_used_map_[group_input_node->output_socket(i).index_in_tree()]) {
-          target_usages.append_non_duplicates(lf_socket);
-        }
-      }
-
-      lf::OutputSocket *lf_socket = this->or_socket_usages(target_usages, or_socket_usages_cache);
-      lf::InputSocket *lf_group_output = const_cast<lf::InputSocket *>(
-          mapping_->group_input_usage_sockets[i]);
-      InputUsageHint input_usage_hint;
-      if (lf_socket == nullptr) {
-        static const bool static_false = false;
-        lf_group_output->set_default_value(&static_false);
-        input_usage_hint.type = InputUsageHintType::Never;
-      }
-      else {
-        lf_graph_->add_link(*lf_socket, *lf_group_output);
-        if (lf_socket->node().is_dummy()) {
-          /* Can support slightly more complex cases where it depends on more than one output in
-           * the future. */
-          input_usage_hint.type = InputUsageHintType::DependsOnOutput;
-          input_usage_hint.output_dependencies = {
-              mapping_->group_output_used_sockets.first_index_of(lf_socket)};
-        }
-        else {
-          input_usage_hint.type = InputUsageHintType::DynamicSocket;
-        }
-      }
-      lf_graph_info_->mapping.group_input_usage_hints.append(std::move(input_usage_hint));
-    }
+    this->build_group_input_usages(or_socket_usages_cache);
   }
 
   using OrSocketUsagesCache = Map<Vector<lf::OutputSocket *>, lf::OutputSocket *>;
@@ -1957,6 +1902,31 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       }
       return &logical_or_node.output(0);
     });
+  }
+
+  void build_output_socket_usages(const bNode &bnode, OrSocketUsagesCache &or_socket_usages_cache)
+  {
+    /* Output sockets are used when any of their linked inputs are used. */
+    for (const bNodeSocket *socket : bnode.output_sockets()) {
+      if (!socket->is_available()) {
+        continue;
+      }
+      /* Determine when linked target sockets are used. */
+      Vector<lf::OutputSocket *> target_usages;
+      for (const bNodeLink *link : socket->directly_linked_links()) {
+        if (!link->is_used()) {
+          continue;
+        }
+        const bNodeSocket &target_socket = *link->tosock;
+        if (lf::OutputSocket *is_used_socket =
+                socket_is_used_map_[target_socket.index_in_tree()]) {
+          target_usages.append_non_duplicates(is_used_socket);
+        }
+      }
+      /* Combine target socket usages into the usage of the current socket. */
+      socket_is_used_map_[socket->index_in_tree()] = this->or_socket_usages(
+          target_usages, or_socket_usages_cache);
+    }
   }
 
   void build_switch_node_socket_usage(const bNode &bnode)
@@ -2108,6 +2078,44 @@ struct GeometryNodesLazyFunctionGraphBuilder {
       if (input_socket->is_available()) {
         socket_is_used_map_[input_socket->index_in_tree()] = lf_usage;
       }
+    }
+  }
+
+  void build_group_input_usages(OrSocketUsagesCache &or_socket_usages_cache)
+  {
+    const Span<const bNode *> group_input_nodes = btree_.group_input_nodes();
+    for (const int i : btree_.interface_inputs().index_range()) {
+      Vector<lf::OutputSocket *> target_usages;
+      for (const bNode *group_input_node : group_input_nodes) {
+        if (lf::OutputSocket *lf_socket =
+                socket_is_used_map_[group_input_node->output_socket(i).index_in_tree()]) {
+          target_usages.append_non_duplicates(lf_socket);
+        }
+      }
+
+      lf::OutputSocket *lf_socket = this->or_socket_usages(target_usages, or_socket_usages_cache);
+      lf::InputSocket *lf_group_output = const_cast<lf::InputSocket *>(
+          mapping_->group_input_usage_sockets[i]);
+      InputUsageHint input_usage_hint;
+      if (lf_socket == nullptr) {
+        static const bool static_false = false;
+        lf_group_output->set_default_value(&static_false);
+        input_usage_hint.type = InputUsageHintType::Never;
+      }
+      else {
+        lf_graph_->add_link(*lf_socket, *lf_group_output);
+        if (lf_socket->node().is_dummy()) {
+          /* Can support slightly more complex cases where it depends on more than one output in
+           * the future. */
+          input_usage_hint.type = InputUsageHintType::DependsOnOutput;
+          input_usage_hint.output_dependencies = {
+              mapping_->group_output_used_sockets.first_index_of(lf_socket)};
+        }
+        else {
+          input_usage_hint.type = InputUsageHintType::DynamicSocket;
+        }
+      }
+      lf_graph_info_->mapping.group_input_usage_hints.append(std::move(input_usage_hint));
     }
   }
 
