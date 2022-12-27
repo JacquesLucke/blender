@@ -1183,8 +1183,14 @@ struct GeometryNodesLazyFunctionGraphBuilder {
    * This is indexed by `bNodeSocket::index_in_tree()`.
    */
   Array<lf::OutputSocket *> socket_is_used_map_;
-  Map<const bNodeSocket *, lf::InputSocket *> output_used_sockets_for_builtin_nodes;
-  /** Maps from output geometry sockets to corresponding attribute set inputs. */
+  /**
+   * Some built-in nodes get additional boolean inputs that indicate whether certain outputs are
+   * used (field output sockets that contain new anonymous attribute references).
+   */
+  Vector<std::pair<const bNodeSocket *, lf::InputSocket *>> output_used_sockets_for_builtin_nodes;
+  /**
+   * Maps from output geometry sockets to corresponding attribute set inputs.
+   */
   Map<const bNodeSocket *, lf::InputSocket *> attribute_set_propagation_map_;
   /**
    * Boolean inputs that tell a node that a specific output is used. If this socket is in a
@@ -1505,8 +1511,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     for (const auto [identifier, lf_input_index] :
          lazy_function->lf_input_for_output_bsocket_usage_.items()) {
-      output_used_sockets_for_builtin_nodes.add_new(&bnode.output_by_identifier(identifier),
-                                                    &lf_node.input(lf_input_index));
+      output_used_sockets_for_builtin_nodes.append_as(&bnode.output_by_identifier(identifier),
+                                                      &lf_node.input(lf_input_index));
       output_usage_inputs_.add_new(&lf_node.input(lf_input_index));
     }
     for (const auto [identifier, lf_input_index] :
@@ -2121,7 +2127,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
   void link_output_used_sockets_for_builtin_nodes()
   {
-    for (const auto [output_bsocket, lf_input] : output_used_sockets_for_builtin_nodes.items()) {
+    for (const auto [output_bsocket, lf_input] : output_used_sockets_for_builtin_nodes) {
       if (lf::OutputSocket *lf_is_used = socket_is_used_map_[output_bsocket->index_in_tree()]) {
         lf_graph_->add_link(*lf_is_used, *lf_input);
       }
