@@ -2126,7 +2126,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     ResourceScope scope;
     const Array<const aal::RelationsInNode *> relations_by_node =
         bke::anonymous_attribute_inferencing::get_relations_by_node(btree_, scope);
-    const aal::RelationsInNode &tree_relations = *btree_.runtime->anonymous_attribute_relations;
 
     VectorSet<AttributeReferenceKey> attribute_reference_keys;
     /* Indexed by reference key index. */
@@ -2147,51 +2146,13 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     MultiValueMap<const bNodeSocket *, int> required_propagated_to_geometry_socket;
     this->gather_required_propagated_data(relations_by_node,
                                           attribute_reference_keys,
-                                          attribute_reference_infos,
                                           referenced_by_field_socket,
                                           propagated_to_geometry_socket,
                                           required_by_geometry_socket,
                                           linked_geometry_group_outputs,
                                           required_propagated_to_geometry_socket);
 
-    Map<Vector<lf::OutputSocket *>, lf::OutputSocket *> joined_attribute_sets_map;
-
-    auto get_joined_attribute_set =
-        [&](const Span<lf::OutputSocket *> attribute_set_sockets,
-            const Span<lf::OutputSocket *> used_sockets) -> lf::OutputSocket * {
-      BLI_assert(attribute_set_sockets.size() == used_sockets.size());
-      if (attribute_set_sockets.is_empty()) {
-        return nullptr;
-      }
-      if (attribute_set_sockets.size() == 1 && used_sockets[0] == nullptr) {
-        return attribute_set_sockets[0];
-      }
-
-      Vector<lf::OutputSocket *, 16> key;
-      key.extend(attribute_set_sockets);
-      key.extend(used_sockets);
-      std::sort(key.begin(), key.end());
-      return joined_attribute_sets_map.lookup_or_add_cb(key, [&]() {
-        auto lazy_function = std::make_unique<LazyFunctionForJoiningAnonymousAttributeSets>(
-            attribute_set_sockets.size());
-        lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
-        for (const int i : attribute_set_sockets.index_range()) {
-          lf::InputSocket &lf_use_input = lf_node.input(lazy_function->get_use_input(i));
-          lf::InputSocket &lf_attributes_input = lf_node.input(
-              lazy_function->get_attribute_set_input(i));
-          if (used_sockets[i] == nullptr) {
-            static const bool static_true = true;
-            lf_use_input.set_default_value(&static_true);
-          }
-          else {
-            lf_graph_->add_link(*used_sockets[i], lf_use_input);
-          }
-          lf_graph_->add_link(*attribute_set_sockets[i], lf_attributes_input);
-        }
-        lf_graph_info_->functions.append(std::move(lazy_function));
-        return &lf_node.output(0);
-      });
-    };
+    JoinAttibuteSetsCache join_attribute_sets_cache;
 
     for (const auto [geometry_output_bsocket, lf_attribute_set_input] :
          attribute_set_propagation_map_.items()) {
@@ -2224,8 +2185,8 @@ struct GeometryNodesLazyFunctionGraphBuilder {
             socket_is_used_map_
                 [btree_.group_output_node()->input_socket(output_index).index_in_tree()]);
       }
-      if (lf::OutputSocket *joined_attribute_set = get_joined_attribute_set(attribute_set_sockets,
-                                                                            used_sockets)) {
+      if (lf::OutputSocket *joined_attribute_set = this->join_attribute_sets(
+              attribute_set_sockets, used_sockets, join_attribute_sets_cache)) {
         lf_graph_->add_link(*joined_attribute_set, *lf_attribute_set_input);
       }
       else {
@@ -2358,7 +2319,6 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   void gather_required_propagated_data(
       const Span<const aal::RelationsInNode *> relations_by_node,
       const Span<AttributeReferenceKey> attribute_reference_keys,
-      const Span<AttributeReferenceInfo> attribute_reference_infos,
       const MultiValueMap<const bNodeSocket *, int> &referenced_by_field_socket,
       const MultiValueMap<const bNodeSocket *, int> &propagated_to_geometry_socket,
       MultiValueMap<const bNodeSocket *, int> &r_required_by_geometry_socket,
@@ -2453,6 +2413,46 @@ struct GeometryNodesLazyFunctionGraphBuilder {
         }
       }
     }
+  }
+
+  using JoinAttibuteSetsCache = Map<Vector<lf::OutputSocket *>, lf::OutputSocket *>;
+
+  lf::OutputSocket *join_attribute_sets(const Span<lf::OutputSocket *> attribute_set_sockets,
+                                        const Span<lf::OutputSocket *> used_sockets,
+                                        JoinAttibuteSetsCache &cache)
+  {
+    BLI_assert(attribute_set_sockets.size() == used_sockets.size());
+    if (attribute_set_sockets.is_empty()) {
+      return nullptr;
+    }
+    if (attribute_set_sockets.size() == 1 && used_sockets[0] == nullptr) {
+      return attribute_set_sockets[0];
+    }
+
+    Vector<lf::OutputSocket *, 16> key;
+    key.extend(attribute_set_sockets);
+    key.extend(used_sockets);
+    std::sort(key.begin(), key.end());
+    return cache.lookup_or_add_cb(key, [&]() {
+      auto lazy_function = std::make_unique<LazyFunctionForJoiningAnonymousAttributeSets>(
+          attribute_set_sockets.size());
+      lf::Node &lf_node = lf_graph_->add_function(*lazy_function);
+      for (const int i : attribute_set_sockets.index_range()) {
+        lf::InputSocket &lf_use_input = lf_node.input(lazy_function->get_use_input(i));
+        lf::InputSocket &lf_attributes_input = lf_node.input(
+            lazy_function->get_attribute_set_input(i));
+        if (used_sockets[i] == nullptr) {
+          static const bool static_true = true;
+          lf_use_input.set_default_value(&static_true);
+        }
+        else {
+          lf_graph_->add_link(*used_sockets[i], lf_use_input);
+        }
+        lf_graph_->add_link(*attribute_set_sockets[i], lf_attributes_input);
+      }
+      lf_graph_info_->functions.append(std::move(lazy_function));
+      return &lf_node.output(0);
+    });
   }
 
   void fix_link_cycles()
