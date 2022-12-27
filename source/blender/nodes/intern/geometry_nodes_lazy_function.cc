@@ -1168,6 +1168,10 @@ struct GeometryNodesLazyFunctionGraphBuilder {
   Map<const bNodeSocket *, lf::OutputSocket *> output_socket_map_;
   Map<const bNodeSocket *, lf::Node *> multi_input_socket_nodes_;
   const bke::DataTypeConversions *conversions_;
+  /**
+   * Maps bsockets to boolean sockets in the graph whereby each boolean socket indicates whether
+   * the bsocket is used. Sockets not contained in this map are not used.
+   */
   Map<const bNodeSocket *, lf::OutputSocket *> socket_is_used_map_;
   Map<const bNodeSocket *, lf::InputSocket *> use_anonymous_attributes_map_;
   /** Maps from output geometry sockets to corresponding attribute set inputs. */
@@ -1811,30 +1815,32 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     MultiValueMap<int, lf::OutputSocket *> inputs_used_map;
     OrSocketUsagesCache or_socket_usages_cache;
 
+    /* Iterate over all nodes from right to left to determine when which sockets are used. */
     for (const bNode *bnode : btree_.toposort_right_to_left()) {
       const bNodeType *node_type = bnode->typeinfo;
       if (node_type == nullptr) {
+        /* Ignore. */
         continue;
       }
 
+      /* Output sockets are used when any of their linked inputs are used. */
       for (const bNodeSocket *socket : bnode->output_sockets()) {
         if (!socket->is_available()) {
           continue;
         }
+        /* Determine when linked target sockets are used. */
         Vector<lf::OutputSocket *> target_usages;
         for (const bNodeLink *link : socket->directly_linked_links()) {
-          if (link->is_muted()) {
+          if (!link->is_used()) {
             continue;
           }
-          const bNodeSocket *target_socket = link->tosock;
-          if (!target_socket->is_available()) {
-            continue;
-          }
-          if (lf::OutputSocket *is_used_socket = socket_is_used_map_.lookup_default(target_socket,
+          const bNodeSocket &target_socket = *link->tosock;
+          if (lf::OutputSocket *is_used_socket = socket_is_used_map_.lookup_default(&target_socket,
                                                                                     nullptr)) {
             target_usages.append_non_duplicates(is_used_socket);
           }
         }
+        /* Combine target socket usages into the usage of the current socket. */
         if (lf::OutputSocket *usage = this->or_socket_usages(target_usages,
                                                              or_socket_usages_cache)) {
           socket_is_used_map_.add_new(socket, usage);
