@@ -68,15 +68,24 @@ using AutoAnonymousAttributeID = UserCounter<const AnonymousAttributeID>;
  */
 class AnonymousAttributeSet {
  public:
+  /**
+   * This uses `std::shared_ptr` because attributes sets are passed around by value during geometry
+   * nodes evaluation, and this makes it very small if there is no name. Also it makes copying very
+   * cheap.
+   */
   std::shared_ptr<Set<std::string>> names;
 };
 
 /**
  * Can be passed to algorithms which propagate attributes. It can tell the algorithm which
- * anonymous attributes should be propagated and which should not.
+ * anonymous attributes should be propagated and can be skipped.
  */
 class AnonymousAttributePropagationInfo {
  public:
+  /**
+   * This uses `std::shared_ptr` because it's usually initialized from an #AnonymousAttributeSet
+   * and then the set doesn't have to be copied.
+   */
   std::shared_ptr<Set<std::string>> names;
 
   /**

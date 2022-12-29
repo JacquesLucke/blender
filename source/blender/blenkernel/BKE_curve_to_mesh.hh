@@ -2,8 +2,6 @@
 
 #pragma once
 
-#include "BKE_attribute.hh"
-
 struct CurvesGeometry;
 struct Mesh;
 
@@ -12,6 +10,8 @@ struct Mesh;
  */
 
 namespace blender::bke {
+
+class AnonymousAttributePropagationInfo;
 
 /**
  * Extrude all splines in the profile curve along the path of every spline in the curve input.
