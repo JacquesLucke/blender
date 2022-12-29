@@ -274,8 +274,6 @@ void *CustomData_duplicate_referenced_layer_named(struct CustomData *data,
                                                   int type,
                                                   const char *name,
                                                   int totelem);
-void *CustomData_duplicate_referenced_layer_anonymous(
-    CustomData *data, int type, const AnonymousAttributeIDHandle *anonymous_id, int totelem);
 bool CustomData_is_referenced_layer(struct CustomData *data, int type);
 
 /**

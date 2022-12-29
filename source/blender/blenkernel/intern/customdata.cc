@@ -3147,16 +3147,6 @@ void *CustomData_duplicate_referenced_layer_named(CustomData *data,
   return customData_duplicate_referenced_layer_index(data, layer_index, totelem);
 }
 
-void *CustomData_duplicate_referenced_layer_anonymous(
-    CustomData *data,
-    const int type,
-    const AnonymousAttributeIDHandle *anonymous_id,
-    const int totelem)
-{
-  return CustomData_duplicate_referenced_layer_named(
-      data, type, anonymous_id->name().c_str(), totelem);
-}
-
 void CustomData_duplicate_referenced_layers(CustomData *data, const int totelem)
 {
   for (int i = 0; i < data->totlayer; i++) {
