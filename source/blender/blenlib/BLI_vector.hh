@@ -943,6 +943,16 @@ class Vector {
     return IndexRange(this->size());
   }
 
+  uint64_t hash() const
+  {
+    return this->as_span().hash();
+  }
+
+  static uint64_t hash_as(const Span<T> values)
+  {
+    return values.hash();
+  }
+
   friend bool operator==(const Vector &a, const Vector &b)
   {
     return a.as_span() == b.as_span();
