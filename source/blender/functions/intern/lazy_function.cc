@@ -39,6 +39,7 @@ void LazyFunction::destruct_storage(void *storage) const
 void LazyFunction::possible_output_dependencies(const int /*output_index*/,
                                                 const FunctionRef<void(Span<int>)> fn) const
 {
+  /* The output depends on all inputs by default. */
   Vector<int, 16> indices(inputs_.size());
   for (const int i : inputs_.index_range()) {
     indices[i] = i;

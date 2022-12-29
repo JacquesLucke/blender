@@ -311,6 +311,12 @@ class LazyFunction {
    */
   bool always_used_inputs_available(const Params &params) const;
 
+  /**
+   * If true, the function can be executed even when some requested inputs are not available yet.
+   * This allows the function to make some progress and maybe to compute some outputs that are
+   * passed into this function again (lazy-function graphs may contain cycles as long as there
+   * aren't actually data dependencies).
+   */
   bool allow_missing_requested_inputs() const
   {
     return allow_missing_requested_inputs_;

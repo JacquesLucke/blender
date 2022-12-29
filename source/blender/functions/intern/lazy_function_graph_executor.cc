@@ -1253,6 +1253,7 @@ GraphExecutor::GraphExecutor(const Graph &graph,
       logger_(logger),
       side_effect_provider_(side_effect_provider)
 {
+  /* The graph executor can handle partial execution when there are still missing inputs. */
   allow_missing_requested_inputs_ = true;
 
   for (const OutputSocket *socket : graph_inputs_) {

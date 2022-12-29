@@ -149,7 +149,7 @@ class PartialEvaluationTestFunction : public LazyFunction {
   }
 };
 
-TEST(lazy_function, PartialEvaluation)
+TEST(lazy_function, GraphWithCycle)
 {
   const PartialEvaluationTestFunction fn;
 
