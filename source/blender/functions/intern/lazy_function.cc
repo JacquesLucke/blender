@@ -48,6 +48,9 @@ void LazyFunction::possible_output_dependencies(const int /*output_index*/,
 
 bool LazyFunction::always_used_inputs_available(const Params &params) const
 {
+  if (allow_missing_requested_inputs_) {
+    return true;
+  }
   for (const int i : inputs_.index_range()) {
     const Input &fn_input = inputs_[i];
     if (fn_input.usage == ValueUsage::Used) {
