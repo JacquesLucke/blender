@@ -5618,7 +5618,7 @@ static void rna_def_modifier_ocean(BlenderRNA *brna)
        "JONSWAP",
        0,
        "Established Ocean (Sharp Peaks)",
-       "Use for sharp peaks ('JONSWAP', Pierson-Moskowitz method) with peak sharpening"},
+       "Use for established oceans ('JONSWAP', Pierson-Moskowitz method) with peak sharpening"},
       {MOD_OCEAN_SPECTRUM_TEXEL_MARSEN_ARSLOE,
        "TEXEL_MARSEN_ARSLOE",
        0,
@@ -5669,7 +5669,7 @@ static void rna_def_modifier_ocean(BlenderRNA *brna)
   RNA_def_property_ui_text(
       prop,
       "Generate Normals",
-      "Output normals for bump mapping - disabling can speed up performance if its not needed");
+      "Output normals for bump mapping - disabling can speed up performance if it's not needed");
   RNA_def_property_update(prop, 0, "rna_OceanModifier_init_update");
 
   prop = RNA_def_property(srna, "use_foam", PROP_BOOLEAN, PROP_NONE);
@@ -6951,7 +6951,7 @@ static void rna_def_modifier_weightednormal(BlenderRNA *brna)
       {MOD_WEIGHTEDNORMAL_MODE_FACE_ANGLE,
        "FACE_AREA_WITH_ANGLE",
        0,
-       "Face Area And Angle",
+       "Face Area & Angle",
        "Generated normals weighted by both face area and angle"},
       {0, NULL, 0, NULL, NULL},
   };

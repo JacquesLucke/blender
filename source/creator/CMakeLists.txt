@@ -385,7 +385,7 @@ endif()
 # Install Targets (Generic, All Platforms)
 
 
-# important to make a clean  install each time, else old scripts get loaded.
+# Important to make a clean install each time, else old scripts get loaded.
 install(
   CODE
   "file(REMOVE_RECURSE ${TARGETDIR_VER})"
@@ -394,9 +394,10 @@ install(
 if(WITH_PYTHON)
   # install(CODE "message(\"copying blender scripts...\")")
 
-  # exclude addons_contrib if release
+  # exclude addons_contrib if release branch
   if("${BLENDER_VERSION_CYCLE}" STREQUAL "release" OR
-     "${BLENDER_VERSION_CYCLE}" STREQUAL "rc")
+     "${BLENDER_VERSION_CYCLE}" STREQUAL "rc" OR
+     "${BLENDER_VERSION_CYCLE}" STREQUAL "beta")
     set(ADDON_EXCLUDE_CONDITIONAL "addons_contrib/*")
   else()
     set(ADDON_EXCLUDE_CONDITIONAL "_addons_contrib/*")  # Dummy, won't do anything.
@@ -561,19 +562,6 @@ endmacro()
 
 if(UNIX AND NOT APPLE)
 
-  if(NOT WITH_PYTHON_MODULE)
-    if(WITH_DOC_MANPAGE)
-      add_custom_target(
-        blender_man_page ALL
-        COMMAND
-          ${CMAKE_SOURCE_DIR}/doc/manpage/blender.1.py
-          --blender ${EXECUTABLE_OUTPUT_PATH}/blender
-          --output ${CMAKE_CURRENT_BINARY_DIR}/blender.1
-      )
-      add_dependencies(blender_man_page blender)
-    endif()
-  endif()
-
   if(PLATFORM_BUNDLED_LIBRARIES AND TARGETDIR_LIB)
     install(
       FILES ${PLATFORM_BUNDLED_LIBRARIES}
@@ -602,12 +590,6 @@ if(UNIX AND NOT APPLE)
       DESTINATION "."
     )
 
-    if(WITH_DOC_MANPAGE)
-      install(
-        FILES ${CMAKE_CURRENT_BINARY_DIR}/blender.1
-        DESTINATION "."
-      )
-    endif()
     install(
       FILES
         ${CMAKE_SOURCE_DIR}/release/freedesktop/blender.desktop
@@ -654,13 +636,6 @@ if(UNIX AND NOT APPLE)
       TARGETS blender
       DESTINATION bin
     )
-    if(WITH_DOC_MANPAGE)
-      # Manual page (only with `blender` binary).
-      install(
-        FILES ${CMAKE_CURRENT_BINARY_DIR}/blender.1
-        DESTINATION share/man/man1
-      )
-    endif()
 
     # Misc files.
     install(
@@ -978,30 +953,30 @@ elseif(WIN32)
   endif()
 
   if(WITH_OPENVDB)
-      windows_install_shared_manifest(
-        FILES ${LIBDIR}/openvdb/bin/openvdb.dll
-        RELEASE
-      )
-      windows_install_shared_manifest(
-        FILES ${LIBDIR}/openvdb/bin/openvdb_d.dll
-        DEBUG
-      )
+    windows_install_shared_manifest(
+      FILES ${LIBDIR}/openvdb/bin/openvdb.dll
+      RELEASE
+    )
+    windows_install_shared_manifest(
+      FILES ${LIBDIR}/openvdb/bin/openvdb_d.dll
+      DEBUG
+    )
 
-      # This will not exist for 3.4 and earlier lib folders
-      # to ease the transition, support both 3.4 and 3.5 lib
-      # folders.
-      if(EXISTS ${LIBDIR}/openvdb/python/pyopenvdb_d.pyd)
-        install(
-          FILES ${LIBDIR}/openvdb/python/pyopenvdb_d.pyd
-          DESTINATION ${TARGETDIR_VER}/python/lib/site-packages
-          CONFIGURATIONS Debug
-        )
-        install(
-          FILES ${LIBDIR}/openvdb/python/pyopenvdb.pyd
-          DESTINATION ${TARGETDIR_VER}/python/lib/site-packages
-          CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
-        )
-      endif()
+    # This will not exist for 3.4 and earlier lib folders
+    # to ease the transition, support both 3.4 and 3.5 lib
+    # folders.
+    if(EXISTS ${LIBDIR}/openvdb/python/pyopenvdb_d.pyd)
+      install(
+        FILES ${LIBDIR}/openvdb/python/pyopenvdb_d.pyd
+        DESTINATION ${TARGETDIR_VER}/python/lib/site-packages
+        CONFIGURATIONS Debug
+      )
+      install(
+        FILES ${LIBDIR}/openvdb/python/pyopenvdb.pyd
+        DESTINATION ${TARGETDIR_VER}/python/lib/site-packages
+        CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+      )
+    endif()
   endif()
 
   if(WITH_MATERIALX)
@@ -1162,22 +1137,22 @@ elseif(WIN32)
         # MaterialX python bindings
 
         install(
-            DIRECTORY ${LIBDIR}/materialx/python/Release/MaterialX
-            DESTINATION ${TARGETDIR_VER}/python/lib/site-packages/
-            CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
-            PATTERN ".svn" EXCLUDE
-            PATTERN "__pycache__" EXCLUDE           # * any cache *
-            PATTERN "*.pyc" EXCLUDE                 # * any cache *
-            PATTERN "*.pyo" EXCLUDE                 # * any cache *
+          DIRECTORY ${LIBDIR}/materialx/python/Release/MaterialX
+          DESTINATION ${TARGETDIR_VER}/python/lib/site-packages/
+          CONFIGURATIONS Release;RelWithDebInfo;MinSizeRel
+          PATTERN ".svn" EXCLUDE
+          PATTERN "__pycache__" EXCLUDE           # * any cache *
+          PATTERN "*.pyc" EXCLUDE                 # * any cache *
+          PATTERN "*.pyo" EXCLUDE                 # * any cache *
         )
         install(
-            DIRECTORY ${LIBDIR}/materialx/python/Debug/MaterialX
-            DESTINATION ${TARGETDIR_VER}/python/lib/site-packages/
-            CONFIGURATIONS Debug
-            PATTERN ".svn" EXCLUDE
-            PATTERN "__pycache__" EXCLUDE           # * any cache *
-            PATTERN "*.pyc" EXCLUDE                 # * any cache *
-            PATTERN "*.pyo" EXCLUDE                 # * any cache *
+          DIRECTORY ${LIBDIR}/materialx/python/Debug/MaterialX
+          DESTINATION ${TARGETDIR_VER}/python/lib/site-packages/
+          CONFIGURATIONS Debug
+          PATTERN ".svn" EXCLUDE
+          PATTERN "__pycache__" EXCLUDE           # * any cache *
+          PATTERN "*.pyc" EXCLUDE                 # * any cache *
+          PATTERN "*.pyo" EXCLUDE                 # * any cache *
         )
       endif()
 
@@ -1674,6 +1649,42 @@ endif()
 # Windows shared library manifest
 if(WIN32)
   windows_generate_shared_manifest()
+endif()
+
+# -----------------------------------------------------------------------------
+# Steps that Run Blender
+#
+# As executing Blender is needed - it's important this operation runs after the shared
+# libraries have been installed to their destination.
+
+if(UNIX AND NOT APPLE)
+  if(NOT WITH_PYTHON_MODULE)
+    if(WITH_DOC_MANPAGE)
+      install(
+        CODE "\
+execute_process(\
+  COMMAND \
+  \"${CMAKE_SOURCE_DIR}/doc/manpage/blender.1.py\" \
+  --blender \"${EXECUTABLE_OUTPUT_PATH}/blender\" \
+  --output \"${CMAKE_CURRENT_BINARY_DIR}/blender.1\"\
+)"
+        DEPENDS blender
+      )
+
+      if(WITH_INSTALL_PORTABLE)
+        install(
+          FILES ${CMAKE_CURRENT_BINARY_DIR}/blender.1
+          DESTINATION "."
+        )
+      else()
+        # Manual page (only with `blender` binary).
+        install(
+          FILES ${CMAKE_CURRENT_BINARY_DIR}/blender.1
+          DESTINATION share/man/man1
+        )
+      endif()
+    endif()
+  endif()
 endif()
 
 # -----------------------------------------------------------------------------

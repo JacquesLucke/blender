@@ -383,7 +383,8 @@ static void update_vb(PBVH *pbvh, PBVHNode *node, BBC *prim_bbc, int offset, int
 int BKE_pbvh_count_grid_quads(BLI_bitmap **grid_hidden,
                               const int *grid_indices,
                               int totgrid,
-                              int gridsize)
+                              int gridsize,
+                              int display_gridsize)
 {
   const int gridarea = (gridsize - 1) * (gridsize - 1);
   int totquad = 0;
@@ -391,13 +392,18 @@ int BKE_pbvh_count_grid_quads(BLI_bitmap **grid_hidden,
   /* grid hidden layer is present, so have to check each grid for
    * visibility */
 
+  int depth1 = (int)(log2((double)gridsize - 1.0) + DBL_EPSILON);
+  int depth2 = (int)(log2((double)display_gridsize - 1.0) + DBL_EPSILON);
+
+  int skip = depth2 < depth1 ? 1 << (depth1 - depth2 - 1) : 1;
+
   for (int i = 0; i < totgrid; i++) {
     const BLI_bitmap *gh = grid_hidden[grid_indices[i]];
 
     if (gh) {
       /* grid hidden are present, have to check each element */
-      for (int y = 0; y < gridsize - 1; y++) {
-        for (int x = 0; x < gridsize - 1; x++) {
+      for (int y = 0; y < gridsize - skip; y += skip) {
+        for (int x = 0; x < gridsize - skip; x += skip) {
           if (!paint_is_grid_face_hidden(gh, gridsize, x, y)) {
             totquad++;
           }
@@ -414,8 +420,11 @@ int BKE_pbvh_count_grid_quads(BLI_bitmap **grid_hidden,
 
 static void build_grid_leaf_node(PBVH *pbvh, PBVHNode *node)
 {
-  int totquads = BKE_pbvh_count_grid_quads(
-      pbvh->grid_hidden, node->prim_indices, node->totprim, pbvh->gridkey.grid_size);
+  int totquads = BKE_pbvh_count_grid_quads(pbvh->grid_hidden,
+                                           node->prim_indices,
+                                           node->totprim,
+                                           pbvh->gridkey.grid_size,
+                                           pbvh->gridkey.grid_size);
   BKE_pbvh_node_fully_hidden_set(node, (totquads == 0));
   BKE_pbvh_node_mark_rebuild_draw(node);
 }
@@ -687,6 +696,9 @@ static void pbvh_draw_args_init(PBVH *pbvh, PBVH_GPU_Args *args, PBVHNode *node)
       args->mpoly = pbvh->mpoly;
       args->vert_normals = pbvh->vert_normals;
 
+      args->active_color = pbvh->mesh->active_color_attribute;
+      args->render_color = pbvh->mesh->default_color_attribute;
+
       args->prim_indices = node->prim_indices;
       args->face_sets = pbvh->face_sets;
       break;
@@ -701,6 +713,9 @@ static void pbvh_draw_args_init(PBVH *pbvh, PBVH_GPU_Args *args, PBVHNode *node)
       args->subdiv_ccg = pbvh->subdiv_ccg;
       args->face_sets = pbvh->face_sets;
       args->mpoly = pbvh->mpoly;
+
+      args->active_color = pbvh->mesh->active_color_attribute;
+      args->render_color = pbvh->mesh->default_color_attribute;
 
       args->mesh_grids_num = pbvh->totgrid;
       args->grids = pbvh->grids;
@@ -1320,7 +1335,7 @@ typedef struct PBVHUpdateData {
   PBVHNode **nodes;
   int totnode;
 
-  float (*vnors)[3];
+  float (*vert_normals)[3];
   int flag;
   bool show_sculpt_face_sets;
   PBVHAttrReq *attrs;
@@ -1334,7 +1349,7 @@ static void pbvh_update_normals_clear_task_cb(void *__restrict userdata,
   PBVHUpdateData *data = userdata;
   PBVH *pbvh = data->pbvh;
   PBVHNode *node = data->nodes[n];
-  float(*vnors)[3] = data->vnors;
+  float(*vert_normals)[3] = data->vert_normals;
 
   if (node->flag & PBVH_UpdateNormals) {
     const int *verts = node->vert_indices;
@@ -1342,7 +1357,7 @@ static void pbvh_update_normals_clear_task_cb(void *__restrict userdata,
     for (int i = 0; i < totvert; i++) {
       const int v = verts[i];
       if (pbvh->vert_bitmap[v]) {
-        zero_v3(vnors[v]);
+        zero_v3(vert_normals[v]);
       }
     }
   }
@@ -1356,7 +1371,7 @@ static void pbvh_update_normals_accum_task_cb(void *__restrict userdata,
 
   PBVH *pbvh = data->pbvh;
   PBVHNode *node = data->nodes[n];
-  float(*vnors)[3] = data->vnors;
+  float(*vert_normals)[3] = data->vert_normals;
 
   if (node->flag & PBVH_UpdateNormals) {
     uint mpoly_prev = UINT_MAX;
@@ -1390,7 +1405,7 @@ static void pbvh_update_normals_accum_task_cb(void *__restrict userdata,
            * Not exact equivalent though, since atomicity is only ensured for one component
            * of the vector at a time, but here it shall not make any sensible difference. */
           for (int k = 3; k--;) {
-            atomic_add_and_fetch_fl(&vnors[v][k], fn[k]);
+            atomic_add_and_fetch_fl(&vert_normals[v][k], fn[k]);
           }
         }
       }
@@ -1405,7 +1420,7 @@ static void pbvh_update_normals_store_task_cb(void *__restrict userdata,
   PBVHUpdateData *data = userdata;
   PBVH *pbvh = data->pbvh;
   PBVHNode *node = data->nodes[n];
-  float(*vnors)[3] = data->vnors;
+  float(*vert_normals)[3] = data->vert_normals;
 
   if (node->flag & PBVH_UpdateNormals) {
     const int *verts = node->vert_indices;
@@ -1417,7 +1432,7 @@ static void pbvh_update_normals_store_task_cb(void *__restrict userdata,
       /* No atomics necessary because we are iterating over uniq_verts only,
        * so we know only this thread will handle this vertex. */
       if (pbvh->vert_bitmap[v]) {
-        normalize_v3(vnors[v]);
+        normalize_v3(vert_normals[v]);
         pbvh->vert_bitmap[v] = false;
       }
     }
@@ -1441,7 +1456,7 @@ static void pbvh_faces_update_normals(PBVH *pbvh, PBVHNode **nodes, int totnode)
   PBVHUpdateData data = {
       .pbvh = pbvh,
       .nodes = nodes,
-      .vnors = pbvh->vert_normals,
+      .vert_normals = pbvh->vert_normals,
   };
 
   TaskParallelSettings settings;
@@ -1579,7 +1594,7 @@ void pbvh_update_BB_redraw(PBVH *pbvh, PBVHNode **nodes, int totnode, int flag)
 
 bool BKE_pbvh_get_color_layer(const Mesh *me, CustomDataLayer **r_layer, eAttrDomain *r_attr)
 {
-  CustomDataLayer *layer = BKE_id_attributes_active_color_get((ID *)me);
+  CustomDataLayer *layer = BKE_id_attributes_color_find(&me->id, me->active_color_attribute);
 
   if (!layer || !ELEM(layer->type, CD_PROP_COLOR, CD_PROP_BYTE_COLOR)) {
     *r_layer = NULL;
@@ -1587,7 +1602,7 @@ bool BKE_pbvh_get_color_layer(const Mesh *me, CustomDataLayer **r_layer, eAttrDo
     return false;
   }
 
-  eAttrDomain domain = BKE_id_attribute_domain((ID *)me, layer);
+  eAttrDomain domain = BKE_id_attribute_domain(&me->id, layer);
 
   if (!ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CORNER)) {
     *r_layer = NULL;
@@ -3402,16 +3417,6 @@ bool pbvh_has_face_sets(PBVH *pbvh)
   }
 
   return false;
-}
-
-void pbvh_show_mask_set(PBVH *pbvh, bool show_mask)
-{
-  pbvh->show_mask = show_mask;
-}
-
-void pbvh_show_face_sets_set(PBVH *pbvh, bool show_face_sets)
-{
-  pbvh->show_face_sets = show_face_sets;
 }
 
 void BKE_pbvh_set_frustum_planes(PBVH *pbvh, PBVHFrustumPlanes *planes)

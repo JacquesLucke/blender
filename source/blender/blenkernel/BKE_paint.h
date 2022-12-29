@@ -516,6 +516,11 @@ typedef struct SculptAttribute {
   int elem_size, elem_num;
   bool data_for_bmesh; /* Temporary data store as array outside of bmesh. */
 
+  /* Data is a flat array outside the CustomData system.
+   * This will be true if simple_array is requested in
+   * SculptAttributeParams, or the PBVH type is PBVH_GRIDS or PBVH_BMESH.
+   */
+  bool simple_array;
   /* Data stored per BMesh element. */
   int bmesh_cd_offset;
 
@@ -627,8 +632,6 @@ typedef struct SculptSession {
 
   /* PBVH acceleration structure */
   struct PBVH *pbvh;
-  bool show_mask;
-  bool show_face_sets;
 
   /* Painting on deformed mesh */
   bool deform_modifiers_active; /* Object is deformed with some modifiers. */

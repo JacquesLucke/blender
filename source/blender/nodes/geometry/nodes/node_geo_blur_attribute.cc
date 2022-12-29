@@ -14,6 +14,7 @@
 
 #include "BKE_attribute_math.hh"
 #include "BKE_curves.hh"
+#include "BKE_geometry_fields.hh"
 #include "BKE_mesh.h"
 #include "BKE_mesh_mapping.h"
 
@@ -63,12 +64,12 @@ static void node_declare(NodeDeclarationBuilder &b)
   b.add_output<decl::Color>(N_("Value"), "Value_Color").field_source().dependent_field();
 }
 
-static void node_layout(uiLayout *layout, bContext *UNUSED(C), PointerRNA *ptr)
+static void node_layout(uiLayout *layout, bContext * /*C*/, PointerRNA *ptr)
 {
   uiItemR(layout, ptr, "data_type", 0, "", ICON_NONE);
 }
 
-static void node_init(bNodeTree *UNUSED(tree), bNode *node)
+static void node_init(bNodeTree * /*tree*/, bNode *node)
 {
   node->custom1 = CD_PROP_FLOAT;
 }
@@ -277,11 +278,13 @@ static void blur_on_mesh(const Mesh &mesh,
   }
   attribute_math::convert_to_static_type(main_buffer.type(), [&](auto dummy) {
     using T = decltype(dummy);
-    blur_on_mesh_exec<T>(neighbor_weights,
-                         neighbors_map,
-                         iterations,
-                         main_buffer.typed<T>(),
-                         tmp_buffer.typed<T>());
+    if constexpr (!std::is_same_v<T, bool>) {
+      blur_on_mesh_exec<T>(neighbor_weights,
+                           neighbors_map,
+                           iterations,
+                           main_buffer.typed<T>(),
+                           tmp_buffer.typed<T>());
+    }
   });
 }
 
@@ -361,8 +364,10 @@ static void blur_on_curves(const bke::CurvesGeometry &curves,
 {
   attribute_math::convert_to_static_type(main_buffer.type(), [&](auto dummy) {
     using T = decltype(dummy);
-    blur_on_curve_exec<T>(
-        curves, neighbor_weights, iterations, main_buffer.typed<T>(), tmp_buffer.typed<T>());
+    if constexpr (!std::is_same_v<T, bool>) {
+      blur_on_curve_exec<T>(
+          curves, neighbor_weights, iterations, main_buffer.typed<T>(), tmp_buffer.typed<T>());
+    }
   });
 }
 
@@ -442,6 +447,11 @@ class BlurAttributeFieldInput final : public bke::GeometryFieldInput {
              value_field_ == other_blur->value_field_ && iterations_ == other_blur->iterations_;
     }
     return false;
+  }
+
+  std::optional<eAttrDomain> preferred_domain(const GeometryComponent &component) const override
+  {
+    return bke::try_detect_field_domain(component, value_field_);
   }
 };
 

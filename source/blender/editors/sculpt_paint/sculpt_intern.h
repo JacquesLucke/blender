@@ -752,7 +752,7 @@ typedef struct ExpandCache {
   /* Texture distortion data. */
   Brush *brush;
   struct Scene *scene;
-  struct MTex *mtex;
+  // struct MTex *mtex;
 
   /* Controls how much texture distortion will be applied to the current falloff */
   float texture_distortion_strength;
@@ -794,6 +794,9 @@ typedef struct ExpandCache {
   /* When set to true, Expand will reposition the sculpt pivot to the boundary of the expand result
    * after finishing the operation. */
   bool reposition_pivot;
+
+  /* If nothing is masked set mask of every vertex to 0. */
+  bool auto_mask;
 
   /* Color target data type related data. */
   float fill_color[4];

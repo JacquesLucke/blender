@@ -97,7 +97,7 @@ set(SRC
   intern/colortools.c
   intern/compute_contexts.cc
   intern/constraint.c
-  intern/context.c
+  intern/context.cc
   intern/cpp_types.cc
   intern/crazyspace.cc
   intern/cryptomatte.cc
@@ -229,6 +229,7 @@ set(SRC
   intern/nla.c
   intern/node.cc
   intern/node_runtime.cc
+  intern/node_tree_field_inferencing.cc
   intern/node_tree_update.cc
   intern/object.cc
   intern/object_deform.c
@@ -503,6 +504,7 @@ set(SRC
   intern/multires_unsubdivide.h
   intern/ocean_intern.h
   intern/pbvh_intern.h
+  intern/pbvh_uv_islands.hh
   intern/subdiv_converter.h
   intern/subdiv_inline.h
 )

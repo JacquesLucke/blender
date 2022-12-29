@@ -27,6 +27,9 @@
 
 #include "obj_export_mesh.hh"
 
+#include "bmesh.h"
+#include "bmesh_tools.h"
+
 namespace blender::io::obj {
 OBJMesh::OBJMesh(Depsgraph *depsgraph, const OBJExportParams &export_params, Object *mesh_object)
 {
@@ -82,11 +85,11 @@ void OBJMesh::clear()
     owned_export_mesh_ = nullptr;
   }
   export_mesh_ = nullptr;
-  uv_indices_.clear_and_make_inline();
-  uv_coords_.clear_and_make_inline();
-  loop_to_normal_index_.clear_and_make_inline();
-  normal_coords_.clear_and_make_inline();
-  poly_order_.clear_and_make_inline();
+  uv_indices_.clear_and_shrink();
+  uv_coords_.clear_and_shrink();
+  loop_to_normal_index_.clear_and_shrink();
+  normal_coords_.clear_and_shrink();
+  poly_order_.clear_and_shrink();
   if (poly_smooth_groups_) {
     MEM_freeN(poly_smooth_groups_);
     poly_smooth_groups_ = nullptr;

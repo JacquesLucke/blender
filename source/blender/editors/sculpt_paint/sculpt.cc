@@ -31,6 +31,7 @@
 #include "DNA_scene_types.h"
 
 #include "BKE_attribute.h"
+#include "BKE_attribute.hh"
 #include "BKE_brush.h"
 #include "BKE_ccg.h"
 #include "BKE_colortools.h"
@@ -131,10 +132,20 @@ const float *SCULPT_vertex_co_get(SculptSession *ss, PBVHVertRef vertex)
 
 bool SCULPT_has_loop_colors(const Object *ob)
 {
+  using namespace blender;
   Mesh *me = BKE_object_get_original_mesh(ob);
-  const CustomDataLayer *layer = BKE_id_attributes_active_color_get(&me->id);
-
-  return layer && BKE_id_attribute_domain(&me->id, layer) == ATTR_DOMAIN_CORNER;
+  const std::optional<bke::AttributeMetaData> meta_data = me->attributes().lookup_meta_data(
+      me->active_color_attribute);
+  if (!meta_data) {
+    return false;
+  }
+  if (meta_data->domain != ATTR_DOMAIN_CORNER) {
+    return false;
+  }
+  if (!(CD_TYPE_AS_MASK(meta_data->data_type) & CD_MASK_COLOR_ALL)) {
+    return false;
+  }
+  return true;
 }
 
 bool SCULPT_has_colors(const SculptSession *ss)
@@ -628,7 +639,7 @@ void SCULPT_visibility_sync_all_from_faces(Object *ob)
       BMIter iter;
       BMFace *f;
 
-      /* Hide all verts and edges attached to faces.*/
+      /* Hide all verts and edges attached to faces. */
       BM_ITER_MESH (f, &iter, ss->bm, BM_FACES_OF_MESH) {
         BMLoop *l = f->l_first;
         do {
@@ -1319,6 +1330,7 @@ static bool sculpt_brush_use_topology_rake(const SculptSession *ss, const Brush 
  */
 static int sculpt_brush_needs_normal(const SculptSession *ss, Sculpt *sd, const Brush *brush)
 {
+  const MTex *mask_tex = BKE_brush_mask_texture_get(brush, OB_MODE_SCULPT);
   return ((SCULPT_TOOL_HAS_NORMAL_WEIGHT(brush->sculpt_tool) &&
            (ss->cache->normal_weight > 0.0f)) ||
           SCULPT_automasking_needs_normal(ss, sd, brush) ||
@@ -1334,7 +1346,7 @@ static int sculpt_brush_needs_normal(const SculptSession *ss, Sculpt *sd, const 
                SCULPT_TOOL_ELASTIC_DEFORM,
                SCULPT_TOOL_THUMB) ||
 
-          (brush->mtex.brush_map_mode == MTEX_MAP_MODE_AREA)) ||
+          (mask_tex->brush_map_mode == MTEX_MAP_MODE_AREA)) ||
          sculpt_brush_use_topology_rake(ss, brush);
 }
 
@@ -2861,7 +2873,7 @@ static void calc_local_y(ViewContext *vc, const float center[3], float y[3])
   mul_m4_v3(ob->world_to_object, y);
 }
 
-static void calc_brush_local_mat(const Brush *brush, Object *ob, float local_mat[4][4])
+static void calc_brush_local_mat(const MTex *mtex, Object *ob, float local_mat[4][4])
 {
   const StrokeCache *cache = ob->sculpt->cache;
   float tmat[4][4];
@@ -2885,7 +2897,7 @@ static void calc_brush_local_mat(const Brush *brush, Object *ob, float local_mat
   /* Calculate the X axis of the local matrix. */
   cross_v3_v3v3(v, up, cache->sculpt_normal);
   /* Apply rotation (user angle, rake, etc.) to X axis. */
-  angle = brush->mtex.rot - cache->special_rotation;
+  angle = mtex->rot - cache->special_rotation;
   rotate_v3_v3v3fl(mat[0], v, cache->sculpt_normal, angle);
 
   /* Get other axes. */
@@ -2896,8 +2908,15 @@ static void calc_brush_local_mat(const Brush *brush, Object *ob, float local_mat
   copy_v3_v3(mat[3], cache->location);
 
   /* Scale by brush radius. */
+  float radius = cache->radius;
+
+  /* Square tips should scale by square root of 2. */
+  if (sculpt_tool_has_cube_tip(cache->brush->sculpt_tool)) {
+    radius += (radius * M_SQRT2 - radius) * (1.0f - cache->brush->tip_roundness);
+  }
+
   normalize_m4(mat);
-  scale_m4_fl(scale, cache->radius);
+  scale_m4_fl(scale, radius);
   mul_m4_m4m4(tmat, mat, scale);
 
   /* Return inverse (for converting from model-space coords to local area coords). */
@@ -2932,7 +2951,9 @@ static void update_brush_local_mat(Sculpt *sd, Object *ob)
   StrokeCache *cache = ob->sculpt->cache;
 
   if (cache->mirror_symmetry_pass == 0 && cache->radial_symmetry_pass == 0) {
-    calc_brush_local_mat(BKE_paint_brush(&sd->paint), ob, cache->brush_local_mat);
+    const Brush *brush = BKE_paint_brush(&sd->paint);
+    const MTex *mask_tex = BKE_brush_mask_texture_get(brush, OB_MODE_SCULPT);
+    calc_brush_local_mat(mask_tex, ob, cache->brush_local_mat);
   }
 }
 
@@ -3512,7 +3533,8 @@ static void do_brush_action(Sculpt *sd,
     update_sculpt_normal(sd, ob, nodes, totnode);
   }
 
-  if (brush->mtex.brush_map_mode == MTEX_MAP_MODE_AREA) {
+  const MTex *mask_tex = BKE_brush_mask_texture_get(brush, static_cast<eObjectMode>(ob->mode));
+  if (mask_tex->brush_map_mode == MTEX_MAP_MODE_AREA) {
     update_brush_local_mat(sd, ob);
   }
 
@@ -4047,7 +4069,7 @@ static void sculpt_fix_noise_tear(Sculpt *sd, Object *ob)
 {
   SculptSession *ss = ob->sculpt;
   Brush *brush = BKE_paint_brush(&sd->paint);
-  MTex *mtex = &brush->mtex;
+  const MTex *mtex = BKE_brush_mask_texture_get(brush, OB_MODE_SCULPT);
 
   if (ss->multires.active && mtex->tex && mtex->tex->type == TEX_NOISE) {
     multires_stitch_grids(ob);
@@ -5196,12 +5218,12 @@ bool SCULPT_stroke_get_location(bContext *C,
 static void sculpt_brush_init_tex(Sculpt *sd, SculptSession *ss)
 {
   Brush *brush = BKE_paint_brush(&sd->paint);
-  MTex *mtex = &brush->mtex;
+  const MTex *mask_tex = BKE_brush_mask_texture_get(brush, OB_MODE_SCULPT);
 
   /* Init mtex nodes. */
-  if (mtex->tex && mtex->tex->nodetree) {
+  if (mask_tex->tex && mask_tex->tex->nodetree) {
     /* Has internal flag to detect it only does it once. */
-    ntreeTexBeginExecTree(mtex->tex->nodetree);
+    ntreeTexBeginExecTree(mask_tex->tex->nodetree);
   }
 
   if (ss->tex_pool == nullptr) {
@@ -5630,10 +5652,10 @@ static void sculpt_stroke_update_step(bContext *C,
 static void sculpt_brush_exit_tex(Sculpt *sd)
 {
   Brush *brush = BKE_paint_brush(&sd->paint);
-  MTex *mtex = &brush->mtex;
+  const MTex *mask_tex = BKE_brush_mask_texture_get(brush, OB_MODE_SCULPT);
 
-  if (mtex->tex && mtex->tex->nodetree) {
-    ntreeTexEndExecTree(mtex->tex->nodetree->runtime->execdata);
+  if (mask_tex->tex && mask_tex->tex->nodetree) {
+    ntreeTexEndExecTree(mask_tex->tex->nodetree->runtime->execdata);
   }
 }
 

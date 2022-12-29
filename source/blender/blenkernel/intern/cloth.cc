@@ -713,7 +713,7 @@ static float cloth_shrink_factor(ClothModifierData *clmd, ClothVertex *verts, in
 }
 
 static bool cloth_from_object(
-    Object *ob, ClothModifierData *clmd, Mesh *mesh, float UNUSED(framenr), int first)
+    Object *ob, ClothModifierData *clmd, Mesh *mesh, float /*framenr*/, int first)
 {
   int i = 0;
   ClothVertex *verts = nullptr;
@@ -1168,7 +1168,7 @@ static Mesh *cloth_make_rest_mesh(ClothModifierData *clmd, Mesh *mesh)
 {
   Mesh *new_mesh = BKE_mesh_copy_for_eval(mesh, false);
   ClothVertex *verts = clmd->clothObject->verts;
-  MVert *mvert = BKE_mesh_verts_for_write(mesh);
+  MVert *mvert = BKE_mesh_verts_for_write(new_mesh);
 
   /* vertex count is already ensured to match */
   for (uint i = 0; i < mesh->totvert; i++, verts++) {

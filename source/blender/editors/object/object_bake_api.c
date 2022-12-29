@@ -55,6 +55,7 @@
 #include "WM_api.h"
 #include "WM_types.h"
 
+#include "ED_mesh.h"
 #include "ED_object.h"
 #include "ED_screen.h"
 #include "ED_uvedit.h"
@@ -451,7 +452,7 @@ static bool bake_object_check(const Scene *scene,
   }
 
   if (target == R_BAKE_TARGET_VERTEX_COLORS) {
-    if (BKE_id_attributes_active_color_get(&me->id) == NULL) {
+    if (!BKE_id_attributes_color_find(&me->id, me->active_color_attribute)) {
       BKE_reportf(reports,
                   RPT_ERROR,
                   "Mesh does not have an active color attribute \"%s\"",
@@ -670,7 +671,8 @@ static Mesh *bake_mesh_new_from_object(Depsgraph *depsgraph,
   Mesh *me = BKE_mesh_new_from_object(depsgraph, object, false, preserve_origindex);
 
   if (me->flag & ME_AUTOSMOOTH) {
-    BKE_mesh_split_faces(me, true);
+    ED_mesh_split_faces(me);
+    CustomData_free_layers(&me->ldata, CD_NORMAL, me->totloop);
   }
 
   return me;
@@ -948,7 +950,7 @@ static bool bake_targets_init_vertex_colors(Main *bmain,
   }
 
   Mesh *me = ob->data;
-  if (BKE_id_attributes_active_color_get(&me->id) == NULL) {
+  if (!BKE_id_attributes_color_find(&me->id, me->active_color_attribute)) {
     BKE_report(reports, RPT_ERROR, "No active color attribute to bake to");
     return false;
   }
@@ -1129,7 +1131,8 @@ static bool bake_targets_output_vertex_colors(BakeTargets *targets, Object *ob)
 {
   Mesh *me = ob->data;
   BMEditMesh *em = me->edit_mesh;
-  CustomDataLayer *active_color_layer = BKE_id_attributes_active_color_get(&me->id);
+  CustomDataLayer *active_color_layer = BKE_id_attributes_color_find(&me->id,
+                                                                     me->active_color_attribute);
   BLI_assert(active_color_layer != NULL);
   const eAttrDomain domain = BKE_id_attribute_domain(&me->id, active_color_layer);
 

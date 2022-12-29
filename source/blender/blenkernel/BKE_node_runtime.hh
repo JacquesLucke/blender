@@ -5,6 +5,7 @@
 #include <memory>
 #include <mutex>
 
+#include "BLI_cache_mutex.hh"
 #include "BLI_multi_value_map.hh"
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
@@ -119,9 +120,8 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
    * Protects access to all topology cache variables below. This is necessary so that the cache can
    * be updated on a const #bNodeTree.
    */
-  std::mutex topology_cache_mutex;
-  bool topology_cache_is_dirty = true;
-  bool topology_cache_exists = false;
+  CacheMutex topology_cache_mutex;
+  std::atomic<bool> topology_cache_exists = false;
   /**
    * Under some circumstances, it can be useful to use the cached data while editing the
    * #bNodeTree. By default, this is protected against using an assert.
@@ -141,6 +141,8 @@ class bNodeTreeRuntime : NonCopyable, NonMovable {
   bool has_undefined_nodes_or_sockets = false;
   bNode *group_output_node = nullptr;
   Vector<bNode *> root_frames;
+  Vector<bNodeSocket *> interface_inputs;
+  Vector<bNodeSocket *> interface_outputs;
 };
 
 /**
@@ -251,12 +253,14 @@ class bNodeRuntime : NonCopyable, NonMovable {
   /** List of cached internal links (input to output), for muted nodes and operators. */
   Vector<bNodeLink *> internal_links;
 
+  /** Eagerly maintained cache of the node's index in the tree. */
+  int index_in_tree = -1;
+
   /** Only valid if #topology_cache_is_dirty is false. */
   Vector<bNodeSocket *> inputs;
   Vector<bNodeSocket *> outputs;
   Map<StringRefNull, bNodeSocket *> inputs_by_identifier;
   Map<StringRefNull, bNodeSocket *> outputs_by_identifier;
-  int index_in_tree = -1;
   bool has_available_linked_inputs = false;
   bool has_available_linked_outputs = false;
   Vector<bNode *> direct_children_in_frame;
@@ -294,7 +298,7 @@ inline bool topology_cache_is_available(const bNodeTree &tree)
   if (tree.runtime->allow_use_dirty_topology_cache.load() > 0) {
     return true;
   }
-  if (tree.runtime->topology_cache_is_dirty) {
+  if (tree.runtime->topology_cache_mutex.is_dirty()) {
     return false;
   }
   return true;
@@ -319,6 +323,10 @@ inline bool topology_cache_is_available(const bNodeSocket &socket)
 }
 
 }  // namespace node_tree_runtime
+
+namespace node_field_inferencing {
+bool update_field_inferencing(const bNodeTree &tree);
+}
 
 }  // namespace blender::bke
 
@@ -409,10 +417,33 @@ inline bool bNodeTree::has_undefined_nodes_or_sockets() const
   return this->runtime->has_undefined_nodes_or_sockets;
 }
 
+inline bNode *bNodeTree::group_output_node()
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->group_output_node;
+}
+
 inline const bNode *bNodeTree::group_output_node() const
 {
   BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
   return this->runtime->group_output_node;
+}
+
+inline blender::Span<const bNode *> bNodeTree::group_input_nodes() const
+{
+  return this->nodes_by_type("NodeGroupInput");
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::interface_inputs() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->interface_inputs;
+}
+
+inline blender::Span<const bNodeSocket *> bNodeTree::interface_outputs() const
+{
+  BLI_assert(blender::bke::node_tree_runtime::topology_cache_is_available(*this));
+  return this->runtime->interface_outputs;
 }
 
 inline blender::Span<const bNodeSocket *> bNodeTree::all_input_sockets() const
@@ -462,6 +493,15 @@ inline blender::Span<bNode *> bNodeTree::root_frames() const
 /* -------------------------------------------------------------------- */
 /** \name #bNode Inline Methods
  * \{ */
+
+inline int bNode::index() const
+{
+  const int index = this->runtime->index_in_tree;
+  /* The order of nodes should always be consistent with the `nodes_by_id` vector. */
+  BLI_assert(index ==
+             this->runtime->owner_tree->runtime->nodes_by_id.index_of_as(this->identifier));
+  return index;
+}
 
 inline blender::Span<bNodeSocket *> bNode::input_sockets()
 {
@@ -638,6 +678,11 @@ inline bool bNodeSocket::is_hidden() const
 inline bool bNodeSocket::is_available() const
 {
   return (this->flag & SOCK_UNAVAIL) == 0;
+}
+
+inline bool bNodeSocket::is_visible() const
+{
+  return !this->is_hidden() && this->is_available();
 }
 
 inline bNode &bNodeSocket::owner_node()
