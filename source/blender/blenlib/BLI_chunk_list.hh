@@ -139,8 +139,13 @@ class ChunkList {
 
   void clear()
   {
-    this->~ChunkList();
-    new (this) ChunkList();
+    this->clear_and_shrink();
+  }
+
+  void clear_and_shrink()
+  {
+    std::destroy_at(this);
+    new (this) ChunkList(NoExceptConstructor{});
   }
 
   const Allocator &allocator() const
