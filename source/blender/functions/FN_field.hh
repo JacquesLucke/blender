@@ -85,6 +85,7 @@ class FieldNode {
   virtual uint64_t hash() const;
   virtual bool is_equal_to(const FieldNode &other) const;
 
+  /** TODO: Try iterating over recursive field inputs instead. */
   virtual void for_each_expected_anonymous_attribute(FunctionRef<void(StringRef)> fn) const;
 };
 
