@@ -147,7 +147,6 @@ class PartialEvaluationTestFunction : public LazyFunction {
     const int input_index = output_index;
     fn({input_index});
   }
-  
 };
 
 TEST(lazy_function, PartialEvaluation)
@@ -165,8 +164,6 @@ TEST(lazy_function, PartialEvaluation)
    * because there is no actual data dependency in the cycle. */
   graph.add_link(fn_node.output(0), fn_node.input(1));
   graph.add_link(fn_node.output(1), output_node.input(0));
-
-  std::cout << "\n\n" << graph.to_dot() << "\n\n";
 
   graph.update_node_indices();
 
