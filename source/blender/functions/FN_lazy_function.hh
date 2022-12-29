@@ -283,6 +283,10 @@ class LazyFunction {
    */
   virtual void destruct_storage(void *storage) const;
 
+  /**
+   * Calls `fn` with the input indices that the given `output_index` may depend on. By default
+   * every output depends on every input.
+   */
   virtual void possible_output_dependencies(int output_index,
                                             FunctionRef<void(Span<int>)> fn) const;
 

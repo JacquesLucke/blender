@@ -139,6 +139,15 @@ class PartialEvaluationTestFunction : public LazyFunction {
       }
     }
   }
+
+  void possible_output_dependencies(const int output_index,
+                                    FunctionRef<void(Span<int>)> fn) const override
+  {
+    /* Each output only depends on the input with the same index. */
+    const int input_index = output_index;
+    fn({input_index});
+  }
+  
 };
 
 TEST(lazy_function, PartialEvaluation)
