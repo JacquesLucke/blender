@@ -12,11 +12,11 @@ namespace blender::bke {
 
 /**
  * An #AnonymousAttributeID contains information about a specific anonymous attribute.
- * Like normal attributes, anonymous attributes are also identified by their name. So one should
+ * Like normal attributes, anonymous attributes are also identified by their name, so one should
  * not have to compare #AnonymousAttributeID pointers.
  *
- * For the most part, anonymous attributes don't need additional information besides their name
- * with few exceptions:
+ * Anonymous attributes don't need additional information besides their name, with a few
+ * exceptions:
  * - The name of anonymous attributes is generated automatically, so it is generally not human
  *   readable (just random characters). #AnonymousAttributeID can provide more context as where a
  *   specific anonymous attribute was created which can simplify debugging.
