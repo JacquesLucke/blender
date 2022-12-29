@@ -130,25 +130,24 @@ using ImplicitInputValueFn = std::function<void(const bNode &node, void *r_value
  * Describes a single input or output socket. This is subclassed for different socket types.
  */
 class SocketDeclaration {
- protected:
  public:
-  std::string name_;
-  std::string identifier_;
-  std::string description_;
+  std::string name;
+  std::string identifier;
+  std::string description;
   /** Defined by whether the socket is part of the node's input or
    * output socket declaration list. Included here for convenience. */
-  eNodeSocketInOut in_out_;
-  bool hide_label_ = false;
-  bool hide_value_ = false;
-  bool compact_ = false;
-  bool is_multi_input_ = false;
-  bool no_mute_links_ = false;
-  bool is_unavailable_ = false;
-  bool is_attribute_name_ = false;
-  bool is_default_link_socket_ = false;
+  eNodeSocketInOut in_out;
+  bool hide_label = false;
+  bool hide_value = false;
+  bool compact = false;
+  bool is_multi_input = false;
+  bool no_mute_links = false;
+  bool is_unavailable = false;
+  bool is_attribute_name = false;
+  bool is_default_link_socket = false;
 
-  InputSocketFieldType input_field_type_ = InputSocketFieldType::None;
-  OutputFieldDependency output_field_dependency_;
+  InputSocketFieldType input_field_type = InputSocketFieldType::None;
+  OutputFieldDependency output_field_dependency;
 
   /** The priority of the input for determining the domain of the node. See
    * realtime_compositor::InputDescriptor for more information. */
@@ -191,16 +190,6 @@ class SocketDeclaration {
    * \note this is not necessarily implemented for all node types.
    */
   void make_available(bNode &node) const;
-
-  StringRefNull name() const;
-  StringRefNull description() const;
-  StringRefNull identifier() const;
-  eNodeSocketInOut in_out() const;
-  bool is_attribute_name() const;
-  bool is_default_link_socket() const;
-
-  InputSocketFieldType input_field_type() const;
-  const OutputFieldDependency &output_field_dependency() const;
 
   int compositor_domain_priority() const;
   bool compositor_skip_realization() const;
@@ -252,31 +241,31 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
  public:
   Self &hide_label(bool value = true)
   {
-    decl_->hide_label_ = value;
+    decl_->hide_label = value;
     return *(Self *)this;
   }
 
   Self &hide_value(bool value = true)
   {
-    decl_->hide_value_ = value;
+    decl_->hide_value = value;
     return *(Self *)this;
   }
 
   Self &multi_input(bool value = true)
   {
-    decl_->is_multi_input_ = value;
+    decl_->is_multi_input = value;
     return *(Self *)this;
   }
 
   Self &description(std::string value = "")
   {
-    decl_->description_ = std::move(value);
+    decl_->description = std::move(value);
     return *(Self *)this;
   }
 
   Self &no_muted_links(bool value = true)
   {
-    decl_->no_mute_links_ = value;
+    decl_->no_mute_links = value;
     return *(Self *)this;
   }
 
@@ -286,26 +275,26 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
    */
   Self &unavailable(bool value = true)
   {
-    decl_->is_unavailable_ = value;
+    decl_->is_unavailable = value;
     return *(Self *)this;
   }
 
   Self &is_attribute_name(bool value = true)
   {
-    decl_->is_attribute_name_ = value;
+    decl_->is_attribute_name = value;
     return *(Self *)this;
   }
 
   Self &is_default_link_socket(bool value = true)
   {
-    decl_->is_default_link_socket_ = value;
+    decl_->is_default_link_socket = value;
     return *(Self *)this;
   }
 
   /** The input socket allows passing in a field. */
   Self &supports_field()
   {
-    decl_->input_field_type_ = InputSocketFieldType::IsSupported;
+    decl_->input_field_type = InputSocketFieldType::IsSupported;
     return *(Self *)this;
   }
 
@@ -313,7 +302,7 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
   Self &implicit_field(ImplicitInputValueFn fn)
   {
     this->hide_value();
-    decl_->input_field_type_ = InputSocketFieldType::Implicit;
+    decl_->input_field_type = InputSocketFieldType::Implicit;
     decl_->implicit_input_fn_ = std::make_unique<ImplicitInputValueFn>(std::move(fn));
     return *(Self *)this;
   }
@@ -329,14 +318,14 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
   /** The output is always a field, regardless of any inputs. */
   Self &field_source()
   {
-    decl_->output_field_dependency_ = OutputFieldDependency::ForFieldSource();
+    decl_->output_field_dependency = OutputFieldDependency::ForFieldSource();
     return *(Self *)this;
   }
 
   /** The output is a field if any of the inputs are a field. */
   Self &dependent_field()
   {
-    decl_->output_field_dependency_ = OutputFieldDependency::ForDependentField();
+    decl_->output_field_dependency = OutputFieldDependency::ForDependentField();
     this->reference_pass_all();
     return *(Self *)this;
   }
@@ -345,14 +334,14 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
   Self &dependent_field(Vector<int> input_dependencies)
   {
     this->reference_pass(input_dependencies);
-    decl_->output_field_dependency_ = OutputFieldDependency::ForPartiallyDependentField(
+    decl_->output_field_dependency = OutputFieldDependency::ForPartiallyDependentField(
         std::move(input_dependencies));
     return *(Self *)this;
   }
 
   Self &field_on_auto()
   {
-    if (decl_->in_out_ == SOCK_IN) {
+    if (decl_->in_out == SOCK_IN) {
       this->supports_field();
     }
     else {
@@ -436,18 +425,14 @@ class SocketDeclarationBuilder : public BaseSocketDeclarationBuilder {
 using SocketDeclarationPtr = std::unique_ptr<SocketDeclaration>;
 
 class NodeDeclaration {
- private:
-  Vector<SocketDeclarationPtr> inputs_;
-  Vector<SocketDeclarationPtr> outputs_;
+ public:
+  Vector<SocketDeclarationPtr> inputs;
+  Vector<SocketDeclarationPtr> outputs;
   std::unique_ptr<aal::RelationsInNode> anonymous_attribute_relations_;
 
   friend NodeDeclarationBuilder;
 
- public:
   bool matches(const bNode &node) const;
-
-  Span<SocketDeclarationPtr> inputs() const;
-  Span<SocketDeclarationPtr> outputs() const;
   Span<SocketDeclarationPtr> sockets(eNodeSocketInOut in_out) const;
 
   const aal::RelationsInNode *anonymous_attribute_relations() const
@@ -599,46 +584,6 @@ inline bool operator!=(const FieldInferencingInterface &a, const FieldInferencin
 /** \name #SocketDeclaration Inline Methods
  * \{ */
 
-inline StringRefNull SocketDeclaration::name() const
-{
-  return name_;
-}
-
-inline StringRefNull SocketDeclaration::identifier() const
-{
-  return identifier_;
-}
-
-inline eNodeSocketInOut SocketDeclaration::in_out() const
-{
-  return in_out_;
-}
-
-inline StringRefNull SocketDeclaration::description() const
-{
-  return description_;
-}
-
-inline bool SocketDeclaration::is_attribute_name() const
-{
-  return is_attribute_name_;
-}
-
-inline bool SocketDeclaration::is_default_link_socket() const
-{
-  return is_default_link_socket_;
-}
-
-inline InputSocketFieldType SocketDeclaration::input_field_type() const
-{
-  return input_field_type_;
-}
-
-inline const OutputFieldDependency &SocketDeclaration::output_field_dependency() const
-{
-  return output_field_dependency_;
-}
-
 inline int SocketDeclaration::compositor_domain_priority() const
 {
   return compositor_domain_priority_;
@@ -694,16 +639,17 @@ inline typename DeclType::Builder &NodeDeclarationBuilder::add_socket(StringRef 
   static_assert(std::is_base_of_v<SocketDeclaration, DeclType>);
   using Builder = typename DeclType::Builder;
 
-  Vector<SocketDeclarationPtr> &declarations = in_out == SOCK_IN ? declaration_.inputs_ :
-                                                                   declaration_.outputs_;
+  Vector<SocketDeclarationPtr> &declarations = in_out == SOCK_IN ? declaration_.inputs :
+                                                                   declaration_.outputs;
 
   std::unique_ptr<DeclType> socket_decl = std::make_unique<DeclType>();
   std::unique_ptr<Builder> socket_decl_builder = std::make_unique<Builder>();
   socket_decl_builder->decl_ = &*socket_decl;
+
   socket_decl_builder->node_decl_builder_ = this;
-  socket_decl->name_ = name;
-  socket_decl->identifier_ = identifier.is_empty() ? name : identifier;
-  socket_decl->in_out_ = in_out;
+  socket_decl->name = name;
+  socket_decl->identifier = identifier.is_empty() ? name : identifier;
+  socket_decl->in_out = in_out;
   socket_decl_builder->index_ = declarations.append_and_get_index(std::move(socket_decl));
   Builder &socket_decl_builder_ref = *socket_decl_builder;
   ((in_out == SOCK_IN) ? input_builders_ : output_builders_)
@@ -717,22 +663,12 @@ inline typename DeclType::Builder &NodeDeclarationBuilder::add_socket(StringRef 
 /** \name #NodeDeclaration Inline Methods
  * \{ */
 
-inline Span<SocketDeclarationPtr> NodeDeclaration::inputs() const
-{
-  return inputs_;
-}
-
-inline Span<SocketDeclarationPtr> NodeDeclaration::outputs() const
-{
-  return outputs_;
-}
-
 inline Span<SocketDeclarationPtr> NodeDeclaration::sockets(eNodeSocketInOut in_out) const
 {
   if (in_out == SOCK_IN) {
-    return inputs_;
+    return inputs;
   }
-  return outputs_;
+  return outputs;
 }
 
 /** \} */

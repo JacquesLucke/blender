@@ -21,26 +21,26 @@ void NodeDeclarationBuilder::finalize()
   if (is_function_node_) {
     for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : input_builders_) {
       SocketDeclaration &socket_decl = *socket_builder->declaration();
-      if (socket_decl.input_field_type_ != InputSocketFieldType::Implicit) {
-        socket_decl.input_field_type_ = InputSocketFieldType::IsSupported;
+      if (socket_decl.input_field_type != InputSocketFieldType::Implicit) {
+        socket_decl.input_field_type = InputSocketFieldType::IsSupported;
       }
     }
     for (std::unique_ptr<BaseSocketDeclarationBuilder> &socket_builder : output_builders_) {
       SocketDeclaration &socket_decl = *socket_builder->declaration();
-      socket_decl.output_field_dependency_ = OutputFieldDependency::ForDependentField();
+      socket_decl.output_field_dependency = OutputFieldDependency::ForDependentField();
       socket_builder->reference_pass_all_ = true;
     }
   }
 
   Vector<int> geometry_inputs;
-  for (const int i : declaration_.inputs_.index_range()) {
-    if (dynamic_cast<decl::Geometry *>(declaration_.inputs_[i].get())) {
+  for (const int i : declaration_.inputs.index_range()) {
+    if (dynamic_cast<decl::Geometry *>(declaration_.inputs[i].get())) {
       geometry_inputs.append(i);
     }
   }
   Vector<int> geometry_outputs;
-  for (const int i : declaration_.outputs_.index_range()) {
-    if (dynamic_cast<decl::Geometry *>(declaration_.outputs_[i].get())) {
+  for (const int i : declaration_.outputs.index_range()) {
+    if (dynamic_cast<decl::Geometry *>(declaration_.outputs[i].get())) {
       geometry_outputs.append(i);
     }
   }
@@ -65,9 +65,9 @@ void NodeDeclarationBuilder::finalize()
     if (socket_builder->reference_pass_all_) {
       aal::RelationsInNode &relations = this->get_anonymous_attribute_relations();
       const int field_output = socket_builder->index_;
-      for (const int input_i : declaration_.inputs_.index_range()) {
-        SocketDeclaration &input_socket_decl = *declaration_.inputs_[input_i];
-        if (input_socket_decl.input_field_type_ != InputSocketFieldType::None) {
+      for (const int input_i : declaration_.inputs.index_range()) {
+        SocketDeclaration &input_socket_decl = *declaration_.inputs[input_i];
+        if (input_socket_decl.input_field_type != InputSocketFieldType::None) {
           relations.reference_relations.append({input_i, field_output});
         }
       }
@@ -143,10 +143,10 @@ bool NodeDeclaration::matches(const bNode &node) const
     return true;
   };
 
-  if (!check_sockets(node.inputs, inputs_)) {
+  if (!check_sockets(node.inputs, inputs)) {
     return false;
   }
-  if (!check_sockets(node.outputs, outputs_)) {
+  if (!check_sockets(node.outputs, outputs)) {
     return false;
   }
   return true;
@@ -157,45 +157,45 @@ bNodeSocket &SocketDeclaration::update_or_build(bNodeTree &ntree,
                                                 bNodeSocket &socket) const
 {
   /* By default just rebuild. */
-  BLI_assert(socket.in_out == in_out_);
+  BLI_assert(socket.in_out == this->in_out);
   UNUSED_VARS_NDEBUG(socket);
   return this->build(ntree, node);
 }
 
 void SocketDeclaration::set_common_flags(bNodeSocket &socket) const
 {
-  SET_FLAG_FROM_TEST(socket.flag, compact_, SOCK_COMPACT);
-  SET_FLAG_FROM_TEST(socket.flag, hide_value_, SOCK_HIDE_VALUE);
-  SET_FLAG_FROM_TEST(socket.flag, hide_label_, SOCK_HIDE_LABEL);
-  SET_FLAG_FROM_TEST(socket.flag, is_multi_input_, SOCK_MULTI_INPUT);
-  SET_FLAG_FROM_TEST(socket.flag, no_mute_links_, SOCK_NO_INTERNAL_LINK);
-  SET_FLAG_FROM_TEST(socket.flag, is_unavailable_, SOCK_UNAVAIL);
+  SET_FLAG_FROM_TEST(socket.flag, compact, SOCK_COMPACT);
+  SET_FLAG_FROM_TEST(socket.flag, hide_value, SOCK_HIDE_VALUE);
+  SET_FLAG_FROM_TEST(socket.flag, hide_label, SOCK_HIDE_LABEL);
+  SET_FLAG_FROM_TEST(socket.flag, is_multi_input, SOCK_MULTI_INPUT);
+  SET_FLAG_FROM_TEST(socket.flag, no_mute_links, SOCK_NO_INTERNAL_LINK);
+  SET_FLAG_FROM_TEST(socket.flag, is_unavailable, SOCK_UNAVAIL);
 }
 
 bool SocketDeclaration::matches_common_data(const bNodeSocket &socket) const
 {
-  if (socket.name != name_) {
+  if (socket.name != this->name) {
     return false;
   }
-  if (socket.identifier != identifier_) {
+  if (socket.identifier != this->identifier) {
     return false;
   }
-  if (((socket.flag & SOCK_COMPACT) != 0) != compact_) {
+  if (((socket.flag & SOCK_COMPACT) != 0) != this->compact) {
     return false;
   }
-  if (((socket.flag & SOCK_HIDE_VALUE) != 0) != hide_value_) {
+  if (((socket.flag & SOCK_HIDE_VALUE) != 0) != this->hide_value) {
     return false;
   }
-  if (((socket.flag & SOCK_HIDE_LABEL) != 0) != hide_label_) {
+  if (((socket.flag & SOCK_HIDE_LABEL) != 0) != this->hide_label) {
     return false;
   }
-  if (((socket.flag & SOCK_MULTI_INPUT) != 0) != is_multi_input_) {
+  if (((socket.flag & SOCK_MULTI_INPUT) != 0) != this->is_multi_input) {
     return false;
   }
-  if (((socket.flag & SOCK_NO_INTERNAL_LINK) != 0) != no_mute_links_) {
+  if (((socket.flag & SOCK_NO_INTERNAL_LINK) != 0) != this->no_mute_links) {
     return false;
   }
-  if (((socket.flag & SOCK_UNAVAIL) != 0) != is_unavailable_) {
+  if (((socket.flag & SOCK_UNAVAIL) != 0) != this->is_unavailable) {
     return false;
   }
   return true;

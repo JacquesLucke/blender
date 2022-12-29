@@ -690,6 +690,12 @@ class LazyFunctionForGroupNode : public LazyFunction {
   std::optional<GeometryNodesLazyFunctionSideEffectProvider> lf_side_effect_provider_;
   std::optional<lf::GraphExecutor> graph_executor_;
 
+  struct Storage {
+    void *graph_executor_storage = nullptr;
+    /* To avoid computing the hash more than once. */
+    std::optional<ComputeContextHash> context_hash_cache;
+  };
+
  public:
   Map<int, int> lf_output_for_input_bsocket_usage_;
   Map<int, int> lf_input_for_output_bsocket_usage_;
@@ -756,26 +762,39 @@ class LazyFunctionForGroupNode : public LazyFunction {
       lazy_threading::send_hint();
     }
 
+    Storage *storage = static_cast<Storage *>(context.storage);
+
     /* The compute context changes when entering a node group. */
-    bke::NodeGroupComputeContext compute_context{user_data->compute_context,
-                                                 group_node_.identifier};
+    bke::NodeGroupComputeContext compute_context{
+        user_data->compute_context, group_node_.identifier, storage->context_hash_cache};
+    storage->context_hash_cache = compute_context.hash();
+
     GeoNodesLFUserData group_user_data = *user_data;
     group_user_data.compute_context = &compute_context;
+    if (user_data->modifier_data->socket_log_contexts) {
+      group_user_data.log_socket_values = user_data->modifier_data->socket_log_contexts->contains(
+          compute_context.hash());
+    }
 
     lf::Context group_context = context;
     group_context.user_data = &group_user_data;
+    group_context.storage = storage->graph_executor_storage;
 
     graph_executor_->execute(params, group_context);
   }
 
   void *init_storage(LinearAllocator<> &allocator) const override
   {
-    return graph_executor_->init_storage(allocator);
+    Storage *s = allocator.construct<Storage>().release();
+    s->graph_executor_storage = graph_executor_->init_storage(allocator);
+    return s;
   }
 
   void destruct_storage(void *storage) const override
   {
-    graph_executor_->destruct_storage(storage);
+    Storage *s = static_cast<Storage *>(storage);
+    graph_executor_->destruct_storage(s->graph_executor_storage);
+    std::destroy_at(s);
   }
 
   std::string name() const override
@@ -858,7 +877,7 @@ class GroupOutputDebugInfo : public lf::DummyDebugInfo {
  public:
   Vector<StringRef> socket_names;
 
-  std::string node_name() const
+  std::string node_name() const override
   {
     return "Group Output";
   }
@@ -1654,7 +1673,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
     if (socket_decl == nullptr) {
       return false;
     }
-    if (socket_decl->input_field_type() != InputSocketFieldType::Implicit) {
+    if (socket_decl->input_field_type != InputSocketFieldType::Implicit) {
       return false;
     }
     const ImplicitInputValueFn *implicit_input_fn = socket_decl->implicit_input_fn();
@@ -2608,17 +2627,22 @@ void GeometryNodesLazyFunctionLogger::log_socket_value(
     const GPointer value,
     const fn::lazy_function::Context &context) const
 {
+  /* In this context we expect only a single kind of user data, so use `static_cast`. */
+  GeoNodesLFUserData *user_data = static_cast<GeoNodesLFUserData *>(context.user_data);
+  BLI_assert(dynamic_cast<GeoNodesLFUserData *>(context.user_data) != nullptr);
+  if (!user_data->log_socket_values) {
+    return;
+  }
+  if (user_data->modifier_data->eval_log == nullptr) {
+    return;
+  }
+
   const Span<const bNodeSocket *> bsockets =
       lf_graph_info_.mapping.bsockets_by_lf_socket_map.lookup(&lf_socket);
   if (bsockets.is_empty()) {
     return;
   }
 
-  GeoNodesLFUserData *user_data = dynamic_cast<GeoNodesLFUserData *>(context.user_data);
-  BLI_assert(user_data != nullptr);
-  if (user_data->modifier_data->eval_log == nullptr) {
-    return;
-  }
   geo_eval_log::GeoTreeLogger &tree_logger =
       user_data->modifier_data->eval_log->get_local_tree_logger(*user_data->compute_context);
   for (const bNodeSocket *bsocket : bsockets) {
