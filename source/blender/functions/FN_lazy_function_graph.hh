@@ -262,15 +262,6 @@ class Graph : NonCopyable, NonMovable {
    */
   bool node_indices_are_valid() const;
 
-  class ToDotOptions {
-   public:
-    virtual std::string socket_name(const Socket &socket) const;
-    virtual std::optional<std::string> socket_font_color(const Socket &socket) const;
-    virtual void add_edge_attributes(const OutputSocket &from,
-                                     const InputSocket &to,
-                                     dot::DirectedEdge &dot_edge) const;
-  };
-
   /**
    * Optional configuration options for the dot graph generation. This allows creating
    * visualizations for specific purposes.
