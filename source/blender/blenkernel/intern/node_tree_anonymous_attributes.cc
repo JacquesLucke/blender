@@ -326,6 +326,7 @@ bool update_anonymous_attribute_relations(const bNodeTree &tree)
             new_relations->propagate_relations.append(relation);
           }
         }
+        /* TODO: Detect field status differently. */
         if (ELEM(group_output_socket->display_shape,
                  SOCK_DISPLAY_SHAPE_DIAMOND,
                  SOCK_DISPLAY_SHAPE_DIAMOND_DOT)) {
