@@ -81,7 +81,7 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
   {
     BLI_assert((size == 0 || alignment <= size) && alignment <= s_alignment);
 #ifdef DEBUG
-    memset(buffer, -1, size);
+    memset(const_cast<void *>(buffer), -1, size);
 #endif
     BLI_asan_poison(buffer, alignment);
     BufferStack &buffer_stack = this->get_buffer_stack(size, alignment);

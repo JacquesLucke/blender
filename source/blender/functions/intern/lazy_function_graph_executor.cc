@@ -351,7 +351,8 @@ class Executor {
       }
     };
     if (nodes.size() <= 256) {
-      construct_node_range(nodes.index_range(), main_allocator_);
+      LocalPool<> &allocator = this->get_main_or_local_allocator();
+      construct_node_range(nodes.index_range(), allocator);
     }
     else {
       this->ensure_thread_locals();
@@ -790,7 +791,7 @@ class Executor {
       /* Importantly, the node must not be locked when it is executed. That would result in locks
        * being hold very long in some cases and results in multiple locks being hold by the same
        * thread in the same graph which can lead to deadlocks. */
-      this->execute_node(node, node_state, current_task);
+      this->execute_node(node, node_state, current_task, allocator);
     }
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -892,7 +893,10 @@ class Executor {
     }
   }
 
-  void execute_node(const FunctionNode &node, NodeState &node_state, CurrentTask &current_task);
+  void execute_node(const FunctionNode &node,
+                    NodeState &node_state,
+                    CurrentTask &current_task,
+                    LocalPool<> &allocator);
 
   void set_input_unused_during_execution(const Node &node,
                                          NodeState &node_state,
@@ -1146,6 +1150,9 @@ class Executor {
     if (this->use_multi_threading()) {
       return thread_locals_->local().local_pool;
     }
+    if (context_ != nullptr && context_->local_pool) {
+      return *context_->local_pool;
+    }
     return main_allocator_;
   }
 };
@@ -1244,13 +1251,15 @@ class GraphExecutorLFParams final : public Params {
  */
 inline void Executor::execute_node(const FunctionNode &node,
                                    NodeState &node_state,
-                                   CurrentTask &current_task)
+                                   CurrentTask &current_task,
+                                   LocalPool<> &allocator)
 {
   const LazyFunction &fn = node.function();
   GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task};
   BLI_assert(context_ != nullptr);
   Context fn_context = *context_;
   fn_context.storage = node_state.storage;
+  fn_context.local_pool = &allocator;
 
   if (self_.logger_ != nullptr) {
     self_.logger_->log_before_node_execute(node, node_params, fn_context);
