@@ -1199,7 +1199,7 @@ static GeometrySet compute_geometry(
                             param_output_usages,
                             param_set_outputs};
   graph_executor.execute(lf_params, lf_context);
-  graph_executor.destruct_storage(lf_context.storage);
+  graph_executor.destruct_storage(lf_context.storage, allocator);
 
   for (GMutablePointer &ptr : inputs_to_destruct) {
     ptr.destruct();

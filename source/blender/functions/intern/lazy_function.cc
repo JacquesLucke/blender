@@ -30,7 +30,7 @@ void *LazyFunction::init_storage(LocalPool<> & /*allocator*/) const
   return nullptr;
 }
 
-void LazyFunction::destruct_storage(void *storage) const
+void LazyFunction::destruct_storage(void *storage, LocalPool<> & /*allocator*/) const
 {
   BLI_assert(storage == nullptr);
   UNUSED_VARS_NDEBUG(storage);

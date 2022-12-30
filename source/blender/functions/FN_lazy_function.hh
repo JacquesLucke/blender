@@ -284,7 +284,7 @@ class LazyFunction {
   /**
    * Destruct the storage created in #init_storage.
    */
-  virtual void destruct_storage(void *storage) const;
+  virtual void destruct_storage(void *storage, LocalPool<> &allocator) const;
 
   /**
    * Calls `fn` with the input indices that the given `output_index` may depend on. By default

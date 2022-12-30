@@ -696,10 +696,10 @@ class LazyFunctionForGroupNode : public LazyFunction {
     return s;
   }
 
-  void destruct_storage(void *storage) const override
+  void destruct_storage(void *storage, LocalPool<> &allocator) const override
   {
     Storage *s = static_cast<Storage *>(storage);
-    graph_executor_->destruct_storage(s->graph_executor_storage);
+    graph_executor_->destruct_storage(s->graph_executor_storage, allocator);
     std::destroy_at(s);
   }
 };

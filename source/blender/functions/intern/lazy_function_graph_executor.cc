@@ -267,7 +267,7 @@ class Executor {
     BLI_assert(self_.graph_.node_indices_are_valid());
   }
 
-  ~Executor()
+  void destruct_self(LocalPool<> & /*parent_allocator*/)
   {
     if (TaskPool *task_pool = task_pool_.load()) {
       BLI_task_pool_free(task_pool);
@@ -276,9 +276,10 @@ class Executor {
       for (const int node_index : range) {
         const Node &node = *self_.graph_.nodes()[node_index];
         NodeState &node_state = *node_states_[node_index];
-        this->destruct_node_state(node, node_state);
+        this->destruct_node_state(node, node_state, this->get_main_or_local_allocator());
       }
     });
+    this->~Executor();
   }
 
   /**
@@ -364,15 +365,14 @@ class Executor {
     node_state.outputs = allocator.construct_array<OutputState>(node_outputs.size());
   }
 
-  void destruct_node_state(const Node &node, NodeState &node_state)
+  void destruct_node_state(const Node &node, NodeState &node_state, LocalPool<> &allocator)
   {
     if (node.is_function()) {
       const LazyFunction &fn = static_cast<const FunctionNode &>(node).function();
       if (node_state.storage != nullptr) {
-        fn.destruct_storage(node_state.storage);
+        fn.destruct_storage(node_state.storage, allocator);
       }
     }
-    LocalPool<> &allocator = this->get_main_or_local_allocator();
     for (const int i : node.inputs().index_range()) {
       InputState &input_state = node_state.inputs[i];
       const InputSocket &input_socket = node.input(i);
@@ -891,7 +891,7 @@ class Executor {
     if (node_state.storage != nullptr) {
       if (node.is_function()) {
         const FunctionNode &fn_node = static_cast<const FunctionNode &>(node);
-        fn_node.function().destruct_storage(node_state.storage);
+        fn_node.function().destruct_storage(node_state.storage, allocator);
       }
       node_state.storage = nullptr;
     }
@@ -1337,9 +1337,11 @@ void *GraphExecutor::init_storage(LocalPool<> &allocator) const
   return &executor;
 }
 
-void GraphExecutor::destruct_storage(void *storage) const
+void GraphExecutor::destruct_storage(void *storage, LocalPool<> &allocator) const
 {
-  std::destroy_at(static_cast<Executor *>(storage));
+  Executor *executor = static_cast<Executor *>(storage);
+  executor->destruct_self(allocator);
+  allocator.deallocate(executor, sizeof(Executor), alignof(Executor));
 }
 
 void GraphExecutorLogger::log_socket_value(const Socket &socket,
