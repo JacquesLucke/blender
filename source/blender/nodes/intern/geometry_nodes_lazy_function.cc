@@ -689,7 +689,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
     graph_executor_->execute(params, group_context);
   }
 
-  void *init_storage(LinearAllocator<> &allocator) const override
+  void *init_storage(LocalPool<> &allocator) const override
   {
     Storage *s = allocator.construct<Storage>().release();
     s->graph_executor_storage = graph_executor_->init_storage(allocator);

@@ -42,6 +42,7 @@
 #include "BLI_function_ref.hh"
 #include "BLI_generic_pointer.hh"
 #include "BLI_linear_allocator.hh"
+#include "BLI_local_pool.hh"
 #include "BLI_vector.hh"
 
 #include <atomic>
@@ -98,6 +99,8 @@ struct Context {
    * Custom user data that can be used in the function.
    */
   UserData *user_data;
+
+  LocalPool<> *local_pool = nullptr;
 };
 
 /**
@@ -276,7 +279,7 @@ class LazyFunction {
    * Allocates storage for this function. The storage will be passed to every call to #execute.
    * If the function does not keep track of any state, this does not have to be implemented.
    */
-  virtual void *init_storage(LinearAllocator<> &allocator) const;
+  virtual void *init_storage(LocalPool<> &allocator) const;
 
   /**
    * Destruct the storage created in #init_storage.

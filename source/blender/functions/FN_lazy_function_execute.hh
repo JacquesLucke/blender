@@ -85,7 +85,8 @@ inline void execute_lazy_function_eagerly_impl(
       ...);
   output_usages.fill(ValueUsage::Used);
   set_outputs.fill(false);
-  LinearAllocator<> allocator;
+  LocalPoolScope local_pool_scope;
+  LocalPool<> allocator(local_pool_scope);
   Context context;
   context.user_data = user_data;
   context.storage = fn.init_storage(allocator);

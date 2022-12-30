@@ -1163,7 +1163,8 @@ static GeometrySet compute_geometry(
   blender::bke::ModifierComputeContext modifier_compute_context{nullptr, nmd->modifier.name};
   user_data.compute_context = &modifier_compute_context;
 
-  blender::LinearAllocator<> allocator;
+  blender::LocalPoolScope local_pool_scope;
+  blender::LocalPool<> allocator(local_pool_scope);
   Vector<GMutablePointer> inputs_to_destruct;
 
   int input_index;
