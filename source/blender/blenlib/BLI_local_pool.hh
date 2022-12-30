@@ -85,7 +85,7 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
 #endif
     BLI_asan_poison(buffer, alignment);
     BufferStack &buffer_stack = this->get_buffer_stack(size, alignment);
-    buffer_stack.stack.push(buffer);
+    buffer_stack.stack.push(const_cast<void *>(buffer));
   }
 
   template<typename T, typename... Args> destruct_ptr<T> construct(Args &&...args)

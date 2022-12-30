@@ -382,10 +382,11 @@ class Executor {
         fn.destruct_storage(node_state.storage);
       }
     }
+    LocalPool<> &allocator = this->get_main_or_local_allocator();
     for (const int i : node.inputs().index_range()) {
       InputState &input_state = node_state.inputs[i];
       const InputSocket &input_socket = node.input(i);
-      this->destruct_input_value_if_exists(input_state, input_socket.type());
+      this->destruct_input_value_if_exists(input_state, input_socket.type(), allocator);
     }
     std::destroy_at(&node_state);
   }
@@ -798,7 +799,7 @@ class Executor {
         this->assert_expected_outputs_have_been_computed(locked_node);
       }
 #endif
-      this->finish_node_if_possible(locked_node);
+      this->finish_node_if_possible(locked_node, allocator);
       const bool reschedule_requested = node_state.schedule_state ==
                                         NodeScheduleState::RunningAndRescheduled;
       node_state.schedule_state = NodeScheduleState::NotScheduled;
@@ -836,7 +837,7 @@ class Executor {
     }
   }
 
-  void finish_node_if_possible(LockedNode &locked_node)
+  void finish_node_if_possible(LockedNode &locked_node, LocalPool<> &allocator)
   {
     const Node &node = locked_node.node;
     NodeState &node_state = locked_node.node_state;
@@ -864,10 +865,10 @@ class Executor {
       const InputSocket &input_socket = node.input(input_index);
       InputState &input_state = node_state.inputs[input_index];
       if (input_state.usage == ValueUsage::Maybe) {
-        this->set_input_unused(locked_node, input_socket);
+        this->set_input_unused(locked_node, input_socket, allocator);
       }
       else if (input_state.usage == ValueUsage::Used) {
-        this->destruct_input_value_if_exists(input_state, input_socket.type());
+        this->destruct_input_value_if_exists(input_state, input_socket.type(), allocator);
       }
     }
 
@@ -880,10 +881,13 @@ class Executor {
     }
   }
 
-  void destruct_input_value_if_exists(InputState &input_state, const CPPType &type)
+  void destruct_input_value_if_exists(InputState &input_state,
+                                      const CPPType &type,
+                                      LocalPool<> &allocator)
   {
     if (input_state.value != nullptr) {
       type.destruct(input_state.value);
+      allocator.deallocate(input_state.value, type.size(), type.alignment());
       input_state.value = nullptr;
     }
   }
@@ -895,13 +899,16 @@ class Executor {
                                          const int input_index,
                                          CurrentTask &current_task)
   {
+    LocalPool<> &allocator = this->get_main_or_local_allocator();
     const InputSocket &input_socket = node.input(input_index);
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
-      this->set_input_unused(locked_node, input_socket);
+      this->set_input_unused(locked_node, input_socket, allocator);
     });
   }
 
-  void set_input_unused(LockedNode &locked_node, const InputSocket &input_socket)
+  void set_input_unused(LockedNode &locked_node,
+                        const InputSocket &input_socket,
+                        LocalPool<> &allocator)
   {
     NodeState &node_state = locked_node.node_state;
     const int input_index = input_socket.index();
@@ -913,7 +920,7 @@ class Executor {
     }
     input_state.usage = ValueUsage::Unused;
 
-    this->destruct_input_value_if_exists(input_state, input_socket.type());
+    this->destruct_input_value_if_exists(input_state, input_socket.type(), allocator);
     if (input_state.was_ready_for_execution) {
       return;
     }
@@ -1030,6 +1037,7 @@ class Executor {
     }
     if (value_to_forward.get() != nullptr) {
       value_to_forward.destruct();
+      allocator.deallocate(value_to_forward.get(), type.size(), type.alignment());
     }
   }
 
