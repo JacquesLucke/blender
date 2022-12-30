@@ -323,7 +323,7 @@ class Executor {
         }
       }
 
-      this->initialize_static_value_usages(side_effect_nodes);
+      this->initialize_static_value_usages(side_effect_nodes, this->get_main_or_local_allocator());
       this->schedule_side_effect_nodes(side_effect_nodes, current_task);
     }
 
@@ -343,25 +343,13 @@ class Executor {
     Span<const Node *> nodes = self_.graph_.nodes();
     node_states_.reinitialize(nodes.size());
 
-    auto construct_node_range = [&](const IndexRange range, LocalPool<> &allocator) {
-      for (const int i : range) {
-        const Node &node = *nodes[i];
-        NodeState &node_state = *allocator.construct<NodeState>().release();
-        node_states_[i] = &node_state;
-        this->construct_initial_node_state(allocator, node, node_state);
-      }
-    };
-    if (nodes.size() <= 256) {
-      LocalPool<> &allocator = this->get_main_or_local_allocator();
-      construct_node_range(nodes.index_range(), allocator);
-    }
-    else {
-      this->ensure_thread_locals();
-      /* Construct all node states in parallel. */
-      threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
-        LocalPool<> &allocator = this->get_main_or_local_allocator();
-        construct_node_range(range, allocator);
-      });
+    LocalPool<> &allocator = this->get_main_or_local_allocator();
+
+    for (const int i : nodes.index_range()) {
+      const Node &node = *nodes[i];
+      NodeState &node_state = *allocator.construct<NodeState>().release();
+      node_states_[i] = &node_state;
+      this->construct_initial_node_state(allocator, node, node_state);
     }
   }
 
@@ -452,13 +440,19 @@ class Executor {
    * Most importantly, this function initializes `InputState.usage` and
    * `OutputState.potential_target_sockets`.
    */
-  void initialize_static_value_usages(const Span<const FunctionNode *> side_effect_nodes)
+  void initialize_static_value_usages(const Span<const FunctionNode *> side_effect_nodes,
+                                      LocalPool<> &allocator)
   {
     const Span<const Node *> all_nodes = self_.graph_.nodes();
 
     /* Used for a search through all nodes that outputs depend on. */
-    Stack<const Node *> reachable_nodes_to_check;
-    Array<bool> reachable_node_flags(all_nodes.size(), false);
+    Stack<const Node *, 100> reachable_nodes_to_check;
+    MutableSpan<bool> reachable_node_flags = allocator.allocate_array<bool>(all_nodes.size());
+    BLI_SCOPED_DEFER([&]() {
+      allocator.deallocate(
+          reachable_node_flags.data(), reachable_node_flags.size() * sizeof(bool), alignof(bool));
+    });
+    reachable_node_flags.fill(false);
 
     /* Graph outputs are always reachable. */
     for (const InputSocket *socket : self_.graph_outputs_) {
