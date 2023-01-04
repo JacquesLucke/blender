@@ -700,8 +700,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
   {
     Storage *s = static_cast<Storage *>(storage);
     graph_executor_->destruct_storage(s->graph_executor_storage, pools);
-    std::destroy_at(s);
-    pools.local->deallocate(storage, sizeof(Storage), alignof(Storage));
+    pools.local->destruct(s);
   }
 };
 

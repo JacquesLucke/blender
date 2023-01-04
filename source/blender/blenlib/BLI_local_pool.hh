@@ -22,6 +22,7 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
 
   struct BufferStack {
     int64_t element_size = -1;
+    int64_t min_alignment = -1;
     Stack<void *, 0> stack;
   };
 
@@ -32,7 +33,9 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
   LocalPool()
   {
     for (const int64_t i : IndexRange(small_stacks_.size())) {
-      small_stacks_[i].element_size = 8 * (i + 1);
+      BufferStack &buffer_stack = small_stacks_[i];
+      buffer_stack.element_size = 8 * (i + 1);
+      buffer_stack.min_alignment = power_of_2_min_u(buffer_stack.element_size);
     }
   }
 
@@ -42,24 +45,33 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
 
   void *allocate(const int64_t size, const int64_t alignment)
   {
-    BLI_assert((size == 0 || alignment <= size) && alignment <= s_alignment);
+    BLI_assert(size > 0);
+    BLI_assert(alignment <= size && alignment <= s_alignment);
+
     BufferStack &buffer_stack = this->get_buffer_stack(size, alignment);
     BLI_assert(buffer_stack.element_size >= size);
+    BLI_assert(buffer_stack.min_alignment >= alignment);
+
+    void *buffer;
     if (!buffer_stack.stack.is_empty()) {
-      void *buffer = buffer_stack.stack.pop();
+      buffer = buffer_stack.stack.pop();
       BLI_asan_unpoison(buffer, size);
-      return buffer;
     }
-    if (size <= 4096) {
-      return linear_allocator_.allocate(size, alignment);
+    else if (size <= 4096) {
+      buffer = linear_allocator_.allocate(buffer_stack.element_size, buffer_stack.min_alignment);
     }
-    return linear_allocator_.allocate(size_t(size),
-                                      std::max<size_t>(s_alignment, size_t(alignment)));
+    else {
+      buffer = linear_allocator_.allocate(size_t(size),
+                                          std::max<size_t>(s_alignment, size_t(alignment)));
+    }
+    return buffer;
   }
 
   void deallocate(const void *buffer, const int64_t size, const int64_t alignment)
   {
-    BLI_assert((size == 0 || alignment <= size) && alignment <= s_alignment);
+    BLI_assert(size > 0);
+    BLI_assert(alignment <= size && alignment <= s_alignment);
+
 #ifdef DEBUG
     memset(const_cast<void *>(buffer), -1, size);
 #endif
@@ -78,6 +90,9 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
 
   template<typename T> MutableSpan<T> allocate_array(int64_t size)
   {
+    if (size == 0) {
+      return {};
+    }
     T *array = static_cast<T *>(this->allocate(sizeof(T) * size, alignof(T)));
     return MutableSpan<T>(array, size);
   }
@@ -92,11 +107,31 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
     return array;
   }
 
+  template<typename T> void destruct_array(Span<T> data)
+  {
+    if (data.is_empty()) {
+      return;
+    }
+    destruct_n(const_cast<T *>(data.data()), data.size());
+    this->deallocate(data.data(), data.size() * sizeof(T), alignof(T));
+  }
+
+  template<typename T> void destruct_array(MutableSpan<T> data)
+  {
+    this->destruct_array(data.as_span());
+  }
+
+  template<typename T> void destruct(const T *value)
+  {
+    std::destroy_at(value);
+    this->deallocate(value, sizeof(T), alignof(T));
+  }
+
  private:
   BufferStack &get_buffer_stack(const int64_t size, const int64_t /*alignment*/)
   {
     if (size <= 64) {
-      return small_stacks_[(size - (size != 0)) >> 3];
+      return small_stacks_[(size - 1) >> 3];
     }
     if (!large_stacks_) {
       large_stacks_ = std::make_unique<Map<int, BufferStack>>();
@@ -105,6 +140,7 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
     return large_stacks_->lookup_or_add_cb(key, [&]() {
       BufferStack buffer_stack;
       buffer_stack.element_size = int64_t(1) << (8 * sizeof(int64_t) - key);
+      buffer_stack.min_alignment = s_alignment;
       return buffer_stack;
     });
   }
@@ -115,6 +151,10 @@ class LocalMemoryPools {
   threading::EnumerableThreadSpecific<LocalPool<>> pool_by_thread_;
 
  public:
+  ~LocalMemoryPools()
+  {
+  }
+
   LocalPool<> &local()
   {
     return pool_by_thread_.local();

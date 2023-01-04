@@ -262,7 +262,7 @@ class Executor {
     BLI_assert(self_.graph_.node_indices_are_valid());
   }
 
-  void destruct_self(Pools &pools)
+  void destruct_state(Pools &pools)
   {
     if (TaskPool *task_pool = task_pool_.load()) {
       BLI_task_pool_free(task_pool);
@@ -276,7 +276,6 @@ class Executor {
         this->destruct_node_state(node, node_state, sub_pools);
       }
     });
-    this->~Executor();
   }
 
   /**
@@ -377,7 +376,9 @@ class Executor {
       const InputSocket &input_socket = node.input(i);
       this->destruct_input_value_if_exists(input_state, input_socket.type(), *pools.local);
     }
-    std::destroy_at(&node_state);
+    pools.local->destruct_array(node_state.inputs);
+    pools.local->destruct_array(node_state.outputs);
+    pools.local->destruct(&node_state);
   }
 
   void schedule_newly_requested_outputs(CurrentTask &current_task)
@@ -447,10 +448,7 @@ class Executor {
     /* Used for a search through all nodes that outputs depend on. */
     Stack<const Node *, 100> reachable_nodes_to_check;
     MutableSpan<bool> reachable_node_flags = allocator.allocate_array<bool>(all_nodes.size());
-    BLI_SCOPED_DEFER([&]() {
-      allocator.deallocate(
-          reachable_node_flags.data(), reachable_node_flags.size() * sizeof(bool), alignof(bool));
-    });
+    BLI_SCOPED_DEFER([&]() { allocator.destruct_array(reachable_node_flags); });
     reachable_node_flags.fill(false);
 
     /* Graph outputs are always reachable. */
@@ -1316,8 +1314,8 @@ void *GraphExecutor::init_storage(Pools &pools) const
 void GraphExecutor::destruct_storage(void *storage, Pools &pools) const
 {
   Executor *executor = static_cast<Executor *>(storage);
-  executor->destruct_self(pools);
-  pools.local->deallocate(executor, sizeof(Executor), alignof(Executor));
+  executor->destruct_state(pools);
+  pools.local->destruct(executor);
 }
 
 void GraphExecutorLogger::log_socket_value(const Socket &socket,
