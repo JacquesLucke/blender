@@ -151,10 +151,15 @@ struct NodeState {
    */
   bool node_has_finished = false;
   /**
-   * Set to true once the node is done running for the first time.
+   * Set to true once the always required inputs have been requested.
+   * This happens the first time the node is run.
    */
-  bool always_used_linked_inputs_requested = false;
-  bool is_first_execution = true;
+  bool always_used_inputs_requested = false;
+  /**
+   * Set to true when the storage and defaults have been initialized.
+   * This happens the first time the node function is executed.
+   */
+  bool storage_and_defaults_initialized = false;
   /**
    * Nodes with side effects should always be executed when their required inputs have been
    * computed.
@@ -344,13 +349,24 @@ class Executor {
     Span<const Node *> nodes = self_.graph_.nodes();
     node_states_.reinitialize(nodes.size());
 
-    LocalPool<> &allocator = this->get_main_or_local_allocator();
-
-    for (const int i : nodes.index_range()) {
-      const Node &node = *nodes[i];
-      NodeState &node_state = *allocator.construct<NodeState>().release();
-      node_states_[i] = &node_state;
-      this->construct_initial_node_state(allocator, node, node_state);
+    auto construct_node_range = [&](const IndexRange range, LocalPool<> &allocator) {
+      for (const int i : range) {
+        const Node &node = *nodes[i];
+        NodeState &node_state = *allocator.construct<NodeState>().release();
+        node_states_[i] = &node_state;
+        this->construct_initial_node_state(allocator, node, node_state);
+      }
+    };
+    if (nodes.size() <= 256) {
+      construct_node_range(nodes.index_range(), main_allocator_);
+    }
+    else {
+      this->ensure_thread_locals();
+      /* Construct all node states in parallel. */
+      threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
+        LocalPool<> &allocator = thread_locals_->local().local_pool;
+        construct_node_range(range, allocator);
+      });
     }
   }
 
@@ -728,7 +744,7 @@ class Executor {
         return;
       }
 
-      if (!node_state.always_used_linked_inputs_requested) {
+      if (!node_state.always_used_inputs_requested) {
         /* Request linked inputs that are always needed. */
         const Span<Input> fn_inputs = fn.inputs();
         for (const int input_index : fn_inputs.index_range()) {
@@ -741,7 +757,7 @@ class Executor {
           }
         }
 
-        node_state.always_used_linked_inputs_requested = true;
+        node_state.always_used_inputs_requested = true;
       }
 
       const bool allow_missing_requested_inputs = fn.allow_missing_requested_inputs();
@@ -769,7 +785,7 @@ class Executor {
     });
 
     if (node_needs_execution) {
-      if (node_state.is_first_execution) {
+      if (!node_state.storage_and_defaults_initialized) {
         /* Initialize storage. */
         node_state.storage = fn.init_storage(allocator);
 
@@ -780,27 +796,19 @@ class Executor {
             continue;
           }
           InputState &input_state = node_state.inputs[input_index];
-          if (input_state.usage == ValueUsage::Unused) {
-            continue;
-          }
           const CPPType &type = input_socket.type();
           const void *default_value = input_socket.default_value();
           BLI_assert(default_value != nullptr);
           if (self_.logger_ != nullptr) {
             self_.logger_->log_socket_value(input_socket, {type, default_value}, *context_);
           }
-          void *buffer = allocator.allocate(type.size(), type.alignment());
-          type.copy_construct(default_value, buffer);
-
-          input_state.value = buffer;
-          BLI_assert(!input_state.was_ready_for_execution);
+          BLI_assert(input_state.value == nullptr);
+          input_state.value = allocator.allocate(type.size(), type.alignment());
+          type.copy_construct(default_value, input_state.value);
           input_state.was_ready_for_execution = true;
-          if (input_state.usage == ValueUsage::Used) {
-            node_state.missing_required_inputs -= 1;
-          }
         }
 
-        node_state.is_first_execution = false;
+        node_state.storage_and_defaults_initialized = true;
       }
 
       /* Importantly, the node must not be locked when it is executed. That would result in locks
