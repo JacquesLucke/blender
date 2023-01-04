@@ -268,10 +268,12 @@ class Executor {
       BLI_task_pool_free(task_pool);
     }
     threading::parallel_for(node_states_.index_range(), 1024, [&](const IndexRange range) {
+      LocalPool<> &local = pools.pools->local();
       for (const int node_index : range) {
         const Node &node = *self_.graph_.nodes()[node_index];
         NodeState &node_state = *node_states_[node_index];
-        this->destruct_node_state(node, node_state, pools);
+        Pools sub_pools = {pools.pools, &local};
+        this->destruct_node_state(node, node_state, sub_pools);
       }
     });
     this->~Executor();
