@@ -233,7 +233,7 @@ class Executor {
   /**
    * State of every node, indexed by #Node::index_in_graph.
    */
-  Array<NodeState *> node_states_;
+  MutableSpan<NodeState> node_states_;
   /**
    * Parameters provided by the caller. This is always non-null, while a node is running.
    */
@@ -272,11 +272,12 @@ class Executor {
                                                                    pools.pools->local();
       for (const int node_index : range) {
         const Node &node = *self_.graph_.nodes()[node_index];
-        NodeState &node_state = *node_states_[node_index];
+        NodeState &node_state = node_states_[node_index];
         Pools sub_pools = {pools.pools, &local};
         this->destruct_node_state(node, node_state, sub_pools);
       }
     });
+    pools.local->destruct_array(node_states_);
   }
 
   /**
@@ -316,7 +317,7 @@ class Executor {
         side_effect_nodes = self_.side_effect_provider_->get_nodes_with_side_effects(*context_);
         for (const FunctionNode *node : side_effect_nodes) {
           const int node_index = node->index_in_graph();
-          NodeState &node_state = *node_states_[node_index];
+          NodeState &node_state = node_states_[node_index];
           node_state.has_side_effects = true;
         }
       }
@@ -339,16 +340,15 @@ class Executor {
   void initialize_node_states()
   {
     Span<const Node *> nodes = self_.graph_.nodes();
-    node_states_.reinitialize(nodes.size());
+    node_states_ = context_->pools.local->construct_array<NodeState>(nodes.size());
 
     /* Construct all node states in parallel. */
     threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
-      LocalPool<> &allocator = this->get_local_allocator();
+      LocalPool<> &allocator = (range.size() == nodes.size()) ? *context_->pools.local :
+                                                                this->get_local_allocator();
       for (const int i : range) {
         const Node &node = *nodes[i];
-        NodeState &node_state = *allocator.construct<NodeState>().release();
-        node_states_[i] = &node_state;
-        this->construct_initial_node_state(allocator, node, node_state);
+        this->construct_initial_node_state(allocator, node, node_states_[i]);
       }
     });
   }
@@ -379,7 +379,6 @@ class Executor {
     }
     pools.local->destruct_array(node_state.inputs);
     pools.local->destruct_array(node_state.outputs);
-    pools.local->destruct(&node_state);
   }
 
   void schedule_newly_requested_outputs(CurrentTask &current_task)
@@ -393,7 +392,7 @@ class Executor {
       }
       const InputSocket &socket = *self_.graph_outputs_[graph_output_index];
       const Node &node = socket.node();
-      NodeState &node_state = *node_states_[node.index_in_graph()];
+      NodeState &node_state = node_states_[node.index_in_graph()];
       this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
         this->set_input_required(locked_node, socket);
       });
@@ -426,7 +425,7 @@ class Executor {
     for (const int i : self_.graph_inputs_.index_range()) {
       const OutputSocket &socket = *self_.graph_inputs_[i];
       const Node &node = socket.node();
-      const NodeState &node_state = *node_states_[node.index_in_graph()];
+      const NodeState &node_state = node_states_[node.index_in_graph()];
       const OutputState &output_state = node_state.outputs[socket.index()];
       if (output_state.usage == ValueUsage::Unused) {
         params_->set_input_unused(i);
@@ -487,7 +486,7 @@ class Executor {
 
     for (const int node_index : reachable_node_flags.index_range()) {
       const Node &node = *all_nodes[node_index];
-      NodeState &node_state = *node_states_[node_index];
+      NodeState &node_state = node_states_[node_index];
       const bool node_is_reachable = reachable_node_flags[node_index];
       if (node_is_reachable) {
         for (const int output_index : node.outputs().index_range()) {
@@ -521,7 +520,7 @@ class Executor {
                                   CurrentTask &current_task)
   {
     for (const FunctionNode *node : side_effect_nodes) {
-      NodeState &node_state = *node_states_[node->index_in_graph()];
+      NodeState &node_state = node_states_[node->index_in_graph()];
       this->with_locked_node(*node, node_state, current_task, [&](LockedNode &locked_node) {
         this->schedule_node(locked_node, current_task);
       });
@@ -564,7 +563,7 @@ class Executor {
   {
     const Node &node = socket.node();
     const int index_in_node = socket.index();
-    NodeState &node_state = *node_states_[node.index_in_graph()];
+    NodeState &node_state = node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
     /* The notified output socket might be an input of the entire graph. In this case, notify the
@@ -602,7 +601,7 @@ class Executor {
   {
     const Node &node = socket.node();
     const int index_in_node = socket.index();
-    NodeState &node_state = *node_states_[node.index_in_graph()];
+    NodeState &node_state = node_states_[node.index_in_graph()];
     OutputState &output_state = node_state.outputs[index_in_node];
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
@@ -658,7 +657,7 @@ class Executor {
                         CurrentTask &current_task,
                         const FunctionRef<void(LockedNode &)> f)
   {
-    BLI_assert(&node_state == node_states_[node.index_in_graph()]);
+    BLI_assert(&node_state == &node_states_[node.index_in_graph()]);
 
     LockedNode locked_node{node, node_state};
     if (this->use_multi_threading()) {
@@ -702,7 +701,7 @@ class Executor {
 
   void run_node_task(const FunctionNode &node, CurrentTask &current_task)
   {
-    NodeState &node_state = *node_states_[node.index_in_graph()];
+    NodeState &node_state = node_states_[node.index_in_graph()];
     LocalPool<> &allocator = this->get_local_allocator();
     const LazyFunction &fn = node.function();
 
@@ -995,7 +994,7 @@ class Executor {
     const Span<const InputSocket *> targets = from_socket.targets();
     for (const InputSocket *target_socket : targets) {
       const Node &target_node = target_socket->node();
-      NodeState &node_state = *node_states_[target_node.index_in_graph()];
+      NodeState &node_state = node_states_[target_node.index_in_graph()];
       const int input_index = target_socket->index();
       InputState &input_state = node_state.inputs[input_index];
       const bool is_last_target = target_socket == targets.last();
