@@ -6,6 +6,7 @@
 #include "BLI_allocator.hh"
 #include "BLI_asan.h"
 #include "BLI_enumerable_thread_specific.hh"
+#include "BLI_linear_allocator.hh"
 #include "BLI_map.hh"
 #include "BLI_math_bits.h"
 #include "BLI_stack.hh"
@@ -17,8 +18,7 @@ namespace blender {
 template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, NonMovable {
  private:
   static constexpr int64_t s_alignment = 64;
-
-  Vector<MutableSpan<std::byte>> owned_buffers_;
+  LinearAllocator<> linear_allocator_;
 
   struct BufferStack {
     int64_t element_size = -1;
@@ -27,8 +27,6 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
 
   std::array<BufferStack, 8> small_stacks_;
   std::unique_ptr<Map<int, BufferStack>> large_stacks_;
-
-  BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
 
  public:
   LocalPool()
@@ -40,10 +38,6 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
 
   ~LocalPool()
   {
-    for (MutableSpan<std::byte> buffer : owned_buffers_) {
-      BLI_asan_unpoison(buffer.data(), buffer.size());
-      allocator_.deallocate(buffer.data());
-    }
   }
 
   void *allocate(const int64_t size, const int64_t alignment)
@@ -56,22 +50,10 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
       return buffer;
     }
     if (size <= 4096) {
-      const int64_t allocation_size = std::clamp<int64_t>(
-          buffer_stack.element_size * 16, 512, 4096);
-      void *buffer = allocator_.allocate(allocation_size, s_alignment, __func__);
-      BLI_asan_poison(buffer, allocation_size);
-      const int64_t num = allocation_size / buffer_stack.element_size;
-      for (int64_t i = num - 1; i > 0; i--) {
-        buffer_stack.stack.push(POINTER_OFFSET(buffer, buffer_stack.element_size * i));
-      }
-      owned_buffers_.append({static_cast<std::byte *>(buffer), allocation_size});
-      BLI_asan_unpoison(buffer, size);
-      return buffer;
+      return linear_allocator_.allocate(size, alignment);
     }
-    void *buffer = allocator_.allocate(
-        size_t(size), std::max<size_t>(s_alignment, size_t(alignment)), __func__);
-    owned_buffers_.append({static_cast<std::byte *>(buffer), size});
-    return buffer;
+    return linear_allocator_.allocate(size_t(size),
+                                      std::max<size_t>(s_alignment, size_t(alignment)));
   }
 
   void deallocate(const void *buffer, const int64_t size, const int64_t alignment)
