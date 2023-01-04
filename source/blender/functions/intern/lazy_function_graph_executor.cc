@@ -268,7 +268,8 @@ class Executor {
       BLI_task_pool_free(task_pool);
     }
     threading::parallel_for(node_states_.index_range(), 1024, [&](const IndexRange range) {
-      LocalPool<> &local = pools.pools->local();
+      LocalPool<> &local = (range.size() == node_states_.size()) ? *pools.local :
+                                                                   pools.pools->local();
       for (const int node_index : range) {
         const Node &node = *self_.graph_.nodes()[node_index];
         NodeState &node_state = *node_states_[node_index];
