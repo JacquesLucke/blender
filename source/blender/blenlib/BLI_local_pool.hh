@@ -57,13 +57,10 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
       buffer = buffer_stack.stack.pop();
       BLI_asan_unpoison(buffer, size);
     }
-    else if (size <= 4096) {
+    else {
       buffer = linear_allocator_.allocate(buffer_stack.element_size, buffer_stack.min_alignment);
     }
-    else {
-      buffer = linear_allocator_.allocate(size_t(size),
-                                          std::max<size_t>(s_alignment, size_t(alignment)));
-    }
+
     return buffer;
   }
 
