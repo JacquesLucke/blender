@@ -100,7 +100,7 @@ struct Context {
    */
   UserData *user_data;
 
-  LocalPool<> *local_pool = nullptr;
+  Pools pools;
 };
 
 /**
@@ -279,12 +279,12 @@ class LazyFunction {
    * Allocates storage for this function. The storage will be passed to every call to #execute.
    * If the function does not keep track of any state, this does not have to be implemented.
    */
-  virtual void *init_storage(LocalPool<> &allocator) const;
+  virtual void *init_storage(Pools &pools) const;
 
   /**
    * Destruct the storage created in #init_storage.
    */
-  virtual void destruct_storage(void *storage, LocalPool<> &allocator) const;
+  virtual void destruct_storage(void *storage, Pools &pools) const;
 
   /**
    * Calls `fn` with the input indices that the given `output_index` may depend on. By default

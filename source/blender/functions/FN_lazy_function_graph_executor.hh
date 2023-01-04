@@ -88,8 +88,8 @@ class GraphExecutor : public LazyFunction {
                 const Logger *logger,
                 const SideEffectProvider *side_effect_provider);
 
-  void *init_storage(LocalPool<> &allocator) const override;
-  void destruct_storage(void *storage, LocalPool<> &allocator) const override;
+  void *init_storage(Pools &pools) const override;
+  void destruct_storage(void *storage, Pools &pools) const override;
 
  private:
   void execute_impl(Params &params, const Context &context) const override;

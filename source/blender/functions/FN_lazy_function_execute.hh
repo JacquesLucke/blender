@@ -85,15 +85,16 @@ inline void execute_lazy_function_eagerly_impl(
       ...);
   output_usages.fill(ValueUsage::Used);
   set_outputs.fill(false);
-  LocalPoolScope local_pool_scope;
-  LocalPool<> allocator(local_pool_scope);
+  LocalMemoryPools local_pools;
+  Pools pools{&local_pools, &local_pools.local()};
   Context context;
   context.user_data = user_data;
-  context.storage = fn.init_storage(allocator);
+  context.storage = fn.init_storage(pools);
+  context.pools = pools;
   BasicParams params{
       fn, input_pointers, output_pointers, input_usages, output_usages, set_outputs};
   fn.execute(params, context);
-  fn.destruct_storage(context.storage, allocator);
+  fn.destruct_storage(context.storage, pools);
 
   /* Make sure all outputs have been computed.  */
   BLI_assert(!Span<bool>(set_outputs).contains(false));

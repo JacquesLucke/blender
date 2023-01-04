@@ -689,17 +689,17 @@ class LazyFunctionForGroupNode : public LazyFunction {
     graph_executor_->execute(params, group_context);
   }
 
-  void *init_storage(LocalPool<> &allocator) const override
+  void *init_storage(Pools &pools) const override
   {
-    Storage *s = allocator.construct<Storage>().release();
-    s->graph_executor_storage = graph_executor_->init_storage(allocator);
+    Storage *s = pools.local->construct<Storage>().release();
+    s->graph_executor_storage = graph_executor_->init_storage(pools);
     return s;
   }
 
-  void destruct_storage(void *storage, LocalPool<> &allocator) const override
+  void destruct_storage(void *storage, Pools &pools) const override
   {
     Storage *s = static_cast<Storage *>(storage);
-    graph_executor_->destruct_storage(s->graph_executor_storage, allocator);
+    graph_executor_->destruct_storage(s->graph_executor_storage, pools);
     std::destroy_at(s);
   }
 };

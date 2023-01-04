@@ -25,12 +25,12 @@ std::string LazyFunction::output_name(int index) const
   return outputs_[index].debug_name;
 }
 
-void *LazyFunction::init_storage(LocalPool<> & /*allocator*/) const
+void *LazyFunction::init_storage(Pools & /*pools*/) const
 {
   return nullptr;
 }
 
-void LazyFunction::destruct_storage(void *storage, LocalPool<> & /*allocator*/) const
+void LazyFunction::destruct_storage(void *storage, Pools & /*pools*/) const
 {
   BLI_assert(storage == nullptr);
   UNUSED_VARS_NDEBUG(storage);

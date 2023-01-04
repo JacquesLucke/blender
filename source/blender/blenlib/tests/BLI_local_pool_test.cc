@@ -9,8 +9,7 @@ namespace blender::tests {
 
 TEST(local_pool, Test)
 {
-  LocalPoolScope pool_scope;
-  LocalPool pool(pool_scope);
+  LocalPool pool;
 
   std::cout << pool.allocate(30000, 8) << "\n";
 }

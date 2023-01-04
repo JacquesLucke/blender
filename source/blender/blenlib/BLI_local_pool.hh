@@ -5,6 +5,7 @@
 
 #include "BLI_allocator.hh"
 #include "BLI_asan.h"
+#include "BLI_enumerable_thread_specific.hh"
 #include "BLI_map.hh"
 #include "BLI_math_bits.h"
 #include "BLI_stack.hh"
@@ -13,14 +14,10 @@
 
 namespace blender {
 
-class LocalPoolScope {
-};
-
 template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, NonMovable {
  private:
   static constexpr int64_t s_alignment = 64;
 
-  const LocalPoolScope &pool_scope_;
   Vector<MutableSpan<std::byte>> owned_buffers_;
 
   struct BufferStack {
@@ -34,7 +31,7 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
   BLI_NO_UNIQUE_ADDRESS Allocator allocator_;
 
  public:
-  LocalPool(const LocalPoolScope &pool_scope) : pool_scope_(pool_scope)
+  LocalPool()
   {
     for (const int64_t i : IndexRange(small_stacks_.size())) {
       small_stacks_[i].element_size = 8 * (i + 1);
@@ -127,6 +124,22 @@ template<typename Allocator = GuardedAllocator> class LocalPool : NonCopyable, N
       return buffer_stack;
     });
   }
+};
+
+class LocalMemoryPools {
+ private:
+  threading::EnumerableThreadSpecific<LocalPool<>> pool_by_thread_;
+
+ public:
+  LocalPool<> &local()
+  {
+    return pool_by_thread_.local();
+  }
+};
+
+struct Pools {
+  LocalMemoryPools *pools = nullptr;
+  LocalPool<> *local = nullptr;
 };
 
 }  // namespace blender

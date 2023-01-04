@@ -1163,8 +1163,12 @@ static GeometrySet compute_geometry(
   blender::bke::ModifierComputeContext modifier_compute_context{nullptr, nmd->modifier.name};
   user_data.compute_context = &modifier_compute_context;
 
-  blender::LocalPoolScope local_pool_scope;
-  blender::LocalPool<> allocator(local_pool_scope);
+  blender::LocalMemoryPools local_pools;
+  blender::Pools pools;
+  pools.pools = &local_pools;
+  pools.local = &local_pools.local();
+  blender::LocalPool<> &allocator = *pools.local;
+
   Vector<GMutablePointer> inputs_to_destruct;
 
   int input_index;
@@ -1190,8 +1194,9 @@ static GeometrySet compute_geometry(
   }
 
   lf::Context lf_context;
-  lf_context.storage = graph_executor.init_storage(allocator);
+  lf_context.storage = graph_executor.init_storage(pools);
   lf_context.user_data = &user_data;
+  lf_context.pools = pools;
   lf::BasicParams lf_params{graph_executor,
                             param_inputs,
                             param_outputs,
@@ -1199,7 +1204,7 @@ static GeometrySet compute_geometry(
                             param_output_usages,
                             param_set_outputs};
   graph_executor.execute(lf_params, lf_context);
-  graph_executor.destruct_storage(lf_context.storage, allocator);
+  graph_executor.destruct_storage(lf_context.storage, pools);
 
   for (GMutablePointer &ptr : inputs_to_destruct) {
     ptr.destruct();
@@ -1272,6 +1277,7 @@ static void modifyGeometry(ModifierData *md,
                            const ModifierEvalContext *ctx,
                            GeometrySet &geometry_set)
 {
+  SCOPED_TIMER_AVERAGED(__func__);
   NodesModifierData *nmd = reinterpret_cast<NodesModifierData *>(md);
   if (nmd->node_group == nullptr) {
     return;
