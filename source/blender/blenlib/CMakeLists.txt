@@ -255,6 +255,7 @@ set(SRC
   BLI_linklist_stack.h
   BLI_listbase.h
   BLI_listbase_wrapper.hh
+  BLI_local_allocator.hh
   BLI_local_pool.hh
   BLI_map.hh
   BLI_map_slots.hh
@@ -480,7 +481,7 @@ if(WITH_GTESTS)
     tests/BLI_linear_allocator_test.cc
     tests/BLI_linklist_lockfree_test.cc
     tests/BLI_listbase_test.cc
-    tests/BLI_local_pool_test.cc
+    tests/BLI_local_allocator_test.cc
     tests/BLI_map_test.cc
     tests/BLI_math_base_safe_test.cc
     tests/BLI_math_base_test.cc
