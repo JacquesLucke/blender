@@ -781,6 +781,7 @@ class LazyFunctionForGroupNode : public LazyFunction {
     graph_executor_.emplace(lf_graph_info.graph,
                             std::move(graph_inputs),
                             std::move(graph_outputs),
+                            lf_graph_info.graph_preprocess_data,
                             &*lf_logger_,
                             &*lf_side_effect_provider_);
   }
@@ -1228,6 +1229,7 @@ struct GeometryNodesLazyFunctionGraphBuilder {
 
     lf_graph_->update_node_indices();
     lf_graph_info_->num_inline_nodes_approximate += lf_graph_->nodes().size();
+    lf::GraphExecutor::preprocess(*lf_graph_, lf_graph_info_->graph_preprocess_data);
   }
 
  private:

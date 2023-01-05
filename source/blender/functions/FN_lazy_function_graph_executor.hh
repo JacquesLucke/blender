@@ -59,11 +59,23 @@ class GraphExecutor : public LazyFunction {
   using Logger = GraphExecutorLogger;
   using SideEffectProvider = GraphExecutorSideEffectProvider;
 
+  struct NodeBufferOffsets {
+    int node;
+    int inputs;
+    int outputs;
+  };
+
+  struct PreprocessData {
+    Array<NodeBufferOffsets> offsets;
+    int node_state_buffer_size;
+  };
+
  private:
   /**
    * The graph that is evaluated.
    */
   const Graph &graph_;
+  const PreprocessData &preprocess_data_;
   /**
    * Input and output sockets of the entire graph.
    */
@@ -85,11 +97,14 @@ class GraphExecutor : public LazyFunction {
   GraphExecutor(const Graph &graph,
                 Span<const OutputSocket *> graph_inputs,
                 Span<const InputSocket *> graph_outputs,
+                const PreprocessData &preprocess_data,
                 const Logger *logger,
                 const SideEffectProvider *side_effect_provider);
 
   void *init_storage(LocalAllocator &allocator) const override;
   void destruct_storage(void *storage, LocalAllocator &allocator) const override;
+
+  static void preprocess(const Graph &graph, PreprocessData &r_preprocess_data);
 
  private:
   void execute_impl(Params &params, const Context &context) const override;

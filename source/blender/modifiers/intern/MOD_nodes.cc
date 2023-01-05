@@ -1139,8 +1139,12 @@ static GeometrySet compute_geometry(
   blender::nodes::GeometryNodesLazyFunctionLogger lf_logger(lf_graph_info);
   blender::nodes::GeometryNodesLazyFunctionSideEffectProvider lf_side_effect_provider;
 
-  lf::GraphExecutor graph_executor{
-      lf_graph_info.graph, graph_inputs, graph_outputs, &lf_logger, &lf_side_effect_provider};
+  lf::GraphExecutor graph_executor{lf_graph_info.graph,
+                                   graph_inputs,
+                                   graph_outputs,
+                                   lf_graph_info.graph_preprocess_data,
+                                   &lf_logger,
+                                   &lf_side_effect_provider};
 
   blender::nodes::GeoNodesModifierData geo_nodes_modifier_data;
   geo_nodes_modifier_data.depsgraph = ctx->depsgraph;

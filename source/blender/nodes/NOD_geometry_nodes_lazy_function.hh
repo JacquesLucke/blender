@@ -187,6 +187,7 @@ struct GeometryNodesLazyFunctionGraphInfo {
    * Mappings between the lazy-function graph and the #bNodeTree.
    */
   GeometryNodeLazyFunctionGraphMapping mapping;
+  lf::GraphExecutor::PreprocessData graph_preprocess_data;
   /**
    * Approximate number of nodes in the graph if all sub-graphs were inlined.
    * This can be used as a simple heuristic for the complexity of the node group.
