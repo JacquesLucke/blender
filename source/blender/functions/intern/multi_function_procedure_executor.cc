@@ -132,30 +132,70 @@ class ValueAllocator : NonCopyable, NonMovable {
   static constexpr inline int min_alignment = 64;
 
   /** All buffers in the free-lists below have been allocated with this allocator. */
-  LinearAllocator<> &linear_allocator_;
+  LocalAllocator &local_allocator_;
+
+  int array_size_;
 
   /**
    * Use stacks so that the most recently used buffers are reused first. This improves cache
    * efficiency.
    */
-  std::array<Stack<VariableValue *>, tot_variable_value_types> variable_value_free_lists_;
+  std::array<Vector<VariableValue *>, tot_variable_value_types> variable_value_free_lists_;
 
   /**
    * The integer key is the size of one element (e.g. 4 for an integer buffer). All buffers are
    * aligned to #min_alignment bytes.
    */
-  Stack<void *> small_span_buffers_free_list_;
-  Map<int, Stack<void *>> span_buffers_free_lists_;
+  Vector<void *> small_span_buffers_free_list_;
+  Map<int, Vector<void *>> span_buffers_free_lists_;
 
   /** Cache buffers for single values of different types. */
   static constexpr inline int small_value_max_size = 16;
   static constexpr inline int small_value_max_alignment = 8;
-  Stack<void *> small_single_value_free_list_;
-  Map<const CPPType *, Stack<void *>> single_value_free_lists_;
+  Vector<void *> small_single_value_free_list_;
+  Map<const CPPType *, Vector<void *>> single_value_free_lists_;
 
  public:
-  ValueAllocator(LinearAllocator<> &linear_allocator) : linear_allocator_(linear_allocator)
+  ValueAllocator(LocalAllocator &local_allocator, const int array_size)
+      : local_allocator_(local_allocator), array_size_(array_size)
   {
+  }
+
+  ~ValueAllocator()
+  {
+    this->deallocate_variable_values<VariableValue_GVArray>();
+    this->deallocate_variable_values<VariableValue_Span>();
+    this->deallocate_variable_values<VariableValue_GVVectorArray>();
+    this->deallocate_variable_values<VariableValue_GVectorArray>();
+    this->deallocate_variable_values<VariableValue_OneSingle>();
+    this->deallocate_variable_values<VariableValue_OneVector>();
+
+    for (void *buffer : small_span_buffers_free_list_) {
+      local_allocator_.deallocate(buffer, small_value_max_size, small_value_max_alignment);
+    }
+    for (const auto item : span_buffers_free_lists_.items()) {
+      const int element_size = item.key;
+      for (const void *buffer : item.value) {
+        local_allocator_.deallocate(buffer, element_size * array_size_, min_alignment);
+      }
+    }
+
+    for (void *buffer : small_single_value_free_list_) {
+      local_allocator_.deallocate(buffer, small_value_max_size, small_value_max_alignment);
+    }
+    for (const auto item : single_value_free_lists_.items()) {
+      const CPPType &type = *item.key;
+      for (const void *buffer : item.value) {
+        local_allocator_.deallocate(buffer, type.size(), type.alignment());
+      }
+    }
+  }
+
+  template<typename T> void deallocate_variable_values()
+  {
+    for (VariableValue *value : variable_value_free_lists_[int(T::static_type)]) {
+      local_allocator_.deallocate(value, sizeof(T), alignof(T));
+    }
   }
 
   VariableValue_GVArray *obtain_GVArray(const GVArray &varray)
@@ -173,7 +213,7 @@ class ValueAllocator : NonCopyable, NonMovable {
     return this->obtain<VariableValue_Span>(buffer, false);
   }
 
-  VariableValue_Span *obtain_Span(const CPPType &type, int size)
+  VariableValue_Span *obtain_Span(const CPPType &type)
   {
     void *buffer = nullptr;
 
@@ -182,20 +222,20 @@ class ValueAllocator : NonCopyable, NonMovable {
 
     if (alignment > min_alignment) {
       /* In this rare case we fallback to not reusing existing buffers. */
-      buffer = linear_allocator_.allocate(element_size * size, alignment);
+      buffer = local_allocator_.allocate(element_size * array_size_, alignment);
     }
     else {
-      Stack<void *> *stack = type.can_exist_in_buffer(small_value_max_size,
-                                                      small_value_max_alignment) ?
-                                 &small_span_buffers_free_list_ :
-                                 span_buffers_free_lists_.lookup_ptr(element_size);
+      Vector<void *> *stack = type.can_exist_in_buffer(small_value_max_size,
+                                                       small_value_max_alignment) ?
+                                  &small_span_buffers_free_list_ :
+                                  span_buffers_free_lists_.lookup_ptr(element_size);
       if (stack == nullptr || stack->is_empty()) {
-        buffer = linear_allocator_.allocate(
-            std::max<int64_t>(element_size, small_value_max_size) * size, min_alignment);
+        buffer = local_allocator_.allocate(
+            std::max<int64_t>(element_size, small_value_max_size) * array_size_, min_alignment);
       }
       else {
         /* Reuse existing buffer. */
-        buffer = stack->pop();
+        buffer = stack->pop_last();
       }
     }
 
@@ -207,9 +247,9 @@ class ValueAllocator : NonCopyable, NonMovable {
     return this->obtain<VariableValue_GVectorArray>(data, false);
   }
 
-  VariableValue_GVectorArray *obtain_GVectorArray(const CPPType &type, int size)
+  VariableValue_GVectorArray *obtain_GVectorArray(const CPPType &type)
   {
-    GVectorArray *vector_array = new GVectorArray(type, size);
+    GVectorArray *vector_array = new GVectorArray(type, array_size_);
     return this->obtain<VariableValue_GVectorArray>(*vector_array, true);
   }
 
@@ -217,16 +257,16 @@ class ValueAllocator : NonCopyable, NonMovable {
   {
     const bool is_small = type.can_exist_in_buffer(small_value_max_size,
                                                    small_value_max_alignment);
-    Stack<void *> &stack = is_small ? small_single_value_free_list_ :
-                                      single_value_free_lists_.lookup_or_add_default(&type);
+    Vector<void *> &stack = is_small ? small_single_value_free_list_ :
+                                       single_value_free_lists_.lookup_or_add_default(&type);
     void *buffer;
     if (stack.is_empty()) {
-      buffer = linear_allocator_.allocate(
+      buffer = local_allocator_.allocate(
           std::max<int>(small_value_max_size, type.size()),
           std::max<int>(small_value_max_alignment, type.alignment()));
     }
     else {
-      buffer = stack.pop();
+      buffer = stack.pop_last();
     }
     return this->obtain<VariableValue_OneSingle>(buffer);
   }
@@ -248,11 +288,12 @@ class ValueAllocator : NonCopyable, NonMovable {
         if (value_typed->owned) {
           const CPPType &type = data_type.single_type();
           /* Assumes all values in the buffer are uninitialized already. */
-          Stack<void *> &buffers = type.can_exist_in_buffer(small_value_max_size,
-                                                            small_value_max_alignment) ?
-                                       small_span_buffers_free_list_ :
-                                       span_buffers_free_lists_.lookup_or_add_default(type.size());
-          buffers.push(value_typed->data);
+          Vector<void *> &buffers = type.can_exist_in_buffer(small_value_max_size,
+                                                             small_value_max_alignment) ?
+                                        small_span_buffers_free_list_ :
+                                        span_buffers_free_lists_.lookup_or_add_default(
+                                            type.size());
+          buffers.append(value_typed->data);
         }
         break;
       }
@@ -275,10 +316,10 @@ class ValueAllocator : NonCopyable, NonMovable {
         const bool is_small = type.can_exist_in_buffer(small_value_max_size,
                                                        small_value_max_alignment);
         if (is_small) {
-          small_single_value_free_list_.push(value_typed->data);
+          small_single_value_free_list_.append(value_typed->data);
         }
         else {
-          single_value_free_lists_.lookup_or_add_default(&type).push(value_typed->data);
+          single_value_free_lists_.lookup_or_add_default(&type).append(value_typed->data);
         }
         break;
       }
@@ -289,20 +330,20 @@ class ValueAllocator : NonCopyable, NonMovable {
       }
     }
 
-    Stack<VariableValue *> &stack = variable_value_free_lists_[int(value->type)];
-    stack.push(value);
+    Vector<VariableValue *> &stack = variable_value_free_lists_[int(value->type)];
+    stack.append(value);
   }
 
  private:
   template<typename T, typename... Args> T *obtain(Args &&...args)
   {
     static_assert(std::is_base_of_v<VariableValue, T>);
-    Stack<VariableValue *> &stack = variable_value_free_lists_[int(T::static_type)];
+    Vector<VariableValue *> &stack = variable_value_free_lists_[int(T::static_type)];
     if (stack.is_empty()) {
-      void *buffer = linear_allocator_.allocate(sizeof(T), alignof(T));
+      void *buffer = local_allocator_.allocate(sizeof(T), alignof(T));
       return new (buffer) T(std::forward<Args>(args)...);
     }
-    return new (stack.pop()) T(std::forward<Args>(args)...);
+    return new (stack.pop_last()) T(std::forward<Args>(args)...);
   }
 };
 
@@ -414,7 +455,7 @@ class VariableState : NonCopyable, NonMovable {
         const CPPType &type = data_type.single_type();
         VariableValue_Span *new_value = nullptr;
         if (caller_provided_storage_ == nullptr) {
-          new_value = value_allocator.obtain_Span(type, array_size);
+          new_value = value_allocator.obtain_Span(type);
         }
         else {
           /* Reuse the storage provided caller when possible. */
@@ -445,7 +486,7 @@ class VariableState : NonCopyable, NonMovable {
         const CPPType &type = data_type.vector_base_type();
         VariableValue_GVectorArray *new_value = nullptr;
         if (caller_provided_storage_ == nullptr) {
-          new_value = value_allocator.obtain_GVectorArray(type, array_size);
+          new_value = value_allocator.obtain_GVectorArray(type);
         }
         else {
           new_value = value_allocator.obtain_GVectorArray_not_owned(
@@ -829,10 +870,10 @@ class VariableStates {
   IndexMask full_mask_;
 
  public:
-  VariableStates(LinearAllocator<> &linear_allocator,
+  VariableStates(LocalAllocator &local_allocator,
                  const MFProcedure &procedure,
                  IndexMask full_mask)
-      : value_allocator_(linear_allocator),
+      : value_allocator_(local_allocator, full_mask.min_array_size()),
         procedure_(procedure),
         variable_states_(procedure.variables().size()),
         full_mask_(full_mask)
@@ -1178,11 +1219,8 @@ void MFProcedureExecutor::call(IndexMask full_mask, MFParams params, MFContext c
 {
   BLI_assert(procedure_.validate());
 
-  AlignedBuffer<512, 64> local_buffer;
-  LinearAllocator<> linear_allocator;
-  linear_allocator.provide_buffer(local_buffer);
-
-  VariableStates variable_states{linear_allocator, procedure_, full_mask};
+  LocalAllocator &local_allocator = context.allocator();
+  VariableStates variable_states{local_allocator, procedure_, full_mask};
   variable_states.add_initial_variable_states(*this, procedure_, params);
 
   InstructionScheduler scheduler;

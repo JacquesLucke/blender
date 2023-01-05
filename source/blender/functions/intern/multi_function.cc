@@ -127,7 +127,8 @@ void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context
       }
     }
 
-    this->call(offset_mask, offset_params, context);
+    MFContextBuilder sub_context{&context.allocator().local()};
+    this->call(offset_mask, offset_params, sub_context);
   });
 }
 
