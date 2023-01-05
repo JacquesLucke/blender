@@ -806,18 +806,18 @@ class LazyFunctionForGroupNode : public LazyFunction {
     graph_executor_->execute(params, group_context);
   }
 
-  void *init_storage(Pools &pools) const override
+  void *init_storage(LocalAllocator &allocator) const override
   {
-    Storage *s = pools.local->construct<Storage>().release();
-    s->graph_executor_storage = graph_executor_->init_storage(pools);
-    return s;
+    Storage &s = allocator.allocate_new<Storage>();
+    s.graph_executor_storage = graph_executor_->init_storage(allocator);
+    return &s;
   }
 
-  void destruct_storage(void *storage, Pools &pools) const override
+  void destruct_storage(void *storage, LocalAllocator &allocator) const override
   {
     Storage *s = static_cast<Storage *>(storage);
-    graph_executor_->destruct_storage(s->graph_executor_storage, pools);
-    pools.local->destruct(s);
+    graph_executor_->destruct_storage(s->graph_executor_storage, allocator);
+    allocator.destruct_free(s);
   }
 
   std::string name() const override

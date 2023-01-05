@@ -90,6 +90,7 @@ set(SRC
   intern/lazy_threading.cc
   intern/length_parameterize.cc
   intern/listbase.cc
+  intern/local_allocator.cc
   intern/math_base.c
   intern/math_base_inline.c
   intern/math_base_safe_inline.c
@@ -256,7 +257,6 @@ set(SRC
   BLI_listbase.h
   BLI_listbase_wrapper.hh
   BLI_local_allocator.hh
-  BLI_local_pool.hh
   BLI_map.hh
   BLI_map_slots.hh
   BLI_math.h

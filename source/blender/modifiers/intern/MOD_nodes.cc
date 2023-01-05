@@ -1162,11 +1162,8 @@ static GeometrySet compute_geometry(
   blender::bke::ModifierComputeContext modifier_compute_context{nullptr, nmd->modifier.name};
   user_data.compute_context = &modifier_compute_context;
 
-  blender::LocalMemoryPools local_pools;
-  blender::Pools pools;
-  pools.pools = &local_pools;
-  pools.local = &local_pools.local();
-  blender::LocalPool<> &allocator = *pools.local;
+  blender::LocalAllocatorSet allocator_set;
+  blender::LocalAllocator &allocator = allocator_set.local();
 
   Vector<GMutablePointer> inputs_to_destruct;
 
@@ -1208,9 +1205,9 @@ static GeometrySet compute_geometry(
   }
 
   lf::Context lf_context;
-  lf_context.storage = graph_executor.init_storage(pools);
+  lf_context.storage = graph_executor.init_storage(allocator);
   lf_context.user_data = &user_data;
-  lf_context.pools = pools;
+  lf_context.allocator = &allocator;
   lf::BasicParams lf_params{graph_executor,
                             param_inputs,
                             param_outputs,
@@ -1218,7 +1215,7 @@ static GeometrySet compute_geometry(
                             param_output_usages,
                             param_set_outputs};
   graph_executor.execute(lf_params, lf_context);
-  graph_executor.destruct_storage(lf_context.storage, pools);
+  graph_executor.destruct_storage(lf_context.storage, allocator);
 
   for (GMutablePointer &ptr : inputs_to_destruct) {
     ptr.destruct();

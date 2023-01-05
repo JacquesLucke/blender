@@ -35,9 +35,10 @@ class LocalAllocator : NonCopyable, NonMovable {
   friend LocalAllocatorSet;
 
   LocalAllocator(LocalAllocatorSet &owner_set);
-  ~LocalAllocator();
 
  public:
+  ~LocalAllocator();
+
   bool is_local() const;
   LocalAllocator &local();
 
@@ -45,8 +46,10 @@ class LocalAllocator : NonCopyable, NonMovable {
   void deallocate(const void *buffer, const int64_t size, const int64_t alignment);
 
   template<typename T, typename... Args> T &allocate_new(Args &&...args);
-  template<typename T, typename... Args> void destruct_free(const T &value);
-  template<typename T> MutableSpan<T> allocate_new_array(const int64_t size);
+  template<typename T, typename... Args> void destruct_free(const T *value);
+  template<typename T> MutableSpan<T> allocate_array(const int64_t size);
+  template<typename T, typename... Args>
+  MutableSpan<T> allocate_new_array(const int64_t size, Args &&...args);
   template<typename T> void destruct_free_array(Span<T> data);
   template<typename T> void destruct_free_array(MutableSpan<T> data);
 
@@ -142,19 +145,29 @@ template<typename T, typename... Args> inline T &LocalAllocator::allocate_new(Ar
   return *value;
 }
 
-template<typename T, typename... Args> inline void LocalAllocator::destruct_free(const T &value)
+template<typename T, typename... Args> inline void LocalAllocator::destruct_free(const T *value)
 {
   std::destroy_at(value);
-  this->deallocate(&value, sizeof(T), alignof(T));
+  this->deallocate(value, sizeof(T), alignof(T));
 }
 
-template<typename T> MutableSpan<T> inline LocalAllocator::allocate_new_array(const int64_t size)
+template<typename T> MutableSpan<T> inline LocalAllocator::allocate_array(const int64_t size)
 {
   if (size == 0) {
     return {};
   }
   void *buffer = this->allocate(size * sizeof(T), alignof(T));
   return {static_cast<T *>(buffer), size};
+}
+
+template<typename T, typename... Args>
+MutableSpan<T> inline LocalAllocator::allocate_new_array(const int64_t size, Args &&...args)
+{
+  MutableSpan<T> array = this->allocate_array<T>(size);
+  for (const int64_t i : IndexRange(size)) {
+    new (&array[i]) T(std::forward<Args>(args)...);
+  }
+  return array;
 }
 
 template<typename T> inline void LocalAllocator::destruct_free_array(Span<T> data)

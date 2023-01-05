@@ -262,22 +262,20 @@ class Executor {
     BLI_assert(self_.graph_.node_indices_are_valid());
   }
 
-  void destruct_state(Pools &pools)
+  void destruct_state(LocalAllocator &allocator)
   {
     if (TaskPool *task_pool = task_pool_.load()) {
       BLI_task_pool_free(task_pool);
     }
     threading::parallel_for(node_states_.index_range(), 1024, [&](const IndexRange range) {
-      LocalPool<> &local = (range.size() == node_states_.size()) ? *pools.local :
-                                                                   pools.pools->local();
+      LocalAllocator &local_allocator = allocator.local();
       for (const int node_index : range) {
         const Node &node = *self_.graph_.nodes()[node_index];
         NodeState &node_state = node_states_[node_index];
-        Pools sub_pools = {pools.pools, &local};
-        this->destruct_node_state(node, node_state, sub_pools);
+        this->destruct_node_state(node, node_state, local_allocator);
       }
     });
-    pools.local->destruct_array(node_states_);
+    allocator.destruct_free_array(node_states_);
   }
 
   /**
@@ -340,45 +338,44 @@ class Executor {
   void initialize_node_states()
   {
     Span<const Node *> nodes = self_.graph_.nodes();
-    node_states_ = context_->pools.local->construct_array<NodeState>(nodes.size());
+    node_states_ = context_->allocator->allocate_new_array<NodeState>(nodes.size());
 
     /* Construct all node states in parallel. */
     threading::parallel_for(nodes.index_range(), 256, [&](const IndexRange range) {
-      LocalPool<> &allocator = (range.size() == nodes.size()) ? *context_->pools.local :
-                                                                this->get_local_allocator();
+      LocalAllocator &local_allocator = context_->allocator->local();
       for (const int i : range) {
         const Node &node = *nodes[i];
-        this->construct_initial_node_state(allocator, node, node_states_[i]);
+        this->construct_initial_node_state(local_allocator, node, node_states_[i]);
       }
     });
   }
 
-  void construct_initial_node_state(LocalPool<> &allocator,
+  void construct_initial_node_state(LocalAllocator &allocator,
                                     const Node &node,
                                     NodeState &node_state)
   {
     const Span<const InputSocket *> node_inputs = node.inputs();
     const Span<const OutputSocket *> node_outputs = node.outputs();
 
-    node_state.inputs = allocator.construct_array<InputState>(node_inputs.size());
-    node_state.outputs = allocator.construct_array<OutputState>(node_outputs.size());
+    node_state.inputs = allocator.allocate_new_array<InputState>(node_inputs.size());
+    node_state.outputs = allocator.allocate_new_array<OutputState>(node_outputs.size());
   }
 
-  void destruct_node_state(const Node &node, NodeState &node_state, Pools &pools)
+  void destruct_node_state(const Node &node, NodeState &node_state, LocalAllocator &allocator)
   {
     if (node.is_function()) {
       const LazyFunction &fn = static_cast<const FunctionNode &>(node).function();
       if (node_state.storage != nullptr) {
-        fn.destruct_storage(node_state.storage, pools);
+        fn.destruct_storage(node_state.storage, allocator);
       }
     }
     for (const int i : node.inputs().index_range()) {
       InputState &input_state = node_state.inputs[i];
       const InputSocket &input_socket = node.input(i);
-      this->destruct_input_value_if_exists(input_state, input_socket.type(), *pools.local);
+      this->destruct_input_value_if_exists(input_state, input_socket.type(), allocator);
     }
-    pools.local->destruct_array(node_state.inputs);
-    pools.local->destruct_array(node_state.outputs);
+    allocator.destruct_free_array(node_state.inputs);
+    allocator.destruct_free_array(node_state.outputs);
   }
 
   void schedule_newly_requested_outputs(CurrentTask &current_task)
@@ -441,14 +438,14 @@ class Executor {
    * `OutputState.potential_target_sockets`.
    */
   void initialize_static_value_usages(const Span<const FunctionNode *> side_effect_nodes,
-                                      LocalPool<> &allocator)
+                                      LocalAllocator &allocator)
   {
     const Span<const Node *> all_nodes = self_.graph_.nodes();
 
     /* Used for a search through all nodes that outputs depend on. */
     Stack<const Node *, 100> reachable_nodes_to_check;
-    MutableSpan<bool> reachable_node_flags = allocator.allocate_array<bool>(all_nodes.size());
-    BLI_SCOPED_DEFER([&]() { allocator.destruct_array(reachable_node_flags); });
+    MutableSpan<bool> reachable_node_flags = allocator.allocate_new_array<bool>(all_nodes.size());
+    BLI_SCOPED_DEFER([&]() { allocator.destruct_free_array(reachable_node_flags); });
     reachable_node_flags.fill(false);
 
     /* Graph outputs are always reachable. */
@@ -529,7 +526,7 @@ class Executor {
 
   void forward_newly_provided_inputs(CurrentTask &current_task)
   {
-    LocalPool<> &allocator = this->get_local_allocator();
+    LocalAllocator &allocator = this->get_local_allocator();
     for (const int graph_input_index : self_.graph_inputs_.index_range()) {
       std::atomic<uint8_t> &was_loaded = loaded_inputs_[graph_input_index];
       if (was_loaded.load()) {
@@ -548,7 +545,7 @@ class Executor {
   }
 
   void forward_newly_provided_input(CurrentTask &current_task,
-                                    LocalPool<> &allocator,
+                                    LocalAllocator &allocator,
                                     const int graph_input_index,
                                     void *input_data)
   {
@@ -702,7 +699,7 @@ class Executor {
   void run_node_task(const FunctionNode &node, CurrentTask &current_task)
   {
     NodeState &node_state = node_states_[node.index_in_graph()];
-    LocalPool<> &allocator = this->get_local_allocator();
+    LocalAllocator &allocator = this->get_local_allocator();
     const LazyFunction &fn = node.function();
 
     bool node_needs_execution = false;
@@ -768,8 +765,7 @@ class Executor {
     if (node_needs_execution) {
       if (!node_state.storage_and_defaults_initialized) {
         /* Initialize storage. */
-        Pools pools{context_->pools.pools, &allocator};
-        node_state.storage = fn.init_storage(pools);
+        node_state.storage = fn.init_storage(allocator);
 
         /* Load unlinked inputs. */
         for (const int input_index : node.inputs().index_range()) {
@@ -843,7 +839,7 @@ class Executor {
     }
   }
 
-  void finish_node_if_possible(LockedNode &locked_node, LocalPool<> &allocator)
+  void finish_node_if_possible(LockedNode &locked_node, LocalAllocator &allocator)
   {
     const Node &node = locked_node.node;
     NodeState &node_state = locked_node.node_state;
@@ -881,8 +877,7 @@ class Executor {
     if (node_state.storage != nullptr) {
       if (node.is_function()) {
         const FunctionNode &fn_node = static_cast<const FunctionNode &>(node);
-        Pools pools{context_->pools.pools, &allocator};
-        fn_node.function().destruct_storage(node_state.storage, pools);
+        fn_node.function().destruct_storage(node_state.storage, allocator);
       }
       node_state.storage = nullptr;
     }
@@ -890,7 +885,7 @@ class Executor {
 
   void destruct_input_value_if_exists(InputState &input_state,
                                       const CPPType &type,
-                                      LocalPool<> &allocator)
+                                      LocalAllocator &allocator)
   {
     if (input_state.value != nullptr) {
       type.destruct(input_state.value);
@@ -902,14 +897,14 @@ class Executor {
   void execute_node(const FunctionNode &node,
                     NodeState &node_state,
                     CurrentTask &current_task,
-                    LocalPool<> &allocator);
+                    LocalAllocator &allocator);
 
   void set_input_unused_during_execution(const Node &node,
                                          NodeState &node_state,
                                          const int input_index,
                                          CurrentTask &current_task)
   {
-    LocalPool<> &allocator = this->get_local_allocator();
+    LocalAllocator &allocator = this->get_local_allocator();
     const InputSocket &input_socket = node.input(input_index);
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
       this->set_input_unused(locked_node, input_socket, allocator);
@@ -918,7 +913,7 @@ class Executor {
 
   void set_input_unused(LockedNode &locked_node,
                         const InputSocket &input_socket,
-                        LocalPool<> &allocator)
+                        LocalAllocator &allocator)
   {
     NodeState &node_state = locked_node.node_state;
     const int input_index = input_socket.index();
@@ -984,7 +979,7 @@ class Executor {
                                       CurrentTask &current_task)
   {
     BLI_assert(value_to_forward.get() != nullptr);
-    LocalPool<> &allocator = this->get_local_allocator();
+    LocalAllocator &allocator = this->get_local_allocator();
     const CPPType &type = *value_to_forward.type();
 
     if (self_.logger_ != nullptr) {
@@ -1143,12 +1138,12 @@ class Executor {
         });
   }
 
-  LocalPool<> &get_local_allocator()
+  LocalAllocator &get_local_allocator()
   {
     if (this->use_multi_threading()) {
-      return context_->pools.pools->local();
+      return context_->allocator->local();
     }
-    return *context_->pools.local;
+    return *context_->allocator;
   }
 };
 
@@ -1197,7 +1192,7 @@ class GraphExecutorLFParams final : public Params {
     OutputState &output_state = node_state_.outputs[index];
     BLI_assert(!output_state.has_been_computed);
     if (output_state.value == nullptr) {
-      LocalPool<> &allocator = executor_.get_local_allocator();
+      LocalAllocator &allocator = executor_.get_local_allocator();
       const CPPType &type = node_.output(index).type();
       output_state.value = allocator.allocate(type.size(), type.alignment());
     }
@@ -1247,14 +1242,14 @@ class GraphExecutorLFParams final : public Params {
 inline void Executor::execute_node(const FunctionNode &node,
                                    NodeState &node_state,
                                    CurrentTask &current_task,
-                                   LocalPool<> &allocator)
+                                   LocalAllocator &allocator)
 {
   const LazyFunction &fn = node.function();
   GraphExecutorLFParams node_params{fn, *this, node, node_state, current_task};
   BLI_assert(context_ != nullptr);
   Context fn_context = *context_;
   fn_context.storage = node_state.storage;
-  fn_context.pools.local = &allocator;
+  fn_context.allocator = &allocator;
 
   if (self_.logger_ != nullptr) {
     self_.logger_->log_before_node_execute(node, node_params, fn_context);
@@ -1311,17 +1306,17 @@ void GraphExecutor::execute_impl(Params &params, const Context &context) const
   executor.execute(params, context);
 }
 
-void *GraphExecutor::init_storage(Pools &pools) const
+void *GraphExecutor::init_storage(LocalAllocator &allocator) const
 {
-  Executor &executor = *pools.local->construct<Executor>(*this).release();
+  Executor &executor = allocator.allocate_new<Executor>(*this);
   return &executor;
 }
 
-void GraphExecutor::destruct_storage(void *storage, Pools &pools) const
+void GraphExecutor::destruct_storage(void *storage, LocalAllocator &allocator) const
 {
   Executor *executor = static_cast<Executor *>(storage);
-  executor->destruct_state(pools);
-  pools.local->destruct(executor);
+  executor->destruct_state(allocator);
+  allocator.destruct_free(executor);
 }
 
 void GraphExecutorLogger::log_socket_value(const Socket &socket,
