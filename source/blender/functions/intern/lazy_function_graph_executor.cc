@@ -443,7 +443,7 @@ class Executor {
     const Span<const Node *> all_nodes = self_.graph_.nodes();
 
     /* Used for a search through all nodes that outputs depend on. */
-    Stack<const Node *, 100> reachable_nodes_to_check;
+    Stack<const Node *, 16, LocalAllocatorRef> reachable_nodes_to_check{allocator};
     Array<bool, 16, LocalAllocatorRef> reachable_node_flags{all_nodes.size(), false, allocator};
 
     /* Graph outputs are always reachable. */
