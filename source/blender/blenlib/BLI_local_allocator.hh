@@ -19,6 +19,17 @@
 namespace blender {
 
 class LocalAllocatorSet;
+class LocalAllocator;
+class LocalAllocatorPool;
+
+class LocalAllocatorPool : NonCopyable, NonMovable {
+ private:
+  Stack<void *> buffers;
+  int64_t element_size = -1;
+  int64_t alignment = -1;
+
+  friend LocalAllocator;
+};
 
 class LocalAllocator : NonCopyable, NonMovable {
  private:
@@ -26,20 +37,14 @@ class LocalAllocator : NonCopyable, NonMovable {
   LocalAllocatorSet &owner_set_;
   LinearAllocator<> linear_allocator_;
 
-  struct BufferStack {
-    Stack<void *, 0> stack;
-    int64_t element_size = -1;
-    int64_t alignment = -1;
-  };
-
   struct Head {
     int64_t buffer_size;
     int64_t buffer_alignment;
   };
   static_assert(is_power_of_2_constexpr(sizeof(Head)));
 
-  std::array<BufferStack, 8> small_stacks_;
-  Map<int, BufferStack> large_stacks_;
+  std::array<LocalAllocatorPool, 8> small_buffer_pools_;
+  Map<int, std::unique_ptr<LocalAllocatorPool>> large_buffer_pools_;
 
   friend LocalAllocatorSet;
 
@@ -55,8 +60,13 @@ class LocalAllocator : NonCopyable, NonMovable {
   void *allocate(int64_t size, int64_t alignment);
   void deallocate(const void *buffer, int64_t size, int64_t alignment);
 
+  void *allocate(LocalAllocatorPool &pool);
+  void deallocate(const void *buffer, LocalAllocatorPool &pool);
+
   void *allocate_with_head(int64_t size, int64_t alignment);
   void deallocate_with_head(const void *buffer);
+
+  LocalAllocatorPool &get_pool(int64_t size, int64_t alignment);
 
   template<typename T, typename... Args> T &allocate_new(Args &&...args);
   template<typename T, typename... Args> void destruct_free(const T *value);
@@ -65,9 +75,6 @@ class LocalAllocator : NonCopyable, NonMovable {
   MutableSpan<T> allocate_new_array(int64_t size, Args &&...args);
   template<typename T> void destruct_free_array(Span<T> data);
   template<typename T> void destruct_free_array(MutableSpan<T> data);
-
- private:
-  BufferStack &get_buffer_stack(int64_t size, int64_t alignment);
 };
 
 class LocalAllocatorSet : NonCopyable, NonMovable {
@@ -76,7 +83,7 @@ class LocalAllocatorSet : NonCopyable, NonMovable {
 
 #ifdef BLI_LOCAL_ALLOCATOR_DEBUG_SIZES
   std::mutex debug_sizes_mutex_;
-  Map<const void *, std::pair<int64_t, int64_t>> debug_sizes_;
+  Map<const void *, int64_t> debug_sizes_;
 #endif
 
   friend LocalAllocator;
@@ -147,47 +154,53 @@ inline LocalAllocatorSet &LocalAllocator::owner_set()
 
 BLI_NOINLINE inline void *LocalAllocator::allocate(const int64_t size, const int64_t alignment)
 {
-  BLI_assert(size > 0);
-  BLI_assert(alignment <= size);
-  BLI_assert(alignment <= s_alignment);
-  BLI_assert(is_power_of_2_i(alignment));
-  BLI_assert(this->is_local());
+  LocalAllocatorPool &pool = this->get_pool(size, alignment);
+  BLI_assert(pool.element_size >= size);
+  BLI_assert(pool.alignment >= alignment);
 
-#ifdef BLI_LOCAL_ALLOCATOR_USE_GUARDED
-  return MEM_mallocN_aligned(size, alignment, __func__);
-#endif
-
-  BufferStack &buffer_stack = this->get_buffer_stack(size, alignment);
-  BLI_assert(buffer_stack.element_size >= size);
-  BLI_assert(buffer_stack.alignment >= alignment);
-
-  void *buffer;
-  if (!buffer_stack.stack.is_empty()) {
-    buffer = buffer_stack.stack.pop();
-    BLI_asan_unpoison(buffer, size);
-  }
-  else {
-    buffer = linear_allocator_.allocate(buffer_stack.element_size, buffer_stack.alignment);
-  }
-
-#ifdef BLI_LOCAL_ALLOCATOR_DEBUG_SIZES
-  {
-    std::lock_guard lock{owner_set_.debug_sizes_mutex_};
-    owner_set_.debug_sizes_.add_new(buffer, {size, alignment});
-  }
-#endif
-
-  return buffer;
+  return this->allocate(pool);
 }
 
 BLI_NOINLINE inline void LocalAllocator::deallocate(const void *buffer,
                                                     const int64_t size,
                                                     const int64_t alignment)
 {
-  BLI_assert(size > 0);
-  BLI_assert(alignment <= size);
-  BLI_assert(alignment <= s_alignment);
-  BLI_assert(is_power_of_2_i(alignment));
+  LocalAllocatorPool &pool = this->get_pool(size, alignment);
+  BLI_assert(pool.element_size >= size);
+  BLI_assert(pool.alignment >= alignment);
+
+  this->deallocate(buffer, pool);
+}
+
+inline void *LocalAllocator::allocate(LocalAllocatorPool &pool)
+{
+  BLI_assert(this->is_local());
+
+#ifdef BLI_LOCAL_ALLOCATOR_USE_GUARDED
+  return MEM_mallocN_aligned(size, alignment, __func__);
+#endif
+
+  void *buffer;
+  if (!pool.buffers.is_empty()) {
+    buffer = pool.buffers.pop();
+    BLI_asan_unpoison(buffer, pool.element_size);
+  }
+  else {
+    buffer = linear_allocator_.allocate(pool.element_size, pool.alignment);
+  }
+
+#ifdef BLI_LOCAL_ALLOCATOR_DEBUG_SIZES
+  {
+    std::lock_guard lock{owner_set_.debug_sizes_mutex_};
+    owner_set_.debug_sizes_.add_new(buffer, pool.element_size);
+  }
+#endif
+
+  return buffer;
+}
+
+inline void LocalAllocator::deallocate(const void *buffer, LocalAllocatorPool &pool)
+{
   BLI_assert(this->is_local());
 
 #ifdef BLI_LOCAL_ALLOCATOR_USE_GUARDED
@@ -210,29 +223,32 @@ BLI_NOINLINE inline void LocalAllocator::deallocate(const void *buffer,
 #endif
 
 #ifdef DEBUG
-  memset(const_cast<void *>(buffer), -1, size);
+  memset(const_cast<void *>(buffer), -1, pool.element_size);
 #endif
-  BLI_asan_poison(buffer, size);
 
-  BufferStack &buffer_stack = this->get_buffer_stack(size, alignment);
-  BLI_assert(buffer_stack.element_size >= size);
-  BLI_assert(buffer_stack.alignment >= alignment);
+  BLI_asan_poison(buffer, pool.element_size);
 
-  buffer_stack.stack.push(const_cast<void *>(buffer));
+  pool.buffers.push(const_cast<void *>(buffer));
 }
 
-inline LocalAllocator::BufferStack &LocalAllocator::get_buffer_stack(const int64_t size,
-                                                                     const int64_t /*alignment*/)
+inline LocalAllocatorPool &LocalAllocator::get_pool(const int64_t size, const int64_t alignment)
 {
+  BLI_assert(size > 0);
+  BLI_assert(alignment <= size);
+  BLI_assert(alignment <= s_alignment);
+  BLI_assert(is_power_of_2_i(alignment));
+  UNUSED_VARS_NDEBUG(alignment);
+
+  BLI_assert(this->is_local());
   if (size <= 64) {
-    return small_stacks_[(size - 1) >> 3];
+    return small_buffer_pools_[(size - 1) >> 3];
   }
   const int key = bitscan_reverse_uint64(uint64_t(size));
-  return large_stacks_.lookup_or_add_cb(key, [&]() {
-    BufferStack buffer_stack;
-    buffer_stack.element_size = int64_t(1) << (8 * sizeof(int64_t) - key);
-    buffer_stack.alignment = s_alignment;
-    return buffer_stack;
+  return *large_buffer_pools_.lookup_or_add_cb(key, [&]() {
+    auto pool = std::make_unique<LocalAllocatorPool>();
+    pool->element_size = int64_t(1) << (8 * sizeof(int64_t) - key);
+    pool->alignment = s_alignment;
+    return pool;
   });
 }
 
