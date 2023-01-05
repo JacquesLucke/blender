@@ -313,7 +313,8 @@ class CurveLengthFieldInput final : public CurvesFieldInput {
 bool try_capture_field_on_geometry(GeometryComponent &component,
                                    const AttributeIDRef &attribute_id,
                                    const eAttrDomain domain,
-                                   const fn::GField &field);
+                                   const fn::GField &field,
+                                   LocalAllocator *allocator = nullptr);
 
 /**
  * Try to find the geometry domain that the field should be evaluated on. If it is not obvious

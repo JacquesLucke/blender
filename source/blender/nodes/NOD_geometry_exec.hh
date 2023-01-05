@@ -257,6 +257,11 @@ class GeoNodeExecParams {
     return dynamic_cast<GeoNodesLFUserData *>(lf_context_.user_data);
   }
 
+  LocalAllocator &allocator()
+  {
+    return *lf_context_.allocator;
+  }
+
   /**
    * Add an error message displayed at the top of the node when displaying the node tree,
    * and potentially elsewhere in Blender.

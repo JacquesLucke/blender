@@ -177,7 +177,7 @@ inline void *LocalAllocator::allocate(LocalAllocatorPool &pool)
   BLI_assert(this->is_local());
 
 #ifdef BLI_LOCAL_ALLOCATOR_USE_GUARDED
-  return MEM_mallocN_aligned(size, alignment, __func__);
+  return MEM_mallocN_aligned(pool.element_size, pool.alignment, __func__);
 #endif
 
   void *buffer;
@@ -205,7 +205,6 @@ inline void LocalAllocator::deallocate(const void *buffer, LocalAllocatorPool &p
 
 #ifdef BLI_LOCAL_ALLOCATOR_USE_GUARDED
   MEM_freeN(const_cast<void *>(buffer));
-  UNUSED_VARS_NDEBUG(size, alignment);
   return;
 #endif
 
