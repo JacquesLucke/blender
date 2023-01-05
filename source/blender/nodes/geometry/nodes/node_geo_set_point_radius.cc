@@ -20,7 +20,8 @@ static void node_declare(NodeDeclarationBuilder &b)
 
 static void set_radius_in_component(PointCloud &pointcloud,
                                     const Field<bool> &selection_field,
-                                    const Field<float> &radius_field)
+                                    const Field<float> &radius_field,
+                                    LocalAllocator &allocator)
 {
   if (pointcloud.totpoint == 0) {
     return;
@@ -30,7 +31,7 @@ static void set_radius_in_component(PointCloud &pointcloud,
                                                                            ATTR_DOMAIN_POINT);
 
   bke::PointCloudFieldContext field_context{pointcloud};
-  fn::FieldEvaluator evaluator{field_context, pointcloud.totpoint};
+  fn::FieldEvaluator evaluator{field_context, pointcloud.totpoint, &allocator};
   evaluator.set_selection(selection_field);
   evaluator.add_with_destination(radius_field, radii.varray);
   evaluator.evaluate();
@@ -46,7 +47,8 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     if (PointCloud *pointcloud = geometry_set.get_pointcloud_for_write()) {
-      set_radius_in_component(*pointcloud, selection_field, radii_field);
+      set_radius_in_component(
+          *pointcloud, selection_field, radii_field, params.allocator().local());
     }
   });
 

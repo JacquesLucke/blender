@@ -147,7 +147,8 @@ static void set_computed_position_and_offset(GeometryComponent &component,
 static void set_position_in_component(GeometryComponent &component,
                                       const Field<bool> &selection_field,
                                       const Field<float3> &position_field,
-                                      const Field<float3> &offset_field)
+                                      const Field<float3> &offset_field,
+                                      LocalAllocator &allocator)
 {
   eAttrDomain domain = component.type() == GEO_COMPONENT_TYPE_INSTANCES ? ATTR_DOMAIN_INSTANCE :
                                                                           ATTR_DOMAIN_POINT;
@@ -157,7 +158,7 @@ static void set_position_in_component(GeometryComponent &component,
     return;
   }
 
-  fn::FieldEvaluator evaluator{field_context, domain_size};
+  fn::FieldEvaluator evaluator{field_context, domain_size, &allocator};
   evaluator.set_selection(selection_field);
   evaluator.add(position_field);
   evaluator.add(offset_field);
@@ -182,8 +183,11 @@ static void node_geo_exec(GeoNodeExecParams params)
                                            GEO_COMPONENT_TYPE_CURVE,
                                            GEO_COMPONENT_TYPE_INSTANCES}) {
     if (geometry.has(type)) {
-      set_position_in_component(
-          geometry.get_component_for_write(type), selection_field, position_field, offset_field);
+      set_position_in_component(geometry.get_component_for_write(type),
+                                selection_field,
+                                position_field,
+                                offset_field,
+                                params.allocator());
     }
   }
 

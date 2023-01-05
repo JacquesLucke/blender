@@ -24,7 +24,8 @@ static void node_declare(NodeDeclarationBuilder &b)
 static void geometry_set_points_to_vertices(
     GeometrySet &geometry_set,
     Field<bool> &selection_field,
-    const AnonymousAttributePropagationInfo &propagation_info)
+    const AnonymousAttributePropagationInfo &propagation_info,
+    LocalAllocator &allocator)
 {
   const PointCloud *points = geometry_set.get_pointcloud_for_read();
   if (points == nullptr) {
@@ -37,7 +38,7 @@ static void geometry_set_points_to_vertices(
   }
 
   bke::PointCloudFieldContext field_context{*points};
-  fn::FieldEvaluator selection_evaluator{field_context, points->totpoint};
+  fn::FieldEvaluator selection_evaluator{field_context, points->totpoint, &allocator};
   selection_evaluator.add(selection_field);
   selection_evaluator.evaluate();
   const IndexMask selection = selection_evaluator.get_evaluated_as_mask(0);
@@ -78,8 +79,10 @@ static void node_geo_exec(GeoNodeExecParams params)
   Field<bool> selection_field = params.extract_input<Field<bool>>("Selection");
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    geometry_set_points_to_vertices(
-        geometry_set, selection_field, params.get_output_propagation_info("Mesh"));
+    geometry_set_points_to_vertices(geometry_set,
+                                    selection_field,
+                                    params.get_output_propagation_info("Mesh"),
+                                    params.allocator().local());
   });
 
   params.set_output("Mesh", std::move(geometry_set));

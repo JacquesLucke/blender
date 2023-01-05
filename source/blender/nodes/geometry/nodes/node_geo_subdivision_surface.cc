@@ -124,14 +124,16 @@ static void node_geo_exec(GeoNodeExecParams params)
       return;
     }
 
+    LocalAllocator &allocator = params.allocator().local();
+
     bke::MeshFieldContext point_context{mesh, ATTR_DOMAIN_POINT};
-    FieldEvaluator point_evaluator(point_context, mesh.totvert);
+    FieldEvaluator point_evaluator(point_context, mesh.totvert, &allocator);
     point_evaluator.add(vertex_crease_field);
     point_evaluator.evaluate();
     const VArray<float> vertex_creases = point_evaluator.get_evaluated<float>(0);
 
     bke::MeshFieldContext edge_context{mesh, ATTR_DOMAIN_EDGE};
-    FieldEvaluator edge_evaluator(edge_context, mesh.totedge);
+    FieldEvaluator edge_evaluator(edge_context, mesh.totedge, &allocator);
     edge_evaluator.add(edge_crease_field);
     edge_evaluator.evaluate();
     const VArray<float> edge_creases = edge_evaluator.get_evaluated<float>(0);

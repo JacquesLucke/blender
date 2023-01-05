@@ -59,6 +59,7 @@ static void node_geo_exec(GeoNodeExecParams params)
                             GEO_NODE_DELETE_GEOMETRY_MODE_ALL,
                             selection,
                             propagation_info,
+                            params.allocator(),
                             is_error);
         }
         else {
@@ -68,6 +69,7 @@ static void node_geo_exec(GeoNodeExecParams params)
                               GEO_NODE_DELETE_GEOMETRY_MODE_ALL,
                               selection,
                               propagation_info,
+                              params.allocator().local(),
                               is_error);
           });
         }

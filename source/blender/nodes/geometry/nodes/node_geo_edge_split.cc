@@ -25,7 +25,8 @@ static void node_geo_exec(GeoNodeExecParams params)
     if (const Mesh *mesh = geometry_set.get_mesh_for_read()) {
 
       bke::MeshFieldContext field_context{*mesh, ATTR_DOMAIN_EDGE};
-      fn::FieldEvaluator selection_evaluator{field_context, mesh->totedge};
+      fn::FieldEvaluator selection_evaluator{
+          field_context, mesh->totedge, &params.allocator().local()};
       selection_evaluator.set_selection(selection_field);
       selection_evaluator.evaluate();
       const IndexMask mask = selection_evaluator.get_evaluated_selection_as_mask();

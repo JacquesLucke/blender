@@ -324,7 +324,8 @@ static void duplicate_curves(GeometrySet &geometry_set,
                              const Field<int> &count_field,
                              const Field<bool> &selection_field,
                              const IndexAttributes &attribute_outputs,
-                             const AnonymousAttributePropagationInfo &propagation_info)
+                             const AnonymousAttributePropagationInfo &propagation_info,
+                             LocalAllocator &allocator)
 {
   if (!geometry_set.has_curves()) {
     geometry_set.remove_geometry_during_modify();
@@ -337,7 +338,7 @@ static void duplicate_curves(GeometrySet &geometry_set,
   const bke::CurvesGeometry &curves = bke::CurvesGeometry::wrap(curves_id.geometry);
 
   bke::CurvesFieldContext field_context{curves, ATTR_DOMAIN_CURVE};
-  FieldEvaluator evaluator{field_context, curves.curves_num()};
+  FieldEvaluator evaluator{field_context, curves.curves_num(), &allocator};
   evaluator.add(count_field);
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
@@ -516,7 +517,8 @@ static void duplicate_faces(GeometrySet &geometry_set,
                             const Field<int> &count_field,
                             const Field<bool> &selection_field,
                             const IndexAttributes &attribute_outputs,
-                            const AnonymousAttributePropagationInfo &propagation_info)
+                            const AnonymousAttributePropagationInfo &propagation_info,
+                            LocalAllocator &allocator)
 {
   if (!geometry_set.has_mesh()) {
     geometry_set.remove_geometry_during_modify();
@@ -531,7 +533,7 @@ static void duplicate_faces(GeometrySet &geometry_set,
   const Span<MLoop> loops = mesh.loops();
 
   bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_FACE};
-  FieldEvaluator evaluator(field_context, polys.size());
+  FieldEvaluator evaluator(field_context, polys.size(), &allocator);
   evaluator.add(count_field);
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
@@ -718,7 +720,8 @@ static void duplicate_edges(GeometrySet &geometry_set,
                             const Field<int> &count_field,
                             const Field<bool> &selection_field,
                             const IndexAttributes &attribute_outputs,
-                            const AnonymousAttributePropagationInfo &propagation_info)
+                            const AnonymousAttributePropagationInfo &propagation_info,
+                            LocalAllocator &allocator)
 {
   if (!geometry_set.has_mesh()) {
     geometry_set.remove_geometry_during_modify();
@@ -728,7 +731,7 @@ static void duplicate_edges(GeometrySet &geometry_set,
   const Span<MEdge> edges = mesh.edges();
 
   bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_EDGE};
-  FieldEvaluator evaluator{field_context, edges.size()};
+  FieldEvaluator evaluator{field_context, edges.size(), &allocator};
   evaluator.add(count_field);
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
@@ -798,7 +801,8 @@ static void duplicate_points_curve(GeometrySet &geometry_set,
                                    const Field<int> &count_field,
                                    const Field<bool> &selection_field,
                                    const IndexAttributes &attribute_outputs,
-                                   const AnonymousAttributePropagationInfo &propagation_info)
+                                   const AnonymousAttributePropagationInfo &propagation_info,
+                                   LocalAllocator &allocator)
 {
   const Curves &src_curves_id = *geometry_set.get_curves_for_read();
   const bke::CurvesGeometry &src_curves = bke::CurvesGeometry::wrap(src_curves_id.geometry);
@@ -807,7 +811,7 @@ static void duplicate_points_curve(GeometrySet &geometry_set,
   }
 
   bke::CurvesFieldContext field_context{src_curves, ATTR_DOMAIN_POINT};
-  FieldEvaluator evaluator{field_context, src_curves.points_num()};
+  FieldEvaluator evaluator{field_context, src_curves.points_num(), &allocator};
   evaluator.add(count_field);
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
@@ -902,13 +906,14 @@ static void duplicate_points_mesh(GeometrySet &geometry_set,
                                   const Field<int> &count_field,
                                   const Field<bool> &selection_field,
                                   const IndexAttributes &attribute_outputs,
-                                  const AnonymousAttributePropagationInfo &propagation_info)
+                                  const AnonymousAttributePropagationInfo &propagation_info,
+                                  LocalAllocator &allocator)
 {
   const Mesh &mesh = *geometry_set.get_mesh_for_read();
   const Span<MVert> src_verts = mesh.verts();
 
   bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_POINT};
-  FieldEvaluator evaluator{field_context, src_verts.size()};
+  FieldEvaluator evaluator{field_context, src_verts.size(), &allocator};
   evaluator.add(count_field);
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
@@ -954,12 +959,13 @@ static void duplicate_points_pointcloud(GeometrySet &geometry_set,
                                         const Field<int> &count_field,
                                         const Field<bool> &selection_field,
                                         const IndexAttributes &attribute_outputs,
-                                        const AnonymousAttributePropagationInfo &propagation_info)
+                                        const AnonymousAttributePropagationInfo &propagation_info,
+                                        LocalAllocator &allocator)
 {
   const PointCloud &src_points = *geometry_set.get_pointcloud_for_read();
 
   bke::PointCloudFieldContext field_context{src_points};
-  FieldEvaluator evaluator{field_context, src_points.totpoint};
+  FieldEvaluator evaluator{field_context, src_points.totpoint, &allocator};
   evaluator.add(count_field);
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
@@ -1001,27 +1007,40 @@ static void duplicate_points(GeometrySet &geometry_set,
                              const Field<int> &count_field,
                              const Field<bool> &selection_field,
                              const IndexAttributes &attribute_outputs,
-                             const AnonymousAttributePropagationInfo &propagation_info)
+                             const AnonymousAttributePropagationInfo &propagation_info,
+                             LocalAllocator &allocator)
 {
   Vector<GeometryComponentType> component_types = geometry_set.gather_component_types(true, true);
   for (const GeometryComponentType component_type : component_types) {
     switch (component_type) {
       case GEO_COMPONENT_TYPE_POINT_CLOUD:
         if (geometry_set.has_pointcloud()) {
-          duplicate_points_pointcloud(
-              geometry_set, count_field, selection_field, attribute_outputs, propagation_info);
+          duplicate_points_pointcloud(geometry_set,
+                                      count_field,
+                                      selection_field,
+                                      attribute_outputs,
+                                      propagation_info,
+                                      allocator);
         }
         break;
       case GEO_COMPONENT_TYPE_MESH:
         if (geometry_set.has_mesh()) {
-          duplicate_points_mesh(
-              geometry_set, count_field, selection_field, attribute_outputs, propagation_info);
+          duplicate_points_mesh(geometry_set,
+                                count_field,
+                                selection_field,
+                                attribute_outputs,
+                                propagation_info,
+                                allocator);
         }
         break;
       case GEO_COMPONENT_TYPE_CURVE:
         if (geometry_set.has_curves()) {
-          duplicate_points_curve(
-              geometry_set, count_field, selection_field, attribute_outputs, propagation_info);
+          duplicate_points_curve(geometry_set,
+                                 count_field,
+                                 selection_field,
+                                 attribute_outputs,
+                                 propagation_info,
+                                 allocator);
         }
         break;
       default:
@@ -1042,7 +1061,8 @@ static void duplicate_instances(GeometrySet &geometry_set,
                                 const Field<int> &count_field,
                                 const Field<bool> &selection_field,
                                 const IndexAttributes &attribute_outputs,
-                                const AnonymousAttributePropagationInfo &propagation_info)
+                                const AnonymousAttributePropagationInfo &propagation_info,
+                                LocalAllocator &allocator)
 {
   if (!geometry_set.has_instances()) {
     geometry_set.clear();
@@ -1052,7 +1072,7 @@ static void duplicate_instances(GeometrySet &geometry_set,
   const bke::Instances &src_instances = *geometry_set.get_instances_for_read();
 
   bke::InstancesFieldContext field_context{src_instances};
-  FieldEvaluator evaluator{field_context, src_instances.instances_num()};
+  FieldEvaluator evaluator{field_context, src_instances.instances_num(), &allocator};
   evaluator.add(count_field);
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
@@ -1124,27 +1144,48 @@ static void node_geo_exec(GeoNodeExecParams params)
       "Geometry");
 
   if (duplicate_domain == ATTR_DOMAIN_INSTANCE) {
-    duplicate_instances(
-        geometry_set, count_field, selection_field, attribute_outputs, propagation_info);
+    duplicate_instances(geometry_set,
+                        count_field,
+                        selection_field,
+                        attribute_outputs,
+                        propagation_info,
+                        params.allocator());
   }
   else {
     geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
+      LocalAllocator &allocator = params.allocator().local();
       switch (duplicate_domain) {
         case ATTR_DOMAIN_CURVE:
-          duplicate_curves(
-              geometry_set, count_field, selection_field, attribute_outputs, propagation_info);
+          duplicate_curves(geometry_set,
+                           count_field,
+                           selection_field,
+                           attribute_outputs,
+                           propagation_info,
+                           allocator);
           break;
         case ATTR_DOMAIN_FACE:
-          duplicate_faces(
-              geometry_set, count_field, selection_field, attribute_outputs, propagation_info);
+          duplicate_faces(geometry_set,
+                          count_field,
+                          selection_field,
+                          attribute_outputs,
+                          propagation_info,
+                          allocator);
           break;
         case ATTR_DOMAIN_EDGE:
-          duplicate_edges(
-              geometry_set, count_field, selection_field, attribute_outputs, propagation_info);
+          duplicate_edges(geometry_set,
+                          count_field,
+                          selection_field,
+                          attribute_outputs,
+                          propagation_info,
+                          allocator);
           break;
         case ATTR_DOMAIN_POINT:
-          duplicate_points(
-              geometry_set, count_field, selection_field, attribute_outputs, propagation_info);
+          duplicate_points(geometry_set,
+                           count_field,
+                           selection_field,
+                           attribute_outputs,
+                           propagation_info,
+                           allocator);
           break;
         default:
           BLI_assert_unreachable();

@@ -307,14 +307,15 @@ static void copy_masked_polys_to_new_mesh(const Mesh &src_mesh,
 static void delete_curves_selection(GeometrySet &geometry_set,
                                     const Field<bool> &selection_field,
                                     const eAttrDomain selection_domain,
-                                    const bke::AnonymousAttributePropagationInfo &propagation_info)
+                                    const bke::AnonymousAttributePropagationInfo &propagation_info,
+                                    LocalAllocator &allocator)
 {
   const Curves &src_curves_id = *geometry_set.get_curves_for_read();
   const bke::CurvesGeometry &src_curves = bke::CurvesGeometry::wrap(src_curves_id.geometry);
 
   const int domain_size = src_curves.attributes().domain_size(selection_domain);
   bke::CurvesFieldContext field_context{src_curves, selection_domain};
-  fn::FieldEvaluator evaluator{field_context, domain_size};
+  fn::FieldEvaluator evaluator{field_context, domain_size, &allocator};
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
   const IndexMask selection = evaluator.get_evaluated_selection_as_mask();
@@ -341,12 +342,13 @@ static void delete_curves_selection(GeometrySet &geometry_set,
 static void separate_point_cloud_selection(
     GeometrySet &geometry_set,
     const Field<bool> &selection_field,
-    const AnonymousAttributePropagationInfo &propagation_info)
+    const AnonymousAttributePropagationInfo &propagation_info,
+    LocalAllocator &allocator)
 {
   const PointCloud &src_pointcloud = *geometry_set.get_pointcloud_for_read();
 
   bke::PointCloudFieldContext field_context{src_pointcloud};
-  fn::FieldEvaluator evaluator{field_context, src_pointcloud.totpoint};
+  fn::FieldEvaluator evaluator{field_context, src_pointcloud.totpoint, &allocator};
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
   const IndexMask selection = evaluator.get_evaluated_selection_as_mask();
@@ -374,12 +376,13 @@ static void separate_point_cloud_selection(
 
 static void delete_selected_instances(GeometrySet &geometry_set,
                                       const Field<bool> &selection_field,
-                                      const AnonymousAttributePropagationInfo &propagation_info)
+                                      const AnonymousAttributePropagationInfo &propagation_info,
+                                      LocalAllocator &allocator)
 {
   bke::Instances &instances = *geometry_set.get_instances_for_write();
   bke::InstancesFieldContext field_context{instances};
 
-  fn::FieldEvaluator evaluator{field_context, instances.instances_num()};
+  fn::FieldEvaluator evaluator{field_context, instances.instances_num(), &allocator};
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
   const IndexMask selection = evaluator.get_evaluated_selection_as_mask();
@@ -1096,6 +1099,7 @@ void separate_geometry(GeometrySet &geometry_set,
                        const GeometryNodeDeleteGeometryMode mode,
                        const Field<bool> &selection_field,
                        const AnonymousAttributePropagationInfo &propagation_info,
+                       LocalAllocator &allocator,
                        bool &r_is_error)
 {
   namespace file_ns = blender::nodes::node_geo_delete_geometry_cc;
@@ -1103,7 +1107,8 @@ void separate_geometry(GeometrySet &geometry_set,
   bool some_valid_domain = false;
   if (geometry_set.has_pointcloud()) {
     if (domain == ATTR_DOMAIN_POINT) {
-      file_ns::separate_point_cloud_selection(geometry_set, selection_field, propagation_info);
+      file_ns::separate_point_cloud_selection(
+          geometry_set, selection_field, propagation_info, allocator);
       some_valid_domain = true;
     }
   }
@@ -1116,14 +1121,18 @@ void separate_geometry(GeometrySet &geometry_set,
   }
   if (geometry_set.has_curves()) {
     if (ELEM(domain, ATTR_DOMAIN_POINT, ATTR_DOMAIN_CURVE)) {
-      file_ns::delete_curves_selection(
-          geometry_set, fn::invert_boolean_field(selection_field), domain, propagation_info);
+      file_ns::delete_curves_selection(geometry_set,
+                                       fn::invert_boolean_field(selection_field),
+                                       domain,
+                                       propagation_info,
+                                       allocator);
       some_valid_domain = true;
     }
   }
   if (geometry_set.has_instances()) {
     if (domain == ATTR_DOMAIN_INSTANCE) {
-      file_ns::delete_selected_instances(geometry_set, selection_field, propagation_info);
+      file_ns::delete_selected_instances(
+          geometry_set, selection_field, propagation_info, allocator);
       some_valid_domain = true;
     }
   }
@@ -1188,13 +1197,20 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   if (domain == ATTR_DOMAIN_INSTANCE) {
     bool is_error;
-    separate_geometry(geometry_set, domain, mode, selection, propagation_info, is_error);
+    separate_geometry(
+        geometry_set, domain, mode, selection, propagation_info, params.allocator(), is_error);
   }
   else {
     geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
       bool is_error;
       /* Invert here because we want to keep the things not in the selection. */
-      separate_geometry(geometry_set, domain, mode, selection, propagation_info, is_error);
+      separate_geometry(geometry_set,
+                        domain,
+                        mode,
+                        selection,
+                        propagation_info,
+                        params.allocator().local(),
+                        is_error);
     });
   }
 
