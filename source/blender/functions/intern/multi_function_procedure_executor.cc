@@ -171,7 +171,8 @@ class ValueAllocator : NonCopyable, NonMovable {
     this->deallocate_variable_values<VariableValue_OneVector>();
 
     for (void *buffer : small_span_buffers_free_list_) {
-      local_allocator_.deallocate(buffer, small_value_max_size, small_value_max_alignment);
+      local_allocator_.deallocate(
+          buffer, small_value_max_size * array_size_, small_value_max_alignment);
     }
     for (const auto item : span_buffers_free_lists_.items()) {
       const int element_size = item.key;
