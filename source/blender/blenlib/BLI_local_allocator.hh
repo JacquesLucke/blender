@@ -34,6 +34,7 @@ class LocalAllocatorPool : NonCopyable, NonMovable {
 class LocalAllocator : NonCopyable, NonMovable {
  private:
   static constexpr int64_t s_alignment = 64;
+  static constexpr int64_t s_global_allocation_threshold = 5 * 1024 * 1024;
   LocalAllocatorSet &owner_set_;
   AlignedBuffer<256, 64> initial_buffer_;
   LinearAllocator<> linear_allocator_;
@@ -186,8 +187,11 @@ inline void *LocalAllocator::allocate(LocalAllocatorPool &pool)
     buffer = pool.buffers.pop();
     BLI_asan_unpoison(buffer, pool.element_size);
   }
-  else {
+  else if (pool.element_size < s_global_allocation_threshold) {
     buffer = linear_allocator_.allocate(pool.element_size, pool.alignment);
+  }
+  else {
+    buffer = MEM_mallocN(pool.element_size, __func__);
   }
 
 #ifdef BLI_LOCAL_ALLOCATOR_DEBUG_SIZES
@@ -226,9 +230,13 @@ inline void LocalAllocator::deallocate(const void *buffer, LocalAllocatorPool &p
   memset(const_cast<void *>(buffer), -1, pool.element_size);
 #endif
 
-  BLI_asan_poison(buffer, pool.element_size);
-
-  pool.buffers.push(const_cast<void *>(buffer));
+  if (pool.element_size < s_global_allocation_threshold) {
+    BLI_asan_poison(buffer, pool.element_size);
+    pool.buffers.push(const_cast<void *>(buffer));
+  }
+  else {
+    MEM_freeN(const_cast<void *>(buffer));
+  }
 }
 
 inline LocalAllocatorPool &LocalAllocator::get_pool(const int64_t size, const int64_t alignment)
