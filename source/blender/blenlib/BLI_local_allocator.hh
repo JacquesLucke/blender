@@ -29,6 +29,12 @@ class LocalAllocator : NonCopyable, NonMovable {
     int64_t alignment = -1;
   };
 
+  struct Head {
+    int64_t buffer_size;
+    int64_t buffer_alignment;
+  };
+  static_assert(is_power_of_2_constexpr(sizeof(Head)));
+
   std::array<BufferStack, 8> small_stacks_;
   Map<int, BufferStack> large_stacks_;
 
@@ -41,20 +47,24 @@ class LocalAllocator : NonCopyable, NonMovable {
 
   bool is_local() const;
   LocalAllocator &local();
+  LocalAllocatorSet &owner_set();
 
-  void *allocate(const int64_t size, const int64_t alignment);
-  void deallocate(const void *buffer, const int64_t size, const int64_t alignment);
+  void *allocate(int64_t size, int64_t alignment);
+  void deallocate(const void *buffer, int64_t size, int64_t alignment);
+
+  void *allocate_with_head(int64_t size, int64_t alignment);
+  void deallocate_with_head(const void *buffer);
 
   template<typename T, typename... Args> T &allocate_new(Args &&...args);
   template<typename T, typename... Args> void destruct_free(const T *value);
-  template<typename T> MutableSpan<T> allocate_array(const int64_t size);
+  template<typename T> MutableSpan<T> allocate_array(int64_t size);
   template<typename T, typename... Args>
-  MutableSpan<T> allocate_new_array(const int64_t size, Args &&...args);
+  MutableSpan<T> allocate_new_array(int64_t size, Args &&...args);
   template<typename T> void destruct_free_array(Span<T> data);
   template<typename T> void destruct_free_array(MutableSpan<T> data);
 
  private:
-  BufferStack &get_buffer_stack(const int64_t size, const int64_t alignment);
+  BufferStack &get_buffer_stack(int64_t size, int64_t alignment);
 };
 
 class LocalAllocatorSet : NonCopyable, NonMovable {
@@ -68,6 +78,48 @@ class LocalAllocatorSet : NonCopyable, NonMovable {
   LocalAllocator &local();
 };
 
+class ThreadedLocalAllocatorRef {
+ private:
+  LocalAllocatorSet &allocator_set_;
+
+ public:
+  ThreadedLocalAllocatorRef(LocalAllocator &allocator) : allocator_set_(allocator.owner_set())
+  {
+  }
+
+  void *allocate(const size_t size, const size_t alignment, const char * /*name*/)
+  {
+    LocalAllocator &allocator = allocator_set_.local();
+    return allocator.allocate_with_head(size, alignment);
+  }
+
+  void deallocate(void *ptr)
+  {
+    LocalAllocator &allocator = allocator_set_.local();
+    allocator.deallocate_with_head(ptr);
+  }
+};
+
+class LocalAllocatorRef {
+ private:
+  LocalAllocator &allocator_;
+
+ public:
+  LocalAllocatorRef(LocalAllocator &allocator) : allocator_(allocator)
+  {
+  }
+
+  void *allocate(const size_t size, const size_t alignment, const char * /*name*/)
+  {
+    return allocator_.allocate_with_head(size, alignment);
+  }
+
+  void deallocate(void *ptr)
+  {
+    allocator_.deallocate_with_head(ptr);
+  }
+};
+
 inline bool LocalAllocator::is_local() const
 {
   return this == &owner_set_.local();
@@ -76,6 +128,11 @@ inline bool LocalAllocator::is_local() const
 inline LocalAllocator &LocalAllocator::local()
 {
   return owner_set_.local();
+}
+
+inline LocalAllocatorSet &LocalAllocator::owner_set()
+{
+  return owner_set_;
 }
 
 inline void *LocalAllocator::allocate(const int64_t size, const int64_t alignment)
@@ -136,6 +193,23 @@ inline LocalAllocator::BufferStack &LocalAllocator::get_buffer_stack(const int64
     buffer_stack.alignment = s_alignment;
     return buffer_stack;
   });
+}
+
+inline void *LocalAllocator::allocate_with_head(int64_t size, int64_t alignment)
+{
+  const int64_t buffer_size = size + std::max<int64_t>(alignment, sizeof(Head));
+  const int64_t buffer_alignment = std::max<int64_t>(alignment, alignof(Head));
+  void *buffer = this->allocate(buffer_size, buffer_alignment);
+  Head *head = new (buffer) Head;
+  head->buffer_size = buffer_size;
+  head->buffer_alignment = buffer_alignment;
+  return head + 1;
+}
+
+inline void LocalAllocator::deallocate_with_head(const void *buffer)
+{
+  const Head *head = static_cast<const Head *>(buffer) - 1;
+  this->deallocate(head, head->buffer_size, head->buffer_alignment);
 }
 
 template<typename T, typename... Args> inline T &LocalAllocator::allocate_new(Args &&...args)

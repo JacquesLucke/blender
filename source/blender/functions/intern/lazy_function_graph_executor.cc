@@ -444,9 +444,7 @@ class Executor {
 
     /* Used for a search through all nodes that outputs depend on. */
     Stack<const Node *, 100> reachable_nodes_to_check;
-    MutableSpan<bool> reachable_node_flags = allocator.allocate_new_array<bool>(all_nodes.size());
-    BLI_SCOPED_DEFER([&]() { allocator.destruct_free_array(reachable_node_flags); });
-    reachable_node_flags.fill(false);
+    Array<bool, 16, LocalAllocatorRef> reachable_node_flags{all_nodes.size(), false, allocator};
 
     /* Graph outputs are always reachable. */
     for (const InputSocket *socket : self_.graph_outputs_) {
