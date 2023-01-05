@@ -35,6 +35,7 @@ class LocalAllocator : NonCopyable, NonMovable {
  private:
   static constexpr int64_t s_alignment = 64;
   LocalAllocatorSet &owner_set_;
+  AlignedBuffer<256, 64> initial_buffer_;
   LinearAllocator<> linear_allocator_;
 
   struct Head {

@@ -13,6 +13,7 @@ LocalAllocatorSet::~LocalAllocatorSet() = default;
 
 LocalAllocator::LocalAllocator(LocalAllocatorSet &owner_set) : owner_set_(owner_set)
 {
+  linear_allocator_.provide_buffer(initial_buffer_);
   for (const int64_t i : IndexRange(small_buffer_pools_.size())) {
     LocalAllocatorPool &pool = small_buffer_pools_[i];
     pool.element_size = 8 * (i + 1);
