@@ -272,7 +272,9 @@ class Executor {
       for (const int node_index : range) {
         const Node &node = *self_.graph_.nodes()[node_index];
         NodeState &node_state = node_states_[node_index];
-        this->destruct_node_state(node, node_state, local_allocator);
+        if (!node_state.node_has_finished) {
+          this->destruct_node_state(node, node_state, local_allocator);
+        }
       }
     });
     allocator.destruct_free_array(node_states_);
@@ -559,7 +561,6 @@ class Executor {
     const Node &node = socket.node();
     const int index_in_node = socket.index();
     NodeState &node_state = node_states_[node.index_in_graph()];
-    OutputState &output_state = node_state.outputs[index_in_node];
 
     /* The notified output socket might be an input of the entire graph. In this case, notify the
      * caller that the input is required. */
@@ -584,6 +585,10 @@ class Executor {
 
     BLI_assert(node.is_function());
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
+      if (node_state.node_has_finished) {
+        return;
+      }
+      OutputState &output_state = node_state.outputs[index_in_node];
       if (output_state.usage == ValueUsage::Used) {
         return;
       }
@@ -597,9 +602,12 @@ class Executor {
     const Node &node = socket.node();
     const int index_in_node = socket.index();
     NodeState &node_state = node_states_[node.index_in_graph()];
-    OutputState &output_state = node_state.outputs[index_in_node];
 
     this->with_locked_node(node, node_state, current_task, [&](LockedNode &locked_node) {
+      if (node_state.node_has_finished) {
+        return;
+      }
+      OutputState &output_state = node_state.outputs[index_in_node];
       output_state.potential_target_sockets -= 1;
       if (output_state.potential_target_sockets == 0) {
         BLI_assert(output_state.usage != ValueUsage::Unused);
@@ -867,18 +875,9 @@ class Executor {
       if (input_state.usage == ValueUsage::Maybe) {
         this->set_input_unused(locked_node, input_socket, allocator);
       }
-      else if (input_state.usage == ValueUsage::Used) {
-        this->destruct_input_value_if_exists(input_state, input_socket.type(), allocator);
-      }
     }
 
-    if (node_state.storage != nullptr) {
-      if (node.is_function()) {
-        const FunctionNode &fn_node = static_cast<const FunctionNode &>(node);
-        fn_node.function().destruct_storage(node_state.storage, allocator);
-      }
-      node_state.storage = nullptr;
-    }
+    this->destruct_node_state(node, node_state, allocator);
   }
 
   void destruct_input_value_if_exists(InputState &input_state,
@@ -989,17 +988,7 @@ class Executor {
       const Node &target_node = target_socket->node();
       NodeState &node_state = node_states_[target_node.index_in_graph()];
       const int input_index = target_socket->index();
-      InputState &input_state = node_state.inputs[input_index];
       const bool is_last_target = target_socket == targets.last();
-#ifdef DEBUG
-      if (input_state.value != nullptr) {
-        if (self_.logger_ != nullptr) {
-          self_.logger_->dump_when_input_is_set_twice(*target_socket, from_socket, *context_);
-        }
-        BLI_assert_unreachable();
-      }
-#endif
-      BLI_assert(!input_state.was_ready_for_execution);
       BLI_assert(target_socket->type() == type);
       BLI_assert(target_socket->origin() == &from_socket);
 
@@ -1023,6 +1012,21 @@ class Executor {
         continue;
       }
       this->with_locked_node(target_node, node_state, current_task, [&](LockedNode &locked_node) {
+        if (node_state.node_has_finished) {
+          return;
+        }
+        InputState &input_state = node_state.inputs[input_index];
+
+#ifdef DEBUG
+        if (input_state.value != nullptr) {
+          if (self_.logger_ != nullptr) {
+            self_.logger_->dump_when_input_is_set_twice(*target_socket, from_socket, *context_);
+          }
+          BLI_assert_unreachable();
+        }
+#endif
+        BLI_assert(!input_state.was_ready_for_execution);
+
         if (input_state.usage == ValueUsage::Unused) {
           return;
         }
