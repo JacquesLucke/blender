@@ -334,6 +334,7 @@ class FieldEvaluator : NonMovable, NonCopyable {
   ResourceScope scope_;
   const FieldContext &context_;
   const IndexMask mask_;
+  LocalAllocator *allocator_ = nullptr;
   Vector<GField> fields_to_evaluate_;
   Vector<GVMutableArray> dst_varrays_;
   Vector<GVArray> evaluated_varrays_;
@@ -345,13 +346,18 @@ class FieldEvaluator : NonMovable, NonCopyable {
 
  public:
   /** Takes #mask by pointer because the mask has to live longer than the evaluator. */
-  FieldEvaluator(const FieldContext &context, const IndexMask *mask)
-      : context_(context), mask_(*mask)
+  FieldEvaluator(const FieldContext &context,
+                 const IndexMask *mask,
+                 LocalAllocator *allocator = nullptr)
+      : context_(context), mask_(*mask), allocator_(allocator)
   {
   }
 
   /** Construct a field evaluator for all indices less than #size. */
-  FieldEvaluator(const FieldContext &context, const int64_t size) : context_(context), mask_(size)
+  FieldEvaluator(const FieldContext &context,
+                 const int64_t size,
+                 LocalAllocator *allocator = nullptr)
+      : context_(context), mask_(size), allocator_(allocator)
   {
   }
 
@@ -474,6 +480,7 @@ class FieldEvaluator : NonMovable, NonCopyable {
  *   provided virtual arrays are returned.
  */
 Vector<GVArray> evaluate_fields(ResourceScope &scope,
+                                LocalAllocator *allocator,
                                 Span<GFieldRef> fields_to_evaluate,
                                 IndexMask mask,
                                 const FieldContext &context,

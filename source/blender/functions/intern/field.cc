@@ -277,6 +277,7 @@ static void build_multi_function_procedure_for_fields(MFProcedure &procedure,
 }
 
 Vector<GVArray> evaluate_fields(ResourceScope &scope,
+                                LocalAllocator *allocator,
                                 Span<GFieldRef> fields_to_evaluate,
                                 IndexMask mask,
                                 const FieldContext &context,
@@ -372,7 +373,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
     MFProcedureExecutor procedure_executor{procedure};
 
     MFParamsBuilder mf_params{procedure_executor, &mask};
-    MFContextBuilder mf_context;
+    MFContextBuilder mf_context{allocator};
 
     /* Provide inputs to the procedure executor. */
     for (const GVArray &varray : field_context_inputs) {
@@ -423,7 +424,7 @@ Vector<GVArray> evaluate_fields(ResourceScope &scope,
         procedure, scope, field_tree_info, constant_fields_to_evaluate);
     MFProcedureExecutor procedure_executor{procedure};
     MFParamsBuilder mf_params{procedure_executor, 1};
-    MFContextBuilder mf_context;
+    MFContextBuilder mf_context{allocator};
 
     /* Provide inputs to the procedure executor. */
     for (const GVArray &varray : field_context_inputs) {
@@ -500,7 +501,7 @@ void evaluate_constant_field(const GField &field, void *r_value)
 
   ResourceScope scope;
   FieldContext context;
-  Vector<GVArray> varrays = evaluate_fields(scope, {field}, IndexRange(1), context);
+  Vector<GVArray> varrays = evaluate_fields(scope, nullptr, {field}, IndexRange(1), context);
   varrays[0].get_to_uninitialized(0, r_value);
 }
 
@@ -771,11 +772,12 @@ int FieldEvaluator::add(GField field)
 static IndexMask evaluate_selection(const Field<bool> &selection_field,
                                     const FieldContext &context,
                                     IndexMask full_mask,
-                                    ResourceScope &scope)
+                                    ResourceScope &scope,
+                                    LocalAllocator *allocator)
 {
   if (selection_field) {
     VArray<bool> selection =
-        evaluate_fields(scope, {selection_field}, full_mask, context)[0].typed<bool>();
+        evaluate_fields(scope, allocator, {selection_field}, full_mask, context)[0].typed<bool>();
     return index_mask_from_selection(full_mask, selection, scope);
   }
   return full_mask;
@@ -785,13 +787,14 @@ void FieldEvaluator::evaluate()
 {
   BLI_assert_msg(!is_evaluated_, "Cannot evaluate fields twice.");
 
-  selection_mask_ = evaluate_selection(selection_field_, context_, mask_, scope_);
+  selection_mask_ = evaluate_selection(selection_field_, context_, mask_, scope_, allocator_);
 
   Array<GFieldRef> fields(fields_to_evaluate_.size());
   for (const int i : fields_to_evaluate_.index_range()) {
     fields[i] = fields_to_evaluate_[i];
   }
-  evaluated_varrays_ = evaluate_fields(scope_, fields, selection_mask_, context_, dst_varrays_);
+  evaluated_varrays_ = evaluate_fields(
+      scope_, allocator_, fields, selection_mask_, context_, dst_varrays_);
   BLI_assert(fields_to_evaluate_.size() == evaluated_varrays_.size());
   for (const int i : fields_to_evaluate_.index_range()) {
     OutputPointerInfo &info = output_pointer_infos_[i];

@@ -152,7 +152,7 @@ inline LocalAllocatorSet &LocalAllocator::owner_set()
   return owner_set_;
 }
 
-BLI_NOINLINE inline void *LocalAllocator::allocate(const int64_t size, const int64_t alignment)
+inline void *LocalAllocator::allocate(const int64_t size, const int64_t alignment)
 {
   LocalAllocatorPool &pool = this->get_pool(size, alignment);
   BLI_assert(pool.element_size >= size);
@@ -161,9 +161,9 @@ BLI_NOINLINE inline void *LocalAllocator::allocate(const int64_t size, const int
   return this->allocate(pool);
 }
 
-BLI_NOINLINE inline void LocalAllocator::deallocate(const void *buffer,
-                                                    const int64_t size,
-                                                    const int64_t alignment)
+inline void LocalAllocator::deallocate(const void *buffer,
+                                       const int64_t size,
+                                       const int64_t alignment)
 {
   LocalAllocatorPool &pool = this->get_pool(size, alignment);
   BLI_assert(pool.element_size >= size);

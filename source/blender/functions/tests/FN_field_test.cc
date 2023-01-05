@@ -263,7 +263,7 @@ TEST(field, SameFieldTwice)
   IndexMask mask{IndexRange(2)};
   ResourceScope scope;
   Vector<GVArray> results = evaluate_fields(
-      scope, {constant_field, constant_field}, mask, field_context);
+      scope, nullptr, {constant_field, constant_field}, mask, field_context);
 
   VArray<int> varray1 = results[0].typed<int>();
   VArray<int> varray2 = results[1].typed<int>();
