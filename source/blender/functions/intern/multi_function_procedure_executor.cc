@@ -140,7 +140,7 @@ class ValueAllocator : NonCopyable, NonMovable {
    * Use stacks so that the most recently used buffers are reused first. This improves cache
    * efficiency.
    */
-  std::array<Vector<VariableValue *>, tot_variable_value_types> variable_value_free_lists_;
+  std::array<LocalAllocatorPool *, tot_variable_value_types> variable_value_free_lists_;
 
   /**
    * The integer key is the size of one element (e.g. 4 for an integer buffer). All buffers are
@@ -159,17 +159,22 @@ class ValueAllocator : NonCopyable, NonMovable {
   ValueAllocator(LocalAllocator &local_allocator, const int array_size)
       : local_allocator_(local_allocator), array_size_(array_size)
   {
+    this->prepare_variable_value_pool<VariableValue_GVArray>();
+    this->prepare_variable_value_pool<VariableValue_Span>();
+    this->prepare_variable_value_pool<VariableValue_GVVectorArray>();
+    this->prepare_variable_value_pool<VariableValue_GVectorArray>();
+    this->prepare_variable_value_pool<VariableValue_OneSingle>();
+    this->prepare_variable_value_pool<VariableValue_OneVector>();
+  }
+
+  template<typename T> void prepare_variable_value_pool()
+  {
+    variable_value_free_lists_[int(T::static_type)] = &local_allocator_.get_pool(sizeof(T),
+                                                                                 alignof(T));
   }
 
   ~ValueAllocator()
   {
-    this->deallocate_variable_values<VariableValue_GVArray>();
-    this->deallocate_variable_values<VariableValue_Span>();
-    this->deallocate_variable_values<VariableValue_GVVectorArray>();
-    this->deallocate_variable_values<VariableValue_GVectorArray>();
-    this->deallocate_variable_values<VariableValue_OneSingle>();
-    this->deallocate_variable_values<VariableValue_OneVector>();
-
     for (void *buffer : small_span_buffers_free_list_) {
       local_allocator_.deallocate(
           buffer, small_value_max_size * array_size_, small_value_max_alignment);
@@ -189,13 +194,6 @@ class ValueAllocator : NonCopyable, NonMovable {
       for (const void *buffer : item.value) {
         local_allocator_.deallocate(buffer, type.size(), type.alignment());
       }
-    }
-  }
-
-  template<typename T> void deallocate_variable_values()
-  {
-    for (VariableValue *value : variable_value_free_lists_[int(T::static_type)]) {
-      local_allocator_.deallocate(value, sizeof(T), alignof(T));
     }
   }
 
@@ -331,20 +329,16 @@ class ValueAllocator : NonCopyable, NonMovable {
       }
     }
 
-    Vector<VariableValue *> &stack = variable_value_free_lists_[int(value->type)];
-    stack.append(value);
+    local_allocator_.deallocate(value, *variable_value_free_lists_[int(value->type)]);
   }
 
  private:
   template<typename T, typename... Args> T *obtain(Args &&...args)
   {
     static_assert(std::is_base_of_v<VariableValue, T>);
-    Vector<VariableValue *> &stack = variable_value_free_lists_[int(T::static_type)];
-    if (stack.is_empty()) {
-      void *buffer = local_allocator_.allocate(sizeof(T), alignof(T));
-      return new (buffer) T(std::forward<Args>(args)...);
-    }
-    return new (stack.pop_last()) T(std::forward<Args>(args)...);
+    void *buffer = static_cast<T *>(
+        local_allocator_.allocate(*variable_value_free_lists_[int(T::static_type)]));
+    return new (buffer) T(std::forward<Args>(args)...);
   }
 };
 
