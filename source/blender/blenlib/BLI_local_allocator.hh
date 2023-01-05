@@ -13,6 +13,9 @@
 #include "BLI_utility_mixins.hh"
 #include "BLI_vector.hh"
 
+// #define BLI_LOCAL_ALLOCATOR_USE_GUARDED
+// #define BLI_LOCAL_ALLOCATOR_DEBUG_SIZES
+
 namespace blender {
 
 class LocalAllocatorSet;
@@ -70,6 +73,13 @@ class LocalAllocator : NonCopyable, NonMovable {
 class LocalAllocatorSet : NonCopyable, NonMovable {
  private:
   threading::EnumerableThreadSpecific<LocalAllocator> allocator_by_thread_;
+
+#ifdef BLI_LOCAL_ALLOCATOR_DEBUG_SIZES
+  std::mutex debug_sizes_mutex_;
+  Map<const void *, std::pair<int64_t, int64_t>> debug_sizes_;
+#endif
+
+  friend LocalAllocator;
 
  public:
   LocalAllocatorSet();
@@ -143,6 +153,10 @@ inline void *LocalAllocator::allocate(const int64_t size, const int64_t alignmen
   BLI_assert(is_power_of_2_i(alignment));
   BLI_assert(this->is_local());
 
+#ifdef BLI_LOCAL_ALLOCATOR_USE_GUARDED
+  return MEM_mallocN_aligned(size, alignment, __func__);
+#endif
+
   BufferStack &buffer_stack = this->get_buffer_stack(size, alignment);
   BLI_assert(buffer_stack.element_size >= size);
   BLI_assert(buffer_stack.alignment >= alignment);
@@ -155,6 +169,14 @@ inline void *LocalAllocator::allocate(const int64_t size, const int64_t alignmen
   else {
     buffer = linear_allocator_.allocate(buffer_stack.element_size, buffer_stack.alignment);
   }
+
+#ifdef BLI_LOCAL_ALLOCATOR_DEBUG_SIZES
+  {
+    std::lock_guard lock{owner_set_.debug_sizes_mutex_};
+    owner_set_.debug_sizes_.add_new(buffer, {size, alignment});
+  }
+#endif
+
   return buffer;
 }
 
@@ -167,6 +189,25 @@ inline void LocalAllocator::deallocate(const void *buffer,
   BLI_assert(alignment <= s_alignment);
   BLI_assert(is_power_of_2_i(alignment));
   BLI_assert(this->is_local());
+
+#ifdef BLI_LOCAL_ALLOCATOR_USE_GUARDED
+  MEM_freeN(const_cast<void *>(buffer));
+  UNUSED_VARS_NDEBUG(size, alignment);
+  return;
+#endif
+
+#ifdef BLI_LOCAL_ALLOCATOR_DEBUG_SIZES
+  {
+    std::lock_guard lock{owner_set_.debug_sizes_mutex_};
+    auto [last_size, last_alignment] = owner_set_.debug_sizes_.pop(buffer);
+    if (last_size != size) {
+      BLI_assert_unreachable();
+    }
+    if (last_alignment != alignment) {
+      BLI_assert_unreachable();
+    }
+  }
+#endif
 
 #ifdef DEBUG
   memset(const_cast<void *>(buffer), -1, size);
