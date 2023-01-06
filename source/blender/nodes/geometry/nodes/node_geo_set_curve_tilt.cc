@@ -16,8 +16,7 @@ static void node_declare(NodeDeclarationBuilder &b)
 
 static void set_tilt(bke::CurvesGeometry &curves,
                      const Field<bool> &selection_field,
-                     const Field<float> &tilt_field,
-                     LocalAllocator &allocator)
+                     const Field<float> &tilt_field)
 {
   if (curves.points_num() == 0) {
     return;
@@ -27,7 +26,7 @@ static void set_tilt(bke::CurvesGeometry &curves,
                                                                            ATTR_DOMAIN_POINT);
 
   bke::CurvesFieldContext field_context{curves, ATTR_DOMAIN_POINT};
-  fn::FieldEvaluator evaluator{field_context, curves.points_num(), &allocator};
+  fn::FieldEvaluator evaluator{field_context, curves.points_num()};
   evaluator.set_selection(selection_field);
   evaluator.add_with_destination(tilt_field, tilts.varray);
   evaluator.evaluate();
@@ -43,10 +42,7 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     if (Curves *curves_id = geometry_set.get_curves_for_write()) {
-      set_tilt(bke::CurvesGeometry::wrap(curves_id->geometry),
-               selection_field,
-               tilt_field,
-               params.allocator().local());
+      set_tilt(bke::CurvesGeometry::wrap(curves_id->geometry), selection_field, tilt_field);
     }
   });
 

@@ -200,14 +200,13 @@ static Array<Vector<int>> create_vert_to_edge_map(const int vert_size,
 static void extrude_mesh_vertices(Mesh &mesh,
                                   const Field<bool> &selection_field,
                                   const Field<float3> &offset_field,
-                                  const AttributeOutputs &attribute_outputs,
-                                  LocalAllocator &allocator)
+                                  const AttributeOutputs &attribute_outputs)
 {
   const int orig_vert_size = mesh.totvert;
   const int orig_edge_size = mesh.totedge;
 
   const bke::MeshFieldContext context{mesh, ATTR_DOMAIN_POINT};
-  FieldEvaluator evaluator{context, mesh.totvert, &allocator};
+  FieldEvaluator evaluator{context, mesh.totvert};
   evaluator.add(offset_field);
   evaluator.set_selection(selection_field);
   evaluator.evaluate();
@@ -369,8 +368,7 @@ static VectorSet<int> vert_indices_from_edges(const Mesh &mesh, const Span<T> ed
 static void extrude_mesh_edges(Mesh &mesh,
                                const Field<bool> &selection_field,
                                const Field<float3> &offset_field,
-                               const AttributeOutputs &attribute_outputs,
-                               LocalAllocator &allocator)
+                               const AttributeOutputs &attribute_outputs)
 {
   const int orig_vert_size = mesh.totvert;
   const Span<MEdge> orig_edges = mesh.edges();
@@ -378,7 +376,7 @@ static void extrude_mesh_edges(Mesh &mesh,
   const int orig_loop_size = mesh.totloop;
 
   const bke::MeshFieldContext edge_context{mesh, ATTR_DOMAIN_EDGE};
-  FieldEvaluator edge_evaluator{edge_context, mesh.totedge, &allocator};
+  FieldEvaluator edge_evaluator{edge_context, mesh.totedge};
   edge_evaluator.set_selection(selection_field);
   edge_evaluator.add(offset_field);
   edge_evaluator.evaluate();
@@ -649,8 +647,7 @@ static void extrude_mesh_edges(Mesh &mesh,
 static void extrude_mesh_face_regions(Mesh &mesh,
                                       const Field<bool> &selection_field,
                                       const Field<float3> &offset_field,
-                                      const AttributeOutputs &attribute_outputs,
-                                      LocalAllocator &allocator)
+                                      const AttributeOutputs &attribute_outputs)
 {
   const int orig_vert_size = mesh.totvert;
   const Span<MEdge> orig_edges = mesh.edges();
@@ -658,7 +655,7 @@ static void extrude_mesh_face_regions(Mesh &mesh,
   const Span<MLoop> orig_loops = mesh.loops();
 
   const bke::MeshFieldContext poly_context{mesh, ATTR_DOMAIN_FACE};
-  FieldEvaluator poly_evaluator{poly_context, mesh.totpoly, &allocator};
+  FieldEvaluator poly_evaluator{poly_context, mesh.totpoly};
   poly_evaluator.set_selection(selection_field);
   poly_evaluator.add(offset_field);
   poly_evaluator.evaluate();
@@ -1053,8 +1050,7 @@ static IndexRange selected_corner_range(Span<int> offsets, const int index)
 static void extrude_individual_mesh_faces(Mesh &mesh,
                                           const Field<bool> &selection_field,
                                           const Field<float3> &offset_field,
-                                          const AttributeOutputs &attribute_outputs,
-                                          LocalAllocator &allocator)
+                                          const AttributeOutputs &attribute_outputs)
 {
   const int orig_vert_size = mesh.totvert;
   const int orig_edge_size = mesh.totedge;
@@ -1065,7 +1061,7 @@ static void extrude_individual_mesh_faces(Mesh &mesh,
    * the vertices are moved, and the evaluated result might reference an attribute. */
   Array<float3> poly_offset(orig_polys.size());
   const bke::MeshFieldContext poly_context{mesh, ATTR_DOMAIN_FACE};
-  FieldEvaluator poly_evaluator{poly_context, mesh.totpoly, &allocator};
+  FieldEvaluator poly_evaluator{poly_context, mesh.totpoly};
   poly_evaluator.set_selection(selection_field);
   poly_evaluator.add_with_destination(offset_field, poly_offset.as_mutable_span());
   poly_evaluator.evaluate();
@@ -1346,22 +1342,19 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
     if (Mesh *mesh = geometry_set.get_mesh_for_write()) {
-      LocalAllocator &allocator = params.allocator().local();
       switch (mode) {
         case GEO_NODE_EXTRUDE_MESH_VERTICES:
-          extrude_mesh_vertices(*mesh, selection, final_offset, attribute_outputs, allocator);
+          extrude_mesh_vertices(*mesh, selection, final_offset, attribute_outputs);
           break;
         case GEO_NODE_EXTRUDE_MESH_EDGES:
-          extrude_mesh_edges(*mesh, selection, final_offset, attribute_outputs, allocator);
+          extrude_mesh_edges(*mesh, selection, final_offset, attribute_outputs);
           break;
         case GEO_NODE_EXTRUDE_MESH_FACES: {
           if (extrude_individual) {
-            extrude_individual_mesh_faces(
-                *mesh, selection, final_offset, attribute_outputs, allocator);
+            extrude_individual_mesh_faces(*mesh, selection, final_offset, attribute_outputs);
           }
           else {
-            extrude_mesh_face_regions(
-                *mesh, selection, final_offset, attribute_outputs, allocator);
+            extrude_mesh_face_regions(*mesh, selection, final_offset, attribute_outputs);
           }
           break;
         }

@@ -73,7 +73,6 @@ void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context
 
   threading::parallel_for(mask.index_range(), grain_size, [&](const IndexRange sub_range) {
     const IndexMask sliced_mask = mask.slice(sub_range);
-    MFContextBuilder sub_context{&context.allocator().local()};
     if (!hints.allocates_array) {
       /* There is no benefit to changing indices in this case. */
       this->call(sliced_mask, params, context);
@@ -81,7 +80,7 @@ void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context
     }
     if (sliced_mask[0] < grain_size) {
       /* The indices are low, no need to offset them. */
-      this->call(sliced_mask, params, sub_context);
+      this->call(sliced_mask, params, context);
       return;
     }
     const int64_t input_slice_start = sliced_mask[0];
@@ -128,7 +127,7 @@ void MultiFunction::call_auto(IndexMask mask, MFParams params, MFContext context
       }
     }
 
-    this->call(offset_mask, offset_params, sub_context);
+    this->call(offset_mask, offset_params, context);
   });
 }
 

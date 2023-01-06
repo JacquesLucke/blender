@@ -147,8 +147,7 @@ static void node_geo_exec(GeoNodeExecParams params)
     if (geometry_set.has_instances()) {
       GeometryComponent &component = geometry_set.get_component_for_write(
           GEO_COMPONENT_TYPE_INSTANCES);
-      if (!bke::try_capture_field_on_geometry(
-              component, name, domain, field, &params.allocator())) {
+      if (!bke::try_capture_field_on_geometry(component, name, domain, field)) {
         if (component.attribute_domain_size(domain) != 0) {
           failure.store(true);
         }
@@ -161,8 +160,7 @@ static void node_geo_exec(GeoNodeExecParams params)
            {GEO_COMPONENT_TYPE_MESH, GEO_COMPONENT_TYPE_POINT_CLOUD, GEO_COMPONENT_TYPE_CURVE}) {
         if (geometry_set.has(type)) {
           GeometryComponent &component = geometry_set.get_component_for_write(type);
-          if (!bke::try_capture_field_on_geometry(
-                  component, name, domain, field, &params.allocator().local())) {
+          if (!bke::try_capture_field_on_geometry(component, name, domain, field)) {
             if (component.attribute_domain_size(domain) != 0) {
               failure.store(true);
             }

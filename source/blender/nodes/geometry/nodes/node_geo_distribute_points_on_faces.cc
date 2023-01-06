@@ -385,15 +385,14 @@ BLI_NOINLINE static void compute_attribute_outputs(const Mesh &mesh,
 
 static Array<float> calc_full_density_factors_with_selection(const Mesh &mesh,
                                                              const Field<float> &density_field,
-                                                             const Field<bool> &selection_field,
-                                                             LocalAllocator &allocator)
+                                                             const Field<bool> &selection_field)
 {
   const eAttrDomain domain = ATTR_DOMAIN_CORNER;
   const int domain_size = mesh.attributes().domain_size(domain);
   Array<float> densities(domain_size, 0.0f);
 
   bke::MeshFieldContext field_context{mesh, domain};
-  fn::FieldEvaluator evaluator{field_context, domain_size, &allocator};
+  fn::FieldEvaluator evaluator{field_context, domain_size};
   evaluator.set_selection(selection_field);
   evaluator.add_with_destination(density_field, densities.as_mutable_span());
   evaluator.evaluate();
@@ -404,13 +403,12 @@ static void distribute_points_random(const Mesh &mesh,
                                      const Field<float> &density_field,
                                      const Field<bool> &selection_field,
                                      const int seed,
-                                     LocalAllocator &allocator,
                                      Vector<float3> &positions,
                                      Vector<float3> &bary_coords,
                                      Vector<int> &looptri_indices)
 {
   const Array<float> densities = calc_full_density_factors_with_selection(
-      mesh, density_field, selection_field, allocator);
+      mesh, density_field, selection_field);
   sample_mesh_surface(mesh, 1.0f, densities, seed, positions, bary_coords, looptri_indices);
 }
 
@@ -420,7 +418,6 @@ static void distribute_points_poisson_disk(const Mesh &mesh,
                                            const Field<float> &density_factor_field,
                                            const Field<bool> &selection_field,
                                            const int seed,
-                                           LocalAllocator &allocator,
                                            Vector<float3> &positions,
                                            Vector<float3> &bary_coords,
                                            Vector<int> &looptri_indices)
@@ -431,7 +428,7 @@ static void distribute_points_poisson_disk(const Mesh &mesh,
   update_elimination_mask_for_close_points(positions, minimum_distance, elimination_mask);
 
   const Array<float> density_factors = calc_full_density_factors_with_selection(
-      mesh, density_factor_field, selection_field, allocator);
+      mesh, density_factor_field, selection_field);
 
   update_elimination_mask_based_on_density_factors(
       mesh, density_factors, bary_coords, looptri_indices, elimination_mask.as_mutable_span());
@@ -445,8 +442,7 @@ static void point_distribution_calculate(GeometrySet &geometry_set,
                                          const GeometryNodeDistributePointsOnFacesMode method,
                                          const int seed,
                                          const AttributeOutputs &attribute_outputs,
-                                         const GeoNodeExecParams &params,
-                                         LocalAllocator &allocator)
+                                         const GeoNodeExecParams &params)
 {
   if (!geometry_set.has_mesh()) {
     return;
@@ -461,14 +457,8 @@ static void point_distribution_calculate(GeometrySet &geometry_set,
   switch (method) {
     case GEO_NODE_POINT_DISTRIBUTE_POINTS_ON_FACES_RANDOM: {
       const Field<float> density_field = params.get_input<Field<float>>("Density");
-      distribute_points_random(mesh,
-                               density_field,
-                               selection_field,
-                               seed,
-                               allocator,
-                               positions,
-                               bary_coords,
-                               looptri_indices);
+      distribute_points_random(
+          mesh, density_field, selection_field, seed, positions, bary_coords, looptri_indices);
       break;
     }
     case GEO_NODE_POINT_DISTRIBUTE_POINTS_ON_FACES_POISSON: {
@@ -481,7 +471,6 @@ static void point_distribution_calculate(GeometrySet &geometry_set,
                                      density_factors_field,
                                      selection_field,
                                      seed,
-                                     allocator,
                                      positions,
                                      bary_coords,
                                      looptri_indices);
@@ -538,13 +527,8 @@ static void node_geo_exec(GeoNodeExecParams params)
   lazy_threading::send_hint();
 
   geometry_set.modify_geometry_sets([&](GeometrySet &geometry_set) {
-    point_distribution_calculate(geometry_set,
-                                 selection_field,
-                                 method,
-                                 seed,
-                                 attribute_outputs,
-                                 params,
-                                 params.allocator().local());
+    point_distribution_calculate(
+        geometry_set, selection_field, method, seed, attribute_outputs, params);
     /* Keep instances because the original geometry set may contain instances that are processed as
      * well. */
     geometry_set.keep_only_during_modify({GEO_COMPONENT_TYPE_POINT_CLOUD});

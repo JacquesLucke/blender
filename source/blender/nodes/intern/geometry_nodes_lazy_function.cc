@@ -304,7 +304,6 @@ class LazyFunctionForUndefinedNode : public LazyFunction {
  * values. If any input is a field, the outputs will also be fields.
  */
 static void execute_multi_function_on_value_or_field(
-    LocalAllocator &allocator,
     const MultiFunction &fn,
     const std::shared_ptr<MultiFunction> &owned_fn,
     const Span<const ValueOrFieldCPPType *> input_types,
@@ -355,7 +354,7 @@ static void execute_multi_function_on_value_or_field(
   else {
     /* In this case, the multi-function is evaluated directly. */
     MFParamsBuilder params{fn, 1};
-    MFContextBuilder context{&allocator};
+    MFContextBuilder context;
 
     for (const int i : input_types.index_range()) {
       const ValueOrFieldCPPType &type = *input_types[i];
@@ -413,7 +412,7 @@ class LazyFunctionForMutedNode : public LazyFunction {
     }
   }
 
-  void execute_impl(lf::Params &params, const lf::Context &context) const override
+  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
   {
     for (const int output_i : outputs_.index_range()) {
       if (params.output_was_set(output_i)) {
@@ -447,13 +446,8 @@ class LazyFunctionForMutedNode : public LazyFunction {
         if (conversions.is_convertible(from_type->value, to_type->value)) {
           const MultiFunction &multi_fn = *conversions.get_conversion_multi_function(
               MFDataType::ForSingle(from_type->value), MFDataType::ForSingle(to_type->value));
-          execute_multi_function_on_value_or_field(*context.allocator,
-                                                   multi_fn,
-                                                   {},
-                                                   {from_type},
-                                                   {to_type},
-                                                   {input_value},
-                                                   {output_value});
+          execute_multi_function_on_value_or_field(
+              multi_fn, {}, {from_type}, {to_type}, {input_value}, {output_value});
         }
         params.output_set(output_i);
         continue;
@@ -486,7 +480,7 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
     outputs_.append({"To", to.self});
   }
 
-  void execute_impl(lf::Params &params, const lf::Context &context) const override
+  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
   {
     const void *from_value = params.try_get_input_data_ptr(0);
     void *to_value = params.get_output_data_ptr(0);
@@ -494,7 +488,7 @@ class LazyFunctionForMultiFunctionConversion : public LazyFunction {
     BLI_assert(to_value != nullptr);
 
     execute_multi_function_on_value_or_field(
-        *context.allocator, fn_, {}, {&from_type_}, {&to_type_}, {from_value}, {to_value});
+        fn_, {}, {&from_type_}, {&to_type_}, {from_value}, {to_value});
 
     params.output_set(0);
   }
@@ -527,7 +521,7 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     }
   }
 
-  void execute_impl(lf::Params &params, const lf::Context &context) const override
+  void execute_impl(lf::Params &params, const lf::Context & /*context*/) const override
   {
     Vector<const void *> input_values(inputs_.size());
     Vector<void *> output_values(outputs_.size());
@@ -537,13 +531,8 @@ class LazyFunctionForMultiFunctionNode : public LazyFunction {
     for (const int i : outputs_.index_range()) {
       output_values[i] = params.get_output_data_ptr(i);
     }
-    execute_multi_function_on_value_or_field(*context.allocator,
-                                             *fn_item_.fn,
-                                             fn_item_.owned_fn,
-                                             input_types_,
-                                             output_types_,
-                                             input_values,
-                                             output_values);
+    execute_multi_function_on_value_or_field(
+        *fn_item_.fn, fn_item_.owned_fn, input_types_, output_types_, input_values, output_values);
     for (const int i : outputs_.index_range()) {
       params.output_set(i);
     }

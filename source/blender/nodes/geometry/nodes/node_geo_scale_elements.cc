@@ -307,12 +307,10 @@ static AxisScaleParams evaluate_axis_scale_fields(FieldEvaluator &evaluator,
   return out;
 }
 
-static void scale_faces_on_axis(Mesh &mesh,
-                                const AxisScaleFields &fields,
-                                LocalAllocator &allocator)
+static void scale_faces_on_axis(Mesh &mesh, const AxisScaleFields &fields)
 {
   bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_FACE};
-  FieldEvaluator evaluator{field_context, mesh.totpoly, &allocator};
+  FieldEvaluator evaluator{field_context, mesh.totpoly};
   AxisScaleParams params = evaluate_axis_scale_fields(evaluator, fields);
 
   Vector<ElementIsland> island = prepare_face_islands(mesh, params.selection);
@@ -331,12 +329,10 @@ static UniformScaleParams evaluate_uniform_scale_fields(FieldEvaluator &evaluato
   return out;
 }
 
-static void scale_faces_uniformly(Mesh &mesh,
-                                  const UniformScaleFields &fields,
-                                  LocalAllocator &allocator)
+static void scale_faces_uniformly(Mesh &mesh, const UniformScaleFields &fields)
 {
   bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_FACE};
-  FieldEvaluator evaluator{field_context, mesh.totpoly, &allocator};
+  FieldEvaluator evaluator{field_context, mesh.totpoly};
   UniformScaleParams params = evaluate_uniform_scale_fields(evaluator, fields);
 
   Vector<ElementIsland> island = prepare_face_islands(mesh, params.selection);
@@ -385,24 +381,20 @@ static void get_edge_verts(const Span<MEdge> edges,
   r_vertex_indices.add(edge.v2);
 }
 
-static void scale_edges_uniformly(Mesh &mesh,
-                                  const UniformScaleFields &fields,
-                                  LocalAllocator &allocator)
+static void scale_edges_uniformly(Mesh &mesh, const UniformScaleFields &fields)
 {
   bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_EDGE};
-  FieldEvaluator evaluator{field_context, mesh.totedge, &allocator};
+  FieldEvaluator evaluator{field_context, mesh.totedge};
   UniformScaleParams params = evaluate_uniform_scale_fields(evaluator, fields);
 
   Vector<ElementIsland> island = prepare_edge_islands(mesh, params.selection);
   scale_vertex_islands_uniformly(mesh, island, params, get_edge_verts);
 }
 
-static void scale_edges_on_axis(Mesh &mesh,
-                                const AxisScaleFields &fields,
-                                LocalAllocator &allocator)
+static void scale_edges_on_axis(Mesh &mesh, const AxisScaleFields &fields)
 {
   bke::MeshFieldContext field_context{mesh, ATTR_DOMAIN_EDGE};
-  FieldEvaluator evaluator{field_context, mesh.totedge, &allocator};
+  FieldEvaluator evaluator{field_context, mesh.totedge};
   AxisScaleParams params = evaluate_axis_scale_fields(evaluator, fields);
 
   Vector<ElementIsland> island = prepare_edge_islands(mesh, params.selection);
@@ -427,18 +419,15 @@ static void node_geo_exec(GeoNodeExecParams params)
 
   geometry.modify_geometry_sets([&](GeometrySet &geometry) {
     if (Mesh *mesh = geometry.get_mesh_for_write()) {
-      LocalAllocator &allocator = params.allocator().local();
       switch (domain) {
         case ATTR_DOMAIN_FACE: {
           switch (scale_mode) {
             case GEO_NODE_SCALE_ELEMENTS_UNIFORM: {
-              scale_faces_uniformly(
-                  *mesh, {selection_field, scale_field, center_field}, allocator);
+              scale_faces_uniformly(*mesh, {selection_field, scale_field, center_field});
               break;
             }
             case GEO_NODE_SCALE_ELEMENTS_SINGLE_AXIS: {
-              scale_faces_on_axis(
-                  *mesh, {selection_field, scale_field, center_field, axis_field}, allocator);
+              scale_faces_on_axis(*mesh, {selection_field, scale_field, center_field, axis_field});
               break;
             }
           }
@@ -447,13 +436,11 @@ static void node_geo_exec(GeoNodeExecParams params)
         case ATTR_DOMAIN_EDGE: {
           switch (scale_mode) {
             case GEO_NODE_SCALE_ELEMENTS_UNIFORM: {
-              scale_edges_uniformly(
-                  *mesh, {selection_field, scale_field, center_field}, allocator);
+              scale_edges_uniformly(*mesh, {selection_field, scale_field, center_field});
               break;
             }
             case GEO_NODE_SCALE_ELEMENTS_SINGLE_AXIS: {
-              scale_edges_on_axis(
-                  *mesh, {selection_field, scale_field, center_field, axis_field}, allocator);
+              scale_edges_on_axis(*mesh, {selection_field, scale_field, center_field, axis_field});
               break;
             }
           }

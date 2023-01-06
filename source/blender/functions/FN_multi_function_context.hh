@@ -12,8 +12,9 @@
  * - Pass cached data to called functions.
  */
 
-#include "BLI_local_allocator.hh"
 #include "BLI_utildefines.h"
+
+#include "BLI_map.hh"
 
 namespace blender::fn {
 
@@ -21,21 +22,14 @@ class MFContext;
 
 class MFContextBuilder {
  private:
-  std::unique_ptr<LocalAllocatorSet> allocator_set_;
-  LocalAllocator *allocator_;
+  Map<std::string, const void *> global_contexts_;
 
   friend MFContext;
 
  public:
-  MFContextBuilder(LocalAllocator *allocator = nullptr)
+  template<typename T> void add_global_context(std::string name, const T *context)
   {
-    if (allocator) {
-      allocator_ = allocator;
-    }
-    else {
-      allocator_set_ = std::make_unique<LocalAllocatorSet>();
-      allocator_ = &allocator_set_->local();
-    }
+    global_contexts_.add_new(std::move(name), static_cast<const void *>(context));
   }
 };
 
@@ -48,9 +42,11 @@ class MFContext {
   {
   }
 
-  LocalAllocator &allocator()
+  template<typename T> const T *get_global_context(StringRef name) const
   {
-    return *builder_.allocator_;
+    const void *context = builder_.global_contexts_.lookup_default_as(name, nullptr);
+    /* TODO: Implement type checking. */
+    return static_cast<const T *>(context);
   }
 };
 

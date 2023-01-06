@@ -408,8 +408,7 @@ bool NormalFieldInput::is_equal_to(const fn::FieldNode &other) const
 bool try_capture_field_on_geometry(GeometryComponent &component,
                                    const AttributeIDRef &attribute_id,
                                    const eAttrDomain domain,
-                                   const fn::GField &field,
-                                   LocalAllocator *allocator)
+                                   const fn::GField &field)
 {
   MutableAttributeAccessor attributes = *component.attributes_for_write();
   const int domain_size = attributes.domain_size(domain);
@@ -429,7 +428,7 @@ bool try_capture_field_on_geometry(GeometryComponent &component,
    * - The field does not depend on that attribute (we can't easily check for that yet). */
   void *buffer = MEM_mallocN(type.size() * domain_size, __func__);
 
-  fn::FieldEvaluator evaluator{field_context, &mask, allocator};
+  fn::FieldEvaluator evaluator{field_context, &mask};
   evaluator.add_with_destination(validator.validate_field_if_necessary(field),
                                  GMutableSpan{type, buffer, domain_size});
   evaluator.evaluate();

@@ -79,7 +79,7 @@ static void node_geo_exec(GeoNodeExecParams params)
       "radius", ATTR_DOMAIN_POINT);
 
   PointsFieldContext context{count};
-  fn::FieldEvaluator evaluator{context, count, &params.allocator()};
+  fn::FieldEvaluator evaluator{context, count};
   evaluator.add_with_destination(position_field, output_position.varray);
   evaluator.add_with_destination(radius_field, output_radii.varray);
   evaluator.evaluate();
