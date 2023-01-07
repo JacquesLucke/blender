@@ -473,3 +473,7 @@ inline void Params::assert_valid_thread() const
 /** \} */
 
 }  // namespace blender::fn::lazy_function
+
+namespace blender {
+namespace lf = fn::lazy_function;
+}
