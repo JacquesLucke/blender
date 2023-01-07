@@ -21,32 +21,12 @@ namespace blender::fn {
 class MFContext;
 
 class MFContextBuilder {
- private:
-  Map<std::string, const void *> global_contexts_;
-
-  friend MFContext;
-
- public:
-  template<typename T> void add_global_context(std::string name, const T *context)
-  {
-    global_contexts_.add_new(std::move(name), static_cast<const void *>(context));
-  }
 };
 
 class MFContext {
- private:
-  MFContextBuilder &builder_;
-
  public:
-  MFContext(MFContextBuilder &builder) : builder_(builder)
+  MFContext(MFContextBuilder & /*builder*/)
   {
-  }
-
-  template<typename T> const T *get_global_context(StringRef name) const
-  {
-    const void *context = builder_.global_contexts_.lookup_default_as(name, nullptr);
-    /* TODO: Implement type checking. */
-    return static_cast<const T *>(context);
   }
 };
 
