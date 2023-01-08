@@ -200,7 +200,7 @@ inline void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
    * that large temporary arrays are needed. Using small chunks allows using small arrays, which
    * are reused multiple times, which improves cache efficiency. The chunk size also shouldn't be
    * too small, because then overhead of the outer loop over chunks becomes significant again. */
-  static constexpr int64_t MaxChunkSize = 32;
+  static constexpr int64_t MaxChunkSize = 64;
   const int64_t mask_size = mask.size();
   const int64_t tmp_buffer_size = std::min(mask_size, MaxChunkSize);
 
