@@ -137,7 +137,7 @@ inline void execute_materialized(const ElementFn element_fn,
           if (param.is_single()) {
             const T &in_single = param.get_single();
             T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
-            uninitialized_fill_n(tmp_buffer, tmp_buffer_size, in_single);
+            uninitialized_fill_n<T>(tmp_buffer, tmp_buffer_size, in_single);
             arg_info.mode = MaterializeArgMode::Single;
           }
         }
@@ -284,11 +284,26 @@ template<typename T> struct SingleInput {
   }
 };
 
-template<typename T> struct ArrayOutput {
-  using value_type = T;
-  static constexpr IOType io = IOType::Output;
+template<typename T, IOType IO> struct ArrayParam {
+  using value_type = std::decay_t<T>;
+  static constexpr IOType io = IO;
 
   T *ptr;
+
+  ArrayParam(T *ptr) : ptr(ptr)
+  {
+  }
+
+  bool is_single() const
+  {
+    return false;
+  }
+
+  T get_single() const
+  {
+    BLI_assert_unreachable();
+    return ptr[0];
+  }
 
   bool is_span() const
   {
@@ -300,7 +315,14 @@ template<typename T> struct ArrayOutput {
     return this->ptr;
   }
 
-  void relocate_from_span(const IndexMask mask, T *src) const
+  void load_to_span(const IndexMask mask, value_type *dst) const
+  {
+    for (const int64_t i : IndexRange(mask.size())) {
+      dst[i] = std::move(ptr[mask[i]]);
+    }
+  }
+
+  void relocate_from_span(const IndexMask mask, value_type *src) const
   {
     for (const int64_t i : IndexRange(mask.size())) {
       T &value = src[i];
@@ -310,36 +332,21 @@ template<typename T> struct ArrayOutput {
   }
 };
 
-template<typename T> struct ArrayMutable {
-  using value_type = T;
-  static constexpr IOType io = IOType::Output;
-
-  T *ptr;
-
-  bool is_span() const
+template<typename T> struct ArrayInput : public ArrayParam<const T, IOType::Input> {
+  ArrayInput(const T *ptr) : ArrayParam<const T, IOType::Input>(ptr)
   {
-    return true;
   }
+};
 
-  T *get_span_begin() const
+template<typename T> struct ArrayOutput : public ArrayParam<T, IOType::Output> {
+  ArrayOutput(T *ptr) : ArrayParam<T, IOType::Output>(ptr)
   {
-    return this->ptr;
   }
+};
 
-  void load_to_span(const IndexMask mask, T *dst) const
+template<typename T> struct ArrayMutable : public ArrayParam<T, IOType::Mutable> {
+  ArrayMutable(T *ptr) : ArrayParam<T, IOType::Mutable>(ptr)
   {
-    for (const int64_t i : IndexRange(mask.size())) {
-      dst[i] = std::move(ptr[mask[i]]);
-    }
-  }
-
-  void relocate_from_span(const IndexMask mask, T *src) const
-  {
-    for (const int64_t i : IndexRange(mask.size())) {
-      T &value = src[i];
-      ptr[mask[i]] = std::move(value);
-      std::destroy_at(&value);
-    }
   }
 };
 
