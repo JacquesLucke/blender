@@ -101,8 +101,8 @@ template<typename Param> struct MaterializeArgInfo {
 
 /**
  * Executes #element_fn for all indices in #mask. However, instead of processing every element
- * separately, processing happens in chunks. This allows retrieving from input virtual arrays in
- * chunks, which reduces virtual function call overhead.
+ * separately, processing happens in chunks. This allows for vectorization even if the mask is not
+ * a range and reduces virtual method call overhead when virtual arrays are used as inputs.
  */
 template<typename ElementFn, size_t... I, typename... Params>
 inline void execute_materialized(const ElementFn element_fn,
