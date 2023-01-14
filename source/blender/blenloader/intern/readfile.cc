@@ -724,13 +724,15 @@ static BHeadN *get_bhead(FileData *fd)
           new_bhead->has_data = false;
           new_bhead->is_memchunk_identical = false;
           new_bhead->bhead = bhead;
-          off64_t seek_new = fd->file->seek(fd->file, bhead.len, SEEK_CUR);
-          if (seek_new == -1) {
+          const off64_t seek_new = fd->file->seek(fd->file, bhead.len, SEEK_CUR);
+          if (UNLIKELY(seek_new == -1)) {
             fd->is_eof = true;
             MEM_freeN(new_bhead);
             new_bhead = nullptr;
           }
-          BLI_assert(fd->file->offset == seek_new);
+          else {
+            BLI_assert(fd->file->offset == seek_new);
+          }
         }
         else {
           fd->is_eof = true;
@@ -4972,6 +4974,11 @@ void BLO_read_int32_array(BlendDataReader *reader, int array_size, int32_t **ptr
   if (BLO_read_requires_endian_switch(reader)) {
     BLI_endian_switch_int32_array(*ptr_p, array_size);
   }
+}
+
+void BLO_read_int8_array(BlendDataReader *reader, int /*array_size*/, int8_t **ptr_p)
+{
+  BLO_read_data_address(reader, ptr_p);
 }
 
 void BLO_read_uint32_array(BlendDataReader *reader, int array_size, uint32_t **ptr_p)

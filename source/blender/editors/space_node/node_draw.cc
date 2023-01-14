@@ -434,10 +434,10 @@ static void node_update_basis(const bContext &C,
 
     /* Make sure that maximums are bigger or equal to minimums. */
     if (node.runtime->prvr.xmax < node.runtime->prvr.xmin) {
-      SWAP(float, node.runtime->prvr.xmax, node.runtime->prvr.xmin);
+      std::swap(node.runtime->prvr.xmax, node.runtime->prvr.xmin);
     }
     if (node.runtime->prvr.ymax < node.runtime->prvr.ymin) {
-      SWAP(float, node.runtime->prvr.ymax, node.runtime->prvr.ymin);
+      std::swap(node.runtime->prvr.ymax, node.runtime->prvr.ymin);
     }
   }
 
@@ -675,9 +675,9 @@ static void node_draw_mute_line(const bContext &C,
 {
   GPU_blend(GPU_BLEND_ALPHA);
 
-  for (const bNodeLink *link : node.internal_links()) {
-    if (!nodeLinkIsHidden(link)) {
-      node_draw_link_bezier(C, v2d, snode, *link, TH_WIRE_INNER, TH_WIRE_INNER, TH_WIRE, false);
+  for (const bNodeLink &link : node.internal_links()) {
+    if (!nodeLinkIsHidden(&link)) {
+      node_draw_link_bezier(C, v2d, snode, link, TH_WIRE_INNER, TH_WIRE_INNER, TH_WIRE, false);
     }
   }
 

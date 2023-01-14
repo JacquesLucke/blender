@@ -2377,10 +2377,10 @@ static void rna_Node_parent_set(PointerRNA *ptr,
 static void rna_Node_internal_links_begin(CollectionPropertyIterator *iter, PointerRNA *ptr)
 {
   bNode *node = ptr->data;
-  bNodeLink **begin;
+  bNodeLink *begin;
   int len;
   nodeInternalLinks(node, &begin, &len);
-  rna_iterator_array_begin(iter, begin, sizeof(bNodeLink *), len, false, NULL);
+  rna_iterator_array_begin(iter, begin, sizeof(bNodeLink), len, false, NULL);
 }
 
 static bool rna_Node_parent_poll(PointerRNA *ptr, PointerRNA value)
@@ -10848,7 +10848,7 @@ static void def_geo_realize_instances(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_GeometryNode_socket_update");
 }
 
-static void def_geo_field_at_index(StructRNA *srna)
+static void def_geo_evaluate_at_index(StructRNA *srna)
 {
   PropertyRNA *prop;
 
@@ -10867,7 +10867,7 @@ static void def_geo_field_at_index(StructRNA *srna)
   RNA_def_property_update(prop, NC_NODE | NA_EDITED, "rna_GeometryNode_socket_update");
 }
 
-static void def_geo_interpolate_domain(StructRNA *srna)
+static void def_geo_evaluate_on_domain(StructRNA *srna)
 {
   PropertyRNA *prop;
 
@@ -12203,7 +12203,7 @@ static void rna_def_node(BlenderRNA *brna)
                                     "rna_Node_internal_links_begin",
                                     "rna_iterator_array_next",
                                     "rna_iterator_array_end",
-                                    "rna_iterator_array_dereference_get",
+                                    "rna_iterator_array_get",
                                     NULL,
                                     NULL,
                                     NULL,
