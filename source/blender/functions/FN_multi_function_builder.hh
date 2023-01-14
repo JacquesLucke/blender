@@ -8,9 +8,9 @@
  * This file contains several utilities to create multi-functions with less redundant code.
  */
 
-#include "BLI_array_function_evaluation.hh"
-
 #include "FN_multi_function.hh"
+
+#include "BLI_array_function_evaluation.hh"
 
 namespace blender::fn::multi_function::build {
 
@@ -120,201 +120,6 @@ template<size_t... Indices> struct SomeSpanOrSingle {
 
 namespace detail {
 
-enum class MaterializeArgMode {
-  Unknown,
-  Single,
-  Span,
-  Materialized,
-};
-
-template<typename ParamTag> struct MaterializeArgInfo {
-  MaterializeArgMode mode = MaterializeArgMode::Unknown;
-  const typename ParamTag::base_type *internal_span_data;
-};
-
-/**
- * Executes #element_fn for all indices in #mask. However, instead of processing every element
- * separately, processing happens in chunks. This allows retrieving from input virtual arrays in
- * chunks, which reduces virtual function call overhead.
- */
-template<typename... ParamTags, size_t... I, typename ElementFn, typename... LoadedParams>
-inline void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
-                                 std::index_sequence<I...> /* indices */,
-                                 const ElementFn element_fn,
-                                 const IndexMask mask,
-                                 const std::tuple<LoadedParams...> &loaded_params)
-{
-
-  /* In theory, all elements could be processed in one chunk. However, that has the disadvantage
-   * that large temporary arrays are needed. Using small chunks allows using small arrays, which
-   * are reused multiple times, which improves cache efficiency. The chunk size also shouldn't be
-   * too small, because then overhead of the outer loop over chunks becomes significant again. */
-  static constexpr int64_t MaxChunkSize = 64;
-  const int64_t mask_size = mask.size();
-  const int64_t tmp_buffer_size = std::min(mask_size, MaxChunkSize);
-
-  /* Local buffers that are used to temporarily store values for processing. */
-  std::tuple<TypedBuffer<typename ParamTags::base_type, MaxChunkSize>...> temporary_buffers;
-
-  /* Information about every parameter. */
-  std::tuple<MaterializeArgInfo<ParamTags>...> args_info;
-
-  (
-      /* Setup information for all parameters. */
-      [&] {
-        /* Use `typedef` instead of `using` to work around a compiler bug. */
-        typedef ParamTags ParamTag;
-        typedef typename ParamTag::base_type T;
-        [[maybe_unused]] MaterializeArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
-        if constexpr (ParamTag::category == ParamCategory::SingleInput) {
-          const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
-          const CommonVArrayInfo common_info = varray_impl.common_info();
-          if (common_info.type == CommonVArrayInfo::Type::Single) {
-            /* If an input #VArray is a single value, we have to fill the buffer with that value
-             * only once. The same unchanged buffer can then be reused in every chunk. */
-            const T &in_single = *static_cast<const T *>(common_info.data);
-            T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
-            uninitialized_fill_n(tmp_buffer, tmp_buffer_size, in_single);
-            arg_info.mode = MaterializeArgMode::Single;
-          }
-          else if (common_info.type == CommonVArrayInfo::Type::Span) {
-            /* Remember the span so that it doesn't have to be retrieved in every iteration. */
-            arg_info.internal_span_data = static_cast<const T *>(common_info.data);
-          }
-          else {
-            arg_info.internal_span_data = nullptr;
-          }
-        }
-      }(),
-      ...);
-
-  /* Outer loop over all chunks. */
-  for (int64_t chunk_start = 0; chunk_start < mask_size; chunk_start += MaxChunkSize) {
-    const int64_t chunk_end = std::min<int64_t>(chunk_start + MaxChunkSize, mask_size);
-    const int64_t chunk_size = chunk_end - chunk_start;
-    const IndexMask sliced_mask = mask.slice(chunk_start, chunk_size);
-    const int64_t mask_start = sliced_mask[0];
-    const bool sliced_mask_is_range = sliced_mask.is_range();
-
-    /* Move mutable data into temporary array. */
-    if (!sliced_mask_is_range) {
-      (
-          [&] {
-            /* Use `typedef` instead of `using` to work around a compiler bug. */
-            typedef ParamTags ParamTag;
-            typedef typename ParamTag::base_type T;
-            if constexpr (ParamTag::category == ParamCategory::SingleMutable) {
-              T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
-              T *param_buffer = std::get<I>(loaded_params);
-              for (int64_t i = 0; i < chunk_size; i++) {
-                new (tmp_buffer + i) T(std::move(param_buffer[sliced_mask[i]]));
-              }
-            }
-          }(),
-          ...);
-    }
-
-    array_function_evaluation::execute_array(
-        element_fn,
-        chunk_size,
-        /* Prepare every parameter for this chunk. */
-        [&] {
-          using ParamTag = ParamTags;
-          using T = typename ParamTag::base_type;
-          [[maybe_unused]] MaterializeArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
-          T *tmp_buffer = std::get<I>(temporary_buffers);
-          if constexpr (ParamTag::category == ParamCategory::SingleInput) {
-            if (arg_info.mode == MaterializeArgMode::Single) {
-              /* The single value has been filled into a buffer already reused for every chunk. */
-              return const_cast<const T *>(tmp_buffer);
-            }
-            if (sliced_mask_is_range && arg_info.internal_span_data != nullptr) {
-              /* In this case we can just use an existing span instead of "compressing" it into
-               * a new temporary buffer. */
-              arg_info.mode = MaterializeArgMode::Span;
-              return arg_info.internal_span_data + mask_start;
-            }
-            const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
-            /* As a fallback, do a virtual function call to retrieve all elements in the current
-             * chunk. The elements are stored in a temporary buffer reused for every chunk. */
-            varray_impl.materialize_compressed_to_uninitialized(sliced_mask, tmp_buffer);
-            /* Remember that this parameter has been materialized, so that the values are
-             * destructed properly when the chunk is done. */
-            arg_info.mode = MaterializeArgMode::Materialized;
-            return const_cast<const T *>(tmp_buffer);
-          }
-          else if constexpr (ELEM(ParamTag::category,
-                                  ParamCategory::SingleOutput,
-                                  ParamCategory::SingleMutable)) {
-            /* For outputs, just pass a pointer. This is important so that `__restrict` works. */
-            if (sliced_mask_is_range) {
-              /* Can write into the caller-provided buffer directly. */
-              T *param_buffer = std::get<I>(loaded_params);
-              return param_buffer + mask_start;
-            }
-            else {
-              /* Use the temporary buffer. The values will have to be copied out of that
-               * buffer into the caller-provided buffer afterwards. */
-              return const_cast<T *>(tmp_buffer);
-            }
-          }
-        }()...);
-
-    /* Relocate outputs from temporary buffers to buffers provided by caller. */
-    if (!sliced_mask_is_range) {
-      (
-          [&] {
-            /* Use `typedef` instead of `using` to work around a compiler bug. */
-            typedef ParamTags ParamTag;
-            typedef typename ParamTag::base_type T;
-            if constexpr (ELEM(ParamTag::category,
-                               ParamCategory::SingleOutput,
-                               ParamCategory::SingleMutable)) {
-              T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
-              T *param_buffer = std::get<I>(loaded_params);
-              for (int64_t i = 0; i < chunk_size; i++) {
-                new (param_buffer + sliced_mask[i]) T(std::move(tmp_buffer[i]));
-                std::destroy_at(tmp_buffer + i);
-              }
-            }
-          }(),
-          ...);
-    }
-
-    (
-        /* Destruct values that have been materialized before. */
-        [&] {
-          /* Use `typedef` instead of `using` to work around a compiler bug. */
-          typedef ParamTags ParamTag;
-          typedef typename ParamTag::base_type T;
-          [[maybe_unused]] MaterializeArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
-          if constexpr (ParamTag::category == ParamCategory::SingleInput) {
-            if (arg_info.mode == MaterializeArgMode::Materialized) {
-              T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
-              destruct_n(tmp_buffer, chunk_size);
-            }
-          }
-        }(),
-        ...);
-  }
-
-  (
-      /* Destruct buffers for single value inputs. */
-      [&] {
-        /* Use `typedef` instead of `using` to work around a compiler bug. */
-        typedef ParamTags ParamTag;
-        typedef typename ParamTag::base_type T;
-        [[maybe_unused]] MaterializeArgInfo<ParamTags> &arg_info = std::get<I>(args_info);
-        if constexpr (ParamTag::category == ParamCategory::SingleInput) {
-          if (arg_info.mode == MaterializeArgMode::Single) {
-            T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
-            destruct_n(tmp_buffer, tmp_buffer_size);
-          }
-        }
-      }(),
-      ...);
-}
-
 template<typename ElementFn, typename ExecPreset, typename... ParamTags, size_t... I>
 inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
                                                  const ExecPreset exec_preset,
@@ -360,11 +165,24 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
     /* The materialized method is most common because it avoids most virtual function overhead but
      * still instantiates the function only once. */
     if constexpr (ExecPreset::fallback_mode == exec_presets::FallbackMode::Materialized) {
-      execute_materialized(TypeSequence<ParamTags...>(),
-                           std::index_sequence<I...>(),
-                           element_fn,
-                           mask,
-                           loaded_params);
+      execute_materialized(element_fn, mask, std::index_sequence<I...>(), [&]() {
+        /* Use `typedef` instead of `using` to work around a compiler bug. */
+        typedef ParamTags ParamTag;
+        typedef typename ParamTag::base_type T;
+        if constexpr (ParamTag::category == ParamCategory::SingleInput) {
+          const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
+          return array_function_evaluation::GVArrayInput<T>{varray_impl,
+                                                            varray_impl.common_info()};
+        }
+        else if constexpr (ParamTag::category == ParamCategory::SingleMutable) {
+          T *ptr = std::get<I>(loaded_params);
+          return array_function_evaluation::ArrayMutable<T>{ptr};
+        }
+        else if constexpr (ParamTag::category == ParamCategory::SingleOutput) {
+          T *ptr = std::get<I>(loaded_params);
+          return array_function_evaluation::ArrayOutput<T>{ptr};
+        }
+      }()...);
     }
     else {
       /* This fallback is slower because it uses virtual method calls for every element. */
