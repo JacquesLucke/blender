@@ -50,28 +50,37 @@ enum class IOType {
   Output,
 };
 
-struct MutableDummy {
-  using value_type = int;
-
-  static constexpr IOType io = IOType::Mutable;
-
-  bool is_span() const;
-
-  value_type *get_span_begin() const;
-};
-
-struct ReadOnlyDummy {
-  using value_type = int;
-
+struct InputParam {
   static constexpr IOType io = IOType::Input;
+  using value_type = int;
 
   bool is_single() const;
   bool is_span() const;
-
   const value_type &get_single() const;
   const value_type *get_span_begin() const;
 
-  void materialize_compressed_to_uninitialized(IndexMask mask, value_type *dst) const;
+  void load_to_span(IndexMask mask, value_type *dst) const;
+};
+
+struct MutableParam {
+  static constexpr IOType io = IOType::Mutable;
+  using value_type = int;
+
+  bool is_span() const;
+  value_type *get_span_begin() const;
+
+  void load_to_span(IndexMask mask, value_type *dst);
+  void relocate_from_span(IndexMask mask, value_type *src);
+};
+
+struct OutputParam {
+  static constexpr IOType io = IOType::Output;
+  using value_type = int;
+
+  bool is_span() const;
+  value_type *get_span_begin() const;
+
+  void relocate_from_span(IndexMask mask, value_type *src);
 };
 
 template<typename T> struct SingleInput {
@@ -101,11 +110,9 @@ template<typename T> struct SingleInput {
     return nullptr;
   }
 
-  void materialize_compressed_to_uninitialized(const IndexMask mask, T *dst) const
+  void load_to_span(const IndexMask mask, T *dst) const
   {
-    for (const int64_t i : mask) {
-      dst[i] = value;
-    }
+    BLI_assert_unreachable();
   }
 };
 
@@ -124,6 +131,15 @@ template<typename T> struct ArrayOutput {
   {
     return this->ptr;
   }
+
+  void relocate_from_span(const IndexMask mask, T *src) const
+  {
+    for (const int64_t i : IndexRange(mask.size())) {
+      T &value = src[i];
+      ptr[mask[i]] = std::move(value);
+      std::destroy_at(&value);
+    }
+  }
 };
 
 template<typename T> struct ArrayMutable {
@@ -141,40 +157,21 @@ template<typename T> struct ArrayMutable {
   {
     return this->ptr;
   }
-};
 
-template<typename T> struct VArrayInput {
-  using value_type = T;
-  static constexpr IOType io = IOType::Input;
-
-  const VArrayImpl<T> &varray_impl;
-  CommonVArrayInfo varray_info;
-
-  bool is_span() const
+  void load_to_span(const IndexMask mask, T *dst) const
   {
-    return this->varray_info.type == CommonVArrayInfo::Type::Span;
+    for (const int64_t i : IndexRange(mask.size())) {
+      dst[i] = std::move(ptr[mask[i]]);
+    }
   }
 
-  bool is_single() const
+  void relocate_from_span(const IndexMask mask, T *src) const
   {
-    return this->varray_info.type == CommonVArrayInfo::Type::Single;
-  }
-
-  const T &get_single() const
-  {
-    BLI_assert(this->is_single());
-    return *static_cast<const T *>(this->varray_info.data);
-  }
-
-  const T *get_span_begin() const
-  {
-    BLI_assert(this->is_span());
-    return static_cast<const T *>(this->varray_info.data);
-  }
-
-  void materialize_compressed_to_uninitialized(const IndexMask mask, T *dst) const
-  {
-    this->varray_impl.materialize_compressed_to_uninitialized(mask, {dst, mask.min_array_size()});
+    for (const int64_t i : IndexRange(mask.size())) {
+      T &value = src[i];
+      ptr[mask[i]] = std::move(value);
+      std::destroy_at(&value);
+    }
   }
 };
 
@@ -207,7 +204,7 @@ template<typename T> struct GVArrayInput {
     return static_cast<const T *>(this->varray_info.data);
   }
 
-  void materialize_compressed_to_uninitialized(const IndexMask mask, T *dst) const
+  void load_to_span(const IndexMask mask, T *dst) const
   {
     this->varray_impl.materialize_compressed_to_uninitialized(mask, dst);
   }
@@ -284,10 +281,10 @@ inline void execute_materialized(const ElementFn element_fn,
           typedef Params Param;
           typedef typename Param::value_type T;
           if constexpr (Param::io == IOType::Mutable) {
-            const Param &param = params;
+            Param &param = params;
             if (!sliced_mask_is_range || !param.is_span()) {
               T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
-              param.materialize_compressed_to_uninitialized(sliced_mask, tmp_buffer);
+              param.load_to_span(sliced_mask, tmp_buffer);
             }
           }
         }(),
@@ -315,7 +312,7 @@ inline void execute_materialized(const ElementFn element_fn,
               return param.get_span_begin() + mask_start;
             }
 
-            param.materialize_compressed_to_uninitialized(sliced_mask, tmp_buffer);
+            param.load_to_span(sliced_mask, tmp_buffer);
             /* Remember that this parameter has been materialized, so that the values are
              * destructed properly when the chunk is done. */
             arg_info.mode = MaterializeArgMode::Materialized;
@@ -348,15 +345,11 @@ inline void execute_materialized(const ElementFn element_fn,
             }
           }
           else {
-            const Param &param = params;
+            Param &param = params;
             if (!sliced_mask_is_range || !param.is_span()) {
               /* Relocate outputs from temporary buffers to buffers provided by caller. */
               T *tmp_buffer = std::get<I>(temporary_buffers).ptr();
-              T *param_buffer = param.get_span_begin();
-              for (int64_t i = 0; i < chunk_size; i++) {
-                new (param_buffer + sliced_mask[i]) T(std::move(tmp_buffer[i]));
-                std::destroy_at(tmp_buffer + i);
-              }
+              param.relocate_from_span(sliced_mask, tmp_buffer);
             }
           }
         }(),
