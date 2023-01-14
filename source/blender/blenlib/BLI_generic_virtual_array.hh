@@ -9,7 +9,6 @@
  * is only known at runtime.
  */
 
-#include "BLI_array_function_evaluation.hh"
 #include "BLI_generic_array.hh"
 #include "BLI_generic_span.hh"
 #include "BLI_timeit.hh"

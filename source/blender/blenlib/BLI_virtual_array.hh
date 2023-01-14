@@ -27,6 +27,7 @@
 
 #include "BLI_any.hh"
 #include "BLI_array.hh"
+#include "BLI_array_function_evaluation.hh"
 #include "BLI_devirtualize_parameters.hh"
 #include "BLI_index_mask.hh"
 #include "BLI_span.hh"
@@ -865,6 +866,11 @@ template<typename T> class VArrayCommon {
   {
     return impl_->try_assign_GVArray(varray);
   }
+
+  const VArrayImpl<T> *get_implementation() const
+  {
+    return impl_;
+  }
 };
 
 template<typename T> class VMutableArray;
@@ -1332,6 +1338,46 @@ template<typename T, bool UseSingle, bool UseSpan> struct VArrayDevirtualizer {
       }
     }
     return false;
+  }
+};
+
+template<typename T> struct MaterializeVArrayInput {
+  using value_type = T;
+  static constexpr array_function_evaluation::IOType io = array_function_evaluation::IOType::Input;
+
+  const VArrayImpl<T> &varray_impl;
+  CommonVArrayInfo varray_info;
+
+  MaterializeVArrayInput(const VArray<T> &varray)
+      : varray_impl(*varray.get_implementation()), varray_info(varray_impl.common_info())
+  {
+  }
+
+  bool is_span() const
+  {
+    return this->varray_info.type == CommonVArrayInfo::Type::Span;
+  }
+
+  bool is_single() const
+  {
+    return this->varray_info.type == CommonVArrayInfo::Type::Single;
+  }
+
+  const T &get_single() const
+  {
+    BLI_assert(this->is_single());
+    return *static_cast<const T *>(this->varray_info.data);
+  }
+
+  const T *get_span_begin() const
+  {
+    BLI_assert(this->is_span());
+    return static_cast<const T *>(this->varray_info.data);
+  }
+
+  void load_to_span(const IndexMask mask, T *dst) const
+  {
+    this->varray_impl.materialize_compressed_to_uninitialized(mask, {dst, mask.min_array_size()});
   }
 };
 
