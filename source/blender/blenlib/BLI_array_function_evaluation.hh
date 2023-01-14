@@ -50,6 +50,9 @@ enum class IOType {
   Output,
 };
 
+/* The code in this block just shows the expected interface, its not executed. */
+#if 0
+
 struct InputParam {
   static constexpr IOType io = IOType::Input;
   using value_type = int;
@@ -82,6 +85,8 @@ struct OutputParam {
 
   void relocate_from_span(IndexMask mask, value_type *src);
 };
+
+#endif
 
 enum class MaterializeArgMode {
   Unknown,
