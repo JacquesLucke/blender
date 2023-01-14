@@ -8,9 +8,9 @@
  * This file contains several utilities to create multi-functions with less redundant code.
  */
 
-#include "FN_multi_function.hh"
-
 #include "BLI_array_function_evaluation.hh"
+
+#include "FN_multi_function.hh"
 
 namespace blender::fn::multi_function::build {
 
@@ -171,8 +171,7 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
         typedef typename ParamTag::base_type T;
         if constexpr (ParamTag::category == ParamCategory::SingleInput) {
           const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
-          return array_function_evaluation::GVArrayInput<T>{varray_impl,
-                                                            varray_impl.common_info()};
+          return MaterializeGVArrayInput<T>{varray_impl, varray_impl.common_info()};
         }
         else if constexpr (ParamTag::category == ParamCategory::SingleMutable) {
           T *ptr = std::get<I>(loaded_params);

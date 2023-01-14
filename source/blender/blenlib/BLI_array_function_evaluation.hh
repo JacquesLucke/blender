@@ -83,133 +83,6 @@ struct OutputParam {
   void relocate_from_span(IndexMask mask, value_type *src);
 };
 
-template<typename T> struct SingleInput {
-  using value_type = T;
-  static constexpr IOType io = IOType::Input;
-
-  const T &value;
-
-  bool is_span() const
-  {
-    return false;
-  }
-
-  bool is_single() const
-  {
-    return true;
-  }
-
-  const T &get_single() const
-  {
-    return value;
-  }
-
-  const T *get_span_begin() const
-  {
-    BLI_assert_unreachable();
-    return nullptr;
-  }
-
-  void load_to_span(const IndexMask mask, T *dst) const
-  {
-    BLI_assert_unreachable();
-  }
-};
-
-template<typename T> struct ArrayOutput {
-  using value_type = T;
-  static constexpr IOType io = IOType::Output;
-
-  T *ptr;
-
-  bool is_span() const
-  {
-    return true;
-  }
-
-  T *get_span_begin() const
-  {
-    return this->ptr;
-  }
-
-  void relocate_from_span(const IndexMask mask, T *src) const
-  {
-    for (const int64_t i : IndexRange(mask.size())) {
-      T &value = src[i];
-      ptr[mask[i]] = std::move(value);
-      std::destroy_at(&value);
-    }
-  }
-};
-
-template<typename T> struct ArrayMutable {
-  using value_type = T;
-  static constexpr IOType io = IOType::Output;
-
-  T *ptr;
-
-  bool is_span() const
-  {
-    return true;
-  }
-
-  T *get_span_begin() const
-  {
-    return this->ptr;
-  }
-
-  void load_to_span(const IndexMask mask, T *dst) const
-  {
-    for (const int64_t i : IndexRange(mask.size())) {
-      dst[i] = std::move(ptr[mask[i]]);
-    }
-  }
-
-  void relocate_from_span(const IndexMask mask, T *src) const
-  {
-    for (const int64_t i : IndexRange(mask.size())) {
-      T &value = src[i];
-      ptr[mask[i]] = std::move(value);
-      std::destroy_at(&value);
-    }
-  }
-};
-
-template<typename T> struct GVArrayInput {
-  using value_type = T;
-  static constexpr IOType io = IOType::Input;
-
-  const GVArrayImpl &varray_impl;
-  CommonVArrayInfo varray_info;
-
-  bool is_span() const
-  {
-    return this->varray_info.type == CommonVArrayInfo::Type::Span;
-  }
-
-  bool is_single() const
-  {
-    return this->varray_info.type == CommonVArrayInfo::Type::Single;
-  }
-
-  const T &get_single() const
-  {
-    BLI_assert(this->is_single());
-    return *static_cast<const T *>(this->varray_info.data);
-  }
-
-  const T *get_span_begin() const
-  {
-    BLI_assert(this->is_span());
-    return static_cast<const T *>(this->varray_info.data);
-  }
-
-  void load_to_span(const IndexMask mask, T *dst) const
-  {
-    this->varray_impl.materialize_compressed_to_uninitialized(mask, dst);
-  }
-};
-
 enum class MaterializeArgMode {
   Unknown,
   Single,
@@ -372,5 +245,97 @@ inline void execute_materialized(const ElementFn element_fn,
       }(),
       ...);
 }
+
+template<typename T> struct SingleInput {
+  using value_type = T;
+  static constexpr IOType io = IOType::Input;
+
+  const T &value;
+
+  bool is_span() const
+  {
+    return false;
+  }
+
+  bool is_single() const
+  {
+    return true;
+  }
+
+  const T &get_single() const
+  {
+    return value;
+  }
+
+  const T *get_span_begin() const
+  {
+    BLI_assert_unreachable();
+    return nullptr;
+  }
+
+  void load_to_span(const IndexMask mask, T *dst) const
+  {
+    BLI_assert_unreachable();
+  }
+};
+
+template<typename T> struct ArrayOutput {
+  using value_type = T;
+  static constexpr IOType io = IOType::Output;
+
+  T *ptr;
+
+  bool is_span() const
+  {
+    return true;
+  }
+
+  T *get_span_begin() const
+  {
+    return this->ptr;
+  }
+
+  void relocate_from_span(const IndexMask mask, T *src) const
+  {
+    for (const int64_t i : IndexRange(mask.size())) {
+      T &value = src[i];
+      ptr[mask[i]] = std::move(value);
+      std::destroy_at(&value);
+    }
+  }
+};
+
+template<typename T> struct ArrayMutable {
+  using value_type = T;
+  static constexpr IOType io = IOType::Output;
+
+  T *ptr;
+
+  bool is_span() const
+  {
+    return true;
+  }
+
+  T *get_span_begin() const
+  {
+    return this->ptr;
+  }
+
+  void load_to_span(const IndexMask mask, T *dst) const
+  {
+    for (const int64_t i : IndexRange(mask.size())) {
+      dst[i] = std::move(ptr[mask[i]]);
+    }
+  }
+
+  void relocate_from_span(const IndexMask mask, T *src) const
+  {
+    for (const int64_t i : IndexRange(mask.size())) {
+      T &value = src[i];
+      ptr[mask[i]] = std::move(value);
+      std::destroy_at(&value);
+    }
+  }
+};
 
 }  // namespace blender::array_function_evaluation

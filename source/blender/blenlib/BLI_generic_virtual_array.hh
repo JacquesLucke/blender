@@ -9,6 +9,7 @@
  * is only known at runtime.
  */
 
+#include "BLI_array_function_evaluation.hh"
 #include "BLI_generic_array.hh"
 #include "BLI_generic_span.hh"
 #include "BLI_timeit.hh"
@@ -817,6 +818,41 @@ template<typename T, bool UseSingle, bool UseSpan> struct GVArrayDevirtualizer {
       }
     }
     return false;
+  }
+};
+
+template<typename T> struct MaterializeGVArrayInput {
+  using value_type = T;
+  static constexpr array_function_evaluation::IOType io = array_function_evaluation::IOType::Input;
+
+  const GVArrayImpl &varray_impl;
+  CommonVArrayInfo varray_info;
+
+  bool is_span() const
+  {
+    return this->varray_info.type == CommonVArrayInfo::Type::Span;
+  }
+
+  bool is_single() const
+  {
+    return this->varray_info.type == CommonVArrayInfo::Type::Single;
+  }
+
+  const T &get_single() const
+  {
+    BLI_assert(this->is_single());
+    return *static_cast<const T *>(this->varray_info.data);
+  }
+
+  const T *get_span_begin() const
+  {
+    BLI_assert(this->is_span());
+    return static_cast<const T *>(this->varray_info.data);
+  }
+
+  void load_to_span(const IndexMask mask, T *dst) const
+  {
+    this->varray_impl.materialize_compressed_to_uninitialized(mask, dst);
   }
 };
 
