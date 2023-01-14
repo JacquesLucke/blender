@@ -8,6 +8,8 @@
  * This file contains several utilities to create multi-functions with less redundant code.
  */
 
+#include "BLI_array_function_evaluation.hh"
+
 #include "FN_multi_function.hh"
 
 namespace blender::fn::multi_function::build {
@@ -118,41 +120,6 @@ template<size_t... Indices> struct SomeSpanOrSingle {
 
 namespace detail {
 
-/**
- * Executes #element_fn for all indices in the mask. The passed in #args contain the input as well
- * as output parameters. Usually types in #args are devirtualized (e.g. a `Span<int>` is passed in
- * instead of a `VArray<int>`).
- */
-template<typename MaskT, typename... Args, typename... ParamTags, size_t... I, typename ElementFn>
-/* Perform additional optimizations on this loop because it is a very hot loop. For example, the
- * math node in geometry nodes is processed here.  */
-#if (defined(__GNUC__) && !defined(__clang__))
-[[gnu::optimize("-funroll-loops")]] [[gnu::optimize("O3")]]
-#endif
-inline void
-execute_array(TypeSequence<ParamTags...> /*param_tags*/,
-              std::index_sequence<I...> /*indices*/,
-              ElementFn element_fn,
-              MaskT mask,
-              /* Use restrict to tell the compiler that pointer inputs do not alias each
-               * other. This is important for some compiler optimizations. */
-              Args &&__restrict... args)
-{
-  if constexpr (std::is_same_v<std::decay_t<MaskT>, IndexRange>) {
-    /* Having this explicit loop is necessary for MSVC to be able to vectorize this. */
-    const int64_t start = mask.start();
-    const int64_t end = mask.one_after_last();
-    for (int64_t i = start; i < end; i++) {
-      element_fn(args[i]...);
-    }
-  }
-  else {
-    for (const int32_t i : mask) {
-      element_fn(args[i]...);
-    }
-  }
-}
-
 enum class MaterializeArgMode {
   Unknown,
   Single,
@@ -164,24 +131,6 @@ template<typename ParamTag> struct MaterializeArgInfo {
   MaterializeArgMode mode = MaterializeArgMode::Unknown;
   const typename ParamTag::base_type *internal_span_data;
 };
-
-/**
- * Similar to #execute_array but is only used with arrays and does not need a mask.
- */
-template<typename... ParamTags, typename ElementFn, typename... Chunks>
-#if (defined(__GNUC__) && !defined(__clang__))
-[[gnu::optimize("-funroll-loops")]] [[gnu::optimize("O3")]]
-#endif
-inline void
-execute_materialized_impl(TypeSequence<ParamTags...> /*param_tags*/,
-                          const ElementFn element_fn,
-                          const int64_t size,
-                          Chunks &&__restrict... chunks)
-{
-  for (int64_t i = 0; i < size; i++) {
-    element_fn(chunks[i]...);
-  }
-}
 
 /**
  * Executes #element_fn for all indices in #mask. However, instead of processing every element
@@ -265,8 +214,7 @@ inline void execute_materialized(TypeSequence<ParamTags...> /* param_tags */,
           ...);
     }
 
-    execute_materialized_impl(
-        TypeSequence<ParamTags...>(),
+    array_function_evaluation::execute_array(
         element_fn,
         chunk_size,
         /* Prepare every parameter for this chunk. */
@@ -401,10 +349,8 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
         TypeSequence<ParamTags...>(), std::index_sequence<I...>(), mask, loaded_params);
     executed_devirtualized = call_with_devirtualized_parameters(
         devirtualizers, [&](auto &&...args) {
-          execute_array(TypeSequence<ParamTags...>(),
-                        std::index_sequence<I...>(),
-                        element_fn,
-                        std::forward<decltype(args)>(args)...);
+          array_function_evaluation::execute_array(element_fn,
+                                                   std::forward<decltype(args)>(args)...);
         });
   }
 
@@ -422,22 +368,21 @@ inline void execute_element_fn_as_multi_function(const ElementFn element_fn,
     }
     else {
       /* This fallback is slower because it uses virtual method calls for every element. */
-      execute_array(
-          TypeSequence<ParamTags...>(), std::index_sequence<I...>(), element_fn, mask, [&]() {
-            /* Use `typedef` instead of `using` to work around a compiler bug. */
-            typedef ParamTags ParamTag;
-            typedef typename ParamTag::base_type T;
-            if constexpr (ParamTag::category == ParamCategory::SingleInput) {
-              const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
-              return GVArray(&varray_impl).typed<T>();
-            }
-            else if constexpr (ELEM(ParamTag::category,
-                                    ParamCategory::SingleOutput,
-                                    ParamCategory::SingleMutable)) {
-              T *ptr = std::get<I>(loaded_params);
-              return ptr;
-            }
-          }()...);
+      array_function_evaluation::execute_array(element_fn, mask, [&]() {
+        /* Use `typedef` instead of `using` to work around a compiler bug. */
+        typedef ParamTags ParamTag;
+        typedef typename ParamTag::base_type T;
+        if constexpr (ParamTag::category == ParamCategory::SingleInput) {
+          const GVArrayImpl &varray_impl = *std::get<I>(loaded_params);
+          return GVArray(&varray_impl).typed<T>();
+        }
+        else if constexpr (ELEM(ParamTag::category,
+                                ParamCategory::SingleOutput,
+                                ParamCategory::SingleMutable)) {
+          T *ptr = std::get<I>(loaded_params);
+          return ptr;
+        }
+      }()...);
     }
   }
 }

@@ -168,6 +168,7 @@ set(SRC
   BLI_any.hh
   BLI_array.h
   BLI_array.hh
+  BLI_array_function_evaluation.hh
   BLI_array_store.h
   BLI_array_store_utils.h
   BLI_array_utils.h
