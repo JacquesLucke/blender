@@ -439,7 +439,7 @@ class Executor {
           this->set_input_required(locked_node, socket);
         }
         else {
-          this->set_input_unused(locked_node, socket);
+          this->set_input_unused(locked_node, socket, this->get_local_allocator());
         }
       });
     }
