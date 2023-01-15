@@ -350,4 +350,13 @@ template<typename T> struct ArrayMutable : public ArrayParam<T, IOType::Mutable>
   }
 };
 
+template<typename ElementFn, typename... Params>
+inline void execute_chunked(const ElementFn element_fn, const IndexMask mask, Params &&...params)
+{
+  execute_materialized(element_fn,
+                       mask,
+                       std::make_index_sequence<sizeof...(Params)>(),
+                       std::forward<Params>(params)...);
+}
+
 }  // namespace blender::array_function_evaluation
